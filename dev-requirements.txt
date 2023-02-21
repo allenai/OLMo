@@ -1,0 +1,21 @@
+# Checks style, syntax, and other useful errors.
+flake8
+
+# Static type checking
+mypy>=1.0,<1.1
+
+# Automatic code formatting
+black>=23.1,<24.0
+isort>=5.12,<5.13
+
+# Running tests
+pytest
+pytest-sphinx
+
+# Needed for packaging and uploading to PyPi
+twine>=1.11.0
+setuptools
+wheel
+
+# For parsing and comparing version numbers.
+packaging
