@@ -15,11 +15,11 @@ def read_requirements(filename: str):
 # version.py defines the VERSION and VERSION_SHORT variables.
 # We use exec here so we don't import cached_path whilst setting up.
 VERSION = {}  # type: ignore
-with open("damia/version.py", "r") as version_file:
+with open("dolma/version.py", "r") as version_file:
     exec(version_file.read(), VERSION)
 
 setup(
-    name="damia",
+    name="dolma",
     version=VERSION["VERSION"],
     description="",
     long_description=open("README.md").read(),
@@ -39,7 +39,7 @@ setup(
     packages=find_packages(
         exclude=["*.tests", "*.tests.*", "tests.*", "tests"],
     ),
-    package_data={"damia": ["py.typed"]},
+    package_data={"dolma": ["py.typed"]},
     install_requires=read_requirements("requirements.txt"),
     extras_require={"dev": read_requirements("dev-requirements.txt")},
     python_requires=">=3.8",

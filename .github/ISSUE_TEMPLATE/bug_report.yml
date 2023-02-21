@@ -17,7 +17,7 @@ body:
 
       ```python
       # All necessary imports at the beginning
-      import damia
+      import dolma
 
       # A succinct reproducing example trimmed down to the essential parts:
       assert False is True, "Oh no!"
