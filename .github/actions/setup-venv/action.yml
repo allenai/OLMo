@@ -38,6 +38,7 @@ runs:
         # Set up virtual environment without cache hit.
         test -d .venv || virtualenv -p $(which python) --copies --reset-app-data .venv
         . .venv/bin/activate
+        pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
         pip install -e .[dev]
 
     - if: steps.virtualenv-cache.outputs.cache-hit == 'true'
@@ -52,3 +53,5 @@ runs:
         # Show environment info.
         . .venv/bin/activate
         echo "✓ Installed $(python --version) virtual environment to $(which python)"
+        echo "========= Python packages ==========="
+        pip freeze
