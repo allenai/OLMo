@@ -1,7 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 
-from damia.version import VERSION
+from dolma.version import VERSION
 
 
 def main():

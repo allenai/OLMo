@@ -2,7 +2,7 @@
 
 set -e
 
-TAG=$(python -c 'from damia.version import VERSION; print("v" + VERSION)')
+TAG=$(python -c 'from dolma.version import VERSION; print("v" + VERSION)')
 
 read -p "Creating new release for $TAG. Do you want to continue? [Y/n] " prompt
 

@@ -1,1 +1,1 @@
-# AI2 Large Language Model (codename: DAMIA)
+# DOLMA: Delightful Open Language Model from AI2

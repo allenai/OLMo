@@ -97,7 +97,7 @@ jobs:
         if: always()
         run: |
           . .venv/bin/activate
-          pip uninstall -y damia
+          pip uninstall -y dolma
 
   release:
     name: Release

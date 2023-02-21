@@ -2,7 +2,7 @@
 
 ## Steps
 
-1. Update the version in `damia/version.py`.
+1. Update the version in `dolma/version.py`.
 
 3. Run the release script:
 
