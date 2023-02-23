@@ -26,11 +26,13 @@ def tokenize_file(tokenizer: Tokenizer, path: Path) -> Generator[List[int], None
             yield tokenizer.encode(text, add_special_tokens=True)
 
 
-def count_tokens(tokenizer: Tokenizer, path: Path) -> Tuple[Path, int]:
+def count_tokens(tokenizer: Tokenizer, path: Path) -> Tuple[Path, int, int]:
     num_tokens = 0
+    num_docs = 0
     for token_ids in tokenize_file(tokenizer, path):
         num_tokens += len(token_ids)
-    return path, num_tokens
+        num_docs += 1
+    return path, num_tokens, num_docs
 
 
 def fill_memmap(
@@ -67,6 +69,7 @@ def main(src: Tuple[Path], output: Path, tokenizer_id: str, dtype_str: str):
 
     # Tokenize all documents to determine how many tokens are in each file.
     src_to_num_tokens: Dict[Path, int] = defaultdict(int)
+    total_docs = 0
     with concurrent.futures.ProcessPoolExecutor() as executor:
         futures = []
         for path in src:
@@ -75,11 +78,12 @@ def main(src: Tuple[Path], output: Path, tokenizer_id: str, dtype_str: str):
         for future in track(
             concurrent.futures.as_completed(futures), description="Counting tokens...", total=len(futures)
         ):
-            path, num_tokens = future.result()
+            path, num_tokens, num_docs = future.result()
             src_to_num_tokens[path] = num_tokens
+            total_docs += num_docs
 
     total_tokens = sum(src_to_num_tokens.values())
-    print(f"Counted {total_tokens:,d} tokens")
+    print(f"Counted {total_tokens:,d} tokens over {total_docs:,d} documents")
 
     # Initialize memmap file.
     memmap = np.memmap(output, mode="w+", dtype=dtype, shape=(total_tokens,))

@@ -122,3 +122,6 @@ class Tokenizer:
             all_input_ids.append(input_ids)
 
         return all_input_ids
+
+    def decode(self, token_ids: List[int]) -> str:
+        return self.base_tokenizer.decode(token_ids)
