@@ -17,6 +17,7 @@ env:
   # Change this to invalidate existing cache.
   CACHE_PREFIX: v0
   PYTHONPATH: ./
+  TOKENIZERS_PARALLELISM: 'false'
 
 jobs:
   checks:
