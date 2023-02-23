@@ -1,3 +1,5 @@
 numpy
 torch
 tokenizers
+click
+rich
