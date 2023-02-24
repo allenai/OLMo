@@ -63,7 +63,8 @@ def fill_memmap(
     "--tokenizer", "tokenizer_id", type=str, help="Name of path of a pretrained tokenizer", default="gpt2"
 )
 @click.option("--dtype", "dtype_str", default="uint16")
-def main(src: Tuple[Path], output: Path, tokenizer_id: str, dtype_str: str):
+@click.option("--validate/--no-validate", default=False)
+def main(src: Tuple[Path], output: Path, tokenizer_id: str, dtype_str: str, validate: bool):
     tokenizer = Tokenizer.from_pretrained(tokenizer_id, truncate_to=None)
     dtype = np.dtype(dtype_str)
 
@@ -100,11 +101,19 @@ def main(src: Tuple[Path], output: Path, tokenizer_id: str, dtype_str: str):
             futures.append(future)
             offset += src_to_num_tokens[path]
         for future in track(
-            concurrent.futures.as_completed(futures), description="Fill memmap array...", total=len(futures)
+            concurrent.futures.as_completed(futures), description="Filling memmap array...", total=len(futures)
         ):
             future.result()
 
     print(f"Done! File written to {output}")
+
+    if validate:
+        print("Validating...")
+        memmap = np.memmap(output, mode="r", dtype=dtype, shape=(total_tokens,))
+        # Should have an EOS token for every document.
+        assert (memmap == tokenizer.eos_token_id).sum() == total_docs
+        assert memmap[-1] == tokenizer.eos_token_id
+        print("All good!")
 
 
 if __name__ == "__main__":

@@ -67,7 +67,7 @@ jobs:
             task:
               name: Prepare mmap dataset
               run: |
-                python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/out.npy
+                python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/out.npy --validate
 
     steps:
       - uses: actions/checkout@v3
