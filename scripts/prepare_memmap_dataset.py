@@ -29,6 +29,7 @@ def get_progress() -> Progress:
     return Progress(
         "[progress.description]{task.description}",
         MofNCompleteColumn(),
+        "files",
         BarColumn(),
         TaskProgressColumn(),
         TimeElapsedColumn(),
