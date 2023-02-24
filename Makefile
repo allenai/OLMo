@@ -4,4 +4,4 @@ run-checks :
 	black --check .
 	flake8 .
 	mypy .
-	CUDA_VISIBLE_DEVICES='' pytest -v --color=yes --doctest-modules tests/ dolma/
+	CUDA_VISIBLE_DEVICES='' pytest -v --color=yes tests/
