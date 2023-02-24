@@ -10,7 +10,7 @@ import json
 import os
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Generator, List, Tuple
+from typing import Dict, Generator, List, Optional, Tuple
 
 import click
 import numpy as np
@@ -81,7 +81,15 @@ def fill_memmap(
 )
 @click.option("--dtype", "dtype_str", default="uint16")
 @click.option("--validate/--no-validate", default=False)
-def main(src: Tuple[Path], output: Path, tokenizer_id: str, dtype_str: str, validate: bool):
+@click.option("-j", "--workers", "max_workers", type=int, default=None, help="Defaults to number of CPUs")
+def main(
+    src: Tuple[Path],
+    output: Path,
+    tokenizer_id: str,
+    dtype_str: str,
+    validate: bool,
+    max_workers: Optional[int] = None,
+):
     tokenizer = Tokenizer.from_pretrained(tokenizer_id, truncate_to=None)
     dtype = np.dtype(dtype_str)
     dtype_max = np.iinfo(dtype).max
@@ -89,7 +97,7 @@ def main(src: Tuple[Path], output: Path, tokenizer_id: str, dtype_str: str, vali
     # Tokenize all documents to determine how many tokens are in each file.
     src_to_num_tokens: Dict[Path, int] = defaultdict(int)
     total_docs = 0
-    with concurrent.futures.ProcessPoolExecutor() as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = []
         for path in src:
             future = executor.submit(count_tokens, tokenizer, path)
@@ -116,7 +124,7 @@ def main(src: Tuple[Path], output: Path, tokenizer_id: str, dtype_str: str, vali
 
     # Now tokenizer all documents again and populate the memmap array.
     # We do this in parallel.
-    with concurrent.futures.ProcessPoolExecutor() as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = []
         offset = 0
         for path in sorted(src):
