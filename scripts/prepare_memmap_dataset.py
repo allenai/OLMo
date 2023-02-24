@@ -14,9 +14,25 @@ from typing import Dict, Generator, List, Tuple
 
 import click
 import numpy as np
-from rich.progress import track
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    TaskProgressColumn,
+    TimeElapsedColumn,
+)
 
 from dolma.data import Tokenizer
+
+
+def get_progress() -> Progress:
+    return Progress(
+        "[progress.description]{task.description}",
+        MofNCompleteColumn(),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+    )
 
 
 def tokenize_file(tokenizer: Tokenizer, path: Path) -> Generator[List[int], None, None]:
@@ -76,12 +92,13 @@ def main(src: Tuple[Path], output: Path, tokenizer_id: str, dtype_str: str, vali
         for path in src:
             future = executor.submit(count_tokens, tokenizer, path)
             futures.append(future)
-        for future in track(
-            concurrent.futures.as_completed(futures), description="Counting tokens...", total=len(futures)
-        ):
-            path, num_tokens, num_docs = future.result()
-            src_to_num_tokens[path] = num_tokens
-            total_docs += num_docs
+        with get_progress() as progress:
+            for future in progress.track(
+                concurrent.futures.as_completed(futures), description="Counting tokens...", total=len(futures)
+            ):
+                path, num_tokens, num_docs = future.result()
+                src_to_num_tokens[path] = num_tokens
+                total_docs += num_docs
 
     total_tokens = sum(src_to_num_tokens.values())
     print(f"Counted {total_tokens:,d} tokens over {total_docs:,d} documents")
@@ -100,10 +117,11 @@ def main(src: Tuple[Path], output: Path, tokenizer_id: str, dtype_str: str, vali
             future = executor.submit(fill_memmap, tokenizer, path, output, src_to_num_tokens[path], offset, dtype)
             futures.append(future)
             offset += src_to_num_tokens[path]
-        for future in track(
-            concurrent.futures.as_completed(futures), description="Filling memmap array...", total=len(futures)
-        ):
-            future.result()
+        with get_progress() as progress:
+            for future in progress.track(
+                concurrent.futures.as_completed(futures), description="Filling memmap array...", total=len(futures)
+            ):
+                future.result()
 
     print(f"Done! File written to {output}")
 
