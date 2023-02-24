@@ -38,6 +38,10 @@ class Tokenizer:
         self.truncate_to = truncate_to
         self.truncate_direction = TruncationDirection(truncate_direction)
 
+    @property
+    def vocab_size(self) -> int:
+        return self.base_tokenizer.get_vocab_size()
+
     @classmethod
     def from_pretrained(cls, identifier: str, **kwargs) -> "Tokenizer":
         """

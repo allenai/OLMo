@@ -84,6 +84,7 @@ def fill_memmap(
 def main(src: Tuple[Path], output: Path, tokenizer_id: str, dtype_str: str, validate: bool):
     tokenizer = Tokenizer.from_pretrained(tokenizer_id, truncate_to=None)
     dtype = np.dtype(dtype_str)
+    dtype_max = np.iinfo(dtype).max
 
     # Tokenize all documents to determine how many tokens are in each file.
     src_to_num_tokens: Dict[Path, int] = defaultdict(int)
@@ -106,6 +107,10 @@ def main(src: Tuple[Path], output: Path, tokenizer_id: str, dtype_str: str, vali
 
     # Initialize memmap file.
     memmap = np.memmap(output, mode="w+", dtype=dtype, shape=(total_tokens,))
+    if validate:
+        # Fill with max value so that we can check later that all values in the array
+        # have been populated with actual token IDs.
+        memmap[:] = dtype_max
     memmap.flush()
     del memmap
 
@@ -132,6 +137,8 @@ def main(src: Tuple[Path], output: Path, tokenizer_id: str, dtype_str: str, vali
         # Should have an EOS token for every document.
         assert (memmap == tokenizer.eos_token_id).sum() == total_docs
         assert memmap[-1] == tokenizer.eos_token_id
+        # Make sure all entries have been filled with actual token IDs.
+        assert (memmap < tokenizer.vocab_size).all()
         print("All good!")
 
 
