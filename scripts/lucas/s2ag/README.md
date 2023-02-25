@@ -59,7 +59,9 @@ TODOs:
 Run `export/load.sql` to load the data back into Athena.
 Then, run `export/save.sql` to run the filters and export the data to S3.
 
-Data info:
+## 2023-02-25: First Export
+
+#### Data Info
 
 - Corpus is located at `s3://ai2-s2-research-public/lucas/s2orc_oa_2022_01_03`
 - It is comprised of 30 gzipped JSONL files.
@@ -68,7 +70,7 @@ Data info:
   - `text`: the text of the paper. Sections are separated by double newlines, i.e. `\n\n`
 
 
-The current set of filters is:
+#### Filters
 
 - language is `en` as identified by pycld3
 - number of whitespace-separated tokens is at least 50
@@ -82,9 +84,7 @@ The current set of filters is:
 - for documents that are less than 500 tokens, the most frequent token is at most 30% of the total number of tokens.
     - for shorter documents, frequency estimates from above are not as reliable. going for a more generous 30%.
 
-
-
-Final counts:
+#### Stats
 
 - Number of whitespace-separated tokens: 72,582,009,602
 - Number of documents: 74,772,626
