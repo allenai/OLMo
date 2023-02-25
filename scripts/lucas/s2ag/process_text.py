@@ -1,8 +1,11 @@
 from collections import Counter
 from contextlib import ExitStack
 from functools import partial
+import gc
+import os
 from queue import Queue
-from multiprocessing import cpu_count, Pool, Manager
+from multiprocessing import cpu_count, Pool, Manager, set_start_method
+from tempfile import NamedTemporaryFile
 from threading import Thread
 from time import sleep
 from typing import Optional, Tuple
@@ -30,9 +33,17 @@ def process_single(
     io_paths: Tuple[io_utils.MultiPath, io_utils.MultiPath],
     pbar_queue: Optional[Queue] = None
 ):
+    logger = sp.configure_logging(__name__, logging_level='WARNING', force_root_reattach=True)
+
     src, dst = io_paths
 
-    df = pd.read_parquet(str(src))
+    with io_utils.open_file_for_read(src, 'rb', logger=logger) as f,\
+            NamedTemporaryFile('wb') as tmp:
+        tmp.write(f.read())
+        tmp.flush()
+        df = pd.read_parquet(tmp.name)
+
+    # df = pd.read_parquet(str(src))
 
     # # for debugging purposes, only take first 1000 rows
     # df = df.head(100)
@@ -69,13 +80,24 @@ def process_single(
     # drop the tokens column
     df = df.drop(columns=['tokens'])
 
-    # write the dataframe to the destination
-    df.to_parquet(str(dst))
+    # # write the dataframe to the destination
+    # df.to_parquet(str(dst))
+
+    with NamedTemporaryFile('wb', delete=False) as tmp_write:
+        df.to_parquet((tmp_name := tmp_write.name))
+
+    # dst = str(dst).replace('=', '_')
+    with io_utils.open_file_for_write(dst, 'wb', logger=logger) as f,\
+            open(tmp_name, 'rb') as tmp_read:
+        f.write(tmp_read.read())
+
+    os.remove(tmp_name)
 
     if pbar_queue is not None:
         pbar_queue.put((1, int(len(df)), int(sum(df['cnt']))))
 
     del df
+    gc.collect()
 
 
 def threaded_progressbar(
@@ -118,6 +140,8 @@ def main(cfg: ProcessTextConfig):
                 pbar.update(1)
 
     else:
+        set_start_method('spawn')
+
         with Pool(processes=cfg.cpu_count) as pool:
             pbar_queue: Queue = (manager := Manager()).Queue()
             pbar_thread = Thread(
