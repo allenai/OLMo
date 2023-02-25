@@ -11,7 +11,7 @@ __all__ = ["MemMapDataset"]
 
 class MemMapDataset(Dataset[torch.LongTensor]):
     """
-    A PyTorch :class:`~torch.utils.data.Dataset` backed by one re more numpy memory-mapped arrays
+    A PyTorch :class:`~torch.utils.data.Dataset` backed by one or more numpy memory-mapped arrays
     of token IDs. Token IDs are chunked together into contiguous blocks of ``chunk_size``
     to create instances.
 
