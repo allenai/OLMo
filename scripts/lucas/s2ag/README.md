@@ -33,7 +33,7 @@ Example of command:
     python scripts/lucas/s2ag/process_text.py\
         src=s3://ai2-s2-lucas/s2orc_llm/2023_01_03/s2orc \
         dst=s3://ai2-s2-lucas/s2orc_llm/2023_01_03/stats/s2orc \
-        cpu_count=60
+        cpu_count=32
 ```
 
 On a Cirrascale machine, the step above takes about 15 minutes to run for
