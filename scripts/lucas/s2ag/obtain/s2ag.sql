@@ -1,6 +1,6 @@
 UNLOAD
 (
-    USING EXTERNAL FUNCTION detect_dominant_language(text_col VARCHAR) RETURNS VARCHAR LAMBDA 'arn:aws:lambda:us-west-2:896129387501:function:textanalytics-udf'
+    -- USING EXTERNAL FUNCTION detect_dominant_language(text_col VARCHAR) RETURNS VARCHAR LAMBDA 'arn:aws:lambda:us-west-2:896129387501:function:textanalytics-udf'
     WITH s2ag_abstracts AS (
         SELECT
             p.corpusId,
@@ -84,8 +84,8 @@ UNLOAD
     SELECT
         s2ag_abstracts.corpusId as id,
         CONCAT(title, CHR(10), CHR(10), abstract) as text,
-        detect_dominant_language(abstract) as lang,
-        s2ag_abstracts.corpusId % 10 AS part_id
+        -- detect_dominant_language(abstract) as lang,
+        s2ag_abstracts.corpusId % 50 AS part_id
     FROM s2ag_abstracts
     -- exclude s2orc ids from dump
     LEFT OUTER JOIN s2orc_ids
