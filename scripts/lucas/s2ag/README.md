@@ -27,12 +27,16 @@ Installation steps:
     pip install -r requirements.txt
 ```
 
-Example of command:
+Example of commands:
 
 ```bash
     python scripts/lucas/s2ag/process_text.py\
         src=s3://ai2-s2-lucas/s2orc_llm/2023_01_03/s2orc \
         dst=s3://ai2-s2-lucas/s2orc_llm/2023_01_03/stats/s2orc \
+        cpu_count=32
+    python scripts/lucas/s2ag/process_text.py\
+        src=s3://ai2-s2-lucas/s2orc_llm/2023_01_03/s2ag \
+        dst=s3://ai2-s2-lucas/s2orc_llm/2023_01_03/stats/s2ag \
         cpu_count=32
 ```
 
