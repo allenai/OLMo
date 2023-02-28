@@ -9,4 +9,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `Tokenizer` and `MemMapDataset` classes.
+- Added `DolmaGPT` model, `Tokenizer`, and `MemMapDataset` classes.
