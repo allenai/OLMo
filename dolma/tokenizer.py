@@ -3,7 +3,7 @@ from typing import Generator, List, Optional, Union
 
 from tokenizers import Tokenizer as BaseTokenizer
 
-from ..util import StrEnum
+from .util import StrEnum
 
 __all__ = ["Tokenizer", "TruncationDirection"]
 

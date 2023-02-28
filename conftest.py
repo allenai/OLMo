@@ -2,7 +2,7 @@ from typing import List
 
 import pytest
 
-from dolma.data.tokenizer import Tokenizer
+from dolma.tokenizer import Tokenizer
 
 TEST_MODEL = "gpt2"
 

@@ -22,7 +22,7 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from dolma.data import Tokenizer
+from dolma import Tokenizer
 
 
 def get_progress() -> Progress:

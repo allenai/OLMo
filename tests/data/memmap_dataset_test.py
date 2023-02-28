@@ -4,7 +4,7 @@ from typing import List
 import numpy as np
 
 from dolma.data.memmap_dataset import MemMapDataset
-from dolma.data.tokenizer import Tokenizer
+from dolma.tokenizer import Tokenizer
 
 
 def test_mmap_dataset(tokenizer: Tokenizer, tmp_path: Path, lorem_ipsum_docs: List[str]):
