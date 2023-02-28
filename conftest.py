@@ -1,7 +1,10 @@
-from typing import List
+from typing import Dict, List
 
 import pytest
+import torch
+from cached_path import cached_path
 
+from dolma.config import Config
 from dolma.tokenizer import Tokenizer
 
 TEST_MODEL = "gpt2"
@@ -30,14 +33,14 @@ vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?
 """
 
 
-@pytest.fixture(scope="module")
-def pretrained_tokenizer_name() -> str:
-    return TEST_MODEL
+@pytest.fixture(scope="function")
+def config() -> Config:
+    return Config(vocab_size=50257, eos_token_id=50256, pad_token_id=50256)
 
 
 @pytest.fixture(scope="function")
-def tokenizer() -> Tokenizer:
-    return Tokenizer.from_pretrained(TEST_MODEL)
+def tokenizer(config) -> Tokenizer:
+    return Tokenizer.from_pretrained(TEST_MODEL, config)
 
 
 @pytest.fixture(scope="module")
@@ -53,3 +56,40 @@ def lorem_ipsum() -> str:
 @pytest.fixture(scope="module")
 def lorem_ipsum_docs() -> List[str]:
     return [text.replace("\n", " ").strip() for text in (LOREM_IPSUM_1, LOREM_IPSUM_2)]
+
+
+@pytest.fixture(scope="module")
+def state_dict() -> Dict[str, torch.Tensor]:
+    weights_path = cached_path(f"hf://{TEST_MODEL}/pytorch_model.bin")
+    with open(weights_path, "rb") as f:
+        hf_state_dict = torch.load(f, map_location="cpu")
+
+    def map_key(k: str) -> str:
+        if k != "lm_head.weight" and not k.startswith("transformer."):
+            k = "transformer." + k
+        if k.startswith("transformer.h."):
+            k = k.replace("transformer.h.", "transformer.blocks.")
+        return k
+
+    def map_val(k: str, v: torch.Tensor) -> torch.Tensor:
+        if any(
+            k.endswith(s)
+            for s in {".attn.c_attn.weight", ".attn.c_proj.weight", ".mlp.c_fc.weight", ".mlp.c_proj.weight"}
+        ):
+            return v.T
+        return v
+
+    state_dict = {
+        map_key(k): map_val(k, v)
+        for k, v in hf_state_dict.items()
+        if not (
+            k.endswith(".attn.masked_bias")
+            or k.endswith(".attn.bias")
+            or k in {"score.weight", "classifier.weight", "classifier.bias"}
+        )
+    }
+
+    if "lm_head.weight" not in state_dict:
+        state_dict["lm_head.weight"] = state_dict["transformer.wte.weight"]
+
+    return state_dict

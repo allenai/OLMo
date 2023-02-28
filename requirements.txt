@@ -3,3 +3,4 @@ torch
 tokenizers
 click
 rich
+cached-path
