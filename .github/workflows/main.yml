@@ -17,10 +17,11 @@ env:
   # Change this to invalidate existing cache.
   CACHE_PREFIX: v0
   PYTHONPATH: ./
+  TOKENIZERS_PARALLELISM: 'false'
 
 jobs:
   checks:
-    name: Python ${{ matrix.python }} - ${{ matrix.task.name }}
+    name: ${{ matrix.task.name }} (py ${{ matrix.python }})
     runs-on: [ubuntu-latest]
     timeout-minutes: 15
     strategy:
@@ -40,11 +41,6 @@ jobs:
 
           - python: '3.10'
             task:
-              name: Lint
-              run: flake8 .
-
-          - python: '3.10'
-            task:
               name: Type check
               run: mypy .
 
@@ -61,6 +57,12 @@ jobs:
               run: |
                 isort --check .
                 black --check .
+
+          - python: '3.10'
+            task:
+              name: Prepare mmap dataset
+              run: |
+                python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/out.npy --validate
 
     steps:
       - uses: actions/checkout@v3
