@@ -47,6 +47,12 @@ class Config:
     The dropout probability within the attention modules.
     """
 
+    attention_layer_norm: bool = False
+    """
+    Apply layer norm to the keys and queries within the attention mechanism.
+    This can help stabilize training.
+    """
+
     residual_dropout: float = 0.1
     """
     The dropout probability for the MLP and attention output within each block.

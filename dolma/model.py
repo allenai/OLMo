@@ -17,18 +17,24 @@ __all__ = ["SelfAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
 
 
 class SelfAttention(nn.Module):
-    def __init__(self, config: Config, device: Optional[str] = None):
+    def __init__(self, config: Config):
         super().__init__()
         assert config.d_model % config.n_heads == 0
+        self.n_heads = config.n_heads
+        self.d_model = config.d_model
         # key, query, value projections for all heads, but in a batch
-        self.c_attn = nn.Linear(config.d_model, 3 * config.d_model, device=device)
+        self.c_attn = nn.Linear(config.d_model, 3 * config.d_model, device=config.device)
         # output projection
-        self.c_proj = nn.Linear(config.d_model, config.d_model, device=device)
+        self.c_proj = nn.Linear(config.d_model, config.d_model, device=config.device)
         # regularization
         self.attn_dropout = nn.Dropout(config.attention_dropout)
         self.resid_dropout = nn.Dropout(config.residual_dropout)
-        self.n_heads = config.n_heads
-        self.d_model = config.d_model
+        # optional layer norm for keys and queries.
+        self.k_ln: Optional[nn.LayerNorm] = None
+        self.q_ln: Optional[nn.LayerNorm] = None
+        if config.attention_layer_norm:
+            self.k_ln = nn.LayerNorm(self.d_model, device=config.device)
+            self.q_ln = nn.LayerNorm(self.d_model, device=config.device)
 
     def forward(
         self,
@@ -46,6 +52,11 @@ class SelfAttention(nn.Module):
         # Calculate query, key, values for all heads in batch.
         # shape (all): (B, T, C)
         q, k, v = self.c_attn(x).split(self.d_model, dim=2)
+
+        # Optionally apply layer norm to keys and queries.
+        if self.k_ln is not None and self.q_ln is not None:
+            k = self.k_ln(k)
+            q = self.q_ln(q)
 
         # Move head forward to be next to the batch dim.
         # shape (all): (B, nh, T, hs)
@@ -77,11 +88,11 @@ class SelfAttention(nn.Module):
 
 
 class GPTMLP(nn.Module):
-    def __init__(self, config: Config, device: Optional[str] = None):
+    def __init__(self, config: Config):
         super().__init__()
-        self.c_fc = nn.Linear(config.d_model, config.mlp_ratio * config.d_model, device=device)
+        self.c_fc = nn.Linear(config.d_model, config.mlp_ratio * config.d_model, device=config.device)
         self.act = nn.GELU(approximate="none")
-        self.c_proj = nn.Linear(config.mlp_ratio * config.d_model, config.d_model, device=device)
+        self.c_proj = nn.Linear(config.mlp_ratio * config.d_model, config.d_model, device=config.device)
         self.c_proj._is_residual = True  # type: ignore
         self.dropout = nn.Dropout(config.residual_dropout)
 
@@ -90,12 +101,12 @@ class GPTMLP(nn.Module):
 
 
 class GPTBlock(nn.Module):
-    def __init__(self, config: Config, device: Optional[str] = None):
+    def __init__(self, config: Config):
         super().__init__()
-        self.ln_1 = nn.LayerNorm(config.d_model, device=device)
-        self.attn = SelfAttention(config, device=device)
-        self.ln_2 = nn.LayerNorm(config.d_model, device=device)
-        self.mlp = GPTMLP(config, device=device)
+        self.ln_1 = nn.LayerNorm(config.d_model, device=config.device)
+        self.attn = SelfAttention(config)
+        self.ln_2 = nn.LayerNorm(config.d_model, device=config.device)
+        self.mlp = GPTMLP(config)
 
     def forward(
         self,
@@ -123,7 +134,7 @@ class DolmaGPT(nn.Module):
             dict(
                 wte=nn.Embedding(config.vocab_size, config.d_model, device=config.device),
                 emb_drop=nn.Dropout(config.embedding_dropout),
-                blocks=nn.ModuleList([GPTBlock(config, device=config.device) for _ in range(config.n_layers)]),
+                blocks=nn.ModuleList([GPTBlock(config) for _ in range(config.n_layers)]),
                 ln_f=nn.LayerNorm(config.d_model, device=config.device),
             )
         )
