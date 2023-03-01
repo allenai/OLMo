@@ -1,5 +1,7 @@
 numpy
 torch
+mosaicml
+torchmetrics
 tokenizers
 click
 rich

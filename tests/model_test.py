@@ -16,7 +16,7 @@ def test_forward(config: Config, tokenizer: Tokenizer, alibi: bool):
     input1 = tokenizer.encode("My name is DOLMA!")
     input2 = tokenizer.encode("I'm a delightful large open language model :)")
     batch_inputs = DataCollator(config=config, pad_direction=PaddingDirection.right)(
-        [
+        [  # type: ignore
             {"input_ids": input1, "attention_mask": [1.0] * len(input1)},
             {"input_ids": input2, "attention_mask": [1.0] * len(input2)},
         ]
