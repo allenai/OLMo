@@ -88,3 +88,11 @@ Then, run `export/save.sql` to run the filters and export the data to S3.
 
 - Number of whitespace-separated tokens: 72,582,009,602
 - Number of documents: 74,772,626
+
+
+#### Train/Validation Split
+
+Splitted out any document published on or after '2022-09-30' to be used as a validation set (~700k docs). Locations:
+
+- **training**: `s3://ai2-s2-research-public/lucas/s2orc_oa_2022_01_03_train`
+- **validation** `s3://ai2-s2-research-public/lucas/s2orc_oa_2022_01_03_valid`
