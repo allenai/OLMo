@@ -27,9 +27,9 @@ class SelfAttention(nn.Module):
         self.n_heads = config.n_heads
         self.d_model = config.d_model
         # key, query, value projections for all heads, but in a batch
-        self.c_attn = nn.Linear(config.d_model, 3 * config.d_model, device=config.device)
+        self.c_attn = nn.Linear(config.d_model, 3 * config.d_model, device=config.init_device)
         # output projection
-        self.c_proj = nn.Linear(config.d_model, config.d_model, device=config.device)
+        self.c_proj = nn.Linear(config.d_model, config.d_model, device=config.init_device)
         # regularization
         self.attn_dropout = nn.Dropout(config.attention_dropout)
         self.resid_dropout = nn.Dropout(config.residual_dropout)
@@ -37,8 +37,8 @@ class SelfAttention(nn.Module):
         self.k_ln: Optional[nn.LayerNorm] = None
         self.q_ln: Optional[nn.LayerNorm] = None
         if config.attention_layer_norm:
-            self.k_ln = nn.LayerNorm(self.d_model, device=config.device)
-            self.q_ln = nn.LayerNorm(self.d_model, device=config.device)
+            self.k_ln = nn.LayerNorm(self.d_model, device=config.init_device)
+            self.q_ln = nn.LayerNorm(self.d_model, device=config.init_device)
 
     def forward(
         self,
@@ -94,9 +94,9 @@ class SelfAttention(nn.Module):
 class GPTMLP(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
-        self.c_fc = nn.Linear(config.d_model, config.mlp_ratio * config.d_model, device=config.device)
+        self.c_fc = nn.Linear(config.d_model, config.mlp_ratio * config.d_model, device=config.init_device)
         self.act = nn.GELU(approximate="none")
-        self.c_proj = nn.Linear(config.mlp_ratio * config.d_model, config.d_model, device=config.device)
+        self.c_proj = nn.Linear(config.mlp_ratio * config.d_model, config.d_model, device=config.init_device)
         self.c_proj._is_residual = True  # type: ignore
         self.dropout = nn.Dropout(config.residual_dropout)
 
@@ -107,9 +107,9 @@ class GPTMLP(nn.Module):
 class GPTBlock(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
-        self.ln_1 = nn.LayerNorm(config.d_model, device=config.device)
+        self.ln_1 = nn.LayerNorm(config.d_model, device=config.init_device)
         self.attn = SelfAttention(config)
-        self.ln_2 = nn.LayerNorm(config.d_model, device=config.device)
+        self.ln_2 = nn.LayerNorm(config.d_model, device=config.init_device)
         self.mlp = GPTMLP(config)
 
     def forward(
@@ -136,17 +136,19 @@ class DolmaGPT(nn.Module):
         self.config = config
         self.transformer = nn.ModuleDict(
             dict(
-                wte=nn.Embedding(config.vocab_size, config.d_model, device=config.device),
+                wte=nn.Embedding(config.vocab_size, config.d_model, device=config.init_device),
                 emb_drop=nn.Dropout(config.embedding_dropout),
                 blocks=nn.ModuleList([GPTBlock(config) for _ in range(config.n_layers)]),
-                ln_f=nn.LayerNorm(config.d_model, device=config.device),
+                ln_f=nn.LayerNorm(config.d_model, device=config.init_device),
             )
         )
         if not self.config.alibi:
             self.transformer.update(
-                {"wpe": nn.Embedding(config.max_sequence_length, config.d_model, device=config.device)}
+                {"wpe": nn.Embedding(config.max_sequence_length, config.d_model, device=config.init_device)}
             )
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
+        if self.config.init_device != "meta":
+            self.apply(self.param_init_fn)
 
     @property
     def causal_attention_bias(self) -> torch.FloatTensor:
@@ -353,6 +355,31 @@ class DolmaGPT(nn.Module):
 
     def activation_checkpointing_fn(self, module):
         return isinstance(module, GPTBlock)
+
+    def param_init_fn(self, module):
+        from functools import partial
+
+        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=self.config.init_std)
+
+        # Linear
+        if isinstance(module, nn.Linear):
+            init_fn(module.weight)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+
+            if getattr(module, "_is_residual", False):
+                module.weight.data.normal_(
+                    mean=0.0, std=(self.config.init_std / math.sqrt(2 * self.config.n_layers))
+                )
+
+        # Embedding
+        if isinstance(module, nn.Embedding):
+            init_fn(module.weight)
+
+        # LayerNorm
+        if isinstance(module, nn.LayerNorm):
+            torch.nn.init.zeros_(module.bias)
+            torch.nn.init.ones_(module.weight)
 
 
 class ComposerDolmaGPT(ComposerModel):

@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Optional
 
+import torch
+
 __all__ = ["Config"]
 
 
@@ -83,7 +85,19 @@ class Config:
     The ID of the token to use for padding. Defaults to the ID of the EOS token.
     """
 
-    device: Optional[str] = None
+    init_device: Optional[str] = None
     """
-    The torch device to use, e.g. "cpu" or "cuda:0".
+    The torch device to use when initializing the model parameters, e.g. "cpu", "cuda:0", "meta".
     """
+
+    init_std: float = 0.02
+    """
+    Standard deviation used when initializing parameters.
+    """
+
+    @property
+    def device(self) -> Optional[str]:
+        if self.init_device == "meta" or self.init_device is None:
+            return "cuda" if torch.cuda.is_available() else "cpu"
+        else:
+            return self.init_device
