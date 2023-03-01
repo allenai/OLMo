@@ -1,8 +1,7 @@
 """
 Adapted from
-https://github.com/mosaicml/examples/blob/main/examples/llm/src/models/mosaic_gpt.py
-and
-https://github.com/karpathy/minGPT/blob/master/mingpt/model.py
+[MosaiclML](https://github.com/mosaicml/examples.git) and
+[minGPT](https://github.com/karpathy/minGPT.git)
 """
 
 import math
@@ -14,7 +13,7 @@ import torch.nn.functional as F
 
 from .config import Config
 
-__all__ = ["SelfAttention", "NewGELU", "GPTMLP", "GPTBlock", "DolmaGPT"]
+__all__ = ["SelfAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
 
 
 class SelfAttention(nn.Module):
@@ -77,22 +76,11 @@ class SelfAttention(nn.Module):
         return y
 
 
-class NewGELU(nn.Module):
-    """
-    Implementation of the GELU activation function currently in Google BERT repo (identical to OpenAI GPT).
-
-    Reference: [Gaussian Error Linear Units (GELU)](https://arxiv.org/abs/1606.08415).
-    """
-
-    def forward(self, x):
-        return 0.5 * x * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))))
-
-
 class GPTMLP(nn.Module):
     def __init__(self, config: Config, device: Optional[str] = None):
         super().__init__()
         self.c_fc = nn.Linear(config.d_model, config.mlp_ratio * config.d_model, device=device)
-        self.act = NewGELU()
+        self.act = nn.GELU(approximate="none")
         self.c_proj = nn.Linear(config.mlp_ratio * config.d_model, config.d_model, device=device)
         self.c_proj._is_residual = True  # type: ignore
         self.dropout = nn.Dropout(config.residual_dropout)
