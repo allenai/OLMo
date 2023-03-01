@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 from contextlib import contextmanager
 from typing import Generator, List, Optional, Union
 
 from tokenizers import Tokenizer as BaseTokenizer
 
+from .config import Config
 from .util import StrEnum
 
 __all__ = ["Tokenizer", "TruncationDirection"]
@@ -18,9 +21,8 @@ class Tokenizer:
     A :class:`Tokenizer` is a light-weight wrapper around :class:`tokenizers.Tokenizer`.
 
     :param base_tokenizer: The :class:`tokenizers.Tokenizer` to use.
-    :param eos_token_id: The EOS token ID. If not set we default to using the last token
-        in the vocabulary, which is usually correct for GPT tokenizers.
-    :param truncate_to: Truncate when tokenizer to this number of token IDs.
+    :param config: The DOLMA config.
+    :param truncate_to: Truncate when tokenizing to this number of token IDs.
     :param truncate_direction: The direction to truncate in. "right" means truncate the tokens
         on the right. "left" means truncate the tokens on the left. If ``truncate_to`` is null,
         this setting has no effect.
@@ -29,29 +31,39 @@ class Tokenizer:
     def __init__(
         self,
         base_tokenizer: BaseTokenizer,
-        eos_token_id: Optional[int] = None,
+        config: Config,
         truncate_to: Optional[int] = None,
         truncate_direction: Union[str, TruncationDirection] = TruncationDirection.right,
     ):
         self.base_tokenizer = base_tokenizer
-        self.eos_token_id = eos_token_id if eos_token_id is not None else base_tokenizer.get_vocab_size() - 1
+        self.config = config
         self.truncate_to = truncate_to
         self.truncate_direction = TruncationDirection(truncate_direction)
+        assert self.config.vocab_size == self.base_tokenizer.get_vocab_size()
+
+    @property
+    def eos_token_id(self) -> int:
+        return self.config.eos_token_id
 
     @property
     def vocab_size(self) -> int:
-        return self.base_tokenizer.get_vocab_size()
+        return self.config.vocab_size
 
     @classmethod
-    def from_pretrained(cls, identifier: str, **kwargs) -> "Tokenizer":
+    def from_pretrained(cls, identifier: str, config: Optional[Config] = None, **kwargs) -> Tokenizer:
         """
         Initialize a tokenizer from a pretrained tokenizer on the HuggingFace Hub.
 
         :param identifier: The identifier of a model on the Hub that contains a
             ``tokenizer.json`` file.
+        :param config: The DOLMA config.
         """
         base_tokenizer = BaseTokenizer.from_pretrained(identifier)
-        return cls(base_tokenizer, **kwargs)
+        if config is None:
+            config = Config(
+                vocab_size=base_tokenizer.get_vocab_size(), eos_token_id=base_tokenizer.get_vocab_size() - 1
+            )
+        return cls(base_tokenizer, config, **kwargs)
 
     def add_special_tokens(self, input_ids: List[int]) -> List[int]:
         """

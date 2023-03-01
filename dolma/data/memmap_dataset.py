@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import List, Optional, Tuple, cast
 
 import numpy as np
@@ -84,7 +86,7 @@ class MemMapDataset(Dataset[torch.LongTensor]):
         data = memmap[index_start:index_stop].astype(np.int_)
         return cast(torch.LongTensor, torch.tensor(data, dtype=torch.long))
 
-    def __add__(self, other: "MemMapDataset") -> "MemMapDataset":
+    def __add__(self, other: MemMapDataset) -> MemMapDataset:
         """
         Concatenate one :class:`MemMapDataset` with another.
         """
