@@ -138,7 +138,7 @@ jobs:
                   - name: COMMIT_SHA
                     value: ${{ env.COMMIT_SHA }}
                   - name: GITHUB_TOKEN
-                    value: ${{ env.GITHUB_TOKEN }}
+                    value: ${{ secrets.GITHUB_TOKEN }}
                 command: ["/entrypoint.sh", "pytest", "-v", "-m", "gpu", "tests/"]
                 result:
                   path: /unused
