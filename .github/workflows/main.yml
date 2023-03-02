@@ -107,6 +107,13 @@ jobs:
     env:
       BEAKER_TOKEN: ${{ secrets.BEAKER_TOKEN }}
     steps:
+      - uses: actions/checkout@v3
+
+      - uses: allenai/setup-beaker@v1
+        if: env.BEAKER_TOKEN != ''
+        with:
+          token: ${{ env.BEAKER_TOKEN }}
+
       - name: Determine current commit SHA (pull request)
         if: github.event_name == 'pull_request'
         run: |
@@ -118,6 +125,7 @@ jobs:
           echo "COMMIT_SHA=$GITHUB_SHA" >> $GITHUB_ENV
 
       - name: Set build variables
+        if: env.BEAKER_TOKEN != ''
         run: |
           echo "BEAKER_IMAGE=$(make show-test-image)" >> $GITHUB_ENV
           echo "BEAKER_WORKSPACE=$(make show-beaker-workspace)" >> $GITHUB_ENV
