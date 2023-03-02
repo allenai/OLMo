@@ -23,7 +23,7 @@ conda install gh --channel conda-forge
 gh auth setup-git
 
 # Clone and install tango.
-gh repo clone allenai/LLM.git LLM && cd LLM
+gh repo clone allenai/LLM LLM && cd LLM
 git checkout --quiet "$COMMIT_SHA"
 
 # Install dependencies.
