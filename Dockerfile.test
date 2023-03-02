@@ -1,6 +1,6 @@
 # Defines a CUDA-enabled Docker image suitable for running GPU tests on Beaker
 # via the GitHub Action 'beaker-run-action'.
-# The image needs to exit on Beaker for the tests to work.
+# The image needs to exist on Beaker for the tests to work.
 #
 # To build and push the image to Beaker, run 'make test-image'.
 
