@@ -48,11 +48,12 @@ def test_forward(config: Config, tokenizer: Tokenizer, alibi: bool, cuda: bool):
             {"input_ids": input2, "attention_mask": [1.0] * len(input2)},
         ]
     )
+    batch_inputs = {k: v.to(device=config.device) for k, v in batch_inputs.items()}  # type: ignore
 
     # Check that logits from individual inputs are equal to logits from batch.
     with torch.inference_mode():
-        output1 = model(torch.tensor(input1).unsqueeze(0))
-        output2 = model(torch.tensor(input2).unsqueeze(0))
+        output1 = model(torch.tensor(input1).unsqueeze(0).to(device=config.device))
+        output2 = model(torch.tensor(input2).unsqueeze(0).to(device=config.device))
         batch_output = model(**batch_inputs)
 
     torch.testing.assert_close(output1.logits[0][: len(input1)], batch_output.logits[0][: len(input1)])
