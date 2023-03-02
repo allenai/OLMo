@@ -1,0 +1,14 @@
+# Defines a CUDA-enabled Docker image suitable for running this project's experiments
+# via beaker-gantry.
+#
+# To build and push the image to Beaker, run 'make gantry-image'.
+# To test the image after pushing to Beaker, run 'make gantry-test'.
+
+FROM ghcr.io/allenai/pytorch:1.13.1-cuda11.7-python3.10
+
+WORKDIR /stage
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+WORKDIR /app/dolma

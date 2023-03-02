@@ -101,6 +101,54 @@ jobs:
           . .venv/bin/activate
           pip uninstall -y dolma
 
+  gpu_tests:
+    name: GPU Tests
+    runs-on: ubuntu-latest
+    env:
+      BEAKER_TOKEN: ${{ secrets.BEAKER_TOKEN }}
+      BEAKER_IMAGE: dolma-test
+      BEAKER_WORKSPACE: ai2/llm-testing
+    steps:
+      - name: Determine current commit SHA (pull request)
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "COMMIT_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
+
+      - name: Determine current commit SHA (push)
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "COMMIT_SHA=$GITHUB_SHA" >> $GITHUB_ENV
+
+      - name: GPU Tests
+        uses: allenai/beaker-run-action@v1.2
+        if: env.BEAKER_TOKEN != ''
+        with:
+          spec: |
+            version: v2
+            description: GPU Tests
+            tasks:
+              - name: tests
+                image:
+                  beaker: ${{ env.BEAKER_IMAGE }}
+                context:
+                  priority: preemptible
+                resources:
+                  gpuCount: 1
+                envVars:
+                  - name: COMMIT_SHA
+                    value: ${{ env.COMMIT_SHA }}
+                  - name: GITHUB_TOKEN
+                    value: ${{ secrets.GITHUB_TOKEN }}
+                  - name: CUDA_LAUNCH_BLOCKING
+                    value: "1"
+                  - name: TOKENIZERS_PARALLELISM
+                    value: "false"
+                command: ["/entrypoint.sh", "pytest", "-v", "-m", "gpu", "tests/"]
+                result:
+                  path: /unused
+          token: ${{ env.BEAKER_TOKEN }}
+          workspace: ${{ env.BEAKER_WORKSPACE }}
+
   release:
     name: Release
     runs-on: ubuntu-latest

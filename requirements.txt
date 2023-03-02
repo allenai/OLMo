@@ -1,3 +1,5 @@
+# NOTE: when upgrading requirements here you may have to rebuild and push some
+# Docker images. See each Dockerfile for details on how to do that.
 numpy
 torch
 mosaicml
@@ -6,3 +8,4 @@ tokenizers
 click
 rich
 cached-path
+beaker-gantry
