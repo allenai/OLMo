@@ -146,7 +146,7 @@ class DolmaGPT(nn.Module):
             self.transformer.update(
                 {"wpe": nn.Embedding(config.max_sequence_length, config.d_model, device=config.init_device)}
             )
-        self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
+        self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False, device=config.init_device)
         if self.config.init_device != "meta":
             self.apply(self.param_init_fn)
 

@@ -54,8 +54,8 @@ def test_forward(config: Config, tokenizer: Tokenizer, alibi: bool, cuda: bool):
 
     # Check that logits from individual inputs are equal to logits from batch.
     with torch.inference_mode():
-        output1 = model(torch.tensor(input1).unsqueeze(0).to(device=config.device))
-        output2 = model(torch.tensor(input2).unsqueeze(0).to(device=config.device))
+        output1 = model(torch.tensor(input1, device=config.device).unsqueeze(0))
+        output2 = model(torch.tensor(input2, device=config.device).unsqueeze(0))
         batch_output = model(**batch_inputs)
 
     torch.testing.assert_close(output1.logits[0][: len(input1)], batch_output.logits[0][: len(input1)])
@@ -70,7 +70,7 @@ def test_backward(config: Config, tokenizer: Tokenizer, alibi: bool):
     model = DolmaGPT(config).train()
 
     # Forward pass to get logits.
-    input_ids = torch.tensor(tokenizer.encode("My name is DOLMA!")).unsqueeze(0)
+    input_ids = torch.tensor(tokenizer.encode("My name is DOLMA!"), device=config.device).unsqueeze(0)
     logits = model(input_ids).logits
 
     # Compute loss.
@@ -85,7 +85,7 @@ def test_backward(config: Config, tokenizer: Tokenizer, alibi: bool):
     for name, parameter in model.named_parameters():
         if parameter.requires_grad:
             assert parameter.grad is not None
-            zeros = torch.zeros(parameter.size())
+            zeros = torch.zeros(parameter.size(), device=config.device)
             if (parameter.grad == zeros).all():
                 raise RuntimeError(f"{name} has zero a gradient!")
         else:

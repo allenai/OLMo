@@ -139,6 +139,10 @@ jobs:
                     value: ${{ env.COMMIT_SHA }}
                   - name: GITHUB_TOKEN
                     value: ${{ secrets.GITHUB_TOKEN }}
+                  - name: CUDA_LAUNCH_BLOCKING
+                    value: "1"
+                  - name: TOKENIZERS_PARALLELISM
+                    value: "false"
                 command: ["/entrypoint.sh", "pytest", "-v", "-m", "gpu", "tests/"]
                 result:
                   path: /unused
