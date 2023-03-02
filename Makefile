@@ -1,5 +1,8 @@
+# If you update this, also update BEAKER_IMAGE in .github/workflows/main.yml
 IMAGE_NAME_BASE = dolma
+# If you update this, also update BEAKER_WORKSPACE in .github/workflows/main.yml
 BEAKER_WORKSPACE = "ai2/llm-testing"
+
 BEAKER_USER = $(shell beaker account whoami --format=json | jq -r '.[0].name')
 GANTRY_IMAGE = $(shell beaker workspace images $(BEAKER_WORKSPACE) --format=json | jq -r -c '.[] | select( .name == "$(IMAGE_NAME_BASE)-gantry" ) | .fullName')
 TEST_IMAGE =  $(shell beaker workspace images $(BEAKER_WORKSPACE) --format=json | jq -r -c '.[] | select( .name == "$(IMAGE_NAME_BASE)-test" ) | .fullName')
@@ -60,7 +63,6 @@ gantry-test :
 		--venv base \
 		--timeout -1 \
 		--yes \
-		--dry-run \
 		-- make check-cuda-install
 
 .PHONY : check-cpu-install
