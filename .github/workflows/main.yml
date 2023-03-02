@@ -104,6 +104,8 @@ jobs:
   gpu_tests:
     name: GPU Tests
     runs-on: ubuntu-latest
+    env:
+      BEAKER_TOKEN: ${{ secrets.BEAKER_TOKEN }}
     steps:
       - name: Determine current commit SHA (pull request)
         if: github.event_name == 'pull_request'
@@ -122,7 +124,7 @@ jobs:
 
       - name: GPU Tests
         uses: allenai/beaker-run-action@v1.1
-        if: secrets.BEAKER_TOKEN != ''
+        if: env.BEAKER_TOKEN != ''
         with:
           spec: |
             version: v2
@@ -130,7 +132,7 @@ jobs:
             tasks:
               - name: tests
                 image:
-                  beaker: ${{ secrets.BEAKER_IMAGE }}
+                  beaker: ${{ env.BEAKER_IMAGE }}
                 context:
                   priority: preemptible
                 resources:
@@ -143,7 +145,7 @@ jobs:
                 command: ["/entrypoint.sh", "pytest", "-v", "-m", "gpu", "tests/"]
                 result:
                   path: /unused
-          token: ${{ secrets.BEAKER_TOKEN }}
+          token: ${{ env.BEAKER_TOKEN }}
           workspace: ${{ env.BEAKER_WORKSPACE }}
 
   release:
