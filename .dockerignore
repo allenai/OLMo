@@ -1,0 +1,7 @@
+.git
+.github
+.mypy_cache
+.pytest_cache
+.venv
+__pycache__
+*.egg-info
