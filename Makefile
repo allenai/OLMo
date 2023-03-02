@@ -2,6 +2,7 @@ IMAGE_NAME_BASE = dolma
 BEAKER_WORKSPACE = "ai2/llm-testing"
 BEAKER_USER = $(shell beaker account whoami --format=json | jq -r '.[0].name')
 GANTRY_IMAGE = $(shell beaker workspace images $(BEAKER_WORKSPACE) --format=json | jq -r -c '.[] | select( .name == "$(IMAGE_NAME_BASE)-gantry" ) | .fullName')
+TEST_IMAGE =  $(shell beaker workspace images $(BEAKER_WORKSPACE) --format=json | jq -r -c '.[] | select( .name == "$(IMAGE_NAME_BASE)-test" ) | .fullName')
 
 .PHONY : run-checks
 run-checks :
@@ -13,8 +14,9 @@ run-checks :
 
 .PHONY : beaker-info
 beaker-info :
-	@echo "Beaker user:  $(BEAKER_USER)"
-	@echo "Gantry image: $(GANTRY_IMAGE)"
+	@echo "Beaker user:   $(BEAKER_USER)"
+	@echo "Gantry image:  $(GANTRY_IMAGE)"
+	@echo "Testing image: $(TEST_IMAGE)"
 
 .PHONY : gantry-image
 gantry-image :
@@ -22,6 +24,21 @@ gantry-image :
 	beaker image create $(IMAGE_NAME_BASE)-gantry --name $(IMAGE_NAME_BASE)-gantry-tmp --workspace $(BEAKER_WORKSPACE)
 	beaker image delete $(GANTRY_IMAGE) || true
 	beaker image rename $(BEAKER_USER)/$(IMAGE_NAME_BASE)-gantry-tmp $(IMAGE_NAME_BASE)-gantry
+
+.PHONY : test-image
+test-image :
+	docker build -f Dockerfile.test -t $(IMAGE_NAME_BASE)-test .
+	beaker image create $(IMAGE_NAME_BASE)-test --name $(IMAGE_NAME_BASE)-test-tmp --workspace $(BEAKER_WORKSPACE)
+	beaker image delete $(TEST_IMAGE) || true
+	beaker image rename $(BEAKER_USER)/$(IMAGE_NAME_BASE)-test-tmp $(IMAGE_NAME_BASE)-test
+
+.PHONY : show-test-image
+show-test-image :
+	@echo $(TEST_IMAGE)
+
+.PHONY : show-beaker-workspace
+show-beaker-workspace :
+	@echo $(BEAKER_WORKSPACE)
 
 .PHONY : gantry-test
 gantry-test :
@@ -43,6 +60,7 @@ gantry-test :
 		--venv base \
 		--timeout -1 \
 		--yes \
+		--dry-run \
 		-- make check-cuda-install
 
 .PHONY : check-cpu-install

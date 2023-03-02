@@ -101,6 +101,51 @@ jobs:
           . .venv/bin/activate
           pip uninstall -y dolma
 
+  gpu_tests:
+    name: GPU Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine current commit SHA (pull request)
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "COMMIT_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
+
+      - name: Determine current commit SHA (push)
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "COMMIT_SHA=$GITHUB_SHA" >> $GITHUB_ENV
+
+      - name: Set build variables
+        run: |
+          echo "BEAKER_IMAGE=$(make show-test-image)" >> $GITHUB_ENV
+          echo "BEAKER_WORKSPACE=$(make show-beaker-workspace)" >> $GITHUB_ENV
+
+      - name: GPU Tests
+        uses: allenai/beaker-run-action@v1.1
+        if: secrets.BEAKER_TOKEN != ''
+        with:
+          spec: |
+            version: v2
+            description: GPU Tests
+            tasks:
+              - name: tests
+                image:
+                  beaker: ${{ secrets.BEAKER_IMAGE }}
+                context:
+                  priority: preemptible
+                resources:
+                  gpuCount: 1
+                envVars:
+                  - name: COMMIT_SHA
+                    value: ${{ env.COMMIT_SHA }}
+                  - name: GITHUB_TOKEN
+                    value: ${{ env.GITHUB_TOKEN }}
+                command: ["/entrypoint.sh", "pytest", "-v", "-m", "gpu", "tests/"]
+                result:
+                  path: /unused
+          token: ${{ secrets.BEAKER_TOKEN }}
+          workspace: ${{ env.BEAKER_WORKSPACE }}
+
   release:
     name: Release
     runs-on: ubuntu-latest

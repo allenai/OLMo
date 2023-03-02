@@ -6,11 +6,38 @@ from dolma import Config, DolmaGPT, Tokenizer
 from dolma.data import DataCollator, PaddingDirection
 
 
-@pytest.mark.parametrize("alibi", [pytest.param(True, id="alibi-emb"), pytest.param(False, id="posit-emb")])
-def test_forward(config: Config, tokenizer: Tokenizer, alibi: bool):
+@pytest.mark.parametrize(
+    "alibi, cuda",
+    [
+        pytest.param(True, False, id="alibi-emb-cpu"),
+        pytest.param(False, False, id="posit-emb-cpu"),
+        pytest.param(
+            True,
+            True,
+            id="alibi-emb-cuda",
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+            ),
+        ),
+        pytest.param(
+            False,
+            True,
+            id="posit-emb-cuda",
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+            ),
+        ),
+    ],
+)
+def test_forward(config: Config, tokenizer: Tokenizer, alibi: bool, cuda: bool):
     torch.manual_seed(0)
 
     config.alibi = alibi
+    if cuda:
+        config.init_device = "cuda"
+
     model = DolmaGPT(config).eval()
 
     input1 = tokenizer.encode("My name is DOLMA!")
