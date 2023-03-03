@@ -2,7 +2,7 @@
 # Docker images. See each Dockerfile for details on how to do that.
 numpy
 torch
-mosaicml
+mosaicml!=0.13.0
 torchmetrics
 tokenizers
 click
