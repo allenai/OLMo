@@ -1,7 +1,14 @@
 """
-To test this, run:
+Use this to prepare a numpy memory-mapped language modeling dataset from raw *.json.gz
+dataset files, such as those from c4. Each file is expected to be a gzipped JSON lines
+file, which each JSON line has a field named "text" that is a string representing a single
+document from the dataset.
 
-$ python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/out.npy
+To test out this script, run:
+
+```bash
+python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/out.npy
+```
 """
 
 import concurrent.futures

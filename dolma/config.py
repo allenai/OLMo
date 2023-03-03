@@ -1,18 +1,49 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Optional
+from typing import List, Optional, Type, TypeVar, cast
 
 import torch
 
-__all__ = ["Config"]
+from .aliases import PathOrStr
+from .exceptions import DolmaConfigurationError
+
+__all__ = ["Config", "TrainConfig"]
+
+
+C = TypeVar("C", bound="BaseConfig")
+
+
+class BaseConfig:
+    @classmethod
+    def load(cls: Type[C], path: PathOrStr, overrides: Optional[List[str]] = None) -> C:
+        """Load from a YAML file."""
+        from omegaconf import OmegaConf
+        from omegaconf.errors import ConfigKeyError
+
+        schema = OmegaConf.structured(cls)
+        try:
+            conf = OmegaConf.merge(schema, OmegaConf.load(str(path)))
+            if overrides:
+                conf = OmegaConf.merge(conf, OmegaConf.from_dotlist(overrides))
+        except ConfigKeyError as e:
+            raise DolmaConfigurationError(str(e))
+        return cast(C, OmegaConf.to_object(conf))
+
+    def save(self, path: PathOrStr) -> None:
+        """Save to a YAML file."""
+        from omegaconf import OmegaConf
+
+        OmegaConf.save(config=self, f=str(path))
 
 
 @dataclass
-class Config:
+class Config(BaseConfig):
     """
-    DOLMA configuration.
+    DOLMA (model) configuration.
+    """
 
-    Note that the defaults for these attributes are equivalent to the base GPT2 model.
-    """
+    # Note that the defaults for these attributes are equivalent to the base GPT2 model.
 
     d_model: int = 768
     """
@@ -101,3 +132,12 @@ class Config:
             return "cuda" if torch.cuda.is_available() else "cpu"
         else:
             return self.init_device
+
+
+@dataclass
+class TrainConfig(BaseConfig):
+    """
+    DOLMA training configuration.
+    """
+
+    model: Config

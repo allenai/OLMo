@@ -1,8 +1,16 @@
-from .config import Config
+from .config import Config, TrainConfig
 from .model import DolmaGPT, DolmaGPTOutput
 from .tokenizer import Tokenizer, TruncationDirection
 
-__all__ = ["Config", "Tokenizer", "TruncationDirection", "DolmaGPT", "DolmaGPTOutput", "check_install"]
+__all__ = [
+    "Config",
+    "TrainConfig",
+    "Tokenizer",
+    "TruncationDirection",
+    "DolmaGPT",
+    "DolmaGPTOutput",
+    "check_install",
+]
 
 
 def check_install(cuda: bool = False):

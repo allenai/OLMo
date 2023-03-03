@@ -131,7 +131,7 @@ class DolmaGPTOutput(NamedTuple):
 
 
 class DolmaGPT(nn.Module):
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, init_params: bool = True):
         super().__init__()
         self.config = config
         self.transformer = nn.ModuleDict(
@@ -147,7 +147,7 @@ class DolmaGPT(nn.Module):
                 {"wpe": nn.Embedding(config.max_sequence_length, config.d_model, device=config.init_device)}
             )
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False, device=config.init_device)
-        if self.config.init_device != "meta":
+        if init_params and self.config.init_device != "meta":
             self.apply(self.param_init_fn)
 
     @property
