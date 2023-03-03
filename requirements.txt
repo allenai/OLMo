@@ -9,3 +9,4 @@ click
 rich
 cached-path
 beaker-gantry
+omegaconf
