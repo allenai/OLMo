@@ -10,6 +10,12 @@ For example, to override :data:`TrainConfig.model.n_layers` to 5, pass ``--model
 ```bash
 python scripts/train.py train_config.yaml --model.n_layers=5
 ```
+
+For distributed training you should run this script via the 'composer' CLI. For example:
+
+```bash
+composer scripts/train.py train_config.yaml ...
+```
 """
 
 import os
