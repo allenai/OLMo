@@ -5,17 +5,18 @@ Adapted from
 """
 
 import math
-from typing import Dict, NamedTuple, Optional, cast
+from typing import TYPE_CHECKING, Dict, NamedTuple, Optional, cast
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from composer.metrics.nlp import LanguageCrossEntropy, Perplexity
 from composer.models import ComposerModel
-from torchmetrics import Metric
 
 from .aliases import BatchDict
 from .config import ModelConfig
+
+if TYPE_CHECKING:
+    from torchmetrics import Metric
 
 __all__ = ["SelfAttention", "GPTMLP", "GPTBlock", "DolmaGPT", "ComposerDolmaGPT"]
 
@@ -386,6 +387,9 @@ class ComposerDolmaGPT(ComposerModel):
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.model = DolmaGPT(config)
+
+        from composer.metrics.nlp import LanguageCrossEntropy, Perplexity
+
         self.train_metrics = {
             "LanguageCrossEntropy": LanguageCrossEntropy(config.vocab_size),
             "Perplexity": Perplexity(),
