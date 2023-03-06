@@ -26,13 +26,7 @@ from composer.utils import dist, get_device, reproducibility
 from dolma import ComposerDolmaGPT, SchedulerConfig, TrainConfig
 from dolma.data import build_dataloader
 from dolma.exceptions import DolmaCliError, DolmaConfigurationError
-from dolma.util import (
-    clean_opt,
-    echo,
-    filter_warnings,
-    install_excepthook,
-    update_batch_size_info,
-)
+from dolma.util import clean_opt, echo, prepare_cli_environment, update_batch_size_info
 
 
 def build_scheduler(cfg: SchedulerConfig):
@@ -115,8 +109,7 @@ def main(cfg: TrainConfig) -> None:
 
 
 if __name__ == "__main__":
-    install_excepthook()
-    filter_warnings()
+    prepare_cli_environment()
 
     try:
         yaml_path, args_list = sys.argv[1], sys.argv[2:]

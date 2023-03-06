@@ -1,4 +1,5 @@
 import math
+import os
 import sys
 import warnings
 from typing import Any, Tuple, Union
@@ -35,6 +36,23 @@ def filter_warnings():
         category=UserWarning,
         message="torch.distributed.*_base is a private function and will be deprecated.*",
     )
+    # Torchvision warnings. We don't actually use torchvision at the moment
+    # but composer imports it at some point and we see these warnings.
+    warnings.filterwarnings(
+        action="ignore",
+        category=UserWarning,
+        message="Failed to load image Python extension.*",
+    )
+
+
+def set_env_variables():
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+
+def prepare_cli_environment():
+    install_excepthook()
+    filter_warnings()
+    set_env_variables()
 
 
 def clean_opt(arg: str) -> str:
