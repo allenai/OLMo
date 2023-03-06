@@ -23,7 +23,7 @@ jobs:
   checks:
     name: ${{ matrix.task.name }} (py ${{ matrix.python }})
     runs-on: [ubuntu-latest]
-    timeout-minutes: 15
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -105,6 +105,7 @@ jobs:
   gpu_tests:
     name: GPU Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       BEAKER_TOKEN: ${{ secrets.BEAKER_TOKEN }}
       BEAKER_IMAGE: dolma-test
