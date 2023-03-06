@@ -41,7 +41,7 @@ def filter_warnings():
     warnings.filterwarnings(
         action="ignore",
         category=UserWarning,
-        message="Failed to load image Python extension.*",
+        message=".*Failed to load.*",
     )
 
 
