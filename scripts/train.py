@@ -15,14 +15,6 @@ python scripts/train.py train_config.yaml --model.n_layers=5
 import os
 import sys
 
-from composer import Trainer
-from composer.optim.scheduler import (
-    ConstantWithWarmupScheduler,
-    CosineAnnealingWithWarmupScheduler,
-    LinearWithWarmupScheduler,
-)
-from composer.utils import dist, get_device, reproducibility
-
 from dolma import SchedulerConfig, TrainConfig
 from dolma.data import build_dataloader
 from dolma.exceptions import DolmaCliError, DolmaConfigurationError
@@ -30,6 +22,12 @@ from dolma.util import clean_opt, echo, prepare_cli_environment, update_batch_si
 
 
 def build_scheduler(cfg: SchedulerConfig):
+    from composer.optim.scheduler import (
+        ConstantWithWarmupScheduler,
+        CosineAnnealingWithWarmupScheduler,
+        LinearWithWarmupScheduler,
+    )
+
     if cfg.name == "constant_with_warmup":
         return ConstantWithWarmupScheduler(t_warmup=cfg.t_warmup)
     elif cfg.name == "cosine_with_warmup":
@@ -41,6 +39,9 @@ def build_scheduler(cfg: SchedulerConfig):
 
 
 def main(cfg: TrainConfig) -> None:
+    from composer import Trainer
+    from composer.utils import dist, get_device, reproducibility
+
     from dolma.composer import ComposerDolmaGPT
 
     echo.info("Configuration:", cfg)
