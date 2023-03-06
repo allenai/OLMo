@@ -417,10 +417,10 @@ class ComposerDolmaGPT(ComposerModel):
     def eval_forward(self, batch: BatchDict, outputs: Optional[DolmaGPTOutput] = None) -> DolmaGPTOutput:
         return outputs if outputs is not None else self.forward(batch)
 
-    def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
+    def get_metrics(self, is_train: bool = False) -> Dict[str, "Metric"]:
         return self.train_metrics if is_train else self.eval_metrics
 
-    def update_metric(self, batch: BatchDict, outputs: DolmaGPTOutput, metric: Metric) -> None:
+    def update_metric(self, batch: BatchDict, outputs: DolmaGPTOutput, metric: "Metric") -> None:
         labels = self.get_labels(batch)
         shift_logits = outputs.logits[..., :-1, :].contiguous()
         metric.update(shift_logits.view(-1, shift_logits.size(-1)), labels.view(-1))
