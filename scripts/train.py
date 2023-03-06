@@ -23,7 +23,7 @@ from composer.optim.scheduler import (
 )
 from composer.utils import dist, get_device, reproducibility
 
-from dolma import ComposerDolmaGPT, SchedulerConfig, TrainConfig
+from dolma import SchedulerConfig, TrainConfig
 from dolma.data import build_dataloader
 from dolma.exceptions import DolmaCliError, DolmaConfigurationError
 from dolma.util import clean_opt, echo, prepare_cli_environment, update_batch_size_info
@@ -41,6 +41,8 @@ def build_scheduler(cfg: SchedulerConfig):
 
 
 def main(cfg: TrainConfig) -> None:
+    from dolma.composer import ComposerDolmaGPT
+
     echo.info("Configuration:", cfg)
 
     reproducibility.seed_all(cfg.seed)
