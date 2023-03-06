@@ -41,7 +41,8 @@ def filter_warnings():
     warnings.filterwarnings(
         action="ignore",
         category=UserWarning,
-        message=".*Failed to load.*",
+        message="failed to load.*",
+        module="torchvision.io.image",
     )
 
 
