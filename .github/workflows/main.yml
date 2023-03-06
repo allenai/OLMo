@@ -63,7 +63,7 @@ jobs:
               name: Train pipeline
               run: |
                 python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/c4-sample.npy --validate
-                composer scrips/train.py test_fixtures/train_tiny.yaml
+                composer scripts/train.py test_fixtures/train_tiny.yaml
 
     steps:
       - uses: actions/checkout@v3
