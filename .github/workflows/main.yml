@@ -23,7 +23,7 @@ jobs:
   checks:
     name: ${{ matrix.task.name }} (py ${{ matrix.python }})
     runs-on: [ubuntu-latest]
-    timeout-minutes: 15
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -60,9 +60,10 @@ jobs:
 
           - python: '3.10'
             task:
-              name: Prepare mmap dataset
+              name: Train pipeline
               run: |
-                python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/out.npy --validate
+                python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/c4-sample.npy --validate
+                composer scripts/train.py test_fixtures/train_tiny.yaml
 
     steps:
       - uses: actions/checkout@v3
@@ -104,6 +105,7 @@ jobs:
   gpu_tests:
     name: GPU Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       BEAKER_TOKEN: ${{ secrets.BEAKER_TOKEN }}
       BEAKER_IMAGE: dolma-test

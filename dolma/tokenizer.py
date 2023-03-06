@@ -5,15 +5,10 @@ from typing import Generator, List, Optional, Union
 
 from tokenizers import Tokenizer as BaseTokenizer
 
-from .config import Config
-from .util import StrEnum
+from .config import TrainConfig, TruncationDirection
+from .exceptions import DolmaConfigurationError
 
-__all__ = ["Tokenizer", "TruncationDirection"]
-
-
-class TruncationDirection(StrEnum):
-    right = "right"
-    left = "left"
+__all__ = ["Tokenizer"]
 
 
 class Tokenizer:
@@ -31,26 +26,28 @@ class Tokenizer:
     def __init__(
         self,
         base_tokenizer: BaseTokenizer,
-        config: Config,
+        eos_token_id: int,
         truncate_to: Optional[int] = None,
         truncate_direction: Union[str, TruncationDirection] = TruncationDirection.right,
     ):
         self.base_tokenizer = base_tokenizer
-        self.config = config
+        self.eos_token_id = eos_token_id
         self.truncate_to = truncate_to
         self.truncate_direction = TruncationDirection(truncate_direction)
-        assert self.config.vocab_size == self.base_tokenizer.get_vocab_size()
-
-    @property
-    def eos_token_id(self) -> int:
-        return self.config.eos_token_id
 
     @property
     def vocab_size(self) -> int:
-        return self.config.vocab_size
+        return self.base_tokenizer.get_vocab_size()
 
     @classmethod
-    def from_pretrained(cls, identifier: str, config: Optional[Config] = None, **kwargs) -> Tokenizer:
+    def from_train_config(cls, config: TrainConfig) -> Tokenizer:
+        tokenizer = cls.from_pretrained(config.tokenizer.identifier, eos_token_id=config.model.eos_token_id)
+        if config.model.vocab_size != tokenizer.vocab_size:
+            raise DolmaConfigurationError("vocab size mismatch between config and tokenizer")
+        return tokenizer
+
+    @classmethod
+    def from_pretrained(cls, identifier: str, **kwargs) -> Tokenizer:
         """
         Initialize a tokenizer from a pretrained tokenizer on the HuggingFace Hub.
 
@@ -59,11 +56,8 @@ class Tokenizer:
         :param config: The DOLMA config.
         """
         base_tokenizer = BaseTokenizer.from_pretrained(identifier)
-        if config is None:
-            config = Config(
-                vocab_size=base_tokenizer.get_vocab_size(), eos_token_id=base_tokenizer.get_vocab_size() - 1
-            )
-        return cls(base_tokenizer, config, **kwargs)
+        eos_token_id = kwargs.pop("eos_token_id", base_tokenizer.get_vocab_size() - 1)
+        return cls(base_tokenizer, eos_token_id, **kwargs)
 
     def add_special_tokens(self, input_ids: List[int]) -> List[int]:
         """

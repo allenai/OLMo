@@ -7,6 +7,7 @@ import torch
 from torch.utils.data import Dataset
 
 from ..aliases import PathOrStr
+from ..config import TrainConfig
 
 __all__ = ["MemMapDataset"]
 
@@ -38,6 +39,10 @@ class MemMapDataset(Dataset[torch.LongTensor]):
         self._mmap_offsets: Optional[List[Tuple[int, int]]] = None
         self._num_instances: Optional[int] = None
         self.dtype = memmap_dtype
+
+    @classmethod
+    def from_train_config(cls, config: TrainConfig) -> MemMapDataset:
+        return cls(*config.data.paths, chunk_size=config.model.max_sequence_length)
 
     @property
     def memmaps(self) -> List[np.memmap]:

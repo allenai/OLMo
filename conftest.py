@@ -2,7 +2,15 @@ from typing import List
 
 import pytest
 
-from dolma.config import Config
+from dolma.config import (
+    DataConfig,
+    ModelConfig,
+    OptimizerConfig,
+    PaddingDirection,
+    SchedulerConfig,
+    TokenizerConfig,
+    TrainConfig,
+)
 from dolma.tokenizer import Tokenizer
 
 TEST_MODEL = "gpt2"
@@ -32,8 +40,8 @@ vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?
 
 
 @pytest.fixture(scope="function")
-def config() -> Config:
-    return Config(
+def model_config() -> ModelConfig:
+    return ModelConfig(
         vocab_size=50257,
         eos_token_id=50256,
         pad_token_id=50256,
@@ -45,8 +53,27 @@ def config() -> Config:
 
 
 @pytest.fixture(scope="function")
-def tokenizer(config) -> Tokenizer:
-    return Tokenizer.from_pretrained(TEST_MODEL, config)
+def tokenizer() -> Tokenizer:
+    return Tokenizer.from_pretrained(TEST_MODEL)
+
+
+@pytest.fixture(scope="function")
+def train_config(tmp_path, model_config) -> TrainConfig:
+    return TrainConfig(
+        model=model_config,
+        optimizer=OptimizerConfig(),
+        scheduler=SchedulerConfig(),
+        data=DataConfig(
+            paths=[
+                "test_fixtures/c4-sample.01.json.gz",
+                "test_fixtures/c4-sample.02.json.gz",
+                "test_fixtures/c4-sample.03.json.gz",
+            ],
+            pad_direction=PaddingDirection.right,
+        ),
+        tokenizer=TokenizerConfig(identifier=TEST_MODEL),
+        save_folder=str(tmp_path / "checkpoints"),
+    )
 
 
 @pytest.fixture(scope="module")

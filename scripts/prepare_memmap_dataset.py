@@ -14,7 +14,6 @@ python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/out.npy
 import concurrent.futures
 import gzip
 import json
-import os
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Generator, List, Optional, Tuple
@@ -30,6 +29,7 @@ from rich.progress import (
 )
 
 from dolma import Tokenizer
+from dolma.util import echo, prepare_cli_environment
 
 
 def get_progress() -> Progress:
@@ -118,7 +118,7 @@ def main(
                 total_docs += num_docs
 
     total_tokens = sum(src_to_num_tokens.values())
-    print(f"Counted {total_tokens:,d} tokens over {total_docs:,d} documents")
+    echo.success(f"Counted {total_tokens:,d} tokens over {total_docs:,d} documents")
 
     # Initialize memmap file.
     memmap = np.memmap(output, mode="w+", dtype=dtype, shape=(total_tokens,))
@@ -144,19 +144,19 @@ def main(
             ):
                 future.result()
 
-    print(f"Done! File written to {output}")
+    echo.success(f"Done! File written to {output}")
 
     if validate:
-        print("Validating...")
+        echo.info("Validating...")
         memmap = np.memmap(output, mode="r", dtype=dtype, shape=(total_tokens,))
         # Should have an EOS token for every document.
         assert (memmap == tokenizer.eos_token_id).sum() == total_docs
         assert memmap[-1] == tokenizer.eos_token_id
         # Make sure all entries have been filled with actual token IDs.
         assert (memmap < tokenizer.vocab_size).all()
-        print("All good!")
+        echo.success("All good!")
 
 
 if __name__ == "__main__":
-    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    prepare_cli_environment()
     main()
