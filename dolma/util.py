@@ -40,7 +40,6 @@ def filter_warnings():
     # but composer imports it at some point and we see these warnings.
     warnings.filterwarnings(
         action="ignore",
-        category=UserWarning,
         message="failed to load.*",
         module="torchvision.io.image",
     )
