@@ -18,6 +18,7 @@ env:
   CACHE_PREFIX: v0
   PYTHONPATH: ./
   TOKENIZERS_PARALLELISM: 'false'
+  PYTHONWARNINGS: 'ignore:failed to load.*::torchvision.io.image'
 
 jobs:
   checks:
