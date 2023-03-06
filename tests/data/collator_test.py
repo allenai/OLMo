@@ -8,24 +8,26 @@ from dolma.data.collator import DataCollator, PaddingDirection
     "pad_direction",
     [pytest.param(PaddingDirection.right, id="pad-right"), pytest.param(PaddingDirection.left, id="pad-left")],
 )
-def test_collate_with_input_ids_tensor(config, pad_direction):
-    collator = DataCollator(config, pad_direction=pad_direction)
+def test_collate_with_input_ids_tensor(train_config, pad_direction):
+    train_config.data.pad_direction = pad_direction
+    collator = DataCollator.from_train_config(train_config)
 
     inputs = [torch.tensor([0, 1, 2, 3]), torch.tensor([4, 5, 6])]
     batch = collator(inputs)
     assert batch["input_ids"].shape == (2, 4)
     if pad_direction == "right":
-        assert batch["input_ids"][1][-1] == config.pad_token_id
+        assert batch["input_ids"][1][-1] == train_config.model.pad_token_id
     else:
-        assert batch["input_ids"][1][0] == config.pad_token_id
+        assert batch["input_ids"][1][0] == train_config.model.pad_token_id
 
 
 @pytest.mark.parametrize(
     "pad_direction",
     [pytest.param(PaddingDirection.right, id="pad-right"), pytest.param(PaddingDirection.left, id="pad-left")],
 )
-def test_collate_with_batch_dict(config, pad_direction):
-    collator = DataCollator(config, pad_direction=pad_direction)
+def test_collate_with_batch_dict(train_config, pad_direction):
+    train_config.data.pad_direction = pad_direction
+    collator = DataCollator.from_train_config(train_config)
 
     inputs = [
         {"input_ids": torch.tensor([0, 1, 2, 3]), "attention_mask": torch.tensor([1, 1, 1, 1])},
@@ -36,10 +38,10 @@ def test_collate_with_batch_dict(config, pad_direction):
     assert batch["attention_mask"] is not None
     assert batch["attention_mask"].shape == (2, 4)
     if pad_direction == "right":
-        assert batch["input_ids"][1][-1] == config.pad_token_id
+        assert batch["input_ids"][1][-1] == train_config.model.pad_token_id
         assert batch["attention_mask"][1][-1] == 0
     else:
-        assert batch["input_ids"][1][0] == config.pad_token_id
+        assert batch["input_ids"][1][0] == train_config.model.pad_token_id
         assert batch["attention_mask"][1][0] == 0
 
 
@@ -47,8 +49,9 @@ def test_collate_with_batch_dict(config, pad_direction):
     "pad_direction",
     [pytest.param(PaddingDirection.right, id="pad-right"), pytest.param(PaddingDirection.left, id="pad-left")],
 )
-def test_collate_with_attention_bias(config, pad_direction):
-    collator = DataCollator(config, pad_direction=pad_direction)
+def test_collate_with_attention_bias(train_config, pad_direction):
+    train_config.data.pad_direction = pad_direction
+    collator = DataCollator.from_train_config(train_config)
 
     inputs = [
         {

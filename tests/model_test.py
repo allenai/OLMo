@@ -2,8 +2,8 @@ import pytest
 import torch
 from torch.nn import CrossEntropyLoss
 
-from dolma import Config, DolmaGPT, Tokenizer
-from dolma.data import DataCollator, PaddingDirection
+from dolma import DolmaGPT, ModelConfig, Tokenizer, TrainConfig
+from dolma.data import DataCollator
 
 
 @pytest.mark.parametrize(
@@ -31,31 +31,31 @@ from dolma.data import DataCollator, PaddingDirection
         ),
     ],
 )
-def test_forward(config: Config, tokenizer: Tokenizer, alibi: bool, cuda: bool):
+def test_forward(train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, cuda: bool):
     torch.manual_seed(0)
 
-    config.alibi = alibi
+    train_config.model.alibi = alibi
     if cuda:
-        config.init_device = "cuda"
+        train_config.model.init_device = "cuda"
 
-    model = DolmaGPT(config).eval()
+    model = DolmaGPT(train_config.model).eval()
 
     input1 = tokenizer.encode("My name is DOLMA!")
     input2 = tokenizer.encode("I'm a delightful large open language model :)")
-    batch_inputs = DataCollator(config=config, pad_direction=PaddingDirection.right)(
+    batch_inputs = DataCollator.from_train_config(train_config)(
         [  # type: ignore
             {"input_ids": input1, "attention_mask": [1.0] * len(input1)},
             {"input_ids": input2, "attention_mask": [1.0] * len(input2)},
         ]
     )
     batch_inputs = {  # type: ignore
-        k: v.to(device=config.device) if isinstance(v, torch.Tensor) else v for k, v in batch_inputs.items()
+        k: v.to(device=train_config.device) if isinstance(v, torch.Tensor) else v for k, v in batch_inputs.items()
     }
 
     # Check that logits from individual inputs are equal to logits from batch.
     with torch.inference_mode():
-        output1 = model(torch.tensor(input1, device=config.device).unsqueeze(0))
-        output2 = model(torch.tensor(input2, device=config.device).unsqueeze(0))
+        output1 = model(torch.tensor(input1, device=train_config.device).unsqueeze(0))
+        output2 = model(torch.tensor(input2, device=train_config.device).unsqueeze(0))
         batch_output = model(**batch_inputs)
 
     torch.testing.assert_close(output1.logits[0][: len(input1)], batch_output.logits[0][: len(input1)])
@@ -63,14 +63,14 @@ def test_forward(config: Config, tokenizer: Tokenizer, alibi: bool, cuda: bool):
 
 
 @pytest.mark.parametrize("alibi", [pytest.param(True, id="alibi-emb"), pytest.param(False, id="posit-emb")])
-def test_backward(config: Config, tokenizer: Tokenizer, alibi: bool):
+def test_backward(train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool):
     torch.manual_seed(0)
 
-    config.alibi = alibi
-    model = DolmaGPT(config).train()
+    train_config.model.alibi = alibi
+    model = DolmaGPT(train_config.model).train()
 
     # Forward pass to get logits.
-    input_ids = torch.tensor(tokenizer.encode("My name is DOLMA!"), device=config.device).unsqueeze(0)
+    input_ids = torch.tensor(tokenizer.encode("My name is DOLMA!"), device=train_config.device).unsqueeze(0)
     logits = model(input_ids).logits
 
     # Compute loss.
@@ -85,12 +85,12 @@ def test_backward(config: Config, tokenizer: Tokenizer, alibi: bool):
     for name, parameter in model.named_parameters():
         if parameter.requires_grad:
             assert parameter.grad is not None
-            zeros = torch.zeros(parameter.size(), device=config.device)
+            zeros = torch.zeros(parameter.size(), device=train_config.device)
             if (parameter.grad == zeros).all():
                 raise RuntimeError(f"{name} has zero a gradient!")
         else:
             assert parameter.grad is None
 
 
-def test_configure_optimizer(config: Config):
-    DolmaGPT(config).configure_optimizer()
+def test_configure_optimizer(model_config: ModelConfig):
+    DolmaGPT(model_config).configure_optimizer()

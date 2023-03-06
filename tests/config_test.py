@@ -1,10 +1,18 @@
 from pathlib import Path
 
-from dolma.config import Config, TrainConfig
+from dolma.config import StrEnum, TrainConfig
 
 
-def test_save_and_load(tmp_path: Path):
-    train_config = TrainConfig(model=Config(n_layers=5))
+def test_str_enum():
+    class Constants(StrEnum):
+        foo = "foo"
+        bar = "bar"
+
+    assert "foo" == Constants.foo
+
+
+def test_save_and_load(train_config: TrainConfig, tmp_path: Path):
+    train_config.model.n_layers = 5
     save_path = tmp_path / "conf.yaml"
 
     train_config.save(save_path)

@@ -1,17 +1,40 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import List, Optional, Type, TypeVar, cast
+from dataclasses import asdict, dataclass
+from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union, cast
 
 import torch
 
 from .aliases import PathOrStr
 from .exceptions import DolmaConfigurationError
 
-__all__ = ["Config", "TrainConfig"]
+__all__ = [
+    "ModelConfig",
+    "OptimizerConfig",
+    "SchedulerConfig",
+    "DataConfig",
+    "TokenizerConfig",
+    "TrainConfig",
+    "PaddingDirection",
+    "TruncationDirection",
+]
 
 
 C = TypeVar("C", bound="BaseConfig")
+
+
+class StrEnum(str, Enum):
+    """
+    This is equivalent to Python's :class:`enum.StrEnum` since version 3.11.
+    We include this here for compatibility with older version of Python.
+    """
+
+    def __str__(self) -> str:
+        return self.value
+
+    def __repr__(self) -> str:
+        return f"'{str(self)}'"
 
 
 class BaseConfig:
@@ -36,9 +59,12 @@ class BaseConfig:
 
         OmegaConf.save(config=self, f=str(path))
 
+    def asdict(self) -> Dict[str, Any]:
+        return asdict(self)  # type: ignore
+
 
 @dataclass
-class Config(BaseConfig):
+class ModelConfig(BaseConfig):
     """
     DOLMA (model) configuration.
     """
@@ -135,9 +161,81 @@ class Config(BaseConfig):
 
 
 @dataclass
+class OptimizerConfig(BaseConfig):
+    learning_rate: Optional[float] = None
+    weight_decay: float = 0.01
+    betas: Tuple[float, float] = (0.9, 0.999)
+    eps: float = 1e-8
+
+    def __post_init__(self):
+        self.betas = tuple(self.betas)
+
+
+@dataclass
+class SchedulerConfig(BaseConfig):
+    name: str = "cosine_with_warmup"
+    t_warmup: str = "100ba"
+    alpha_f: float = 0.1
+
+
+class PaddingDirection(StrEnum):
+    right = "right"
+    left = "left"
+
+
+@dataclass
+class DataConfig(BaseConfig):
+    paths: List[str]
+    pad_direction: PaddingDirection = PaddingDirection.right
+    num_workers: int = 0
+    drop_last: bool = True
+    pin_memory: bool = True
+    prefetch_factor: int = 2
+    persistent_workers: bool = True
+    timeout: int = 0
+
+
+class TruncationDirection(StrEnum):
+    right = "right"
+    left = "left"
+
+
+@dataclass
+class TokenizerConfig(BaseConfig):
+    identifier: str
+    truncate_direction: TruncationDirection = TruncationDirection.right
+
+
+@dataclass
 class TrainConfig(BaseConfig):
     """
     DOLMA training configuration.
     """
 
-    model: Config
+    model: ModelConfig
+    optimizer: OptimizerConfig
+    scheduler: SchedulerConfig
+    data: DataConfig
+    tokenizer: TokenizerConfig
+    save_folder: str
+    save_interval: Union[str, int] = "1ep"
+    save_num_checkpoints_to_keep: int = -1
+    save_overwrite: bool = False
+    load_path: Optional[str] = None
+    load_weights_only: bool = False
+    seed: int = 6198
+    run_name: Optional[str] = None
+    global_train_batch_size: int = 512
+    device_train_batch_size: Union[str, int] = "auto"
+    device_train_microbatch_size: Union[str, int] = "auto"
+    device_train_grad_accum: Union[str, int] = "auto"
+    device_eval_batch_size: Optional[int] = None
+    n_gpus: Optional[int] = None
+    max_duration: Union[str, int] = "10ep"
+    precision: Optional[str] = None
+    fsdp_config: Optional[Dict[str, Any]] = None
+    dry_run: bool = False
+
+    @property
+    def device(self) -> Optional[str]:
+        return self.model.device

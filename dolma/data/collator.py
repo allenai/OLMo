@@ -1,25 +1,25 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import List, Union, cast
+from typing import List, Union
 
 import torch
 import torch.nn.functional as F
 
 from ..aliases import BatchDict
-from ..config import Config
-from ..util import StrEnum
+from ..config import PaddingDirection, TrainConfig
 
-__all__ = ["PaddingDirection", "DataCollator"]
-
-
-class PaddingDirection(StrEnum):
-    right = "right"
-    left = "left"
+__all__ = ["DataCollator"]
 
 
 @dataclass
 class DataCollator:
-    config: Config
-    pad_direction: PaddingDirection = PaddingDirection.left
+    pad_direction: PaddingDirection
+    pad_token_id: int
+
+    @classmethod
+    def from_train_config(cls, config: TrainConfig) -> DataCollator:
+        return cls(pad_direction=config.data.pad_direction, pad_token_id=config.model.pad_token_id)
 
     def __call__(self, items: Union[List[BatchDict], List[torch.Tensor]]) -> BatchDict:
         assert items
@@ -41,9 +41,9 @@ class DataCollator:
             # Pad input IDs.
             all_input_ids.append(
                 F.pad(
-                    input_ids.to(dtype=torch.long, device=self.config.device),
+                    input_ids.to(dtype=torch.long),
                     pad_shape,
-                    value=self.config.pad_token_id,
+                    value=self.pad_token_id,
                 )
             )
 
@@ -54,7 +54,7 @@ class DataCollator:
                     attention_mask = torch.tensor(attention_mask)
                 all_attention_mask.append(
                     F.pad(
-                        attention_mask.to(dtype=torch.float, device=self.config.device),
+                        attention_mask.to(dtype=torch.float),
                         pad_shape,
                         value=0.0,
                     )
@@ -71,14 +71,15 @@ class DataCollator:
                 pad_value = False if attention_bias.dtype == torch.bool else float("-inf")
                 all_attention_bias.append(
                     F.pad(
-                        attention_bias.to(device=self.config.device),
+                        attention_bias,
                         pad_shape + pad_shape,
                         value=pad_value,
                     )
                 )
 
-        return {
-            "input_ids": cast(torch.LongTensor, torch.stack(all_input_ids)),
-            "attention_mask": None if not all_attention_mask else torch.stack(all_attention_mask),
-            "attention_bias": None if not all_attention_bias else torch.stack(all_attention_bias),
-        }
+        out = {"input_ids": torch.stack(all_input_ids)}
+        if all_attention_mask:
+            out["attention_mask"] = torch.stack(all_attention_mask)
+        if all_attention_bias:
+            out["attention_bias"] = torch.stack(all_attention_bias)
+        return out  # type: ignore

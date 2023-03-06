@@ -60,9 +60,10 @@ jobs:
 
           - python: '3.10'
             task:
-              name: Prepare mmap dataset
+              name: Train pipeline
               run: |
-                python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/out.npy --validate
+                python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/c4-sample.npy --validate
+                composer scrips/train.py test_fixtures/train_tiny.yaml
 
     steps:
       - uses: actions/checkout@v3

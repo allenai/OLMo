@@ -15,13 +15,13 @@ from composer.models import ComposerModel
 from torchmetrics import Metric
 
 from .aliases import BatchDict
-from .config import Config
+from .config import ModelConfig
 
-__all__ = ["SelfAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
+__all__ = ["SelfAttention", "GPTMLP", "GPTBlock", "DolmaGPT", "ComposerDolmaGPT"]
 
 
 class SelfAttention(nn.Module):
-    def __init__(self, config: Config):
+    def __init__(self, config: ModelConfig):
         super().__init__()
         assert config.d_model % config.n_heads == 0
         self.n_heads = config.n_heads
@@ -92,7 +92,7 @@ class SelfAttention(nn.Module):
 
 
 class GPTMLP(nn.Module):
-    def __init__(self, config: Config):
+    def __init__(self, config: ModelConfig):
         super().__init__()
         self.c_fc = nn.Linear(config.d_model, config.mlp_ratio * config.d_model, device=config.init_device)
         self.act = nn.GELU(approximate="none")
@@ -105,7 +105,7 @@ class GPTMLP(nn.Module):
 
 
 class GPTBlock(nn.Module):
-    def __init__(self, config: Config):
+    def __init__(self, config: ModelConfig):
         super().__init__()
         self.ln_1 = nn.LayerNorm(config.d_model, device=config.init_device)
         self.attn = SelfAttention(config)
@@ -131,7 +131,7 @@ class DolmaGPTOutput(NamedTuple):
 
 
 class DolmaGPT(nn.Module):
-    def __init__(self, config: Config, init_params: bool = True):
+    def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
         self.config = config
         self.transformer = nn.ModuleDict(
@@ -383,7 +383,7 @@ class DolmaGPT(nn.Module):
 
 
 class ComposerDolmaGPT(ComposerModel):
-    def __init__(self, config: Config):
+    def __init__(self, config: ModelConfig):
         super().__init__()
         self.model = DolmaGPT(config)
         self.train_metrics = {
