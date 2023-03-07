@@ -18,7 +18,6 @@ env:
   CACHE_PREFIX: v0
   PYTHONPATH: ./
   TOKENIZERS_PARALLELISM: 'false'
-  BEAKER_TOKEN: ${{ secrets.BEAKER_TOKEN }}
 
 jobs:
   checks:
@@ -107,8 +106,8 @@ jobs:
     name: GPU Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: env.BEAKER_TOKEN != ''
     env:
+      BEAKER_TOKEN: ${{ secrets.BEAKER_TOKEN }}
       BEAKER_IMAGE: dolma-test
       BEAKER_WORKSPACE: ai2/llm-testing
     steps:
@@ -124,6 +123,7 @@ jobs:
 
       - name: GPU Tests
         uses: allenai/beaker-run-action@v1.2
+        if: env.BEAKER_TOKEN != ''
         with:
           spec: |
             version: v2
