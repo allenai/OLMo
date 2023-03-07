@@ -50,6 +50,7 @@ def set_env_variables():
 
 
 def prepare_cli_environment():
+    rich.reconfigure(width=max(rich.get_console().width, 180))
     install_excepthook()
     filter_warnings()
     set_env_variables()
