@@ -20,10 +20,10 @@ gantry run \
   --env-secret WANDB_API_KEY=WANDB_API_KEY \
   --venv base \
   --nfs \
-  --priority normal \
-  --gpus 2 \
+  --priority preemptible \
+  --gpus 8 \
   --beaker-image dolma-gantry \
-  --cluster ai2/general-cirrascale \
+  --cluster 'ai2/*-cirrascale' \
   --allow-dirty \
-  -- composer scripts/train.py configs/1.3b-c4.yaml
+  -- composer scripts/train.py configs/1.2b-c4.yaml
 ```

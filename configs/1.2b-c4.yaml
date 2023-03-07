@@ -1,4 +1,4 @@
-run_name: 1.3b-c4-run-001
+run_name: 1.2b-c4-run-001
 seed: 6198
 dry_run: false
 
@@ -13,7 +13,7 @@ model:
   attention_layer_norm: true
   residual_dropout: 0.1
   embedding_dropout: 0.1
-  max_sequence_length: 2048
+  max_sequence_length: 1024
   vocab_size: 50257
   eos_token_id: 50256
   pad_token_id: 50256
