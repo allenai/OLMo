@@ -2,9 +2,12 @@ import math
 import os
 import sys
 import warnings
+from datetime import datetime
 from typing import Any, Tuple, Union
 
 import rich
+from rich.text import Text
+from rich.traceback import Traceback
 
 from .config import TrainConfig
 from .exceptions import DolmaCliError, DolmaConfigurationError, DolmaError
@@ -14,15 +17,12 @@ def excepthook(exctype, value, traceback):
     """
     Used to patch `sys.excepthook` in order to log exceptions.
     """
-    from rich import print
-    from rich.traceback import Traceback
-
     if isinstance(value, DolmaCliError):
-        print(f"[yellow]{value}[/]", file=sys.stderr)
+        echo.print(f"[yellow]{value}[/]")
     elif isinstance(value, DolmaError):
-        print(f"[b red]{exctype.__name__}:[/] {value}", file=sys.stderr)
+        echo.error(f"[red]{exctype.__name__}:[/] {value}")
     else:
-        print(Traceback.from_exception(exctype, value, traceback), file=sys.stderr)
+        echo.exception(exctype, value, traceback)
 
 
 def install_excepthook():
@@ -118,12 +118,52 @@ def update_batch_size_info(cfg: TrainConfig):
 
 
 class echo:
-    print = rich.print
+    ERROR = "ERROR"
+    WARNING = "WARNING"
+    INFO = "INFO"
+    DEBUG = "DEBUG"
 
     @classmethod
-    def info(cls, *msgs: Any):
-        cls.print("[blue]\N{information source}[/]", *msgs)
+    def get_time_text(cls) -> Text:
+        time_str = datetime.now().strftime("[%x %X]")
+        return Text(time_str, style="log.time", end=" ")
 
     @classmethod
-    def success(cls, *msgs: Any):
-        cls.print("[green]\N{check mark}[/]", *msgs)
+    def get_level_text(cls, level: str) -> Text:
+        level_text = Text.styled(level.upper().ljust(8), f"logging.level.{level.lower()}")
+        level_text.style = "log.level"
+        level_text.end = " "
+        return level_text
+
+    @classmethod
+    def print(cls, *args, file=sys.stdout):
+        rich.print(*args, file=file)
+
+    @classmethod
+    def emit(cls, level: str, *args, file=sys.stdout):
+        cls.print(cls.get_time_text(), cls.get_level_text(level), *args, file=file)
+
+    @classmethod
+    def debug(cls, *args: Any):
+        cls.emit(cls.DEBUG, *args)
+
+    @classmethod
+    def info(cls, *args: Any):
+        cls.emit(cls.INFO, *args)
+
+    @classmethod
+    def warning(cls, *args: Any):
+        cls.emit(cls.WARNING, *args, file=sys.stderr)
+
+    @classmethod
+    def error(cls, *args: Any):
+        cls.emit(cls.ERROR, *args, file=sys.stderr)
+
+    @classmethod
+    def exception(cls, exctype, value, traceback):
+        tb = Traceback.from_exception(exctype, value, traceback)
+        cls.error(tb)
+
+    @classmethod
+    def success(cls, *args: Any):
+        cls.info("[green]\N{check mark}[/]", *args)
