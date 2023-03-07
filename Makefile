@@ -39,6 +39,10 @@ test-image :
 show-test-image :
 	@echo $(TEST_IMAGE)
 
+.PHONY : show-gantry-image
+show-gantry-image :
+	@echo $(GANTRY_IMAGE)
+
 .PHONY : show-beaker-workspace
 show-beaker-workspace :
 	@echo $(BEAKER_WORKSPACE)

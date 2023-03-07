@@ -20,6 +20,7 @@ composer scripts/train.py train_config.yaml ...
 
 import os
 import sys
+from typing import Any, Dict
 
 from dolma import SchedulerConfig, TrainConfig
 from dolma.data import build_dataloader
@@ -42,6 +43,23 @@ def build_scheduler(cfg: SchedulerConfig):
         return LinearWithWarmupScheduler(t_warmup=cfg.t_warmup, alpha_f=cfg.alpha_f)
     else:
         raise DolmaConfigurationError(f"Not sure how to build scheduler: {cfg.name}")
+
+
+def build_algorithm(name: str, kwargs: Dict[str, Any]):
+    from composer import algorithms
+
+    if name == "gradient_clipping":
+        return algorithms.GradientClipping(**kwargs)
+    #  elif name == 'alibi':
+    #      return algorithms.Alibi(**kwargs)
+    elif name == "fused_layernorm":
+        return algorithms.FusedLayerNorm(**kwargs)
+    elif name == "gated_linear_units":
+        return algorithms.GatedLinearUnits(**kwargs)
+    elif name == "low_precision_layernorm":
+        return algorithms.LowPrecisionLayerNorm(**kwargs)
+    else:
+        raise ValueError(f"Not sure how to build algorithm: {name}")
 
 
 def main(cfg: TrainConfig) -> None:
@@ -70,6 +88,8 @@ def main(cfg: TrainConfig) -> None:
 
     # Model.
     model = ComposerDolmaGPT(cfg.model)
+    echo.info(f"Total number of parameters: {model.model.num_params():,d}")
+    echo.info(f"Number of non-embedding parameters: {model.model.num_params(include_embedding=False):,d}")
 
     # Optimizer.
     optimizer = model.model.configure_optimizer(**cfg.optimizer.asdict())
@@ -79,6 +99,9 @@ def main(cfg: TrainConfig) -> None:
 
     # Dataset / data loader.
     train_loader = build_dataloader(cfg, cfg.device_train_batch_size)
+
+    # Algorithms
+    algorithms = [build_algorithm(name, algorithm_cfg) for name, algorithm_cfg in (cfg.algorithms or {}).items()]
 
     # Trainer.
     trainer = Trainer(
@@ -104,7 +127,7 @@ def main(cfg: TrainConfig) -> None:
         load_weights_only=cfg.load_weights_only,
         callbacks=[SpeedMonitorMFU()],
         loggers=[WandBLogger(**cfg.wandb.asdict())] if cfg.wandb is not None else [],
-        #  algorithms=algorithms,
+        algorithms=algorithms,
     )
 
     if not cfg.dry_run:
