@@ -142,7 +142,6 @@ class DolmaGPT(nn.Module):
             self.transformer.update(
                 {"wpe": nn.Embedding(config.max_sequence_length, config.d_model, device=config.init_device)}
             )
-        self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False, device=config.init_device)
         if init_params and self.config.init_device != "meta":
             self.apply(self.param_init_fn)
         self.__num_fwd_flops = None
@@ -275,7 +274,7 @@ class DolmaGPT(nn.Module):
 
         # Get logits.
         # shape: (batch_size, seq_len, vocab_size)
-        logits = self.lm_head(x)  # type: ignore
+        logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
 
         return DolmaGPTOutput(logits=cast(torch.FloatTensor, logits))
 
