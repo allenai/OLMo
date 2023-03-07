@@ -1,0 +1,96 @@
+run_name: "1.3b-c4-run-001"
+seed: 6198
+dry_run: false
+
+model:
+  d_model: 2048
+  n_heads: 16
+  n_layers: 24
+  mlp_ratio: 4
+  alibi: true
+  alibi_bias_max: 8.0
+  attention_dropout: 0.1
+  attention_layer_norm: true
+  residual_dropout: 0.1
+  embedding_dropout: 0.1
+  max_sequence_length: 2048
+  vocab_size: 50257
+  eos_token_id: 50256
+  pad_token_id: 50256
+  init_device: meta
+  init_std: 0.02
+
+optimizer:
+  learning_rate: 2.0e-4
+  weight_decay: 0.01
+  betas:
+  - 0.9
+  - 0.95
+  eps: 1.0e-08
+
+scheduler:
+  name: cosine_with_warmup
+  t_warmup: 100ba
+  alpha_f: 0.1
+
+algorithms:
+  gradient_clipping:
+    clipping_type: norm
+    clipping_threshold: 1.0
+
+data:
+  paths:
+  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00000-00099.npy
+  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00400-00499.npy
+  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00800-00899.npy
+  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00100-00199.npy
+  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00500-00599.npy
+  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00900-00999.npy
+  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00200-00299.npy
+  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00600-00699.npy
+  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.01000-01023.npy
+  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00300-00399.npy
+  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00700-00799.npy
+  pad_direction: right
+  num_workers: 2
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 2
+  persistent_workers: true
+  timeout: 0
+
+tokenizer:
+  identifier: gpt2
+  truncate_direction: right
+
+max_duration: 24800ba # ~ 26B tokens
+
+save_folder: ./
+save_interval: 1000ba
+save_num_checkpoints_to_keep: 2
+save_overwrite: false
+
+load_path: null
+load_weights_only: false
+
+global_train_batch_size: 512
+device_train_batch_size: auto
+device_train_microbatch_size: auto
+device_train_grad_accum: auto
+device_eval_batch_size: null
+
+n_gpus: null
+
+precision: null
+
+fsdp_config:
+  sharding_strategy: FULL_SHARD
+  mixed_precision: DEFAULT
+  activation_checkpointing: false
+  activation_cpu_offload: false
+  verbose: false
+
+wandb:
+  project: petew-benchmarks
+  entity: ai2-llm
+  name: ${run_name}

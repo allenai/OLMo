@@ -378,6 +378,15 @@ class DolmaGPT(nn.Module):
             torch.nn.init.zeros_(module.bias)
             torch.nn.init.ones_(module.weight)
 
+    def num_params(self, include_embedding: bool = True) -> int:
+        """
+        Get the total number of parameters.
+        """
+        params = (np for np in self.named_parameters())
+        if not include_embedding:
+            params = filter(lambda np: ".wte." not in np[0] and ".wpe." not in np[0], params)
+        return sum(p.numel() for _, p in params)
+
     @property
     def num_fwd_flops(self):
         if self.__num_fwd_flops:

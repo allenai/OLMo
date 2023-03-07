@@ -56,10 +56,11 @@ def prepare_cli_environment():
 
 
 def clean_opt(arg: str) -> str:
-    arg = arg.strip("-").replace("-", "_")
     if "=" not in arg:
         arg = f"{arg}=True"
-    return arg
+    name, val = arg.split("=", 1)
+    name = name.strip("-").replace("-", "_")
+    return f"{name}={val}"
 
 
 def calculate_batch_size_info(
