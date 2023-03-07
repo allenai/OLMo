@@ -46,6 +46,7 @@ def build_scheduler(cfg: SchedulerConfig):
 
 def main(cfg: TrainConfig) -> None:
     from composer import Trainer
+    from composer.loggers import WandBLogger
     from composer.utils import dist, get_device, reproducibility
 
     from dolma.composer import ComposerDolmaGPT, SpeedMonitorMFU
@@ -92,9 +93,6 @@ def main(cfg: TrainConfig) -> None:
         #  eval_subset_num_batches=cfg.get('eval_subset_num_batches', -1),
         max_duration=cfg.max_duration,
         console_log_interval="1ba",
-        #  loggers=loggers,
-        #  callbacks=callbacks,
-        #  algorithms=algorithms,
         precision=cfg.precision,
         device_train_microbatch_size=cfg.device_train_microbatch_size,
         fsdp_config=cfg.fsdp_config,
@@ -105,6 +103,8 @@ def main(cfg: TrainConfig) -> None:
         load_path=cfg.load_path,
         load_weights_only=cfg.load_weights_only,
         callbacks=[SpeedMonitorMFU()],
+        loggers=[WandBLogger(**cfg.wandb.asdict())] if cfg.wandb is not None else [],
+        #  algorithms=algorithms,
     )
 
     if not cfg.dry_run:

@@ -207,6 +207,18 @@ class TokenizerConfig(BaseConfig):
 
 
 @dataclass
+class WandbConfig(BaseConfig):
+    project: Optional[str] = None
+    entity: Optional[str] = "ai2-llm"
+    group: Optional[str] = None
+    name: Optional[str] = None
+    tags: Optional[List[str]] = None
+    log_artifacts: bool = False
+    rank_zero_only: bool = True
+    init_kwargs: Optional[Dict[str, Any]] = None
+
+
+@dataclass
 class TrainConfig(BaseConfig):
     """
     DOLMA training configuration.
@@ -235,6 +247,7 @@ class TrainConfig(BaseConfig):
     precision: Optional[str] = None
     fsdp_config: Optional[Dict[str, Any]] = None
     dry_run: bool = False
+    wandb: Optional[WandbConfig] = None
 
     @property
     def device(self) -> Optional[str]:
