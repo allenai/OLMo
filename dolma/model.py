@@ -384,7 +384,10 @@ class DolmaGPT(nn.Module):
         """
         params = (np for np in self.named_parameters())
         if not include_embedding:
-            params = filter(lambda np: ".wte." not in np[0] and ".wpe." not in np[0], params)
+            params = filter(  # type: ignore
+                lambda np: ".wte." not in np[0] and ".wpe." not in np[0],
+                params,
+            )
         return sum(p.numel() for _, p in params)
 
     @property
