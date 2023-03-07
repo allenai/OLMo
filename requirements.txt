@@ -11,3 +11,4 @@ rich
 cached-path
 beaker-gantry
 omegaconf
+wandb
