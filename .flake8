@@ -7,6 +7,8 @@ ignore =
     E203
     # line break before binary operator
     W503
+    # line too long, who cares?
+    E501
 
 exclude =
     .venv

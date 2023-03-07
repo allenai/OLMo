@@ -145,6 +145,7 @@ class DolmaGPT(nn.Module):
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False, device=config.init_device)
         if init_params and self.config.init_device != "meta":
             self.apply(self.param_init_fn)
+        self.__num_fwd_flops = None
 
     @property
     def causal_attention_bias(self) -> torch.FloatTensor:
@@ -376,3 +377,20 @@ class DolmaGPT(nn.Module):
         if isinstance(module, nn.LayerNorm):
             torch.nn.init.zeros_(module.bias)
             torch.nn.init.ones_(module.weight)
+
+    @property
+    def num_fwd_flops(self):
+        if self.__num_fwd_flops:
+            return self.__num_fwd_flops
+        n_params = sum(p.numel() for p in self.parameters())
+        # the number of parameters is approximately the number of multiply-accumulates (MAC) in the network
+        # each MAC has 2 FLOPs - we multiply by 2 ie 2 * n_param
+        # this gets us FLOPs / token
+        params_flops_per_token = 2 * n_params
+        params_flops_per_seq = params_flops_per_token * self.config.max_sequence_length
+        # there are 2 FLOPS per mac; there is A=Q*K^T and out=A*V ops (ie mult by 2)
+        attn_flops_per_seq = (
+            self.config.n_layers * 2 * 2 * (self.config.d_model * (self.config.max_sequence_length**2))
+        )
+        self.__num_fwd_flops = params_flops_per_seq + attn_flops_per_seq
+        return self.__num_fwd_flops

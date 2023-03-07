@@ -48,7 +48,7 @@ def main(cfg: TrainConfig) -> None:
     from composer import Trainer
     from composer.utils import dist, get_device, reproducibility
 
-    from dolma.composer import ComposerDolmaGPT
+    from dolma.composer import ComposerDolmaGPT, SpeedMonitorMFU
 
     echo.info("Configuration:", cfg)
 
@@ -104,6 +104,7 @@ def main(cfg: TrainConfig) -> None:
         save_overwrite=cfg.save_overwrite,
         load_path=cfg.load_path,
         load_weights_only=cfg.load_weights_only,
+        callbacks=[SpeedMonitorMFU()],
     )
 
     if not cfg.dry_run:
