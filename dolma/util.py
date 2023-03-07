@@ -50,16 +50,18 @@ def set_env_variables():
 
 
 def prepare_cli_environment():
+    rich.reconfigure(width=max(rich.get_console().width, 180))
     install_excepthook()
     filter_warnings()
     set_env_variables()
 
 
 def clean_opt(arg: str) -> str:
-    arg = arg.strip("-").replace("-", "_")
     if "=" not in arg:
         arg = f"{arg}=True"
-    return arg
+    name, val = arg.split("=", 1)
+    name = name.strip("-").replace("-", "_")
+    return f"{name}={val}"
 
 
 def calculate_batch_size_info(
