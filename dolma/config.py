@@ -207,6 +207,17 @@ class DataConfig(BaseConfig):
     persistent_workers: bool = True
     timeout: int = 0
 
+    def __post_init__(self):
+        from glob import glob
+
+        final_paths = []
+        for path in self.paths:
+            matching_paths = glob(path, recursive=True)
+            if not matching_paths:
+                raise FileNotFoundError(f"'{path}' did not match any files or directories")
+            final_paths.extend(matching_paths)
+        self.paths = final_paths
+
 
 class TruncationDirection(StrEnum):
     right = "right"

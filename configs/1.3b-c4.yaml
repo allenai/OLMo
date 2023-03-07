@@ -1,4 +1,4 @@
-run_name: "1.3b-c4-run-001"
+run_name: 1.3b-c4-run-001
 seed: 6198
 dry_run: false
 
@@ -40,17 +40,7 @@ algorithms:
 
 data:
   paths:
-  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00000-00099.npy
-  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00400-00499.npy
-  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00800-00899.npy
-  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00100-00199.npy
-  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00500-00599.npy
-  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00900-00999.npy
-  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00200-00299.npy
-  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00600-00699.npy
-  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.01000-01023.npy
-  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00300-00399.npy
-  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00700-00799.npy
+  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.*.npy
   pad_direction: right
   num_workers: 2
   drop_last: true
@@ -65,7 +55,7 @@ tokenizer:
 
 max_duration: 24800ba # ~ 26B tokens
 
-save_folder: ./
+save_folder: /results
 save_interval: 1000ba
 save_num_checkpoints_to_keep: 2
 save_overwrite: false
