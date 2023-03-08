@@ -121,7 +121,7 @@ class FlashAttention(DolmaAttentionBase):
 
         super().__init__(config)
 
-        assert self.d_model / self.n_heads == 128, "FlashAttention requires head dim of 128 for now"
+        assert self.d_model / self.n_heads in {64, 128}, "FlashAttention requires head dim of 64 or 128 for now"
         assert config.attention_dropout == 0, "FlashAttention does not support attention dropout for now"
         self.flash_attn_qkvpacked_func = flash_attn_triton.flash_attn_qkvpacked_func
 

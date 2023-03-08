@@ -43,6 +43,7 @@ from dolma.data import DataCollator
             id="alibi-emb-flash-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
+                pytest.mark.xfail(reason="triton bug with bf16"),
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
             ),
         ),
@@ -52,6 +53,29 @@ from dolma.data import DataCollator
             True,
             torch.bfloat16,
             id="posit-emb-flash-cuda-bf16",
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.xfail(reason="triton bug with bf16"),
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+            ),
+        ),
+        pytest.param(
+            True,
+            True,
+            True,
+            torch.float16,
+            id="alibi-emb-flash-cuda-f16",
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+            ),
+        ),
+        pytest.param(
+            False,
+            True,
+            True,
+            torch.float16,
+            id="posit-emb-flash-cuda-f16",
             marks=(
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
@@ -67,7 +91,6 @@ def test_forward(
     train_config.model.alibi = alibi
     train_config.model.flash_attention = flash_attn
     if flash_attn:
-        train_config.model.d_model = 256
         train_config.model.attention_dropout = 0.0
     if cuda:
         train_config.model.init_device = "cuda"
