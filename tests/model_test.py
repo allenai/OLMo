@@ -7,15 +7,40 @@ from dolma.data import DataCollator
 
 
 @pytest.mark.parametrize(
-    "alibi, cuda, flash_attn",
+    "alibi, flash_attn, cuda, dtype",
     [
-        pytest.param(True, False, False, id="alibi-emb-cpu"),
-        pytest.param(False, False, False, id="posit-emb-cpu"),
+        pytest.param(True, False, False, torch.bfloat16, id="alibi-emb-cpu-bf16"),
+        pytest.param(False, False, False, torch.bfloat16, id="posit-emb-cpu-bf16"),
+        pytest.param(True, False, False, torch.float32, id="alibi-emb-cpu-f32"),
+        pytest.param(False, False, False, torch.float32, id="posit-emb-cpu-f32"),
+        pytest.param(
+            True,
+            False,
+            True,
+            torch.bfloat16,
+            id="alibi-emb-cuda-bf16",
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+            ),
+        ),
+        pytest.param(
+            False,
+            False,
+            True,
+            torch.bfloat16,
+            id="posit-emb-cuda-bf16",
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+            ),
+        ),
         pytest.param(
             True,
             True,
-            False,
-            id="alibi-emb-cuda",
+            True,
+            torch.bfloat16,
+            id="alibi-emb-flash-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
@@ -24,28 +49,9 @@ from dolma.data import DataCollator
         pytest.param(
             False,
             True,
-            False,
-            id="posit-emb-cuda",
-            marks=(
-                pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
-            ),
-        ),
-        pytest.param(
             True,
-            True,
-            True,
-            id="alibi-emb-cuda-flash",
-            marks=(
-                pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
-            ),
-        ),
-        pytest.param(
-            False,
-            True,
-            True,
-            id="posit-emb-cuda-flash",
+            torch.bfloat16,
+            id="posit-emb-flash-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
@@ -53,7 +59,9 @@ from dolma.data import DataCollator
         ),
     ],
 )
-def test_forward(train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, cuda: bool, flash_attn: bool):
+def test_forward(
+    train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, flash_attn: bool, cuda: bool, dtype
+):
     torch.manual_seed(0)
 
     train_config.model.alibi = alibi
@@ -65,6 +73,8 @@ def test_forward(train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, c
         train_config.model.init_device = "cuda"
     else:
         train_config.model.init_device = "cpu"
+
+    use_amp = dtype in {torch.float16, torch.bfloat16}
 
     model = DolmaGPT(train_config.model).eval()
 
@@ -80,40 +90,61 @@ def test_forward(train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, c
         k: v.to(device=train_config.device) if isinstance(v, torch.Tensor) else v for k, v in batch_inputs.items()
     }
 
-    # Check that logits from individual inputs are equal to logits from batch.
+    # Run forward pass.
     with torch.inference_mode():
-        output1 = model(torch.tensor(input1, device=train_config.device).unsqueeze(0))
-        output2 = model(torch.tensor(input2, device=train_config.device).unsqueeze(0))
-        batch_output = model(**batch_inputs)
+        with torch.autocast(
+            device_type="cuda" if cuda else "cpu", enabled=use_amp, dtype=None if not use_amp else dtype
+        ):
+            output1 = model(torch.tensor(input1, device=train_config.device).unsqueeze(0))
+            output2 = model(torch.tensor(input2, device=train_config.device).unsqueeze(0))
+            batch_output = model(**batch_inputs)
 
-    torch.testing.assert_close(output1.logits[0][: len(input1)], batch_output.logits[0][: len(input1)])
-    torch.testing.assert_close(output2.logits[0][: len(input2)], batch_output.logits[1][: len(input2)])
+    # Check that logits from individual inputs are equal to logits from batch.
+    # With using half-precision types these might have some big differences in a small
+    # percentage of the elements.
+    if not use_amp:
+        torch.testing.assert_close(output1.logits[0][: len(input1)], batch_output.logits[0][: len(input1)])
+        torch.testing.assert_close(output2.logits[0][: len(input2)], batch_output.logits[1][: len(input2)])
 
 
 @pytest.mark.parametrize(
-    "alibi, cuda", [pytest.param(True, False, id="alibi-emb-cpu"), pytest.param(False, False, id="posit-emb-cpu")]
+    "alibi, cuda, dtype",
+    [
+        pytest.param(True, False, torch.bfloat16, id="alibi-emb-cpu-bf16"),
+        pytest.param(False, False, torch.bfloat16, id="posit-emb-cpu-bf16"),
+    ],
 )
-def test_backward(train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, cuda: bool):
+def test_backward(train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, cuda: bool, dtype):
     torch.manual_seed(0)
+
+    use_amp = dtype in {torch.float16, torch.bfloat16}
+    scaler = None if not (cuda and use_amp) else torch.cuda.amp.GradScaler()
 
     train_config.model.alibi = alibi
     if cuda:
         train_config.model.init_device = "cuda"
     else:
         train_config.model.init_device = "cpu"
+
     model = DolmaGPT(train_config.model).train()
 
-    # Forward pass to get logits.
-    input_ids = torch.tensor(tokenizer.encode("My name is DOLMA!"), device=train_config.device).unsqueeze(0)
-    logits = model(input_ids).logits
+    with torch.autocast(
+        device_type="cuda" if cuda else "cpu", enabled=use_amp, dtype=None if not use_amp else dtype
+    ):
+        # Forward pass to get logits.
+        input_ids = torch.tensor(tokenizer.encode("My name is DOLMA!"), device=train_config.device).unsqueeze(0)
+        logits = model(input_ids).logits
 
-    # Compute loss.
-    shift_logits = logits[..., :-1, :].contiguous()
-    shift_labels = input_ids[..., 1:].contiguous()
-    loss = CrossEntropyLoss()(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+        # Compute loss.
+        shift_logits = logits[..., :-1, :].contiguous()
+        shift_labels = input_ids[..., 1:].contiguous()
+        loss = CrossEntropyLoss()(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
 
     # Backward pass.
-    loss.backward()
+    if scaler is not None:
+        scaler.scale(loss).backward()  # type: ignore
+    else:
+        loss.backward()
 
     # Check gradients.
     for name, parameter in model.named_parameters():
