@@ -1,7 +1,7 @@
 # NOTE: when upgrading requirements here you may have to rebuild and push some
 # Docker images. See each Dockerfile for details on how to do that.
 numpy
-torch
+torch>=1.12.1
 # bug with 0.13.0, see https://github.com/mosaicml/composer/issues/2030
 mosaicml!=0.13.0
 torchmetrics
