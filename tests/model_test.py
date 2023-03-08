@@ -123,9 +123,14 @@ def test_forward(
     # Check that logits from individual inputs are equal to logits from batch.
     # With using half-precision types these might have some big differences in a small
     # percentage of the elements.
-    if not use_amp:
-        torch.testing.assert_close(output1.logits[0][: len(input1)], batch_output.logits[0][: len(input1)])
-        torch.testing.assert_close(output2.logits[0][: len(input2)], batch_output.logits[1][: len(input2)])
+    atol = 1e-2 if use_amp else None
+    rtol = 1e3 if use_amp else None
+    torch.testing.assert_close(
+        output1.logits[0][: len(input1)], batch_output.logits[0][: len(input1)], rtol=rtol, atol=atol
+    )
+    torch.testing.assert_close(
+        output2.logits[0][: len(input2)], batch_output.logits[1][: len(input2)], rtol=rtol, atol=atol
+    )
 
 
 @pytest.mark.parametrize(
