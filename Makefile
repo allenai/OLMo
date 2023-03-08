@@ -24,16 +24,20 @@ beaker-info :
 .PHONY : images
 images : gantry-image test-image
 
+PHONY : base-image
+base-image :
+	docker build -f docker/Dockerfile.base -t $(IMAGE_NAME_BASE)-base .
+
 .PHONY : gantry-image
-gantry-image :
-	docker build -f Dockerfile.gantry -t $(IMAGE_NAME_BASE)-gantry .
+gantry-image : base-image
+	docker build -f docker/Dockerfile.gantry -t $(IMAGE_NAME_BASE)-gantry .
 	beaker image create $(IMAGE_NAME_BASE)-gantry --name $(IMAGE_NAME_BASE)-gantry-tmp --workspace $(BEAKER_WORKSPACE)
 	beaker image delete $(GANTRY_IMAGE) || true
 	beaker image rename $(BEAKER_USER)/$(IMAGE_NAME_BASE)-gantry-tmp $(IMAGE_NAME_BASE)-gantry
 
 .PHONY : test-image
-test-image :
-	docker build -f Dockerfile.test -t $(IMAGE_NAME_BASE)-test .
+test-image : base-image
+	docker build -f docker/Dockerfile.test -t $(IMAGE_NAME_BASE)-test .
 	beaker image create $(IMAGE_NAME_BASE)-test --name $(IMAGE_NAME_BASE)-test-tmp --workspace $(BEAKER_WORKSPACE)
 	beaker image delete $(TEST_IMAGE) || true
 	beaker image rename $(BEAKER_USER)/$(IMAGE_NAME_BASE)-test-tmp $(IMAGE_NAME_BASE)-test
