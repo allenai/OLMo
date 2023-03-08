@@ -149,7 +149,7 @@ class FlashAttention(DolmaAttentionBase):
 
         # Apply inner attention function.
         qkv = rearrange(qkv, "b s (t h d) -> b s t h d", t=3, h=self.n_heads)
-        y = self.flash_attn_qkvpacked_func(qkv, bias=attention_bias)
+        y = self.flash_attn_qkvpacked_func(qkv, attention_bias)
 
         # Re-assemble all head outputs side by side.
         y = rearrange(y, "b s h d -> b s (h d)")
