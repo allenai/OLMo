@@ -43,7 +43,7 @@ from dolma.data import DataCollator
             id="alibi-emb-flash-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
-                pytest.mark.xfail(reason="triton bug with bf16"),
+                #  pytest.mark.xfail(reason="triton bug with bf16"),
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
             ),
         ),
@@ -55,7 +55,7 @@ from dolma.data import DataCollator
             id="posit-emb-flash-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
-                pytest.mark.xfail(reason="triton bug with bf16"),
+                #  pytest.mark.xfail(reason="triton bug with bf16"),
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
             ),
         ),
