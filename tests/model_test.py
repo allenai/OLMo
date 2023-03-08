@@ -134,7 +134,7 @@ def test_forward(
 
 
 @pytest.mark.parametrize(
-    "alibi, flash, cuda, dtype",
+    "alibi, flash_attn, cuda, dtype",
     [
         pytest.param(True, False, False, torch.bfloat16, id="alibi-emb-cpu-bf16"),
         pytest.param(False, False, False, torch.bfloat16, id="posit-emb-cpu-bf16"),
