@@ -13,3 +13,6 @@ cached-path
 beaker-gantry
 omegaconf
 wandb
+# Can't install these on a CPU-onlyu environment:
+# triton
+# flash-attn
