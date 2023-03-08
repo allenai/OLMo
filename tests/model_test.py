@@ -90,11 +90,17 @@ def test_forward(train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, c
     torch.testing.assert_close(output2.logits[0][: len(input2)], batch_output.logits[1][: len(input2)])
 
 
-@pytest.mark.parametrize("alibi", [pytest.param(True, id="alibi-emb"), pytest.param(False, id="posit-emb")])
-def test_backward(train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool):
+@pytest.mark.parametrize(
+    "alibi, cuda", [pytest.param(True, False, id="alibi-emb-cpu"), pytest.param(False, False, id="posit-emb-cpu")]
+)
+def test_backward(train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, cuda: bool):
     torch.manual_seed(0)
 
     train_config.model.alibi = alibi
+    if cuda:
+        train_config.model.init_device = "cuda"
+    else:
+        train_config.model.init_device = "cpu"
     model = DolmaGPT(train_config.model).train()
 
     # Forward pass to get logits.
