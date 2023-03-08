@@ -103,6 +103,8 @@ class GPTMLP(nn.Module):
 class GPTBlock(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
+        if config.flash_attention:
+            raise NotImplementedError("flash attn not implemented yet")
         self.ln_1 = nn.LayerNorm(config.d_model, device=config.init_device)
         self.attn = SelfAttention(config)
         self.ln_2 = nn.LayerNorm(config.d_model, device=config.init_device)

@@ -101,17 +101,22 @@ class ModelConfig(BaseConfig):
 
     mlp_ratio: int = 4
     """
-    The ratio of the inner MLP dimensionality to `d_model`.
+    The ratio of the inner MLP dimensionality to ``d_model``.
     """
 
     alibi: bool = False
     """
-    If `True`, use ALiBi embeddings.
+    If ``True``, use ALiBi embeddings.
     """
 
     alibi_bias_max: float = 8.0
     """
     Maximum absolute value of ALiBi bias.
+    """
+
+    flash_attention: bool = False
+    """
+    If ``True``, use ``FlashAttention``.
     """
 
     attention_dropout: float = 0.1

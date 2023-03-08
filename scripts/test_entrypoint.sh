@@ -29,7 +29,6 @@ git checkout --quiet "$COMMIT_SHA"
 
 # Install dependencies.
 pip install --upgrade pip
-pip install https://github.com/HazyResearch/flash-attention/releases/download/v0.2.8/flash_attn-0.2.8+cu116torch1.12.1-cp310-cp310-linux_x86_64.whl
 pip install --no-cache-dir '.[dev]'
 
 # Create directory for results.
