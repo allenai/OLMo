@@ -5,36 +5,59 @@ Adapted from
 """
 
 import math
+from abc import abstractmethod
 from typing import NamedTuple, Optional, cast
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from einops import rearrange
 
 from .config import ModelConfig
 
 __all__ = ["TorchAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
 
 
-class TorchAttention(nn.Module):
+class DolmaAttentionBase(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
         assert config.d_model % config.n_heads == 0
         self.n_heads = config.n_heads
         self.d_model = config.d_model
+
         # key, query, value projections for all heads, but in a batch
         self.c_attn = nn.Linear(config.d_model, 3 * config.d_model, device=config.init_device)
+        # for param init fn
+        self.c_attn._fused = (0, (self.d_model, 2 * self.d_model))  # type: ignore
+
         # output projection
         self.c_proj = nn.Linear(config.d_model, config.d_model, device=config.init_device)
+        # for param init fn
+        self.c_proj._is_residual = True  # type: ignore
+
         # regularization
         self.attn_dropout = nn.Dropout(config.attention_dropout)
         self.resid_dropout = nn.Dropout(config.residual_dropout)
+
         # optional layer norm for keys and queries.
         self.k_ln: Optional[nn.LayerNorm] = None
         self.q_ln: Optional[nn.LayerNorm] = None
         if config.attention_layer_norm:
             self.k_ln = nn.LayerNorm(self.d_model, device=config.init_device)
             self.q_ln = nn.LayerNorm(self.d_model, device=config.init_device)
+
+    @abstractmethod
+    def forward(
+        self,
+        x: torch.FloatTensor,
+        attention_bias: Optional[torch.FloatTensor] = None,
+    ) -> torch.FloatTensor:
+        raise NotImplementedError
+
+
+class TorchAttention(DolmaAttentionBase):
+    def __init__(self, config: ModelConfig):
+        super().__init__(config)
 
     def forward(
         self,
@@ -55,8 +78,9 @@ class TorchAttention(nn.Module):
 
         # Optionally apply layer norm to keys and queries.
         if self.k_ln is not None and self.q_ln is not None:
-            k = self.k_ln(k)
-            q = self.q_ln(q)
+            dtype = k.dtype
+            k = self.k_ln(k).to(dtype=dtype)
+            q = self.q_ln(q).to(dtype=dtype)
 
         # Move head forward to be next to the batch dim.
         # shape (all): (B, nh, T, hs)
@@ -87,16 +111,53 @@ class TorchAttention(nn.Module):
         return y
 
 
-class FlashAttention(nn.Module):
-    def __init__(self, config: ModelConfig):
-        super().__init__()
+class FlashAttention(DolmaAttentionBase):
+    """
+    Triton implementation of FlashAttention.
+    """
 
-    def forward(self, x: torch.FloatTensor, attention_mask: torch.BoolTensor) -> torch.FloatTensor:
+    def __init__(self, config: ModelConfig):
+        from flash_attn import flash_attn_triton  # type: ignore
+
+        super().__init__(config)
+
+        assert self.d_model / self.n_heads == 128, "FlashAttention requires head dim of 128 for now"
+        assert config.attention_dropout == 0, "FlashAttention does not support attention dropout for now"
+        self.flash_attn_qkvpacked_func = flash_attn_triton.flash_attn_qkvpacked_func
+
+    def forward(
+        self, x: torch.FloatTensor, attention_bias: Optional[torch.FloatTensor] = None
+    ) -> torch.FloatTensor:
         """
         :param x: A tensor of shape `(batch_size, seq_len, d_model)`.
-        :param attention_mask: A bool tensor of shape `(batch_size, seq_len)`.
+        :param attention_bias: A tensor of shape `(batch_size, n_heads, seq_len, seq_len)`
+            or an equivalently broadcastable shape. This is used to introduce causal or other biases
+            and it is simply added to the attention scores before the softmax.
         """
-        pass
+        # Calculate query, key, values for all heads in batch.
+        # shape: (batch_size, seq_length, d_model * 3)
+        qkv = self.c_attn(x)
+
+        # Optionally apply layer norm to keys and queries.
+        if self.q_ln is not None and self.k_ln is not None:
+            # Applying layernorm to qk
+            dtype = qkv.dtype
+            q, k, v = qkv.split(self.d_model, dim=-1)
+            q = self.q_ln(q).to(dtype=dtype)
+            k = self.k_ln(k).to(dtype=dtype)
+            qkv = torch.cat([q, k, v], dim=-1)
+
+        # Apply inner attention function.
+        qkv = rearrange(qkv, "b s (t h d) -> b s t h d", t=3, h=self.n_heads)
+        y = self.flash_attn_qkvpacked_func(qkv, bias=attention_bias)
+
+        # Re-assemble all head outputs side by side.
+        y = rearrange(y, "b s h d -> b s (h d)")
+
+        # Apply output projection.
+        y = self.resid_dropout(self.c_proj(y))
+
+        return y
 
 
 class GPTMLP(nn.Module):
@@ -119,23 +180,18 @@ class GPTBlock(nn.Module):
             raise NotImplementedError("flash attn not implemented yet")
         self.config = config
         self.ln_1 = nn.LayerNorm(config.d_model, device=config.init_device)
-        self.attn = TorchAttention(config)
+        self.attn: DolmaAttentionBase = (
+            FlashAttention(config) if config.flash_attention else TorchAttention(config)
+        )
         self.ln_2 = nn.LayerNorm(config.d_model, device=config.init_device)
         self.mlp = GPTMLP(config)
 
     def forward(
         self,
         x: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
         attention_bias: Optional[torch.FloatTensor] = None,
     ) -> torch.Tensor:
-        if self.config.flash_attention:
-            assert attention_bias is None
-            x = x + self.attn(self.ln_1(x), attention_mask=attention_mask)
-        else:
-            # mask should have been combined with the bias.
-            assert attention_mask is None
-            x = x + self.attn(self.ln_1(x), attention_bias=attention_bias)
+        x = x + self.attn(self.ln_1(x), attention_bias=attention_bias)
         x = x + self.mlp(self.ln_2(x))
         return x
 
@@ -379,16 +435,40 @@ class DolmaGPT(nn.Module):
 
         init_fn = partial(torch.nn.init.normal_, mean=0.0, std=self.config.init_std)
 
+        def fused_init_fn(module):
+            # Parameter initialization is often based on the parameters shape.
+            # If a layer is fused, initialization should be based on the shapes
+            # of the original tensor instead of the shape of the fused tensor.
+            # Layers which are fused should have the _fused attribute defined.
+            # The first element of _fused is the dimension along which the tensor is fused.
+            # This is followed by an iterable of split indices.
+            _fused = getattr(module, "_fused", None)
+            if _fused is None:
+                raise RuntimeError("Internal logic error")
+
+            dim, splits = _fused
+            splits = (0, *splits, module.weight.size(dim))
+            for s, e in zip(splits[:-1], splits[1:]):
+                slice_indices = [slice(None)] * module.weight.ndim
+                slice_indices[dim] = slice(s, e)
+                init_fn(module.weight[slice_indices])
+
         # Linear
         if isinstance(module, nn.Linear):
-            init_fn(module.weight)
+            if hasattr(module, "_fused"):
+                fused_init_fn(module)
+            else:
+                init_fn(module.weight)
+
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
 
             if getattr(module, "_is_residual", False):
-                module.weight.data.normal_(
-                    mean=0.0, std=(self.config.init_std / math.sqrt(2 * self.config.n_layers))
-                )
+                with torch.no_grad():
+                    module.weight.div_(math.sqrt(2 * self.config.n_layers))
+
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
 
         # Embedding
         if isinstance(module, nn.Embedding):
