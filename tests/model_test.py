@@ -134,19 +134,24 @@ def test_forward(
 
 
 @pytest.mark.parametrize(
-    "alibi, cuda, dtype",
+    "alibi, flash, cuda, dtype",
     [
-        pytest.param(True, False, torch.bfloat16, id="alibi-emb-cpu-bf16"),
-        pytest.param(False, False, torch.bfloat16, id="posit-emb-cpu-bf16"),
+        pytest.param(True, False, False, torch.bfloat16, id="alibi-emb-cpu-bf16"),
+        pytest.param(False, False, False, torch.bfloat16, id="posit-emb-cpu-bf16"),
     ],
 )
-def test_backward(train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, cuda: bool, dtype):
+def test_backward(
+    train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, flash_attn: bool, cuda: bool, dtype
+):
     torch.manual_seed(0)
 
     use_amp = dtype in {torch.float16, torch.bfloat16}
     scaler = None if not (cuda and use_amp) else torch.cuda.amp.GradScaler()
 
     train_config.model.alibi = alibi
+    train_config.model.flash_attention = flash_attn
+    if flash_attn:
+        train_config.model.attention_dropout = 0.0
     if cuda:
         train_config.model.init_device = "cuda"
     else:
