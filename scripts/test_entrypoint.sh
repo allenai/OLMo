@@ -29,6 +29,7 @@ git checkout --quiet "$COMMIT_SHA"
 
 # Install dependencies.
 pip install --upgrade pip
+pip install flash-attn
 pip install --no-cache-dir '.[dev]'
 
 # Create directory for results.
