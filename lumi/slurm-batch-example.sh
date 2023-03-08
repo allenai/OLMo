@@ -15,7 +15,7 @@
 
 module load LUMI/22.08 partition/G
 module load singularity-bindings
-#module load aws-ofi-rccl
+module load aws-ofi-rccl
 
 module load MyApp/1.2.3
 
