@@ -138,6 +138,50 @@ def test_forward(
     [
         pytest.param(True, False, False, torch.bfloat16, id="alibi-emb-cpu-bf16"),
         pytest.param(False, False, False, torch.bfloat16, id="posit-emb-cpu-bf16"),
+        pytest.param(
+            True,
+            False,
+            True,
+            torch.bfloat16,
+            id="alibi-emb-cuda-bf16",
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+            ),
+        ),
+        pytest.param(
+            False,
+            False,
+            True,
+            torch.bfloat16,
+            id="posit-emb-cuda-bf16",
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+            ),
+        ),
+        pytest.param(
+            True,
+            True,
+            True,
+            torch.bfloat16,
+            id="alibi-emb-flash-cuda-bf16",
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+            ),
+        ),
+        pytest.param(
+            False,
+            True,
+            True,
+            torch.bfloat16,
+            id="posit-emb-flash-cuda-bf16",
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+            ),
+        ),
     ],
 )
 def test_backward(
