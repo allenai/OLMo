@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union, cast
 
@@ -38,6 +38,19 @@ class StrEnum(str, Enum):
 
 
 class BaseConfig:
+    @classmethod
+    def new(cls: Type[C], overrides: Optional[List[str]] = None) -> C:
+        from omegaconf import OmegaConf
+        from omegaconf.errors import ConfigKeyError
+
+        conf = OmegaConf.structured(cls)
+        if overrides:
+            try:
+                conf = OmegaConf.merge(conf, OmegaConf.from_dotlist(overrides))
+            except ConfigKeyError as e:
+                raise DolmaConfigurationError(str(e))
+        return cast(C, OmegaConf.to_object(conf))
+
     @classmethod
     def load(cls: Type[C], path: PathOrStr, overrides: Optional[List[str]] = None) -> C:
         """Load from a YAML file."""
@@ -185,7 +198,7 @@ class PaddingDirection(StrEnum):
 
 @dataclass
 class DataConfig(BaseConfig):
-    paths: List[str]
+    paths: List[str] = field(default_factory=lambda: [])
     pad_direction: PaddingDirection = PaddingDirection.right
     num_workers: int = 0
     drop_last: bool = True
@@ -193,6 +206,17 @@ class DataConfig(BaseConfig):
     prefetch_factor: int = 2
     persistent_workers: bool = True
     timeout: int = 0
+
+    def __post_init__(self):
+        from glob import glob
+
+        final_paths = []
+        for path in self.paths:
+            matching_paths = glob(path, recursive=True)
+            if not matching_paths:
+                raise FileNotFoundError(f"'{path}' did not match any files or directories")
+            final_paths.extend(matching_paths)
+        self.paths = final_paths
 
 
 class TruncationDirection(StrEnum):
@@ -202,7 +226,7 @@ class TruncationDirection(StrEnum):
 
 @dataclass
 class TokenizerConfig(BaseConfig):
-    identifier: str
+    identifier: str = "gpt2"
     truncate_direction: TruncationDirection = TruncationDirection.right
 
 
@@ -224,29 +248,30 @@ class TrainConfig(BaseConfig):
     DOLMA training configuration.
     """
 
-    model: ModelConfig
-    optimizer: OptimizerConfig
-    scheduler: SchedulerConfig
-    data: DataConfig
-    tokenizer: TokenizerConfig
-    save_folder: str
+    run_name: Optional[str] = None
+    seed: int = 6198
+    dry_run: bool = False
+    model: ModelConfig = field(default_factory=ModelConfig)
+    optimizer: OptimizerConfig = field(default_factory=OptimizerConfig)
+    scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
+    algorithms: Optional[Dict[str, Dict[str, Any]]] = None
+    data: DataConfig = field(default_factory=DataConfig)
+    tokenizer: TokenizerConfig = field(default_factory=TokenizerConfig)
+    save_folder: str = "./"
     save_interval: Union[str, int] = "1ep"
     save_num_checkpoints_to_keep: int = -1
     save_overwrite: bool = False
     load_path: Optional[str] = None
     load_weights_only: bool = False
-    seed: int = 6198
-    run_name: Optional[str] = None
+    max_duration: Union[str, int] = "10ep"
     global_train_batch_size: int = 512
     device_train_batch_size: Union[str, int] = "auto"
     device_train_microbatch_size: Union[str, int] = "auto"
     device_train_grad_accum: Union[str, int] = "auto"
     device_eval_batch_size: Optional[int] = None
     n_gpus: Optional[int] = None
-    max_duration: Union[str, int] = "10ep"
     precision: Optional[str] = None
     fsdp_config: Optional[Dict[str, Any]] = None
-    dry_run: bool = False
     wandb: Optional[WandbConfig] = None
 
     @property
