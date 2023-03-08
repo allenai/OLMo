@@ -4,7 +4,7 @@
 # To build and push the image to Beaker, run 'make gantry-image'.
 # To test the image after pushing to Beaker, run 'make gantry-test'.
 
-FROM ghcr.io/allenai/pytorch:1.13.1-cuda11.7-python3.10
+FROM dolma-base
 
 WORKDIR /stage
 

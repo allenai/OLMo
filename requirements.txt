@@ -2,6 +2,7 @@
 # Docker images. See each Dockerfile for details on how to do that.
 numpy
 torch
+einops
 # bug with 0.13.0, see https://github.com/mosaicml/composer/issues/2030
 mosaicml!=0.13.0
 torchmetrics
@@ -12,3 +13,6 @@ cached-path
 beaker-gantry
 omegaconf
 wandb
+# Can't install these on a CPU-only environment:
+# triton
+# flash-attn
