@@ -6,7 +6,7 @@
 
 FROM ghcr.io/allenai/pytorch:1.13.1-cuda11.7-python3.10
 
-# Install flash attn from our pre-built wheel.
+# Install flash attn (and triton dependency) from our pre-built wheel.
 RUN /opt/conda/bin/pip install --no-cache-dir \
     triton \
     https://storage.googleapis.com/ai2-python-wheels/flash_attn/flash_attn-0.2.8%2Bcu117torch1.13.1-cp310-cp310-linux_x86_64.whl

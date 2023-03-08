@@ -7,13 +7,14 @@ from dolma.data import DataCollator
 
 
 @pytest.mark.parametrize(
-    "alibi, cuda",
+    "alibi, cuda, flash_attn",
     [
-        pytest.param(True, False, id="alibi-emb-cpu"),
-        pytest.param(False, False, id="posit-emb-cpu"),
+        pytest.param(True, False, False, id="alibi-emb-cpu"),
+        pytest.param(False, False, False, id="posit-emb-cpu"),
         pytest.param(
             True,
             True,
+            False,
             id="alibi-emb-cuda",
             marks=(
                 pytest.mark.gpu,
@@ -23,7 +24,28 @@ from dolma.data import DataCollator
         pytest.param(
             False,
             True,
+            False,
             id="posit-emb-cuda",
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+            ),
+        ),
+        pytest.param(
+            True,
+            True,
+            True,
+            id="alibi-emb-cuda-flash",
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+            ),
+        ),
+        pytest.param(
+            False,
+            True,
+            True,
+            id="posit-emb-cuda-flash",
             marks=(
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
@@ -31,10 +53,11 @@ from dolma.data import DataCollator
         ),
     ],
 )
-def test_forward(train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, cuda: bool):
+def test_forward(train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, cuda: bool, flash_attn: bool):
     torch.manual_seed(0)
 
     train_config.model.alibi = alibi
+    train_config.model.flash_attention = flash_attn
     if cuda:
         train_config.model.init_device = "cuda"
 
