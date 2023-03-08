@@ -21,7 +21,7 @@ from dolma.data import DataCollator
             id="alibi-emb-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
             ),
         ),
         pytest.param(
@@ -32,7 +32,7 @@ from dolma.data import DataCollator
             id="posit-emb-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
             ),
         ),
         pytest.param(
@@ -43,7 +43,7 @@ from dolma.data import DataCollator
             id="alibi-emb-flash-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
             ),
         ),
         pytest.param(
@@ -54,7 +54,7 @@ from dolma.data import DataCollator
             id="posit-emb-flash-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
             ),
         ),
         pytest.param(
@@ -65,7 +65,7 @@ from dolma.data import DataCollator
             id="alibi-emb-flash-cuda-f16",
             marks=(
                 pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
             ),
         ),
         pytest.param(
@@ -76,7 +76,7 @@ from dolma.data import DataCollator
             id="posit-emb-flash-cuda-f16",
             marks=(
                 pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
             ),
         ),
     ],
@@ -146,7 +146,7 @@ def test_forward(
             id="alibi-emb-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
             ),
         ),
         pytest.param(
@@ -157,7 +157,7 @@ def test_forward(
             id="posit-emb-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
             ),
         ),
         pytest.param(
@@ -168,7 +168,11 @@ def test_forward(
             id="alibi-emb-flash-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
+                pytest.mark.skipif(
+                    torch.cuda.device_count() < 1 or "A100" not in torch.cuda.get_device_name(),
+                    reason="Requires A100 GPU type",
+                ),
             ),
         ),
         pytest.param(
@@ -179,7 +183,11 @@ def test_forward(
             id="posit-emb-flash-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices"),
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
+                pytest.mark.skipif(
+                    torch.cuda.device_count() < 1 or "A100" not in torch.cuda.get_device_name(),
+                    reason="Requires A100 GPU type",
+                ),
             ),
         ),
     ],
