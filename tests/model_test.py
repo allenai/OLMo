@@ -60,6 +60,7 @@ def test_forward(train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, c
     train_config.model.flash_attention = flash_attn
     if flash_attn:
         train_config.model.d_model = 256
+        train_config.model.attention_dropout = 0.0
     if cuda:
         train_config.model.init_device = "cuda"
     else:
