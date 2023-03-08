@@ -21,6 +21,9 @@ beaker-info :
 	@echo "Gantry image:  $(GANTRY_IMAGE)"
 	@echo "Testing image: $(TEST_IMAGE)"
 
+.PHONY : images
+images : gantry-image test-image
+
 .PHONY : gantry-image
 gantry-image :
 	docker build -f Dockerfile.gantry -t $(IMAGE_NAME_BASE)-gantry .

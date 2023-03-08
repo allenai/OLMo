@@ -13,10 +13,10 @@ import torch.nn.functional as F
 
 from .config import ModelConfig
 
-__all__ = ["SelfAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
+__all__ = ["TorchAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
 
 
-class SelfAttention(nn.Module):
+class TorchAttention(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
         assert config.d_model % config.n_heads == 0
@@ -87,6 +87,18 @@ class SelfAttention(nn.Module):
         return y
 
 
+class FlashAttention(nn.Module):
+    def __init__(self, config: ModelConfig):
+        super().__init__()
+
+    def forward(self, x: torch.FloatTensor, attention_mask: torch.BoolTensor) -> torch.FloatTensor:
+        """
+        :param x: A tensor of shape `(batch_size, seq_len, d_model)`.
+        :param attention_mask: A bool tensor of shape `(batch_size, seq_len)`.
+        """
+        pass
+
+
 class GPTMLP(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
@@ -105,17 +117,25 @@ class GPTBlock(nn.Module):
         super().__init__()
         if config.flash_attention:
             raise NotImplementedError("flash attn not implemented yet")
+        self.config = config
         self.ln_1 = nn.LayerNorm(config.d_model, device=config.init_device)
-        self.attn = SelfAttention(config)
+        self.attn = TorchAttention(config)
         self.ln_2 = nn.LayerNorm(config.d_model, device=config.init_device)
         self.mlp = GPTMLP(config)
 
     def forward(
         self,
         x: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
         attention_bias: Optional[torch.FloatTensor] = None,
     ) -> torch.Tensor:
-        x = x + self.attn(self.ln_1(x), attention_bias=attention_bias)
+        if self.config.flash_attention:
+            assert attention_bias is None
+            x = x + self.attn(self.ln_1(x), attention_mask=attention_mask)
+        else:
+            # mask should have been combined with the bias.
+            assert attention_mask is None
+            x = x + self.attn(self.ln_1(x), attention_bias=attention_bias)
         x = x + self.mlp(self.ln_2(x))
         return x
 
