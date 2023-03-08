@@ -1,8 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=exampleJob
+#SBATCH --job-name=c4-1.2b
 #SBATCH --account=project_462000229
-#SBATCH --output=examplejob.o%j # Name of stdout output file
-#SBATCH --error=examplejob.e%j  # Name of stderr error file
+#SBATCH --output=~/logs/%j.log
 #SBATCH --nodes=1               # Total number of nodes 
 #SBATCH --ntasks-per-node=2
 #SBATCH --gpus-per-node=2       # Allocate one gpu per MPI rank
@@ -14,7 +13,7 @@
 #SBATCH --partition=small-g
 
 module load LUMI/22.08 partition/G
-module load singularity-bindings
+#module load singularity-bindings
 module load aws-ofi-rccl
 
 CPU_BIND="mask_cpu:7e000000000000,7e00000000000000"
@@ -37,5 +36,5 @@ export NCCL_DEBUG=INFO
 srun \
   --cpu-bind=${CPU_BIND} \
   --distribution=block:block \
-  ./run_with_slurm_device.sh singularity exec -B"$SCRATCH:$SCRATCH" /project/project_462000229/containers/llm-lumi_latest.sif python <args>
+  scripts/run_with_slurm_device.sh singularity exec -B"$SCRATCH:$SCRATCH" /project/project_462000229/containers/llm-lumi_latest.sif composer scripts/train.py configs/1.2b-c4-lumi.yaml
 
