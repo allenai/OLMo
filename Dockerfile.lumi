@@ -1,10 +1,17 @@
-FROM rocm/pytorch:rocm5.4.1_ubuntu20.04_py3.7_pytorch_1.12.1
+FROM ubuntu:latest
 
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN pip install --upgrade pip
+RUN apt-get update
+RUN apt-get upgrade -y
+RUN apt-get install -y vim build-essential wget parallel s3cmd awscli fish
+RUN apt-get install -y python3 python3-pip
+
+RUN pip3 install --upgrade pip
+RUN pip3 install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/rocm5.2
 COPY requirements.txt requirements.txt
-RUN pip install -r requirements.txt
+RUN pip3 install -r requirements.txt
 
 RUN apt-get clean
