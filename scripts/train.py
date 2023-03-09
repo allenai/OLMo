@@ -20,7 +20,9 @@ composer scripts/train.py train_config.yaml ...
 
 import os
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, List
+
+import torch
 
 from dolma import SchedulerConfig, TrainConfig
 from dolma.data import build_dataloader
@@ -64,12 +66,14 @@ def build_algorithm(name: str, kwargs: Dict[str, Any]):
 
 def main(cfg: TrainConfig) -> None:
     from composer import Trainer
+    from composer.core import Callback
     from composer.loggers import WandBLogger
+    from composer.loggers.logger_destination import LoggerDestination
     from composer.utils import dist, get_device, reproducibility
 
-    from dolma.composer import ComposerDolmaGPT, SpeedMonitorMFU
+    from dolma.composer import ComposerDolmaGPT, DolmaConsoleLogger, SpeedMonitorMFU
 
-    echo.info("Configuration:", cfg)
+    echo.info("Configuration:", cfg, rank_zero_only=True)
 
     reproducibility.seed_all(cfg.seed)
     dist.initialize_dist(get_device(None))
@@ -83,13 +87,17 @@ def main(cfg: TrainConfig) -> None:
     assert isinstance(cfg.device_train_batch_size, int)
     echo.info(
         f"Using per-device training batch size of {cfg.device_train_batch_size} "
-        f"for global batch size of {cfg.global_train_batch_size}"
+        f"for global batch size of {cfg.global_train_batch_size}",
+        rank_zero_only=True,
     )
 
     # Model.
     model = ComposerDolmaGPT(cfg.model)
-    echo.info(f"Total number of parameters: {model.model.num_params():,d}")
-    echo.info(f"Number of non-embedding parameters: {model.model.num_params(include_embedding=False):,d}")
+    echo.info(f"Total number of parameters: {model.model.num_params():,d}", rank_zero_only=True)
+    echo.info(
+        f"Number of non-embedding parameters: {model.model.num_params(include_embedding=False):,d}",
+        rank_zero_only=True,
+    )
 
     # Optimizer.
     optimizer = model.model.configure_optimizer(**cfg.optimizer.asdict())
@@ -100,8 +108,16 @@ def main(cfg: TrainConfig) -> None:
     # Dataset / data loader.
     train_loader = build_dataloader(cfg, cfg.device_train_batch_size)
 
-    # Algorithms
+    # Algorithms.
     algorithms = [build_algorithm(name, algorithm_cfg) for name, algorithm_cfg in (cfg.algorithms or {}).items()]
+
+    # Callbacks.
+    callbacks: List[Callback] = [SpeedMonitorMFU()]
+
+    # Loggers.
+    loggers: List[LoggerDestination] = [DolmaConsoleLogger(log_interval=cfg.console_log_interval)]
+    if cfg.wandb is not None:
+        loggers.append(WandBLogger(**cfg.wandb.asdict()))
 
     # Trainer.
     trainer = Trainer(
@@ -115,7 +131,6 @@ def main(cfg: TrainConfig) -> None:
         #  eval_interval=cfg.eval_interval,
         #  eval_subset_num_batches=cfg.get('eval_subset_num_batches', -1),
         max_duration=cfg.max_duration,
-        console_log_interval="1ba",
         precision=cfg.precision,
         device_train_microbatch_size=cfg.device_train_microbatch_size,
         fsdp_config=cfg.fsdp_config,
@@ -125,9 +140,21 @@ def main(cfg: TrainConfig) -> None:
         save_overwrite=cfg.save_overwrite,
         load_path=cfg.load_path,
         load_weights_only=cfg.load_weights_only,
-        callbacks=[SpeedMonitorMFU()],
-        loggers=[WandBLogger(**cfg.wandb.asdict())] if cfg.wandb is not None else [],
+        callbacks=callbacks,
+        loggers=loggers,
         algorithms=algorithms,
+        progress_bar=False,
+        log_to_console=False,
+        console_log_interval=cfg.console_log_interval,
+    )
+
+    device_id = trainer.state.device.name.upper()
+    if device_id == "GPU":
+        device_id += f" {torch.cuda.current_device()}"
+    echo.info(
+        f"Local rank: {dist.get_local_rank()}/{dist.get_local_world_size()}, "
+        f"global rank: {dist.get_global_rank()}/{dist.get_world_size()}, "
+        f"training on {device_id}"
     )
 
     if not cfg.dry_run:
@@ -136,9 +163,9 @@ def main(cfg: TrainConfig) -> None:
     trainer.close()
 
     if cfg.dry_run:
-        echo.success("Dry run complete")
+        echo.success("Dry run complete", rank_zero_only=True)
     else:
-        echo.success("Training complete")
+        echo.success("Training complete", rank_zero_only=True)
 
 
 if __name__ == "__main__":

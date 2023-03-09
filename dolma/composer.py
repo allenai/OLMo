@@ -5,7 +5,8 @@ from typing import Any, Deque, Dict, Optional, Union
 import torch
 import torch.nn.functional as F
 from composer.core import Callback, State
-from composer.loggers import Logger
+from composer.loggers import ConsoleLogger, Logger
+from composer.loggers.logger import format_log_data_value
 from composer.models import ComposerModel
 from composer.utils import dist
 from torch.utils.data import DataLoader
@@ -14,8 +15,9 @@ from torchmetrics import Metric
 from .aliases import BatchDict
 from .config import ModelConfig
 from .model import DolmaGPT, DolmaGPTOutput
+from .util import echo
 
-__all__ = ["ComposerDolmaGPT", "SpeedMonitorMFU"]
+__all__ = ["ComposerDolmaGPT", "SpeedMonitorMFU", "DolmaConsoleLogger"]
 
 
 class ComposerDolmaGPT(ComposerModel):
@@ -254,3 +256,16 @@ class SpeedMonitorMFU(Callback):
     def eval_end(self, state: State, logger: Logger):
         del logger  # unused
         self.total_eval_wct += state.eval_timestamp.total_wct.total_seconds()
+
+
+class DolmaConsoleLogger(ConsoleLogger):
+    def _log_hparams_to_console(self):
+        if dist.get_local_rank() == 0:
+            log_str = "Config:"
+            for name, value in self.hparams.items():
+                value_str = format_log_data_value(value)
+                log_str += f"\n\t {name}: {value_str}"
+            self._log_to_console(log_str)
+
+    def _log_to_console(self, log_str: str):
+        echo.info(log_str)

@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any, Tuple, Union
 
 import rich
+from rich.markup import escape
 from rich.text import Text
 from rich.traceback import Traceback
 
@@ -35,6 +36,12 @@ def filter_warnings():
         action="ignore",
         category=UserWarning,
         message="torch.distributed.*_base is a private function and will be deprecated.*",
+    )
+    # Filter composer warnings about loggers.
+    warnings.filterwarnings(
+        action="ignore",
+        message="Specifying the ConsoleLogger via `loggers` is not recommended.*",
+        module="composer.trainer.trainer",
     )
     # Torchvision warnings. We don't actually use torchvision at the moment
     # but composer imports it at some point and we see these warnings.
@@ -140,24 +147,32 @@ class echo:
         rich.print(*args, file=file)
 
     @classmethod
-    def emit(cls, level: str, *args, file=sys.stdout):
+    def emit(cls, level: str, *args, markup: bool = False, rank_zero_only: bool = False, file=sys.stdout):
+        if rank_zero_only:
+            from composer.utils.dist import get_local_rank
+
+            if get_local_rank() != 0:
+                return
+
+        if not markup:
+            args = cls.escape_args(*args)
         cls.print(cls.get_time_text(), cls.get_level_text(level), *args, file=file)
 
     @classmethod
-    def debug(cls, *args: Any):
-        cls.emit(cls.DEBUG, *args)
+    def debug(cls, *args: Any, markup: bool = False, rank_zero_only: bool = False):
+        cls.emit(cls.DEBUG, *args, markup=markup, rank_zero_only=rank_zero_only)
 
     @classmethod
-    def info(cls, *args: Any):
-        cls.emit(cls.INFO, *args)
+    def info(cls, *args: Any, markup: bool = False, rank_zero_only: bool = False):
+        cls.emit(cls.INFO, *args, markup=markup, rank_zero_only=rank_zero_only)
 
     @classmethod
-    def warning(cls, *args: Any):
-        cls.emit(cls.WARNING, *args, file=sys.stderr)
+    def warning(cls, *args: Any, markup: bool = False, rank_zero_only: bool = False):
+        cls.emit(cls.WARNING, *args, markup=markup, rank_zero_only=rank_zero_only, file=sys.stderr)
 
     @classmethod
-    def error(cls, *args: Any):
-        cls.emit(cls.ERROR, *args, file=sys.stderr)
+    def error(cls, *args: Any, markup: bool = False, rank_zero_only: bool = False):
+        cls.emit(cls.ERROR, *args, markup=markup, rank_zero_only=rank_zero_only, file=sys.stderr)
 
     @classmethod
     def exception(cls, exctype, value, traceback):
@@ -165,5 +180,9 @@ class echo:
         cls.error(tb)
 
     @classmethod
-    def success(cls, *args: Any):
-        cls.info("[green]\N{check mark}[/]", *args)
+    def success(cls, *args: Any, rank_zero_only: bool = False):
+        cls.info("[green]\N{check mark}[/]", *cls.escape_args(*args), markup=True)
+
+    @classmethod
+    def escape_args(cls, *args: Any) -> Tuple[Any, ...]:
+        return tuple(escape(s) if isinstance(s, str) else s for s in args)
