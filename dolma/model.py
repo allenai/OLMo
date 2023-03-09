@@ -246,6 +246,7 @@ class DolmaGPT(nn.Module):
             self.register_buffer(
                 "_causal_attention_bias",
                 att_bias.view(1, 1, self.config.max_sequence_length, self.config.max_sequence_length),
+                persistent=False,
             )
         return cast(torch.FloatTensor, self._causal_attention_bias)
 
@@ -269,7 +270,7 @@ class DolmaGPT(nn.Module):
 
             # shape: (1, n_heads, seq_len, seq_len)
             alibi_bias = alibi_bias * (1.0 / (2 ** m.view(1, self.config.n_heads, 1, 1)))
-            self.register_buffer("_alibi_attention_bias", alibi_bias)
+            self.register_buffer("_alibi_attention_bias", alibi_bias, persistent=False)
         return cast(torch.FloatTensor, self._alibi_attention_bias)
 
     def forward(
