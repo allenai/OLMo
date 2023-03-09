@@ -26,12 +26,16 @@ class DolmaAttentionBase(nn.Module):
         self.d_model = config.d_model
 
         # key, query, value projections for all heads, but in a batch
-        self.c_attn = nn.Linear(config.d_model, 3 * config.d_model, device=config.init_device)
+        self.c_attn = nn.Linear(
+            config.d_model, 3 * config.d_model, bias=config.include_bias, device=config.init_device
+        )
         # for param init fn
         self.c_attn._fused = (0, (self.d_model, 2 * self.d_model))  # type: ignore
 
         # output projection
-        self.c_proj = nn.Linear(config.d_model, config.d_model, device=config.init_device)
+        self.c_proj = nn.Linear(
+            config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
+        )
         # for param init fn
         self.c_proj._is_residual = True  # type: ignore
 
@@ -163,9 +167,13 @@ class FlashAttention(DolmaAttentionBase):
 class GPTMLP(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
-        self.c_fc = nn.Linear(config.d_model, config.mlp_ratio * config.d_model, device=config.init_device)
+        self.c_fc = nn.Linear(
+            config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
+        )
         self.act = nn.GELU(approximate="none")
-        self.c_proj = nn.Linear(config.mlp_ratio * config.d_model, config.d_model, device=config.init_device)
+        self.c_proj = nn.Linear(
+            config.mlp_ratio * config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
+        )
         self.c_proj._is_residual = True  # type: ignore
         self.dropout = nn.Dropout(config.residual_dropout)
 
