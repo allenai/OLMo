@@ -145,6 +145,13 @@ class ModelConfig(BaseConfig):
     The maximum input sequence length supported by the model.
     """
 
+    include_bias: bool = True
+    """
+    Whether or not to include bias parameters in linear layers.
+    In PaLM, they got rid of all bias terms because they found that large
+    models tend to have near 0 bias terms anyway.
+    """
+
     vocab_size: int = 50257
     """
     Vocabulary size of the model.
