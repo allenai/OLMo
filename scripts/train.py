@@ -124,6 +124,8 @@ def replacement_initialize_dist(device: Union[str, Device], timeout: float = 300
         dist.init_process_group(
             device_obj.dist_backend,
             init_method="file://" + filename,
+            world_size=get_world_size(),
+            rank=get_global_rank(),
             timeout=timeout_timedelta)
 
 
