@@ -58,7 +58,7 @@ tokenizer:
 save_folder: ./runs/${run_name}
 save_interval: 1000ba
 save_num_checkpoints_to_keep: 2
-save_overwrite: false
+save_overwrite: true
 
 load_path: null
 load_weights_only: false
@@ -66,7 +66,7 @@ load_weights_only: false
 max_duration: 13400ba # ~ 7B tokens
 global_train_batch_size: 512
 device_train_batch_size: auto
-device_train_microbatch_size: auto
+device_train_microbatch_size: 32
 device_train_grad_accum: auto
 device_eval_batch_size: null
 
@@ -74,7 +74,12 @@ n_gpus: null
 
 precision: null
 
-fsdp_config: null
+fsdp_config:
+  sharding_strategy: FULL_SHARD
+  mixed_precision: DEFAULT
+  activation_checkpointing: false
+  activation_cpu_offload: false
+  verbose: false
 
 wandb:
   project: petew-benchmarks
