@@ -50,5 +50,8 @@ RUN cd /opt && \
     sed -i 's/collections.Sequence/collections.abc.Sequence/g' /usr/local/lib/python3.10/dist-packages/deepspeed/runtime/config_utils.py && \
     sed -i 's/collections.Mapping/collections.abc.Mapping/g' /usr/local/lib/python3.10/dist-packages/deepspeed/runtime/config_utils.py
 
+# Install more dependencies
+RUN pip install --no-cache-dir python-hostlist
+
 RUN apt-get clean
 RUN pip cache purge
