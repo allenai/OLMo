@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=c4-1.2b
 #SBATCH --account=project_462000229
-#SBATCH --output=~/logs/%j.log
+#SBATCH --output=/users/dgroeneveld/logs/%j.log
 #SBATCH --nodes=1               # Total number of nodes 
 #SBATCH --ntasks-per-node=2
 #SBATCH --gpus-per-node=2       # Allocate one gpu per MPI rank
@@ -32,9 +32,17 @@ export CXI_FORK_SAFE_HP=1
 export FI_CXI_DISABLE_CQ_HUGETLB=1
 export SINGULARITYENV_LD_LIBRARY_PATH=/opt/ompi/lib:${EBROOTAWSMINOFIMINRCCL}/lib:/opt/cray/xpmem/2.4.4-2.3_9.1__gff0e1d9.shasta/lib64:${SINGULARITYENV_LD_LIBRARY_PATH}
 export NCCL_DEBUG=INFO
+export PYTHONPATH=.:${PYTHONPATH}
+export TORCH_DISTRIBUTED_INIT_FILE=/scratch/project_462000229/${SLURM_JOB_ID}.torchinit
 
 srun \
   --cpu-bind=${CPU_BIND} \
   --distribution=block:block \
-  scripts/run_with_slurm_device.sh singularity exec -B"$SCRATCH:$SCRATCH" /project/project_462000229/containers/llm-lumi_latest.sif composer scripts/train.py configs/1.2b-c4-lumi.yaml
+  --kill-on-bad-exit \
+  singularity exec \
+    -B"/project/project_462000229:/project/project_462000229" \
+    -B"/scratch/project_462000229:/scratch/project_462000229" \
+    /project/project_462000229/containers/llm-lumi_latest.sif \
+    scripts/run_with_slurm_device.sh \
+    composer scripts/train.py configs/1.2b-c4-lumi.yaml
 
