@@ -40,6 +40,10 @@ class MemMapDataset(Dataset[torch.LongTensor]):
         self._num_instances: Optional[int] = None
         self.dtype = memmap_dtype
 
+    @property
+    def chunk_size(self) -> int:
+        return self._chunk_size
+
     @classmethod
     def from_train_config(cls, config: TrainConfig) -> MemMapDataset:
         return cls(*config.data.paths, chunk_size=config.model.max_sequence_length)
