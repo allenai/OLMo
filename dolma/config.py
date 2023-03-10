@@ -101,17 +101,22 @@ class ModelConfig(BaseConfig):
 
     mlp_ratio: int = 4
     """
-    The ratio of the inner MLP dimensionality to `d_model`.
+    The ratio of the inner MLP dimensionality to ``d_model``.
     """
 
     alibi: bool = False
     """
-    If `True`, use ALiBi embeddings.
+    If ``True``, use ALiBi embeddings.
     """
 
     alibi_bias_max: float = 8.0
     """
     Maximum absolute value of ALiBi bias.
+    """
+
+    flash_attention: bool = False
+    """
+    If ``True``, use ``FlashAttention``.
     """
 
     attention_dropout: float = 0.1
@@ -138,6 +143,13 @@ class ModelConfig(BaseConfig):
     max_sequence_length: int = 1024
     """
     The maximum input sequence length supported by the model.
+    """
+
+    include_bias: bool = True
+    """
+    Whether or not to include bias parameters in linear layers.
+    In PaLM, they got rid of all bias terms because they found that large
+    models tend to have near 0 bias terms anyway.
     """
 
     vocab_size: int = 50257
@@ -273,6 +285,7 @@ class TrainConfig(BaseConfig):
     precision: Optional[str] = None
     fsdp_config: Optional[Dict[str, Any]] = None
     wandb: Optional[WandbConfig] = None
+    console_log_interval: Union[str, int] = "1ba"
 
     @property
     def device(self) -> Optional[str]:
