@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=c4-1.2b
 #SBATCH --account=project_462000229
-#SBATCH --output=~/logs/%j.log
+#SBATCH --output=/users/dgroeneveld/logs/%j.log
 #SBATCH --nodes=1               # Total number of nodes 
 #SBATCH --ntasks-per-node=2
 #SBATCH --gpus-per-node=2       # Allocate one gpu per MPI rank
@@ -13,8 +13,6 @@
 #SBATCH --partition=small-g
 
 module load LUMI/22.08 partition/G
-#module load singularity-bindings
-module load aws-ofi-rccl
 
 CPU_BIND="mask_cpu:7e000000000000,7e00000000000000"
 CPU_BIND="${CPU_BIND},7e0000,7e000000"
@@ -30,11 +28,17 @@ export MIOPEN_CUSTOM_CACHE_DIR=${MIOPEN_USER_DB_PATH}
 export CXI_FORK_SAFE=1
 export CXI_FORK_SAFE_HP=1
 export FI_CXI_DISABLE_CQ_HUGETLB=1
-export SINGULARITYENV_LD_LIBRARY_PATH=/opt/ompi/lib:${EBROOTAWSMINOFIMINRCCL}/lib:/opt/cray/xpmem/2.4.4-2.3_9.1__gff0e1d9.shasta/lib64:${SINGULARITYENV_LD_LIBRARY_PATH}
 export NCCL_DEBUG=INFO
+export PYTHONPATH=.:${PYTHONPATH}
 
 srun \
   --cpu-bind=${CPU_BIND} \
   --distribution=block:block \
-  scripts/run_with_slurm_device.sh singularity exec -B"$SCRATCH:$SCRATCH" /project/project_462000229/containers/llm-lumi_latest.sif composer scripts/train.py configs/1.2b-c4-lumi.yaml
+  --kill-on-bad-exit \
+  singularity exec \
+    -B"/project/project_462000229:/project/project_462000229" \
+    -B"/scratch/project_462000229:/scratch/project_462000229" \
+    /project/project_462000229/containers/llm-lumi_latest.sif \
+    scripts/run_with_slurm_device.sh \
+    composer scripts/train.py configs/1.2b-c4-lumi.yaml
 

@@ -40,7 +40,7 @@ algorithms:
 
 data:
   paths:
-  - ~/project_dir/pretraining_data/preprocessed/c4/en/c4-train.*.npy
+  - /project/project_462000229/pretraining_data/preprocessed/c4/en/c4-train.*.npy
   pad_direction: right
   num_workers: 2
   drop_last: true
@@ -55,7 +55,7 @@ tokenizer:
 
 max_duration: 24800ba # ~ 26B tokens
 
-save_folder: ~/scratch_dir
+save_folder: /scratch/project_462000229
 save_interval: 1000ba
 save_num_checkpoints_to_keep: 2
 save_overwrite: false

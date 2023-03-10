@@ -17,17 +17,12 @@ For distributed training you should run this script via the 'composer' CLI. For 
 composer scripts/train.py train_config.yaml ...
 ```
 """
-import datetime
+
 import os
 import sys
-from typing import Any, Dict, Union, List
+from typing import Any, Dict
 
 import torch
-
-from composer.devices import Device
-from composer.utils import get_device
-from composer.utils.dist import get_world_size, log, get_global_rank, get_local_rank, get_local_world_size, \
-    get_node_rank
 
 from dolma import SchedulerConfig, TrainConfig
 from dolma.data import build_dataloader
@@ -68,69 +63,6 @@ def build_algorithm(name: str, kwargs: Dict[str, Any]):
     else:
         raise ValueError(f"Not sure how to build algorithm: {name}")
 
-def replacement_initialize_dist(device: Union[str, Device], timeout: float = 300.0):
-    """
-    This does exactly the same as Mosaic's ``initialize_dist()`` function, but it
-    uses a file on NFS to initialize the process group.
-    """
-    import torch.distributed as dist
-
-    # If device is string, get corresponding composer.devices.Device object
-    device_obj = get_device(device)
-    timeout_timedelta = datetime.timedelta(seconds=timeout)
-
-    if get_world_size() > 1 and not dist.is_available():
-        raise RuntimeError('When the world size is > 1, ``torch.distributed`` must be used. However, it is '
-                           'not available in your installation of PyTorch. Please install or build PyTorch '
-                           'with distributed support.')
-
-    if dist.is_initialized():
-        if dist.get_backend() != device_obj.dist_backend.lower():
-            raise RuntimeError(f'The requested backend ({device_obj.dist_backend}) differs from the backend '
-                               f'of the current process group ({dist.get_backend()}). If you '
-                               'wish to change backends, please restart the python process.')
-        return
-
-    # If any of these variables are set, and they do not match the single rank defaults,
-    # then do not automatically configure distributed. There are no reasonable defaults to infer
-    # for the other variables. Instead, let torch.dist error on an incomplete configuration.
-
-    # If none of these variables are set, or some are set but they match the single rank defaults,
-    # then fill the rest in.
-
-    dist_env_var_defaults = {
-        'NODE_RANK': '0',
-        'WORLD_SIZE': '1',
-        'LOCAL_WORLD_SIZE': '1',
-        'RANK': '0',
-        'LOCAL_RANK': '0',
-    }
-
-    log.debug(
-        'Initializing torch.dist: global_rank=%d, local_rank=%d, world_size=%d, local_world_size=%d, node_rank=%d',
-        get_global_rank(),
-        get_local_rank(),
-        get_world_size(),
-        get_local_world_size(),
-        get_node_rank(),
-    )
-
-    dist_env_vars_match_defaults = all(os.environ.get(k, v) == v for (k, v) in dist_env_var_defaults.items())
-
-    if dist_env_vars_match_defaults:
-        # Fill in the remaining single-rank variables
-        os.environ.update(dist_env_var_defaults)
-        dist.init_process_group(device_obj.dist_backend, store=dist.HashStore(), world_size=1, rank=0)
-    else:
-        filename = os.environ.get("TORCH_DISTRIBUTED_INIT_FILE")
-        dist.init_process_group(
-            device_obj.dist_backend,
-            init_method="file://" + filename,
-            world_size=get_world_size(),
-            rank=get_global_rank(),
-            timeout=timeout_timedelta)
-
-
 def main(cfg: TrainConfig) -> None:
     from composer import Trainer
     from composer.core import Callback
@@ -143,7 +75,7 @@ def main(cfg: TrainConfig) -> None:
     echo.info("Configuration:", cfg, rank_zero_only=True)
 
     reproducibility.seed_all(cfg.seed)
-    replacement_initialize_dist(get_device(None))
+    dist.initialize_dist(get_device(None))
 
     # Run name.
     if cfg.run_name is None:
