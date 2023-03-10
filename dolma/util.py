@@ -57,7 +57,7 @@ def set_env_variables():
 
 
 def prepare_cli_environment():
-    rich.reconfigure(width=max(rich.get_console().width, 180))
+    rich.reconfigure(width=max(rich.get_console().width, 180), soft_wrap=True)
     install_excepthook()
     filter_warnings()
     set_env_variables()
@@ -143,11 +143,11 @@ class echo:
         return level_text
 
     @classmethod
-    def print(cls, *args, file=sys.stdout):
-        rich.print(*args, file=file)
+    def print(cls, *args):
+        rich.get_console().print(*args)
 
     @classmethod
-    def emit(cls, level: str, *args, markup: bool = False, rank_zero_only: bool = False, file=sys.stdout):
+    def emit(cls, level: str, *args, markup: bool = False, rank_zero_only: bool = False):
         if rank_zero_only:
             from composer.utils.dist import get_local_rank
 
@@ -156,7 +156,7 @@ class echo:
 
         if not markup:
             args = cls.escape_args(*args)
-        cls.print(cls.get_time_text(), cls.get_level_text(level), *args, file=file)
+        cls.print(cls.get_time_text(), cls.get_level_text(level), *args)
 
     @classmethod
     def debug(cls, *args: Any, markup: bool = False, rank_zero_only: bool = False):
@@ -168,11 +168,11 @@ class echo:
 
     @classmethod
     def warning(cls, *args: Any, markup: bool = False, rank_zero_only: bool = False):
-        cls.emit(cls.WARNING, *args, markup=markup, rank_zero_only=rank_zero_only, file=sys.stderr)
+        cls.emit(cls.WARNING, *args, markup=markup, rank_zero_only=rank_zero_only)
 
     @classmethod
     def error(cls, *args: Any, markup: bool = False, rank_zero_only: bool = False):
-        cls.emit(cls.ERROR, *args, markup=markup, rank_zero_only=rank_zero_only, file=sys.stderr)
+        cls.emit(cls.ERROR, *args, markup=markup, rank_zero_only=rank_zero_only)
 
     @classmethod
     def exception(cls, exctype, value, traceback):
@@ -181,7 +181,7 @@ class echo:
 
     @classmethod
     def success(cls, *args: Any, rank_zero_only: bool = False):
-        cls.info("[green]\N{check mark}[/]", *cls.escape_args(*args), markup=True)
+        cls.info("[green]\N{check mark}[/]", *cls.escape_args(*args), markup=True, rank_zero_only=rank_zero_only)
 
     @classmethod
     def escape_args(cls, *args: Any) -> Tuple[Any, ...]:
