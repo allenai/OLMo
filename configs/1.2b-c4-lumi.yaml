@@ -40,7 +40,7 @@ algorithms:
 
 data:
   paths:
-  - ~/project_dir/pretraining_data/preprocessed/c4/en/c4-train.*.npy
+  - /project/project_462000229/pretraining_data/preprocessed/c4/en/c4-train.*.npy
   pad_direction: right
   num_workers: 2
   drop_last: true
