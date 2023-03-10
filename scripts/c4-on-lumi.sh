@@ -30,7 +30,6 @@ export CXI_FORK_SAFE_HP=1
 export FI_CXI_DISABLE_CQ_HUGETLB=1
 export NCCL_DEBUG=INFO
 export PYTHONPATH=.:${PYTHONPATH}
-export TORCH_DISTRIBUTED_INIT_FILE=/scratch/project_462000229/${SLURM_JOB_ID}.torchinit
 
 srun \
   --cpu-bind=${CPU_BIND} \
