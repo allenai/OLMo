@@ -34,10 +34,10 @@ RUN pip install --upgrade pip
 RUN pip install --pre --no-cache-dir torch torchvision torchaudio torchtext --extra-index-url https://download.pytorch.org/whl/nightly/rocm5.3
 COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir py-spy
 
 # Install DeepSpeed
 RUN pip install --no-cache-dir mpi4py
-
 RUN cd /opt && \
     git clone https://github.com/ROCmSoftwarePlatform/DeepSpeed.git && \
     cd DeepSpeed && \
