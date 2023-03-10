@@ -4,7 +4,7 @@
 #
 # To build and push the image to Beaker, run 'make test-image'.
 
-FROM ghcr.io/allenai/pytorch:1.13.1-cuda11.7-python3.10
+FROM dolma-base
 
 COPY scripts/test_entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
