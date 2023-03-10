@@ -31,7 +31,8 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # Install torch and other dependencies
 RUN pip install --upgrade pip
-RUN pip install --pre --no-cache-dir torch torchvision torchaudio torchtext --extra-index-url https://download.pytorch.org/whl/nightly/rocm5.3
+#RUN pip install --pre --no-cache-dir torch torchvision torchaudio torchtext --extra-index-url https://download.pytorch.org/whl/nightly/rocm5.3
+RUN pip install "torch<2.0" torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/rocm5.2
 COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir py-spy
