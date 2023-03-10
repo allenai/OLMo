@@ -285,6 +285,7 @@ class TrainConfig(BaseConfig):
     precision: Optional[str] = None
     fsdp_config: Optional[Dict[str, Any]] = None
     wandb: Optional[WandbConfig] = None
+    console_log_interval: Union[str, int] = "1ba"
 
     @property
     def device(self) -> Optional[str]:
