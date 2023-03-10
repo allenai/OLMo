@@ -4,8 +4,12 @@ updates:
   directory: "/"
   schedule:
     interval: "daily"
+  labels:
+  - dependencies/python
   open-pull-requests-limit: 10
 - package-ecosystem: "github-actions"
   directory: "/"
   schedule:
     interval: "daily"
+  labels:
+  - dependencies/actions

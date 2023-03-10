@@ -13,10 +13,10 @@ __all__ = ["Tokenizer"]
 
 class Tokenizer:
     """
-    A :class:`Tokenizer` is a light-weight wrapper around :class:`tokenizers.Tokenizer`.
+    A :class:`Tokenizer` is a light-weight wrapper around a HuggingFace :class:`tokenizers.Tokenizer`.
 
     :param base_tokenizer: The :class:`tokenizers.Tokenizer` to use.
-    :param config: The DOLMA config.
+    :param eos_token_id: The token ID corresponding to the "end-of-sentence" token.
     :param truncate_to: Truncate when tokenizing to this number of token IDs.
     :param truncate_direction: The direction to truncate in. "right" means truncate the tokens
         on the right. "left" means truncate the tokens on the left. If ``truncate_to`` is null,
@@ -53,7 +53,7 @@ class Tokenizer:
 
         :param identifier: The identifier of a model on the Hub that contains a
             ``tokenizer.json`` file.
-        :param config: The DOLMA config.
+        :param kwargs: Other key word arguments passed to :class:`Tokenizer`.
         """
         base_tokenizer = BaseTokenizer.from_pretrained(identifier)
         eos_token_id = kwargs.pop("eos_token_id", base_tokenizer.get_vocab_size() - 1)
@@ -128,4 +128,7 @@ class Tokenizer:
         return all_input_ids
 
     def decode(self, token_ids: List[int]) -> str:
+        """
+        Decode a list of token IDs to a string.
+        """
         return self.base_tokenizer.decode(token_ids)
