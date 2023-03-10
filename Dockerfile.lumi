@@ -4,10 +4,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
 
-RUN apt update
-RUN apt upgrade -y
-RUN apt install -y python-is-python3 git autoconf python3-dev git vim libtool openjdk-8-jdk-headless xvfb fish build-essential wget parallel s3cmd awscli
-RUN apt install -y rocm-libs rccl
+RUN apt-get update
+RUN apt-get upgrade -y
+RUN apt-get install -y python-is-python3 git autoconf python3-dev git vim libtool openjdk-8-jdk-headless xvfb fish build-essential wget parallel s3cmd awscli
+RUN apt-get install -y rocm-libs rccl
 
 # Install MPICH
 ENV MPICH_VERSION="3.1.4"
@@ -20,7 +20,7 @@ RUN cd /opt && \
     ldconfig
 
 # Install aws-ofi-rccl
-RUN apt install -y libfabric-dev
+RUN apt-get install -y libfabric-dev
 RUN cd /opt && \
     git clone https://github.com/ROCmSoftwarePlatform/aws-ofi-rccl && \
     cd aws-ofi-rccl && \
@@ -49,5 +49,5 @@ RUN cd /opt && \
     sed -i 's/collections.Sequence/collections.abc.Sequence/g' /usr/local/lib/python3.10/dist-packages/deepspeed/runtime/config_utils.py && \
     sed -i 's/collections.Mapping/collections.abc.Mapping/g' /usr/local/lib/python3.10/dist-packages/deepspeed/runtime/config_utils.py
 
-RUN apt clean
+RUN apt-get clean
 RUN pip cache purge
