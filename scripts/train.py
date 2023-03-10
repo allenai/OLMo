@@ -117,7 +117,7 @@ def main(cfg: TrainConfig) -> None:
     # Loggers.
     loggers: List[LoggerDestination] = [DolmaConsoleLogger(log_interval=cfg.console_log_interval)]
     if cfg.wandb is not None:
-        loggers.append(WandBLogger(**cfg.wandb.asdict()))
+        loggers.append(WandBLogger(init_kwargs={"config": cfg.asdict(exclude=["wandb"])}, **cfg.wandb.asdict()))
 
     # Trainer.
     trainer = Trainer(
