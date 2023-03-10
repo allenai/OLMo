@@ -27,7 +27,7 @@ RUN cd /opt && \
     ./autogen.sh && \
     ./configure && \
     make -j && make install && \
-ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+#ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # Install torch and other dependencies
 RUN pip install --upgrade pip
