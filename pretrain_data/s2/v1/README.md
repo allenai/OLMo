@@ -1,3 +1,11 @@
+Author: Luca Soldaini [@soldni](github.com/soldni)
+
+*This is the first version of the corpus I created for MosaicML training;*
+*it was created on 2/25/2023 and should be considered as a first pass to*
+*obtain training data. It uses grobid parses of papers, and it does not*
+*include any filtering of content within a single document. All symbols*
+*extracted by grobid get included, which can cause parsing errors*.
+
 # S2AG Tables From Public Release
 
 Cutoff date: 2023-01-03
@@ -48,11 +56,9 @@ Output counts:
 - Number of whitespace-separated tokens: 70.7B (s2orc), 15.5B (s2arg)
 - Number of documents: 9.9M (s2orc, full-text papers), 91.1M (s2arg, abstracts)
 
-
 TODOs:
 
 - better management of dependencies
-
 
 ### Step 3: Load the data back into Athena
 
@@ -69,26 +75,24 @@ Then, run `export/save.sql` to run the filters and export the data to S3.
   - `id`: the corpus ID of the paper in Semantic Scholar. If you want to look up the paper, use `https://api.semanticscholar.org/CorpusID:<id>`
   - `text`: the text of the paper. Sections are separated by double newlines, i.e. `\n\n`
 
-
 #### Filters
 
 - language is `en` as identified by pycld3
 - number of whitespace-separated tokens is at least 50
-    - abstracts below 50 are typically parsing errors.
+  - abstracts below 50 are typically parsing errors.
 - number of whitespace-separated tokens is at most 50,000
-    - past 50k, you typically have large books, vocabulary, number heavy reports, etc. Not worth it.
+  - past 50k, you typically have large books, vocabulary, number heavy reports, etc. Not worth it.
 - the most frequent token matches the regex `^[A-Za-z][a-z]+$`
-    - documents that have parsing errors or are number heavy usually have a non alpha token as the most frequent, e.g. `.` or `\n`.
+  - documents that have parsing errors or are number heavy usually have a non alpha token as the most frequent, e.g. `.` or `\n`.
 - for documents that have at least 500 tokens, the most frequent token is at most 7.5% of the total number of tokens.
-    - estimate for English put frequency of top word in a document at 5-10% of the total number of tokens. splitting differences and going with 7.5%.
+  - estimate for English put frequency of top word in a document at 5-10% of the total number of tokens. splitting differences and going with 7.5%.
 - for documents that are less than 500 tokens, the most frequent token is at most 30% of the total number of tokens.
-    - for shorter documents, frequency estimates from above are not as reliable. going for a more generous 30%.
+  - for shorter documents, frequency estimates from above are not as reliable. going for a more generous 30%.
 
 #### Stats
 
 - Number of whitespace-separated tokens: 72,582,009,602
 - Number of documents: 74,772,626
-
 
 #### Train/Validation Split
 
