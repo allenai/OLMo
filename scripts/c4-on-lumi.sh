@@ -9,7 +9,7 @@
 #SBATCH --time=00:15:00
 #SBATCH --mail-type=all         # Send email at begin and end of job
 #SBATCH --mail-user=dirkg@allenai.org
-#SBATCH --mem=8G
+#SBATCH --mem=64G
 #SBATCH --partition=small-g
 
 module load LUMI/22.08 partition/G
