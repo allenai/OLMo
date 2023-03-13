@@ -1,0 +1,7 @@
+pandas
+smashed[remote]
+springs
+transformers
+s3fs
+fsspec
+pycld3
