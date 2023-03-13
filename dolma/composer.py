@@ -62,6 +62,10 @@ class ComposerDolmaGPT(ComposerModel):
         shift_logits = outputs.logits[..., :-1, :].contiguous()
         metric.update(shift_logits.view(-1, shift_logits.size(-1)), labels.view(-1))
 
+    @property
+    def num_fwd_flops(self):
+        return self.model.num_fwd_flops
+
 
 GPU_AVAILABLE_FLOPS = {
     # source: https://resources.nvidia.com/en-us-tensor-core/nvidia-tensor-core-gpu-datasheet
@@ -223,8 +227,8 @@ class SpeedMonitorMFU(Callback):
             logger.log_metrics({"throughput/device/batches_per_sec": dev_batches_per_sec})
             logger.log_metrics({"throughput/device/samples_per_sec": dev_samples_per_sec})
 
-            if isinstance(state.dataloader, DataLoader) and hasattr(state.dataloader.dataset, "max_seq_len"):
-                max_seq_len = state.dataloader.dataset.max_seq_len  # type: ignore
+            if isinstance(state.dataloader, DataLoader) and hasattr(state.dataloader.dataset, "chunk_size"):
+                max_seq_len = state.dataloader.dataset.chunk_size  # type: ignore
                 # only applicable to seq data / models
                 logger.log_metrics({"throughput/tokens_per_sec": samples_per_sec * max_seq_len})
                 logger.log_metrics({"throughput/device/tokens_per_sec": dev_samples_per_sec * max_seq_len})
