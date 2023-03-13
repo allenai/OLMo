@@ -1,21 +1,21 @@
+import gc
+import json
+import os
 from collections import Counter
 from contextlib import ExitStack
 from functools import partial
-import gc
-import os
+from multiprocessing import Manager, Pool, cpu_count, set_start_method
 from queue import Queue
-from multiprocessing import cpu_count, Pool, Manager, set_start_method
 from tempfile import NamedTemporaryFile
 from threading import Thread
 from time import sleep
 from typing import Optional, Tuple
-from tqdm import tqdm
+
+import cld3
+import pandas as pd
 import springs as sp
 from smashed.utils import io_utils
-import pandas as pd
-import cld3
-import json
-
+from tqdm import tqdm
 
 LANG_ID_CUT = 2000
 COMMON_CUT = 100
@@ -29,16 +29,12 @@ class ProcessTextConfig:
     cpu_count: int = sp.field(default=cpu_count(), help="Number of processes to use")
 
 
-def process_single(
-    io_paths: Tuple[io_utils.MultiPath, io_utils.MultiPath],
-    pbar_queue: Optional[Queue] = None
-):
-    logger = sp.configure_logging(__name__, logging_level='WARNING', force_root_reattach=True)
+def process_single(io_paths: Tuple[io_utils.MultiPath, io_utils.MultiPath], pbar_queue: Optional[Queue] = None):
+    logger = sp.configure_logging(__name__, logging_level="WARNING", force_root_reattach=True)
 
     src, dst = io_paths
 
-    with io_utils.open_file_for_read(src, 'rb', logger=logger) as f,\
-            NamedTemporaryFile('wb') as tmp:
+    with io_utils.open_file_for_read(src, "rb", logger=logger) as f, NamedTemporaryFile("wb") as tmp:
         tmp.write(f.read())
         tmp.flush()
         df = pd.read_parquet(tmp.name)
@@ -49,25 +45,23 @@ def process_single(
     # df = df.head(100)
 
     # strip leading and trailing whitespace
-    df['text'] = df['text'].str.strip()
+    df["text"] = df["text"].str.strip()
 
     def get_language(text: str) -> str:
         try:
-            return cld3.get_language(   # type: ignore
-                text[:LANG_ID_CUT]
-            ).language
+            return cld3.get_language(text[:LANG_ID_CUT]).language  # type: ignore
         except Exception:
-            return 'unk'
+            return "unk"
 
     # create new column that is the result of the function
     # cld3.get_language(text) applied to the text column
-    df['lang'] = df['text'].apply(get_language)
+    df["lang"] = df["text"].apply(get_language)
 
     # whitespace tokenize the text column
-    df['tokens'] = df['text'].str.split()
+    df["tokens"] = df["text"].str.split()
 
     # get the number of tokens as a new column
-    df['cnt'] = df['tokens'].apply(len)
+    df["cnt"] = df["tokens"].apply(len)
 
     def get_freqs_as_json(tokens: list) -> str:
         # gotta store as a json string because parquet doesn't support
@@ -75,44 +69,35 @@ def process_single(
         return json.dumps(Counter(tokens).most_common(COMMON_CUT))
 
     # get a frequency distribution of the tokens
-    df['freq'] = df['tokens'].apply(get_freqs_as_json)
+    df["freq"] = df["tokens"].apply(get_freqs_as_json)
 
     # drop the tokens column
-    df = df.drop(columns=['tokens'])
+    df = df.drop(columns=["tokens"])
 
     # # write the dataframe to the destination
     # df.to_parquet(str(dst))
 
-    with NamedTemporaryFile('wb', delete=False) as tmp_write:
+    with NamedTemporaryFile("wb", delete=False) as tmp_write:
         df.to_parquet((tmp_name := tmp_write.name))
 
     # dst = str(dst).replace('=', '_')
-    with io_utils.open_file_for_write(dst, 'wb', logger=logger) as f,\
-            open(tmp_name, 'rb') as tmp_read:
+    with io_utils.open_file_for_write(dst, "wb", logger=logger) as f, open(tmp_name, "rb") as tmp_read:
         f.write(tmp_read.read())
 
     os.remove(tmp_name)
 
     if pbar_queue is not None:
-        pbar_queue.put((1, int(len(df)), int(sum(df['cnt']))))
+        pbar_queue.put((1, int(len(df)), int(sum(df["cnt"]))))
 
     del df
     gc.collect()
 
 
-def threaded_progressbar(
-    q: Queue, timeout: float, total_files: Optional[int] = None
-):
+def threaded_progressbar(q: Queue, timeout: float, total_files: Optional[int] = None):
     with ExitStack() as stack:
-        files_pbar = stack.enter_context(
-            tqdm(desc=' Files', unit='files', position=0, total=total_files)
-        )
-        docs_pbar = stack.enter_context(
-            tqdm(desc='  Docs', unit=' docs', position=1, unit_scale=True)
-        )
-        tokens_pbar = stack.enter_context(
-            tqdm(desc='Tokens', unit=' tokens', position=2, unit_scale=True)
-        )
+        files_pbar = stack.enter_context(tqdm(desc=" Files", unit="files", position=0, total=total_files))
+        docs_pbar = stack.enter_context(tqdm(desc="  Docs", unit=" docs", position=1, unit_scale=True))
+        tokens_pbar = stack.enter_context(tqdm(desc="Tokens", unit=" tokens", position=2, unit_scale=True))
         while True:
             item = q.get()
             if item is None:
@@ -140,7 +125,7 @@ def main(cfg: ProcessTextConfig):
                 pbar.update(1)
 
     else:
-        set_start_method('spawn')
+        set_start_method("spawn")
 
         with Pool(processes=cfg.cpu_count) as pool:
             pbar_queue: Queue = (manager := Manager()).Queue()
@@ -152,8 +137,7 @@ def main(cfg: ProcessTextConfig):
             pbar_thread.start()
 
             for _ in pool.imap_unordered(
-                partial(process_single, pbar_queue=pbar_queue),
-                tuple(zip(src_paths, dst_paths))
+                partial(process_single, pbar_queue=pbar_queue), tuple(zip(src_paths, dst_paths))
             ):
                 ...
 
@@ -165,5 +149,5 @@ def main(cfg: ProcessTextConfig):
             manager.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
