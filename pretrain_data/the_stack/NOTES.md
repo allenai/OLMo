@@ -1,6 +1,6 @@
 # Overview
 
-[The Stack](https://huggingface.co/datasets/bigcode/the-stack) is a 6 TB dataset of code, containing 30 programming languages. This is too large for our purpose, and research has shown that deduplication improves model performance. 
+[The Stack](https://huggingface.co/datasets/bigcode/the-stack) is a 6 TB dataset of code, containing 358 programming languages. This is too large for our purpose, and research has shown that deduplication improves model performance. 
 We use the [deduplicated version](https://huggingface.co/datasets/bigcode/the-stack) of The Stack, which contains 3 TB of data.
 
 **In Progress**: The dataset is being downloaded on lm-datasets.
