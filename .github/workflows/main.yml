@@ -17,12 +17,13 @@ env:
   # Change this to invalidate existing cache.
   CACHE_PREFIX: v0
   PYTHONPATH: ./
+  TOKENIZERS_PARALLELISM: 'false'
 
 jobs:
   checks:
-    name: Python ${{ matrix.python }} - ${{ matrix.task.name }}
+    name: ${{ matrix.task.name }} (py ${{ matrix.python }})
     runs-on: [ubuntu-latest]
-    timeout-minutes: 15
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -37,11 +38,6 @@ jobs:
             task:
               name: Test
               run: pytest -v --color=yes --durations=5 tests/
-
-          - python: '3.10'
-            task:
-              name: Lint
-              run: flake8 .
 
           - python: '3.10'
             task:
@@ -61,6 +57,13 @@ jobs:
               run: |
                 isort --check .
                 black --check .
+
+          - python: '3.10'
+            task:
+              name: Train pipeline
+              run: |
+                python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/c4-sample.npy --validate
+                composer scripts/train.py test_fixtures/train_tiny.yaml
 
     steps:
       - uses: actions/checkout@v3
@@ -98,6 +101,65 @@ jobs:
         run: |
           . .venv/bin/activate
           pip uninstall -y dolma
+
+  gpu_tests:
+    name: GPU Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BEAKER_TOKEN: ${{ secrets.BEAKER_TOKEN }}
+      BEAKER_IMAGE: dolma-test
+      BEAKER_WORKSPACE: ai2/llm-testing
+    steps:
+      - name: Determine current commit SHA (pull request)
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "COMMIT_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
+
+      - name: Determine current commit SHA (push)
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "COMMIT_SHA=$GITHUB_SHA" >> $GITHUB_ENV
+
+      - name: GPU Tests
+        uses: allenai/beaker-run-action@v1.2
+        if: env.BEAKER_TOKEN != ''
+        with:
+          spec: |
+            version: v2
+            description: GPU Tests
+            tasks:
+              - name: tests
+                image:
+                  beaker: ${{ env.BEAKER_IMAGE }}
+                context:
+                  priority: preemptible
+                resources:
+                  gpuCount: 1
+                constraints:
+                  cluster:
+                    - ai2/general-cirrascale
+                    - ai2/general-cirrascale-a100-80g-ib
+                    - ai2/allennlp-cirrascale
+                    - ai2/aristo-cirrascale
+                    - ai2/mosaic-cirrascale
+                    - ai2/mosaic-cirrascale-a100
+                    - ai2/prior-cirrascale
+                    - ai2/s2-cirrascale
+                envVars:
+                  - name: COMMIT_SHA
+                    value: ${{ env.COMMIT_SHA }}
+                  - name: GITHUB_TOKEN
+                    value: ${{ secrets.GITHUB_TOKEN }}
+                  - name: CUDA_LAUNCH_BLOCKING
+                    value: "1"
+                  - name: TOKENIZERS_PARALLELISM
+                    value: "false"
+                command: ["/entrypoint.sh", "pytest", "-v", "-m", "gpu", "tests/"]
+                result:
+                  path: /unused
+          token: ${{ env.BEAKER_TOKEN }}
+          workspace: ${{ env.BEAKER_WORKSPACE }}
 
   release:
     name: Release

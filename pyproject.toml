@@ -20,6 +20,9 @@ exclude = '''
 profile = "black"
 multi_line_output = 3
 
+[tool.pyright]
+reportPrivateImportUsage = false
+
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"

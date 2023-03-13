@@ -1,0 +1,14 @@
+# Defines a CUDA-enabled Docker image suitable for running GPU tests on Beaker
+# via the GitHub Action 'beaker-run-action'.
+# The image needs to exist on Beaker for the tests to work.
+#
+# To build and push the image to Beaker, run 'make test-image'.
+
+FROM dolma-base
+
+COPY scripts/test_entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+WORKDIR /testing
+
+ENTRYPOINT ["/entrypoint.sh"]

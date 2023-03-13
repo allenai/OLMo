@@ -7,6 +7,8 @@ ignore =
     E203
     # line break before binary operator
     W503
+    # line too long, who cares?
+    E501
 
 exclude =
     .venv
@@ -18,5 +20,5 @@ exclude =
 
 per-file-ignores =
     # __init__.py files are allowed to have unused imports and lines-too-long
-    */__init__.py:F401
+    */__init__.py:F401,F403
     */**/**/__init__.py:F401,E501

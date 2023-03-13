@@ -4,7 +4,7 @@ from pathlib import Path
 from dolma.version import VERSION
 
 
-def main():
+def main() -> None:
     changelog = Path("CHANGELOG.md")
 
     with changelog.open() as f:
