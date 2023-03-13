@@ -86,9 +86,9 @@ class BaseConfig:
     def asdict(self, exclude: Optional[Iterable[str]] = None) -> Dict[str, Any]:
         out = asdict(self)  # type: ignore
         if exclude is not None:
-            for field in exclude:
-                if field in out:
-                    del out[field]
+            for name in exclude:
+                if name in out:
+                    del out[name]
         return out
 
 
