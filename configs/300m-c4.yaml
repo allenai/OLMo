@@ -41,7 +41,7 @@ algorithms:
     clipping_threshold: 1.0
 
 data:
-  paths: ${path.glob:${path.choose:/project/project_462000229/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-train.*.npy}
+  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-train.*.npy}
   pad_direction: right
   num_workers: 2
   drop_last: true
@@ -54,7 +54,7 @@ tokenizer:
   identifier: gpt2
   truncate_direction: right
 
-save_folder: ${path.choose:/scratch/project_462000229,/results}/${run_name}
+save_folder: ${path.choose:${oc.env:FLASH_DIR}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_interval: 1000ba
 save_num_checkpoints_to_keep: 2
 save_overwrite: true

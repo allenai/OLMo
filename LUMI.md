@@ -140,7 +140,6 @@ that ranks 2 and 3 are on the same node, rather than spread across nodes.
 ```
 
  * `-B` maps paths from the host into the container. I don't know why some paths have to be mapped, but others (like the home directory) are just there.
- * I have not yet figured out how to do variable substitution in `sbatch` files, so the paths are all hardcoded. This is very annoying and we should probably fix that.
 
 ### Level 4: `run_with_environment.sh`
 
@@ -169,9 +168,6 @@ Finally we get to run our own trainer, when `<cmd3>` expands into `python script
 Notice how we're not using the MosaicML launcher.
 We don't need it, since slurm already launches us.
 We could probably find a solution where slurm only launches one process per node, and we let MosaicML's launcher launch more, one per GPU, but I see no need.
-
-The yaml file contains hardcoded paths, because I could not figure out how to make environment variables resolve there.
-This is very annoying and should be fixed.
 
 ### Monitoring your runs
 
