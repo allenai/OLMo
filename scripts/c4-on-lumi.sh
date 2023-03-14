@@ -39,6 +39,6 @@ srun \
     -B"/project/project_462000229:/project/project_462000229" \
     -B"/scratch/project_462000229:/scratch/project_462000229" \
     /project/project_462000229/containers/llm-lumi_latest.sif \
-    scripts/run_with_slurm_device.sh \
+    scripts/run_with_environment.sh \
     python scripts/train.py configs/1.2b-c4-lumi.yaml
 

@@ -142,9 +142,9 @@ that ranks 2 and 3 are on the same node, rather than spread across nodes.
  * `-B` maps paths from the host into the container. I don't know why some paths have to be mapped, but others (like the home directory) are just there.
  * I have not yet figured out how to do variable substitution in `sbatch` files, so the paths are all hardcoded. This is very annoying and we should probably fix that.
 
-### Level 4: `run_with_slurm_device.sh`
+### Level 4: `run_with_environment.sh`
 
-`<cmd2>` just expands into `scripts/run_with_slurm_device.sh <cmd3>`.
+`<cmd2>` just expands into `scripts/run_with_environment.sh <cmd3>`.
 This is a script that translates various Slurm environment variables into whatever the Mosaic trainer expects.
 In full, it looks like this:
 
@@ -161,8 +161,6 @@ export NODE_RANK=$((($RANK - $LOCAL_RANK) / $LOCAL_WORLD_SIZE))
 Note that the documentation tells us to set `ROCR_VISIBLE_DEVICES`, but this is wrong.
 Slurm already sets this.
 If we set it again, bad things happen.
-
-The name of this script is stupid and should change.
 
 ### Level 5: Our own training script
 
