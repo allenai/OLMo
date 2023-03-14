@@ -10,10 +10,10 @@ model:
   alibi: true
   alibi_bias_max: 8.0
   flash_attention: false
-  attention_dropout: 0.1
+  attention_dropout: 0.0
   attention_layer_norm: false
-  residual_dropout: 0.1
-  embedding_dropout: 0.1
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
   max_sequence_length: 1024
   include_bias: true
   vocab_size: 50257
