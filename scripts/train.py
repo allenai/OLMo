@@ -20,7 +20,7 @@ composer scripts/train.py train_config.yaml ...
 
 import os
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import torch
 
@@ -62,6 +62,7 @@ def build_algorithm(name: str, kwargs: Dict[str, Any]):
         return algorithms.LowPrecisionLayerNorm(**kwargs)
     else:
         raise ValueError(f"Not sure how to build algorithm: {name}")
+
 
 def main(cfg: TrainConfig) -> None:
     from composer import Trainer
