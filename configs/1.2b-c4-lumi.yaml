@@ -40,7 +40,7 @@ algorithms:
 
 data:
   paths:
-  - /project/project_462000229/pretraining_data/preprocessed/c4/en/c4-train.*.npy
+  - ${oc.env:SCRATCH_DIR}/pretraining_data/preprocessed/c4/en/c4-train.*.npy
   pad_direction: right
   num_workers: 2
   drop_last: true
@@ -55,7 +55,7 @@ tokenizer:
 
 max_duration: 24800ba # ~ 26B tokens
 
-save_folder: /scratch/project_462000229
+save_folder: ${oc.env:FLASH_DIR}/checkpoints/${oc.env:SLURM_JOB_ID}
 save_interval: 1000ba
 save_num_checkpoints_to_keep: 2
 save_overwrite: false
@@ -65,7 +65,7 @@ load_weights_only: false
 
 global_train_batch_size: 512
 device_train_batch_size: auto
-device_train_microbatch_size: 1
+device_train_microbatch_size: 2
 device_train_grad_accum: auto
 device_eval_batch_size: null
 
