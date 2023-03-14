@@ -48,7 +48,7 @@ RUN cd /opt && \
 # Install more dependencies
 COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir py-spy python-hostlist
+RUN pip install --no-cache-dir py-spy
 
 # Cleanup
 RUN rm -rf /opt/mpich-3.1.4 /opt/aws-ofi-rccl /opt/DeepSpeed
