@@ -2,7 +2,18 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import torch
 
@@ -72,8 +83,13 @@ class BaseConfig:
 
         OmegaConf.save(config=self, f=str(path))
 
-    def asdict(self) -> Dict[str, Any]:
-        return asdict(self)  # type: ignore
+    def asdict(self, exclude: Optional[Iterable[str]] = None) -> Dict[str, Any]:
+        out = asdict(self)  # type: ignore
+        if exclude is not None:
+            for name in exclude:
+                if name in out:
+                    del out[name]
+        return out
 
 
 @dataclass
@@ -251,7 +267,6 @@ class WandbConfig(BaseConfig):
     tags: Optional[List[str]] = None
     log_artifacts: bool = False
     rank_zero_only: bool = True
-    init_kwargs: Optional[Dict[str, Any]] = None
 
 
 @dataclass

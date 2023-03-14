@@ -75,12 +75,15 @@ def main(cfg: TrainConfig) -> None:
 
     echo.info("Configuration:", cfg, rank_zero_only=True)
 
+    # Set seed.
     reproducibility.seed_all(cfg.seed)
+
+    # Initialize process group.
     dist.initialize_dist(get_device(None))
 
     # Run name.
     if cfg.run_name is None:
-        cfg.run_name = os.environ.get("COMPOSER_RUN_NAME", "llm")
+        cfg.run_name = os.environ.get("COMPOSER_RUN_NAME", "train-llm")
 
     # Update batch size info.
     update_batch_size_info(cfg)
@@ -117,7 +120,7 @@ def main(cfg: TrainConfig) -> None:
     # Loggers.
     loggers: List[LoggerDestination] = [DolmaConsoleLogger(log_interval=cfg.console_log_interval)]
     if cfg.wandb is not None:
-        loggers.append(WandBLogger(**cfg.wandb.asdict()))
+        loggers.append(WandBLogger(init_kwargs={"config": cfg.asdict(exclude=["wandb"])}, **cfg.wandb.asdict()))
 
     # Trainer.
     trainer = Trainer(
@@ -158,6 +161,7 @@ def main(cfg: TrainConfig) -> None:
     )
 
     if not cfg.dry_run:
+        echo.info("Starting training...", rank_zero_only=True)
         trainer.fit()
 
     trainer.close()
