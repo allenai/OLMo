@@ -1,0 +1,10 @@
+# Config
+click
+
+# Read from S3
+cached_path
+boto3
+
+# MMDA
+git+https://github.com/allenai/mmda.git@0.3.0
+mmda[recipes]

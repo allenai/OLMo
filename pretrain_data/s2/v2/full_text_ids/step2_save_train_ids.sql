@@ -2,11 +2,9 @@ UNLOAD (
     WITH oa AS (
         SELECT
             id
-            -- text
         FROM (
             SELECT
                 id,
-                -- text,
                 cnt,
                 max_freq.word as top_word,
                 max_freq.cnt as top_cnt,
@@ -14,7 +12,6 @@ UNLOAD (
             FROM (
                 SELECT
                     id,
-                    -- text,
                     cnt,
                     CAST(json_array_get(freq, 0) AS ROW(word VARCHAR, cnt INT)) as max_freq
                 FROM "temp_lucas"."s2orc_oa_2023_01_03"
@@ -26,12 +23,20 @@ UNLOAD (
                 (cnt > 500 AND top_frac <= 0.075) OR
                 (cnt <= 500 AND top_frac <= 0.3)
             )
+    ),
+    corpus_ids AS (
+        SELECT oa.id
+        FROM "content_ext"."papers" as cp
+        INNER JOIN oa
+            ON cp.corpus_paper_id = oa.id
+        WHERE cp.year < 2022 OR date(cp.pub_date) < date('2022-09-30')
     )
-    SELECT oa.id
-    FROM "content_ext"."papers" as cp
-    INNER JOIN oa
-        ON cp.corpus_paper_id = oa.id
-    WHERE cp.year < 2022 OR date(cp.pub_date) < date('2022-09-30')
+    SELECT
+        ci.id as corpus_id,
+        ep.id as sha1
+    FROM corpus_ids AS ci
+    INNER JOIN "espresso"."paper" AS ep
+        ON ep.corpusid = ci.id
 )
 TO 's3://ai2-s2-lucas/s2orc_llm/2023_01_03/ids/train/s2orc'
 WITH (
