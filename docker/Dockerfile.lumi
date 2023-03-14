@@ -49,6 +49,7 @@ RUN cd /opt && \
 COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir py-spy
+RUN pip install wandb --upgrade
 
 # Cleanup
 RUN rm -rf /opt/mpich-3.1.4 /opt/aws-ofi-rccl /opt/DeepSpeed
