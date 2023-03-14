@@ -18,6 +18,8 @@ Train a model on c4 with gantry:
 gantry run \
   --workspace ai2/llm-testing \
   --env-secret WANDB_API_KEY=WANDB_API_KEY \
+  --env WANDB_ENTITY=ai2-llm \
+  --env WANDB_PROJECT=testing \
   --venv base \
   --nfs \
   --priority preemptible \
