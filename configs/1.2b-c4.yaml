@@ -39,8 +39,7 @@ algorithms:
     clipping_threshold: 1.0
 
 data:
-  paths:
-  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.*.npy
+  paths: ${path.glob:${path.choose:/project/project_462000229/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-train.*.npy}
   pad_direction: right
   num_workers: 2
   drop_last: true
@@ -55,7 +54,7 @@ tokenizer:
 
 max_duration: 24800ba # ~ 26B tokens
 
-save_folder: /results
+save_folder: ${path.choose:/scratch/project_462000229,/results}/${run_name}
 save_interval: 1000ba
 save_num_checkpoints_to_keep: 2
 save_overwrite: false
@@ -65,7 +64,7 @@ load_weights_only: false
 
 global_train_batch_size: 512
 device_train_batch_size: auto
-device_train_microbatch_size: auto
+device_train_microbatch_size: 1
 device_train_grad_accum: auto
 device_eval_batch_size: null
 
@@ -81,6 +80,4 @@ fsdp_config:
   verbose: false
 
 wandb:
-  project: petew-benchmarks
-  entity: ai2-llm
   name: ${run_name}
