@@ -115,7 +115,7 @@ def main(cfg: TrainConfig) -> None:
     algorithms = [build_algorithm(name, algorithm_cfg) for name, algorithm_cfg in (cfg.algorithms or {}).items()]
 
     # Callbacks.
-    callbacks: List[Callback] = [SpeedMonitorMFU()]
+    callbacks: List[Callback] = [SpeedMonitorMFU(**cfg.speed_monitor.asdict())]
 
     # Loggers.
     loggers: List[LoggerDestination] = [DolmaConsoleLogger(log_interval=cfg.console_log_interval)]

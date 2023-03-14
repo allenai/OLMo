@@ -279,6 +279,12 @@ class WandbConfig(BaseConfig):
 
 
 @dataclass
+class SpeedMonitorConfig(BaseConfig):
+    window_size: int = 100
+    gpu_flops_available: Optional[Union[float, int]] = None
+
+
+@dataclass
 class TrainConfig(BaseConfig):
     """
     DOLMA training configuration.
@@ -309,6 +315,7 @@ class TrainConfig(BaseConfig):
     precision: Optional[str] = None
     fsdp_config: Optional[Dict[str, Any]] = None
     wandb: Optional[WandbConfig] = None
+    speed_monitor: SpeedMonitorConfig = field(default_factory=SpeedMonitorConfig)
     console_log_interval: Union[str, int] = "1ba"
 
     @property
