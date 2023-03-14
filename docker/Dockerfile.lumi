@@ -8,6 +8,10 @@ RUN apt-get update
 RUN apt-get upgrade -y
 RUN apt-get install -y python-is-python3 git autoconf python3-dev git vim libtool openjdk-8-jdk-headless xvfb fish build-essential wget parallel s3cmd awscli rocm-libs rccl
 
+# Fix for Java trying to find assistive techs in headless java
+# https://askubuntu.com/questions/695560/assistive-technology-not-found-awterror
+RUN sed -i -e '/^assistive_technologies=/s/^/#/' /etc/java-8-openjdk/accessibility.properties
+
 # Install MPICH
 ENV MPICH_VERSION="3.1.4"
 RUN cd /opt && \
@@ -31,24 +35,20 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 # Install torch
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir "torch<2.0" torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/rocm5.2
+#RUN pip install --pre --no-cache-dir "torch<2.0" torchvision torchaudio torchtext --extra-index-url https://download.pytorch.org/whl/nightly/rocm5.3
 
 # Install DeepSpeed
 RUN pip install --no-cache-dir mpi4py
 RUN cd /opt && \
-    git clone https://github.com/ROCmSoftwarePlatform/DeepSpeed.git && \
+    git clone https://github.com/microsoft/DeepSpeed && \
     cd DeepSpeed && \
-    cp -a csrc/includes/patch/hip/hcc_detail/hip_cooperative_groups.h /opt/rocm/include/hip/hcc_detail/hip_cooperative_groups.h && \
-    cp -a csrc/includes/patch/hip/hcc_detail/hip_cooperative_groups.h /opt/rocm/include/hip/hcc_detail/amd_hip_cooperative_groups.h && \
-    cp -a csrc/includes/patch/hip/hcc_detail/hip_cooperative_groups_helper.h /opt/rocm/include/hip/hcc_detail/hip_cooperative_groups_helper.h && \
-    DS_BUILD_FUSED_ADAM=1 DS_BUILD_FUSED_LAMB=1 DS_BUILD_CPU_ADAM=1 DS_BUILD_TRANSFORMER=1 DS_BUILD_STOCHASTIC_TRANSFORMER=1 DS_BUILD_UTILS=1 ./install.sh --allow_sudo && \
-    sed -i 's/hostname -I/hostname -s/g' /usr/local/lib/python3.10/dist-packages/deepspeed/utils/distributed.py && \
-    sed -i 's/collections.Sequence/collections.abc.Sequence/g' /usr/local/lib/python3.10/dist-packages/deepspeed/runtime/config_utils.py && \
-    sed -i 's/collections.Mapping/collections.abc.Mapping/g' /usr/local/lib/python3.10/dist-packages/deepspeed/runtime/config_utils.py
+    ./install.sh --allow_sudo && \
+    sed -i 's/hostname -I/hostname -s/g' /usr/local/lib/python3.10/dist-packages/deepspeed/comm/comm.py
 
 # Install more dependencies
 COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir py-spy python-hostlist
+RUN pip install --no-cache-dir py-spy
 
 # Cleanup
 RUN rm -rf /opt/mpich-3.1.4 /opt/aws-ofi-rccl /opt/DeepSpeed
