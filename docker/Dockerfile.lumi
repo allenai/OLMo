@@ -8,6 +8,10 @@ RUN apt-get update
 RUN apt-get upgrade -y
 RUN apt-get install -y python-is-python3 git autoconf python3-dev git vim libtool openjdk-8-jdk-headless xvfb fish build-essential wget parallel s3cmd awscli rocm-libs rccl
 
+# Fix for Java trying to find assistive techs in headless java
+# https://askubuntu.com/questions/695560/assistive-technology-not-found-awterror
+RUN sed -i -e '/^assistive_technologies=/s/^/#/' /etc/java-8-openjdk/accessibility.properties
+
 # Install MPICH
 ENV MPICH_VERSION="3.1.4"
 RUN cd /opt && \
