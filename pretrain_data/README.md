@@ -67,6 +67,19 @@ And later `v1`, `v2`, ... will look the same but with additional keys:
 "toxicity": 0.7,
 ```
 
+
+##### `id`
+
+The `id` field is very important as we will need the ability to store a `blocklist` of documents (e.g. avoid due to LLM-Eval, takedown requests, manual inspection). 
+
+It is important that one can uniquely identify a single document in all data versions from a given `id`. That means we can pinpoint that document ABC in `raw` is the same as document ABC in `v0`, `v1`, ...
+
+Otherwise, the `id` only needs to be consistent/unique within a `source`. So `id=123` is acceptable because `(c4, 123)` and `(github, 123)` would uniquely identify this document still.
+
+  
+
+##### `metadata`
+
 The `metadata` field will be a free-for-all field that contains any source-specific information. This could be things like code license for the Stack, or paper identifiers for S2 data.
 
 
