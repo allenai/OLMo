@@ -40,13 +40,25 @@ sources/
 
 #### `raw`
 
-Each source organizes its `raw` data however it likes. The key is to preserve whatever the data looks like at the earliest stage in case we need to ever regenerate our conversion from `raw` format to `ai2` format.
+Each source organizes its `raw` data however it likes. The key is to preserve whatever the data looks like at the earliest stage in case we need to ever regenerate our conversion from `raw` format to `ai2` format. 
+
+To keep things simpliy, we recommend every owner of a source to maintain something akin to:
+```python
+|-- common_crawl/
+    |-- raw_to_ai2_format.py
+|-- s2/
+    |-- raw_to_ai2_format.py
+|-- stack/
+    |-- raw_to_ai2_format.py
+|-- ...
+```
+
 
 #### `ai2` format
 
 This is the unified format we will use across all the sources. All data that lives in `v0`, `v1`, ... will be in this format.
 
-`v0` looks like:
+Each row in one of the `v0` JSONLs looks like:
 
 ```
 {
@@ -60,13 +72,25 @@ This is the unified format we will use across all the sources. All data that liv
 ```
 
 
-And later `v1`, `v2`, ... will look the same but with additional keys:
+And later rows in `v1`, `v2`, ... will look the same but with additional keys:
 
 ```
 "lang": {"en": 0.9, "fr": 0.2, "de": 0.1 }
 "toxicity": 0.7,
 ```
 
+##### versions
+
+To go from `v0` to `v1` to `v2`, we will employ tools:
+
+* `Mapper` takes a single `/source/*/*.jsonl.gz` and returns a `/source/*/*.jsonl.gz` with the same number of rows, in the same order. Bug the `Mapper` adds new keys/fields to each JSON object. This will be used to do things like `LanguageId` or `ToxicityDetect` per document.  
+* `Reducer` also takes a single `/source/*/*.jsonl.gz` and returns a `/source/*/*.jsonl.gz`, but it returns fewer rows than before. 
+* `Mixer` takes multiple `/source/*/*.jsonl.gz` files and a `config` file and returns multiple `/source/*/*.jsonl.gz` files. This is typically used to mix input data dumps from different sources (e.g. Wiki + S2 + CommonCrawl + Stack) and returns a single mixture of them according to some specification. (e.g. % of each, sorted in a certain way). 
+* `Deduper` TBD. `ianm@allenai.org` and `rodneyk@allenai.org` are working something out.
+
+But the idea is that the input & output of these tools always preserves the JSON format & at best removes/adds rows per `jsonl.gz` dump and/or adds more keys to the JSON lines. 
+
+More details can be found in this [Proposal Doc](https://docs.google.com/document/d/18T5_v3QeWPiiuSsUi09_6-ZxW_i47cBatblABb9IZ0M/edit?usp=sharing).
 
 ##### `id`
 
