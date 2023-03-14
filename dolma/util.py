@@ -21,7 +21,7 @@ def excepthook(exctype, value, traceback):
     if isinstance(value, DolmaCliError):
         echo.print(f"[yellow]{value}[/]")
     elif isinstance(value, DolmaError):
-        echo.error(f"[red]{exctype.__name__}:[/] {value}")
+        echo.error(Text(f"{exctype.__name__}:", style="red"), value)
     else:
         echo.exception(exctype, value, traceback)
 
