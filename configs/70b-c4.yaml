@@ -1,29 +1,28 @@
-run_name: 300m-c4-run-001
+run_name: 70b-c4-run-001
 seed: 6198
 dry_run: false
 
 model:
-  d_model: 1024
-  n_heads: 16
-  n_layers: 24
+  d_model: 8192
+  n_heads: 64
+  n_layers: 80
   mlp_ratio: 4
   alibi: true
   alibi_bias_max: 8.0
   flash_attention: false
-  attention_dropout: 0.0
-  attention_layer_norm: false
+  attention_dropout: 0.0  # has to be 0 if using flash attn
+  attention_layer_norm: true
   residual_dropout: 0.0
   embedding_dropout: 0.0
-  max_sequence_length: 1024
-  include_bias: true
+  max_sequence_length: 2048
   vocab_size: 50257
   eos_token_id: 50256
   pad_token_id: 50256
-  init_device: null
+  init_device: meta
   init_std: 0.02
 
 optimizer:
-  learning_rate: 3.0e-4
+  learning_rate: 8.0e-5
   weight_decay: 0.0
   betas:
   - 0.9
@@ -54,33 +53,32 @@ tokenizer:
   identifier: gpt2
   truncate_direction: right
 
+max_duration: 333800ba  # ~ 1.4T tokens
+
 save_folder: ${path.choose:${oc.env:FLASH_DIR}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_interval: 1000ba
 save_num_checkpoints_to_keep: 2
-save_overwrite: true
+save_overwrite: false
 
 load_path: null
 load_weights_only: false
 
-max_duration: 13400ba # ~ 7B tokens
-global_train_batch_size: 512
+global_train_batch_size: 2048
 device_train_batch_size: auto
-device_train_microbatch_size: 16  # for 80GB A100 GPU
+device_train_microbatch_size: 2  # could be 4 with flash attn
 device_train_grad_accum: auto
 device_eval_batch_size: null
 
 n_gpus: null
 
-precision: null
+precision: amp_bf16
 
 fsdp_config:
   sharding_strategy: FULL_SHARD
-  mixed_precision: DEFAULT
-  activation_checkpointing: false
+  mixed_precision: DEFAULT # could be PURE with flash attn
+  activation_checkpointing: true
   activation_cpu_offload: false
   verbose: false
 
 wandb:
   name: ${run_name}
-
-console_log_interval: 10ba

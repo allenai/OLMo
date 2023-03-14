@@ -9,10 +9,10 @@ model:
   mlp_ratio: 4
   alibi: true
   alibi_bias_max: 8.0
-  attention_dropout: 0.1
+  attention_dropout: 0.0
   attention_layer_norm: true
-  residual_dropout: 0.1
-  embedding_dropout: 0.1
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
   max_sequence_length: 1024
   vocab_size: 50257
   eos_token_id: 50256
@@ -22,7 +22,7 @@ model:
 
 optimizer:
   learning_rate: 2.0e-4
-  weight_decay: 0.01
+  weight_decay: 0.0
   betas:
   - 0.9
   - 0.95
