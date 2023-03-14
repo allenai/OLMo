@@ -24,7 +24,7 @@ model:
 
 optimizer:
   learning_rate: 3.0e-4
-  weight_decay: 0.01
+  weight_decay: 0.0
   betas:
   - 0.9
   - 0.95
