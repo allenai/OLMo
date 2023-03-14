@@ -1,4 +1,4 @@
-run_name: 1.2b-c4-run-001
+run_name: 70b-c4-run-001
 seed: 6198
 dry_run: false
 
@@ -75,7 +75,7 @@ precision: amp_bf16
 
 fsdp_config:
   sharding_strategy: FULL_SHARD
-  mixed_precision: DEFAULT
+  mixed_precision: DEFAULT # could be PURE with flash attn
   activation_checkpointing: true
   activation_cpu_offload: false
   verbose: false
