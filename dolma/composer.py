@@ -1,15 +1,13 @@
 import warnings
-from collections import deque
-from typing import Any, Deque, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 import torch
 import torch.nn.functional as F
-from composer.core import Callback, State
-from composer.loggers import ConsoleLogger, Logger
+from composer.core import State
+from composer.loggers import ConsoleLogger
 from composer.loggers.logger import format_log_data_value
 from composer.models import ComposerModel
 from composer.utils import dist
-from torch.utils.data import DataLoader
 from torchmetrics import Metric
 
 from .aliases import BatchDict
@@ -17,7 +15,7 @@ from .config import ModelConfig, SchedulerConfig, SchedulerType
 from .model import DolmaGPT, DolmaGPTOutput
 from .util import echo
 
-__all__ = ["ComposerDolmaGPT", "SpeedMonitorMFU", "DolmaConsoleLogger", "build_scheduler", "build_algorithm"]
+__all__ = ["ComposerDolmaGPT", "DolmaConsoleLogger", "build_scheduler", "build_algorithm"]
 
 
 class ComposerDolmaGPT(ComposerModel):
@@ -65,6 +63,12 @@ class ComposerDolmaGPT(ComposerModel):
     @property
     def num_fwd_flops(self):
         return self.model.num_fwd_flops
+
+    def flops_per_batch(self, batch: BatchDict):
+        # Note: this computation does not take into account padding, and assumes
+        # that the dataset has been constructed without padding. Additionally, we
+        # assume the backward pass is approximately 2x the forward pass
+        return self.num_fwd_flops * 3 * batch["input_ids"].shape[0]
 
 
 GPU_AVAILABLE_FLOPS = {
@@ -177,89 +181,6 @@ def get_gpu_flops_available(state: State):
         gpu_flops_available = 0
 
     return gpu_flops_available
-
-
-class SpeedMonitorMFU(Callback):
-    """Logs the training throughput and MFU."""
-
-    def __init__(self, window_size: int = 100, gpu_flops_available: Optional[Union[float, int]] = None):
-        # Track the batch num samples and wct to compute throughput over a window of batches
-        self.history_samples: Deque[float] = deque(maxlen=window_size + 1)
-        self.history_wct: Deque[float] = deque(maxlen=window_size + 1)
-
-        self.set_gpu_flops_available = False
-        self.gpu_flops_available = gpu_flops_available
-
-        # Keep track of time spent evaluating
-        self.total_eval_wct = 0.0
-
-    def state_dict(self) -> Dict[str, Any]:
-        return {
-            "total_eval_wct": self.total_eval_wct,
-        }
-
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
-        self.total_eval_wct = state["total_eval_wct"]
-
-    def init(self, state: State, logger: Logger) -> None:
-        del logger  # unused
-        # Get available GPU FLOPS
-        if self.gpu_flops_available is None:
-            self.gpu_flops_available = get_gpu_flops_available(state)
-
-    def batch_end(self, state: State, logger: Logger):
-        # Add the new element
-        self.history_wct.append(state.timestamp.total_wct.total_seconds())
-        self.history_samples.append(int(state.timestamp.sample))
-
-        # Log the throughput
-        if len(self.history_wct) == self.history_wct.maxlen:
-            world_size = dist.get_world_size()
-            elapsed_batches = len(self.history_samples) - 1
-            elapsed_samples = self.history_samples[-1] - self.history_samples[0]
-            elapsed_wct = self.history_wct[-1] - self.history_wct[0]
-            batches_per_sec = elapsed_batches / elapsed_wct
-            samples_per_sec = elapsed_samples / elapsed_wct
-            dev_batches_per_sec = batches_per_sec / world_size
-            dev_samples_per_sec = samples_per_sec / world_size
-            logger.log_metrics({"throughput/batches_per_sec": batches_per_sec})
-            logger.log_metrics({"throughput/samples_per_sec": samples_per_sec})
-            logger.log_metrics({"throughput/device/batches_per_sec": dev_batches_per_sec})
-            logger.log_metrics({"throughput/device/samples_per_sec": dev_samples_per_sec})
-
-            if isinstance(state.dataloader, DataLoader) and hasattr(state.dataloader.dataset, "chunk_size"):
-                max_seq_len = state.dataloader.dataset.chunk_size  # type: ignore
-                # only applicable to seq data / models
-                logger.log_metrics({"throughput/tokens_per_sec": samples_per_sec * max_seq_len})
-                logger.log_metrics({"throughput/device/tokens_per_sec": dev_samples_per_sec * max_seq_len})
-
-            composer_model = state.model
-            if not isinstance(composer_model, ComposerModel):
-                composer_model = composer_model.module  # Handles DDP case until Composer fixes this
-            if hasattr(composer_model, "num_fwd_flops"):
-                assert isinstance(composer_model.num_fwd_flops, (int, float))
-                # Assume that training flops is 3x fwd flops (1 fwd, 2 bkw)
-                flops_per_sec = 3 * composer_model.num_fwd_flops * samples_per_sec
-                logger.log_metrics({"throughput/flops_per_sec": flops_per_sec})
-                dev_flops_per_sec = flops_per_sec / world_size
-                logger.log_metrics({"throughput/device/flops_per_sec": dev_flops_per_sec})
-                if self.gpu_flops_available:
-                    mfu = dev_flops_per_sec / self.gpu_flops_available
-                    logger.log_metrics({"throughput/device/mfu": mfu})
-
-        # Log the time
-        # `state.timestamp` excludes any time spent in evaluation
-        logger.log_metrics(
-            {
-                "wall_clock/train": state.timestamp.total_wct.total_seconds(),
-                "wall_clock/val": self.total_eval_wct,
-                "wall_clock/total": state.timestamp.total_wct.total_seconds() + self.total_eval_wct,
-            }
-        )
-
-    def eval_end(self, state: State, logger: Logger):
-        del logger  # unused
-        self.total_eval_wct += state.eval_timestamp.total_wct.total_seconds()
 
 
 class DolmaConsoleLogger(ConsoleLogger):
