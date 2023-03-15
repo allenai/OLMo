@@ -42,7 +42,7 @@ sources/
 
 Each source organizes its `raw` data however it likes. The key is to preserve whatever the data looks like at the earliest stage in case we need to ever regenerate our conversion from `raw` format to `ai2` format. 
 
-To keep things simpliy, we recommend every owner of a source to maintain something akin to:
+To keep things simple, we recommend every owner of a source to maintain something akin to:
 ```python
 |-- common_crawl/
     |-- raw_to_ai2_format.py
@@ -84,7 +84,7 @@ And later rows in `v1`, `v2`, ... will look the same but with additional keys:
 To go from `v0` to `v1` to `v2`, we will employ tools:
 
 * `Mapper` takes a single `/source/*/*.jsonl.gz` and returns a `/source/*/*.jsonl.gz` with the same number of rows, in the same order. Bug the `Mapper` adds new keys/fields to each JSON object. This will be used to do things like `LanguageId` or `ToxicityDetect` per document.  
-* `Reducer` also takes a single `/source/*/*.jsonl.gz` and returns a `/source/*/*.jsonl.gz`, but it returns fewer rows than before. 
+* `Filterer` also takes a single `/source/*/*.jsonl.gz` and returns a `/source/*/*.jsonl.gz`, but it returns fewer rows than before. 
 * `Mixer` takes multiple `/source/*/*.jsonl.gz` files and a `config` file and returns multiple `/source/*/*.jsonl.gz` files. This is typically used to mix input data dumps from different sources (e.g. Wiki + S2 + CommonCrawl + Stack) and returns a single mixture of them according to some specification. (e.g. % of each, sorted in a certain way). 
 * `Deduper` TBD. `ianm@allenai.org` and `rodneyk@allenai.org` are working something out.
 
