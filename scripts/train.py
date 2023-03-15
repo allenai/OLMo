@@ -32,6 +32,7 @@ from dolma.util import clean_opt, echo, prepare_cli_environment, update_batch_si
 
 def main(cfg: TrainConfig) -> None:
     from composer import Trainer
+    from composer.callbacks import SpeedMonitor
     from composer.core import Callback
     from composer.loggers import WandBLogger
     from composer.loggers.logger_destination import LoggerDestination
@@ -40,7 +41,6 @@ def main(cfg: TrainConfig) -> None:
     from dolma.composer import (
         ComposerDolmaGPT,
         DolmaConsoleLogger,
-        SpeedMonitorMFU,
         build_algorithm,
         build_scheduler,
     )
@@ -87,7 +87,7 @@ def main(cfg: TrainConfig) -> None:
     algorithms = [build_algorithm(name, algorithm_cfg) for name, algorithm_cfg in (cfg.algorithms or {}).items()]
 
     # Callbacks.
-    callbacks: List[Callback] = [SpeedMonitorMFU(**cfg.speed_monitor.asdict())]
+    callbacks: List[Callback] = [SpeedMonitor(**cfg.speed_monitor.asdict())]
 
     # Loggers.
     loggers: List[LoggerDestination] = [DolmaConsoleLogger(log_interval=cfg.console_log_interval)]

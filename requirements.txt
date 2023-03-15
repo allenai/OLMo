@@ -4,7 +4,7 @@ numpy
 torch
 einops
 # bug with 0.13.0, see https://github.com/mosaicml/composer/issues/2030
-mosaicml!=0.13.0
+mosaicml>=0.13.1
 torchmetrics
 tokenizers
 click
