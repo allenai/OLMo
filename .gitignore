@@ -50,4 +50,5 @@ docs/build
 site/
 
 # runs
-runs/
+/runs/
+/wandb/
