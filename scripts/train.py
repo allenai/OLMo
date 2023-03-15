@@ -20,48 +20,14 @@ composer scripts/train.py train_config.yaml ...
 
 import os
 import sys
-from typing import Any, Dict, List
+from typing import List
 
 import torch
 
-from dolma import SchedulerConfig, TrainConfig
+from dolma import TrainConfig
 from dolma.data import build_dataloader
-from dolma.exceptions import DolmaCliError, DolmaConfigurationError
+from dolma.exceptions import DolmaCliError
 from dolma.util import clean_opt, echo, prepare_cli_environment, update_batch_size_info
-
-
-def build_scheduler(cfg: SchedulerConfig):
-    from composer.optim.scheduler import (
-        ConstantWithWarmupScheduler,
-        CosineAnnealingWithWarmupScheduler,
-        LinearWithWarmupScheduler,
-    )
-
-    if cfg.name == "constant_with_warmup":
-        return ConstantWithWarmupScheduler(t_warmup=cfg.t_warmup)
-    elif cfg.name == "cosine_with_warmup":
-        return CosineAnnealingWithWarmupScheduler(t_warmup=cfg.t_warmup, alpha_f=cfg.alpha_f)
-    elif cfg.name == "linear_decay_with_warmup":
-        return LinearWithWarmupScheduler(t_warmup=cfg.t_warmup, alpha_f=cfg.alpha_f)
-    else:
-        raise DolmaConfigurationError(f"Not sure how to build scheduler: {cfg.name}")
-
-
-def build_algorithm(name: str, kwargs: Dict[str, Any]):
-    from composer import algorithms
-
-    if name == "gradient_clipping":
-        return algorithms.GradientClipping(**kwargs)
-    #  elif name == 'alibi':
-    #      return algorithms.Alibi(**kwargs)
-    elif name == "fused_layernorm":
-        return algorithms.FusedLayerNorm(**kwargs)
-    elif name == "gated_linear_units":
-        return algorithms.GatedLinearUnits(**kwargs)
-    elif name == "low_precision_layernorm":
-        return algorithms.LowPrecisionLayerNorm(**kwargs)
-    else:
-        raise ValueError(f"Not sure how to build algorithm: {name}")
 
 
 def main(cfg: TrainConfig) -> None:
@@ -71,7 +37,13 @@ def main(cfg: TrainConfig) -> None:
     from composer.loggers.logger_destination import LoggerDestination
     from composer.utils import dist, get_device, reproducibility
 
-    from dolma.composer import ComposerDolmaGPT, DolmaConsoleLogger, SpeedMonitorMFU
+    from dolma.composer import (
+        ComposerDolmaGPT,
+        DolmaConsoleLogger,
+        SpeedMonitorMFU,
+        build_algorithm,
+        build_scheduler,
+    )
 
     echo.info("Configuration:", cfg, rank_zero_only=True)
 
