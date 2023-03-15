@@ -64,7 +64,7 @@ load_weights_only: false
 
 global_train_batch_size: 512
 device_train_batch_size: auto
-device_train_microbatch_size: 1
+device_train_microbatch_size: 3
 device_train_grad_accum: auto
 device_eval_batch_size: null
 
