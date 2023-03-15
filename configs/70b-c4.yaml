@@ -80,5 +80,8 @@ fsdp_config:
   activation_cpu_offload: false
   verbose: false
 
+speed_monitor:
+  window_size: 20
+
 wandb:
   name: ${run_name}
