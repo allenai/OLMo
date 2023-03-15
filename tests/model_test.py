@@ -4,6 +4,7 @@ from torch.nn import CrossEntropyLoss
 
 from dolma import DolmaGPT, ModelConfig, Tokenizer, TrainConfig
 from dolma.data import DataCollator
+from dolma.optim import build_optimizer
 
 
 @pytest.mark.parametrize(
@@ -240,5 +241,5 @@ def test_backward(
             assert parameter.grad is None
 
 
-def test_configure_optimizer(model_config: ModelConfig):
-    DolmaGPT(model_config).configure_optimizer()
+def test_build_optimizer(model_config: ModelConfig):
+    build_optimizer(DolmaGPT(model_config))

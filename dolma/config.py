@@ -226,14 +226,15 @@ class ModelConfig(BaseConfig):
 class OptimizerType(StrEnum):
     adamw = "adamw"
     decoupled_adamw = "decoupled_adamw"
+    decoupled_lionw = "decoupled_lionw"
 
 
 @dataclass
 class OptimizerConfig(BaseConfig):
-    name: OptimizerType = OptimizerType.decoupled_adamw
+    name: OptimizerType = OptimizerType.decoupled_lionw
     learning_rate: Optional[float] = None
-    weight_decay: float = 0.01
-    betas: Tuple[float, float] = (0.9, 0.999)
+    weight_decay: float = 0.0
+    betas: Tuple[float, float] = (0.9, 0.95)
     eps: float = 1e-8
 
     def __post_init__(self):
