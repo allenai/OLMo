@@ -128,27 +128,14 @@ the right CPUs to maximize the bandwidth.
 that ranks 2 and 3 are on the same node, rather than spread across nodes.
  * `--kill-on-bad-exit` makes sure that when one process dies, slurm kills all the others. By default they keep running.
 
-### Level 3: `singularity`
+### Level 3: `run_with_environment.sh`
 
-`<cmd1>` expands into this:
-```bash
-  singularity exec \
-    -B"/project/project_123456789:/project/project_123456789" \
-    -B"/scratch/project_123456789:/scratch/project_123456789" \
-    /project/project_123456789/containers/llm-lumi_latest.sif \
-    <cmd2>
-```
-
- * `-B` maps paths from the host into the container. I don't know why some paths have to be mapped, but others (like the home directory) are just there.
-
-### Level 4: `run_with_environment.sh`
-
-`<cmd2>` just expands into `scripts/run_with_environment.sh <cmd3>`.
+`<cmd1>` just expands into `scripts/run_with_environment.sh <cmd2>`.
 This is a script that translates various Slurm environment variables into whatever the Mosaic trainer expects.
 In full, it looks like this:
 
 ```bash
-export MASTER_ADDR=$(hostlist -el1 $SLURM_JOB_NODELIST)
+export MASTER_ADDR=$(scontrol show hostnames | head -n 1)
 export MASTER_PORT=39591
 export WORLD_SIZE=$SLURM_NTASKS
 export RANK=$SLURM_PROCID
@@ -161,9 +148,23 @@ Note that the documentation tells us to set `ROCR_VISIBLE_DEVICES`, but this is 
 Slurm already sets this.
 If we set it again, bad things happen.
 
+### Level 4: `singularity`
+
+`<cmd2>` expands into this:
+```bash
+  singularity exec \
+    -B"$PROJECT_DIR:$PROJECT_DIR" \
+    -B"$SCRATCH_DIR:$SCRATCH_DIR" \
+    -B"$FLASH_DIR:$FLASH_DIR" \
+    $PROJECT_DIR/containers/llm-lumi_latest.sif \
+    <cmd3>
+```
+
+ * `-B` maps paths from the host into the container. I don't know why some paths have to be mapped, but others (like the home directory) are just there.
+
 ### Level 5: Our own training script
 
-Finally we get to run our own trainer, when `<cmd3>` expands into `python scripts/train.py configs/1.2b-c4-lumi.yaml`.
+Finally we get to run our own trainer, when `<cmd3>` expands into `python scripts/train.py configs/1.2b-c4.yaml --run_name=${SLURM_JOB_ID}`.
 
 Notice how we're not using the MosaicML launcher.
 We don't need it, since slurm already launches us.

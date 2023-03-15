@@ -1,6 +1,8 @@
 #!/bin/bash
 
-set -x
+# Note: This script does not run inside the container. It runs on the bare compute node.
+
+set -xeuo pipefail
 
 export MASTER_ADDR=$(scontrol show hostnames | head -n 1)
 export MASTER_PORT=39591

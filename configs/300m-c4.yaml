@@ -83,4 +83,7 @@ fsdp_config:
 wandb:
   name: ${run_name}
 
+speed_monitor:
+  window_size: 20
+
 console_log_interval: 10ba
