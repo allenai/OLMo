@@ -120,6 +120,8 @@ The `id` only needs to be consistent/unique within a `source`. For example, `id=
 
 The `metadata` field will be a free-for-all field that contains any source-specific information. This could be things like code license for the Stack, or paper identifiers for S2 data.
 
+It is especially important to preserve source-specific identifiers when possible. For example, in S2 raw data, we have S2 IDs for each document, but we should also persist things like the DOI, arXiv ID, ACL ID, PubMed ID, etc. when they're available to us. 
+
 
 #### `attributes`
 
