@@ -22,6 +22,7 @@ model:
   init_std: 0.02
 
 optimizer:
+  name: decoupled_adamw
   learning_rate: 8.0e-5
   weight_decay: 1.2e-4
   betas:

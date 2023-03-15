@@ -13,7 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
 
-from .config import ModelConfig
+from .config import ModelConfig, OptimizerType
 
 __all__ = ["TorchAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
 
@@ -365,10 +365,11 @@ class DolmaGPT(nn.Module):
 
     def configure_optimizer(
         self,
+        name: OptimizerType = OptimizerType.decoupled_adamw,
         learning_rate: Optional[float] = None,
         weight_decay: float = 0.01,
         **kwargs,
-    ) -> torch.optim.AdamW:
+    ) -> torch.optim.Optimizer:
         """
         Get a suitable AdamW optimizer for training/fine-tuning.
 
@@ -429,7 +430,14 @@ class DolmaGPT(nn.Module):
         if learning_rate is None:
             learning_rate = 0.003239 - 0.0001395 * math.log(num_trainable_non_embedding_weights)
 
-        return torch.optim.AdamW(optim_groups, lr=learning_rate, **kwargs)
+        if name == OptimizerType.decoupled_adamw:
+            from composer.optim import DecoupledAdamW
+
+            return DecoupledAdamW(optim_groups, lr=learning_rate, **kwargs)
+        elif name == OptimizerType.adamw:
+            return torch.optim.AdamW(optim_groups, lr=learning_rate, **kwargs)
+        else:
+            raise NotImplementedError(f"Not sure how to build optimizer '{name}'")
 
     def fsdp_wrap_fn(self, module):
         return isinstance(module, GPTBlock)

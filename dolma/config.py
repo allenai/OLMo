@@ -26,7 +26,9 @@ from .exceptions import DolmaConfigurationError
 
 __all__ = [
     "ModelConfig",
+    "OptimizerType",
     "OptimizerConfig",
+    "SchedulerType",
     "SchedulerConfig",
     "DataConfig",
     "TokenizerConfig",
@@ -221,8 +223,14 @@ class ModelConfig(BaseConfig):
             return self.init_device
 
 
+class OptimizerType(StrEnum):
+    adamw = "adamw"
+    decoupled_adamw = "decoupled_adamw"
+
+
 @dataclass
 class OptimizerConfig(BaseConfig):
+    name: OptimizerType = OptimizerType.decoupled_adamw
     learning_rate: Optional[float] = None
     weight_decay: float = 0.01
     betas: Tuple[float, float] = (0.9, 0.999)
@@ -232,9 +240,15 @@ class OptimizerConfig(BaseConfig):
         self.betas = tuple(self.betas)
 
 
+class SchedulerType(StrEnum):
+    cosine_with_warmup = "cosine_with_warmup"
+    constant_with_warmup = "constant_with_warmup"
+    linear_decay_with_warmup = "linear_decay_with_warmup"
+
+
 @dataclass
 class SchedulerConfig(BaseConfig):
-    name: str = "cosine_with_warmup"
+    name: SchedulerType = SchedulerType.cosine_with_warmup
     t_warmup: str = "100ba"
     alpha_f: float = 0.1
 

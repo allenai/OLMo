@@ -13,11 +13,11 @@ from torch.utils.data import DataLoader
 from torchmetrics import Metric
 
 from .aliases import BatchDict
-from .config import ModelConfig
+from .config import ModelConfig, SchedulerConfig, SchedulerType
 from .model import DolmaGPT, DolmaGPTOutput
 from .util import echo
 
-__all__ = ["ComposerDolmaGPT", "SpeedMonitorMFU", "DolmaConsoleLogger"]
+__all__ = ["ComposerDolmaGPT", "SpeedMonitorMFU", "DolmaConsoleLogger", "build_scheduler", "build_algorithm"]
 
 
 class ComposerDolmaGPT(ComposerModel):
@@ -273,3 +273,35 @@ class DolmaConsoleLogger(ConsoleLogger):
 
     def _log_to_console(self, log_str: str):
         echo.info(log_str)
+
+
+def build_scheduler(cfg: SchedulerConfig):
+    from composer.optim.scheduler import (
+        ConstantWithWarmupScheduler,
+        CosineAnnealingWithWarmupScheduler,
+        LinearWithWarmupScheduler,
+    )
+
+    if cfg.name == SchedulerType.constant_with_warmup:
+        return ConstantWithWarmupScheduler(t_warmup=cfg.t_warmup)
+    elif cfg.name == SchedulerType.cosine_with_warmup:
+        return CosineAnnealingWithWarmupScheduler(t_warmup=cfg.t_warmup, alpha_f=cfg.alpha_f)
+    elif cfg.name == SchedulerType.linear_decay_with_warmup:
+        return LinearWithWarmupScheduler(t_warmup=cfg.t_warmup, alpha_f=cfg.alpha_f)
+    else:
+        raise NotImplementedError(f"Not sure how to build scheduler '{cfg.name}'")
+
+
+def build_algorithm(name: str, kwargs: Dict[str, Any]):
+    from composer import algorithms
+
+    if name == "gradient_clipping":
+        return algorithms.GradientClipping(**kwargs)
+    elif name == "fused_layernorm":
+        return algorithms.FusedLayerNorm(**kwargs)
+    elif name == "gated_linear_units":
+        return algorithms.GatedLinearUnits(**kwargs)
+    elif name == "low_precision_layernorm":
+        return algorithms.LowPrecisionLayerNorm(**kwargs)
+    else:
+        raise NotImplementedError(f"Not sure how to build algorithm '{name}'")
