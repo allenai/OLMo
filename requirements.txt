@@ -16,3 +16,4 @@ wandb
 # Can't install these on a CPU-only environment:
 # triton
 # flash-attn
+logzio-python-handler

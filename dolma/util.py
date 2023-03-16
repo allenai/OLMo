@@ -1,29 +1,70 @@
+import logging
 import math
 import os
 import sys
 import warnings
-from datetime import datetime
-from typing import Any, Tuple, Union
+import socket
+from typing import Any, Tuple, Union, Dict
 
 import rich
-from rich.markup import escape
-from rich.text import Text
-from rich.traceback import Traceback
+from rich.logging import RichHandler
+from composer.utils.dist import get_node_rank, get_local_rank
 
 from .config import TrainConfig
-from .exceptions import DolmaCliError, DolmaConfigurationError, DolmaError
+from .exceptions import DolmaConfigurationError
+
+
+def setup_logging():
+    # We store these in variables because we don't want to create a bunch of syscalls every time
+    # we write a log message. This also ensures that they always stay the same even if the host
+    # goes crazy.
+    node_rank = get_node_rank()
+    local_rank = get_local_rank()
+    hostname = socket.gethostname()
+    old_log_record_factory = logging.getLogRecordFactory()
+    def log_record_factory(*args, **kwargs) -> logging.LogRecord:
+        record = old_log_record_factory(*args, **kwargs)
+        record.node_rank = node_rank
+        record.local_rank = local_rank
+        record.hostname = hostname
+        return record
+    logging.setLogRecordFactory(log_record_factory)
+
+    if (
+        os.environ.get("DOLMA_NONINTERACTIVE", False) or
+        os.environ.get("DEBIAN_FRONTEND", None) == "noninteractive" or
+        not sys.stdout.isatty()
+    ):
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter("{asctime}\t{hostname}:{local_rank}\t{levelname}\t{message}", style="{")
+        formatter.default_time_format = "%Y-%m-%d %H:%M:%S"
+        formatter.default_msec_format = "%s.%03d"
+        handler.setFormatter(formatter)
+        logging.basicConfig(handlers=[handler], level=logging.INFO)
+    else:
+        logging.basicConfig(handlers=[RichHandler()], level=logging.INFO)
+
+    logzio_token = os.environ.get("LOGZIO_TOKEN", None)
+    if logzio_token is not None:
+        from logzio.handler import LogzioHandler
+        logging.getLogger().addHandler(LogzioHandler(logzio_token))
+
+    logging.captureWarnings(True)
 
 
 def excepthook(exctype, value, traceback):
     """
     Used to patch `sys.excepthook` in order to log exceptions.
     """
-    if isinstance(value, DolmaCliError):
-        echo.print(f"[yellow]{value}[/]")
-    elif isinstance(value, DolmaError):
-        echo.error(Text(f"{exctype.__name__}:", style="red"), value)
-    else:
-        echo.exception(exctype, value, traceback)
+    if issubclass(exctype, KeyboardInterrupt):
+        sys.__excepthook__(exctype, value, traceback)
+        return
+
+    logging.getLogger().critical(
+        "Uncaught %s: %s",
+        exctype.__name__,
+        value,
+        exc_info=(exctype, value, traceback))
 
 
 def install_excepthook():
@@ -58,6 +99,7 @@ def set_env_variables():
 
 def prepare_cli_environment():
     rich.reconfigure(width=max(rich.get_console().width, 180), soft_wrap=True)
+    setup_logging()
     install_excepthook()
     filter_warnings()
     set_env_variables()
@@ -122,67 +164,3 @@ def update_batch_size_info(cfg: TrainConfig):
                 f"Not sure how to parse device_train_microbatch_size={cfg.device_train_microbatch_size}"
             )
     return cfg
-
-
-class echo:
-    ERROR = "ERROR"
-    WARNING = "WARNING"
-    INFO = "INFO"
-    DEBUG = "DEBUG"
-
-    @classmethod
-    def get_time_text(cls) -> Text:
-        time_str = datetime.now().strftime("[%x %X]")
-        return Text(time_str, style="log.time", end=" ")
-
-    @classmethod
-    def get_level_text(cls, level: str) -> Text:
-        level_text = Text.styled(level.upper().ljust(8), f"logging.level.{level.lower()}")
-        level_text.style = "log.level"
-        level_text.end = " "
-        return level_text
-
-    @classmethod
-    def print(cls, *args):
-        rich.get_console().print(*args)
-
-    @classmethod
-    def emit(cls, level: str, *args, markup: bool = False, rank_zero_only: bool = False):
-        if rank_zero_only:
-            from composer.utils.dist import get_local_rank
-
-            if get_local_rank() != 0:
-                return
-
-        if not markup:
-            args = cls.escape_args(*args)
-        cls.print(cls.get_time_text(), cls.get_level_text(level), *args)
-
-    @classmethod
-    def debug(cls, *args: Any, markup: bool = False, rank_zero_only: bool = False):
-        cls.emit(cls.DEBUG, *args, markup=markup, rank_zero_only=rank_zero_only)
-
-    @classmethod
-    def info(cls, *args: Any, markup: bool = False, rank_zero_only: bool = False):
-        cls.emit(cls.INFO, *args, markup=markup, rank_zero_only=rank_zero_only)
-
-    @classmethod
-    def warning(cls, *args: Any, markup: bool = False, rank_zero_only: bool = False):
-        cls.emit(cls.WARNING, *args, markup=markup, rank_zero_only=rank_zero_only)
-
-    @classmethod
-    def error(cls, *args: Any, markup: bool = False, rank_zero_only: bool = False):
-        cls.emit(cls.ERROR, *args, markup=markup, rank_zero_only=rank_zero_only)
-
-    @classmethod
-    def exception(cls, exctype, value, traceback):
-        tb = Traceback.from_exception(exctype, value, traceback)
-        cls.error(tb)
-
-    @classmethod
-    def success(cls, *args: Any, rank_zero_only: bool = False):
-        cls.info("[green]\N{check mark}[/]", *cls.escape_args(*args), markup=True, rank_zero_only=rank_zero_only)
-
-    @classmethod
-    def escape_args(cls, *args: Any) -> Tuple[Any, ...]:
-        return tuple(escape(s) if isinstance(s, str) else s for s in args)
