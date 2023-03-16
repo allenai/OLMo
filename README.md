@@ -29,3 +29,33 @@ gantry run \
   --allow-dirty \
   -- composer scripts/train.py configs/1.2b-c4.yaml
 ```
+
+Train the 70B model on c4 with gantry across multiple nodes:
+
+```bash
+gantry run \
+  --workspace ai2/llm-testing \
+  --priority "high" \
+  --beaker-image dolma-gantry \
+  --cluster ai2/general-cirrascale-a100-80g-ib \
+  --gpus 8 \
+  --nfs \
+  --env WORLD_SIZE=32 \
+  --env GPUS=8 \
+  --env NCCL_DEBUG=INFO \
+  --env SCRATCH_DIR=/tmp/scratch \
+  --env FLASH_DIR=/tmp/flash \
+  --env WANDB_PROJECT=dolma-beaker-ib \
+  --env-secret WANDB_API_KEY=WANDB_API_KEY \
+  --replicas 4 \
+  --leader-selection \
+  --host-networking \
+  --allow-dirty \
+  --venv base \
+  --yes \
+  -- /bin/bash -c 'composer --master_addr $BEAKER_LEADER_REPLICA_HOSTNAME --world_size $WORLD_SIZE --node_rank $BEAKER_REPLICA_RANK -n $GPUS --master_port 1234 scripts/train.py configs/70b-c4.yaml'
+```
+
+This may require a reservation on the Infiniband cluster.
+
+See the [Beaker documentation](https://beaker-docs.apps.allenai.org/distributed-training.html) for more information on distributed training.
