@@ -4,12 +4,15 @@ import os
 import socket
 import sys
 import warnings
-from typing import Any, Dict, Tuple, Union
+from datetime import datetime
+from typing import Any, Dict, Optional, Tuple, Union
 
 import rich
 from composer.utils.dist import get_local_rank, get_node_rank
-from rich.logging import RichHandler
+from rich.console import Console, ConsoleRenderable
+from rich.highlighter import NullHighlighter
 from rich.text import Text
+from rich.traceback import Traceback
 
 from .config import TrainConfig
 from .exceptions import DolmaCliError, DolmaConfigurationError, DolmaError
@@ -26,7 +29,7 @@ def log_extra_field(field_name: str, field_value: Any) -> None:
         _log_extra_fields[field_name] = field_value
 
 
-def setup_logging():
+def setup_logging() -> None:
     log_extra_field("node_rank", get_node_rank())
     log_extra_field("local_rank", get_local_rank())
     log_extra_field("hostname", socket.gethostname())
@@ -40,19 +43,23 @@ def setup_logging():
 
     logging.setLogRecordFactory(log_record_factory)
 
+    handler: logging.Handler
     if (
         os.environ.get("DOLMA_NONINTERACTIVE", False)
         or os.environ.get("DEBIAN_FRONTEND", None) == "noninteractive"
         or not sys.stdout.isatty()
     ):
         handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter("{asctime}\t{hostname}:{local_rank}\t{levelname}\t{message}", style="{")
+        formatter = logging.Formatter(
+            "%(asctime)s\t%(hostname)s:%(local_rank)s\t%(name)s:%(lineno)s\t%(levelname)s\t%(message)s"
+        )
         formatter.default_time_format = "%Y-%m-%d %H:%M:%S"
         formatter.default_msec_format = "%s.%03d"
         handler.setFormatter(formatter)
-        logging.basicConfig(handlers=[handler], level=logging.INFO)
     else:
-        logging.basicConfig(handlers=[RichHandler()], level=logging.INFO)
+        handler = RichHandler()
+
+    logging.basicConfig(handlers=[handler], level=logging.INFO)
 
     logzio_token = os.environ.get("LOGZIO_TOKEN", None)
     if logzio_token is not None:
@@ -70,9 +77,9 @@ def excepthook(exctype, value, traceback):
     if issubclass(exctype, KeyboardInterrupt):
         sys.__excepthook__(exctype, value, traceback)
     elif issubclass(exctype, DolmaCliError):
-        rich.print(f"[yellow]{value}[/]")
+        rich.get_console().print(f"[yellow]{value}[/]", highlight=False)
     elif issubclass(exctype, DolmaError):
-        rich.print(Text(f"{exctype.__name__}:", style="red"), value)
+        rich.get_console().print(Text(f"{exctype.__name__}:", style="red"), value, highlight=False)
     else:
         logging.getLogger().critical(
             "Uncaught %s: %s", exctype.__name__, value, exc_info=(exctype, value, traceback)
@@ -176,3 +183,70 @@ def update_batch_size_info(cfg: TrainConfig):
                 f"Not sure how to parse device_train_microbatch_size={cfg.device_train_microbatch_size}"
             )
     return cfg
+
+
+class RichHandler(logging.Handler):
+    """
+    A simplified version of rich.logging.RichHandler from
+    https://github.com/Textualize/rich/blob/master/rich/logging.py
+    """
+
+    def __init__(
+        self,
+        *,
+        level: Union[int, str] = logging.NOTSET,
+        console: Optional[Console] = None,
+        markup: bool = False,
+    ) -> None:
+        super().__init__(level=level)
+        self.console = console or rich.get_console()
+        self.highlighter = NullHighlighter()
+        self.markup = markup
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            if hasattr(record.msg, "__rich__") or hasattr(record.msg, "__rich_console__"):
+                self.console.print(record.msg)
+            else:
+                msg: Any = record.msg
+                if isinstance(record.msg, str):
+                    msg = self.render_message(record=record, message=record.getMessage())
+                renderables = [
+                    self.get_time_text(record),
+                    self.get_level_text(record),
+                    self.get_location_text(record),
+                    msg,
+                ]
+                if record.exc_info is not None:
+                    tb = Traceback.from_exception(*record.exc_info)  # type: ignore
+                    renderables.append(tb)
+                self.console.print(*renderables)
+        except Exception:
+            self.handleError(record)
+
+    def render_message(self, *, record: logging.LogRecord, message: str) -> ConsoleRenderable:
+        use_markup = getattr(record, "markup", self.markup)
+        message_text = Text.from_markup(message) if use_markup else Text(message)
+
+        highlighter = getattr(record, "highlighter", self.highlighter)
+        if highlighter:
+            message_text = highlighter(message_text)
+
+        return message_text
+
+    def get_time_text(self, record: logging.LogRecord) -> Text:
+        log_time = datetime.fromtimestamp(record.created)
+        time_str = log_time.strftime("[%Y-%m-%d %X]")
+        return Text(time_str, style="log.time", end=" ")
+
+    def get_level_text(self, record: logging.LogRecord) -> Text:
+        level_name = record.levelname
+        level_text = Text.styled(level_name.ljust(8), f"logging.level.{level_name.lower()}")
+        level_text.style = "log.level"
+        level_text.end = " "
+        return level_text
+
+    def get_location_text(self, record: logging.LogRecord) -> Text:
+        name_and_line = f"{record.name}:{record.lineno}" if record.name != "root" else "root"
+        text = f"[{name_and_line}, rank={record.local_rank}]"  # type: ignore
+        return Text(text, style="log.path")

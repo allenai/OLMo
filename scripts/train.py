@@ -55,7 +55,8 @@ def main(cfg: TrainConfig) -> None:
     )
 
     if get_node_rank() == 0:
-        log.info("Configuration: %s", cfg)
+        log.info("Configuration:")
+        log.info(cfg)
 
     # Set seed.
     reproducibility.seed_all(cfg.seed)

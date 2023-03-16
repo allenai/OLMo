@@ -15,7 +15,8 @@ log = logging.getLogger(__name__)
 
 def main(save_path: Path, args_list: List[str]) -> None:
     cfg = TrainConfig.new(overrides=args_list)
-    log.info("Configuration:", cfg)
+    log.info("Configuration:")
+    log.info(cfg)
     cfg.save(save_path)
     log.info(f"Config saved to {save_path}")
 
