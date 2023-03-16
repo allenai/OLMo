@@ -18,10 +18,10 @@ composer scripts/train.py train_config.yaml ...
 ```
 """
 
+import logging
 import os
 import sys
 from typing import List
-import logging
 
 import torch
 
@@ -29,7 +29,6 @@ from dolma import TrainConfig
 from dolma.data import build_dataloader
 from dolma.exceptions import DolmaCliError
 from dolma.util import clean_opt, prepare_cli_environment, update_batch_size_info
-
 
 log = logging.getLogger(__name__)
 

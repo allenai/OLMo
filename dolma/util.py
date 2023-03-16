@@ -1,18 +1,18 @@
 import logging
 import math
 import os
+import socket
 import sys
 import warnings
-import socket
 from typing import Tuple, Union
 
 import rich
+from composer.utils.dist import get_local_rank, get_node_rank
 from rich.logging import RichHandler
-from composer.utils.dist import get_node_rank, get_local_rank
 from rich.text import Text
 
 from .config import TrainConfig
-from .exceptions import DolmaConfigurationError, DolmaCliError, DolmaError
+from .exceptions import DolmaCliError, DolmaConfigurationError, DolmaError
 
 
 def setup_logging():
@@ -23,18 +23,20 @@ def setup_logging():
     local_rank = get_local_rank()
     hostname = socket.gethostname()
     old_log_record_factory = logging.getLogRecordFactory()
+
     def log_record_factory(*args, **kwargs) -> logging.LogRecord:
         record = old_log_record_factory(*args, **kwargs)
         record.node_rank = node_rank
         record.local_rank = local_rank
         record.hostname = hostname
         return record
+
     logging.setLogRecordFactory(log_record_factory)
 
     if (
-        os.environ.get("DOLMA_NONINTERACTIVE", False) or
-        os.environ.get("DEBIAN_FRONTEND", None) == "noninteractive" or
-        not sys.stdout.isatty()
+        os.environ.get("DOLMA_NONINTERACTIVE", False)
+        or os.environ.get("DEBIAN_FRONTEND", None) == "noninteractive"
+        or not sys.stdout.isatty()
     ):
         handler = logging.StreamHandler(sys.stdout)
         formatter = logging.Formatter("{asctime}\t{hostname}:{local_rank}\t{levelname}\t{message}", style="{")
@@ -48,6 +50,7 @@ def setup_logging():
     logzio_token = os.environ.get("LOGZIO_TOKEN", None)
     if logzio_token is not None:
         from logzio.handler import LogzioHandler
+
         logging.getLogger().addHandler(LogzioHandler(logzio_token))
 
     logging.captureWarnings(True)
@@ -65,10 +68,8 @@ def excepthook(exctype, value, traceback):
         rich.print(Text(f"{exctype.__name__}:", style="red"), value)
     else:
         logging.getLogger().critical(
-            "Uncaught %s: %s",
-            exctype.__name__,
-            value,
-            exc_info=(exctype, value, traceback))
+            "Uncaught %s: %s", exctype.__name__, value, exc_info=(exctype, value, traceback)
+        )
 
 
 def install_excepthook():
