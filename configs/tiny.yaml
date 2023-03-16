@@ -1,28 +1,30 @@
-run_name: 1.2b-c4-run-001
+run_name: tiny-run-001
 seed: 6198
 dry_run: false
 
 model:
-  d_model: 2048
-  n_heads: 16
-  n_layers: 24
+  d_model: 256
+  n_heads: 4
+  n_layers: 5
   mlp_ratio: 4
   alibi: true
   alibi_bias_max: 8.0
+  flash_attention: false
   attention_dropout: 0.0
-  attention_layer_norm: true
+  attention_layer_norm: false
   residual_dropout: 0.0
   embedding_dropout: 0.0
-  max_sequence_length: 1024
+  max_sequence_length: 256
+  include_bias: true
   vocab_size: 50257
   eos_token_id: 50256
   pad_token_id: 50256
-  init_device: meta
+  init_device: null
   init_std: 0.02
 
 optimizer:
   name: decoupled_adamw
-  learning_rate: 2.0e-4
+  learning_rate: 3.0e-4
   weight_decay: 1.2e-4
   betas:
   - 0.9
@@ -53,19 +55,18 @@ tokenizer:
   identifier: gpt2
   truncate_direction: right
 
-max_duration: 24800ba # ~ 26B tokens
-
 save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_interval: 1000ba
 save_num_checkpoints_to_keep: 2
-save_overwrite: false
+save_overwrite: true
 
 load_path: null
 load_weights_only: false
 
-global_train_batch_size: 512
+max_duration: 13400ba # ~ 7B tokens
+global_train_batch_size: 16
 device_train_batch_size: auto
-device_train_microbatch_size: 8
+device_train_microbatch_size: 4
 device_train_grad_accum: auto
 device_eval_batch_size: null
 
@@ -73,15 +74,11 @@ n_gpus: null
 
 precision: null
 
-fsdp_config:
-  sharding_strategy: FULL_SHARD
-  mixed_precision: DEFAULT
-  activation_checkpointing: false
-  activation_cpu_offload: false
-  verbose: false
+fsdp_config: null
+
+wandb: null
 
 speed_monitor:
   window_size: 20
 
-wandb:
-  name: ${run_name}
+console_log_interval: 10ba

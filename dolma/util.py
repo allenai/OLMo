@@ -1,29 +1,89 @@
+import logging
 import math
 import os
+import socket
 import sys
 import warnings
 from datetime import datetime
-from typing import Any, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import rich
-from rich.markup import escape
+from composer.utils.dist import get_local_rank, get_node_rank
+from rich.console import Console, ConsoleRenderable
+from rich.highlighter import NullHighlighter
 from rich.text import Text
 from rich.traceback import Traceback
 
 from .config import TrainConfig
 from .exceptions import DolmaCliError, DolmaConfigurationError, DolmaError
 
+_log_extra_fields: Dict[str, Any] = {}
+
+
+def log_extra_field(field_name: str, field_value: Any) -> None:
+    global _log_extra_fields
+    if field_value is None:
+        if field_name in _log_extra_fields:
+            del _log_extra_fields[field_name]
+    else:
+        _log_extra_fields[field_name] = field_value
+
+
+def setup_logging() -> None:
+    log_extra_field("node_rank", get_node_rank())
+    log_extra_field("local_rank", get_local_rank())
+    log_extra_field("hostname", socket.gethostname())
+    old_log_record_factory = logging.getLogRecordFactory()
+
+    def log_record_factory(*args, **kwargs) -> logging.LogRecord:
+        record = old_log_record_factory(*args, **kwargs)
+        for field_name, field_value in _log_extra_fields.items():
+            setattr(record, field_name, field_value)
+        return record
+
+    logging.setLogRecordFactory(log_record_factory)
+
+    handler: logging.Handler
+    if (
+        os.environ.get("DOLMA_NONINTERACTIVE", False)
+        or os.environ.get("DEBIAN_FRONTEND", None) == "noninteractive"
+        or not sys.stdout.isatty()
+    ):
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter(
+            "%(asctime)s\t%(hostname)s:%(local_rank)s\t%(name)s:%(lineno)s\t%(levelname)s\t%(message)s"
+        )
+        formatter.default_time_format = "%Y-%m-%d %H:%M:%S"
+        formatter.default_msec_format = "%s.%03d"
+        handler.setFormatter(formatter)
+    else:
+        handler = RichHandler()
+
+    logging.basicConfig(handlers=[handler], level=logging.INFO)
+
+    logzio_token = os.environ.get("LOGZIO_TOKEN", None)
+    if logzio_token is not None:
+        from logzio.handler import LogzioHandler
+
+        logging.getLogger().addHandler(LogzioHandler(logzio_token))
+
+    logging.captureWarnings(True)
+
 
 def excepthook(exctype, value, traceback):
     """
     Used to patch `sys.excepthook` in order to log exceptions.
     """
-    if isinstance(value, DolmaCliError):
-        echo.print(f"[yellow]{value}[/]")
-    elif isinstance(value, DolmaError):
-        echo.error(Text(f"{exctype.__name__}:", style="red"), value)
+    if issubclass(exctype, KeyboardInterrupt):
+        sys.__excepthook__(exctype, value, traceback)
+    elif issubclass(exctype, DolmaCliError):
+        rich.get_console().print(f"[yellow]{value}[/]", highlight=False)
+    elif issubclass(exctype, DolmaError):
+        rich.get_console().print(Text(f"{exctype.__name__}:", style="red"), value, highlight=False)
     else:
-        echo.exception(exctype, value, traceback)
+        logging.getLogger().critical(
+            "Uncaught %s: %s", exctype.__name__, value, exc_info=(exctype, value, traceback)
+        )
 
 
 def install_excepthook():
@@ -58,6 +118,7 @@ def set_env_variables():
 
 def prepare_cli_environment():
     rich.reconfigure(width=max(rich.get_console().width, 180), soft_wrap=True)
+    setup_logging()
     install_excepthook()
     filter_warnings()
     set_env_variables()
@@ -124,65 +185,68 @@ def update_batch_size_info(cfg: TrainConfig):
     return cfg
 
 
-class echo:
-    ERROR = "ERROR"
-    WARNING = "WARNING"
-    INFO = "INFO"
-    DEBUG = "DEBUG"
+class RichHandler(logging.Handler):
+    """
+    A simplified version of rich.logging.RichHandler from
+    https://github.com/Textualize/rich/blob/master/rich/logging.py
+    """
 
-    @classmethod
-    def get_time_text(cls) -> Text:
-        time_str = datetime.now().strftime("[%x %X]")
+    def __init__(
+        self,
+        *,
+        level: Union[int, str] = logging.NOTSET,
+        console: Optional[Console] = None,
+        markup: bool = False,
+    ) -> None:
+        super().__init__(level=level)
+        self.console = console or rich.get_console()
+        self.highlighter = NullHighlighter()
+        self.markup = markup
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            if hasattr(record.msg, "__rich__") or hasattr(record.msg, "__rich_console__"):
+                self.console.print(record.msg)
+            else:
+                msg: Any = record.msg
+                if isinstance(record.msg, str):
+                    msg = self.render_message(record=record, message=record.getMessage())
+                renderables = [
+                    self.get_time_text(record),
+                    self.get_level_text(record),
+                    self.get_location_text(record),
+                    msg,
+                ]
+                if record.exc_info is not None:
+                    tb = Traceback.from_exception(*record.exc_info)  # type: ignore
+                    renderables.append(tb)
+                self.console.print(*renderables)
+        except Exception:
+            self.handleError(record)
+
+    def render_message(self, *, record: logging.LogRecord, message: str) -> ConsoleRenderable:
+        use_markup = getattr(record, "markup", self.markup)
+        message_text = Text.from_markup(message) if use_markup else Text(message)
+
+        highlighter = getattr(record, "highlighter", self.highlighter)
+        if highlighter:
+            message_text = highlighter(message_text)
+
+        return message_text
+
+    def get_time_text(self, record: logging.LogRecord) -> Text:
+        log_time = datetime.fromtimestamp(record.created)
+        time_str = log_time.strftime("[%Y-%m-%d %X]")
         return Text(time_str, style="log.time", end=" ")
 
-    @classmethod
-    def get_level_text(cls, level: str) -> Text:
-        level_text = Text.styled(level.upper().ljust(8), f"logging.level.{level.lower()}")
+    def get_level_text(self, record: logging.LogRecord) -> Text:
+        level_name = record.levelname
+        level_text = Text.styled(level_name.ljust(8), f"logging.level.{level_name.lower()}")
         level_text.style = "log.level"
         level_text.end = " "
         return level_text
 
-    @classmethod
-    def print(cls, *args):
-        rich.get_console().print(*args)
-
-    @classmethod
-    def emit(cls, level: str, *args, markup: bool = False, rank_zero_only: bool = False):
-        if rank_zero_only:
-            from composer.utils.dist import get_local_rank
-
-            if get_local_rank() != 0:
-                return
-
-        if not markup:
-            args = cls.escape_args(*args)
-        cls.print(cls.get_time_text(), cls.get_level_text(level), *args)
-
-    @classmethod
-    def debug(cls, *args: Any, markup: bool = False, rank_zero_only: bool = False):
-        cls.emit(cls.DEBUG, *args, markup=markup, rank_zero_only=rank_zero_only)
-
-    @classmethod
-    def info(cls, *args: Any, markup: bool = False, rank_zero_only: bool = False):
-        cls.emit(cls.INFO, *args, markup=markup, rank_zero_only=rank_zero_only)
-
-    @classmethod
-    def warning(cls, *args: Any, markup: bool = False, rank_zero_only: bool = False):
-        cls.emit(cls.WARNING, *args, markup=markup, rank_zero_only=rank_zero_only)
-
-    @classmethod
-    def error(cls, *args: Any, markup: bool = False, rank_zero_only: bool = False):
-        cls.emit(cls.ERROR, *args, markup=markup, rank_zero_only=rank_zero_only)
-
-    @classmethod
-    def exception(cls, exctype, value, traceback):
-        tb = Traceback.from_exception(exctype, value, traceback)
-        cls.error(tb)
-
-    @classmethod
-    def success(cls, *args: Any, rank_zero_only: bool = False):
-        cls.info("[green]\N{check mark}[/]", *cls.escape_args(*args), markup=True, rank_zero_only=rank_zero_only)
-
-    @classmethod
-    def escape_args(cls, *args: Any) -> Tuple[Any, ...]:
-        return tuple(escape(s) if isinstance(s, str) else s for s in args)
+    def get_location_text(self, record: logging.LogRecord) -> Text:
+        name_and_line = f"{record.name}:{record.lineno}" if record.name != "root" else "root"
+        text = f"[{name_and_line}, rank={record.local_rank}]"  # type: ignore
+        return Text(text, style="log.path")
