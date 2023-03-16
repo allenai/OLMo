@@ -28,7 +28,12 @@ import torch
 from dolma import TrainConfig
 from dolma.data import build_dataloader
 from dolma.exceptions import DolmaCliError
-from dolma.util import clean_opt, prepare_cli_environment, update_batch_size_info
+from dolma.util import (
+    clean_opt,
+    log_extra_field,
+    prepare_cli_environment,
+    update_batch_size_info,
+)
 
 log = logging.getLogger(__name__)
 
@@ -61,6 +66,7 @@ def main(cfg: TrainConfig) -> None:
     # Run name.
     if cfg.run_name is None:
         cfg.run_name = os.environ.get("COMPOSER_RUN_NAME", "train-llm")
+    log_extra_field("run_name", cfg.run_name)
 
     # Update batch size info.
     update_batch_size_info(cfg)

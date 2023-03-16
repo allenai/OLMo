@@ -4,7 +4,7 @@ import os
 import socket
 import sys
 import warnings
-from typing import Tuple, Union
+from typing import Any, Dict, Tuple, Union
 
 import rich
 from composer.utils.dist import get_local_rank, get_node_rank
@@ -14,21 +14,28 @@ from rich.text import Text
 from .config import TrainConfig
 from .exceptions import DolmaCliError, DolmaConfigurationError, DolmaError
 
+_log_extra_fields: Dict[str, Any] = {}
+
+
+def log_extra_field(field_name: str, field_value: Any) -> None:
+    global _log_extra_fields
+    if field_value is None:
+        if field_name in _log_extra_fields:
+            del _log_extra_fields[field_name]
+    else:
+        _log_extra_fields[field_name] = field_value
+
 
 def setup_logging():
-    # We store these in variables because we don't want to create a bunch of syscalls every time
-    # we write a log message. This also ensures that they always stay the same even if the host
-    # goes crazy.
-    node_rank = get_node_rank()
-    local_rank = get_local_rank()
-    hostname = socket.gethostname()
+    log_extra_field("node_rank", get_node_rank())
+    log_extra_field("local_rank", get_local_rank())
+    log_extra_field("hostname", socket.gethostname())
     old_log_record_factory = logging.getLogRecordFactory()
 
     def log_record_factory(*args, **kwargs) -> logging.LogRecord:
         record = old_log_record_factory(*args, **kwargs)
-        record.node_rank = node_rank
-        record.local_rank = local_rank
-        record.hostname = hostname
+        for field_name, field_value in _log_extra_fields.items():
+            setattr(record, field_name, field_value)
         return record
 
     logging.setLogRecordFactory(log_record_factory)
