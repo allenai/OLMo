@@ -18,6 +18,7 @@ composer scripts/train.py train_config.yaml ...
 ```
 """
 
+import logging
 import os
 import sys
 from typing import List
@@ -28,7 +29,14 @@ from dolma import TrainConfig
 from dolma.data import build_dataloader
 from dolma.exceptions import DolmaCliError
 from dolma.optim import build_optimizer
-from dolma.util import clean_opt, echo, prepare_cli_environment, update_batch_size_info
+from dolma.util import (
+    clean_opt,
+    log_extra_field,
+    prepare_cli_environment,
+    update_batch_size_info,
+)
+
+log = logging.getLogger(__name__)
 
 
 def main(cfg: TrainConfig) -> None:
@@ -38,6 +46,7 @@ def main(cfg: TrainConfig) -> None:
     from composer.loggers import WandBLogger
     from composer.loggers.logger_destination import LoggerDestination
     from composer.utils import dist, get_device, reproducibility
+    from composer.utils.dist import get_node_rank
 
     from dolma.composer import (
         ComposerDolmaGPT,
@@ -46,7 +55,9 @@ def main(cfg: TrainConfig) -> None:
         build_scheduler,
     )
 
-    echo.info("Configuration:", cfg, rank_zero_only=True)
+    if get_node_rank() == 0:
+        log.info("Configuration:")
+        log.info(cfg)
 
     # Set seed.
     reproducibility.seed_all(cfg.seed)
@@ -57,23 +68,24 @@ def main(cfg: TrainConfig) -> None:
     # Run name.
     if cfg.run_name is None:
         cfg.run_name = os.environ.get("COMPOSER_RUN_NAME", "train-llm")
+    log_extra_field("run_name", cfg.run_name)
 
     # Update batch size info.
     update_batch_size_info(cfg)
     assert isinstance(cfg.device_train_batch_size, int)
-    echo.info(
-        f"Using per-device training batch size of {cfg.device_train_batch_size} "
-        f"for global batch size of {cfg.global_train_batch_size}",
-        rank_zero_only=True,
-    )
+    if get_node_rank() == 0:
+        log.info(
+            f"Using per-device training batch size of {cfg.device_train_batch_size} "
+            f"for global batch size of {cfg.global_train_batch_size}"
+        )
 
     # Model.
     model = ComposerDolmaGPT(cfg.model)
-    echo.info(f"Total number of parameters: {model.model.num_params():,d}", rank_zero_only=True)
-    echo.info(
-        f"Number of non-embedding parameters: {model.model.num_params(include_embedding=False):,d}",
-        rank_zero_only=True,
-    )
+    if get_node_rank() == 0:
+        log.info(f"Total number of parameters: {model.model.num_params():,d}")
+        log.info(
+            f"Number of non-embedding parameters: {model.model.num_params(include_embedding=False):,d}",
+        )
 
     # Optimizer.
     optimizer = build_optimizer(model.model, **cfg.optimizer.asdict())
@@ -127,22 +139,22 @@ def main(cfg: TrainConfig) -> None:
     device_id = trainer.state.device.name.upper()
     if device_id == "GPU":
         device_id += f" {torch.cuda.current_device()}"
-    echo.info(
+    log.info(
         f"Local rank: {dist.get_local_rank()}/{dist.get_local_world_size()}, "
         f"global rank: {dist.get_global_rank()}/{dist.get_world_size()}, "
         f"training on {device_id}"
     )
 
     if not cfg.dry_run:
-        echo.info("Starting training...", rank_zero_only=True)
+        log.info("Starting training...")
         trainer.fit()
 
     trainer.close()
 
     if cfg.dry_run:
-        echo.success("Dry run complete", rank_zero_only=True)
+        log.info("Dry run complete")
     else:
-        echo.success("Training complete", rank_zero_only=True)
+        log.info("Training complete")
 
 
 if __name__ == "__main__":
