@@ -4,14 +4,15 @@ import os
 import sys
 import warnings
 import socket
-from typing import Any, Tuple, Union, Dict
+from typing import Tuple, Union
 
 import rich
 from rich.logging import RichHandler
 from composer.utils.dist import get_node_rank, get_local_rank
+from rich.text import Text
 
 from .config import TrainConfig
-from .exceptions import DolmaConfigurationError
+from .exceptions import DolmaConfigurationError, DolmaCliError, DolmaError
 
 
 def setup_logging():
@@ -58,13 +59,16 @@ def excepthook(exctype, value, traceback):
     """
     if issubclass(exctype, KeyboardInterrupt):
         sys.__excepthook__(exctype, value, traceback)
-        return
-
-    logging.getLogger().critical(
-        "Uncaught %s: %s",
-        exctype.__name__,
-        value,
-        exc_info=(exctype, value, traceback))
+    elif issubclass(exctype, DolmaCliError):
+        rich.print(f"[yellow]{value}[/]")
+    elif issubclass(exctype, DolmaError):
+        rich.print(Text(f"{exctype.__name__}:", style="red"), value)
+    else:
+        logging.getLogger().critical(
+            "Uncaught %s: %s",
+            exctype.__name__,
+            value,
+            exc_info=(exctype, value, traceback))
 
 
 def install_excepthook():
