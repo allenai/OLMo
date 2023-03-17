@@ -24,7 +24,7 @@ class ComposerDolmaGPT(ComposerModel):
         model = DolmaGPT(config)
         if config.compile:
             log.info("compiling model...")
-            self.model = torch.compile(self.model)
+            self.model = torch.compile(model)
         else:
             self.model = model
 
