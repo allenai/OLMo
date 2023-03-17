@@ -21,12 +21,7 @@ __all__ = ["ComposerDolmaGPT", "DolmaConsoleLogger", "build_scheduler", "build_a
 class ComposerDolmaGPT(ComposerModel):
     def __init__(self, config: ModelConfig):
         super().__init__()
-        model = DolmaGPT(config)
-        if config.compile:
-            log.info("compiling model...")
-            self.model = torch.compile(model, mode=config.compile_mode)
-        else:
-            self.model = model
+        self.model = DolmaGPT(config).compile()
 
         from composer.metrics.nlp import LanguageCrossEntropy, Perplexity
 

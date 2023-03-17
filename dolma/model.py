@@ -4,6 +4,8 @@ Adapted from
 [minGPT](https://github.com/karpathy/minGPT.git)
 """
 
+from __future__ import annotations
+
 import math
 from typing import NamedTuple, Optional, cast
 
@@ -172,6 +174,18 @@ class DolmaGPT(nn.Module):
         if init_params and self.config.init_device != "meta":
             self.apply(self.param_init_fn)
         self.__num_fwd_flops = None
+
+    def compile(self) -> DolmaGPT:
+        """
+        Returns a new model compiled using ``torch.compile()`` if ``config.compile``
+        is ``True``, otherwise returns ``self`` unchanged.
+
+        Note that the compiled return type is only a :class:`DolmaGPT` object through duck typing.
+        """
+        if self.config.compile:
+            return cast(DolmaGPT, torch.compile(self, mode=self.config.compile_mode))
+        else:
+            return self
 
     @property
     def causal_attention_bias(self) -> torch.FloatTensor:

@@ -222,7 +222,8 @@ class ModelConfig(BaseConfig):
 
     compile: bool = True
     """
-    Compile to model with ``torch.compile()``.
+    Compile the model with ``torch.compile()``. Note that you must call
+    :meth:`DolmaGPT.compile()` for this to take effect.
     """
 
     compile_mode: Optional[str] = None
