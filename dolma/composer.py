@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, Optional
 
 import torch
@@ -11,7 +12,8 @@ from torchmetrics import Metric
 from .aliases import BatchDict
 from .config import ModelConfig, SchedulerConfig, SchedulerType
 from .model import DolmaGPT, DolmaGPTOutput
-from .util import echo
+
+log = logging.getLogger(__name__)
 
 __all__ = ["ComposerDolmaGPT", "DolmaConsoleLogger", "build_scheduler", "build_algorithm"]
 
@@ -79,7 +81,7 @@ class DolmaConsoleLogger(ConsoleLogger):
             self._log_to_console(log_str)
 
     def _log_to_console(self, log_str: str):
-        echo.info(log_str)
+        log.info(log_str)
 
 
 def build_scheduler(cfg: SchedulerConfig):

@@ -20,4 +20,4 @@ Findings:
 2023-03-15
 ----------
 
-The cluster is down for maintenance, so we're just queueing up some features we want to run.
+The cluster is down for maintenance, so we're just queueing up some features we want to run. We also used the LUMI downtime to build a better logging feature. When running 1000s of nodes in a cluster, it's difficult to get logs that make sense. We're sending our logs to third-party logging provider [logz.io](https://logz.io). It's basic, but it gets the job done.

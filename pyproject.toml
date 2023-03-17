@@ -22,6 +22,7 @@ multi_line_output = 3
 
 [tool.pyright]
 reportPrivateImportUsage = false
+exclude = ["pretrain_data/"]
 
 [build-system]
 requires = ["setuptools", "wheel"]

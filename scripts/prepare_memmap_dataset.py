@@ -14,6 +14,7 @@ python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/out.npy
 import concurrent.futures
 import gzip
 import json
+import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Generator, List, Optional, Tuple
@@ -29,7 +30,9 @@ from rich.progress import (
 )
 
 from dolma import Tokenizer
-from dolma.util import echo, prepare_cli_environment
+from dolma.util import prepare_cli_environment
+
+log = logging.getLogger(__name__)
 
 
 def get_progress() -> Progress:
@@ -118,7 +121,7 @@ def main(
                 total_docs += num_docs
 
     total_tokens = sum(src_to_num_tokens.values())
-    echo.success(f"Counted {total_tokens:,d} tokens over {total_docs:,d} documents")
+    log.info(f"Counted {total_tokens:,d} tokens over {total_docs:,d} documents")
 
     # Initialize memmap file.
     memmap = np.memmap(output, mode="w+", dtype=dtype, shape=(total_tokens,))
@@ -144,17 +147,17 @@ def main(
             ):
                 future.result()
 
-    echo.success(f"Done! File written to {output}")
+    log.info(f"Done! File written to {output}")
 
     if validate:
-        echo.info("Validating...")
+        log.info("Validating...")
         memmap = np.memmap(output, mode="r", dtype=dtype, shape=(total_tokens,))
         # Should have an EOS token for every document.
         assert (memmap == tokenizer.eos_token_id).sum() == total_docs
         assert memmap[-1] == tokenizer.eos_token_id
         # Make sure all entries have been filled with actual token IDs.
         assert (memmap < tokenizer.vocab_size).all()
-        echo.success("All good!")
+        log.info("All good!")
 
 
 if __name__ == "__main__":

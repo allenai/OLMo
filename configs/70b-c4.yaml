@@ -41,7 +41,7 @@ algorithms:
     clipping_threshold: 1.0
 
 data:
-  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-train.*.npy}
+  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-train.*.npy}
   pad_direction: right
   num_workers: 2
   drop_last: true
@@ -56,7 +56,7 @@ tokenizer:
 
 max_duration: 333800ba  # ~ 1.4T tokens
 
-save_folder: ${path.choose:${oc.env:FLASH_DIR}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
+save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_interval: 1000ba
 save_num_checkpoints_to_keep: 2
 save_overwrite: false
