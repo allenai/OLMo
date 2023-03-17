@@ -1,10 +1,10 @@
-# Config
-click
-
-# Read from S3
+pandas
+smashed[remote]>=0.19.3
+torch==1.13.1
+springs
+s3fs
+fsspec
+pycld3
 cached_path
-boto3
-
-# MMDA
-git+https://github.com/allenai/mmda.git@0.3.0
-mmda[recipes]
+blingfire
+pyarrow
