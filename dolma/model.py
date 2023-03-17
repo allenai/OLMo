@@ -25,6 +25,7 @@ class TorchAttention(nn.Module):
         self.d_model = config.d_model
         self.attn_dropout_p = config.attention_dropout
         self.use_flash_attn = config.flash_attention
+        self.use_mem_efficient_attn = config.memory_efficient_attention
 
         # key, query, value projections for all heads, but in a batch.
         self.c_attn = nn.Linear(
@@ -81,7 +82,11 @@ class TorchAttention(nn.Module):
 
         # Apply SDP.
         # shape: (B, nh, T, hs)
-        with torch.backends.cuda.sdp_kernel(enable_flash=self.use_flash_attn, enable_math=not self.use_flash_attn):
+        with torch.backends.cuda.sdp_kernel(
+            enable_flash=self.use_flash_attn,
+            enable_mem_efficient=self.use_mem_efficient_attn,
+            enable_math=not (self.use_flash_attn or self.use_mem_efficient_attn),
+        ):
             att = F.scaled_dot_product_attention(
                 q,
                 k,
