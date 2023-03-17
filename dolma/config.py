@@ -225,6 +225,13 @@ class ModelConfig(BaseConfig):
     Compile to model with ``torch.compile()``.
     """
 
+    compile_mode: Optional[str] = None
+    """
+    The mode to compile the model in. At the moment this can be "default",
+    "reduce-overhead" (useful for smaller models/batches), or "max-autotune"
+    (the fastest, but takes a long time to compile).
+    """
+
     @property
     def device(self) -> Optional[str]:
         if self.init_device == "meta" or self.init_device is None:
