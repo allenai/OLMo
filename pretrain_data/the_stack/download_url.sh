@@ -8,7 +8,9 @@ dest_path="s3://ai2-llm/pretraining-data/sources/stack-dedup/raw/$dir/$source_na
 
 dest_exists=$(aws s3 ls $dest_path)
 
-if [ -z "$dest_exists" ]
+dest_size=$(aws s3 ls --summarize --human-readable $dest_path | tail -1)
+empty_size=': 0 Bytes'
+if [[ "$dest_size" == *"$empty_size"* ]]
 then
     #echo $source_path $dest_path
     python download_url.py $1 $2
