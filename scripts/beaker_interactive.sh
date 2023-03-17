@@ -30,15 +30,15 @@ conda install -y gh -c conda-forge
 gh auth setup-git
 
 # Install PyTorch.
-conda install -y pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
+conda install -y pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
 
 # We need cuda dev for the old version of triton.
 # NOTE: once we're able to upgrade triton to >=2.0, we can remove this.
-conda install -y -c nvidia cuda-libraries-dev=11.7 cuda-nvcc=11.7
+conda install -y -c nvidia cuda-libraries-dev=11.8 cuda-nvcc=11.8
 export CUDA_HOME="$CONDA_PREFIX"
 
 # Install flash attn (and triton dependency) from our pre-built wheel.
-pip install triton==2.0.0.dev20221202 https://storage.googleapis.com/ai2-python-wheels/flash_attn/flash_attn-0.2.8%2Bcu117torch1.13.1-cp310-cp310-linux_x86_64.whl
+pip install triton==2.0.0.dev20221202 https://storage.googleapis.com/ai2-python-wheels/flash_attn/flash_attn-0.2.8%2Bcu118torch2.0.0-cp310-cp310-linux_x86_64.whl
 
 # Check for GPUs.
 python -c 'import torch; print(f"GPUs available: {torch.cuda.device_count()}")'

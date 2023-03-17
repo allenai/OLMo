@@ -1,7 +1,7 @@
 # Defines a CUDA-enabled Docker image suitable for installing all dependencies
 # to this project.
 
-FROM ghcr.io/allenai/pytorch:1.13.1-cuda11.7-python3.10
+FROM ghcr.io/allenai/pytorch:2.0.0-cuda11.8-python3.10
 
 # We need cuda dev for the old version of triton.
 # NOTE: once we're able to upgrade triton to >=2.0, we can remove this.
@@ -10,6 +10,6 @@ RUN /opt/conda/bin/conda install -c nvidia cuda-libraries-dev
 # Install flash attn (and triton dependency) from our pre-built wheel.
 RUN /opt/conda/bin/pip install --no-cache-dir \
     triton==2.0.0.dev20221202 \
-    https://storage.googleapis.com/ai2-python-wheels/flash_attn/flash_attn-0.2.8%2Bcu117torch1.13.1-cp310-cp310-linux_x86_64.whl
+    https://storage.googleapis.com/ai2-python-wheels/flash_attn/flash_attn-0.2.8%2Bcu118torch2.0.0-cp310-cp310-linux_x86_64.whl
 
 ENV CUDA_HOME=/opt/conda
