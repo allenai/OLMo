@@ -44,6 +44,11 @@ class MemMapDataset(Dataset[torch.LongTensor]):
     def chunk_size(self) -> int:
         return self._chunk_size
 
+    @property
+    def max_seq_len(self) -> int:
+        # For compatibility with composer's SpeedMonitor callback.
+        return self.chunk_size
+
     @classmethod
     def from_train_config(cls, config: TrainConfig) -> MemMapDataset:
         return cls(*config.data.paths, chunk_size=config.model.max_sequence_length)

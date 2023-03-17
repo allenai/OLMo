@@ -28,6 +28,7 @@ import torch
 from dolma import TrainConfig
 from dolma.data import build_dataloader
 from dolma.exceptions import DolmaCliError
+from dolma.optim import build_optimizer
 from dolma.util import (
     clean_opt,
     log_extra_field,
@@ -87,7 +88,7 @@ def main(cfg: TrainConfig) -> None:
         )
 
     # Optimizer.
-    optimizer = model.model.configure_optimizer(**cfg.optimizer.asdict())
+    optimizer = build_optimizer(model.model, **cfg.optimizer.asdict())
 
     # Scheduler.
     scheduler = build_scheduler(cfg.scheduler)
