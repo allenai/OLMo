@@ -13,6 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .config import ModelConfig
+from .exceptions import DolmaConfigurationError
 
 __all__ = ["TorchAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
 
@@ -93,6 +94,7 @@ class TorchAttention(nn.Module):
                 v,
                 attn_mask=None if attention_bias is None else attention_bias.to(dtype=dtype),
                 dropout_p=0.0 if not self.training else self.attn_dropout_p,
+                is_causal=attention_bias is None,
             )
 
         # Re-assemble all head outputs side-by-side.
@@ -152,6 +154,9 @@ class DolmaGPT(nn.Module):
     def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
         self.config = config
+        if self.config.alibi and self.config.flash_attention:
+            raise DolmaConfigurationError("ALiBi is currently not supported with FlashAttention")
+
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.vocab_size, config.d_model, device=config.init_device),
@@ -268,23 +273,22 @@ class DolmaGPT(nn.Module):
             attention_mask = (1.0 - attention_mask) * torch.finfo(attention_mask.dtype).min
             attention_mask.masked_fill_(attention_mask == 1.0, float("-inf"))
 
-        # Default to causal attention bias.
-        attention_bias = cast(
-            torch.Tensor, attention_bias if attention_bias is not None else self.causal_attention_bias
-        )
-        if attention_bias.dtype in (torch.int8, torch.bool):
-            attention_bias = attention_bias.to(dtype=torch.float)
-            attention_bias.masked_fill_(attention_bias == 0.0, float("-inf"))
+        if attention_bias is not None or attention_mask is not None:
+            # Default to causal attention bias.
+            attention_bias = attention_bias if attention_bias is not None else self.causal_attention_bias
+            if attention_bias.dtype in (torch.int8, torch.bool):
+                attention_bias = attention_bias.to(dtype=torch.float)
+                attention_bias.masked_fill_(attention_bias == 0.0, float("-inf"))
 
-        attention_bias = attention_bias[:, :, :seq_len, :seq_len]
+            attention_bias = attention_bias[:, :, :seq_len, :seq_len]
 
-        # Add in the masking bias.
-        if attention_mask is not None:
-            attention_bias = attention_bias + attention_mask
+            # Add in the masking bias.
+            if attention_mask is not None:
+                attention_bias = attention_bias + attention_mask
 
-        if self.config.alibi:
-            # Add in ALiBi attention bias.
-            attention_bias = attention_bias + self.alibi_attention_bias[:, :, :seq_len, :seq_len]
+            if self.config.alibi:
+                # Add in ALiBi attention bias.
+                attention_bias = attention_bias + self.alibi_attention_bias[:, :, :seq_len, :seq_len]
 
         # Apply blocks one-by-one.
         for block in self.transformer.blocks:  # type: ignore
