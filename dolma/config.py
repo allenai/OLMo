@@ -229,7 +229,7 @@ class ModelConfig(BaseConfig):
     """
     The mode to compile the model in. At the moment this can be "default",
     "reduce-overhead" (useful for smaller models/batches), or "max-autotune"
-    (the fastest, but takes a long time to compile).
+    (the fastest for larger models, but takes a long time to compile).
     """
 
     @property
