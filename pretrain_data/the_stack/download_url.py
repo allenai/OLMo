@@ -59,8 +59,13 @@ def _save_url_as_jsonl(url: str, output_path: str):
     """
     if os.path.exists(output_path):
         return
+    token: str
+    try:
+        token = os.environ["HF_TOKEN"]
+    except KeyError:
+        raise KeyError("Please specify HF_TOKEN in the environment.")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    token = os.getenv("HF_TOKEN")
+    #token = os.getenv("HF_TOKEN")
     df = _read_parquet_with_token(url, token)
     df = _convert_dataframe(
         df,

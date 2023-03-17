@@ -1,2 +1,8 @@
 pandas
 fsspec
+awscli
+requests
+aiohttp
+huggingface_hub
+pyarrow
+fastparquet
