@@ -86,6 +86,7 @@ def test_forward(
     train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, flash_attn: bool, cuda: bool, dtype
 ):
     torch.manual_seed(0)
+    torch.use_deterministic_algorithms(True)
 
     train_config.model.alibi = alibi
     train_config.model.flash_attention = flash_attn

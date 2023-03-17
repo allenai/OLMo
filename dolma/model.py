@@ -5,42 +5,42 @@ Adapted from
 """
 
 import math
-from abc import abstractmethod
 from typing import NamedTuple, Optional, cast
 
 import torch
+import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
-from einops import rearrange
 
 from .config import ModelConfig
 
 __all__ = ["TorchAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
 
 
-class DolmaAttentionBase(nn.Module):
+class TorchAttention(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
         assert config.d_model % config.n_heads == 0
         self.n_heads = config.n_heads
         self.d_model = config.d_model
+        self.attn_dropout_p = config.attention_dropout
+        self.use_flash_attn = config.flash_attention
 
-        # key, query, value projections for all heads, but in a batch
+        # key, query, value projections for all heads, but in a batch.
         self.c_attn = nn.Linear(
             config.d_model, 3 * config.d_model, bias=config.include_bias, device=config.init_device
         )
-        # for param init fn
+        # for param init fn.
         self.c_attn._fused = (0, (self.d_model, 2 * self.d_model))  # type: ignore
 
-        # output projection
+        # output projection.
         self.c_proj = nn.Linear(
             config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
         )
-        # for param init fn
+        # for param init fn.
         self.c_proj._is_residual = True  # type: ignore
 
-        # regularization
-        self.attn_dropout = nn.Dropout(config.attention_dropout)
+        # extra regularization.
         self.resid_dropout = nn.Dropout(config.residual_dropout)
 
         # optional layer norm for keys and queries.
@@ -49,19 +49,6 @@ class DolmaAttentionBase(nn.Module):
         if config.attention_layer_norm:
             self.k_ln = nn.LayerNorm(self.d_model, device=config.init_device)
             self.q_ln = nn.LayerNorm(self.d_model, device=config.init_device)
-
-    @abstractmethod
-    def forward(
-        self,
-        x: torch.FloatTensor,
-        attention_bias: Optional[torch.FloatTensor] = None,
-    ) -> torch.FloatTensor:
-        raise NotImplementedError
-
-
-class TorchAttention(DolmaAttentionBase):
-    def __init__(self, config: ModelConfig):
-        super().__init__(config)
 
     def forward(
         self,
@@ -79,89 +66,37 @@ class TorchAttention(DolmaAttentionBase):
         # Calculate query, key, values for all heads in batch.
         # shape (all): (B, T, C)
         q, k, v = self.c_attn(x).split(self.d_model, dim=2)
-
-        # Optionally apply layer norm to keys and queries.
-        if self.k_ln is not None and self.q_ln is not None:
-            dtype = k.dtype
-            k = self.k_ln(k).to(dtype=dtype)
-            q = self.q_ln(q).to(dtype=dtype)
-
-        # Move head forward to be next to the batch dim.
-        # shape (all): (B, nh, T, hs)
-        k = k.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
-        q = q.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
-        v = v.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
-
-        # Self-attention: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
-        att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-
-        # Apply bias.
-        if attention_bias is not None:
-            att = att + attention_bias[:, :, :T, :T]
-
-        # Apply softmax and dropout.
-        att = F.softmax(att, dim=-1)
-        att = self.attn_dropout(att)
-
-        # Get head outputs.
-        y = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
-
-        # Re-assemble all head outputs side by side.
-        y = y.transpose(1, 2).contiguous().view(B, T, C)
-
-        # Apply output projection.
-        y = self.resid_dropout(self.c_proj(y))
-
-        return y
-
-
-class FlashAttention(DolmaAttentionBase):
-    """
-    Triton implementation of FlashAttention.
-    """
-
-    def __init__(self, config: ModelConfig):
-        from flash_attn import flash_attn_triton  # type: ignore
-
-        super().__init__(config)
-
-        assert self.d_model / self.n_heads in {64, 128}, "FlashAttention requires head dim of 64 or 128 for now"
-        assert config.attention_dropout == 0, "FlashAttention does not support attention dropout for now"
-        self.flash_attn_qkvpacked_func = flash_attn_triton.flash_attn_qkvpacked_func
-
-    def forward(
-        self, x: torch.FloatTensor, attention_bias: Optional[torch.FloatTensor] = None
-    ) -> torch.FloatTensor:
-        """
-        :param x: A tensor of shape `(batch_size, seq_len, d_model)`.
-        :param attention_bias: A tensor of shape `(batch_size, n_heads, seq_len, seq_len)`
-            or an equivalently broadcastable shape. This is used to introduce causal or other biases
-            and it is simply added to the attention scores before the softmax.
-        """
-        # Calculate query, key, values for all heads in batch.
-        # shape: (batch_size, seq_length, d_model * 3)
-        qkv = self.c_attn(x)
+        dtype = k.dtype
 
         # Optionally apply layer norm to keys and queries.
         if self.q_ln is not None and self.k_ln is not None:
-            # Applying layernorm to qk
-            dtype = qkv.dtype
-            q, k, v = qkv.split(self.d_model, dim=-1)
             q = self.q_ln(q).to(dtype=dtype)
             k = self.k_ln(k).to(dtype=dtype)
-            qkv = torch.cat([q, k, v], dim=-1)
 
-        # Apply inner attention function.
-        qkv = rearrange(qkv, "b s (t h d) -> b s t h d", t=3, h=self.n_heads)
-        y = self.flash_attn_qkvpacked_func(qkv, attention_bias)
+        # Move head forward to be next to the batch dim.
+        # shape (all): (B, nh, T, hs)
+        q = q.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
+        k = k.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
+        v = v.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
 
-        # Re-assemble all head outputs side by side.
-        y = rearrange(y, "b s h d -> b s (h d)")
+        # Apply SDP.
+        # shape: (B, nh, T, hs)
+        with torch.backends.cuda.sdp_kernel(enable_flash=self.use_flash_attn, enable_math=not self.use_flash_attn):
+            att = F.scaled_dot_product_attention(
+                q,
+                k,
+                v,
+                attn_mask=None if attention_bias is None else attention_bias.to(dtype=dtype),
+                dropout_p=0.0 if not self.training else self.attn_dropout_p,
+            )
+
+        # Re-assemble all head outputs side-by-side.
+        att = att.transpose(1, 2).contiguous().view(B, T, C)
 
         # Apply output projection.
-        y = self.resid_dropout(self.c_proj(y))
+        att = self.resid_dropout(self.c_proj(att))
 
-        return y
+        return att
 
 
 class GPTMLP(nn.Module):
@@ -186,9 +121,7 @@ class GPTBlock(nn.Module):
         super().__init__()
         self.config = config
         self.ln_1 = nn.LayerNorm(config.d_model, device=config.init_device)
-        self.attn: DolmaAttentionBase = (
-            FlashAttention(config) if config.flash_attention else TorchAttention(config)
-        )
+        self.attn = TorchAttention(config)
         self.ln_2 = nn.LayerNorm(config.d_model, device=config.init_device)
         self.mlp = GPTMLP(config)
 
