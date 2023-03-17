@@ -220,6 +220,11 @@ class ModelConfig(BaseConfig):
     Standard deviation used when initializing parameters.
     """
 
+    compile: bool = True
+    """
+    Compile to model with ``torch.compile()``.
+    """
+
     @property
     def device(self) -> Optional[str]:
         if self.init_device == "meta" or self.init_device is None:
