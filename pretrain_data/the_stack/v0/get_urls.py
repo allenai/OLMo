@@ -1,6 +1,6 @@
 import argparse
 import json
-from typing import List
+from typing import Dict, List
 
 import tqdm
 
@@ -12,7 +12,7 @@ def list_stack_files(languages: List[str], lang_idx: int, total_files: int, vers
     Get the list of parquet files for all languages in The Stack (dedup).
     """
     fs = fs_auth()
-    lang_files = {}
+    lang_files: Dict[str, List[str]] = {}
     try:
         with tqdm.tqdm(total=len(languages)) as pbar:
             for idx, lang in enumerate(languages):
@@ -61,7 +61,7 @@ if __name__ == "__main__":
         langs = [k.lower().replace(" ", "-") for k in langs.keys()]
 
     lang_idx = 0
-    lang_urls = {}
+    lang_urls: Dict[str, List[str]] = {}
     try:
         with open(args.output_file, "r+") as f:
             for url in f.readlines():
