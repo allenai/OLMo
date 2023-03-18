@@ -2,16 +2,33 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union, cast
+from glob import glob
+from pathlib import Path
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import torch
+from omegaconf import OmegaConf as om
+from omegaconf.errors import OmegaConfBaseException
 
 from .aliases import PathOrStr
 from .exceptions import DolmaConfigurationError
 
 __all__ = [
     "ModelConfig",
+    "OptimizerType",
     "OptimizerConfig",
+    "SchedulerType",
     "SchedulerConfig",
     "DataConfig",
     "TokenizerConfig",
@@ -39,41 +56,62 @@ class StrEnum(str, Enum):
 
 class BaseConfig:
     @classmethod
-    def new(cls: Type[C], overrides: Optional[List[str]] = None) -> C:
-        from omegaconf import OmegaConf
-        from omegaconf.errors import ConfigKeyError
+    def _register_resolvers(cls):
+        # Expands path globs into a list.
+        def path_glob(*paths) -> List[str]:
+            out = []
+            for path in paths:
+                matches = glob(path)
+                if not matches:
+                    raise FileNotFoundError(f"{path} does not match any files or dirs")
+                out.extend(matches)
+            return out
 
-        conf = OmegaConf.structured(cls)
-        if overrides:
-            try:
-                conf = OmegaConf.merge(conf, OmegaConf.from_dotlist(overrides))
-            except ConfigKeyError as e:
-                raise DolmaConfigurationError(str(e))
-        return cast(C, OmegaConf.to_object(conf))
+        # Chooses the first path in the arguments that exists.
+        def path_choose(*paths) -> str:
+            for path in paths:
+                if Path(path).exists():
+                    return path
+            raise FileNotFoundError(", ".join(paths))
+
+        om.register_new_resolver("path.glob", path_glob, replace=True)
+        om.register_new_resolver("path.choose", path_choose, replace=True)
+
+    @classmethod
+    def new(cls: Type[C], overrides: Optional[List[str]] = None) -> C:
+        cls._register_resolvers()
+        conf = om.structured(cls)
+        try:
+            if overrides:
+                conf = om.merge(conf, om.from_dotlist(overrides))
+            return cast(C, om.to_object(conf))
+        except OmegaConfBaseException as e:
+            raise DolmaConfigurationError(str(e))
 
     @classmethod
     def load(cls: Type[C], path: PathOrStr, overrides: Optional[List[str]] = None) -> C:
         """Load from a YAML file."""
-        from omegaconf import OmegaConf
-        from omegaconf.errors import ConfigKeyError
-
-        schema = OmegaConf.structured(cls)
+        cls._register_resolvers()
+        schema = om.structured(cls)
         try:
-            conf = OmegaConf.merge(schema, OmegaConf.load(str(path)))
+            conf = om.merge(schema, om.load(str(path)))
             if overrides:
-                conf = OmegaConf.merge(conf, OmegaConf.from_dotlist(overrides))
-        except ConfigKeyError as e:
+                conf = om.merge(conf, om.from_dotlist(overrides))
+            return cast(C, om.to_object(conf))
+        except OmegaConfBaseException as e:
             raise DolmaConfigurationError(str(e))
-        return cast(C, OmegaConf.to_object(conf))
 
     def save(self, path: PathOrStr) -> None:
         """Save to a YAML file."""
-        from omegaconf import OmegaConf
+        om.save(config=self, f=str(path))
 
-        OmegaConf.save(config=self, f=str(path))
-
-    def asdict(self) -> Dict[str, Any]:
-        return asdict(self)  # type: ignore
+    def asdict(self, exclude: Optional[Iterable[str]] = None) -> Dict[str, Any]:
+        out = asdict(self)  # type: ignore
+        if exclude is not None:
+            for name in exclude:
+                if name in out:
+                    del out[name]
+        return out
 
 
 @dataclass
@@ -185,20 +223,33 @@ class ModelConfig(BaseConfig):
             return self.init_device
 
 
+class OptimizerType(StrEnum):
+    adamw = "adamw"
+    decoupled_adamw = "decoupled_adamw"
+    decoupled_lionw = "decoupled_lionw"
+
+
 @dataclass
 class OptimizerConfig(BaseConfig):
+    name: OptimizerType = OptimizerType.decoupled_lionw
     learning_rate: Optional[float] = None
-    weight_decay: float = 0.01
-    betas: Tuple[float, float] = (0.9, 0.999)
+    weight_decay: float = 0.0
+    betas: Tuple[float, float] = (0.9, 0.95)
     eps: float = 1e-8
 
     def __post_init__(self):
         self.betas = tuple(self.betas)
 
 
+class SchedulerType(StrEnum):
+    cosine_with_warmup = "cosine_with_warmup"
+    constant_with_warmup = "constant_with_warmup"
+    linear_decay_with_warmup = "linear_decay_with_warmup"
+
+
 @dataclass
 class SchedulerConfig(BaseConfig):
-    name: str = "cosine_with_warmup"
+    name: SchedulerType = SchedulerType.cosine_with_warmup
     t_warmup: str = "100ba"
     alpha_f: float = 0.1
 
@@ -218,17 +269,6 @@ class DataConfig(BaseConfig):
     prefetch_factor: int = 2
     persistent_workers: bool = True
     timeout: int = 0
-
-    def __post_init__(self):
-        from glob import glob
-
-        final_paths = []
-        for path in self.paths:
-            matching_paths = glob(path, recursive=True)
-            if not matching_paths:
-                raise FileNotFoundError(f"'{path}' did not match any files or directories")
-            final_paths.extend(matching_paths)
-        self.paths = final_paths
 
 
 class TruncationDirection(StrEnum):
@@ -251,7 +291,12 @@ class WandbConfig(BaseConfig):
     tags: Optional[List[str]] = None
     log_artifacts: bool = False
     rank_zero_only: bool = True
-    init_kwargs: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class SpeedMonitorConfig(BaseConfig):
+    window_size: int = 100
+    gpu_flops_available: Optional[Union[float, int]] = None
 
 
 @dataclass
@@ -285,6 +330,7 @@ class TrainConfig(BaseConfig):
     precision: Optional[str] = None
     fsdp_config: Optional[Dict[str, Any]] = None
     wandb: Optional[WandbConfig] = None
+    speed_monitor: SpeedMonitorConfig = field(default_factory=SpeedMonitorConfig)
     console_log_interval: Union[str, int] = "1ba"
 
     @property

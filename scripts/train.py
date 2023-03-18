@@ -18,89 +18,77 @@ composer scripts/train.py train_config.yaml ...
 ```
 """
 
+import logging
 import os
 import sys
-from typing import Any, Dict, List
+from typing import List
 
 import torch
 
-from dolma import SchedulerConfig, TrainConfig
+from dolma import TrainConfig
 from dolma.data import build_dataloader
-from dolma.exceptions import DolmaCliError, DolmaConfigurationError
-from dolma.util import clean_opt, echo, prepare_cli_environment, update_batch_size_info
+from dolma.exceptions import DolmaCliError
+from dolma.optim import build_optimizer
+from dolma.util import (
+    clean_opt,
+    log_extra_field,
+    prepare_cli_environment,
+    update_batch_size_info,
+)
 
-
-def build_scheduler(cfg: SchedulerConfig):
-    from composer.optim.scheduler import (
-        ConstantWithWarmupScheduler,
-        CosineAnnealingWithWarmupScheduler,
-        LinearWithWarmupScheduler,
-    )
-
-    if cfg.name == "constant_with_warmup":
-        return ConstantWithWarmupScheduler(t_warmup=cfg.t_warmup)
-    elif cfg.name == "cosine_with_warmup":
-        return CosineAnnealingWithWarmupScheduler(t_warmup=cfg.t_warmup, alpha_f=cfg.alpha_f)
-    elif cfg.name == "linear_decay_with_warmup":
-        return LinearWithWarmupScheduler(t_warmup=cfg.t_warmup, alpha_f=cfg.alpha_f)
-    else:
-        raise DolmaConfigurationError(f"Not sure how to build scheduler: {cfg.name}")
-
-
-def build_algorithm(name: str, kwargs: Dict[str, Any]):
-    from composer import algorithms
-
-    if name == "gradient_clipping":
-        return algorithms.GradientClipping(**kwargs)
-    #  elif name == 'alibi':
-    #      return algorithms.Alibi(**kwargs)
-    elif name == "fused_layernorm":
-        return algorithms.FusedLayerNorm(**kwargs)
-    elif name == "gated_linear_units":
-        return algorithms.GatedLinearUnits(**kwargs)
-    elif name == "low_precision_layernorm":
-        return algorithms.LowPrecisionLayerNorm(**kwargs)
-    else:
-        raise ValueError(f"Not sure how to build algorithm: {name}")
+log = logging.getLogger(__name__)
 
 
 def main(cfg: TrainConfig) -> None:
     from composer import Trainer
+    from composer.callbacks import SpeedMonitor
     from composer.core import Callback
     from composer.loggers import WandBLogger
     from composer.loggers.logger_destination import LoggerDestination
     from composer.utils import dist, get_device, reproducibility
+    from composer.utils.dist import get_node_rank
 
-    from dolma.composer import ComposerDolmaGPT, DolmaConsoleLogger, SpeedMonitorMFU
+    from dolma.composer import (
+        ComposerDolmaGPT,
+        DolmaConsoleLogger,
+        build_algorithm,
+        build_scheduler,
+    )
 
-    echo.info("Configuration:", cfg, rank_zero_only=True)
+    if get_node_rank() == 0:
+        log.info("Configuration:")
+        log.info(cfg)
 
+    # Set seed.
     reproducibility.seed_all(cfg.seed)
+
+    # Initialize process group.
     dist.initialize_dist(get_device(None))
 
     # Run name.
     if cfg.run_name is None:
-        cfg.run_name = os.environ.get("COMPOSER_RUN_NAME", "llm")
+        cfg.run_name = os.environ.get("COMPOSER_RUN_NAME", "train-llm")
+    log_extra_field("run_name", cfg.run_name)
 
     # Update batch size info.
     update_batch_size_info(cfg)
     assert isinstance(cfg.device_train_batch_size, int)
-    echo.info(
-        f"Using per-device training batch size of {cfg.device_train_batch_size} "
-        f"for global batch size of {cfg.global_train_batch_size}",
-        rank_zero_only=True,
-    )
+    if get_node_rank() == 0:
+        log.info(
+            f"Using per-device training batch size of {cfg.device_train_batch_size} "
+            f"for global batch size of {cfg.global_train_batch_size}"
+        )
 
     # Model.
     model = ComposerDolmaGPT(cfg.model)
-    echo.info(f"Total number of parameters: {model.model.num_params():,d}", rank_zero_only=True)
-    echo.info(
-        f"Number of non-embedding parameters: {model.model.num_params(include_embedding=False):,d}",
-        rank_zero_only=True,
-    )
+    if get_node_rank() == 0:
+        log.info(f"Total number of parameters: {model.model.num_params():,d}")
+        log.info(
+            f"Number of non-embedding parameters: {model.model.num_params(include_embedding=False):,d}",
+        )
 
     # Optimizer.
-    optimizer = model.model.configure_optimizer(**cfg.optimizer.asdict())
+    optimizer = build_optimizer(model.model, **cfg.optimizer.asdict())
 
     # Scheduler.
     scheduler = build_scheduler(cfg.scheduler)
@@ -112,12 +100,12 @@ def main(cfg: TrainConfig) -> None:
     algorithms = [build_algorithm(name, algorithm_cfg) for name, algorithm_cfg in (cfg.algorithms or {}).items()]
 
     # Callbacks.
-    callbacks: List[Callback] = [SpeedMonitorMFU()]
+    callbacks: List[Callback] = [SpeedMonitor(**cfg.speed_monitor.asdict())]
 
     # Loggers.
     loggers: List[LoggerDestination] = [DolmaConsoleLogger(log_interval=cfg.console_log_interval)]
     if cfg.wandb is not None:
-        loggers.append(WandBLogger(**cfg.wandb.asdict()))
+        loggers.append(WandBLogger(init_kwargs={"config": cfg.asdict(exclude=["wandb"])}, **cfg.wandb.asdict()))
 
     # Trainer.
     trainer = Trainer(
@@ -151,21 +139,22 @@ def main(cfg: TrainConfig) -> None:
     device_id = trainer.state.device.name.upper()
     if device_id == "GPU":
         device_id += f" {torch.cuda.current_device()}"
-    echo.info(
+    log.info(
         f"Local rank: {dist.get_local_rank()}/{dist.get_local_world_size()}, "
         f"global rank: {dist.get_global_rank()}/{dist.get_world_size()}, "
         f"training on {device_id}"
     )
 
     if not cfg.dry_run:
+        log.info("Starting training...")
         trainer.fit()
 
     trainer.close()
 
     if cfg.dry_run:
-        echo.success("Dry run complete", rank_zero_only=True)
+        log.info("Dry run complete")
     else:
-        echo.success("Training complete", rank_zero_only=True)
+        log.info("Training complete")
 
 
 if __name__ == "__main__":

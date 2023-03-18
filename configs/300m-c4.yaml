@@ -10,10 +10,10 @@ model:
   alibi: true
   alibi_bias_max: 8.0
   flash_attention: false
-  attention_dropout: 0.1
+  attention_dropout: 0.0
   attention_layer_norm: false
-  residual_dropout: 0.1
-  embedding_dropout: 0.1
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
   max_sequence_length: 1024
   include_bias: true
   vocab_size: 50257
@@ -23,8 +23,9 @@ model:
   init_std: 0.02
 
 optimizer:
+  name: decoupled_adamw
   learning_rate: 3.0e-4
-  weight_decay: 0.01
+  weight_decay: 1.2e-4
   betas:
   - 0.9
   - 0.95
@@ -41,8 +42,7 @@ algorithms:
     clipping_threshold: 1.0
 
 data:
-  paths:
-  - /net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.*.npy
+  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-train.*.npy}
   pad_direction: right
   num_workers: 2
   drop_last: true
@@ -55,7 +55,7 @@ tokenizer:
   identifier: gpt2
   truncate_direction: right
 
-save_folder: ./runs/${run_name}
+save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_interval: 1000ba
 save_num_checkpoints_to_keep: 2
 save_overwrite: true
@@ -82,8 +82,9 @@ fsdp_config:
   verbose: false
 
 wandb:
-  project: petew-benchmarks
-  entity: ai2-llm
   name: ${run_name}
+
+speed_monitor:
+  window_size: 20
 
 console_log_interval: 10ba
