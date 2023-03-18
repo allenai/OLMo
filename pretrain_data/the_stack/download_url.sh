@@ -1,21 +1,31 @@
-dir="$(dirname $1)"
-dir="$(basename $dir)"
-filename="$(basename $1)"
-source_name=${filename%.*}.jsonl.gz
+URL=$1
+LOCAL_DIR=$2
 
-source_path=$2/$dir/$source_name
-dest_path="s3://ai2-llm/pretraining-data/sources/stack-dedup/raw/$dir/$source_name"
+S3_LOCATION="s3://ai2-llm/pretraining-data/sources/stack-dedup/raw"
 
-dest_exists=$(aws s3 ls $dest_path)
+DIR="$(dirname $1)"
+LANG="$(basename $DIR)"
+FILENAME="$(basename $URL)"
+JSONL_FILENAME=${FILENAME%.*}.jsonl.gz
 
-dest_size=$(aws s3 ls --summarize --human-readable $dest_path | tail -1)
-empty_size=': 0 Bytes'
-if [[ "$dest_size" == *"$empty_size"* ]]
+SOURCE_PATH=$LOCAL_DIR/$LANG/$JSONL_FILENAME
+DEST_PATH=$S3_LOCATION/$LANG/$JSONL_FILENAME
+
+# DEST_EXISTS=$(aws s3 ls $dest_path)
+
+DEST_SIZE=$(aws s3 ls --summarize --human-readable $DEST_PATH | tail -1)
+EMPTY_SIZE_STR=': 0 Bytes'
+
+if [[ "$DEST_SIZE" == *"$EMPTY_SIZE_STR"* ]]
 then
-    #echo $source_path $dest_path
-    python download_url.py $1 $2
+    # echo $SOURCE_PATH $DEST_PATH
 
-    aws s3 cp --quiet $source_path $dest_path
-    rm $source_path
+    # Load the remote URL and save it as a jsonl.gz file under LOCAL_DIR
+    python download_url.py $URL $LOCAL_DIR
+
+    # Copy saved jsonl.gz to S3 bucket.
+    aws s3 cp --quiet $SOURCE_PATH $DEST_PATH
+
+    # Remove the file from LOCAL_DIR to avoid filling up the disk space.
+    rm $SOURCE_PATH
 fi
-

@@ -3,24 +3,16 @@ import os
 import sys
 from datetime import datetime
 
-import fsspec
 import pandas as pd
 
-
-def _fs_auth(token: str):
-    """
-    Authenticate with huggingface token to allow dataset access.
-    """
-    headers = {"Authorization": f"Bearer {token}"}
-    fs = fsspec.filesystem("https", headers=headers)
-    return fs
+from .auth_utils import fs_auth
 
 
-def _read_parquet_with_token(file_path: str, token: str):
+def _read_parquet_with_token(file_path: str):
     """
     Authenticate to HF and read dataset parquet file into a pandas dataframe.
     """
-    fs = _fs_auth(token)
+    fs = fs_auth()
     with fs.open(file_path, "rb") as f:
         df = pd.read_parquet(f)
     return df
@@ -59,14 +51,8 @@ def _save_url_as_jsonl(url: str, output_path: str):
     """
     if os.path.exists(output_path):
         return
-    token: str
-    try:
-        token = os.environ["HF_TOKEN"]
-    except KeyError:
-        raise KeyError("Please specify HF_TOKEN in the environment.")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    #token = os.getenv("HF_TOKEN")
-    df = _read_parquet_with_token(url, token)
+    df = _read_parquet_with_token(url)
     df = _convert_dataframe(
         df,
         source="stack-dedup",
