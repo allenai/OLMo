@@ -1,5 +1,14 @@
+''''
+how to run:
+
+python process_text.py \
+    src=s3://ai2-s2-lucas/s2orc_llm/2023_01_03/s2orc_clean/ \
+    dst=... \
+    cpu_count=1
+
+'''
+
 import gc
-import json
 import os
 from collections import Counter
 from contextlib import ExitStack
@@ -19,6 +28,7 @@ from tqdm import tqdm
 from cached_path import cached_path
 import numpy as np
 from blingfire import text_to_words
+import pyarrow as pa
 
 LANG_ID_CUT = 2000
 COMMON_CUT = 100
@@ -183,49 +193,74 @@ def process_single(
     # cld3.get_language(text) applied to the text column
     df["language_paragraphs"] = df["filtered_paragraphs"].apply(get_language)
 
-    # use blingfire to tokenize the text column
-    df["words_paragraphs"] = df["filtered_paragraphs"].apply(
-        lambda x: [text_to_words(para).split() for para in x]
-    )
-
     # calculate the perplexity of each paragraph
-    df['perplexity_paragraphs'] = df['words_paragraphs'].apply(
+    df['perplexity_paragraphs'] = df['filtered_paragraphs'].apply(
         lambda x: [upp.predict(para) for para in x]
     )
 
+    # zip the language, perplexity, and filtered paragraphs columns together
+    df['paragraphs'] = df.apply(
+        lambda x: list(
+            dict(language=lang, perplexity=perp, text=para)
+            for lang, perp, para in
+            zip(x['language_paragraphs'], x['perplexity_paragraphs'], x['filtered_paragraphs'])
+        ),
+        axis=1
+    )
+
     # get the number of tokens as a new column
-    df["count"] = df["words_paragraphs"].apply(
-        lambda x: sum(len(para) for para in x)
+    df["count"] = df["filtered_paragraphs"].apply(
+        lambda x: sum(len(para.split()) for para in x)
     )
 
     # get a frequency distribution of the tokens
-    df["top_frequencies"] = df["words_paragraphs"].apply(
-        lambda x: json.dumps(
-            Counter(
-                token for para in x for token in para
-            ).most_common(COMMON_CUT)
-        )
+    df["top_frequencies"] = df["filtered_paragraphs"].apply(
+        lambda x: [
+            {'token': k, 'count': v} for k, v in
+            # count using whitespace as a delimiter
+            Counter(t for p in x for t in p.split()).most_common(COMMON_CUT)
+        ]
     )
 
-    # define a lambda function to cast to int or return None
-    to_int_or_none = lambda x: int(x) if isinstance(x, (float, int)) and not pd.isna(x) else None
+    # define a lambda function to cast to int or return -1
+    # if the value is not a float or int
+    df['year'] = df['year'].apply(
+        lambda x: int(x) if isinstance(x, (float, int)) and not pd.isna(x) else -1
+    )
 
-    # apply the function to the year column
-    df['year'] = df['year'].apply(to_int_or_none)
+    # drop after zipping
+    df.drop(columns=['language_paragraphs', 'perplexity_paragraphs', 'filtered_paragraphs'], inplace=True)
 
-    import ipdb; ipdb.set_trace()
+    schema = pa.schema([
+        ("id", pa.int32()),
+        ("year", pa.int32()),
+        ("title", pa.string()),
+        ("abstract", pa.string()),
+        ("fields_of_study", pa.list_(pa.string())),
+        ("sha1", pa.string()),
+        ("paragraphs", pa.list_(pa.struct([
+            ("language", pa.string()),
+            ("perplexity", pa.float64()),
+            ("text", pa.string()),
+        ]))),
+        ("count", pa.int32()),
+        ("top_frequencies", pa.list_(pa.struct([
+            ("token", pa.string()),
+            ("count", pa.int32()),
+        ]))),
+    ])
 
     # # write the dataframe to local parquet file
-    with NamedTemporaryFile("wb", delete=False) as tmp_write:
-        df.to_parquet((tmp_name := tmp_write.name))
+    with NamedTemporaryFile("wb", delete=False) as f:
+        df.to_parquet((local_path := f.name), engine="pyarrow", schema=schema)
 
     # upload the parquet file to s3
     with io_utils.open_file_for_write(dst, "wb", logger=logger) as f, \
-            open(tmp_name, "rb") as tmp_read:
+            open(local_path, "rb") as tmp_read:
         f.write(tmp_read.read())
 
     # delete the local parquet file
-    os.remove(tmp_name)
+    os.remove(local_path)
 
     if pbar_queue is not None:
         pbar_queue.put((1, int(len(df)), int(sum(df["count"]))))
@@ -257,7 +292,10 @@ def main(cfg: ProcessTextConfig):
     dst = io_utils.MultiPath.parse(cfg.dst)
 
     src_paths = [io_utils.MultiPath.parse(p) for p in io_utils.recursively_list_files(src)]
-    dst_paths = [dst / (single_src - src) for single_src in src_paths]
+    dst_paths = [
+        dst / (diff) if len(diff := (single_src - src)) > 0 else dst
+        for single_src in src_paths
+    ]
 
     if cfg.debug:
         with tqdm(total=len(src_paths)) as pbar:

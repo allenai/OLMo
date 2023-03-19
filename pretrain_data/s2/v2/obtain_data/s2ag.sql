@@ -1,16 +1,18 @@
 UNLOAD
 (
-    -- USING EXTERNAL FUNCTION detect_dominant_language(text_col VARCHAR) RETURNS VARCHAR LAMBDA 'arn:aws:lambda:us-west-2:896129387501:function:textanalytics-udf'
     WITH s2ag_abstracts AS (
         SELECT
             p.corpusId,
             p.abstract,
-            p.title
+            p.title,
+            p.year,
+            p.paperId as sha1
         FROM (
             SELECT
             id as paperId,
             corpusId,
             title,
+            year,
             /* Construct ID for lookup of open-access info */
             CASE
                 /* Use DOI if present */
@@ -73,7 +75,7 @@ UNLOAD
             ) p
             LEFT OUTER JOIN content_ext.s2oap_prod_s3 o
                 ON p.oa_id = o.source_id
-        WHERE abstract IS NOT NULL
+        WHERE abstract IS NOT NULL AND title IS NOT NULL
     ),
     s2orc_ids AS (
         SELECT
@@ -83,8 +85,10 @@ UNLOAD
     )
     SELECT
         s2ag_abstracts.corpusId as id,
-        CONCAT(title, CHR(10), CHR(10), abstract) as text,
-        -- detect_dominant_language(abstract) as lang,
+        title,
+        abstract,
+        year,
+        sha1,
         s2ag_abstracts.corpusId % 50 AS part_id
     FROM s2ag_abstracts
     -- exclude s2orc ids from dump
@@ -92,7 +96,7 @@ UNLOAD
         ON s2orc_ids.id = s2ag_abstracts.corpusId
     WHERE s2orc_ids.id IS NULL
 )
-TO 's3://ai2-s2-lucas/s2orc_llm/2023_01_03/s2ag/'
+TO 's3://ai2-s2-lucas/s2orc_llm/2023_01_03/s2ag_clean/'
 WITH (
     format='PARQUET',
     partitioned_by = ARRAY['part_id']
