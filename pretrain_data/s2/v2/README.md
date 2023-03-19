@@ -34,7 +34,7 @@ The S2AG corpus contains titles and abstracts of papers in Semantic Scholar.
 Unfiltered, the corpus contains 9.1M papers and 15.5B whitespace-separated tokens, but we impose the following constraints:
 
 - Abstract must be in English.
-  - To calculate the language, we once again use [pycld3]
+  - To calculate the language, we once again use pycld3
 - Title must be in English, or have average unigram log probability greater than -20.
 - Abstract must be in English.
 - Abstract must have higher than -20 average unigram log probability.
