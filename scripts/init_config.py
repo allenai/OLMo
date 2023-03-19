@@ -1,21 +1,24 @@
 """
 Run this to initialize a new training config to a file.
 """
-
+import logging
 import sys
 from pathlib import Path
 from typing import List
 
 from dolma import TrainConfig
 from dolma.exceptions import DolmaCliError
-from dolma.util import clean_opt, echo, prepare_cli_environment
+from dolma.util import clean_opt, prepare_cli_environment
+
+log = logging.getLogger(__name__)
 
 
 def main(save_path: Path, args_list: List[str]) -> None:
     cfg = TrainConfig.new(overrides=args_list)
-    echo.info("Configuration:", cfg)
+    log.info("Configuration:")
+    log.info(cfg)
     cfg.save(save_path)
-    echo.success(f"Config saved to {save_path}")
+    log.info(f"Config saved to {save_path}")
 
 
 if __name__ == "__main__":

@@ -76,6 +76,31 @@ gantry-test :
 		--yes \
 		-- make check-cuda-install
 
+.PHONY : gantry-run-ib
+gantry-run-ib :
+	gantry run \
+		--workspace "$(BEAKER_WORKSPACE)" \
+		--priority "normal" \
+		--beaker-image "$(GANTRY_IMAGE)" \
+		--gpus 8 \
+		--description "LLM Beaker IB Cluster Run" \
+		--cluster ai2/general-cirrascale-a100-80g-ib \
+		--nfs \
+		--env WORLD_SIZE=32 \
+		--env GPUS=8 \
+		--env NCCL_DEBUG=INFO \
+		--env SCRATCH_DIR=/tmp/scratch \
+		--env FLASH_DIR=/tmp/flash \
+		--env WANDB_PROJECT=dolma-beaker-ib \
+		--env-secret WANDB_API_KEY=WANDB_API_KEY \
+		--replicas 4 \
+		--leader-selection \
+		--host-networking \
+		--allow-dirty \
+		--venv base \
+		--yes \
+		-- /bin/bash -c 'composer --master_addr $$BEAKER_LEADER_REPLICA_HOSTNAME --world_size $$WORLD_SIZE --node_rank $$BEAKER_REPLICA_RANK -n $$GPUS --master_port 1234 scripts/train.py configs/70b-c4.yaml'
+
 .PHONY : check-cpu-install
 check-cpu-install :
 	@python -c 'from dolma import check_install; check_install(cuda=False)'
