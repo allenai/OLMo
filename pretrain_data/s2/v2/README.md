@@ -31,7 +31,7 @@ validation|119,902|640,156,445|`s3://ai2-s2-research-public/lucas/s2_oa_pretrain
 ## S2AG (Titles and Abstracts Papers)
 
 The S2AG corpus contains titles and abstracts of papers in Semantic Scholar.
-Unfiltered, the corpus contains 9.1M papers and 15.5B whitespace-separated tokens, but we impose the following constraints:
+Unfiltered, the corpus contains 91.1M papers and 15.5B whitespace-separated tokens, but we impose the following constraints:
 
 - Abstract must be in English.
   - To calculate the language, we once again use pycld3
