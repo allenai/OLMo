@@ -110,6 +110,8 @@ jobs:
       BEAKER_TOKEN: ${{ secrets.BEAKER_TOKEN }}
       BEAKER_IMAGE: dolma-test
       BEAKER_WORKSPACE: ai2/llm-testing
+      # For reproducibility
+      CUBLAS_WORKSPACE_CONFIG: ':16:8'
     steps:
       - name: Determine current commit SHA (pull request)
         if: github.event_name == 'pull_request'
