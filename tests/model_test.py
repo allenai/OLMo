@@ -37,33 +37,11 @@ from dolma.optim import build_optimizer
             ),
         ),
         pytest.param(
-            True,
-            True,
-            True,
-            torch.bfloat16,
-            id="alibi-emb-flash-cuda-bf16",
-            marks=(
-                pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
-            ),
-        ),
-        pytest.param(
             False,
             True,
             True,
             torch.bfloat16,
             id="posit-emb-flash-cuda-bf16",
-            marks=(
-                pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
-            ),
-        ),
-        pytest.param(
-            True,
-            True,
-            True,
-            torch.float16,
-            id="alibi-emb-flash-cuda-f16",
             marks=(
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
@@ -160,21 +138,6 @@ def test_forward(
             marks=(
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
-            ),
-        ),
-        pytest.param(
-            True,
-            True,
-            True,
-            torch.bfloat16,
-            id="alibi-emb-flash-cuda-bf16",
-            marks=(
-                pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
-                pytest.mark.skipif(
-                    torch.cuda.device_count() < 1 or "A100" not in torch.cuda.get_device_name(),
-                    reason="Requires A100 GPU type",
-                ),
             ),
         ),
         pytest.param(

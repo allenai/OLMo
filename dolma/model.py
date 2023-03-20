@@ -287,10 +287,12 @@ class DolmaGPT(nn.Module):
             attention_mask = (1.0 - attention_mask) * torch.finfo(attention_mask.dtype).min
             attention_mask.masked_fill_(attention_mask == 1.0, float("-inf"))
 
-        if attention_bias is not None or attention_mask is not None:
-            # Default to causal attention bias.
-            attention_bias = attention_bias if attention_bias is not None else self.causal_attention_bias
-            if attention_bias.dtype in (torch.int8, torch.bool):
+        # Merge attention mask with attention bias.
+        if attention_bias is not None or attention_mask is not None or self.config.alibi:
+            if attention_bias is None:
+                # Default to causal attention bias.
+                attention_bias = self.causal_attention_bias if not self.config.alibi else self.alibi_attention_bias
+            elif attention_bias.dtype in (torch.int8, torch.bool):
                 attention_bias = attention_bias.to(dtype=torch.float)
                 attention_bias.masked_fill_(attention_bias == 0.0, float("-inf"))
 
