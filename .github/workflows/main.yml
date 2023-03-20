@@ -110,8 +110,6 @@ jobs:
       BEAKER_TOKEN: ${{ secrets.BEAKER_TOKEN }}
       BEAKER_IMAGE: dolma-test
       BEAKER_WORKSPACE: ai2/llm-testing
-      # For reproducibility
-      CUBLAS_WORKSPACE_CONFIG: ':16:8'
     steps:
       - name: Determine current commit SHA (pull request)
         if: github.event_name == 'pull_request'
@@ -155,6 +153,8 @@ jobs:
                     value: ${{ secrets.GITHUB_TOKEN }}
                   - name: CUDA_LAUNCH_BLOCKING
                     value: "1"
+                  - name: CUBLAS_WORKSPACE_CONFIG
+                    value: ":16:8"
                   - name: TOKENIZERS_PARALLELISM
                     value: "false"
                 command: ["/entrypoint.sh", "pytest", "-v", "-m", "gpu", "tests/"]
