@@ -284,7 +284,7 @@ class DataConfig(BaseConfig):
     num_workers: int = 0
     drop_last: bool = True
     pin_memory: bool = True
-    prefetch_factor: int = 2
+    prefetch_factor: Optional[int] = 2
     persistent_workers: bool = True
     timeout: int = 0
 
