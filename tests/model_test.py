@@ -8,14 +8,17 @@ from dolma.optim import build_optimizer
 
 
 @pytest.mark.parametrize(
-    "alibi, flash_attn, cuda, dtype",
+    "alibi, rope, flash_attn, cuda, dtype",
     [
-        pytest.param(True, False, False, torch.bfloat16, id="alibi-emb-cpu-bf16"),
-        pytest.param(False, False, False, torch.bfloat16, id="posit-emb-cpu-bf16"),
-        pytest.param(True, False, False, torch.float32, id="alibi-emb-cpu-f32"),
-        pytest.param(False, False, False, torch.float32, id="posit-emb-cpu-f32"),
+        pytest.param(True, False, False, False, torch.bfloat16, id="alibi-emb-cpu-bf16"),
+        pytest.param(False, False, False, False, torch.bfloat16, id="posit-emb-cpu-bf16"),
+        pytest.param(True, False, False, False, torch.float32, id="alibi-emb-cpu-f32"),
+        pytest.param(False, False, False, False, torch.float32, id="posit-emb-cpu-f32"),
+        pytest.param(False, True, False, False, torch.bfloat16, id="rope-emb-cpu-bf16"),
+        pytest.param(False, True, False, False, torch.float32, id="rope-emb-cpu-f32"),
         pytest.param(
             True,
+            False,
             False,
             True,
             torch.bfloat16,
@@ -26,6 +29,19 @@ from dolma.optim import build_optimizer
             ),
         ),
         pytest.param(
+            False,
+            True,
+            False,
+            True,
+            torch.bfloat16,
+            id="rope-emb-cuda-bf16",
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
+            ),
+        ),
+        pytest.param(
+            False,
             False,
             False,
             True,
@@ -38,6 +54,7 @@ from dolma.optim import build_optimizer
         ),
         pytest.param(
             False,
+            False,
             True,
             True,
             torch.bfloat16,
@@ -48,6 +65,7 @@ from dolma.optim import build_optimizer
             ),
         ),
         pytest.param(
+            False,
             False,
             True,
             True,
@@ -61,12 +79,13 @@ from dolma.optim import build_optimizer
     ],
 )
 def test_forward(
-    train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, flash_attn: bool, cuda: bool, dtype
+    train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, rope: bool, flash_attn: bool, cuda: bool, dtype
 ):
     torch.manual_seed(0)
     torch.use_deterministic_algorithms(True)
 
     train_config.model.alibi = alibi
+    train_config.model.rope = rope
     train_config.model.flash_attention = flash_attn
     if flash_attn:
         train_config.model.attention_dropout = 0.0

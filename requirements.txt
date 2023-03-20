@@ -2,6 +2,7 @@
 # Docker images. See each Dockerfile for details on how to do that.
 numpy
 torch>=2.0
+einops
 mosaicml@git+https://github.com/allenai/composer.git@Torch2
 torchmetrics
 tokenizers

@@ -152,6 +152,11 @@ class ModelConfig(BaseConfig):
     Maximum absolute value of ALiBi bias.
     """
 
+    rope: bool = False
+    """
+    Use Rotary positional embeddings (RoPE). Mutually exclusive with ``alibi``.
+    """
+
     flash_attention: bool = False
     """
     If ``True``, use ``FlashAttention``.

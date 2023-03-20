@@ -13,11 +13,40 @@ import torch
 import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
+from einops import rearrange
+from torch import einsum
 
 from .config import ModelConfig
 from .exceptions import DolmaConfigurationError
 
-__all__ = ["TorchAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
+__all__ = ["RotaryEmbedding", "TorchAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
+
+
+class RotaryEmbedding(nn.Module):
+    """
+    [Rotary positional embeddings (RoPE)](https://arxiv.org/abs/2104.09864).
+    """
+
+    def __init__(self, dim):
+        super().__init__()
+        inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2).float() / dim))
+        self.register_buffer("inv_freq", inv_freq)
+
+    def forward(self, max_seq_len, *, device):
+        seq = torch.arange(max_seq_len, device=device, dtype=self.inv_freq.dtype)  # type: ignore
+        freqs = einsum("i , j -> i j", seq, self.inv_freq)
+        return torch.cat((freqs, freqs), dim=-1)
+
+
+def rotate_half(x: torch.Tensor) -> torch.Tensor:
+    x = rearrange(x, "... (j d) -> ... j d", j=2)
+    x1, x2 = x.unbind(dim=-2)
+    return torch.cat((-x2, x1), dim=-1)
+
+
+def apply_rotary_pos_emb(pos: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+    out = (t * pos.cos()) + (rotate_half(t) * pos.sin())
+    return out.to(t.dtype)
 
 
 class TorchAttention(nn.Module):
@@ -27,6 +56,7 @@ class TorchAttention(nn.Module):
         self.n_heads = config.n_heads
         self.d_model = config.d_model
         self.attn_dropout_p = config.attention_dropout
+        self.use_rope = config.rope
         self.use_flash_attn = config.flash_attention
         self.use_mem_efficient_attn = config.memory_efficient_attention
 
@@ -53,6 +83,20 @@ class TorchAttention(nn.Module):
         if config.attention_layer_norm:
             self.k_ln = nn.LayerNorm(self.d_model, device=config.init_device)
             self.q_ln = nn.LayerNorm(self.d_model, device=config.init_device)
+
+        if self.use_rope:
+            # RoPE.
+            self.rotary_emb = RotaryEmbedding(self.d_model // self.n_heads)
+            # for caching rotary embeddings.
+            self.register_buffer("pos_emb", None, persistent=False)
+
+    def get_rotary_embedding(self, seq_len, device):
+        if self.pos_emb is not None and self.pos_emb.shape[-2] >= seq_len:  # type: ignore
+            return self.pos_emb[:seq_len]  # type: ignore
+
+        pos_emb = self.rotary_emb(seq_len, device=device)
+        self.register_buffer("pos_emb", pos_emb, persistent=False)
+        return pos_emb
 
     def forward(
         self,
@@ -82,6 +126,11 @@ class TorchAttention(nn.Module):
         q = q.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
         k = k.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
         v = v.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
+
+        if self.use_rope:
+            # Apply rotary embeddings.
+            positions = self.get_rotary_embedding(T, x.device)
+            q, k = map(lambda t: apply_rotary_pos_emb(positions, t), (q, k))
 
         # Apply SDP.
         # shape: (B, nh, T, hs)
@@ -156,8 +205,13 @@ class DolmaGPT(nn.Module):
     def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
         self.config = config
+
+        # Validate config.
         if self.config.alibi and self.config.flash_attention:
             raise DolmaConfigurationError("ALiBi is currently not supported with FlashAttention")
+
+        if self.config.alibi and self.config.rope:
+            raise DolmaConfigurationError("ALiBi and RoPE are mutually exclusive")
 
         self.transformer = nn.ModuleDict(
             dict(
@@ -167,7 +221,7 @@ class DolmaGPT(nn.Module):
                 ln_f=nn.LayerNorm(config.d_model, device=config.init_device),
             )
         )
-        if not self.config.alibi:
+        if not (self.config.alibi or self.config.rope):
             self.transformer.update(
                 {"wpe": nn.Embedding(config.max_sequence_length, config.d_model, device=config.init_device)}
             )
@@ -268,7 +322,7 @@ class DolmaGPT(nn.Module):
         # shape: (batch_size, seq_len, d_model)
         x = self.transformer.wte(input_ids)  # type: ignore
 
-        if not self.config.alibi:
+        if not (self.config.alibi or self.config.rope):
             # Get positional embeddings.
             # shape: (1, seq_len)
             pos = torch.arange(0, seq_len, dtype=torch.long, device=input_ids.device).unsqueeze(0)
