@@ -1,4 +1,4 @@
-''''
+"""'
 how to run:
 
 python process_text.py \
@@ -6,7 +6,7 @@ python process_text.py \
     dst=... \
     cpu_count=1
 
-'''
+"""
 
 import gc
 import os
@@ -21,18 +21,20 @@ from time import sleep
 from typing import List, Optional, Tuple, Union
 
 import cld3
+import numpy as np
 import pandas as pd
+import pyarrow as pa
 import springs as sp
+from blingfire import text_to_words
+from cached_path import cached_path
 from smashed.utils import io_utils
 from tqdm import tqdm
-from cached_path import cached_path
-import numpy as np
-from blingfire import text_to_words
-import pyarrow as pa
 
 LANG_ID_CUT = 2000
 COMMON_CUT = 100
-GOOGLE_1T_CORPUS = "https://ai2-s2-research-public.s3-us-west-2.amazonaws.com/lucas/google-1T-unigram/unigram_freq.csv"
+GOOGLE_1T_CORPUS = (
+    "https://ai2-s2-research-public.s3-us-west-2.amazonaws.com/lucas/google-1T-unigram/unigram_freq.csv"
+)
 
 
 @sp.dataclass
@@ -53,22 +55,15 @@ class UnigramPerplexityPredictor:
         local_word_counts_path = cached_path(word_counts_path)
         with open(local_word_counts_path) as f:
             word_counts = {
-                word: int(count)
-                for word, count in (line.strip().split(",", 1) for line in f)
-                if count.isnumeric()
+                word: int(count) for word, count in (line.strip().split(",", 1) for line in f) if count.isnumeric()
             }
 
         word_total = sum(word_counts.values())
         word_total_log = np.log2(word_total)
-        self.words_logp = {
-            word: np.log2(count) - word_total_log
-            for word, count in word_counts.items()
-        }
+        self.words_logp = {word: np.log2(count) - word_total_log for word, count in word_counts.items()}
 
         # <unk> token has fictional count of √vocab_size + 1
-        self.words_logp[self.UNK] = (
-            np.log2(np.sqrt(len(self.words_logp)) + 1) - word_total_log
-        )
+        self.words_logp[self.UNK] = np.log2(np.sqrt(len(self.words_logp)) + 1) - word_total_log
 
     def log_p(self, word: str) -> float:
         return self.words_logp.get(word.lower(), self.words_logp[self.UNK])
@@ -115,19 +110,14 @@ def is_parenthetical_spanning_two_paragraphs(
 def process_single(
     io_paths: Tuple[io_utils.MultiPath, io_utils.MultiPath],
     pbar_queue: Optional[Queue] = None,
-    debug: bool = False
+    debug: bool = False,
 ):
-    logger = sp.configure_logging(
-        __name__,
-        logging_level="WARNING",
-        force_root_reattach=True
-    )
+    logger = sp.configure_logging(__name__, logging_level="WARNING", force_root_reattach=True)
 
     upp = UnigramPerplexityPredictor()
     src, dst = io_paths
 
-    with io_utils.open_file_for_read(src, "rb", logger=logger) as f, \
-            NamedTemporaryFile("wb") as tmp:
+    with io_utils.open_file_for_read(src, "rb", logger=logger) as f, NamedTemporaryFile("wb") as tmp:
         tmp.write(f.read())
         tmp.flush()
         df = pd.read_parquet(tmp.name)
@@ -138,7 +128,7 @@ def process_single(
 
     def get_language(text: str) -> str:
         try:
-            return cld3.get_language(text.strip()).language   # type: ignore
+            return cld3.get_language(text.strip()).language  # type: ignore
         except Exception:
             return "unk"
 
@@ -148,17 +138,18 @@ def process_single(
     df["abstract_language"] = df["abstract"].apply(get_language)
 
     # calculate the perplexity of abstract
-    df['title_perplexity'] = df['title'].apply(upp.predict)
-    df['abstract_perplexity'] = df['abstract'].apply(upp.predict)
+    df["title_perplexity"] = df["title"].apply(upp.predict)
+    df["abstract_perplexity"] = df["abstract"].apply(upp.predict)
 
     # get the number of tokens as a new column
     df["title_count"] = df["title"].apply(lambda x: len(x.split()))
     df["abstract_count"] = df["abstract"].apply(lambda x: len(x.split()))
 
     # get the most common words in the title and abstract
-    df['top_frequencies'] = (df['title'] + '\n\n' + df['abstract']).apply(
+    df["top_frequencies"] = (df["title"] + "\n\n" + df["abstract"]).apply(
         lambda x: [
-            {'token': k, 'count': v} for k, v in
+            {"token": k, "count": v}
+            for k, v in
             # count using whitespace as a delimiter
             Counter(t for t in x.split()).most_common(COMMON_CUT)
         ]
@@ -166,35 +157,41 @@ def process_single(
 
     # define a lambda function to cast to int or return -1
     # if the value is not a float or int
-    df['year'] = df['year'].apply(
-        lambda x: int(x) if isinstance(x, (float, int)) and not pd.isna(x) else -1
-    )
+    df["year"] = df["year"].apply(lambda x: int(x) if isinstance(x, (float, int)) and not pd.isna(x) else -1)
 
-    schema = pa.schema([
-        ("id", pa.int32()),
-        ("year", pa.int32()),
-        ("title", pa.string()),
-        ("abstract", pa.string()),
-        ("sha1", pa.string()),
-        ("title_language", pa.string()),
-        ("abstract_language", pa.string()),
-        ("title_perplexity", pa.float64()),
-        ("abstract_perplexity", pa.float64()),
-        ("title_count", pa.int32()),
-        ("abstract_count", pa.int32()),
-        ("top_frequencies", pa.list_(pa.struct([
-            ("token", pa.string()),
-            ("count", pa.int32()),
-        ]))),
-    ])
+    schema = pa.schema(
+        [
+            ("id", pa.int32()),
+            ("year", pa.int32()),
+            ("title", pa.string()),
+            ("abstract", pa.string()),
+            ("sha1", pa.string()),
+            ("title_language", pa.string()),
+            ("abstract_language", pa.string()),
+            ("title_perplexity", pa.float64()),
+            ("abstract_perplexity", pa.float64()),
+            ("title_count", pa.int32()),
+            ("abstract_count", pa.int32()),
+            (
+                "top_frequencies",
+                pa.list_(
+                    pa.struct(
+                        [
+                            ("token", pa.string()),
+                            ("count", pa.int32()),
+                        ]
+                    )
+                ),
+            ),
+        ]
+    )
 
     # # write the dataframe to local parquet file
     with NamedTemporaryFile("wb", delete=False) as f:
         df.to_parquet((local_path := f.name), engine="pyarrow", schema=schema)
 
     # upload the parquet file to s3
-    with io_utils.open_file_for_write(dst, "wb", logger=logger) as f, \
-            open(local_path, "rb") as tmp_read:
+    with io_utils.open_file_for_write(dst, "wb", logger=logger) as f, open(local_path, "rb") as tmp_read:
         f.write(tmp_read.read())
 
     # delete the local parquet file
@@ -231,10 +228,7 @@ def main(cfg: ProcessTextConfig):
     dst = io_utils.MultiPath.parse(cfg.dst)
 
     src_paths = [io_utils.MultiPath.parse(p) for p in io_utils.recursively_list_files(src)]
-    dst_paths = [
-        dst / (diff) if len(diff := (single_src - src)) > 0 else dst
-        for single_src in src_paths
-    ]
+    dst_paths = [dst / (diff) if len(diff := (single_src - src)) > 0 else dst for single_src in src_paths]
 
     if cfg.debug:
         with tqdm(total=len(src_paths)) as pbar:
@@ -255,8 +249,7 @@ def main(cfg: ProcessTextConfig):
             pbar_thread.start()
 
             for _ in pool.imap_unordered(
-                partial(process_single, pbar_queue=pbar_queue, debug=cfg.debug),
-                tuple(zip(src_paths, dst_paths))
+                partial(process_single, pbar_queue=pbar_queue, debug=cfg.debug), tuple(zip(src_paths, dst_paths))
             ):
                 ...
 
