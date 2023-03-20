@@ -108,7 +108,7 @@ jobs:
     timeout-minutes: 15
     env:
       BEAKER_TOKEN: ${{ secrets.BEAKER_TOKEN }}
-      BEAKER_IMAGE: dolma-test
+      BEAKER_IMAGE: dolma-torch2-test
       BEAKER_WORKSPACE: ai2/llm-testing
     steps:
       - name: Determine current commit SHA (pull request)
