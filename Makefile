@@ -58,7 +58,7 @@ show-beaker-workspace :
 gantry-test :
 	gantry run \
 		--workspace "$(BEAKER_WORKSPACE)" \
-		--priority "preemptible" \
+		--priority "normal" \
 		--beaker-image "$(GANTRY_IMAGE)" \
 		--gpus 1 \
 		--description "Test run" \

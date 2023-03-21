@@ -154,7 +154,7 @@ class ModelConfig(BaseConfig):
 
     rope: bool = False
     """
-    Use Rotary positional embeddings (RoPE). Mutually exclusive with ``alibi``.
+    Use rotary positional embeddings (RoPE). Mutually exclusive with ``alibi``.
     """
 
     flash_attention: bool = False
