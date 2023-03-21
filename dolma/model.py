@@ -234,6 +234,11 @@ class DolmaGPT(nn.Module):
         Note that the compiled return type is only a :class:`DolmaGPT` object through duck typing.
         """
         if self.config.compile:
+            # Initialize attention bias buffers up front since calling `register_buffer`
+            # while compiling will cause a break in the graph.
+            if self.config.alibi:
+                self.causal_attention_bias
+                self.alibi_attention_bias
             return cast(
                 DolmaGPT,
                 torch.compile(self, mode=self.config.compile_mode, fullgraph=self.config.compile_fullgraph),
@@ -259,7 +264,7 @@ class DolmaGPT(nn.Module):
                 att_bias.view(1, 1, self.config.max_sequence_length, self.config.max_sequence_length),
                 persistent=False,
             )
-        return cast(torch.FloatTensor, self._causal_attention_bias)
+        return self._causal_attention_bias  # type: ignore[return-type]
 
     @property
     def alibi_attention_bias(self) -> torch.FloatTensor:
@@ -282,7 +287,7 @@ class DolmaGPT(nn.Module):
             # shape: (1, n_heads, seq_len, seq_len)
             alibi_bias = alibi_bias * (1.0 / (2 ** m.view(1, self.config.n_heads, 1, 1)))
             self.register_buffer("_alibi_attention_bias", alibi_bias, persistent=False)
-        return cast(torch.FloatTensor, self._alibi_attention_bias)
+        return self._alibi_attention_bias  # type: ignore[return-type]
 
     def forward(
         self,
