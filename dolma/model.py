@@ -242,7 +242,12 @@ class DolmaGPT(nn.Module):
                 self.alibi_attention_bias
             return cast(
                 DolmaGPT,
-                torch.compile(self, mode=self.config.compile.mode, fullgraph=self.config.compile.fullgraph),
+                torch.compile(
+                    self,
+                    mode=self.config.compile.mode,
+                    fullgraph=self.config.compile.fullgraph,
+                    backend=self.config.compile.backend,
+                ),
             )
         else:
             return self
