@@ -238,6 +238,11 @@ class ModelConfig(BaseConfig):
     (the fastest for larger models, but takes a long time to compile).
     """
 
+    compile_fullgraph: bool = False
+    """
+    Whether it is OK to break model into several subgraphs when compiling.
+    """
+
     @property
     def device(self) -> Optional[str]:
         if self.init_device == "meta" or self.init_device is None:

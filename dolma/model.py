@@ -237,7 +237,10 @@ class DolmaGPT(nn.Module):
         Note that the compiled return type is only a :class:`DolmaGPT` object through duck typing.
         """
         if self.config.compile:
-            return cast(DolmaGPT, torch.compile(self, mode=self.config.compile_mode))
+            return cast(
+                DolmaGPT,
+                torch.compile(self, mode=self.config.compile_mode, fullgraph=self.config.compile_fullgraph),
+            )
         else:
             return self
 
