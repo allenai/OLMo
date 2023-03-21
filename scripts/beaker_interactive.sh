@@ -21,7 +21,7 @@ export WANDB_API_KEY=$(beaker secret read WANDB_API_KEY)
 # Create and activate environment.
 conda create -y -n LLM python=3.10
 conda activate LLM
-pip install --upgrade pip
+echo "conda activate LLM" >> ~/.bashrc
 
 # Install GitHub CLI.
 conda install -y gh -c conda-forge

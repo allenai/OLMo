@@ -57,8 +57,6 @@ class TorchAttention(nn.Module):
         self.d_model = config.d_model
         self.attn_dropout_p = config.attention_dropout
         self.use_rope = config.rope
-        self.use_flash_attn = config.flash_attention
-        self.use_mem_efficient_attn = config.memory_efficient_attention
 
         # key, query, value projections for all heads, but in a batch.
         self.c_attn = nn.Linear(
@@ -135,19 +133,14 @@ class TorchAttention(nn.Module):
 
         # Apply SDP.
         # shape: (B, nh, T, hs)
-        with torch.backends.cuda.sdp_kernel(
-            enable_flash=self.use_flash_attn,
-            enable_mem_efficient=self.use_mem_efficient_attn,
-            enable_math=not (self.use_flash_attn or self.use_mem_efficient_attn),
-        ):
-            att = F.scaled_dot_product_attention(
-                q,
-                k,
-                v,
-                attn_mask=None if attention_bias is None else attention_bias.to(dtype=dtype),
-                dropout_p=0.0 if not self.training else self.attn_dropout_p,
-                is_causal=attention_bias is None,
-            )
+        att = F.scaled_dot_product_attention(
+            q,
+            k,
+            v,
+            attn_mask=None if attention_bias is None else attention_bias.to(dtype=dtype),
+            dropout_p=0.0 if not self.training else self.attn_dropout_p,
+            is_causal=attention_bias is None,
+        )
 
         # Re-assemble all head outputs side-by-side.
         att = att.transpose(1, 2).contiguous().view(B, T, C)
@@ -213,6 +206,9 @@ class DolmaGPT(nn.Module):
 
         if self.config.alibi and self.config.rope:
             raise DolmaConfigurationError("ALiBi and RoPE are mutually exclusive")
+
+        torch.backends.cuda.enable_flash_sdp(self.config.flash_attention)
+        torch.backends.cuda.enable_mem_efficient_sdp(self.config.memory_efficient_attention)
 
         self.transformer = nn.ModuleDict(
             dict(
