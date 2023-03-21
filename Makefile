@@ -32,7 +32,6 @@ base-image :
 gantry-image : base-image
 	docker build -f docker/Dockerfile.gantry -t $(IMAGE_NAME_BASE)-gantry .
 	beaker image create $(IMAGE_NAME_BASE)-gantry --name $(IMAGE_NAME_BASE)-gantry-tmp --workspace $(BEAKER_WORKSPACE)
-	echo "Image uploaded successfully"
 	beaker image delete $(GANTRY_IMAGE) || true
 	beaker image rename $(BEAKER_USER)/$(IMAGE_NAME_BASE)-gantry-tmp $(IMAGE_NAME_BASE)-gantry
 
@@ -40,7 +39,6 @@ gantry-image : base-image
 test-image : base-image
 	docker build -f docker/Dockerfile.test -t $(IMAGE_NAME_BASE)-test .
 	beaker image create $(IMAGE_NAME_BASE)-test --name $(IMAGE_NAME_BASE)-test-tmp --workspace $(BEAKER_WORKSPACE)
-	echo "Image uploaded successfully"
 	beaker image delete $(TEST_IMAGE) || true
 	beaker image rename $(BEAKER_USER)/$(IMAGE_NAME_BASE)-test-tmp $(IMAGE_NAME_BASE)-test
 
