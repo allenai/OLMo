@@ -87,8 +87,9 @@ class TorchAttention(nn.Module):
         if self.use_rope:
             # RoPE.
             self.rotary_emb = RotaryEmbedding(self.d_model // self.n_heads)
-            # for caching rotary embeddings.
-            self.register_buffer("pos_emb", None, persistent=False)
+            self.register_buffer(
+                "pos_emb", self.rotary_emb(config.max_sequence_length, device=config.init_device), persistent=False
+            )
 
     def get_rotary_embedding(self, seq_len, device):
         if self.pos_emb is not None and self.pos_emb.shape[-2] >= seq_len:  # type: ignore
