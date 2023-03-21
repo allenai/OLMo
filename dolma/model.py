@@ -373,7 +373,7 @@ class DolmaGPT(nn.Module):
         # shape: (batch_size, seq_len, vocab_size)
         logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
 
-        return DolmaGPTOutput(logits=cast(torch.FloatTensor, logits))
+        return DolmaGPTOutput(logits=logits)  # type: ignore[arg-type]
 
     def fsdp_wrap_fn(self, module):
         return isinstance(module, GPTBlock)
