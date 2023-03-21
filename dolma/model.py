@@ -233,7 +233,7 @@ class DolmaGPT(nn.Module):
 
         Note that the compiled return type is only a :class:`DolmaGPT` object through duck typing.
         """
-        if self.config.compile:
+        if self.config.compile is not None:
             # Initialize attention bias buffers up front since calling `register_buffer`
             # while compiling will cause a break in the graph.
             if self.config.alibi:
@@ -241,7 +241,7 @@ class DolmaGPT(nn.Module):
                 self.alibi_attention_bias
             return cast(
                 DolmaGPT,
-                torch.compile(self, mode=self.config.compile_mode, fullgraph=self.config.compile_fullgraph),
+                torch.compile(self, mode=self.config.compile.mode, fullgraph=self.config.compile.fullgraph),
             )
         else:
             return self

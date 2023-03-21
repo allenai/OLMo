@@ -25,6 +25,7 @@ from .aliases import PathOrStr
 from .exceptions import DolmaConfigurationError
 
 __all__ = [
+    "CompilerConfig",
     "ModelConfig",
     "OptimizerType",
     "OptimizerConfig",
@@ -112,6 +113,21 @@ class BaseConfig:
                 if name in out:
                     del out[name]
         return out
+
+
+@dataclass
+class CompilerConfig(BaseConfig):
+    mode: Optional[str] = None
+    """
+    The mode to compile the model in. At the moment this can be "default",
+    "reduce-overhead" (useful for smaller models/batches), or "max-autotune"
+    (the fastest for larger models, but takes a long time to compile).
+    """
+
+    fullgraph: bool = False
+    """
+    Whether it is OK to break model into several subgraphs when compiling.
+    """
 
 
 @dataclass
@@ -225,22 +241,10 @@ class ModelConfig(BaseConfig):
     Standard deviation used when initializing parameters.
     """
 
-    compile: bool = True
+    compile: Optional[CompilerConfig] = None
     """
-    Compile the model with ``torch.compile()``. Note that you must call
+    Settings for compiling the model with ``torch.compile()``. You must call
     :meth:`DolmaGPT.compile()` for this to take effect.
-    """
-
-    compile_mode: Optional[str] = None
-    """
-    The mode to compile the model in. At the moment this can be "default",
-    "reduce-overhead" (useful for smaller models/batches), or "max-autotune"
-    (the fastest for larger models, but takes a long time to compile).
-    """
-
-    compile_fullgraph: bool = False
-    """
-    Whether it is OK to break model into several subgraphs when compiling.
     """
 
     @property

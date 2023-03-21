@@ -20,9 +20,12 @@ model:
   pad_token_id: 50256
   init_device: meta
   init_std: 0.02
+  compile:
+    mode: default
+    fullgraph: true
 
 optimizer:
-  name: decoupled_adamw
+  name: decoupled_lionw
   learning_rate: 8.0e-5
   weight_decay: 1.2e-4
   betas:
