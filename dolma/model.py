@@ -13,7 +13,6 @@ import torch
 import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
-from einops import rearrange
 from torch import einsum
 
 from .config import ModelConfig
@@ -39,7 +38,8 @@ class RotaryEmbedding(nn.Module):
 
 
 def rotate_half(x: torch.Tensor) -> torch.Tensor:
-    x = rearrange(x, "... (j d) -> ... j d", j=2)
+    B, nh, T, hs = x.size()
+    x = x.view(B, nh, T, 2, hs // 2)
     x1, x2 = x.unbind(dim=-2)
     return torch.cat((-x2, x1), dim=-1)
 
