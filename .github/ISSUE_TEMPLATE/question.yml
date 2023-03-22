@@ -1,0 +1,14 @@
+name: ❓ Question
+description: Ask or propose a question
+labels: 'type/question'
+
+body:
+- type: textarea
+  attributes:
+    label: ❓ The question
+    description: >
+      A clear and concise description of the question being asked.
+
+      If your question is a related to a specific project, such as the model or data, please add the corresponding label (e.g. "project/model").
+  validations:
+    required: true

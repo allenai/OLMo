@@ -8,6 +8,8 @@ body:
     label: 📚 The doc issue
     description: >
       A clear and concise description of what content in the docs is an issue.
+
+      If this is a related to a specific project, such as the model or data, please add the corresponding label (e.g. "project/model").
   validations:
     required: true
 - type: textarea
