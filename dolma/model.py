@@ -26,9 +26,10 @@ class RotaryEmbedding(nn.Module):
     [Rotary positional embeddings (RoPE)](https://arxiv.org/abs/2104.09864).
     """
 
-    def __init__(self, dim):
+    def __init__(self, config: ModelConfig):
         super().__init__()
-        inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2).float() / dim))
+        dim = config.d_model // config.n_heads
+        inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2, device=config.init_device).float() / dim))
         self.register_buffer("inv_freq", inv_freq)
 
     def forward(self, max_seq_len, *, device):
@@ -84,7 +85,7 @@ class TorchAttention(nn.Module):
 
         if self.use_rope:
             # RoPE.
-            self.rotary_emb = RotaryEmbedding(self.d_model // self.n_heads)
+            self.rotary_emb = RotaryEmbedding(config)
             self.register_buffer(
                 "pos_emb", self.rotary_emb(config.max_sequence_length, device=config.init_device), persistent=False
             )
@@ -241,7 +242,12 @@ class DolmaGPT(nn.Module):
                 self.alibi_attention_bias
             return cast(
                 DolmaGPT,
-                torch.compile(self, mode=self.config.compile.mode, fullgraph=self.config.compile.fullgraph),
+                torch.compile(
+                    self,
+                    mode=self.config.compile.mode,
+                    fullgraph=self.config.compile.fullgraph,
+                    backend=self.config.compile.backend,
+                ),
             )
         else:
             return self

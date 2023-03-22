@@ -129,6 +129,11 @@ class CompilerConfig(BaseConfig):
     Whether it is OK to break model into several subgraphs when compiling.
     """
 
+    backend: str = "inductor"
+    """
+    The backend to use.
+    """
+
 
 @dataclass
 class ModelConfig(BaseConfig):
