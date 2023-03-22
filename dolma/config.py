@@ -116,26 +116,6 @@ class BaseConfig:
 
 
 @dataclass
-class CompilerConfig(BaseConfig):
-    mode: Optional[str] = None
-    """
-    The mode to compile the model in. At the moment this can be "default",
-    "reduce-overhead" (useful for smaller models/batches), or "max-autotune"
-    (the fastest for larger models, but takes a long time to compile).
-    """
-
-    fullgraph: bool = False
-    """
-    Whether it is OK to break model into several subgraphs when compiling.
-    """
-
-    backend: str = "inductor"
-    """
-    The backend to use.
-    """
-
-
-@dataclass
 class ModelConfig(BaseConfig):
     """
     DOLMA (model) configuration.
@@ -246,12 +226,6 @@ class ModelConfig(BaseConfig):
     Standard deviation used when initializing parameters.
     """
 
-    compile: Optional[CompilerConfig] = None
-    """
-    Settings for compiling the model with ``torch.compile()``. You must call
-    :meth:`DolmaGPT.compile()` for this to take effect.
-    """
-
     @property
     def device(self) -> Optional[str]:
         if self.init_device == "meta" or self.init_device is None:
@@ -337,6 +311,28 @@ class SpeedMonitorConfig(BaseConfig):
 
 
 @dataclass
+class CompilerConfig(BaseConfig):
+    mode: Optional[str] = None
+    """
+    The mode to compile the model in. At the moment this can be "default",
+    "reduce-overhead" (useful for smaller models/batches), or "max-autotune"
+    (the fastest for larger models, but takes a long time to compile).
+    """
+
+    fullgraph: Optional[bool] = None
+    """
+    Whether it is OK to break model into several subgraphs when compiling.
+
+    If ``None``, ``fullgraph`` will default to ``True`` unless used during FSDP distributed training.
+    """
+
+    backend: str = "inductor"
+    """
+    The backend to use.
+    """
+
+
+@dataclass
 class TrainConfig(BaseConfig):
     """
     DOLMA training configuration.
@@ -369,6 +365,10 @@ class TrainConfig(BaseConfig):
     wandb: Optional[WandbConfig] = None
     speed_monitor: SpeedMonitorConfig = field(default_factory=SpeedMonitorConfig)
     console_log_interval: Union[str, int] = "1ba"
+    compile: Optional[CompilerConfig] = None
+    """
+    Settings for compiling the model with ``torch.compile()``.
+    """
 
     @property
     def device(self) -> Optional[str]:

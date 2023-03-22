@@ -7,7 +7,7 @@ Adapted from
 from __future__ import annotations
 
 import math
-from typing import NamedTuple, Optional, cast
+from typing import NamedTuple, Optional
 
 import torch
 import torch.backends.cuda
@@ -227,30 +227,11 @@ class DolmaGPT(nn.Module):
             self.apply(self.param_init_fn)
         self.__num_fwd_flops = None
 
-    def compile(self) -> DolmaGPT:
-        """
-        Returns a new model compiled using ``torch.compile()`` if ``config.compile``
-        is ``True``, otherwise returns ``self`` unchanged.
-
-        Note that the compiled return type is only a :class:`DolmaGPT` object through duck typing.
-        """
-        if self.config.compile is not None:
-            # Initialize attention bias buffers up front since calling `register_buffer`
-            # while compiling will cause a break in the graph.
-            if self.config.alibi:
-                self.causal_attention_bias
-                self.alibi_attention_bias
-            return cast(
-                DolmaGPT,
-                torch.compile(
-                    self,
-                    mode=self.config.compile.mode,
-                    fullgraph=self.config.compile.fullgraph,
-                    backend=self.config.compile.backend,
-                ),
-            )
-        else:
-            return self
+        # Initialize attention bias buffers up front since calling `register_buffer`
+        # while compiling will cause a break in the graph.
+        if self.config.alibi:
+            self.causal_attention_bias
+            self.alibi_attention_bias
 
     @property
     def causal_attention_bias(self) -> torch.FloatTensor:

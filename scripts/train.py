@@ -136,6 +136,12 @@ def main(cfg: TrainConfig) -> None:
         console_log_interval=cfg.console_log_interval,
     )
 
+    if cfg.compile is not None:
+        compile_kwargs = cfg.compile.asdict()
+        if compile_kwargs.get("fullgraph") is None:
+            compile_kwargs["fullgraph"] = cfg.fsdp_config is None
+        trainer.state.model = torch.compile(trainer.state.model, **compile_kwargs)
+
     device_id = trainer.state.device.name.upper()
     if device_id == "GPU":
         device_id += f" {torch.cuda.current_device()}"

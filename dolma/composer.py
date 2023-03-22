@@ -21,7 +21,7 @@ __all__ = ["ComposerDolmaGPT", "DolmaConsoleLogger", "build_scheduler", "build_a
 class ComposerDolmaGPT(ComposerModel):
     def __init__(self, config: ModelConfig):
         super().__init__()
-        self.model = DolmaGPT(config).compile()
+        self.model = DolmaGPT(config)
 
         from composer.metrics.nlp import LanguageCrossEntropy, Perplexity
 

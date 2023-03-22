@@ -21,7 +21,7 @@ model:
   init_std: 0.02
   compile:
     mode: default
-    fullgraph: true
+    fullgraph: null
 
 optimizer:
   name: decoupled_lionw

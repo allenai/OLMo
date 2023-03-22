@@ -49,7 +49,6 @@ def model_config() -> ModelConfig:
         n_heads=2,
         n_layers=3,
         max_sequence_length=512,
-        compile=None,
     )
 
 
