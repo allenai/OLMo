@@ -21,11 +21,11 @@ composer scripts/train.py train_config.yaml ...
 import logging
 import os
 import sys
-from typing import List
+from typing import List, cast
 
 import torch
 
-from dolma import TrainConfig
+from dolma import DolmaGPT, TrainConfig
 from dolma.data import build_dataloader
 from dolma.exceptions import DolmaCliError
 from dolma.optim import build_optimizer
@@ -79,16 +79,24 @@ def main(cfg: TrainConfig) -> None:
             f"for global batch size of {cfg.global_train_batch_size}"
         )
 
-    # Model.
-    model = ComposerDolmaGPT(cfg.model)
+    # Initialize the model.
+    dolma_model = DolmaGPT(cfg.model)
     if get_node_rank() == 0:
-        log.info(f"Total number of parameters: {model.model.num_params():,d}")
+        log.info(f"Total number of parameters: {dolma_model.num_params():,d}")
         log.info(
-            f"Number of non-embedding parameters: {model.model.num_params(include_embedding=False):,d}",
+            f"Number of non-embedding parameters: {dolma_model.num_params(include_embedding=False):,d}",
         )
 
+    # Compile it if necessary.
+    if cfg.compile is not None:
+        compile_kwargs = cfg.compile.asdict()
+        if compile_kwargs.get("fullgraph") is None:
+            compile_kwargs["fullgraph"] = cfg.fsdp_config is None
+        # As far as duck typing is concerned, this is still a DolmaGPT object.
+        dolma_model = cast(DolmaGPT, torch.compile(dolma_model, **compile_kwargs))
+
     # Optimizer.
-    optimizer = build_optimizer(model.model, **cfg.optimizer.asdict())
+    optimizer = build_optimizer(dolma_model, **cfg.optimizer.asdict())
 
     # Scheduler.
     scheduler = build_scheduler(cfg.scheduler)
@@ -107,11 +115,15 @@ def main(cfg: TrainConfig) -> None:
     if cfg.wandb is not None:
         loggers.append(WandBLogger(init_kwargs={"config": cfg.asdict(exclude=["wandb"])}, **cfg.wandb.asdict()))
 
+    # Wrap model into composer model.
+    composer_model = ComposerDolmaGPT(dolma_model)
+    del dolma_model
+
     # Trainer.
     trainer = Trainer(
         run_name=cfg.run_name,
         seed=cfg.seed,
-        model=model,
+        model=composer_model,
         train_dataloader=train_loader,
         optimizers=optimizer,
         schedulers=scheduler,
@@ -135,12 +147,6 @@ def main(cfg: TrainConfig) -> None:
         log_to_console=False,
         console_log_interval=cfg.console_log_interval,
     )
-
-    if cfg.compile is not None:
-        compile_kwargs = cfg.compile.asdict()
-        if compile_kwargs.get("fullgraph") is None:
-            compile_kwargs["fullgraph"] = cfg.fsdp_config is None
-        trainer.state.model = torch.compile(trainer.state.model, **compile_kwargs)
 
     device_id = trainer.state.device.name.upper()
     if device_id == "GPU":

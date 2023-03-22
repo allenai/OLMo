@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 import torch
 import torch.nn.functional as F
@@ -19,18 +19,19 @@ __all__ = ["ComposerDolmaGPT", "DolmaConsoleLogger", "build_scheduler", "build_a
 
 
 class ComposerDolmaGPT(ComposerModel):
-    def __init__(self, config: ModelConfig):
+    def __init__(self, model_or_config: Union[DolmaGPT, ModelConfig]):
         super().__init__()
-        self.model = DolmaGPT(config)
+        self.model = DolmaGPT(model_or_config) if isinstance(model_or_config, ModelConfig) else model_or_config
+        self.config = self.model.config
 
         from composer.metrics.nlp import LanguageCrossEntropy, Perplexity
 
         self.train_metrics = {
-            "LanguageCrossEntropy": LanguageCrossEntropy(config.vocab_size),
+            "LanguageCrossEntropy": LanguageCrossEntropy(self.config.vocab_size),
             "Perplexity": Perplexity(),
         }
         self.eval_metrics = {
-            "LanguageCrossEntropy": LanguageCrossEntropy(config.vocab_size),
+            "LanguageCrossEntropy": LanguageCrossEntropy(self.config.vocab_size),
             "Perplexity": Perplexity(),
         }
 
