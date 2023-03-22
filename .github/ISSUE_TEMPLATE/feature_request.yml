@@ -1,6 +1,6 @@
 name: 🚀 Feature request
 description: Submit a proposal/request for a new feature
-labels: 'feature request'
+labels: 'type/feature'
 
 body:
 - type: textarea
