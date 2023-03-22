@@ -20,9 +20,10 @@ model:
   pad_token_id: 50256
   init_device: meta
   init_std: 0.02
-  compile:
-    mode: default
-    fullgraph: null
+
+compile:
+  mode: default
+  fullgraph: null
 
 optimizer:
   name: decoupled_lionw
