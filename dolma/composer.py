@@ -23,6 +23,7 @@ class ComposerDolmaGPT(ComposerModel):
         super().__init__()
         self.model = DolmaGPT(model_or_config) if isinstance(model_or_config, ModelConfig) else model_or_config
         self.config = self.model.config
+        self.num_fwd_flops = self.model.num_fwd_flops
 
         from composer.metrics.nlp import LanguageCrossEntropy, Perplexity
 
@@ -60,10 +61,6 @@ class ComposerDolmaGPT(ComposerModel):
         labels = self.get_labels(batch)
         shift_logits = outputs.logits[..., :-1, :].contiguous()
         metric.update(shift_logits.view(-1, shift_logits.size(-1)), labels.view(-1))
-
-    @property
-    def num_fwd_flops(self):
-        return self.model.num_fwd_flops
 
     def flops_per_batch(self, batch: BatchDict):
         # Note: this computation does not take into account padding, and assumes

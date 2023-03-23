@@ -438,7 +438,7 @@ class DolmaGPT(nn.Module):
     def num_fwd_flops(self):
         if self.__num_fwd_flops:
             return self.__num_fwd_flops
-        n_params = sum(p.numel() for p in self.parameters())
+        n_params = self.num_params()
         # the number of parameters is approximately the number of multiply-accumulates (MAC) in the network
         # each MAC has 2 FLOPs - we multiply by 2 ie 2 * n_param
         # this gets us FLOPs / token
