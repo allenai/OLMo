@@ -24,3 +24,8 @@ def test_save_and_load(train_config: TrainConfig, tmp_path: Path):
     loaded_train_config = TrainConfig.load(save_path, ["model.n_layers=2"])
     assert loaded_train_config != train_config
     assert loaded_train_config.model.n_layers == 2
+
+
+def test_new():
+    config = TrainConfig.new(seed=2)
+    assert config.seed == 2

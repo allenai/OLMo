@@ -122,8 +122,6 @@ def build_algorithm(name: str, kwargs: Dict[str, Any]):
 def calculate_batch_size_info(
     global_batch_size: int, device_microbatch_size: Union[int, str]
 ) -> Tuple[int, Union[str, int], Union[str, int]]:
-    from composer.utils import dist
-
     if global_batch_size % dist.get_world_size() != 0:
         raise DolmaConfigurationError(
             f"Global batch size {global_batch_size} is not divisible by {dist.get_world_size()} "
@@ -150,8 +148,6 @@ def calculate_batch_size_info(
 
 # Coming soon: this conversion math will be done inside Composer Trainer
 def update_batch_size_info(cfg: TrainConfig):
-    from composer.utils import dist
-
     device_train_batch_size, device_train_microbatch_size, device_train_grad_accum = calculate_batch_size_info(
         cfg.global_train_batch_size, cfg.device_train_microbatch_size
     )
