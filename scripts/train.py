@@ -29,12 +29,7 @@ from dolma import TrainConfig
 from dolma.data import build_dataloader
 from dolma.exceptions import DolmaCliError
 from dolma.optim import build_optimizer
-from dolma.util import (
-    clean_opt,
-    log_extra_field,
-    prepare_cli_environment,
-    update_batch_size_info,
-)
+from dolma.util import clean_opt, log_extra_field, prepare_cli_environment
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +48,7 @@ def main(cfg: TrainConfig) -> None:
         DolmaConsoleLogger,
         build_algorithm,
         build_scheduler,
+        update_batch_size_info,
     )
 
     if get_node_rank() == 0:
