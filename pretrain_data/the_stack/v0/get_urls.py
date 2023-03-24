@@ -4,7 +4,7 @@ from typing import Dict, List
 
 import tqdm
 
-from .auth_utils import fs_auth
+from pretrain_data.the_stack.v0.auth_utils import fs_auth
 
 
 def list_stack_files(languages: List[str], lang_idx: int, total_files: int, version: str = "v1.1"):
@@ -58,8 +58,9 @@ if __name__ == "__main__":
     )
     with fs.open(lang_list_file) as f:
         langs = json.load(f)
-        langs = [k.lower().replace(" ", "-") for k in langs.keys()]
+        langs = [k.lower().replace(" ", "-").replace("#", "-sharp") for k in langs.keys()]
 
+    langs = ["c-sharp", "f-sharp"]
     lang_idx = 0
     lang_urls: Dict[str, List[str]] = {}
     try:

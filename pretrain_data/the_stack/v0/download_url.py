@@ -5,7 +5,7 @@ from datetime import datetime
 
 import pandas as pd
 
-from .auth_utils import fs_auth
+from pretrain_data.the_stack.v0.auth_utils import fs_auth
 
 
 def _read_parquet_with_token(file_path: str):
@@ -50,7 +50,8 @@ def _save_url_as_jsonl(url: str, output_path: str):
     Save parquet file as a jsonl.gz file in the expected format.
     """
     if os.path.exists(output_path):
-        return
+        if os.path.getsize(output_path) > 0:
+            return
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     df = _read_parquet_with_token(url)
     df = _convert_dataframe(
