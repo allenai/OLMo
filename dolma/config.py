@@ -78,12 +78,12 @@ class BaseConfig:
         om.register_new_resolver("path.choose", path_choose, replace=True)
 
     @classmethod
-    def new(cls: Type[C], overrides: Optional[List[str]] = None) -> C:
+    def new(cls: Type[C], **kwargs) -> C:
         cls._register_resolvers()
         conf = om.structured(cls)
         try:
-            if overrides:
-                conf = om.merge(conf, om.from_dotlist(overrides))
+            if kwargs:
+                conf = om.merge(conf, kwargs)
             return cast(C, om.to_object(conf))
         except OmegaConfBaseException as e:
             raise DolmaConfigurationError(str(e))
