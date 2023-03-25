@@ -25,8 +25,15 @@ Train data is anything published before 2022-12-01; validation data is anything 
 
 |Split|Documents|Approx Word Count|Location|
 |---|---|---|---|
-train|8,855,051|39,088,566,059|`s3://ai2-s2-research-public/lucas/s2_oa_pretrain_data/v2/s2orc/train`
-validation|83,217|465,425,062|`s3://ai2-s2-research-public/lucas/s2_oa_pretrain_data/v2/s2orc/valid`
+train|8,855,051|39,088,566,059|`s3://ai2-llm/pretraining-data/sources/s2/v2_dedup/dataset=s2orc/split=train`
+validation|83,217|465,425,062|`s3://ai2-llm/pretraining-data/sources/s2/v2_dedup/dataset=s2orc/split=valid`
+
+The set above is deduped by paper ID only, meaning that we keep multiple version of a paper if we have any. If you want to keep only one version of each paper, the stats are:
+
+|Split|Abstracts|Approx Word Count|Location|
+|---|---|---|---|
+train|8,207,327|35,933,376,971|`s3://ai2-llm/pretraining-data/sources/s2/v2_hard_dedup/dataset=s2orc/split=train`
+validation|70,641|380,402,164|`s3://ai2-llm/pretraining-data/sources/s2/v2_hard_dedup/dataset=s2orc/split=valid`
 
 ## S2AG (Titles and Abstracts Papers)
 
@@ -45,8 +52,8 @@ Unfiltered, the corpus contains 91.1M papers and 15.5B whitespace-separated toke
 
 |Split|Abstracts|Approx Word Count|Location|
 |---|---|---|---|
-train|59,161,485|10,963,156,902|`s3://ai2-s2-research-public/lucas/s2_oa_pretrain_data/v2/s2ag/train`
-validation|119,268|26,130,632|`s3://ai2-s2-research-public/lucas/s2_oa_pretrain_data/v2/s2ag/valid`
+train|59,161,485|10,963,156,902|`s3://ai2-llm/pretraining-data/sources/s2/v2_dedup/dataset=s2ag/split=train`
+validation|119,268|26,130,632|`s3://ai2-llm/pretraining-data/sources/s2/v2_dedup/dataset=s2ag/split=valid`
 
 
 ## Format
@@ -77,7 +84,7 @@ Each directory contains 30 gzipped files, each of which contains a JSONL file. E
 First, create the following athena table:
 
 ```sql
-CREATE EXTERNAL TABLE `s2_v2_deduped` (
+CREATE EXTERNAL TABLE `s2_v2_dedup` (
 id int,
 sha1 string,
 text string
@@ -91,13 +98,15 @@ Then, set up partitions for the table:
 
 
 ```sql
-MSCK REPAIR TABLE `s2_v2_deduped`
+MSCK REPAIR TABLE `s2_v2_dedup`
 ```
 
 Finally, run the following query:
 
 ```sql
 SELECT
+  dataset,
+  split,
   COUNT(cnt) as docs_count,
   SUM(cnt) as tokens_count
 FROM (
@@ -106,11 +115,10 @@ FROM (
             REGEXP_SPLIT(text, '\s+'),
             x -> LENGTH(TRIM(x)) > 0
         )
-    ) AS cnt
-    FROM "temp_lucas"."s2_v2_deduped"
-    WHERE split = '<split>' AND dataset='<dataset>'
+    ) AS cnt,
+    dataset,
+    split
+    FROM "temp_lucas"."s2_v2_dedup"
 )
-
+GROUP BY dataset, split
 ```
-
-Where `<split>` is either `train` or `valid`, and `<dataset>` is either `s2ag` or `s2orc`.
