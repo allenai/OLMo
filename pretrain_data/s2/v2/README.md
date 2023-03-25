@@ -25,8 +25,8 @@ Train data is anything published before 2022-12-01; validation data is anything 
 
 |Split|Documents|Approx Word Count|Location|
 |---|---|---|---|
-train|9,933,204|43,363,567,649|`s3://ai2-s2-research-public/lucas/s2_oa_pretrain_data/v2/s2orc/train`
-validation|119,902|640,156,445|`s3://ai2-s2-research-public/lucas/s2_oa_pretrain_data/v2/s2orc/valid`
+train|8,855,051|39,088,566,059|`s3://ai2-s2-research-public/lucas/s2_oa_pretrain_data/v2/s2orc/train`
+validation|83,217|465,425,062|`s3://ai2-s2-research-public/lucas/s2_oa_pretrain_data/v2/s2orc/valid`
 
 ## S2AG (Titles and Abstracts Papers)
 
@@ -45,8 +45,9 @@ Unfiltered, the corpus contains 91.1M papers and 15.5B whitespace-separated toke
 
 |Split|Abstracts|Approx Word Count|Location|
 |---|---|---|---|
-train|59,161,786|10,894,621,062|`s3://ai2-s2-research-public/lucas/s2_oa_pretrain_data/v2/s2ag/train`
-validation|118,357|25,828,000|`s3://ai2-s2-research-public/lucas/s2_oa_pretrain_data/v2/s2ag/valid`
+train|59,161,485|10,963,156,902|`s3://ai2-s2-research-public/lucas/s2_oa_pretrain_data/v2/s2ag/train`
+validation|119,268|26,130,632|`s3://ai2-s2-research-public/lucas/s2_oa_pretrain_data/v2/s2ag/valid`
+
 
 ## Format
 
@@ -69,3 +70,47 @@ Each directory contains 30 gzipped files, each of which contains a JSONL file. E
 - `text`: The text of the paper. Sections are separated by two newlines, i.e. `\n\n`; paragraphs are separated by a single newline, i.e. `\n`.
   - For full text papers, each text looks like `[title]\n\n[abstract]\n\n[section header]\n[paragraph]\n\n[paragraph]\n\n[section header]\n\n[paragraph]\n\n[...]`
   - For titles and abstracts, each text looks like `[title]\n\n[abstract]`
+
+
+## How do I get counts?
+
+First, create the following athena table:
+
+```sql
+CREATE EXTERNAL TABLE `s2_v2_deduped` (
+id int,
+sha1 string,
+text string
+)
+PARTITIONED BY (dataset string, split string)
+ROW FORMAT serde 'org.apache.hive.hcatalog.data.JsonSerDe'
+LOCATION 's3://ai2-llm/pretraining-data/sources/s2/v2_dedup/'
+```
+
+Then, set up partitions for the table:
+
+
+```sql
+MSCK REPAIR TABLE `s2_v2_deduped`
+```
+
+Finally, run the following query:
+
+```sql
+SELECT
+  COUNT(cnt) as docs_count,
+  SUM(cnt) as tokens_count
+FROM (
+    SELECT CARDINALITY(
+        filter(
+            REGEXP_SPLIT(text, '\s+'),
+            x -> LENGTH(TRIM(x)) > 0
+        )
+    ) AS cnt
+    FROM "temp_lucas"."s2_v2_deduped"
+    WHERE split = '<split>' AND dataset='<dataset>'
+)
+
+```
+
+Where `<split>` is either `train` or `valid`, and `<dataset>` is either `s2ag` or `s2orc`.
