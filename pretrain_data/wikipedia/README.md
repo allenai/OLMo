@@ -70,4 +70,4 @@ python -m pretrain_data_wikipedia.download \
     parallel=3
 ```
 
-It doesn't seem to be possible to download more than 3 in parallel.
+It doesn't seem to be possible to download more than 3 in parallel. Speed seems to be limited to ~5MiB/s per connection.
