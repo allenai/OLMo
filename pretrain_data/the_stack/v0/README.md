@@ -5,7 +5,7 @@ Author: Akshita Bhagia @akshitab
 [The Stack](https://huggingface.co/datasets/bigcode/the-stack) is a 6 TB dataset of code, containing 358 programming languages. This is too large for our purpose, and research has shown that deduplication improves model performance. 
 We use the [deduplicated version](https://huggingface.co/datasets/bigcode/the-stack) of The Stack, which contains 3 TB of data.
 
-[Dataset Statistics](https://docs.google.com/spreadsheets/d/1aesZHgHhmbPLcKvLNdn8dMV8ZVE6ohpIpuXCk6-LUpA/edit#gid=1395653416)
+[Dataset Statistics](##2023-03-27:-dataset-statistics)
 
 ## Downloaded data
 
@@ -123,43 +123,20 @@ HuggingFace dataset version: [v1.1](https://huggingface.co/datasets/bigcode/the-
 
 [Dataset Statistics](https://docs.google.com/spreadsheets/d/1aesZHgHhmbPLcKvLNdn8dMV8ZVE6ohpIpuXCk6-LUpA/edit#gid=1395653416)
 
-Programming languages - 358
-
-Licences - MIT, Apache-2.0, BSD-3-Clause, Unlicense, CC0-1.0, BSD-2-Clause, CC-BY-4.0, CC-BY-3.0, 0BSD, RSA-MD, WTFPL, MIT-0, ISC, ADSL, BSL-1.0, Zlib, Artistic-2.0, FTL, MS-PL, BSD-2-Clause-FreeBSD, FSFAP, BSD-Source-Code, Apache-1.1, BSD-4-Clause, Ruby, Artistic-1.0, MulanPSL-1.0, BSD-1-Clause, X11, CNRI-Python, Beerware, Condor-1.1, PostgreSQL, CECILL-B, Intel, Vim, Naumen, OML, BSD-3-Clause-Clear, AML, PHP-3.01, OpenSSL, PSF-2.0, Xnet, Linux-OpenIB, BSD-3-Clause-LBNL, UPL-1.0, AFL-3.0, BlueOak-1.0.0, Info-ZIP, BSD-4-Clause-UC, AAL, LPPL-1.3c, bzip2-1.0.6, W3C, W3C-20150513, AFL-1.1, DOC, ICU, CC-BY-2.0, curl, MTLL, OLDAP-2.2.1, ECL-2.0, Adobe-Glyph, CNRI-Python-GPL-Compatible, BSD-2-Clause-Patent, IJG, PHP-3.0, ZPL-2.1, MIT-advertising, NCSA, Fair, BSD-3-Clause-Attribution, OLDAP-2.3, NLPL, BSD-3-Clause-Open-MPI, ClArtistic, Python-2.0, NASA-1.3, TCL, Artistic-1.0-Perl, blessing, BSD-3-Clause-No-Nuclear-Warranty, ImageMagick, Net-SNMP, Artistic-1.0-cl8, OLDAP-2.5, MIT-feh, OLDAP-2.4, MITNFA, AFL-2.1, libpng-2.0, EFL-2.0, OLDAP-2.7, IBM-pibs, libtiff, OLDAP-2.8, Cube, Adobe-2006, BSD-2-Clause-NetBSD, zlib-acknowledgement, OLDAP-2.6, BSD-3-Clause-No-Nuclear-License-2014, OLDAP-1.4, Libpng, MIT-CMU, AFL-2.0, JasPer-2.0, LPL-1.02, Zend-2.0, TCP-wrappers, XFree86-1.1, FSFUL, OLDAP-1.3, SGI-B-2.0, NetCDF, CNRI-Jython, Zed, ZPL-2.0, AFL-1.2, Apache-1.0, CC-BY-1.0, OLDAP-2.1, OLDAP-1.2, OLDAP-2.0, NTP, LPL-1.0, AMPAS, Barr, mpich2, ANTLR-PD, Xerox, Spencer-94, AMDPLPA, BSD-3-Clause-No-Nuclear-License, HPND, ECL-1.0, MirOS, Qhull, ZPL-1.1, TU-Berlin-2.0, Spencer-86, SMLNJ, xinetd, OLDAP-2.2.2, OGTSL, MIT-enna, Font-exception-2.0, FSFULLR, TU-Berlin-1.0, xpp, NRL, W3C-19980720, EFL-1.0, eGenix, Unicode-DFS-2016, SWL, Spencer-99, Plexus, VSL-1.0, Leptonica, Unicode-DFS-2015, Mup, Giftware, OLDAP-2.2, APAFML, NBPL-1.0, OLDAP-1.1, Entessa, Multics, Newsletr, psutils, bzip2-1.0.5, Afmparse, diffmark, BSD-2-Clause-Views, DSDP, MIT-Modern-Variant, ANTLR-PD-fallback, Bahyph, BSD-3-Clause-Modification, BSD-4-Clause-Shortened, HTMLTIDY, MIT-open-group, MulanPSL-2.0, OLDAP-2.0.1, Saxpath, Borceux, Crossword, CrystalStacker, Rdisc, Wsuipa
-
-Number of tokens (basic tokenization; spaces and newlines) - 514,363,785,904
-Top-10 languages (by number of tokens) - json, html, text, javascript, xml, php, java, python, c++ (364,553,035,516 tokens, approx 70% of total tokens)
-
+| | |
+|----|-------|
+| Number of programming languages | 358 |
+| Number of [licences](https://huggingface.co/datasets/bigcode/the-stack-dedup/blob/v1.1/licenses.json) | 193 |
+| Number of tokens (basic tokenization; spaces and newlines) | 514,363,785,904 |
+| Top-10 languages (by number of tokens) | json, html, text, javascript, xml, php, java, python, c++ (364,553,035,516 tokens, approx 70% of total tokens) 
 
 ### Prior Work
 
-* Gopher
-
-   GitHub:
-      Disk size - 3.1 TB
-      Number of documents - 142M
-      Number of tokens - 422B
-      Sampling proportion - 3%
-
-
-   Sampling strategy: "For Github, we restrict the data to only include code with the following permissive licenses: Apache License version 2.0, MIT license, The 3-clause BSD license, The 2-clause BSD license, Unlicense, CC0, ISC license, and Artistic License 2.0."
-
-
-* Llama
-
-   Github:
-      Disk size - 328 GB
-      Epochs - 0.64
-      Sampling proportion - 4.5%
-   
-   Sampling strategy: "We use the public GitHub dataset available on Google BigQuery. We only kept projects that are distributed under the Apache, BSD and MIT licenses. Additionally, we filtered low quality files with heuristics based on the line length or proportion of alphanumeric characters, and removed boilerplate, such as headers, with regular expressions. Finally, we deduplicate the resulting dataset at the file level, with exact matches."
-
-* PaLM
-
-   Github:
-      Sampling proportion - 5%
-
-   Sampling strategy: "The source code in the pretraining dataset is obtained from open source repositories on GitHub. We filtered the files by the license included in the repository; copyleft licenses were excluded. We filter the files by filename extension to restrict to one of 24 common programming languages, including Java, HTML, Javascript, Python, PHP, C#, XML, C++, and C, which results in 196GB of source code. Further, we remove duplicates based on Levenshtein distance between the files because duplicate files are known to be common in source code repositories (Lopes et al., 2017; Allamanis, 2019)."
+| Dataset | Disk size | Number of tokens | Sampling proportion | Sampling strategy | Notes | 
+| --------|-----------|------------------|---------------------|-------------------|----------|
+| Gopher | 3.1 TB | 422B | 3% | "For Github, we restrict the data to only include code with the following permissive licenses: Apache License version 2.0, MIT license, The 3-clause BSD license, The 2-clause BSD license, Unlicense, CC0, ISC license, and Artistic License 2.0."| Number of documents: 142M
+| LLaMA | 328 GB | | 4.5% | "We use the public GitHub dataset available on Google BigQuery. We only kept projects that are distributed under the Apache, BSD and MIT licenses. Additionally, we filtered low quality files with heuristics based on the line length or proportion of alphanumeric characters, and removed boilerplate, such as headers, with regular expressions. Finally, we deduplicate the resulting dataset at the file level, with exact matches." | Epochs: 0.64
+| PaLM | | | 5% | "The source code in the pretraining dataset is obtained from open source repositories on GitHub. We filtered the files by the license included in the repository; copyleft licenses were excluded. We filter the files by filename extension to restrict to one of 24 common programming languages, including Java, HTML, Javascript, Python, PHP, C#, XML, C++, and C, which results in 196GB of source code. Further, we remove duplicates based on Levenshtein distance between the files because duplicate files are known to be common in source code repositories (Lopes et al., 2017; Allamanis, 2019)." | |
 
 
 ## References
