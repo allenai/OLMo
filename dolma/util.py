@@ -1,11 +1,10 @@
 import logging
-import math
 import os
 import socket
 import sys
 import warnings
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Union
 
 import rich
 from composer.utils.dist import get_local_rank, get_node_rank
@@ -14,8 +13,7 @@ from rich.highlighter import NullHighlighter
 from rich.text import Text
 from rich.traceback import Traceback
 
-from .config import TrainConfig
-from .exceptions import DolmaCliError, DolmaConfigurationError, DolmaError
+from .exceptions import DolmaCliError, DolmaError
 
 _log_extra_fields: Dict[str, Any] = {}
 
@@ -130,59 +128,6 @@ def clean_opt(arg: str) -> str:
     name, val = arg.split("=", 1)
     name = name.strip("-").replace("-", "_")
     return f"{name}={val}"
-
-
-def calculate_batch_size_info(
-    global_batch_size: int, device_microbatch_size: Union[int, str]
-) -> Tuple[int, Union[str, int], Union[str, int]]:
-    from composer.utils import dist
-
-    if global_batch_size % dist.get_world_size() != 0:
-        raise DolmaConfigurationError(
-            f"Global batch size {global_batch_size} is not divisible by {dist.get_world_size()} "
-            "as a result, the batch size would be truncated, please adjust `global_batch_size` "
-            f"to be divisible by world size, {dist.get_world_size()}."
-        )
-    device_batch_size = global_batch_size // dist.get_world_size()
-    if device_microbatch_size == "auto":
-        device_grad_accum = "auto"
-    elif isinstance(device_microbatch_size, int):
-        if device_microbatch_size > device_batch_size:
-            warnings.warn(
-                f"device_microbatch_size > device_batch_size, "
-                f"will be reduced from {device_microbatch_size} -> {device_batch_size}.",
-                UserWarning,
-            )
-            device_microbatch_size = device_batch_size
-        device_grad_accum = math.ceil(device_batch_size / device_microbatch_size)
-    else:
-        raise DolmaConfigurationError(f"Not sure how to parse {device_microbatch_size=}")
-
-    return device_batch_size, device_microbatch_size, device_grad_accum
-
-
-# Coming soon: this conversion math will be done inside Composer Trainer
-def update_batch_size_info(cfg: TrainConfig):
-    from composer.utils import dist
-
-    device_train_batch_size, device_train_microbatch_size, device_train_grad_accum = calculate_batch_size_info(
-        cfg.global_train_batch_size, cfg.device_train_microbatch_size
-    )
-    cfg.n_gpus = dist.get_world_size()
-    cfg.device_train_batch_size = device_train_batch_size
-    cfg.device_train_microbatch_size = device_train_microbatch_size
-    cfg.device_train_grad_accum = device_train_grad_accum
-    # Safely set `device_eval_batch_size` if not provided by user
-    if cfg.device_eval_batch_size is None:
-        if cfg.device_train_microbatch_size == "auto":
-            cfg.device_eval_batch_size = 1  # TODO debug auto eval microbatching
-        elif isinstance(cfg.device_train_microbatch_size, int):
-            cfg.device_eval_batch_size = cfg.device_train_microbatch_size
-        else:
-            raise DolmaConfigurationError(
-                f"Not sure how to parse device_train_microbatch_size={cfg.device_train_microbatch_size}"
-            )
-    return cfg
 
 
 class RichHandler(logging.Handler):
