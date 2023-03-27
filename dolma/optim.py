@@ -188,7 +188,7 @@ def build_optimizer(
     eps: float = 1e-8,
 ) -> torch.optim.Optimizer:
     """
-    Get a suitable AdamW optimizer for training/fine-tuning.
+    Get a suitable optimizer for training/fine-tuning.
 
     :param learning_rate: The learning rate. If not specified, a default learning
         rate will calculated according to the equation from the Scaling Laws paper
@@ -197,7 +197,7 @@ def build_optimizer(
     :param weight_decay: The weight decay coefficient. This does not apply to
         biases and layernorm/embedding weights, which will have a weight decay
         coefficient of 0.
-    :param kwargs: Other keyword arguments passed to torch's `AdamW` optimizer.
+    :param kwargs: Other keyword arguments passed to the optimizer.
     """
     # Separate out all parameters to those that will and won't experience regularizing weight decay.
     decay = set()
