@@ -62,7 +62,7 @@ if __name__ == "__main__":
     parser.add_argument("--output-file", type=str, required=True)
     args = parser.parse_args()
 
-    langs = {}
+    langs: Dict[str, List[str]] = {}
     with open(args.urls_file) as f:
         urls = f.readlines()
         for url in urls:
