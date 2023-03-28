@@ -101,7 +101,11 @@ def main(cfg: TrainConfig) -> None:
     train_loader = build_dataloader(cfg, cfg.device_train_batch_size)
 
     # Algorithms.
-    algorithms = [build_algorithm(name, algorithm_cfg) for name, algorithm_cfg in (cfg.algorithms or {}).items()]
+    algorithms = [
+        build_algorithm(name, algorithm_cfg)
+        for name, algorithm_cfg in (cfg.algorithms or {}).items()
+        if algorithm_cfg is not None
+    ]
 
     # Callbacks.
     callbacks: List[Callback] = [SpeedMonitor(**cfg.speed_monitor.asdict())]

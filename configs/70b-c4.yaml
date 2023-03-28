@@ -83,6 +83,7 @@ fsdp_config:
   mixed_precision: DEFAULT # could be PURE with flash attn
   activation_checkpointing: true
   activation_cpu_offload: false
+  use_orig_params: true  # needed to work with compile
   verbose: false
 
 speed_monitor:

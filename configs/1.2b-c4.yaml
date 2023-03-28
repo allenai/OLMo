@@ -82,6 +82,7 @@ fsdp_config:
   mixed_precision: DEFAULT
   activation_checkpointing: false
   activation_cpu_offload: false
+  use_orig_params: true  # need to work with compile
   verbose: false
 
 speed_monitor:

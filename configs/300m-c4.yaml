@@ -83,6 +83,7 @@ fsdp_config:
   mixed_precision: DEFAULT
   activation_checkpointing: false
   activation_cpu_offload: false
+  use_orig_params: true  # needed to work with compile
   verbose: false
 
 wandb:
