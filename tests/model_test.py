@@ -3,8 +3,8 @@ import torch
 from torch.nn import CrossEntropyLoss
 
 from dolma import DolmaGPT, ModelConfig, Tokenizer, TrainConfig
+from dolma.composer import build_optimizer
 from dolma.data import DataCollator
-from dolma.optim import build_optimizer
 
 
 @pytest.mark.parametrize(

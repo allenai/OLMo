@@ -26,9 +26,7 @@ from typing import List, cast
 import torch
 
 from dolma import DolmaGPT, TrainConfig
-from dolma.data import build_dataloader
 from dolma.exceptions import DolmaCliError
-from dolma.optim import build_optimizer
 from dolma.util import clean_opt, log_extra_field, prepare_cli_environment
 
 log = logging.getLogger(__name__)
@@ -47,6 +45,8 @@ def main(cfg: TrainConfig) -> None:
         ComposerDolmaGPT,
         DolmaConsoleLogger,
         build_algorithm,
+        build_dataloader,
+        build_optimizer,
         build_scheduler,
         update_batch_size_info,
     )
