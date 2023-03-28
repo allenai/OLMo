@@ -115,8 +115,7 @@ Follow these steps to process the raw Wikipedia data into a format suitable for 
         parallel=4
     ```
 
-
-## V0 Statistics
+## V0 Collection
 
 Data is available at `s3://ai2-llm/pretrain_data/wikipedia/v0/`.
 
@@ -165,6 +164,8 @@ FROM (
 GROUP BY lang
 ORDER BY tokens_count DESC
 ```
+
+### Statistics
 
 Here are the numbers of documents and whitespace-separated tokens
 for each language.
