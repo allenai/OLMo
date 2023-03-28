@@ -114,3 +114,86 @@ Follow these steps to process the raw Wikipedia data into a format suitable for 
         local_dst=/net/nfs2.s2-research/lucas/wikipedia-processed-compressed \
         parallel=4
     ```
+
+
+## V0 Statistics
+
+Data is available at `s3://ai2-llm/pretrain_data/wikipedia/v0/`.
+
+Load it into Athena with:
+
+```sql
+CREATE EXTERNAL TABLE IF NOT EXISTS `llm_wikipedia_v0` (
+    id STRING,
+    revid STRING,
+    url STRING,
+    title STRING,
+    text STRING
+)
+PARTITIONED BY (lang STRING)
+ROW FORMAT serde 'org.apache.hive.hcatalog.data.JsonSerDe'
+LOCATION 's3://ai2-llm/pretraining-data/sources/wikipedia'
+```
+
+and then run to scan partitions:
+
+
+```sql
+MSCK REPAIR TABLE `llm_wikipedia_v0`
+```
+
+After loading the data into Athena, we use the following query to
+obtain a count of the number of articles and tokens per language
+
+```sql
+SELECT
+    lang,
+    COUNT(cnt) AS docs_count,
+    SUM(cnt) AS tokens_count
+FROM (
+    SELECT
+        lang,
+        CARDINALITY(
+            filter(
+                REGEXP_SPLIT(text, '\s+'),
+                x -> LENGTH(TRIM(x)) > 0
+            )
+        ) AS cnt
+    FROM "llm_wikipedia_v0"
+    WHERE text != ''
+)
+GROUP BY lang
+ORDER BY tokens_count DESC
+```
+
+
+|  **lang**  |  **docs_count**  |  **tokens_count**  |
+|:----------:|:----------------:|:------------------:|
+|  en        |  6,597,413       |  2,526,060,496     |
+|  de        |  2,762,076       |  928,634,657       |
+|  fr        |  2,435,743       |  835,619,681       |
+|  es        |  1,779,272       |  712,188,125       |
+|  ru        |  1,847,443       |  556,025,623       |
+|  it        |  1,617,797       |  526,008,714       |
+|  pt        |  1,072,432       |  309,469,768       |
+|  nl        |  2,032,988       |  286,424,349       |
+|  pl        |  1,490,808       |  259,003,769       |
+|  uk        |  1,182,295       |  258,671,123       |
+|  ca        |  696,864         |  231,510,644       |
+|  ar        |  1,192,969       |  194,280,039       |
+|  vi        |  1,279,525       |  182,010,536       |
+|  cs        |  515,441         |  144,192,588       |
+|  hu        |  491,174         |  123,500,293       |
+|  fa        |  952,157         |  116,977,514       |
+|  no        |  599,353         |  105,395,622       |
+|  id        |  628,169         |  102,552,970       |
+|  sr        |  697,921         |  100,889,886       |
+|  fi        |  542,515         |  93,396,202        |
+|  tr        |  504,341         |  77,237,014        |
+|  ko        |  621,483         |  76,929,773        |
+|  arz       |  1,613,920       |  47,167,388        |
+|  war       |  1,266,646       |  41,849,042        |
+|  simple    |  225,835         |  27,147,943        |
+|  ce        |  558,005         |  24,132,558        |
+|  ja        |  1,358,738       |  23,228,263        |
+|  zh        |  1,331,870       |  12,407,485        |
