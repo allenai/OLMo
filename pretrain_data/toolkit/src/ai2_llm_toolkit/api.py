@@ -28,7 +28,7 @@ logging.basicConfig(
 SOURCE_TO_AVAILABLE_VERSIONS: Dict[str, List[str]] = {
     "common-crawl": ["v0"],
     "reddit": [],
-    "s2": ["v2_hard_dedup"],
+    "s2": ["v0", "v2"],
     "stack-dedup": ["raw"],
     "wikipedia": [],
 }
