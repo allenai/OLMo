@@ -77,7 +77,7 @@ device_eval_batch_size: null
 
 n_gpus: null
 
-precision: null
+precision: amp_bf16
 
 fsdp_config:
   sharding_strategy: FULL_SHARD
