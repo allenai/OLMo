@@ -76,3 +76,41 @@ It doesn't seem to be possible to download more than 3 in parallel. Speed seems 
 ## Raw Wikipedia Data
 
 The raw Wikipedia data is available at `s3://ai2-llm/pretrain_data/wikipedia/raw/`.
+License for the text data is [CC-BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).
+More information about the license can be found [here](https://dumps.wikimedia.org/legal.html).
+
+## Processing wikipedia Data
+
+Follow these steps to process the raw Wikipedia data into a format suitable for training a language model.
+
+1. Install the `pretrain_data_wikipedia` package:
+
+    ```bash
+    pip install ./pretrain_data/wikipedia
+    ```
+
+2. Run the following command to download the raw Wikipedia data:
+
+    ```bash
+    python -m pretrain_data_wikipedia.download \
+        local_dst=/net/nfs2.s2-research/lucas/wikipedia \
+        debug=false \
+        parallel=3
+    ```
+
+3. Use WikiExtractor to extract the text from the Wikipedia dumps:
+
+    ```bash
+    bash extract_all.sh \
+        -i /net/nfs2.s2-research/lucas/wikipedia \
+        -o /net/nfs2.s2-research/lucas/wikipedia-processed
+    ```
+
+4. Compress the data:
+
+    ```bash
+    python -m pretrain_data_wikipedia.compress \
+        local_src=/net/nfs2.s2-research/lucas/wikipedia-processed \
+        local_dst=/net/nfs2.s2-research/lucas/wikipedia-processed-compressed \
+        parallel=4
+    ```
