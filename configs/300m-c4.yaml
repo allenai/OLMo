@@ -17,6 +17,7 @@ model:
   max_sequence_length: 1024
   include_bias: true
   vocab_size: 50257
+  embedding_size: 50304
   eos_token_id: 50256
   pad_token_id: 50256
   init_device: null
