@@ -352,7 +352,7 @@ class TrainConfig(BaseConfig):
     model: ModelConfig = field(default_factory=ModelConfig)
     optimizer: OptimizerConfig = field(default_factory=OptimizerConfig)
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
-    algorithms: Optional[Dict[str, Dict[str, Any]]] = None
+    algorithms: Optional[Dict[str, Optional[Dict[str, Any]]]] = None
     data: DataConfig = field(default_factory=DataConfig)
     tokenizer: TokenizerConfig = field(default_factory=TokenizerConfig)
     save_folder: str = "./"
