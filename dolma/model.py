@@ -208,6 +208,16 @@ class DolmaGPT(nn.Module):
         if self.config.alibi and self.config.rope:
             raise DolmaConfigurationError("ALiBi and RoPE are mutually exclusive")
 
+        if self.config.embedding_size is not None and self.config.embedding_size != self.config.vocab_size:
+            if self.config.embedding_size < self.config.vocab_size:
+                raise DolmaConfigurationError("embedding size should be at least as big as vocab size")
+            elif self.config.embedding_size % 128 != 0:
+                import warnings
+
+                warnings.warn(
+                    "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
+                )
+
         torch.backends.cuda.enable_flash_sdp(self.config.flash_attention)
         torch.backends.cuda.enable_mem_efficient_sdp(self.config.memory_efficient_attention)
 

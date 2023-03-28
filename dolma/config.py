@@ -206,6 +206,14 @@ class ModelConfig(BaseConfig):
     Vocabulary size of the model.
     """
 
+    embedding_size: Optional[int] = None
+    """
+    The number of embeddings, i.e. the number of tokens. If none, this defaults
+    to ``vocab_size``. But you can also set this to a number larger than vocab size
+    to optimize model throughput or for other reasons. In that case it usually
+    makes sense to ensure this number is a multiple of 128.
+    """
+
     eos_token_id: int = 50256
     """
     The ID of the end-of-sentence special token.
