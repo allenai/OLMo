@@ -23,7 +23,7 @@ __all__ = ["LPLayerNorm", "RotaryEmbedding", "TorchAttention", "GPTMLP", "GPTBlo
 
 class LPLayerNorm(torch.nn.LayerNorm):
     """
-    Low-precision layer norm.
+    Layer norm which can optionally run in low precision.
     """
 
     def __init__(
