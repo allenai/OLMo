@@ -12,7 +12,8 @@ dependencies = [
     "requests",
     "tqdm",
     "boto3",
-    "springs"
+    "springs",
+    "wikiextractor",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

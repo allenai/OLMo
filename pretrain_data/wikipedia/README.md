@@ -71,3 +71,8 @@ python -m pretrain_data_wikipedia.download \
 ```
 
 It doesn't seem to be possible to download more than 3 in parallel. Speed seems to be limited to ~5MiB/s per connection.
+
+
+## Raw Wikipedia Data
+
+The raw Wikipedia data is available at `s3://ai2-llm/pretrain_data/wikipedia/raw/`.
