@@ -80,9 +80,11 @@ precision: amp_bf16
 
 fsdp_config:
   sharding_strategy: FULL_SHARD
-  mixed_precision: DEFAULT # could be PURE with flash attn
+  mixed_precision: PURE
   activation_checkpointing: true
   activation_cpu_offload: false
+  activation_checkpointing_reentrant: false
+  limit_all_gathers: true
   use_orig_params: true  # needed to work with compile
   verbose: false
 

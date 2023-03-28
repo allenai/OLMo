@@ -80,9 +80,11 @@ precision: null
 
 fsdp_config:
   sharding_strategy: FULL_SHARD
-  mixed_precision: DEFAULT
+  mixed_precision: PURE
   activation_checkpointing: false
   activation_cpu_offload: false
+  activation_checkpointing_reentrant: false
+  limit_all_gathers: true
   use_orig_params: true  # needed to work with compile
   verbose: false
 
