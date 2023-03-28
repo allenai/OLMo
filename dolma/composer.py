@@ -225,8 +225,6 @@ def build_algorithm(name: str, kwargs: Dict[str, Any]):
         return algorithms.FusedLayerNorm(**kwargs)
     elif name == "gated_linear_units":
         return algorithms.GatedLinearUnits(**kwargs)
-    elif name == "low_precision_layernorm":
-        return algorithms.LowPrecisionLayerNorm(**kwargs)
     else:
         raise NotImplementedError(f"Not sure how to build algorithm '{name}'")
 

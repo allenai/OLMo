@@ -18,7 +18,53 @@ from torch import einsum
 from .config import ModelConfig
 from .exceptions import DolmaConfigurationError
 
-__all__ = ["RotaryEmbedding", "TorchAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
+__all__ = ["LPLayerNorm", "RotaryEmbedding", "TorchAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
+
+
+class LPLayerNorm(torch.nn.LayerNorm):
+    """
+    Low-precision layer norm.
+    """
+
+    def __init__(
+        self,
+        config: ModelConfig,
+        eps=1e-05,
+        elementwise_affine=True,
+        dtype=None,
+    ):
+        super().__init__(
+            normalized_shape=config.d_model,
+            eps=eps,
+            elementwise_affine=elementwise_affine,
+            device=config.init_device,
+            dtype=dtype,
+        )
+        self.low_precision = config.low_precision_layernorm
+
+    def forward(self, x):
+        if self.low_precision:
+            module_device = x.device
+            downcast_x = self._cast_if_autocast_enabled(x)
+            downcast_weight = (
+                self._cast_if_autocast_enabled(self.weight) if self.weight is not None else self.weight
+            )
+            downcast_bias = self._cast_if_autocast_enabled(self.bias) if self.bias is not None else self.bias
+            with torch.autocast(enabled=False, device_type=module_device.type):
+                return F.layer_norm(downcast_x, self.normalized_shape, downcast_weight, downcast_bias, self.eps)
+        else:
+            return F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
+
+    def _cast_if_autocast_enabled(self, tensor):
+        if torch.is_autocast_enabled():
+            if tensor.device.type == "cuda":
+                dtype = torch.get_autocast_gpu_dtype()
+            elif tensor.device.type == "cpu":
+                dtype = torch.get_autocast_cpu_dtype()
+            else:
+                raise NotImplementedError()
+            return tensor.to(dtype=dtype)
+        return tensor
 
 
 class RotaryEmbedding(nn.Module):
@@ -77,11 +123,11 @@ class TorchAttention(nn.Module):
         self.resid_dropout = nn.Dropout(config.residual_dropout)
 
         # optional layer norm for keys and queries.
-        self.k_ln: Optional[nn.LayerNorm] = None
-        self.q_ln: Optional[nn.LayerNorm] = None
+        self.k_ln: Optional[LPLayerNorm] = None
+        self.q_ln: Optional[LPLayerNorm] = None
         if config.attention_layer_norm:
-            self.k_ln = nn.LayerNorm(self.d_model, device=config.init_device)
-            self.q_ln = nn.LayerNorm(self.d_model, device=config.init_device)
+            self.k_ln = LPLayerNorm(config)
+            self.q_ln = LPLayerNorm(config)
 
         if self.use_rope:
             # RoPE.
@@ -173,9 +219,9 @@ class GPTBlock(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.config = config
-        self.ln_1 = nn.LayerNorm(config.d_model, device=config.init_device)
+        self.ln_1 = LPLayerNorm(config)
         self.attn = TorchAttention(config)
-        self.ln_2 = nn.LayerNorm(config.d_model, device=config.init_device)
+        self.ln_2 = LPLayerNorm(config)
         self.mlp = GPTMLP(config)
 
     def forward(
@@ -226,7 +272,7 @@ class DolmaGPT(nn.Module):
                 wte=nn.Embedding(config.vocab_size, config.d_model, device=config.init_device),
                 emb_drop=nn.Dropout(config.embedding_dropout),
                 blocks=nn.ModuleList([GPTBlock(config) for _ in range(config.n_layers)]),
-                ln_f=nn.LayerNorm(config.d_model, device=config.init_device),
+                ln_f=LPLayerNorm(config),
             )
         )
         if not (self.config.alibi or self.config.rope):

@@ -189,6 +189,11 @@ class ModelConfig(BaseConfig):
     The dropout probability for embeddings.
     """
 
+    low_precision_layernorm: bool = False
+    """
+    Use low-precision layernorm.
+    """
+
     max_sequence_length: int = 1024
     """
     The maximum input sequence length supported by the model.
