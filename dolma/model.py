@@ -21,7 +21,7 @@ from .exceptions import DolmaConfigurationError
 __all__ = ["LayerNorm", "RotaryEmbedding", "TorchAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
 
 
-class LayerNorm(torch.nn.LayerNorm):
+class LayerNorm(nn.LayerNorm):
     """
     Layer norm which can optionally run in low precision.
     """
@@ -434,7 +434,7 @@ class DolmaGPT(nn.Module):
     def param_init_fn(self, module):
         from functools import partial
 
-        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=self.config.init_std)
+        init_fn = partial(nn.init.normal_, mean=0.0, std=self.config.init_std)
 
         def fused_init_fn(module):
             # Parameter initialization is often based on the parameters shape.
@@ -462,14 +462,14 @@ class DolmaGPT(nn.Module):
                 init_fn(module.weight)
 
             if module.bias is not None:
-                torch.nn.init.zeros_(module.bias)
+                nn.init.zeros_(module.bias)
 
             if getattr(module, "_is_residual", False):
                 with torch.no_grad():
                     module.weight.div_(math.sqrt(2 * self.config.n_layers))
 
             if module.bias is not None:
-                torch.nn.init.zeros_(module.bias)
+                nn.init.zeros_(module.bias)
 
         # Embedding
         if isinstance(module, nn.Embedding):
@@ -477,8 +477,8 @@ class DolmaGPT(nn.Module):
 
         # LayerNorm
         if isinstance(module, nn.LayerNorm):
-            torch.nn.init.zeros_(module.bias)
-            torch.nn.init.ones_(module.weight)
+            nn.init.zeros_(module.bias)
+            nn.init.ones_(module.weight)
 
     def num_params(self, include_embedding: bool = True) -> int:
         """
