@@ -6,10 +6,9 @@ Run this to check if your data fields are appropriate
 
 """
 
-from typing import List, Dict, Tuple, Iterable
+from typing import List, Dict, Iterable
 
 import argparse
-import os
 import logging
 import sys
 import gzip
@@ -105,7 +104,7 @@ class Example:
 
 class Dataset:
     def __init__(self, source: str, version: str, attributes: List[str]):
-        logging.info(f'Creating Dataset from S3: source={source} version={version}')
+        logging.info(f'Creating Dataset from S3: source = {source} version = {version}')
         if source not in SOURCE_TO_PATH:
             raise FileNotFoundError(f'{source} not one of the available sources')
         if version not in SOURCE_TO_LATEST_VERSION[source]:
@@ -167,12 +166,10 @@ if __name__ == '__main__':
     parser.add_argument("--attributes", type=list, required=False)
     args = parser.parse_args()
 
-    dataset = Dataset(source=args.source,
-                      version=args.version,
-                      attributes=args.attributes)
-    logging.info(f'Found one dataset from source={args.source} version={args.version}')
+    dataset = Dataset(source=args.source, version=args.version, attributes=args.attributes)
+    logging.info(f'Found one dataset from source = {args.source} version = {args.version}')
 
-    first_s3_filepath= next(dataset.s3_filepaths)
+    first_s3_filepath = next(dataset.s3_filepaths)
     logging.info(f'Inspecting first file at {first_s3_filepath}')
 
     dataset.verify_one_file(s3_filepath=first_s3_filepath)
