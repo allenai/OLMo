@@ -17,3 +17,4 @@ wandb
 # triton
 # flash-attn
 logzio-python-handler
+boto3
