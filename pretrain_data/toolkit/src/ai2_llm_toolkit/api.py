@@ -6,16 +6,15 @@ Run this to check if your data fields are appropriate
 
 """
 
-from typing import List, Dict, Iterable, Optional, Set, Generator
-
 import argparse
+import gzip
+import json
 import logging
 import sys
-import gzip
 from contextlib import ExitStack
-import json
+from typing import Dict, Generator, Iterable, List, Optional, Set
 
-from smashed.utils.io_utils import recursively_list_files, MultiPath, open_file_for_read
+from smashed.utils.io_utils import MultiPath, open_file_for_read, recursively_list_files
 
 logging.basicConfig(
     level=logging.INFO,
