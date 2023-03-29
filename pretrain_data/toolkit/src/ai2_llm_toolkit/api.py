@@ -35,10 +35,10 @@ SOURCE_TO_AVAILABLE_VERSIONS = {
 }
 
 SOURCE_TO_PATH = {
-    "common-crawl": f"s3://ai2-llm/pretraining-data/sources/common-crawl/{SOURCE_TO_AVAILABLE_VERSIONS['common-crawl']}/documents/mined_split/*/*/*.json.gz",
+    "common-crawl": "s3://ai2-llm/pretraining-data/sources/common-crawl/{VERSION}/documents/mined_split/*",
     "reddit": None,
-    "s2": f"s3://ai2-llm/pretraining-data/sources/s2/{SOURCE_TO_AVAILABLE_VERSIONS['s2']}/*/*/*.gz",
-    "stack-dedup": f"s3://ai2-llm/pretraining-data/sources/stack-dedup/{SOURCE_TO_AVAILABLE_VERSIONS['stack-dedup']}/*/*.jsonl.gz",
+    "s2": "s3://ai2-llm/pretraining-data/sources/s2/{VERSION}/*",
+    "stack-dedup": "s3://ai2-llm/pretraining-data/sources/stack-dedup/{VERSION}/*",
     "wikipedia": None,
 }
 
@@ -115,7 +115,7 @@ class Dataset:
         self.version = version
         self.attributes = attributes
 
-        path_str = SOURCE_TO_PATH[source]
+        path_str = SOURCE_TO_PATH[source].format(VERSION=version)
         i = path_str.index("*")
         dir_path = path_str[:i]
         self.s3_dirpath = dir_path
