@@ -14,6 +14,9 @@ dependencies = [
     "boto3",
     "springs",
     "wikiextractor",
+    "uniseg",
+    "numpy",
+    "cached_path"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

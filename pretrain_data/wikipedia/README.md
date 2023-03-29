@@ -131,7 +131,7 @@ CREATE EXTERNAL TABLE IF NOT EXISTS `llm_wikipedia_v0` (
 )
 PARTITIONED BY (lang STRING)
 ROW FORMAT serde 'org.apache.hive.hcatalog.data.JsonSerDe'
-LOCATION 's3://ai2-llm/pretraining-data/sources/wikipedia'
+LOCATION 's3://ai2-llm/pretraining-data/sources/wikipedia/v0/'
 ```
 
 and then run to scan partitions:
@@ -170,7 +170,6 @@ ORDER BY tokens_count DESC
 Here are the numbers of documents and whitespace-separated tokens
 for each language.
 
-
 |  **lang**  |  **Documents**   |  **Whitespace Tokens**  |
 |:----------:|:----------------:|:-----------------------:|
 |  en        |  6,597,413       |  2,526,060,496          |
@@ -201,3 +200,95 @@ for each language.
 |  ce        |  558,005         |  24,132,558             |
 |  ja        |  1,358,738       |  23,228,263             |
 |  zh        |  1,331,870       |  12,407,485             |
+
+
+## V1 Collection
+
+Compared to V0, V1 removes empty documents, gets tokens, and calculates average
+log probabilities for each text.
+The data is available at `s3://ai2-llm/pretrain_data/wikipedia/v1/`.
+To obtain v1 from v1, run
+
+```bash
+python -m pretrain_data_wikipedia.rm_empty_and_stat \
+    src=s3://ai2-llm/pretraining-data/sources/wikipedia/v0/ \
+    dst=s3://ai2-llm/pretraining-data/sources/wikipedia/v1/ \
+    parallel=64 \
+    tmp_dir=/data/lucas/tmp
+```
+
+Load it into Athena with:
+
+```sql
+CREATE EXTERNAL TABLE IF NOT EXISTS `llm_wikipedia_v1` (
+    id STRING,
+    revid STRING,
+    url STRING,
+    title STRING,
+    text STRING,
+    words ARRAY<STRING>,
+    perplexity DOUBLE
+)
+PARTITIONED BY (lang STRING)
+ROW FORMAT serde 'org.apache.hive.hcatalog.data.JsonSerDe'
+LOCATION 's3://ai2-llm/pretraining-data/sources/wikipedia/v1/'
+```
+
+and then run to scan partitions:
+
+```sql
+MSCK REPAIR TABLE `llm_wikipedia_v1`
+```
+
+### Statistics
+
+This tokens count should be more accurate.
+
+|  **Language**  |  **Documents**   |  **uniseg wordbreak tokens**  |
+|:--------------:|:----------------:|:-----------------------------:|
+|  en            |  6,597,413       |  3,018,454,264                |
+|  de            |  2,762,076       |  1,133,562,975                |
+|  ja            |  1,358,738       |  1,017,548,058                |
+|  fr            |  2,435,743       |  987,652,951                  |
+|  es            |  1,779,272       |  830,175,727                  |
+|  ru            |  1,847,443       |  723,899,704                  |
+|  it            |  1,617,797       |  618,256,561                  |
+|  zh            |  1,331,870       |  569,016,470                  |
+|  pt            |  1,072,432       |  372,007,835                  |
+|  uk            |  1,182,295       |  339,173,379                  |
+|  nl            |  2,032,988       |  337,362,635                  |
+|  pl            |  1,490,808       |  318,091,944                  |
+|  ca            |  696,864         |  273,684,284                  |
+|  ar            |  1,192,969       |  223,292,164                  |
+|  vi            |  1,279,525       |  208,803,599                  |
+|  cs            |  515,441         |  178,148,028                  |
+|  hu            |  491,174         |  162,910,289                  |
+|  fa            |  952,157         |  133,193,700                  |
+|  no            |  599,353         |  126,846,068                  |
+|  id            |  628,169         |  125,334,613                  |
+|  sr            |  697,921         |  123,988,521                  |
+|  fi            |  542,515         |  118,553,972                  |
+|  ko            |  621,483         |  100,619,432                  |
+|  tr            |  504,341         |  96,519,757                   |
+|  arz           |  1,613,920       |  55,580,247                   |
+|  war           |  1,266,646       |  52,266,106                   |
+|  simple        |  225,835         |  32,774,897                   |
+|  ce            |  558,005         |  32,395,907                   |
+
+
+Table above was obtained with following query:
+
+```sql
+SELECT
+    lang,
+    COUNT(cnt) AS docs_count,
+    SUM(cnt) AS tokens_count
+FROM (
+    SELECT
+        lang,
+        CARDINALITY(words) AS cnt
+    FROM "llm_wikipedia_v1"
+)
+GROUP BY lang
+ORDER BY tokens_count DESC
+```

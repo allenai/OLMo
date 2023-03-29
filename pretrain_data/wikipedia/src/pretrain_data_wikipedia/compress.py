@@ -1,13 +1,11 @@
+import gzip
 from contextlib import ExitStack
 from functools import reduce
-import gzip
 from multiprocessing import Pool, current_process
 from pathlib import Path
-from typing import List, Optional, Union
 
-import requests
-from tqdm import tqdm
 import springs as sp
+from tqdm import tqdm
 
 
 def get_current_process_number() -> int:
@@ -22,10 +20,10 @@ def concat_and_compress(
     max_bytes: int = 1_000_000,
 ):
     """Open all files in source_path, concatenate up to max_rows, and compress
-    the result in files at dest_path. """
+    the result in files at dest_path."""
 
     # list all files in source_path
-    all_files = [p for p in source_path.glob('**/*') if p.is_file()]
+    all_files = [p for p in source_path.glob("**/*") if p.is_file()]
 
     # create dest_path if it doesn't exist
     dest_path.mkdir(parents=True, exist_ok=True)
@@ -75,7 +73,6 @@ class DownloadConfig:
 
 @sp.cli(DownloadConfig)
 def main(config: DownloadConfig):
-
     base_src_path = Path(config.local_src).expanduser().resolve()
     all_base_path = [
         base_src_path / f"{d}" for d in base_src_path.iterdir() if d.is_dir()
@@ -83,7 +80,8 @@ def main(config: DownloadConfig):
     base_dst_path = Path(config.local_dst).expanduser().resolve()
     all_dst_path = [
         base_dst_path / f"lang={d.name.replace('wiki_', '')}"
-        for d in base_src_path.iterdir() if d.is_dir()
+        for d in base_src_path.iterdir()
+        if d.is_dir()
     ]
 
     if config.debug:

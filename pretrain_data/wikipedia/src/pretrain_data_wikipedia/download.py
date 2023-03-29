@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import List, Optional, Union
 
 import requests
-from tqdm import tqdm
 import springs as sp
+from tqdm import tqdm
 
 
 def get_current_process_number() -> int:
@@ -17,23 +17,23 @@ def get_current_process_number() -> int:
 def download_single(
     url: str,
     fname: Union[Path, str],
-    chunk_size: int = 1024 ** 2,
+    chunk_size: int = 1024**2,
 ):
     """Download a file from a URL and show a progress bar. Adapted from
     https://gist.github.com/yanqd0/c13ed29e29432e3cf3e7c38467f42f51"""
 
     fname = Path(fname)
     resp = requests.get(url, stream=True)
-    total = int(resp.headers.get('content-length', 0))
+    total = int(resp.headers.get("content-length", 0))
     tqdm_position = max(get_current_process_number() - 1, 0)
 
-    with open(fname, 'wb') as file, tqdm(
+    with open(fname, "wb") as file, tqdm(
         desc=fname.name,
         total=total,
-        unit='iB',
+        unit="iB",
         unit_scale=True,
         unit_divisor=1024,
-        position=tqdm_position
+        position=tqdm_position,
     ) as bar:
         for data in resp.iter_content(chunk_size=chunk_size):
             size = file.write(data)
@@ -43,9 +43,33 @@ def download_single(
 @sp.dataclass
 class DownloadConfig:
     langs: List[str] = sp.flist(
-        "en", "de", "fr", "nl", "ru", "es", "it", "arz", "pl", "ja", "zh",
-        "vi", "war", "uk", "ar", "pt", "fa", "ca", "sr", "id", "ko", "no",
-        "ce", "fi", "hu", "cs", "tr"
+        "en",
+        "de",
+        "fr",
+        "nl",
+        "ru",
+        "es",
+        "it",
+        "arz",
+        "pl",
+        "ja",
+        "zh",
+        "vi",
+        "war",
+        "uk",
+        "ar",
+        "pt",
+        "fa",
+        "ca",
+        "sr",
+        "id",
+        "ko",
+        "no",
+        "ce",
+        "fi",
+        "hu",
+        "cs",
+        "tr",
     )
     url: str = (
         "https://dumps.wikimedia.org/{lang_code}wiki/20230320/"
