@@ -26,6 +26,7 @@ from .exceptions import DolmaConfigurationError
 
 __all__ = [
     "CompilerConfig",
+    "LayerNormType",
     "ModelConfig",
     "OptimizerType",
     "OptimizerConfig",
@@ -115,6 +116,11 @@ class BaseConfig:
         return out
 
 
+class LayerNormType(StrEnum):
+    default = "default"
+    rms = "rms"
+
+
 @dataclass
 class ModelConfig(BaseConfig):
     """
@@ -189,11 +195,17 @@ class ModelConfig(BaseConfig):
     The dropout probability for embeddings.
     """
 
+    layernorm_type: LayerNormType = LayerNormType.default
+    """
+    The layernorm implementation to use.
+    """
+
     low_precision_layernorm: bool = False
     """
-    Use low-precision layernorm. This can speed things up substantially when
-    not compiling, but we've found that it actually slows throughput for compiled
-    models.
+    Use low-precision layernorm when AMP is enabled, which can speed throughput up substantially.
+
+    Note that this doesn't seem to work well when using ``torch.compile()``
+    with the default ``LayerNorm`` implementation.
     """
 
     max_sequence_length: int = 1024

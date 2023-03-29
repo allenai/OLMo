@@ -7,6 +7,7 @@ Adapted from
 from __future__ import annotations
 
 import math
+from abc import abstractmethod
 from typing import NamedTuple, Optional
 
 import torch
@@ -18,10 +19,29 @@ from torch import einsum
 from .config import ModelConfig
 from .exceptions import DolmaConfigurationError
 
-__all__ = ["LayerNorm", "RotaryEmbedding", "TorchAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
+__all__ = [
+    "LayerNorm",
+    "DefaultLayerNorm",
+    "RMSLayerNorm",
+    "RotaryEmbedding",
+    "TorchAttention",
+    "GPTMLP",
+    "GPTBlock",
+    "DolmaGPT",
+]
 
 
-class LayerNorm(torch.nn.LayerNorm):
+class LayerNorm(nn.Module):
+    def __init__(self, config: ModelConfig):
+        super().__init__()
+        self.config = config
+
+    @abstractmethod
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError
+
+
+class DefaultLayerNorm(nn.LayerNorm, LayerNorm):
     """
     Layer norm which can optionally run in low precision.
     """
@@ -29,20 +49,16 @@ class LayerNorm(torch.nn.LayerNorm):
     def __init__(
         self,
         config: ModelConfig,
-        eps=1e-05,
-        elementwise_affine=True,
-        dtype=None,
     ):
         super().__init__(
             normalized_shape=config.d_model,
-            eps=eps,
-            elementwise_affine=elementwise_affine,
+            eps=1e-05,
+            elementwise_affine=True,
             device=config.init_device,
-            dtype=dtype,
         )
         self.low_precision = config.low_precision_layernorm
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.low_precision:
             module_device = x.device
             downcast_x = self._cast_if_autocast_enabled(x)
@@ -65,6 +81,30 @@ class LayerNorm(torch.nn.LayerNorm):
                 raise NotImplementedError()
             return tensor.to(dtype=dtype)
         return tensor
+
+
+class RMSLayerNorm(LayerNorm):
+    def __init__(self, config: ModelConfig):
+        super().__init__(config)
+        self.eps = 1e-8
+        self.weight = nn.Parameter(torch.ones(self.config.d_model))
+        if self.config.include_bias:
+            self.bias = nn.Parameter(torch.zeros(self.config.d_model))
+        else:
+            self.register_parameter("bias", None)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        low_precision = torch.is_autocast_enabled() and self.config.low_precision_layernorm
+        with torch.autocast(enabled=low_precision, device_type=x.device.type):
+            norm_x = x.norm(2, dim=-1, keepdim=True)
+
+            rms_x = norm_x * self.config.d_model ** (-1.0 / 2)
+            x_normed = x / (rms_x + self.eps)
+
+            if self.config.include_bias:
+                return self.weight * x_normed + self.bias
+
+            return self.weight * x_normed
 
 
 class RotaryEmbedding(nn.Module):
@@ -126,8 +166,8 @@ class TorchAttention(nn.Module):
         self.k_ln: Optional[LayerNorm] = None
         self.q_ln: Optional[LayerNorm] = None
         if config.attention_layer_norm:
-            self.k_ln = LayerNorm(config)
-            self.q_ln = LayerNorm(config)
+            self.k_ln = DefaultLayerNorm(config)
+            self.q_ln = DefaultLayerNorm(config)
 
         if self.use_rope:
             # RoPE.
@@ -219,9 +259,9 @@ class GPTBlock(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.config = config
-        self.ln_1 = LayerNorm(config)
+        self.ln_1 = DefaultLayerNorm(config)
         self.attn = TorchAttention(config)
-        self.ln_2 = LayerNorm(config)
+        self.ln_2 = DefaultLayerNorm(config)
         self.mlp = GPTMLP(config)
 
     def forward(
@@ -274,7 +314,7 @@ class DolmaGPT(nn.Module):
                 ),
                 emb_drop=nn.Dropout(config.embedding_dropout),
                 blocks=nn.ModuleList([GPTBlock(config) for _ in range(config.n_layers)]),
-                ln_f=LayerNorm(config),
+                ln_f=DefaultLayerNorm(config),
             )
         )
         if not (self.config.alibi or self.config.rope):
@@ -476,9 +516,9 @@ class DolmaGPT(nn.Module):
             init_fn(module.weight)
 
         # LayerNorm
-        if isinstance(module, nn.LayerNorm):
-            torch.nn.init.zeros_(module.bias)
+        if isinstance(module, (nn.LayerNorm, DefaultLayerNorm, RMSLayerNorm)):
             torch.nn.init.ones_(module.weight)
+            torch.nn.init.zeros_(module.bias)
 
     def num_params(self, include_embedding: bool = True) -> int:
         """
