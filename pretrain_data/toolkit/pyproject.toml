@@ -3,7 +3,9 @@ name = "pretrain-data-toolkit"
 version = "0.0.1"
 description = "Toolkit shared for overall pretraining processing"
 authors = [
-    {name = "Kyle Lo", email = "kylel@allenai.org" }
+    {name = "Kyle Lo", email = "kylel@allenai.org" },
+    {name = "Rodney Kinney", email = "rodneyk@allenai.org" },
+    {name = "Luca Soldaini", email = "lucas@allenai.org" }
 ]
 license = {text = "Apache-2.0"}
 readme = "README.md"
