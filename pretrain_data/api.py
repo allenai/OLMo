@@ -6,7 +6,7 @@ Run this to check if your data fields are appropriate
 
 """
 
-from typing import List, Dict, Iterable
+from typing import List, Dict, Iterable, Optional
 
 import argparse
 import logging
@@ -25,19 +25,19 @@ logging.basicConfig(
         logging.FileHandler('_pretrain_data_api.log'),
     ])
 
-SOURCE_TO_LATEST_VERSION = {
-    'common-crawl': 'v0',
-    'reddit': None,
-    's2': 'v2_hard_dedup',
-    'stack-dedup': 'raw',
-    'wikipedia': None
+SOURCE_TO_AVAILABLE_VERSIONS = {
+    'common-crawl': ['v0'],
+    'reddit': [],
+    's2': ['v2_hard_dedup'],
+    'stack-dedup': ['raw'],
+    'wikipedia': []
 }
 
 SOURCE_TO_PATH = {
-    'common-crawl': f"s3://ai2-llm/pretraining-data/sources/common-crawl/{SOURCE_TO_LATEST_VERSION['common-crawl']}/documents/mined_split/*/*/*.json.gz",
+    'common-crawl': f"s3://ai2-llm/pretraining-data/sources/common-crawl/{SOURCE_TO_AVAILABLE_VERSIONS['common-crawl']}/documents/mined_split/*/*/*.json.gz",
     'reddit': None,
-    's2': f"s3://ai2-llm/pretraining-data/sources/s2/{SOURCE_TO_LATEST_VERSION['s2']}/*/*/*.gz",
-    'stack-dedup': f"s3://ai2-llm/pretraining-data/sources/stack-dedup/{SOURCE_TO_LATEST_VERSION['stack-dedup']}/*/*.jsonl.gz",
+    's2': f"s3://ai2-llm/pretraining-data/sources/s2/{SOURCE_TO_AVAILABLE_VERSIONS['s2']}/*/*/*.gz",
+    'stack-dedup': f"s3://ai2-llm/pretraining-data/sources/stack-dedup/{SOURCE_TO_AVAILABLE_VERSIONS['stack-dedup']}/*/*.jsonl.gz",
     'wikipedia': None
 }
 
@@ -53,15 +53,15 @@ class Example:
         self.created = created
         self.metadata = metadata
         self._global_id = f'{self.source}::{self.id}'
-        self._s3_filepath = None
-        self._s3_fileline = None
+        self._s3_filepath: Optional[str] = None
+        self._s3_fileline: Optional[int] = None
 
     @property
     def global_id(self) -> str:
         return self._global_id
 
     @property
-    def s3_filepath(self) -> str:
+    def s3_filepath(self) -> Optional[str]:
         return self._s3_filepath
 
     @s3_filepath.setter
@@ -69,7 +69,7 @@ class Example:
         self._s3_filepath = s3_filepath
 
     @property
-    def s3_fileline(self) -> int:
+    def s3_fileline(self) -> Optional[str]:
         return self._s3_fileline
 
     @s3_fileline.setter
@@ -104,10 +104,10 @@ class Example:
 
 class Dataset:
     def __init__(self, source: str, version: str, attributes: List[str]):
-        logging.info(f'Creating Dataset from S3: source = {source} version = {version}')
+        logging.info(f'Creating Dataset from S3: source={source} version={version}')
         if source not in SOURCE_TO_PATH:
             raise FileNotFoundError(f'{source} not one of the available sources')
-        if version not in SOURCE_TO_LATEST_VERSION[source]:
+        if version not in SOURCE_TO_AVAILABLE_VERSIONS[source]:
             raise FileNotFoundError(f'{version} does not exist for {source}')
 
         self.source = source
@@ -163,14 +163,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=str, required=True)
     parser.add_argument("--version", type=str, required=True)
-    parser.add_argument("--attributes", type=list, required=False)
+    parser.add_argument("--attributes", nargs='*', required=False)
     args = parser.parse_args()
 
     dataset = Dataset(source=args.source, version=args.version, attributes=args.attributes)
-    logging.info(f'Found one dataset from source = {args.source} version = {args.version}')
+    logging.info(f'Found one dataset from source={args.source} version={args.version}')
 
-    first_s3_filepath = next(dataset.s3_filepaths)
-    logging.info(f'Inspecting first file at {first_s3_filepath}')
+    first_s3_filepath = next(dataset.s3_filepaths, None)
+    if first_s3_filepath:
+        logging.info(f'Inspecting first file at {first_s3_filepath}')
 
-    dataset.verify_one_file(s3_filepath=first_s3_filepath)
-    logging.info(f'Finished verifying format of file {first_s3_filepath}')
+        dataset.verify_one_file(s3_filepath=first_s3_filepath)
+        logging.info(f'Finished verifying format of file {first_s3_filepath}')
+    else:
+        raise FileNotFoundError(f'No files found for source={args.source} version={args.version}')
