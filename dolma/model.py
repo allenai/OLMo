@@ -103,17 +103,15 @@ class RMSLayerNorm(LayerNorm):
             self.register_parameter("bias", None)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        low_precision = torch.is_autocast_enabled() and self.config.low_precision_layernorm
-        with torch.autocast(enabled=low_precision, device_type=x.device.type):
-            norm_x = x.norm(2, dim=-1, keepdim=True)
+        norm_x = x.norm(2, dim=-1, keepdim=True)
 
-            rms_x = norm_x * self.config.d_model ** (-1.0 / 2)
-            x_normed = x / (rms_x + self.eps)
+        rms_x = norm_x * self.config.d_model ** (-1.0 / 2)
+        x_normed = x / (rms_x + self.eps)
 
-            if self.config.include_bias:
-                return self.weight * x_normed + self.bias
+        if self.config.include_bias:
+            return self.weight * x_normed + self.bias
 
-            return self.weight * x_normed
+        return self.weight * x_normed
 
 
 class RotaryEmbedding(nn.Module):
