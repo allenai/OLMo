@@ -20,8 +20,8 @@ from .config import LayerNormType, ModelConfig
 from .exceptions import DolmaConfigurationError
 
 __all__ = [
+    "LayerNormBase",
     "LayerNorm",
-    "DefaultLayerNorm",
     "RMSLayerNorm",
     "RotaryEmbedding",
     "TorchAttention",
@@ -31,7 +31,7 @@ __all__ = [
 ]
 
 
-class LayerNorm(nn.Module):
+class LayerNormBase(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.config = config
@@ -43,9 +43,9 @@ class LayerNorm(nn.Module):
     @classmethod
     def build(cls, config: ModelConfig) -> LayerNorm:
         if config.layer_norm_type == LayerNormType.default:
-            return DefaultLayerNorm(config, low_precision=False)
+            return LayerNorm(config, low_precision=False)
         elif config.layer_norm_type == LayerNormType.low_precision:
-            return DefaultLayerNorm(config, low_precision=True)
+            return LayerNorm(config, low_precision=True)
         elif config.layer_norm_type == LayerNormType.rms:
             return RMSLayerNorm(config, low_precision=False)
         elif config.layer_norm_type == LayerNormType.low_precision_rms:
@@ -65,7 +65,7 @@ class LayerNorm(nn.Module):
         return tensor
 
 
-class DefaultLayerNorm(LayerNorm):
+class LayerNorm(LayerNormBase):
     """
     The default :class:`LayerNorm` implementation which can optionally run in low precision.
     """
@@ -540,7 +540,7 @@ class DolmaGPT(nn.Module):
             init_fn(module.weight)
 
         # LayerNorm
-        if isinstance(module, (nn.LayerNorm, DefaultLayerNorm, RMSLayerNorm)):
+        if isinstance(module, (nn.LayerNorm, LayerNorm, RMSLayerNorm)):
             torch.nn.init.ones_(module.weight)
             torch.nn.init.zeros_(module.bias)
 
