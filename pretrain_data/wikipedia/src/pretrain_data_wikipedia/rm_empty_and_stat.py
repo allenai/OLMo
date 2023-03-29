@@ -22,8 +22,7 @@ from tqdm import tqdm
 from uniseg.wordbreak import words as uniseg_get_words
 
 GOOGLE_1T_CORPUS = (
-    "https://ai2-s2-research-public.s3-us-west-2.amazonaws.com/"
-    "lucas/google-1T-unigram/unigram_freq.csv"
+    "https://ai2-s2-research-public.s3-us-west-2.amazonaws.com/" "lucas/google-1T-unigram/unigram_freq.csv"
 )
 
 
@@ -56,22 +55,15 @@ class UnigramPerplexityPredictor:
         local_word_counts_path = cached_path(word_counts_path)
         with open(local_word_counts_path) as f:
             word_counts = {
-                word: int(count)
-                for word, count in (line.strip().split(",", 1) for line in f)
-                if count.isnumeric()
+                word: int(count) for word, count in (line.strip().split(",", 1) for line in f) if count.isnumeric()
             }
 
         word_total = sum(word_counts.values())
         word_total_log = np.log2(word_total)
-        self.words_logp = {
-            word: np.log2(count) - word_total_log
-            for word, count in word_counts.items()
-        }
+        self.words_logp = {word: np.log2(count) - word_total_log for word, count in word_counts.items()}
 
         # <unk> token has fictional count of √vocab_size + 1
-        self.words_logp[self.UNK] = (
-            np.log2(np.sqrt(len(self.words_logp)) + 1) - word_total_log
-        )
+        self.words_logp[self.UNK] = np.log2(np.sqrt(len(self.words_logp)) + 1) - word_total_log
 
     def log_p(self, word: str) -> float:
         return self.words_logp.get(word.lower(), self.words_logp[self.UNK])
@@ -88,11 +80,7 @@ def get_current_process_number() -> int:
 
 
 def get_words(text: str) -> List[str]:
-    return [
-        word
-        for word in uniseg_get_words(text)
-        if not all(char in string.whitespace for char in word)
-    ]
+    return [word for word in uniseg_get_words(text) if not all(char in string.whitespace for char in word)]
 
 
 def process_single(
@@ -109,13 +97,9 @@ def process_single(
     docs_cnt = tokens_cnt = 0
 
     with ExitStack() as stack:
-        in_f = stack.enter_context(
-            open_file_for_read(src, "rb", temp_dir=tmp_dir)
-        )
+        in_f = stack.enter_context(open_file_for_read(src, "rb", temp_dir=tmp_dir))
         in_stream = stack.enter_context(gzip.open(in_f, "rt"))
-        out_f = stack.enter_context(
-            open_file_for_write(dst, "wb", temp_dir=tmp_dir)
-        )
+        out_f = stack.enter_context(open_file_for_write(dst, "wb", temp_dir=tmp_dir))
         out_stream = stack.enter_context(gzip.open(out_f, "wt"))
 
         for raw in in_stream:
@@ -157,22 +141,14 @@ class Config:
     tmp_dir: Optional[str] = None
 
 
-def threaded_progressbar(
-    q: Queue, timeout: float, total_files: Optional[int] = None
-):
+def threaded_progressbar(q: Queue, timeout: float, total_files: Optional[int] = None):
     with ExitStack() as stack:
         files_started_pbar = stack.enter_context(
             tqdm(desc="Started", unit=" files", position=0, total=total_files)
         )
-        files_completed_pbar = stack.enter_context(
-            tqdm(desc="Done", unit=" files", position=1, total=total_files)
-        )
-        docs_pbar = stack.enter_context(
-            tqdm(desc="  Docs", unit=" docs", position=2, unit_scale=True)
-        )
-        tokens_pbar = stack.enter_context(
-            tqdm(desc="Tokens", unit=" toks", position=3, unit_scale=True)
-        )
+        files_completed_pbar = stack.enter_context(tqdm(desc="Done", unit=" files", position=1, total=total_files))
+        docs_pbar = stack.enter_context(tqdm(desc="  Docs", unit=" docs", position=2, unit_scale=True))
+        tokens_pbar = stack.enter_context(tqdm(desc="Tokens", unit=" toks", position=3, unit_scale=True))
         while True:
             item = q.get()
             if item is None:
@@ -212,9 +188,7 @@ def main(cfg: Config):
             pbar_thread.start()
 
             for _ in pool.imap_unordered(
-                partial(
-                    process_single, pbar_queue=pbar_queue, tmp_dir=cfg.tmp_dir
-                ),
+                partial(process_single, pbar_queue=pbar_queue, tmp_dir=cfg.tmp_dir),
                 tuple(zip(src_paths, dst_paths)),
             ):
                 pass

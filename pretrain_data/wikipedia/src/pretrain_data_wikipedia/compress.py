@@ -46,9 +46,7 @@ def concat_and_compress(
 
             for line in fin:
                 if fout is None:
-                    fout = stack.enter_context(
-                        gzip.open(dest_path / f"{num_output:03}.gz", "wb")
-                    )
+                    fout = stack.enter_context(gzip.open(dest_path / f"{num_output:03}.gz", "wb"))
 
                 enc = line.encode("utf-8")
                 fout.write(enc)
@@ -74,14 +72,10 @@ class DownloadConfig:
 @sp.cli(DownloadConfig)
 def main(config: DownloadConfig):
     base_src_path = Path(config.local_src).expanduser().resolve()
-    all_base_path = [
-        base_src_path / f"{d}" for d in base_src_path.iterdir() if d.is_dir()
-    ]
+    all_base_path = [base_src_path / f"{d}" for d in base_src_path.iterdir() if d.is_dir()]
     base_dst_path = Path(config.local_dst).expanduser().resolve()
     all_dst_path = [
-        base_dst_path / f"lang={d.name.replace('wiki_', '')}"
-        for d in base_src_path.iterdir()
-        if d.is_dir()
+        base_dst_path / f"lang={d.name.replace('wiki_', '')}" for d in base_src_path.iterdir() if d.is_dir()
     ]
 
     if config.debug:

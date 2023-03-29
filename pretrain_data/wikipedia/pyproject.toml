@@ -55,8 +55,10 @@ where = ["src"]
 shadow_scholar = ["py.typed"]
 
 [tool.black]
-line-length = 79
+line-length = 115
+
 include = '\.pyi?$'
+
 exclude = '''
 (
       __pycache__
@@ -72,7 +74,6 @@ exclude = '''
 
 [tool.isort]
 profile = "black"
-line_length = 79
 multi_line_output = 3
 
 [tool.autopep8]
