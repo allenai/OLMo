@@ -43,7 +43,9 @@ class LayerNorm(nn.Module):
     @classmethod
     def build(cls, config: ModelConfig) -> LayerNorm:
         if config.layernorm_type == LayerNormType.default:
-            return DefaultLayerNorm(config)
+            return DefaultLayerNorm(config, low_precision=False)
+        elif config.layernorm_type == LayerNormType.low_precision:
+            return DefaultLayerNorm(config, low_precision=True)
         elif config.layernorm_type == LayerNormType.rms:
             return RMSLayerNorm(config)
         else:
@@ -52,12 +54,13 @@ class LayerNorm(nn.Module):
 
 class DefaultLayerNorm(nn.LayerNorm, LayerNorm):
     """
-    Layer norm which can optionally run in low precision.
+    The default :class:`LayerNorm` implementation which can optionally run in low precision.
     """
 
     def __init__(
         self,
         config: ModelConfig,
+        low_precision: bool = False,
     ):
         super().__init__(
             normalized_shape=config.d_model,
@@ -65,7 +68,7 @@ class DefaultLayerNorm(nn.LayerNorm, LayerNorm):
             elementwise_affine=True,
             device=config.init_device,
         )
-        self.low_precision = config.low_precision_layernorm
+        self.low_precision = low_precision
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.low_precision:
@@ -93,6 +96,11 @@ class DefaultLayerNorm(nn.LayerNorm, LayerNorm):
 
 
 class RMSLayerNorm(LayerNorm):
+    """
+    RMS layer norm, a simplified :class:`LayerNorm` implementation that will run
+    in low-precision if AMP is enabled.
+    """
+
     def __init__(self, config: ModelConfig):
         super().__init__(config)
         self.eps = 1e-8

@@ -118,7 +118,19 @@ class BaseConfig:
 
 class LayerNormType(StrEnum):
     default = "default"
+    """
+    The default LayerNorm implementation, equivalent to PyTorch's built-in version.
+    """
+
+    low_precision = "low_precision"
+    """
+    A low precision version of the default LayerNorm.
+    """
+
     rms = "rms"
+    """
+    A low precision RMSNorm implementation.
+    """
 
 
 @dataclass
@@ -198,14 +210,6 @@ class ModelConfig(BaseConfig):
     layernorm_type: LayerNormType = LayerNormType.default
     """
     The layernorm implementation to use.
-    """
-
-    low_precision_layernorm: bool = False
-    """
-    Use low-precision layernorm when AMP is enabled, which can speed throughput up substantially.
-
-    Note that this doesn't seem to work well when using ``torch.compile()``
-    with the default ``LayerNorm`` implementation.
     """
 
     max_sequence_length: int = 1024
