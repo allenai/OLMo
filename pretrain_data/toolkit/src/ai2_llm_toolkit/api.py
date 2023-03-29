@@ -6,7 +6,7 @@ Run this to check if your data fields are appropriate
 
 """
 
-from typing import List, Dict, Iterable, Optional
+from typing import List, Dict, Iterable, Optional, Set, Generator
 
 import argparse
 import logging
@@ -26,7 +26,7 @@ logging.basicConfig(
     ],
 )
 
-SOURCE_TO_AVAILABLE_VERSIONS = {
+SOURCE_TO_AVAILABLE_VERSIONS: Dict[str, List[str]] = {
     "common-crawl": ["v0"],
     "reddit": [],
     "s2": ["v2_hard_dedup"],
@@ -34,19 +34,17 @@ SOURCE_TO_AVAILABLE_VERSIONS = {
     "wikipedia": [],
 }
 
-SOURCE_TO_PATH = {
+SOURCE_TO_PATH: Dict[str, str] = {
     "common-crawl": "s3://ai2-llm/pretraining-data/sources/common-crawl/{VERSION}/documents/mined_split/*",
-    "reddit": None,
     "s2": "s3://ai2-llm/pretraining-data/sources/s2/{VERSION}/*",
     "stack-dedup": "s3://ai2-llm/pretraining-data/sources/stack-dedup/{VERSION}/*",
-    "wikipedia": None,
 }
 
 
 class Example:
     REQUIRED_FIELDS = ["source", "id", "text", "added", "created", "metadata"]
 
-    def __init__(self, source: str, id: str, text: str, added: str, created: str, metadata: Dict):
+    def __init__(self, source: str, id: str, text: str, added: str, created: str, metadata: Dict) -> None:
         self.source = source
         self.id = id
         self.text = text
@@ -70,11 +68,11 @@ class Example:
         self._s3_filepath = s3_filepath
 
     @property
-    def s3_fileline(self) -> Optional[str]:
+    def s3_fileline(self) -> Optional[int]:
         return self._s3_fileline
 
     @s3_fileline.setter
-    def s3_fileline(self, s3_fileline: str):
+    def s3_fileline(self, s3_fileline: int):
         self._s3_fileline = s3_fileline
 
     @classmethod
@@ -104,10 +102,12 @@ class Example:
 
 
 class Dataset:
-    def __init__(self, source: str, version: str, attributes: List[str]):
+    def __init__(self, source: str, version: str, attributes: List[str]) -> None:
         logging.info(f"Creating Dataset from S3: source={source} version={version}")
         if source not in SOURCE_TO_PATH:
             raise FileNotFoundError(f"{source} not one of the available sources")
+        if not SOURCE_TO_PATH[source]:
+            raise FileNotFoundError(f"{source} has no registered path on S3")
         if version not in SOURCE_TO_AVAILABLE_VERSIONS[source]:
             raise FileNotFoundError(f"{version} does not exist for {source}")
 
@@ -123,13 +123,13 @@ class Dataset:
         self._s3_filepaths = recursively_list_files(path=MultiPath.parse(path=dir_path))
 
     @property
-    def examples(self) -> Iterable[Example]:
+    def examples(self) -> Generator[Example, None, None]:
         for s3_filepath in self.s3_filepaths:
             for example in self._read_examples_from_file(s3_filepath=s3_filepath):
                 yield example
 
     @property
-    def s3_filepaths(self) -> Iterable[str]:
+    def s3_filepaths(self) -> Generator[str, None, None]:
         for path in self._s3_filepaths:
             yield path.as_str
 
@@ -153,7 +153,7 @@ class Dataset:
             seen.add(example.global_id)
 
     def verify_one_file(self, s3_filepath: str):
-        seen = set()
+        seen: Set[str] = set()
         for example in self._read_examples_from_file(s3_filepath=s3_filepath):
             if example.global_id in seen:
                 raise ValueError(f"{example.global_id} already exists in this dataset")
