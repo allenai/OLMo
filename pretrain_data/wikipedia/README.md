@@ -38,12 +38,15 @@ As of 2023-03-25, [this page](https://en.wikipedia.org/wiki/List_of_Wikipedias#N
 | Hungarian          | magyar               | hu       |  522,179       |
 | Czech              | čeština              | cs       |  521,418       |
 | Turkish            | Türkçe               | tr       |  515,542       |
+| Simple             | Simple English       | simple   |  228,191       |
 |                    |                      |          |                |
-| **Total**          |                      |          | **47,184,148** |
-| **Total** -ceb -sv |                      |          | **38,500,482** |
+| **Total**          |                      |          | **47,412,339** |
+| **Total** -ceb -sv |                      |          | **38,728,673** |
 
 We skip Cebuano (ceb) and Swedish (sv) because they contain a [large number of machine-generated articles](https://blog.datawrapper.de/wikipedia-articles-written-by-a-bot/) of dobious quality.
 The generated articles are created by [Lsjbot](<https://en.wikipedia.org/wiki/Lsjbot>).
+
+We include simplified wikipedia (simple) because it is useful for debugging data processing scripts.
 
 ## Downloading Wikipedia Articles
 
@@ -207,7 +210,8 @@ for each language.
 Compared to V0, V1 removes empty documents, gets tokens, and calculates average
 log probabilities for each text.
 The data is available at `s3://ai2-llm/pretrain_data/wikipedia/v1/`.
-To obtain v1 from v1, run
+Each language is in its own subfolder (e.g. `s3://ai2-llm/pretrain_data/wikipedia/v1/lang=en/`).
+To obtain v0 from v1, run
 
 ```bash
 python -m pretrain_data_wikipedia.rm_empty_and_stat \
@@ -274,7 +278,6 @@ This tokens count should be more accurate.
 |  war           |  1,266,646       |  52,266,106                   |
 |  simple        |  225,835         |  32,774,897                   |
 |  ce            |  558,005         |  32,395,907                   |
-
 
 Table above was obtained with following query:
 
