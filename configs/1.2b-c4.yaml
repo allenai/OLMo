@@ -11,6 +11,7 @@ model:
   alibi_bias_max: 8.0
   attention_dropout: 0.0
   attention_layer_norm: true
+  layer_norm_type: rms  # if not compiling, use 'low_precision'
   residual_dropout: 0.0
   embedding_dropout: 0.0
   max_sequence_length: 1024

@@ -213,7 +213,7 @@ class ModelConfig(BaseConfig):
     The dropout probability for embeddings.
     """
 
-    layernorm_type: LayerNormType = LayerNormType.default
+    layer_norm_type: LayerNormType = LayerNormType.default
     """
     The layernorm implementation to use.
     """

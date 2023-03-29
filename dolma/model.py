@@ -42,16 +42,16 @@ class LayerNorm(nn.Module):
 
     @classmethod
     def build(cls, config: ModelConfig) -> LayerNorm:
-        if config.layernorm_type == LayerNormType.default:
+        if config.layer_norm_type == LayerNormType.default:
             return DefaultLayerNorm(config, low_precision=False)
-        elif config.layernorm_type == LayerNormType.low_precision:
+        elif config.layer_norm_type == LayerNormType.low_precision:
             return DefaultLayerNorm(config, low_precision=True)
-        elif config.layernorm_type == LayerNormType.rms:
+        elif config.layer_norm_type == LayerNormType.rms:
             return RMSLayerNorm(config, low_precision=False)
-        elif config.layernorm_type == LayerNormType.low_precision_rms:
+        elif config.layer_norm_type == LayerNormType.low_precision_rms:
             return RMSLayerNorm(config, low_precision=True)
         else:
-            raise NotImplementedError(f"Not sure how to handle '{config.layernorm_type}' LayerNorm type")
+            raise NotImplementedError(f"Not sure how to handle '{config.layer_norm_type}' LayerNorm type")
 
     def _cast_if_autocast_enabled(self, tensor: torch.Tensor) -> torch.Tensor:
         if torch.is_autocast_enabled():
