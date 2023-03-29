@@ -18,3 +18,4 @@ wandb
 # flash-attn
 logzio-python-handler
 boto3
+smashed==0.19.0

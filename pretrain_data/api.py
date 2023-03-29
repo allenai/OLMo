@@ -6,13 +6,17 @@ Run this to check if your data fields are appropriate
 
 """
 
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Iterable
 
+import argparse
 import os
-import boto3
-import botocore.exceptions
 import logging
 import sys
+import gzip
+from contextlib import ExitStack
+import json
+
+from smashed.utils.io_utils import recursively_list_files, MultiPath, open_file_for_read
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,85 +34,18 @@ SOURCE_TO_LATEST_VERSION = {
     'wikipedia': None
 }
 
-SOURCE_TO_PATHS = {
-    'common-crawl': [
-        f"pretraining-data/sources/common-crawl/{SOURCE_TO_LATEST_VERSION['common-crawl']}/documents/mined/*/*.json.gz",
-        f"pretraining-data/sources/common-crawl/{SOURCE_TO_LATEST_VERSION['common-crawl']}/documents/mined_split/*/*/*.json.gz"
-    ],
-    'reddit': [],
-    's2': [
-        f"pretraining-data/sources/s2/{SOURCE_TO_LATEST_VERSION['s2']}/dataset=s2ag/split=train/*.gz",
-        f"pretraining-data/sources/s2/{SOURCE_TO_LATEST_VERSION['s2']}/dataset=s2ag/split=valid/*.gz",
-        f"pretraining-data/sources/s2/{SOURCE_TO_LATEST_VERSION['s2']}/dataset=s2orc/split=train/*.gz",
-        f"pretraining-data/sources/s2/{SOURCE_TO_LATEST_VERSION['s2']}/dataset=s2ag/split=valid/*.gz"
-    ],
-    'stack-dedup': [
-        f"pretraining-data/sources/stack-dedup/{SOURCE_TO_LATEST_VERSION['stack-dedup']}/*/*.jsonl.gz"
-    ],
-    'wikipedia': []
+SOURCE_TO_PATH = {
+    'common-crawl': f"s3://ai2-llm/pretraining-data/sources/common-crawl/{SOURCE_TO_LATEST_VERSION['common-crawl']}/documents/mined_split/*/*/*.json.gz",
+    'reddit': None,
+    's2': f"s3://ai2-llm/pretraining-data/sources/s2/{SOURCE_TO_LATEST_VERSION['s2']}/*/*/*.gz",
+    'stack-dedup': f"s3://ai2-llm/pretraining-data/sources/stack-dedup/{SOURCE_TO_LATEST_VERSION['stack-dedup']}/*/*.jsonl.gz",
+    'wikipedia': None
 }
 
 
-class S3File:
-    s3 = boto3.resource('s3')
-
-    def __init__(self, bucket: str, path: str):
-        bucket = bucket.replace('s3://', '') if bucket.startswith('s3://') else bucket
-        self.bucket = self.s3.Bucket(bucket)
-        self.path = path
-        try:
-            self._object = self.s3.Object(bucket, path)
-            self._object.load()
-        except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == "404":
-                raise FileNotFoundError(f'Missing {self.path} in bucket {self.bucket.name}')
-            else:
-                raise Exception(f'Unknown exception for {self.path}')
-
-    @property
-    def url(self) -> str:
-        return os.path.join(f's3://{self.bucket.name}', self.path)
-
-    @property
-    def size(self) -> int:
-        # bytes
-        return self._object.content_length
-
-    def get(self, target_path: str, is_overwrite: bool = False) -> str:
-        if os.path.exists(target_path) and not is_overwrite:
-            raise FileExistsError(f'{target_path} already exists. Try `is_overwrite=True`')
-        self.bucket.download_file(self.path, target_path)
-        if os.path.exists(target_path):
-            return target_path
-        else:
-            raise FileNotFoundError(f'Faild to download. Nothing at {target_path}')
-
-    @classmethod
-    def glob_to_files(cls, bucket: str, glob_path: str) -> List['S3File']:
-        bucket = bucket.replace('s3://', '') if bucket.startswith('s3://') else bucket
-        bucket = cls.s3.Bucket(bucket)
-
-        # figure out top-level path to query
-        path_chunks = glob_path.split('/')
-        prefix = ''
-        for i, path_chunk in enumerate(path_chunks):
-            is_need_expand = path_chunk.startswith('*')
-            if is_need_expand:
-                break
-            else:
-                prefix = os.path.join(prefix, path_chunk)
-
-        logging.info(f"Querying for S3 objects at {bucket.name} {prefix}")
-        s3_objs = bucket.objects.filter(Prefix=prefix)
-        s3_files = [
-            S3File(bucket=bucket.name, path=obj.key)
-            for obj in s3_objs if obj.key.endswith('.gz')
-        ]
-        logging.info(f"Found {len(s3_files)} S3 files at {bucket.name} {prefix}")
-        return s3_files
-
-
 class Example:
+    REQUIRED_FIELDS = ['source', 'id', 'text', 'added', 'created', 'metadata']
+
     def __init__(self, source: str, id: str, text: str, added: str, created: str, metadata: Dict):
         self.source = source
         self.id = id
@@ -117,47 +54,126 @@ class Example:
         self.created = created
         self.metadata = metadata
         self._global_id = f'{self.source}::{self.id}'
+        self._s3_filepath = None
+        self._s3_fileline = None
 
     @property
     def global_id(self) -> str:
         return self._global_id
 
+    @property
+    def s3_filepath(self) -> str:
+        return self._s3_filepath
+
+    @s3_filepath.setter
+    def s3_filepath(self, s3_filepath: str):
+        self._s3_filepath = s3_filepath
+
+    @property
+    def s3_fileline(self) -> int:
+        return self._s3_fileline
+
+    @s3_fileline.setter
+    def s3_fileline(self, s3_fileline: str):
+        self._s3_fileline = s3_fileline
+
     @classmethod
     def from_json(cls, example_json: Dict) -> 'Example':
-        example = Example(**example_json)
+        example = Example(
+            source=example_json['source'],
+            id=example_json['id'],
+            text=example_json['text'],
+            added=example_json['added'],
+            created=example_json['created'],
+            metadata=example_json['metadata']
+        )
+        extra_keys = [key for key in example_json.keys() if key not in cls.REQUIRED_FIELDS]
+        if extra_keys:
+            logging.warning(msg=f"Extra keys found in Example JSON: {extra_keys}")
         return example
+
+    def to_json(self) -> Dict:
+        return {
+            'source': self.source,
+            'id': self.id,
+            'text': self.text,
+            'added': self.added,
+            'created': self.created,
+            'metadata': self.metadata
+        }
 
 
 class Dataset:
-    def __init__(self, examples: List[Example]):
-        self.examples = examples
-        self.verify_unique_source_id()
+    def __init__(self, source: str, version: str, attributes: List[str]):
+        logging.info(f'Creating Dataset from S3: source={source} version={version}')
+        if source not in SOURCE_TO_PATH:
+            raise FileNotFoundError(f'{source} not one of the available sources')
+        if version not in SOURCE_TO_LATEST_VERSION[source]:
+            raise FileNotFoundError(f'{version} does not exist for {source}')
 
-    def verify_unique_source_id(self):
+        self.source = source
+        self.version = version
+        self.attributes = attributes
+
+        path_str = SOURCE_TO_PATH[source]
+        i = path_str.index('*')
+        dir_path = path_str[:i]
+        self.s3_dirpath = dir_path
+
+        self._s3_filepaths = recursively_list_files(path=MultiPath.parse(path=dir_path))
+
+    @property
+    def examples(self) -> Iterable[Example]:
+        for s3_filepath in self.s3_filepaths:
+            for example in self._read_examples_from_file(s3_filepath=s3_filepath):
+                yield example
+
+    @property
+    def s3_filepaths(self) -> Iterable[str]:
+        for path in self._s3_filepaths:
+            yield path.as_str
+
+    def _read_examples_from_file(self, s3_filepath: str) -> Iterable[Example]:
+        with ExitStack() as stack:
+            in_f = stack.enter_context(open_file_for_read(s3_filepath, "rb"))
+            in_stream = stack.enter_context(gzip.open(in_f, "rt"))
+
+            for i, raw in enumerate(in_stream):
+                example_dict = json.loads(raw)
+                example = Example.from_json(example_json=example_dict)
+                example.s3_filepath = s3_filepath
+                example.s3_fileline = i
+                yield example
+
+    def verify_all_examples(self):
         seen = set()
         for example in self.examples:
             if example.global_id in seen:
                 raise ValueError(f"{example.global_id} already exists in this dataset")
             seen.add(example.global_id)
 
-    @classmethod
-    def from_s3(cls, bucket: str, source: str, version: str, attributes: List[str]) -> 'Dataset':
-
-        logging.info(f'Creating Dataset from S3 at {bucket}: source={source} version={version}')
-
-        if source not in SOURCE_TO_PATHS:
-            raise FileNotFoundError(f'{source} not one of the available sources')
-
-        s3_files = []
-        for path in SOURCE_TO_PATHS[source]:
-            s3_files.extend(S3File.glob_to_files(bucket=bucket, glob_path=path))
-
-        import pdb;
-        pdb.set_trace()
+    def verify_one_file(self, s3_filepath: str):
+        seen = set()
+        for example in self._read_examples_from_file(s3_filepath=s3_filepath):
+            if example.global_id in seen:
+                raise ValueError(f"{example.global_id} already exists in this dataset")
+            seen.add(example.global_id)
 
 
 if __name__ == '__main__':
-    dataset = Dataset.from_s3(bucket='ai2-llm',
-                              source='stack-dedup',
-                              version=SOURCE_TO_LATEST_VERSION['stack-dedup'],
-                              attributes=[])
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--source", type=str, required=True)
+    parser.add_argument("--version", type=str, required=True)
+    parser.add_argument("--attributes", type=list, required=False)
+    args = parser.parse_args()
+
+    dataset = Dataset(source=args.source,
+                      version=args.version,
+                      attributes=args.attributes)
+    logging.info(f'Found one dataset from source={args.source} version={args.version}')
+
+    first_s3_filepath= next(dataset.s3_filepaths)
+    logging.info(f'Inspecting first file at {first_s3_filepath}')
+
+    dataset.verify_one_file(s3_filepath=first_s3_filepath)
+    logging.info(f'Finished verifying format of file {first_s3_filepath}')
