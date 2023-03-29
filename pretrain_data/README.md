@@ -187,12 +187,6 @@ python pretrain_data/api.py --source common-crawl --version v0
 
 A bad outcome would be something like:
 ```python
-python pretrain_data/api.py --source s2 --version v2_hard_dedup
-2023-03-28 22:41:42,343 INFO Creating Dataset from S3: source=s2 version=v2_hard_dedup
-2023-03-28 22:41:42,343 INFO Found one dataset from source=s2 version=v2_hard_dedup
-2023-03-28 22:41:42,360 INFO Found credentials in shared credentials file: ~/.aws/credentials
-2023-03-28 22:41:43,092 INFO Inspecting first file at s3://ai2-llm/pretraining-data/sources/s2/v2_hard_dedup/dataset=s2ag/split=train/20230325_012658_00070_r5rtx_05e25fa5-bcd6-4f52-8de8-68021311c628.gz
-2023-03-28 22:41:43,099 INFO Downloading s3://ai2-llm/pretraining-data/sources/s2/v2_hard_dedup/dataset=s2ag/split=train/20230325_012658_00070_r5rtx_05e25fa5-bcd6-4f52-8de8-68021311c628.gz to a temporary file
 Traceback (most recent call last):
   File "/Users/kylel/ai2/LLM/pretrain_data/api.py", line 177, in <module>
     dataset.verify_one_file(s3_filepath=first_s3_filepath)
