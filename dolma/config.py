@@ -124,12 +124,18 @@ class LayerNormType(StrEnum):
 
     low_precision = "low_precision"
     """
-    A low precision version of the default LayerNorm.
+    A low-precision version of the default LayerNorm.
     """
 
     rms = "rms"
     """
-    A low precision RMSNorm implementation.
+    An RMSNorm implementation. When using ``torch.compile`` this is
+    probably the fastest implementation.
+    """
+
+    low_precision_rms = "low_precision_rms"
+    """
+    A low-precision version of RMSNorm.
     """
 
 
