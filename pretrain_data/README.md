@@ -169,9 +169,9 @@ More details can be found in this [Proposal Doc](https://docs.google.com/documen
 
 Try running the tool like this:
 ```python
-python pretrain_data/api.py --source stack-dedup --version raw
-python pretrain_data/api.py --source s2 --version v2_hard_dedup
-python pretrain_data/api.py --source common-crawl --version v0
+python pretrain_data/toolkit/src/ai2_llm_toolkit/api.py --source stack-dedup --version raw
+python pretrain_data/toolkit/src/ai2_llm_toolkit/api.py --source s2 --version v2_hard_dedup
+python pretrain_data/toolkit/src/ai2_llm_toolkit/api.py --source common-crawl --version v0
 ```
 
 A good outcome would be something like:
