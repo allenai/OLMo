@@ -23,7 +23,7 @@ from .config import (
 )
 from .data import DataCollator, MemMapDataset
 from .exceptions import DolmaConfigurationError
-from .model import DolmaGPT, DolmaGPTOutput
+from .model import DolmaGPT, DolmaGPTOutput, LayerNorm
 from .optim import DecoupledLionW
 
 log = logging.getLogger(__name__)
@@ -157,7 +157,7 @@ def build_optimizer(
             elif pn.endswith("weight") and isinstance(m, nn.Linear):
                 # weights of whitelist modules will be weight decayed
                 decay.add(fpn)
-            elif pn.endswith("weight") and isinstance(m, (nn.LayerNorm, nn.Embedding)):
+            elif pn.endswith("weight") and isinstance(m, (LayerNorm, nn.LayerNorm, nn.Embedding)):
                 # weights of blacklist modules will NOT be weight decayed
                 no_decay.add(fpn)
 

@@ -26,6 +26,7 @@ from .exceptions import DolmaConfigurationError
 
 __all__ = [
     "CompilerConfig",
+    "LayerNormType",
     "ModelConfig",
     "OptimizerType",
     "OptimizerConfig",
@@ -115,6 +116,29 @@ class BaseConfig:
         return out
 
 
+class LayerNormType(StrEnum):
+    default = "default"
+    """
+    The default LayerNorm implementation, equivalent to PyTorch's built-in version.
+    """
+
+    low_precision = "low_precision"
+    """
+    A low-precision version of the default LayerNorm.
+    """
+
+    rms = "rms"
+    """
+    An RMSNorm implementation. When using ``torch.compile`` this is
+    probably the fastest implementation.
+    """
+
+    low_precision_rms = "low_precision_rms"
+    """
+    A low-precision version of RMSNorm.
+    """
+
+
 @dataclass
 class ModelConfig(BaseConfig):
     """
@@ -189,11 +213,9 @@ class ModelConfig(BaseConfig):
     The dropout probability for embeddings.
     """
 
-    low_precision_layernorm: bool = False
+    layer_norm_type: LayerNormType = LayerNormType.default
     """
-    Use low-precision layernorm. This can speed things up substantially when
-    not compiling, but we've found that it actually slows throughput for compiled
-    models.
+    The layernorm implementation to use.
     """
 
     max_sequence_length: int = 1024
