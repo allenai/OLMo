@@ -145,7 +145,7 @@ class ModelConfig(BaseConfig):
 
     alibi: bool = False
     """
-    If ``True``, use ALiBi embeddings.
+    If ``True``, use ALiBi embeddings. Mutually exclusive with ``rope``.
     """
 
     alibi_bias_max: float = 8.0
@@ -191,7 +191,9 @@ class ModelConfig(BaseConfig):
 
     low_precision_layernorm: bool = False
     """
-    Use low-precision layernorm.
+    Use low-precision layernorm. This can speed things up substantially when
+    not compiling, but we've found that it actually slows throughput for compiled
+    models.
     """
 
     max_sequence_length: int = 1024
@@ -211,12 +213,12 @@ class ModelConfig(BaseConfig):
     Vocabulary size of the model.
     """
 
-    embedding_size: Optional[int] = None
+    embedding_size: Optional[int] = 50304
     """
-    The number of embeddings, i.e. the number of tokens. If none, this defaults
-    to ``vocab_size``. But you can also set this to a number larger than vocab size
-    to optimize model throughput or for other reasons. In that case it usually
-    makes sense to ensure this number is a multiple of 128.
+    The number of embeddings, i.e. the number of tokens. If set to ``None`` it will default
+    to ``vocab_size``. If ``vocab_size`` is not a multiple of 128, setting this to the
+    next multiple of 128 that's greater than ``vocab_size`` can improve throughput
+    substantially.
     """
 
     eos_token_id: int = 50256
