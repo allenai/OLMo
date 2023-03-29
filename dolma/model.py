@@ -16,7 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import einsum
 
-from .config import ModelConfig
+from .config import LayerNormType, ModelConfig
 from .exceptions import DolmaConfigurationError
 
 __all__ = [
@@ -39,6 +39,15 @@ class LayerNorm(nn.Module):
     @abstractmethod
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
+
+    @classmethod
+    def build(cls, config: ModelConfig) -> LayerNorm:
+        if config.layernorm_type == LayerNormType.default:
+            return DefaultLayerNorm(config)
+        elif config.layernorm_type == LayerNormType.rms:
+            return RMSLayerNorm(config)
+        else:
+            raise NotImplementedError(f"Not sure how to handle '{config.layernorm_type}' LayerNorm type")
 
 
 class DefaultLayerNorm(nn.LayerNorm, LayerNorm):
@@ -166,8 +175,8 @@ class TorchAttention(nn.Module):
         self.k_ln: Optional[LayerNorm] = None
         self.q_ln: Optional[LayerNorm] = None
         if config.attention_layer_norm:
-            self.k_ln = DefaultLayerNorm(config)
-            self.q_ln = DefaultLayerNorm(config)
+            self.k_ln = LayerNorm.build(config)
+            self.q_ln = LayerNorm.build(config)
 
         if self.use_rope:
             # RoPE.
@@ -259,9 +268,9 @@ class GPTBlock(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.config = config
-        self.ln_1 = DefaultLayerNorm(config)
+        self.ln_1 = LayerNorm.build(config)
         self.attn = TorchAttention(config)
-        self.ln_2 = DefaultLayerNorm(config)
+        self.ln_2 = LayerNorm.build(config)
         self.mlp = GPTMLP(config)
 
     def forward(
@@ -314,7 +323,7 @@ class DolmaGPT(nn.Module):
                 ),
                 emb_drop=nn.Dropout(config.embedding_dropout),
                 blocks=nn.ModuleList([GPTBlock(config) for _ in range(config.n_layers)]),
-                ln_f=DefaultLayerNorm(config),
+                ln_f=LayerNorm.build(config),
             )
         )
         if not (self.config.alibi or self.config.rope):
