@@ -18,10 +18,10 @@ from torch import einsum
 from .config import ModelConfig
 from .exceptions import DolmaConfigurationError
 
-__all__ = ["LPLayerNorm", "RotaryEmbedding", "TorchAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
+__all__ = ["LayerNorm", "RotaryEmbedding", "TorchAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
 
 
-class LPLayerNorm(torch.nn.LayerNorm):
+class LayerNorm(torch.nn.LayerNorm):
     """
     Layer norm which can optionally run in low precision.
     """
@@ -123,11 +123,11 @@ class TorchAttention(nn.Module):
         self.resid_dropout = nn.Dropout(config.residual_dropout)
 
         # optional layer norm for keys and queries.
-        self.k_ln: Optional[LPLayerNorm] = None
-        self.q_ln: Optional[LPLayerNorm] = None
+        self.k_ln: Optional[LayerNorm] = None
+        self.q_ln: Optional[LayerNorm] = None
         if config.attention_layer_norm:
-            self.k_ln = LPLayerNorm(config)
-            self.q_ln = LPLayerNorm(config)
+            self.k_ln = LayerNorm(config)
+            self.q_ln = LayerNorm(config)
 
         if self.use_rope:
             # RoPE.
@@ -219,9 +219,9 @@ class GPTBlock(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.config = config
-        self.ln_1 = LPLayerNorm(config)
+        self.ln_1 = LayerNorm(config)
         self.attn = TorchAttention(config)
-        self.ln_2 = LPLayerNorm(config)
+        self.ln_2 = LayerNorm(config)
         self.mlp = GPTMLP(config)
 
     def forward(
@@ -274,7 +274,7 @@ class DolmaGPT(nn.Module):
                 ),
                 emb_drop=nn.Dropout(config.embedding_dropout),
                 blocks=nn.ModuleList([GPTBlock(config) for _ in range(config.n_layers)]),
-                ln_f=LPLayerNorm(config),
+                ln_f=LayerNorm(config),
             )
         )
         if not (self.config.alibi or self.config.rope):
