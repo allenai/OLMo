@@ -122,3 +122,20 @@ FROM (
 )
 GROUP BY dataset, split
 ```
+
+## Steps to follow to recreate data
+
+### S2AG
+
+1. Run `obtain_data/s2ag.sql` in Athena.
+2. Run `process_s2ag.py` to add language ID and log probabilities.
+
+```bash
+python pretrain_data/s2/v2/process_s2ag.py \
+  src=s3://ai2-llm/pretraining-data/sources/s2/raw/2023_01_03/s2ag/ \
+  dst=s3://ai2-llm/pretraining-data/sources/s2/v0/documents/dataset=s2ag \
+  cpu_count=64
+```
+3. Import data into athena with `load_/s2ag.sql`.
+
+### S2ORC

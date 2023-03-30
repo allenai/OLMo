@@ -9,6 +9,7 @@ python process_text.py \
 """
 
 import gc
+import gzip
 import os
 from collections import Counter
 from contextlib import ExitStack
@@ -18,7 +19,7 @@ from queue import Queue
 from tempfile import NamedTemporaryFile
 from threading import Thread
 from time import sleep
-from typing import List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import cld3
 import numpy as np
@@ -107,6 +108,13 @@ def is_parenthetical_spanning_two_paragraphs(
     return True
 
 
+DATA_COLUMNS = {"source", "id", "text", "added", "created", "metadata"}
+
+
+def row_to_metadata(row: pd.Series) -> Dict[str, Any]:
+    return {col: row[col] for col in row.index if col not in DATA_COLUMNS}
+
+
 def process_single(
     io_paths: Tuple[io_utils.MultiPath, io_utils.MultiPath],
     pbar_queue: Optional[Queue] = None,
@@ -131,6 +139,13 @@ def process_single(
             return cld3.get_language(text.strip()).language  # type: ignore
         except Exception:
             return "unk"
+
+    # assign version v0 and s2 as the source
+    df["version"] = "v0"
+    df["source"] = "s2"
+
+    # create initial text by concatenating title and abstract
+    df["text"] = df["title"] + "\n\n" + df["abstract"]
 
     # create new column that is the result of the function
     # cld3.get_language(text) applied to the text column
@@ -159,46 +174,17 @@ def process_single(
     # if the value is not a float or int
     df["year"] = df["year"].apply(lambda x: int(x) if isinstance(x, (float, int)) and not pd.isna(x) else -1)
 
-    schema = pa.schema(
-        [
-            ("id", pa.int32()),
-            ("year", pa.int32()),
-            ("title", pa.string()),
-            ("abstract", pa.string()),
-            ("sha1", pa.string()),
-            ("title_language", pa.string()),
-            ("abstract_language", pa.string()),
-            ("title_perplexity", pa.float64()),
-            ("abstract_perplexity", pa.float64()),
-            ("title_count", pa.int32()),
-            ("abstract_count", pa.int32()),
-            (
-                "top_frequencies",
-                pa.list_(
-                    pa.struct(
-                        [
-                            ("token", pa.string()),
-                            ("count", pa.int32()),
-                        ]
-                    )
-                ),
-            ),
-        ]
-    )
+    # put everything that is not part of the data spec in metadata
+    df["metadata"] = df.apply(row_to_metadata, axis=1)
+    cnt = sum(df["title_count"] + df["abstract_count"])
+    df = df.drop([c for c in df.columns if c not in DATA_COLUMNS], axis=1)
 
-    # # write the dataframe to local parquet file
-    with NamedTemporaryFile("wb", delete=False) as f:
-        df.to_parquet((local_path := f.name), engine="pyarrow", schema=schema)
-
-    # upload the parquet file to s3
-    with io_utils.open_file_for_write(dst, "wb", logger=logger) as f, open(local_path, "rb") as tmp_read:
-        f.write(tmp_read.read())
-
-    # delete the local parquet file
-    os.remove(local_path)
+    with ExitStack() as stack:
+        out_f = stack.enter_context(io_utils.open_file_for_write(dst, "wb"))
+        out_stream = stack.enter_context(gzip.open(out_f, "wt"))
+        out_stream.write(df.to_json(orient="records", lines=True))
 
     if pbar_queue is not None:
-        cnt = sum(df["title_count"] + df["abstract_count"])
         pbar_queue.put((1, int(len(df)), int(cnt)))
 
     del df
