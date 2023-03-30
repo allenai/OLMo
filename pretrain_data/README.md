@@ -158,7 +158,6 @@ We need a separate versioning schemes for Attributes and Documents. To keep thin
 
 
 
-
 ### tools
 
 To make progress on dataset versions, we will employ tools. These are still TBD, but the idea is that the input & output of these tools always preserves the JSON format in each `jsonl.gz` dump, so we can re-run functions applied to earlier dataset versions onto later dataset versions without worrying about format changes.
@@ -166,10 +165,38 @@ To make progress on dataset versions, we will employ tools. These are still TBD,
 More details can be found in this [Proposal Doc](https://docs.google.com/document/d/18T5_v3QeWPiiuSsUi09_6-ZxW_i47cBatblABb9IZ0M/edit?usp=sharing).
 
 
+##### validate files on s3
 
-### open questions
+Try running the tool like this:
+```python
+python pretrain_data/toolkit/src/ai2_llm_toolkit/api.py --source stack-dedup --version raw
+python pretrain_data/toolkit/src/ai2_llm_toolkit/api.py --source s2 --version v2_hard_dedup
+python pretrain_data/toolkit/src/ai2_llm_toolkit/api.py --source common-crawl --version v0
+```
 
-1. Where should "shared" utilities live? What are they?
-2. Shared dependencies or treat each source as own project?
-3. Comfortable pushing directly, or pull requests w/ reviews? Who approving?
-4. Keeping developer logs. GitHub likely better than Google Docs. Maybe define a minimal convention/cadence for this? Can be rough.
+A good outcome would be something like:
+```python
+python pretrain_data/api.py --source common-crawl --version v0
+2023-03-28 22:42:45,903 INFO Creating Dataset from S3: source=common-crawl version=v0
+2023-03-28 22:42:45,903 INFO Found one dataset from source=common-crawl version=v0
+2023-03-28 22:42:45,919 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-03-28 22:42:46,895 INFO Inspecting first file at s3://ai2-llm/pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-49/0000/af_all.json.gz
+2023-03-28 22:42:46,900 INFO Downloading s3://ai2-llm/pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-49/0000/af_all.json.gz to a temporary file
+2023-03-28 22:42:47,602 INFO Finished verifying format of file s3://ai2-llm/pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-49/0000/af_all.json.gz
+```
+
+A bad outcome would be something like:
+```python
+Traceback (most recent call last):
+  File "/Users/kylel/ai2/LLM/pretrain_data/api.py", line 177, in <module>
+    dataset.verify_one_file(s3_filepath=first_s3_filepath)
+  File "/Users/kylel/ai2/LLM/pretrain_data/api.py", line 156, in verify_one_file
+    for example in self._read_examples_from_file(s3_filepath=s3_filepath):
+  File "/Users/kylel/ai2/LLM/pretrain_data/api.py", line 142, in _read_examples_from_file
+    example = Example.from_json(example_json=example_dict)
+  File "/Users/kylel/ai2/LLM/pretrain_data/api.py", line 83, in from_json
+    source=example_json['source'],
+KeyError: 'source'
+```
+
+The issue in this case is probably the JSON schema uploaded doesn't adhere to the data contract specified above.
