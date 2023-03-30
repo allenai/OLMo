@@ -139,3 +139,13 @@ python pretrain_data/s2/v2/process_s2ag.py \
 3. Import data into athena with `load_/s2ag.sql`.
 
 ### S2ORC
+
+1. Run `obtain_data/s2orc_paragraphs.sql` in Athena.
+2. Run `process_s2orc.py` to add language ID and log probabilities.
+
+```bash
+python pretrain_data/s2/v2/process_s2orc.py \
+  src=s3://ai2-llm/pretraining-data/sources/s2/raw/2023_01_03/s2orc/ \
+  dst=s3://ai2-llm/pretraining-data/sources/s2/v0/documents/dataset=s2orc \
+  cpu_count=64
+```

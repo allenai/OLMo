@@ -8,7 +8,10 @@ python process_text.py \
 
 """
 
+import datetime
 import gc
+import gzip
+import json
 import os
 from collections import Counter
 from contextlib import ExitStack
@@ -18,7 +21,7 @@ from queue import Queue
 from tempfile import NamedTemporaryFile
 from threading import Thread
 from time import sleep
-from typing import List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import cld3
 import numpy as np
@@ -107,6 +110,34 @@ def is_parenthetical_spanning_two_paragraphs(
     return True
 
 
+DATA_COLUMNS = {"source", "id", "text", "added", "created", "metadata", "version"}
+
+
+def row_to_metadata(row: pd.Series) -> Dict[str, Any]:
+    return {col: row[col] for col in row.index if col not in DATA_COLUMNS}
+
+
+def merge_text(row: pd.Series) -> str:
+    title = row.get("title", "") or ""
+    abstract = row.get("abstract", "") or ""
+    paragraphs = row.get("filtered_paragraphs", []) or []
+    return f"{title}\n\n{abstract}\n\n{' '.join(paragraphs)}"
+
+
+def fix_missing_added(row: pd.Series) -> pd.Series:
+    if pd.isna(row["added"]) or row["added"] == "":
+        t = datetime.datetime.now(datetime.timezone.utc)
+        row["added"] = t.isoformat(timespec="milliseconds") + "Z"
+    return row
+
+
+def fix_missing_created(row: pd.Series) -> pd.Series:
+    if pd.isna(row["created"]) or row["created"] == "":
+        year = int(row["year"] or 1)
+        row["created"] = f"{year}-01-01T00:00:00.000Z"
+    return row
+
+
 def process_single(
     io_paths: Tuple[io_utils.MultiPath, io_utils.MultiPath],
     pbar_queue: Optional[Queue] = None,
@@ -116,6 +147,7 @@ def process_single(
 
     upp = UnigramPerplexityPredictor()
     src, dst = io_paths
+    dst.path += ".gz"
 
     with io_utils.open_file_for_read(src, "rb", logger=logger) as f, NamedTemporaryFile("wb") as tmp:
         tmp.write(f.read())
@@ -166,6 +198,23 @@ def process_single(
     df["filtered_paragraphs"] = df["all_paragraphs"].apply(merge_headers)
     df.drop(columns=["all_paragraphs"], inplace=True)
 
+    # assign version v0 and s2 as the source
+    df["version"] = "v0"
+    df["source"] = "s2"
+
+    # fix missing added column
+    df = df.apply(fix_missing_added, axis=1)
+
+    # fix missing created column
+    df = df.apply(fix_missing_created, axis=1)
+
+    # spec requires id to be a string
+    df["id"] = df["id"].astype(str)
+
+    # create initial text by concatenating title and abstract and
+    # all paragraphs
+    df["text"] = df.apply(merge_text, axis=1)
+
     def get_language(filtered_paragraphs: List[str]) -> List[str]:
         langs: List[str] = []
         for para in filtered_paragraphs:
@@ -214,57 +263,20 @@ def process_single(
     # drop after zipping
     df.drop(columns=["language_paragraphs", "perplexity_paragraphs", "filtered_paragraphs"], inplace=True)
 
-    schema = pa.schema(
-        [
-            ("id", pa.int32()),
-            ("year", pa.int32()),
-            ("title", pa.string()),
-            ("abstract", pa.string()),
-            ("fields_of_study", pa.list_(pa.string())),
-            ("sha1", pa.string()),
-            (
-                "paragraphs",
-                pa.list_(
-                    pa.struct(
-                        [
-                            ("language", pa.string()),
-                            ("perplexity", pa.float64()),
-                            ("text", pa.string()),
-                        ]
-                    )
-                ),
-            ),
-            ("count", pa.int32()),
-            (
-                "top_frequencies",
-                pa.list_(
-                    pa.struct(
-                        [
-                            ("token", pa.string()),
-                            ("count", pa.int32()),
-                        ]
-                    )
-                ),
-            ),
-        ]
-    )
+    # put everything that is not part of the data spec in metadata
+    df["metadata"] = df.apply(row_to_metadata, axis=1)
+    cnt = int(sum(df["count"]))
+    df = df.drop([c for c in df.columns if c not in DATA_COLUMNS], axis=1)
 
-    # # write the dataframe to local parquet file
-    with NamedTemporaryFile("wb", delete=False) as f:
-        df.to_parquet((local_path := f.name), engine="pyarrow", schema=schema)
-
-    # upload the parquet file to s3
-    with io_utils.open_file_for_write(dst, "wb", logger=logger) as f, open(local_path, "rb") as tmp_read:
-        f.write(tmp_read.read())
-
-    # delete the local parquet file
-    os.remove(local_path)
+    with ExitStack() as stack:
+        out_f = stack.enter_context(io_utils.open_file_for_write(dst, "wb"))
+        out_stream = stack.enter_context(gzip.open(out_f, "wt"))
+        for row in df.itertuples(index=False):
+            content = json.dumps(row._asdict(), default=str).strip()
+            out_stream.write(content + "\n")  # type: ignore
 
     if pbar_queue is not None:
-        pbar_queue.put((1, int(len(df)), int(sum(df["count"]))))
-
-    del df
-    gc.collect()
+        pbar_queue.put((1, int(len(df)), int(cnt)))
 
 
 def threaded_progressbar(q: Queue, timeout: float, total_files: Optional[int] = None):

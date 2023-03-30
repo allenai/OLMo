@@ -8,8 +8,10 @@ python process_text.py \
 
 """
 
+import datetime
 import gc
 import gzip
+import json
 import os
 from collections import Counter
 from contextlib import ExitStack
@@ -42,7 +44,7 @@ GOOGLE_1T_CORPUS = (
 class ProcessTextConfig:
     src: str = sp.field(default=sp.MISSING, help="Path to S3 prefix containing parqet files")
     dst: str = sp.field(default=sp.MISSING, help="Path to S3 prefix to write parqet files")
-    debug: bool = sp.field(default=False, help="Debug mode")
+    debug: int = sp.field(default=0, help="Debug mode. Set to >0 to enable")
     cpu_count: int = sp.field(default=cpu_count(), help="Number of processes to use")
 
 
@@ -108,22 +110,37 @@ def is_parenthetical_spanning_two_paragraphs(
     return True
 
 
-DATA_COLUMNS = {"source", "id", "text", "added", "created", "metadata"}
+DATA_COLUMNS = {"source", "id", "text", "added", "created", "metadata", "version"}
 
 
 def row_to_metadata(row: pd.Series) -> Dict[str, Any]:
     return {col: row[col] for col in row.index if col not in DATA_COLUMNS}
 
 
+def fix_missing_added(row: pd.Series) -> pd.Series:
+    if pd.isna(row["added"]) or row["added"] == "":
+        t = datetime.datetime.now(datetime.timezone.utc)
+        row["added"] = t.isoformat(timespec="milliseconds") + "Z"
+    return row
+
+
+def fix_missing_created(row: pd.Series) -> pd.Series:
+    if pd.isna(row["created"]) or row["created"] == "":
+        year = int(row["year"] or 1)
+        row["created"] = f"{year}-01-01T00:00:00.000Z"
+    return row
+
+
 def process_single(
     io_paths: Tuple[io_utils.MultiPath, io_utils.MultiPath],
     pbar_queue: Optional[Queue] = None,
-    debug: bool = False,
+    debug: int = 0,
 ):
     logger = sp.configure_logging(__name__, logging_level="WARNING", force_root_reattach=True)
 
     upp = UnigramPerplexityPredictor()
     src, dst = io_paths
+    dst.path += ".gz"
 
     with io_utils.open_file_for_read(src, "rb", logger=logger) as f, NamedTemporaryFile("wb") as tmp:
         tmp.write(f.read())
@@ -131,8 +148,8 @@ def process_single(
         df = pd.read_parquet(tmp.name)
 
     # for debugging purposes, only take first 1000 rows
-    if debug:
-        df = df.head(100)
+    if debug > 0:
+        df = df.head(debug)
 
     def get_language(text: str) -> str:
         try:
@@ -143,6 +160,15 @@ def process_single(
     # assign version v0 and s2 as the source
     df["version"] = "v0"
     df["source"] = "s2"
+
+    # fix missing added column
+    df = df.apply(fix_missing_added, axis=1)
+
+    # fix missing created column
+    df = df.apply(fix_missing_created, axis=1)
+
+    # spec requires id to be a string
+    df["id"] = df["id"].astype(str)
 
     # create initial text by concatenating title and abstract
     df["text"] = df["title"] + "\n\n" + df["abstract"]
@@ -182,7 +208,9 @@ def process_single(
     with ExitStack() as stack:
         out_f = stack.enter_context(io_utils.open_file_for_write(dst, "wb"))
         out_stream = stack.enter_context(gzip.open(out_f, "wt"))
-        out_stream.write(df.to_json(orient="records", lines=True))
+        for row in df.itertuples(index=False):
+            content = json.dumps(row._asdict(), default=str).strip()
+            out_stream.write(content + "\n")  # type: ignore
 
     if pbar_queue is not None:
         pbar_queue.put((1, int(len(df)), int(cnt)))
@@ -216,7 +244,8 @@ def main(cfg: ProcessTextConfig):
     src_paths = [io_utils.MultiPath.parse(p) for p in io_utils.recursively_list_files(src)]
     dst_paths = [dst / (diff) if len(diff := (single_src - src)) > 0 else dst for single_src in src_paths]
 
-    if cfg.debug:
+    if cfg.debug > 0:
+        src_paths = src_paths[: cfg.debug]
         with tqdm(total=len(src_paths)) as pbar:
             for single_src, single_dst in zip(src_paths, dst_paths):
                 process_single((single_src, single_dst), debug=cfg.debug)
