@@ -6,6 +6,8 @@ UNLOAD
             p.abstract,
             p.title,
             p.year,
+            p.added as added,
+            p.created as created,
             p.paperId as sha1
         FROM (
             SELECT
@@ -69,7 +71,8 @@ UNLOAD
                     THEN NULL
                     ELSE paperAbstract
                 END as abstract,
-            lastespressoupdate as updated
+            to_iso8601(from_iso8601_timestamp(earliestacquisitiondate)) as added,
+            to_iso8601(date_parse(pubdate, '%Y-%m-%d')) as created
             FROM espresso.pq_paper
             WHERE partition_0 = '2023-01-03'
             ) p
@@ -89,6 +92,8 @@ UNLOAD
         abstract,
         year,
         sha1,
+        added,
+        created,
         s2ag_abstracts.corpusId % 50 AS part_id
     FROM s2ag_abstracts
     -- exclude s2orc ids from dump
@@ -96,7 +101,7 @@ UNLOAD
         ON s2orc_ids.id = s2ag_abstracts.corpusId
     WHERE s2orc_ids.id IS NULL
 )
-TO 's3://ai2-s2-lucas/s2orc_llm/2023_01_03/s2ag_clean/'
+TO 's3://ai2-llm/pretraining-data/sources/s2/raw/2023_01_03/s2ag/'
 WITH (
     format='PARQUET',
     partitioned_by = ARRAY['part_id']

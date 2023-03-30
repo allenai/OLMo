@@ -3,7 +3,9 @@ UNLOAD (
         SELECT
             DISTINCT pq.corpusid as id,
             pq.fieldsofstudy as fields_of_study,
-            pq.id as sha1
+            pq.id as sha1,
+            to_iso8601(from_iso8601_timestamp(pq.earliestacquisitiondate)) as added,
+            to_iso8601(date_parse(pq.pubdate, '%Y-%m-%d')) as created
         FROM espresso.pq_paper AS pq
         INNER JOIN s2orc_papers.latest AS s2orc
             ON pq.corpusid = s2orc.id
@@ -79,15 +81,17 @@ UNLOAD (
     )
     SELECT
         pt.*,
-        eq.fields_of_study,
-        eq.sha1,
+        ep.fields_of_study,
+        ep.sha1,
+        ep.added,
+        ep.created,
         -- make 100 partitions for smaller output files
         pt.id % 100 as part_id
     FROM extracted_paragraphs AS pt
     INNER JOIN espresso_pq_metadata AS ep
         ON pt.id = ep.id
 )
-TO 's3://ai2-s2-lucas/s2orc_llm/2023_01_03/s2orc_clean/'
+TO 's3://ai2-llm/pretraining-data/sources/s2/raw/2023_01_03/s2orc/'
 WITH (
     format='PARQUET',
     partitioned_by = ARRAY['part_id']
