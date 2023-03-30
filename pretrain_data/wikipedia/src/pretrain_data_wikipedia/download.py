@@ -7,6 +7,8 @@ import requests
 import springs as sp
 from tqdm import tqdm
 
+from .consts import LANGUAGES
+
 
 def get_current_process_number() -> int:
     if not (pid := current_process()._identity):
@@ -23,6 +25,11 @@ def download_single(
     https://gist.github.com/yanqd0/c13ed29e29432e3cf3e7c38467f42f51"""
 
     fname = Path(fname)
+
+    if fname.exists():
+        # do not re-download
+        return
+
     resp = requests.get(url, stream=True)
     total = int(resp.headers.get("content-length", 0))
     tqdm_position = max(get_current_process_number() - 1, 0)
@@ -42,35 +49,7 @@ def download_single(
 
 @sp.dataclass
 class DownloadConfig:
-    langs: List[str] = sp.flist(
-        "en",
-        "de",
-        "fr",
-        "nl",
-        "ru",
-        "es",
-        "it",
-        "arz",
-        "pl",
-        "ja",
-        "zh",
-        "vi",
-        "war",
-        "uk",
-        "ar",
-        "pt",
-        "fa",
-        "ca",
-        "sr",
-        "id",
-        "ko",
-        "no",
-        "ce",
-        "fi",
-        "hu",
-        "cs",
-        "tr",
-    )
+    langs: List[str] = sp.flist(*LANGUAGES)
     url: str = (
         "https://dumps.wikimedia.org/{lang_code}wiki/20230320/"
         "{lang_code}wiki-20230320-pages-articles-multistream.xml.bz2"
