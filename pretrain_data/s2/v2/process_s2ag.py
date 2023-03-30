@@ -126,8 +126,8 @@ def fix_missing_added(row: pd.Series) -> pd.Series:
 
 def fix_missing_created(row: pd.Series) -> pd.Series:
     if pd.isna(row["created"]) or row["created"] == "":
-        year = int(row["year"] or 1)
-        row["created"] = f"{year}-01-01T00:00:00.000Z"
+        year = 1 if pd.isna(row["year"]) else int(row["year"] or 1)
+        row["created"] = f"{year:04d}-01-01T00:00:00.000Z"
     return row
 
 
