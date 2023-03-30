@@ -367,6 +367,7 @@ class DolmaGPT(nn.Module):
                 ),
                 diagonal=1,
             )
+            att_bias = att_bias.to(torch.bfloat16)
             att_bias.masked_fill_(att_bias == 1, float("-inf"))
             self.register_buffer(
                 "_causal_attention_bias",
@@ -380,17 +381,17 @@ class DolmaGPT(nn.Module):
         if not hasattr(self, "_alibi_attention_bias"):
             # shape: (1, 1, 1, seq_len)
             alibi_bias = torch.arange(
-                1 - self.config.max_sequence_length, 1, dtype=torch.float, device=self.config.device
+                1 - self.config.max_sequence_length, 1, dtype=torch.bfloat16, device=self.config.device
             ).view(1, 1, 1, self.config.max_sequence_length)
 
             # shape: (1, 1, seq_len, seq_len)
             alibi_bias = alibi_bias - torch.arange(
-                1 - self.config.max_sequence_length, 1, dtype=torch.float, device=self.config.device
+                1 - self.config.max_sequence_length, 1, dtype=torch.bfloat16, device=self.config.device
             ).view(1, 1, self.config.max_sequence_length, 1)
             alibi_bias.abs_().mul_(-1)
 
             # shape: (n_heads,)
-            m = torch.arange(1, self.config.n_heads + 1, dtype=torch.float, device=self.config.device)
+            m = torch.arange(1, self.config.n_heads + 1, dtype=torch.bfloat16, device=self.config.device)
             m.mul_(self.config.alibi_bias_max / self.config.n_heads)
 
             # shape: (1, n_heads, seq_len, seq_len)
@@ -451,7 +452,7 @@ class DolmaGPT(nn.Module):
         # Transform the attention mask into what the blocks expect.
         if attention_mask is not None:
             # shape: (batch_size, 1, 1, seq_len)
-            attention_mask = attention_mask.to(dtype=torch.float).view(batch_size, -1)[:, None, None, :]
+            attention_mask = attention_mask.to(dtype=torch.bfloat16).view(batch_size, -1)[:, None, None, :]
             attention_mask = (1.0 - attention_mask) * torch.finfo(attention_mask.dtype).min
             attention_mask.masked_fill_(attention_mask == 1.0, float("-inf"))
 
@@ -461,7 +462,7 @@ class DolmaGPT(nn.Module):
                 # Default to causal attention bias.
                 attention_bias = self.causal_attention_bias
             elif attention_bias.dtype in (torch.int8, torch.bool):
-                attention_bias = attention_bias.to(dtype=torch.float)
+                attention_bias = attention_bias.to(dtype=torch.bfloat16)
                 attention_bias.masked_fill_(attention_bias == 0.0, float("-inf"))
 
             attention_bias = attention_bias[:, :, :seq_len, :seq_len]
