@@ -4,8 +4,16 @@ UNLOAD (
             DISTINCT pq.corpusid as id,
             pq.fieldsofstudy as fields_of_study,
             pq.id as sha1,
-            to_iso8601(from_iso8601_timestamp(pq.earliestacquisitiondate)) as added,
-            to_iso8601(date_parse(pq.pubdate, '%Y-%m-%d')) as created
+            to_iso8601(
+                from_iso8601_timestamp(pq.earliestacquisitiondate)
+            ) as added,
+            to_iso8601(
+                CASE
+                    WHEN pq.pubdate IS null
+                        THEN from_iso8601_timestamp(pq.earliestacquisitiondate)
+                    ELSE date_parse(pq.pubdate, '%Y-%m-%d')
+                END
+            ) AS created
         FROM espresso.pq_paper AS pq
         INNER JOIN s2orc_papers.latest AS s2orc
             ON pq.corpusid = s2orc.id

@@ -72,7 +72,13 @@ UNLOAD
                     ELSE paperAbstract
                 END as abstract,
             to_iso8601(from_iso8601_timestamp(earliestacquisitiondate)) as added,
-            to_iso8601(date_parse(pubdate, '%Y-%m-%d')) as created
+            to_iso8601(
+                CASE
+                    WHEN pubdate IS null
+                        THEN from_iso8601_timestamp(earliestacquisitiondate)
+                    ELSE date_parse(pubdate, '%Y-%m-%d')
+                END
+            ) AS created
             FROM espresso.pq_paper
             WHERE partition_0 = '2023-01-03'
             ) p

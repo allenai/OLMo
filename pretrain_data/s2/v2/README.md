@@ -26,7 +26,7 @@ Train data is anything published before 2022-12-01; validation data is anything 
 |Split|Documents|Approx Word Count|Location|
 |---|---|---|---|
 train|8,855,051|39,088,566,059|`s3://ai2-llm/pretraining-data/sources/s2/v2_dedup/dataset=s2orc/split=train`
-validation|83,217|465,425,062|`s3://ai2-llm/pretraining-data/sources/s2/v2_dedup/dataset=s2orc/split=valid`
+validation|17,865|109,071,019|`s3://ai2-llm/pretraining-data/sources/s2/v2_dedup/dataset=s2orc/split=valid`
 
 The set above is deduped by paper ID only, meaning that we keep multiple version of a paper if we have any. If you want to keep only one version of each paper, the stats are:
 
@@ -53,7 +53,7 @@ Unfiltered, the corpus contains 91.1M papers and 15.5B whitespace-separated toke
 |Split|Abstracts|Approx Word Count|Location|
 |---|---|---|---|
 train|59,161,485|10,963,156,902|`s3://ai2-llm/pretraining-data/sources/s2/v2_dedup/dataset=s2ag/split=train`
-validation|119,268|26,130,632|`s3://ai2-llm/pretraining-data/sources/s2/v2_dedup/dataset=s2ag/split=valid`
+validation|12,263|3,210,556|`s3://ai2-llm/pretraining-data/sources/s2/v2_dedup/dataset=s2ag/split=valid`
 
 
 ## Format
@@ -85,12 +85,19 @@ First, create the following athena table:
 
 ```sql
 CREATE EXTERNAL TABLE `s2_v2_dedup` (
-id int,
-sha1 string,
-text string
+  id string,
+  source string,
+  version string,
+  added string,
+  created string,
+  text string
 )
 PARTITIONED BY (dataset string, split string)
 ROW FORMAT serde 'org.apache.hive.hcatalog.data.JsonSerDe'
+WITH SERDEPROPERTIES (
+  'serialization.format' = '1',
+  'on_error'='ignore'
+)
 LOCATION 's3://ai2-llm/pretraining-data/sources/s2/v2_dedup/'
 ```
 
@@ -136,7 +143,8 @@ python pretrain_data/s2/v2/process_s2ag.py \
   dst=s3://ai2-llm/pretraining-data/sources/s2/v0/documents/dataset=s2ag \
   cpu_count=64
 ```
-3. Import data into athena with `load_/s2ag.sql`.
+3. Import data into athena with `load_as_table/s2ag.sql`.
+4. Run queries in `process_corpus_dedup` and `process_corpus_hard_dedup` to create V2 and V2 hard deduped versions of the corpus.
 
 ### S2ORC
 
@@ -149,3 +157,5 @@ python pretrain_data/s2/v2/process_s2orc.py \
   dst=s3://ai2-llm/pretraining-data/sources/s2/v0/documents/dataset=s2orc \
   cpu_count=64
 ```
+3. Import data into athena with `load_as_table/s2orc_paragraphs.sql`.
+4. Run queries in `process_corpus_dedup` and `process_corpus_hard_dedup` to create V2 and V2 hard deduped versions of the corpus.

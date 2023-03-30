@@ -22,6 +22,7 @@ from tempfile import NamedTemporaryFile
 from threading import Thread
 from time import sleep
 from typing import Any, Dict, List, Optional, Tuple, Union
+import unicodedata
 
 import cld3
 import numpy as np
@@ -165,11 +166,12 @@ def process_single(
         current_header = None
         new_paragraphs: List[str] = []
         for para in all_paragraphs:
-            if para["type"] == "section_header":
-                current_header = para["text"].strip()
-            elif para["type"] == "paragraph":
-                text = para["text"].strip()
+            text = unicodedata.normalize('NFC', para["text"].strip())
 
+            if para["type"] == "section_header":
+                current_header = text
+
+            elif para["type"] == "paragraph":
                 if current_header is not None:
                     text = f"\n{current_header}\n{text}"
                     current_header = None
@@ -195,6 +197,11 @@ def process_single(
 
         return new_paragraphs
 
+    # normalize the text columns
+    def norm_fn(txt: str) -> str: return unicodedata.normalize('NFC', txt)
+    df["title"] = df["title"].apply(norm_fn)
+    df["abstract"] = df["abstract"].apply(norm_fn)
+
     df["filtered_paragraphs"] = df["all_paragraphs"].apply(merge_headers)
     df.drop(columns=["all_paragraphs"], inplace=True)
 
@@ -210,6 +217,11 @@ def process_single(
 
     # spec requires id to be a string
     df["id"] = df["id"].astype(str)
+
+    # if `fields_of_study` is not a list, then set it to an empty list
+    df["fields_of_study"] = df["fields_of_study"].apply(
+        lambda x: x if isinstance(x, list) else []
+    )
 
     # create initial text by concatenating title and abstract and
     # all paragraphs

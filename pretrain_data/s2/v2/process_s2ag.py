@@ -32,6 +32,8 @@ from blingfire import text_to_words
 from cached_path import cached_path
 from smashed.utils import io_utils
 from tqdm import tqdm
+import unicodedata
+
 
 LANG_ID_CUT = 2000
 COMMON_CUT = 100
@@ -169,6 +171,11 @@ def process_single(
 
     # spec requires id to be a string
     df["id"] = df["id"].astype(str)
+
+    # normalize the text columns
+    def norm_fn(txt: str) -> str: return unicodedata.normalize('NFC', txt)
+    df["title"] = df["title"].apply(norm_fn)
+    df["abstract"] = df["abstract"].apply(norm_fn)
 
     # create initial text by concatenating title and abstract
     df["text"] = df["title"] + "\n\n" + df["abstract"]
