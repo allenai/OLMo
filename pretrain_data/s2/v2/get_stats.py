@@ -20,14 +20,7 @@ from typing import Optional
 
 import orjson as json
 
-# import cld3
-# import numpy as np
-# import pandas as pd
-# import pyarrow as pa
 import springs as sp
-
-# from blingfire import text_to_words
-# from cached_path import cached_path
 from smashed.utils import io_utils
 from tqdm import tqdm
 from uniseg.wordbreak import words as uniseg_get_words

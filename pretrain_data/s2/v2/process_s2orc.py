@@ -9,10 +9,8 @@ python process_text.py \
 """
 
 import datetime
-import gc
 import gzip
 import json
-import os
 import unicodedata
 from collections import Counter
 from contextlib import ExitStack
@@ -27,7 +25,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import cld3
 import numpy as np
 import pandas as pd
-import pyarrow as pa
 import springs as sp
 from blingfire import text_to_words
 from cached_path import cached_path
@@ -46,7 +43,7 @@ class ProcessTextConfig:
     src: str = sp.field(default=sp.MISSING, help="Path to S3 prefix containing parqet files")
     dst: str = sp.field(default=sp.MISSING, help="Path to S3 prefix to write parqet files")
     debug: bool = sp.field(default=False, help="Debug mode")
-    cpu_count: int = sp.field(default=cpu_count(), help="Number of processes to use")
+    parallel: int = sp.field(default=cpu_count(), help="Number of processes to use")
 
 
 class UnigramPerplexityPredictor:
@@ -121,8 +118,8 @@ def row_to_metadata(row: pd.Series) -> Dict[str, Any]:
 def merge_text(row: pd.Series) -> str:
     title = row.get("title", "") or ""
     abstract = row.get("abstract", "") or ""
-    paragraphs = row.get("filtered_paragraphs", []) or []
-    return f"{title}\n\n{abstract}\n\n{' '.join(paragraphs)}"
+    paragraphs = row.get("filtered_paragraphs", []) or []   # pyright: ignore
+    return f"{title}\n\n{abstract}\n\n{' '.join(paragraphs)}"   # pyright: ignore
 
 
 def fix_missing_added(row: pd.Series) -> pd.Series:
@@ -325,7 +322,7 @@ def main(cfg: ProcessTextConfig):
     else:
         set_start_method("spawn")
 
-        with Pool(processes=cfg.cpu_count) as pool:
+        with Pool(processes=cfg.parallel) as pool:
             pbar_queue: Queue = (manager := Manager()).Queue()
             pbar_thread = Thread(
                 target=threaded_progressbar,
