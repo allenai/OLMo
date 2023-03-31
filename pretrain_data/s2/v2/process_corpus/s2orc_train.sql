@@ -3,7 +3,6 @@ UNLOAD (
         SELECT
             id,
             source,
-            version,
             added,
             created,
             metadata,
@@ -56,7 +55,6 @@ UNLOAD (
         SELECT
             id,
             source,
-            version,
             added,
             created,
             metadata,
@@ -79,7 +77,7 @@ UNLOAD (
     SELECT
         id,
         ARRAY_AGG(source)[1] AS source,
-        ARRAY_AGG(version)[1] AS version,
+        'v2' AS version,
         ARRAY_AGG(added)[1] AS added,
         ARRAY_AGG(created)[1] AS created,
         ARRAY_AGG(text)[1] AS text,
@@ -89,11 +87,14 @@ UNLOAD (
         SELECT *
         FROM filtered_corpus
         WHERE metadata.year < 2022
-            OR date(from_iso8601_timestamp(created)) < date('2022-12-01')
+            OR (
+                metadata.year = 2022 AND
+                date(from_iso8601_timestamp(created)) < date('2022-12-01')
+            )
     )
-    GROUP BY id, metadata.sha1
+    GROUP BY id
 )
-TO 's3://ai2-llm/pretraining-data/sources/s2/v2_hard_dedup/documents/dataset=s2orc/split=train'
+TO 's3://ai2-llm/pretraining-data/sources/s2/v2/documents/dataset=s2orc/split=train'
 WITH (
     format='JSON',
     compression='GZIP',

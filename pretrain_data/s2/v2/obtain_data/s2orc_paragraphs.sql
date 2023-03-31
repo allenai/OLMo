@@ -6,17 +6,31 @@ UNLOAD (
             pq.id as sha1,
             to_iso8601(
                 from_iso8601_timestamp(pq.earliestacquisitiondate)
-            ) as added,
-            to_iso8601(
-                CASE
-                    WHEN pq.pubdate IS null
-                        THEN from_iso8601_timestamp(pq.earliestacquisitiondate)
-                    ELSE date_parse(pq.pubdate, '%Y-%m-%d')
-                END
-            ) AS created
+            ) as added
         FROM espresso.pq_paper AS pq
         INNER JOIN s2orc_papers.latest AS s2orc
             ON pq.corpusid = s2orc.id
+    ),
+    content_espresso_metadata AS (
+        SELECT
+            ep.*,
+            to_iso8601(
+                CAST(
+                    IF(
+                        cp.pub_date IS null,
+                        IF(
+                            cp.year IS null,
+                            date('0001-01-01'),
+                            date(CAST(cp.year as VARCHAR(4)) || '-01-01')
+                        ),
+                        pub_date
+                    )
+                    AS timestamp
+                )
+            ) AS created
+        FROM "content_ext"."papers" as cp
+        INNER JOIN espresso_pq_metadata as ep
+            ON ep.id = cp.corpus_paper_id
     ),
     s2orc_open_access AS (
         SELECT
@@ -96,7 +110,7 @@ UNLOAD (
         -- make 100 partitions for smaller output files
         pt.id % 100 as part_id
     FROM extracted_paragraphs AS pt
-    INNER JOIN espresso_pq_metadata AS ep
+    INNER JOIN content_espresso_metadata AS ep
         ON pt.id = ep.id
 )
 TO 's3://ai2-llm/pretraining-data/sources/s2/raw/2023_01_03/s2orc/'

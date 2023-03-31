@@ -7,7 +7,6 @@ UNLOAD
             p.title,
             p.year,
             p.added as added,
-            p.created as created,
             p.paperId as sha1
         FROM (
             SELECT
@@ -71,14 +70,7 @@ UNLOAD
                     THEN NULL
                     ELSE paperAbstract
                 END as abstract,
-            to_iso8601(from_iso8601_timestamp(earliestacquisitiondate)) as added,
-            to_iso8601(
-                CASE
-                    WHEN pubdate IS null
-                        THEN from_iso8601_timestamp(earliestacquisitiondate)
-                    ELSE date_parse(pubdate, '%Y-%m-%d')
-                END
-            ) AS created
+            to_iso8601(from_iso8601_timestamp(earliestacquisitiondate)) as added
             FROM espresso.pq_paper
             WHERE partition_0 = '2023-01-03'
             ) p
@@ -91,20 +83,41 @@ UNLOAD
             id
             FROM "s2orc_papers"."oa_releases"
             WHERE year=2023 AND month=01 AND day=01
+    ),
+    s2ag_abstracts_with_dates AS (
+        SELECT
+            s2ag.*,
+            to_iso8601(
+                CAST(
+                    IF(
+                        cp.pub_date IS null,
+                        IF(
+                            cp.year IS null,
+                            date('0001-01-01'),
+                            date(CAST(cp.year as VARCHAR(4)) || '-01-01')
+                        ),
+                        pub_date
+                    )
+                    AS timestamp
+                )
+            ) AS created
+        FROM "content_ext"."papers" as cp
+        INNER JOIN s2ag_abstracts as s2ag
+            ON s2ag.corpusId = cp.corpus_paper_id
     )
     SELECT
-        s2ag_abstracts.corpusId as id,
+        s2ag.corpusId as id,
         title,
         abstract,
         year,
         sha1,
         added,
         created,
-        s2ag_abstracts.corpusId % 50 AS part_id
-    FROM s2ag_abstracts
+        s2ag.corpusId % 50 AS part_id
+    FROM s2ag_abstracts_with_dates as s2ag
     -- exclude s2orc ids from dump
     LEFT OUTER JOIN s2orc_ids
-        ON s2orc_ids.id = s2ag_abstracts.corpusId
+        ON s2ag.corpusId = s2orc_ids.id
     WHERE s2orc_ids.id IS NULL
 )
 TO 's3://ai2-llm/pretraining-data/sources/s2/raw/2023_01_03/s2ag/'
