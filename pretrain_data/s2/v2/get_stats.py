@@ -19,7 +19,6 @@ from time import sleep
 from typing import Optional
 
 import orjson as json
-
 import springs as sp
 from smashed.utils import io_utils
 from tqdm import tqdm

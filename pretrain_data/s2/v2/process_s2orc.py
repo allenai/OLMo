@@ -118,8 +118,8 @@ def row_to_metadata(row: pd.Series) -> Dict[str, Any]:
 def merge_text(row: pd.Series) -> str:
     title = row.get("title", "") or ""
     abstract = row.get("abstract", "") or ""
-    paragraphs = row.get("filtered_paragraphs", []) or []   # pyright: ignore
-    return f"{title}\n\n{abstract}\n\n{' '.join(paragraphs)}"   # pyright: ignore
+    paragraphs = row.get("filtered_paragraphs", []) or []  # pyright: ignore
+    return f"{title}\n\n{abstract}\n\n{' '.join(paragraphs)}"  # pyright: ignore
 
 
 def fix_missing_added(row: pd.Series) -> pd.Series:
