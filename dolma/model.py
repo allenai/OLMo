@@ -386,6 +386,10 @@ class DolmaGPT(nn.Module):
 
     @property
     def buffer_dtype(self) -> torch.dtype:
+        """
+        For some reason when we use :func:`torch.compile()` and AMP, we have to create the
+        attention bias buffers with the right data type.
+        """
         if self.config.precision == "amp_bf16":
             return torch.bfloat16
         elif self.config.precision == "amp_fp16":
