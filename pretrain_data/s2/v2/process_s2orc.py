@@ -13,6 +13,7 @@ import gc
 import gzip
 import json
 import os
+import unicodedata
 from collections import Counter
 from contextlib import ExitStack
 from functools import partial
@@ -22,7 +23,6 @@ from tempfile import NamedTemporaryFile
 from threading import Thread
 from time import sleep
 from typing import Any, Dict, List, Optional, Tuple, Union
-import unicodedata
 
 import cld3
 import numpy as np
@@ -166,7 +166,7 @@ def process_single(
         current_header = None
         new_paragraphs: List[str] = []
         for para in all_paragraphs:
-            text = unicodedata.normalize('NFC', para["text"].strip())
+            text = unicodedata.normalize("NFC", para["text"].strip())
 
             if para["type"] == "section_header":
                 current_header = text
@@ -198,7 +198,9 @@ def process_single(
         return new_paragraphs
 
     # normalize the text columns
-    def norm_fn(txt: str) -> str: return unicodedata.normalize('NFC', txt)
+    def norm_fn(txt: str) -> str:
+        return unicodedata.normalize("NFC", txt) if isinstance(txt, str) else txt
+
     df["title"] = df["title"].apply(norm_fn)
     df["abstract"] = df["abstract"].apply(norm_fn)
 
@@ -219,9 +221,7 @@ def process_single(
     df["id"] = df["id"].astype(str)
 
     # if `fields_of_study` is not a list, then set it to an empty list
-    df["fields_of_study"] = df["fields_of_study"].apply(
-        lambda x: x if isinstance(x, list) else []
-    )
+    df["fields_of_study"] = df["fields_of_study"].apply(lambda x: x if isinstance(x, list) else [])
 
     # create initial text by concatenating title and abstract and
     # all paragraphs

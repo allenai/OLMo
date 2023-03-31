@@ -13,12 +13,12 @@ import gc
 import gzip
 import json
 import os
+import string
 from collections import Counter
 from contextlib import ExitStack
 from functools import partial
 from multiprocessing import Manager, Pool, cpu_count, set_start_method
 from queue import Empty, Queue
-import string
 from tempfile import NamedTemporaryFile
 from threading import Thread
 from time import sleep
@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 # import pandas as pd
 # import pyarrow as pa
 import springs as sp
+
 # from blingfire import text_to_words
 # from cached_path import cached_path
 from smashed.utils import io_utils
@@ -38,8 +39,7 @@ from uniseg.wordbreak import words as uniseg_get_words
 
 @sp.dataclass
 class ProcessTextConfig:
-    src: str = sp.field(default=sp.MISSING,
-                        help="Path to S3 prefix containing parqet files")
+    src: str = sp.field(default=sp.MISSING, help="Path to S3 prefix containing parqet files")
     debug: int = sp.field(default=0, help="Debug mode. Set to >0 to enable")
     parallel: int = sp.field(default=cpu_count(), help="Number of processes to use")
 
@@ -55,8 +55,7 @@ def process_single(
     src: io_utils.MultiPath,
     pbar_queue: Optional[Queue] = None,
 ):
-    logger = sp.configure_logging(
-        __name__, logging_level="WARNING", force_root_reattach=True)
+    logger = sp.configure_logging(__name__, logging_level="WARNING", force_root_reattach=True)
 
     log_fn = partial(log, queue=pbar_queue)
 
@@ -64,17 +63,14 @@ def process_single(
     docs_cnt = tokens_cnt = 0
 
     with ExitStack() as stack:
-        f = stack.enter_context(
-            io_utils.open_file_for_read(src, "rb", logger=logger)
-        )
+        f = stack.enter_context(io_utils.open_file_for_read(src, "rb", logger=logger))
         stream = stack.enter_context(gzip.open(f, "rt"))
 
         for line in stream:
             data = json.loads(line)
             docs_cnt += 1
             tokens_cnt += sum(
-                1 for word in uniseg_get_words(data['text'])
-                if not all(char in string.whitespace for char in word)
+                1 for word in uniseg_get_words(data["text"]) if not all(char in string.whitespace for char in word)
             )
 
             if docs_cnt > 1_000:
@@ -97,12 +93,9 @@ def threaded_progressbar(
     timeout: float = 0.01,
 ):
     with ExitStack() as stack:
-        files_pbar = stack.enter_context(
-            tqdm(desc=" Files", unit="files", position=0, total=total_files))
-        docs_pbar = stack.enter_context(
-            tqdm(desc="  Docs", unit=" docs", position=1, unit_scale=True))
-        tokens_pbar = stack.enter_context(
-            tqdm(desc="Tokens", unit=" tokens", position=2, unit_scale=True))
+        files_pbar = stack.enter_context(tqdm(desc=" Files", unit="files", position=0, total=total_files))
+        docs_pbar = stack.enter_context(tqdm(desc="  Docs", unit=" docs", position=1, unit_scale=True))
+        tokens_pbar = stack.enter_context(tqdm(desc="Tokens", unit=" tokens", position=2, unit_scale=True))
         while True:
             try:
                 item = q.get_nowait()
@@ -125,10 +118,7 @@ def main(cfg: ProcessTextConfig):
 
     docs_cnt = tokens_cnt = 0
 
-    src_paths = [
-        io_utils.MultiPath.parse(p)
-        for p in io_utils.recursively_list_files(src)
-    ]
+    src_paths = [io_utils.MultiPath.parse(p) for p in io_utils.recursively_list_files(src)]
 
     if cfg.debug > 0:
         src_paths = src_paths[: cfg.debug]
@@ -151,9 +141,8 @@ def main(cfg: ProcessTextConfig):
             )
             pbar_thread.start()
 
-            for (single_docs_cnt, single_tokens_cnt) in pool.imap_unordered(
-                partial(process_single, pbar_queue=pbar_queue),
-                src_paths
+            for single_docs_cnt, single_tokens_cnt in pool.imap_unordered(
+                partial(process_single, pbar_queue=pbar_queue), src_paths
             ):
                 docs_cnt += single_docs_cnt
                 tokens_cnt += single_tokens_cnt

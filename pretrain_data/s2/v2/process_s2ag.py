@@ -13,6 +13,7 @@ import gc
 import gzip
 import json
 import os
+import unicodedata
 from collections import Counter
 from contextlib import ExitStack
 from functools import partial
@@ -32,8 +33,6 @@ from blingfire import text_to_words
 from cached_path import cached_path
 from smashed.utils import io_utils
 from tqdm import tqdm
-import unicodedata
-
 
 LANG_ID_CUT = 2000
 COMMON_CUT = 100
@@ -173,7 +172,9 @@ def process_single(
     df["id"] = df["id"].astype(str)
 
     # normalize the text columns
-    def norm_fn(txt: str) -> str: return unicodedata.normalize('NFC', txt)
+    def norm_fn(txt: str) -> str:
+        return unicodedata.normalize("NFC", txt) if isinstance(txt, str) else txt
+
     df["title"] = df["title"].apply(norm_fn)
     df["abstract"] = df["abstract"].apply(norm_fn)
 
