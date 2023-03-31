@@ -392,7 +392,7 @@ class DolmaGPT(nn.Module):
                     self.config.max_sequence_length,
                     self.config.max_sequence_length,
                     device=self.config.device,
-                    dtype=torch.float,
+                    dtype=torch.bfloat16,
                 ),
                 diagonal=1,
             )
@@ -409,17 +409,17 @@ class DolmaGPT(nn.Module):
         if not hasattr(self, "_alibi_attention_bias"):
             # shape: (1, 1, 1, seq_len)
             alibi_bias = torch.arange(
-                1 - self.config.max_sequence_length, 1, dtype=torch.float, device=self.config.device
+                1 - self.config.max_sequence_length, 1, dtype=torch.bfloat16, device=self.config.device
             ).view(1, 1, 1, self.config.max_sequence_length)
 
             # shape: (1, 1, seq_len, seq_len)
             alibi_bias = alibi_bias - torch.arange(
-                1 - self.config.max_sequence_length, 1, dtype=torch.float, device=self.config.device
+                1 - self.config.max_sequence_length, 1, dtype=torch.bfloat16, device=self.config.device
             ).view(1, 1, self.config.max_sequence_length, 1)
             alibi_bias.abs_().mul_(-1)
 
             # shape: (n_heads,)
-            m = torch.arange(1, self.config.n_heads + 1, dtype=torch.float, device=self.config.device)
+            m = torch.arange(1, self.config.n_heads + 1, dtype=torch.bfloat16, device=self.config.device)
             m.mul_(self.config.alibi_bias_max / self.config.n_heads)
 
             # shape: (1, n_heads, seq_len, seq_len)
@@ -488,7 +488,7 @@ class DolmaGPT(nn.Module):
         if attention_bias is not None or attention_mask is not None or self.config.alibi:
             if attention_bias is None:
                 # Default to causal attention bias.
-                attention_bias = self.causal_attention_bias.to(x.dtype)
+                attention_bias = self.causal_attention_bias
             elif attention_bias.dtype in (torch.int8, torch.bool):
                 attention_bias = attention_bias.to(dtype=torch.float)
                 attention_bias.masked_fill_(attention_bias == 0.0, float("-inf"))
