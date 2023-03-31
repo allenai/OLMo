@@ -480,7 +480,7 @@ class DolmaGPT(nn.Module):
         # Transform the attention mask into what the blocks expect.
         if attention_mask is not None:
             # shape: (batch_size, 1, 1, seq_len)
-            attention_mask = attention_mask.to(dtype=torch.float).view(batch_size, -1)[:, None, None, :]
+            attention_mask = attention_mask.to(dtype=x.dtype).view(batch_size, -1)[:, None, None, :]
             attention_mask = (1.0 - attention_mask) * torch.finfo(attention_mask.dtype).min
             attention_mask.masked_fill_(attention_mask == 1.0, float("-inf"))
 
@@ -488,7 +488,7 @@ class DolmaGPT(nn.Module):
         if attention_bias is not None or attention_mask is not None or self.config.alibi:
             if attention_bias is None:
                 # Default to causal attention bias.
-                attention_bias = self.causal_attention_bias
+                attention_bias = self.causal_attention_bias.to(x.dtype)
             elif attention_bias.dtype in (torch.int8, torch.bool):
                 attention_bias = attention_bias.to(dtype=torch.float)
                 attention_bias.masked_fill_(attention_bias == 0.0, float("-inf"))
@@ -501,7 +501,7 @@ class DolmaGPT(nn.Module):
 
             if self.config.alibi:
                 # Add in ALiBi attention bias.
-                attention_bias = attention_bias + self.alibi_attention_bias[:, :, :seq_len, :seq_len]
+                attention_bias = attention_bias + self.alibi_attention_bias[:, :, :seq_len, :seq_len].to(x.dtype)
 
         # Apply blocks one-by-one.
         for block in self.transformer.blocks:  # type: ignore
