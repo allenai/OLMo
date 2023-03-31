@@ -298,9 +298,10 @@ class GPTMLP(nn.Module):
             config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
         )
         self.act = Activation.build(config)
-        self.c_proj = nn.Linear(
-            config.mlp_ratio * config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
-        )
+        d_c_proj_in = config.mlp_ratio * config.d_model
+        if isinstance(self.act, SwiGLU):
+            d_c_proj_in = d_c_proj_in // 2
+        self.c_proj = nn.Linear(d_c_proj_in, config.d_model, bias=config.include_bias, device=config.init_device)
         self.c_proj._is_residual = True  # type: ignore
         self.dropout = nn.Dropout(config.residual_dropout)
 
