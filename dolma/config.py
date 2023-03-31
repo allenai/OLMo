@@ -275,6 +275,12 @@ class ModelConfig(BaseConfig):
     Standard deviation used when initializing parameters.
     """
 
+    precision: Optional[str] = None
+    """
+    Precision used to train/evaluate with. You shouldn't set this directly.
+    See :data:`TrainConfig.precision` instead.
+    """
+
     @property
     def device(self) -> Optional[str]:
         if self.init_device == "meta" or self.init_device is None:

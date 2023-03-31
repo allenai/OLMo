@@ -51,6 +51,8 @@ def main(cfg: TrainConfig) -> None:
         update_batch_size_info,
     )
 
+    cfg.model.precision = cfg.precision
+
     if get_node_rank() == 0:
         log.info("Configuration:")
         log.info(cfg)

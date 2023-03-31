@@ -385,6 +385,15 @@ class DolmaGPT(nn.Module):
             self.alibi_attention_bias
 
     @property
+    def buffer_dtype(self) -> torch.dtype:
+        if self.config.precision == "amp_bf16":
+            return torch.bfloat16
+        elif self.config.precision == "amp_fp16":
+            return torch.float16
+        else:
+            return torch.float
+
+    @property
     def causal_attention_bias(self) -> torch.FloatTensor:
         if not hasattr(self, "_causal_attention_bias"):
             att_bias = torch.triu(
@@ -399,7 +408,7 @@ class DolmaGPT(nn.Module):
             att_bias.masked_fill_(att_bias == 1, float("-inf"))
             self.register_buffer(
                 "_causal_attention_bias",
-                att_bias.to(dtype=torch.bfloat16).view(
+                att_bias.to(dtype=self.buffer_dtype).view(
                     1, 1, self.config.max_sequence_length, self.config.max_sequence_length
                 ),
                 persistent=False,
@@ -426,7 +435,7 @@ class DolmaGPT(nn.Module):
 
             # shape: (1, n_heads, seq_len, seq_len)
             alibi_bias = alibi_bias * (1.0 / (2 ** m.view(1, self.config.n_heads, 1, 1)))
-            self.register_buffer("_alibi_attention_bias", alibi_bias.to(torch.bfloat16), persistent=False)
+            self.register_buffer("_alibi_attention_bias", alibi_bias.to(dtype=self.buffer_dtype), persistent=False)
         return self._alibi_attention_bias  # type: ignore[return-type]
 
     def forward(
@@ -492,7 +501,7 @@ class DolmaGPT(nn.Module):
                 # Default to causal attention bias.
                 attention_bias = self.causal_attention_bias
             elif attention_bias.dtype in (torch.int8, torch.bool):
-                attention_bias = attention_bias.to(dtype=torch.float)
+                attention_bias = attention_bias.to(dtype=x.dtype)
                 attention_bias.masked_fill_(attention_bias == 0.0, float("-inf"))
 
             attention_bias = attention_bias[:, :, :seq_len, :seq_len]
