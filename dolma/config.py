@@ -174,7 +174,7 @@ class ModelConfig(BaseConfig):
     The ratio of the inner MLP dimensionality to ``d_model``.
     """
 
-    activation_type: ActivationType = ActivationType.gelu
+    activation_type: ActivationType = ActivationType.swiglu
     """
     The activation function to use within the MLP layers.
     """
