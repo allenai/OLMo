@@ -32,7 +32,8 @@ set -ex
 python -m wikiextractor.WikiExtractor \
     ${input_file} -o ${output_dir} \
     --processes 60 \
-    --bytes 50M \
+    --bytes 500M \
     --json \
+    --compress \
     --namespaces "[[Article]]"
 set +ex

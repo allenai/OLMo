@@ -8,21 +8,17 @@ python process_text.py \
 
 """
 
-import datetime
-import gc
 import gzip
-import json
-import os
 import string
-from collections import Counter
 from contextlib import ExitStack
 from functools import partial
 from multiprocessing import Manager, Pool, cpu_count, set_start_method
 from queue import Empty, Queue
-from tempfile import NamedTemporaryFile
 from threading import Thread
 from time import sleep
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Optional
+
+import orjson as json
 
 # import cld3
 # import numpy as np
@@ -84,7 +80,7 @@ def process_single(
         total_docs_cnt += docs_cnt
         total_tokens_cnt += tokens_cnt
 
-    return docs_cnt, tokens_cnt
+    return total_docs_cnt, total_tokens_cnt
 
 
 def threaded_progressbar(
