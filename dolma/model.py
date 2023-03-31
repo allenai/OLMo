@@ -392,14 +392,16 @@ class DolmaGPT(nn.Module):
                     self.config.max_sequence_length,
                     self.config.max_sequence_length,
                     device=self.config.device,
-                    dtype=torch.bfloat16,
+                    dtype=torch.float,
                 ),
                 diagonal=1,
             )
             att_bias.masked_fill_(att_bias == 1, float("-inf"))
             self.register_buffer(
                 "_causal_attention_bias",
-                att_bias.view(1, 1, self.config.max_sequence_length, self.config.max_sequence_length),
+                att_bias.to(dtype=torch.bfloat16).view(
+                    1, 1, self.config.max_sequence_length, self.config.max_sequence_length
+                ),
                 persistent=False,
             )
         return self._causal_attention_bias  # type: ignore[return-type]
@@ -409,22 +411,22 @@ class DolmaGPT(nn.Module):
         if not hasattr(self, "_alibi_attention_bias"):
             # shape: (1, 1, 1, seq_len)
             alibi_bias = torch.arange(
-                1 - self.config.max_sequence_length, 1, dtype=torch.bfloat16, device=self.config.device
+                1 - self.config.max_sequence_length, 1, dtype=torch.float, device=self.config.device
             ).view(1, 1, 1, self.config.max_sequence_length)
 
             # shape: (1, 1, seq_len, seq_len)
             alibi_bias = alibi_bias - torch.arange(
-                1 - self.config.max_sequence_length, 1, dtype=torch.bfloat16, device=self.config.device
+                1 - self.config.max_sequence_length, 1, dtype=torch.float, device=self.config.device
             ).view(1, 1, self.config.max_sequence_length, 1)
             alibi_bias.abs_().mul_(-1)
 
             # shape: (n_heads,)
-            m = torch.arange(1, self.config.n_heads + 1, dtype=torch.bfloat16, device=self.config.device)
+            m = torch.arange(1, self.config.n_heads + 1, dtype=torch.float, device=self.config.device)
             m.mul_(self.config.alibi_bias_max / self.config.n_heads)
 
             # shape: (1, n_heads, seq_len, seq_len)
             alibi_bias = alibi_bias * (1.0 / (2 ** m.view(1, self.config.n_heads, 1, 1)))
-            self.register_buffer("_alibi_attention_bias", alibi_bias, persistent=False)
+            self.register_buffer("_alibi_attention_bias", alibi_bias.to(torch.bfloat16), persistent=False)
         return self._alibi_attention_bias  # type: ignore[return-type]
 
     def forward(
