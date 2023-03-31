@@ -18,7 +18,7 @@ class Formatter():
                 doc = json.loads(line)
                 doc['metadata'] = doc['meta']
                 del doc['meta']
-                yield json.loads(line)
+                yield doc
 
 def main():
     parse = argparse.ArgumentParser("")
@@ -35,6 +35,7 @@ def main():
         for doc in data:
             doc['id'] = str(uuid4())
             doc['added'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            doc['source'] = args.in_format
             fout.write(json.dumps(doc) + '\n')
 
 
