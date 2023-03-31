@@ -218,7 +218,9 @@ class DolmaBlock(nn.Module):
         self.fused_attn_ff_proj._fused = (0, self.fused_dims)  # type: ignore
 
         # Attention output projection.
-        self.attn_out = nn.Linear(config.d_model, config.d_model)
+        self.attn_out = nn.Linear(
+            config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
+        )
 
         # Feed-forward output projection.
         self.ff_out = nn.Linear(d_act_out, config.d_model, bias=config.include_bias, device=config.init_device)
