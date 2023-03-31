@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from abc import abstractmethod
-from typing import NamedTuple, Optional
+from typing import NamedTuple, Optional, cast
 
 import torch
 import torch.backends.cuda
@@ -16,7 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import einsum
 
-from .config import LayerNormType, ModelConfig
+from .config import ActivationType, LayerNormType, ModelConfig
 from .exceptions import DolmaConfigurationError
 
 __all__ = [
@@ -25,6 +25,8 @@ __all__ = [
     "RMSLayerNorm",
     "RotaryEmbedding",
     "TorchAttention",
+    "Activation",
+    "SwiGLU",
     "GPTMLP",
     "GPTBlock",
     "DolmaGPT",
@@ -41,7 +43,7 @@ class LayerNormBase(nn.Module):
         raise NotImplementedError
 
     @classmethod
-    def build(cls, config: ModelConfig) -> LayerNorm:
+    def build(cls, config: ModelConfig) -> LayerNormBase:
         if config.layer_norm_type == LayerNormType.default:
             return LayerNorm(config, low_precision=False)
         elif config.layer_norm_type == LayerNormType.low_precision:
@@ -187,11 +189,11 @@ class TorchAttention(nn.Module):
         self.resid_dropout = nn.Dropout(config.residual_dropout)
 
         # optional layer norm for keys and queries.
-        self.k_ln: Optional[LayerNorm] = None
-        self.q_ln: Optional[LayerNorm] = None
+        self.k_ln: Optional[LayerNormBase] = None
+        self.q_ln: Optional[LayerNormBase] = None
         if config.attention_layer_norm:
-            self.k_ln = LayerNorm.build(config)
-            self.q_ln = LayerNorm.build(config)
+            self.k_ln = LayerNormBase.build(config)
+            self.q_ln = LayerNormBase.build(config)
 
         if self.use_rope:
             # RoPE.
@@ -262,13 +264,40 @@ class TorchAttention(nn.Module):
         return att
 
 
+class Activation(nn.Module):
+    def __init__(self, config: ModelConfig):
+        super().__init__()
+        self.config = config
+
+    @abstractmethod
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError
+
+    @classmethod
+    def build(cls, config: ModelConfig) -> Activation:
+        if config.activation_type == ActivationType.gelu:
+            return cast(Activation, nn.GELU(approximate="none"))
+        elif config.activation_type == ActivationType.relu:
+            return cast(Activation, nn.ReLU(inplace=False))
+        elif config.activation_type == ActivationType.swiglu:
+            return SwiGLU(config)
+        else:
+            raise NotImplementedError(f"not sure how to handle activation type '{config.activation_type}'")
+
+
+class SwiGLU(Activation):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x, gate = x.chunk(2, dim=-1)
+        return F.silu(gate) * x
+
+
 class GPTMLP(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.c_fc = nn.Linear(
             config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
         )
-        self.act = nn.GELU(approximate="none")
+        self.act = Activation.build(config)
         self.c_proj = nn.Linear(
             config.mlp_ratio * config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
         )

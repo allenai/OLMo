@@ -25,6 +25,7 @@ from .aliases import PathOrStr
 from .exceptions import DolmaConfigurationError
 
 __all__ = [
+    "ActivationType",
     "CompilerConfig",
     "LayerNormType",
     "ModelConfig",
@@ -139,6 +140,12 @@ class LayerNormType(StrEnum):
     """
 
 
+class ActivationType(StrEnum):
+    gelu = "gelu"
+    relu = "relu"
+    swiglu = "swiglu"
+
+
 @dataclass
 class ModelConfig(BaseConfig):
     """
@@ -165,6 +172,11 @@ class ModelConfig(BaseConfig):
     mlp_ratio: int = 4
     """
     The ratio of the inner MLP dimensionality to ``d_model``.
+    """
+
+    activation_type: ActivationType = ActivationType.gelu
+    """
+    The activation function to use within the MLP layers.
     """
 
     alibi: bool = False
