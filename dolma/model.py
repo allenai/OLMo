@@ -24,12 +24,10 @@ __all__ = [
     "LayerNorm",
     "RMSLayerNorm",
     "RotaryEmbedding",
-    "TorchAttention",
     "Activation",
     "SwiGLU",
-    "GPTMLP",
-    "GPTBlock",
-    "DolmaGPT",
+    "DolmaBlock",
+    "Dolma",
 ]
 
 
@@ -162,108 +160,6 @@ def apply_rotary_pos_emb(pos: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
     return out.to(t.dtype)
 
 
-class TorchAttention(nn.Module):
-    def __init__(self, config: ModelConfig):
-        super().__init__()
-        assert config.d_model % config.n_heads == 0
-        self.n_heads = config.n_heads
-        self.d_model = config.d_model
-        self.attn_dropout_p = config.attention_dropout
-        self.use_rope = config.rope
-
-        # key, query, value projections for all heads, but in a batch.
-        self.c_attn = nn.Linear(
-            config.d_model, 3 * config.d_model, bias=config.include_bias, device=config.init_device
-        )
-        # for param init fn.
-        self.c_attn._fused = (0, (self.d_model, 2 * self.d_model))  # type: ignore
-
-        # output projection.
-        self.c_proj = nn.Linear(
-            config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
-        )
-        # for param init fn.
-        self.c_proj._is_residual = True  # type: ignore
-
-        # extra regularization.
-        self.resid_dropout = nn.Dropout(config.residual_dropout)
-
-        # optional layer norm for keys and queries.
-        self.k_ln: Optional[LayerNormBase] = None
-        self.q_ln: Optional[LayerNormBase] = None
-        if config.attention_layer_norm:
-            self.k_ln = LayerNormBase.build(config)
-            self.q_ln = LayerNormBase.build(config)
-
-        if self.use_rope:
-            # RoPE.
-            self.rotary_emb = RotaryEmbedding(config)
-            self.register_buffer(
-                "pos_emb", self.rotary_emb(config.max_sequence_length, device=config.init_device), persistent=False
-            )
-
-    def get_rotary_embedding(self, seq_len, device):
-        if self.pos_emb is not None and self.pos_emb.shape[-2] >= seq_len:  # type: ignore
-            return self.pos_emb[:seq_len]  # type: ignore
-
-        pos_emb = self.rotary_emb(seq_len, device=device)
-        self.register_buffer("pos_emb", pos_emb, persistent=False)
-        return pos_emb
-
-    def forward(
-        self,
-        x: torch.FloatTensor,
-        attention_bias: Optional[torch.FloatTensor] = None,
-    ) -> torch.FloatTensor:
-        """
-        :param x: A tensor of shape `(batch_size, seq_len, d_model)`.
-        :param attention_bias: A tensor of shape `(batch_size, n_heads, seq_len, seq_len)`
-            or an equivalently broadcastable shape. This is used to introduce causal or other biases
-            and it is simply added to the attention scores before the softmax.
-        """
-        B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (d_model)
-
-        # Calculate query, key, values for all heads in batch.
-        # shape (all): (B, T, C)
-        q, k, v = self.c_attn(x).split(self.d_model, dim=2)
-        dtype = k.dtype
-
-        # Optionally apply layer norm to keys and queries.
-        if self.q_ln is not None and self.k_ln is not None:
-            q = self.q_ln(q).to(dtype=dtype)
-            k = self.k_ln(k).to(dtype=dtype)
-
-        # Move head forward to be next to the batch dim.
-        # shape (all): (B, nh, T, hs)
-        q = q.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
-        k = k.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
-        v = v.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
-
-        if self.use_rope:
-            # Apply rotary embeddings.
-            positions = self.get_rotary_embedding(T, x.device)
-            q, k = map(lambda t: apply_rotary_pos_emb(positions, t), (q, k))
-
-        # Apply SDP.
-        # shape: (B, nh, T, hs)
-        att = F.scaled_dot_product_attention(
-            q,
-            k,
-            v,
-            attn_mask=None if attention_bias is None else attention_bias.to(dtype=dtype),
-            dropout_p=0.0 if not self.training else self.attn_dropout_p,
-            is_causal=attention_bias is None,
-        )
-
-        # Re-assemble all head outputs side-by-side.
-        att = att.transpose(1, 2).contiguous().view(B, T, C)
-
-        # Apply output projection.
-        att = self.resid_dropout(self.c_proj(att))
-
-        return att
-
-
 class Activation(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
@@ -291,44 +187,109 @@ class SwiGLU(Activation):
         return F.silu(gate) * x
 
 
-class GPTMLP(nn.Module):
-    def __init__(self, config: ModelConfig):
-        super().__init__()
-        self.c_fc = nn.Linear(
-            config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
-        )
-        self.act = Activation.build(config)
-        d_c_proj_in = config.mlp_ratio * config.d_model
-        if isinstance(self.act, SwiGLU):
-            d_c_proj_in = d_c_proj_in // 2
-        self.c_proj = nn.Linear(d_c_proj_in, config.d_model, bias=config.include_bias, device=config.init_device)
-        self.c_proj._is_residual = True  # type: ignore
-        self.dropout = nn.Dropout(config.residual_dropout)
-
-    def forward(self, x):
-        return self.dropout(self.c_proj(self.act(self.c_fc(x))))
-
-
-class GPTBlock(nn.Module):
+class DolmaBlock(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.config = config
-        self.ln_1 = LayerNorm.build(config)
-        self.attn = TorchAttention(config)
-        self.ln_2 = LayerNorm.build(config)
-        self.mlp = GPTMLP(config)
+        assert config.d_model % config.n_heads == 0
+
+        # Dropout.
+        self.dropout = nn.Dropout(config.residual_dropout)
+
+        # Layer norms.
+        self.norm = LayerNorm.build(config)
+        self.k_norm: Optional[LayerNormBase] = None
+        self.q_norm: Optional[LayerNormBase] = None
+        if config.attention_layer_norm:
+            self.k_norm = LayerNormBase.build(config)
+            self.q_norm = LayerNormBase.build(config)
+
+        # Activation function.
+        self.act = Activation.build(config)
+        d_act_out = config.mlp_ratio * config.d_model
+        if isinstance(self.act, SwiGLU):
+            d_act_out = d_act_out // 2
+
+        # Fused attention and feed-forward projection.
+        self.fused_dims = (config.d_model, config.d_model, config.d_model, config.mlp_ratio * config.d_model)
+        self.fused_attn_ff_proj = nn.Linear(
+            config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
+        )
+        self.fused_attn_ff_proj._fused = (0, self.fused_dims)  # type: ignore
+
+        # Attention output projection.
+        self.attn_out = nn.Linear(config.d_model, config.d_model)
+
+        # Feed-forward output projection.
+        self.ff_out = nn.Linear(d_act_out, config.d_model, bias=config.include_bias, device=config.init_device)
+        self.ff_out._is_residual = True  # type: ignore
+
+        # Rotary embeddings.
+        if self.config.rope:
+            self.rotary_emb = RotaryEmbedding(config)
+            self.register_buffer(
+                "pos_emb", self.rotary_emb(config.max_sequence_length, device=config.init_device), persistent=False
+            )
 
     def forward(
         self,
         x: torch.Tensor,
         attention_bias: Optional[torch.FloatTensor] = None,
     ) -> torch.Tensor:
-        x = x + self.attn(self.ln_1(x), attention_bias=attention_bias)
-        x = x + self.mlp(self.ln_2(x))
-        return x
+        # We're computing: MLP(LN(x)) + Attention(LN(x))
+        # This differs from the standard transformer block which looks like: MLP(LN(x + Attention(LN(x))))
+
+        B, T, C = x.size()  # batch size, sequence length, d_model
+
+        x = self.norm(x)
+
+        # Get query, key, value, and feed-forward projections.
+        # shape of q, k, v: (B, T, C), shape of ff: (B, T, ff inner)
+        q, k, v, ff = self.fused_attn_ff_proj(x).split(self.fused_dims, dim=-1)
+        dtype = k.dtype
+
+        # Optionally apply layer norm to keys and queries.
+        if self.q_norm is not None and self.k_norm is not None:
+            q = self.q_norm(q).to(dtype=dtype)
+            k = self.k_norm(k).to(dtype=dtype)
+
+        # Move head forward to be next to the batch dim.
+        # shape (all): (B, nh, T, hs)
+        q = q.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
+        k = k.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
+        v = v.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
+
+        if self.config.rope:
+            # Apply rotary embeddings.
+            positions = self.get_rotary_embedding(T, x.device)
+            q, k = map(lambda t: apply_rotary_pos_emb(positions, t), (q, k))
+
+        # Get the attention scores.
+        # shape: (B, nh, T, hs)
+        att = F.scaled_dot_product_attention(
+            q,
+            k,
+            v,
+            attn_mask=None if attention_bias is None else attention_bias.to(dtype=dtype),
+            dropout_p=0.0 if not self.training else self.config.attention_dropout,
+            is_causal=attention_bias is None,
+        )
+
+        # Re-assemble all head outputs side-by-side.
+        att = att.transpose(1, 2).contiguous().view(B, T, C)
+
+        return self.dropout(self.ff_out(self.act(ff))) + self.dropout(self.attn_out(att))
+
+    def get_rotary_embedding(self, seq_len: int, device: Optional[torch.device]) -> torch.Tensor:
+        if self.pos_emb is not None and self.pos_emb.shape[-2] >= seq_len:  # type: ignore
+            return self.pos_emb[:seq_len]  # type: ignore
+
+        pos_emb = self.rotary_emb(seq_len, device=device)
+        self.register_buffer("pos_emb", pos_emb, persistent=False)
+        return pos_emb
 
 
-class DolmaGPTOutput(NamedTuple):
+class DolmaOutput(NamedTuple):
     logits: torch.FloatTensor
     """
     A tensor of shape `(batch_size, seq_len, vocab_size)` representing the log probabilities
@@ -336,7 +297,7 @@ class DolmaGPTOutput(NamedTuple):
     """
 
 
-class DolmaGPT(nn.Module):
+class Dolma(nn.Module):
     def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
         self.config = config
@@ -367,7 +328,7 @@ class DolmaGPT(nn.Module):
                     config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
                 ),
                 emb_drop=nn.Dropout(config.embedding_dropout),
-                blocks=nn.ModuleList([GPTBlock(config) for _ in range(config.n_layers)]),
+                blocks=nn.ModuleList([DolmaBlock(config) for _ in range(config.n_layers)]),
                 ln_f=LayerNorm.build(config),
             )
         )
@@ -448,7 +409,7 @@ class DolmaGPT(nn.Module):
         input_ids: torch.LongTensor,
         attention_mask: Optional[torch.Tensor] = None,
         attention_bias: Optional[torch.Tensor] = None,
-    ) -> DolmaGPTOutput:
+    ) -> DolmaOutput:
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
         :param attention_mask: A tensor of shape `(batch_size, seq_len)` that indicates
@@ -522,7 +483,7 @@ class DolmaGPT(nn.Module):
         # Apply blocks one-by-one.
         for block in self.transformer.blocks:  # type: ignore
             # shape: (batch_size, seq_len, d_model)
-            x = block(x, attention_bias=attention_bias)
+            x = x + block(x, attention_bias=attention_bias)
 
         # Apply final layer norm.
         # shape: (batch_size, seq_len, d_model)
@@ -532,13 +493,13 @@ class DolmaGPT(nn.Module):
         # shape: (batch_size, seq_len, vocab_size)
         logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
 
-        return DolmaGPTOutput(logits=logits)  # type: ignore[arg-type]
+        return DolmaOutput(logits=logits)  # type: ignore[arg-type]
 
     def fsdp_wrap_fn(self, module):
-        return isinstance(module, GPTBlock)
+        return isinstance(module, DolmaBlock)
 
     def activation_checkpointing_fn(self, module):
-        return isinstance(module, GPTBlock)
+        return isinstance(module, DolmaBlock)
 
     def param_init_fn(self, module):
         from functools import partial
