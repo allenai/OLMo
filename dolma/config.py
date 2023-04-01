@@ -25,6 +25,7 @@ from .aliases import PathOrStr
 from .exceptions import DolmaConfigurationError
 
 __all__ = [
+    "ActivationType",
     "CompilerConfig",
     "LayerNormType",
     "ModelConfig",
@@ -139,6 +140,12 @@ class LayerNormType(StrEnum):
     """
 
 
+class ActivationType(StrEnum):
+    gelu = "gelu"
+    relu = "relu"
+    swiglu = "swiglu"
+
+
 @dataclass
 class ModelConfig(BaseConfig):
     """
@@ -165,6 +172,11 @@ class ModelConfig(BaseConfig):
     mlp_ratio: int = 4
     """
     The ratio of the inner MLP dimensionality to ``d_model``.
+    """
+
+    activation_type: ActivationType = ActivationType.swiglu
+    """
+    The activation function to use within the MLP layers.
     """
 
     alibi: bool = False
@@ -261,6 +273,12 @@ class ModelConfig(BaseConfig):
     init_std: float = 0.02
     """
     Standard deviation used when initializing parameters.
+    """
+
+    precision: Optional[str] = None
+    """
+    Precision used to train/evaluate with. You shouldn't set this directly.
+    See :data:`TrainConfig.precision` instead.
     """
 
     @property

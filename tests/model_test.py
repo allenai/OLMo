@@ -2,7 +2,7 @@ import pytest
 import torch
 from torch.nn import CrossEntropyLoss
 
-from dolma import DolmaGPT, ModelConfig, Tokenizer, TrainConfig
+from dolma import Dolma, ModelConfig, Tokenizer, TrainConfig
 from dolma.composer import build_optimizer
 from dolma.data import DataCollator
 
@@ -96,7 +96,7 @@ def test_forward(
 
     use_amp = dtype in {torch.float16, torch.bfloat16}
 
-    model = DolmaGPT(train_config.model).eval()
+    model = Dolma(train_config.model).eval()
 
     input1 = tokenizer.encode("My name is DOLMA!")
     input2 = tokenizer.encode("I'm a delightful large open language model :)")
@@ -193,7 +193,7 @@ def test_backward(
     else:
         train_config.model.init_device = "cpu"
 
-    model = DolmaGPT(train_config.model).train()
+    model = Dolma(train_config.model).train()
 
     with torch.autocast(
         device_type="cuda" if cuda else "cpu", enabled=use_amp, dtype=None if not use_amp else dtype
@@ -225,4 +225,4 @@ def test_backward(
 
 
 def test_build_optimizer(model_config: ModelConfig):
-    build_optimizer(DolmaGPT(model_config))
+    build_optimizer(Dolma(model_config))

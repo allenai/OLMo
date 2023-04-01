@@ -25,7 +25,7 @@ from typing import List, cast
 
 import torch
 
-from dolma import DolmaGPT, TrainConfig
+from dolma import Dolma, TrainConfig
 from dolma.exceptions import DolmaCliError
 from dolma.util import clean_opt, log_extra_field, prepare_cli_environment
 
@@ -50,6 +50,8 @@ def main(cfg: TrainConfig) -> None:
         build_scheduler,
         update_batch_size_info,
     )
+
+    cfg.model.precision = cfg.precision
 
     if get_node_rank() == 0:
         log.info("Configuration:")
@@ -76,7 +78,7 @@ def main(cfg: TrainConfig) -> None:
         )
 
     # Initialize the model.
-    dolma_model = DolmaGPT(cfg.model)
+    dolma_model = Dolma(cfg.model)
     if get_node_rank() == 0:
         log.info(f"Total number of parameters: {dolma_model.num_params():,d}")
         log.info(
@@ -89,7 +91,7 @@ def main(cfg: TrainConfig) -> None:
         if compile_kwargs.get("fullgraph") is None:
             compile_kwargs["fullgraph"] = cfg.fsdp_config is None
         # As far as duck typing is concerned, this is still a DolmaGPT object.
-        dolma_model = cast(DolmaGPT, torch.compile(dolma_model, **compile_kwargs))
+        dolma_model = cast(Dolma, torch.compile(dolma_model, **compile_kwargs))
 
     # Optimizer.
     optimizer = build_optimizer(dolma_model, **cfg.optimizer.asdict())
