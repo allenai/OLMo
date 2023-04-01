@@ -68,6 +68,9 @@ def process_url(url: str, id_: str, base_path: MultiPath, _depth: int = 1) -> Tu
     if _depth < 0:
         return "depth exceeded", False, []
 
+    if not isinstance(url, str):
+        return "invalid url", False, []
+
     if "||" in url:
         success = False
         urls = set(u.strip() for u in url.split("||") if u.strip())
