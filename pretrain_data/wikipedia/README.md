@@ -114,7 +114,7 @@ Follow these steps to process the raw Wikipedia data into a format suitable for 
     ```bash
     python -m pretrain_data_wikipedia.compress \
         local_src=/net/nfs2.s2-research/lucas/wikipedia-processed \
-        local_dst=/net/nfs2.s2-research/lucas/wikipedia-processed-compressed \
+        local_dst=s3://ai2-llm/pretrain_data/wikipedia/v0/documents \
         parallel=4
     ```
 

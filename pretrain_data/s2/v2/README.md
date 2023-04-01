@@ -1,6 +1,8 @@
 # S2 V2
 
-## S2ORC (Full-text Papers)
+## Clean-up Steps
+
+### S2ORC (Full-text Papers)
 
 Cleaned version of the S2ORC corpus, which contains full-text papers across multiple disciplines.
 Unflitered, the corpus contains 11.3M papers and 46.9B whitespace-separated tokens.
@@ -20,22 +22,7 @@ To clean S2ORC, we impose the following constraints:
 - The most frequent word in the paper consists of alpha characters only, and it appears in less than 7.5% of the document.
   - Words are obtained by splitting the text on whitespace.
 
-
-Train data is anything published before 2022-12-01; validation data is anything published after 2022-12-01 and until 2023-01-03.
-
-|Split|Documents|Approx Word Count|Location|
-|---|---|---|---|
-train|8,855,051|39,088,566,059|`s3://ai2-llm/pretraining-data/sources/s2/v2_dedup/dataset=s2orc/split=train`
-validation|83,217|465,425,062|`s3://ai2-llm/pretraining-data/sources/s2/v2_dedup/dataset=s2orc/split=valid`
-
-The set above is deduped by paper ID only, meaning that we keep multiple version of a paper if we have any. If you want to keep only one version of each paper, the stats are:
-
-|Split|Abstracts|Approx Word Count|Location|
-|---|---|---|---|
-train|8,207,327|35,933,376,971|`s3://ai2-llm/pretraining-data/sources/s2/v2_hard_dedup/dataset=s2orc/split=train`
-validation|70,641|380,402,164|`s3://ai2-llm/pretraining-data/sources/s2/v2_hard_dedup/dataset=s2orc/split=valid`
-
-## S2AG (Titles and Abstracts Papers)
+### S2AG (Titles and Abstracts Papers)
 
 The S2AG corpus contains titles and abstracts of papers in Semantic Scholar.
 Unfiltered, the corpus contains 91.1M papers and 15.5B whitespace-separated tokens, but we impose the following constraints:
@@ -50,55 +37,36 @@ Unfiltered, the corpus contains 91.1M papers and 15.5B whitespace-separated toke
 - The most frequent word in the union of text and abstract must be a 2+ character alpha word, or it can be `a` followed by a 2+ character alpha word.
 - Paper was published after 1969.
 
-|Split|Abstracts|Approx Word Count|Location|
-|---|---|---|---|
-train|59,161,485|10,963,156,902|`s3://ai2-llm/pretraining-data/sources/s2/v2_dedup/dataset=s2ag/split=train`
-validation|119,268|26,130,632|`s3://ai2-llm/pretraining-data/sources/s2/v2_dedup/dataset=s2ag/split=valid`
 
+## Dataset Statistics
 
-## Format
-
-Data is available in JSONL format at the following locations:
-
-```
-s3://ai2-s2-research-public/lucas/s2_oa_pretrain_data/
-|-- v2/
-|   |-- s2ag/
-|   |   |-- train/
-|   |   |-- valid/
-|   |-- s2orc/
-|   |   |-- train/
-|   |   |-- valid/
-```
-
-Each directory contains 30 gzipped files, each of which contains a JSONL file. Each line contains the following keys:
-- `id`: The paper ID.
-- `sha1` (optional): The SHA1 hash of the paper.
-- `text`: The text of the paper. Sections are separated by two newlines, i.e. `\n\n`; paragraphs are separated by a single newline, i.e. `\n`.
-  - For full text papers, each text looks like `[title]\n\n[abstract]\n\n[section header]\n[paragraph]\n\n[paragraph]\n\n[section header]\n\n[paragraph]\n\n[...]`
-  - For titles and abstracts, each text looks like `[title]\n\n[abstract]`
-
-
-## How do I get counts?
+### How To Compute Them
 
 First, create the following athena table:
 
 ```sql
-CREATE EXTERNAL TABLE `s2_v2_dedup` (
-id int,
-sha1 string,
-text string
+CREATE EXTERNAL TABLE IF NOT EXISTS  `llm_s2_v2` (
+  id string,
+  source string,
+  version string,
+  added string,
+  created string,
+  text string
 )
 PARTITIONED BY (dataset string, split string)
-ROW FORMAT serde 'org.apache.hive.hcatalog.data.JsonSerDe'
-LOCATION 's3://ai2-llm/pretraining-data/sources/s2/v2_dedup/'
+ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'
+LOCATION 's3://ai2-llm/pretraining-data/sources/s2/v2/documents'
+TBLPROPERTIES (
+  'classification'='json',
+  'compressionType'='gzip'
+)
 ```
 
 Then, set up partitions for the table:
 
 
 ```sql
-MSCK REPAIR TABLE `s2_v2_dedup`
+MSCK REPAIR TABLE `llm_s2_v2`
 ```
 
 Finally, run the following query:
@@ -118,7 +86,49 @@ FROM (
     ) AS cnt,
     dataset,
     split
-    FROM "temp_lucas"."s2_v2_dedup"
+    FROM "llm_s2_v2"
 )
 GROUP BY dataset, split
+ORDER BY dataset, split
 ```
+
+### Statistics
+
+Papers published before 2022-12-01 are used as training data, and papers published on or after 2022-12-01 are used for validation.
+
+| Dataset | Split   | Docs        | Tokens         |
+|:-------:|:-------:|:-----------:|:--------------:|
+|s2orc    | train   | 8,242,162   | 36,088,195,908 |
+|s2orc    | valid   | 51,323      | 255,139,074    |
+|s2ag     | train   | 59,382,301  | 11,009,123,378 |
+|s2ag     | valid   | 111,228     | 24,398,512     |
+
+## How to Create the Dataset
+
+### S2AG
+
+1. Run `obtain_data/s2ag.sql` in Athena.
+2. Run `process_s2ag.py` to add language ID and log probabilities.
+
+```bash
+python pretrain_data/s2/v2/process_s2ag.py \
+  src=s3://ai2-llm/pretraining-data/sources/s2/raw/2023_01_03/s2ag/ \
+  dst=s3://ai2-llm/pretraining-data/sources/s2/v0/documents/dataset=s2ag \
+  parallel=96
+```
+3. Import data into athena with `load_as_table/s2ag.sql`.
+4. Run queries in `process_corpus_dedup` and `process_corpus_hard_dedup` to create V2 and V2 hard deduped versions of the corpus.
+
+### S2ORC
+
+1. Run `obtain_data/s2orc_paragraphs.sql` in Athena.
+2. Run `process_s2orc.py` to add language ID and log probabilities.
+
+```bash
+python pretrain_data/s2/v2/process_s2orc.py \
+  src=s3://ai2-llm/pretraining-data/sources/s2/raw/2023_01_03/s2orc/ \
+  dst=s3://ai2-llm/pretraining-data/sources/s2/v0/documents/dataset=s2orc \
+  parallel=96
+```
+3. Import data into athena with `load_as_table/s2orc_paragraphs.sql`.
+4. Run queries in `process_corpus_dedup` and `process_corpus_hard_dedup` to create V2 and V2 hard deduped versions of the corpus.
