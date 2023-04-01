@@ -23,7 +23,7 @@ from .config import (
 )
 from .data import DataCollator, MemMapDataset
 from .exceptions import DolmaConfigurationError
-from .model import DolmaGPT, DolmaGPTOutput, LayerNormBase
+from .model import Dolma, DolmaOutput, LayerNormBase
 from .optim import DecoupledLionW
 
 log = logging.getLogger(__name__)
@@ -39,9 +39,9 @@ __all__ = [
 
 
 class ComposerDolmaGPT(ComposerModel):
-    def __init__(self, model_or_config: Union[DolmaGPT, ModelConfig]):
+    def __init__(self, model_or_config: Union[Dolma, ModelConfig]):
         super().__init__()
-        self.model = DolmaGPT(model_or_config) if isinstance(model_or_config, ModelConfig) else model_or_config
+        self.model = Dolma(model_or_config) if isinstance(model_or_config, ModelConfig) else model_or_config
         self.config = self.model.config
         self.num_fwd_flops = self.model.num_fwd_flops
 
@@ -57,21 +57,21 @@ class ComposerDolmaGPT(ComposerModel):
             labels = labels.masked_fill(attention_mask == 0.0, -100)
         return labels[..., 1:].contiguous()
 
-    def forward(self, batch: BatchDict) -> DolmaGPTOutput:
+    def forward(self, batch: BatchDict) -> DolmaOutput:
         return self.model(**batch)
 
-    def loss(self, outputs: DolmaGPTOutput, batch: BatchDict) -> torch.Tensor:
+    def loss(self, outputs: DolmaOutput, batch: BatchDict) -> torch.Tensor:
         labels = self.get_labels(batch)
         shift_logits = outputs.logits[..., :-1, :].contiguous()
         return F.cross_entropy(shift_logits.view(-1, shift_logits.size(-1)), labels.view(-1), ignore_index=-100)
 
-    def eval_forward(self, batch: BatchDict, outputs: Optional[DolmaGPTOutput] = None) -> DolmaGPTOutput:
+    def eval_forward(self, batch: BatchDict, outputs: Optional[DolmaOutput] = None) -> DolmaOutput:
         return outputs if outputs is not None else self.forward(batch)
 
     def get_metrics(self, is_train: bool = False) -> Dict[str, "Metric"]:
         return self.train_metrics if is_train else self.eval_metrics
 
-    def update_metric(self, batch: BatchDict, outputs: DolmaGPTOutput, metric: "Metric") -> None:
+    def update_metric(self, batch: BatchDict, outputs: DolmaOutput, metric: "Metric") -> None:
         labels = self.get_labels(batch)
         shift_logits = outputs.logits[..., :-1, :].contiguous()
         metric.update(shift_logits.view(-1, shift_logits.size(-1)), labels.view(-1))
