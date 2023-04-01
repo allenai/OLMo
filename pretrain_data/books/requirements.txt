@@ -3,5 +3,5 @@ pandas
 springs
 fake-useragent
 requests
-bs4
+beautifulsoup4
 tqdm
