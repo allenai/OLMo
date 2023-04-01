@@ -2,7 +2,6 @@ import json
 import multiprocessing
 import tempfile
 from functools import partial
-from pathlib import Path
 from typing import List, Optional, Tuple
 from urllib.parse import urljoin
 
@@ -14,6 +13,7 @@ from bs4 import BeautifulSoup
 from bs4.element import Tag
 from cached_path import cached_path
 from fake_useragent import UserAgent
+from smashed.utils.io_utils import MultiPath, open_file_for_write
 
 UA = UserAgent()
 
@@ -64,11 +64,9 @@ class Config:
     parallel: int = sp.field(default=1, help="Number of parallel downloads.")
 
 
-def process_url(url: str, id_: str, base_path: Path, _depth: int = 1) -> Tuple[str, bool, List[str]]:
+def process_url(url: str, id_: str, base_path: MultiPath, _depth: int = 1) -> Tuple[str, bool, List[str]]:
     if _depth < 0:
         return "depth exceeded", False, []
-
-    base_path.mkdir(parents=True, exist_ok=True)
 
     if "||" in url:
         success = False
@@ -91,7 +89,7 @@ def process_url(url: str, id_: str, base_path: Path, _depth: int = 1) -> Tuple[s
         return f"status code {response.status_code}", False, []
 
     if response.headers["content-type"].startswith("application/pdf"):
-        with open(base_path / f"{id_}.pdf", "wb") as f:
+        with open_file_for_write(base_path / f"{id_}.pdf", "wb") as f:
             f.write(response.content)
         return "pdf", True, [url]
 
@@ -115,7 +113,7 @@ def process_url(url: str, id_: str, base_path: Path, _depth: int = 1) -> Tuple[s
     return "unknown", False, []
 
 
-def process_single(config: dict, base_path: Path):
+def process_single(config: dict, base_path: MultiPath):
     meta_path = base_path / "metadata"
     data_path = base_path / "data"
 
@@ -133,7 +131,7 @@ def process_single(config: dict, base_path: Path):
 
     metadata.update({"type": content_type, "success": success})
 
-    with open(meta_path / f"{id_}.json", "w") as f:
+    with open_file_for_write(meta_path / f"{id_}.json", "w") as f:
         json.dump(metadata, f)
 
 
@@ -141,20 +139,16 @@ def process_single(config: dict, base_path: Path):
 def main(config: Config):
     if config.debug:
         url = config.debug
-        base_path = Path(tempfile.gettempdir())
+        base_path = MultiPath.parse(tempfile.gettempdir())
         print(process_url(url, "debug", base_path))
         return
 
     df = pd.read_csv(cached_path(config.metadata))
-    data_path = Path(config.destination) / "data"
-    meta_path = Path(config.destination) / "metadata"
-    data_path.mkdir(parents=True, exist_ok=True)
-    meta_path.mkdir(parents=True, exist_ok=True)
-
     data = df.to_dict(orient="records")
+    base_path = MultiPath.parse(config.destination)
 
     if config.parallel > 1:
-        fn = partial(process_single, base_path=Path(config.destination))
+        fn = partial(process_single, base_path=base_path)
         with multiprocessing.Pool(config.parallel) as pool:
             for _ in tqdm.tqdm(pool.imap_unordered(fn, data), total=len(data), desc="Downloading Books"):
                 ...
@@ -164,7 +158,7 @@ def main(config: Config):
 
     else:
         for elem in tqdm.tqdm(data, desc="Downloading Books"):
-            process_single(elem, base_path=Path(config.destination))
+            process_single(elem, base_path=base_path)
 
 
 if __name__ == "__main__":
