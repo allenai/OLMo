@@ -170,7 +170,7 @@ def main(config: Config):
             for _ in tqdm.tqdm(
                 pool.imap_unordered(fn, data),
                 total=len(data) + len(already_processed),
-                desc="Downloading Books",
+                desc="Downloading DOAB books",
                 initial=len(already_processed),
                 unit=" books",
                 unit_scale=True,
@@ -183,7 +183,7 @@ def main(config: Config):
     else:
         for elem in tqdm.tqdm(
             data,
-            desc="Downloading Books",
+            desc="Downloading DOAB books",
             initial=len(already_processed),
             total=len(data) + len(already_processed),
             unit=" books",
