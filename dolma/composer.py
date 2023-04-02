@@ -1,7 +1,8 @@
 import logging
 import math
 import warnings
-from typing import Any, Dict, Optional, Tuple, Union
+from fnmatch import fnmatch
+from typing import Any, Dict, Optional, Set, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -87,13 +88,15 @@ class ComposerDolmaGPT(ComposerModel):
 
 
 class DolmaConsoleLogger(ConsoleLogger):
-    metrics_to_log: set[str] = {"loss/train/total", "trainer/global_step"}
+    metrics_to_log: Set[str] = {"loss/train/total", "trainer/global_step", "metrics/eval/*"}
 
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: dict[str, float], step: Optional[int] = None) -> None:
         del step
         # Lazy logging of metrics.
         # Stores all metrics logged until they are cleared with a log_to_console call
-        self.logged_metrics.update({k: metrics[k] for k in self.metrics_to_log if k in metrics})
+        self.logged_metrics.update(
+            {k: v for k, v in metrics.items() if any(fnmatch(k, pattern) for pattern in self.metrics_to_log)}
+        )
 
     def _log_hparams_to_console(self):
         if dist.get_local_rank() == 0:
