@@ -13,7 +13,11 @@ from bs4 import BeautifulSoup
 from bs4.element import Tag
 from cached_path import cached_path
 from fake_useragent import UserAgent
-from smashed.utils.io_utils import MultiPath, open_file_for_write
+from smashed.utils.io_utils import (
+    MultiPath,
+    open_file_for_write,
+    recursively_list_files,
+)
 
 UA = UserAgent()
 
@@ -91,12 +95,14 @@ def process_url(url: str, id_: str, base_path: MultiPath, _depth: int = 1) -> Tu
     if response.status_code >= 400:
         return f"status code {response.status_code}", False, []
 
-    if response.headers["content-type"].startswith("application/pdf"):
+    content_type = response.headers.get("content-type", "unknown")
+
+    if content_type.startswith("application/pdf"):
         with open_file_for_write(base_path / f"{id_}.pdf", "wb") as f:
             f.write(response.content)
         return "pdf", True, [url]
 
-    if response.headers["content-type"].startswith("text/html"):
+    if content_type.startswith("text/html"):
         soup = BeautifulSoup(response.content, "html.parser")
         pdf_links = set(url for a in soup.find_all(is_pdf_link) if (url := a.get("href")))
         success = False
@@ -150,17 +156,39 @@ def main(config: Config):
     data = df.to_dict(orient="records")
     base_path = MultiPath.parse(config.destination)
 
+    # filter out already processed
+    metadata_path = base_path / "metadata"
+    already_processed = [
+        (MultiPath.parse(path) - metadata_path).as_str.lstrip("/").rstrip(".json")
+        for path in recursively_list_files(metadata_path)
+    ]
+    data = [d for d in data if d["id"] not in already_processed]
+
     if config.parallel > 1:
         fn = partial(process_single, base_path=base_path)
         with multiprocessing.Pool(config.parallel) as pool:
-            for _ in tqdm.tqdm(pool.imap_unordered(fn, data), total=len(data), desc="Downloading Books"):
+            for _ in tqdm.tqdm(
+                pool.imap_unordered(fn, data),
+                total=len(data) + len(already_processed),
+                desc="Downloading Books",
+                start=len(already_processed),
+                unit=" books",
+                unit_scale=True,
+            ):
                 ...
 
             pool.close()
             pool.join()
 
     else:
-        for elem in tqdm.tqdm(data, desc="Downloading Books"):
+        for elem in tqdm.tqdm(
+            data,
+            desc="Downloading Books",
+            start=len(already_processed),
+            total=len(data) + len(already_processed),
+            unit=" books",
+            unit_scale=True,
+        ):
             process_single(elem, base_path=base_path)
 
 
