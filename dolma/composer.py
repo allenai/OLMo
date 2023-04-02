@@ -45,10 +45,13 @@ class ComposerDolmaGPT(ComposerModel):
         self.config = self.model.config
         self.num_fwd_flops = self.model.num_fwd_flops
 
-        from composer.metrics.nlp import Perplexity
+        from composer.metrics.nlp import LanguageCrossEntropy, LanguagePerplexity
 
         self.train_metrics: Dict[str, Metric] = {}
-        self.eval_metrics: Dict[str, Metric] = {"Perplexity": Perplexity()}
+        self.eval_metrics: Dict[str, Metric] = {
+            "Perplexity": LanguagePerplexity(),
+            "CrossEntropy": LanguageCrossEntropy(),
+        }
 
     def get_labels(self, batch: BatchDict) -> torch.Tensor:
         # Labels are just input IDs shifted to the left (first item is ignored).
