@@ -34,7 +34,7 @@ log = logging.getLogger(__name__)
 
 def main(cfg: TrainConfig) -> None:
     from composer import Trainer
-    from composer.callbacks import SpeedMonitor
+    from composer.callbacks import LRMonitor, OptimizerMonitor, SpeedMonitor
     from composer.core import Callback
     from composer.loggers import WandBLogger
     from composer.loggers.logger_destination import LoggerDestination
@@ -110,7 +110,11 @@ def main(cfg: TrainConfig) -> None:
     ]
 
     # Callbacks.
-    callbacks: List[Callback] = [SpeedMonitor(**cfg.speed_monitor.asdict())]
+    callbacks: List[Callback] = [
+        SpeedMonitor(**cfg.speed_monitor.asdict()),
+        LRMonitor(),
+        OptimizerMonitor(log_optimizer_metrics=False),
+    ]
 
     # Loggers.
     loggers: List[LoggerDestination] = [DolmaConsoleLogger(log_interval=cfg.console_log_interval)]

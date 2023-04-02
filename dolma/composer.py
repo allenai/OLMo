@@ -84,6 +84,14 @@ class ComposerDolmaGPT(ComposerModel):
 
 
 class DolmaConsoleLogger(ConsoleLogger):
+    metrics_to_log: set[str] = {"train/loss/total", "trainer/global_step"}
+
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+        del step
+        # Lazy logging of metrics.
+        # Stores all metrics logged until they are cleared with a log_to_console call
+        self.logged_metrics.update({k: metrics[k] for k in self.metrics_to_log})
+
     def _log_hparams_to_console(self):
         if dist.get_local_rank() == 0:
             log_str = "Config:"
