@@ -17,7 +17,7 @@ dependencies = [
     "uniseg",
     "numpy",
     "cached_path",
-    "wikiextractor @ git+https://github.com/soldni/wikiextractor.git"
+    "orjson"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

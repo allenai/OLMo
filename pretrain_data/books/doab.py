@@ -1,9 +1,10 @@
 import json
 import multiprocessing
+import re
 import tempfile
 from functools import partial
-from typing import List, Optional, Tuple
-from urllib.parse import urljoin
+from typing import List, Optional, Set, Tuple
+from urllib.parse import urljoin, urlparse
 
 import pandas as pd
 import requests
@@ -31,8 +32,11 @@ def is_pdf_link(tag: Tag) -> bool:
     if href.startswith("#"):
         return False
 
+    # parse the URL
+    url = urlparse(href)
+
     # Check if the URL is for a PDF file
-    if href.endswith(".pdf") or "pdf" in href.split("?")[-1].split("&")[-1]:
+    if url.path.endswith(".pdf") or "pdf" in url.query.lower():
         return True
 
     # Check if the link text is PDF or contains PDF
@@ -68,24 +72,40 @@ class Config:
     parallel: int = sp.field(default=1, help="Number of parallel downloads.")
 
 
-def process_url(url: str, id_: str, base_path: MultiPath, _depth: int = 1) -> Tuple[str, bool, List[str]]:
+def process_url(
+    url: str,
+    id_: str,
+    base_path: MultiPath,
+    _depth: int = 1,
+    _processed_links: Optional[Set[str]] = None,
+) -> Tuple[str, bool, List[str]]:
     if _depth < 0:
         return "depth exceeded", False, []
+
+    _processed_links = _processed_links or set()
 
     if not isinstance(url, str):
         return "invalid url", False, []
 
     if "||" in url:
         success = False
-        urls = set(u.strip() for u in url.split("||") if u.strip())
-        for i, sub_url in enumerate(sorted(urls)):
+        urls = sorted(set(u.strip() for u in url.split("||") if u.strip()))
+        for i, sub_url in enumerate(urls):
+            if sub_url in _processed_links:
+                continue
+
             _, sub_success, sub_urls = process_url(
-                url=sub_url, id_=f"{id_}_{i}", base_path=base_path, _depth=_depth  # do not decrement depth
+                url=sub_url,
+                id_=f"{id_}_{i}",
+                base_path=base_path,
+                _depth=_depth,  # do not decrement depth
+                _processed_links=_processed_links,
             )
             success = success or sub_success
-            urls.update(sub_urls)
 
-        return "url list", success, sorted(urls)
+            _processed_links.update([sub_url, *sub_urls])
+
+        return "url list", success, sorted(_processed_links)
 
     try:
         response = requests.get(url, headers={"User-Agent": UA.random})
@@ -102,22 +122,41 @@ def process_url(url: str, id_: str, base_path: MultiPath, _depth: int = 1) -> Tu
             f.write(response.content)
         return "pdf", True, [url]
 
+    if content_type.startswith("application"):
+        name = (
+            match[0]
+            if (match := re.findall("filename=(.+)", str(response.headers.get("content-disposition"))))
+            else (match[-1] if (match := urlparse(response.url).path.split("/")) else "")
+        )
+        if name.endswith(".pdf"):
+            with open_file_for_write(base_path / f"{id_}.pdf", "wb") as f:
+                f.write(response.content)
+            return "pdf", True, [url]
+
     if content_type.startswith("text/html"):
         soup = BeautifulSoup(response.content, "html.parser")
-        pdf_links = set(url for a in soup.find_all(is_pdf_link) if (url := a.get("href")))
+        pdf_links = sorted(set(url for a in soup.find_all(is_pdf_link) if (url := a.get("href"))))
         success = False
+
         for i, pdf_link in enumerate(sorted(pdf_links)):
             if pdf_link.startswith("/"):
                 # combine urls
-                pdf_link = urljoin(url, pdf_link)
+                pdf_link = urljoin(response.url, pdf_link)
+
+            if pdf_link in _processed_links:
+                continue
 
             _, sub_success, sub_urls = process_url(
-                url=pdf_link, id_=f"{id_}_{i}", base_path=base_path, _depth=_depth - 1
+                url=pdf_link,
+                id_=f"{id_}_{i}",
+                base_path=base_path,
+                _depth=_depth - 1,
+                _processed_links=_processed_links,
             )
             success = success or sub_success
-            pdf_links.update(sub_urls)
+            _processed_links.update([*sub_urls, url])
 
-        return "pdf list", success, sorted(pdf_links)
+        return "pdf list", success, sorted(_processed_links)
 
     return "unknown", False, []
 
