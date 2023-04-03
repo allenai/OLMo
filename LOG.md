@@ -1,6 +1,14 @@
 Experiment Log
 ==============
 
+2023-04-03
+----------
+
+We decoupled the MLP and Attention computations as in the PaLM architecture.
+That is, within each transformer block we compute `MLP(LN(x)) + Attention(LN(x))` instead of `MLP(LN(x + Attention(LN(x))))`.
+This allows to increase throughput because we can fuse the separate feed-forward and attention input projections into a single linear layer.
+We also experimented with [fusing the output projections](https://github.com/allenai/LLM/pull/79) into a single linear layer but that didn't help, possibly due to the overhead of concatenating the feed-forward and attention activations together.
+
 2023-03-28
 ----------
 

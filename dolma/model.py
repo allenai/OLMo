@@ -25,6 +25,8 @@ __all__ = [
     "RMSLayerNorm",
     "RotaryEmbedding",
     "Activation",
+    "GELU",
+    "ReLU",
     "SwiGLU",
     "DolmaBlock",
     "Dolma",
@@ -169,16 +171,33 @@ class Activation(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
 
+    @property
+    @abstractmethod
+    def output_multiplier(self) -> float:
+        raise NotImplementedError
+
     @classmethod
     def build(cls, config: ModelConfig) -> Activation:
         if config.activation_type == ActivationType.gelu:
-            return cast(Activation, nn.GELU(approximate="none"))
+            return cast(Activation, GELU(approximate="none"))
         elif config.activation_type == ActivationType.relu:
-            return cast(Activation, nn.ReLU(inplace=False))
+            return cast(Activation, ReLU(inplace=False))
         elif config.activation_type == ActivationType.swiglu:
             return SwiGLU(config)
         else:
             raise NotImplementedError(f"not sure how to handle activation type '{config.activation_type}'")
+
+
+class GELU(nn.GELU):
+    @property
+    def output_multiplier(self) -> float:
+        return 1.0
+
+
+class ReLU(nn.ReLU):
+    @property
+    def output_multiplier(self) -> float:
+        return 1.0
 
 
 class SwiGLU(Activation):
@@ -186,8 +205,21 @@ class SwiGLU(Activation):
         x, gate = x.chunk(2, dim=-1)
         return F.silu(gate) * x
 
+    @property
+    def output_multiplier(self) -> float:
+        return 0.5
+
 
 class DolmaBlock(nn.Module):
+    """
+    This is a transformer block where the output is computed as ``MLP(LN(x)) + Attention(LN(x))``
+    as in the PaLM architecture, as opposed to the typical ``MLP(LN(x + Attention(LN(x))))``.
+
+    The decoupling of the MLP and Attention functions allow us to fuse the separate input projections
+    into a single linear layer to increase throughput. In this configuration it's also straight-forward
+    to fuse the output projections, but we found that didn't help.
+    """
+
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.config = config
@@ -206,9 +238,7 @@ class DolmaBlock(nn.Module):
 
         # Activation function.
         self.act = Activation.build(config)
-        d_act_out = config.mlp_ratio * config.d_model
-        if isinstance(self.act, SwiGLU):
-            d_act_out = d_act_out // 2
+        assert (self.act.output_multiplier * config.mlp_ratio * config.d_model) % 1 == 0
 
         # Fused attention and feed-forward projection.
         self.fused_dims = (config.d_model, config.d_model, config.d_model, config.mlp_ratio * config.d_model)
@@ -217,13 +247,23 @@ class DolmaBlock(nn.Module):
         )
         self.fused_attn_ff_proj._fused = (0, self.fused_dims)  # type: ignore
 
+        # NOTE: we could also fuse the attention and feed-forward output projections
+        # but we found that didn't help, possibly because of the overhead of joining the `att`
+        # and `ff` activations together.
+        # See https://github.com/allenai/LLM/pull/79 for details.
+
         # Attention output projection.
         self.attn_out = nn.Linear(
             config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
         )
 
         # Feed-forward output projection.
-        self.ff_out = nn.Linear(d_act_out, config.d_model, bias=config.include_bias, device=config.init_device)
+        self.ff_out = nn.Linear(
+            int(self.act.output_multiplier * config.mlp_ratio * config.d_model),
+            config.d_model,
+            bias=config.include_bias,
+            device=config.init_device,
+        )
         self.ff_out._is_residual = True  # type: ignore
 
         # Rotary embeddings.
@@ -246,7 +286,7 @@ class DolmaBlock(nn.Module):
         x = self.norm(x)
 
         # Get query, key, value, and feed-forward projections.
-        # shape of q, k, v: (B, T, C), shape of ff: (B, T, ff inner)
+        # shape of q, k, v: (B, T, C), shape of ff: (B, T, mlp_ratio * C)
         q, k, v, ff = self.fused_attn_ff_proj(x).split(self.fused_dims, dim=-1)
         dtype = k.dtype
 
@@ -280,6 +320,9 @@ class DolmaBlock(nn.Module):
         # Re-assemble all head outputs side-by-side.
         att = att.transpose(1, 2).contiguous().view(B, T, C)
 
+        # Apply output projections (and activation function) and sum the results.
+        # We keep these projections separate because we found that we got better throughput this
+        # way compared to fusing them.
         return self.dropout(self.ff_out(self.act(ff))) + self.dropout(self.attn_out(att))
 
     def get_rotary_embedding(self, seq_len: int, device: Optional[torch.device]) -> torch.Tensor:
