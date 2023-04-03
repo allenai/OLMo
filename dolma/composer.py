@@ -2,7 +2,7 @@ import logging
 import math
 import warnings
 from fnmatch import fnmatch
-from typing import Any, Dict, Optional, Set, Tuple, Union
+from typing import Any, Dict, Optional, Set, Tuple, TypedDict, Union
 
 import torch
 import torch.nn as nn
@@ -24,13 +24,14 @@ from .config import (
 )
 from .data import DataCollator, MemMapDataset
 from .exceptions import DolmaConfigurationError
-from .model import Dolma, DolmaOutput, LayerNormBase
+from .model import Dolma, LayerNormBase
 from .optim import DecoupledLionW
 
 log = logging.getLogger(__name__)
 
 __all__ = [
-    "ComposerDolmaGPT",
+    "TrainBatchPerplexity",
+    "ComposerDolmaLM",
     "DolmaConsoleLogger",
     "build_dataloader",
     "build_optimizer",
@@ -39,7 +40,43 @@ __all__ = [
 ]
 
 
-class ComposerDolmaGPT(ComposerModel):
+class TrainBatchOutput(TypedDict, total=True):
+    logits: torch.Tensor
+    """
+    The (shifted) logits.
+    """
+
+    labels: torch.Tensor
+    """
+    The (shifted) label token IDs.
+    """
+
+    loss: torch.Tensor
+    """
+    The cross-entropy loss.
+    """
+
+
+class TrainBatchPerplexity(Metric):
+    """
+    A metric for tracking training perplexity on a per-batch basis.
+    We use this as a training metric instead of composer's built-in
+    :class:`LanguageCrossEntropy` to avoid recomputing the loss.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(sync_on_compute=False)
+        self.loss: Optional[torch.Tensor]
+
+    def update(self, loss: torch.Tensor):
+        self.loss = loss
+
+    def compute(self) -> torch.Tensor:
+        assert self.loss is not None
+        return torch.exp(self.loss)
+
+
+class ComposerDolmaLM(ComposerModel):
     def __init__(self, model_or_config: Union[Dolma, ModelConfig]):
         super().__init__()
         self.model = Dolma(model_or_config) if isinstance(model_or_config, ModelConfig) else model_or_config
@@ -48,7 +85,9 @@ class ComposerDolmaGPT(ComposerModel):
 
         from composer.metrics.nlp import LanguageCrossEntropy, LanguagePerplexity
 
-        self.train_metrics: Dict[str, Metric] = {}
+        self.train_metrics: Dict[str, Metric] = {
+            "Perplexity": TrainBatchPerplexity(),
+        }
         self.eval_metrics: Dict[str, Metric] = {
             "Perplexity": LanguagePerplexity(),
             "CrossEntropy": LanguageCrossEntropy(),
@@ -61,24 +100,29 @@ class ComposerDolmaGPT(ComposerModel):
             labels = labels.masked_fill(attention_mask == 0.0, -100)
         return labels[..., 1:].contiguous()
 
-    def forward(self, batch: BatchDict) -> DolmaOutput:
-        return self.model(**batch)
-
-    def loss(self, outputs: DolmaOutput, batch: BatchDict) -> torch.Tensor:
+    def forward(self, batch: BatchDict) -> TrainBatchOutput:
+        logits = self.model(**batch).logits[..., :-1, :].contiguous()
         labels = self.get_labels(batch)
-        shift_logits = outputs.logits[..., :-1, :].contiguous()
-        return F.cross_entropy(shift_logits.view(-1, shift_logits.size(-1)), labels.view(-1), ignore_index=-100)
+        loss = F.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1), ignore_index=-100)
+        return {"logits": logits, "labels": labels, "loss": loss}
 
-    def eval_forward(self, batch: BatchDict, outputs: Optional[DolmaOutput] = None) -> DolmaOutput:
+    def loss(self, outputs: TrainBatchOutput, batch: BatchDict) -> torch.Tensor:
+        del batch
+        return outputs["loss"]
+
+    def eval_forward(self, batch: BatchDict, outputs: Optional[TrainBatchOutput] = None) -> TrainBatchOutput:
         return outputs if outputs is not None else self.forward(batch)
 
-    def get_metrics(self, is_train: bool = False) -> Dict[str, "Metric"]:
+    def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
         return self.train_metrics if is_train else self.eval_metrics
 
-    def update_metric(self, batch: BatchDict, outputs: DolmaOutput, metric: "Metric") -> None:
-        labels = self.get_labels(batch)
-        shift_logits = outputs.logits[..., :-1, :].contiguous()
-        metric.update(shift_logits.view(-1, shift_logits.size(-1)), labels.view(-1))
+    def update_metric(self, batch: BatchDict, outputs: TrainBatchOutput, metric: Metric) -> None:
+        del batch
+        if isinstance(metric, TrainBatchPerplexity):
+            metric.update(outputs["loss"])
+        else:
+            logits, labels = outputs["logits"], outputs["labels"]
+            metric.update(logits.view(-1, logits.size(-1)), labels.view(-1))
 
     def flops_per_batch(self, batch: BatchDict):
         # Note: this computation does not take into account padding, and assumes

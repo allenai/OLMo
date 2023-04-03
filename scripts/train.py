@@ -42,7 +42,7 @@ def main(cfg: TrainConfig) -> None:
     from composer.utils.dist import get_node_rank
 
     from dolma.composer import (
-        ComposerDolmaGPT,
+        ComposerDolmaLM,
         DolmaConsoleLogger,
         build_algorithm,
         build_dataloader,
@@ -90,7 +90,7 @@ def main(cfg: TrainConfig) -> None:
         compile_kwargs = cfg.compile.asdict()
         if compile_kwargs.get("fullgraph") is None:
             compile_kwargs["fullgraph"] = cfg.fsdp_config is None
-        # As far as duck typing is concerned, this is still a DolmaGPT object.
+        # As far as duck typing is concerned, this is still a Dolma object.
         dolma_model = cast(Dolma, torch.compile(dolma_model, **compile_kwargs))
 
     # Optimizer.
@@ -122,7 +122,7 @@ def main(cfg: TrainConfig) -> None:
         loggers.append(WandBLogger(init_kwargs={"config": cfg.asdict(exclude=["wandb"])}, **cfg.wandb.asdict()))
 
     # Wrap model into composer model.
-    composer_model = ComposerDolmaGPT(dolma_model)
+    composer_model = ComposerDolmaLM(dolma_model)
     del dolma_model
 
     # Trainer.
