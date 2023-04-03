@@ -132,7 +132,7 @@ class ComposerDolmaLM(ComposerModel):
 
 
 class DolmaConsoleLogger(ConsoleLogger):
-    metrics_to_log: Set[str] = {"loss/train/total", "trainer/global_step", "metrics/eval/*"}
+    metrics_to_log: Set[str] = {"loss/train/total", "trainer/global_step", "metrics/*"}
 
     def log_metrics(self, metrics: dict[str, float], step: Optional[int] = None) -> None:
         del step
