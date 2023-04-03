@@ -19,6 +19,10 @@ class Formatter():
                 doc['metadata'] = doc['meta']
                 del doc['meta']
                 yield doc
+    
+    @staticmethod
+    def twitterAAE_helm(args):
+        return [{'text':doc} for doc in open(os.path.join(args.in_dir, args.filename))]
 
 def main():
     parse = argparse.ArgumentParser("")
@@ -31,7 +35,7 @@ def main():
     args = parse.parse_args()
 
     data = getattr(Formatter, args.in_format)(args)
-    with gzip.open(os.path.join(args.out_dir, args.filename), 'wt') as fout:
+    with gzip.open(os.path.join(args.out_dir, os.path.splitext(args.filename)[0]+'.jsonl.gz'), 'wt') as fout:
         for doc in data:
             doc['id'] = str(uuid4())
             doc['added'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
