@@ -210,21 +210,22 @@ class DolmaBlock(nn.Module):
         if isinstance(self.act, SwiGLU):
             d_act_out = d_act_out // 2
 
-        # Fused attention and feed-forward projection.
-        self.fused_dims = (config.d_model, config.d_model, config.d_model, config.mlp_ratio * config.d_model)
-        self.fused_attn_ff_proj = nn.Linear(
-            config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
+        # Fused attention and feed-forward input projections.
+        self.fused_in_dims = (config.d_model, config.d_model, config.d_model, config.mlp_ratio * config.d_model)
+        self.fused_attn_ff_in = nn.Linear(
+            config.d_model, sum(self.fused_in_dims), bias=config.include_bias, device=config.init_device
         )
-        self.fused_attn_ff_proj._fused = (0, self.fused_dims)  # type: ignore
+        self.fused_attn_ff_in._fused = (0, self.fused_in_dims)  # type: ignore
 
-        # Attention output projection.
-        self.attn_out = nn.Linear(
-            config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
+        # Fused attention and feed-forward output projections.
+        self.fused_out_dims = (config.d_model, config.d_model)
+        self.fused_attn_ff_out = nn.Linear(
+            config.d_model + d_act_out,
+            sum(self.fused_out_dims),
+            bias=config.include_bias,
+            device=config.init_device,
         )
-
-        # Feed-forward output projection.
-        self.ff_out = nn.Linear(d_act_out, config.d_model, bias=config.include_bias, device=config.init_device)
-        self.ff_out._is_residual = True  # type: ignore
+        self.fused_attn_ff_out._fused = (0, self.fused_out_dims)  # type: ignore
 
         # Rotary embeddings.
         if self.config.rope:
@@ -247,7 +248,7 @@ class DolmaBlock(nn.Module):
 
         # Get query, key, value, and feed-forward projections.
         # shape of q, k, v: (B, T, C), shape of ff: (B, T, ff inner)
-        q, k, v, ff = self.fused_attn_ff_proj(x).split(self.fused_dims, dim=-1)
+        q, k, v, ff = self.fused_attn_ff_in(x).split(self.fused_in_dims, dim=-1)
         dtype = k.dtype
 
         # Optionally apply layer norm to keys and queries.
@@ -278,9 +279,17 @@ class DolmaBlock(nn.Module):
         )
 
         # Re-assemble all head outputs side-by-side.
+        # shape: (B, T, C)
         att = att.transpose(1, 2).contiguous().view(B, T, C)
 
-        return self.dropout(self.ff_out(self.act(ff))) + self.dropout(self.attn_out(att))
+        # Apply activation function to feed-forward projection.
+        # shape: (B, T, d activation out)
+        ff = self.act(ff)
+
+        # Get output projections.
+        att, ff = self.fused_attn_ff_out(torch.cat((att, ff), dim=-1)).split(self.fused_out_dims, dim=-1)
+
+        return self.dropout(ff) + self.dropout(att)
 
     def get_rotary_embedding(self, seq_len: int, device: Optional[torch.device]) -> torch.Tensor:
         if self.pos_emb is not None and self.pos_emb.shape[-2] >= seq_len:  # type: ignore
