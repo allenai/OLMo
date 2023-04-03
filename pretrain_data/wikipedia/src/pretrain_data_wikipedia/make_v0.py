@@ -161,7 +161,7 @@ def writer_process(
 @sp.dataclass
 class DownloadConfig:
     src: str = sp.MISSING
-    dst: str = "s3://ai2-llm/pretraining-data/sources/wikipedia/v0"
+    dst: str = "s3://ai2-llm/pretraining-data/sources/wikipedia/v0/documents"
     max_bytes: int = 100_000_000
     num_parallel_langs: int = 1
     num_workers_per_lang: int = 1
@@ -175,7 +175,7 @@ def main(config: DownloadConfig):
         (MultiPath.parse(d) - base_src_path).as_str.lstrip("/").rsplit("/")[0]
         for d in recursively_list_files(base_src_path)
     )
-    all_src_lang_paths = [base_src_path / lang for lang in all_lang_dirs]
+    all_src_lang_paths = [base_src_path / lang.replace('wiki_', 'lang=') for lang in all_lang_dirs]
 
     base_dst_path = MultiPath.parse(config.dst)
     all_dst_lang_paths = [base_dst_path / lang for lang in all_lang_dirs]
