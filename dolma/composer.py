@@ -119,7 +119,7 @@ class ComposerDolmaLM(ComposerModel):
     def update_metric(self, batch: BatchDict, outputs: TrainBatchOutput, metric: Metric) -> None:
         del batch
         if isinstance(metric, TrainBatchPerplexity):
-            metric.update(outputs["loss"])
+            metric.update(outputs["loss"].detach())
         else:
             logits, labels = outputs["logits"], outputs["labels"]
             metric.update(logits.view(-1, logits.size(-1)), labels.view(-1))
