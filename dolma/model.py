@@ -186,6 +186,10 @@ class SwiGLU(Activation):
         x, gate = x.chunk(2, dim=-1)
         return F.silu(gate) * x
 
+    @property
+    def output_multiplier(self) -> float:
+        return 0.5
+
 
 class DolmaBlock(nn.Module):
     def __init__(self, config: ModelConfig):
@@ -206,9 +210,8 @@ class DolmaBlock(nn.Module):
 
         # Activation function.
         self.act = Activation.build(config)
-        d_act_out = config.mlp_ratio * config.d_model
-        if isinstance(self.act, SwiGLU):
-            d_act_out = d_act_out // 2
+        self.act_multiplier = getattr(self.act, "output_multiplier", 1.0)
+        assert (self.act_multiplier * config.mlp_ratio * config.d_model) % 1 == 0
 
         # Fused attention and feed-forward input projections.
         self.fused_in_dims = (config.d_model, config.d_model, config.d_model, config.mlp_ratio * config.d_model)
@@ -218,14 +221,14 @@ class DolmaBlock(nn.Module):
         self.fused_attn_ff_in._fused = (0, self.fused_in_dims)  # type: ignore
 
         # Fused attention and feed-forward output projections.
-        self.fused_out_dims = (config.d_model, config.d_model)
+        self.fused_out_dims = (config.d_model, int(self.act_multiplier * config.mlp_ratio * config.d_model))
         self.fused_attn_ff_out = nn.Linear(
-            config.d_model + d_act_out,
             sum(self.fused_out_dims),
+            config.d_model,
             bias=config.include_bias,
             device=config.init_device,
         )
-        self.fused_attn_ff_out._fused = (0, self.fused_out_dims)  # type: ignore
+        self.fused_attn_ff_out._fused = (1, self.fused_out_dims)  # type: ignore
 
         # Rotary embeddings.
         if self.config.rope:
@@ -247,7 +250,7 @@ class DolmaBlock(nn.Module):
         x = self.norm(x)
 
         # Get query, key, value, and feed-forward projections.
-        # shape of q, k, v: (B, T, C), shape of ff: (B, T, ff inner)
+        # shape of q, k, v: (B, T, C), shape of ff: (B, T, mlp_ratio * C)
         q, k, v, ff = self.fused_attn_ff_in(x).split(self.fused_in_dims, dim=-1)
         dtype = k.dtype
 
@@ -283,13 +286,16 @@ class DolmaBlock(nn.Module):
         att = att.transpose(1, 2).contiguous().view(B, T, C)
 
         # Apply activation function to feed-forward projection.
-        # shape: (B, T, d activation out)
+        # shape: (B, T, act_multiplier * mlp_ratio * C)
         ff = self.act(ff)
 
-        # Get output projections.
-        att, ff = self.fused_attn_ff_out(torch.cat((att, ff), dim=-1)).split(self.fused_out_dims, dim=-1)
+        # Combine att and ff to input into fused output projection.
+        # shape: (B, T, 2, C + act_multiplier * mlp_ratio * C)
+        att_ff_combined = torch.cat((att, ff), dim=-1)
 
-        return self.dropout(ff) + self.dropout(att)
+        # Get output projection.
+        # shape: (B, T, C)
+        return self.dropout(self.fused_attn_ff_out(att_ff_combined))
 
     def get_rotary_embedding(self, seq_len: int, device: Optional[torch.device]) -> torch.Tensor:
         if self.pos_emb is not None and self.pos_emb.shape[-2] >= seq_len:  # type: ignore
