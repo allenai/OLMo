@@ -175,7 +175,7 @@ def main(config: DownloadConfig):
         (MultiPath.parse(d) - base_src_path).as_str.lstrip("/").rsplit("/")[0]
         for d in recursively_list_files(base_src_path)
     )
-    all_src_lang_paths = [base_src_path / lang.replace('wiki_', 'lang=') for lang in all_lang_dirs]
+    all_src_lang_paths = [base_src_path / lang.replace("wiki_", "lang=") for lang in all_lang_dirs]
 
     base_dst_path = MultiPath.parse(config.dst)
     all_dst_lang_paths = [base_dst_path / lang for lang in all_lang_dirs]
