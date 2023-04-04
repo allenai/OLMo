@@ -119,20 +119,9 @@ obtain a count of the number of articles and tokens per language
 ```sql
 SELECT
     lang,
-    COUNT(cnt) AS docs_count,
-    SUM(cnt) AS tokens_count
-FROM (
-    SELECT
-        lang,
-        CARDINALITY(
-            filter(
-                REGEXP_SPLIT(text, '\s+'),
-                x -> LENGTH(TRIM(x)) > 0
-            )
-        ) AS cnt
-    FROM "llm_wikipedia_v0"
-    WHERE text != ''
-)
+    COUNT(metadata.length) AS docs_count,
+    SUM(metadata.length) AS tokens_count
+FROM "llm_wikipedia_v0"
 GROUP BY lang
 ORDER BY tokens_count DESC
 ```

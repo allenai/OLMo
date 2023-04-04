@@ -6,7 +6,8 @@ working place for pretraining data curation. please contact:
 - stack (code): akshitab@allenai.org
 - reddit: dustins@allenai.org
 - wikipedia: lucas@allenai.org
-- books:
+- books (gutenberg): lucas@allenai.org
+- books (doab): lucas@allenai.org
 -
 
 ### organizational structure
