@@ -35,6 +35,13 @@ For more details, see:
 - [Benchmarking the performance of `compile()` with FSDP](https://wandb.ai/ai2-llm/fsdp-compile-benchmarks)
 - [Benchmarking low precision LayerNorm](https://api.wandb.ai/links/ai2-llm/9favfpnh)
 
+
+2023-03-15
+----------
+
+The cluster is down for maintenance, so we're just queueing up some features we want to run. We also used the LUMI downtime to build a better logging feature. When running 1000s of nodes in a cluster, it's difficult to get logs that make sense. We're sending our logs to third-party logging provider [logz.io](https://logz.io). It's basic, but it gets the job done.
+
+
 2023-03-14
 ----------
 
@@ -50,8 +57,3 @@ Findings:
    I'm not sure what that buys us, and it's one extra component in the mix, so I didn't do it that way.
  * Automatic restarts work. One run got killed and automatically restarted.
    It is great that restarts work, but somewhat worrisome that we're already sampling this behavior after less than 45 minutes of runtime on only one node.
-
-2023-03-15
-----------
-
-The cluster is down for maintenance, so we're just queueing up some features we want to run. We also used the LUMI downtime to build a better logging feature. When running 1000s of nodes in a cluster, it's difficult to get logs that make sense. We're sending our logs to third-party logging provider [logz.io](https://logz.io). It's basic, but it gets the job done.
