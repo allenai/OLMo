@@ -24,6 +24,17 @@ class Formatter():
     def twitterAAE_helm(args):
         return [{'text':doc} for doc in open(os.path.join(args.in_dir, args.filename))]
 
+    @staticmethod
+    def ice(args):
+        '''
+        This method assumes that the data has already been parsed using ICEScenario.get_instances() from HELMs codebase. This requires unzipping the 
+        data into the right place and fixing some path names.
+        '''
+        with open(os.path.join(args.in_dir, args.filename), "rt", encoding="UTF8") as f:
+            for line in f:
+                doc = json.loads(line)
+                yield doc
+
 def main():
     parse = argparse.ArgumentParser("")
 
