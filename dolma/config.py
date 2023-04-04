@@ -26,6 +26,7 @@ from .exceptions import DolmaConfigurationError
 
 __all__ = [
     "ActivationType",
+    "BlockType",
     "CompilerConfig",
     "LayerNormType",
     "ModelConfig",
@@ -146,6 +147,11 @@ class ActivationType(StrEnum):
     swiglu = "swiglu"
 
 
+class BlockType(StrEnum):
+    sequential = "sequential"
+    parallel = "parallel"
+
+
 @dataclass
 class ModelConfig(BaseConfig):
     """
@@ -177,6 +183,11 @@ class ModelConfig(BaseConfig):
     activation_type: ActivationType = ActivationType.swiglu
     """
     The activation function to use within the MLP layers.
+    """
+
+    block_type: BlockType = BlockType.sequential
+    """
+    The transformer block implementation.
     """
 
     alibi: bool = False

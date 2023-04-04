@@ -16,7 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import einsum
 
-from .config import ActivationType, LayerNormType, ModelConfig
+from .config import ActivationType, BlockType, LayerNormType, ModelConfig
 from .exceptions import DolmaConfigurationError
 
 __all__ = [
@@ -29,6 +29,8 @@ __all__ = [
     "ReLU",
     "SwiGLU",
     "DolmaBlock",
+    "DolmaSequentialBlock",
+    "DolmaParallelBlock",
     "Dolma",
 ]
 
@@ -212,12 +214,7 @@ class SwiGLU(Activation):
 
 class DolmaBlock(nn.Module):
     """
-    This is a transformer block where the output is computed as ``MLP(LN(x)) + Attention(LN(x))``
-    as in the PaLM architecture, as opposed to the typical ``MLP(LN(x + Attention(LN(x))))``.
-
-    The decoupling of the MLP and Attention functions allow us to fuse the separate input projections
-    into a single linear layer to increase throughput. In this configuration it's also straight-forward
-    to fuse the output projections, but we found that didn't help.
+    A base class for transformer block implementations.
     """
 
     def __init__(self, config: ModelConfig):
@@ -240,18 +237,6 @@ class DolmaBlock(nn.Module):
         self.act = Activation.build(config)
         assert (self.act.output_multiplier * config.mlp_ratio * config.d_model) % 1 == 0
 
-        # Fused attention and feed-forward projection.
-        self.fused_dims = (config.d_model, config.d_model, config.d_model, config.mlp_ratio * config.d_model)
-        self.fused_attn_ff_proj = nn.Linear(
-            config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
-        )
-        self.fused_attn_ff_proj._fused = (0, self.fused_dims)  # type: ignore
-
-        # NOTE: we could also fuse the attention and feed-forward output projections
-        # but we found that didn't help, possibly because of the overhead of joining the `att`
-        # and `ff` activations together.
-        # See https://github.com/allenai/LLM/pull/79 for details.
-
         # Attention output projection.
         self.attn_out = nn.Linear(
             config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
@@ -273,21 +258,18 @@ class DolmaBlock(nn.Module):
                 "pos_emb", self.rotary_emb(config.max_sequence_length, device=config.init_device), persistent=False
             )
 
-    def forward(
-        self,
-        x: torch.Tensor,
-        attention_bias: Optional[torch.FloatTensor] = None,
+    def get_rotary_embedding(self, seq_len: int, device: Optional[torch.device]) -> torch.Tensor:
+        if self.pos_emb is not None and self.pos_emb.shape[-2] >= seq_len:  # type: ignore
+            return self.pos_emb[:seq_len]  # type: ignore
+
+        pos_emb = self.rotary_emb(seq_len, device=device)
+        self.register_buffer("pos_emb", pos_emb, persistent=False)
+        return pos_emb
+
+    def attention(
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, attention_bias: Optional[torch.FloatTensor] = None
     ) -> torch.Tensor:
-        # We're computing: MLP(LN(x)) + Attention(LN(x))
-        # This differs from the standard transformer block which looks like: MLP(LN(x + Attention(LN(x))))
-
-        B, T, C = x.size()  # batch size, sequence length, d_model
-
-        x = self.norm(x)
-
-        # Get query, key, value, and feed-forward projections.
-        # shape of q, k, v: (B, T, C), shape of ff: (B, T, mlp_ratio * C)
-        q, k, v, ff = self.fused_attn_ff_proj(x).split(self.fused_dims, dim=-1)
+        B, T, C = q.size()  # batch size, sequence length, d_model
         dtype = k.dtype
 
         # Optionally apply layer norm to keys and queries.
@@ -303,7 +285,7 @@ class DolmaBlock(nn.Module):
 
         if self.config.rope:
             # Apply rotary embeddings.
-            positions = self.get_rotary_embedding(T, x.device)
+            positions = self.get_rotary_embedding(T, q.device)
             q, k = map(lambda t: apply_rotary_pos_emb(positions, t), (q, k))
 
         # Get the attention scores.
@@ -320,18 +302,107 @@ class DolmaBlock(nn.Module):
         # Re-assemble all head outputs side-by-side.
         att = att.transpose(1, 2).contiguous().view(B, T, C)
 
+        # Apply output projection.
+        return self.attn_out(att)
+
+    @abstractmethod
+    def forward(
+        self,
+        x: torch.Tensor,
+        attention_bias: Optional[torch.FloatTensor] = None,
+    ) -> torch.Tensor:
+        raise NotImplementedError
+
+    @classmethod
+    def build(cls, config: ModelConfig) -> DolmaBlock:
+        if config.block_type == BlockType.sequential:
+            return DolmaSequentialBlock(config)
+        elif config.block_type == BlockType.parallel:
+            return DolmaParallelBlock(config)
+        else:
+            raise NotImplementedError(f"not sure how to handle block type '{config.block_type}'")
+
+
+class DolmaSequentialBlock(DolmaBlock):
+    """
+    This is a typical transformer block where the output is computed as ``MLP(LN(x + Attention(LN(x))))``
+    (plus another skip connection).
+    """
+
+    def __init__(self, config: ModelConfig):
+        super().__init__(config)
+        # Attention input projection. Projects x -> (q, k, v)
+        self.att_proj = nn.Linear(
+            config.d_model, 3 * config.d_model, bias=config.include_bias, device=config.init_device
+        )
+        self.att_proj._fused = (0, (self.config.d_model, 2 * self.config.d_model))  # type: ignore
+        # Feed-forward input projection.
+        self.ff_proj = nn.Linear(
+            config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
+        )
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        attention_bias: Optional[torch.FloatTensor] = None,
+    ) -> torch.Tensor:
+        # Get query, key, value projections.
+        # shape (all): (batch_size, seq_len, d_model)
+        q, k, v = self.att_proj(self.norm(x)).split(self.config.d_model, dim=2)
+
+        # Add attention scores.
+        # shape: (B, T, C)
+        x = x + self.dropout(self.attention(q, k, v, attention_bias))
+
+        # Add feed-forward projection.
+        # shape: (batch_size, seq_len, d_model)
+        x = x + self.dropout(self.ff_out(self.act(self.ff_proj(self.norm(x)))))
+
+        return x
+
+
+class DolmaParallelBlock(DolmaBlock):
+    """
+    This is a transformer block where the output is computed as ``MLP(LN(x)) + Attention(LN(x))``
+    as in the PaLM architecture, as opposed to the typical ``MLP(LN(x + Attention(LN(x))))``
+    as in :class:`DolmaSequentialBlock` (ignoring some skip connections).
+
+    The decoupling of the MLP and Attention functions allow us to fuse the separate input projections
+    into a single linear layer to increase throughput. In this configuration it's also straight-forward
+    to fuse the output projections, but we found that didn't help.
+    """
+
+    def __init__(self, config: ModelConfig):
+        super().__init__(config)
+        # Fused attention and feed-forward projection.
+        # NOTE: we could also fuse the attention and feed-forward output projections
+        # but we found that didn't help, possibly because of the overhead of joining the `att`
+        # and `ff` activations together.
+        # See https://github.com/allenai/LLM/pull/79 for details.
+        self.fused_dims = (config.d_model, config.d_model, config.d_model, config.mlp_ratio * config.d_model)
+        self.fused_attn_ff_proj = nn.Linear(
+            config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
+        )
+        self.fused_attn_ff_proj._fused = (0, self.fused_dims)  # type: ignore
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        attention_bias: Optional[torch.FloatTensor] = None,
+    ) -> torch.Tensor:
+        # Get query, key, value, and feed-forward projections.
+        # shape of q, k, v: (batch_size, seq_len, d_model)
+        # shape of ff:      (batch_size, seq_len, mlp_ratio x d_model)
+        q, k, v, ff = self.fused_attn_ff_proj(self.norm(x)).split(self.fused_dims, dim=-1)
+
+        # Get attention scores.
+        # shape: (B, T, C)
+        att = self.attention(q, k, v, attention_bias)
+
         # Apply output projections (and activation function) and sum the results.
         # We keep these projections separate because we found that we got better throughput this
         # way compared to fusing them.
-        return self.dropout(self.ff_out(self.act(ff))) + self.dropout(self.attn_out(att))
-
-    def get_rotary_embedding(self, seq_len: int, device: Optional[torch.device]) -> torch.Tensor:
-        if self.pos_emb is not None and self.pos_emb.shape[-2] >= seq_len:  # type: ignore
-            return self.pos_emb[:seq_len]  # type: ignore
-
-        pos_emb = self.rotary_emb(seq_len, device=device)
-        self.register_buffer("pos_emb", pos_emb, persistent=False)
-        return pos_emb
+        return x + self.dropout(self.ff_out(self.act(ff))) + self.dropout(att)
 
 
 class DolmaOutput(NamedTuple):
@@ -373,7 +444,7 @@ class Dolma(nn.Module):
                     config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
                 ),
                 emb_drop=nn.Dropout(config.embedding_dropout),
-                blocks=nn.ModuleList([DolmaBlock(config) for _ in range(config.n_layers)]),
+                blocks=nn.ModuleList([DolmaBlock.build(config) for _ in range(config.n_layers)]),
                 ln_f=LayerNorm.build(config),
             )
         )
@@ -528,7 +599,7 @@ class Dolma(nn.Module):
         # Apply blocks one-by-one.
         for block in self.transformer.blocks:  # type: ignore
             # shape: (batch_size, seq_len, d_model)
-            x = x + block(x, attention_bias=attention_bias)
+            x = block(x, attention_bias=attention_bias)
 
         # Apply final layer norm.
         # shape: (batch_size, seq_len, d_model)

@@ -12,6 +12,7 @@ model:
   flash_attention: false
   attention_dropout: 0.0  # has to be 0 if using flash attn
   attention_layer_norm: true
+  block_type: parallel
   layer_norm_type: default  # if not compiling, use 'low_precision'
   activation_type: swiglu
   residual_dropout: 0.0
