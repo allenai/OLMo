@@ -2,24 +2,28 @@ import pytest
 import torch
 from torch.nn import CrossEntropyLoss
 
-from dolma import Dolma, ModelConfig, Tokenizer, TrainConfig
+from dolma import BlockType, Dolma, ModelConfig, Tokenizer, TrainConfig
 from dolma.composer import build_optimizer
 from dolma.data import DataCollator
 
 
 @pytest.mark.parametrize(
-    "alibi, rope, flash_attn, cuda, dtype",
+    "alibi, rope, flash_attn, block_type, cuda, dtype",
     [
-        pytest.param(True, False, False, False, torch.bfloat16, id="alibi-emb-cpu-bf16"),
-        pytest.param(False, False, False, False, torch.bfloat16, id="posit-emb-cpu-bf16"),
-        pytest.param(True, False, False, False, torch.float32, id="alibi-emb-cpu-f32"),
-        pytest.param(False, False, False, False, torch.float32, id="posit-emb-cpu-f32"),
-        pytest.param(False, True, False, False, torch.bfloat16, id="rope-emb-cpu-bf16"),
-        pytest.param(False, True, False, False, torch.float32, id="rope-emb-cpu-f32"),
+        pytest.param(True, False, False, BlockType.sequential, False, torch.bfloat16, id="alibi-emb-cpu-bf16"),
+        pytest.param(
+            True, False, False, BlockType.parallel, False, torch.bfloat16, id="alibi-emb-parallel-block-cpu-bf16"
+        ),
+        pytest.param(False, False, False, BlockType.sequential, False, torch.bfloat16, id="posit-emb-cpu-bf16"),
+        pytest.param(True, False, False, BlockType.sequential, False, torch.float32, id="alibi-emb-cpu-f32"),
+        pytest.param(False, False, False, BlockType.sequential, False, torch.float32, id="posit-emb-cpu-f32"),
+        pytest.param(False, True, False, BlockType.sequential, False, torch.bfloat16, id="rope-emb-cpu-bf16"),
+        pytest.param(False, True, False, BlockType.sequential, False, torch.float32, id="rope-emb-cpu-f32"),
         pytest.param(
             True,
             False,
             False,
+            BlockType.sequential,
             True,
             torch.bfloat16,
             id="alibi-emb-cuda-bf16",
@@ -29,9 +33,23 @@ from dolma.data import DataCollator
             ),
         ),
         pytest.param(
+            True,
+            False,
+            False,
+            BlockType.parallel,
+            True,
+            torch.bfloat16,
+            id="alibi-emb-parallel-block-cuda-bf16",
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
+            ),
+        ),
+        pytest.param(
             False,
             True,
             False,
+            BlockType.sequential,
             True,
             torch.bfloat16,
             id="rope-emb-cuda-bf16",
@@ -44,6 +62,7 @@ from dolma.data import DataCollator
             False,
             False,
             False,
+            BlockType.sequential,
             True,
             torch.bfloat16,
             id="posit-emb-cuda-bf16",
@@ -56,6 +75,7 @@ from dolma.data import DataCollator
             False,
             False,
             True,
+            BlockType.sequential,
             True,
             torch.bfloat16,
             id="posit-emb-flash-cuda-bf16",
@@ -68,6 +88,7 @@ from dolma.data import DataCollator
             False,
             False,
             True,
+            BlockType.sequential,
             True,
             torch.float16,
             id="posit-emb-flash-cuda-f16",
@@ -79,7 +100,14 @@ from dolma.data import DataCollator
     ],
 )
 def test_forward(
-    train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, rope: bool, flash_attn: bool, cuda: bool, dtype
+    train_config: TrainConfig,
+    tokenizer: Tokenizer,
+    alibi: bool,
+    rope: bool,
+    flash_attn: bool,
+    block_type: BlockType,
+    cuda: bool,
+    dtype,
 ):
     torch.manual_seed(0)
     torch.use_deterministic_algorithms(True)
@@ -89,6 +117,7 @@ def test_forward(
     train_config.model.flash_attention = flash_attn
     if flash_attn:
         train_config.model.attention_dropout = 0.0
+    train_config.model.block_type = block_type
     if cuda:
         train_config.model.init_device = "cuda"
     else:
