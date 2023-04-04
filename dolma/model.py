@@ -335,7 +335,7 @@ class DolmaSequentialBlock(DolmaBlock):
         self.att_proj = nn.Linear(
             config.d_model, 3 * config.d_model, bias=config.include_bias, device=config.init_device
         )
-        self.att_proj._fused = (0, (self.d_model, 2 * self.d_model))  # type: ignore
+        self.att_proj._fused = (0, (self.config.d_model, 2 * self.config.d_model))  # type: ignore
         # Feed-forward input projection.
         self.ff_proj = nn.Linear(
             config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
@@ -444,7 +444,7 @@ class Dolma(nn.Module):
                     config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
                 ),
                 emb_drop=nn.Dropout(config.embedding_dropout),
-                blocks=nn.ModuleList([DolmaParallelBlock(config) for _ in range(config.n_layers)]),
+                blocks=nn.ModuleList([DolmaBlock.build(config) for _ in range(config.n_layers)]),
                 ln_f=LayerNorm.build(config),
             )
         )
