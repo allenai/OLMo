@@ -5,6 +5,7 @@ from typing import Tuple
 from google.cloud import storage
 
 import click
+from tqdm import tqdm
 
 from dolma.util import prepare_cli_environment
 
@@ -38,8 +39,15 @@ def main(
         file_or_directory, key = files_or_directories.pop()
         if file_or_directory.is_file():
             blob = bucket.blob(key)
-            log.info(f"Uploading {file_or_directory} to gs://{bucket.name}/{key}")
-            blob.upload_from_filename(file_or_directory)
+            with file_or_directory.open("rb") as f:
+                with tqdm.wrapattr(
+                    f,
+                    "read",
+                    total=file_or_directory.stat().st_size,
+                    miniters=1,
+                    desc=f"Uploading {file_or_directory} to gs://{bucket.name}/{key}"
+                ) as f:
+                    blob.upload_from_file(f, file_or_directory)
         elif file_or_directory.is_dir():
             for f in file_or_directory.iterdir():
                 files_or_directories.append((f, key + "/" + f.name))
