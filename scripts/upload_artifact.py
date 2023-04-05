@@ -2,7 +2,6 @@ import logging
 from pathlib import Path
 from typing import Tuple
 
-import rich.progress
 from google.cloud import storage
 
 import click
@@ -39,12 +38,8 @@ def main(
         file_or_directory, key = files_or_directories.pop()
         if file_or_directory.is_file():
             blob = bucket.blob(key)
-            with file_or_directory.open("rb") as f:
-                f = rich.progress.wrap_file(
-                    f,
-                    description=f"Uploading {file_or_directory} to gs://{bucket.name}/{key}",
-                    total=file_or_directory.stat().st_size)
-                blob.upload_from_file(f)
+            log.info(f"Uploading {file_or_directory} to gs://{bucket.name}/{key}")
+            blob.upload_from_filename(file_or_directory)
         elif file_or_directory.is_dir():
             for f in file_or_directory.iterdir():
                 files_or_directories.append((f, key + "/" + f.name))
