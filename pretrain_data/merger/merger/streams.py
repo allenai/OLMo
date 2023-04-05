@@ -1,9 +1,10 @@
 import logging
+import multiprocessing as mp
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
+from zlib import error as ZlibError
 
-from merger import config
 from merger.config import Stream
 from merger.merge import Merger
 from merger.s3_util import S3File
@@ -26,6 +27,7 @@ def document_inputs(stream: Stream) -> List[DocumentInput]:
     for pattern in stream.documents.include:
         path = pattern.split("/")
         keys.extend(_matching_keys(root.bucket, root.key, path))
+    keys.sort()
     return [
         DocumentInput(
             documents=S3File(bucket=root.bucket, key=k),
@@ -59,24 +61,47 @@ class Shard:
     merger: Merger
 
 
-def split_into_shards(stream: Stream, inputs: List[DocumentInput], output: config.Output) -> List[Shard]:
-    # Estimate the size of an input file
-    import random
+def merged_size(input: DocumentInput) -> Tuple[DocumentInput, int]:
+    return (input, input.documents.size + sum(a.size for a in input.attributes))
 
-    sample = random.sample(inputs, 10) if len(inputs) > 10 else inputs
-    typical_size = sum(d.documents.size for d in sample) // len(sample)
-    if stream.sampler:
-        typical_size = int(typical_size * stream.sampler.rate)
-    files_per_shard = output.max_file_size_in_bytes // typical_size
-    shards = [
-        Shard(
-            inputs=inputs[i * files_per_shard : (i + 1) * files_per_shard],
-            output=Path(output.path) / f"{stream.name}_{i:04d}.json.gz",
-            merger=Merger(stream.sampler, stream.filterer, stream.formatter_fn),
-        )
-        for i in range(0, 1 + len(inputs) // files_per_shard)
-    ]
+
+def split_into_shards(stream: Stream) -> List[Shard]:
+    log.info(f"Computing shards for {stream.name}")
+    inputs = document_inputs(stream)
+    with mp.Pool(mp.cpu_count()) as p:
+        inputs_with_size = p.map(merged_size, inputs)
+    shards: List[Shard] = []
+    sample_rate = stream.sampler.rate if stream.sampler else 1.0
+    input, size = inputs_with_size[0]
+    shard_inputs = [input]
+    shard_size = int(sample_rate * size)
+    for input, size in inputs_with_size[1:]:
+        shard_size += int(sample_rate * size)
+        if shard_size > stream.output.max_shard_size_in_bytes:
+            shards.append(
+                Shard(
+                    inputs=shard_inputs,
+                    output=Path(stream.output.path) / f"{stream.name}_{len(shards):04d}.json.gz",
+                    merger=Merger(stream.sampler, stream.filterer, stream.formatter_fn),
+                )
+            )
+            shard_size = 0
+            shard_inputs = []
+        shard_inputs.append(input)
+    log.info(f"Splitting {len(inputs)} files for {stream.name} into {len(shards)} shards")
     return shards
+
+
+def retry_process(shard: Shard) -> Tuple[Shard, Optional[Exception]]:
+    max_retries = 3
+    err = None
+    for i in range(max_retries):
+        err = process(shard)[1]
+        if not err:
+            return shard, None
+        else:
+            log.warning(f"Failed to process shard {shard.output} on attempt {i + 1}/{max_retries}: {err}")
+    return shard, err
 
 
 def process(shard: Shard) -> Tuple[Shard, Optional[Exception]]:
@@ -92,14 +117,17 @@ def process(shard: Shard) -> Tuple[Shard, Optional[Exception]]:
                 log.info(
                     f"Merging documents from {input.documents.url} with {len(input.attributes)} attributes to {shard.output}"
                 )
-                doc_line_iter = input.documents.read_lines()
-                attr_line_iters = [d.read_lines() for d in input.attributes]
-                for doc_line in doc_line_iter:
-                    attr_lines = [next(i) for i in attr_line_iters]
-                    output = shard.merger.merge(doc_line, attr_lines)
-                    if output:
-                        w.write(output)
-                        w.write(b"\n")
+                try:
+                    doc_line_iter = input.documents.read_lines()
+                    attr_line_iters = [d.read_lines() for d in input.attributes]
+                    for doc_line in doc_line_iter:
+                        attr_lines = [next(i) for i in attr_line_iters]
+                        output = shard.merger.merge(doc_line, attr_lines)
+                        if output:
+                            w.write(output)
+                            w.write(b"\n")
+                except (EOFError, ZlibError) as e:
+                    log.warning(f"Bad input file {input.documents.url}. Skipping: {e}")
         tmp_file.rename(shard.output)
         log.info(f"Finished writing {shard.output}")
         return shard, None

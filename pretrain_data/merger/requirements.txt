@@ -4,4 +4,3 @@ smart-open
 pathos
 jsonpath-ng
 orjson
-smashed[remote]==0.19.4

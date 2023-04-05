@@ -18,10 +18,9 @@ log = logging.getLogger(__name__)
 
 def run(config: Config):
     log.info(f"Running with config={config.json()}")
-    input_streams = [(s, streams.document_inputs(s)) for s in config.streams]
-    shards = [shard for s, i in input_streams for shard in streams.split_into_shards(s, i, config.output)]
+    shards = [shard for stream in config.streams for shard in streams.split_into_shards(stream)]
     missing_shards = list(filter(lambda s: not s.output.exists(), shards))
-    log.info(f"Processing {len(missing_shards)} shards from sources [{','.join(s.name for s,_ in input_streams)}]")
+    log.info(f"Processing {len(missing_shards)} shards from sources [{','.join(s.name for s in config.streams)}]")
     n_processes = config.processes or multiprocessing.cpu_count()
     log.info(f"Using {n_processes} processes")
     success = 0
@@ -32,9 +31,9 @@ def run(config: Config):
                     log.info(f"Finished writing {s.output}")
                     success += 1
                 else:
-                    log.warning(f"Finished processing {s.output} but file does not exist!")
+                    log.error(f"Finished processing {s.output} but file does not exist!")
             else:
-                log.error(f"Failed writing {s.output}", err)
+                log.error(f"Failed to write {s.output}: {err}")
     if success == len(missing_shards):
         log.info("Done!")
     else:

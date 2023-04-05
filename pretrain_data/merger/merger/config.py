@@ -23,6 +23,18 @@ class Filterer(BaseModel):
     exclude: Optional[List[str]]
 
 
+class Output(BaseModel):
+    path: str
+    max_shard_size: str
+
+    @property
+    def max_shard_size_in_bytes(self):
+        if self.max_shard_size.endswith("M"):
+            return int(self.max_shard_size[:-1]) * 1024**2
+        elif self.max_shard_size.endswith("G"):
+            return int(self.max_shard_size[:-1]) * 1024**3
+
+
 class Stream(BaseModel):
     name: str
     format: Optional[str]
@@ -30,6 +42,7 @@ class Stream(BaseModel):
     attributes: Optional[Attributes]
     sampler: Optional[Sampler]
     filterer: Optional[Filterer]
+    output: Output
 
     @property
     def formatter_fn(self):
@@ -38,19 +51,7 @@ class Stream(BaseModel):
         raise Exception(f"Unknown format: {self.format}")
 
 
-class Output(BaseModel):
-    path: str
-    max_file_size: str
-
-    @property
-    def max_file_size_in_bytes(self):
-        if self.max_file_size.endswith("M"):
-            return int(self.max_file_size[:-1]) * 1024**2
-        elif self.max_file_size.endswith("G"):
-            return int(self.max_file_size[:-1]) * 1024**3
-
-
 class Config(BaseModel):
     streams: List[Stream]
-    output: Output
     processes: Optional[int]
+    # output: Output
