@@ -65,12 +65,15 @@ def process_single(src_path, dst_path, queue: Optional[Queue] = None):
             data = {
                 'text': doc['text'],
                 'id': md5(doc['url'].encode('utf-8')).hexdigest(),
+                "version" : "v0",
+                "source" : "c4",
                 'added': TIMESTAMP,
                 'created': doc['timestamp'],
                 'metadata': {
                     'url': doc['url'],
                     'lang': NAME,
-                    'length': len(doc['text']),
+                    'length': len(get_words(doc['text'])),
+                    'split': SPLIT,
                 }
             }
             output_stream.write(json.dumps(data) + '\n')    # type: ignore
