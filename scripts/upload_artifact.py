@@ -2,13 +2,11 @@ import logging
 from pathlib import Path
 from typing import Tuple
 
-from google.cloud import storage
-
 import click
+from google.cloud import storage
 from tqdm import tqdm
 
 from dolma.util import prepare_cli_environment
-
 
 log = logging.getLogger(__name__)
 
@@ -31,12 +29,11 @@ def main(
     bucket = storage_client.bucket("allennlp-olmo", "ai2-allennlp")
     prefix = wandb_run_path.strip("/")
 
-    files_or_directories = [
-        (file_or_directory, prefix + "/" + file_or_directory.name)
-        for file_or_directory in files_or_directories
+    files_or_directories_in_a_special_variable_because_mypy_is_lame = [
+        (file_or_directory, prefix + "/" + file_or_directory.name) for file_or_directory in files_or_directories
     ]
-    while len(files_or_directories) > 0:
-        file_or_directory, key = files_or_directories.pop()
+    while len(files_or_directories_in_a_special_variable_because_mypy_is_lame) > 0:
+        file_or_directory, key = files_or_directories_in_a_special_variable_because_mypy_is_lame.pop()
         if file_or_directory.is_file():
             blob = bucket.blob(key)
             with file_or_directory.open("rb") as f:
@@ -45,12 +42,14 @@ def main(
                     "read",
                     total=file_or_directory.stat().st_size,
                     miniters=1,
-                    desc=f"Uploading {file_or_directory} to gs://{bucket.name}/{key}"
+                    desc=f"Uploading {file_or_directory} to gs://{bucket.name}/{key}",
                 ) as f:
                     blob.upload_from_file(f, file_or_directory)
         elif file_or_directory.is_dir():
-            for f in file_or_directory.iterdir():
-                files_or_directories.append((f, key + "/" + f.name))
+            for directory_entry in file_or_directory.iterdir():
+                files_or_directories_in_a_special_variable_because_mypy_is_lame.append(
+                    (directory_entry, key + "/" + directory_entry.name)
+                )
 
 
 if __name__ == "__main__":
