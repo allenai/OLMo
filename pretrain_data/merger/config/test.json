@@ -1,0 +1,23 @@
+{
+  "streams": [
+    {
+      "name": "cc_en_head",
+      "documents" : {
+        "root": "s3://ai2-llm/pretraining-data/sources/common-crawl/v0/documents/mined_split/2023-06/",
+        "include": ["*/en_head.json.gz"]
+      },
+      "sampler": {
+        "seed": 2147483648,
+        "rate": 0.5
+      },
+      "filterer": {
+        "include": ["$[?(@.metadata.length > 100)]"]
+      }
+    }
+  ],
+  "output": {
+    "path": "/Users/rodneyk/data/ai2-llm/test",
+    "max_file_size": "4G"
+  },
+  "processes": 4
+}

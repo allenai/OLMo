@@ -2,17 +2,30 @@ UNLOAD (
     WITH s2orc_stats AS (
         SELECT
             id,
-            year,
-            title,
-            abstract,
-            fields_of_study,
-            sha1,
-            count,
-            FILTER(paragraphs, x -> x.perplexity >= -20) as valid_paragraphs,
+            source,
+            added,
+            created,
+            metadata,
+            FILTER(
+                metadata.paragraphs,
+                x -> x.perplexity >= -20
+            ) as valid_paragraphs,
             (
-                REGEXP_LIKE(top_frequencies[1].token, '^[A-Za-z][a-z]+$') AND (
-                    (count > 500 AND (top_frequencies[1].count / count) <= 0.075) OR
-                    (count <= 500 AND (top_frequencies[1].count / count) <= 0.3)
+                REGEXP_LIKE(
+                    metadata.top_frequencies[1].token,
+                    '^[A-Za-z][a-z]+$'
+                ) AND (
+                    (
+                        metadata.count > 500 AND
+                        (
+                            metadata.top_frequencies[1].count / metadata.count
+                        ) <= 0.075
+                    ) OR (
+                        metadata.count <= 500 AND
+                        (
+                            metadata.top_frequencies[1].count / metadata.count
+                        ) <= 0.3
+                    )
                 )
             ) AS valid_top_word,
             ARRAY_SORT(
@@ -23,8 +36,9 @@ UNLOAD (
                             MULTIMAP_FROM_ENTRIES(
                                 -- from list to table
                                 TRANSFORM(
-                                    -- extact rows to count
-                                    paragraphs, x -> ROW(x.language, 1)
+                                    -- extract rows to count
+                                    metadata.paragraphs,
+                                    x -> ROW(x.language, 1)
                                 )
                             ),
                             -- merge counts
@@ -35,38 +49,54 @@ UNLOAD (
                 ),
                 (x, y) -> IF(x.cnt < y.cnt, 1, IF(x.cnt = y.cnt, 0, -1))
             )[1].lang AS language
-        FROM "temp_lucas"."s2orc_2023_01_03_clean_processed" as p
+        FROM "temp_lucas"."s2orc_v0_20230103"
     ),
     filtered_corpus AS (
         SELECT
             id,
-            sha1,
-            year,
-            title || CHR(10) || CHR(10) || abstract || CHR(10) || CHR(10) || (
+            source,
+            added,
+            created,
+            metadata,
+            (
+                metadata.title || CHR(10) || CHR(10) ||
+                metadata.abstract || CHR(10) || CHR(10) ||
                 ARRAY_JOIN(TRANSFORM(valid_paragraphs, x -> x.text), CHR(10))
             ) as text
         FROM s2orc_stats
         WHERE
             language = 'en'
-            AND count < 50000
-            AND count > 500
+            AND metadata.count < 50000
+            AND metadata.count > 500
             AND valid_top_word
             AND cardinality(valid_paragraphs) >= 5
-            AND title IS NOT NULL
-            AND abstract is not NULL
-            AND year >= 1970
+            AND metadata.title IS NOT NULL
+            AND metadata.abstract is not NULL
+            AND metadata.year >= 1970
     )
     SELECT
-        oa.id,
-        oa.sha1,
-        oa.text
-    FROM "content_ext"."papers" as cp
-    INNER JOIN filtered_corpus as oa
-        ON cp.corpus_paper_id = oa.id
-    WHERE cp.year < 2022 OR date(cp.pub_date) < date('2022-12-01')
+        id,
+        ARRAY_AGG(source)[1] AS source,
+        'v2' AS version,
+        ARRAY_AGG(added)[1] AS added,
+        ARRAY_AGG(created)[1] AS created,
+        ARRAY_AGG(text)[1] AS text,
+        ARRAY_AGG(metadata)[1] AS metadata,
+        CAST(id AS INT) % 10 AS part_id
+    FROM (
+        SELECT *
+        FROM filtered_corpus
+        WHERE metadata.year < 2022
+            OR (
+                metadata.year = 2022 AND
+                date(from_iso8601_timestamp(created)) < date('2022-12-01')
+            )
+    )
+    GROUP BY id
 )
-TO 's3://ai2-s2-research-public/lucas/s2_oa_pretrain_data/v2/s2orc/train'
+TO 's3://ai2-llm/pretraining-data/sources/s2/v2/documents/dataset=s2orc/split=train'
 WITH (
     format='JSON',
-    compression='GZIP'
+    compression='GZIP',
+    partitioned_by=ARRAY['part_id']
 )
