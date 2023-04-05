@@ -258,11 +258,29 @@ def test_build_optimizer(model_config: ModelConfig):
     build_optimizer(Dolma(model_config))
 
 
+@pytest.mark.parametrize(
+    "cuda, dtype",
+    [
+        pytest.param(False, torch.float32, id="cpu-fp32"),
+        pytest.param(
+            True,
+            torch.float32,
+            id="cuda-fp32",
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
+            ),
+        ),
+        # TODO: with an uninitialized model like we have here we'll end up with nan's
+        # when we use half-precision. So eventually we should use a trained model in these tests.
+        #  pytest.param(False, torch.bfloat16, id="cpu-bf16"),
+    ],
+)
 def test_generate(
     train_config: TrainConfig,
     tokenizer: Tokenizer,
-    cuda: bool = False,
-    dtype: torch.dtype = torch.float32,
+    cuda: bool,
+    dtype: torch.dtype,
 ):
     torch.manual_seed(0)
     torch.use_deterministic_algorithms(True)
@@ -305,6 +323,4 @@ def test_generate(
             )
             batch_output = model.generate(**{**batch_inputs, **beam_search_kwargs})
 
-    print(output1.token_ids[0][0])
-    print(batch_output.token_ids[0][0])
     torch.testing.assert_close(output1.scores[0], batch_output.scores[0])
