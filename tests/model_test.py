@@ -4,6 +4,7 @@ from torch.nn import CrossEntropyLoss
 
 from dolma import BlockType, Dolma, ModelConfig, Tokenizer, TrainConfig
 from dolma.composer import build_optimizer
+from dolma.config import PaddingDirection
 from dolma.data import DataCollator
 
 
@@ -107,7 +108,7 @@ def test_forward(
     flash_attn: bool,
     block_type: BlockType,
     cuda: bool,
-    dtype,
+    dtype: torch.dtype,
 ):
     torch.manual_seed(0)
     torch.use_deterministic_algorithms(True)
@@ -255,3 +256,55 @@ def test_backward(
 
 def test_build_optimizer(model_config: ModelConfig):
     build_optimizer(Dolma(model_config))
+
+
+def test_generate(
+    train_config: TrainConfig,
+    tokenizer: Tokenizer,
+    cuda: bool = False,
+    dtype: torch.dtype = torch.float32,
+):
+    torch.manual_seed(0)
+    torch.use_deterministic_algorithms(True)
+
+    # Should always pad left when generating.
+    train_config.data.pad_direction = PaddingDirection.left
+    # We also need to use a relative positional embedding so that the
+    # padding doesn't affect the results.
+    train_config.model.alibi = True
+
+    if cuda:
+        train_config.model.init_device = "cuda"
+    else:
+        train_config.model.init_device = "cpu"
+    use_amp = dtype in {torch.float16, torch.bfloat16}
+
+    model = Dolma(train_config.model).eval()
+
+    input1 = tokenizer.encode("My name is DOLMA! ", add_special_tokens=False)
+    input2 = tokenizer.encode("I'm a delightful large open language model :) ", add_special_tokens=False)
+    batch_inputs = DataCollator.from_train_config(train_config)(
+        [  # type: ignore
+            {"input_ids": input1, "attention_mask": [1.0] * len(input1)},
+            {"input_ids": input2, "attention_mask": [1.0] * len(input2)},
+        ]
+    )
+    batch_inputs = {  # type: ignore
+        k: v.to(device=train_config.device) if isinstance(v, torch.Tensor) else v for k, v in batch_inputs.items()
+    }
+    beam_search_kwargs = dict(beam_size=3, max_steps=5)
+
+    with torch.inference_mode():
+        with torch.autocast(
+            device_type="cuda" if cuda else "cpu", enabled=use_amp, dtype=None if not use_amp else dtype
+        ):
+            output1 = model.generate(
+                torch.tensor(input1, device=train_config.device).unsqueeze(0),  # type: ignore
+                torch.tensor([[1.0] * len(input1)]),
+                **beam_search_kwargs,
+            )
+            batch_output = model.generate(**{**batch_inputs, **beam_search_kwargs})
+
+    print(output1.token_ids[0][0])
+    print(batch_output.token_ids[0][0])
+    torch.testing.assert_close(output1.scores[0], batch_output.scores[0])
