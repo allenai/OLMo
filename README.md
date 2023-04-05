@@ -59,3 +59,25 @@ gantry run \
 This may require a reservation on the Infiniband cluster.
 
 See the [Beaker documentation](https://beaker-docs.apps.allenai.org/distributed-training.html) for more information on distributed training.
+
+## Generating text
+
+You can use the `generate()` method to produce text using beam search with a variety of options.
+
+For example:
+
+```python
+# Prepare inputs.
+# Note: we don't want the EOS token added to the end of the input, hence
+# the `add_special_tokens=False`.
+input_ids = tokenizer.encode("I'm a large language model, ", add_special_tokens=False)
+# `model.generate()` expects a batch.
+input_tensor = torch.tensor(input_ids).unsqueeze(0)
+
+# Run beam search.
+outputs = model.generate(input_tensor, max_steps=3, beam_size=3)
+
+# The output token IDs are shape (batch_size, beam_size, max_steps)
+best_generation = outputs.token_ids[0][0].tolist()
+print(tokenizer.decode(best_generation))
+```
