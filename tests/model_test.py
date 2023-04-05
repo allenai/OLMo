@@ -318,7 +318,7 @@ def test_generate(
         ):
             output1 = model.generate(
                 torch.tensor(input1, device=train_config.device).unsqueeze(0),  # type: ignore
-                torch.tensor([[1.0] * len(input1)]),
+                torch.tensor([[1.0] * len(input1)], device=train_config.device),
                 **beam_search_kwargs,
             )
             batch_output = model.generate(**{**batch_inputs, **beam_search_kwargs})
