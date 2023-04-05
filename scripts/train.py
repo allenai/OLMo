@@ -21,14 +21,12 @@ composer scripts/train.py train_config.yaml ...
 import logging
 import os
 import sys
-from typing import List
+from typing import List, cast
 
 import torch
 
-from dolma import TrainConfig
-from dolma.data import build_dataloader
+from dolma import Dolma, TrainConfig
 from dolma.exceptions import DolmaCliError
-from dolma.optim import build_optimizer
 from dolma.util import clean_opt, log_extra_field, prepare_cli_environment
 
 log = logging.getLogger(__name__)
@@ -36,7 +34,7 @@ log = logging.getLogger(__name__)
 
 def main(cfg: TrainConfig) -> None:
     from composer import Trainer
-    from composer.callbacks import SpeedMonitor
+    from composer.callbacks import LRMonitor, OptimizerMonitor, SpeedMonitor
     from composer.core import Callback
     from composer.loggers import WandBLogger
     from composer.loggers.logger_destination import LoggerDestination
@@ -44,12 +42,16 @@ def main(cfg: TrainConfig) -> None:
     from composer.utils.dist import get_node_rank
 
     from dolma.composer import (
-        ComposerDolmaGPT,
+        ComposerDolmaLM,
         DolmaConsoleLogger,
         build_algorithm,
+        build_dataloader,
+        build_optimizer,
         build_scheduler,
         update_batch_size_info,
     )
+
+    cfg.model.precision = cfg.precision
 
     if get_node_rank() == 0:
         log.info("Configuration:")
@@ -75,16 +77,24 @@ def main(cfg: TrainConfig) -> None:
             f"for global batch size of {cfg.global_train_batch_size}"
         )
 
-    # Model.
-    model = ComposerDolmaGPT(cfg.model)
+    # Initialize the model.
+    dolma_model = Dolma(cfg.model)
     if get_node_rank() == 0:
-        log.info(f"Total number of parameters: {model.model.num_params():,d}")
+        log.info(f"Total number of parameters: {dolma_model.num_params():,d}")
         log.info(
-            f"Number of non-embedding parameters: {model.model.num_params(include_embedding=False):,d}",
+            f"Number of non-embedding parameters: {dolma_model.num_params(include_embedding=False):,d}",
         )
 
+    # Compile it if necessary.
+    if cfg.compile is not None:
+        compile_kwargs = cfg.compile.asdict()
+        if compile_kwargs.get("fullgraph") is None:
+            compile_kwargs["fullgraph"] = cfg.fsdp_config is None
+        # As far as duck typing is concerned, this is still a Dolma object.
+        dolma_model = cast(Dolma, torch.compile(dolma_model, **compile_kwargs))
+
     # Optimizer.
-    optimizer = build_optimizer(model.model, **cfg.optimizer.asdict())
+    optimizer = build_optimizer(dolma_model, **cfg.optimizer.asdict())
 
     # Scheduler.
     scheduler = build_scheduler(cfg.scheduler)
@@ -93,21 +103,33 @@ def main(cfg: TrainConfig) -> None:
     train_loader = build_dataloader(cfg, cfg.device_train_batch_size)
 
     # Algorithms.
-    algorithms = [build_algorithm(name, algorithm_cfg) for name, algorithm_cfg in (cfg.algorithms or {}).items()]
+    algorithms = [
+        build_algorithm(name, algorithm_cfg)
+        for name, algorithm_cfg in (cfg.algorithms or {}).items()
+        if algorithm_cfg is not None
+    ]
 
     # Callbacks.
-    callbacks: List[Callback] = [SpeedMonitor(**cfg.speed_monitor.asdict())]
+    callbacks: List[Callback] = [
+        SpeedMonitor(**cfg.speed_monitor.asdict()),
+        LRMonitor(),
+        OptimizerMonitor(log_optimizer_metrics=False),
+    ]
 
     # Loggers.
     loggers: List[LoggerDestination] = [DolmaConsoleLogger(log_interval=cfg.console_log_interval)]
     if cfg.wandb is not None:
         loggers.append(WandBLogger(init_kwargs={"config": cfg.asdict(exclude=["wandb"])}, **cfg.wandb.asdict()))
 
+    # Wrap model into composer model.
+    composer_model = ComposerDolmaLM(dolma_model)
+    del dolma_model
+
     # Trainer.
     trainer = Trainer(
         run_name=cfg.run_name,
         seed=cfg.seed,
-        model=model,
+        model=composer_model,
         train_dataloader=train_loader,
         optimizers=optimizer,
         schedulers=scheduler,

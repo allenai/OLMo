@@ -4,205 +4,408 @@ Adapted from
 [minGPT](https://github.com/karpathy/minGPT.git)
 """
 
+from __future__ import annotations
+
 import math
 from abc import abstractmethod
 from typing import NamedTuple, Optional, cast
 
 import torch
+import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
-from einops import rearrange
+from torch import einsum
 
-from .config import ModelConfig
+from .config import ActivationType, BlockType, LayerNormType, ModelConfig
+from .exceptions import DolmaConfigurationError
 
-__all__ = ["TorchAttention", "GPTMLP", "GPTBlock", "DolmaGPT"]
+__all__ = [
+    "LayerNormBase",
+    "LayerNorm",
+    "RMSLayerNorm",
+    "RotaryEmbedding",
+    "Activation",
+    "GELU",
+    "ReLU",
+    "SwiGLU",
+    "DolmaBlock",
+    "DolmaSequentialBlock",
+    "DolmaParallelBlock",
+    "Dolma",
+]
 
 
-class DolmaAttentionBase(nn.Module):
+class LayerNormBase(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
+        self.config = config
+
+    @abstractmethod
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError
+
+    @classmethod
+    def build(cls, config: ModelConfig) -> LayerNormBase:
+        if config.layer_norm_type == LayerNormType.default:
+            return LayerNorm(config, low_precision=False)
+        elif config.layer_norm_type == LayerNormType.low_precision:
+            return LayerNorm(config, low_precision=True)
+        elif config.layer_norm_type == LayerNormType.rms:
+            return RMSLayerNorm(config, low_precision=False)
+        elif config.layer_norm_type == LayerNormType.low_precision_rms:
+            return RMSLayerNorm(config, low_precision=True)
+        else:
+            raise NotImplementedError(f"Not sure how to handle '{config.layer_norm_type}' LayerNorm type")
+
+    def _cast_if_autocast_enabled(self, tensor: torch.Tensor) -> torch.Tensor:
+        if torch.is_autocast_enabled():
+            if tensor.device.type == "cuda":
+                dtype = torch.get_autocast_gpu_dtype()
+            elif tensor.device.type == "cpu":
+                dtype = torch.get_autocast_cpu_dtype()
+            else:
+                raise NotImplementedError()
+            return tensor.to(dtype=dtype)
+        return tensor
+
+
+class LayerNorm(LayerNormBase):
+    """
+    The default :class:`LayerNorm` implementation which can optionally run in low precision.
+    """
+
+    def __init__(self, config: ModelConfig, low_precision: bool = False):
+        super().__init__(config)
+        self.normalized_shape = (config.d_model,)
+        self.eps = 1e-05
+        self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
+        self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
+        self.low_precision = low_precision
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.low_precision:
+            module_device = x.device
+            downcast_x = self._cast_if_autocast_enabled(x)
+            downcast_weight = (
+                self._cast_if_autocast_enabled(self.weight) if self.weight is not None else self.weight
+            )
+            downcast_bias = self._cast_if_autocast_enabled(self.bias) if self.bias is not None else self.bias
+            with torch.autocast(enabled=False, device_type=module_device.type):
+                return F.layer_norm(downcast_x, self.normalized_shape, downcast_weight, downcast_bias, self.eps)
+        else:
+            return F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
+
+
+class RMSLayerNorm(LayerNorm):
+    """
+    RMS layer norm, a simplified :class:`LayerNorm` implementation that can optionally run
+    in low-precision.
+    """
+
+    def __init__(self, config: ModelConfig, low_precision: bool = False):
+        super().__init__(config)
+        self.eps = 1e-08
+        self.weight = nn.Parameter(torch.ones(self.config.d_model))
+        if self.config.include_bias:
+            self.bias = nn.Parameter(torch.zeros(self.config.d_model))
+        else:
+            self.register_parameter("bias", None)
+        self.low_precision = low_precision
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.low_precision:
+            module_device = x.device
+            downcast_x = self._cast_if_autocast_enabled(x)
+            downcast_weight = self._cast_if_autocast_enabled(self.weight)
+            downcast_bias = self._cast_if_autocast_enabled(self.bias) if self.config.include_bias else None
+            with torch.autocast(enabled=False, device_type=module_device.type):
+                return self.rms_norm(downcast_x, downcast_weight, downcast_bias)
+        else:
+            return self.rms_norm(x, self.weight, self.bias if self.config.include_bias else None)
+
+    def rms_norm(self, x: torch.Tensor, weight: torch.Tensor, bias: Optional[torch.Tensor]) -> torch.Tensor:
+        norm_x = x.norm(2, dim=-1, keepdim=True)
+
+        rms_x = norm_x * self.config.d_model ** (-1.0 / 2)
+        x_normed = x / (rms_x + self.eps)
+
+        if bias is not None:
+            return weight * x_normed + self.bias
+        else:
+            return weight * x_normed
+
+
+class RotaryEmbedding(nn.Module):
+    """
+    [Rotary positional embeddings (RoPE)](https://arxiv.org/abs/2104.09864).
+    """
+
+    def __init__(self, config: ModelConfig):
+        super().__init__()
+        dim = config.d_model // config.n_heads
+        inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2, device=config.init_device).float() / dim))
+        self.register_buffer("inv_freq", inv_freq)
+
+    def forward(self, max_seq_len, *, device):
+        seq = torch.arange(max_seq_len, device=device, dtype=self.inv_freq.dtype)  # type: ignore
+        freqs = einsum("i , j -> i j", seq, self.inv_freq)
+        return torch.cat((freqs, freqs), dim=-1)
+
+
+def rotate_half(x: torch.Tensor) -> torch.Tensor:
+    B, nh, T, hs = x.size()
+    x = x.view(B, nh, T, 2, hs // 2)
+    x1, x2 = x.unbind(dim=-2)
+    return torch.cat((-x2, x1), dim=-1)
+
+
+def apply_rotary_pos_emb(pos: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+    out = (t * pos.cos()) + (rotate_half(t) * pos.sin())
+    return out.to(t.dtype)
+
+
+class Activation(nn.Module):
+    def __init__(self, config: ModelConfig):
+        super().__init__()
+        self.config = config
+
+    @abstractmethod
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def output_multiplier(self) -> float:
+        raise NotImplementedError
+
+    @classmethod
+    def build(cls, config: ModelConfig) -> Activation:
+        if config.activation_type == ActivationType.gelu:
+            return cast(Activation, GELU(approximate="none"))
+        elif config.activation_type == ActivationType.relu:
+            return cast(Activation, ReLU(inplace=False))
+        elif config.activation_type == ActivationType.swiglu:
+            return SwiGLU(config)
+        else:
+            raise NotImplementedError(f"not sure how to handle activation type '{config.activation_type}'")
+
+
+class GELU(nn.GELU):
+    @property
+    def output_multiplier(self) -> float:
+        return 1.0
+
+
+class ReLU(nn.ReLU):
+    @property
+    def output_multiplier(self) -> float:
+        return 1.0
+
+
+class SwiGLU(Activation):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x, gate = x.chunk(2, dim=-1)
+        return F.silu(gate) * x
+
+    @property
+    def output_multiplier(self) -> float:
+        return 0.5
+
+
+class DolmaBlock(nn.Module):
+    """
+    A base class for transformer block implementations.
+    """
+
+    def __init__(self, config: ModelConfig):
+        super().__init__()
+        self.config = config
         assert config.d_model % config.n_heads == 0
-        self.n_heads = config.n_heads
-        self.d_model = config.d_model
 
-        # key, query, value projections for all heads, but in a batch
-        self.c_attn = nn.Linear(
-            config.d_model, 3 * config.d_model, bias=config.include_bias, device=config.init_device
-        )
-        # for param init fn
-        self.c_attn._fused = (0, (self.d_model, 2 * self.d_model))  # type: ignore
+        # Dropout.
+        self.dropout = nn.Dropout(config.residual_dropout)
 
-        # output projection
-        self.c_proj = nn.Linear(
+        # Layer norms.
+        self.norm = LayerNorm.build(config)
+        self.k_norm: Optional[LayerNormBase] = None
+        self.q_norm: Optional[LayerNormBase] = None
+        if config.attention_layer_norm:
+            self.k_norm = LayerNormBase.build(config)
+            self.q_norm = LayerNormBase.build(config)
+
+        # Activation function.
+        self.act = Activation.build(config)
+        assert (self.act.output_multiplier * config.mlp_ratio * config.d_model) % 1 == 0
+
+        # Attention output projection.
+        self.attn_out = nn.Linear(
             config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
         )
-        # for param init fn
-        self.c_proj._is_residual = True  # type: ignore
 
-        # regularization
-        self.attn_dropout = nn.Dropout(config.attention_dropout)
-        self.resid_dropout = nn.Dropout(config.residual_dropout)
+        # Feed-forward output projection.
+        self.ff_out = nn.Linear(
+            int(self.act.output_multiplier * config.mlp_ratio * config.d_model),
+            config.d_model,
+            bias=config.include_bias,
+            device=config.init_device,
+        )
+        self.ff_out._is_residual = True  # type: ignore
 
-        # optional layer norm for keys and queries.
-        self.k_ln: Optional[nn.LayerNorm] = None
-        self.q_ln: Optional[nn.LayerNorm] = None
-        if config.attention_layer_norm:
-            self.k_ln = nn.LayerNorm(self.d_model, device=config.init_device)
-            self.q_ln = nn.LayerNorm(self.d_model, device=config.init_device)
+        # Rotary embeddings.
+        if self.config.rope:
+            self.rotary_emb = RotaryEmbedding(config)
+            self.register_buffer(
+                "pos_emb", self.rotary_emb(config.max_sequence_length, device=config.init_device), persistent=False
+            )
+
+    def get_rotary_embedding(self, seq_len: int, device: Optional[torch.device]) -> torch.Tensor:
+        if self.pos_emb is not None and self.pos_emb.shape[-2] >= seq_len:  # type: ignore
+            return self.pos_emb[:seq_len]  # type: ignore
+
+        pos_emb = self.rotary_emb(seq_len, device=device)
+        self.register_buffer("pos_emb", pos_emb, persistent=False)
+        return pos_emb
+
+    def attention(
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, attention_bias: Optional[torch.FloatTensor] = None
+    ) -> torch.Tensor:
+        B, T, C = q.size()  # batch size, sequence length, d_model
+        dtype = k.dtype
+
+        # Optionally apply layer norm to keys and queries.
+        if self.q_norm is not None and self.k_norm is not None:
+            q = self.q_norm(q).to(dtype=dtype)
+            k = self.k_norm(k).to(dtype=dtype)
+
+        # Move head forward to be next to the batch dim.
+        # shape (all): (B, nh, T, hs)
+        q = q.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
+        k = k.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
+        v = v.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
+
+        if self.config.rope:
+            # Apply rotary embeddings.
+            positions = self.get_rotary_embedding(T, q.device)
+            q, k = map(lambda t: apply_rotary_pos_emb(positions, t), (q, k))
+
+        # Get the attention scores.
+        # shape: (B, nh, T, hs)
+        att = F.scaled_dot_product_attention(
+            q,
+            k,
+            v,
+            attn_mask=None if attention_bias is None else attention_bias.to(dtype=dtype),
+            dropout_p=0.0 if not self.training else self.config.attention_dropout,
+            is_causal=attention_bias is None,
+        )
+
+        # Re-assemble all head outputs side-by-side.
+        att = att.transpose(1, 2).contiguous().view(B, T, C)
+
+        # Apply output projection.
+        return self.attn_out(att)
 
     @abstractmethod
     def forward(
         self,
-        x: torch.FloatTensor,
+        x: torch.Tensor,
         attention_bias: Optional[torch.FloatTensor] = None,
-    ) -> torch.FloatTensor:
+    ) -> torch.Tensor:
         raise NotImplementedError
 
-
-class TorchAttention(DolmaAttentionBase):
-    def __init__(self, config: ModelConfig):
-        super().__init__(config)
-
-    def forward(
-        self,
-        x: torch.FloatTensor,
-        attention_bias: Optional[torch.FloatTensor] = None,
-    ) -> torch.FloatTensor:
-        """
-        :param x: A tensor of shape `(batch_size, seq_len, d_model)`.
-        :param attention_bias: A tensor of shape `(batch_size, n_heads, seq_len, seq_len)`
-            or an equivalently broadcastable shape. This is used to introduce causal or other biases
-            and it is simply added to the attention scores before the softmax.
-        """
-        B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (d_model)
-
-        # Calculate query, key, values for all heads in batch.
-        # shape (all): (B, T, C)
-        q, k, v = self.c_attn(x).split(self.d_model, dim=2)
-
-        # Optionally apply layer norm to keys and queries.
-        if self.k_ln is not None and self.q_ln is not None:
-            dtype = k.dtype
-            k = self.k_ln(k).to(dtype=dtype)
-            q = self.q_ln(q).to(dtype=dtype)
-
-        # Move head forward to be next to the batch dim.
-        # shape (all): (B, nh, T, hs)
-        k = k.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
-        q = q.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
-        v = v.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
-
-        # Self-attention: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
-        att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-
-        # Apply bias.
-        if attention_bias is not None:
-            att = att + attention_bias[:, :, :T, :T]
-
-        # Apply softmax and dropout.
-        att = F.softmax(att, dim=-1)
-        att = self.attn_dropout(att)
-
-        # Get head outputs.
-        y = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
-
-        # Re-assemble all head outputs side by side.
-        y = y.transpose(1, 2).contiguous().view(B, T, C)
-
-        # Apply output projection.
-        y = self.resid_dropout(self.c_proj(y))
-
-        return y
+    @classmethod
+    def build(cls, config: ModelConfig) -> DolmaBlock:
+        if config.block_type == BlockType.sequential:
+            return DolmaSequentialBlock(config)
+        elif config.block_type == BlockType.parallel:
+            return DolmaParallelBlock(config)
+        else:
+            raise NotImplementedError(f"not sure how to handle block type '{config.block_type}'")
 
 
-class FlashAttention(DolmaAttentionBase):
+class DolmaSequentialBlock(DolmaBlock):
     """
-    Triton implementation of FlashAttention.
+    This is a typical transformer block where the output is computed as ``MLP(LN(x + Attention(LN(x))))``
+    (plus another skip connection).
     """
 
     def __init__(self, config: ModelConfig):
-        from flash_attn import flash_attn_triton  # type: ignore
-
         super().__init__(config)
-
-        assert self.d_model / self.n_heads in {64, 128}, "FlashAttention requires head dim of 64 or 128 for now"
-        assert config.attention_dropout == 0, "FlashAttention does not support attention dropout for now"
-        self.flash_attn_qkvpacked_func = flash_attn_triton.flash_attn_qkvpacked_func
-
-    def forward(
-        self, x: torch.FloatTensor, attention_bias: Optional[torch.FloatTensor] = None
-    ) -> torch.FloatTensor:
-        """
-        :param x: A tensor of shape `(batch_size, seq_len, d_model)`.
-        :param attention_bias: A tensor of shape `(batch_size, n_heads, seq_len, seq_len)`
-            or an equivalently broadcastable shape. This is used to introduce causal or other biases
-            and it is simply added to the attention scores before the softmax.
-        """
-        # Calculate query, key, values for all heads in batch.
-        # shape: (batch_size, seq_length, d_model * 3)
-        qkv = self.c_attn(x)
-
-        # Optionally apply layer norm to keys and queries.
-        if self.q_ln is not None and self.k_ln is not None:
-            # Applying layernorm to qk
-            dtype = qkv.dtype
-            q, k, v = qkv.split(self.d_model, dim=-1)
-            q = self.q_ln(q).to(dtype=dtype)
-            k = self.k_ln(k).to(dtype=dtype)
-            qkv = torch.cat([q, k, v], dim=-1)
-
-        # Apply inner attention function.
-        qkv = rearrange(qkv, "b s (t h d) -> b s t h d", t=3, h=self.n_heads)
-        y = self.flash_attn_qkvpacked_func(qkv, attention_bias)
-
-        # Re-assemble all head outputs side by side.
-        y = rearrange(y, "b s h d -> b s (h d)")
-
-        # Apply output projection.
-        y = self.resid_dropout(self.c_proj(y))
-
-        return y
-
-
-class GPTMLP(nn.Module):
-    def __init__(self, config: ModelConfig):
-        super().__init__()
-        self.c_fc = nn.Linear(
+        # Attention input projection. Projects x -> (q, k, v)
+        self.att_proj = nn.Linear(
+            config.d_model, 3 * config.d_model, bias=config.include_bias, device=config.init_device
+        )
+        self.att_proj._fused = (0, (self.config.d_model, 2 * self.config.d_model))  # type: ignore
+        # Feed-forward input projection.
+        self.ff_proj = nn.Linear(
             config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
         )
-        self.act = nn.GELU(approximate="none")
-        self.c_proj = nn.Linear(
-            config.mlp_ratio * config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
-        )
-        self.c_proj._is_residual = True  # type: ignore
-        self.dropout = nn.Dropout(config.residual_dropout)
-
-    def forward(self, x):
-        return self.dropout(self.c_proj(self.act(self.c_fc(x))))
-
-
-class GPTBlock(nn.Module):
-    def __init__(self, config: ModelConfig):
-        super().__init__()
-        self.config = config
-        self.ln_1 = nn.LayerNorm(config.d_model, device=config.init_device)
-        self.attn: DolmaAttentionBase = (
-            FlashAttention(config) if config.flash_attention else TorchAttention(config)
-        )
-        self.ln_2 = nn.LayerNorm(config.d_model, device=config.init_device)
-        self.mlp = GPTMLP(config)
 
     def forward(
         self,
         x: torch.Tensor,
         attention_bias: Optional[torch.FloatTensor] = None,
     ) -> torch.Tensor:
-        x = x + self.attn(self.ln_1(x), attention_bias=attention_bias)
-        x = x + self.mlp(self.ln_2(x))
+        # Get query, key, value projections.
+        # shape (all): (batch_size, seq_len, d_model)
+        q, k, v = self.att_proj(self.norm(x)).split(self.config.d_model, dim=2)
+
+        # Add attention scores.
+        # shape: (B, T, C)
+        x = x + self.dropout(self.attention(q, k, v, attention_bias))
+
+        # Add feed-forward projection.
+        # shape: (batch_size, seq_len, d_model)
+        x = x + self.dropout(self.ff_out(self.act(self.ff_proj(self.norm(x)))))
+
         return x
 
 
-class DolmaGPTOutput(NamedTuple):
+class DolmaParallelBlock(DolmaBlock):
+    """
+    This is a transformer block where the output is computed as ``MLP(LN(x)) + Attention(LN(x))``
+    as in the PaLM architecture, as opposed to the typical ``MLP(LN(x + Attention(LN(x))))``
+    as in :class:`DolmaSequentialBlock` (ignoring some skip connections).
+
+    The decoupling of the MLP and Attention functions allow us to fuse the separate input projections
+    into a single linear layer to increase throughput. In this configuration it's also straight-forward
+    to fuse the output projections, but we found that didn't help.
+    """
+
+    def __init__(self, config: ModelConfig):
+        super().__init__(config)
+        # Fused attention and feed-forward projection.
+        # NOTE: we could also fuse the attention and feed-forward output projections
+        # but we found that didn't help, possibly because of the overhead of joining the `att`
+        # and `ff` activations together.
+        # See https://github.com/allenai/LLM/pull/79 for details.
+        self.fused_dims = (config.d_model, config.d_model, config.d_model, config.mlp_ratio * config.d_model)
+        self.fused_attn_ff_proj = nn.Linear(
+            config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
+        )
+        self.fused_attn_ff_proj._fused = (0, self.fused_dims)  # type: ignore
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        attention_bias: Optional[torch.FloatTensor] = None,
+    ) -> torch.Tensor:
+        # Get query, key, value, and feed-forward projections.
+        # shape of q, k, v: (batch_size, seq_len, d_model)
+        # shape of ff:      (batch_size, seq_len, mlp_ratio x d_model)
+        q, k, v, ff = self.fused_attn_ff_proj(self.norm(x)).split(self.fused_dims, dim=-1)
+
+        # Get attention scores.
+        # shape: (B, T, C)
+        att = self.attention(q, k, v, attention_bias)
+
+        # Apply output projections (and activation function) and sum the results.
+        # We keep these projections separate because we found that we got better throughput this
+        # way compared to fusing them.
+        return x + self.dropout(self.ff_out(self.act(ff))) + self.dropout(att)
+
+
+class DolmaOutput(NamedTuple):
     logits: torch.FloatTensor
     """
     A tensor of shape `(batch_size, seq_len, vocab_size)` representing the log probabilities
@@ -210,25 +413,67 @@ class DolmaGPTOutput(NamedTuple):
     """
 
 
-class DolmaGPT(nn.Module):
+class Dolma(nn.Module):
     def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
         self.config = config
+
+        # Validate config.
+        if self.config.alibi and self.config.flash_attention:
+            raise DolmaConfigurationError("ALiBi is currently not supported with FlashAttention")
+
+        if self.config.alibi and self.config.rope:
+            raise DolmaConfigurationError("ALiBi and RoPE are mutually exclusive")
+
+        if self.config.embedding_size is not None and self.config.embedding_size != self.config.vocab_size:
+            if self.config.embedding_size < self.config.vocab_size:
+                raise DolmaConfigurationError("embedding size should be at least as big as vocab size")
+            elif self.config.embedding_size % 128 != 0:
+                import warnings
+
+                warnings.warn(
+                    "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
+                )
+
+        torch.backends.cuda.enable_flash_sdp(self.config.flash_attention)
+        torch.backends.cuda.enable_mem_efficient_sdp(self.config.memory_efficient_attention)
+
         self.transformer = nn.ModuleDict(
             dict(
-                wte=nn.Embedding(config.vocab_size, config.d_model, device=config.init_device),
+                wte=nn.Embedding(
+                    config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
+                ),
                 emb_drop=nn.Dropout(config.embedding_dropout),
-                blocks=nn.ModuleList([GPTBlock(config) for _ in range(config.n_layers)]),
-                ln_f=nn.LayerNorm(config.d_model, device=config.init_device),
+                blocks=nn.ModuleList([DolmaBlock.build(config) for _ in range(config.n_layers)]),
+                ln_f=LayerNorm.build(config),
             )
         )
-        if not self.config.alibi:
+        if not (self.config.alibi or self.config.rope):
             self.transformer.update(
                 {"wpe": nn.Embedding(config.max_sequence_length, config.d_model, device=config.init_device)}
             )
         if init_params and self.config.init_device != "meta":
             self.apply(self.param_init_fn)
         self.__num_fwd_flops = None
+
+        # Initialize attention bias buffers up front since calling `register_buffer`
+        # while compiling will cause a break in the graph.
+        if self.config.alibi:
+            self.causal_attention_bias
+            self.alibi_attention_bias
+
+    @property
+    def buffer_dtype(self) -> torch.dtype:
+        """
+        For some reason when we use :func:`torch.compile()` and AMP, we have to create the
+        attention bias buffers with the right data type.
+        """
+        if self.config.precision == "amp_bf16":
+            return torch.bfloat16
+        elif self.config.precision == "amp_fp16":
+            return torch.float16
+        else:
+            return torch.float
 
     @property
     def causal_attention_bias(self) -> torch.FloatTensor:
@@ -245,10 +490,12 @@ class DolmaGPT(nn.Module):
             att_bias.masked_fill_(att_bias == 1, float("-inf"))
             self.register_buffer(
                 "_causal_attention_bias",
-                att_bias.view(1, 1, self.config.max_sequence_length, self.config.max_sequence_length),
+                att_bias.to(dtype=self.buffer_dtype).view(
+                    1, 1, self.config.max_sequence_length, self.config.max_sequence_length
+                ),
                 persistent=False,
             )
-        return cast(torch.FloatTensor, self._causal_attention_bias)
+        return self._causal_attention_bias  # type: ignore[return-type]
 
     @property
     def alibi_attention_bias(self) -> torch.FloatTensor:
@@ -270,15 +517,15 @@ class DolmaGPT(nn.Module):
 
             # shape: (1, n_heads, seq_len, seq_len)
             alibi_bias = alibi_bias * (1.0 / (2 ** m.view(1, self.config.n_heads, 1, 1)))
-            self.register_buffer("_alibi_attention_bias", alibi_bias, persistent=False)
-        return cast(torch.FloatTensor, self._alibi_attention_bias)
+            self.register_buffer("_alibi_attention_bias", alibi_bias.to(dtype=self.buffer_dtype), persistent=False)
+        return self._alibi_attention_bias  # type: ignore[return-type]
 
     def forward(
         self,
         input_ids: torch.LongTensor,
         attention_mask: Optional[torch.Tensor] = None,
         attention_bias: Optional[torch.Tensor] = None,
-    ) -> DolmaGPTOutput:
+    ) -> DolmaOutput:
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
         :param attention_mask: A tensor of shape `(batch_size, seq_len)` that indicates
@@ -311,7 +558,7 @@ class DolmaGPT(nn.Module):
         # shape: (batch_size, seq_len, d_model)
         x = self.transformer.wte(input_ids)  # type: ignore
 
-        if not self.config.alibi:
+        if not (self.config.alibi or self.config.rope):
             # Get positional embeddings.
             # shape: (1, seq_len)
             pos = torch.arange(0, seq_len, dtype=torch.long, device=input_ids.device).unsqueeze(0)
@@ -326,27 +573,28 @@ class DolmaGPT(nn.Module):
         # Transform the attention mask into what the blocks expect.
         if attention_mask is not None:
             # shape: (batch_size, 1, 1, seq_len)
-            attention_mask = attention_mask.to(dtype=torch.float).view(batch_size, -1)[:, None, None, :]
+            attention_mask = attention_mask.to(dtype=x.dtype).view(batch_size, -1)[:, None, None, :]
             attention_mask = (1.0 - attention_mask) * torch.finfo(attention_mask.dtype).min
             attention_mask.masked_fill_(attention_mask == 1.0, float("-inf"))
 
-        # Default to causal attention bias.
-        attention_bias = cast(
-            torch.Tensor, attention_bias if attention_bias is not None else self.causal_attention_bias
-        )
-        if attention_bias.dtype in (torch.int8, torch.bool):
-            attention_bias = attention_bias.to(dtype=torch.float)
-            attention_bias.masked_fill_(attention_bias == 0.0, float("-inf"))
+        # Merge attention mask with attention bias.
+        if attention_bias is not None or attention_mask is not None or self.config.alibi:
+            if attention_bias is None:
+                # Default to causal attention bias.
+                attention_bias = self.causal_attention_bias
+            elif attention_bias.dtype in (torch.int8, torch.bool):
+                attention_bias = attention_bias.to(dtype=x.dtype)
+                attention_bias.masked_fill_(attention_bias == 0.0, float("-inf"))
 
-        attention_bias = attention_bias[:, :, :seq_len, :seq_len]
+            attention_bias = attention_bias[:, :, :seq_len, :seq_len]
 
-        # Add in the masking bias.
-        if attention_mask is not None:
-            attention_bias = attention_bias + attention_mask
+            # Add in the masking bias.
+            if attention_mask is not None:
+                attention_bias = attention_bias + attention_mask
 
-        if self.config.alibi:
-            # Add in ALiBi attention bias.
-            attention_bias = attention_bias + self.alibi_attention_bias[:, :, :seq_len, :seq_len]
+            if self.config.alibi:
+                # Add in ALiBi attention bias.
+                attention_bias = attention_bias + self.alibi_attention_bias[:, :, :seq_len, :seq_len].to(x.dtype)
 
         # Apply blocks one-by-one.
         for block in self.transformer.blocks:  # type: ignore
@@ -361,18 +609,18 @@ class DolmaGPT(nn.Module):
         # shape: (batch_size, seq_len, vocab_size)
         logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
 
-        return DolmaGPTOutput(logits=cast(torch.FloatTensor, logits))
+        return DolmaOutput(logits=logits)  # type: ignore[arg-type]
 
     def fsdp_wrap_fn(self, module):
-        return isinstance(module, GPTBlock)
+        return isinstance(module, DolmaBlock)
 
     def activation_checkpointing_fn(self, module):
-        return isinstance(module, GPTBlock)
+        return isinstance(module, DolmaBlock)
 
     def param_init_fn(self, module):
         from functools import partial
 
-        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=self.config.init_std)
+        init_fn = partial(nn.init.normal_, mean=0.0, std=self.config.init_std)
 
         def fused_init_fn(module):
             # Parameter initialization is often based on the parameters shape.
@@ -400,23 +648,23 @@ class DolmaGPT(nn.Module):
                 init_fn(module.weight)
 
             if module.bias is not None:
-                torch.nn.init.zeros_(module.bias)
+                nn.init.zeros_(module.bias)
 
             if getattr(module, "_is_residual", False):
                 with torch.no_grad():
                     module.weight.div_(math.sqrt(2 * self.config.n_layers))
 
             if module.bias is not None:
-                torch.nn.init.zeros_(module.bias)
+                nn.init.zeros_(module.bias)
 
         # Embedding
         if isinstance(module, nn.Embedding):
             init_fn(module.weight)
 
         # LayerNorm
-        if isinstance(module, nn.LayerNorm):
-            torch.nn.init.zeros_(module.bias)
+        if isinstance(module, (nn.LayerNorm, LayerNorm, RMSLayerNorm)):
             torch.nn.init.ones_(module.weight)
+            torch.nn.init.zeros_(module.bias)
 
     def num_params(self, include_embedding: bool = True) -> int:
         """
@@ -434,7 +682,7 @@ class DolmaGPT(nn.Module):
     def num_fwd_flops(self):
         if self.__num_fwd_flops:
             return self.__num_fwd_flops
-        n_params = sum(p.numel() for p in self.parameters())
+        n_params = self.num_params()
         # the number of parameters is approximately the number of multiply-accumulates (MAC) in the network
         # each MAC has 2 FLOPs - we multiply by 2 ie 2 * n_param
         # this gets us FLOPs / token

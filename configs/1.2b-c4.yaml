@@ -11,17 +11,24 @@ model:
   alibi_bias_max: 8.0
   attention_dropout: 0.0
   attention_layer_norm: true
+  layer_norm_type: default  # if not compiling, use 'low_precision'
+  activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
   max_sequence_length: 1024
   vocab_size: 50257
+  embedding_size: 50304
   eos_token_id: 50256
   pad_token_id: 50256
-  init_device: meta
+  init_device: null
   init_std: 0.02
 
+compile:
+  mode: default
+  fullgraph: null
+
 optimizer:
-  name: decoupled_adamw
+  name: decoupled_lionw
   learning_rate: 2.0e-4
   weight_decay: 1.2e-4
   betas:
@@ -71,13 +78,16 @@ device_eval_batch_size: null
 
 n_gpus: null
 
-precision: null
+precision: amp_bf16
 
 fsdp_config:
   sharding_strategy: FULL_SHARD
-  mixed_precision: DEFAULT
+  mixed_precision: PURE
   activation_checkpointing: false
   activation_cpu_offload: false
+  activation_checkpointing_reentrant: false
+  limit_all_gathers: true
+  use_orig_params: true  # needed to work with compile
   verbose: false
 
 speed_monitor:

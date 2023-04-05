@@ -4,7 +4,7 @@
 # To build and push the image to Beaker, run 'make gantry-image'.
 # To test the image after pushing to Beaker, run 'make gantry-test'.
 
-FROM dolma-base
+FROM dolma-torch2-base
 
 WORKDIR /stage
 

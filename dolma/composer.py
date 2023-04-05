@@ -1,40 +1,96 @@
 import logging
 import math
 import warnings
-from typing import Any, Dict, Optional, Tuple, Union
+from fnmatch import fnmatch
+from typing import Any, Dict, Optional, Set, Tuple, TypedDict, Union
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from composer.loggers import ConsoleLogger
 from composer.loggers.logger import format_log_data_value
 from composer.models import ComposerModel
 from composer.utils import dist
+from torch.utils.data import DataLoader
 from torchmetrics import Metric
 
 from .aliases import BatchDict
-from .config import ModelConfig, SchedulerConfig, SchedulerType, TrainConfig
+from .config import (
+    ModelConfig,
+    OptimizerType,
+    SchedulerConfig,
+    SchedulerType,
+    TrainConfig,
+)
+from .data import DataCollator, MemMapDataset
 from .exceptions import DolmaConfigurationError
-from .model import DolmaGPT, DolmaGPTOutput
+from .model import Dolma, LayerNormBase
+from .optim import DecoupledLionW
 
 log = logging.getLogger(__name__)
 
-__all__ = ["ComposerDolmaGPT", "DolmaConsoleLogger", "build_scheduler", "build_algorithm"]
+__all__ = [
+    "TrainBatchPerplexity",
+    "ComposerDolmaLM",
+    "DolmaConsoleLogger",
+    "build_dataloader",
+    "build_optimizer",
+    "build_scheduler",
+    "build_algorithm",
+]
 
 
-class ComposerDolmaGPT(ComposerModel):
-    def __init__(self, config: ModelConfig):
+class TrainBatchOutput(TypedDict, total=True):
+    logits: torch.Tensor
+    """
+    The (shifted) logits.
+    """
+
+    labels: torch.Tensor
+    """
+    The (shifted) label token IDs.
+    """
+
+    loss: torch.Tensor
+    """
+    The cross-entropy loss.
+    """
+
+
+class TrainBatchPerplexity(Metric):
+    """
+    A metric for tracking training perplexity on a per-batch basis.
+    We use this as a training metric instead of composer's built-in
+    :class:`LanguageCrossEntropy` to avoid recomputing the loss.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(sync_on_compute=False)
+        self.loss: Optional[torch.Tensor]
+
+    def update(self, loss: torch.Tensor):
+        self.loss = loss
+
+    def compute(self) -> torch.Tensor:
+        assert self.loss is not None
+        return torch.exp(self.loss)
+
+
+class ComposerDolmaLM(ComposerModel):
+    def __init__(self, model_or_config: Union[Dolma, ModelConfig]):
         super().__init__()
-        self.model = DolmaGPT(config)
+        self.model = Dolma(model_or_config) if isinstance(model_or_config, ModelConfig) else model_or_config
+        self.config = self.model.config
+        self.num_fwd_flops = self.model.num_fwd_flops
 
-        from composer.metrics.nlp import LanguageCrossEntropy, Perplexity
+        from composer.metrics.nlp import LanguageCrossEntropy, LanguagePerplexity
 
-        self.train_metrics = {
-            "LanguageCrossEntropy": LanguageCrossEntropy(config.vocab_size),
-            "Perplexity": Perplexity(),
+        self.train_metrics: Dict[str, Metric] = {
+            "Perplexity": TrainBatchPerplexity(),
         }
-        self.eval_metrics = {
-            "LanguageCrossEntropy": LanguageCrossEntropy(config.vocab_size),
-            "Perplexity": Perplexity(),
+        self.eval_metrics: Dict[str, Metric] = {
+            "Perplexity": LanguagePerplexity(),
+            "CrossEntropy": LanguageCrossEntropy(),
         }
 
     def get_labels(self, batch: BatchDict) -> torch.Tensor:
@@ -44,28 +100,29 @@ class ComposerDolmaGPT(ComposerModel):
             labels = labels.masked_fill(attention_mask == 0.0, -100)
         return labels[..., 1:].contiguous()
 
-    def forward(self, batch: BatchDict) -> DolmaGPTOutput:
-        return self.model(**batch)
-
-    def loss(self, outputs: DolmaGPTOutput, batch: BatchDict) -> torch.Tensor:
+    def forward(self, batch: BatchDict) -> TrainBatchOutput:
+        logits = self.model(**batch).logits[..., :-1, :].contiguous()
         labels = self.get_labels(batch)
-        shift_logits = outputs.logits[..., :-1, :].contiguous()
-        return F.cross_entropy(shift_logits.view(-1, shift_logits.size(-1)), labels.view(-1), ignore_index=-100)
+        loss = F.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1), ignore_index=-100)
+        return {"logits": logits, "labels": labels, "loss": loss}
 
-    def eval_forward(self, batch: BatchDict, outputs: Optional[DolmaGPTOutput] = None) -> DolmaGPTOutput:
+    def loss(self, outputs: TrainBatchOutput, batch: BatchDict) -> torch.Tensor:
+        del batch
+        return outputs["loss"]
+
+    def eval_forward(self, batch: BatchDict, outputs: Optional[TrainBatchOutput] = None) -> TrainBatchOutput:
         return outputs if outputs is not None else self.forward(batch)
 
-    def get_metrics(self, is_train: bool = False) -> Dict[str, "Metric"]:
+    def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
         return self.train_metrics if is_train else self.eval_metrics
 
-    def update_metric(self, batch: BatchDict, outputs: DolmaGPTOutput, metric: "Metric") -> None:
-        labels = self.get_labels(batch)
-        shift_logits = outputs.logits[..., :-1, :].contiguous()
-        metric.update(shift_logits.view(-1, shift_logits.size(-1)), labels.view(-1))
-
-    @property
-    def num_fwd_flops(self):
-        return self.model.num_fwd_flops
+    def update_metric(self, batch: BatchDict, outputs: TrainBatchOutput, metric: Metric) -> None:
+        del batch
+        if isinstance(metric, TrainBatchPerplexity):
+            metric.update(outputs["loss"].detach())
+        else:
+            logits, labels = outputs["logits"], outputs["labels"]
+            metric.update(logits.view(-1, logits.size(-1)), labels.view(-1))
 
     def flops_per_batch(self, batch: BatchDict):
         # Note: this computation does not take into account padding, and assumes
@@ -75,6 +132,16 @@ class ComposerDolmaGPT(ComposerModel):
 
 
 class DolmaConsoleLogger(ConsoleLogger):
+    metrics_to_log: Set[str] = {"loss/train/total", "trainer/global_step", "metrics/*"}
+
+    def log_metrics(self, metrics: dict[str, float], step: Optional[int] = None) -> None:
+        del step
+        # Lazy logging of metrics.
+        # Stores all metrics logged until they are cleared with a log_to_console call
+        self.logged_metrics.update(
+            {k: v for k, v in metrics.items() if any(fnmatch(k, pattern) for pattern in self.metrics_to_log)}
+        )
+
     def _log_hparams_to_console(self):
         if dist.get_local_rank() == 0:
             log_str = "Config:"
@@ -85,6 +152,103 @@ class DolmaConsoleLogger(ConsoleLogger):
 
     def _log_to_console(self, log_str: str):
         log.info(log_str)
+
+
+def build_dataloader(config: TrainConfig, batch_size: int) -> DataLoader:
+    from composer.utils.dist import get_sampler
+
+    collator = DataCollator.from_train_config(config)
+    dataset = MemMapDataset.from_train_config(config)
+    sampler = get_sampler(dataset, shuffle=True, drop_last=config.data.drop_last)
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        collate_fn=collator,
+        num_workers=config.data.num_workers,
+        sampler=sampler,
+        pin_memory=config.data.pin_memory,
+        prefetch_factor=config.data.prefetch_factor,
+        persistent_workers=config.data.persistent_workers,
+        timeout=config.data.timeout,
+    )
+
+
+def build_optimizer(
+    model,
+    name: OptimizerType = OptimizerType.decoupled_lionw,
+    learning_rate: Optional[float] = None,
+    weight_decay: float = 0.0,
+    betas: Tuple[float, float] = (0.9, 0.95),
+    eps: float = 1e-8,
+) -> torch.optim.Optimizer:
+    """
+    Get a suitable optimizer for training/fine-tuning.
+
+    :param learning_rate: The learning rate. If not specified, a default learning
+        rate will calculated according to the equation from the Scaling Laws paper
+        `0.003239 - 0.0001395 * math.log(N)`,
+        where `N` is the number of trainable parameters excluding embeddings.
+    :param weight_decay: The weight decay coefficient. This does not apply to
+        biases and layernorm/embedding weights, which will have a weight decay
+        coefficient of 0.
+    :param kwargs: Other keyword arguments passed to the optimizer.
+    """
+    # Separate out all parameters to those that will and won't experience regularizing weight decay.
+    decay = set()
+    no_decay = set()
+    all_params = {}
+    num_trainable_non_embedding_weights = 0
+    for mn, m in model.named_modules():
+        for pn, p in m.named_parameters():
+            # NOTE: because named_modules and named_parameters are recursive
+            # we will see the same tensors p many many times, but doing it this way
+            # allows us to know which parent module any tensor p belongs to...
+            if not p.requires_grad:
+                continue
+
+            fpn = f"{mn}.{pn}" if mn else pn
+            all_params[fpn] = p
+
+            if pn.endswith("bias"):
+                # all biases will not be decayed
+                no_decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, nn.Linear):
+                # weights of whitelist modules will be weight decayed
+                decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, (LayerNormBase, nn.LayerNorm, nn.Embedding)):
+                # weights of blacklist modules will NOT be weight decayed
+                no_decay.add(fpn)
+
+            if fpn not in {"transformer.wte.weight", "transformer.wpe.weight"}:
+                num_trainable_non_embedding_weights += p.numel()
+
+    # Validate that we've considered every parameter
+    inter_params = decay & no_decay
+    union_params = decay | no_decay
+    assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
+    assert (
+        len(all_params.keys() - union_params) == 0
+    ), f"parameters {all_params.keys() - union_params} were not separated into either decay/no_decay set!"
+
+    # Create the pytorch optimizer groups.
+    optim_groups = [
+        {"params": [all_params[pn] for pn in sorted(list(decay))], "weight_decay": weight_decay},
+        {"params": [all_params[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
+    ]
+
+    if learning_rate is None:
+        learning_rate = 0.003239 - 0.0001395 * math.log(num_trainable_non_embedding_weights)
+
+    if name == OptimizerType.decoupled_lionw:
+        return DecoupledLionW(optim_groups, lr=learning_rate, betas=betas)
+    elif name == OptimizerType.decoupled_adamw:
+        from composer.optim import DecoupledAdamW
+
+        return DecoupledAdamW(optim_groups, lr=learning_rate, betas=betas, eps=eps)
+    elif name == OptimizerType.adamw:
+        return torch.optim.AdamW(optim_groups, lr=learning_rate, betas=betas, eps=eps)
+    else:
+        raise NotImplementedError(f"Not sure how to build optimizer '{name}'")
 
 
 def build_scheduler(cfg: SchedulerConfig):
@@ -113,8 +277,6 @@ def build_algorithm(name: str, kwargs: Dict[str, Any]):
         return algorithms.FusedLayerNorm(**kwargs)
     elif name == "gated_linear_units":
         return algorithms.GatedLinearUnits(**kwargs)
-    elif name == "low_precision_layernorm":
-        return algorithms.LowPrecisionLayerNorm(**kwargs)
     else:
         raise NotImplementedError(f"Not sure how to build algorithm '{name}'")
 

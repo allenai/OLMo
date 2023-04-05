@@ -2,21 +2,28 @@ import pytest
 import torch
 from torch.nn import CrossEntropyLoss
 
-from dolma import DolmaGPT, ModelConfig, Tokenizer, TrainConfig
+from dolma import BlockType, Dolma, ModelConfig, Tokenizer, TrainConfig
+from dolma.composer import build_optimizer
 from dolma.data import DataCollator
-from dolma.optim import build_optimizer
 
 
 @pytest.mark.parametrize(
-    "alibi, flash_attn, cuda, dtype",
+    "alibi, rope, flash_attn, block_type, cuda, dtype",
     [
-        pytest.param(True, False, False, torch.bfloat16, id="alibi-emb-cpu-bf16"),
-        pytest.param(False, False, False, torch.bfloat16, id="posit-emb-cpu-bf16"),
-        pytest.param(True, False, False, torch.float32, id="alibi-emb-cpu-f32"),
-        pytest.param(False, False, False, torch.float32, id="posit-emb-cpu-f32"),
+        pytest.param(True, False, False, BlockType.sequential, False, torch.bfloat16, id="alibi-emb-cpu-bf16"),
+        pytest.param(
+            True, False, False, BlockType.parallel, False, torch.bfloat16, id="alibi-emb-parallel-block-cpu-bf16"
+        ),
+        pytest.param(False, False, False, BlockType.sequential, False, torch.bfloat16, id="posit-emb-cpu-bf16"),
+        pytest.param(True, False, False, BlockType.sequential, False, torch.float32, id="alibi-emb-cpu-f32"),
+        pytest.param(False, False, False, BlockType.sequential, False, torch.float32, id="posit-emb-cpu-f32"),
+        pytest.param(False, True, False, BlockType.sequential, False, torch.bfloat16, id="rope-emb-cpu-bf16"),
+        pytest.param(False, True, False, BlockType.sequential, False, torch.float32, id="rope-emb-cpu-f32"),
         pytest.param(
             True,
             False,
+            False,
+            BlockType.sequential,
             True,
             torch.bfloat16,
             id="alibi-emb-cuda-bf16",
@@ -26,8 +33,36 @@ from dolma.optim import build_optimizer
             ),
         ),
         pytest.param(
+            True,
             False,
             False,
+            BlockType.parallel,
+            True,
+            torch.bfloat16,
+            id="alibi-emb-parallel-block-cuda-bf16",
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
+            ),
+        ),
+        pytest.param(
+            False,
+            True,
+            False,
+            BlockType.sequential,
+            True,
+            torch.bfloat16,
+            id="rope-emb-cuda-bf16",
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
+            ),
+        ),
+        pytest.param(
+            False,
+            False,
+            False,
+            BlockType.sequential,
             True,
             torch.bfloat16,
             id="posit-emb-cuda-bf16",
@@ -37,19 +72,10 @@ from dolma.optim import build_optimizer
             ),
         ),
         pytest.param(
-            True,
-            True,
-            True,
-            torch.bfloat16,
-            id="alibi-emb-flash-cuda-bf16",
-            marks=(
-                pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
-            ),
-        ),
-        pytest.param(
+            False,
             False,
             True,
+            BlockType.sequential,
             True,
             torch.bfloat16,
             id="posit-emb-flash-cuda-bf16",
@@ -59,19 +85,10 @@ from dolma.optim import build_optimizer
             ),
         ),
         pytest.param(
-            True,
-            True,
-            True,
-            torch.float16,
-            id="alibi-emb-flash-cuda-f16",
-            marks=(
-                pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
-            ),
-        ),
-        pytest.param(
+            False,
             False,
             True,
+            BlockType.sequential,
             True,
             torch.float16,
             id="posit-emb-flash-cuda-f16",
@@ -83,14 +100,24 @@ from dolma.optim import build_optimizer
     ],
 )
 def test_forward(
-    train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, flash_attn: bool, cuda: bool, dtype
+    train_config: TrainConfig,
+    tokenizer: Tokenizer,
+    alibi: bool,
+    rope: bool,
+    flash_attn: bool,
+    block_type: BlockType,
+    cuda: bool,
+    dtype,
 ):
     torch.manual_seed(0)
+    torch.use_deterministic_algorithms(True)
 
     train_config.model.alibi = alibi
+    train_config.model.rope = rope
     train_config.model.flash_attention = flash_attn
     if flash_attn:
         train_config.model.attention_dropout = 0.0
+    train_config.model.block_type = block_type
     if cuda:
         train_config.model.init_device = "cuda"
     else:
@@ -98,7 +125,7 @@ def test_forward(
 
     use_amp = dtype in {torch.float16, torch.bfloat16}
 
-    model = DolmaGPT(train_config.model).eval()
+    model = Dolma(train_config.model).eval()
 
     input1 = tokenizer.encode("My name is DOLMA!")
     input2 = tokenizer.encode("I'm a delightful large open language model :)")
@@ -162,21 +189,6 @@ def test_forward(
             ),
         ),
         pytest.param(
-            True,
-            True,
-            True,
-            torch.bfloat16,
-            id="alibi-emb-flash-cuda-bf16",
-            marks=(
-                pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
-                pytest.mark.skipif(
-                    torch.cuda.device_count() < 1 or "A100" not in torch.cuda.get_device_name(),
-                    reason="Requires A100 GPU type",
-                ),
-            ),
-        ),
-        pytest.param(
             False,
             True,
             True,
@@ -210,7 +222,7 @@ def test_backward(
     else:
         train_config.model.init_device = "cpu"
 
-    model = DolmaGPT(train_config.model).train()
+    model = Dolma(train_config.model).train()
 
     with torch.autocast(
         device_type="cuda" if cuda else "cpu", enabled=use_amp, dtype=None if not use_amp else dtype
@@ -242,4 +254,4 @@ def test_backward(
 
 
 def test_build_optimizer(model_config: ModelConfig):
-    build_optimizer(DolmaGPT(model_config))
+    build_optimizer(Dolma(model_config))

@@ -24,7 +24,7 @@ gantry run \
   --nfs \
   --priority preemptible \
   --gpus 8 \
-  --beaker-image dolma-gantry \
+  --beaker-image dolma-torch2-gantry \
   --cluster 'ai2/*-cirrascale' \
   --allow-dirty \
   -- composer scripts/train.py configs/1.2b-c4.yaml
@@ -36,7 +36,7 @@ Train the 70B model on c4 with gantry across multiple nodes:
 gantry run \
   --workspace ai2/llm-testing \
   --priority "high" \
-  --beaker-image dolma-gantry \
+  --beaker-image dolma-torch2-gantry \
   --cluster ai2/general-cirrascale-a100-80g-ib \
   --gpus 8 \
   --nfs \

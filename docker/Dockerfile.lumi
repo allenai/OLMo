@@ -1,16 +1,39 @@
-FROM rocm/dev-ubuntu-22.04:5.4-complete
+FROM ubuntu:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
 
+# Install various softwares
 RUN apt-get update
 RUN apt-get upgrade -y
-RUN apt-get install -y python-is-python3 git autoconf python3-dev git vim libtool openjdk-8-jdk-headless xvfb fish build-essential wget parallel s3cmd awscli rocm-libs rccl
+RUN apt-get install -y \
+  python-is-python3 \
+  python3-dev \
+  libpython3-all-dev \
+  python-dev-is-python3 \
+  python3-pip \
+  build-essential \
+  git \
+  autoconf \
+  libtool \
+  llvm \
+  vim \
+  fish \
+  wget \
+  parallel \
+  s3cmd \
+  awscli \
+  htop \
+  wget \
+  fish
 
-# Fix for Java trying to find assistive techs in headless java
-# https://askubuntu.com/questions/695560/assistive-technology-not-found-awterror
-RUN sed -i -e '/^assistive_technologies=/s/^/#/' /etc/java-8-openjdk/accessibility.properties
+# Install ROCm
+RUN wget https://repo.radeon.com/amdgpu-install/5.4.3/ubuntu/jammy/amdgpu-install_5.4.50403-1_all.deb && \
+    apt-get install -y ./amdgpu-install_5.4.50403-1_all.deb && \
+    amdgpu-install -y --accept-eula --usecase=rocm --no-dkms && \
+    rm ./amdgpu-install_5.4.50403-1_all.deb && \
+    apt-get install -y rccl rocm-libs
 
 # Install MPICH
 ENV MPICH_VERSION="3.1.4"
@@ -34,8 +57,7 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # Install torch
 RUN pip install --upgrade pip
-RUN pip install --no-cache-dir "torch<2.0" torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/rocm5.2
-#RUN pip install --pre --no-cache-dir "torch<2.0" torchvision torchaudio torchtext --extra-index-url https://download.pytorch.org/whl/nightly/rocm5.3
+RUN pip install --no-cache-dir torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/rocm5.4.2
 
 # Install DeepSpeed
 RUN pip install --no-cache-dir mpi4py
@@ -49,9 +71,10 @@ RUN cd /opt && \
 COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir py-spy
-RUN pip install wandb --upgrade
+RUN pip install --no-cache-dir wandb --upgrade
 
 # Cleanup
+RUN apt-get autoremove
 RUN rm -rf /opt/mpich-3.1.4 /opt/aws-ofi-rccl /opt/DeepSpeed
 RUN apt-get clean
 RUN pip cache purge

@@ -127,8 +127,8 @@ class Tokenizer:
 
         return all_input_ids
 
-    def decode(self, token_ids: List[int]) -> str:
+    def decode(self, token_ids: List[int], skip_special_tokens: bool = True) -> str:
         """
         Decode a list of token IDs to a string.
         """
-        return self.base_tokenizer.decode(token_ids)
+        return self.base_tokenizer.decode(token_ids, skip_special_tokens=skip_special_tokens)

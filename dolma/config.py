@@ -25,6 +25,10 @@ from .aliases import PathOrStr
 from .exceptions import DolmaConfigurationError
 
 __all__ = [
+    "ActivationType",
+    "BlockType",
+    "CompilerConfig",
+    "LayerNormType",
     "ModelConfig",
     "OptimizerType",
     "OptimizerConfig",
@@ -114,6 +118,40 @@ class BaseConfig:
         return out
 
 
+class LayerNormType(StrEnum):
+    default = "default"
+    """
+    The default LayerNorm implementation, equivalent to PyTorch's built-in version.
+    """
+
+    low_precision = "low_precision"
+    """
+    A low-precision version of the default LayerNorm.
+    """
+
+    rms = "rms"
+    """
+    An RMSNorm implementation. When using ``torch.compile`` this is
+    probably the fastest implementation.
+    """
+
+    low_precision_rms = "low_precision_rms"
+    """
+    A low-precision version of RMSNorm.
+    """
+
+
+class ActivationType(StrEnum):
+    gelu = "gelu"
+    relu = "relu"
+    swiglu = "swiglu"
+
+
+class BlockType(StrEnum):
+    sequential = "sequential"
+    parallel = "parallel"
+
+
 @dataclass
 class ModelConfig(BaseConfig):
     """
@@ -142,9 +180,19 @@ class ModelConfig(BaseConfig):
     The ratio of the inner MLP dimensionality to ``d_model``.
     """
 
+    activation_type: ActivationType = ActivationType.swiglu
+    """
+    The activation function to use within the MLP layers.
+    """
+
+    block_type: BlockType = BlockType.sequential
+    """
+    The transformer block implementation.
+    """
+
     alibi: bool = False
     """
-    If ``True``, use ALiBi embeddings.
+    If ``True``, use ALiBi embeddings. Mutually exclusive with ``rope``.
     """
 
     alibi_bias_max: float = 8.0
@@ -152,9 +200,19 @@ class ModelConfig(BaseConfig):
     Maximum absolute value of ALiBi bias.
     """
 
+    rope: bool = False
+    """
+    Use rotary positional embeddings (RoPE). Mutually exclusive with ``alibi``.
+    """
+
     flash_attention: bool = False
     """
     If ``True``, use ``FlashAttention``.
+    """
+
+    memory_efficient_attention: bool = False
+    """
+    If ``True``, enable memory-efficient attention.
     """
 
     attention_dropout: float = 0.1
@@ -178,6 +236,11 @@ class ModelConfig(BaseConfig):
     The dropout probability for embeddings.
     """
 
+    layer_norm_type: LayerNormType = LayerNormType.default
+    """
+    The layernorm implementation to use.
+    """
+
     max_sequence_length: int = 1024
     """
     The maximum input sequence length supported by the model.
@@ -193,6 +256,14 @@ class ModelConfig(BaseConfig):
     vocab_size: int = 50257
     """
     Vocabulary size of the model.
+    """
+
+    embedding_size: Optional[int] = 50304
+    """
+    The number of embeddings, i.e. the number of tokens. If set to ``None`` it will default
+    to ``vocab_size``. If ``vocab_size`` is not a multiple of 128, setting this to the
+    next multiple of 128 that's greater than ``vocab_size`` can improve throughput
+    substantially.
     """
 
     eos_token_id: int = 50256
@@ -213,6 +284,12 @@ class ModelConfig(BaseConfig):
     init_std: float = 0.02
     """
     Standard deviation used when initializing parameters.
+    """
+
+    precision: Optional[str] = None
+    """
+    Precision used to train/evaluate with. You shouldn't set this directly.
+    See :data:`TrainConfig.precision` instead.
     """
 
     @property
@@ -266,7 +343,7 @@ class DataConfig(BaseConfig):
     num_workers: int = 0
     drop_last: bool = True
     pin_memory: bool = True
-    prefetch_factor: int = 2
+    prefetch_factor: Optional[int] = 2
     persistent_workers: bool = True
     timeout: int = 0
 
@@ -300,6 +377,28 @@ class SpeedMonitorConfig(BaseConfig):
 
 
 @dataclass
+class CompilerConfig(BaseConfig):
+    mode: Optional[str] = None
+    """
+    The mode to compile the model in. At the moment this can be "default",
+    "reduce-overhead" (useful for smaller models/batches), or "max-autotune"
+    (the fastest for larger models, but takes a long time to compile).
+    """
+
+    fullgraph: Optional[bool] = None
+    """
+    Whether it is OK to break model into several subgraphs when compiling.
+
+    If ``None``, ``fullgraph`` will default to ``True`` unless used during FSDP distributed training.
+    """
+
+    backend: str = "inductor"
+    """
+    The backend to use.
+    """
+
+
+@dataclass
 class TrainConfig(BaseConfig):
     """
     DOLMA training configuration.
@@ -311,7 +410,7 @@ class TrainConfig(BaseConfig):
     model: ModelConfig = field(default_factory=ModelConfig)
     optimizer: OptimizerConfig = field(default_factory=OptimizerConfig)
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
-    algorithms: Optional[Dict[str, Dict[str, Any]]] = None
+    algorithms: Optional[Dict[str, Optional[Dict[str, Any]]]] = None
     data: DataConfig = field(default_factory=DataConfig)
     tokenizer: TokenizerConfig = field(default_factory=TokenizerConfig)
     save_folder: str = "./"
@@ -332,6 +431,10 @@ class TrainConfig(BaseConfig):
     wandb: Optional[WandbConfig] = None
     speed_monitor: SpeedMonitorConfig = field(default_factory=SpeedMonitorConfig)
     console_log_interval: Union[str, int] = "1ba"
+    compile: Optional[CompilerConfig] = None
+    """
+    Settings for compiling the model with ``torch.compile()``.
+    """
 
     @property
     def device(self) -> Optional[str]:

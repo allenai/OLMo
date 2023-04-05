@@ -1,7 +1,7 @@
 # If you update this, also update BEAKER_IMAGE in .github/workflows/main.yml
-IMAGE_NAME_BASE = dolma
+IMAGE_NAME_BASE = dolma-torch2
 # If you update this, also update BEAKER_WORKSPACE in .github/workflows/main.yml
-BEAKER_WORKSPACE = "ai2/llm-testing"
+BEAKER_WORKSPACE = ai2/llm-testing
 
 BEAKER_USER = $(shell beaker account whoami --format=json | jq -r '.[0].name')
 GANTRY_IMAGE = $(shell beaker workspace images $(BEAKER_WORKSPACE) --format=json | jq -r -c '.[] | select( .name == "$(IMAGE_NAME_BASE)-gantry" ) | .fullName')
@@ -58,7 +58,7 @@ show-beaker-workspace :
 gantry-test :
 	gantry run \
 		--workspace "$(BEAKER_WORKSPACE)" \
-		--priority "preemptible" \
+		--priority "normal" \
 		--beaker-image "$(GANTRY_IMAGE)" \
 		--gpus 1 \
 		--description "Test run" \
