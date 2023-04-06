@@ -1,0 +1,3 @@
+smashed[remote]
+
+git+https://github.com/fhamborg/news-please@1c31b9a#egg=news-please

@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 import os
 import gzip
 from typing import Iterator
@@ -13,12 +14,15 @@ from smashed.utils.io_utils import recursively_list_files, open_file_for_read
 from tqdm import tqdm
 
 
-NAME = 'v1'
-VOCAB_SIZE = 64000  # Change to 64000 for actual training
+ap = ArgumentParser()
+ap.add_argument("name", type=str, default="v1")
+ap.add_argument("--vocab_size", type=int, default=64000)
+opts = ap.parse_args()
+
 # These special tokens are not added to the tokenizer's vocabulary to ensure they
 # never appear in the training data. That is, there is no string form of these tokens.
-EOS_TOKEN_ID = VOCAB_SIZE - 1
-PAD_TOKEN_ID = VOCAB_SIZE - 2
+EOS_TOKEN_ID = opts.vocab_size - 1
+PAD_TOKEN_ID = opts.vocab_size - 2
 
 # Initialize tokenizer object.
 tokenizer = Tokenizer(models.BPE())
@@ -29,8 +33,6 @@ tokenizer.pre_tokenizer = pre_tokenizers.Sequence(  # type: ignore
         pre_tokenizers.Digits(individual_digits=True),
         # Split on all punctuation.
         pre_tokenizers.Punctuation(),
-        # Mimics the SentencePiece splitter.
-        pre_tokenizers.UnicodeScripts(),
         # Finally, do the byte-level BPE things.
         pre_tokenizers.ByteLevel(add_prefix_space=False),
     ]
@@ -40,12 +42,12 @@ tokenizer.decoder = decoders.ByteLevel()  # type: ignore
 # Initialize trainer.
 trainer = trainers.BpeTrainer(  # type: ignore
     # make room for special tokens which we don't want in the actual vocab
-    vocab_size=VOCAB_SIZE - 2,
+    vocab_size=opts.vocab_size - 2,
     initial_alphabet=pre_tokenizers.ByteLevel.alphabet(),
     special_tokens=[],
 )
 
-BASE_PATH = f"s3://ai2-llm/tokenizer/data/{NAME}"
+BASE_PATH = f"s3://ai2-llm/tokenizer/data/{opts.name}"
 
 
 def data_it(base_path=BASE_PATH) -> Iterator[str]:
@@ -65,4 +67,4 @@ def data_it(base_path=BASE_PATH) -> Iterator[str]:
 
 
 tokenizer.train_from_iterator(data_it(), trainer=trainer)
-tokenizer.save(os.path.expanduser(f"~/{NAME}.json"))
+tokenizer.save(os.path.expanduser(f"~/{opts.name}.json"))
