@@ -49,7 +49,7 @@ def main(
                     miniters=1,
                     desc=f"Uploading {file_or_directory} to gs://{bucket.name}/{key}",
                 ) as f:
-                    blob.upload_from_file(f, file_or_directory)
+                    blob.upload_from_file(f)
         elif file_or_directory.is_dir():
             for directory_entry in file_or_directory.iterdir():
                 files_or_directories_in_a_special_variable_because_mypy_is_lame.append(
