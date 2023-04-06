@@ -24,7 +24,7 @@ beaker-info :
 .PHONY : images
 images : gantry-image test-image
 
-PHONY : base-image
+.PHONY : base-image
 base-image :
 	docker build -f docker/Dockerfile.base -t $(IMAGE_NAME_BASE)-base .
 
