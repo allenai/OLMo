@@ -81,3 +81,12 @@ outputs = model.generate(input_tensor, max_steps=3, beam_size=3)
 best_generation = outputs.token_ids[0][0].tolist()
 print(tokenizer.decode(best_generation))
 ```
+
+## Finding official runs
+
+We keep all of our runs in WandB under [the "ai2-llm" entity](https://wandb.ai/ai2-llm).
+We don't store model checkpoints in WandB. Those are in GCS under `gs://allennlp-olmo/<wandb_run_path>`.
+
+### Highlighted models
+
+ * 300M parameters, ~70B tokens, a starter model that's not completely random: https://wandb.ai/ai2-llm/LLM-scripts/runs/ed5krfk9
