@@ -23,16 +23,16 @@ from .config import (
     TrainConfig,
 )
 from .data import DataCollator, MemMapDataset
-from .exceptions import DolmaConfigurationError
-from .model import Dolma, LayerNormBase
+from .exceptions import OlmoConfigurationError
+from .model import LayerNormBase, Olmo
 from .optim import DecoupledLionW
 
 log = logging.getLogger(__name__)
 
 __all__ = [
     "TrainBatchPerplexity",
-    "ComposerDolmaLM",
-    "DolmaConsoleLogger",
+    "ComposerOlmoLM",
+    "OlmoConsoleLogger",
     "build_dataloader",
     "build_optimizer",
     "build_scheduler",
@@ -76,10 +76,10 @@ class TrainBatchPerplexity(Metric):
         return torch.exp(self.loss)
 
 
-class ComposerDolmaLM(ComposerModel):
-    def __init__(self, model_or_config: Union[Dolma, ModelConfig]):
+class ComposerOlmoLM(ComposerModel):
+    def __init__(self, model_or_config: Union[Olmo, ModelConfig]):
         super().__init__()
-        self.model = Dolma(model_or_config) if isinstance(model_or_config, ModelConfig) else model_or_config
+        self.model = Olmo(model_or_config) if isinstance(model_or_config, ModelConfig) else model_or_config
         self.config = self.model.config
         self.num_fwd_flops = self.model.num_fwd_flops
 
@@ -131,7 +131,7 @@ class ComposerDolmaLM(ComposerModel):
         return self.num_fwd_flops * 3 * batch["input_ids"].shape[0]
 
 
-class DolmaConsoleLogger(ConsoleLogger):
+class OlmoConsoleLogger(ConsoleLogger):
     metrics_to_log: Set[str] = {"loss/train/total", "trainer/global_step", "metrics/*"}
 
     def log_metrics(self, metrics: dict[str, float], step: Optional[int] = None) -> None:
@@ -285,7 +285,7 @@ def calculate_batch_size_info(
     global_batch_size: int, device_microbatch_size: Union[int, str]
 ) -> Tuple[int, Union[str, int], Union[str, int]]:
     if global_batch_size % dist.get_world_size() != 0:
-        raise DolmaConfigurationError(
+        raise OlmoConfigurationError(
             f"Global batch size {global_batch_size} is not divisible by {dist.get_world_size()} "
             "as a result, the batch size would be truncated, please adjust `global_batch_size` "
             f"to be divisible by world size, {dist.get_world_size()}."
@@ -303,7 +303,7 @@ def calculate_batch_size_info(
             device_microbatch_size = device_batch_size
         device_grad_accum = math.ceil(device_batch_size / device_microbatch_size)
     else:
-        raise DolmaConfigurationError(f"Not sure how to parse {device_microbatch_size=}")
+        raise OlmoConfigurationError(f"Not sure how to parse {device_microbatch_size=}")
 
     return device_batch_size, device_microbatch_size, device_grad_accum
 
@@ -324,7 +324,7 @@ def update_batch_size_info(cfg: TrainConfig):
         elif isinstance(cfg.device_train_microbatch_size, int):
             cfg.device_eval_batch_size = cfg.device_train_microbatch_size
         else:
-            raise DolmaConfigurationError(
+            raise OlmoConfigurationError(
                 f"Not sure how to parse device_train_microbatch_size={cfg.device_train_microbatch_size}"
             )
     return cfg

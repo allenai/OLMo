@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import torch
 
-from dolma.beam_search import (
+from olmo.beam_search import (
     BeamSearch,
     GumbelSampler,
     LengthNormalizedSequenceLogProbabilityScorer,

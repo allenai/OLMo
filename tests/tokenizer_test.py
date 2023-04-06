@@ -2,7 +2,7 @@ from typing import List
 
 import pytest
 
-from dolma.tokenizer import Tokenizer
+from olmo.tokenizer import Tokenizer
 
 
 @pytest.mark.parametrize("add_special_tokens", [pytest.param(x, id=f"specials={x}") for x in (True, False)])

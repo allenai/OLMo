@@ -29,8 +29,8 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from dolma import Tokenizer
-from dolma.util import prepare_cli_environment
+from olmo import Tokenizer
+from olmo.util import prepare_cli_environment
 
 log = logging.getLogger(__name__)
 

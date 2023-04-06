@@ -1,4 +1,4 @@
-# DOLMA: Delightful Open Language Model from AI2
+# OLMo: Delightful Open Language Model from AI2
 
 ## Setup
 
@@ -24,7 +24,7 @@ gantry run \
   --nfs \
   --priority preemptible \
   --gpus 8 \
-  --beaker-image dolma-torch2-gantry \
+  --beaker-image olmo-torch2-gantry \
   --cluster 'ai2/*-cirrascale' \
   --allow-dirty \
   -- composer scripts/train.py configs/1.2b-c4.yaml
@@ -36,7 +36,7 @@ Train the 70B model on c4 with gantry across multiple nodes:
 gantry run \
   --workspace ai2/llm-testing \
   --priority "high" \
-  --beaker-image dolma-torch2-gantry \
+  --beaker-image olmo-torch2-gantry \
   --cluster ai2/general-cirrascale-a100-80g-ib \
   --gpus 8 \
   --nfs \
@@ -45,7 +45,7 @@ gantry run \
   --env NCCL_DEBUG=INFO \
   --env SCRATCH_DIR=/tmp/scratch \
   --env FLASH_DIR=/tmp/flash \
-  --env WANDB_PROJECT=dolma-beaker-ib \
+  --env WANDB_PROJECT=olmo-beaker-ib \
   --env-secret WANDB_API_KEY=WANDB_API_KEY \
   --replicas 4 \
   --leader-selection \

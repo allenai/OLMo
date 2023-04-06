@@ -6,7 +6,7 @@ from typing import Generator, List, Optional, Union
 from tokenizers import Tokenizer as BaseTokenizer
 
 from .config import TrainConfig, TruncationDirection
-from .exceptions import DolmaConfigurationError
+from .exceptions import OlmoConfigurationError
 
 __all__ = ["Tokenizer"]
 
@@ -43,7 +43,7 @@ class Tokenizer:
     def from_train_config(cls, config: TrainConfig) -> Tokenizer:
         tokenizer = cls.from_pretrained(config.tokenizer.identifier, eos_token_id=config.model.eos_token_id)
         if config.model.vocab_size != tokenizer.vocab_size:
-            raise DolmaConfigurationError("vocab size mismatch between config and tokenizer")
+            raise OlmoConfigurationError("vocab size mismatch between config and tokenizer")
         return tokenizer
 
     @classmethod

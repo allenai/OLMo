@@ -9,7 +9,7 @@ on:
     branches:
       - main
     paths:
-      - 'dolma/**'
+      - 'olmo/**'
 
 jobs:
   changelog:
