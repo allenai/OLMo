@@ -2,10 +2,10 @@ import pytest
 import torch
 from torch.nn import CrossEntropyLoss
 
-from dolma import BlockType, Dolma, ModelConfig, Tokenizer, TrainConfig
-from dolma.composer import build_optimizer
-from dolma.config import PaddingDirection
-from dolma.data import DataCollator
+from olmo import BlockType, ModelConfig, Olmo, Tokenizer, TrainConfig
+from olmo.composer import build_optimizer
+from olmo.config import PaddingDirection
+from olmo.data import DataCollator
 
 
 @pytest.mark.parametrize(
@@ -126,9 +126,9 @@ def test_forward(
 
     use_amp = dtype in {torch.float16, torch.bfloat16}
 
-    model = Dolma(train_config.model).eval()
+    model = Olmo(train_config.model).eval()
 
-    input1 = tokenizer.encode("My name is DOLMA!")
+    input1 = tokenizer.encode("My name is OLMo!")
     input2 = tokenizer.encode("I'm a delightful large open language model :)")
     batch_inputs = DataCollator.from_train_config(train_config)(
         [  # type: ignore
@@ -223,13 +223,13 @@ def test_backward(
     else:
         train_config.model.init_device = "cpu"
 
-    model = Dolma(train_config.model).train()
+    model = Olmo(train_config.model).train()
 
     with torch.autocast(
         device_type="cuda" if cuda else "cpu", enabled=use_amp, dtype=None if not use_amp else dtype
     ):
         # Forward pass to get logits.
-        input_ids = torch.tensor(tokenizer.encode("My name is DOLMA!"), device=train_config.device).unsqueeze(0)
+        input_ids = torch.tensor(tokenizer.encode("My name is OLMo!"), device=train_config.device).unsqueeze(0)
         logits = model(input_ids).logits
 
         # Compute loss.
@@ -255,7 +255,7 @@ def test_backward(
 
 
 def test_build_optimizer(model_config: ModelConfig):
-    build_optimizer(Dolma(model_config))
+    build_optimizer(Olmo(model_config))
 
 
 @pytest.mark.parametrize(
@@ -297,9 +297,9 @@ def test_generate(
         train_config.model.init_device = "cpu"
     use_amp = dtype in {torch.float16, torch.bfloat16}
 
-    model = Dolma(train_config.model).eval()
+    model = Olmo(train_config.model).eval()
 
-    input1 = tokenizer.encode("My name is DOLMA! ", add_special_tokens=False)
+    input1 = tokenizer.encode("My name is OLMo! ", add_special_tokens=False)
     input2 = tokenizer.encode("I'm a delightful large open language model :) ", add_special_tokens=False)
     batch_inputs = DataCollator.from_train_config(train_config)(
         [  # type: ignore

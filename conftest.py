@@ -2,7 +2,7 @@ from typing import List
 
 import pytest
 
-from dolma.config import (
+from olmo.config import (
     DataConfig,
     ModelConfig,
     OptimizerConfig,
@@ -11,7 +11,7 @@ from dolma.config import (
     TokenizerConfig,
     TrainConfig,
 )
-from dolma.tokenizer import Tokenizer
+from olmo.tokenizer import Tokenizer
 
 TEST_MODEL = "gpt2"
 

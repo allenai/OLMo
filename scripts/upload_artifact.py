@@ -6,7 +6,7 @@ import click
 from google.cloud import storage
 from tqdm import tqdm
 
-from dolma.util import prepare_cli_environment
+from olmo.util import prepare_cli_environment
 
 log = logging.getLogger(__name__)
 
