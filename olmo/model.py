@@ -18,7 +18,7 @@ from torch import einsum
 
 from .beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
 from .config import ActivationType, BlockType, LayerNormType, ModelConfig
-from .exceptions import DolmaConfigurationError
+from .exceptions import OlmoConfigurationError
 
 __all__ = [
     "LayerNormBase",
@@ -29,12 +29,12 @@ __all__ = [
     "GELU",
     "ReLU",
     "SwiGLU",
-    "DolmaBlock",
-    "DolmaSequentialBlock",
-    "DolmaParallelBlock",
-    "Dolma",
-    "DolmaOutput",
-    "DolmaGenerateOutput",
+    "OlmoBlock",
+    "OlmoSequentialBlock",
+    "OlmoParallelBlock",
+    "Olmo",
+    "OlmoOutput",
+    "OlmoGenerateOutput",
 ]
 
 
@@ -215,7 +215,7 @@ class SwiGLU(Activation):
         return 0.5
 
 
-class DolmaBlock(nn.Module):
+class OlmoBlock(nn.Module):
     """
     A base class for transformer block implementations.
     """
@@ -317,16 +317,16 @@ class DolmaBlock(nn.Module):
         raise NotImplementedError
 
     @classmethod
-    def build(cls, config: ModelConfig) -> DolmaBlock:
+    def build(cls, config: ModelConfig) -> OlmoBlock:
         if config.block_type == BlockType.sequential:
-            return DolmaSequentialBlock(config)
+            return OlmoSequentialBlock(config)
         elif config.block_type == BlockType.parallel:
-            return DolmaParallelBlock(config)
+            return OlmoParallelBlock(config)
         else:
             raise NotImplementedError(f"not sure how to handle block type '{config.block_type}'")
 
 
-class DolmaSequentialBlock(DolmaBlock):
+class OlmoSequentialBlock(OlmoBlock):
     """
     This is a typical transformer block where the output is computed as ``MLP(LN(x + Attention(LN(x))))``
     (plus another skip connection).
@@ -364,11 +364,11 @@ class DolmaSequentialBlock(DolmaBlock):
         return x
 
 
-class DolmaParallelBlock(DolmaBlock):
+class OlmoParallelBlock(OlmoBlock):
     """
     This is a transformer block where the output is computed as ``MLP(LN(x)) + Attention(LN(x))``
     as in the PaLM architecture, as opposed to the typical ``MLP(LN(x + Attention(LN(x))))``
-    as in :class:`DolmaSequentialBlock` (ignoring some skip connections).
+    as in :class:`OlmoSequentialBlock` (ignoring some skip connections).
 
     The decoupling of the MLP and Attention functions allow us to fuse the separate input projections
     into a single linear layer to increase throughput. In this configuration it's also straight-forward
@@ -408,7 +408,7 @@ class DolmaParallelBlock(DolmaBlock):
         return x + self.dropout(self.ff_out(self.act(ff))) + self.dropout(att)
 
 
-class DolmaOutput(NamedTuple):
+class OlmoOutput(NamedTuple):
     logits: torch.FloatTensor
     """
     A tensor of shape `(batch_size, seq_len, vocab_size)` representing the log probabilities
@@ -416,7 +416,7 @@ class DolmaOutput(NamedTuple):
     """
 
 
-class DolmaGenerateOutput(NamedTuple):
+class OlmoGenerateOutput(NamedTuple):
     token_ids: torch.LongTensor
     """
     The generated token IDs, a tensor of shape `(batch_size, beam_size, max_steps)`.
@@ -429,21 +429,21 @@ class DolmaGenerateOutput(NamedTuple):
     """
 
 
-class Dolma(nn.Module):
+class Olmo(nn.Module):
     def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
         self.config = config
 
         # Validate config.
         if self.config.alibi and self.config.flash_attention:
-            raise DolmaConfigurationError("ALiBi is currently not supported with FlashAttention")
+            raise OlmoConfigurationError("ALiBi is currently not supported with FlashAttention")
 
         if self.config.alibi and self.config.rope:
-            raise DolmaConfigurationError("ALiBi and RoPE are mutually exclusive")
+            raise OlmoConfigurationError("ALiBi and RoPE are mutually exclusive")
 
         if self.config.embedding_size is not None and self.config.embedding_size != self.config.vocab_size:
             if self.config.embedding_size < self.config.vocab_size:
-                raise DolmaConfigurationError("embedding size should be at least as big as vocab size")
+                raise OlmoConfigurationError("embedding size should be at least as big as vocab size")
             elif self.config.embedding_size % 128 != 0:
                 import warnings
 
@@ -460,7 +460,7 @@ class Dolma(nn.Module):
                     config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
                 ),
                 emb_drop=nn.Dropout(config.embedding_dropout),
-                blocks=nn.ModuleList([DolmaBlock.build(config) for _ in range(config.n_layers)]),
+                blocks=nn.ModuleList([OlmoBlock.build(config) for _ in range(config.n_layers)]),
                 ln_f=LayerNorm.build(config),
             )
         )
@@ -541,7 +541,7 @@ class Dolma(nn.Module):
         input_ids: torch.LongTensor,
         attention_mask: Optional[torch.Tensor] = None,
         attention_bias: Optional[torch.Tensor] = None,
-    ) -> DolmaOutput:
+    ) -> OlmoOutput:
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
         :param attention_mask: A tensor of shape `(batch_size, seq_len)` that indicates
@@ -625,13 +625,13 @@ class Dolma(nn.Module):
         # shape: (batch_size, seq_len, vocab_size)
         logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
 
-        return DolmaOutput(logits=logits)  # type: ignore[arg-type]
+        return OlmoOutput(logits=logits)  # type: ignore[arg-type]
 
     def fsdp_wrap_fn(self, module):
-        return isinstance(module, DolmaBlock)
+        return isinstance(module, OlmoBlock)
 
     def activation_checkpointing_fn(self, module):
-        return isinstance(module, DolmaBlock)
+        return isinstance(module, OlmoBlock)
 
     def param_init_fn(self, module):
         from functools import partial
@@ -723,7 +723,7 @@ class Dolma(nn.Module):
         min_steps: Optional[int] = None,
         final_sequence_scorer: Optional[FinalSequenceScorer] = None,
         constraints: Optional[List[Constraint]] = None,
-    ) -> DolmaGenerateOutput:
+    ) -> OlmoGenerateOutput:
         """
         Generate token IDs using beam search.
 
@@ -803,7 +803,7 @@ class Dolma(nn.Module):
             state["attention_bias"] = attention_bias
         token_ids, scores = beam_search.search(initial_preds, state, step)
 
-        return DolmaGenerateOutput(
+        return OlmoGenerateOutput(
             token_ids=token_ids,  # type: ignore[arg-type]
             scores=scores,  # type: ignore[arg-type]
         )

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from dolma.config import StrEnum, TrainConfig
+from olmo.config import StrEnum, TrainConfig
 
 
 def test_str_enum():

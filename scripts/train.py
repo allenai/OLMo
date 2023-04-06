@@ -1,5 +1,5 @@
 """
-This is the script used to train DOLMA.
+This is the script used to train OLMo.
 
 There is one required positional argument, the path to a YAML :class:`TrainConfig`.
 Following the YAML path, you could pass any number of options to override
@@ -25,9 +25,9 @@ from typing import List, cast
 
 import torch
 
-from dolma import Dolma, TrainConfig
-from dolma.exceptions import DolmaCliError
-from dolma.util import clean_opt, log_extra_field, prepare_cli_environment
+from olmo import Olmo, TrainConfig
+from olmo.exceptions import OlmoCliError
+from olmo.util import clean_opt, log_extra_field, prepare_cli_environment
 
 log = logging.getLogger(__name__)
 
@@ -41,9 +41,9 @@ def main(cfg: TrainConfig) -> None:
     from composer.utils import dist, get_device, reproducibility
     from composer.utils.dist import get_node_rank
 
-    from dolma.composer import (
-        ComposerDolmaLM,
-        DolmaConsoleLogger,
+    from olmo.composer import (
+        ComposerOlmoLM,
+        OlmoConsoleLogger,
         build_algorithm,
         build_dataloader,
         build_optimizer,
@@ -78,11 +78,11 @@ def main(cfg: TrainConfig) -> None:
         )
 
     # Initialize the model.
-    dolma_model = Dolma(cfg.model)
+    olmo_model = Olmo(cfg.model)
     if get_node_rank() == 0:
-        log.info(f"Total number of parameters: {dolma_model.num_params():,d}")
+        log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
         log.info(
-            f"Number of non-embedding parameters: {dolma_model.num_params(include_embedding=False):,d}",
+            f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}",
         )
 
     # Compile it if necessary.
@@ -90,11 +90,11 @@ def main(cfg: TrainConfig) -> None:
         compile_kwargs = cfg.compile.asdict()
         if compile_kwargs.get("fullgraph") is None:
             compile_kwargs["fullgraph"] = cfg.fsdp_config is None
-        # As far as duck typing is concerned, this is still a Dolma object.
-        dolma_model = cast(Dolma, torch.compile(dolma_model, **compile_kwargs))
+        # As far as duck typing is concerned, this is still a Olmo object.
+        olmo_model = cast(Olmo, torch.compile(olmo_model, **compile_kwargs))
 
     # Optimizer.
-    optimizer = build_optimizer(dolma_model, **cfg.optimizer.asdict())
+    optimizer = build_optimizer(olmo_model, **cfg.optimizer.asdict())
 
     # Scheduler.
     scheduler = build_scheduler(cfg.scheduler)
@@ -117,13 +117,13 @@ def main(cfg: TrainConfig) -> None:
     ]
 
     # Loggers.
-    loggers: List[LoggerDestination] = [DolmaConsoleLogger(log_interval=cfg.console_log_interval)]
+    loggers: List[LoggerDestination] = [OlmoConsoleLogger(log_interval=cfg.console_log_interval)]
     if cfg.wandb is not None:
         loggers.append(WandBLogger(init_kwargs={"config": cfg.asdict(exclude=["wandb"])}, **cfg.wandb.asdict()))
 
     # Wrap model into composer model.
-    composer_model = ComposerDolmaLM(dolma_model)
-    del dolma_model
+    composer_model = ComposerOlmoLM(olmo_model)
+    del olmo_model
 
     # Trainer.
     trainer = Trainer(
@@ -181,7 +181,7 @@ if __name__ == "__main__":
     try:
         yaml_path, args_list = sys.argv[1], sys.argv[2:]
     except IndexError:
-        raise DolmaCliError(f"Usage: {sys.argv[0]} [CONFIG_PATH] [OPTIONS]")
+        raise OlmoCliError(f"Usage: {sys.argv[0]} [CONFIG_PATH] [OPTIONS]")
 
     cfg = TrainConfig.load(yaml_path, [clean_opt(s) for s in args_list])
     main(cfg)

@@ -1,5 +1,5 @@
 # If you update this, also update BEAKER_IMAGE in .github/workflows/main.yml
-IMAGE_NAME_BASE = dolma-torch2
+IMAGE_NAME_BASE = olmo-torch2
 # If you update this, also update BEAKER_WORKSPACE in .github/workflows/main.yml
 BEAKER_WORKSPACE = ai2/llm-testing
 
@@ -91,7 +91,7 @@ gantry-run-ib :
 		--env NCCL_DEBUG=INFO \
 		--env SCRATCH_DIR=/tmp/scratch \
 		--env FLASH_DIR=/tmp/flash \
-		--env WANDB_PROJECT=dolma-beaker-ib \
+		--env WANDB_PROJECT=olmo-beaker-ib \
 		--env-secret WANDB_API_KEY=WANDB_API_KEY \
 		--replicas 4 \
 		--leader-selection \
@@ -103,8 +103,8 @@ gantry-run-ib :
 
 .PHONY : check-cpu-install
 check-cpu-install :
-	@python -c 'from dolma import check_install; check_install(cuda=False)'
+	@python -c 'from olmo import check_install; check_install(cuda=False)'
 
 .PHONY : check-cuda-install
 check-cuda-install :
-	@python -c 'from dolma import check_install; check_install(cuda=True)'
+	@python -c 'from olmo import check_install; check_install(cuda=True)'

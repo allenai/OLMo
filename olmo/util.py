@@ -13,7 +13,7 @@ from rich.highlighter import NullHighlighter
 from rich.text import Text
 from rich.traceback import Traceback
 
-from .exceptions import DolmaCliError, DolmaError
+from .exceptions import OlmoCliError, OlmoError
 
 _log_extra_fields: Dict[str, Any] = {}
 
@@ -43,7 +43,7 @@ def setup_logging() -> None:
 
     handler: logging.Handler
     if (
-        os.environ.get("DOLMA_NONINTERACTIVE", False)
+        os.environ.get("OLMo_NONINTERACTIVE", False)
         or os.environ.get("DEBIAN_FRONTEND", None) == "noninteractive"
         or not sys.stdout.isatty()
     ):
@@ -74,9 +74,9 @@ def excepthook(exctype, value, traceback):
     """
     if issubclass(exctype, KeyboardInterrupt):
         sys.__excepthook__(exctype, value, traceback)
-    elif issubclass(exctype, DolmaCliError):
+    elif issubclass(exctype, OlmoCliError):
         rich.get_console().print(f"[yellow]{value}[/]", highlight=False)
-    elif issubclass(exctype, DolmaError):
+    elif issubclass(exctype, OlmoError):
         rich.get_console().print(Text(f"{exctype.__name__}:", style="red"), value, highlight=False)
     else:
         logging.getLogger().critical(
