@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from abc import abstractmethod
-from typing import NamedTuple, Optional, cast
+from typing import List, NamedTuple, Optional, cast
 
 import torch
 import torch.backends.cuda
@@ -16,6 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import einsum
 
+from .beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
 from .config import ActivationType, BlockType, LayerNormType, ModelConfig
 from .exceptions import DolmaConfigurationError
 
@@ -715,10 +716,18 @@ class Dolma(nn.Module):
         input_ids: torch.LongTensor,
         attention_mask: Optional[torch.Tensor] = None,
         attention_bias: Optional[torch.Tensor] = None,
-        **kwargs,
+        max_steps: int = 10,
+        beam_size: int = 1,
+        per_node_beam_size: Optional[int] = None,
+        sampler: Optional[Sampler] = None,
+        min_steps: Optional[int] = None,
+        final_sequence_scorer: Optional[FinalSequenceScorer] = None,
+        constraints: Optional[List[Constraint]] = None,
     ) -> DolmaGenerateOutput:
         """
         Generate token IDs using beam search.
+
+        Note that by default ``beam_size`` is set to 1, which is greedy decoding.
 
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
         :param attention_mask: A optional tensor of shape `(batch_size, seq_len)`, the same
@@ -726,11 +735,19 @@ class Dolma(nn.Module):
         :param attention_bias: A tensor of shape
             `(batch_size, 1, seq_len + tokens_to_generate, seq_len + tokens_to_generate)`,
             the same as for the forward method except only one shape is excepted here.
-        :param kwargs: Key-word arguments that will be passed to :class:`BeamSearch`.
-        """
-        from .beam_search import BeamSearch
 
-        beam_search = BeamSearch(self.config.eos_token_id, **kwargs)
+        For an explanation of the other arguments, see the :class:`BeamSearch` class.
+        """
+        beam_search = BeamSearch(
+            self.config.eos_token_id,
+            max_steps=max_steps,
+            beam_size=beam_size,
+            per_node_beam_size=per_node_beam_size,
+            sampler=sampler,
+            min_steps=min_steps,
+            final_sequence_scorer=final_sequence_scorer,
+            constraints=constraints,
+        )
 
         # Validate inputs.
         batch_size, seq_len = input_ids.shape

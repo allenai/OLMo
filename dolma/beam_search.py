@@ -692,6 +692,7 @@ class BeamSearch:
     def __init__(
         self,
         end_index: int,
+        *,
         max_steps: int = 50,
         beam_size: int = 10,
         per_node_beam_size: Optional[int] = None,
