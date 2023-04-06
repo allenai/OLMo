@@ -45,6 +45,9 @@ __author__ = "Felix Hamborg, Luca Soldaini"
 __copyright__ = "Copyright 2013"
 __credits__ = ["Sebastian Nagel"]
 
+NEWS_YEAR = int(os.environ.get('NEWS_YEAR', '2023'))
+BASE_PATH = f's3://ai2-llm/pretraining-data/sources/cc-news/raw/{NEWS_YEAR}'
+MAX_SIZE = 100_000_000
 
 ############ YOUR CONFIG ############
 # download dir for warc files
@@ -52,18 +55,18 @@ my_local_download_dir_warc = os.path.expanduser('~/cc_download_warc/')
 # download dir for articles
 my_local_download_dir_article = os.path.expanduser('~/cc_download_articles/')
 # hosts (if None or empty list, any host is OK)
-my_filter_valid_hosts = []  # example: ['elrancaguino.cl']
+my_filter_valid_hosts = []         # example: ['elrancaguino.cl']
 # start date (if None, any date is OK as start date), as datetime
-my_filter_start_date = None # datetime.datetime(2023, 1, 1)
+my_filter_start_date = None     # datetime.datetime(2023, 1, 1)
 # end date (if None, any date is OK as end date), as datetime
-my_filter_end_date = None # datetime.datetime(2023, 3, 31)
+my_filter_end_date = None       # datetime.datetime(2023, 3, 31)
 # Only .warc files published within [my_warc_files_start_date, my_warc_files_end_date) will be downloaded.
 # Note that the date a warc file has been published does not imply it contains only news
 # articles from that date. Instead, you must assume that the warc file can contain articles
 # from ANY time before the warc file was published, e.g., a warc file published in August 2020
 # may contain news articles from December 2016.
-my_warc_files_start_date = datetime.datetime(2023, 1, 1)
-my_warc_files_end_date = datetime.datetime(2023, 3, 31)
+my_warc_files_start_date = datetime.datetime(year=NEWS_YEAR, month=1, day=1)
+my_warc_files_end_date = datetime.datetime(year=NEWS_YEAR, month=(12 if NEWS_YEAR < 2023 else 3), day=31)
 # if date filtering is strict and news-please could not detect the date of an article, the article will be discarded
 my_filter_strict_date = True
 # if True, the script checks whether a file has been downloaded already and uses that file instead of downloading
@@ -173,9 +176,6 @@ def callback_on_warc_completed(warc_path, counter_article_passed, counter_articl
     """
     pass
 
-
-BASE_PATH = 's3://ai2-llm/pretraining-data/sources/cc-news/raw'
-MAX_SIZE = 100_000_000
 
 
 def writer_process(

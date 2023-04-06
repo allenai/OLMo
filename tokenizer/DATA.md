@@ -1,5 +1,9 @@
 # Data For Tokenizer
 
+
+
+##
+
 We decided to train a tokenizer on all of Wikipedia, a subset of C4, and a subset of S2 abstracts.
 In detail, our mixing strategy is as follows:
 
@@ -57,3 +61,5 @@ WITH (
     partitioned_by=ARRAY['part_id']
 )
 ```
+
+Data resulting from this query is located at `s3://ai2-llm/tokenizer/data/v1`. The

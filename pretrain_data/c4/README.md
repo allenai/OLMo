@@ -1,5 +1,7 @@
 # C4
 
+We
+
 ```sql
 CREATE EXTERNAL TABLE IF NOT EXISTS `llm_c4_v0` (
     id STRING,
