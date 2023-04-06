@@ -21,12 +21,13 @@ composer scripts/train.py train_config.yaml ...
 import logging
 import os
 import sys
+from pathlib import Path
 from typing import List, cast
 
 import torch
 
 from olmo import Olmo, TrainConfig
-from olmo.exceptions import OlmoCliError
+from olmo.exceptions import OlmoCliError, OlmoConfigurationError
 from olmo.util import clean_opt, log_extra_field, prepare_cli_environment
 
 log = logging.getLogger(__name__)
@@ -51,22 +52,29 @@ def main(cfg: TrainConfig) -> None:
         update_batch_size_info,
     )
 
+    # Run name.
+    if cfg.run_name is None:
+        cfg.run_name = os.environ.get("COMPOSER_RUN_NAME", "train-llm")
+    log_extra_field("run_name", cfg.run_name)
+
     cfg.model.precision = cfg.precision
 
     if get_node_rank() == 0:
         log.info("Configuration:")
         log.info(cfg)
+        if not cfg.dry_run:
+            # Save config.
+            save_path = Path(cfg.save_folder) / "config.yaml"
+            if save_path.is_file() and not cfg.save_overwrite:
+                raise OlmoConfigurationError(f"{save_path} already exists, use --save_overwrite to overwrite")
+            else:
+                cfg.save(save_path)
 
     # Set seed.
     reproducibility.seed_all(cfg.seed)
 
     # Initialize process group.
     dist.initialize_dist(get_device(None))
-
-    # Run name.
-    if cfg.run_name is None:
-        cfg.run_name = os.environ.get("COMPOSER_RUN_NAME", "train-llm")
-    log_extra_field("run_name", cfg.run_name)
 
     # Update batch size info.
     update_batch_size_info(cfg)
