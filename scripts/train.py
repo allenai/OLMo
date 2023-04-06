@@ -173,6 +173,10 @@ def main(cfg: TrainConfig) -> None:
     )
 
     if not cfg.dry_run:
+        log.info("Saving pre-train checkpoint...")
+        # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever)
+        trainer.save_checkpoint()
+
         log.info("Starting training...")
         trainer.fit()
 
