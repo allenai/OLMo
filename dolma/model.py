@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from abc import abstractmethod
-from typing import NamedTuple, Optional, cast
+from typing import List, NamedTuple, Optional, cast
 
 import torch
 import torch.backends.cuda
@@ -16,6 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import einsum
 
+from .beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
 from .config import ActivationType, BlockType, LayerNormType, ModelConfig
 from .exceptions import DolmaConfigurationError
 
@@ -32,6 +33,8 @@ __all__ = [
     "DolmaSequentialBlock",
     "DolmaParallelBlock",
     "Dolma",
+    "DolmaOutput",
+    "DolmaGenerateOutput",
 ]
 
 
@@ -413,6 +416,19 @@ class DolmaOutput(NamedTuple):
     """
 
 
+class DolmaGenerateOutput(NamedTuple):
+    token_ids: torch.LongTensor
+    """
+    The generated token IDs, a tensor of shape `(batch_size, beam_size, max_steps)`.
+    These do *not* include the original input IDs.
+    """
+
+    scores: torch.FloatTensor
+    """
+    The scores of the generated sequences, a tensor of shape `(batch_size, beam_size)`.
+    """
+
+
 class Dolma(nn.Module):
     def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
@@ -694,3 +710,100 @@ class Dolma(nn.Module):
         )
         self.__num_fwd_flops = params_flops_per_seq + attn_flops_per_seq
         return self.__num_fwd_flops
+
+    def generate(
+        self,
+        input_ids: torch.LongTensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        attention_bias: Optional[torch.Tensor] = None,
+        max_steps: int = 10,
+        beam_size: int = 1,
+        per_node_beam_size: Optional[int] = None,
+        sampler: Optional[Sampler] = None,
+        min_steps: Optional[int] = None,
+        final_sequence_scorer: Optional[FinalSequenceScorer] = None,
+        constraints: Optional[List[Constraint]] = None,
+    ) -> DolmaGenerateOutput:
+        """
+        Generate token IDs using beam search.
+
+        Note that by default ``beam_size`` is set to 1, which is greedy decoding.
+
+        :param input_ids: A tensor of shape `(batch_size, seq_len)`.
+        :param attention_mask: A optional tensor of shape `(batch_size, seq_len)`, the same
+            as for the forward method.
+        :param attention_bias: A tensor of shape
+            `(batch_size, 1, seq_len + tokens_to_generate, seq_len + tokens_to_generate)`,
+            the same as for the forward method except only one shape is excepted here.
+
+        For an explanation of the other arguments, see the :class:`BeamSearch` class.
+        """
+        beam_search = BeamSearch(
+            self.config.eos_token_id,
+            max_steps=max_steps,
+            beam_size=beam_size,
+            per_node_beam_size=per_node_beam_size,
+            sampler=sampler,
+            min_steps=min_steps,
+            final_sequence_scorer=final_sequence_scorer,
+            constraints=constraints,
+        )
+
+        # Validate inputs.
+        batch_size, seq_len = input_ids.shape
+        if attention_mask is not None:
+            assert attention_mask.shape == (batch_size, seq_len)
+        if attention_bias is not None:
+            assert len(attention_bias.shape) == 4
+            assert attention_bias.shape[:2] == (batch_size, 1)
+            assert (
+                seq_len + beam_search.max_steps
+                <= attention_bias.shape[2]
+                == attention_bias.shape[3]
+                <= self.config.max_sequence_length
+            )
+
+        tokens_generated = 0
+
+        def step(
+            last_predictions: torch.Tensor, state: dict[str, torch.Tensor]
+        ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+            nonlocal tokens_generated
+
+            input_ids = state["input_ids"]
+            attention_mask = state.get("attention_mask")
+            attention_bias = state.get("attention_bias")
+            group_size = input_ids.shape[0]
+
+            if tokens_generated > 0:
+                input_ids = torch.cat((input_ids, last_predictions.unsqueeze(1)), dim=-1)
+                if attention_mask is not None:
+                    attention_mask = torch.cat((attention_mask, attention_mask.new_ones((group_size, 1))), dim=-1)
+
+            tokens_generated += 1
+
+            # Run forward pass of model to get logits, then normalize to get log probs.
+            output = self(input_ids, attention_mask=attention_mask, attention_bias=attention_bias)
+            log_probs = F.log_softmax(output.logits[:, -1, :], dim=-1)
+
+            # Create new state.
+            state = {"input_ids": input_ids}
+            if attention_mask is not None:
+                state["attention_mask"] = attention_mask
+            if attention_bias is not None:
+                state["attention_bias"] = attention_bias
+
+            return log_probs, state
+
+        initial_preds = input_ids.new_zeros((batch_size,))  # This is arbitrary, we won't use this.
+        state: dict[str, torch.Tensor] = {"input_ids": input_ids}
+        if attention_mask is not None:
+            state["attention_mask"] = attention_mask
+        if attention_bias is not None:
+            state["attention_bias"] = attention_bias
+        token_ids, scores = beam_search.search(initial_preds, state, step)
+
+        return DolmaGenerateOutput(
+            token_ids=token_ids,  # type: ignore[arg-type]
+            scores=scores,  # type: ignore[arg-type]
+        )
