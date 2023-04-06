@@ -68,6 +68,7 @@ def main(cfg: TrainConfig) -> None:
             if save_path.is_file() and not cfg.save_overwrite:
                 raise OlmoConfigurationError(f"{save_path} already exists, use --save_overwrite to overwrite")
             else:
+                save_path.mkdir(exist_ok=True, parents=True)
                 cfg.save(save_path)
 
     # Set seed.
