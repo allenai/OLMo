@@ -59,3 +59,12 @@ gantry run \
 This may require a reservation on the Infiniband cluster.
 
 See the [Beaker documentation](https://beaker-docs.apps.allenai.org/distributed-training.html) for more information on distributed training.
+
+## Finding official runs
+
+We keep all of our runs in WandB under [the "ai2-llm" entity](https://wandb.ai/ai2-llm).
+We don't store model checkpoints in WandB. Those are in GCS under `gs://allennlp-olmo/<wandb_run_path>`.
+
+### Highlighted models
+
+ * 300M parameters, ~70B tokens, a starter model that's not completely random: https://wandb.ai/ai2-llm/LLM-scripts/runs/ed5krfk9
