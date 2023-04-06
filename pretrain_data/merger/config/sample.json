@@ -19,11 +19,11 @@
         "include": [".metadata.length < 100000"],
         "exclude": [".metadata.length < 100"]
       }
+    },
+    "output": {
+      "path": "/data/test",
+      "max_shard_size": "4G"
     }
   ],
-  "output": {
-    "path": "/data/test",
-    "max_file_size": "4G"
-  },
   "processes": 32
 }
