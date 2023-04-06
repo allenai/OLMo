@@ -25,6 +25,11 @@ def main(
     wandb_run_path: str,
     files_or_directories: Tuple[Path],
 ):
+    """
+    Uploads artifacts to GCS. This uploads to a hardcoded bucket in GCS, because that's where we expect to keep all the artifacts for OLMo.
+
+    WANDB_RUN_PATH: The "Weights and Biases" run path. You get this by going to the run in wandb and clicking on the "copy run path" button. We will use this as the prefix for the paths in the GCS bucket.
+    """
     storage_client = storage.Client()
     bucket = storage_client.bucket("allennlp-olmo", "ai2-allennlp")
     prefix = wandb_run_path.strip("/")
