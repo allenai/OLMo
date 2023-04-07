@@ -156,7 +156,7 @@ def main():
         for doc in data:
             doc['id'] = str(uuid4())
             doc['added'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-            doc['source'] = args.in_format
+            doc['source'] = args.in_format if 'source' not in doc else doc['source']
             fout.write(json.dumps(doc) + '\n')
 
 
