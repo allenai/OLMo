@@ -1,7 +1,9 @@
-from argparse import ArgumentParser
-import os
 import gzip
+import os
+from argparse import ArgumentParser
 from typing import Iterator
+
+from smashed.utils.io_utils import open_file_for_read, recursively_list_files
 from tokenizers import (
     Tokenizer,
     decoders,
@@ -10,9 +12,7 @@ from tokenizers import (
     pre_tokenizers,
     trainers,
 )
-from smashed.utils.io_utils import recursively_list_files, open_file_for_read
 from tqdm import tqdm
-
 
 ap = ArgumentParser()
 ap.add_argument("name", type=str, default="v1")
@@ -20,7 +20,8 @@ ap.add_argument("--vocab_size", type=int, default=64000)
 opts = ap.parse_args()
 
 # These special tokens are not added to the tokenizer's vocabulary to ensure they
-# never appear in the training data. That is, there is no string form of these tokens.
+# never appear in the training data. That is, there is no string form of
+# these tokens.
 EOS_TOKEN_ID = opts.vocab_size - 1
 PAD_TOKEN_ID = opts.vocab_size - 2
 
@@ -53,12 +54,12 @@ BASE_PATH = f"s3://ai2-llm/tokenizer/data/{opts.name}"
 def data_it(base_path=BASE_PATH) -> Iterator[str]:
     paths = list(recursively_list_files(base_path))
 
-    with tqdm(desc="Lines", unit=" l", unit_scale=True, position=1) as lines_pbar, \
-            tqdm(total=len(paths), desc="Files", unit=" f", unit_scale=True, position=0) as files_pbar:
-
+    with tqdm(desc="Lines", unit=" l", unit_scale=True, position=1) as lines_pbar, tqdm(
+        total=len(paths), desc="Files", unit=" f", unit_scale=True, position=0
+    ) as files_pbar:
         for path in paths:
-            with open_file_for_read(path, mode='rb') as file_obj:
-                with gzip.open(file_obj, mode='rt') as stream:
+            with open_file_for_read(path, mode="rb") as file_obj:
+                with gzip.open(file_obj, mode="rt") as stream:
                     for line in stream:
                         yield str(line)
                         lines_pbar.update(1)

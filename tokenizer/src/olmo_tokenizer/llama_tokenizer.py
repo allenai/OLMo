@@ -24,10 +24,8 @@ from shutil import copyfile
 from typing import Any, Dict, List, Optional, Tuple
 
 import sentencepiece as spm
-
 from transformers.tokenization_utils import AddedToken, PreTrainedTokenizer
 from transformers.utils import logging
-
 
 logger = logging.get_logger(__name__)
 
@@ -135,7 +133,8 @@ class LlamaTokenizer(PreTrainedTokenizer):
         out_string = ""
         prev_is_special = False
         for i, token in enumerate(tokens):
-            # make sure that special tokens are not decoded using sentencepiece model
+            # make sure that special tokens are not decoded using sentencepiece
+            # model
             if token in self.all_special_tokens:
                 if not prev_is_special and i != 0:
                     out_string += " "
@@ -187,7 +186,10 @@ class LlamaTokenizer(PreTrainedTokenizer):
         return output
 
     def get_special_tokens_mask(
-        self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None, already_has_special_tokens: bool = False
+        self,
+        token_ids_0: List[int],
+        token_ids_1: Optional[List[int]] = None,
+        already_has_special_tokens: bool = False,
     ) -> List[int]:
         """
         Retrieve sequence ids from a token list that has no special tokens added. This method is called when adding

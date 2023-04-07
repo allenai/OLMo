@@ -23,43 +23,42 @@ python3 -m newsplease.examples.commoncrawl
 Note that by default the script does not extract main images since they are not contained
 WARC files. You can enable extraction of main images by setting `my_fetch_images=True`
 """
-from contextlib import ExitStack
+import datetime
 import gzip
 import hashlib
 import json
 import logging
 import multiprocessing
 import os
-from queue import Queue
 import sys
-import datetime
+from contextlib import ExitStack
+from functools import partial
+from queue import Queue
 from time import sleep
 from typing import Union
-from functools import partial
 
 from newsplease.crawler import commoncrawl_crawler as commoncrawl_crawler
 from smashed.utils.io_utils import open_file_for_write
-
 
 __author__ = "Felix Hamborg, Luca Soldaini"
 __copyright__ = "Copyright 2013"
 __credits__ = ["Sebastian Nagel"]
 
-NEWS_YEAR = int(os.environ.get('NEWS_YEAR', '2023'))
-BASE_PATH = f's3://ai2-llm/pretraining-data/sources/cc-news/raw/{NEWS_YEAR}'
+NEWS_YEAR = int(os.environ.get("NEWS_YEAR", "2023"))
+BASE_PATH = f"s3://ai2-llm/pretraining-data/sources/cc-news/raw/{NEWS_YEAR}"
 MAX_SIZE = 100_000_000
 
 ############ YOUR CONFIG ############
 # download dir for warc files
-my_local_download_dir_warc = os.path.expanduser('~/cc_download_warc/')
+my_local_download_dir_warc = os.path.expanduser("~/cc_download_warc/")
 # download dir for articles
-my_local_download_dir_article = os.path.expanduser('~/cc_download_articles/')
+my_local_download_dir_article = os.path.expanduser("~/cc_download_articles/")
 # hosts (if None or empty list, any host is OK)
-my_filter_valid_hosts = []         # example: ['elrancaguino.cl']
+my_filter_valid_hosts = []  # example: ['elrancaguino.cl']
 # start date (if None, any date is OK as start date), as datetime
-my_filter_start_date = None     # datetime.datetime(2023, 1, 1)
+my_filter_start_date = None  # datetime.datetime(2023, 1, 1)
 # end date (if None, any date is OK as end date), as datetime
-my_filter_end_date = None       # datetime.datetime(2023, 3, 31)
+my_filter_end_date = None  # datetime.datetime(2023, 3, 31)
 # Only .warc files published within [my_warc_files_start_date, my_warc_files_end_date) will be downloaded.
 # Note that the date a warc file has been published does not imply it contains only news
 # articles from that date. Instead, you must assume that the warc file can contain articles
@@ -81,7 +80,7 @@ my_log_level = logging.INFO
 # json export style
 my_json_export_style = 0  # 0 (minimize), 1 (pretty)
 # number of extraction processes
-my_number_of_extraction_processes = int(os.environ.get('PARALLEL_PROC', 1))
+my_number_of_extraction_processes = int(os.environ.get("PARALLEL_PROC", 1))
 # if True, the WARC file will be deleted after all articles have been extracted from it
 my_delete_warc_after_extraction = True
 # if True, will continue extraction from the latest fully downloaded but not fully extracted WARC files and then
@@ -120,7 +119,7 @@ def __get_pretty_filepath(path, article):
     sub_dir = article.source_domain
     final_path = os.path.join(path, sub_dir)
     os.makedirs(final_path, exist_ok=True)
-    return os.path.join(final_path, short_filename + '.json')
+    return os.path.join(final_path, short_filename + ".json")
 
 
 def __datetime_formatting(d: datetime.datetime) -> str:
@@ -132,7 +131,7 @@ def __datetime_formatting(d: datetime.datetime) -> str:
     return d.strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
 
 
-def on_valid_article_extracted(article, queue: 'Queue[dict]'):
+def on_valid_article_extracted(article, queue: "Queue[dict]"):
     """
     This function will be invoked for each article that was extracted successfully from the archived data and that
     satisfies the filter criteria.
@@ -142,12 +141,12 @@ def on_valid_article_extracted(article, queue: 'Queue[dict]'):
     # do whatever you need to do with the article (e.g., save it to disk, store it in ElasticSearch, etc.)
 
     article = article.__dict__
-    if article['date_download']:
-        article['date_download'] = __datetime_formatting(article['date_download'])
-    if article['date_modify']:
-        article['date_modify'] = __datetime_formatting(article['date_modify'])
-    if article['date_publish']:
-        article['date_publish'] = __datetime_formatting(article['date_publish'])
+    if article["date_download"]:
+        article["date_download"] = __datetime_formatting(article["date_download"])
+    if article["date_modify"]:
+        article["date_modify"] = __datetime_formatting(article["date_modify"])
+    if article["date_publish"]:
+        article["date_publish"] = __datetime_formatting(article["date_publish"])
 
     queue.put(article)
 
@@ -161,8 +160,14 @@ def on_valid_article_extracted(article, queue: 'Queue[dict]'):
     #     # ...
 
 
-def callback_on_warc_completed(warc_path, counter_article_passed, counter_article_discarded,
-                               counter_article_error, counter_article_total, counter_warc_processed):
+def callback_on_warc_completed(
+    warc_path,
+    counter_article_passed,
+    counter_article_discarded,
+    counter_article_error,
+    counter_article_total,
+    counter_warc_processed,
+):
     """
     This function will be invoked for each WARC file that was processed completely. Parameters represent total values,
     i.e., cumulated over all all previously processed WARC files.
@@ -177,11 +182,8 @@ def callback_on_warc_completed(warc_path, counter_article_passed, counter_articl
     pass
 
 
-
 def writer_process(
-    base_path: str,
-    queue: 'Queue[Union[dict, None]]',
-    temp_dir: str = my_local_download_dir_article
+    base_path: str, queue: "Queue[Union[dict, None]]", temp_dir: str = my_local_download_dir_article
 ):
     """
     This function will be invoked in a separate process to write the articles to disk.
@@ -191,15 +193,15 @@ def writer_process(
     """
 
     def fn(current_cnt: int):
-        return f'{base_path}/{current_cnt:06d}.jsonl.gz'
+        return f"{base_path}/{current_cnt:06d}.jsonl.gz"
+
     cnt = 0
 
-
     with ExitStack() as stack:
-        file_obj = stack.enter_context(open_file_for_write(fn(cnt), 'wb', temp_dir=temp_dir))
-        stream = stack.enter_context(gzip.open(file_obj, 'wt'))
+        file_obj = stack.enter_context(open_file_for_write(fn(cnt), "wb", temp_dir=temp_dir))
+        stream = stack.enter_context(gzip.open(file_obj, "wt"))
 
-        print(f'=== FILE: {file_obj.name} ===')
+        print(f"=== FILE: {file_obj.name} ===")
 
         while True:
             if queue.empty():
@@ -208,15 +210,15 @@ def writer_process(
             if article is None:
                 break
 
-            content = json.dumps(article) + '\n'
+            content = json.dumps(article) + "\n"
             stream.write(content)
 
             if file_obj.tell() >= MAX_SIZE:
                 stack.pop_all().close()
                 cnt += 1
-                file_obj = stack.enter_context(open_file_for_write(fn(cnt), 'wb', temp_dir=temp_dir))
-                stream = stack.enter_context(gzip.open(file_obj, 'wt'))
-                print(f'=== FILE: {file_obj.name} ===')
+                file_obj = stack.enter_context(open_file_for_write(fn(cnt), "wb", temp_dir=temp_dir))
+                stream = stack.enter_context(gzip.open(file_obj, "wt"))
+                print(f"=== FILE: {file_obj.name} ===")
 
 
 def main():
@@ -236,36 +238,36 @@ def main():
 
     print("my_local_download_dir_warc=" + my_local_download_dir_warc)
     print("my_local_download_dir_article=" + my_local_download_dir_article)
-    print("my_delete_warc_after_extraction=" +
-          str(my_delete_warc_after_extraction))
-    print("my_number_of_extraction_processes=" +
-          str(my_number_of_extraction_processes))
+    print("my_delete_warc_after_extraction=" + str(my_delete_warc_after_extraction))
+    print("my_number_of_extraction_processes=" + str(my_number_of_extraction_processes))
 
-    manager = multiprocessing.get_context('spawn').Manager()
+    manager = multiprocessing.get_context("spawn").Manager()
     queue = manager.Queue()
 
     writer = multiprocessing.Process(target=writer_process, args=(BASE_PATH, queue))
     writer.start()
 
     __setup__()
-    commoncrawl_crawler.crawl_from_commoncrawl(partial(on_valid_article_extracted, queue=queue),
-                                               callback_on_warc_completed=callback_on_warc_completed,
-                                               valid_hosts=my_filter_valid_hosts,
-                                               start_date=my_filter_start_date,
-                                               end_date=my_filter_end_date,
-                                               warc_files_start_date=my_warc_files_start_date,
-                                               warc_files_end_date=my_warc_files_end_date,
-                                               strict_date=my_filter_strict_date,
-                                               reuse_previously_downloaded_files=my_reuse_previously_downloaded_files,
-                                               local_download_dir_warc=my_local_download_dir_warc,
-                                               continue_after_error=my_continue_after_error,
-                                               show_download_progress=my_show_download_progress,
-                                               number_of_extraction_processes=my_number_of_extraction_processes,
-                                               log_level=my_log_level,
-                                               delete_warc_after_extraction=my_delete_warc_after_extraction,
-                                               continue_process=True,
-                                               fetch_images=my_fetch_images)
-                                            #    dry_run=my_dry_run)
+    commoncrawl_crawler.crawl_from_commoncrawl(
+        partial(on_valid_article_extracted, queue=queue),
+        callback_on_warc_completed=callback_on_warc_completed,
+        valid_hosts=my_filter_valid_hosts,
+        start_date=my_filter_start_date,
+        end_date=my_filter_end_date,
+        warc_files_start_date=my_warc_files_start_date,
+        warc_files_end_date=my_warc_files_end_date,
+        strict_date=my_filter_strict_date,
+        reuse_previously_downloaded_files=my_reuse_previously_downloaded_files,
+        local_download_dir_warc=my_local_download_dir_warc,
+        continue_after_error=my_continue_after_error,
+        show_download_progress=my_show_download_progress,
+        number_of_extraction_processes=my_number_of_extraction_processes,
+        log_level=my_log_level,
+        delete_warc_after_extraction=my_delete_warc_after_extraction,
+        continue_process=True,
+        fetch_images=my_fetch_images,
+    )
+    #    dry_run=my_dry_run)
 
     queue.put(None)
     writer.join()
