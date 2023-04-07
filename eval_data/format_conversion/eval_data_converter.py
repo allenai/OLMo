@@ -154,7 +154,7 @@ def main():
 
     with gzip.open(os.path.join(args.out_dir, basename +'.jsonl.gz'), 'wt') as fout:
         for doc in data:
-            doc['id'] = str(uuid4())
+            doc['id'] = str(uuid4()) if 'id' not in doc else doc['id']
             doc['added'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
             doc['source'] = args.in_format if 'source' not in doc else doc['source']
             fout.write(json.dumps(doc) + '\n')
