@@ -6,14 +6,14 @@ from .llama_tokenizer import LlamaTokenizer
 from datasets import load_dataset
 import numpy as np
 
-NAME = 'v1'  # Choose between v1, v1_small, or v1_tiny
-BASE_PATH = 's3://ai2-llm/tokenizer/model'
+
+AI2_PATH = 's3://ai2-llm/tokenizer/model/v1.json'
 LLAMA_PATH = 's3://ai2-s2-lucas/llama/tokenizer.model'
 
 
 tokenizers = {
     'gpt': AutoTokenizer.from_pretrained('gpt2'),
-    'our': PreTrainedTokenizerFast(tokenizer_file=str(cached_path(f'{BASE_PATH}/{NAME}.json'))),
+    'ai2': PreTrainedTokenizerFast(tokenizer_file=str(cached_path(AI2_PATH))),
     'llama': LlamaTokenizer(vocab_file=str(cached_path(LLAMA_PATH)))
 }
 

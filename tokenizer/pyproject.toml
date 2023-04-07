@@ -14,7 +14,8 @@ dependencies = [
     "tokenizers",
     "smashed[remote]",
     "tqdm",
-    "datasets"
+    "datasets",
+    "orjson"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
