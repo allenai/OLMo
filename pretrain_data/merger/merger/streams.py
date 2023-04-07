@@ -129,7 +129,6 @@ def process(shard: Shard) -> Tuple[Shard, Optional[Exception]]:
                 except (EOFError, ZlibError) as e:
                     log.warning(f"Bad input file {input.documents.url}. Skipping: {e}")
         tmp_file.rename(shard.output)
-        log.info(f"Finished writing {shard.output}")
         return shard, None
     except Exception as e:
         return shard, e
