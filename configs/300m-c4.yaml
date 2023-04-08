@@ -50,10 +50,10 @@ algorithms:
 data:
   paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-train.*.npy}
   pad_direction: right
-  num_workers: 2
+  num_workers: 4
   drop_last: true
   pin_memory: true
-  prefetch_factor: 2
+  prefetch_factor: 16
   persistent_workers: true
   timeout: 0
 
@@ -62,14 +62,14 @@ tokenizer:
   truncate_direction: right
 
 save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
-save_interval: 1000ba
-save_num_checkpoints_to_keep: 2
+save_interval: 2000ba
+save_num_checkpoints_to_keep: 100
 save_overwrite: true
 
 load_path: null
 load_weights_only: false
 
-max_duration: 13400ba # ~ 7B tokens
+max_duration: 230000ba # ~ 140B tokens
 global_train_batch_size: 512
 device_train_batch_size: auto
 device_train_microbatch_size: 16  # for 80GB A100 GPU
@@ -80,15 +80,15 @@ n_gpus: null
 
 precision: amp_bf16
 
-fsdp_config:
-  sharding_strategy: FULL_SHARD
-  mixed_precision: PURE
-  activation_checkpointing: false
-  activation_cpu_offload: false
-  activation_checkpointing_reentrant: false
-  limit_all_gathers: true
-  use_orig_params: true  # needed to work with compile
-  verbose: false
+#fsdp_config:
+#  sharding_strategy: SHARD_GRAD_OP
+#  mixed_precision: PURE
+#  activation_checkpointing: false
+#  activation_cpu_offload: false
+#  activation_checkpointing_reentrant: false
+#  limit_all_gathers: true
+#  use_orig_params: true  # needed to work with compile
+#  verbose: false
 
 wandb:
   name: ${run_name}
