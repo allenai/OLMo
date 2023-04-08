@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from abc import abstractmethod
-from typing import NamedTuple, Optional, cast
+from typing import List, NamedTuple, Optional, cast
 
 import torch
 import torch.backends.cuda
@@ -16,8 +16,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import einsum
 
-from .config import ActivationType, LayerNormType, ModelConfig
-from .exceptions import DolmaConfigurationError
+from .beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
+from .config import ActivationType, BlockType, LayerNormType, ModelConfig
+from .exceptions import OlmoConfigurationError
 
 __all__ = [
     "LayerNormBase",
@@ -25,9 +26,15 @@ __all__ = [
     "RMSLayerNorm",
     "RotaryEmbedding",
     "Activation",
+    "GELU",
+    "ReLU",
     "SwiGLU",
-    "DolmaBlock",
-    "Dolma",
+    "OlmoBlock",
+    "OlmoSequentialBlock",
+    "OlmoParallelBlock",
+    "Olmo",
+    "OlmoOutput",
+    "OlmoGenerateOutput",
 ]
 
 
@@ -169,16 +176,33 @@ class Activation(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
 
+    @property
+    @abstractmethod
+    def output_multiplier(self) -> float:
+        raise NotImplementedError
+
     @classmethod
     def build(cls, config: ModelConfig) -> Activation:
         if config.activation_type == ActivationType.gelu:
-            return cast(Activation, nn.GELU(approximate="none"))
+            return cast(Activation, GELU(approximate="none"))
         elif config.activation_type == ActivationType.relu:
-            return cast(Activation, nn.ReLU(inplace=False))
+            return cast(Activation, ReLU(inplace=False))
         elif config.activation_type == ActivationType.swiglu:
             return SwiGLU(config)
         else:
             raise NotImplementedError(f"not sure how to handle activation type '{config.activation_type}'")
+
+
+class GELU(nn.GELU):
+    @property
+    def output_multiplier(self) -> float:
+        return 1.0
+
+
+class ReLU(nn.ReLU):
+    @property
+    def output_multiplier(self) -> float:
+        return 1.0
 
 
 class SwiGLU(Activation):
@@ -186,8 +210,16 @@ class SwiGLU(Activation):
         x, gate = x.chunk(2, dim=-1)
         return F.silu(gate) * x
 
+    @property
+    def output_multiplier(self) -> float:
+        return 0.5
 
-class DolmaBlock(nn.Module):
+
+class OlmoBlock(nn.Module):
+    """
+    A base class for transformer block implementations.
+    """
+
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.config = config
@@ -206,16 +238,7 @@ class DolmaBlock(nn.Module):
 
         # Activation function.
         self.act = Activation.build(config)
-        d_act_out = config.mlp_ratio * config.d_model
-        if isinstance(self.act, SwiGLU):
-            d_act_out = d_act_out // 2
-
-        # Fused attention and feed-forward projection.
-        self.fused_dims = (config.d_model, config.d_model, config.d_model, config.mlp_ratio * config.d_model)
-        self.fused_attn_ff_proj = nn.Linear(
-            config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
-        )
-        self.fused_attn_ff_proj._fused = (0, self.fused_dims)  # type: ignore
+        assert (self.act.output_multiplier * config.mlp_ratio * config.d_model) % 1 == 0
 
         # Attention output projection.
         self.attn_out = nn.Linear(
@@ -223,7 +246,12 @@ class DolmaBlock(nn.Module):
         )
 
         # Feed-forward output projection.
-        self.ff_out = nn.Linear(d_act_out, config.d_model, bias=config.include_bias, device=config.init_device)
+        self.ff_out = nn.Linear(
+            int(self.act.output_multiplier * config.mlp_ratio * config.d_model),
+            config.d_model,
+            bias=config.include_bias,
+            device=config.init_device,
+        )
         self.ff_out._is_residual = True  # type: ignore
 
         # Rotary embeddings.
@@ -233,21 +261,18 @@ class DolmaBlock(nn.Module):
                 "pos_emb", self.rotary_emb(config.max_sequence_length, device=config.init_device), persistent=False
             )
 
-    def forward(
-        self,
-        x: torch.Tensor,
-        attention_bias: Optional[torch.FloatTensor] = None,
+    def get_rotary_embedding(self, seq_len: int, device: Optional[torch.device]) -> torch.Tensor:
+        if self.pos_emb is not None and self.pos_emb.shape[-2] >= seq_len:  # type: ignore
+            return self.pos_emb[:seq_len]  # type: ignore
+
+        pos_emb = self.rotary_emb(seq_len, device=device)
+        self.register_buffer("pos_emb", pos_emb, persistent=False)
+        return pos_emb
+
+    def attention(
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, attention_bias: Optional[torch.FloatTensor] = None
     ) -> torch.Tensor:
-        # We're computing: MLP(LN(x)) + Attention(LN(x))
-        # This differs from the standard transformer block which looks like: MLP(LN(x + Attention(LN(x))))
-
-        B, T, C = x.size()  # batch size, sequence length, d_model
-
-        x = self.norm(x)
-
-        # Get query, key, value, and feed-forward projections.
-        # shape of q, k, v: (B, T, C), shape of ff: (B, T, ff inner)
-        q, k, v, ff = self.fused_attn_ff_proj(x).split(self.fused_dims, dim=-1)
+        B, T, C = q.size()  # batch size, sequence length, d_model
         dtype = k.dtype
 
         # Optionally apply layer norm to keys and queries.
@@ -263,7 +288,7 @@ class DolmaBlock(nn.Module):
 
         if self.config.rope:
             # Apply rotary embeddings.
-            positions = self.get_rotary_embedding(T, x.device)
+            positions = self.get_rotary_embedding(T, q.device)
             q, k = map(lambda t: apply_rotary_pos_emb(positions, t), (q, k))
 
         # Get the attention scores.
@@ -280,18 +305,110 @@ class DolmaBlock(nn.Module):
         # Re-assemble all head outputs side-by-side.
         att = att.transpose(1, 2).contiguous().view(B, T, C)
 
-        return self.dropout(self.ff_out(self.act(ff))) + self.dropout(self.attn_out(att))
+        # Apply output projection.
+        return self.attn_out(att)
 
-    def get_rotary_embedding(self, seq_len: int, device: Optional[torch.device]) -> torch.Tensor:
-        if self.pos_emb is not None and self.pos_emb.shape[-2] >= seq_len:  # type: ignore
-            return self.pos_emb[:seq_len]  # type: ignore
+    @abstractmethod
+    def forward(
+        self,
+        x: torch.Tensor,
+        attention_bias: Optional[torch.FloatTensor] = None,
+    ) -> torch.Tensor:
+        raise NotImplementedError
 
-        pos_emb = self.rotary_emb(seq_len, device=device)
-        self.register_buffer("pos_emb", pos_emb, persistent=False)
-        return pos_emb
+    @classmethod
+    def build(cls, config: ModelConfig) -> OlmoBlock:
+        if config.block_type == BlockType.sequential:
+            return OlmoSequentialBlock(config)
+        elif config.block_type == BlockType.parallel:
+            return OlmoParallelBlock(config)
+        else:
+            raise NotImplementedError(f"not sure how to handle block type '{config.block_type}'")
 
 
-class DolmaOutput(NamedTuple):
+class OlmoSequentialBlock(OlmoBlock):
+    """
+    This is a typical transformer block where the output is computed as ``MLP(LN(x + Attention(LN(x))))``
+    (plus another skip connection).
+    """
+
+    def __init__(self, config: ModelConfig):
+        super().__init__(config)
+        # Attention input projection. Projects x -> (q, k, v)
+        self.att_proj = nn.Linear(
+            config.d_model, 3 * config.d_model, bias=config.include_bias, device=config.init_device
+        )
+        self.att_proj._fused = (0, (self.config.d_model, 2 * self.config.d_model))  # type: ignore
+        # Feed-forward input projection.
+        self.ff_proj = nn.Linear(
+            config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
+        )
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        attention_bias: Optional[torch.FloatTensor] = None,
+    ) -> torch.Tensor:
+        # Get query, key, value projections.
+        # shape (all): (batch_size, seq_len, d_model)
+        q, k, v = self.att_proj(self.norm(x)).split(self.config.d_model, dim=2)
+
+        # Add attention scores.
+        # shape: (B, T, C)
+        x = x + self.dropout(self.attention(q, k, v, attention_bias))
+
+        # Add feed-forward projection.
+        # shape: (batch_size, seq_len, d_model)
+        x = x + self.dropout(self.ff_out(self.act(self.ff_proj(self.norm(x)))))
+
+        return x
+
+
+class OlmoParallelBlock(OlmoBlock):
+    """
+    This is a transformer block where the output is computed as ``MLP(LN(x)) + Attention(LN(x))``
+    as in the PaLM architecture, as opposed to the typical ``MLP(LN(x + Attention(LN(x))))``
+    as in :class:`OlmoSequentialBlock` (ignoring some skip connections).
+
+    The decoupling of the MLP and Attention functions allow us to fuse the separate input projections
+    into a single linear layer to increase throughput. In this configuration it's also straight-forward
+    to fuse the output projections, but we found that didn't help.
+    """
+
+    def __init__(self, config: ModelConfig):
+        super().__init__(config)
+        # Fused attention and feed-forward projection.
+        # NOTE: we could also fuse the attention and feed-forward output projections
+        # but we found that didn't help, possibly because of the overhead of joining the `att`
+        # and `ff` activations together.
+        # See https://github.com/allenai/LLM/pull/79 for details.
+        self.fused_dims = (config.d_model, config.d_model, config.d_model, config.mlp_ratio * config.d_model)
+        self.fused_attn_ff_proj = nn.Linear(
+            config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
+        )
+        self.fused_attn_ff_proj._fused = (0, self.fused_dims)  # type: ignore
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        attention_bias: Optional[torch.FloatTensor] = None,
+    ) -> torch.Tensor:
+        # Get query, key, value, and feed-forward projections.
+        # shape of q, k, v: (batch_size, seq_len, d_model)
+        # shape of ff:      (batch_size, seq_len, mlp_ratio x d_model)
+        q, k, v, ff = self.fused_attn_ff_proj(self.norm(x)).split(self.fused_dims, dim=-1)
+
+        # Get attention scores.
+        # shape: (B, T, C)
+        att = self.attention(q, k, v, attention_bias)
+
+        # Apply output projections (and activation function) and sum the results.
+        # We keep these projections separate because we found that we got better throughput this
+        # way compared to fusing them.
+        return x + self.dropout(self.ff_out(self.act(ff))) + self.dropout(att)
+
+
+class OlmoOutput(NamedTuple):
     logits: torch.FloatTensor
     """
     A tensor of shape `(batch_size, seq_len, vocab_size)` representing the log probabilities
@@ -299,21 +416,34 @@ class DolmaOutput(NamedTuple):
     """
 
 
-class Dolma(nn.Module):
+class OlmoGenerateOutput(NamedTuple):
+    token_ids: torch.LongTensor
+    """
+    The generated token IDs, a tensor of shape `(batch_size, beam_size, max_steps)`.
+    These do *not* include the original input IDs.
+    """
+
+    scores: torch.FloatTensor
+    """
+    The scores of the generated sequences, a tensor of shape `(batch_size, beam_size)`.
+    """
+
+
+class Olmo(nn.Module):
     def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
         self.config = config
 
         # Validate config.
         if self.config.alibi and self.config.flash_attention:
-            raise DolmaConfigurationError("ALiBi is currently not supported with FlashAttention")
+            raise OlmoConfigurationError("ALiBi is currently not supported with FlashAttention")
 
         if self.config.alibi and self.config.rope:
-            raise DolmaConfigurationError("ALiBi and RoPE are mutually exclusive")
+            raise OlmoConfigurationError("ALiBi and RoPE are mutually exclusive")
 
         if self.config.embedding_size is not None and self.config.embedding_size != self.config.vocab_size:
             if self.config.embedding_size < self.config.vocab_size:
-                raise DolmaConfigurationError("embedding size should be at least as big as vocab size")
+                raise OlmoConfigurationError("embedding size should be at least as big as vocab size")
             elif self.config.embedding_size % 128 != 0:
                 import warnings
 
@@ -330,7 +460,7 @@ class Dolma(nn.Module):
                     config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
                 ),
                 emb_drop=nn.Dropout(config.embedding_dropout),
-                blocks=nn.ModuleList([DolmaBlock(config) for _ in range(config.n_layers)]),
+                blocks=nn.ModuleList([OlmoBlock.build(config) for _ in range(config.n_layers)]),
                 ln_f=LayerNorm.build(config),
             )
         )
@@ -412,7 +542,7 @@ class Dolma(nn.Module):
         input_ids: torch.LongTensor,
         attention_mask: Optional[torch.Tensor] = None,
         attention_bias: Optional[torch.Tensor] = None,
-    ) -> DolmaOutput:
+    ) -> OlmoOutput:
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
         :param attention_mask: A tensor of shape `(batch_size, seq_len)` that indicates
@@ -486,7 +616,7 @@ class Dolma(nn.Module):
         # Apply blocks one-by-one.
         for block in self.transformer.blocks:  # type: ignore
             # shape: (batch_size, seq_len, d_model)
-            x = x + block(x, attention_bias=attention_bias)
+            x = block(x, attention_bias=attention_bias)
 
         # Apply final layer norm.
         # shape: (batch_size, seq_len, d_model)
@@ -496,13 +626,13 @@ class Dolma(nn.Module):
         # shape: (batch_size, seq_len, vocab_size)
         logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
 
-        return DolmaOutput(logits=logits)  # type: ignore[arg-type]
+        return OlmoOutput(logits=logits)  # type: ignore[arg-type]
 
     def fsdp_wrap_fn(self, module):
-        return isinstance(module, DolmaBlock)
+        return isinstance(module, OlmoBlock)
 
     def activation_checkpointing_fn(self, module):
-        return isinstance(module, DolmaBlock)
+        return isinstance(module, OlmoBlock)
 
     def param_init_fn(self, module):
         from functools import partial
@@ -581,3 +711,100 @@ class Dolma(nn.Module):
         )
         self.__num_fwd_flops = params_flops_per_seq + attn_flops_per_seq
         return self.__num_fwd_flops
+
+    def generate(
+        self,
+        input_ids: torch.LongTensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        attention_bias: Optional[torch.Tensor] = None,
+        max_steps: int = 10,
+        beam_size: int = 1,
+        per_node_beam_size: Optional[int] = None,
+        sampler: Optional[Sampler] = None,
+        min_steps: Optional[int] = None,
+        final_sequence_scorer: Optional[FinalSequenceScorer] = None,
+        constraints: Optional[List[Constraint]] = None,
+    ) -> OlmoGenerateOutput:
+        """
+        Generate token IDs using beam search.
+
+        Note that by default ``beam_size`` is set to 1, which is greedy decoding.
+
+        :param input_ids: A tensor of shape `(batch_size, seq_len)`.
+        :param attention_mask: A optional tensor of shape `(batch_size, seq_len)`, the same
+            as for the forward method.
+        :param attention_bias: A tensor of shape
+            `(batch_size, 1, seq_len + tokens_to_generate, seq_len + tokens_to_generate)`,
+            the same as for the forward method except only one shape is excepted here.
+
+        For an explanation of the other arguments, see the :class:`BeamSearch` class.
+        """
+        beam_search = BeamSearch(
+            self.config.eos_token_id,
+            max_steps=max_steps,
+            beam_size=beam_size,
+            per_node_beam_size=per_node_beam_size,
+            sampler=sampler,
+            min_steps=min_steps,
+            final_sequence_scorer=final_sequence_scorer,
+            constraints=constraints,
+        )
+
+        # Validate inputs.
+        batch_size, seq_len = input_ids.shape
+        if attention_mask is not None:
+            assert attention_mask.shape == (batch_size, seq_len)
+        if attention_bias is not None:
+            assert len(attention_bias.shape) == 4
+            assert attention_bias.shape[:2] == (batch_size, 1)
+            assert (
+                seq_len + beam_search.max_steps
+                <= attention_bias.shape[2]
+                == attention_bias.shape[3]
+                <= self.config.max_sequence_length
+            )
+
+        tokens_generated = 0
+
+        def step(
+            last_predictions: torch.Tensor, state: dict[str, torch.Tensor]
+        ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+            nonlocal tokens_generated
+
+            input_ids = state["input_ids"]
+            attention_mask = state.get("attention_mask")
+            attention_bias = state.get("attention_bias")
+            group_size = input_ids.shape[0]
+
+            if tokens_generated > 0:
+                input_ids = torch.cat((input_ids, last_predictions.unsqueeze(1)), dim=-1)
+                if attention_mask is not None:
+                    attention_mask = torch.cat((attention_mask, attention_mask.new_ones((group_size, 1))), dim=-1)
+
+            tokens_generated += 1
+
+            # Run forward pass of model to get logits, then normalize to get log probs.
+            output = self(input_ids, attention_mask=attention_mask, attention_bias=attention_bias)
+            log_probs = F.log_softmax(output.logits[:, -1, :], dim=-1)
+
+            # Create new state.
+            state = {"input_ids": input_ids}
+            if attention_mask is not None:
+                state["attention_mask"] = attention_mask
+            if attention_bias is not None:
+                state["attention_bias"] = attention_bias
+
+            return log_probs, state
+
+        initial_preds = input_ids.new_zeros((batch_size,))  # This is arbitrary, we won't use this.
+        state: dict[str, torch.Tensor] = {"input_ids": input_ids}
+        if attention_mask is not None:
+            state["attention_mask"] = attention_mask
+        if attention_bias is not None:
+            state["attention_bias"] = attention_bias
+        token_ids, scores = beam_search.search(initial_preds, state, step)
+
+        return OlmoGenerateOutput(
+            token_ids=token_ids,  # type: ignore[arg-type]
+            scores=scores,  # type: ignore[arg-type]
+        )

@@ -1,7 +1,8 @@
 import logging
 import math
 import warnings
-from typing import Any, Dict, Optional, Tuple, Union
+from fnmatch import fnmatch
+from typing import Any, Dict, Optional, Set, Tuple, TypedDict, Union
 
 import torch
 import torch.nn as nn
@@ -22,15 +23,16 @@ from .config import (
     TrainConfig,
 )
 from .data import DataCollator, MemMapDataset
-from .exceptions import DolmaConfigurationError
-from .model import Dolma, DolmaOutput, LayerNormBase
+from .exceptions import OlmoConfigurationError
+from .model import LayerNormBase, Olmo
 from .optim import DecoupledLionW
 
 log = logging.getLogger(__name__)
 
 __all__ = [
-    "ComposerDolmaGPT",
-    "DolmaConsoleLogger",
+    "TrainBatchPerplexity",
+    "ComposerOlmoLM",
+    "OlmoConsoleLogger",
     "build_dataloader",
     "build_optimizer",
     "build_scheduler",
@@ -38,17 +40,58 @@ __all__ = [
 ]
 
 
-class ComposerDolmaGPT(ComposerModel):
-    def __init__(self, model_or_config: Union[Dolma, ModelConfig]):
+class TrainBatchOutput(TypedDict, total=True):
+    logits: torch.Tensor
+    """
+    The (shifted) logits.
+    """
+
+    labels: torch.Tensor
+    """
+    The (shifted) label token IDs.
+    """
+
+    loss: torch.Tensor
+    """
+    The cross-entropy loss.
+    """
+
+
+class TrainBatchPerplexity(Metric):
+    """
+    A metric for tracking training perplexity on a per-batch basis.
+    We use this as a training metric instead of composer's built-in
+    :class:`LanguageCrossEntropy` to avoid recomputing the loss.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(sync_on_compute=False)
+        self.loss: Optional[torch.Tensor]
+
+    def update(self, loss: torch.Tensor):
+        self.loss = loss
+
+    def compute(self) -> torch.Tensor:
+        assert self.loss is not None
+        return torch.exp(self.loss)
+
+
+class ComposerOlmoLM(ComposerModel):
+    def __init__(self, model_or_config: Union[Olmo, ModelConfig]):
         super().__init__()
-        self.model = Dolma(model_or_config) if isinstance(model_or_config, ModelConfig) else model_or_config
+        self.model = Olmo(model_or_config) if isinstance(model_or_config, ModelConfig) else model_or_config
         self.config = self.model.config
         self.num_fwd_flops = self.model.num_fwd_flops
 
-        from composer.metrics.nlp import Perplexity
+        from composer.metrics.nlp import LanguageCrossEntropy, LanguagePerplexity
 
-        self.train_metrics: Dict[str, Metric] = {}
-        self.eval_metrics: Dict[str, Metric] = {"Perplexity": Perplexity()}
+        self.train_metrics: Dict[str, Metric] = {
+            "Perplexity": TrainBatchPerplexity(),
+        }
+        self.eval_metrics: Dict[str, Metric] = {
+            "Perplexity": LanguagePerplexity(),
+            "CrossEntropy": LanguageCrossEntropy(),
+        }
 
     def get_labels(self, batch: BatchDict) -> torch.Tensor:
         # Labels are just input IDs shifted to the left (first item is ignored).
@@ -57,24 +100,29 @@ class ComposerDolmaGPT(ComposerModel):
             labels = labels.masked_fill(attention_mask == 0.0, -100)
         return labels[..., 1:].contiguous()
 
-    def forward(self, batch: BatchDict) -> DolmaOutput:
-        return self.model(**batch)
-
-    def loss(self, outputs: DolmaOutput, batch: BatchDict) -> torch.Tensor:
+    def forward(self, batch: BatchDict) -> TrainBatchOutput:
+        logits = self.model(**batch).logits[..., :-1, :].contiguous()
         labels = self.get_labels(batch)
-        shift_logits = outputs.logits[..., :-1, :].contiguous()
-        return F.cross_entropy(shift_logits.view(-1, shift_logits.size(-1)), labels.view(-1), ignore_index=-100)
+        loss = F.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1), ignore_index=-100)
+        return {"logits": logits, "labels": labels, "loss": loss}
 
-    def eval_forward(self, batch: BatchDict, outputs: Optional[DolmaOutput] = None) -> DolmaOutput:
+    def loss(self, outputs: TrainBatchOutput, batch: BatchDict) -> torch.Tensor:
+        del batch
+        return outputs["loss"]
+
+    def eval_forward(self, batch: BatchDict, outputs: Optional[TrainBatchOutput] = None) -> TrainBatchOutput:
         return outputs if outputs is not None else self.forward(batch)
 
-    def get_metrics(self, is_train: bool = False) -> Dict[str, "Metric"]:
+    def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
         return self.train_metrics if is_train else self.eval_metrics
 
-    def update_metric(self, batch: BatchDict, outputs: DolmaOutput, metric: "Metric") -> None:
-        labels = self.get_labels(batch)
-        shift_logits = outputs.logits[..., :-1, :].contiguous()
-        metric.update(shift_logits.view(-1, shift_logits.size(-1)), labels.view(-1))
+    def update_metric(self, batch: BatchDict, outputs: TrainBatchOutput, metric: Metric) -> None:
+        del batch
+        if isinstance(metric, TrainBatchPerplexity):
+            metric.update(outputs["loss"].detach())
+        else:
+            logits, labels = outputs["logits"], outputs["labels"]
+            metric.update(logits.view(-1, logits.size(-1)), labels.view(-1))
 
     def flops_per_batch(self, batch: BatchDict):
         # Note: this computation does not take into account padding, and assumes
@@ -83,7 +131,17 @@ class ComposerDolmaGPT(ComposerModel):
         return self.num_fwd_flops * 3 * batch["input_ids"].shape[0]
 
 
-class DolmaConsoleLogger(ConsoleLogger):
+class OlmoConsoleLogger(ConsoleLogger):
+    metrics_to_log: Set[str] = {"loss/train/total", "trainer/global_step", "metrics/*"}
+
+    def log_metrics(self, metrics: dict[str, float], step: Optional[int] = None) -> None:
+        del step
+        # Lazy logging of metrics.
+        # Stores all metrics logged until they are cleared with a log_to_console call
+        self.logged_metrics.update(
+            {k: v for k, v in metrics.items() if any(fnmatch(k, pattern) for pattern in self.metrics_to_log)}
+        )
+
     def _log_hparams_to_console(self):
         if dist.get_local_rank() == 0:
             log_str = "Config:"
@@ -227,7 +285,7 @@ def calculate_batch_size_info(
     global_batch_size: int, device_microbatch_size: Union[int, str]
 ) -> Tuple[int, Union[str, int], Union[str, int]]:
     if global_batch_size % dist.get_world_size() != 0:
-        raise DolmaConfigurationError(
+        raise OlmoConfigurationError(
             f"Global batch size {global_batch_size} is not divisible by {dist.get_world_size()} "
             "as a result, the batch size would be truncated, please adjust `global_batch_size` "
             f"to be divisible by world size, {dist.get_world_size()}."
@@ -245,7 +303,7 @@ def calculate_batch_size_info(
             device_microbatch_size = device_batch_size
         device_grad_accum = math.ceil(device_batch_size / device_microbatch_size)
     else:
-        raise DolmaConfigurationError(f"Not sure how to parse {device_microbatch_size=}")
+        raise OlmoConfigurationError(f"Not sure how to parse {device_microbatch_size=}")
 
     return device_batch_size, device_microbatch_size, device_grad_accum
 
@@ -266,7 +324,7 @@ def update_batch_size_info(cfg: TrainConfig):
         elif isinstance(cfg.device_train_microbatch_size, int):
             cfg.device_eval_batch_size = cfg.device_train_microbatch_size
         else:
-            raise DolmaConfigurationError(
+            raise OlmoConfigurationError(
                 f"Not sure how to parse device_train_microbatch_size={cfg.device_train_microbatch_size}"
             )
     return cfg

@@ -22,10 +22,11 @@ from omegaconf import OmegaConf as om
 from omegaconf.errors import OmegaConfBaseException
 
 from .aliases import PathOrStr
-from .exceptions import DolmaConfigurationError
+from .exceptions import OlmoConfigurationError
 
 __all__ = [
     "ActivationType",
+    "BlockType",
     "CompilerConfig",
     "LayerNormType",
     "ModelConfig",
@@ -89,7 +90,7 @@ class BaseConfig:
                 conf = om.merge(conf, kwargs)
             return cast(C, om.to_object(conf))
         except OmegaConfBaseException as e:
-            raise DolmaConfigurationError(str(e))
+            raise OlmoConfigurationError(str(e))
 
     @classmethod
     def load(cls: Type[C], path: PathOrStr, overrides: Optional[List[str]] = None) -> C:
@@ -102,7 +103,7 @@ class BaseConfig:
                 conf = om.merge(conf, om.from_dotlist(overrides))
             return cast(C, om.to_object(conf))
         except OmegaConfBaseException as e:
-            raise DolmaConfigurationError(str(e))
+            raise OlmoConfigurationError(str(e))
 
     def save(self, path: PathOrStr) -> None:
         """Save to a YAML file."""
@@ -146,10 +147,15 @@ class ActivationType(StrEnum):
     swiglu = "swiglu"
 
 
+class BlockType(StrEnum):
+    sequential = "sequential"
+    parallel = "parallel"
+
+
 @dataclass
 class ModelConfig(BaseConfig):
     """
-    DOLMA (model) configuration.
+    OLMo (model) configuration.
     """
 
     # Note that the defaults for these attributes are equivalent to the base GPT2 model.
@@ -177,6 +183,11 @@ class ModelConfig(BaseConfig):
     activation_type: ActivationType = ActivationType.swiglu
     """
     The activation function to use within the MLP layers.
+    """
+
+    block_type: BlockType = BlockType.sequential
+    """
+    The transformer block implementation.
     """
 
     alibi: bool = False
@@ -390,7 +401,7 @@ class CompilerConfig(BaseConfig):
 @dataclass
 class TrainConfig(BaseConfig):
     """
-    DOLMA training configuration.
+    OLMo training configuration.
     """
 
     run_name: Optional[str] = None

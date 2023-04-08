@@ -15,7 +15,7 @@ Look up ours in the CSC login system.
 
 LUMI has different partitions.
 The "G" partition is for GPUs.
-For Slurm, we do big runs with `--partition g`.
+For Slurm, we do big runs with `--partition standard-g`.
 We do small runs for debugging on the testing partition, with `--partition small-g`.
 Runs on the small partition have a maximum runtime of 30 minutes, but it seems they don't count against our quota.
 
