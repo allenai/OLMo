@@ -23,7 +23,6 @@ model:
   init_device: null
   init_std: 0.02
 
-#compile: null
 compile:
   mode: default
   fullgraph: null
@@ -50,10 +49,10 @@ algorithms:
 data:
   paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-train.*.npy}
   pad_direction: right
-  num_workers: 2
+  num_workers: 4
   drop_last: true
   pin_memory: true
-  prefetch_factor: 2
+  prefetch_factor: 16
   persistent_workers: true
   timeout: 0
 
@@ -61,11 +60,11 @@ tokenizer:
   identifier: gpt2
   truncate_direction: right
 
-max_duration: 24800ba # ~ 26B tokens
+max_duration: 1.4e12tok
 
 save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
-save_interval: 1000ba
-save_num_checkpoints_to_keep: 2
+save_interval: 2000ba
+save_num_checkpoints_to_keep: 100
 save_overwrite: false
 
 load_path: null

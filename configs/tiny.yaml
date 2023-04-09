@@ -63,7 +63,7 @@ save_overwrite: true
 load_path: null
 load_weights_only: false
 
-max_duration: 13400ba # ~ 7B tokens
+max_duration: 7e9tok
 global_train_batch_size: 16
 device_train_batch_size: auto
 device_train_microbatch_size: 4
@@ -72,7 +72,7 @@ device_eval_batch_size: null
 
 n_gpus: null
 
-precision: amp_bf16
+precision: fp32
 
 fsdp_config: null
 
