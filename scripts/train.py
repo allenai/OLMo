@@ -70,6 +70,7 @@ def main(cfg: TrainConfig) -> None:
             else:
                 save_path.parent.mkdir(exist_ok=True, parents=True)
                 cfg.save(save_path)
+            del save_path
 
     # Set seed.
     reproducibility.seed_all(cfg.seed)
