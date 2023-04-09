@@ -63,7 +63,7 @@ save_overwrite: true
 load_path: null
 load_weights_only: false
 
-max_duration: 7e9tok
+max_duration: 1708984ba  # 7B tokens
 global_train_batch_size: 16
 device_train_batch_size: auto
 device_train_microbatch_size: 4

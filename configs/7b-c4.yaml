@@ -54,7 +54,7 @@ tokenizer:
   identifier: gpt2
   truncate_direction: right
 
-max_duration: 1.4e12tok
+max_duration: 667572ba  # 1.4T tokens
 
 save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_interval: 2000ba
