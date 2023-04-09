@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import List, cast
 
 import torch
+from composer.callbacks import CheckpointSaver
 
 from olmo import Olmo, TrainConfig
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
@@ -173,10 +174,12 @@ def main(cfg: TrainConfig) -> None:
         f"training on {device_id}"
     )
 
-    if not cfg.dry_run:
+    if not cfg.dry_run and cfg.load_path is None:
         log.info("Saving pre-train checkpoint...")
         # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever)
-        trainer.save_checkpoint()
+        for callback in trainer.state.callbacks:
+            if isinstance(callback, CheckpointSaver):
+                callback._save_checkpoint(trainer.state, trainer.logger)
 
         log.info("Starting training...")
         trainer.fit()
