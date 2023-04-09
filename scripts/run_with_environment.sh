@@ -4,6 +4,7 @@
 
 set -xeuo pipefail
 
+export NODENAME=$(hostname -s)
 export MASTER_ADDR=$(scontrol show hostnames | head -n 1)
 export MASTER_PORT=39591
 export WORLD_SIZE=$SLURM_NTASKS
