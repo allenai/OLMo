@@ -32,7 +32,7 @@ compile:
 optimizer:
   name: decoupled_lionw
   learning_rate: 8.0e-5
-  weight_decay: 1.2e-4
+  weight_decay: 4.0e-5
   betas:
   - 0.9
   - 0.95
