@@ -30,8 +30,9 @@ export NCCL_DEBUG=INFO
 export PYTHONPATH=.:${PYTHONPATH}
 export WANDB_PROJECT=lumi-${SLURM_JOB_PARTITION}
 
+#  --cpu-bind=${CPU_BIND} \
+
 srun \
-  --cpu-bind=${CPU_BIND} \
   --distribution=block:block \
   --kill-on-bad-exit \
   scripts/run_with_environment.sh \
