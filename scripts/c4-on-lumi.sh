@@ -41,5 +41,5 @@ srun \
     -B"$SCRATCH_DIR:$SCRATCH_DIR" \
     -B"$FLASH_DIR:$FLASH_DIR" \
     $PROJECT_DIR/containers/llm-lumi_latest.sif \
-    python scripts/train.py configs/1.2b-c4.yaml --run_name=${SLURM_JOB_ID}
+    python scripts/train.py configs/1.2b-c4.yaml --run_name=${SLURM_JOB_ID} --compile=null
 
