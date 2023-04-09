@@ -5,7 +5,7 @@
 #SBATCH --nodes=1               # Total number of nodes 
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
-#SBATCH --cpus-per-task=6       # 6 threads per ranks
+#SBATCH --cpus-per-task=6       # 6 threads per rank
 #SBATCH --time=00:15:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=small-g
@@ -30,8 +30,9 @@ export NCCL_DEBUG=INFO
 export PYTHONPATH=.:${PYTHONPATH}
 export WANDB_PROJECT=lumi-${SLURM_JOB_PARTITION}
 
+#  --cpu-bind=${CPU_BIND} \
+
 srun \
-  --cpu-bind=${CPU_BIND} \
   --distribution=block:block \
   --kill-on-bad-exit \
   scripts/run_with_environment.sh \
@@ -40,5 +41,5 @@ srun \
     -B"$SCRATCH_DIR:$SCRATCH_DIR" \
     -B"$FLASH_DIR:$FLASH_DIR" \
     $PROJECT_DIR/containers/llm-lumi_latest.sif \
-    python scripts/train.py configs/1.2b-c4.yaml --run_name=${SLURM_JOB_ID}
+    python scripts/train.py configs/1.2b-c4.yaml --run_name=${SLURM_JOB_ID} --compile=null
 
