@@ -310,6 +310,9 @@ class OlmoBlock(nn.Module):
         assert not q.isnan().any()
         assert not k.isnan().any()
         assert not v.isnan().any()
+        if attention_bias is not None:
+            assert not attention_bias.isnan().any()
+            assert not attention_bias.to(dtype=dtype).isnan().any()
 
         # Get the attention scores.
         # shape: (B, nh, T, hs)
