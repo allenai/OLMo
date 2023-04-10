@@ -536,6 +536,7 @@ class Olmo(nn.Module):
                 ),
                 persistent=False,
             )
+        assert not self._causal_attention_bias.isnan().any()
         return self._causal_attention_bias  # type: ignore[return-type]
 
     @property
