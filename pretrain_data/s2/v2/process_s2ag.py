@@ -207,7 +207,7 @@ def process_single(
     df["year"] = df["year"].apply(lambda x: int(x) if isinstance(x, (float, int)) and not pd.isna(x) else -1)
 
     # listify the sources
-    df['sources'] = df['sources'].apply(lambda x: [] if (pd.isna(x) or pd.isnull(x)) else x.tolist())
+    df['sources'] = df['sources'].apply(lambda x: [] if x is None else x.tolist())
 
     # put everything that is not part of the data spec in metadata
     df["metadata"] = df.apply(row_to_metadata, axis=1)
