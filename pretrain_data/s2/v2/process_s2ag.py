@@ -206,6 +206,9 @@ def process_single(
     # if the value is not a float or int
     df["year"] = df["year"].apply(lambda x: int(x) if isinstance(x, (float, int)) and not pd.isna(x) else -1)
 
+    # listify the sources
+    df['sources'] = df['sources'].apply(lambda x: [] if (pd.isna(x) or pd.isnull(x)) else x.tolist())
+
     # put everything that is not part of the data spec in metadata
     df["metadata"] = df.apply(row_to_metadata, axis=1)
     cnt = sum(df["title_count"] + df["abstract_count"])
@@ -215,7 +218,8 @@ def process_single(
         out_f = stack.enter_context(io_utils.open_file_for_write(dst, "wb"))
         out_stream = stack.enter_context(gzip.open(out_f, "wt"))
         for row in df.itertuples(index=False):
-            content = json.dumps(row._asdict(), default=str).strip()
+            row_dict = row._asdict()
+            content = json.dumps(row_dict, default=str).strip()
             out_stream.write(content + "\n")  # type: ignore
 
     if pbar_queue is not None:
