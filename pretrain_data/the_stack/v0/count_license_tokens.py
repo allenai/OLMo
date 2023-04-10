@@ -1,6 +1,8 @@
-from ast import literal_eval
-import pandas as pd
 import sys
+from ast import literal_eval
+
+import pandas as pd
+
 
 def count_license_tokens(token_lengths, licenses):
     result = {}
@@ -15,12 +17,13 @@ def count_license_tokens(token_lengths, licenses):
 
 
 def run(path: str):
-	converters = {"document_licenses": literal_eval, "document_token_length": literal_eval}
-	df = pd.read_csv(path, sep="\t", converters=converters)
-	df["license_tokens"] = [df.apply(lambda x: count_license_tokens(x.document_token_length, x.document_licenses), axis=1).values[0]]
-	df.to_csv(path, sep="\t", index=False)
+    converters = {"document_licenses": literal_eval, "document_token_length": literal_eval}
+    df = pd.read_csv(path, sep="\t", converters=converters)
+    df["license_tokens"] = [
+        df.apply(lambda x: count_license_tokens(x.document_token_length, x.document_licenses), axis=1).values[0]
+    ]
+    df.to_csv(path, sep="\t", index=False)
 
 
 if __name__ == "__main__":
-	run(sys.argv[1])
-
+    run(sys.argv[1])
