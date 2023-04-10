@@ -524,14 +524,14 @@ class Olmo(nn.Module):
                     self.config.max_sequence_length,
                     self.config.max_sequence_length,
                     device=self.config.device,
-                    dtype=torch.float,
+                    dtype=self.buffer_dtype,
                 ),
                 diagonal=1,
             )
             att_bias.masked_fill_(att_bias == 1, float("-inf"))
             self.register_buffer(
                 "_causal_attention_bias",
-                att_bias.to(dtype=self.buffer_dtype).view(
+                att_bias.view(
                     1, 1, self.config.max_sequence_length, self.config.max_sequence_length
                 ),
                 persistent=False,
