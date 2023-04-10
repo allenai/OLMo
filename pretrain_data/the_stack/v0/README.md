@@ -127,7 +127,7 @@ HuggingFace dataset version: [v1.1](https://huggingface.co/datasets/bigcode/the-
 |----|-------|
 | Number of programming languages | 358 |
 | Number of [licences](https://huggingface.co/datasets/bigcode/the-stack-dedup/blob/v1.1/licenses.json) | 193 |
-| Number of tokens (basic tokenization; spaces and newlines) | 666,323,127,605.00 |
+| Number of tokens (basic tokenization; spaces and newlines) | 666,323,127,605 |
 | Languages selected based on prior work | html, javascript, xml, php, java, c, python, c++, c-sharp |
 | Licenses selected based on prior work | Apache License version 2.0, MIT license, The 3-clause BSD license, The 2-clause BSD license, Unlicense, CC0, ISC license, and Artistic License 2.0 | 
 | Number of tokens for selected languages and licenses | 254,895,636,234 (38.25 %)
