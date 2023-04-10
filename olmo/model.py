@@ -272,13 +272,25 @@ class OlmoBlock(nn.Module):
     def attention(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, attention_bias: Optional[torch.FloatTensor] = None
     ) -> torch.Tensor:
+        assert not q.isnan().any()
+        assert not k.isnan().any()
+        assert not v.isnan().any()
+
         B, T, C = q.size()  # batch size, sequence length, d_model
         dtype = k.dtype
+
+        assert not q.isnan().any()
+        assert not k.isnan().any()
+        assert not v.isnan().any()
 
         # Optionally apply layer norm to keys and queries.
         if self.q_norm is not None and self.k_norm is not None:
             q = self.q_norm(q).to(dtype=dtype)
             k = self.k_norm(k).to(dtype=dtype)
+
+        assert not q.isnan().any()
+        assert not k.isnan().any()
+        assert not v.isnan().any()
 
         # Move head forward to be next to the batch dim.
         # shape (all): (B, nh, T, hs)
@@ -286,10 +298,18 @@ class OlmoBlock(nn.Module):
         k = k.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
         v = v.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
 
+        assert not q.isnan().any()
+        assert not k.isnan().any()
+        assert not v.isnan().any()
+
         if self.config.rope:
             # Apply rotary embeddings.
             positions = self.get_rotary_embedding(T, q.device)
             q, k = map(lambda t: apply_rotary_pos_emb(positions, t), (q, k))
+
+        assert not q.isnan().any()
+        assert not k.isnan().any()
+        assert not v.isnan().any()
 
         # Get the attention scores.
         # shape: (B, nh, T, hs)
