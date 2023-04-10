@@ -9,7 +9,7 @@ We use the [deduplicated version](https://huggingface.co/datasets/bigcode/the-st
 
 ## Downloaded data
 
-Downloaded files available here: `s3://ai2-llm/pretraining-data/sources/stack-dedup/raw` (722 GB compressed)
+Downloaded files available here: `s3://ai2-llm/pretraining-data/sources/stack-dedup/v0` (722 GB compressed)
 
 HuggingFace dataset version: [v1.1](https://huggingface.co/datasets/bigcode/the-stack-dedup/tree/v1.1)
 
@@ -65,7 +65,7 @@ HuggingFace dataset version: [v1.1](https://huggingface.co/datasets/bigcode/the-
 
 1. Download details:
    - Original: [the-stack-dedup v1.1](https://huggingface.co/datasets/bigcode/the-stack-dedup/tree/v1.1)
-   - Downloaded files available here: `s3://ai2-llm/pretraining-data/sources/stack-dedup/raw` (722 GB compressed)
+   - Downloaded files available here: `s3://ai2-llm/pretraining-data/sources/stack-dedup/v0` (722 GB compressed)
    - 358 language folders, total 4790 gzipped json files.
    - Compute: EC2 `m6a.8xlarge` machine in `us-east-1` region; took < 1 day.
 
@@ -121,14 +121,16 @@ HuggingFace dataset version: [v1.1](https://huggingface.co/datasets/bigcode/the-
 
 ## 2023-03-27: Dataset Statistics
 
-[Dataset Statistics](https://docs.google.com/spreadsheets/d/1aesZHgHhmbPLcKvLNdn8dMV8ZVE6ohpIpuXCk6-LUpA/edit#gid=1395653416)
+[Dataset Statistics](https://docs.google.com/spreadsheets/d/1_Zfd2fyNEbWTjELHDLZXOKRbNcrBouzlwdS0YQ6eqt8/edit?usp=sharing)
 
 | | |
 |----|-------|
 | Number of programming languages | 358 |
 | Number of [licences](https://huggingface.co/datasets/bigcode/the-stack-dedup/blob/v1.1/licenses.json) | 193 |
-| Number of tokens (basic tokenization; spaces and newlines) | 514,363,785,904 |
-| Top-10 languages (by number of tokens) | json, html, text, javascript, xml, php, java, python, c++ (364,553,035,516 tokens, approx 70% of total tokens) 
+| Number of tokens (basic tokenization; spaces and newlines) | 666,323,127,605 |
+| Languages selected based on prior work | html, javascript, xml, php, java, c, python, c++, c-sharp |
+| Licenses selected based on prior work | Apache License version 2.0, MIT license, The 3-clause BSD license, The 2-clause BSD license, Unlicense, CC0, ISC license, and Artistic License 2.0 | 
+| Number of tokens for selected languages and licenses | 254,895,636,234 (38.25 %)
 
 ### Prior Work
 
