@@ -182,6 +182,7 @@ def main(cfg: TrainConfig) -> None:
                 callback._save_checkpoint(trainer.state, trainer.logger)
 
         log.info("Starting training...")
+        torch.autograd.set_detect_anomaly(True)
         trainer.fit()
 
     trainer.close()
