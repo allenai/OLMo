@@ -9,7 +9,7 @@ We use the [deduplicated version](https://huggingface.co/datasets/bigcode/the-st
 
 ## Downloaded data
 
-Downloaded files available here: `s3://ai2-llm/pretraining-data/sources/stack-dedup/raw` (722 GB compressed)
+Downloaded files available here: `s3://ai2-llm/pretraining-data/sources/stack-dedup/v0` (722 GB compressed)
 
 HuggingFace dataset version: [v1.1](https://huggingface.co/datasets/bigcode/the-stack-dedup/tree/v1.1)
 
@@ -65,7 +65,7 @@ HuggingFace dataset version: [v1.1](https://huggingface.co/datasets/bigcode/the-
 
 1. Download details:
    - Original: [the-stack-dedup v1.1](https://huggingface.co/datasets/bigcode/the-stack-dedup/tree/v1.1)
-   - Downloaded files available here: `s3://ai2-llm/pretraining-data/sources/stack-dedup/raw` (722 GB compressed)
+   - Downloaded files available here: `s3://ai2-llm/pretraining-data/sources/stack-dedup/v0` (722 GB compressed)
    - 358 language folders, total 4790 gzipped json files.
    - Compute: EC2 `m6a.8xlarge` machine in `us-east-1` region; took < 1 day.
 
