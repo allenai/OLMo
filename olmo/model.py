@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import math
 from abc import abstractmethod
-from typing import List, NamedTuple, Optional, cast
+from functools import cache
+from typing import List, NamedTuple, Optional, cast, Union
 
 import torch
 import torch.backends.cuda
@@ -454,6 +455,17 @@ class OlmoGenerateOutput(NamedTuple):
     """
 
 
+@cache
+def _causal_attention_bias(size: int, device: Union[str, torch.device, int], dtype: torch.dtype) -> torch.FloatTensor:
+    att_bias = torch.triu(
+        torch.ones(size, size, device=device, dtype=torch.float),
+        diagonal=1,
+    )
+    att_bias = att_bias.to(dtype)
+    att_bias.masked_fill_(att_bias == 1, float("-inf"))
+    return att_bias.view(1, 1, size, size)
+
+
 class Olmo(nn.Module):
     def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
@@ -500,8 +512,8 @@ class Olmo(nn.Module):
         # Initialize attention bias buffers up front since calling `register_buffer`
         # while compiling will cause a break in the graph.
         if self.config.alibi:
-            self.causal_attention_bias
             self.alibi_attention_bias
+            _causal_attention_bias(self.config.max_sequence_length, self.config.device, self.buffer_dtype)
 
     @property
     def buffer_dtype(self) -> torch.dtype:
@@ -518,27 +530,7 @@ class Olmo(nn.Module):
 
     @property
     def causal_attention_bias(self) -> torch.FloatTensor:
-        if not hasattr(self, "_causal_attention_bias"):
-            att_bias = torch.triu(
-                torch.ones(
-                    self.config.max_sequence_length,
-                    self.config.max_sequence_length,
-                    device=self.config.device,
-                    dtype=torch.float,
-                ),
-                diagonal=1,
-            )
-            att_bias = att_bias.to(self.buffer_dtype)
-            att_bias.masked_fill_(att_bias == 1, float("-inf"))
-            self.register_buffer(
-                "_causal_attention_bias",
-                att_bias.view(
-                    1, 1, self.config.max_sequence_length, self.config.max_sequence_length
-                ),
-                persistent=False,
-            )
-        assert not self._causal_attention_bias.isnan().any()
-        return self._causal_attention_bias  # type: ignore[return-type]
+        return _causal_attention_bias(self.config.max_sequence_length, self.config.device, self.buffer_dtype)
 
     @property
     def alibi_attention_bias(self) -> torch.FloatTensor:
