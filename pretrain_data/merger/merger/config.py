@@ -38,7 +38,7 @@ class Output(BaseModel):
 class Stream(BaseModel):
     name: str
     format: Optional[str]
-    documents: Documents
+    documents: List[Documents]
     attributes: Optional[Attributes]
     sampler: Optional[Sampler]
     filterer: Optional[Filterer]
@@ -54,4 +54,3 @@ class Stream(BaseModel):
 class Config(BaseModel):
     streams: List[Stream]
     processes: Optional[int]
-    # output: Output
