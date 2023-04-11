@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from abc import abstractmethod
 from functools import cache
-from typing import List, NamedTuple, Optional, cast, Union
+from typing import List, NamedTuple, Optional, Union, cast
 
 import torch
 import torch.backends.cuda
@@ -432,9 +432,7 @@ class OlmoGenerateOutput(NamedTuple):
 
 @cache
 def _causal_attention_bias(
-    size: int,
-    device: Union[str, torch.device, int],
-    dtype: torch.dtype
+    size: int, device: Union[str, torch.device, int], dtype: torch.dtype
 ) -> torch.FloatTensor:
     att_bias = torch.triu(
         torch.ones(size, size, device=device, dtype=torch.float),
@@ -447,20 +445,12 @@ def _causal_attention_bias(
 
 @cache
 def _alibi_attention_bias(
-    size: int,
-    n_heads: int,
-    max_bias: float,
-    device: Union[str, torch.device, int],
-    dtype: torch.dtype
+    size: int, n_heads: int, max_bias: float, device: Union[str, torch.device, int], dtype: torch.dtype
 ) -> torch.FloatTensor:
-    alibi_bias = torch.arange(
-        1 - size, 1, dtype=torch.float, device=device
-    ).view(1, 1, 1, size)
+    alibi_bias = torch.arange(1 - size, 1, dtype=torch.float, device=device).view(1, 1, 1, size)
 
     # shape: (1, 1, seq_len, seq_len)
-    alibi_bias = alibi_bias - torch.arange(
-        1 - size, 1, dtype=torch.float, device=device
-    ).view(1, 1, size, 1)
+    alibi_bias = alibi_bias - torch.arange(1 - size, 1, dtype=torch.float, device=device).view(1, 1, size, 1)
     alibi_bias.abs_().mul_(-1)
 
     # shape: (n_heads,)
@@ -544,7 +534,8 @@ class Olmo(nn.Module):
             self.config.n_heads,
             self.config.alibi_bias_max,
             self.config.device,
-            self.buffer_dtype)
+            self.buffer_dtype,
+        )
 
     def forward(
         self,
