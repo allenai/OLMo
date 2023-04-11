@@ -79,8 +79,6 @@ class Sampler:
     picks the `k` examples with highest log probability.
     """
 
-    default_implementation = "deterministic"
-
     def init_state(
         self, start_class_log_probabilities: torch.Tensor, batch_size: int, num_classes: int
     ) -> StateType:
@@ -432,8 +430,6 @@ class FinalSequenceScorer:
     The default implementation scores the sequences using the sum of the log probabilities of
     the sequence, which is passed as input.
     """
-
-    default_implementation = "sequence-log-prob"
 
     @abstractmethod
     def score(self, predictions: torch.Tensor, log_probabilities: torch.Tensor, end_index: int) -> torch.Tensor:
