@@ -454,10 +454,6 @@ class OlmoGenerateOutput(NamedTuple):
     """
 
 
-_causal_attention_bias: Optional[torch.FloatTensor] = None
-_alibi_attention_bias: Optional[torch.FloatTensor] = None
-
-
 class Olmo(nn.Module):
     def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
@@ -501,8 +497,8 @@ class Olmo(nn.Module):
             self.apply(self.param_init_fn)
         self.__num_fwd_flops = None
 
-        # Initialize attention bias buffers up front so that `torch.compile()` doesn't take them
-        # into account.
+        # Initialize attention bias buffers up front since calling `register_buffer`
+        # while compiling will cause a break in the graph.
         if self.config.alibi:
             self.causal_attention_bias
             self.alibi_attention_bias
@@ -522,10 +518,7 @@ class Olmo(nn.Module):
 
     @property
     def causal_attention_bias(self) -> torch.FloatTensor:
-        # NOTE: we store this as a global instead of a buffer to avoid the overhead of all-reducing
-        # during FSDP and because sometimes "-inf" values turn into NaNs during this process.
-        global _causal_attention_bias
-        if _causal_attention_bias is None:
+        if not hasattr(self, "_causal_attention_bias"):
             att_bias = torch.triu(
                 torch.ones(
                     self.config.max_sequence_length,
@@ -537,18 +530,19 @@ class Olmo(nn.Module):
             )
             att_bias = att_bias.to(self.buffer_dtype)
             att_bias.masked_fill_(att_bias == 1, float("-inf"))
-            _causal_attention_bias = att_bias.view(  # type: ignore
-                1, 1, self.config.max_sequence_length, self.config.max_sequence_length
+            self.register_buffer(
+                "_causal_attention_bias",
+                att_bias.view(
+                    1, 1, self.config.max_sequence_length, self.config.max_sequence_length
+                ),
+                persistent=False,
             )
         assert not self._causal_attention_bias.isnan().any()
-        return _causal_attention_bias  # type: ignore
+        return self._causal_attention_bias  # type: ignore[return-type]
 
     @property
     def alibi_attention_bias(self) -> torch.FloatTensor:
-        # NOTE: we store this as a global instead of a buffer to avoid the overhead of all-reducing
-        # during FSDP.
-        global _alibi_attention_bias
-        if _alibi_attention_bias is None:
+        if not hasattr(self, "_alibi_attention_bias"):
             # shape: (1, 1, 1, seq_len)
             alibi_bias = torch.arange(
                 1 - self.config.max_sequence_length, 1, dtype=torch.float, device=self.config.device
@@ -566,8 +560,8 @@ class Olmo(nn.Module):
 
             # shape: (1, n_heads, seq_len, seq_len)
             alibi_bias = alibi_bias * (1.0 / (2 ** m.view(1, self.config.n_heads, 1, 1)))
-            _alibi_attention_bias = alibi_bias.to(dtype=self.buffer_dtype)  # type: ignore
-        return _alibi_attention_bias  # type: ignore
+            self.register_buffer("_alibi_attention_bias", alibi_bias.to(dtype=self.buffer_dtype), persistent=False)
+        return self._alibi_attention_bias  # type: ignore[return-type]
 
     def forward(
         self,
