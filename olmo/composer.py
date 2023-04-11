@@ -103,8 +103,6 @@ class ComposerOlmoLM(ComposerModel):
     def forward(self, batch: BatchDict) -> TrainBatchOutput:
         logits = self.model(**batch).logits[..., :-1, :].contiguous()
         labels = self.get_labels(batch)
-        log.info("Logits: %r", logits.detach().cpu())
-        log.info("Labels: %r", labels.detach().cpu())
         loss = F.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1), ignore_index=-100)
         return {"logits": logits, "labels": labels, "loss": loss}
 
