@@ -605,9 +605,6 @@ class Olmo(nn.Module):
             f"this model only supports seq_len<={self.config.max_sequence_length}"
         )
 
-        assert attention_mask is None or not attention_mask.isnan().any()
-        assert attention_bias is None or not attention_bias.isnan().any()
-
         # Get embeddings of input.
         # shape: (batch_size, seq_len, d_model)
         x = self.transformer.wte(input_ids)  # type: ignore
@@ -630,33 +627,25 @@ class Olmo(nn.Module):
             attention_mask = attention_mask.to(dtype=x.dtype).view(batch_size, -1)[:, None, None, :]
             attention_mask = (1.0 - attention_mask) * torch.finfo(attention_mask.dtype).min
             attention_mask.masked_fill_(attention_mask == 1.0, float("-inf"))
-            assert not attention_mask.isnan().any()
 
         # Merge attention mask with attention bias.
         if attention_bias is not None or attention_mask is not None or self.config.alibi:
             if attention_bias is None:
                 # Default to causal attention bias.
                 attention_bias = self.causal_attention_bias
-                assert not attention_bias.isnan().any()
             elif attention_bias.dtype in (torch.int8, torch.bool):
                 attention_bias = attention_bias.to(dtype=x.dtype)
                 attention_bias.masked_fill_(attention_bias == 0.0, float("-inf"))
-                assert not attention_bias.isnan().any()
 
             attention_bias = attention_bias[:, :, :seq_len, :seq_len]
 
             # Add in the masking bias.
             if attention_mask is not None:
-                assert not attention_mask.isnan().any()
                 attention_bias = attention_bias + attention_mask
-                assert not attention_bias.isnan().any()
 
             if self.config.alibi:
                 # Add in ALiBi attention bias.
                 attention_bias = attention_bias + self.alibi_attention_bias[:, :, :seq_len, :seq_len].to(x.dtype)
-                assert not attention_bias.isnan().any()
-
-        assert not attention_bias.isnan().any()
 
         # Apply blocks one-by-one.
         for block in self.transformer.blocks:  # type: ignore
