@@ -76,22 +76,16 @@ class TrainBatchPerplexity(Metric):
         return torch.exp(self.loss)
 
 
-def nan_hook(cls, input, output):
-    if not isinstance(input, tuple):
-        inputs = (input,)
-    else:
-        inputs = output
-    for i, input in enumerate(inputs):
-        if torch.isnan(input).any():
-            raise RuntimeError(f"Found NaN in input {i}: {input}")
-
+def nan_hook(cls, inp, output):
     if not isinstance(output, tuple):
         outputs = (output,)
     else:
         outputs = output
-    for i, output in enumerate(outputs):
-        if torch.isnan(output).any():
-            raise RuntimeError(f"Found NaN in output {i}: {output}")
+
+    for i, out in enumerate(outputs):
+        nan_mask = torch.isnan(out)
+        if nan_mask.any():
+            raise RuntimeError(f"Found NaN in output {i} at indices: ", nan_mask.nonzero(), "where: ", out[nan_mask.nonzero()[:, 0].unique(sorted=True)])
 
 
 class ComposerOlmoLM(ComposerModel):
