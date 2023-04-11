@@ -303,8 +303,6 @@ class OlmoBlock(nn.Module):
             is_causal=attention_bias is None,
         )
 
-        assert not att.isnan().any()
-
         # Re-assemble all head outputs side-by-side.
         att = att.transpose(1, 2).contiguous().view(B, T, C)
 
