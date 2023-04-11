@@ -20,26 +20,29 @@ class DocumentInput:
 
 
 def document_inputs(stream: Stream) -> List[DocumentInput]:
-    root = S3File.from_url(stream.documents.root)
-    if not root.key.endswith("/"):
-        root.key = root.key + "/"
-    keys = []
-    for pattern in stream.documents.include:
-        path = pattern.split("/")
-        keys.extend(_matching_keys(root.bucket, root.key, path))
-    keys.sort()
-    return [
-        DocumentInput(
-            documents=S3File(bucket=root.bucket, key=k),
-            attributes=[
-                S3File(bucket=root.bucket, key=k.replace("/documents/", f"/attributes/{name}/"))
-                for name in stream.attributes.include
-            ]
-            if stream.attributes
-            else [],
+    inputs: List[DocumentInput] = []
+    for docs in stream.documents:
+        root = S3File.from_url(docs.root)
+        if not root.key.endswith("/"):
+            root.key = root.key + "/"
+        keys = []
+        for pattern in docs.include:
+            path = pattern.split("/")
+            keys.extend(_matching_keys(root.bucket, root.key, path))
+        keys.sort()
+        inputs.extend(
+            DocumentInput(
+                documents=S3File(bucket=root.bucket, key=k),
+                attributes=[
+                    S3File(bucket=root.bucket, key=k.replace("/documents/", f"/attributes/{name}/"))
+                    for name in stream.attributes.include
+                ]
+                if stream.attributes
+                else [],
+            )
+            for k in keys
         )
-        for k in keys
-    ]
+    return inputs
 
 
 def _matching_keys(bucket: str, prefix: str, path: List[str]) -> List[str]:
@@ -88,6 +91,14 @@ def split_into_shards(stream: Stream) -> List[Shard]:
             shard_size = 0
             shard_inputs = []
         shard_inputs.append(input)
+    if shard_inputs:
+        shards.append(
+            Shard(
+                inputs=shard_inputs,
+                output=Path(stream.output.path) / f"{stream.name}_{len(shards):04d}.json.gz",
+                merger=Merger(stream.sampler, stream.filterer, stream.formatter_fn),
+            )
+        )
     log.info(f"Splitting {len(inputs)} files for {stream.name} into {len(shards)} shards")
     return shards
 
