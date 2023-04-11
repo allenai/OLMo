@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from threading import Lock
 from typing import Generator, List, Optional, Union
 
 from tokenizers import Tokenizer as BaseTokenizer
@@ -22,6 +23,11 @@ class Tokenizer:
         on the right. "left" means truncate the tokens on the left. If ``truncate_to`` is null,
         this setting has no effect.
     """
+
+    # The base tokenizer is not thread safe, so we use a lock to ensure
+    # we're only using it in a single thread at once.
+    # See https://github.com/huggingface/tokenizers/issues/537
+    MUTEX = Lock()
 
     def __init__(
         self,
@@ -77,6 +83,7 @@ class Tokenizer:
         """
         A context manager to temporarily enable/disable truncation.
         """
+        self.MUTEX.acquire()
         truncation = self.base_tokenizer.truncation
 
         try:
@@ -86,10 +93,13 @@ class Tokenizer:
                 self.base_tokenizer.no_truncation()
             yield self
         finally:
-            if truncation is None:
-                self.base_tokenizer.no_truncation()
-            else:
-                self.base_tokenizer.enable_truncation(**truncation)
+            try:
+                if truncation is None:
+                    self.base_tokenizer.no_truncation()
+                else:
+                    self.base_tokenizer.enable_truncation(**truncation)
+            finally:
+                self.MUTEX.release()
 
     def encode(self, input: str, add_special_tokens: bool = True) -> List[int]:
         """
