@@ -1,4 +1,4 @@
-# OLMo: Delightful Open Language Model from AI2
+# OLMo: Open Language Model
 
 ## Setup
 
