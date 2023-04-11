@@ -76,26 +76,10 @@ class TrainBatchPerplexity(Metric):
         return torch.exp(self.loss)
 
 
-def nan_hook(cls, inp, output):
-    if not isinstance(output, tuple):
-        outputs = (output,)
-    else:
-        outputs = output
-
-    for i, out in enumerate(outputs):
-        nan_mask = torch.isnan(out)
-        if nan_mask.any():
-            raise RuntimeError(f"Found NaN in output {i} at indices: ", nan_mask.nonzero(), "where: ", out[nan_mask.nonzero()[:, 0].unique(sorted=True)])
-
-
 class ComposerOlmoLM(ComposerModel):
     def __init__(self, model_or_config: Union[Olmo, ModelConfig]):
         super().__init__()
         self.model = Olmo(model_or_config) if isinstance(model_or_config, ModelConfig) else model_or_config
-
-        for submodule in self.model.modules():
-            submodule.register_forward_hook(nan_hook)
-
         self.config = self.model.config
         self.num_fwd_flops = self.model.num_fwd_flops
 
@@ -122,7 +106,6 @@ class ComposerOlmoLM(ComposerModel):
         log.info("Logits: %r", logits.detach().cpu())
         log.info("Labels: %r", labels.detach().cpu())
         loss = F.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1), ignore_index=-100)
-        assert not torch.isnan(loss).any()
         return {"logits": logits, "labels": labels, "loss": loss}
 
     def loss(self, outputs: TrainBatchOutput, batch: BatchDict) -> torch.Tensor:
