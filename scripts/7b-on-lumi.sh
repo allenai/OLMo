@@ -1,14 +1,14 @@
 #!/bin/bash
-#SBATCH --job-name=c4-1.2b
+#SBATCH --job-name=c4-7b
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
-#SBATCH --nodes=1               # Total number of nodes 
+#SBATCH --nodes=8               # Total number of nodes 
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6       # 6 threads per rank
 #SBATCH --time=00:15:00
 #SBATCH --mem=0			# All memory on the node
-#SBATCH --partition=small-g
+#SBATCH --partition=standard-g
 
 module load LUMI/22.08 partition/G
 
@@ -41,5 +41,5 @@ srun \
     -B"$SCRATCH_DIR:$SCRATCH_DIR" \
     -B"$FLASH_DIR:$FLASH_DIR" \
     $PROJECT_DIR/containers/llm-lumi_latest.sif \
-    python scripts/train.py configs/1.2b-c4.yaml --run_name=${SLURM_JOB_ID} --compile=null
+    python scripts/train.py configs/7b-c4.yaml --run_name=${SLURM_JOB_ID} --compile=null
 
