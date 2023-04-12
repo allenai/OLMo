@@ -34,6 +34,7 @@ RUN wget https://repo.radeon.com/amdgpu-install/5.4.3/ubuntu/jammy/amdgpu-instal
     amdgpu-install -y --accept-eula --usecase=rocm --no-dkms && \
     rm ./amdgpu-install_5.4.50403-1_all.deb && \
     apt-get install -y rccl rocm-libs
+ENV ROCM_HOME=/opt/rocm
 
 # Install MPICH
 ENV MPICH_VERSION="3.1.4"

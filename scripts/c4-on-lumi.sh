@@ -24,6 +24,7 @@ export FI_CXI_DISABLE_CQ_HUGETLB=1
 export NCCL_DEBUG=INFO
 export PYTHONPATH=.:${PYTHONPATH}
 export WANDB_PROJECT=lumi-${SLURM_JOB_PARTITION}
+export ROCM_PATH=/opt/rocm
 
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
@@ -35,5 +36,5 @@ srun \
     -B"$SCRATCH_DIR:$SCRATCH_DIR" \
     -B"$FLASH_DIR:$FLASH_DIR" \
     $PROJECT_DIR/containers/llm-lumi_latest.sif \
-    python scripts/train.py configs/1.2b-c4.yaml --run_name=${SLURM_JOB_ID} --compile=null
+    python scripts/train.py configs/1.2b-c4.yaml --run_name=${SLURM_JOB_ID}
 
