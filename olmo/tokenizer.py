@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 from threading import Lock
-from typing import Generator, List, Optional, Union
+from typing import List, Optional, Union
 
 from tokenizers import Tokenizer as BaseTokenizer
 
@@ -37,6 +36,7 @@ class Tokenizer:
         truncate_direction: Union[str, TruncationDirection] = TruncationDirection.right,
     ):
         self.base_tokenizer = base_tokenizer
+        self.base_tokenizer.no_truncation()
         self.eos_token_id = eos_token_id
         self.truncate_to = truncate_to
         self.truncate_direction = TruncationDirection(truncate_direction)
@@ -76,46 +76,21 @@ class Tokenizer:
     def num_special_tokens_to_add(self, is_pair: bool = False) -> int:
         return 2 if is_pair else 1
 
-    @contextmanager
-    def _truncation(
-        self, truncate_to: Optional[int], direction: Union[str, TruncationDirection] = TruncationDirection.right
-    ) -> Generator["Tokenizer", None, None]:
-        """
-        A context manager to temporarily enable/disable truncation.
-        """
-        self.MUTEX.acquire()
-        truncation = self.base_tokenizer.truncation
-
-        try:
-            if truncate_to is not None:
-                self.base_tokenizer.enable_truncation(truncate_to, direction=str(direction))
-            else:
-                self.base_tokenizer.no_truncation()
-            yield self
-        finally:
-            try:
-                if truncation is None:
-                    self.base_tokenizer.no_truncation()
-                else:
-                    self.base_tokenizer.enable_truncation(**truncation)
-            finally:
-                self.MUTEX.release()
+    def _truncate(
+        self, input_ids: List[int], truncate_to: Optional[int], direction: TruncationDirection
+    ) -> list[int]:
+        if truncate_to is None or len(input_ids) <= truncate_to:
+            return input_ids
+        elif direction == TruncationDirection.left:
+            return input_ids[len(input_ids) - truncate_to :]
+        else:
+            return input_ids[: -(len(input_ids) - truncate_to)]
 
     def encode(self, input: str, add_special_tokens: bool = True) -> List[int]:
         """
         Encode a string into token IDs.
         """
-        truncate_to = self.truncate_to
-        if truncate_to is not None and add_special_tokens:
-            truncate_to -= self.num_special_tokens_to_add(False)
-
-        with self._truncation(truncate_to, direction=self.truncate_direction):
-            input_ids = self.base_tokenizer.encode(input).ids
-
-        if add_special_tokens:
-            input_ids = self.add_special_tokens(input_ids)
-
-        return input_ids
+        return self.encode_batch([input], add_special_tokens=add_special_tokens)[0]
 
     def encode_batch(self, inputs: List[str], add_special_tokens: bool = True) -> List[List[int]]:
         """
@@ -125,12 +100,11 @@ class Tokenizer:
         if truncate_to is not None and add_special_tokens:
             truncate_to -= self.num_special_tokens_to_add(False)
 
-        with self._truncation(truncate_to, direction=self.truncate_direction):
-            batch_encoding = self.base_tokenizer.encode_batch(inputs)
+        batch_encoding = self.base_tokenizer.encode_batch(inputs)
 
         all_input_ids = []
         for encoding in batch_encoding:
-            input_ids = encoding.ids
+            input_ids = self._truncate(encoding.ids, truncate_to, self.truncate_direction)
             if add_special_tokens:
                 input_ids = self.add_special_tokens(input_ids)
             all_input_ids.append(input_ids)
