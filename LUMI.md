@@ -68,6 +68,10 @@ Here is my `~/.bashrc` file, for your copy and pasting pleasure:
 module load LUMI/22.08 partition/G
 module load systools/22.08
 
+# Allow TERM to make backspace and other keys work properly in the terminal.
+# https://unix.stackexchange.com/questions/43103/backspace-tab-not-working-in-terminal-using-ssh
+export TERM=vt100
+
 # Environment variables
 export PROJECT=project_123456789
 export PROJECT_DIR=/project/$PROJECT
