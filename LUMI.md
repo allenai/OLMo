@@ -92,6 +92,10 @@ export EBU_USER_PREFIX=/project/$SBATCH_ACCOUNT
 export S3_ACCESS_KEY_ID=XXXXXXX
 export S3_SECRET_ACCESS_KEY=YYYYYYY
 
+# Other API keys for logging and metric tracking.
+export WANDB_API_KEY=XXXXXXX
+export LOGZIO_TOKEN=XXXXXX  # find this at https://app.logz.io/#/dashboard/settings/general
+
 # Prints current quota information.
 lumi-workspaces
 ```
