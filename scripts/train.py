@@ -96,6 +96,12 @@ def main(cfg: TrainConfig) -> None:
             f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}",
         )
 
+    fsdp_config = None
+    if cfg.fsdp_config is not None:
+        fsdp_config = {k: v for k, v in cfg.fsdp_config.items()}
+        # Make sure FSDP doesn't shard these buffers.
+        fsdp_config["ignored_modules"] = [olmo_model.buffer_cache]
+
     # Compile it if necessary.
     if cfg.compile is not None:
         compile_kwargs = cfg.compile.asdict()
@@ -148,7 +154,7 @@ def main(cfg: TrainConfig) -> None:
         max_duration=cfg.max_duration,
         precision=cfg.precision,
         device_train_microbatch_size=cfg.device_train_microbatch_size,
-        fsdp_config=cfg.fsdp_config,
+        fsdp_config=fsdp_config,
         save_folder=cfg.save_folder,
         save_interval=cfg.save_interval,
         save_num_checkpoints_to_keep=cfg.save_num_checkpoints_to_keep,
