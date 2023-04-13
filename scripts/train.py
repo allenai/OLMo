@@ -99,9 +99,7 @@ def main(cfg: TrainConfig) -> None:
     # Compile it if necessary.
     if cfg.compile is not None:
         compile_kwargs = cfg.compile.asdict()
-        if compile_kwargs.get("fullgraph") is None:
-            compile_kwargs["fullgraph"] = cfg.fsdp_config is None
-        # As far as duck typing is concerned, this is still a Olmo object.
+        # As far as duck typing is concerned, this is still an Olmo object.
         olmo_model = cast(Olmo, torch.compile(olmo_model, **compile_kwargs))
 
     # Optimizer.

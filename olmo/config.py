@@ -380,11 +380,10 @@ class CompilerConfig(BaseConfig):
     (the fastest for larger models, but takes a long time to compile).
     """
 
-    fullgraph: Optional[bool] = None
+    fullgraph: bool = False
     """
     Whether it is OK to break model into several subgraphs when compiling.
-
-    If ``None``, ``fullgraph`` will default to ``True`` unless used during FSDP distributed training.
+    Note that this is not compatible with FSDP.
     """
 
     backend: str = "inductor"
