@@ -25,6 +25,7 @@ export NCCL_DEBUG=INFO
 export PYTHONPATH=.:${PYTHONPATH}
 export WANDB_PROJECT=lumi-${SLURM_JOB_PARTITION}
 export ROCM_PATH=/opt/rocm
+export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64
 
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
@@ -35,6 +36,9 @@ srun \
     -B"$PROJECT_DIR:$PROJECT_DIR" \
     -B"$SCRATCH_DIR:$SCRATCH_DIR" \
     -B"$FLASH_DIR:$FLASH_DIR" \
+    -B /opt/cray:/opt/cray \
+    -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
+    -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/llm-lumi_latest.sif \
     python scripts/train.py configs/7b-c4.yaml --run_name=${SLURM_JOB_ID}
 
