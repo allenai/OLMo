@@ -1,6 +1,16 @@
 Experiment Log
 ==============
 
+2023-04-13
+----------
+
+We've been experimenting with a [triton](https://github.com/openai/triton) implementation of [FlashAttention](https://github.com/HazyResearch/flash-attention/blob/main/flash_attn/flash_attn_triton.py) that supports using an arbitrary attention bias, which would allow us to use [ALiBi](https://www.semanticscholar.org/paper/f5aba74fbd512190ed5f61127618381f70710572).
+Unfortunately it doesn't look like this is going to be a viable option at the moment.
+This particular implementation only works on an older version of triton that uses a CUDA-specific backend.
+Therefore it won't run on AMD GPUs.
+
+We'll revisit this again when there are updates to [HazyResearch/flash-attention](https://github.com/HazyResearch/flash-attention).
+
 2023-04-03
 ----------
 
