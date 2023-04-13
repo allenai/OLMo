@@ -60,14 +60,18 @@ RUN cd /opt && \
     ldconfig
 
 # Install aws-ofi-rccl
-RUN apt-get install -y libfabric-dev
+RUN cd /opt && \
+    git clone https://github.com/ofiwg/libfabric && \
+    ./autogen.sh && \
+    ./configure --prefix=/usr/local && \
+    make -j && make install
+ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 RUN cd /opt && \
     git clone https://github.com/ROCmSoftwarePlatform/aws-ofi-rccl && \
     cd aws-ofi-rccl && \
     ./autogen.sh && \
     ./configure && \
     make -j && make install
-ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # Install torch
 RUN pip install --upgrade pip
@@ -89,6 +93,6 @@ RUN pip install --no-cache-dir wandb --upgrade
 
 # Cleanup
 RUN apt-get autoremove
-RUN rm -rf /opt/mpich-3.1.4 /opt/aws-ofi-rccl /opt/DeepSpeed
+RUN rm -rf /opt/mpich-3.1.4 /opt/libfabric /opt/aws-ofi-rccl /opt/DeepSpeed
 RUN apt-get clean
 RUN pip cache purge
