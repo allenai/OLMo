@@ -62,6 +62,7 @@ RUN cd /opt && \
 # Install aws-ofi-rccl
 RUN cd /opt && \
     git clone https://github.com/ofiwg/libfabric && \
+    cd libfabric && \
     ./autogen.sh && \
     ./configure --prefix=/usr/local && \
     make -j && make install
