@@ -210,11 +210,6 @@ class ModelConfig(BaseConfig):
     If ``True``, use ``FlashAttention``.
     """
 
-    memory_efficient_attention: bool = False
-    """
-    If ``True``, enable memory-efficient attention.
-    """
-
     attention_dropout: float = 0.1
     """
     The dropout probability within the attention modules.
