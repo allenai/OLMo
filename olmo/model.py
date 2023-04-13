@@ -477,8 +477,8 @@ class Olmo(nn.Module):
         self.config = config
 
         # Validate config.
-        if self.config.alibi and self.config.flash_attention:
-            raise OlmoConfigurationError("ALiBi is currently not supported with FlashAttention")
+        #  if self.config.alibi and self.config.flash_attention:
+        #      raise OlmoConfigurationError("ALiBi is currently not supported with FlashAttention")
 
         if self.config.alibi and self.config.rope:
             raise OlmoConfigurationError("ALiBi and RoPE are mutually exclusive")
