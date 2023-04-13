@@ -429,13 +429,6 @@ class OlmoGenerateOutput(NamedTuple):
     """
 
 
-class OlmoBuffers(nn.Module):
-    """
-    This is an empty module that we use to store isolated buffers so that we can prevent FSDP
-    from wrapping and sharding them.
-    """
-
-
 def _causal_attention_bias(
     size: int, device: Union[None, str, torch.device, int], dtype: torch.dtype
 ) -> torch.FloatTensor:
@@ -509,9 +502,11 @@ class Olmo(nn.Module):
             self.apply(self.param_init_fn)
         self.__num_fwd_flops = None
 
-        # Warm up the cache for attention bias buffers.
-        self.buffer_cache = OlmoBuffers()
+        # This is an empty module that we use to store isolated buffers so that we can prevent FSDP
+        # from wrapping and sharding them.
+        self.buffer_cache = nn.Module()
         if self.config.alibi:
+            # Warm up the cache for attention bias buffers.
             _ = self.alibi_attention_bias
             _ = self.causal_attention_bias
 
