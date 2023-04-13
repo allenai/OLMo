@@ -720,7 +720,7 @@ def _flash_attn_backward(do, q, k, v, o, lse, dq, dk, dv, bias=None, causal=Fals
 class FlashAttnFunc(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, q, k, v, attn_mask=None, is_causal=False, softmax_scale=None, dropout_p: float = 0.0):
+    def forward(ctx, q, k, v, attn_mask=None, dropout_p: float = 0.0, is_causal=False, softmax_scale=None):
         """
             q: (batch_size, seqlen_q, nheads, headdim)
             k, v: (batch_size, seqlen_k, nheads, headdim)

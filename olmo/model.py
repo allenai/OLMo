@@ -307,9 +307,9 @@ class OlmoBlock(nn.Module):
             q,
             k,
             v,
-            attn_mask=None if attention_bias is None else attention_bias.to(dtype=dtype),
-            dropout_p=0.0 if not self.training else self.config.attention_dropout,
-            is_causal=attention_bias is None,
+            None if attention_bias is None else attention_bias.to(dtype=dtype),
+            0.0 if not self.training else self.config.attention_dropout,
+            attention_bias is None,
         )
 
         # Re-assemble all head outputs side-by-side.
