@@ -68,6 +68,10 @@ Here is my `~/.bashrc` file, for your copy and pasting pleasure:
 module load LUMI/22.08 partition/G
 module load systools/22.08
 
+# Allow TERM to make backspace and other keys work properly in the terminal.
+# https://unix.stackexchange.com/questions/43103/backspace-tab-not-working-in-terminal-using-ssh
+export TERM=vt100
+
 # Environment variables
 export PROJECT=project_123456789
 export PROJECT_DIR=/project/$PROJECT
@@ -87,6 +91,10 @@ export EBU_USER_PREFIX=/project/$SBATCH_ACCOUNT
 # For downloading things from the ai2-llm bucket.
 export S3_ACCESS_KEY_ID=XXXXXXX
 export S3_SECRET_ACCESS_KEY=YYYYYYY
+
+# Other API keys for logging and metric tracking.
+export WANDB_API_KEY=XXXXXXX
+export LOGZIO_TOKEN=XXXXXX  # find this at https://app.logz.io/#/dashboard/settings/general
 
 # Prints current quota information.
 lumi-workspaces
