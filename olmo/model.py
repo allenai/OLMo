@@ -503,7 +503,7 @@ class Olmo(nn.Module):
         self.__num_fwd_flops = None
 
         # This is an empty module that we use to store isolated buffers so that we can prevent FSDP
-        # from wrapping and sharding them.
+        # from messing with them.
         self.buffer_cache = nn.Module()
         if self.config.alibi:
             # Warm up the cache for attention bias buffers.

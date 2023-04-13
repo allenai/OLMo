@@ -99,7 +99,7 @@ def main(cfg: TrainConfig) -> None:
     fsdp_config = None
     if cfg.fsdp_config is not None:
         fsdp_config = {k: v for k, v in cfg.fsdp_config.items()}
-        # Make sure FSDP doesn't shard these buffers.
+        # Make sure FSDP leaves these buffers alone.
         fsdp_config["ignored_modules"] = [olmo_model.buffer_cache]
 
     # Compile it if necessary.
