@@ -720,22 +720,21 @@ def _flash_attn_backward(do, q, k, v, o, lse, dq, dk, dv, bias=None, causal=Fals
 class FlashAttnFunc(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, q, k, v, attn_mask=None, dropout_p: float = 0.0, is_causal=False, softmax_scale=None):
+    def forward(ctx, q, k, v, bias=None, causal=False, softmax_scale=None):
         """
             q: (batch_size, seqlen_q, nheads, headdim)
             k, v: (batch_size, seqlen_k, nheads, headdim)
-            attn_mask: optional, shape broadcastible to (batch, nheads, seqlen_q, seqlen_k).
+            bias: optional, shape broadcastible to (batch, nheads, seqlen_q, seqlen_k).
                 For example, ALiBi mask for causal would have shape (1, nheads, 1, seqlen_k).
                 ALiBi mask for non-causal would have shape (1, nheads, seqlen_q, seqlen_k)
         """
-        assert dropout_p == 0.0, "triton flash attn does not support dropout"
         # Make sure that the last dimension is contiguous
         q, k, v = [x if x.stride(-1) == 1 else x.contiguous() for x in [q, k, v]]
         o, lse, ctx.softmax_scale = _flash_attn_forward(
-            q, k, v, bias=attn_mask, causal=is_causal, softmax_scale=softmax_scale
+            q, k, v, bias=bias, causal=causal, softmax_scale=softmax_scale
         )
-        ctx.save_for_backward(q, k, v, o, lse, attn_mask)
-        ctx.causal = is_causal
+        ctx.save_for_backward(q, k, v, o, lse, bias)
+        ctx.causal = causal
         return o
 
     @staticmethod

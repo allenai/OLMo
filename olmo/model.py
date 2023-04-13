@@ -246,14 +246,14 @@ class OlmoBlock(nn.Module):
             config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
         )
 
-        self.scaled_dot_product_attention = F.scaled_dot_product_attention
-        if self.config.flash_attention:
+        if not self.config.rope and self.config.flash_attention:
             try:
-                from .flash_attn_triton import flash_attn_func
+                from .flash_attn_triton import flash_attn_func  # type: ignore
 
-                self.scaled_dot_product_attention = flash_attn_func
+                self.triton_flash_attn = flash_attn_func
+                assert self.config.attention_dropout == 0.0
             except ImportError:
-                pass
+                self.triton_flash_attn = None
 
         # Feed-forward output projection.
         self.ff_out = nn.Linear(
@@ -290,27 +290,35 @@ class OlmoBlock(nn.Module):
             q = self.q_norm(q).to(dtype=dtype)
             k = self.k_norm(k).to(dtype=dtype)
 
-        # Move head forward to be next to the batch dim.
-        # shape (all): (B, nh, T, hs)
-        q = q.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
-        k = k.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
-        v = v.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
+        if not self.config.rope and self.triton_flash_attn is not None:
+            # shape (all): (B, T, nh, hs)
+            q = q.view(B, T, self.config.n_heads, C // self.config.n_heads)
+            k = k.view(B, T, self.config.n_heads, C // self.config.n_heads)
+            v = v.view(B, T, self.config.n_heads, C // self.config.n_heads)
 
-        if self.config.rope:
-            # Apply rotary embeddings.
-            positions = self.get_rotary_embedding(T, q.device)
-            q, k = map(lambda t: apply_rotary_pos_emb(positions, t), (q, k))
+            att = self.triton_flash_attn(q, k, v, attention_bias, attention_bias is None)
+        else:
+            # Move head forward to be next to the batch dim.
+            # shape (all): (B, nh, T, hs)
+            q = q.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
+            k = k.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
+            v = v.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
 
-        # Get the attention scores.
-        # shape: (B, nh, T, hs)
-        att = self.scaled_dot_product_attention(
-            q,
-            k,
-            v,
-            None if attention_bias is None else attention_bias.to(dtype=dtype),
-            0.0 if not self.training else self.config.attention_dropout,
-            attention_bias is None,
-        )
+            if self.config.rope:
+                # Apply rotary embeddings.
+                positions = self.get_rotary_embedding(T, q.device)
+                q, k = map(lambda t: apply_rotary_pos_emb(positions, t), (q, k))
+
+            # Get the attention scores.
+            # shape: (B, nh, T, hs)
+            att = F.scaled_dot_product_attention(
+                q,
+                k,
+                v,
+                attn_mask=None if attention_bias is None else attention_bias.to(dtype=dtype),
+                dropout_p=0.0 if not self.training else self.config.attention_dropout,
+                is_causal=attention_bias is None,
+            )
 
         # Re-assemble all head outputs side-by-side.
         att = att.transpose(1, 2).contiguous().view(B, T, C)
