@@ -11,6 +11,7 @@ exclude = '''
     | \.venv
     | \bdist\b
     | \bdoc\b
+    | olmo/flash_attn_triton\.py
 )
 '''
 
@@ -29,7 +30,11 @@ build-backend = "setuptools.build_meta"
 [tool.mypy]
 ignore_missing_imports = true
 no_site_packages = true
-
+exclude = '''
+(
+    ^flash_attn_triton\.py$
+)
+'''
 [[tool.mypy.overrides]]
 module = "tests.*"
 strict_optional = false

@@ -246,6 +246,15 @@ class OlmoBlock(nn.Module):
             config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
         )
 
+        self.scaled_dot_product_attention = F.scaled_dot_product_attention
+        if self.config.flash_attention:
+            try:
+                from .flash_attn_triton import flash_attn_func
+
+                self.scaled_dot_product_attention = flash_attn_func
+            except ImportError:
+                pass
+
         # Feed-forward output projection.
         self.ff_out = nn.Linear(
             int(self.act.output_multiplier * config.mlp_ratio * config.d_model),
@@ -294,7 +303,7 @@ class OlmoBlock(nn.Module):
 
         # Get the attention scores.
         # shape: (B, nh, T, hs)
-        att = F.scaled_dot_product_attention(
+        att = self.scaled_dot_product_attention(
             q,
             k,
             v,
@@ -485,7 +494,7 @@ class Olmo(nn.Module):
                 )
 
         torch.backends.cuda.enable_flash_sdp(self.config.flash_attention)
-        torch.backends.cuda.enable_mem_efficient_sdp(self.config.memory_efficient_attention)
+        torch.backends.cuda.enable_mem_efficient_sdp(False)
 
         self.transformer = nn.ModuleDict(
             dict(
