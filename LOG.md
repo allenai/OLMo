@@ -15,6 +15,55 @@ these problems, we started working on some tooling to diagnose hanging processes
 [py-spy](https://github.com/benfred/py-spy).
 
 
+2023-04-12
+----------
+
+Today we got the [Slingshot Interconnect](https://www.hpe.com/us/en/compute/hpc/slingshot-interconnect.html)
+working. The LUMI cluster uses this style of interconnect to tie the GPUs together with an aggregate of 800GBit/s.
+For a large distributed training job, the speed of this interconnect is absolutely essential. Case in point, the
+1.2B model, on only two nodes (16 GPUs), went from 7500 tokens/second/GPU to 9500 tokens/second/GPU. That is a huge
+increase in speed!
+
+In the details, getting this to work was all about using the right libraries and making sure they are available to
+the right process at the right time. This is all about setting the right environment variables, setting the right
+flags, and general low-level Linux stuff. It's not the sexy part of training large language models.
+
+
+2023-04-11
+----------
+
+PyTorch 2.0 came with a new feature: `torch.compile()`. It promises massive speedups if you set up your model
+right. We intend to take advantage, and got it working with NVidia hardware, but it was a bit harder to make it
+work on AMD hardware as well. With the help of AMD engineers we figured it out today, and immediately saw a 15%
+speedup on the 1.2B model! 15% are hard to come by, so this is a big success.
+
+
+2023-04-10
+----------
+
+Today we got the 7B model running on LUMI for the first time. This ran on 8 nodes, 64 GPUs. We're missing a lot of
+tricks to make it fast, and yet we saw 1200 tokens/second/GPU. That's pretty good!
+
+It took a long time to get this working, mainly due to an issue that had nothing to do with the 7B config. ALiBi
+attention uses some constant static tensors for its calculations. We don't want to recompute these for every batch,
+so we keep them in torch "buffers", which are like parameters, except they don't receive gradient updates.
+These buffers are in bf16 format, and contain a lot of `-inf`, so right off the bat they are exploring a lot of
+edge cases. Also, [torch buffers are poorly defined in the context of FSDP](https://github.com/pytorch/pytorch/blob/4d3d3317ebd1c57a28754281d91ed7f35f4ce320/torch/distributed/fsdp/_init_utils.py#L257),
+and some of the operations that FSDP does on them result in `NaN`. The solution is to [store these tensors in a
+different way so that FSDP does not interfere with them](https://github.com/allenai/LLM/pull/90/files#diff-ef8ab7279deeec716e70a1cc9ab2accaaa60f27b301cc0733f1e00a9e39c07d1). 
+
+
+2023-04-06
+----------
+
+The LUMI cluster is back from maintenance! This is one day earlier than expected. LUMI software has been updated
+as part of the maintenance, and it broke our launch scripts. On these compute nodes, the topology is such that
+every GPU has a fast connection to 8 CPUs, and a somewhat slower connection to the others. So we use "CPU binding"
+to make sure the right CPUs are paired up with the right GPUs. This part of the system broke, so for now we're
+running without it. We never benchmarked its impact, so it's not clear how important it really is. The bandwidth
+from CPU to GPU isn't the biggest bottleneck anyways, so it's probably not a problem.
+
+
 2023-04-03
 ----------
 
