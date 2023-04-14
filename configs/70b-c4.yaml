@@ -22,9 +22,10 @@ model:
   init_device: meta
   init_std: 0.02
 
-compile:
-  mode: default
-  fullgraph: null
+compile: null
+#compile:
+#  mode: default
+#  fullgraph: null
 
 optimizer:
   name: decoupled_lionw
@@ -71,7 +72,7 @@ load_weights_only: false
 
 global_train_batch_size: 2048
 device_train_batch_size: auto
-device_train_microbatch_size: 2
+device_train_microbatch_size: 4
 device_train_grad_accum: auto
 device_eval_batch_size: null
 
