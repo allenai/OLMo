@@ -22,10 +22,9 @@ model:
   init_device: meta
   init_std: 0.02
 
-compile: null
-#compile:
-#  mode: default
-#  fullgraph: null
+compile:
+  mode: default
+  fullgraph: null
 
 optimizer:
   name: decoupled_lionw
