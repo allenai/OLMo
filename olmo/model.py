@@ -503,7 +503,7 @@ class Olmo(nn.Module):
             att_bias.masked_fill_(att_bias == 1, float("-inf"))
             att_bias = att_bias.view(1, 1, size, size)
             self.register_buffer("_causal_attention_bias", att_bias, persistent=False)
-        return self._causal_attention_bias.to(self.bias_dtype)  # type: ignore
+        return self._causal_attention_bias  # type: ignore
 
     @property
     def alibi_attention_bias(self) -> torch.Tensor:
@@ -525,7 +525,7 @@ class Olmo(nn.Module):
             # shape: (1, n_heads, seq_len, seq_len)
             alibi_bias = alibi_bias * (1.0 / (2 ** m.view(1, self.config.n_heads, 1, 1)))
             self.register_buffer("_alibi_attention_bias", alibi_bias, persistent=False)
-        return self._alibi_attention_bias.to(self.bias_dtype)  # type: ignore
+        return self._alibi_attention_bias  # type: ignore
 
     def forward(
         self,
