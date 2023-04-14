@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Union
+from typing import List, Optional, Union
 
 import torch
 import torch.nn.functional as F
@@ -14,16 +14,36 @@ __all__ = ["DataCollator"]
 
 @dataclass
 class DataCollator:
-    pad_direction: PaddingDirection
-    pad_token_id: int
+    config: TrainConfig
+
+    _alibi_causal_attention_bias: Optional[torch.Tensor] = None
+
+    @property
+    def pad_direction(self) -> PaddingDirection:
+        return self.config.data.pad_direction
+
+    @property
+    def pad_token_id(self) -> int:
+        return self.config.model.pad_token_id
+
+    @property
+    def alibi_causal_attention_bias(self) -> torch.FloatTensor:
+        if self._alibi_causal_attention_bias is None:
+            from ..model import alibi_attention_bias, causal_attention_bias
+
+            self._alibi_causal_attention_bias = causal_attention_bias(
+                self.config.model, device="cpu"
+            ) + alibi_attention_bias(self.config.model, device="cpu")
+        return self._alibi_causal_attention_bias  # type: ignore
 
     @classmethod
     def from_train_config(cls, config: TrainConfig) -> DataCollator:
-        return cls(pad_direction=config.data.pad_direction, pad_token_id=config.model.pad_token_id)
+        return cls(config=config)
 
     def __call__(self, items: Union[List[BatchDict], List[torch.Tensor]]) -> BatchDict:
         assert items
         max_len = max((len(x["input_ids"] if isinstance(x, dict) else x) for x in items))
+
         all_input_ids = []
         all_attention_mask = []
         all_attention_bias = []
@@ -78,8 +98,13 @@ class DataCollator:
                 )
 
         out = {"input_ids": torch.stack(all_input_ids)}
+
         if all_attention_mask:
             out["attention_mask"] = torch.stack(all_attention_mask)
+
         if all_attention_bias:
             out["attention_bias"] = torch.stack(all_attention_bias)
+        elif self.config.model.alibi:
+            out["attention_mask"] = self.alibi_causal_attention_bias
+
         return out  # type: ignore

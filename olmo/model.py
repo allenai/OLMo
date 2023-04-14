@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from abc import abstractmethod
-from typing import List, NamedTuple, Optional, cast
+from typing import List, NamedTuple, Optional, Union, cast
 
 import torch
 import torch.backends.cuda
@@ -429,6 +429,38 @@ class OlmoGenerateOutput(NamedTuple):
     """
 
 
+def causal_attention_bias(
+    config: ModelConfig, device: Optional[Union[str, torch.device]] = None
+) -> torch.FloatTensor:
+    size = config.max_sequence_length
+    device = device or config.device
+    att_bias = torch.triu(
+        torch.ones(size, size, device=device, dtype=torch.float),
+        diagonal=1,
+    )
+    att_bias.masked_fill_(att_bias == 1, float("-inf"))
+    return att_bias.view(1, 1, size, size)  # type: ignore
+
+
+def alibi_attention_bias(
+    config: ModelConfig, device: Optional[Union[str, torch.device]] = None
+) -> torch.FloatTensor:
+    size = config.max_sequence_length
+    device = device or config.device
+    alibi_bias = torch.arange(1 - size, 1, dtype=torch.float, device=device).view(1, 1, 1, size)
+
+    # shape: (1, 1, seq_len, seq_len)
+    alibi_bias = alibi_bias - torch.arange(1 - size, 1, dtype=torch.float, device=device).view(1, 1, size, 1)
+    alibi_bias.abs_().mul_(-1)
+
+    # shape: (n_heads,)
+    m = torch.arange(1, config.n_heads + 1, dtype=torch.float, device=device)
+    m.mul_(config.alibi_bias_max / config.n_heads)
+
+    # shape: (1, n_heads, seq_len, seq_len)
+    return alibi_bias * (1.0 / (2 ** m.view(1, config.n_heads, 1, 1)))  # type: ignore
+
+
 class Olmo(nn.Module):
     def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
@@ -486,31 +518,12 @@ class Olmo(nn.Module):
             return torch.float
 
     @property
-    def causal_attention_bias(self) -> torch.Tensor:
-        size = self.config.max_sequence_length
-        att_bias = torch.triu(
-            torch.ones(size, size, device=self.config.device, dtype=torch.float),
-            diagonal=1,
-        )
-        att_bias.masked_fill_(att_bias == 1, float("-inf"))
-        return att_bias.view(1, 1, size, size)
+    def causal_attention_bias(self) -> torch.FloatTensor:
+        return causal_attention_bias(self.config)
 
     @property
-    def alibi_attention_bias(self) -> torch.Tensor:
-        size = self.config.max_sequence_length
-        device = self.config.device
-        alibi_bias = torch.arange(1 - size, 1, dtype=torch.float, device=device).view(1, 1, 1, size)
-
-        # shape: (1, 1, seq_len, seq_len)
-        alibi_bias = alibi_bias - torch.arange(1 - size, 1, dtype=torch.float, device=device).view(1, 1, size, 1)
-        alibi_bias.abs_().mul_(-1)
-
-        # shape: (n_heads,)
-        m = torch.arange(1, self.config.n_heads + 1, dtype=torch.float, device=device)
-        m.mul_(self.config.alibi_bias_max / self.config.n_heads)
-
-        # shape: (1, n_heads, seq_len, seq_len)
-        return alibi_bias * (1.0 / (2 ** m.view(1, self.config.n_heads, 1, 1)))
+    def alibi_attention_bias(self) -> torch.FloatTensor:
+        return alibi_attention_bias(self.config)
 
     def forward(
         self,
