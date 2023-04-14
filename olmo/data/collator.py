@@ -105,6 +105,6 @@ class DataCollator:
         if all_attention_bias:
             out["attention_bias"] = torch.stack(all_attention_bias)
         elif self.config.model.alibi:
-            out["attention_mask"] = self.alibi_causal_attention_bias
+            out["attention_mask"] = self.alibi_causal_attention_bias[:, :, max_len, max_len]
 
         return out  # type: ignore

@@ -519,6 +519,12 @@ class Olmo(nn.Module):
 
     @property
     def causal_attention_bias(self) -> torch.FloatTensor:
+        # We could cache this as a buffer (and same with `alibi_attention_bias`), but we've run into
+        # various issues doing that with FSDP.
+        # In general it appears the way FSDP handles buffers is not well-defined.
+        # It doesn't shard them but apparently it does synchronize them across processes, which we want to avoid
+        # since (A) it isn't necessary, and (B) we have `-inf` in these biases which might get turned into
+        # NaNs when they're synchronized due to casting or some other issue.
         return causal_attention_bias(self.config)
 
     @property
