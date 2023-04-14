@@ -82,6 +82,9 @@ class ComposerOlmoLM(ComposerModel):
         self.model = Olmo(model_or_config) if isinstance(model_or_config, ModelConfig) else model_or_config
         self.config = self.model.config
         self.num_fwd_flops = self.model.num_fwd_flops
+        self._attention_bias: Optional[torch.Tensor] = None
+        if self.config.alibi:
+            self._attention_bias = self.model.causal_attention_bias + self.model.alibi_attention_bias
 
         from composer.metrics.nlp import LanguageCrossEntropy, LanguagePerplexity
 
@@ -101,7 +104,11 @@ class ComposerOlmoLM(ComposerModel):
         return labels[..., 1:].contiguous()
 
     def forward(self, batch: BatchDict) -> TrainBatchOutput:
-        logits = self.model(**batch).logits[..., :-1, :].contiguous()
+        inputs = {**batch}
+        if self._attention_bias is not None and inputs.get("attention_bias") is None:
+            batch_size = inputs["input_ids"].shape[0]
+            inputs["attention_bias"] = self._attention_bias.expand(batch_size, -1, -1, -1)
+        logits = self.model(**inputs).logits[..., :-1, :].contiguous()
         labels = self.get_labels(batch)
         loss = F.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1), ignore_index=-100)
         return {"logits": logits, "labels": labels, "loss": loss}
