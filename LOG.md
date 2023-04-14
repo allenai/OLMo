@@ -1,6 +1,20 @@
 Experiment Log
 ==============
 
+2023-04-13
+----------
+
+Today we ran the 70B model for the first time! 32 nodes, 256 GPUs. [Some problems with the latest PyTorch](https://github.com/pytorch/pytorch/issues/97436)
+prevented us from running this at full speed, and still performance was good. We only ran six batches, since this
+was just about validating the setup. We will do longer runs when we have some of the obvious performance problems
+sorted out.
+
+One interesting learning is that even with just 32 nodes, nodes often don't come up cleanly. We have seen GPUs in
+inconsistent states, some nodes not appearing during the rendezvous, and just undiagnosed hangs. To get a handle on
+these problems, we started working on some tooling to diagnose hanging processes across the cluster, all based on
+[py-spy](https://github.com/benfred/py-spy).
+
+
 2023-04-03
 ----------
 
