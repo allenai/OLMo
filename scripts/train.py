@@ -134,6 +134,10 @@ def main(cfg: TrainConfig) -> None:
     composer_model = ComposerOlmoLM(olmo_model)
     del olmo_model
 
+    # DEBUG
+    import torch._dynamo.config
+    torch._dynamo.config.verbose=True
+
     # Trainer.
     trainer = Trainer(
         run_name=cfg.run_name,
