@@ -184,6 +184,7 @@ We could probably find a solution where slurm only launches one process per node
 * You can see all of your own cluster activity with `squeue --me`.
 * You can see all of our project's cluster activity with `squeue -A $PROJECT`.
 * You can log into a running node with `srun --interactive --pty --jobid=3265861 bash`. This will attach to the node as it runs. When the job finishes or fails, your `bash` will get killed.
+* You can see the logs for a run in `${FLASH_DIR}/logs/${SLURM_JOB_ID}.log`. All nodes write to the same file. E.g. `tail -f $FLASH_DIR/logs/3376668.log`.
 
 ### Running an interactive session
 
