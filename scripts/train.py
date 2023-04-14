@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import List, cast
 
 import torch
+import torch._dynamo.config
 from composer.callbacks import CheckpointSaver
 
 from olmo import Olmo, TrainConfig
@@ -135,7 +136,6 @@ def main(cfg: TrainConfig) -> None:
     del olmo_model
 
     # DEBUG
-    import torch._dynamo.config
     torch._dynamo.config.verbose=True
 
     # Trainer.
