@@ -571,22 +571,19 @@ class Olmo(nn.Module):
 
         # Merge attention mask with attention bias.
         if attention_bias is not None or attention_mask is not None or self.config.alibi:
-            if attention_bias is None:
-                # Default to causal attention bias.
+            if attention_bias is None and self.config.alibi:
+                attention_bias = self.causal_attention_bias + self.alibi_attention_bias
+            elif attention_bias is None:
                 attention_bias = self.causal_attention_bias
             elif attention_bias.dtype in (torch.int8, torch.bool):
                 attention_bias = attention_bias.to(dtype=x.dtype)
                 attention_bias.masked_fill_(attention_bias == 0.0, float("-inf"))
 
-            attention_bias = attention_bias[:, :, :seq_len, :seq_len]
+            attention_bias = attention_bias[:, :, :seq_len, :seq_len].to(x.dtype)
 
             # Add in the masking bias.
             if attention_mask is not None:
                 attention_bias = attention_bias + attention_mask
-
-            if self.config.alibi:
-                # Add in ALiBi attention bias.
-                attention_bias = attention_bias + self.alibi_attention_bias[:, :, :seq_len, :seq_len].to(x.dtype)
 
         # Apply blocks one-by-one.
         for block in self.transformer.blocks:  # type: ignore
