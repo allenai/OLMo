@@ -4,7 +4,14 @@ Experiment Log
 2023-04-13
 ----------
 
-Today we ran the 70B model for the first time! 32 nodes, 256 GPUs. [Some problems with the latest PyTorch](https://github.com/pytorch/pytorch/issues/97436)
+We've been experimenting with a [triton](https://github.com/openai/triton) implementation of [FlashAttention](https://github.com/HazyResearch/flash-attention/blob/main/flash_attn/flash_attn_triton.py) that supports using an arbitrary attention bias, which would allow us to use [ALiBi](https://www.semanticscholar.org/paper/f5aba74fbd512190ed5f61127618381f70710572).
+Unfortunately it doesn't look like this is going to be a viable option at the moment.
+This particular implementation only works on an older version of triton that uses a CUDA-specific backend.
+Therefore it won't run on AMD GPUs.
+
+We'll revisit this again when there are updates to [HazyResearch/flash-attention](https://github.com/HazyResearch/flash-attention).
+
+Meanwhile, we ran the 70B model for the first time! 32 nodes, 256 GPUs. [Some problems with the latest PyTorch](https://github.com/pytorch/pytorch/issues/97436)
 prevented us from running this at full speed, and still performance was good. We only ran six batches, since this
 was just about validating the setup. We will do longer runs when we have some of the obvious performance problems
 sorted out.
@@ -50,7 +57,7 @@ so we keep them in torch "buffers", which are like parameters, except they don't
 These buffers are in bf16 format, and contain a lot of `-inf`, so right off the bat they are exploring a lot of
 edge cases. Also, [torch buffers are poorly defined in the context of FSDP](https://github.com/pytorch/pytorch/blob/4d3d3317ebd1c57a28754281d91ed7f35f4ce320/torch/distributed/fsdp/_init_utils.py#L257),
 and some of the operations that FSDP does on them result in `NaN`. The solution is to [store these tensors in a
-different way so that FSDP does not interfere with them](https://github.com/allenai/LLM/pull/90/files#diff-ef8ab7279deeec716e70a1cc9ab2accaaa60f27b301cc0733f1e00a9e39c07d1). 
+different way so that FSDP does not interfere with them](https://github.com/allenai/LLM/pull/90/files#diff-ef8ab7279deeec716e70a1cc9ab2accaaa60f27b301cc0733f1e00a9e39c07d1).
 
 
 2023-04-06

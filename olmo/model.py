@@ -485,7 +485,7 @@ class Olmo(nn.Module):
                 )
 
         torch.backends.cuda.enable_flash_sdp(self.config.flash_attention)
-        torch.backends.cuda.enable_mem_efficient_sdp(self.config.memory_efficient_attention)
+        torch.backends.cuda.enable_mem_efficient_sdp(False)  # this is super slow so make sure torch won't use it
 
         self.transformer = nn.ModuleDict(
             dict(

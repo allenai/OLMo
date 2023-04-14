@@ -26,7 +26,6 @@ model:
 
 compile:
   mode: default
-  fullgraph: null
 
 optimizer:
   name: decoupled_lionw
