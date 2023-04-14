@@ -12,30 +12,22 @@ model:
   flash_attention: false
   attention_dropout: 0.0
   attention_layer_norm: true
-  block_type: parallel
-  layer_norm_type: default  # if not compiling, use 'low_precision'
-  activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
   max_sequence_length: 2048
   vocab_size: 50257
-  embedding_size: 50304
   eos_token_id: 50256
   pad_token_id: 50256
   init_device: meta
   init_std: 0.02
-
-compile:
-  mode: default
-  fullgraph: null
 
 optimizer:
   name: decoupled_lionw
   learning_rate: 8.0e-5
   weight_decay: 4.0e-5
   betas:
-  - 0.9
-  - 0.95
+    - 0.9
+    - 0.95
   eps: 1.0e-08
 
 scheduler:
@@ -74,7 +66,7 @@ load_weights_only: false
 
 global_train_batch_size: 2048
 device_train_batch_size: auto
-device_train_microbatch_size: 2  # could be 4 with flash attn
+device_train_microbatch_size: 2
 device_train_grad_accum: auto
 device_eval_batch_size: null
 
