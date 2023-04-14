@@ -46,7 +46,7 @@ def main(cfg: TrainConfig) -> None:
     from composer.loggers import WandBLogger
     from composer.loggers.logger_destination import LoggerDestination
     from composer.utils import dist, get_device, reproducibility
-    from composer.utils.dist import get_node_rank
+    from composer.utils.dist import get_global_rank
 
     from olmo.composer import (
         ComposerOlmoLM,
@@ -65,7 +65,7 @@ def main(cfg: TrainConfig) -> None:
 
     cfg.model.precision = cfg.precision
 
-    if get_node_rank() == 0:
+    if get_global_rank() == 0:
         log.info("Configuration:")
         log.info(cfg)
         if not cfg.dry_run:
@@ -87,7 +87,7 @@ def main(cfg: TrainConfig) -> None:
     # Update batch size info.
     update_batch_size_info(cfg)
     assert isinstance(cfg.device_train_batch_size, int)
-    if get_node_rank() == 0:
+    if get_global_rank() == 0:
         log.info(
             f"Using per-device training batch size of {cfg.device_train_batch_size} "
             f"for global batch size of {cfg.global_train_batch_size}"
@@ -95,7 +95,7 @@ def main(cfg: TrainConfig) -> None:
 
     # Initialize the model.
     olmo_model = Olmo(cfg.model)
-    if get_node_rank() == 0:
+    if get_global_rank() == 0:
         log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
         log.info(
             f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}",
