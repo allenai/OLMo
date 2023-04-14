@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from abc import abstractmethod
-from typing import List, NamedTuple, Optional, Union, cast
+from typing import Dict, List, NamedTuple, Optional, Union, cast
 
 import torch
 import torch.backends.cuda
@@ -504,6 +504,21 @@ class Olmo(nn.Module):
             self.apply(self.param_init_fn)
         self.__num_fwd_flops = None
 
+        # Attention bias cache.
+        # We could cache these as buffers, but we've run into various issues doing that with FSDP.
+        # In general it appears the way FSDP handles buffers is not well-defined.
+        # It doesn't shard them but apparently it does synchronize them across processes, which we want to avoid
+        # since (A) it isn't necessary, and (B) we have `-inf` in these biases which might get turned into
+        # NaNs when they're synchronized due to casting or some other issue.
+        self.__bias_cache: Dict[str, Optional[torch.FloatTensor]] = {
+            "causal_attention_bias": None,
+            "alibi_attention_bias": None,
+        }
+        if self.config.alibi:
+            # Warm up cache.
+            self.causal_attention_bias
+            self.alibi_attention_bias
+
     @property
     def bias_dtype(self) -> torch.dtype:
         """
@@ -519,17 +534,19 @@ class Olmo(nn.Module):
 
     @property
     def causal_attention_bias(self) -> torch.FloatTensor:
-        # We could cache this as a buffer (and same with `alibi_attention_bias`), but we've run into
-        # various issues doing that with FSDP.
-        # In general it appears the way FSDP handles buffers is not well-defined.
-        # It doesn't shard them but apparently it does synchronize them across processes, which we want to avoid
-        # since (A) it isn't necessary, and (B) we have `-inf` in these biases which might get turned into
-        # NaNs when they're synchronized due to casting or some other issue.
-        return causal_attention_bias(self.config)
+        causal_bias = self.__bias_cache["causal_attention_bias"]
+        if causal_bias is None:
+            causal_bias = causal_attention_bias(self.config)
+            self.__bias_cache["causal_attention_bias"] = causal_bias
+        return causal_bias
 
     @property
     def alibi_attention_bias(self) -> torch.FloatTensor:
-        return alibi_attention_bias(self.config)
+        alibi_bias = self.__bias_cache["alibi_attention_bias"]
+        if alibi_bias is None:
+            alibi_bias = alibi_attention_bias(self.config)
+            self.__bias_cache["alibi_attention_bias"] = alibi_bias
+        return alibi_bias
 
     def forward(
         self,
