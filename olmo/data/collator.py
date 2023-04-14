@@ -43,6 +43,7 @@ class DataCollator:
     def __call__(self, items: Union[List[BatchDict], List[torch.Tensor]]) -> BatchDict:
         assert items
         max_len = max((len(x["input_ids"] if isinstance(x, dict) else x) for x in items))
+        batch_size = len(items)
 
         all_input_ids = []
         all_attention_mask = []
@@ -105,6 +106,6 @@ class DataCollator:
         if all_attention_bias:
             out["attention_bias"] = torch.stack(all_attention_bias)
         elif self.config.model.alibi:
-            out["attention_bias"] = self.alibi_causal_attention_bias
+            out["attention_bias"] = self.alibi_causal_attention_bias.expand(batch_size, -1, -1, -1)
 
         return out  # type: ignore
