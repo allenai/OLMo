@@ -520,19 +520,6 @@ class Olmo(nn.Module):
             self.alibi_attention_bias
 
     @property
-    def bias_dtype(self) -> torch.dtype:
-        """
-        For some reason when we use :func:`torch.compile()` and AMP, we have to create the
-        attention bias tensors with the right data type.
-        """
-        if self.config.precision == "amp_bf16":
-            return torch.bfloat16
-        elif self.config.precision == "amp_fp16":
-            return torch.float16
-        else:
-            return torch.float
-
-    @property
     def causal_attention_bias(self) -> torch.FloatTensor:
         causal_bias = self.__bias_cache["causal_attention_bias"]
         if causal_bias is None:
