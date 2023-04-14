@@ -493,7 +493,7 @@ class Olmo(nn.Module):
             return torch.float
 
     @property
-    def causal_attention_bias(self) -> torch.FloatTensor:
+    def causal_attention_bias(self) -> torch.Tensor:
         if not hasattr(self, "_causal_attention_bias"):
             size = self.config.max_sequence_length
             att_bias = torch.triu(
@@ -506,7 +506,7 @@ class Olmo(nn.Module):
         return self._causal_attention_bias.to(self.bias_dtype)  # type: ignore
 
     @property
-    def alibi_attention_bias(self) -> torch.FloatTensor:
+    def alibi_attention_bias(self) -> torch.Tensor:
         if not hasattr(self, "_alibi_attention_bias"):
             size = self.config.max_sequence_length
             device = self.config.device
