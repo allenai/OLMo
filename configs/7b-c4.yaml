@@ -22,9 +22,10 @@ model:
   init_device: meta
   init_std: 0.02
 
-compile:
-  mode: default
-  fullgraph: null
+compile: null
+#compile:
+#  mode: default
+#  fullgraph: null
 
 optimizer:
   name: decoupled_lionw
@@ -71,7 +72,7 @@ load_weights_only: false
 
 global_train_batch_size: 1024
 device_train_batch_size: auto
-device_train_microbatch_size: 16
+device_train_microbatch_size: 2
 device_train_grad_accum: auto
 device_eval_batch_size: null
 
@@ -82,7 +83,7 @@ precision: amp_bf16
 fsdp_config:
   sharding_strategy: FULL_SHARD
   mixed_precision: PURE
-  activation_checkpointing: true
+  activation_checkpointing: false
   activation_cpu_offload: false
   activation_checkpointing_reentrant: false
   limit_all_gathers: true
