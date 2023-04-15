@@ -9,7 +9,7 @@ import heapq
 import json
 import os
 import re
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, TypedDict, Union
+from typing import Any, Dict, Optional, Sequence, TypedDict
 
 import fire
 import nltk
@@ -32,7 +32,7 @@ class Page(TypedDict):
     language_score: Optional[float]
 
 
-## Constants
+## Constants # noqa: E266
 # refer to https://github.com/tensorflow/datasets/blob/daf616684ea224c445e331f53cd5d0f7877477f7/tensorflow_datasets/text/c4_utils.py#L41
 _MIN_WORDS_PER_LINE = 5
 _MIN_NUM_SENTENCES = 3
@@ -64,7 +64,8 @@ _BADWORDS_CACHE_DIR = "badwords_cache"
 _BADWORDS_CACHE_FILE = "badwords.json"
 # fmt: on
 
-## General utility functions
+
+## General utility functions # noqa: E266
 
 
 # This is the as_text function from tensorflow.compat.as_text
@@ -173,7 +174,7 @@ def get_hashed_url_filter_fn(predicate_fn):
     return filter_fn
 
 
-## Page filtering functions
+## Page filtering functions # noqa: E266
 
 # conventions for filtering functions:
 # - return True if the page passes the filter
@@ -185,7 +186,7 @@ def page_filter_by_paragraphs(page: Page, min_paragraphs=3, min_paragraph_len=20
     lines = page["text"].split(line_delimiter)
     # Filter out docs that don't have at least three "paragraphs"
     # (lines >= `min_paragraph_len` chars).
-    if len(lines) < min_paragraphs or min(heapq.nlargest(3, [len(l) for l in lines])) < min_paragraph_len:
+    if len(lines) < min_paragraphs or min(heapq.nlargest(3, [len(line) for line in lines])) < min_paragraph_len:
         return False
     return True
 
@@ -303,7 +304,7 @@ def page_filter_by_badwords(page, badwords_regex: Dict[str, Sequence[re.Pattern]
     return True
 
 
-## Load from source data
+## Load from source data # noqa: E266
 
 
 def convert_original_data_to_page(data: Dict[str, Any]) -> Page:
