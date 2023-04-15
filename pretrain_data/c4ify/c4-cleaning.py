@@ -11,10 +11,10 @@ import os
 import re
 from typing import Any, Dict, Optional, Sequence, TypedDict
 
-import fire
-import nltk
-import requests
-import six as _six
+import fire  # type: ignore
+import nltk  # type: ignore
+import requests  # type: ignore
+import six as _six  # type: ignore
 
 
 # To keep our naming consistent with the original C4 dataset,
@@ -116,7 +116,7 @@ def get_sentences(text):
     return list(_SENTENCE_TOKENIZER.tokenize(as_text(text)))
 
 
-def cache_and_load_badwords() -> Dict[str, set]:
+def cache_and_load_badwords() -> Dict[str, Sequence[str]]:
     if os.path.exists(_BADWORDS_CACHE_FILE):
         with open(_BADWORDS_CACHE_FILE, "r", encoding="utf-8") as file:
             badwords_dict = json.load(file)
@@ -252,7 +252,7 @@ def page_processing_by_lines(
 
         # 6. [filtering] skip lines with lorem ipsum
         if "lorem ipsum" in line_lower:
-            return
+            return None
 
         # 7. [filtering] skip lines with "javascript must be enabled" notices
         # TODO: originally it is 'javascript' in line_lower
@@ -275,7 +275,7 @@ def page_processing_by_lines(
 
     # 10. [filtering] skip docs with too few sentences
     if num_sentences < min_num_sentences:
-        return
+        return None
 
     page["text"] = "\n".join(valid_lines).strip()
     return page
@@ -296,7 +296,7 @@ def page_filter_by_badwords(page, badwords_regex: Dict[str, Sequence[re.Pattern]
     lang = page["language"].split("-")[0]  # remove suffix if present
     if lang in badwords_regex:
         text = page["text"]
-        badwords_found = badwords_regex[lang].search(text.lower())
+        badwords_found = badwords_regex[lang].search(text.lower())  # type: ignore
         if badwords_found is not None:
             if keep_badword_page(page):
                 return True
@@ -327,7 +327,7 @@ def load_and_parse_file(
 ):
     all_data = []
     with open(file_path, "r") as fp:
-        for line in fp.readlines(max_lines):
+        for line in fp.readlines(max_lines):  # type: ignore
             all_data.append(json.loads(line))
 
     badwords = load_badwords_regex()
