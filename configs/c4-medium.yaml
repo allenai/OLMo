@@ -9,11 +9,12 @@ model:
   mlp_ratio: 8
   alibi: true
   alibi_bias_max: 8.0
-  flash_attention: false
   attention_dropout: 0.0
   attention_layer_norm: true
   multi_query_attention: true
   block_type: sequential
+  layer_norm_type: default  # if not compiling, use 'low_precision'
+  activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
   max_sequence_length: 2048
@@ -23,13 +24,16 @@ model:
   init_device: meta
   init_std: 0.02
 
+compile:
+  mode: default
+
 optimizer:
   name: decoupled_lionw
   learning_rate: 1.2e-4
   weight_decay: 0.6e-4
   betas:
-    - 0.9
-    - 0.95
+  - 0.9
+  - 0.95
   eps: 1.0e-08
 
 scheduler:
@@ -68,7 +72,7 @@ load_weights_only: false
 
 global_train_batch_size: 1024
 device_train_batch_size: auto
-device_train_microbatch_size: 16
+device_train_microbatch_size: 2
 device_train_grad_accum: auto
 device_eval_batch_size: null
 
@@ -79,7 +83,7 @@ precision: amp_bf16
 fsdp_config:
   sharding_strategy: FULL_SHARD
   mixed_precision: PURE
-  activation_checkpointing: true
+  activation_checkpointing: false
   activation_cpu_offload: false
   activation_checkpointing_reentrant: false
   limit_all_gathers: true
