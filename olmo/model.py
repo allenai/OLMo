@@ -48,15 +48,15 @@ class LayerNormBase(nn.Module):
         raise NotImplementedError
 
     @classmethod
-    def build(cls, config: ModelConfig) -> LayerNormBase:
+    def build(cls, config: ModelConfig, size: Optional[int] = None) -> LayerNormBase:
         if config.layer_norm_type == LayerNormType.default:
-            return LayerNorm(config, low_precision=False)
+            return LayerNorm(config, size=size, low_precision=False)
         elif config.layer_norm_type == LayerNormType.low_precision:
-            return LayerNorm(config, low_precision=True)
+            return LayerNorm(config, size=size, low_precision=True)
         elif config.layer_norm_type == LayerNormType.rms:
-            return RMSLayerNorm(config, low_precision=False)
+            return RMSLayerNorm(config, size=size, low_precision=False)
         elif config.layer_norm_type == LayerNormType.low_precision_rms:
-            return RMSLayerNorm(config, low_precision=True)
+            return RMSLayerNorm(config, size=size, low_precision=True)
         else:
             raise NotImplementedError(f"Not sure how to handle '{config.layer_norm_type}' LayerNorm type")
 
@@ -77,9 +77,9 @@ class LayerNorm(LayerNormBase):
     The default :class:`LayerNorm` implementation which can optionally run in low precision.
     """
 
-    def __init__(self, config: ModelConfig, low_precision: bool = False):
+    def __init__(self, config: ModelConfig, size: Optional[int] = None, low_precision: bool = False):
         super().__init__(config)
-        self.normalized_shape = (config.d_model,)
+        self.normalized_shape = (size or config.d_model,)
         self.eps = 1e-05
         self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
         self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
@@ -105,9 +105,10 @@ class RMSLayerNorm(LayerNorm):
     in low-precision.
     """
 
-    def __init__(self, config: ModelConfig, low_precision: bool = False):
+    def __init__(self, config: ModelConfig, size: Optional[int] = None, low_precision: bool = False):
         super().__init__(config)
         self.eps = 1e-08
+        self.size = size or config.d_model
         self.weight = nn.Parameter(torch.ones(self.config.d_model))
         if self.config.include_bias:
             self.bias = nn.Parameter(torch.zeros(self.config.d_model))
@@ -129,7 +130,7 @@ class RMSLayerNorm(LayerNorm):
     def rms_norm(self, x: torch.Tensor, weight: torch.Tensor, bias: Optional[torch.Tensor]) -> torch.Tensor:
         norm_x = x.norm(2, dim=-1, keepdim=True)
 
-        rms_x = norm_x * self.config.d_model ** (-1.0 / 2)
+        rms_x = norm_x * self.size ** (-1.0 / 2)
         x_normed = x / (rms_x + self.eps)
 
         if bias is not None:
@@ -233,7 +234,9 @@ class OlmoBlock(nn.Module):
         self.k_norm: Optional[LayerNormBase] = None
         self.q_norm: Optional[LayerNormBase] = None
         if config.attention_layer_norm:
-            self.k_norm = LayerNormBase.build(config)
+            self.k_norm = LayerNormBase.build(
+                config, size=config.d_model // config.n_heads if config.multi_query_attention else None
+            )
             self.q_norm = LayerNormBase.build(config)
 
         # Activation function.
