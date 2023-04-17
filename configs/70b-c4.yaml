@@ -22,7 +22,7 @@ model:
   init_device: meta
   init_std: 0.02
 
-compile: null
+compile: null  # currently this doesn't work with activation checkpointing
 #compile:
 #  mode: default
 
