@@ -335,10 +335,11 @@ class OlmoSequentialBlock(OlmoBlock):
     def __init__(self, config: ModelConfig):
         super().__init__(config)
         # Attention input projection. Projects x -> (q, k, v)
+        self.fused_dims = (config.d_model, config.d_model, config.d_model)
         self.att_proj = nn.Linear(
-            config.d_model, 3 * config.d_model, bias=config.include_bias, device=config.init_device
+            config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
-        self.att_proj._fused = (0, (self.config.d_model, 2 * self.config.d_model))  # type: ignore
+        self.att_proj._fused = (0, self.fused_dims)  # type: ignore
         # Feed-forward input projection.
         self.ff_proj = nn.Linear(
             config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
