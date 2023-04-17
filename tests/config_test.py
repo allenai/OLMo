@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from dolma.config import StrEnum, TrainConfig
+from olmo.config import StrEnum, TrainConfig
 
 
 def test_str_enum():
@@ -18,9 +18,14 @@ def test_save_and_load(train_config: TrainConfig, tmp_path: Path):
     train_config.save(save_path)
     assert save_path.is_file()
 
-    loaded_train_config: TrainConfig = train_config.load(save_path)
+    loaded_train_config = TrainConfig.load(save_path)
     assert loaded_train_config == train_config
 
-    loaded_train_config = train_config.load(save_path, ["model.n_layers=2"])
+    loaded_train_config = TrainConfig.load(save_path, ["model.n_layers=2"])
     assert loaded_train_config != train_config
     assert loaded_train_config.model.n_layers == 2
+
+
+def test_new():
+    config = TrainConfig.new(seed=2)
+    assert config.seed == 2

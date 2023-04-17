@@ -6,9 +6,9 @@ import sys
 from pathlib import Path
 from typing import List
 
-from dolma import TrainConfig
-from dolma.exceptions import DolmaCliError
-from dolma.util import clean_opt, prepare_cli_environment
+from olmo import TrainConfig
+from olmo.exceptions import OlmoCliError
+from olmo.util import clean_opt, prepare_cli_environment
 
 log = logging.getLogger(__name__)
 
@@ -27,6 +27,6 @@ if __name__ == "__main__":
     try:
         save_path, args_list = sys.argv[1], sys.argv[2:]
     except IndexError:
-        raise DolmaCliError(f"Usage: {sys.argv[0]} [SAVE_PATH] [OPTIONS]")
+        raise OlmoCliError(f"Usage: {sys.argv[0]} [SAVE_PATH] [OPTIONS]")
 
     main(Path(save_path), [clean_opt(s) for s in args_list])

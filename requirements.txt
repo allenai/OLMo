@@ -1,10 +1,9 @@
 # NOTE: when upgrading requirements here you may have to rebuild and push some
 # Docker images. See each Dockerfile for details on how to do that.
 numpy
-torch
+torch>=2.0
 einops
-# bug with 0.13.0, see https://github.com/mosaicml/composer/issues/2030
-mosaicml>=0.13.1
+mosaicml@git+https://github.com/allenai/composer.git@Torch2
 torchmetrics
 tokenizers
 click
@@ -17,3 +16,5 @@ wandb
 # triton
 # flash-attn
 logzio-python-handler
+boto3
+google-cloud-storage

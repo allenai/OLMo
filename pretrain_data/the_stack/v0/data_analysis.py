@@ -2,14 +2,13 @@ import argparse
 from ast import literal_eval
 from typing import Dict, List, Optional
 
-import numpy as np
 import pandas as pd
 import tqdm
 
 S3_LOCATION = "s3://ai2-llm/pretraining-data/sources/stack-dedup/raw"
 
 
-def run(langs: Dict[str, List[str]], output_file: str, ang_to_analyze: Optional[str] = None):
+def run(langs: Dict[str, List[str]], output_file: str, lang_to_analyze: Optional[str] = None):
     lang_list = sorted(list(langs.keys()))
 
     if lang_to_analyze:
@@ -63,7 +62,7 @@ if __name__ == "__main__":
     parser.add_argument("--output-file", type=str, required=True)
     args = parser.parse_args()
 
-    langs = {}
+    langs: Dict[str, List[str]] = {}
     with open(args.urls_file) as f:
         urls = f.readlines()
         for url in urls:

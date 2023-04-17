@@ -5,6 +5,8 @@ Author: Akshita Bhagia @akshitab
 [The Stack](https://huggingface.co/datasets/bigcode/the-stack) is a 6 TB dataset of code, containing 358 programming languages. This is too large for our purpose, and research has shown that deduplication improves model performance. 
 We use the [deduplicated version](https://huggingface.co/datasets/bigcode/the-stack) of The Stack, which contains 3 TB of data.
 
+[Dataset Statistics](##2023-03-27:-dataset-statistics)
+
 ## Downloaded data
 
 Downloaded files available here: `s3://ai2-llm/pretraining-data/sources/stack-dedup/raw` (722 GB compressed)
@@ -116,6 +118,30 @@ HuggingFace dataset version: [v1.1](https://huggingface.co/datasets/bigcode/the-
     'added': '2023-03-17T09:18:30.577245'}
    ```
 
+
+## 2023-03-27: Dataset Statistics
+
+[Dataset Statistics](https://docs.google.com/spreadsheets/d/1aesZHgHhmbPLcKvLNdn8dMV8ZVE6ohpIpuXCk6-LUpA/edit#gid=1395653416)
+
+| | |
+|----|-------|
+| Number of programming languages | 358 |
+| Number of [licences](https://huggingface.co/datasets/bigcode/the-stack-dedup/blob/v1.1/licenses.json) | 193 |
+| Number of tokens (basic tokenization; spaces and newlines) | 514,363,785,904 |
+| Top-10 languages (by number of tokens) | json, html, text, javascript, xml, php, java, python, c++ (364,553,035,516 tokens, approx 70% of total tokens) 
+
+### Prior Work
+
+| Dataset | Disk size | Number of tokens | Sampling proportion | Sampling strategy | Notes | 
+| --------|-----------|------------------|---------------------|-------------------|----------|
+| Gopher | 3.1 TB | 422B | 3% | "For Github, we restrict the data to only include code with the following permissive licenses: Apache License version 2.0, MIT license, The 3-clause BSD license, The 2-clause BSD license, Unlicense, CC0, ISC license, and Artistic License 2.0."| Number of documents: 142M
+| LLaMA | 328 GB | | 4.5% | "We use the public GitHub dataset available on Google BigQuery. We only kept projects that are distributed under the Apache, BSD and MIT licenses. Additionally, we filtered low quality files with heuristics based on the line length or proportion of alphanumeric characters, and removed boilerplate, such as headers, with regular expressions. Finally, we deduplicate the resulting dataset at the file level, with exact matches." | Epochs: 0.64
+| PaLM | | | 5% | "The source code in the pretraining dataset is obtained from open source repositories on GitHub. We filtered the files by the license included in the repository; copyleft licenses were excluded. We filter the files by filename extension to restrict to one of 24 common programming languages, including Java, HTML, Javascript, Python, PHP, C#, XML, C++, and C, which results in 196GB of source code. Further, we remove duplicates based on Levenshtein distance between the files because duplicate files are known to be common in source code repositories (Lopes et al., 2017; Allamanis, 2019)." | |
+
+
 ## References
 
 1. O. Tange (2018): GNU Parallel 2018, March 2018, https://doi.org/10.5281/zenodo.1146014.
+2. Rae, Jack W. et al. “Scaling Language Models: Methods, Analysis & Insights from Training Gopher.” ArXiv abs/2112.11446 (2021): n. pag.
+3. Touvron, Hugo et al. “LLaMA: Open and Efficient Foundation Language Models.” ArXiv abs/2302.13971 (2023): n. pag.
+4. Chowdhery, Aakanksha et al. “PaLM: Scaling Language Modeling with Pathways.” ArXiv abs/2204.02311 (2022): n. pag.
