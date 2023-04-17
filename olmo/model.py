@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import math
 from abc import abstractmethod
-from functools import cache
-from typing import List, NamedTuple, Optional, Union, cast
+from typing import Dict, List, NamedTuple, Optional, Union, cast
 
 import torch
 import torch.backends.cuda
@@ -336,10 +335,11 @@ class OlmoSequentialBlock(OlmoBlock):
     def __init__(self, config: ModelConfig):
         super().__init__(config)
         # Attention input projection. Projects x -> (q, k, v)
+        self.fused_dims = (config.d_model, config.d_model, config.d_model)
         self.att_proj = nn.Linear(
-            config.d_model, 3 * config.d_model, bias=config.include_bias, device=config.init_device
+            config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
-        self.att_proj._fused = (0, (self.config.d_model, 2 * self.config.d_model))  # type: ignore
+        self.att_proj._fused = (0, self.fused_dims)  # type: ignore
         # Feed-forward input projection.
         self.ff_proj = nn.Linear(
             config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
@@ -430,23 +430,24 @@ class OlmoGenerateOutput(NamedTuple):
     """
 
 
-@cache
-def _causal_attention_bias(
-    size: int, device: Union[str, torch.device, int], dtype: torch.dtype
+def causal_attention_bias(
+    config: ModelConfig, device: Optional[Union[str, torch.device]] = None
 ) -> torch.FloatTensor:
+    size = config.max_sequence_length
+    device = device or config.device
     att_bias = torch.triu(
         torch.ones(size, size, device=device, dtype=torch.float),
         diagonal=1,
     )
-    att_bias = att_bias.to(dtype)
     att_bias.masked_fill_(att_bias == 1, float("-inf"))
-    return att_bias.view(1, 1, size, size)
+    return att_bias.view(1, 1, size, size)  # type: ignore
 
 
-@cache
-def _alibi_attention_bias(
-    size: int, n_heads: int, max_bias: float, device: Union[str, torch.device, int], dtype: torch.dtype
+def alibi_attention_bias(
+    config: ModelConfig, device: Optional[Union[str, torch.device]] = None
 ) -> torch.FloatTensor:
+    size = config.max_sequence_length
+    device = device or config.device
     alibi_bias = torch.arange(1 - size, 1, dtype=torch.float, device=device).view(1, 1, 1, size)
 
     # shape: (1, 1, seq_len, seq_len)
@@ -454,12 +455,11 @@ def _alibi_attention_bias(
     alibi_bias.abs_().mul_(-1)
 
     # shape: (n_heads,)
-    m = torch.arange(1, n_heads + 1, dtype=torch.float, device=device)
-    m.mul_(max_bias / n_heads)
+    m = torch.arange(1, config.n_heads + 1, dtype=torch.float, device=device)
+    m.mul_(config.alibi_bias_max / config.n_heads)
 
     # shape: (1, n_heads, seq_len, seq_len)
-    alibi_bias = alibi_bias * (1.0 / (2 ** m.view(1, n_heads, 1, 1)))
-    return alibi_bias.to(dtype=dtype)
+    return alibi_bias * (1.0 / (2 ** m.view(1, config.n_heads, 1, 1)))  # type: ignore
 
 
 class Olmo(nn.Module):
@@ -505,37 +505,36 @@ class Olmo(nn.Module):
             self.apply(self.param_init_fn)
         self.__num_fwd_flops = None
 
-        # Warm up the cache for attention bias buffers.
+        # Attention bias cache.
+        # We could cache these as buffers, but we've run into various issues doing that with FSDP.
+        # In general it appears the way FSDP handles buffers is not well-defined.
+        # It doesn't shard them but apparently it does synchronize them across processes, which we want to avoid
+        # since (A) it isn't necessary, and (B) we have `-inf` in these biases which might get turned into
+        # NaNs when they're synchronized due to casting or some other issue.
+        self.__bias_cache: Dict[str, Optional[torch.FloatTensor]] = {
+            "causal_attention_bias": None,
+            "alibi_attention_bias": None,
+        }
         if self.config.alibi:
-            _ = self.alibi_attention_bias
-            _ = self.causal_attention_bias
-
-    @property
-    def buffer_dtype(self) -> torch.dtype:
-        """
-        For some reason when we use :func:`torch.compile()` and AMP, we have to create the
-        attention bias buffers with the right data type.
-        """
-        if self.config.precision == "amp_bf16":
-            return torch.bfloat16
-        elif self.config.precision == "amp_fp16":
-            return torch.float16
-        else:
-            return torch.float
+            # Warm up cache.
+            self.causal_attention_bias
+            self.alibi_attention_bias
 
     @property
     def causal_attention_bias(self) -> torch.FloatTensor:
-        return _causal_attention_bias(self.config.max_sequence_length, self.config.device, self.buffer_dtype)
+        causal_bias = self.__bias_cache["causal_attention_bias"]
+        if causal_bias is None:
+            causal_bias = causal_attention_bias(self.config)
+            self.__bias_cache["causal_attention_bias"] = causal_bias
+        return causal_bias
 
     @property
     def alibi_attention_bias(self) -> torch.FloatTensor:
-        return _alibi_attention_bias(
-            self.config.max_sequence_length,
-            self.config.n_heads,
-            self.config.alibi_bias_max,
-            self.config.device,
-            self.buffer_dtype,
-        )
+        alibi_bias = self.__bias_cache["alibi_attention_bias"]
+        if alibi_bias is None:
+            alibi_bias = alibi_attention_bias(self.config)
+            self.__bias_cache["alibi_attention_bias"] = alibi_bias
+        return alibi_bias
 
     def forward(
         self,
@@ -596,22 +595,19 @@ class Olmo(nn.Module):
 
         # Merge attention mask with attention bias.
         if attention_bias is not None or attention_mask is not None or self.config.alibi:
-            if attention_bias is None:
-                # Default to causal attention bias.
+            if attention_bias is None and self.config.alibi:
+                attention_bias = self.causal_attention_bias + self.alibi_attention_bias
+            elif attention_bias is None:
                 attention_bias = self.causal_attention_bias
             elif attention_bias.dtype in (torch.int8, torch.bool):
                 attention_bias = attention_bias.to(dtype=x.dtype)
                 attention_bias.masked_fill_(attention_bias == 0.0, float("-inf"))
 
-            attention_bias = attention_bias[:, :, :seq_len, :seq_len]
+            attention_bias = attention_bias[:, :, :seq_len, :seq_len].to(x.dtype)
 
             # Add in the masking bias.
             if attention_mask is not None:
                 attention_bias = attention_bias + attention_mask
-
-            if self.config.alibi:
-                # Add in ALiBi attention bias.
-                attention_bias = attention_bias + self.alibi_attention_bias[:, :, :seq_len, :seq_len].to(x.dtype)
 
         # Apply blocks one-by-one.
         for block in self.transformer.blocks:  # type: ignore
