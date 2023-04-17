@@ -5,13 +5,15 @@ dry_run: false
 model:
   d_model: 1024
   n_heads: 16
-  n_layers: 24
-  mlp_ratio: 4
+  n_layers: 16
+  mlp_ratio: 8
   alibi: true
   alibi_bias_max: 8.0
   flash_attention: false
   attention_dropout: 0.0
   attention_layer_norm: false
+  multi_query_attention: true
+  block_type: sequential
   layer_norm_type: default  # if not compiling, use 'low_precision'
   residual_dropout: 0.0
   embedding_dropout: 0.0
