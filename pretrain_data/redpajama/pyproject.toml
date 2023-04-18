@@ -1,7 +1,7 @@
 [project]
-name = "pretrain-data-wikipedia"
+name = "pretrain-data-red-pijama"
 version = "0.0.1"
-description = "Download Wikipedia data for pretraining"
+description = "Download Red Pijama dataset for pretraining"
 authors = [
     {name = "Luca Soldaini", email = "lucas@allenai.org" }
 ]
@@ -13,11 +13,10 @@ dependencies = [
     "tqdm",
     "boto3",
     "springs",
-    "wikiextractor",
     "uniseg",
-    "numpy",
-    "cached_path",
-    "orjson"
+    "smashed[remote]",
+    "orjson",
+    "cached_path"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

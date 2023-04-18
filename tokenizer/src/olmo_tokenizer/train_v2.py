@@ -1,12 +1,7 @@
 import gzip
 import os
-from queue import Queue
-import re
 from argparse import ArgumentParser
-from time import sleep
-from typing import Iterator, Union
-from multiprocessing import get_context
-from concurrent.futures import ProcessPoolExecutor
+from typing import Iterator, List
 
 import orjson
 from smashed.utils.io_utils import (
@@ -21,51 +16,23 @@ from tokenizers import (
     models,
     normalizers,
     pre_tokenizers,
-    processors,
     trainers,
 )
 from tqdm import tqdm
 
 
-def read_single(path, queue, lang):
-    with open_file_for_read(path, mode="rb") as file_obj:
-        with gzip.open(file_obj, mode="rt") as stream:
-            for line in stream:
-                data = orjson.loads(line)
+def data_it(
+    base_paths: List[str],
+    lang: str = 'all',
+    no_s2: bool = False,
+    batch_size: int = 1000
+) -> Iterator[List[str]]:
+    paths = set()
+    for bp in base_paths:
+        paths.update(recursively_list_files(bp))
+    paths = sorted(paths)
 
-                if lang == "en" and data.get("source", "") == "wiki":
-                    # this excludes wiki, but not wiki-en or other
-                    # sources
-                    continue
-
-                text = data.get("text", "").strip()
-                if text:
-                    queue.put(text)
-
-    queue.put(None)
-
-
-def emitter(queue: "Queue[Union[str, None]]", total: int):
-    with tqdm(desc="Lines", unit=" l", unit_scale=True, position=2) as lines_pbar, \
-            tqdm(desc="Files", unit=" f", unit_scale=True, position=1, total=total) as files_pbar:
-        while True:
-            if queue.empty():
-                sleep(0.1)
-                continue
-
-            content = queue.get()
-            if content is None:
-                total -= 1
-                files_pbar.update(1)
-                if total == 0:
-                    break
-
-            yield content
-            lines_pbar.update(1)
-
-
-def data_it(base_path, lang) -> Iterator[str]:
-    paths = list(recursively_list_files(base_path))
+    batch: List[str] = []
 
     with tqdm(desc="Lines", unit=" l", unit_scale=True, position=1) as lines_pbar, tqdm(
         total=len(paths), desc="Files", unit=" f", unit_scale=True, position=0
@@ -77,24 +44,42 @@ def data_it(base_path, lang) -> Iterator[str]:
                         data = orjson.loads(line)
 
                         if lang == "en" and data.get("source", "") == "wiki":
-                            # this excludes wiki, but not wiki-en or other
-                            # sources
+                            # this excludes wiki, but not wiki-en or other sources
+                            continue
+
+                        if no_s2 and data.get("source", "") in {"s2", "s2orc", "s2ag"}:
+                            # this excludes s2
                             continue
 
                         text = data.get("text", "").strip()
                         if text:
-                            yield text
-                            lines_pbar.update(1)
+                            batch.append(text)
+
+                        if len(batch) >= batch_size:
+                            yield batch
+                            lines_pbar.update(len(batch))
+                            batch = []
 
             files_pbar.update(1)
+
+    if batch:
+        yield batch
+        lines_pbar.update(len(batch))
+
+
+DEFAULT_BASE_PATH = "s3://ai2-llm/tokenizer/data"
 
 
 def main():
     ap = ArgumentParser()
     ap.add_argument("name", type=str, choices=("v2", "v2_small", "v2_tiny"))
+    ap.add_argument('--normalization', choices=('nfd', 'nfc'), default='nfd')
     ap.add_argument("--bloom", action="store_true")
+    ap.add_argument('--no-s2', action='store_true')
     ap.add_argument("--lang", type=str, default="all", choices=("all", "en"))
-    ap.add_argument("--vocab_size", type=int, default=64000)
+    ap.add_argument("--vocab-size", type=int, default=64000)
+    ap.add_argument("--comment", type=str, default=None)
+    ap.add_argument('-p', '--base-path', default=[DEFAULT_BASE_PATH], nargs='+')
     opts = ap.parse_args()
 
     # These special tokens are not added to the tokenizer's vocabulary to ensure they
@@ -105,7 +90,9 @@ def main():
 
     # Initialize tokenizer object.
     tokenizer = Tokenizer(models.BPE())
-    tokenizer.normalizer = normalizers.NFD()  # type: ignore
+    tokenizer.normalizer = (
+        normalizers.NFD() if opts.normalization == 'nfd' else normalizers.NFC()     # type: ignore
+    )
 
     if opts.bloom:
         tokenizer.pre_tokenizer = pre_tokenizers.Sequence(  # type: ignore
@@ -146,7 +133,12 @@ def main():
         special_tokens=[],
     )
 
-    BASE_PATH = f"s3://ai2-llm/tokenizer/data/{opts.name}"
+    base_path: List[str]
+    if len(opts.base_path)  == 0 and opts.base_path[0] == DEFAULT_BASE_PATH:
+        base_path = [DEFAULT_BASE_PATH.rstrip('/') + '/' + opts.name]
+    else:
+        base_path = opts.base_path
+
     DEST_PATH = "s3://ai2-llm/tokenizer/model"
 
     # paths = list(recursively_list_files(BASE_PATH))
@@ -159,9 +151,17 @@ def main():
 
     #         tokenizer.train_from_iterator(emitter(queue, total=len(paths)), trainer=trainer)
 
-    tokenizer.train_from_iterator(data_it(BASE_PATH, opts.lang), trainer=trainer)
+    tokenizer.train_from_iterator(data_it(base_path, opts.lang, opts.no_s2), trainer=trainer)
 
-    output_name = f"{opts.name}{'_bloom' if opts.bloom else ''}{'_en' if opts.lang == 'en' else ''}.json"
+    output_name = (
+        opts.name +
+        ('_bloom' if opts.bloom else '') +
+        ('_en' if opts.lang == 'en' else '') +
+        ('_nos2' if opts.no_s2 else '') +
+        (f'_{opts.normalization}' if opts.normalization != 'nfd' else '') +
+        (f'_{opts.comment}' if opts.comment else '') +
+        ".json"
+    )
     LOCAL_PATH = str(os.path.expanduser(f"~/{output_name}"))
     print(f"Saving tokenizer to {LOCAL_PATH}...")
     tokenizer.save(LOCAL_PATH)

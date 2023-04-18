@@ -90,7 +90,95 @@ Resulting model is uploaded at `s3://ai2-llm/tokenizer/model/v1.json`. A model t
 
 ## 2023-04-06
 
-We noticed issue.
+We noticed issue with the tokenizer, which caused many words to be split into too many tokens. For example, consider the following statistics on LAMBADA:
+
+```
+lambada_openai/ai2_v1
+avg: 100.20 std: 16.80
+reversible tokenization: 97.90%
+Most common tokens:
+' ': 7.78%
+'.': 4.26%
+',': 3.63%
+'he': 2.71%
+' t': 2.70%
+
+lambada_openai/ai2_v1_en
+avg: 101.49 std: 17.08
+reversible tokenization: 97.90%
+Most common tokens:
+' ': 10.48%
+'t': 6.06%
+'.': 4.21%
+',': 3.58%
+'o': 2.82%
+
+lambada_openai/ai2_v1_en_nos2
+avg: 93.99 std: 15.19
+reversible tokenization: 97.90%
+Most common tokens:
+' ': 6.71%
+'.': 4.54%
+',': 3.87%
+'e': 3.46%
+'th': 3.16%
+
+lambada_openai/gpt2
+avg: 83.49 std: 13.07
+reversible tokenization: 97.55%
+Most common tokens:
+'.': 4.33%
+',': 3.99%
+'\n': 3.48%
+' the': 3.23%
+'�': 2.46%
+
+lambada_openai/bloom
+avg: 79.27 std: 12.54
+reversible tokenization: 97.55%
+Most common tokens:
+',': 4.58%
+'.': 3.57%
+' the': 3.40%
+' to': 2.20%
+' and': 1.69%
+```
+
+Note the large number of tokens produced until we removed S2 data. Looking at the following example, it is even more apparent what is going on (see how `it` and `is` get split into 3 tokens each):
+
+```
+Original
+In my palm is a clear stone, and inside it is a small ivory statuette.
+
+ai2_v1 (PreTrainedTokenizerFast)
+In Ġmy Ġpalm Ġ i s Ġ a Ġclear Ġstone , Ġ an d Ġinside Ġ i t Ġ i s Ġ a Ġsmall Ġivory Ġsta tu ette .
+
+ai2_v1_en (PreTrainedTokenizerFast)
+In Ġmy Ġpalm Ġ i s Ġ a Ġclear Ġstone , Ġ an d Ġinside Ġ i t Ġ i s Ġ a Ġsmall Ġivory Ġstatue tte .
+
+ai2_v1_en_no_s2 (PreTrainedTokenizerFast)
+In Ġmy Ġpalm Ġis Ġa Ġclear Ġstone , Ġand Ġinside Ġit Ġis Ġa Ġsmall Ġivory Ġstat u ette .
+
+gpt2 (GPT2TokenizerFast)
+In Ġmy Ġpalm Ġis Ġa Ġclear Ġstone , Ġand Ġinside Ġit Ġis Ġa Ġsmall Ġivory Ġstat u ette .
+
+bloom (PreTrainedTokenizerFast)
+In Ġmy Ġpalm Ġis Ġa Ġclear Ġstone , Ġand Ġinside Ġit Ġis Ġa Ġsmall Ġiv ory Ġstatu ette .
+```
+
+We found the issue to be by s2 abstracts containing extraneous spaces between letter in contiguous words (this is likely due to OCR errors). I grepped C4, S2, and Wikipedia corpora for `\bi\ss\b`  and counted number of docs matching. Here's what I found: while c4 has the lowest: of the 365M docs, it only occurs ~12k or 0.003%, s2 has 0.021% or 14k docs (with the full-text papers subset being only 0.009% or 779 docs).
+
+To fix the issue, we crated version 3 of the S2 data, which is described [in this document](../pretrain_data/s2/v3/README.md). Based on it, we derived the following data mix:
+
+| **Dataset**        | **Docs**         | **Words**           |
+|:------------------:|:----------------:|:-------------------:|
+| S2AG               |  30,569,017      |   6,721,301,098     |
+| S2ORC (Abstracts)  |   8,242,162      |   2,110,166,352     |
+| Wikipedia (EN)     |   4,284,837      |   3,005,337,486     |
+| Wikipedia (non EN) |  19,936,927      |  10,821,436,458     |
+| C4                 | 364,156,258      | 156,647,005,716     |
+
+We sample 38% of C4 to obtain a ~82B tokens to train a tokenizer. See the script below for sampling strategy.
 
 
 ### Data Refresh (V2)
@@ -99,7 +187,7 @@ We noticed issue.
 ```sql
 UNLOAD (
     WITH wiki AS (
-        SELECT text, if(lang = 'en', 'wiki-en', 'wiki') as source
+        SELECT text, if(lang = 'en' OR lang = 'simple', 'wiki-en', 'wiki') as source
         -- from here we sample ~3M english and ~8M non english
         FROM "llm_wikipedia_v0"
         WHERE (
@@ -114,10 +202,11 @@ UNLOAD (
             -- only keep the first two blocks of text separated by \n\n
             -- which are title and abstract
             SLICE(SPLIT(text, CHR(10) || CHR(10), 3), 1, 2), CHR(10)
-        ) as text, 's2' as source
-        FROM "temp_lucas"."llm_s2_v2"
+        ) as text,
+        dataset as source
+        FROM "temp_lucas"."llm_s2_v3"
         -- 0.64 sample rate gets us ~15% of S2 data
-        WHERE split = 'train' AND RAND() < 0.73
+        WHERE split = 'train'
     ),
     c4 AS (
         SELECT text, 'c4' as source
