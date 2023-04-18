@@ -70,7 +70,7 @@ save_overwrite: false
 load_path: null
 load_weights_only: false
 
-max_duration: 1.4e12tok
+max_duration: 3814697ba  # 2T tokens
 global_train_batch_size: 512
 device_train_batch_size: auto
 device_train_microbatch_size: 16
