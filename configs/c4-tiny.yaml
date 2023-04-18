@@ -64,7 +64,7 @@ tokenizer:
 
 save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_interval: 2000ba
-save_num_checkpoints_to_keep: 100
+save_num_checkpoints_to_keep: -1
 save_overwrite: false
 
 load_path: null
