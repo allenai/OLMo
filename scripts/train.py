@@ -63,12 +63,13 @@ def main(cfg: TrainConfig) -> None:
     if get_global_rank() == 0:
         log.info("Configuration:")
         log.info(cfg)
-        if not cfg.dry_run:
+        if not cfg.dry_run and (cfg.load_path is None or Path(cfg.load_path).parent != Path(cfg.save_folder)):
             # Save config.
             save_path = Path(cfg.save_folder) / "config.yaml"
             if save_path.is_file() and not cfg.save_overwrite:
                 raise OlmoConfigurationError(f"{save_path} already exists, use --save_overwrite to overwrite")
             else:
+                log.info(f"Saving config to {save_path}")
                 save_path.parent.mkdir(exist_ok=True, parents=True)
                 cfg.save(save_path)
             del save_path
