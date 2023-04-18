@@ -179,6 +179,7 @@ def main(cfg: TrainConfig) -> None:
             if isinstance(callback, CheckpointSaver):
                 callback._save_checkpoint(trainer.state, trainer.logger)
 
+    if not cfg.dry_run:
         log.info("Starting training...")
         trainer.fit()
 
