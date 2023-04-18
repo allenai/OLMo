@@ -15,7 +15,7 @@ Look up ours in the CSC login system.
 
 LUMI has different partitions.
 The "G" partition is for GPUs.
-For Slurm, we do big runs with `--partition g`.
+For Slurm, we do big runs with `--partition standard-g`.
 We do small runs for debugging on the testing partition, with `--partition small-g`.
 Runs on the small partition have a maximum runtime of 30 minutes, but it seems they don't count against our quota.
 
@@ -68,6 +68,10 @@ Here is my `~/.bashrc` file, for your copy and pasting pleasure:
 module load LUMI/22.08 partition/G
 module load systools/22.08
 
+# Allow TERM to make backspace and other keys work properly in the terminal.
+# https://unix.stackexchange.com/questions/43103/backspace-tab-not-working-in-terminal-using-ssh
+export TERM=vt100
+
 # Environment variables
 export PROJECT=project_123456789
 export PROJECT_DIR=/project/$PROJECT
@@ -87,6 +91,10 @@ export EBU_USER_PREFIX=/project/$SBATCH_ACCOUNT
 # For downloading things from the ai2-llm bucket.
 export S3_ACCESS_KEY_ID=XXXXXXX
 export S3_SECRET_ACCESS_KEY=YYYYYYY
+
+# Other API keys for logging and metric tracking.
+export WANDB_API_KEY=XXXXXXX
+export LOGZIO_TOKEN=XXXXXX  # find this at https://app.logz.io/#/dashboard/settings/general
 
 # Prints current quota information.
 lumi-workspaces
@@ -176,6 +184,7 @@ We could probably find a solution where slurm only launches one process per node
 * You can see all of your own cluster activity with `squeue --me`.
 * You can see all of our project's cluster activity with `squeue -A $PROJECT`.
 * You can log into a running node with `srun --interactive --pty --jobid=3265861 bash`. This will attach to the node as it runs. When the job finishes or fails, your `bash` will get killed.
+* You can see the logs for a run in `${FLASH_DIR}/logs/${SLURM_JOB_ID}.log`. All nodes write to the same file. E.g. `tail -f $FLASH_DIR/logs/3376668.log`.
 
 ### Running an interactive session
 

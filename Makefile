@@ -1,7 +1,7 @@
 # If you update this, also update BEAKER_IMAGE in .github/workflows/main.yml
-IMAGE_NAME_BASE = dolma
+IMAGE_NAME_BASE = olmo-torch2
 # If you update this, also update BEAKER_WORKSPACE in .github/workflows/main.yml
-BEAKER_WORKSPACE = "ai2/llm-testing"
+BEAKER_WORKSPACE = ai2/llm-testing
 
 BEAKER_USER = $(shell beaker account whoami --format=json | jq -r '.[0].name')
 GANTRY_IMAGE = $(shell beaker workspace images $(BEAKER_WORKSPACE) --format=json | jq -r -c '.[] | select( .name == "$(IMAGE_NAME_BASE)-gantry" ) | .fullName')
@@ -24,7 +24,7 @@ beaker-info :
 .PHONY : images
 images : gantry-image test-image
 
-PHONY : base-image
+.PHONY : base-image
 base-image :
 	docker build -f docker/Dockerfile.base -t $(IMAGE_NAME_BASE)-base .
 
@@ -58,7 +58,7 @@ show-beaker-workspace :
 gantry-test :
 	gantry run \
 		--workspace "$(BEAKER_WORKSPACE)" \
-		--priority "preemptible" \
+		--priority "normal" \
 		--beaker-image "$(GANTRY_IMAGE)" \
 		--gpus 1 \
 		--description "Test run" \
@@ -91,7 +91,7 @@ gantry-run-ib :
 		--env NCCL_DEBUG=INFO \
 		--env SCRATCH_DIR=/tmp/scratch \
 		--env FLASH_DIR=/tmp/flash \
-		--env WANDB_PROJECT=dolma-beaker-ib \
+		--env WANDB_PROJECT=olmo-beaker-ib \
 		--env-secret WANDB_API_KEY=WANDB_API_KEY \
 		--replicas 4 \
 		--leader-selection \
@@ -103,8 +103,8 @@ gantry-run-ib :
 
 .PHONY : check-cpu-install
 check-cpu-install :
-	@python -c 'from dolma import check_install; check_install(cuda=False)'
+	@python -c 'from olmo import check_install; check_install(cuda=False)'
 
 .PHONY : check-cuda-install
 check-cuda-install :
-	@python -c 'from dolma import check_install; check_install(cuda=True)'
+	@python -c 'from olmo import check_install; check_install(cuda=True)'

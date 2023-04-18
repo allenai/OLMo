@@ -9,9 +9,10 @@ model:
   mlp_ratio: 4
   alibi: true
   alibi_bias_max: 8.0
-  flash_attention: false
-  attention_dropout: 0.0  # has to be 0 if using flash attn
+  attention_dropout: 0.0
   attention_layer_norm: true
+  layer_norm_type: default  # if not compiling, use 'low_precision'
+  activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
   max_sequence_length: 2048
@@ -21,10 +22,14 @@ model:
   init_device: meta
   init_std: 0.02
 
+compile: null  # currently this doesn't work with activation checkpointing
+#compile:
+#  mode: default
+
 optimizer:
-  name: decoupled_adamw
+  name: decoupled_lionw
   learning_rate: 8.0e-5
-  weight_decay: 1.2e-4
+  weight_decay: 4.0e-5
   betas:
   - 0.9
   - 0.95
@@ -43,10 +48,10 @@ algorithms:
 data:
   paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-train.*.npy}
   pad_direction: right
-  num_workers: 2
+  num_workers: 4
   drop_last: true
   pin_memory: true
-  prefetch_factor: 2
+  prefetch_factor: 16
   persistent_workers: true
   timeout: 0
 
@@ -54,11 +59,11 @@ tokenizer:
   identifier: gpt2
   truncate_direction: right
 
-max_duration: 333800ba  # ~ 1.4T tokens
+max_duration: 337743ba  # 1.4T tokens
 
 save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
-save_interval: 1000ba
-save_num_checkpoints_to_keep: 2
+save_interval: 2000ba
+save_num_checkpoints_to_keep: 100
 save_overwrite: false
 
 load_path: null
@@ -66,7 +71,7 @@ load_weights_only: false
 
 global_train_batch_size: 2048
 device_train_batch_size: auto
-device_train_microbatch_size: 2  # could be 4 with flash attn
+device_train_microbatch_size: 4
 device_train_grad_accum: auto
 device_eval_batch_size: null
 
@@ -76,9 +81,12 @@ precision: amp_bf16
 
 fsdp_config:
   sharding_strategy: FULL_SHARD
-  mixed_precision: DEFAULT # could be PURE with flash attn
+  mixed_precision: PURE
   activation_checkpointing: true
   activation_cpu_offload: false
+  activation_checkpointing_reentrant: false
+  limit_all_gathers: true
+  use_orig_params: true  # needed to work with compile
   verbose: false
 
 speed_monitor:

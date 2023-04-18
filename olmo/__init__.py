@@ -12,4 +12,4 @@ def check_install(cuda: bool = False):
         assert torch.cuda.is_available(), "CUDA is not available!"
         print("CUDA available")
 
-    print(f"DOLMA v{VERSION} installed")
+    print(f"OLMo v{VERSION} installed")

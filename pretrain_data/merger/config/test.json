@@ -1,0 +1,77 @@
+{
+  "streams": [
+    {
+      "name": "cc_en_head",
+      "documents": [
+        {
+          "root": "s3://ai2-llm/pretraining-data/sources/common-crawl/v0/documents/mined_split/2023-06/",
+          "include": [
+            "*/en_head.json.gz"
+          ]
+        }
+      ],
+      "sampler": {
+        "seed": 2147483648,
+        "rate": 0.5
+      },
+      "filterer": {
+        "include": [
+          "$[?(@.metadata.length > 100)]"
+        ]
+      },
+      "output": {
+        "path": "/Users/rodneyk/data/ai2-llm/test",
+        "max_shard_size": "4G"
+      }
+    },
+    {
+      "name": "cc_en_middle",
+      "documents": [
+        {
+          "root": "s3://ai2-llm/pretraining-data/sources/common-crawl/v0/documents/mined_split/2023-06/",
+          "include": [
+            "*/en_middle.json.gz"
+          ]
+        }
+      ],
+      "sampler": {
+        "seed": 2147483648,
+        "rate": 0.5
+      },
+      "filterer": {
+        "include": [
+          "$[?(@.metadata.length > 100)]"
+        ]
+      },
+      "output": {
+        "path": "/Users/rodneyk/data/ai2-llm/test",
+        "max_shard_size": "4G"
+      }
+    },
+    {
+      "name": "cc_en_tail",
+      "documents": [
+        {
+          "root": "s3://ai2-llm/pretraining-data/sources/common-crawl/v0/documents/mined_split/2023-06/",
+          "include": [
+            "*/en_tail.json.gz"
+          ]
+        }
+      ],
+      "sampler": {
+        "seed": 2147483648,
+        "rate": 0.5
+      },
+      "filterer": {
+        "include": [
+          "$[?(@.metadata.length > 100)]"
+        ]
+      },
+      "output": {
+        "path": "/Users/rodneyk/data/ai2-llm/test",
+        "max_shard_size": "4G"
+      }
+    }
+  ],
+  "processes": 4
+}

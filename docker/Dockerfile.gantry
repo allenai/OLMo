@@ -4,11 +4,11 @@
 # To build and push the image to Beaker, run 'make gantry-image'.
 # To test the image after pushing to Beaker, run 'make gantry-test'.
 
-FROM dolma-base
+FROM olmo-torch2-base
 
 WORKDIR /stage
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-WORKDIR /app/dolma
+WORKDIR /app/olmo
