@@ -15,7 +15,8 @@ dependencies = [
     "smashed[remote]",
     "tqdm",
     "datasets",
-    "orjson"
+    "orjson",
+    "springs"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

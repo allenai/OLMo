@@ -1,7 +1,7 @@
 [project]
-name = "pretrain-data-red-pijama"
+name = "pretrain-data-redpajama"
 version = "0.0.1"
-description = "Download Red Pijama dataset for pretraining"
+description = "Format Red Red Pajama dataset for pretraining"
 authors = [
     {name = "Luca Soldaini", email = "lucas@allenai.org" }
 ]
@@ -16,7 +16,8 @@ dependencies = [
     "uniseg",
     "smashed[remote]",
     "orjson",
-    "cached_path"
+    "cached_path",
+    'zstandard'
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -52,7 +53,7 @@ requires = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-shadow_scholar = ["py.typed"]
+pretrain_data_redpajama = ["py.typed"]
 
 [tool.black]
 line-length = 115

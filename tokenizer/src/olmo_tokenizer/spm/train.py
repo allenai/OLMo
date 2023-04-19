@@ -57,8 +57,7 @@ def load_jsonl(input_path, quiet=False) -> list:
         for line in stream:
             data.append(json.loads(line.rstrip("\n|\r")))  # type: ignore
 
-    if not quiet:
-        print("Loaded {} records from {}".format(len(data), input_path))
+    print(f"Loaded {len(data):,} records from {input_path}") if not quiet else None
     return data
 
 
@@ -66,6 +65,7 @@ def load_text(input_path, quiet=False) -> list:
     """
     Read list of objects from a JSON lines file.
     """
+    data = []
     mode = "rb" if is_gzip_file(input_path) else "r"
 
     with ExitStack() as stack:
@@ -76,8 +76,7 @@ def load_text(input_path, quiet=False) -> list:
 
         data = [{"text": line} for line in stream]
 
-    if not quiet:
-        print(f"Loaded {len(data):,} records from {input_path}")
+    print(f"Loaded {len(data):,} records from {input_path}") if not quiet else None
     return data
 
 
@@ -92,7 +91,8 @@ def json_iterator(
     if isinstance(input_dir, str):
         input_dir = [input_dir]
 
-    all_jsonls = itertools.chain.from_iterable(recursively_list_files(d) for d in input_dir)
+    all_jsonls = sorted(itertools.chain.from_iterable(recursively_list_files(d) for d in input_dir))
+    random.shuffle(all_jsonls)
     total_cnt = 0
 
     for j in all_jsonls:
@@ -121,7 +121,7 @@ def json_iterator(
             total_cnt += 1
             current_cnt += 1
 
-        print(f"Sampled {current_cnt:,} from {j}") if not quiet else None
+        print(f"Sampled {current_cnt:,} records from {j}") if (not quiet and sample is not None) else None
 
     print(f"Processed {total_cnt:,} total records") if not quiet else None
 
@@ -236,11 +236,16 @@ def train_tokenizer(config: TrainConfig):
             **sp.to_dict(config.model),  # pyright: ignore
         )
 
-        for fn in os.listdir(tmp_dir):
-            with open_file_for_read(os.path.join(tmp_dir, fn), "rb") as src, \
-                    open_file_for_write(os.path.join(config.save_path, fn), "wb") as dst:
+        with ExitStack() as stack:
+            for fn in os.listdir(tmp_dir):
+                _, extension = fn.rsplit(".", -1)
+                src = stack.enter_context(open_file_for_read(os.path.join(tmp_dir, fn), "rb"))
+                dst = stack.enter_context(open_file_for_write(f'{config.save_path}.{extension}', "wb"))
                 dst.write(src.read())
+                stack.pop_all().close()
 
+            dst = stack.enter_context(open_file_for_write(f'{config.save_path}.yaml', "w"))
+            dst.write(sp.to_yaml(config))
 
 if __name__ == "__main__":
     train_tokenizer()

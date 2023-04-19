@@ -59,7 +59,7 @@ UNLOAD (
             (
                 CARDINALITY(filtered_sources) > 0 AND
                 max_single_letter_sequence < 4
-            ) AND (
+            ) OR (
                 max_single_letter_sequence > 0 AND
                 CARDINALITY(filtered_sources) = 0
             )
