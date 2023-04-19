@@ -1,28 +1,29 @@
+import gzip
+import hashlib
+import random
+import string
 from contextlib import ExitStack
 from datetime import datetime
 from functools import partial
-import hashlib
+from multiprocessing import Manager, Pool, set_start_method
 from queue import Queue
-import random
 from threading import Thread
 from time import sleep
 from typing import List, Optional, Tuple
-import springs as sp
-from smashed.utils.io_utils import open_file_for_write
-from cached_path import cached_path
-import gzip
-from multiprocessing import Manager, Pool, set_start_method
-from tqdm import tqdm
-import requests
+
 import orjson as json
+import requests
+import springs as sp
+from cached_path import cached_path
+from smashed.utils.io_utils import open_file_for_write
+from tqdm import tqdm
 from uniseg.wordbreak import words as uniseg_get_words
-import string
 
 
 @sp.dataclass
 class Config:
-    src: str = 'https://data.together.xyz/redpajama-data-1T/v1.0.0/urls.txt'
-    dst: str = 's3://ai2-llm/pretraining-data/sources/redpajama/'
+    src: str = "https://data.together.xyz/redpajama-data-1T/v1.0.0/urls.txt"
+    dst: str = "s3://ai2-llm/pretraining-data/sources/redpajama/"
     parallel: int = 1
     debug: bool = False
     raw: bool = False
@@ -40,8 +41,8 @@ def download_single(paths: Tuple[str, str], pbar_queue: Optional[Queue] = None):
     response = requests.get(src, stream=True)
     last_size = chunk_count = 0
 
-    with open_file_for_write(dst, 'wb') as _g:
-        g = gzip.open(_g, 'wb')
+    with open_file_for_write(dst, "wb") as _g:
+        g = gzip.open(_g, "wb")
 
         for ln in response.iter_content(chunk_size=4096):
             g.write(ln)
@@ -68,25 +69,25 @@ def process_single(paths: Tuple[str, str], pbar_queue: Optional[Queue] = None):
 
     cnt_words, cnt_docs, cnt_chars = 0, 0, 0
 
-    with open_file_for_write(dst, 'wb') as _g:
-        g = gzip.open(_g, 'wb')
+    with open_file_for_write(dst, "wb") as _g:
+        g = gzip.open(_g, "wb")
 
         for ln in response.iter_lines():
             row = json.loads(ln)
-            text = row.pop('text')
+            text = row.pop("text")
             length = count_words(text)
-            created = row.get('meta', {}).get('timestamp', created_guess)
+            created = row.get("meta", {}).get("timestamp", created_guess)
 
             reshaped = {
-                'id': hashlib.md5(row['meta']['url'].encode('utf-8')).hexdigest(),
-                'text': text,
-                'source': 'redpajama',
-                'version': 'v0',
-                'added': added,
-                'created': created,
-                'metadata': {**row.get('meta', {}), 'length': length},
+                "id": hashlib.md5(row["meta"]["url"].encode("utf-8")).hexdigest(),
+                "text": text,
+                "source": "redpajama",
+                "version": "v0",
+                "added": added,
+                "created": created,
+                "metadata": {**row.get("meta", {}), "length": length},
             }
-            json_reshaped = json.dumps(reshaped) + b'\n'
+            json_reshaped = json.dumps(reshaped) + b"\n"
             g.write(json_reshaped)
 
             if cnt_docs > 1000 and pbar_queue:
@@ -130,10 +131,10 @@ def main(cfg: Config):
 
     if cfg.raw:
         fn = download_single
-        dst = cfg.dst.rstrip('/') + '/raw'
+        dst = cfg.dst.rstrip("/") + "/raw"
     else:
         fn = process_single
-        dst = cfg.dst.rstrip('/') + '/v0'
+        dst = cfg.dst.rstrip("/") + "/v0"
 
     all_dst = [f'{dst}/{src.split("/")[-1]}.gzip' for src in all_src]
 
@@ -154,9 +155,7 @@ def main(cfg: Config):
             )
             pbar_thread.start()
 
-            for _ in pool.imap_unordered(
-                partial(fn, pbar_queue=pbar_queue), tuple(zip(all_src, all_dst))
-            ):
+            for _ in pool.imap_unordered(partial(fn, pbar_queue=pbar_queue), tuple(zip(all_src, all_dst))):
                 ...
 
             pool.close()
@@ -167,5 +166,5 @@ def main(cfg: Config):
             manager.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

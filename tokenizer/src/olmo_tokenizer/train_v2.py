@@ -22,10 +22,7 @@ from tqdm import tqdm
 
 
 def data_it(
-    base_paths: List[str],
-    lang: str = 'all',
-    no_s2: bool = False,
-    batch_size: int = 1000
+    base_paths: List[str], lang: str = "all", no_s2: bool = False, batch_size: int = 1000
 ) -> Iterator[List[str]]:
     paths = set()
     for bp in base_paths:
@@ -44,7 +41,8 @@ def data_it(
                         data = orjson.loads(line)
 
                         if lang == "en" and data.get("source", "") == "wiki":
-                            # this excludes wiki, but not wiki-en or other sources
+                            # this excludes wiki, but not wiki-en or other
+                            # sources
                             continue
 
                         if no_s2 and data.get("source", "") in {"s2", "s2orc", "s2ag"}:
@@ -73,13 +71,13 @@ DEFAULT_BASE_PATH = "s3://ai2-llm/tokenizer/data"
 def main():
     ap = ArgumentParser()
     ap.add_argument("name", type=str, choices=("v2", "v2_small", "v2_tiny"))
-    ap.add_argument('--normalization', choices=('nfd', 'nfc'), default='nfd')
+    ap.add_argument("--normalization", choices=("nfd", "nfc"), default="nfd")
     ap.add_argument("--bloom", action="store_true")
-    ap.add_argument('--no-s2', action='store_true')
+    ap.add_argument("--no-s2", action="store_true")
     ap.add_argument("--lang", type=str, default="all", choices=("all", "en"))
     ap.add_argument("--vocab-size", type=int, default=64000)
     ap.add_argument("--comment", type=str, default=None)
-    ap.add_argument('-p', '--base-path', default=[DEFAULT_BASE_PATH], nargs='+')
+    ap.add_argument("-p", "--base-path", default=[DEFAULT_BASE_PATH], nargs="+")
     opts = ap.parse_args()
 
     # These special tokens are not added to the tokenizer's vocabulary to ensure they
@@ -90,9 +88,7 @@ def main():
 
     # Initialize tokenizer object.
     tokenizer = Tokenizer(models.BPE())
-    tokenizer.normalizer = (
-        normalizers.NFD() if opts.normalization == 'nfd' else normalizers.NFC()     # type: ignore
-    )
+    tokenizer.normalizer = normalizers.NFD() if opts.normalization == "nfd" else normalizers.NFC()  # type: ignore
 
     if opts.bloom:
         tokenizer.pre_tokenizer = pre_tokenizers.Sequence(  # type: ignore
@@ -134,8 +130,8 @@ def main():
     )
 
     base_path: List[str]
-    if len(opts.base_path)  == 0 and opts.base_path[0] == DEFAULT_BASE_PATH:
-        base_path = [DEFAULT_BASE_PATH.rstrip('/') + '/' + opts.name]
+    if len(opts.base_path) == 0 and opts.base_path[0] == DEFAULT_BASE_PATH:
+        base_path = [DEFAULT_BASE_PATH.rstrip("/") + "/" + opts.name]
     else:
         base_path = opts.base_path
 
@@ -154,13 +150,13 @@ def main():
     tokenizer.train_from_iterator(data_it(base_path, opts.lang, opts.no_s2), trainer=trainer)
 
     output_name = (
-        opts.name +
-        ('_bloom' if opts.bloom else '') +
-        ('_en' if opts.lang == 'en' else '') +
-        ('_nos2' if opts.no_s2 else '') +
-        (f'_{opts.normalization}' if opts.normalization != 'nfd' else '') +
-        (f'_{opts.comment}' if opts.comment else '') +
-        ".json"
+        opts.name
+        + ("_bloom" if opts.bloom else "")
+        + ("_en" if opts.lang == "en" else "")
+        + ("_nos2" if opts.no_s2 else "")
+        + (f"_{opts.normalization}" if opts.normalization != "nfd" else "")
+        + (f"_{opts.comment}" if opts.comment else "")
+        + ".json"
     )
     LOCAL_PATH = str(os.path.expanduser(f"~/{output_name}"))
     print(f"Saving tokenizer to {LOCAL_PATH}...")

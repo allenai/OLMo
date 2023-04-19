@@ -231,3 +231,95 @@ WITH (
     partitioned_by=ARRAY['part_id']
 )
 ```
+
+
+## 2023-04-18
+
+### Training SentencePiece
+
+#### Via Python (slow)
+
+```bash
+pip install llm/tokenizer
+
+python -m olmo_tokenizer.spm.train \
+    save_path=s3://ai2-llm/tokenizer/sp_model/v0 \
+    input_dir=s3://ai2-llm/tokenizer/data/v2_partitioned/ \
+    model_config.train_extremely_large_corpus=true
+```
+
+#### Via CLI (fast)
+
+Setup the environment and install SentencePiece:
+
+
+```bash
+# on Ubuntu
+sudo apt-get install cmake build-essential pkg-config libgoogle-perftools-dev jq
+
+# on CentOS
+sudo yum install cmake pkg-config gperftools-devel jq git gcc gcc-c++ make
+
+# get sentencepiece
+git clone https://github.com/google/sentencepiece.git
+cd sentencepiece
+mkdir build
+cd build
+cmake ..
+make -j $(nproc)
+sudo make install
+sudo ldconfig -v
+```
+
+Download and prepare the data:
+
+```bash
+# copy corpus over
+aws s3 sync s3://ai2-llm/tokenizer/data/v2_partitioned/ $HOME/tokenizer_data/v2_partitioned/
+
+# use jq to extract 'text' field from json
+mkdir -p $HOME/tokenizer_proc/v2_partitioned/
+cat $HOME/tokenizer/data/v2_partitioned/**/*.gz* | jq -r '.text' | tqdm --unit-scale | split -l 5000000 -d -a 5  --additional-suffix=.txt - $HOME/tokenizer_proc/v2_partitioned/
+```
+
+Run sentencepiece training:
+
+```bash
+
+# you might have to do the following if you get an error
+export LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib:$LD_LIBRARY_PATH
+
+# list all files in tokenizer_proc/v2_partitioned into a variable, comma separated
+train_files=$(ls $HOME/tokenizer_proc/v2_partitioned/*.txt | tr '\n' ',' | sed 's/,$//')
+output_prefix=$HOME/tokenizer_model/v2_partitioned/ai2_llm
+
+# user defined symbols are \n, \t, sequences of 2 spaces (' ') to 8 spaces ('        '),
+# and squences of 2 tabs ('\t') to 8 tabs ('\t\t\t\t\t\t\t\t'). we use two for loops for
+# add the sequences of spaces and tabs to user_defined_symbols variable
+# user_defined_symbols=$'\t',$'\n'
+user_defined_symbols=$'\t',$'\n'
+for i in {2..8}; do
+    user_defined_symbols=$user_defined_symbols,$(printf "%${i}s")
+    user_defined_symbols=$user_defined_symbols,$(printf "%${i}s" | tr ' ' '\t')
+done
+
+# run training
+spm_train \
+    --normalization_rule_name=identity \
+    --input=$train_files \
+    --model_prefix=$output_prefix \
+    --vocab_size=64000 \
+    --seed_sentencepiece_size=100000 \
+    --max_sentence_length=10000 \
+    --split_digits=1 \
+    --remove_extra_whitespaces=0 \
+    --normalization_rule_name=identity \
+    --model_type=unigram \
+    --allow_whitespace_only_pieces=1 \
+    --byte_fallback=1 \
+    --num_threads=$(nproc) \
+    --train_extremely_large_corpus 1 \
+    --user_defined_symbols=$'\t',$'\n'
+    # --self_test_sample_size=10000
+
+```

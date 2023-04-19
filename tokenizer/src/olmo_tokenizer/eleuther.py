@@ -16,23 +16,22 @@
 Assumes a dataset of jsonl files in the same format as the neox training set.
 """
 
-from contextlib import ExitStack
+import argparse
 import gzip
 import itertools
-import os
-from tempfile import NamedTemporaryFile
-from tokenizers import Tokenizer, decoders, models, pre_tokenizers, processors, trainers
-from tokenizers.normalizers import NFKC, NFC
-
-from glob import glob
 import json
-import argparse
+import os
+from contextlib import ExitStack
+from glob import glob
+from tempfile import NamedTemporaryFile
 
 from smashed.utils.io_utils import (
     open_file_for_read,
     open_file_for_write,
     recursively_list_files,
 )
+from tokenizers import Tokenizer, decoders, models, pre_tokenizers, processors, trainers
+from tokenizers.normalizers import NFC, NFKC
 
 
 def load_jsonl(input_path, quiet=True) -> list:
@@ -40,15 +39,15 @@ def load_jsonl(input_path, quiet=True) -> list:
     Read list of objects from a JSON lines file.
     """
     data = []
-    mode = 'rb' if input_path.endswith('.gz') else 'r'
+    mode = "rb" if input_path.endswith(".gz") else "r"
 
     with ExitStack() as stack:
         stream = stack.enter_context(open_file_for_read(input_path, mode=mode))
-        if input_path.endswith('.gz'):
-            stream = stack.enter_context(gzip.open(stream, mode='rt'))
+        if input_path.endswith(".gz"):
+            stream = stack.enter_context(gzip.open(stream, mode="rt"))
 
         for line in stream:
-            data.append(json.loads(line.rstrip("\n|\r")))   # type: ignore
+            data.append(json.loads(line.rstrip("\n|\r")))  # type: ignore
 
     if not quiet:
         print("Loaded {} records from {}".format(len(data), input_path))
@@ -66,9 +65,7 @@ def json_iterator(input_dir, text_key="text"):
             yield doc[text_key]
 
 
-def train_tokenizer(
-    input_dir: str, save_path: str, tokenizer_type: str = "BPE", vocab_size: int = 52000
-):
+def train_tokenizer(input_dir: str, save_path: str, tokenizer_type: str = "BPE", vocab_size: int = 52000):
     """
     Trains a tokenizer on all the json files in `input_dir` and saves it to `save_path`
 
@@ -86,17 +83,14 @@ def train_tokenizer(
     tokenizer = Tokenizer(model)
 
     # Customize pre-tokenization and decoding
-    tokenizer.pre_tokenizer = pre_tokenizers.ByteLevel(
-        add_prefix_space=False, use_regex=True
-    )   # type: ignore
-    tokenizer.decoder = decoders.ByteLevel()    # type: ignore
+    tokenizer.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False, use_regex=True)  # type: ignore
+    tokenizer.decoder = decoders.ByteLevel()  # type: ignore
     tokenizer.post_processor = processors.ByteLevel(trim_offsets=False)  # type: ignore
-    tokenizer.normalizer = NFC()   # type: ignore
+    tokenizer.normalizer = NFC()  # type: ignore
 
     # And then train
     trainer = trainers.BpeTrainer(  # type: ignore
-        vocab_size=vocab_size,
-        special_tokens=["<|endoftext|>", "<|padding|>"]
+        vocab_size=vocab_size, special_tokens=["<|endoftext|>", "<|padding|>"]
     )
     tokenizer.train_from_iterator(json_iterator(input_dir), trainer)
 
@@ -106,7 +100,7 @@ def train_tokenizer(
 
     print(f"Tokenizer saved at {f.name}")
 
-    with open_file_for_write(save_path, 'w') as f:
+    with open_file_for_write(save_path, "w") as f:
         with open(f_name, "r") as f2:
             f.write(f2.read())
 
@@ -121,14 +115,16 @@ def parse_args():
         "HF tokenizer on CC dumps with upweighting for low resource languages"
     )
     parser.add_argument(
-        "-i", "--json_input_dir",
+        "-i",
+        "--json_input_dir",
         type=str,
         nargs="+",
         help="Path to folder containing tokenizer training data in jsonl format",
         required=True,
     )
     parser.add_argument(
-        "-o", "--tokenizer_output_path",
+        "-o",
+        "--tokenizer_output_path",
         type=str,
         help="Path to which your trained tokenizer will be saved (should end in .json)",
         required=True,
@@ -151,7 +147,6 @@ def parse_args():
 
 
 if __name__ == "__main__":
-
     args = parse_args()
 
     train_tokenizer(
