@@ -148,7 +148,7 @@ def main(cfg: TrainConfig) -> None:
         optimizers=optimizer,
         schedulers=scheduler,
         eval_dataloader=evaluators,
-        eval_interval=cfg.eval_interval,
+        eval_interval=1 if not evaluators else cfg.eval_interval,
         max_duration=cfg.max_duration,
         precision=cfg.precision,
         device_train_microbatch_size=cfg.device_train_microbatch_size,
