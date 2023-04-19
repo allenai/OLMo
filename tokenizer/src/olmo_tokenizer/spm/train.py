@@ -77,7 +77,7 @@ def load_text(input_path, quiet=False) -> list:
         data = [{"text": line} for line in stream]
 
     if not quiet:
-        print("Loaded {} records from {}".format(len(data), input_path))
+        print(f"Loaded {len(data):,} records from {input_path}")
     return data
 
 
@@ -96,6 +96,8 @@ def json_iterator(
     total_cnt = 0
 
     for j in all_jsonls:
+        current_cnt = 0
+
         if sample is not None and sample >= 1 and total_cnt >= sample:
             break
 
@@ -105,7 +107,7 @@ def json_iterator(
             if sample is not None:
                 if sample < 1.0 and random.random() > sample:
                     continue
-                elif total_cnt >= sample:
+                elif sample >= 1.0 and total_cnt >= sample:
                     break
 
             text = doc[text_key]
@@ -117,8 +119,11 @@ def json_iterator(
 
             yield text
             total_cnt += 1
+            current_cnt += 1
 
-    print(f"Processed {total_cnt:,} documents") if not quiet else None
+        print(f"Sampled {current_cnt:,} from {j}") if not quiet else None
+
+    print(f"Processed {total_cnt:,} total records") if not quiet else None
 
 @sp.dataclass
 class ModelConfig:
