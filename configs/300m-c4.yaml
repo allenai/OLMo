@@ -12,6 +12,7 @@ model:
   flash_attention: false
   attention_dropout: 0.0
   attention_layer_norm: false
+  block_type: parallel
   layer_norm_type: default  # if not compiling, use 'low_precision'
   residual_dropout: 0.0
   embedding_dropout: 0.0
