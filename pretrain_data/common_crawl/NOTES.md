@@ -63,7 +63,7 @@ Look in `cc_net/data/logs` for the logs of sub-processes that handle the individ
 |2022-49|X|X|107B|128B|174B|
 |2022-40|X|X|99B|114B|150B|
 |2022-33|X|X|77B|93B|135B|
-|2022-27|X|.||||
+|2022-27|X|X||||
 |2022-21|X|X||||
 |2022-05|X|X||||
 |2021-49|X|X||||
