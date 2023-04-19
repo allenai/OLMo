@@ -218,6 +218,12 @@ class ModelConfig(BaseConfig):
     The dropout probability within the attention modules.
     """
 
+    multi_query_attention: bool = False
+    """
+    Use the Multi-Query formulation of attention used in PaLM. This reduces the number of parameters
+    and is more efficient during inference.
+    """
+
     attention_layer_norm: bool = False
     """
     Apply layer norm to the keys and queries within the attention mechanism.

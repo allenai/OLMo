@@ -1,17 +1,19 @@
-run_name: 300m-c4-run-001
+run_name: c4-tiny-run-001
 seed: 6198
 dry_run: false
 
 model:
   d_model: 1024
   n_heads: 16
-  n_layers: 24
-  mlp_ratio: 4
+  n_layers: 16
+  mlp_ratio: 8
   alibi: true
   alibi_bias_max: 8.0
   flash_attention: false
   attention_dropout: 0.0
   attention_layer_norm: false
+  multi_query_attention: true
+  block_type: sequential
   layer_norm_type: default  # if not compiling, use 'low_precision'
   residual_dropout: 0.0
   embedding_dropout: 0.0
@@ -62,13 +64,13 @@ tokenizer:
 
 save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_interval: 2000ba
-save_num_checkpoints_to_keep: 100
+save_num_checkpoints_to_keep: -1
 save_overwrite: false
 
 load_path: null
 load_weights_only: false
 
-max_duration: 1.4e12tok
+max_duration: 3814697ba  # 2T tokens
 global_train_batch_size: 512
 device_train_batch_size: auto
 device_train_microbatch_size: 16
