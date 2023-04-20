@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Union
 
 import rich
+import torch
 from composer.utils.dist import get_local_rank, get_node_rank
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
@@ -195,3 +196,19 @@ class RichHandler(logging.Handler):
         name_and_line = f"{record.name}:{record.lineno}" if record.name != "root" else "root"
         text = f"[{name_and_line}, rank={record.local_rank}]"  # type: ignore
         return Text(text, style="log.path")
+
+
+def seed_all(seed: int):
+    """Seed all rng objects."""
+    import random
+
+    import numpy as np
+
+    if seed < 0 or seed > 2**32 - 1:
+        raise ValueError(f"Seed {seed} is invalid. It must be on [0; 2^32 - 1]")
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    # torch.manual_seed may call manual_seed_all but calling it again here
+    # to make sure it gets called at least once
+    torch.cuda.manual_seed_all(seed)

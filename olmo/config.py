@@ -441,3 +441,14 @@ class TrainConfig(BaseConfig):
     @property
     def device(self) -> Optional[str]:
         return self.model.device
+
+    @property
+    def autocast_precision(self) -> torch.dtype:
+        if self.precision == "amp_bf16":
+            return torch.bfloat16
+        elif self.precision == "amp_fp16":
+            return torch.float16
+        elif self.precision == "fp32":
+            return torch.float32
+        else:
+            raise ValueError(f"Unexpected precision type '{self.precision}'")

@@ -652,7 +652,8 @@ class Olmo(nn.Module):
 
         return OlmoOutput(logits=logits)  # type: ignore[arg-type]
 
-    def fsdp_wrap_fn(self, module):
+    def fsdp_wrap_fn(self, module, recurse: bool = True, nonwrapped_numel: int = 0):
+        del recurse, nonwrapped_numel
         return isinstance(module, OlmoBlock)
 
     def activation_checkpointing_fn(self, module):
