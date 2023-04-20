@@ -186,34 +186,26 @@ class OlmoCheckpointer(CheckpointSaver):
             num_checkpoints_to_keep=num_checkpoints_to_keep,
         )
 
+    @property
+    def is_rank0(self) -> bool:
+        return not dist.is_initialized() or dist.get_global_rank() == 0
+
     def _save_checkpoint(self, state: State, logger: Logger):
         del logger
         self.last_checkpoint_batch = state.timestamp.batch
 
         dirname = Path(self.filename.format(state))
         dirname.mkdir(parents=True, exist_ok=True)
-        state_dict = state.state_dict()
 
-        # Save model state.
-        model_state_dict = state_dict.pop("model")
+        # Save state dict.
         checkpoint.save_state_dict(
-            state_dict=model_state_dict, storage_writer=checkpoint.FileSystemWriter(dirname / "model")
+            state_dict=state.state_dict(), storage_writer=checkpoint.FileSystemWriter(dirname)
         )
-
-        # Save optimizer state.
-        optim_state_dict = state_dict.pop("optimizers")
-        checkpoint.save_state_dict(
-            state_dict=optim_state_dict, storage_writer=checkpoint.FileSystemWriter(dirname / "optim")
-        )
-
-        # Save everything else.
-        with open(dirname / "state.pt", "wb") as f:
-            torch.save(state_dict, f)
 
         if dist.is_initialized():
             dist.barrier()
 
-        if self.latest_filename is not None:
+        if self.latest_filename is not None and self.is_rank0:
             symlink = self.latest_filename.format(state)
             try:
                 os.remove(symlink)
@@ -223,7 +215,7 @@ class OlmoCheckpointer(CheckpointSaver):
 
         self.saved_checkpoints.append(str(dirname))
 
-        if self.num_checkpoints_to_keep >= 0:
+        if self.num_checkpoints_to_keep >= 0 and self.is_rank0:
             self._rotate_checkpoints()
 
     def _rotate_checkpoints(self):
