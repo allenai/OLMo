@@ -23,6 +23,9 @@ def main(cfg: TrainConfig) -> None:
 
     cfg.model.precision = cfg.precision
 
+    # Initialize process group.
+    dist.init_process_group(backend="nccl")
+
     # Display and save configuration.
     if dist.get_rank() == 0:
         log.info("Configuration:")
@@ -40,9 +43,6 @@ def main(cfg: TrainConfig) -> None:
 
     # Set seed.
     seed_all(cfg.seed)
-
-    # Initialize process group.
-    dist.init_process_group(backend="nccl")
 
     # Initialize the model.
     olmo_model = Olmo(cfg.model)
