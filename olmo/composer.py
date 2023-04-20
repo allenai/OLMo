@@ -16,7 +16,8 @@ from composer.core import Event, State, Time
 from composer.loggers import ConsoleLogger, Logger
 from composer.loggers.logger import format_log_data_value
 from composer.models import ComposerModel
-from composer.utils import dist
+from composer.trainer import Trainer
+from composer.utils import dist, reproducibility
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
 
@@ -198,9 +199,7 @@ class OlmoCheckpointer(CheckpointSaver):
         dirname.mkdir(parents=True, exist_ok=True)
 
         # Save state dict.
-        checkpoint.save_state_dict(
-            state_dict=state.state_dict(), storage_writer=checkpoint.FileSystemWriter(dirname)
-        )
+        checkpoint.save_state_dict(self.get_state_dict(state), checkpoint.FileSystemWriter(dirname))
 
         if dist.is_initialized():
             dist.barrier()
@@ -222,6 +221,27 @@ class OlmoCheckpointer(CheckpointSaver):
         while len(self.saved_checkpoints) > self.num_checkpoints_to_keep:
             checkpoint = self.saved_checkpoints.pop(0)
             shutil.rmtree(checkpoint)
+
+    def restore_checkpoint(self, load_path: str, trainer: Trainer):
+        """
+        This is a function we added to reproduce the behavior of passing ``load_path``
+        to the :class:`Trainer`.
+        """
+        state = trainer.state
+
+        # `torch.distributed.checkpoint` modifies `state_dict` in-place.
+        state_dict = self.get_state_dict(state)
+        checkpoint.load_state_dict(state_dict, checkpoint.FileSystemReader(load_path))
+
+        # still need to call `load_state_dict` though.
+        state.load_state_dict(state_dict["state"], trainer.logger)
+
+        if dist.is_initialized():
+            dist.barrier()
+
+        # See the `Trainer.__init__`.
+        trainer._rng_state = state_dict["rng"]
+        reproducibility.seed_all(state.seed)
 
 
 def build_dataloader(config: TrainConfig, batch_size: int) -> DataLoader:

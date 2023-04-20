@@ -159,7 +159,6 @@ def main(cfg: TrainConfig) -> None:
         precision=cfg.precision,
         device_train_microbatch_size=cfg.device_train_microbatch_size,
         fsdp_config=cfg.fsdp_config,
-        load_path=cfg.load_path,
         callbacks=callbacks,
         loggers=loggers,
         algorithms=algorithms,
