@@ -231,7 +231,6 @@ class OlmoCheckpointer(CheckpointSaver):
 
         # `torch.distributed.checkpoint` modifies `state_dict` in-place.
         state_dict = self.get_state_dict(state)
-        print((state_dict["state"].keys()))
         checkpoint.load_state_dict(state_dict, checkpoint.FileSystemReader(load_path))
 
         # still need to call `load_state_dict` though.
