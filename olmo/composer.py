@@ -177,9 +177,9 @@ class OlmoCheckpointer(CheckpointSaver):
     ):
         super().__init__(
             folder=folder,
-            filename="ep{epoch}-ba{batch}-rank{rank}",
+            filename="ep{epoch}-ba{batch}",
             remote_file_name=None,
-            latest_filename="latest-rank{rank}",
+            latest_filename="latest",
             latest_remote_file_name=None,
             save_interval=save_interval,
             overwrite=overwrite,
@@ -189,11 +189,6 @@ class OlmoCheckpointer(CheckpointSaver):
     def _save_checkpoint(self, state: State, logger: Logger):
         del logger
         self.last_checkpoint_batch = state.timestamp.batch
-
-        if dist.is_initialized() and "{rank}" not in self.filename.filename:
-            raise ValueError(
-                f"Save filename {self.filename.filename} must have {{rank}} for distributed training."
-            )
 
         dirname = Path(self.filename.format(state))
         dirname.mkdir(parents=True, exist_ok=True)
