@@ -6,8 +6,14 @@ See [config/example.json](example config)
 
 ## Building
 
+Install the Rust compiler tools
 ```
-cargo build --release
+make install-rust
+```
+
+Build the executable:
+```
+make
 ```
 
 ## Running
