@@ -183,7 +183,7 @@ def main(cfg: TrainConfig) -> None:
 
     if cfg.load_path is not None:
         log.info(f"Loading checkpoint from {cfg.load_path}...")
-        raise NotImplementedError
+        checkpointer.restore_checkpoint(cfg.load_path, trainer)
 
     if not cfg.dry_run:
         log.info("Starting training...")
