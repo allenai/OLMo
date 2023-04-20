@@ -138,7 +138,7 @@ def main(cfg: TrainConfig) -> None:
     # Checkpoint saver.
     checkpointer = OlmoCheckpointer(
         folder=cfg.save_folder,
-        save_interval=cfg.save_folder,
+        save_interval=cfg.save_interval,
         overwrite=cfg.save_overwrite,
         num_checkpoints_to_keep=cfg.save_num_checkpoints_to_keep,
     )
