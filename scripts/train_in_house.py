@@ -48,6 +48,7 @@ def main(cfg: TrainConfig) -> None:
     seed_all(cfg.seed)
 
     # Initialize the model.
+    log.info("Initializing model...")
     olmo_model = Olmo(cfg.model)
     if dist.get_rank() == 0:
         log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
@@ -65,6 +66,7 @@ def main(cfg: TrainConfig) -> None:
             buffer_dtype=cfg.autocast_precision,
         ),
         auto_wrap_policy=olmo_model.fsdp_wrap_fn,
+        param_init_fn=olmo_model.param_init_fn,
         use_orig_params=True,  # needed for compile
         limit_all_gathers=True,
         device_id=local_rank,
