@@ -3,6 +3,7 @@ import os
 import sys
 from pathlib import Path
 
+import torch
 import torch.distributed as dist
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
@@ -23,8 +24,9 @@ def main(cfg: TrainConfig) -> None:
 
     cfg.model.precision = cfg.precision
 
-    # Initialize process group.
+    # Initialize process group and set device.
     dist.init_process_group(backend="nccl")
+    torch.cuda.set_device(f"cuda:{os.environ['LOCAL_RANK']}")
 
     # Display and save configuration.
     if dist.get_rank() == 0:
