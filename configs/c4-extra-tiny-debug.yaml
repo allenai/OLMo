@@ -61,7 +61,6 @@ save_num_checkpoints_to_keep: 2
 save_overwrite: true
 
 load_path: null
-load_weights_only: false
 
 max_duration: 1708984ba  # 7B tokens
 global_train_batch_size: 16

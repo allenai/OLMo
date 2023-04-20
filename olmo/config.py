@@ -421,7 +421,6 @@ class TrainConfig(BaseConfig):
     save_num_checkpoints_to_keep: int = -1
     save_overwrite: bool = False
     load_path: Optional[str] = None
-    load_weights_only: bool = False
     max_duration: Union[str, int] = "10ep"
     global_train_batch_size: int = 512
     device_train_batch_size: Union[str, int] = "auto"

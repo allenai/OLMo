@@ -69,7 +69,6 @@ save_num_checkpoints_to_keep: -1
 save_overwrite: false
 
 load_path: null
-load_weights_only: false
 
 global_train_batch_size: 512
 device_train_batch_size: auto
@@ -89,6 +88,7 @@ fsdp_config:
   activation_checkpointing_reentrant: false
   limit_all_gathers: true
   use_orig_params: true  # needed to work with compile
+  state_dict_type: local
   verbose: false
 
 speed_monitor:

@@ -25,7 +25,6 @@ from pathlib import Path
 from typing import List, cast
 
 import torch
-from composer.callbacks import CheckpointSaver
 
 from olmo import Olmo, TrainConfig
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
@@ -45,6 +44,7 @@ def main(cfg: TrainConfig) -> None:
 
     from olmo.composer import (
         ComposerOlmoLM,
+        OlmoCheckpointer,
         OlmoConsoleLogger,
         build_algorithm,
         build_dataloader,
@@ -135,6 +135,15 @@ def main(cfg: TrainConfig) -> None:
     composer_model = ComposerOlmoLM(olmo_model)
     del olmo_model
 
+    # Checkpoint saver.
+    checkpointer = OlmoCheckpointer(
+        folder=cfg.save_folder,
+        save_interval=cfg.save_folder,
+        overwrite=cfg.save_overwrite,
+        num_checkpoints_to_keep=cfg.save_num_checkpoints_to_keep,
+    )
+    callbacks.append(checkpointer)
+
     # Trainer.
     trainer = Trainer(
         run_name=cfg.run_name,
@@ -150,12 +159,7 @@ def main(cfg: TrainConfig) -> None:
         precision=cfg.precision,
         device_train_microbatch_size=cfg.device_train_microbatch_size,
         fsdp_config=cfg.fsdp_config,
-        save_folder=cfg.save_folder,
-        save_interval=cfg.save_interval,
-        save_num_checkpoints_to_keep=cfg.save_num_checkpoints_to_keep,
-        save_overwrite=cfg.save_overwrite,
         load_path=cfg.load_path,
-        load_weights_only=cfg.load_weights_only,
         callbacks=callbacks,
         loggers=loggers,
         algorithms=algorithms,
@@ -174,11 +178,13 @@ def main(cfg: TrainConfig) -> None:
     )
 
     if not cfg.dry_run and cfg.load_path is None:
-        log.info("Saving pre-train checkpoint...")
         # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever)
-        for callback in trainer.state.callbacks:
-            if isinstance(callback, CheckpointSaver):
-                callback._save_checkpoint(trainer.state, trainer.logger)
+        log.info("Saving pre-train checkpoint...")
+        checkpointer._save_checkpoint(trainer.state, trainer.logger)
+
+    if cfg.load_path is not None:
+        log.info(f"Loading checkpoint from {cfg.load_path}...")
+        raise NotImplementedError
 
     if not cfg.dry_run:
         log.info("Starting training...")

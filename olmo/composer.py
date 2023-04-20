@@ -1,13 +1,19 @@
 import logging
 import math
+import os
+import shutil
 import warnings
 from fnmatch import fnmatch
-from typing import Any, Dict, Optional, Set, Tuple, TypedDict, Union
+from pathlib import Path
+from typing import Any, Callable, Dict, Optional, Set, Tuple, TypedDict, Union
 
 import torch
+import torch.distributed.checkpoint as checkpoint
 import torch.nn as nn
 import torch.nn.functional as F
-from composer.loggers import ConsoleLogger
+from composer.callbacks import CheckpointSaver
+from composer.core import Event, State, Time
+from composer.loggers import ConsoleLogger, Logger
 from composer.loggers.logger import format_log_data_value
 from composer.models import ComposerModel
 from composer.utils import dist
@@ -33,6 +39,7 @@ __all__ = [
     "TrainBatchPerplexity",
     "ComposerOlmoLM",
     "OlmoConsoleLogger",
+    "OlmoCheckpointer",
     "build_dataloader",
     "build_optimizer",
     "build_scheduler",
@@ -152,6 +159,83 @@ class OlmoConsoleLogger(ConsoleLogger):
 
     def _log_to_console(self, log_str: str):
         log.info(log_str)
+
+
+class OlmoCheckpointer(CheckpointSaver):
+    """
+    We override the default `CheckpointSaver` to make use of torch's new `distributed.checkpoint` functions,
+    and because the current checkpointing mechanism in composer doesn't work with Torch 2 + FSDP.
+    """
+
+    def __init__(
+        self,
+        *,
+        folder: str = "{run_name}/checkpoints",
+        save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = "1ep",
+        overwrite: bool = False,
+        num_checkpoints_to_keep: int = -1,
+    ):
+        super().__init__(
+            folder=folder,
+            filename="ep{epoch}-ba{batch}-rank{rank}",
+            remote_file_name=None,
+            latest_filename="latest-rank{rank}",
+            latest_remote_file_name=None,
+            save_interval=save_interval,
+            overwrite=overwrite,
+            num_checkpoints_to_keep=num_checkpoints_to_keep,
+        )
+
+    def _save_checkpoint(self, state: State, logger: Logger):
+        del logger
+        self.last_checkpoint_batch = state.timestamp.batch
+
+        if dist.is_initialized() and "{rank}" not in self.filename.filename:
+            raise ValueError(
+                f"Save filename {self.filename.filename} must have {{rank}} for distributed training."
+            )
+
+        dirname = Path(self.filename.format(state))
+        dirname.mkdir(parents=True, exist_ok=True)
+        state_dict = state.state_dict()
+
+        # Save model state.
+        model_state_dict = state_dict.pop("model")
+        checkpoint.save_state_dict(
+            state_dict=model_state_dict, storage_writer=checkpoint.FileSystemWriter(dirname / "model")
+        )
+
+        # Save optimizer state.
+        optim_state_dict = state_dict.pop("optimizers")
+        checkpoint.save_state_dict(
+            state_dict=optim_state_dict, storage_writer=checkpoint.FileSystemWriter(dirname / "optim")
+        )
+
+        # Save everything else.
+        with open(dirname / "state.pt", "wb") as f:
+            torch.save(state_dict, f)
+
+        if dist.is_initialized():
+            dist.barrier()
+
+        if self.latest_filename is not None:
+            symlink = self.latest_filename.format(state)
+            os.makedirs(symlink, exist_ok=True)
+            try:
+                os.remove(symlink)
+            except FileNotFoundError:
+                pass
+            os.symlink(dirname.name, symlink)
+
+        self.saved_checkpoints.append(str(dirname))
+
+        if self.num_checkpoints_to_keep >= 0:
+            self._rotate_checkpoints()
+
+    def _rotate_checkpoints(self):
+        while len(self.saved_checkpoints) > self.num_checkpoints_to_keep:
+            checkpoint = self.saved_checkpoints.pop(0)
+            shutil.rmtree(checkpoint)
 
 
 def build_dataloader(config: TrainConfig, batch_size: int) -> DataLoader:
