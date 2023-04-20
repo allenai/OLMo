@@ -71,7 +71,7 @@ def main(cfg: TrainConfig) -> None:
     # Construct optimizer.
     assert cfg.optimizer.learning_rate is not None
     optim = DecoupledLionW(
-        fsdp_model.params(),
+        fsdp_model.parameters(),
         lr=cfg.optimizer.learning_rate,
         betas=cfg.optimizer.betas,
         weight_decay=cfg.optimizer.weight_decay,
