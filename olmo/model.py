@@ -659,16 +659,18 @@ class Olmo(nn.Module):
     def activation_checkpointing_fn(self, module):
         return isinstance(module, OlmoBlock)
 
+    def reset_parameters(self):
+        self.apply(self.param_init_fn)
+
     def param_init_fn(self, module):
         from functools import partial
 
-        for param in module._parameters.values():
-            if param.data.device == torch.device("meta"):
-                param.data = torch.empty_like(param.data, device=torch.device(self.config.device or "cuda"))
-
-        for name, buffer in module._buffers.items():
-            if buffer is not None and buffer.device == torch.device("meta"):
-                self._buffers[name] = torch.empty_like(buffer, device=torch.device(self.config.device or "cuda"))
+        #  for param in module._parameters.values():
+        #      if param.data.device == torch.device("meta"):
+        #          param.data = torch.empty_like(param.data, device=torch.device(self.config.device or "cuda"))
+        #  for name, buffer in module._buffers.items():
+        #      if buffer is not None and buffer.device == torch.device("meta"):
+        #          self._buffers[name] = torch.empty_like(buffer, device=torch.device(self.config.device or "cuda"))
 
         init_fn = partial(nn.init.normal_, mean=0.0, std=self.config.init_std)
 
