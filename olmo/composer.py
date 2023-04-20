@@ -220,7 +220,6 @@ class OlmoCheckpointer(CheckpointSaver):
 
         if self.latest_filename is not None:
             symlink = self.latest_filename.format(state)
-            os.makedirs(symlink, exist_ok=True)
             try:
                 os.remove(symlink)
             except FileNotFoundError:
