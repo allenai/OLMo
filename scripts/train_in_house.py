@@ -25,8 +25,9 @@ def main(cfg: TrainConfig) -> None:
     cfg.model.precision = cfg.precision
 
     # Initialize process group and set device.
+    local_rank = int(os.environ["LOCAL_RANK"])
     dist.init_process_group(backend="nccl")
-    torch.cuda.set_device(f"cuda:{os.environ['LOCAL_RANK']}")
+    torch.cuda.set_device(f"cuda:{local_rank}")
 
     # Display and save configuration.
     if dist.get_rank() == 0:
@@ -66,6 +67,7 @@ def main(cfg: TrainConfig) -> None:
         auto_wrap_policy=olmo_model.fsdp_wrap_fn,
         use_orig_params=True,  # needed for compile
         limit_all_gathers=True,
+        device_id=local_rank,
     )
 
     # Construct optimizer.
