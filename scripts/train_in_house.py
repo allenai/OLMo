@@ -148,10 +148,7 @@ def restore_checkpoint(load_path: Path, cfg: TrainConfig, model: FSDP, optim: to
             "model": model.state_dict(),
             # Can't load optimizer together with the model
         }
-        checkpoint.load_state_dict(
-            state_dict,
-            checkpoint.FileSystemReader(load_path),
-        )
+        checkpoint.load_state_dict(state_dict, checkpoint.FileSystemReader(load_path))
 
         # Load into the model.
         model.load_state_dict(state_dict["model"])
