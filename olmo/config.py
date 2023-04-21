@@ -93,12 +93,15 @@ class BaseConfig:
             raise OlmoConfigurationError(str(e))
 
     @classmethod
-    def load(cls: Type[C], path: PathOrStr, overrides: Optional[List[str]] = None) -> C:
+    def load(cls: Type[C], path: PathOrStr, overrides: Optional[List[str]] = None, key: Optional[str] = None) -> C:
         """Load from a YAML file."""
         cls._register_resolvers()
         schema = om.structured(cls)
         try:
-            conf = om.merge(schema, om.load(str(path)))
+            raw = om.load(str(path))
+            if key is not None:
+                raw = raw[key]  # type: ignore
+            conf = om.merge(schema, raw)
             if overrides:
                 conf = om.merge(conf, om.from_dotlist(overrides))
             return cast(C, om.to_object(conf))
@@ -213,6 +216,12 @@ class ModelConfig(BaseConfig):
     attention_dropout: float = 0.1
     """
     The dropout probability within the attention modules.
+    """
+
+    multi_query_attention: bool = False
+    """
+    Use the Multi-Query formulation of attention used in PaLM. This reduces the number of parameters
+    and is more efficient during inference.
     """
 
     attention_layer_norm: bool = False

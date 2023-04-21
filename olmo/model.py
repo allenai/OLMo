@@ -48,15 +48,15 @@ class LayerNormBase(nn.Module):
         raise NotImplementedError
 
     @classmethod
-    def build(cls, config: ModelConfig) -> LayerNormBase:
+    def build(cls, config: ModelConfig, size: Optional[int] = None) -> LayerNormBase:
         if config.layer_norm_type == LayerNormType.default:
-            return LayerNorm(config, low_precision=False)
+            return LayerNorm(config, size=size, low_precision=False)
         elif config.layer_norm_type == LayerNormType.low_precision:
-            return LayerNorm(config, low_precision=True)
+            return LayerNorm(config, size=size, low_precision=True)
         elif config.layer_norm_type == LayerNormType.rms:
-            return RMSLayerNorm(config, low_precision=False)
+            return RMSLayerNorm(config, size=size, low_precision=False)
         elif config.layer_norm_type == LayerNormType.low_precision_rms:
-            return RMSLayerNorm(config, low_precision=True)
+            return RMSLayerNorm(config, size=size, low_precision=True)
         else:
             raise NotImplementedError(f"Not sure how to handle '{config.layer_norm_type}' LayerNorm type")
 
@@ -77,9 +77,9 @@ class LayerNorm(LayerNormBase):
     The default :class:`LayerNorm` implementation which can optionally run in low precision.
     """
 
-    def __init__(self, config: ModelConfig, low_precision: bool = False):
+    def __init__(self, config: ModelConfig, size: Optional[int] = None, low_precision: bool = False):
         super().__init__(config)
-        self.normalized_shape = (config.d_model,)
+        self.normalized_shape = (size or config.d_model,)
         self.eps = 1e-05
         self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
         self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
@@ -105,9 +105,10 @@ class RMSLayerNorm(LayerNorm):
     in low-precision.
     """
 
-    def __init__(self, config: ModelConfig, low_precision: bool = False):
+    def __init__(self, config: ModelConfig, size: Optional[int] = None, low_precision: bool = False):
         super().__init__(config)
         self.eps = 1e-08
+        self.size = size or config.d_model
         self.weight = nn.Parameter(torch.ones(self.config.d_model))
         if self.config.include_bias:
             self.bias = nn.Parameter(torch.zeros(self.config.d_model))
@@ -129,7 +130,7 @@ class RMSLayerNorm(LayerNorm):
     def rms_norm(self, x: torch.Tensor, weight: torch.Tensor, bias: Optional[torch.Tensor]) -> torch.Tensor:
         norm_x = x.norm(2, dim=-1, keepdim=True)
 
-        rms_x = norm_x * self.config.d_model ** (-1.0 / 2)
+        rms_x = norm_x * self.size ** (-1.0 / 2)
         x_normed = x / (rms_x + self.eps)
 
         if bias is not None:
@@ -233,7 +234,9 @@ class OlmoBlock(nn.Module):
         self.k_norm: Optional[LayerNormBase] = None
         self.q_norm: Optional[LayerNormBase] = None
         if config.attention_layer_norm:
-            self.k_norm = LayerNormBase.build(config)
+            self.k_norm = LayerNormBase.build(
+                config, size=config.d_model // config.n_heads if config.multi_query_attention else None
+            )
             self.q_norm = LayerNormBase.build(config)
 
         # Activation function.
@@ -281,10 +284,18 @@ class OlmoBlock(nn.Module):
             k = self.k_norm(k).to(dtype=dtype)
 
         # Move head forward to be next to the batch dim.
-        # shape (all): (B, nh, T, hs)
+        # shape: (B, nh, T, hs)
         q = q.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
-        k = k.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
-        v = v.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
+        if self.config.multi_query_attention:
+            # shape: (B, 1, T, hs)
+            k = k.view(B, T, 1, C // self.config.n_heads).transpose(1, 2)
+            # shape: (B, 1, T, hs)
+            v = v.view(B, T, 1, C // self.config.n_heads).transpose(1, 2)
+        else:
+            # shape: (B, nh, T, hs)
+            k = k.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
+            # shape: (B, nh, T, hs)
+            v = v.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
 
         if self.config.rope:
             # Apply rotary embeddings.
@@ -335,7 +346,10 @@ class OlmoSequentialBlock(OlmoBlock):
     def __init__(self, config: ModelConfig):
         super().__init__(config)
         # Attention input projection. Projects x -> (q, k, v)
-        self.fused_dims = (config.d_model, config.d_model, config.d_model)
+        if config.multi_query_attention:
+            self.fused_dims = (config.d_model, config.d_model // config.n_heads, config.d_model // config.n_heads)
+        else:
+            self.fused_dims = (config.d_model, config.d_model, config.d_model)
         self.att_proj = nn.Linear(
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
@@ -351,8 +365,11 @@ class OlmoSequentialBlock(OlmoBlock):
         attention_bias: Optional[torch.FloatTensor] = None,
     ) -> torch.Tensor:
         # Get query, key, value projections.
-        # shape (all): (batch_size, seq_len, d_model)
-        q, k, v = self.att_proj(self.norm(x)).split(self.config.d_model, dim=2)
+        # shape:
+        #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
+        #  - for multi-query attn q: (batch_size, seq_len, d_model)
+        #                      k, v: (batch_size, seq_len, d_model // n_heads)
+        q, k, v = self.att_proj(self.norm(x)).split(self.fused_dims, dim=-1)
 
         # Add attention scores.
         # shape: (B, T, C)
@@ -383,7 +400,15 @@ class OlmoParallelBlock(OlmoBlock):
         # but we found that didn't help, possibly because of the overhead of joining the `att`
         # and `ff` activations together.
         # See https://github.com/allenai/LLM/pull/79 for details.
-        self.fused_dims = (config.d_model, config.d_model, config.d_model, config.mlp_ratio * config.d_model)
+        if config.multi_query_attention:
+            self.fused_dims = (
+                config.d_model,
+                config.d_model // config.n_heads,
+                config.d_model // config.n_heads,
+                config.mlp_ratio * config.d_model,
+            )
+        else:
+            self.fused_dims = (config.d_model, config.d_model, config.d_model, config.mlp_ratio * config.d_model)
         self.fused_attn_ff_proj = nn.Linear(
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
@@ -395,7 +420,10 @@ class OlmoParallelBlock(OlmoBlock):
         attention_bias: Optional[torch.FloatTensor] = None,
     ) -> torch.Tensor:
         # Get query, key, value, and feed-forward projections.
-        # shape of q, k, v: (batch_size, seq_len, d_model)
+        # shape of q, k, v:
+        #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
+        #  - for multi-query attn q: (batch_size, seq_len, d_model)
+        #                      k, v: (batch_size, seq_len, d_model // n_heads)
         # shape of ff:      (batch_size, seq_len, mlp_ratio x d_model)
         q, k, v, ff = self.fused_attn_ff_proj(self.norm(x)).split(self.fused_dims, dim=-1)
 
