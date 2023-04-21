@@ -200,9 +200,12 @@ class OlmoCheckpointer(CheckpointSaver):
         dirname = Path(self.filename.format(state))
         dirname.mkdir(parents=True, exist_ok=True)
 
-        # Save state dict.
+        # Prepare state dict.
         state_dict = self.get_state_dict(state)
-        state_dict["optimizers"] = state_dict["state"].pop("optimizers")  # move optimizer state to top level
+        # Move optimizer state to top level.
+        state_dict["optimizer"] = next(state_dict["state"].pop("optimizers").values())
+
+        # Save state dict.
         checkpoint.save_state_dict(state_dict, checkpoint.FileSystemWriter(dirname))
 
         if dist.is_initialized():
@@ -244,13 +247,13 @@ class OlmoCheckpointer(CheckpointSaver):
         # Load optimizer state.
         optim_state = load_sharded_optimizer_state_dict(
             model_state_dict=state_dict["state"]["model"],
-            optimizer_key="optimizers",
+            optimizer_key="optimizer",
             storage_reader=checkpoint.FileSystemReader(load_path),
         )
 
         # NOTE: careful, the order of these arguments has changed since the 2.0 release.
-        flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optimizers"], state.model, state.optimizers[0])
-        state.load_state_dict(flattened_osd, trainer.logger)
+        flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optimizer"], state.model, state.optimizers[0])
+        state.optimizers[0].load_state_dict(flattened_osd)
 
         if dist.is_initialized():
             dist.barrier()
