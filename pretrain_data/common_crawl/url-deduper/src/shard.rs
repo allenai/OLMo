@@ -4,23 +4,12 @@ use rayon::prelude::*;
 
 use config::StreamConfig;
 use crate::config;
+use crate::s3_util::object_size;
 
 #[derive(Clone)]
 pub struct Shard {
     pub inputs: Vec<String>,
     pub output: String,
-}
-
-async fn size_of_s3_object(s3_client: &S3Client, bucket: &str, key: &str) -> Result<usize, io::Error> {
-    let resp = s3_client.head_object()
-        .bucket(bucket)
-        .key(key)
-        .send().await
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e));
-    match resp {
-        Ok(resp) => Ok(resp.content_length as usize),
-        Err(e) => Err(e),
-    }
 }
 
 impl Shard {
@@ -33,6 +22,7 @@ impl Shard {
 
         let mut shards: Vec<Shard> = Vec::new();
         for stream_config in streams {
+            let mut stream_shard_count = 0;
             log::info!("Computing shards for stream {}...", stream_config.name);
             let mut stream_inputs: Vec<String> = Vec::new();
             for pattern in &stream_config.documents {
@@ -68,7 +58,7 @@ impl Shard {
             }
             stream_inputs.sort();
             let inputs_with_sizes = stream_inputs.par_iter().map(|input| {
-                let resp = rt.block_on(size_of_s3_object(&s3_client, "ai2-llm", input));
+                let resp = rt.block_on(object_size(&s3_client, "ai2-llm", input));
                 match resp {
                     Ok(size) =>
                         (input.to_string(), size),
@@ -86,26 +76,28 @@ impl Shard {
                 }
                 shard_size += size;
                 if shard_size > stream_config.output.max_size_in_bytes {
-                    let output = format!("{}/{}-{:04}.json.gz", stream_config.output.path, stream_config.name, shards.len());
+                    let output = format!("{}/{}-{:04}.json.gz", stream_config.output.path, stream_config.name, stream_shard_count);
                     let shard = Shard {
                         inputs: shard_inputs.clone(),
                         output: output.clone(),
                     };
                     shards.push(shard);
+                    stream_shard_count += 1;
                     shard_size = 0;
                     shard_inputs = Vec::new();
                 }
                 shard_inputs.push(input.clone());
             }
             if shard_inputs.len() > 0 {
-                let output = format!("{}/{}-{:04}.json.gz", stream_config.output.path, stream_config.name, shards.len());
+                let output = format!("{}/{}-{:04}.json.gz", stream_config.output.path, stream_config.name, stream_shard_count);
                 let shard = Shard {
                     inputs: shard_inputs.clone(),
                     output: output.clone(),
                 };
                 shards.push(shard);
+                stream_shard_count += 1;
             }
-            log::info!("Splitting {} files for {} into {} shards", stream_inputs.len(), stream_config.name, shards.len());
+            log::info!("Splitting {} files for {} into {} shards", stream_inputs.len(), stream_config.name, stream_shard_count);
         }
 
         Ok(shards)
