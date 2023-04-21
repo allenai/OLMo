@@ -139,6 +139,9 @@ def save_checkpoint(step: int, cfg: TrainConfig, model: FSDP, optim: torch.optim
 def restore_checkpoint(load_path: Path, cfg: TrainConfig, model: FSDP, optim: torch.optim.Optimizer):
     del cfg
 
+    # The only way I figured out how to do this was by reading the unit tests here
+    # https://github.com/pytorch/pytorch/blob/main/test/distributed/checkpoint/test_fsdp_optim_state.py
+
     with FSDP.state_dict_type(model, state_dict_type=StateDictType.SHARDED_STATE_DICT):
         # Load the serialized state dict in place.
         state_dict = {
@@ -159,6 +162,8 @@ def restore_checkpoint(load_path: Path, cfg: TrainConfig, model: FSDP, optim: to
             optimizer_key="optim",
             storage_reader=checkpoint.FileSystemReader(load_path),
         )
+        # NOTE: careful, the order of these arguments has changed since the 2.0 release. Cool!
+        # flattened_osd = FSDP.optim_state_dict_to_load(model, optim, optim_state["optim"])  # post 2.0
         flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], model, optim)
         optim.load_state_dict(flattened_osd)
 
