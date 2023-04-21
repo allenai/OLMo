@@ -86,6 +86,8 @@ def main(cfg: TrainConfig) -> None:
 
     # TODO: learning rate scheduler
 
+    # TODO: data loader
+
     if not cfg.dry_run and cfg.load_path is None:
         # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever)
         log.info("Saving pre-train checkpoint...")
