@@ -191,7 +191,7 @@ class OlmoCheckpointer(CheckpointSaver):
 
     @property
     def is_rank0(self) -> bool:
-        return not dist.is_initialized() or dist.get_global_rank() == 0
+        return dist.get_global_rank() == 0
 
     def _save_checkpoint(self, state: State, logger: Logger):
         del logger
