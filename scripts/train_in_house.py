@@ -3,11 +3,11 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Mapping
 
 import torch
 import torch.distributed as dist
 import torch.distributed.checkpoint as checkpoint
+from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy, StateDictType
 
@@ -107,14 +107,6 @@ def local_rank() -> int:
     return int(os.environ["LOCAL_RANK"])
 
 
-def get_state_dict(model: FSDP, optim: torch.optim.Optimizer) -> Mapping[str, Any]:
-    # TODO: include rng states
-    return {
-        "model": model.state_dict(),
-        "optim": FSDP.optim_state_dict(model, optim),
-    }
-
-
 def save_checkpoint(step: int, cfg: TrainConfig, model: FSDP, optim: torch.optim.Optimizer) -> Path:
     checkpoint_dir = Path(cfg.save_folder) / f"step{step}"
 
@@ -134,11 +126,12 @@ def save_checkpoint(step: int, cfg: TrainConfig, model: FSDP, optim: torch.optim
     dist.barrier()
 
     # Write the checkpoint.
-    FSDP.set_state_dict_type(model, state_dict_type=StateDictType.LOCAL_STATE_DICT)
-    checkpoint.save_state_dict(
-        get_state_dict(model, optim),  # type: ignore
-        checkpoint.FileSystemWriter(checkpoint_dir),
-    )
+    with FSDP.state_dict_type(model, state_dict_type=StateDictType.SHARDED_STATE_DICT):
+        # TODO: save rng states
+        checkpoint.save_state_dict(
+            {"model": model.state_dict(), "optim": FSDP.optim_state_dict(model, optim)},
+            checkpoint.FileSystemWriter(checkpoint_dir),
+        )
 
     return checkpoint_dir
 
@@ -146,19 +139,28 @@ def save_checkpoint(step: int, cfg: TrainConfig, model: FSDP, optim: torch.optim
 def restore_checkpoint(load_path: Path, cfg: TrainConfig, model: FSDP, optim: torch.optim.Optimizer):
     del cfg
 
-    FSDP.set_state_dict_type(model, state_dict_type=StateDictType.LOCAL_STATE_DICT)
+    with FSDP.state_dict_type(model, state_dict_type=StateDictType.SHARDED_STATE_DICT):
+        # Load the serialized state dict in place.
+        state_dict = {
+            "model": model.state_dict(),
+            # Can't load optimizer together with the model
+        }
+        checkpoint.load_state_dict(
+            state_dict,  # type: ignore
+            checkpoint.FileSystemReader(load_path),
+        )
 
-    # Load the serialized state dict in place.
-    state_dict = get_state_dict(model, optim)
-    checkpoint.load_state_dict(
-        state_dict,  # type: ignore
-        checkpoint.FileSystemReader(load_path),
-    )
+        # Load into the model.
+        model.load_state_dict(state_dict["model"])
 
-    # Load into the model and optimizer.
-    model.load_state_dict(state_dict["model"])
-    optim_state_dict = FSDP.optim_state_dict_to_load(state_dict["optim"], model, optim)
-    optim.load_state_dict(optim_state_dict)
+        # Load optim state.
+        optim_state = load_sharded_optimizer_state_dict(
+            model_state_dict=state_dict["model"],
+            optimizer_key="optim",
+            storage_reader=checkpoint.FileSystemReader(load_path),
+        )
+        flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], model, optim)
+        optim.load_state_dict(flattened_osd)
 
     dist.barrier()
 
