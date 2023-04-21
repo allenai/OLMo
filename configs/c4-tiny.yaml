@@ -88,6 +88,7 @@ fsdp_config:
   activation_checkpointing_reentrant: false
   limit_all_gathers: true
   use_orig_params: true  # needed to work with compile
+  state_dict_type: sharded
   verbose: false
 
 wandb:

@@ -18,6 +18,8 @@ from composer.loggers.logger import format_log_data_value
 from composer.models import ComposerModel
 from composer.trainer import Trainer
 from composer.utils import dist, reproducibility
+from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
 
@@ -231,10 +233,25 @@ class OlmoCheckpointer(CheckpointSaver):
 
         # `torch.distributed.checkpoint` modifies `state_dict` in-place.
         state_dict = self.get_state_dict(state)
+        del state_dict["state"]["optimizers"]  # have to load the optimizer separately
         checkpoint.load_state_dict(state_dict, checkpoint.FileSystemReader(load_path))
 
         # still need to call `load_state_dict` though.
         state.load_state_dict(state_dict["state"], trainer.logger)
+
+        # Load optim state.
+        optim_state = load_sharded_optimizer_state_dict(
+            model_state_dict=state_dict["state"]["model"],
+            optimizer_key="state.optimizers",
+            storage_reader=checkpoint.FileSystemReader(load_path),
+        )
+
+        # NOTE: careful, the order of these arguments has changed since the 2.0 release. Cool!
+        # flattened_osd = FSDP.optim_state_dict_to_load(state.model, state.optimizers[0], optim_state["state"]["optimizers"])
+        flattened_osd = FSDP.optim_state_dict_to_load(
+            optim_state["state"]["optimizers"], state.model, state.optimizers[0]
+        )
+        state.optimizers[0].load_state_dict(flattened_osd)
 
         if dist.is_initialized():
             dist.barrier()
