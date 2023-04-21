@@ -1,12 +1,15 @@
 import logging
 import os
+import shutil
 import sys
 from pathlib import Path
+from typing import Any, Mapping
 
 import torch
 import torch.distributed as dist
+import torch.distributed.checkpoint as checkpoint
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
+from torch.distributed.fsdp import MixedPrecision, ShardingStrategy, StateDictType
 
 from olmo import Olmo, TrainConfig
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
@@ -25,12 +28,11 @@ def main(cfg: TrainConfig) -> None:
     cfg.model.precision = cfg.precision
 
     # Initialize process group and set device.
-    local_rank = int(os.environ["LOCAL_RANK"])
     dist.init_process_group(backend="nccl")
-    torch.cuda.set_device(f"cuda:{local_rank}")
+    torch.cuda.set_device(f"cuda:{local_rank()}")
 
     # Display and save configuration.
-    if dist.get_rank() == 0:
+    if rank() == 0:
         log.info("Configuration:")
         log.info(cfg)
         if not cfg.dry_run and (cfg.load_path is None or Path(cfg.load_path).parent != Path(cfg.save_folder)):
@@ -47,10 +49,12 @@ def main(cfg: TrainConfig) -> None:
     # Set seed.
     seed_all(cfg.seed)
 
+    dist.barrier()
+
     # Initialize the model.
     log.info("Initializing model...")
     olmo_model = Olmo(cfg.model)
-    if dist.get_rank() == 0:
+    if rank() == 0:
         log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
         log.info(
             f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}",
@@ -68,7 +72,7 @@ def main(cfg: TrainConfig) -> None:
         auto_wrap_policy=olmo_model.fsdp_wrap_fn,
         use_orig_params=True,  # needed for compile
         limit_all_gathers=True,
-        device_id=local_rank,
+        device_id=local_rank(),
     )
 
     # Construct optimizer.
@@ -85,13 +89,77 @@ def main(cfg: TrainConfig) -> None:
     if not cfg.dry_run and cfg.load_path is None:
         # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever)
         log.info("Saving pre-train checkpoint...")
-        raise NotImplementedError
+        save_checkpoint(0, cfg, fsdp_model, optim)
 
     if cfg.load_path is not None:
         log.info(f"Loading checkpoint from {cfg.load_path}...")
-        raise NotImplementedError
+        restore_checkpoint(Path(cfg.load_path), cfg, fsdp_model, optim)
 
     # TODO: compile forward/backward/step
+
+
+def rank() -> int:
+    return dist.get_rank()
+
+
+def local_rank() -> int:
+    return int(os.environ["LOCAL_RANK"])
+
+
+def get_state_dict(model: FSDP, optim: torch.optim.Optimizer) -> Mapping[str, Any]:
+    # TODO: include rng states
+    with FSDP.state_dict_type(model, StateDictType.LOCAL_STATE_DICT):
+        state_dict = {
+            "model": model.state_dict(),
+            "optim": FSDP.optim_state_dict(model, optim),
+        }
+    return state_dict
+
+
+def save_checkpoint(step: int, cfg: TrainConfig, model: FSDP, optim: torch.optim.Optimizer) -> Path:
+    checkpoint_dir = Path(cfg.save_folder) / f"step{step}"
+
+    try:
+        next(checkpoint_dir.glob("*"))
+        if cfg.save_overwrite:
+            if rank() == 0:
+                shutil.rmtree(checkpoint_dir)
+        else:
+            raise OlmoConfigurationError(
+                f"Checkpoint for step {step} already exists, use --save-overwrite to overwrite it"
+            )
+    except StopIteration:
+        pass
+
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    dist.barrier()
+
+    # Write the checkpoint.
+    checkpoint.save_state_dict(
+        get_state_dict(model, optim),  # type: ignore
+        checkpoint.FileSystemWriter(checkpoint_dir),
+    )
+
+    return checkpoint_dir
+
+
+def restore_checkpoint(load_path: Path, cfg: TrainConfig, model: FSDP, optim: torch.optim.Optimizer):
+    # Load the serialized state dict in place.
+    state_dict = get_state_dict(model, optim)
+    checkpoint.load_state_dict(
+        state_dict,  # type: ignore
+        checkpoint.FileSystemReader(load_path),
+    )
+
+    # Load into the model and optimizer.
+    with FSDP.state_dict_type(model, StateDictType.LOCAL_STATE_DICT):
+        model.load_state_dict(state_dict["model"])
+        optim_state_dict = FSDP.optim_state_dict_to_load(state_dict["optim"], model, optim)
+        optim.load_state_dict(optim_state_dict)
+
+    dist.barrier()
+
+    # TODO: restore rng states
 
 
 if __name__ == "__main__":
