@@ -201,7 +201,9 @@ class OlmoCheckpointer(CheckpointSaver):
         dirname.mkdir(parents=True, exist_ok=True)
 
         # Save state dict.
-        checkpoint.save_state_dict(self.get_state_dict(state), checkpoint.FileSystemWriter(dirname))
+        state_dict = self.get_state_dict(state)
+        state_dict["optimizers"] = state_dict["state"].pop("optimizers")  # move optimizer state to top level
+        checkpoint.save_state_dict(state_dict, checkpoint.FileSystemWriter(dirname))
 
         if dist.is_initialized():
             dist.barrier()
@@ -233,25 +235,22 @@ class OlmoCheckpointer(CheckpointSaver):
 
         # `torch.distributed.checkpoint` modifies `state_dict` in-place.
         state_dict = self.get_state_dict(state)
-        del state_dict["state"]["optimizers"]  # have to load the optimizer separately
+        del state_dict["optimizers"]  # have to load the optimizer separately
         checkpoint.load_state_dict(state_dict, checkpoint.FileSystemReader(load_path))
 
         # still need to call `load_state_dict` though.
         state.load_state_dict(state_dict["state"], trainer.logger)
 
-        # Load optim state.
+        # Load optimizer state.
         optim_state = load_sharded_optimizer_state_dict(
             model_state_dict=state_dict["state"]["model"],
-            optimizer_key="state.optimizers",
+            optimizer_key="optimizers",
             storage_reader=checkpoint.FileSystemReader(load_path),
         )
 
-        # NOTE: careful, the order of these arguments has changed since the 2.0 release. Cool!
-        # flattened_osd = FSDP.optim_state_dict_to_load(state.model, state.optimizers[0], optim_state["state"]["optimizers"])
-        flattened_osd = FSDP.optim_state_dict_to_load(
-            optim_state["state"]["optimizers"], state.model, state.optimizers[0]
-        )
-        state.optimizers[0].load_state_dict(flattened_osd)
+        # NOTE: careful, the order of these arguments has changed since the 2.0 release.
+        flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optimizers"], state.model, state.optimizers[0])
+        state.load_state_dict(flattened_osd, trainer.logger)
 
         if dist.is_initialized():
             dist.barrier()
