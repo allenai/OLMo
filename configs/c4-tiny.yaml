@@ -72,7 +72,7 @@ evaluators:
       num_workers: 4
       drop_last: true
       pin_memory: true
-      prefetch_factor: 2
+      prefetch_factor: 16
       persistent_workers: true
       timeout: 0
 
