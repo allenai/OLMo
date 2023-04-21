@@ -202,8 +202,8 @@ class OlmoCheckpointer(CheckpointSaver):
 
         # Prepare state dict.
         state_dict = self.get_state_dict(state)
-        # Move optimizer state to top level.
-        state_dict["optimizer"] = next(state_dict["state"].pop("optimizers").values())
+        # Move optimizer state to top level (we only have one optimizer).
+        state_dict["optimizer"] = next(iter(state_dict["state"].pop("optimizers").values()))
 
         # Save state dict.
         checkpoint.save_state_dict(state_dict, checkpoint.FileSystemWriter(dirname))
