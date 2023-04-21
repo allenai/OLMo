@@ -89,7 +89,8 @@ def main(cfg: TrainConfig) -> None:
     if not cfg.dry_run and cfg.load_path is None:
         # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever)
         log.info("Saving pre-train checkpoint...")
-        save_checkpoint(0, cfg, fsdp_model, optim)
+        checkpoint_path = save_checkpoint(0, cfg, fsdp_model, optim)
+        log.info(f"Checkpoint saved to {checkpoint_path}")
 
     if cfg.load_path is not None:
         log.info(f"Loading checkpoint from {cfg.load_path}...")
@@ -108,12 +109,10 @@ def local_rank() -> int:
 
 def get_state_dict(model: FSDP, optim: torch.optim.Optimizer) -> Mapping[str, Any]:
     # TODO: include rng states
-    with FSDP.state_dict_type(model, StateDictType.LOCAL_STATE_DICT):
-        state_dict = {
-            "model": model.state_dict(),
-            "optim": FSDP.optim_state_dict(model, optim),
-        }
-    return state_dict
+    return {
+        "model": model.state_dict(),
+        "optim": FSDP.optim_state_dict(model, optim),
+    }
 
 
 def save_checkpoint(step: int, cfg: TrainConfig, model: FSDP, optim: torch.optim.Optimizer) -> Path:
@@ -135,6 +134,7 @@ def save_checkpoint(step: int, cfg: TrainConfig, model: FSDP, optim: torch.optim
     dist.barrier()
 
     # Write the checkpoint.
+    FSDP.set_state_dict_type(model, state_dict_type=StateDictType.LOCAL_STATE_DICT)
     checkpoint.save_state_dict(
         get_state_dict(model, optim),  # type: ignore
         checkpoint.FileSystemWriter(checkpoint_dir),
@@ -144,6 +144,10 @@ def save_checkpoint(step: int, cfg: TrainConfig, model: FSDP, optim: torch.optim
 
 
 def restore_checkpoint(load_path: Path, cfg: TrainConfig, model: FSDP, optim: torch.optim.Optimizer):
+    del cfg
+
+    FSDP.set_state_dict_type(model, state_dict_type=StateDictType.LOCAL_STATE_DICT)
+
     # Load the serialized state dict in place.
     state_dict = get_state_dict(model, optim)
     checkpoint.load_state_dict(
@@ -152,10 +156,9 @@ def restore_checkpoint(load_path: Path, cfg: TrainConfig, model: FSDP, optim: to
     )
 
     # Load into the model and optimizer.
-    with FSDP.state_dict_type(model, StateDictType.LOCAL_STATE_DICT):
-        model.load_state_dict(state_dict["model"])
-        optim_state_dict = FSDP.optim_state_dict_to_load(state_dict["optim"], model, optim)
-        optim.load_state_dict(optim_state_dict)
+    model.load_state_dict(state_dict["model"])
+    optim_state_dict = FSDP.optim_state_dict_to_load(state_dict["optim"], model, optim)
+    optim.load_state_dict(optim_state_dict)
 
     dist.barrier()
 
