@@ -56,8 +56,10 @@ def format_c4(row: dict):
     length = count_words(text)
 
     # c4 timestamp is '2019-12-31T23:59:59Z'; we strip the Z
-    created_string = (row.get("meta", {}).get("timestamp", "") or RP_RELEASE_TIME).rstrip("Z")
-    created = datetime.strptime(created_string, RP_TIME_FORMAT).strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
+    created_string = (row.get("meta", {}).get(
+        "timestamp", "") or RP_RELEASE_TIME).rstrip("Z")
+    created = datetime.strptime(created_string, RP_TIME_FORMAT).strftime(
+        "%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
     added = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
 
     reshaped = {
@@ -77,8 +79,10 @@ def format_arxiv(row: dict):
     length = count_words(text)
 
     # arxiv timestamp is '2019-12-31T23:59:59'
-    created_string = row.get("meta", {}).get("timestamp", "") or RP_RELEASE_TIME
-    created = datetime.strptime(created_string, RP_TIME_FORMAT).strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
+    created_string = row.get("meta", {}).get(
+        "timestamp", "") or RP_RELEASE_TIME
+    created = datetime.strptime(created_string, RP_TIME_FORMAT).strftime(
+        "%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
     added = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
 
     reshaped = {
@@ -99,7 +103,8 @@ def format_github(row: dict):
 
     # github has no date, so we use the release date
     created_string = RP_RELEASE_TIME
-    created = datetime.strptime(created_string, RP_TIME_FORMAT).strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
+    created = datetime.strptime(created_string, RP_TIME_FORMAT).strftime(
+        "%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
     added = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
 
     reshaped = {
@@ -120,14 +125,16 @@ def format_wiki(row: dict):
     length = count_words(text)
 
     # wiki only has date and it's YYYYMMDD, no '-'
-    created_string = row.get("meta", {}).get("timestamp", "") or RP_RELEASE_TIME.split('T')[0].replace('-', '')
-    created = datetime.strptime(created_string, '%Y%m%d').strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
+    created_string = row.get("meta", {}).get(
+        "timestamp", "") or RP_RELEASE_TIME.split('T')[0].replace('-', '')
+    created = datetime.strptime(created_string, '%Y%m%d').strftime(
+        "%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
     added = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
 
     reshaped = {
         "id": hashlib.sha1(text.encode("utf-8")).hexdigest(),
         "text": text,
-        "source": "redpajama/wiki",
+        "source": "redpajama/wikipedia",
         "version": "v0",
         "added": added,
         "created": created,
@@ -143,8 +150,11 @@ def format_books(row: dict):
     length = count_words(text)
 
     # books only have year
-    created_string = row.get("meta", {}).get("publication_date", "") or RP_RELEASE_TIME.split('-')[0]
-    created = datetime.strptime(created_string, "%Y").strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
+    created_string = str(
+        row.get("meta", {}).get("publication_date", "")
+    ) or RP_RELEASE_TIME.split('-')[0]
+    created = datetime.strptime(created_string, "%Y").strftime(
+        "%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
 
     reshaped = {
         "id": hashlib.sha1(text.encode("utf-8")).hexdigest(),
@@ -164,8 +174,10 @@ def format_stackexchange(row: dict):
     length = count_words(text)
 
     # stack exchange only has date and it's YYYY-MM-DD
-    created_string = row.get("meta", {}).get("timestamp", "") or RP_RELEASE_TIME.split('T')[0]
-    created = datetime.strptime(created_string, '%Y-%m-%d').strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
+    created_string = row.get("meta", {}).get(
+        "timestamp", "") or RP_RELEASE_TIME.split('T')[0]
+    created = datetime.strptime(
+        created_string, '%Y-%m-%d').strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
     added = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
 
     reshaped = {
@@ -186,7 +198,8 @@ def format_commoncrawl(row: dict):
 
     # common crawl is YYYY-WW (week of year)
     _, created_string, *_ = row['source'].split('/')
-    created = datetime.strptime(f'{created_string}-0', '%Y-%W-%w').strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
+    created = datetime.strptime(
+        f'{created_string}-0', '%Y-%W-%w').strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
     added = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
 
     reshaped = {
@@ -202,69 +215,134 @@ def format_commoncrawl(row: dict):
     return reshaped
 
 
-def process_single(paths: Tuple[str, str], pbar_queue: Optional['Queue[Union[None, Progress]]'] = None):
-    src, dst = paths
+class ProcessPath(NamedTuple):
+    src_prefix: str
+    dst_prefix: str
+    src_filename: str
+    dst_filename: str
 
-    sleep(random.random())  # add a bit of delay between processes
+    @property
+    def src(self):
+        return f'{self.src_prefix.rstrip("/")}/{self.src_filename.lstrip("/")}'
+
+    @property
+    def train(self):
+        return f'{self.dst_prefix.rstrip("/")}/split=train/{self.dst_filename.lstrip("/")}'
+
+    @property
+    def test(self):
+        return f'{self.dst_prefix.rstrip("/")}/split=test/{self.dst_filename.lstrip("/")}'
+
+    @property
+    def valid(self):
+        return f'{self.dst_prefix.rstrip("/")}/split=valid/{self.dst_filename.lstrip("/")}'
+
+    @classmethod
+    def parse(cls, src: str, src_prefix: str, dst_prefix: str):
+        dst_fn = src_fn = (MultiPath.parse(
+            src) - MultiPath.parse(src_prefix)).as_str
+        return cls(src_prefix, dst_prefix, src_fn, dst_fn)
+
+
+def process_single(
+    path: ProcessPath,
+    pbar_queue: Optional['Queue[Union[None, Progress]]'] = None
+):
+    # add a bit of delay between processes
+    sleep(random.random() * 5.)
 
     cnt_part = cnt_words = cnt_docs = 0
 
-    dst_base, dst_fn = dst.rsplit('/', 1)
-    dst_fn, dst_ext = dst_fn.split('.', 1)
-
-    def _dst(p: int):
-        return f'{dst_base}/{dst_fn}_{p:05d}.{dst_ext}'
+    def _dst(p: int, d: str):
+        dst_base, dst_fn = d.rsplit('/', 1)
+        dst_fn, dst_ext = dst_fn.split('.jsonl', 1)
+        return f'{dst_base}/{dst_fn}_{p:05X}.jsonl{dst_ext}'
 
     input_stream: TextIO
-    output_stream: TextIO
+    train_stream: TextIO
 
-    with ExitStack() as input_stack, ExitStack() as output_stack:
-        _input_stream = input_stack.enter_context(open_file_for_read(src, "rb"))
+    with ExitStack() as single_streams, ExitStack() as part_streams:
+        _input_stream = single_streams.enter_context(
+            open_file_for_read(path.src, "rb"))
 
-        if src.endswith(".gz") or src.endswith(".gzip"):
-            input_stream = input_stack.enter_context(gzip.open(_input_stream, "rt"))
-        elif src.endswith(".zst"):
-            input_stream = input_stack.enter_context(zstandard.open(_input_stream, "rt"))
+        if path.src.endswith(".gz") or path.src.endswith(".gzip"):
+            input_stream = single_streams.enter_context(
+                gzip.open(_input_stream, "rt"))     # pyright: ignore
+        elif path.src.endswith(".zst"):
+            input_stream = single_streams.enter_context(
+                zstandard.open(_input_stream, "rt"))    # pyright: ignore
         else:
-            input_stream = input_stack.enter_context(open(_input_stream, "rt"))
+            input_stream = single_streams.enter_context(
+                open(_input_stream, "rt"))   # pyright: ignore
 
-        _output_stream = output_stack.enter_context(open_file_for_write(_dst(cnt_part), "wb"))
-        output_stream = output_stack.enter_context(gzip.open(_output_stream, "wt"))     # pyright: ignore
+        _train_stream = part_streams.enter_context(
+            open_file_for_write(_dst(p=cnt_part, d=path.train), "wb"))
+        train_stream = part_streams.enter_context(
+            gzip.open(_train_stream, "wt"))     # pyright: ignore
 
-        if 'common_crawl' in src:
+        _valid_stream = single_streams.enter_context(
+            open_file_for_write(path.valid, "wb"))
+        valid_stream = single_streams.enter_context(
+            gzip.open(_valid_stream, "wt"))     # pyright: ignore
+
+        _test_stream = single_streams.enter_context(
+            open_file_for_write(path.test, "wb"))
+        test_stream = single_streams.enter_context(
+            gzip.open(_test_stream, "wt"))     # pyright: ignore
+
+        if 'common_crawl/' in path.src:
             reshape_fn = format_commoncrawl
-        elif 'arxiv' in src:
+        elif 'arxiv/' in path.src:
             reshape_fn = format_arxiv
-        elif 'stackexchange' in src:
+        elif 'stackexchange/' in path.src:
             reshape_fn = format_stackexchange
-        elif 'books' in src:
+        elif 'book/' in path.src:
             reshape_fn = format_books
-        elif 'c4' in src:
+        elif 'c4/' in path.src:
             reshape_fn = format_c4
-        elif 'wiki' in src:
+        elif 'wikipedia/' in path.src:
             reshape_fn = format_wiki
-        elif 'github' in src:
+        elif 'github/' in path.src:
             reshape_fn = format_github
         else:
-            raise ValueError(f'Unknown source: {src}')
+            raise ValueError(f'Unknown source: {path.src}')
 
-        for i, ln in enumerate(input_stream):
+        i = 0
+        while True:
+            try:
+                ln = next(input_stream)
+            except StopIteration:
+                break
+            except Exception as e:
+                print(f"\n\nError parsing {path.src}:{i} ({e})\n\n")
+                return
+
             try:
                 data = json.loads(ln)
             except Exception as e:
-                raise ValueError(f"Error parsing {src}:{i}") from e
+                print(f"\n\nJSON Error parsing {path.src}:{i} ({e})\n\n")
+                return
 
             reshaped = reshape_fn(data)
-            output_stream.write(json.dumps(reshaped) + "\n")
+
+            if reshaped['id'][:3] in {'fff', 'ffe'}:
+                test_stream.write(json.dumps(reshaped) + "\n")
+            elif reshaped['id'][:3] in {'ffd', 'ffc'}:
+                valid_stream.write(json.dumps(reshaped) + "\n")
+            else:
+                train_stream.write(json.dumps(reshaped) + "\n")
 
             # split into 1GB files
-            if output_stream.tell() > 1_000_000_000:
-                output_stream.close()
-                _output_stream.close()
-                output_stack.pop_all().close()
+            if _train_stream.tell() > 1_000_000_000:
+                train_stream.close()
+                _train_stream.close()
+                part_streams.pop_all().close()
                 cnt_part += 1
-                _output_stream = output_stack.enter_context(open_file_for_write(_dst(cnt_part), "wb"))
-                output_stream = output_stack.enter_context(gzip.open(_output_stream, "wt"))     # pyright: ignore
+                _train_stream = part_streams.enter_context(
+                    open_file_for_write(_dst(p=cnt_part, d=path.train), "wb")
+                )
+                train_stream = part_streams.enter_context(
+                    gzip.open(_train_stream, "wt"))     # pyright: ignore
 
             # update progress bar every 1000 docs
             if cnt_docs > 1000 and pbar_queue:
@@ -275,14 +353,17 @@ def process_single(paths: Tuple[str, str], pbar_queue: Optional['Queue[Union[Non
             cnt_docs += 1
 
     if pbar_queue:
-        pbar_queue.put(Progress.new(d=cnt_docs, w=cnt_words))
+        pbar_queue.put(Progress.new(f=1, d=cnt_docs, w=cnt_words))
 
 
 def threaded_progressbar(q: 'Queue[Union[None, Progress]]', timeout: float, total_files: Optional[int] = None):
     with ExitStack() as stack:
-        files_pbar = stack.enter_context(tqdm(desc=" Files", unit="files", position=0, total=total_files))
-        docs_pbar = stack.enter_context(tqdm(desc="  Docs", unit=" docs", position=1, unit_scale=True))
-        tokens_pbar = stack.enter_context(tqdm(desc="Tokens", unit=" tokens", position=2, unit_scale=True))
+        files_pbar = stack.enter_context(
+            tqdm(desc=" Files", unit="f", position=0, total=total_files))
+        docs_pbar = stack.enter_context(
+            tqdm(desc="  Docs", unit="d", position=1, unit_scale=True))
+        tokens_pbar = stack.enter_context(
+            tqdm(desc="Tokens", unit="t", position=2, unit_scale=True))
         while True:
             item = q.get()
             if item is None:
@@ -297,25 +378,23 @@ def threaded_progressbar(q: 'Queue[Union[None, Progress]]', timeout: float, tota
 
 @sp.cli(Config)
 def main(cfg: Config):
+    random.seed(0)
 
-    src, dst = MultiPath.parse(cfg.src), MultiPath.parse(cfg.dst)
-    files = recursively_list_files(src)
+    # files = [
+    #     's3://ai2-llm/pretraining-data/sources/redpajama/raw/data/arxiv/arxiv_73241940-66c1-481c-b53a-f5e8b9afe9fa.jsonl.gz',
+    #     's3://ai2-llm/pretraining-data/sources/redpajama/raw/data/c4/c4-train.00857-of-01024.jsonl.gz',
+    #     's3://ai2-llm/pretraining-data/sources/redpajama/raw/data/github/filtered_216883d3a669406699428bc485a4c228.sampled.jsonl.gz',
+    #     's3://ai2-llm/pretraining-data/sources/redpajama/raw/data/common_crawl/2023-06/en_middle_0104.json.gz.dedup.classifier.jsonl.zst',
+    # ]
 
-    files = [
-        's3://ai2-llm/pretraining-data/sources/redpajama/raw/data/arxiv/arxiv_73241940-66c1-481c-b53a-f5e8b9afe9fa.jsonl.gz',
-        # 's3://ai2-llm/pretraining-data/sources/redpajama/raw/data/book/book.jsonl.gz',
-        # 's3://ai2-llm/pretraining-data/sources/redpajama/raw/data/stackexchange/stackexchange.jsonl.gz',
-        # 's3://ai2-llm/pretraining-data/sources/redpajama/raw/data/wikipedia/wiki.jsonl.gz',
-        's3://ai2-llm/pretraining-data/sources/redpajama/raw/data/c4/c4-train.00857-of-01024.jsonl.gz',
-        's3://ai2-llm/pretraining-data/sources/redpajama/raw/data/github/filtered_216883d3a669406699428bc485a4c228.sampled.jsonl.gz',
-        's3://ai2-llm/pretraining-data/sources/redpajama/raw/data/common_crawl/2023-06/en_middle_0104.json.gz.dedup.classifier.jsonl.zst',
+    all_paths = [
+        ProcessPath.parse(src=p, src_prefix=cfg.src, dst_prefix=cfg.dst)
+        for p in recursively_list_files(cfg.src)
     ]
-
-    all_src = [MultiPath.parse(p) for p in files]
-    all_paths = [(str(p), str(dst / (p - src))) for p in all_src]
+    random.shuffle(all_paths)
 
     if cfg.debug:
-        with tqdm(total=len(all_src)) as pbar:
+        with tqdm(total=len(all_paths)) as pbar:
             for path in all_paths:
                 process_single(path)
                 pbar.update(1)
@@ -326,7 +405,7 @@ def main(cfg: Config):
             pbar_queue: 'Queue[Union[None, Progress]]' = (manager := Manager()).Queue()
             pbar_thread = Thread(
                 target=threaded_progressbar,
-                args=(pbar_queue, 0.1, len(all_src)),
+                args=(pbar_queue, 0.01, len(all_paths)),
                 daemon=True,
             )
             pbar_thread.start()
