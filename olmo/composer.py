@@ -235,7 +235,7 @@ class OlmoCheckpointer(CheckpointSaver):
 
         # `torch.distributed.checkpoint` modifies `state_dict` in-place.
         state_dict = self.get_state_dict(state)
-        del state_dict["optimizers"]  # have to load the optimizer separately
+        del state_dict["state"]["optimizers"]  # have to load the optimizer separately
         checkpoint.load_state_dict(state_dict, checkpoint.FileSystemReader(load_path))
 
         # still need to call `load_state_dict` though.
