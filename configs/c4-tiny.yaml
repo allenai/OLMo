@@ -58,6 +58,24 @@ data:
   persistent_workers: true
   timeout: 0
 
+eval_interval: ${save_interval}
+evaluators:
+  - label: c4-validation
+    metric_names:
+      - Perplexity
+      - CrossEntropy
+    device_eval_microbatch_size: ${device_train_microbatch_size}
+    subset_num_batches: 5
+    data:
+      paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
+      pad_direction: right
+      num_workers: 4
+      drop_last: true
+      pin_memory: true
+      prefetch_factor: 16
+      persistent_workers: true
+      timeout: 0
+
 tokenizer:
   identifier: gpt2
   truncate_direction: right
