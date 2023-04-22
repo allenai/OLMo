@@ -1,15 +1,11 @@
 import gzip
 import itertools
-import json
 import multiprocessing
 import os
 import random
-from string import punctuation
-import unicodedata
 from contextlib import ExitStack
-from functools import partial
-from tempfile import TemporaryDirectory, NamedTemporaryFile
-from typing import List, Literal, Optional, Union
+from tempfile import NamedTemporaryFile
+from typing import Generator, List, Literal, Optional, Union, cast
 
 from tokenizers import (
     Regex,
@@ -20,111 +16,169 @@ from tokenizers import (
     pre_tokenizers,
     trainers,
 )
+import msgspec
 import springs as sp
 from smashed.utils.io_utils import (
     open_file_for_read,
     open_file_for_write,
     recursively_list_files,
 )
-import tqdm
 
 
 def is_gzip_file(path: str) -> bool:
     return path.endswith(".gz") or path.endswith(".gzip")
 
 
-def load_jsonl(input_path, quiet=False) -> list:
-    """
-    Read list of objects from a JSON lines file.
-    """
-    data = []
-    mode = "rb" if is_gzip_file(input_path) else "r"
-
-    with ExitStack() as stack:
-        stream = stack.enter_context(open_file_for_read(input_path, mode=mode))
-
-        if is_gzip_file(input_path):
-            stream = stack.enter_context(gzip.open(stream, mode="rt"))
-
-        for line in stream:
-            data.append(json.loads(line.rstrip("\n|\r")))  # type: ignore
-
-    print(f"Loaded {len(data):,} records from {input_path}") if not quiet else None
-    return data
+class JsonDoc(msgspec.Struct):
+    text: str
 
 
-def load_text(input_path, quiet=False) -> list:
-    """
-    Read list of objects from a JSON lines file.
-    """
-    data = []
-    mode = "rb" if is_gzip_file(input_path) else "r"
+class DataReader:
+    def __init__(
+        self,
+        seed: int = 0,
+        sample: Union[float, None] = None,
+        quiet: bool = True,
+        data_format: Literal["jsonl", "text"] = "jsonl",
 
-    with ExitStack() as stack:
-        stream = stack.enter_context(open_file_for_read(input_path, mode=mode))
+        min_sentence_length: int = 0,
+    ) -> None:
+        self.seed = seed
+        self.sample = sample
+        self.quiet = quiet
+        self.file_type = data_format
+        self.cnt = 0
+        self.min_sentence_length = min_sentence_length
 
-        if is_gzip_file(input_path):
-            stream = stack.enter_context(gzip.open(stream, mode="rt"))
+    def increment(self) -> None:
+        self.cnt += 1
 
-        data = [{"text": line} for line in stream]
+    def should_sample(self) -> bool:
+        if self.sample is None:
+            return True
+        elif self.sample < 1.0:
+            return random.random() < self.sample
+        else:
+            return self.cnt < self.sample
 
-    print(f"Loaded {len(data):,} records from {input_path}") if not quiet else None
-    return data
+    def read_json(self, s: str) -> JsonDoc:
+        return msgspec.json.decode(s, type=JsonDoc)
+
+    def read_text(self, s: str) -> JsonDoc:
+        return JsonDoc(text=s)
+
+    def post_process(self, text: str) -> Union[str, None]:
+        text = text.replace("\x00", " ").strip()
+
+        if self.min_sentence_length > 0 and len(text) >= self.min_sentence_length:
+            return text
+
+        return None
+
+    def __call__(self, input_path: str) -> Generator[str, None, None]:
+        mode = "rb" if is_gzip_file(input_path) else "r"
+
+        fn = self.read_json if self.file_type == "jsonl" else self.read_text
+
+        with ExitStack() as stack:
+            stream = stack.enter_context(open_file_for_read(input_path, mode=mode))
+
+            if is_gzip_file(input_path):
+                stream = stack.enter_context(gzip.open(stream, mode="rt"))
+
+            for line in stream:
+                if not self.should_sample():
+                    continue
+
+                doc = fn(cast(str, line))
+                if (post := self.post_process(doc.text)) is not None:
+                    yield post
+
+        self.print_done(input_path)
+
+    def print_done(self, input_path: str) -> None:
+        print(f"Loaded {self.cnt:,} records from {input_path}") if not self.quiet else None
 
 
-def json_iterator(
-    input_dir: Union[str, List[str]],
-    text_key="text",
-    normalization: Literal["NFC", "NFKC", "NFD", "NFKD", None] = "NFC",
-    data_format: Literal["jsonl", "text"] = "jsonl",
-    sample: Optional[float] = None,
-    quiet: bool = True,
-    min_sentence_length: int = 0,
-):
+def make_bpe_tokenizer(vocab_size: int, normalization: str = 'NFC'):
+    model = models.BPE(byte_fallback=True)
+    tokenizer = Tokenizer(model)
+
+    tokenizer.normalizer = getattr(normalizers, normalization)()     # type: ignore
+
+    tokenizer.pre_tokenizer = pre_tokenizers.Sequence(  # type: ignore
+        [
+            # Split on all punctuation.
+            pre_tokenizers.Split(
+                pattern=Regex(" ?[[:punct:]]"),
+                behavior="isolated",
+                invert=False,
+            ),
+            # Split up digits.
+            pre_tokenizers.Split(
+                pattern=Regex(" ?\\d"),
+                behavior="isolated",
+                invert=False,
+            ),
+            pre_tokenizers.ByteLevel(add_prefix_space=False, use_regex=True),
+        ]
+    )
+    tokenizer.decoder = decoders.Sequence([     # type: ignore
+        decoders.ByteFallback(),
+        decoders.ByteLevel(add_prefix_space=False, use_regex=True),     # type: ignore
+    ])
+
+    trainer = trainers.BpeTrainer(    # type: ignore
+        vocab_size=vocab_size - 2,
+        special_tokens=[],
+        initial_alphabet=pre_tokenizers.ByteLevel.alphabet()
+    )
+
+    return tokenizer, trainer
+
+
+def make_unigram_tokenizer(vocab_size: int, normalization: str = 'NFC'):
+    model = models.Unigram(None)
+    tokenizer = Tokenizer(model)
+
+    tokenizer.normalizer = getattr(normalizers, normalization)()     # type: ignore
+
+    tokenizer.pre_tokenizer = pre_tokenizers.Sequence(  # type: ignore
+        [
+            pre_tokenizers.Metaspace(add_prefix_space=False),
+            pre_tokenizers.Split(
+                pattern=Regex("▁?[[:punct:]]"),
+                behavior="isolated",
+                invert=False,
+            ),
+            pre_tokenizers.Split(
+                pattern=Regex("▁?\\d"),
+                behavior="isolated",
+                invert=False,
+            )
+        ]
+    )
+    tokenizer.decoder = decoders.Metaspace()  # type: ignore
+
+    trainer = trainers.UnigramTrainer(  # type: ignore
+        vocab_size=vocab_size - 2,
+        special_tokens=[],
+        initial_alphabet=["▁", *(chr(x) for x in range(256))]   # type: ignore
+    )
+
+    return tokenizer, trainer
+
+
+def get_data_iterator(reader: DataReader, input_dir: Union[str, List[str]], seed: int = 0):
     if isinstance(input_dir, str):
         input_dir = [input_dir]
 
-    all_jsonls = sorted(itertools.chain.from_iterable(recursively_list_files(d) for d in input_dir))
-    random.shuffle(all_jsonls)
-    total_cnt = 0
+    random.seed(seed)
+    all_files = sorted(itertools.chain.from_iterable(recursively_list_files(d) for d in input_dir))
+    random.shuffle(all_files)
 
-    files_pbar = tqdm.tqdm(total=len(all_jsonls), desc="Source files", position=0, unit="f", unit_scale=True)
-    records_pbar = tqdm.tqdm(total=0, desc="Records", position=1, unit="r", unit_scale=True)
-
-    for j in all_jsonls:
-        current_cnt = 0
-
-        if sample is not None and sample >= 1 and total_cnt >= sample:
-            break
-
-        data = load_jsonl(j, quiet=quiet) if data_format == "jsonl" else load_text(j, quiet=quiet)
-
-        for doc in data:
-            if sample is not None:
-                if sample < 1.0 and random.random() > sample:
-                    continue
-                elif sample >= 1.0 and total_cnt >= sample:
-                    break
-
-            text = doc[text_key]
-            if normalization is not None:
-                text = unicodedata.normalize(normalization, text)
-
-            # replace null characters with spaces
-            text = text.replace("\x00", " ").strip()
-
-            if min_sentence_length > 0 and len(text) >= min_sentence_length:
-                yield text
-
-            total_cnt += 1
-            current_cnt += 1
-            records_pbar.update(1)
-
-        print(f"Sampled {current_cnt:,} records from {j}") if (not quiet and sample is not None) else None
-        files_pbar.update(1)
-
-    print(f"Processed {total_cnt:,} total records") if not quiet else None
-    print('\n' * 2)
+    for f in all_files:
+        yield from reader(f)
 
 
 @sp.dataclass
@@ -150,18 +204,16 @@ class TrainConfig:
     # max_sentence_length: int = 10_000
     sample: Optional[float] = None
     random_seed: int = 42
+    num_processes: int = 1
     data_format: str = sp.field(default="jsonl", help="Choose between jsonl (default) or text.")
     debug: bool = False
 
 
 @sp.cli(TrainConfig)
 def train_tokenizer(config: TrainConfig):
-    # set the seed for reproducibility
-    random.seed(config.random_seed)
+    input_dir = config.input_dir or config.input_dirs
 
-    assert (
-        config.input_dir is not None or config.input_dirs is not None
-    ), "Must specify either input_dir or input_dirs"
+    assert input_dir is not None, "Must specify either input_dir or input_dirs"
     assert config.normalization in [
         "NFC",
         "NFKC",
@@ -170,93 +222,23 @@ def train_tokenizer(config: TrainConfig):
     ], "Normalization must be one of NFC, NFKC, NFD, NFKD"
     assert config.data_format in ["jsonl", "text"], "Data format must be one of jsonl or text"
 
-    assert config.model in ['BPE', 'Unigram'], "Model must be one of BPE or Unigram"
+    if config.model == 'BPE':
+        tokenizer, trainer = make_bpe_tokenizer(config.vocab_size, config.normalization)
+    elif config.model == 'Unigram':
+        tokenizer, trainer = make_unigram_tokenizer(config.vocab_size, config.normalization)
+    else:
+        raise ValueError(f"Unknown model {config.model}")
 
-    _json_iterator = partial(
-        json_iterator,
-        normalization=config.normalization,  # pyright: ignore
+    reader = DataReader(
+        seed=config.random_seed,
         sample=config.sample,
-        data_format=config.data_format,  # pyright: ignore
-        min_sentence_length=config.min_sentence_length,  # pyright: ignore
+        quiet=True,
+        data_format=config.data_format,     # type: ignore
+        min_sentence_length=config.min_sentence_length
     )
+    data_iterator = get_data_iterator(reader=reader, input_dir=input_dir, seed=config.random_seed)
 
-    # Initialize tokenizer object.
-    if config.model == "BPE":
-        model = models.BPE(byte_fallback=True)
-    else:
-        model = models.Unigram(None)
-
-    tokenizer = Tokenizer(model)
-    tokenizer.normalizer = getattr(normalizers, config.normalization)()     # type: ignore
-
-    if config.model == "BPE":
-        tokenizer.pre_tokenizer = pre_tokenizers.Sequence(  # type: ignore
-            [
-                # Split on all punctuation.
-                pre_tokenizers.Split(
-                    pattern=Regex(" ?[[:punct:]]"),
-                    behavior="isolated",
-                    invert=False,
-                ),
-                # Split up digits.
-                pre_tokenizers.Split(
-                    pattern=Regex(" ?\\d"),
-                    behavior="isolated",
-                    invert=False,
-                ),
-                pre_tokenizers.ByteLevel(add_prefix_space=False, use_regex=True),
-            ]
-        )
-        tokenizer.decoder = decoders.Sequence([     # type: ignore
-            decoders.ByteFallback(),
-            decoders.ByteLevel(add_prefix_space=False, use_regex=True),
-        ])
-
-        trainer = trainers.BpeTrainer(    # type: ignore
-            vocab_size=config.vocab_size - 2,
-            special_tokens=[],
-            initial_alphabet=pre_tokenizers.ByteLevel.alphabet()
-        )
-    else:
-        tokenizer.pre_tokenizer = pre_tokenizers.Sequence(  # type: ignore
-            [
-                pre_tokenizers.Metaspace(add_prefix_space=False),
-                pre_tokenizers.Split(
-                    pattern=Regex("▁?[[:punct:]]"),
-                    behavior="isolated",
-                    invert=False,
-                ),
-                pre_tokenizers.Split(
-                    pattern=Regex("▁?\\d"),
-                    behavior="isolated",
-                    invert=False,
-                )
-            ]
-        )
-        tokenizer.decoder = decoders.Metaspace()  # type: ignore
-
-        trainer = trainers.UnigramTrainer(  # type: ignore
-            vocab_size=config.vocab_size - 2,
-            special_tokens=[],
-            initial_alphabet=["▁", *(chr(x) for x in range(256))]
-        )
-
-    print("\nDry run for iterating over the data...")
-    i = 0
-    for t in _json_iterator(config.input_dir or config.input_dirs):  # pyright: ignore
-        if i == 10:
-            break
-        print(repr(t[:40]) + '...')
-        i += 1
-    if i == 0:
-        raise ValueError("No data found. Please check your input path.")
-    else:
-        print(f"Successfully dry-run on {i} lines.")
-
-    tokenizer.train_from_iterator(
-        _json_iterator(config.input_dir or config.input_dirs),  # pyright: ignore
-        trainer=trainer
-    )
+    tokenizer.train_from_iterator(data_iterator, trainer=trainer)
 
     with NamedTemporaryFile(delete=False) as f:
         tokenizer.save(f.name)
@@ -265,7 +247,7 @@ def train_tokenizer(config: TrainConfig):
     print(f"Tokenizer saved at {f.name}")
 
     with open_file_for_write(config.save_path + '.json', "w") as f, open(f_name, "r") as g:
-        f.write(g.read())
+        f.write(g.read())   # type: ignore
 
     with open_file_for_write(config.save_path + "_config.yaml", "w") as f:
         f.write(sp.to_yaml(config))

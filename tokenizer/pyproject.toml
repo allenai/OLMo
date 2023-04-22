@@ -16,7 +16,8 @@ dependencies = [
     "tqdm",
     "datasets",
     "orjson",
-    "springs"
+    "springs",
+    "msgspec",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
