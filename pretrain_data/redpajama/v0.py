@@ -3,7 +3,6 @@ import hashlib
 import json
 import random
 import re
-import string
 from contextlib import ExitStack
 from datetime import datetime
 from functools import partial
@@ -11,9 +10,8 @@ from multiprocessing import Manager, Pool, set_start_method
 from queue import Queue
 from threading import Thread
 from time import sleep
-from typing import BinaryIO, List, NamedTuple, Optional, TextIO, Tuple, Union
+from typing import NamedTuple, Optional, TextIO, Union
 
-import requests
 import springs as sp
 import zstandard
 from smashed.utils.io_utils import (
@@ -23,7 +21,7 @@ from smashed.utils.io_utils import (
     recursively_list_files,
 )
 from tqdm import tqdm
-from uniseg.wordbreak import words as uniseg_get_words
+
 
 RP_RELEASE_TIME = "2023-04-17T11:00:00"
 RP_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
@@ -33,6 +31,7 @@ RP_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 class Config:
     src: str = "s3://ai2-llm/pretraining-data/sources/redpajama/raw/data"
     dst: str = "s3://ai2-llm/pretraining-data/sources/redpajama/v0/"
+    single: Optional[str] = sp.field(default=None, help="Debugging: only process this file")
     parallel: int = 1
     debug: bool = False
     raw: bool = False
@@ -293,8 +292,10 @@ def process_single(path: ProcessPath, pbar_queue: Optional["Queue[Union[None, Pr
                 print(f"\n\nError parsing {path.src}:{i} ({e})\n\n")
                 return
 
+            i += 1
+
             try:
-                data = json.loads(ln)
+                data = json.loads(ln.encode("utf-8", "ignore").decode("utf-8"))
             except Exception as e:
                 print(f"\n\nJSON Error parsing {path.src}:{i} ({e})\n\n")
                 return
@@ -302,9 +303,9 @@ def process_single(path: ProcessPath, pbar_queue: Optional["Queue[Union[None, Pr
             reshaped = reshape_fn(data)
 
             if reshaped["id"][:3] in {"fff", "ffe"}:
-                test_stream.write(json.dumps(reshaped) + "\n")
+                test_stream.write(json.dumps(reshaped) + "\n")      # pyright: ignore
             elif reshaped["id"][:3] in {"ffd", "ffc"}:
-                valid_stream.write(json.dumps(reshaped) + "\n")
+                valid_stream.write(json.dumps(reshaped) + "\n")     # pyright: ignore
             else:
                 train_stream.write(json.dumps(reshaped) + "\n")
 
@@ -352,17 +353,14 @@ def threaded_progressbar(q: "Queue[Union[None, Progress]]", timeout: float, tota
 def main(cfg: Config):
     random.seed(0)
 
-    # files = [
-    #     's3://ai2-llm/pretraining-data/sources/redpajama/raw/data/arxiv/arxiv_73241940-66c1-481c-b53a-f5e8b9afe9fa.jsonl.gz',
-    #     's3://ai2-llm/pretraining-data/sources/redpajama/raw/data/c4/c4-train.00857-of-01024.jsonl.gz',
-    #     's3://ai2-llm/pretraining-data/sources/redpajama/raw/data/github/filtered_216883d3a669406699428bc485a4c228.sampled.jsonl.gz',
-    #     's3://ai2-llm/pretraining-data/sources/redpajama/raw/data/common_crawl/2023-06/en_middle_0104.json.gz.dedup.classifier.jsonl.zst',
-    # ]
-
-    all_paths = [
-        ProcessPath.parse(src=p, src_prefix=cfg.src, dst_prefix=cfg.dst) for p in recursively_list_files(cfg.src)
-    ]
-    random.shuffle(all_paths)
+    if cfg.single:
+        all_paths = [ProcessPath.parse(src=cfg.single, src_prefix=cfg.src, dst_prefix=cfg.dst)]
+    else:
+        all_paths = [
+            ProcessPath.parse(src=p, src_prefix=cfg.src, dst_prefix=cfg.dst)
+            for p in recursively_list_files(cfg.src)
+        ]
+        random.shuffle(all_paths)
 
     if cfg.debug:
         with tqdm(total=len(all_paths)) as pbar:
