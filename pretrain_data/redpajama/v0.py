@@ -1,5 +1,6 @@
 import gzip
 import hashlib
+import json
 import random
 import re
 import string
@@ -12,14 +13,17 @@ from threading import Thread
 from time import sleep
 from typing import BinaryIO, List, NamedTuple, Optional, TextIO, Tuple, Union
 
-import json
-import zstandard
 import requests
 import springs as sp
-from smashed.utils.io_utils import open_file_for_write, MultiPath, recursively_list_files, open_file_for_read
+import zstandard
+from smashed.utils.io_utils import (
+    MultiPath,
+    open_file_for_read,
+    open_file_for_write,
+    recursively_list_files,
+)
 from tqdm import tqdm
 from uniseg.wordbreak import words as uniseg_get_words
-
 
 RP_RELEASE_TIME = "2023-04-17T11:00:00"
 RP_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
@@ -36,7 +40,7 @@ class Config:
 
 def count_words(text: str) -> int:
     # length is calculated using a regex that splits on whitespace
-    return re.sub(r"\s+", " ", text).count(' ')
+    return re.sub(r"\s+", " ", text).count(" ")
 
 
 class Progress(NamedTuple):
@@ -51,15 +55,12 @@ class Progress(NamedTuple):
 
 
 def format_c4(row: dict):
-
     text: str = row.pop("text")
     length = count_words(text)
 
     # c4 timestamp is '2019-12-31T23:59:59Z'; we strip the Z
-    created_string = (row.get("meta", {}).get(
-        "timestamp", "") or RP_RELEASE_TIME).rstrip("Z")
-    created = datetime.strptime(created_string, RP_TIME_FORMAT).strftime(
-        "%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
+    created_string = (row.get("meta", {}).get("timestamp", "") or RP_RELEASE_TIME).rstrip("Z")
+    created = datetime.strptime(created_string, RP_TIME_FORMAT).strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
     added = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
 
     reshaped = {
@@ -79,10 +80,8 @@ def format_arxiv(row: dict):
     length = count_words(text)
 
     # arxiv timestamp is '2019-12-31T23:59:59'
-    created_string = row.get("meta", {}).get(
-        "timestamp", "") or RP_RELEASE_TIME
-    created = datetime.strptime(created_string, RP_TIME_FORMAT).strftime(
-        "%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
+    created_string = row.get("meta", {}).get("timestamp", "") or RP_RELEASE_TIME
+    created = datetime.strptime(created_string, RP_TIME_FORMAT).strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
     added = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
 
     reshaped = {
@@ -103,8 +102,7 @@ def format_github(row: dict):
 
     # github has no date, so we use the release date
     created_string = RP_RELEASE_TIME
-    created = datetime.strptime(created_string, RP_TIME_FORMAT).strftime(
-        "%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
+    created = datetime.strptime(created_string, RP_TIME_FORMAT).strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
     added = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
 
     reshaped = {
@@ -125,10 +123,8 @@ def format_wiki(row: dict):
     length = count_words(text)
 
     # wiki only has date and it's YYYYMMDD, no '-'
-    created_string = row.get("meta", {}).get(
-        "timestamp", "") or RP_RELEASE_TIME.split('T')[0].replace('-', '')
-    created = datetime.strptime(created_string, '%Y%m%d').strftime(
-        "%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
+    created_string = row.get("meta", {}).get("timestamp", "") or RP_RELEASE_TIME.split("T")[0].replace("-", "")
+    created = datetime.strptime(created_string, "%Y%m%d").strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
     added = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
 
     reshaped = {
@@ -150,11 +146,8 @@ def format_books(row: dict):
     length = count_words(text)
 
     # books only have year
-    created_string = str(
-        row.get("meta", {}).get("publication_date", "")
-    ) or RP_RELEASE_TIME.split('-')[0]
-    created = datetime.strptime(created_string, "%Y").strftime(
-        "%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
+    created_string = str(row.get("meta", {}).get("publication_date", "")) or RP_RELEASE_TIME.split("-")[0]
+    created = datetime.strptime(created_string, "%Y").strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
 
     reshaped = {
         "id": hashlib.sha1(text.encode("utf-8")).hexdigest(),
@@ -174,10 +167,8 @@ def format_stackexchange(row: dict):
     length = count_words(text)
 
     # stack exchange only has date and it's YYYY-MM-DD
-    created_string = row.get("meta", {}).get(
-        "timestamp", "") or RP_RELEASE_TIME.split('T')[0]
-    created = datetime.strptime(
-        created_string, '%Y-%m-%d').strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
+    created_string = row.get("meta", {}).get("timestamp", "") or RP_RELEASE_TIME.split("T")[0]
+    created = datetime.strptime(created_string, "%Y-%m-%d").strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
     added = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
 
     reshaped = {
@@ -197,9 +188,8 @@ def format_commoncrawl(row: dict):
     length = count_words(text)
 
     # common crawl is YYYY-WW (week of year)
-    _, created_string, *_ = row['source'].split('/')
-    created = datetime.strptime(
-        f'{created_string}-0', '%Y-%W-%w').strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
+    _, created_string, *_ = row["source"].split("/")
+    created = datetime.strptime(f"{created_string}-0", "%Y-%W-%w").strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
     added = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
 
     reshaped = {
@@ -239,73 +229,59 @@ class ProcessPath(NamedTuple):
 
     @classmethod
     def parse(cls, src: str, src_prefix: str, dst_prefix: str):
-        dst_fn = src_fn = (MultiPath.parse(
-            src) - MultiPath.parse(src_prefix)).as_str
+        dst_fn = src_fn = (MultiPath.parse(src) - MultiPath.parse(src_prefix)).as_str
         return cls(src_prefix, dst_prefix, src_fn, dst_fn)
 
 
-def process_single(
-    path: ProcessPath,
-    pbar_queue: Optional['Queue[Union[None, Progress]]'] = None
-):
+def process_single(path: ProcessPath, pbar_queue: Optional["Queue[Union[None, Progress]]"] = None):
     # add a bit of delay between processes
-    sleep(random.random() * 5.)
+    sleep(random.random() * 5.0)
 
     cnt_part = cnt_words = cnt_docs = 0
 
     def _dst(p: int, d: str):
-        dst_base, dst_fn = d.rsplit('/', 1)
-        dst_fn, dst_ext = dst_fn.split('.jsonl', 1)
-        return f'{dst_base}/{dst_fn}_{p:05X}.jsonl{dst_ext}'
+        dst_base, dst_fn = d.rsplit("/", 1)
+        dst_fn, dst_ext = dst_fn.split(".jsonl", 1)
+        return f"{dst_base}/{dst_fn}_{p:05X}.jsonl{dst_ext}"
 
     input_stream: TextIO
     train_stream: TextIO
 
     with ExitStack() as single_streams, ExitStack() as part_streams:
-        _input_stream = single_streams.enter_context(
-            open_file_for_read(path.src, "rb"))
+        _input_stream = single_streams.enter_context(open_file_for_read(path.src, "rb"))
 
         if path.src.endswith(".gz") or path.src.endswith(".gzip"):
-            input_stream = single_streams.enter_context(
-                gzip.open(_input_stream, "rt"))     # pyright: ignore
+            input_stream = single_streams.enter_context(gzip.open(_input_stream, "rt"))  # pyright: ignore
         elif path.src.endswith(".zst"):
-            input_stream = single_streams.enter_context(
-                zstandard.open(_input_stream, "rt"))    # pyright: ignore
+            input_stream = single_streams.enter_context(zstandard.open(_input_stream, "rt"))  # pyright: ignore
         else:
-            input_stream = single_streams.enter_context(
-                open(_input_stream, "rt"))   # pyright: ignore
+            input_stream = single_streams.enter_context(open(_input_stream, "rt"))  # pyright: ignore
 
-        _train_stream = part_streams.enter_context(
-            open_file_for_write(_dst(p=cnt_part, d=path.train), "wb"))
-        train_stream = part_streams.enter_context(
-            gzip.open(_train_stream, "wt"))     # pyright: ignore
+        _train_stream = part_streams.enter_context(open_file_for_write(_dst(p=cnt_part, d=path.train), "wb"))
+        train_stream = part_streams.enter_context(gzip.open(_train_stream, "wt"))  # pyright: ignore
 
-        _valid_stream = single_streams.enter_context(
-            open_file_for_write(path.valid, "wb"))
-        valid_stream = single_streams.enter_context(
-            gzip.open(_valid_stream, "wt"))     # pyright: ignore
+        _valid_stream = single_streams.enter_context(open_file_for_write(path.valid, "wb"))
+        valid_stream = single_streams.enter_context(gzip.open(_valid_stream, "wt"))  # pyright: ignore
 
-        _test_stream = single_streams.enter_context(
-            open_file_for_write(path.test, "wb"))
-        test_stream = single_streams.enter_context(
-            gzip.open(_test_stream, "wt"))     # pyright: ignore
+        _test_stream = single_streams.enter_context(open_file_for_write(path.test, "wb"))
+        test_stream = single_streams.enter_context(gzip.open(_test_stream, "wt"))  # pyright: ignore
 
-        if 'common_crawl/' in path.src:
+        if "common_crawl/" in path.src:
             reshape_fn = format_commoncrawl
-        elif 'arxiv/' in path.src:
+        elif "arxiv/" in path.src:
             reshape_fn = format_arxiv
-        elif 'stackexchange/' in path.src:
+        elif "stackexchange/" in path.src:
             reshape_fn = format_stackexchange
-        elif 'book/' in path.src:
+        elif "book/" in path.src:
             reshape_fn = format_books
-        elif 'c4/' in path.src:
+        elif "c4/" in path.src:
             reshape_fn = format_c4
-        elif 'wikipedia/' in path.src:
+        elif "wikipedia/" in path.src:
             reshape_fn = format_wiki
-        elif 'github/' in path.src:
+        elif "github/" in path.src:
             reshape_fn = format_github
         else:
-            raise ValueError(f'Unknown source: {path.src}')
+            raise ValueError(f"Unknown source: {path.src}")
 
         i = 0
         while True:
@@ -325,9 +301,9 @@ def process_single(
 
             reshaped = reshape_fn(data)
 
-            if reshaped['id'][:3] in {'fff', 'ffe'}:
+            if reshaped["id"][:3] in {"fff", "ffe"}:
                 test_stream.write(json.dumps(reshaped) + "\n")
-            elif reshaped['id'][:3] in {'ffd', 'ffc'}:
+            elif reshaped["id"][:3] in {"ffd", "ffc"}:
                 valid_stream.write(json.dumps(reshaped) + "\n")
             else:
                 train_stream.write(json.dumps(reshaped) + "\n")
@@ -341,8 +317,7 @@ def process_single(
                 _train_stream = part_streams.enter_context(
                     open_file_for_write(_dst(p=cnt_part, d=path.train), "wb")
                 )
-                train_stream = part_streams.enter_context(
-                    gzip.open(_train_stream, "wt"))     # pyright: ignore
+                train_stream = part_streams.enter_context(gzip.open(_train_stream, "wt"))  # pyright: ignore
 
             # update progress bar every 1000 docs
             if cnt_docs > 1000 and pbar_queue:
@@ -356,14 +331,11 @@ def process_single(
         pbar_queue.put(Progress.new(f=1, d=cnt_docs, w=cnt_words))
 
 
-def threaded_progressbar(q: 'Queue[Union[None, Progress]]', timeout: float, total_files: Optional[int] = None):
+def threaded_progressbar(q: "Queue[Union[None, Progress]]", timeout: float, total_files: Optional[int] = None):
     with ExitStack() as stack:
-        files_pbar = stack.enter_context(
-            tqdm(desc=" Files", unit="f", position=0, total=total_files))
-        docs_pbar = stack.enter_context(
-            tqdm(desc="  Docs", unit="d", position=1, unit_scale=True))
-        tokens_pbar = stack.enter_context(
-            tqdm(desc="Tokens", unit="t", position=2, unit_scale=True))
+        files_pbar = stack.enter_context(tqdm(desc=" Files", unit="f", position=0, total=total_files))
+        docs_pbar = stack.enter_context(tqdm(desc="  Docs", unit="d", position=1, unit_scale=True))
+        tokens_pbar = stack.enter_context(tqdm(desc="Tokens", unit="t", position=2, unit_scale=True))
         while True:
             item = q.get()
             if item is None:
@@ -388,8 +360,7 @@ def main(cfg: Config):
     # ]
 
     all_paths = [
-        ProcessPath.parse(src=p, src_prefix=cfg.src, dst_prefix=cfg.dst)
-        for p in recursively_list_files(cfg.src)
+        ProcessPath.parse(src=p, src_prefix=cfg.src, dst_prefix=cfg.dst) for p in recursively_list_files(cfg.src)
     ]
     random.shuffle(all_paths)
 
@@ -402,7 +373,7 @@ def main(cfg: Config):
         set_start_method("spawn")
 
         with Pool(processes=cfg.parallel) as pool:
-            pbar_queue: 'Queue[Union[None, Progress]]' = (manager := Manager()).Queue()
+            pbar_queue: "Queue[Union[None, Progress]]" = (manager := Manager()).Queue()
             pbar_thread = Thread(
                 target=threaded_progressbar,
                 args=(pbar_queue, 0.01, len(all_paths)),

@@ -7,6 +7,13 @@ from contextlib import ExitStack
 from tempfile import NamedTemporaryFile
 from typing import Generator, List, Literal, Optional, Union, cast
 
+import msgspec
+import springs as sp
+from smashed.utils.io_utils import (
+    open_file_for_read,
+    open_file_for_write,
+    recursively_list_files,
+)
 from tokenizers import (
     Regex,
     Tokenizer,
@@ -15,13 +22,6 @@ from tokenizers import (
     normalizers,
     pre_tokenizers,
     trainers,
-)
-import msgspec
-import springs as sp
-from smashed.utils.io_utils import (
-    open_file_for_read,
-    open_file_for_write,
-    recursively_list_files,
 )
 
 
@@ -40,7 +40,6 @@ class DataReader:
         sample: Union[float, None] = None,
         quiet: bool = True,
         data_format: Literal["jsonl", "text"] = "jsonl",
-
         min_sentence_length: int = 0,
     ) -> None:
         self.seed = seed
@@ -100,11 +99,11 @@ class DataReader:
         print(f"Loaded {self.cnt:,} records from {input_path}") if not self.quiet else None
 
 
-def make_bpe_tokenizer(vocab_size: int, normalization: str = 'NFC'):
+def make_bpe_tokenizer(vocab_size: int, normalization: str = "NFC"):
     model = models.BPE(byte_fallback=True)
     tokenizer = Tokenizer(model)
 
-    tokenizer.normalizer = getattr(normalizers, normalization)()     # type: ignore
+    tokenizer.normalizer = getattr(normalizers, normalization)()  # type: ignore
 
     tokenizer.pre_tokenizer = pre_tokenizers.Sequence(  # type: ignore
         [
@@ -123,25 +122,26 @@ def make_bpe_tokenizer(vocab_size: int, normalization: str = 'NFC'):
             pre_tokenizers.ByteLevel(add_prefix_space=False, use_regex=True),
         ]
     )
-    tokenizer.decoder = decoders.Sequence([     # type: ignore
-        decoders.ByteFallback(),
-        decoders.ByteLevel(add_prefix_space=False, use_regex=True),     # type: ignore
-    ])
+    tokenizer.decoder = decoders.Sequence(
+        [  # type: ignore
+            decoders.ByteFallback(),
+            decoders.ByteLevel(add_prefix_space=False, use_regex=True),
+            # type: ignore
+        ]
+    )
 
-    trainer = trainers.BpeTrainer(    # type: ignore
-        vocab_size=vocab_size - 2,
-        special_tokens=[],
-        initial_alphabet=pre_tokenizers.ByteLevel.alphabet()
+    trainer = trainers.BpeTrainer(  # type: ignore
+        vocab_size=vocab_size - 2, special_tokens=[], initial_alphabet=pre_tokenizers.ByteLevel.alphabet()
     )
 
     return tokenizer, trainer
 
 
-def make_unigram_tokenizer(vocab_size: int, normalization: str = 'NFC'):
+def make_unigram_tokenizer(vocab_size: int, normalization: str = "NFC"):
     model = models.Unigram(None)
     tokenizer = Tokenizer(model)
 
-    tokenizer.normalizer = getattr(normalizers, normalization)()     # type: ignore
+    tokenizer.normalizer = getattr(normalizers, normalization)()  # type: ignore
 
     tokenizer.pre_tokenizer = pre_tokenizers.Sequence(  # type: ignore
         [
@@ -155,7 +155,7 @@ def make_unigram_tokenizer(vocab_size: int, normalization: str = 'NFC'):
                 pattern=Regex("▁?\\d"),
                 behavior="isolated",
                 invert=False,
-            )
+            ),
         ]
     )
     tokenizer.decoder = decoders.Metaspace()  # type: ignore
@@ -163,7 +163,7 @@ def make_unigram_tokenizer(vocab_size: int, normalization: str = 'NFC'):
     trainer = trainers.UnigramTrainer(  # type: ignore
         vocab_size=vocab_size - 2,
         special_tokens=[],
-        initial_alphabet=["▁", *(chr(x) for x in range(256))]   # type: ignore
+        initial_alphabet=["▁", *(chr(x) for x in range(256))],  # type: ignore
     )
 
     return tokenizer, trainer
@@ -186,9 +186,7 @@ class TrainConfig:
     input_dir: Optional[str] = None
     input_dirs: Optional[List[str]] = None
     save_path: str = sp.MISSING
-    normalization: Union[str, None] = sp.field(
-        default="NFD", help="Choose between NFD, NFKD, NFC, or NFKC"
-    )
+    normalization: Union[str, None] = sp.field(default="NFD", help="Choose between NFD, NFKD, NFC, or NFKC")
     vocab_size: int = 64_000
     model: str = sp.field(default="Unigram", help="Choose between Unigram (default) or BPE.")
     # seed_sentencepiece_size: int = 100_000
@@ -218,13 +216,13 @@ def train_tokenizer(config: TrainConfig):
         "NFC",
         "NFKC",
         "NFD",
-        "NFKD"
+        "NFKD",
     ], "Normalization must be one of NFC, NFKC, NFD, NFKD"
     assert config.data_format in ["jsonl", "text"], "Data format must be one of jsonl or text"
 
-    if config.model == 'BPE':
+    if config.model == "BPE":
         tokenizer, trainer = make_bpe_tokenizer(config.vocab_size, config.normalization)
-    elif config.model == 'Unigram':
+    elif config.model == "Unigram":
         tokenizer, trainer = make_unigram_tokenizer(config.vocab_size, config.normalization)
     else:
         raise ValueError(f"Unknown model {config.model}")
@@ -233,8 +231,8 @@ def train_tokenizer(config: TrainConfig):
         seed=config.random_seed,
         sample=config.sample,
         quiet=True,
-        data_format=config.data_format,     # type: ignore
-        min_sentence_length=config.min_sentence_length
+        data_format=config.data_format,  # type: ignore
+        min_sentence_length=config.min_sentence_length,
     )
     data_iterator = get_data_iterator(reader=reader, input_dir=input_dir, seed=config.random_seed)
 
@@ -246,8 +244,8 @@ def train_tokenizer(config: TrainConfig):
 
     print(f"Tokenizer saved at {f.name}")
 
-    with open_file_for_write(config.save_path + '.json', "w") as f, open(f_name, "r") as g:
-        f.write(g.read())   # type: ignore
+    with open_file_for_write(config.save_path + ".json", "w") as f, open(f_name, "r") as g:
+        f.write(g.read())  # type: ignore
 
     with open_file_for_write(config.save_path + "_config.yaml", "w") as f:
         f.write(sp.to_yaml(config))

@@ -125,6 +125,7 @@ def json_iterator(
 
     print(f"Processed {total_cnt:,} total records") if not quiet else None
 
+
 @sp.dataclass
 class ModelConfig:
     vocab_size: int = 64_000
@@ -182,8 +183,7 @@ def train_tokenizer(config: TrainConfig):
 
     if config.tabs_indent_for_code or config.space_indent_for_code:
         assert (
-            config.model.allow_whitespace_only_pieces is True
-            and config.model.remove_extra_whitespaces is False
+            config.model.allow_whitespace_only_pieces is True and config.model.remove_extra_whitespaces is False
         ), (
             "If you want to allow tabs or spaces, you must also allow whitespace only pieces and not "
             "remove extra whitespaces (allow_whitespace_only_pieces=True, remove_extra_whitespaces=False)"
@@ -229,8 +229,9 @@ def train_tokenizer(config: TrainConfig):
 
     with TemporaryDirectory() as tmp_dir:
         spm.SentencePieceTrainer.Train(
-            sentence_iterator=_json_iterator(config.input_dir or config.input_dirs),    # pyright: ignore
-            model_prefix=os.path.join(tmp_dir, 'ai2_llm'),
+            sentence_iterator=_json_iterator(config.input_dir or config.input_dirs),
+            # pyright: ignore
+            model_prefix=os.path.join(tmp_dir, "ai2_llm"),
             user_defined_symbols=user_defined_symbols,
             # random_seed=config.random_seed,
             **sp.to_dict(config.model),  # pyright: ignore
@@ -240,12 +241,13 @@ def train_tokenizer(config: TrainConfig):
             for fn in os.listdir(tmp_dir):
                 _, extension = fn.rsplit(".", -1)
                 src = stack.enter_context(open_file_for_read(os.path.join(tmp_dir, fn), "rb"))
-                dst = stack.enter_context(open_file_for_write(f'{config.save_path}.{extension}', "wb"))
+                dst = stack.enter_context(open_file_for_write(f"{config.save_path}.{extension}", "wb"))
                 dst.write(src.read())
                 stack.pop_all().close()
 
-            dst = stack.enter_context(open_file_for_write(f'{config.save_path}.yaml', "w"))
+            dst = stack.enter_context(open_file_for_write(f"{config.save_path}.yaml", "w"))
             dst.write(sp.to_yaml(config))
+
 
 if __name__ == "__main__":
     train_tokenizer()
