@@ -125,8 +125,7 @@ def make_bpe_tokenizer(vocab_size: int, normalization: str = "NFC"):
     tokenizer.decoder = decoders.Sequence(
         [  # type: ignore
             decoders.ByteFallback(),
-            decoders.ByteLevel(add_prefix_space=False, use_regex=True),
-            # type: ignore
+            decoders.ByteLevel(add_prefix_space=False, use_regex=True),     # type: ignore
         ]
     )
 
