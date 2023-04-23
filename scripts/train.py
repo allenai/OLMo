@@ -5,10 +5,12 @@ import os
 import random
 import shutil
 import sys
-from dataclasses import dataclass
+import time
+from collections import deque
+from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
-from typing import Any, Dict, Generator, Iterator, List, Tuple
+from typing import Any, Deque, Dict, Generator, Iterator, List, Tuple
 
 import numpy as np
 import torch
@@ -24,7 +26,7 @@ from torchmetrics import MeanMetric
 
 from olmo import Olmo, TrainConfig
 from olmo.aliases import BatchDict
-from olmo.config import OptimizerType, SchedulerType
+from olmo.config import OptimizerType, SchedulerType, SpeedMonitorConfig
 from olmo.data import DataCollator, MemMapDataset
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
 from olmo.optim import DecoupledLionW
@@ -37,6 +39,29 @@ from olmo.util import (
 )
 
 log = logging.getLogger(__name__)
+
+
+@dataclass
+class SpeedMonitor:
+    cfg: SpeedMonitorConfig
+    start_times: Deque[float] = field(default_factory=lambda: deque([]))
+    num_tokens: Deque[int] = field(default_factory=lambda: deque([]))
+
+    def batch_start(self, num_tokens: int) -> None:
+        if len(self.start_times) >= self.cfg.window_size:
+            self.start_times.popleft()
+            self.num_tokens.popleft()
+        self.start_times.append(time.monotonic())
+        self.num_tokens.append(num_tokens)
+
+    def reset(self) -> None:
+        self.start_times.clear()
+
+    def check(self) -> Tuple[float, float]:
+        total_seconds = time.monotonic() - self.start_times[0]
+        total_tokens = sum(self.num_tokens)
+        total_batches = len(self.start_times)
+        return total_tokens / total_seconds, total_batches / total_seconds
 
 
 @dataclass
@@ -211,17 +236,42 @@ class Trainer:
             ]
 
     def fit(self):
+        # Set model to 'train' mode.
         self.fsdp_model.train()
+
+        # Initialize SpeedMonitor.
+        speed_monitor = SpeedMonitor(self.cfg.speed_monitor)
+
+        # Train.
+        first_batch: bool = True
         for step, (epoch, batch) in self.training_batches:
+            if not first_batch:
+                # We start monitoring speed after the first batch since the first
+                # batch might be an outlier due to compiling and whatever else.
+                num_tokens = batch["input_ids"].shape[0] * batch["input_ids"].shape[1]
+                speed_monitor.batch_start(num_tokens)
+
+            # Run train step on batch.
             loss, ppl = self.train_step(batch)
 
-            # Log to console.
+            # Collect metrics.
+            metrics = {
+                "train/CrossEntropyLoss": loss,
+                "train/Perplexity": ppl,
+            }
+            if not first_batch:
+                tokens_per_second, batches_per_second = speed_monitor.check()
+                metrics["train/device/tokens_per_second"] = tokens_per_second
+                metrics["train/device/batches_per_second"] = batches_per_second
+
+            # Log metrics to console.
             if step % self.cfg.console_log_interval == 0:
                 log.info(
                     f"[epoch={epoch}, step={step}/{self.cfg.max_duration}]\n"
-                    f"    CrossEntropyLoss={loss:.4f}\n"
-                    f"    Perplexity={ppl:.4f}"
+                    + "\n".join([f"    {name}={value:.4f}" for name, value in metrics.items()])
                 )
+
+            first_batch = False
 
 
 def main(cfg: TrainConfig) -> None:
