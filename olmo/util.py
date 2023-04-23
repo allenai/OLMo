@@ -4,7 +4,7 @@ import socket
 import sys
 import warnings
 from datetime import datetime
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, TypeVar, Union
 
 import rich
 import torch
@@ -212,3 +212,19 @@ def seed_all(seed: int):
     # torch.manual_seed may call manual_seed_all but calling it again here
     # to make sure it gets called at least once
     torch.cuda.manual_seed_all(seed)
+
+
+T = TypeVar("T")
+
+
+def move_to_device(o: T, device: torch.device) -> T:
+    if isinstance(o, torch.Tensor):
+        return o.to(device)  # type: ignore[return-value]
+    elif isinstance(o, dict):
+        return {k: move_to_device(v, device) for k, v in o.items()}  # type: ignore[return-value]
+    elif isinstance(o, list):
+        return [move_to_device(x, device) for x in o]  # type: ignore[return-value]
+    elif isinstance(o, tuple):
+        return tuple((move_to_device(x, device) for x in o))  # type: ignore[return-value]
+    else:
+        return o

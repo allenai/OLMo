@@ -2,6 +2,9 @@ run_name: c4-large-run-001
 seed: 6198
 dry_run: false
 
+wandb:
+  name: ${run_name}
+
 model:
   d_model: 8192
   n_heads: 32
@@ -39,7 +42,7 @@ optimizer:
 
 scheduler:
   name: cosine_with_warmup
-  t_warmup: 100ba
+  t_warmup: 100
   alpha_f: 0.1
 
 algorithms:
@@ -61,38 +64,19 @@ tokenizer:
   identifier: gpt2
   truncate_direction: right
 
-max_duration: 476837ba  # 2T tokens
+max_duration: 476837  # 2T tokens
 
 save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
-save_interval: 2000ba
+save_interval: 2000
 save_num_checkpoints_to_keep: -1
 save_overwrite: false
 
 load_path: null
 
 global_train_batch_size: 2048
-device_train_batch_size: auto
 device_train_microbatch_size: 4
-device_train_grad_accum: auto
-device_eval_batch_size: null
-
-n_gpus: null
 
 precision: amp_bf16
 
-fsdp_config:
-  sharding_strategy: FULL_SHARD
-  mixed_precision: PURE
-  activation_checkpointing: true
-  activation_cpu_offload: false
-  activation_checkpointing_reentrant: false
-  limit_all_gathers: true
-  use_orig_params: true  # needed to work with compile
-  state_dict_type: sharded
-  verbose: false
-
 speed_monitor:
   window_size: 20
-
-wandb:
-  name: ${run_name}

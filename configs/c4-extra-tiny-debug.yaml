@@ -33,7 +33,7 @@ optimizer:
 
 scheduler:
   name: cosine_with_warmup
-  t_warmup: 100ba
+  t_warmup: 100
   alpha_f: 0.1
 
 algorithms:
@@ -62,22 +62,15 @@ save_overwrite: true
 
 load_path: null
 
-max_duration: 1708984ba  # 7B tokens
+max_duration: 1708984  # 7B tokens
 global_train_batch_size: 16
-device_train_batch_size: auto
 device_train_microbatch_size: 4
-device_train_grad_accum: auto
-device_eval_batch_size: null
-
-n_gpus: null
 
 precision: fp32
-
-fsdp_config: null
 
 wandb: null
 
 speed_monitor:
   window_size: 20
 
-console_log_interval: 10ba
+console_log_interval: 10

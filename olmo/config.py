@@ -297,7 +297,7 @@ class ModelConfig(BaseConfig):
     """
 
     @property
-    def device(self) -> Optional[str]:
+    def device(self) -> str:
         if self.init_device == "meta" or self.init_device is None:
             return "cuda" if torch.cuda.is_available() else "cpu"
         else:
@@ -313,7 +313,7 @@ class OptimizerType(StrEnum):
 @dataclass
 class OptimizerConfig(BaseConfig):
     name: OptimizerType = OptimizerType.decoupled_lionw
-    learning_rate: Optional[float] = None
+    learning_rate: float = 1.0e-4
     weight_decay: float = 0.0
     betas: Tuple[float, float] = (0.9, 0.95)
     eps: float = 1e-8
@@ -331,7 +331,7 @@ class SchedulerType(StrEnum):
 @dataclass
 class SchedulerConfig(BaseConfig):
     name: SchedulerType = SchedulerType.cosine_with_warmup
-    t_warmup: str = "100ba"
+    t_warmup: int = 100
     alpha_f: float = 0.1
 
 
@@ -417,29 +417,29 @@ class TrainConfig(BaseConfig):
     data: DataConfig = field(default_factory=DataConfig)
     tokenizer: TokenizerConfig = field(default_factory=TokenizerConfig)
     save_folder: str = "./"
-    save_interval: Union[str, int] = "1ep"
+    save_interval: int = 1000
     save_num_checkpoints_to_keep: int = -1
     save_overwrite: bool = False
     load_path: Optional[str] = None
-    max_duration: Union[str, int] = "10ep"
+    max_duration: int = 100
+    """Training batches"""
     global_train_batch_size: int = 512
-    device_train_batch_size: Union[str, int] = "auto"
-    device_train_microbatch_size: Union[str, int] = "auto"
-    device_train_grad_accum: Union[str, int] = "auto"
-    device_eval_batch_size: Optional[int] = None
-    n_gpus: Optional[int] = None
+    device_train_batch_size: Optional[int] = None  # calculated automatically
+    device_train_microbatch_size: int = 16
+    device_train_grad_accum: Optional[int] = None  # calculated automatically
+    max_grad_norm: Optional[float] = None
+    """Gradient clipping."""
     precision: Optional[str] = None
-    fsdp_config: Optional[Dict[str, Any]] = None
     wandb: Optional[WandbConfig] = None
     speed_monitor: SpeedMonitorConfig = field(default_factory=SpeedMonitorConfig)
-    console_log_interval: Union[str, int] = "1ba"
+    console_log_interval: int = 1
     compile: Optional[CompilerConfig] = None
     """
     Settings for compiling the model with ``torch.compile()``.
     """
 
     @property
-    def device(self) -> Optional[str]:
+    def device(self) -> str:
         return self.model.device
 
     @property
