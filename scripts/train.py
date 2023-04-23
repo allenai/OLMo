@@ -18,6 +18,7 @@ import torch.distributed as dist
 import torch.distributed.checkpoint as checkpoint
 import torch.nn as nn
 import torch.nn.functional as F
+import wandb
 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy, StateDictType
@@ -288,6 +289,18 @@ class Trainer:
             ]
 
     def fit(self):
+        # Maybe start W&B run.
+        if self.cfg.wandb is not None and (global_rank() == 0 or not self.cfg.wandb.rank_zero_only):
+            wandb.init(
+                dir=Path(self.cfg.save_folder) / "wandb",
+                project=self.cfg.wandb.project,
+                entity=self.cfg.wandb.entity,
+                group=self.cfg.wandb.group,
+                name=self.cfg.wandb.name,
+                tags=self.cfg.wandb.tags,
+                config=self.cfg.asdict(exclude=["wandb"]),
+            )
+
         # Set model to 'train' mode.
         self.fsdp_model.train()
 
@@ -359,9 +372,15 @@ class Trainer:
                 # Reset speed monitor so that we don't count the time taken to run evaluations.
                 speed_monitor.reset()
 
-            # TODO: log metrics to W&B.
+            # Log metrics to W&B.
+            if wandb.run is not None:
+                wandb.log(metrics, step=step + 1)
 
             first_batch = False
+
+    def close(self) -> None:
+        if wandb.run is not None:
+            wandb.finish()
 
 
 def main(cfg: TrainConfig) -> None:
@@ -478,6 +497,8 @@ def main(cfg: TrainConfig) -> None:
         trainer.fit()
     else:
         log.info("Dry run complete")
+
+    trainer.close()
 
 
 def global_rank() -> int:
