@@ -30,11 +30,13 @@ RP_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 @sp.dataclass
 class Config:
     src: str = "s3://ai2-llm/pretraining-data/sources/redpajama/raw/data"
-    dst: str = "s3://ai2-llm/pretraining-data/sources/redpajama/v0/"
-    single: Optional[str] = sp.field(default=None, help="Debugging: only process this file")
+    dst: str = "s3://ai2-llm/pretraining-data/sources/redpajama/v0/documents"
+    single: Optional[str] = sp.field(default=None, help="Only process this file")
     parallel: int = 1
     debug: bool = False
     raw: bool = False
+    dryrun: bool = False
+    version: str = 'v0'
 
 
 def count_words(text: str) -> int:
@@ -53,7 +55,7 @@ class Progress(NamedTuple):
         return cls(files=f, docs=d, words=w, chars=c)
 
 
-def format_c4(row: dict):
+def format_c4(row: dict, version: str):
     text: str = row.pop("text")
     length = count_words(text)
 
@@ -66,7 +68,7 @@ def format_c4(row: dict):
         "id": hashlib.sha1(text.encode("utf-8")).hexdigest(),
         "text": text,
         "source": "redpajama/c4",
-        "version": "v0",
+        "version": version,
         "added": added,
         "created": created,
         "metadata": {**row.get("meta", {}), "length": length},
@@ -74,7 +76,7 @@ def format_c4(row: dict):
     return reshaped
 
 
-def format_arxiv(row: dict):
+def format_arxiv(row: dict, version: str):
     text: str = row.pop("text")
     length = count_words(text)
 
@@ -87,7 +89,7 @@ def format_arxiv(row: dict):
         "id": hashlib.sha1(text.encode("utf-8")).hexdigest(),
         "text": text,
         "source": "redpajama/arxiv",
-        "version": "v0",
+        "version": version,
         "added": added,
         "created": created,
         "metadata": {**row.get("meta", {}), "length": length},
@@ -95,7 +97,7 @@ def format_arxiv(row: dict):
     return reshaped
 
 
-def format_github(row: dict):
+def format_github(row: dict, version: str):
     text: str = row.pop("text")
     length = count_words(text)
 
@@ -108,7 +110,7 @@ def format_github(row: dict):
         "id": hashlib.sha1(text.encode("utf-8")).hexdigest(),
         "text": text,
         "source": "redpajama/github",
-        "version": "v0",
+        "version": version,
         "added": added,
         "created": created,
         "metadata": {**row.get("meta", {}), "length": length},
@@ -117,7 +119,7 @@ def format_github(row: dict):
     return reshaped
 
 
-def format_wiki(row: dict):
+def format_wiki(row: dict, version: str):
     text: str = row.pop("text")
     length = count_words(text)
 
@@ -130,7 +132,7 @@ def format_wiki(row: dict):
         "id": hashlib.sha1(text.encode("utf-8")).hexdigest(),
         "text": text,
         "source": "redpajama/wikipedia",
-        "version": "v0",
+        "version": version,
         "added": added,
         "created": created,
         "metadata": {**row.get("meta", {}), "length": length},
@@ -139,7 +141,7 @@ def format_wiki(row: dict):
     return reshaped
 
 
-def format_books(row: dict):
+def format_books(row: dict, version: str):
     added = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
     text: str = row.pop("text")
     length = count_words(text)
@@ -152,7 +154,7 @@ def format_books(row: dict):
         "id": hashlib.sha1(text.encode("utf-8")).hexdigest(),
         "text": text,
         "source": "redpajama/books",
-        "version": "v0",
+        "version": version,
         "added": added,
         "created": created,
         "metadata": {**row.get("meta", {}), "length": length},
@@ -161,7 +163,7 @@ def format_books(row: dict):
     return reshaped
 
 
-def format_stackexchange(row: dict):
+def format_stackexchange(row: dict, version: str):
     text: str = row.pop("text")
     length = count_words(text)
 
@@ -174,7 +176,7 @@ def format_stackexchange(row: dict):
         "id": hashlib.sha1(text.encode("utf-8")).hexdigest(),
         "text": text,
         "source": "redpajama/stackexchange",
-        "version": "v0",
+        "version": version,
         "added": added,
         "created": created,
         "metadata": {**row.get("meta", {}), "length": length},
@@ -182,7 +184,7 @@ def format_stackexchange(row: dict):
     return reshaped
 
 
-def format_commoncrawl(row: dict):
+def format_commoncrawl(row: dict, version: str):
     text: str = row.pop("text")
     length = count_words(text)
 
@@ -195,7 +197,7 @@ def format_commoncrawl(row: dict):
         "id": hashlib.sha1(text.encode("utf-8")).hexdigest(),
         "text": text,
         "source": "redpajama/commoncrawl",
-        "version": "v0",
+        "version": version,
         "added": added,
         "created": created,
         "metadata": {**row.get("meta", {}), "length": length},
@@ -215,16 +217,37 @@ class ProcessPath(NamedTuple):
         return f'{self.src_prefix.rstrip("/")}/{self.src_filename.lstrip("/")}'
 
     @property
+    def fn_clean(self):
+        fn = self.dst_filename.lstrip('/')
+
+        if fn.startswith('common_crawl/'):
+            # format: common_crawl/2019-30/en_head_0000.json.gz.dedup.classifier.jsonl.zst
+            dataset, date, fn = fn.split('/', 2)
+            fn = f'dataset={dataset}/{date}_{fn}'
+        else:
+            dataset, fn = fn.split('/', 1)
+            fn = f'dataset={dataset}/{fn}'
+
+        if fn.endswith('.zst'):
+            fn = f'{fn[:-4]}.gz'
+
+        return fn
+
+    @property
+    def pfx_clean(self):
+        return self.dst_prefix.rstrip("/")
+
+    @property
     def train(self):
-        return f'{self.dst_prefix.rstrip("/")}/split=train/{self.dst_filename.lstrip("/")}'
+        return f'{self.pfx_clean}/split=train/{self.fn_clean}'
 
     @property
     def test(self):
-        return f'{self.dst_prefix.rstrip("/")}/split=test/{self.dst_filename.lstrip("/")}'
+        return f'{self.pfx_clean}/split=test/{self.fn_clean}'
 
     @property
     def valid(self):
-        return f'{self.dst_prefix.rstrip("/")}/split=valid/{self.dst_filename.lstrip("/")}'
+        return f'{self.pfx_clean}/split=valid/{self.fn_clean}'
 
     @classmethod
     def parse(cls, src: str, src_prefix: str, dst_prefix: str):
@@ -232,10 +255,12 @@ class ProcessPath(NamedTuple):
         return cls(src_prefix, dst_prefix, src_fn, dst_fn)
 
 
-def process_single(path: ProcessPath, pbar_queue: Optional["Queue[Union[None, Progress]]"] = None):
-    # add a bit of delay between processes
-    sleep(random.random() * 5.0)
-
+def process_single(
+    path: ProcessPath,
+    version: str,
+    pbar_queue: Optional["Queue[Union[None, Progress]]"] = None,
+    dryrun: bool = False
+):
     cnt_part = cnt_words = cnt_docs = 0
 
     def _dst(p: int, d: str):
@@ -243,8 +268,33 @@ def process_single(path: ProcessPath, pbar_queue: Optional["Queue[Union[None, Pr
         dst_fn, dst_ext = dst_fn.split(".jsonl", 1)
         return f"{dst_base}/{dst_fn}_{p:05X}.jsonl{dst_ext}"
 
+    if "common_crawl/" in path.src:
+        reshape_fn = format_commoncrawl
+    elif "arxiv/" in path.src:
+        reshape_fn = format_arxiv
+    elif "stackexchange/" in path.src:
+        reshape_fn = format_stackexchange
+    elif "book/" in path.src:
+        reshape_fn = format_books
+    elif "c4/" in path.src:
+        reshape_fn = format_c4
+    elif "wikipedia/" in path.src:
+        reshape_fn = format_wiki
+    elif "github/" in path.src:
+        reshape_fn = format_github
+    else:
+        raise ValueError(f"Unknown source: {path.src}")
+
     input_stream: TextIO
     train_stream: TextIO
+
+    if dryrun:
+        pbar_queue.put(Progress.new(f=1)) if pbar_queue else None
+        print(f'Processing "{path.src}" to "{path.train}" (and valid/test)')
+        return
+
+    # add a bit of delay between processes
+    sleep(random.random() * 5.0)
 
     with ExitStack() as single_streams, ExitStack() as part_streams:
         _input_stream = single_streams.enter_context(open_file_for_read(path.src, "rb"))
@@ -265,23 +315,6 @@ def process_single(path: ProcessPath, pbar_queue: Optional["Queue[Union[None, Pr
         _test_stream = single_streams.enter_context(open_file_for_write(path.test, "wb"))
         test_stream = single_streams.enter_context(gzip.open(_test_stream, "wt"))  # pyright: ignore
 
-        if "common_crawl/" in path.src:
-            reshape_fn = format_commoncrawl
-        elif "arxiv/" in path.src:
-            reshape_fn = format_arxiv
-        elif "stackexchange/" in path.src:
-            reshape_fn = format_stackexchange
-        elif "book/" in path.src:
-            reshape_fn = format_books
-        elif "c4/" in path.src:
-            reshape_fn = format_c4
-        elif "wikipedia/" in path.src:
-            reshape_fn = format_wiki
-        elif "github/" in path.src:
-            reshape_fn = format_github
-        else:
-            raise ValueError(f"Unknown source: {path.src}")
-
         i = 0
         while True:
             try:
@@ -290,7 +323,7 @@ def process_single(path: ProcessPath, pbar_queue: Optional["Queue[Union[None, Pr
                 break
             except Exception as e:
                 print(f"\n\nError parsing {path.src}:{i} ({e})\n\n")
-                return
+                continue
 
             i += 1
 
@@ -298,9 +331,9 @@ def process_single(path: ProcessPath, pbar_queue: Optional["Queue[Union[None, Pr
                 data = json.loads(ln.encode("utf-8", "ignore").decode("utf-8"))
             except Exception as e:
                 print(f"\n\nJSON Error parsing {path.src}:{i} ({e})\n\n")
-                return
+                continue
 
-            reshaped = reshape_fn(data)
+            reshaped = reshape_fn(row=data, version=version)
 
             if reshaped["id"][:3] in {"fff", "ffe"}:
                 test_stream.write(json.dumps(reshaped) + "\n")      # pyright: ignore
@@ -365,7 +398,7 @@ def main(cfg: Config):
     if cfg.debug:
         with tqdm(total=len(all_paths)) as pbar:
             for path in all_paths:
-                process_single(path)
+                process_single(path=path, version=cfg.version, dryrun=cfg.dryrun)
                 pbar.update(1)
     else:
         set_start_method("spawn")
@@ -379,7 +412,7 @@ def main(cfg: Config):
             )
             pbar_thread.start()
 
-            _process_single = partial(process_single, pbar_queue=pbar_queue)
+            _process_single = partial(process_single, pbar_queue=pbar_queue, version=cfg.version, dryrun=cfg.dryrun)
             for _ in pool.imap_unordered(_process_single, all_paths):
                 ...
 
