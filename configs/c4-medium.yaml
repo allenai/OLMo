@@ -44,11 +44,6 @@ scheduler:
   t_warmup: 100
   alpha_f: 0.1
 
-algorithms:
-  gradient_clipping:
-    clipping_type: norm
-    clipping_threshold: 1.0
-
 data:
   paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-train.*.npy}
   pad_direction: right
@@ -78,6 +73,8 @@ device_train_microbatch_size: 2
 n_gpus: null
 
 precision: amp_bf16
+
+max_grad_norm: 1.0
 
 speed_monitor:
   window_size: 20
