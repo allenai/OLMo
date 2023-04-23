@@ -6,7 +6,7 @@ import os
 import random
 import shutil
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from itertools import islice
 from pathlib import Path
 from typing import Any, Dict, Generator, Iterator, List, Tuple
@@ -50,8 +50,8 @@ class Trainer:
     train_loader: DataLoader
     training_batches: Iterator[Tuple[int, Tuple[int, BatchDict]]]
     device: torch.device
+    train_loss_metric: MeanMetric
     global_step: int = 0
-    train_loss_metric: MeanMetric = field(default_factory=lambda: MeanMetric(nan_strategy="error"))
 
     def state_dict(self) -> Dict[str, Any]:
         return {
@@ -212,6 +212,8 @@ class Trainer:
         self.fsdp_model.train()
         for step, (epoch, batch) in self.training_batches:
             loss = self.train_step(batch)
+
+            # Log to console.
             if step % self.cfg.console_log_interval == 0:
                 log.info(
                     f"[epoch={epoch}, step={step}/{self.cfg.max_duration}]\n"
@@ -287,6 +289,7 @@ def main(cfg: TrainConfig) -> None:
     train_loader = build_dataloader(cfg, cfg.device_train_batch_size)
     training_batches = enumerate(islice(cycle_through_epochs(train_loader), cfg.max_duration))
 
+    # Consolidate components into `Trainer` object.
     trainer = Trainer(
         cfg=cfg,
         model=olmo_model,
@@ -296,6 +299,7 @@ def main(cfg: TrainConfig) -> None:
         train_loader=train_loader,
         training_batches=training_batches,
         device=torch.device(cfg.device),
+        train_loss_metric=MeanMetric(nan_strategy="error").to(torch.device(cfg.device)),
     )
 
     if not cfg.dry_run and cfg.load_path is None:
