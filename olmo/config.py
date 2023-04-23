@@ -424,7 +424,7 @@ class TrainConfig(BaseConfig):
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
     data: DataConfig = field(default_factory=DataConfig)
     evaluators: List[EvaluatorConfig] = field(default_factory=list)
-    eval_interval: Union[int, str] = "1ep"
+    eval_interval: int = 1000
     tokenizer: TokenizerConfig = field(default_factory=TokenizerConfig)
     save_folder: str = "./"
     save_interval: int = 1000

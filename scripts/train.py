@@ -24,11 +24,19 @@ from torch.distributed.fsdp import MixedPrecision, ShardingStrategy, StateDictTy
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import MeanMetric
 
-from olmo import DataConfig, ModelConfig, Olmo, TrainConfig
 from olmo.aliases import BatchDict
-from olmo.config import OptimizerType, SchedulerType, SpeedMonitorConfig
+from olmo.config import (
+    DataConfig,
+    EvaluatorConfig,
+    ModelConfig,
+    OptimizerType,
+    SchedulerType,
+    SpeedMonitorConfig,
+    TrainConfig,
+)
 from olmo.data import DataCollator, MemMapDataset
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
+from olmo.model import Olmo
 from olmo.optim import DecoupledLionW
 from olmo.util import (
     clean_opt,
@@ -69,6 +77,27 @@ class SpeedMonitor:
 
 
 @dataclass
+class Evaluator:
+    cfg: EvaluatorConfig
+    eval_loader: DataLoader
+    eval_batches: Iterator[Tuple[int, BatchDict]]
+    eval_loss_metric: MeanMetric
+
+    def reset_metrics(self) -> None:
+        self.eval_loss_metric.reset()
+
+    def compute_metrics(self) -> Dict[str, float]:
+        loss = self.eval_loss_metric.compute()
+        return {
+            f"eval/{self.cfg.label}/CrossEntropyLoss": loss.item(),
+            f"eval/{self.cfg.label}/Perplexity": torch.exp(loss).item(),
+        }
+
+    def update_metrics(self, loss: torch.Tensor) -> None:
+        self.eval_loss_metric.update(loss)
+
+
+@dataclass
 class Trainer:
     cfg: TrainConfig
     model: Olmo
@@ -79,6 +108,7 @@ class Trainer:
     training_batches: Iterator[Tuple[int, Tuple[int, BatchDict]]]
     device: torch.device
     train_loss_metric: MeanMetric
+    evaluators: List[Evaluator]
     global_step: int = 0
 
     def state_dict(self) -> Dict[str, Any]:
@@ -173,6 +203,13 @@ class Trainer:
             labels = labels.masked_fill(attention_mask == 0.0, -100)
         return labels[..., 1:].contiguous()
 
+    def model_forward(self, batch: BatchDict) -> torch.Tensor:
+        with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
+            logits = self.fsdp_model(**batch).logits[..., :-1, :].contiguous()
+            labels = self.get_labels(batch)
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1), ignore_index=-100)
+        return loss
+
     def train_step(self, batch: BatchDict) -> Dict[str, float]:
         # Zero-gradients.
         self.optim.zero_grad(set_to_none=True)
@@ -192,11 +229,7 @@ class Trainer:
         batch_loss = torch.tensor(0.0, device=self.device)
         for micro_batch in micro_batches:
             # Run forward pass.
-            with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
-                logits = self.fsdp_model(**micro_batch).logits[..., :-1, :].contiguous()
-                labels = self.get_labels(micro_batch)
-                loss = F.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1), ignore_index=-100)
-                loss = loss / len(micro_batches)
+            loss = self.model_forward(micro_batch) / len(micro_batches)
 
             # In case this helps with memory utilization.
             del micro_batch
@@ -228,6 +261,18 @@ class Trainer:
         if grad_norm is not None:
             metrics["train/grad_norm"] = grad_norm
         return metrics
+
+    def eval_batch(self, batch: BatchDict, evaluator: Evaluator) -> Dict[str, float]:
+        # Move tensors to the right device.
+        batch = move_to_device(batch, self.device)
+
+        # Run forward pass.
+        loss = self.model_forward(batch)
+
+        # Update metrics.
+        evaluator.update_metrics(loss)
+
+        return evaluator.compute_metrics()
 
     def split_batch(self, batch: BatchDict) -> List[BatchDict]:
         batch_size = batch["input_ids"].shape[0]
@@ -283,7 +328,38 @@ class Trainer:
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
                 speed_monitor.reset()
 
-            # TODO: validate (and reset speed monitor)
+            # Maybe run evaluations.
+            if not first_batch and step % self.cfg.eval_interval == 0:
+                for evaluator in self.evaluators:
+                    log.info(f"Running evaluation for '{evaluator.cfg.label}'...")
+
+                    # Reset metrics.
+                    evaluator.reset_metrics()
+
+                    # Check how many batches to evaluate on.
+                    num_eval_batches = evaluator.cfg.subset_num_batches
+                    if num_eval_batches <= 0:
+                        num_eval_batches = len(evaluator.eval_loader)
+
+                    # Run model over batches.
+                    for eval_step, (_, eval_batch) in enumerate(islice(evaluator.eval_batches, num_eval_batches)):
+                        with torch.inference_mode():
+                            eval_metrics = self.eval_batch(eval_batch, evaluator)
+
+                        # Log to console.
+                        if eval_step % self.cfg.console_log_interval == 0:
+                            log.info(
+                                f"[eval_step={eval_step}/{num_eval_batches}]\n"
+                                + "\n".join([f"    {name}={value:.4f}" for name, value in eval_metrics.items()])
+                            )
+
+                    # Get final metrics.
+                    metrics.update(evaluator.compute_metrics())
+
+                # Reset speed monitor so that we don't count the time taken to run evaluations.
+                speed_monitor.reset()
+
+            # TODO: log metrics to W&B.
 
             first_batch = False
 
@@ -355,6 +431,18 @@ def main(cfg: TrainConfig) -> None:
     train_loader = build_dataloader(cfg.data, cfg.model, cfg.device_train_batch_size)
     training_batches = enumerate(islice(cycle_through_epochs(train_loader), cfg.max_duration))
 
+    # Construct evaluators.
+    evaluators = []
+    for eval_cfg in cfg.evaluators:
+        eval_loader = build_dataloader(eval_cfg.data, cfg.model, eval_cfg.device_eval_batch_size)
+        evaluator = Evaluator(
+            cfg=eval_cfg,
+            eval_loader=eval_loader,
+            eval_batches=cycle_through_epochs(eval_loader),
+            eval_loss_metric=MeanMetric(nan_strategy="error").to(torch.device(cfg.device)),
+        )
+        evaluators.append(evaluator)
+
     # Consolidate components into `Trainer` object.
     trainer = Trainer(
         cfg=cfg,
@@ -366,6 +454,7 @@ def main(cfg: TrainConfig) -> None:
         training_batches=training_batches,
         device=torch.device(cfg.device),
         train_loss_metric=MeanMetric(nan_strategy="error").to(torch.device(cfg.device)),
+        evaluators=evaluators,
     )
 
     if not cfg.dry_run and cfg.load_path is None:
