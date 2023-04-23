@@ -10,7 +10,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
-from typing import Any, Deque, Dict, Generator, Iterator, List, Tuple, cast
+from typing import Any, Deque, Dict, Generator, Iterator, List, Optional, Tuple, cast
 
 import numpy as np
 import torch
@@ -57,11 +57,14 @@ class SpeedMonitor:
     def reset(self) -> None:
         self.start_times.clear()
 
-    def check(self) -> Tuple[float, float]:
+    def check(self) -> Dict[str, float]:
         total_seconds = time.monotonic() - self.start_times[0]
         total_tokens = sum(self.num_tokens)
         total_batches = len(self.start_times)
-        return total_tokens / total_seconds, total_batches / total_seconds
+        return {
+            "train/device/tokens_per_second": total_tokens / total_seconds,
+            "train/device/batches_per_second": total_batches / total_seconds,
+        }
 
 
 @dataclass
@@ -169,7 +172,7 @@ class Trainer:
             labels = labels.masked_fill(attention_mask == 0.0, -100)
         return labels[..., 1:].contiguous()
 
-    def train_step(self, batch: BatchDict) -> Tuple[float, float]:
+    def train_step(self, batch: BatchDict) -> Dict[str, float]:
         # Zero-gradients.
         self.optim.zero_grad(set_to_none=True)
 
@@ -208,9 +211,9 @@ class Trainer:
             batch_loss += loss.detach()
 
         # Clip gradient norms.
-        # TODO: return norm so we can log (possibly take max over ranks?)
+        grad_norm: Optional[float] = None
         if self.cfg.max_grad_norm is not None:
-            self.fsdp_model.clip_grad_norm_(self.cfg.max_grad_norm)
+            grad_norm = self.fsdp_model.clip_grad_norm_(self.cfg.max_grad_norm).item()
 
         # Optimizer step.
         self.optim.step()
@@ -220,8 +223,10 @@ class Trainer:
         self.train_loss_metric.update(batch_loss)
         batch_loss = self.train_loss_metric.compute()
 
-        # Return loss and perplexity.
-        return batch_loss.item(), torch.exp(batch_loss).item()
+        metrics = {"train/CrossEntropyLoss": batch_loss.item(), "train/Perplexity": torch.exp(batch_loss).item()}
+        if grad_norm is not None:
+            metrics["train/grad_norm"] = grad_norm
+        return metrics
 
     def split_batch(self, batch: BatchDict) -> List[BatchDict]:
         batch_size = batch["input_ids"].shape[0]
@@ -246,24 +251,20 @@ class Trainer:
         # Train.
         first_batch: bool = True
         for step, (epoch, batch) in self.training_batches:
+            self.global_step = step
+
+            # We start monitoring speed after the first batch since the first
+            # batch might be an outlier due to compiling and other initialization overhead.
             if not first_batch:
-                # We start monitoring speed after the first batch since the first
-                # batch might be an outlier due to compiling and other initialization overhead.
                 num_tokens = batch["input_ids"].shape[0] * batch["input_ids"].shape[1]
                 speed_monitor.batch_start(num_tokens)
 
             # Run train step on batch.
-            loss, ppl = self.train_step(batch)
+            metrics = self.train_step(batch)
 
-            # Collect metrics.
-            metrics = {
-                "train/CrossEntropyLoss": loss,
-                "train/Perplexity": ppl,
-            }
+            # Get speed metrics.
             if not first_batch:
-                tokens_per_second, batches_per_second = speed_monitor.check()
-                metrics["train/device/tokens_per_second"] = tokens_per_second
-                metrics["train/device/batches_per_second"] = batches_per_second
+                metrics.update(speed_monitor.check())
 
             # Log metrics to console.
             if step % self.cfg.console_log_interval == 0:
@@ -272,9 +273,14 @@ class Trainer:
                     + "\n".join([f"    {name}={value:.4f}" for name, value in metrics.items()])
                 )
 
-            # TODO: checkpoint (and reset speed monitor)
+            # Maybe save checkpoint.
             if not first_batch and step % self.cfg.save_interval == 0:
-                pass
+                log.info("Saving checkpoint...")
+                checkpoint_path = self.save_checkpoint()
+                log.info(f"Checkpoint saved to {checkpoint_path}")
+
+                # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                speed_monitor.reset()
 
             # TODO: validate (and reset speed monitor)
 
