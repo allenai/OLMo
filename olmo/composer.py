@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, Set, Tuple, TypedDict, Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from composer import Evaluator
 from composer.loggers import ConsoleLogger
 from composer.loggers.logger import format_log_data_value
 from composer.models import ComposerModel
@@ -16,6 +17,8 @@ from torchmetrics import Metric
 
 from .aliases import BatchDict
 from .config import (
+    DataConfig,
+    EvaluatorConfig,
     ModelConfig,
     OptimizerType,
     SchedulerConfig,
@@ -34,6 +37,7 @@ __all__ = [
     "ComposerOlmoLM",
     "OlmoConsoleLogger",
     "build_dataloader",
+    "build_evaluator",
     "build_optimizer",
     "build_scheduler",
     "build_algorithm",
@@ -154,22 +158,35 @@ class OlmoConsoleLogger(ConsoleLogger):
         log.info(log_str)
 
 
-def build_dataloader(config: TrainConfig, batch_size: int) -> DataLoader:
+def build_dataloader(data_config: DataConfig, model_config: ModelConfig, batch_size: int) -> DataLoader:
     from composer.utils.dist import get_sampler
 
-    collator = DataCollator.from_train_config(config)
-    dataset = MemMapDataset.from_train_config(config)
-    sampler = get_sampler(dataset, shuffle=True, drop_last=config.data.drop_last)
+    collator = DataCollator(pad_direction=data_config.pad_direction, pad_token_id=model_config.pad_token_id)
+    dataset = MemMapDataset(*data_config.paths, chunk_size=model_config.max_sequence_length)
+    sampler = get_sampler(dataset, shuffle=True, drop_last=data_config.drop_last)
     return DataLoader(
         dataset,
         batch_size=batch_size,
         collate_fn=collator,
-        num_workers=config.data.num_workers,
+        num_workers=data_config.num_workers,
         sampler=sampler,
-        pin_memory=config.data.pin_memory,
-        prefetch_factor=config.data.prefetch_factor,
-        persistent_workers=config.data.persistent_workers,
-        timeout=config.data.timeout,
+        pin_memory=data_config.pin_memory,
+        prefetch_factor=data_config.prefetch_factor,
+        persistent_workers=data_config.persistent_workers,
+        timeout=data_config.timeout,
+    )
+
+
+def build_evaluator(eval_config: EvaluatorConfig, model_config: ModelConfig):
+    batch_size = eval_config.device_eval_microbatch_size
+    if dist.is_initialized():
+        batch_size = batch_size * dist.get_world_size()
+    eval_dataloader = build_dataloader(eval_config.data, model_config, batch_size)
+    return Evaluator(
+        label=eval_config.label,
+        dataloader=eval_dataloader,
+        metric_names=eval_config.metric_names,
+        subset_num_batches=eval_config.subset_num_batches,
     )
 
 

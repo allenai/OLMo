@@ -1,14 +1,14 @@
 #!/bin/bash
-#SBATCH --job-name=c4-7b
+#SBATCH --job-name=c4-small
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
-#SBATCH --nodes=8               # Total number of nodes 
+#SBATCH --nodes=1               # Total number of nodes 
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
 #SBATCH --time=00:15:00
 #SBATCH --mem=0			# All memory on the node
-#SBATCH --partition=standard-g
+#SBATCH --partition=small-g
 
 module load LUMI/22.08 partition/G
 
@@ -21,7 +21,7 @@ export MIOPEN_CUSTOM_CACHE_DIR=${MIOPEN_USER_DB_PATH}
 export CXI_FORK_SAFE=1
 export CXI_FORK_SAFE_HP=1
 export FI_CXI_DISABLE_CQ_HUGETLB=1
-export NCCL_DEBUG=INFO
+#export NCCL_DEBUG=INFO
 export PYTHONPATH=.:${PYTHONPATH}
 export WANDB_PROJECT=lumi-${SLURM_JOB_PARTITION}
 export ROCM_PATH=/opt/rocm
@@ -40,5 +40,5 @@ srun \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/llm-lumi_latest.sif \
-    python scripts/train.py configs/7b-c4.yaml --run_name=${SLURM_JOB_ID}
+    python scripts/train.py configs/c4-small.yaml --run_name=${SLURM_JOB_ID}
 
