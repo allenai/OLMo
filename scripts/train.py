@@ -10,7 +10,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
-from typing import Any, Deque, Dict, Generator, Iterator, List, Tuple
+from typing import Any, Deque, Dict, Generator, Iterator, List, Tuple, cast
 
 import numpy as np
 import torch
@@ -208,6 +208,7 @@ class Trainer:
             batch_loss += loss.detach()
 
         # Clip gradient norms.
+        # TODO: return norm so we can log (possibly take max over ranks?)
         if self.cfg.max_grad_norm is not None:
             self.fsdp_model.clip_grad_norm_(self.cfg.max_grad_norm)
 
@@ -247,7 +248,7 @@ class Trainer:
         for step, (epoch, batch) in self.training_batches:
             if not first_batch:
                 # We start monitoring speed after the first batch since the first
-                # batch might be an outlier due to compiling and whatever else.
+                # batch might be an outlier due to compiling and other initialization overhead.
                 num_tokens = batch["input_ids"].shape[0] * batch["input_ids"].shape[1]
                 speed_monitor.batch_start(num_tokens)
 
@@ -270,6 +271,12 @@ class Trainer:
                     f"[epoch={epoch}, step={step}/{self.cfg.max_duration}]\n"
                     + "\n".join([f"    {name}={value:.4f}" for name, value in metrics.items()])
                 )
+
+            # TODO: checkpoint (and reset speed monitor)
+            if not first_batch and step % self.cfg.save_interval == 0:
+                pass
+
+            # TODO: validate (and reset speed monitor)
 
             first_batch = False
 
@@ -365,7 +372,10 @@ def main(cfg: TrainConfig) -> None:
         trainer.restore_checkpoint(Path(cfg.load_path))
 
     if cfg.compile is not None:
-        trainer.train_step = torch.compile(trainer.train_step, **cfg.compile.asdict())
+        # NOTE: trying to compile the whole train step results in a compile-time error from within
+        # the optimizer. We should investigate this further at some point.
+        #  trainer.train_step = torch.compile(trainer.train_step, **cfg.compile.asdict())
+        trainer.fsdp_model = cast(FSDP, torch.compile(trainer.fsdp_model, **cfg.compile.asdict()))
 
     if not cfg.dry_run:
         log.info("Starting training...")
