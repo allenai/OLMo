@@ -1,11 +1,12 @@
 """Run this script with 'torchrun'."""
 
 import logging
+import math
 import os
 import random
 import shutil
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
 from typing import Any, Dict, Generator, Iterator, List, Tuple
@@ -20,6 +21,7 @@ from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy, StateDictType
 from torch.utils.data import DataLoader, DistributedSampler
+from torchmetrics import MeanMetric
 
 from olmo import Olmo, TrainConfig
 from olmo.aliases import BatchDict
@@ -49,6 +51,7 @@ class Trainer:
     training_batches: Iterator[Tuple[int, Tuple[int, BatchDict]]]
     device: torch.device
     global_step: int = 0
+    train_loss_metric: MeanMetric = field(default_factory=lambda: MeanMetric(nan_strategy="error"))
 
     def state_dict(self) -> Dict[str, Any]:
         return {
@@ -155,7 +158,10 @@ class Trainer:
         # In case this helps with memory utilization.
         del batch
 
-        batch_loss = 0.0
+        # Reset metric.
+        self.train_loss_metric.reset()
+
+        batch_loss = torch.tensor(0.0, device=self.device)
         for micro_batch in micro_batches:
             # Run forward pass.
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
@@ -170,11 +176,12 @@ class Trainer:
             # Check for nan loss.
             if torch.isnan(loss):
                 raise ValueError("nan loss encountered")
-            else:
-                batch_loss += loss.detach().item()
 
             # Run backward pass.
             loss.backward()
+
+            # Update overall batch loss.
+            batch_loss += loss.detach()
 
         # Clip gradient norms.
         if self.cfg.max_grad_norm is not None:
@@ -184,7 +191,9 @@ class Trainer:
         self.optim.step()
         self.scheduler.step()
 
-        return batch_loss
+        # Reduce loss across ranks.
+        self.train_loss_metric.update(batch_loss)
+        return self.train_loss_metric.compute().item()
 
     def split_batch(self, batch: BatchDict) -> List[BatchDict]:
         batch_size = batch["input_ids"].shape[0]
@@ -204,7 +213,11 @@ class Trainer:
         for step, (epoch, batch) in self.training_batches:
             loss = self.train_step(batch)
             if step % self.cfg.console_log_interval == 0:
-                log.info(f"[epoch={epoch}, step={step}/{self.cfg.max_duration}]\n" f"  loss={loss:.4f}")
+                log.info(
+                    f"[epoch={epoch}, step={step}/{self.cfg.max_duration}]\n"
+                    f"    CrossEntropyLoss={loss:.4f}\n"
+                    f"    Perplexity={math.exp(loss):.4f}"
+                )
 
 
 def main(cfg: TrainConfig) -> None:
