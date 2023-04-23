@@ -35,6 +35,7 @@ __all__ = [
     "SchedulerType",
     "SchedulerConfig",
     "DataConfig",
+    "EvaluatorConfig",
     "TokenizerConfig",
     "TrainConfig",
     "PaddingDirection",
@@ -352,6 +353,14 @@ class DataConfig(BaseConfig):
     timeout: int = 0
 
 
+@dataclass
+class EvaluatorConfig(BaseConfig):
+    label: str
+    data: DataConfig
+    device_eval_batch_size: int
+    subset_num_batches: int = -1
+
+
 class TruncationDirection(StrEnum):
     right = "right"
     left = "left"
@@ -414,6 +423,8 @@ class TrainConfig(BaseConfig):
     optimizer: OptimizerConfig = field(default_factory=OptimizerConfig)
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
     data: DataConfig = field(default_factory=DataConfig)
+    evaluators: List[EvaluatorConfig] = field(default_factory=list)
+    eval_interval: Union[int, str] = "1ep"
     tokenizer: TokenizerConfig = field(default_factory=TokenizerConfig)
     save_folder: str = "./"
     save_interval: int = 1000
