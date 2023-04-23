@@ -1,7 +1,6 @@
 """Run this script with 'torchrun'."""
 
 import logging
-import math
 import os
 import random
 import shutil
@@ -145,7 +144,7 @@ class Trainer:
             labels = labels.masked_fill(attention_mask == 0.0, -100)
         return labels[..., 1:].contiguous()
 
-    def train_step(self, batch: BatchDict) -> float:
+    def train_step(self, batch: BatchDict) -> Tuple[float, float]:
         # Zero-gradients.
         self.optim.zero_grad(set_to_none=True)
 
@@ -193,7 +192,10 @@ class Trainer:
 
         # Reduce loss across ranks.
         self.train_loss_metric.update(batch_loss)
-        return self.train_loss_metric.compute().item()
+        batch_loss = self.train_loss_metric.compute()
+
+        # Return loss and perplexity.
+        return batch_loss.item(), torch.exp(batch_loss).item()
 
     def split_batch(self, batch: BatchDict) -> List[BatchDict]:
         batch_size = batch["input_ids"].shape[0]
@@ -211,14 +213,14 @@ class Trainer:
     def fit(self):
         self.fsdp_model.train()
         for step, (epoch, batch) in self.training_batches:
-            loss = self.train_step(batch)
+            loss, ppl = self.train_step(batch)
 
             # Log to console.
             if step % self.cfg.console_log_interval == 0:
                 log.info(
                     f"[epoch={epoch}, step={step}/{self.cfg.max_duration}]\n"
                     f"    CrossEntropyLoss={loss:.4f}\n"
-                    f"    Perplexity={math.exp(loss):.4f}"
+                    f"    Perplexity={ppl:.4f}"
                 )
 
 
