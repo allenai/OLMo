@@ -291,8 +291,10 @@ class Trainer:
     def fit(self):
         # Maybe start W&B run.
         if self.cfg.wandb is not None and (global_rank() == 0 or not self.cfg.wandb.rank_zero_only):
+            wandb_dir = Path(self.cfg.save_folder) / "wandb"
+            wandb_dir.mkdir(parents=True, exist_ok=True)
             wandb.init(
-                dir=Path(self.cfg.save_folder) / "wandb",
+                dir=wandb_dir,
                 project=self.cfg.wandb.project,
                 entity=self.cfg.wandb.entity,
                 group=self.cfg.wandb.group,
