@@ -24,7 +24,7 @@ from torch.distributed.fsdp import MixedPrecision, ShardingStrategy, StateDictTy
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import MeanMetric
 
-from olmo import Olmo, TrainConfig
+from olmo import DataConfig, ModelConfig, Olmo, TrainConfig
 from olmo.aliases import BatchDict
 from olmo.config import OptimizerType, SchedulerType, SpeedMonitorConfig
 from olmo.data import DataCollator, MemMapDataset
@@ -352,7 +352,7 @@ def main(cfg: TrainConfig) -> None:
     scheduler = build_scheduler(cfg, optim)
 
     # Construct data loader.
-    train_loader = build_dataloader(cfg, cfg.device_train_batch_size)
+    train_loader = build_dataloader(cfg.data, cfg.model, cfg.device_train_batch_size)
     training_batches = enumerate(islice(cycle_through_epochs(train_loader), cfg.max_duration))
 
     # Consolidate components into `Trainer` object.
@@ -399,9 +399,11 @@ def local_rank() -> int:
     return int(os.environ["LOCAL_RANK"])
 
 
-def build_dataloader(cfg: TrainConfig, batch_size: int, shuffle: bool = True) -> DataLoader:
-    collator = DataCollator.from_train_config(cfg)
-    dataset = MemMapDataset.from_train_config(cfg)
+def build_dataloader(
+    data_config: DataConfig, model_config: ModelConfig, batch_size: int, shuffle: bool = True
+) -> DataLoader:
+    collator = DataCollator(pad_direction=data_config.pad_direction, pad_token_id=model_config.pad_token_id)
+    dataset = MemMapDataset(*data_config.paths, chunk_size=model_config.max_sequence_length)
     sampler = DistributedSampler(
         dataset,
         drop_last=True,
