@@ -315,7 +315,7 @@ class Trainer:
             # Log metrics to console.
             if step % self.cfg.console_log_interval == 0:
                 log.info(
-                    f"[epoch={epoch}, step={step}/{self.cfg.max_duration}]\n"
+                    f"[epoch={epoch}, step={step + 1}/{self.cfg.max_duration}]\n"
                     + "\n".join([f"    {name}={value:.4f}" for name, value in metrics.items()])
                 )
 
@@ -349,7 +349,7 @@ class Trainer:
                         # Log to console.
                         if eval_step % self.cfg.console_log_interval == 0:
                             log.info(
-                                f"[eval_step={eval_step}/{num_eval_batches}]\n"
+                                f"[eval_step={eval_step + 1}/{num_eval_batches}]\n"
                                 + "\n".join([f"    {name}={value:.4f}" for name, value in eval_metrics.items()])
                             )
 
