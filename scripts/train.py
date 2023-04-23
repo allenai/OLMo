@@ -56,6 +56,7 @@ class SpeedMonitor:
 
     def reset(self) -> None:
         self.start_times.clear()
+        self.num_tokens.clear()
 
     def check(self) -> Dict[str, float]:
         total_seconds = time.monotonic() - self.start_times[0]
