@@ -372,8 +372,8 @@ class Trainer:
         # Train.
         first_batch: bool = True
         for step, (epoch, batch) in self.training_batches:
-            self.global_step = step + 1
-            self.global_data_step += 1
+            self.global_step += 1
+            self.global_data_step = step + 1
 
             # We start monitoring speed after the first batch since the first
             # batch might be an outlier due to compiling and other initialization overhead.
