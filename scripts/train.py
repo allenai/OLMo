@@ -132,8 +132,8 @@ class Trainer:
             "model": self.fsdp_model.state_dict(),
             "optim": FSDP.optim_state_dict(self.fsdp_model, self.optim),
             "scheduler": self.scheduler.state_dict(),
-            "global_step": self.global_step,
-            "global_data_step": self.global_data_step,
+            "global_step": self.global_step,  # move forward one batch
+            "global_data_step": self.global_data_step,  # move forward one batch
             "checkpoints": self.checkpoints,
             "rng": {
                 "python": random.getstate(),
@@ -232,11 +232,11 @@ class Trainer:
             else:
                 log.info(f"Fast-forwarding data loader to {self.global_data_step}...")
             for step, _ in self.training_batches:
-                if step >= self.global_data_step:
+                if step + 1 >= self.global_data_step:
                     log.info(f"Fast-forwarded to {self.global_data_step}")
                     break
-                elif step % 1000 == 0:
-                    log.info(f"Fast-forwarding... {step}/{self.global_data_step}")
+                elif step + 1 % 1000 == 0:
+                    log.info(f"Fast-forwarding... {step + 1}/{self.global_data_step}")
 
         dist.barrier()
 
@@ -372,7 +372,8 @@ class Trainer:
         # Train.
         first_batch: bool = True
         for step, (epoch, batch) in self.training_batches:
-            self.global_step = step
+            self.global_step = step + 1
+            self.global_data_step += 1
 
             # We start monitoring speed after the first batch since the first
             # batch might be an outlier due to compiling and other initialization overhead.
@@ -388,14 +389,14 @@ class Trainer:
                 metrics.update(speed_monitor.check())
 
             # Log metrics to console.
-            if step % self.cfg.console_log_interval == 0:
+            if self.global_step % self.cfg.console_log_interval == 0:
                 log.info(
-                    f"[epoch={epoch}, step={step + 1}/{self.cfg.max_duration}]\n"
+                    f"[epoch={epoch}, step={self.global_step}/{self.cfg.max_duration}]\n"
                     + "\n".join([f"    {name}={value:.4f}" for name, value in metrics.items()])
                 )
 
             # Maybe save checkpoint.
-            if not first_batch and step % self.cfg.save_interval == 0:
+            if not first_batch and self.global_step % self.cfg.save_interval == 0:
                 log.info("Saving checkpoint...")
                 checkpoint_path = self.save_checkpoint()
                 log.info(f"Checkpoint saved to {checkpoint_path}")
@@ -404,7 +405,7 @@ class Trainer:
                 speed_monitor.reset()
 
             # Maybe run evaluations.
-            if not first_batch and step % self.cfg.eval_interval == 0:
+            if not first_batch and self.global_step % self.cfg.eval_interval == 0:
                 # Zero gradients and set model to 'eval' mode.
                 self.optim.zero_grad(set_to_none=True)
                 self.fsdp_model.eval()
@@ -425,7 +426,7 @@ class Trainer:
                         eval_metrics = self.eval_step(eval_batch, evaluator)
 
                         # Log to console.
-                        if eval_step % self.cfg.console_log_interval == 0:
+                        if (eval_step + 1) % self.cfg.console_log_interval == 0:
                             log.info(
                                 f"[eval_step={eval_step + 1}/{num_eval_batches}]\n"
                                 + "\n".join([f"    {name}={value:.4f}" for name, value in eval_metrics.items()])
@@ -443,10 +444,9 @@ class Trainer:
             # Log metrics to W&B.
             if wandb.run is not None:
                 metrics.update(lr_monitor.check())
-                wandb.log(metrics, step=step + 1)
+                wandb.log(metrics, step=self.global_step)
 
             first_batch = False
-            self.global_data_step += 1
 
     def close(self) -> None:
         if wandb.run is not None:
