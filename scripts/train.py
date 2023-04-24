@@ -8,6 +8,7 @@ import sys
 import time
 from collections import deque
 from dataclasses import dataclass, field
+from functools import partial
 from itertools import islice
 from pathlib import Path
 from typing import Any, Deque, Dict, Generator, Iterator, List, Optional, Tuple
@@ -500,6 +501,25 @@ def main(cfg: TrainConfig) -> None:
         limit_all_gathers=True,
         device_id=local_rank(),
     )
+
+    if cfg.activation_checkpointing:
+        # verify we have FSDP activation support ready by importing:
+        from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
+            CheckpointImpl,
+            apply_activation_checkpointing,
+            checkpoint_wrapper,
+        )
+
+        non_reentrant_wrapper = partial(
+            checkpoint_wrapper,
+            offload_to_cpu=False,
+            checkpoint_impl=CheckpointImpl.NO_REENTRANT,
+        )
+        apply_activation_checkpointing(
+            fsdp_model,
+            checkpoint_wrapper_fn=non_reentrant_wrapper,  # type: ignore
+            check_fn=olmo_model.activation_checkpointing_fn,  # type: ignore
+        )
 
     # Construct optimizer and learning rate scheduler.
     optim = build_optimizer(cfg, fsdp_model)

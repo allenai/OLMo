@@ -31,6 +31,8 @@ compile: null  # currently this doesn't work with activation checkpointing
 #compile:
 #  mode: default
 
+activation_checkpointing: true
+
 optimizer:
   name: decoupled_lionw
   learning_rate: 8.0e-5

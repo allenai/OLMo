@@ -447,6 +447,7 @@ class TrainConfig(BaseConfig):
     """
     Settings for compiling the model with ``torch.compile()``.
     """
+    activation_checkpointing: bool = False
 
     @property
     def device(self) -> str:
