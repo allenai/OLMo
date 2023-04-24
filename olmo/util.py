@@ -8,7 +8,6 @@ from typing import Any, Dict, Optional, TypeVar, Union
 
 import rich
 import torch
-from composer.utils.dist import get_local_rank, get_node_rank
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.text import Text
@@ -29,8 +28,6 @@ def log_extra_field(field_name: str, field_value: Any) -> None:
 
 
 def setup_logging() -> None:
-    log_extra_field("node_rank", get_node_rank())
-    log_extra_field("local_rank", get_local_rank())
     log_extra_field("hostname", socket.gethostname())
     old_log_record_factory = logging.getLogRecordFactory()
 
@@ -90,20 +87,7 @@ def install_excepthook():
 
 
 def filter_warnings():
-    # Filter deprecation warning from torch internal usage
-    warnings.filterwarnings(
-        action="ignore",
-        category=UserWarning,
-        message="torch.distributed.*_base is a private function and will be deprecated.*",
-    )
-    # Filter composer warnings about loggers.
-    warnings.filterwarnings(
-        action="ignore",
-        message="Specifying the ConsoleLogger via `loggers` is not recommended.*",
-        module="composer.trainer.trainer",
-    )
-    # Torchvision warnings. We don't actually use torchvision at the moment
-    # but composer imports it at some point and we see these warnings.
+    # Torchvision warnings. We don't actually use torchvision.
     warnings.filterwarnings(
         action="ignore",
         message="failed to load.*",

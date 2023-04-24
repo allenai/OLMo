@@ -1,4 +1,4 @@
-save_folder: "/tmp/composer-train-tiny"
+save_folder: "/tmp/olmo-train-tiny"
 model:
   d_model: 128
   n_heads: 4
