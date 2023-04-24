@@ -165,6 +165,7 @@ class Trainer:
         # Link to 'latest'.
         if global_rank() == 0:
             latest_path = Path(self.cfg.save_folder) / "latest"
+            latest_path.unlink(missing_ok=True)
             latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
 
         self.checkpoints.append(checkpoint_dir)
@@ -194,7 +195,9 @@ class Trainer:
             # Load state (other than optimizer).
             self.fsdp_model.load_state_dict(state_dict["model"])
             self.global_step = state_dict["global_step"]
-            self.checkpoints = [path for path in state_dict["checkpoints"] if path.is_dir()]
+            self.checkpoints = [
+                path for path in state_dict["checkpoints"] if path.resolve().parent == Path(self.cfg.save_folder)
+            ]
             self.scheduler.load_state_dict(state_dict["scheduler"])
             rng_state = state_dict.pop("rng")
 
