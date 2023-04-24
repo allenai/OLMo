@@ -22,7 +22,6 @@ from smashed.utils.io_utils import (
 )
 from tqdm import tqdm
 
-
 RP_RELEASE_TIME = "2023-04-17T11:00:00"
 RP_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
@@ -36,7 +35,7 @@ class Config:
     debug: bool = False
     raw: bool = False
     dryrun: bool = False
-    version: str = 'v0'
+    version: str = "v0"
 
 
 def count_words(text: str) -> int:
@@ -218,18 +217,18 @@ class ProcessPath(NamedTuple):
 
     @property
     def fn_clean(self):
-        fn = self.dst_filename.lstrip('/')
+        fn = self.dst_filename.lstrip("/")
 
-        if fn.startswith('common_crawl/'):
+        if fn.startswith("common_crawl/"):
             # format: common_crawl/2019-30/en_head_0000.json.gz.dedup.classifier.jsonl.zst
-            dataset, date, fn = fn.split('/', 2)
-            fn = f'dataset={dataset}/{date}_{fn}'
+            dataset, date, fn = fn.split("/", 2)
+            fn = f"dataset={dataset}/{date}_{fn}"
         else:
-            dataset, fn = fn.split('/', 1)
-            fn = f'dataset={dataset}/{fn}'
+            dataset, fn = fn.split("/", 1)
+            fn = f"dataset={dataset}/{fn}"
 
-        if fn.endswith('.zst'):
-            fn = f'{fn[:-4]}.gz'
+        if fn.endswith(".zst"):
+            fn = f"{fn[:-4]}.gz"
 
         return fn
 
@@ -239,15 +238,15 @@ class ProcessPath(NamedTuple):
 
     @property
     def train(self):
-        return f'{self.pfx_clean}/split=train/{self.fn_clean}'
+        return f"{self.pfx_clean}/split=train/{self.fn_clean}"
 
     @property
     def test(self):
-        return f'{self.pfx_clean}/split=test/{self.fn_clean}'
+        return f"{self.pfx_clean}/split=test/{self.fn_clean}"
 
     @property
     def valid(self):
-        return f'{self.pfx_clean}/split=valid/{self.fn_clean}'
+        return f"{self.pfx_clean}/split=valid/{self.fn_clean}"
 
     @classmethod
     def parse(cls, src: str, src_prefix: str, dst_prefix: str):
@@ -259,7 +258,7 @@ def process_single(
     path: ProcessPath,
     version: str,
     pbar_queue: Optional["Queue[Union[None, Progress]]"] = None,
-    dryrun: bool = False
+    dryrun: bool = False,
 ):
     cnt_part = cnt_words = cnt_docs = 0
 
@@ -336,9 +335,9 @@ def process_single(
             reshaped = reshape_fn(row=data, version=version)
 
             if reshaped["id"][:3] in {"fff", "ffe"}:
-                test_stream.write(json.dumps(reshaped) + "\n")      # pyright: ignore
+                test_stream.write(json.dumps(reshaped) + "\n")  # pyright: ignore
             elif reshaped["id"][:3] in {"ffd", "ffc"}:
-                valid_stream.write(json.dumps(reshaped) + "\n")     # pyright: ignore
+                valid_stream.write(json.dumps(reshaped) + "\n")  # pyright: ignore
             else:
                 train_stream.write(json.dumps(reshaped) + "\n")
 
@@ -412,7 +411,9 @@ def main(cfg: Config):
             )
             pbar_thread.start()
 
-            _process_single = partial(process_single, pbar_queue=pbar_queue, version=cfg.version, dryrun=cfg.dryrun)
+            _process_single = partial(
+                process_single, pbar_queue=pbar_queue, version=cfg.version, dryrun=cfg.dryrun
+            )
             for _ in pool.imap_unordered(_process_single, all_paths):
                 ...
 

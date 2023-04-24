@@ -125,3 +125,18 @@ python -m olmo_tokenizer.hf.train \
     min_sentence_length=128 \
     model=BPE
 ```
+
+the resulting tokenizer is available at `s3://ai2-llm/tokenizer/model/redpajama_v1_bpe_aa-af/tok.json`
+
+We also train a Unigram LM variant:
+
+```bash
+python -m olmo_tokenizer.hf.train \
+    input_dir="s3://ai2-llm/tokenizer/data/redpajama/v1" \
+    save_path="s3://ai2-llm/tokenizer/model/redpajama_v1_unigram_aa-af/tok" \
+    normalization=NFC \
+    min_sentence_length=128 \
+    model=Unigram
+```
+
+which is available at `s3://ai2-llm/tokenizer/model/redpajama_v1_unigram_aa-af/tok.json`

@@ -124,7 +124,8 @@ def make_bpe_tokenizer(vocab_size: int, normalization: str = "NFC"):
     tokenizer.decoder = decoders.Sequence(
         [  # type: ignore
             decoders.ByteFallback(),
-            decoders.ByteLevel(add_prefix_space=False, use_regex=True),     # type: ignore
+            decoders.ByteLevel(add_prefix_space=False, use_regex=True),
+            # type: ignore
         ]
     )
 
@@ -158,12 +159,12 @@ def make_unigram_tokenizer(vocab_size: int, normalization: str = "NFC"):
             pre_tokenizers.ByteLevel(add_prefix_space=False, use_regex=True),
         ]
     )
-    tokenizer.decoder = decoders.ByteLevel(add_prefix_space=False, use_regex=True)     # type: ignore
+    tokenizer.decoder = decoders.ByteLevel(add_prefix_space=False, use_regex=True)  # type: ignore
 
     trainer = trainers.UnigramTrainer(  # type: ignore
         vocab_size=vocab_size - 2,
         special_tokens=[],
-        initial_alphabet=pre_tokenizers.ByteLevel.alphabet()  # type: ignore
+        initial_alphabet=pre_tokenizers.ByteLevel.alphabet(),  # type: ignore
     )
 
     return tokenizer, trainer
