@@ -423,6 +423,8 @@ class TrainConfig(BaseConfig):
     optimizer: OptimizerConfig = field(default_factory=OptimizerConfig)
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
     data: DataConfig = field(default_factory=DataConfig)
+    fast_forward_batches: Optional[int] = None
+    """When restarting, use this to fast-forward the dataloader beyond the last checkpoint."""
     evaluators: List[EvaluatorConfig] = field(default_factory=list)
     eval_interval: int = 1000
     tokenizer: TokenizerConfig = field(default_factory=TokenizerConfig)

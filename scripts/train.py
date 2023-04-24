@@ -124,6 +124,7 @@ class Trainer:
     train_loss_metric: MeanMetric
     evaluators: List[Evaluator]
     global_step: int = 0
+    global_data_step: int = 0
     checkpoints: List[Path] = field(default_factory=list)
 
     def state_dict(self) -> Dict[str, Any]:
@@ -132,6 +133,7 @@ class Trainer:
             "optim": FSDP.optim_state_dict(self.fsdp_model, self.optim),
             "scheduler": self.scheduler.state_dict(),
             "global_step": self.global_step,
+            "global_data_step": self.global_data_step,
             "checkpoints": self.checkpoints,
             "rng": {
                 "python": random.getstate(),
@@ -195,6 +197,7 @@ class Trainer:
             # Load state (other than optimizer).
             self.fsdp_model.load_state_dict(state_dict["model"])
             self.global_step = state_dict["global_step"]
+            self.global_data_step = state_dict["global_data_step"]
             self.checkpoints = [
                 path
                 for path in state_dict["checkpoints"]
@@ -219,14 +222,21 @@ class Trainer:
         dist.barrier()
 
         # Fast-forward data loader.
-        if self.global_step > 0:
-            log.info(f"Fast-forwarding data loader to {self.global_step}...")
+        if self.cfg.fast_forward_batches:
+            self.global_data_step += self.cfg.fast_forward_batches
+        if self.global_data_step > 0:
+            if self.global_data_step > self.global_step:
+                log.info(
+                    f"Fast-forwarding data loader to {self.global_step}+{self.global_data_step-self.global_step}..."
+                )
+            else:
+                log.info(f"Fast-forwarding data loader to {self.global_data_step}...")
             for step, _ in self.training_batches:
-                if step >= self.global_step:
-                    log.info(f"Fast-forwarded to {self.global_step}")
+                if step >= self.global_data_step:
+                    log.info(f"Fast-forwarded to {self.global_data_step}")
                     break
                 elif step % 1000 == 0:
-                    log.info(f"Fast-forwarding... {step}/{self.global_step}")
+                    log.info(f"Fast-forwarding... {step}/{self.global_data_step}")
 
         dist.barrier()
 
@@ -436,6 +446,7 @@ class Trainer:
                 wandb.log(metrics, step=step + 1)
 
             first_batch = False
+            self.global_data_step += 1
 
     def close(self) -> None:
         if wandb.run is not None:
