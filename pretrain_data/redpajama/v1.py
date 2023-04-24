@@ -290,7 +290,7 @@ def process_single(
 
     if dryrun:
         pbar_queue.put(Progress.new(f=1)) if pbar_queue else None
-        print(f'Processing "{path.src}" to "{path.train}" (and valid/test)')
+        print(f'Will process "{path.src}" to "{path.train}" (and valid/test)')
         return
 
     # add a bit of delay between processes
