@@ -345,7 +345,10 @@ class Trainer:
 
             # Maybe run evaluations.
             if not first_batch and step % self.cfg.eval_interval == 0:
+                # Zero gradients and set model to 'eval' mode.
                 self.optim.zero_grad(set_to_none=True)
+                self.fsdp_model.eval()
+
                 for evaluator in self.evaluators:
                     log.info(f"Running evaluation for '{evaluator.cfg.label}'...")
 
@@ -374,6 +377,9 @@ class Trainer:
 
                 # Reset speed monitor so that we don't count the time taken to run evaluations.
                 speed_monitor.reset()
+
+                # Reset model to 'train' mode.
+                self.fsdp_model.train()
 
             # Log metrics to W&B.
             if wandb.run is not None:
