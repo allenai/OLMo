@@ -101,6 +101,11 @@ def filter_warnings():
         category=UserWarning,
         message="torch.distributed.*_base is a private function and will be deprecated.*",
     )
+    warnings.filterwarnings(
+        action="ignore",
+        category=UserWarning,
+        message="TypedStorage is deprecated.*",
+    )
     # Torchvision warnings. We don't actually use torchvision.
     warnings.filterwarnings(
         action="ignore",
