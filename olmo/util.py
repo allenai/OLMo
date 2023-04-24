@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional, TypeVar, Union
 
 import rich
 import torch
+import torch.distributed as dist
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.text import Text
@@ -29,6 +30,8 @@ def log_extra_field(field_name: str, field_value: Any) -> None:
 
 def setup_logging() -> None:
     log_extra_field("hostname", socket.gethostname())
+    log_extra_field("node_rank", node_rank())
+    log_extra_field("local_rank", local_rank())
     old_log_record_factory = logging.getLogRecordFactory()
 
     def log_record_factory(*args, **kwargs) -> logging.LogRecord:
@@ -212,3 +215,19 @@ def move_to_device(o: T, device: torch.device) -> T:
         return tuple((move_to_device(x, device) for x in o))  # type: ignore[return-value]
     else:
         return o
+
+
+def node_rank() -> int:
+    return int(os.environ.get("NODE_RANK", (global_rank() - local_rank()) // local_world_size()))
+
+
+def local_world_size() -> int:
+    return int(os.environ["LOCAL_WORLD_SIZE"])
+
+
+def global_rank() -> int:
+    return int(os.environ.get("RANK", dist.get_rank()))
+
+
+def local_rank() -> int:
+    return int(os.environ["LOCAL_RANK"])

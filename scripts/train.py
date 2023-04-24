@@ -42,6 +42,8 @@ from olmo.model import Olmo
 from olmo.optim import DecoupledLionW
 from olmo.util import (
     clean_opt,
+    global_rank,
+    local_rank,
     log_extra_field,
     move_to_device,
     prepare_cli_environment,
@@ -425,9 +427,6 @@ def main(cfg: TrainConfig) -> None:
     dist.init_process_group(backend="nccl")
     torch.cuda.set_device(f"cuda:{local_rank()}")
 
-    log_extra_field("node_rank", node_rank())
-    log_extra_field("local_rank", local_rank())
-
     # Fill some configuration options.
     cfg.model.precision = cfg.precision
     cfg.device_train_batch_size = cfg.global_train_batch_size // dist.get_world_size()
@@ -538,22 +537,6 @@ def main(cfg: TrainConfig) -> None:
         log.info("Dry run complete")
 
     trainer.close()
-
-
-def node_rank() -> int:
-    return int(os.environ.get("NODE_RANK", (global_rank() - local_rank()) // local_world_size()))
-
-
-def local_world_size() -> int:
-    return int(os.environ["LOCAL_WORLD_SIZE"])
-
-
-def global_rank() -> int:
-    return dist.get_rank()
-
-
-def local_rank() -> int:
-    return int(os.environ["LOCAL_RANK"])
 
 
 def build_dataloader(
