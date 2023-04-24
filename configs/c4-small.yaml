@@ -25,7 +25,7 @@ model:
   embedding_size: 50304
   eos_token_id: 50256
   pad_token_id: 50256
-  init_device: null
+  init_device: meta
   init_std: 0.02
 
 compile:

@@ -179,12 +179,12 @@ class Trainer:
 
         dist.barrier()
 
-        # Fast-forward dataloader.
+        # Fast-forward data loader.
         if self.global_step > 0:
             log.info(f"Fast-forwarding data loader to {self.global_step}...")
-            for step, (current_epoch, batch) in self.training_batches:
-                del batch, current_epoch
-                if step >= self.global_step - 1:
+            for step, _ in self.training_batches:
+                if step >= self.global_step:
+                    log.info(f"Fast-forwarded to {self.global_step}")
                     break
                 elif step % 1000 == 0:
                     log.info(f"Fast-forwarding... {step}/{self.global_step}")
@@ -277,7 +277,7 @@ class Trainer:
         batch = move_to_device(batch, self.device)
 
         # Run forward pass.
-        with torch.no_grad():
+        with torch.no_grad():  # NOTE: 'torch.inference_mode()' doesn't work with 'torch.compile()'.
             loss = self.eval_batch(batch)
 
         # Update metrics.
@@ -508,9 +508,10 @@ def main(cfg: TrainConfig) -> None:
         # NOTE: trying to compile the whole train step results in a compile-time error from within
         # the optimizer. We should investigate this further at some point.
         #  trainer.train_step = torch.compile(trainer.train_step, **cfg.compile.asdict())
-        #  trainer.fsdp_model = cast(FSDP, torch.compile(trainer.fsdp_model, **cfg.compile.asdict()))
         trainer.train_batch = torch.compile(trainer.train_batch, **cfg.compile.asdict())
         trainer.eval_batch = torch.compile(trainer.eval_batch, **cfg.compile.asdict())
+        # Alternatively, could just do this:
+        #  trainer.fsdp_model = torch.compile(trainer.fsdp_model, **cfg.compile.asdict())
 
     if not cfg.dry_run:
         log.info("Starting training...")
