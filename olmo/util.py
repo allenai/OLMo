@@ -30,8 +30,13 @@ def log_extra_field(field_name: str, field_value: Any) -> None:
 
 def setup_logging() -> None:
     log_extra_field("hostname", socket.gethostname())
-    log_extra_field("node_rank", node_rank())
-    log_extra_field("local_rank", local_rank())
+    if is_distributed():
+        log_extra_field("node_rank", node_rank())
+        log_extra_field("local_rank", local_rank())
+    else:
+        log_extra_field("node_rank", 0)
+        log_extra_field("local_rank", 0)
+
     old_log_record_factory = logging.getLogRecordFactory()
 
     def log_record_factory(*args, **kwargs) -> logging.LogRecord:
@@ -215,6 +220,13 @@ def move_to_device(o: T, device: torch.device) -> T:
         return tuple((move_to_device(x, device) for x in o))  # type: ignore[return-value]
     else:
         return o
+
+
+def is_distributed() -> bool:
+    if "LOCAL_RANK" in os.environ:
+        return True
+    else:
+        return False
 
 
 def node_rank() -> int:
