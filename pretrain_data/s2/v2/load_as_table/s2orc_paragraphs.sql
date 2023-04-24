@@ -1,5 +1,5 @@
 
-CREATE EXTERNAL TABLE IF NOT EXISTS `temp_lucas`.`s2orc_v0_20230103` (
+CREATE EXTERNAL TABLE IF NOT EXISTS `temp_lucas`.`llm_s2orc_v0` (
     id STRING,
     source STRING,
     text STRING,
