@@ -176,7 +176,6 @@ class Trainer:
                 oldest_checkpoint = self.checkpoints.pop(0)
                 if global_rank() == 0 and oldest_checkpoint.is_dir():
                     shutil.rmtree(oldest_checkpoint, ignore_errors=True)
-                    oldest_checkpoint.rmdir()
 
         dist.barrier()
 
