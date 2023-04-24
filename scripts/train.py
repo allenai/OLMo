@@ -78,6 +78,15 @@ class SpeedMonitor:
 
 
 @dataclass
+class LRMonitor:
+    optim: torch.optim.Optimizer
+
+    def check(self) -> Dict[str, float]:
+        lrs = [group["lr"] for group in self.optim.param_groups]
+        return {f"train/learning_rate_group{idx}": lr for idx, lr in enumerate(lrs)}
+
+
+@dataclass
 class Evaluator:
     cfg: EvaluatorConfig
     eval_loader: DataLoader
@@ -316,8 +325,9 @@ class Trainer:
         # Set model to 'train' mode.
         self.fsdp_model.train()
 
-        # Initialize SpeedMonitor.
+        # Initialize monitors.
         speed_monitor = SpeedMonitor(self.cfg.speed_monitor)
+        lr_monitor = LRMonitor(self.optim)
 
         # Train.
         first_batch: bool = True
@@ -392,6 +402,7 @@ class Trainer:
 
             # Log metrics to W&B.
             if wandb.run is not None:
+                metrics.update(lr_monitor.check())
                 wandb.log(metrics, step=step + 1)
 
             first_batch = False
