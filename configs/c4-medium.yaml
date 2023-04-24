@@ -85,8 +85,6 @@ load_path: null
 global_train_batch_size: 1024
 device_train_microbatch_size: 2
 
-n_gpus: null
-
 precision: amp_bf16
 
 max_grad_norm: 1.0
