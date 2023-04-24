@@ -345,6 +345,7 @@ class Trainer:
 
             # Maybe run evaluations.
             if not first_batch and step % self.cfg.eval_interval == 0:
+                self.optim.zero_grad(set_to_none=True)
                 for evaluator in self.evaluators:
                     log.info(f"Running evaluation for '{evaluator.cfg.label}'...")
 
