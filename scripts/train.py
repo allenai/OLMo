@@ -19,6 +19,7 @@ import torch.distributed.checkpoint as checkpoint
 import torch.nn as nn
 import torch.nn.functional as F
 import wandb
+from packaging import version
 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy, StateDictType
@@ -181,9 +182,11 @@ class Trainer:
                 optimizer_key="optim",
                 storage_reader=checkpoint.FileSystemReader(load_path),
             )
-            # NOTE: careful, the order of these arguments has changed since the 2.0 release. Cool!
-            # flattened_osd = FSDP.optim_state_dict_to_load(model, optim, optim_state["optim"])  # post 2.0
-            flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)
+            # NOTE: careful, the order of these arguments has changed since the 2.0 release.
+            if version.parse(torch.__version__) > version.parse("2.0.0"):
+                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
+            else:
+                flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
             self.optim.load_state_dict(flattened_osd)
 
         dist.barrier()
