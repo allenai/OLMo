@@ -218,7 +218,7 @@ def move_to_device(o: T, device: torch.device) -> T:
 
 
 def node_rank() -> int:
-    return int(os.environ.get("NODE_RANK", (global_rank() - local_rank()) // local_world_size()))
+    return int(os.environ.get("NODE_RANK") or (global_rank() - local_rank()) // local_world_size())
 
 
 def local_world_size() -> int:
@@ -226,7 +226,7 @@ def local_world_size() -> int:
 
 
 def global_rank() -> int:
-    return int(os.environ.get("RANK", dist.get_rank()))
+    return int(os.environ.get("RANK") or dist.get_rank())
 
 
 def local_rank() -> int:
