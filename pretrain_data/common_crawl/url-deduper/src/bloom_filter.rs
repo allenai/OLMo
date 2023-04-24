@@ -7,7 +7,7 @@ use std::hash::{BuildHasher, Hash, Hasher};
 use std::mem::size_of;
 use rand::Rng;
 use ahash::RandomState;
-use std::fs::OpenOptions;
+use std::fs::{create_dir_all, OpenOptions};
 use std::path::PathBuf;
 
 use config::BloomFilterConfig;
@@ -132,6 +132,7 @@ impl BloomFilter {
     }
 
     pub fn write_to_file(&self, path: &PathBuf) -> io::Result<()> {
+        create_dir_all(path.parent().unwrap())?;
         let file = OpenOptions::new()
             .read(true)
             .write(true)

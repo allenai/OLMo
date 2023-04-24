@@ -35,6 +35,7 @@ __all__ = [
     "SchedulerType",
     "SchedulerConfig",
     "DataConfig",
+    "EvaluatorConfig",
     "TokenizerConfig",
     "TrainConfig",
     "PaddingDirection",
@@ -352,6 +353,15 @@ class DataConfig(BaseConfig):
     timeout: int = 0
 
 
+@dataclass
+class EvaluatorConfig(BaseConfig):
+    label: str
+    data: DataConfig
+    device_eval_microbatch_size: int
+    metric_names: List[str]
+    subset_num_batches: int = -1
+
+
 class TruncationDirection(StrEnum):
     right = "right"
     left = "left"
@@ -415,6 +425,8 @@ class TrainConfig(BaseConfig):
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
     algorithms: Optional[Dict[str, Optional[Dict[str, Any]]]] = None
     data: DataConfig = field(default_factory=DataConfig)
+    evaluators: List[EvaluatorConfig] = field(default_factory=list)
+    eval_interval: Union[int, str] = "1ep"
     tokenizer: TokenizerConfig = field(default_factory=TokenizerConfig)
     save_folder: str = "./"
     save_interval: Union[str, int] = "1ep"

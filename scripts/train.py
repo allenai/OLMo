@@ -48,6 +48,7 @@ def main(cfg: TrainConfig) -> None:
         OlmoConsoleLogger,
         build_algorithm,
         build_dataloader,
+        build_evaluator,
         build_optimizer,
         build_scheduler,
         update_batch_size_info,
@@ -110,7 +111,10 @@ def main(cfg: TrainConfig) -> None:
     scheduler = build_scheduler(cfg.scheduler)
 
     # Dataset / data loader.
-    train_loader = build_dataloader(cfg, cfg.device_train_batch_size)
+    train_loader = build_dataloader(cfg.data, cfg.model, cfg.device_train_batch_size)
+
+    # Evaluators.
+    evaluators = [build_evaluator(eval_config, cfg.model) for eval_config in cfg.evaluators]
 
     # Algorithms.
     algorithms = [
@@ -143,9 +147,8 @@ def main(cfg: TrainConfig) -> None:
         train_dataloader=train_loader,
         optimizers=optimizer,
         schedulers=scheduler,
-        #  eval_dataloader=evaluators,
-        #  eval_interval=cfg.eval_interval,
-        #  eval_subset_num_batches=cfg.get('eval_subset_num_batches', -1),
+        eval_dataloader=evaluators,
+        eval_interval=1 if not evaluators else cfg.eval_interval,
         max_duration=cfg.max_duration,
         precision=cfg.precision,
         device_train_microbatch_size=cfg.device_train_microbatch_size,
