@@ -221,9 +221,12 @@ class Trainer:
 
         dist.barrier()
 
-        # Fast-forward data loader.
-        if self.cfg.fast_forward_batches:
+        if not self.cfg.restore_dataloader:
+            self.global_data_step = 0
+        elif self.cfg.fast_forward_batches:
             self.global_data_step += self.cfg.fast_forward_batches
+
+        # Fast-forward data loader.
         if self.global_data_step > 0:
             if self.global_data_step > self.global_step:
                 log.info(
