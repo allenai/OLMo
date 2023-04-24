@@ -293,8 +293,8 @@ class Trainer:
             micro_batches = {}
             for key, tensor in batch.items():
                 micro_batches[key] = tensor.split(self.cfg.device_train_microbatch_size, dim=0)  # type: ignore
-            return [  # type: ignore
-                {key: tensor[i] for key, tensor in micro_batches.items()}
+            return [
+                {key: tensor[i] for key, tensor in micro_batches.items()}  # type: ignore
                 for i in range(len(micro_batches["input_ids"]))
             ]
 
@@ -414,6 +414,7 @@ def main(cfg: TrainConfig) -> None:
     # Fill some configuration options.
     cfg.model.precision = cfg.precision
     cfg.device_train_batch_size = cfg.global_train_batch_size // dist.get_world_size()
+    assert cfg.device_train_batch_size is not None  # for mypy
     cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
 
     # Display and save configuration.
@@ -508,8 +509,8 @@ def main(cfg: TrainConfig) -> None:
         # NOTE: trying to compile the whole train step results in a compile-time error from within
         # the optimizer. We should investigate this further at some point.
         #  trainer.train_step = torch.compile(trainer.train_step, **cfg.compile.asdict())
-        trainer.train_batch = torch.compile(trainer.train_batch, **cfg.compile.asdict())
-        trainer.eval_batch = torch.compile(trainer.eval_batch, **cfg.compile.asdict())
+        trainer.train_batch = torch.compile(trainer.train_batch, **cfg.compile.asdict())  # type: ignore
+        trainer.eval_batch = torch.compile(trainer.eval_batch, **cfg.compile.asdict())  # type: ignore
         # Alternatively, could just do this:
         #  trainer.fsdp_model = torch.compile(trainer.fsdp_model, **cfg.compile.asdict())
 

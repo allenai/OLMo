@@ -531,7 +531,7 @@ class Olmo(nn.Module):
             )
         if init_params and self.config.init_device != "meta":
             self.apply(self.param_init_fn)
-        self.__num_fwd_flops = None
+        self.__num_fwd_flops: Optional[int] = None
 
         # Attention bias cache.
         # We could cache these as buffers, but we've run into various issues doing that with FSDP.

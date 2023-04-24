@@ -320,7 +320,7 @@ class OptimizerConfig(BaseConfig):
     eps: float = 1e-8
 
     def __post_init__(self):
-        self.betas = tuple(self.betas)
+        self.betas = tuple(self.betas)  # type: ignore[assignment]
 
 
 class SchedulerType(StrEnum):
