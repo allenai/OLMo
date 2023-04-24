@@ -123,6 +123,7 @@ class Trainer:
     train_loss_metric: MeanMetric
     evaluators: List[Evaluator]
     global_step: int = 0
+    checkpoints: List[Path] = field(default_factory=list)
 
     def state_dict(self) -> Dict[str, Any]:
         return {
@@ -130,6 +131,7 @@ class Trainer:
             "optim": FSDP.optim_state_dict(self.fsdp_model, self.optim),
             "scheduler": self.scheduler.state_dict(),
             "global_step": self.global_step,
+            "checkpoints": self.checkpoints,
             "rng": {
                 "python": random.getstate(),
                 "numpy": np.random.get_state(),
@@ -160,6 +162,21 @@ class Trainer:
         with FSDP.state_dict_type(self.fsdp_model, state_dict_type=StateDictType.SHARDED_STATE_DICT):
             checkpoint.save_state_dict(self.state_dict(), checkpoint.FileSystemWriter(checkpoint_dir))
 
+        # Link to 'latest'.
+        checkpoint_dir.link_to(Path(self.cfg.save_folder) / "latest")
+
+        self.checkpoints.append(checkpoint_dir)
+
+        # Remove old checkpoints.
+        if self.cfg.save_num_checkpoints_to_keep > 0:
+            while len(self.checkpoints) > self.cfg.save_num_checkpoints_to_keep:
+                oldest_checkpoint = self.checkpoints.pop(0)
+                if global_rank() == 0:
+                    shutil.rmtree(oldest_checkpoint, ignore_errors=True)
+                    oldest_checkpoint.rmdir()
+
+        dist.barrier()
+
         return checkpoint_dir
 
     def restore_checkpoint(self, load_path: Path):
@@ -175,6 +192,7 @@ class Trainer:
             # Load state (other than optimizer).
             self.fsdp_model.load_state_dict(state_dict["model"])
             self.global_step = state_dict["global_step"]
+            self.checkpoints = [path for path in state_dict["checkpoints"] if path.is_dir()]
             self.scheduler.load_state_dict(state_dict["scheduler"])
             rng_state = state_dict.pop("rng")
 
