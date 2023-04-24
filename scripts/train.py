@@ -277,7 +277,7 @@ class Trainer:
         batch = move_to_device(batch, self.device)
 
         # Run forward pass.
-        with torch.inference_mode():
+        with torch.no_grad():
             loss = self.eval_batch(batch)
 
         # Update metrics.
