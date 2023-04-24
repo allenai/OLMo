@@ -47,7 +47,7 @@ from olmo.util import (
     seed_all,
 )
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("train")
 
 
 @dataclass
