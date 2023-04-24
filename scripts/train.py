@@ -174,7 +174,7 @@ class Trainer:
         if self.cfg.save_num_checkpoints_to_keep > 0:
             while len(self.checkpoints) > self.cfg.save_num_checkpoints_to_keep:
                 oldest_checkpoint = self.checkpoints.pop(0)
-                if global_rank() == 0:
+                if global_rank() == 0 and oldest_checkpoint.is_dir():
                     shutil.rmtree(oldest_checkpoint, ignore_errors=True)
                     oldest_checkpoint.rmdir()
 
@@ -196,7 +196,9 @@ class Trainer:
             self.fsdp_model.load_state_dict(state_dict["model"])
             self.global_step = state_dict["global_step"]
             self.checkpoints = [
-                path for path in state_dict["checkpoints"] if path.resolve().parent == Path(self.cfg.save_folder)
+                path
+                for path in state_dict["checkpoints"]
+                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder)
             ]
             self.scheduler.load_state_dict(state_dict["scheduler"])
             rng_state = state_dict.pop("rng")
