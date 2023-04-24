@@ -6,7 +6,7 @@ from cached_path import cached_path
 from datasets import load_dataset
 from transformers import AutoTokenizer, PreTrainedTokenizerFast
 
-from .llama_tokenizer import LlamaTokenizer
+from transformers import LlamaTokenizer
 
 AI2_PATH = "s3://ai2-llm/tokenizer/model/v1.json"
 LLAMA_PATH = "s3://ai2-s2-lucas/llama/tokenizer.model"
@@ -27,7 +27,7 @@ def join_copa(row):
     return {"text": f'{row["premise"]} {row["choice1"]} {row["choice2"]} {row["label"]}'}
 
 
-copa = copa.map(join_copa, remove_columns=copa.column_names)
+copa = copa.map(join_copa, remove_columns=copa.column_names)    # pyright: ignore
 
 datasets = {"copa": copa, "lambada_openai": lambada}
 
@@ -36,7 +36,7 @@ for dn, dataset in datasets.items():
     for tn, tokenizer in tokenizers.items():
         print(f"{dn}/{tn}")
 
-        tokens = tokenizer(dataset["text"], add_special_tokens=False).input_ids
+        tokens = tokenizer(dataset["text"], add_special_tokens=False).input_ids     # pyright: ignore
         lengths = [len(r) for r in tokens]
         counts = Counter(itertools.chain.from_iterable(tokens))
         avg = float(np.mean(lengths))

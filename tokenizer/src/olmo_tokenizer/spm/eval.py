@@ -1,12 +1,5 @@
-import gzip
-import itertools
-import json
-import os
 import unicodedata
-from contextlib import ExitStack
-from functools import partial
-from tempfile import TemporaryDirectory
-from typing import List, Literal, Optional, Union
+from typing import Union
 
 import sentencepiece as spm
 import springs as sp
