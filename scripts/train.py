@@ -10,7 +10,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
-from typing import Any, Deque, Dict, Generator, Iterator, List, Optional, Tuple, cast
+from typing import Any, Deque, Dict, Generator, Iterator, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -211,21 +211,12 @@ class Trainer:
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1), ignore_index=-100)
         return loss
 
-    def train_step(self, batch: BatchDict) -> Dict[str, float]:
-        # Zero-gradients.
-        self.optim.zero_grad(set_to_none=True)
-
-        # Move tensors to the right device.
-        batch = move_to_device(batch, self.device)
-
+    def train_batch(self, batch: BatchDict) -> torch.Tensor:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
 
         # In case this helps with memory utilization.
         del batch
-
-        # Reset metric.
-        self.train_loss_metric.reset()
 
         batch_loss = torch.tensor(0.0, device=self.device)
         for micro_batch in micro_batches:
@@ -245,6 +236,21 @@ class Trainer:
             # Update overall batch loss.
             batch_loss += loss.detach()
 
+        return batch_loss
+
+    def train_step(self, batch: BatchDict) -> Dict[str, float]:
+        # Zero-gradients.
+        self.optim.zero_grad(set_to_none=True)
+
+        # Reset metric.
+        self.train_loss_metric.reset()
+
+        # Move tensors to the right device.
+        batch = move_to_device(batch, self.device)
+
+        # Run forward-backward pass.
+        batch_loss = self.train_batch(batch)
+
         # Clip gradient norms.
         grad_norm: Optional[float] = None
         if self.cfg.max_grad_norm is not None:
@@ -263,12 +269,16 @@ class Trainer:
             metrics["train/grad_norm"] = grad_norm
         return metrics
 
-    def eval_batch(self, batch: BatchDict, evaluator: Evaluator) -> Dict[str, float]:
+    def eval_batch(self, batch: BatchDict) -> torch.Tensor:
+        return self.model_forward(batch)
+
+    def eval_step(self, batch: BatchDict, evaluator: Evaluator) -> Dict[str, float]:
         # Move tensors to the right device.
         batch = move_to_device(batch, self.device)
 
         # Run forward pass.
-        loss = self.model_forward(batch)
+        with torch.inference_mode():
+            loss = self.eval_batch(batch)
 
         # Update metrics.
         evaluator.update_metrics(loss)
@@ -362,8 +372,7 @@ class Trainer:
 
                     # Run model over batches.
                     for eval_step, (_, eval_batch) in enumerate(islice(evaluator.eval_batches, num_eval_batches)):
-                        with torch.inference_mode():
-                            eval_metrics = self.eval_batch(eval_batch, evaluator)
+                        eval_metrics = self.eval_step(eval_batch, evaluator)
 
                         # Log to console.
                         if eval_step % self.cfg.console_log_interval == 0:
@@ -499,7 +508,9 @@ def main(cfg: TrainConfig) -> None:
         # NOTE: trying to compile the whole train step results in a compile-time error from within
         # the optimizer. We should investigate this further at some point.
         #  trainer.train_step = torch.compile(trainer.train_step, **cfg.compile.asdict())
-        trainer.fsdp_model = cast(FSDP, torch.compile(trainer.fsdp_model, **cfg.compile.asdict()))
+        #  trainer.fsdp_model = cast(FSDP, torch.compile(trainer.fsdp_model, **cfg.compile.asdict()))
+        trainer.train_batch = torch.compile(trainer.train_batch, **cfg.compile.asdict())
+        trainer.eval_batch = torch.compile(trainer.eval_batch, **cfg.compile.asdict())
 
     if not cfg.dry_run:
         log.info("Starting training...")
