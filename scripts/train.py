@@ -83,7 +83,7 @@ class LRMonitor:
 
     def check(self) -> Dict[str, float]:
         lrs = [group["lr"] for group in self.optim.param_groups]
-        return {f"train/learning_rate_group{idx}": lr for idx, lr in enumerate(lrs)}
+        return {f"train/optim/learning_rate_group{idx}": lr for idx, lr in enumerate(lrs)}
 
 
 @dataclass
@@ -275,7 +275,7 @@ class Trainer:
 
         metrics = {"train/CrossEntropyLoss": batch_loss.item(), "train/Perplexity": torch.exp(batch_loss).item()}
         if grad_norm is not None:
-            metrics["train/grad_norm"] = grad_norm
+            metrics["train/optim/grad_norm"] = grad_norm
         return metrics
 
     def eval_batch(self, batch: BatchDict) -> torch.Tensor:
