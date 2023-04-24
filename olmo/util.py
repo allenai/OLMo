@@ -95,6 +95,12 @@ def install_excepthook():
 
 
 def filter_warnings():
+    # Filter deprecation warning from torch internal usage
+    warnings.filterwarnings(
+        action="ignore",
+        category=UserWarning,
+        message="torch.distributed.*_base is a private function and will be deprecated.*",
+    )
     # Torchvision warnings. We don't actually use torchvision.
     warnings.filterwarnings(
         action="ignore",
