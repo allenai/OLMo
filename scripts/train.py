@@ -163,8 +163,9 @@ class Trainer:
             checkpoint.save_state_dict(self.state_dict(), checkpoint.FileSystemWriter(checkpoint_dir))
 
         # Link to 'latest'.
-        latest_path = Path(self.cfg.save_folder) / "latest"
-        latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
+        if global_rank() == 0:
+            latest_path = Path(self.cfg.save_folder) / "latest"
+            latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
 
         self.checkpoints.append(checkpoint_dir)
 
