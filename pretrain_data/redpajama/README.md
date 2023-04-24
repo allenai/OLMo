@@ -62,40 +62,49 @@ GROUP by split, dataset
 ORDER BY len DESC
 ```
 
-| Split | Dataset       | Documents   | Whitespace-separated Words |
-|-------|---------------|-------------|----------------------------|
-| train | common_crawl  | 475,812,014 | 621,466,665,266            |
-| train | c4            | 364,512,631 | 131,632,788,168            |
-| train | book          | 205,543     | 17,758,504,850             |
-| train | github        | 28,765,890  | 17,117,495,039             |
-| train | arxiv         | 1,556,794   | 11,280,774,175             |
-| train | wikipedia     | 29,805,038  | 10,808,656,954             |
-| train | stackexchange | 29,795,923  | 9,199,379,630              |
-| valid | common_crawl  | 232,235     | 300,813,638                |
-| valid | c4            | 178,519     | 64,554,914                 |
-| valid | book          | 111         | 8,727,510                  |
-| valid | github        | 13,682      | 8,409,018                  |
-| valid | arxiv         | 752         | 5,492,183                  |
-| valid | wikipedia     | 14,589      | 5,246,667                  |
-| valid | stackexchange | 14,599      | 4,518,021                  |
-| test  | common_crawl  | 231,770     | 301,888,240                |
-| test  | c4            | 177,742     | 64,287,297                 |
-| test  | github        | 13,740      | 8,435,303                  |
-| test  | book          | 90          | 7,495,911                  |
-| test  | arxiv         | 760         | 5,345,683                  |
-| test  | wikipedia     | 14,544      | 5,275,691                  |
-| test  | stackexchange | 14,564      | 4,460,034                  |
+| **Split** | **Dataset**       | **Documents**   | **Whitespace-separated Words** |
+|-----------|-------------------|-----------------|--------------------------------|
+| train     |   common_crawl    |   475,812,014   |   621,466,665,266              |
+| train     |   c4              |   364,512,631   |   131,632,788,168              |
+| train     |   book            |   205,543       |   17,758,504,850               |
+| train     |   github          |   28,765,890    |   17,117,495,039               |
+| train     |   arxiv           |   1,556,794     |   11,280,774,175               |
+| train     |   wikipedia       |   29,805,038    |   10,808,656,954               |
+| train     |   stackexchange   |   29,795,923    |   9,199,379,630                |
+| valid     |   common_crawl    |   232,235       |   300,813,638                  |
+| valid     |   c4              |   178,519       |   64,554,914                   |
+| valid     |   book            |   111           |   8,727,510                    |
+| valid     |   github          |   13,682        |   8,409,018                    |
+| valid     |   arxiv           |   752           |   5,492,183                    |
+| valid     |   wikipedia       |   14,589        |   5,246,667                    |
+| valid     |   stackexchange   |   14,599        |   4,518,021                    |
+| test      |   common_crawl    |   231,770       |   301,888,240                  |
+| test      |   c4              |   177,742       |   64,287,297                   |
+| test      |   github          |   13,740        |   8,435,303                    |
+| test      |   book            |   90            |   7,495,911                    |
+| test      |   arxiv           |   760           |   5,345,683                    |
+| test      |   wikipedia       |   14,544        |   5,275,691                    |
+| test      |   stackexchange   |   14,564        |   4,460,034                    |
+
+Totals:
+
+| **Split** | **Documents** | **Whitespace-separated Words** |
+|-----------|---------------|--------------------------------|
+| train     | 930,453,833   | 819,264,264,082                |
+| valid     | 454,487       | 397,761,951                    |
+| test      | 453,210       | 397,188,159                    |
+
 
 ## Training a tokenizer
 
-To train a tokenizer, we use records whose `id` (which is also the sha1 hash of the text) starts with `a`. This should result in a dataset of about 60B words, which should be enough to train a BPE tokenizer. To extract the data, we run the following query in Athena:
+To train a tokenizer, we use records whose `id` (which is also the sha1 hash of the text) starts with `aa`--`af`. This should result in a dataset of about 60B words, which should be enough to train a BPE tokenizer. To extract the data, we run the following query in Athena:
 
 ```sql
 UNLOAD (
-    SELECT id, text, source, version
+    SELECT id, source, version
     FROM "redpajama_v1"
     WHERE split = 'train'
-    AND id LIKE 'a%'
+    AND regexp_like(id, '^a[01234567]')
 )
 TO 's3://ai2-llm/tokenizer/data/redpajama/v1/'
 WITH (
@@ -104,8 +113,15 @@ WITH (
 )
 ```
 
+The set above contains 18,181,314 documents and 16,020,537,754 words.
+
 Then, we run the following command to train a tokenizer:
 
 ```bash
-
+python -m olmo_tokenizer.hf.train \
+    input_dir="s3://ai2-llm/tokenizer/data/redpajama/v1" \
+    save_path="s3://ai2-llm/tokenizer/model/redpajama_v1_bpe_aa-af/tok" \
+    normalization=NFC \
+    min_sentence_length=128 \
+    model=BPE
 ```

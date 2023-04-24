@@ -1,6 +1,5 @@
 import gzip
 import itertools
-import multiprocessing
 import os
 import random
 from contextlib import ExitStack
@@ -144,25 +143,27 @@ def make_unigram_tokenizer(vocab_size: int, normalization: str = "NFC"):
 
     tokenizer.pre_tokenizer = pre_tokenizers.Sequence(  # type: ignore
         [
-            pre_tokenizers.Metaspace(add_prefix_space=False),
+            # Split on all punctuation.
             pre_tokenizers.Split(
-                pattern=Regex("▁?[[:punct:]]"),
+                pattern=Regex(" ?[[:punct:]]"),
                 behavior="isolated",
                 invert=False,
             ),
+            # Split up digits.
             pre_tokenizers.Split(
-                pattern=Regex("▁?\\d"),
+                pattern=Regex(" ?\\d"),
                 behavior="isolated",
                 invert=False,
             ),
+            pre_tokenizers.ByteLevel(add_prefix_space=False, use_regex=True),
         ]
     )
-    tokenizer.decoder = decoders.Metaspace()  # type: ignore
+    tokenizer.decoder = decoders.ByteLevel(add_prefix_space=False, use_regex=True)     # type: ignore
 
     trainer = trainers.UnigramTrainer(  # type: ignore
         vocab_size=vocab_size - 2,
         special_tokens=[],
-        initial_alphabet=["▁", *(chr(x) for x in range(256))],  # type: ignore
+        initial_alphabet=pre_tokenizers.ByteLevel.alphabet()  # type: ignore
     )
 
     return tokenizer, trainer
@@ -187,23 +188,13 @@ class TrainConfig:
     save_path: str = sp.MISSING
     normalization: Union[str, None] = sp.field(default="NFD", help="Choose between NFD, NFKD, NFC, or NFKC")
     vocab_size: int = 64_000
-    model: str = sp.field(default="Unigram", help="Choose between Unigram (default) or BPE.")
-    # seed_sentencepiece_size: int = 100_000
-    split_digits: bool = True
-    remove_extra_whitespaces: bool = False
-    num_threads: int = multiprocessing.cpu_count() - 1
-    # tabs_indent_for_code: bool = True
-    # tabs_indent_max_depth: int = 8
-    # space_indent_for_code: bool = True
-    # space_indent_max_depth: int = 8
+    model: str = sp.field(default="BPE", help="Choose between BPE (default) or Unigram.")
+
     min_sentence_length: int = 16
-    by_sentence: bool = False
-    # max_sentence_length: int = 10_000
     sample: Optional[float] = None
     random_seed: int = 42
-    num_processes: int = 1
+
     data_format: str = sp.field(default="jsonl", help="Choose between jsonl (default) or text.")
-    debug: bool = False
 
 
 @sp.cli(TrainConfig)
