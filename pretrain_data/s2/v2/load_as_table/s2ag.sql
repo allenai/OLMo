@@ -1,4 +1,4 @@
-CREATE EXTERNAL TABLE IF NOT EXISTS `temp_lucas`.`s2ag_v0_20230103` (
+CREATE EXTERNAL TABLE IF NOT EXISTS `temp_lucas`.`llm_s2ag_v0` (
     id STRING,
     source STRING,
     text STRING,
@@ -10,6 +10,7 @@ CREATE EXTERNAL TABLE IF NOT EXISTS `temp_lucas`.`s2ag_v0_20230103` (
         title:STRING,
         abstract:STRING,
         sha1:STRING,
+        sources: ARRAY<STRING>,
         title_language:STRING,
         abstract_language:STRING,
         title_perplexity:DOUBLE,

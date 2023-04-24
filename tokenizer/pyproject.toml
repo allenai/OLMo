@@ -1,7 +1,7 @@
 [project]
-name = "pretrain-data-wikipedia"
-version = "0.0.1"
-description = "Download Wikipedia data for pretraining"
+name = "olmo_tokenizer"
+version = "0.0.3"
+description = "Train and evaluate tokenizer for OLMo"
 authors = [
     {name = "Luca Soldaini", email = "lucas@allenai.org" }
 ]
@@ -9,15 +9,15 @@ license = {text = "Apache-2.0"}
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-    "requests",
+    "sentencepiece",
+    "transformers>=4.27",
+    "tokenizers",
+    "smashed[remote]",
     "tqdm",
-    "boto3",
+    "datasets",
+    "orjson",
     "springs",
-    "wikiextractor",
-    "uniseg",
-    "numpy",
-    "cached_path",
-    "orjson"
+    "msgspec",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -53,7 +53,7 @@ requires = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-shadow_scholar = ["py.typed"]
+olmo_tokenizer = ["py.typed"]
 
 [tool.black]
 line-length = 115
