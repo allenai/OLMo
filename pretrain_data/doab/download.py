@@ -80,6 +80,7 @@ def process_url(
     url: str,
     id_: str,
     base_path: MultiPath,
+    sub_id_: Optional[str] = None,
     _depth: int = 1,
     _processed_links: Optional[Set[str]] = None,
 ) -> Tuple[str, bool, List[str]]:
@@ -100,7 +101,8 @@ def process_url(
 
             _, sub_success, sub_urls = process_url(
                 url=sub_url,
-                id_=f"{id_}_{i}",
+                id_=id_,
+                sub_id_=f"{sub_id_}_{i}" if sub_id_ else f"{i}",
                 base_path=base_path,
                 _depth=_depth,  # do not decrement depth
                 _processed_links=_processed_links,
@@ -122,7 +124,8 @@ def process_url(
     content_type = response.headers.get("content-type", "unknown")
 
     if content_type.startswith("application/pdf"):
-        with open_file_for_write(base_path / f"{id_}.pdf", "wb") as f:
+        dst = base_path / id_ / (f"{id_}.pdf" if not sub_id_ else f"{id_}_{sub_id_}.pdf")
+        with open_file_for_write(dst, "wb") as f:
             f.write(response.content)
         return "pdf", True, [url]
 
@@ -133,7 +136,8 @@ def process_url(
             else (match[-1] if (match := urlparse(response.url).path.split("/")) else "")
         )
         if name.endswith(".pdf"):
-            with open_file_for_write(base_path / f"{id_}.pdf", "wb") as f:
+            dst = base_path / id_ / (f"{id_}.pdf" if not sub_id_ else f"{id_}_{sub_id_}.pdf")
+            with open_file_for_write(dst, "wb") as f:
                 f.write(response.content)
             return "pdf", True, [url]
 
@@ -152,7 +156,8 @@ def process_url(
 
             _, sub_success, sub_urls = process_url(
                 url=pdf_link,
-                id_=f"{id_}_{i}",
+                id_=id_,
+                sub_id_=f"{sub_id_}_{i}" if sub_id_ else f"{i}",
                 base_path=base_path,
                 _depth=_depth - 1,
                 _processed_links=_processed_links,
@@ -198,21 +203,20 @@ def main(config: Config):
         print(process_url(url, "debug", base_path))
         return
 
-    df = pd.read_csv(cached_path(config.metadata))
-    data = df.to_dict(orient="records")
-    base_path = MultiPath.parse(config.destination)
-
+    already_processed = set()
     if not config.from_scratch:
         # filter out already processed
-        metadata_path = base_path / "metadata"
-        already_processed = [
-            (MultiPath.parse(path) - metadata_path).as_str.lstrip("/").rstrip(".json")
-            for path in recursively_list_files(metadata_path)
-        ]
-    else:
-        already_processed = []
+        metadata_path = f"{config.destination.rstrip('/')}/metadata"
+        for path in tqdm.tqdm(
+            recursively_list_files(metadata_path), desc=f"Loading '{metadata_path}'...", unit="f", unit_scale=True
+        ):
+            id_ = path.rsplit("/", 1)[-1].split(".", 1)[0]
+            already_processed.add(id_)
 
+    df = pd.read_csv(cached_path(config.metadata))
+    data = df.to_dict(orient="records")
     data = [d for d in data if d["id"] not in already_processed]
+    base_path = MultiPath.parse(config.destination)
 
     if config.parallel > 1:
         fn = partial(process_single, base_path=base_path)
