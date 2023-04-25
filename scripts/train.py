@@ -217,7 +217,9 @@ class Trainer:
             state_dict_type=StateDictType.FULL_STATE_DICT,
             state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
         ):
-            torch.save(self.fsdp_model.state_dict(), checkpoint_path)
+            state_dict = self.fsdp_model.state_dict()
+            if global_rank() == 0:
+                torch.save(state_dict, checkpoint_path)
 
         # Link to 'latest'.
         if global_rank() == 0:
