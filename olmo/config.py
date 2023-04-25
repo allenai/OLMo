@@ -417,47 +417,165 @@ class TrainConfig(BaseConfig):
     """
 
     run_name: Optional[str] = None
+    """
+    The name of the run.
+    """
+
     seed: int = 6198
+    """
+    Used to seed all initial RNG states.
+    """
+
     dry_run: bool = False
+    """
+    If ``True``, don't actually train.
+    """
+
     model: ModelConfig = field(default_factory=ModelConfig)
+    """
+    OLMo Model configuration.
+    """
+
     optimizer: OptimizerConfig = field(default_factory=OptimizerConfig)
+    """
+    Optimizer configuration.
+    """
+
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
+    """
+    Learning rate scheduler configuration.
+    """
+
     data: DataConfig = field(default_factory=DataConfig)
+    """
+    Training data configuration.
+    """
+
     restore_dataloader: bool = True
-    """When restarting, restore the data loader to where it left off."""
+    """
+    When restarting, restore the data loader to where it left off.
+    If you restarting in order to train on a different dataset, set this to ``False``.
+    """
+
     fast_forward_batches: Optional[int] = None
-    """When restarting, use this to fast-forward the dataloader beyond the last checkpoint."""
+    """
+    When restarting, use this to fast-forward the dataloader beyond the last checkpoint.
+    This can be useful when restarting due to a loss spike in order to skip the data that
+    corresponded to the spike.
+    """
+
     evaluators: List[EvaluatorConfig] = field(default_factory=list)
+    """
+    Evaluation configurations.
+    """
+
     eval_interval: int = 1000
+    """
+    How often (in terms of batches) to run evaluations.
+    """
+
     tokenizer: TokenizerConfig = field(default_factory=TokenizerConfig)
+    """
+    Tokenizer configuration.
+    """
+
     save_folder: str = "./"
+    """
+    The directory to save checkpoints to.
+    """
+
     save_interval: int = 1000
-    """How often to save training state checkpoints that can be used for restarts."""
+    """
+    How often (in terms of batches) to save training state checkpoints that can be used for restarts.
+    """
+
     save_interval_model: Optional[int] = None
-    """How often (if at all) to save just the unsharded model weights to a single file."""
+    """
+    How often (if at all) to save just the unsharded model weights to a single file.
+    For large models it can be costly to save these, so it usually makes sense to save
+    these less often than regular (sharded) training checkpoints.
+    """
+
     save_num_checkpoints_to_keep: int = -1
-    """How many checkpoints to keep."""
+    """
+    How many checkpoints to keep.
+    """
+
     save_num_model_checkpoints_to_keep: int = -1
-    """How many unsharded model weights checkpoints to keep."""
+    """
+    How many unsharded model weights checkpoints to keep.
+    """
+
     save_overwrite: bool = False
+    """
+    If ``True``, overwrite any conflicting checkpoint files.
+    """
+
     load_path: Optional[str] = None
-    max_duration: int = 100
-    """Training batches"""
+    """
+    The path to a (sharded) training checkpoint to restore/resume from.
+    """
+
+    max_duration: int = 10000
+    """
+    Maximum number of batches to train for.
+    """
+
     global_train_batch_size: int = 512
+    """
+    The effective global batch size.
+    """
+
     device_train_batch_size: Optional[int] = None  # calculated automatically
+    """
+    Don't set this manually. This will be set to ``global_train_batch_size // world_size``.
+    """
+
     device_train_microbatch_size: int = 16
+    """
+    The number of instances passed to the model in a single forward-backward pass. You should set
+    this as large as you can based on available GPU memory.
+    """
+
     device_train_grad_accum: Optional[int] = None  # calculated automatically
+    """
+    Don't set this manually. This will be set to ``device_train_batch_size // device_train_microbatch_size``.
+    """
+
     max_grad_norm: Optional[float] = None
-    """Gradient clipping."""
+    """
+    Clip gradients to this value if set.
+    """
+
     precision: Optional[str] = None
+    """
+    Precision to train with (e.g. "amp_bf16", "amp_fp16", or "fp32").
+    """
+
     wandb: Optional[WandbConfig] = None
+    """
+    Weights & Biases configuration.
+    """
+
     speed_monitor: SpeedMonitorConfig = field(default_factory=SpeedMonitorConfig)
+    """
+    Speed monitor configuration.
+    """
+
     console_log_interval: int = 1
+    """
+    How often to log to the console.
+    """
+
     compile: Optional[CompilerConfig] = None
     """
     Settings for compiling the model with ``torch.compile()``.
     """
+
     activation_checkpointing: bool = False
+    """
+    Use activation checkpointing on transformer blocks.
+    """
 
     @property
     def device(self) -> str:
