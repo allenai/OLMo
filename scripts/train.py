@@ -215,7 +215,7 @@ class Trainer:
         if global_rank() == 0:
             latest_path = Path(self.cfg.save_folder) / "latest-model-only.pt"
             latest_path.unlink(missing_ok=True)
-            latest_path.symlink_to(checkpoint_path, target_is_directory=False)
+            latest_path.symlink_to(checkpoint_path.name, target_is_directory=False)
 
         self.checkpoints_model_only.append(checkpoint_path)
 
