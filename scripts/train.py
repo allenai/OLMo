@@ -187,7 +187,7 @@ class Trainer:
 
         return checkpoint_dir
 
-    def save_model_weights_checkpoint(self) -> Path:
+    def save_model_checkpoint(self) -> Path:
         checkpoint_path = Path(self.cfg.save_folder) / f"step{self.global_step}-model-only.pt"
 
         if checkpoint_path.exists():
@@ -200,7 +200,7 @@ class Trainer:
                     f"--save-overwrite to overwrite it"
                 )
 
-        checkpoint_path.mkdir(parents=True, exist_ok=True)
+        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
         dist.barrier()
 
         # Write the checkpoint.
@@ -461,7 +461,7 @@ class Trainer:
             # Maybe save unsharded model-only checkpoint.
             if self.cfg.save_interval_model is not None and self.global_step % self.cfg.save_interval_model == 0:
                 log.info("Saving unsharded model checkpoint...")
-                checkpoint_path = self.save_model_weights_checkpoint()
+                checkpoint_path = self.save_model_checkpoint()
                 log.info(f"Model-only checkpoint saved to {checkpoint_path}")
 
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
