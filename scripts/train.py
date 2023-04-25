@@ -188,6 +188,9 @@ class Trainer:
         return checkpoint_dir
 
     def save_model_checkpoint(self) -> Path:
+        # Zero-gradients to avoid gathering them.
+        self.optim.zero_grad(set_to_none=True)
+
         checkpoint_path = Path(self.cfg.save_folder) / f"step{self.global_step}-model-only.pt"
 
         if checkpoint_path.exists():
@@ -231,9 +234,11 @@ class Trainer:
         return checkpoint_path
 
     def restore_checkpoint(self, load_path: Path):
+        # Zero-gradients to avoid gathering them.
+        self.optim.zero_grad(set_to_none=True)
+
         # The only way I figured out how to do this was by reading the unit tests here
         # https://github.com/pytorch/pytorch/blob/main/test/distributed/checkpoint/test_fsdp_optim_state.py
-
         with FSDP.state_dict_type(self.fsdp_model, state_dict_type=self.cfg.fsdp.state_dict_type.as_torch_type()):
             # Load the serialized state dict in place.
             state_dict = self.state_dict()
