@@ -411,6 +411,27 @@ class CompilerConfig(BaseConfig):
 
 
 @dataclass
+class StateDictType(StrEnum):
+    SHARDED = "SHARDED"
+    LOCAL = "LOCAL"
+
+    def as_torch_type(self):
+        from torch.distributed.fsdp import StateDictType as _StateDictType
+
+        if self == StateDictType.SHARDED:
+            return _StateDictType.SHARDED_STATE_DICT
+        elif self == StateDictType.LOCAL:
+            return _StateDictType.LOCAL_STATE_DICT
+        else:
+            raise ValueError(f"Unexpected state dict type {self}")
+
+
+@dataclass
+class FSDPConfig(BaseConfig):
+    state_dict_type: StateDictType = StateDictType.SHARDED
+
+
+@dataclass
 class TrainConfig(BaseConfig):
     """
     OLMo training configuration.
@@ -575,6 +596,11 @@ class TrainConfig(BaseConfig):
     activation_checkpointing: bool = False
     """
     Use activation checkpointing on transformer blocks.
+    """
+
+    fsdp: FSDPConfig = field(default_factory=FSDPConfig)
+    """
+    Fully sharded data parallel settings.
     """
 
     @property
