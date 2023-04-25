@@ -432,7 +432,13 @@ class TrainConfig(BaseConfig):
     tokenizer: TokenizerConfig = field(default_factory=TokenizerConfig)
     save_folder: str = "./"
     save_interval: int = 1000
+    """How often to save training state checkpoints that can be used for restarts."""
+    save_interval_model: Optional[int] = None
+    """How often (if at all) to save just the unsharded model weights to a single file."""
     save_num_checkpoints_to_keep: int = -1
+    """How many checkpoints to keep."""
+    save_num_model_checkpoints_to_keep: int = -1
+    """How many unsharded model weights checkpoints to keep."""
     save_overwrite: bool = False
     load_path: Optional[str] = None
     max_duration: int = 100

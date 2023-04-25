@@ -22,6 +22,7 @@ import torch.nn.functional as F
 import wandb
 from packaging import version
 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
+from torch.distributed.fsdp import FullStateDictConfig
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy, StateDictType
 from torch.utils.data import DataLoader, DistributedSampler
@@ -126,6 +127,7 @@ class Trainer:
     global_step: int = 0
     global_data_step: int = 0
     checkpoints: List[Path] = field(default_factory=list)
+    checkpoints_model_only: List[Path] = field(default_factory=list)
 
     def state_dict(self) -> Dict[str, Any]:
         return {
@@ -135,6 +137,7 @@ class Trainer:
             "global_step": self.global_step,  # move forward one batch
             "global_data_step": self.global_data_step,  # move forward one batch
             "checkpoints": self.checkpoints,
+            "checkpoints_model_only": self.checkpoints_model_only,
             "rng": {
                 "python": random.getstate(),
                 "numpy": np.random.get_state(),
@@ -184,6 +187,49 @@ class Trainer:
 
         return checkpoint_dir
 
+    def save_model_weights_checkpoint(self) -> Path:
+        checkpoint_path = Path(self.cfg.save_folder) / f"step{self.global_step}-model-only.pt"
+
+        if checkpoint_path.exists():
+            if cfg.save_overwrite:
+                if global_rank() == 0:
+                    checkpoint_path.unlink(missing_ok=True)
+            else:
+                raise OlmoConfigurationError(
+                    f"Model weights checkpoint for step {self.global_step} already exists, use "
+                    f"--save-overwrite to overwrite it"
+                )
+
+        checkpoint_path.mkdir(parents=True, exist_ok=True)
+        dist.barrier()
+
+        # Write the checkpoint.
+        with FSDP.state_dict_type(
+            self.fsdp_model,
+            state_dict_type=StateDictType.FULL_STATE_DICT,
+            state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
+        ):
+            torch.save(self.fsdp_model.state_dict(), checkpoint_path)
+
+        # Link to 'latest'.
+        if global_rank() == 0:
+            latest_path = Path(self.cfg.save_folder) / "latest-model-only.pt"
+            latest_path.unlink(missing_ok=True)
+            latest_path.symlink_to(checkpoint_path, target_is_directory=False)
+
+        self.checkpoints_model_only.append(checkpoint_path)
+
+        # Remove old checkpoints.
+        if self.cfg.save_num_model_checkpoints_to_keep > 0:
+            while len(self.checkpoints_model_only) > self.cfg.save_num_model_checkpoints_to_keep:
+                oldest_checkpoint = self.checkpoints_model_only.pop(0)
+                if global_rank() == 0:
+                    oldest_checkpoint.unlink(missing_ok=True)
+
+        dist.barrier()
+
+        return checkpoint_path
+
     def restore_checkpoint(self, load_path: Path):
         # The only way I figured out how to do this was by reading the unit tests here
         # https://github.com/pytorch/pytorch/blob/main/test/distributed/checkpoint/test_fsdp_optim_state.py
@@ -202,6 +248,11 @@ class Trainer:
                 path
                 for path in state_dict["checkpoints"]
                 if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder)
+            ]
+            self.checkpoints_model_only = [
+                path
+                for path in state_dict.get("checkpoints_model_only", [])
+                if path.is_file() and path.resolve().parent == Path(self.cfg.save_folder)
             ]
             self.scheduler.load_state_dict(state_dict["scheduler"])
             rng_state = state_dict.pop("rng")
@@ -399,7 +450,7 @@ class Trainer:
                 )
 
             # Maybe save checkpoint.
-            if not first_batch and self.global_step % self.cfg.save_interval == 0:
+            if self.global_step % self.cfg.save_interval == 0:
                 log.info("Saving checkpoint...")
                 checkpoint_path = self.save_checkpoint()
                 log.info(f"Checkpoint saved to {checkpoint_path}")
@@ -407,8 +458,17 @@ class Trainer:
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
                 speed_monitor.reset()
 
+            # Maybe save unsharded model-only checkpoint.
+            if self.cfg.save_interval_model is not None and self.global_step % self.cfg.save_interval_model == 0:
+                log.info("Saving unsharded model checkpoint...")
+                checkpoint_path = self.save_model_weights_checkpoint()
+                log.info(f"Model-only checkpoint saved to {checkpoint_path}")
+
+                # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                speed_monitor.reset()
+
             # Maybe run evaluations.
-            if not first_batch and self.global_step % self.cfg.eval_interval == 0:
+            if self.global_step % self.cfg.eval_interval == 0:
                 # Zero gradients and set model to 'eval' mode.
                 self.optim.zero_grad(set_to_none=True)
                 self.fsdp_model.eval()
