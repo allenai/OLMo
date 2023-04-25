@@ -428,6 +428,9 @@ class StateDictType(StrEnum):
 @dataclass
 class FSDPConfig(BaseConfig):
     state_dict_type: StateDictType = StateDictType.SHARDED
+    """The state dict type to use when saving sharded checkpoints."""
+
+    use_orig_params: bool = True
 
 
 @dataclass

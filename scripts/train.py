@@ -571,7 +571,7 @@ def main(cfg: TrainConfig) -> None:
             buffer_dtype=cfg.autocast_precision,
         ),
         auto_wrap_policy=olmo_model.fsdp_wrap_fn,
-        use_orig_params=True,  # needed for compile
+        use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile
         limit_all_gathers=True,
         device_id=local_rank(),
     )
