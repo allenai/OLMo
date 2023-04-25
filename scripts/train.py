@@ -173,8 +173,12 @@ class Trainer:
             state_dict_config=self.cfg.fsdp.state_dict_type.config(offload_to_cpu=True),
             optim_state_dict_config=self.cfg.fsdp.state_dict_type.optim_config(offload_to_cpu=True),
         ):
-            torch.save(self.state_dict(), checkpoint_dir / f"rank{global_rank()}.pt")
+            # NOTE: Alternatively we could use the checkpointing method in this test
+            # https://github.com/pytorch/pytorch/blob/main/test/distributed/checkpoint/test_fsdp_optim_state.py
+            # but we've had issues with that on AMD GPUs. See
+            # https://github.com/pytorch/pytorch/issues/100041
             #  checkpoint.save_state_dict(self.state_dict(), checkpoint.FileSystemWriter(checkpoint_dir))
+            torch.save(self.state_dict(), checkpoint_dir / f"rank{global_rank()}.pt")
 
         # Link to 'latest'.
         if global_rank() == 0:
@@ -247,21 +251,36 @@ class Trainer:
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
 
-        # The only way I figured out how to do this was by reading the unit tests here
-        # https://github.com/pytorch/pytorch/blob/main/test/distributed/checkpoint/test_fsdp_optim_state.py
         with FSDP.state_dict_type(
             self.fsdp_model,
             state_dict_type=self.cfg.fsdp.state_dict_type.as_torch_type(),
             state_dict_config=self.cfg.fsdp.state_dict_type.config(offload_to_cpu=True),
             optim_state_dict_config=self.cfg.fsdp.state_dict_type.optim_config(offload_to_cpu=True),
         ):
+            # NOTE: Alternatively we could use the checkpointing method in this test
+            # https://github.com/pytorch/pytorch/blob/main/test/distributed/checkpoint/test_fsdp_optim_state.py
+            # but we've had issues with that on AMD GPUs. See
+            # https://github.com/pytorch/pytorch/issues/100041
+            # But basically it would look like this.
             # Load the serialized state dict in place.
             #  state_dict = self.state_dict()
             #  del state_dict["optim"]  # Can't load optimizer together with the model
             #  checkpoint.load_state_dict(state_dict, checkpoint.FileSystemReader(load_path))
+            #  self.fsdp_model.load_state_dict(state_dict["model"])
+            # Load other state...
+            # Load optim state.
+            #  optim_state = load_sharded_optimizer_state_dict(
+            #      model_state_dict=state_dict["model"],
+            #      optimizer_key="optim",
+            #      storage_reader=checkpoint.FileSystemReader(load_path),
+            #  )
+            #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)
+            #  self.optim.load_state_dict(flattened_osd)
+
+            # Deserialize state dictionary.
             state_dict = torch.load(load_path / f"rank{global_rank()}.pt")
 
-            # Load state (other than optimizer).
+            # Load state.
             self.fsdp_model.load_state_dict(state_dict["model"])
             self.global_step = state_dict["global_step"]
             self.global_data_step = state_dict["global_data_step"]
@@ -272,18 +291,10 @@ class Trainer:
             ]
             self.checkpoints_model_only = [
                 path
-                for path in state_dict.get("checkpoints_model_only", [])
+                for path in state_dict["checkpoints_model_only"]
                 if path.is_file() and path.resolve().parent == Path(self.cfg.save_folder)
             ]
             self.scheduler.load_state_dict(state_dict["scheduler"])
-            rng_state = state_dict.pop("rng")
-
-            # Load optim state.
-            #  optim_state = load_sharded_optimizer_state_dict(
-            #      model_state_dict=state_dict["model"],
-            #      optimizer_key="optim",
-            #      storage_reader=checkpoint.FileSystemReader(load_path),
-            #  )
             # NOTE: careful, the order of these arguments has changed since the 2.0 release.
             if version.parse(torch.__version__) < version.parse("2.1.0"):
                 #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
@@ -292,6 +303,9 @@ class Trainer:
                 #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
                 flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, state_dict["optim"])  # type: ignore
             self.optim.load_state_dict(flattened_osd)
+
+            rng_state = state_dict.pop("rng")
+            del state_dict
 
         dist.barrier()
 
