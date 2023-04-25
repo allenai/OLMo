@@ -652,7 +652,6 @@ def main(cfg: TrainConfig) -> None:
 
     if cfg.load_path is not None:
         log.info(f"Loading checkpoint from {cfg.load_path}...")
-        trainer.train_step({"input_ids": torch.randint(0, cfg.model.vocab_size, (1, cfg.model.max_sequence_length))})  # type: ignore
         trainer.restore_checkpoint(Path(cfg.load_path))
         log.info("Checkpoint successfully loaded")
 
