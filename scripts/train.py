@@ -76,8 +76,8 @@ class SpeedMonitor:
         total_tokens = sum(self.num_tokens)
         total_batches = len(self.start_times)
         return {
-            "train/device/tokens_per_second": total_tokens / total_seconds,
-            "train/device/batches_per_second": total_batches / total_seconds,
+            "throughput/device/tokens_per_second": total_tokens / total_seconds,
+            "throughput/device/batches_per_second": total_batches / total_seconds,
         }
 
 
