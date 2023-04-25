@@ -2,9 +2,13 @@ import datetime
 import gzip
 import json
 import re
+from concurrent.futures import ProcessPoolExecutor
 from contextlib import ExitStack
+from functools import reduce
 from hashlib import sha1
-from typing import Any, Dict, Optional
+from multiprocessing import current_process
+from time import sleep
+from typing import Any, Dict, List, Optional
 
 import dateparser
 import gutenbergpy.textget
@@ -31,23 +35,30 @@ def format_timestamp(ts: Optional[datetime.datetime] = None) -> str:
     return ts.strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
 
 
+def get_current_process_number() -> int:
+    if not (pid := current_process()._identity):
+        return 0
+    return reduce(lambda x, y: x * y, pid, 1)
+
+
 @sp.dataclass
 class GutenbergProcessorConfig:
     src: str = "s3://ai2-llm/pretraining-data/sources/gutenberg/raw/json"
     dst: str = "s3://ai2-llm/pretraining-data/sources/gutenberg/v0/documents"
+    num_processes: int = 1
 
 
-@sp.cli(GutenbergProcessorConfig)
-def process(config: GutenbergProcessorConfig) -> None:
-    paths = list(recursively_list_files(config.src))
+def process_single(paths: List[str], dst: str) -> None:
+    pid = max(get_current_process_number() - 1, 0)
+    # sleeping makes sure that processes don't start hammering the filesystem at the same time
+    sleep(pid * 0.1)
 
-    out_cnt = 0
-    with ExitStack() as in_stack, ExitStack() as out_stack:
-        in_progress = in_stack.enter_context(tqdm.tqdm(total=len(paths), desc="Reading files", unit="f"))
-        out_progress = in_stack.enter_context(tqdm.tqdm(desc="Writing files", unit="f"))
-
-        out_file = out_stack.enter_context(open_file_for_write(f"{config.dst}/{out_cnt:05d}.jsonl.gz", "wb"))
-        out_stream = out_stack.enter_context(gzip.open(out_file, mode="wt"))
+    with ExitStack() as stack:
+        in_progress = stack.enter_context(
+            tqdm.tqdm(total=len(paths), desc=f"Reading files ({pid})", unit="f", position=pid)
+        )
+        out_file = stack.enter_context(open_file_for_write(dst, "wb"))
+        out_stream = stack.enter_context(gzip.open(out_file, mode="wt"))
 
         for fn in paths:
             content = None
@@ -60,15 +71,6 @@ def process(config: GutenbergProcessorConfig) -> None:
                 continue
 
             in_progress.update(1)
-
-            if out_stream.tell() > 500_000_000:
-                out_stack.pop_all().close()
-                out_cnt += 1
-                out_file = out_stack.enter_context(
-                    open_file_for_write(f"{config.dst}/{out_cnt:05d}.jsonl.gz", "wb")
-                )
-                out_stream = out_stack.enter_context(gzip.open(out_file, mode="wt"))
-                out_progress.update(1)
 
             body = gutenbergpy.textget.strip_headers(content["raw"].encode("utf-8")).decode("utf-8")
 
@@ -126,6 +128,32 @@ def process(config: GutenbergProcessorConfig) -> None:
             }
 
             out_stream.write(json.dumps(document) + "\n")  # type: ignore
+
+
+@sp.cli(GutenbergProcessorConfig)
+def process(config: GutenbergProcessorConfig) -> None:
+    paths = list(recursively_list_files(config.src))
+    assert config.num_processes < 99, "Too many processes; max is 99."
+
+    if config.num_processes > 1:
+        with ProcessPoolExecutor(max_workers=config.num_processes) as executor:
+            futures = []
+            per_process = len(paths) / config.num_processes
+            for i in range(config.num_processes):
+                dst = config.dst.rstrip("/") + f"/part-{i:02d}.jsonl.gz"
+                start = round(i * per_process)
+                end = round((i + 1) * per_process) if i < config.num_processes - 1 else len(paths)
+                futures.append(executor.submit(process_single, paths=paths[start:end], dst=dst))
+
+            for future in futures:
+                future.result()
+    else:
+        # make 30 files
+        PARTS = 30
+        for i in range(0, PARTS):
+            start = round(i * len(paths) / PARTS)
+            end = round((i + 1) * len(paths) / PARTS) if (i < PARTS - 1) else len(paths)
+            process_single(paths=paths[start:end], dst=config.dst.rstrip("/") + f"/part-{i:02d}.jsonl.gz")
 
 
 if __name__ == "__main__":

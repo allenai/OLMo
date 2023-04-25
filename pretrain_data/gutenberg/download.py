@@ -9,8 +9,8 @@ import gutenbergpy.textget
 import requests
 import springs as sp
 import tqdm
-from rdflib import Graph, plugin    # noqa: F401
-from rdflib.serializer import Serializer    # noqa: F401
+from rdflib import Graph, plugin  # noqa: F401
+from rdflib.serializer import Serializer  # noqa: F401
 from smashed.utils.io_utils import open_file_for_write
 
 
