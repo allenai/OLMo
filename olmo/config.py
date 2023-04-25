@@ -410,7 +410,6 @@ class CompilerConfig(BaseConfig):
     """
 
 
-@dataclass
 class StateDictType(StrEnum):
     SHARDED = "SHARDED"
     LOCAL = "LOCAL"
