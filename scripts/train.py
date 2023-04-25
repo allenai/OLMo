@@ -402,20 +402,6 @@ class Trainer:
             ]
 
     def fit(self):
-        # Maybe start W&B run.
-        if self.cfg.wandb is not None and (global_rank() == 0 or not self.cfg.wandb.rank_zero_only):
-            wandb_dir = Path(self.cfg.save_folder) / "wandb"
-            wandb_dir.mkdir(parents=True, exist_ok=True)
-            wandb.init(
-                dir=wandb_dir,
-                project=self.cfg.wandb.project,
-                entity=self.cfg.wandb.entity,
-                group=self.cfg.wandb.group,
-                name=self.cfg.wandb.name,
-                tags=self.cfg.wandb.tags,
-                config=self.cfg.asdict(exclude=["wandb"]),
-            )
-
         # Set model to 'train' mode.
         self.fsdp_model.train()
 
@@ -549,6 +535,20 @@ def main(cfg: TrainConfig) -> None:
 
     # Set seed.
     seed_all(cfg.seed)
+
+    # Maybe start W&B run.
+    if cfg.wandb is not None and (global_rank() == 0 or not cfg.wandb.rank_zero_only):
+        wandb_dir = Path(cfg.save_folder) / "wandb"
+        wandb_dir.mkdir(parents=True, exist_ok=True)
+        wandb.init(
+            dir=wandb_dir,
+            project=cfg.wandb.project,
+            entity=cfg.wandb.entity,
+            group=cfg.wandb.group,
+            name=cfg.wandb.name,
+            tags=cfg.wandb.tags,
+            config=cfg.asdict(exclude=["wandb"]),
+        )
 
     dist.barrier()
 
