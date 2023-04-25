@@ -252,14 +252,14 @@ class Trainer:
         with FSDP.state_dict_type(
             self.fsdp_model,
             state_dict_type=self.cfg.fsdp.state_dict_type.as_torch_type(),
-            #  state_dict_config=self.cfg.fsdp.state_dict_type.config(offload_to_cpu=True),
-            #  optim_state_dict_config=self.cfg.fsdp.state_dict_type.optim_config(offload_to_cpu=True),
+            state_dict_config=self.cfg.fsdp.state_dict_type.config(offload_to_cpu=True),
+            optim_state_dict_config=self.cfg.fsdp.state_dict_type.optim_config(offload_to_cpu=True),
         ):
             # Load the serialized state dict in place.
             #  state_dict = self.state_dict()
             #  del state_dict["optim"]  # Can't load optimizer together with the model
             #  checkpoint.load_state_dict(state_dict, checkpoint.FileSystemReader(load_path))
-            state_dict = torch.load(load_path / f"rank{global_rank()}.pt", map_location="cuda")
+            state_dict = torch.load(load_path / f"rank{global_rank()}.pt")
 
             # Load state (other than optimizer).
             self.fsdp_model.load_state_dict(state_dict["model"])
