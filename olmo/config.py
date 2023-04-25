@@ -428,9 +428,17 @@ class StateDictType(StrEnum):
 @dataclass
 class FSDPConfig(BaseConfig):
     state_dict_type: StateDictType = StateDictType.SHARDED
-    """The state dict type to use when saving sharded checkpoints."""
+    """
+    The state dict type to use when saving sharded checkpoints.
+    Currently if using the "LOCAL" state dict type, you must have ``use_orig_params=False``
+    due to an issue with PyTorch, but keep in mind that ``use_orig_params=False`` is incompatible
+    with ``compile``.
+    """
 
     use_orig_params: bool = True
+    """
+    This must be ``True`` if using ``compile``.
+    """
 
 
 @dataclass
