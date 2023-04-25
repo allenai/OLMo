@@ -497,6 +497,11 @@ class Trainer:
 
             first_batch = False
 
+        # Save final unsharded model-only checkpoint.
+        log.info("Saving final unsharded model checkpoint...")
+        checkpoint_path = self.save_model_checkpoint()
+        log.info(f"Model-only checkpoint saved to {checkpoint_path}")
+
     def close(self) -> None:
         if wandb.run is not None:
             wandb.finish()
