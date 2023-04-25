@@ -64,10 +64,14 @@ def is_pdf_link(tag: Tag) -> bool:
 @sp.dataclass
 class Config:
     metadata: str = sp.field(
-        default=("s3://ai2-llm/pretraining-data/sources/books/raw/" "doabooks_repository-export_20230331.csv"),
+        default=("s3://ai2-llm/pretraining-data/sources/doab/raw/doabooks_repository-export_20230331.csv"),
         help="URL or path to metadata file.",
     )
-    destination: str = sp.field(default=sp.MISSING, help="Path to output directory.")
+    destination: str = sp.field(
+        default=("s3://ai2-llm/pretraining-data/sources/doab/raw"),
+        help="URL or path to location where to store files.",
+    )
+    from_scratch: bool = sp.field(default=False, help="Whether to download from scratch.")
     debug: Optional[str] = sp.field(default=None, help="Provide url to download debug for.")
     parallel: int = sp.field(default=1, help="Number of parallel downloads.")
 
@@ -162,13 +166,16 @@ def process_url(
 
 
 def process_single(config: dict, base_path: MultiPath):
-    meta_path = base_path / "metadata"
-    data_path = base_path / "data"
-
     id_ = config.pop("id", None)
     base_url = config.pop("BITSTREAM Download URL", None)
     content_type = "unknown"
     success = False
+
+    if not id_:
+        return
+
+    meta_path = base_path / "metadata" / id_[:2]
+    data_path = base_path / "data" / id_[:2]
 
     properties = {k: v for k, v in config.items() if not pd.isna(v) and v}
     metadata = {"properties": properties, "extra": {}, "id": id_, "url": base_url}
@@ -195,12 +202,16 @@ def main(config: Config):
     data = df.to_dict(orient="records")
     base_path = MultiPath.parse(config.destination)
 
-    # filter out already processed
-    metadata_path = base_path / "metadata"
-    already_processed = [
-        (MultiPath.parse(path) - metadata_path).as_str.lstrip("/").rstrip(".json")
-        for path in recursively_list_files(metadata_path)
-    ]
+    if not config.from_scratch:
+        # filter out already processed
+        metadata_path = base_path / "metadata"
+        already_processed = [
+            (MultiPath.parse(path) - metadata_path).as_str.lstrip("/").rstrip(".json")
+            for path in recursively_list_files(metadata_path)
+        ]
+    else:
+        already_processed = []
+
     data = [d for d in data if d["id"] not in already_processed]
 
     if config.parallel > 1:
