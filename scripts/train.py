@@ -22,6 +22,7 @@ import torch.nn.functional as F
 import wandb
 from packaging import version
 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
+from torch.distributed.fsdp import FullStateDictConfig
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy, StateDictType
 from torch.utils.data import DataLoader, DistributedSampler
@@ -76,8 +77,8 @@ class SpeedMonitor:
         total_tokens = sum(self.num_tokens)
         total_batches = len(self.start_times)
         return {
-            "train/device/tokens_per_second": total_tokens / total_seconds,
-            "train/device/batches_per_second": total_batches / total_seconds,
+            "throughput/device/tokens_per_second": total_tokens / total_seconds,
+            "throughput/device/batches_per_second": total_batches / total_seconds,
         }
 
 
@@ -87,7 +88,7 @@ class LRMonitor:
 
     def check(self) -> Dict[str, float]:
         lrs = [group["lr"] for group in self.optim.param_groups]
-        return {f"train/optim/learning_rate_group{idx}": lr for idx, lr in enumerate(lrs)}
+        return {f"optim/learning_rate_group{idx}": lr for idx, lr in enumerate(lrs)}
 
 
 @dataclass
@@ -126,6 +127,7 @@ class Trainer:
     global_step: int = 0
     global_data_step: int = 0
     checkpoints: List[Path] = field(default_factory=list)
+    checkpoints_model_only: List[Path] = field(default_factory=list)
 
     def state_dict(self) -> Dict[str, Any]:
         return {
@@ -135,6 +137,7 @@ class Trainer:
             "global_step": self.global_step,  # move forward one batch
             "global_data_step": self.global_data_step,  # move forward one batch
             "checkpoints": self.checkpoints,
+            "checkpoints_model_only": self.checkpoints_model_only,
             "rng": {
                 "python": random.getstate(),
                 "numpy": np.random.get_state(),
@@ -162,7 +165,7 @@ class Trainer:
         dist.barrier()
 
         # Write the checkpoint.
-        with FSDP.state_dict_type(self.fsdp_model, state_dict_type=StateDictType.SHARDED_STATE_DICT):
+        with FSDP.state_dict_type(self.fsdp_model, state_dict_type=self.cfg.fsdp.state_dict_type.as_torch_type()):
             checkpoint.save_state_dict(self.state_dict(), checkpoint.FileSystemWriter(checkpoint_dir))
 
         # Link to 'latest'.
@@ -184,11 +187,54 @@ class Trainer:
 
         return checkpoint_dir
 
+    def save_model_checkpoint(self) -> Path:
+        checkpoint_path = Path(self.cfg.save_folder) / f"step{self.global_step}-model-only.pt"
+
+        if checkpoint_path.exists():
+            if cfg.save_overwrite:
+                if global_rank() == 0:
+                    checkpoint_path.unlink(missing_ok=True)
+            else:
+                raise OlmoConfigurationError(
+                    f"Model weights checkpoint for step {self.global_step} already exists, use "
+                    f"--save-overwrite to overwrite it"
+                )
+
+        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        dist.barrier()
+
+        # Write the checkpoint.
+        with FSDP.state_dict_type(
+            self.fsdp_model,
+            state_dict_type=StateDictType.FULL_STATE_DICT,
+            state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
+        ):
+            torch.save(self.fsdp_model.state_dict(), checkpoint_path)
+
+        # Link to 'latest'.
+        if global_rank() == 0:
+            latest_path = Path(self.cfg.save_folder) / "latest-model-only.pt"
+            latest_path.unlink(missing_ok=True)
+            latest_path.symlink_to(checkpoint_path.name, target_is_directory=False)
+
+        self.checkpoints_model_only.append(checkpoint_path)
+
+        # Remove old checkpoints.
+        if self.cfg.save_num_model_checkpoints_to_keep > 0:
+            while len(self.checkpoints_model_only) > self.cfg.save_num_model_checkpoints_to_keep:
+                oldest_checkpoint = self.checkpoints_model_only.pop(0)
+                if global_rank() == 0:
+                    oldest_checkpoint.unlink(missing_ok=True)
+
+        dist.barrier()
+
+        return checkpoint_path
+
     def restore_checkpoint(self, load_path: Path):
         # The only way I figured out how to do this was by reading the unit tests here
         # https://github.com/pytorch/pytorch/blob/main/test/distributed/checkpoint/test_fsdp_optim_state.py
 
-        with FSDP.state_dict_type(self.fsdp_model, state_dict_type=StateDictType.SHARDED_STATE_DICT):
+        with FSDP.state_dict_type(self.fsdp_model, state_dict_type=self.cfg.fsdp.state_dict_type.as_torch_type()):
             # Load the serialized state dict in place.
             state_dict = self.state_dict()
             del state_dict["optim"]  # Can't load optimizer together with the model
@@ -203,6 +249,11 @@ class Trainer:
                 for path in state_dict["checkpoints"]
                 if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder)
             ]
+            self.checkpoints_model_only = [
+                path
+                for path in state_dict.get("checkpoints_model_only", [])
+                if path.is_file() and path.resolve().parent == Path(self.cfg.save_folder)
+            ]
             self.scheduler.load_state_dict(state_dict["scheduler"])
             rng_state = state_dict.pop("rng")
 
@@ -213,17 +264,20 @@ class Trainer:
                 storage_reader=checkpoint.FileSystemReader(load_path),
             )
             # NOTE: careful, the order of these arguments has changed since the 2.0 release.
-            if version.parse(torch.__version__) > version.parse("2.0.0"):
-                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
-            else:
+            if version.parse(torch.__version__) < version.parse("2.1.0"):
                 flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
+            else:
+                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
             self.optim.load_state_dict(flattened_osd)
 
         dist.barrier()
 
-        # Fast-forward data loader.
-        if self.cfg.fast_forward_batches:
+        if not self.cfg.restore_dataloader:
+            self.global_data_step = 0
+        elif self.cfg.fast_forward_batches:
             self.global_data_step += self.cfg.fast_forward_batches
+
+        # Fast-forward data loader.
         if self.global_data_step > 0:
             if self.global_data_step > self.global_step:
                 log.info(
@@ -315,7 +369,7 @@ class Trainer:
 
         metrics = {"train/CrossEntropyLoss": batch_loss.item(), "train/Perplexity": torch.exp(batch_loss).item()}
         if grad_norm is not None:
-            metrics["train/optim/grad_norm"] = grad_norm
+            metrics["optim/grad_norm"] = grad_norm
         return metrics
 
     def eval_batch(self, batch: BatchDict) -> torch.Tensor:
@@ -348,20 +402,6 @@ class Trainer:
             ]
 
     def fit(self):
-        # Maybe start W&B run.
-        if self.cfg.wandb is not None and (global_rank() == 0 or not self.cfg.wandb.rank_zero_only):
-            wandb_dir = Path(self.cfg.save_folder) / "wandb"
-            wandb_dir.mkdir(parents=True, exist_ok=True)
-            wandb.init(
-                dir=wandb_dir,
-                project=self.cfg.wandb.project,
-                entity=self.cfg.wandb.entity,
-                group=self.cfg.wandb.group,
-                name=self.cfg.wandb.name,
-                tags=self.cfg.wandb.tags,
-                config=self.cfg.asdict(exclude=["wandb"]),
-            )
-
         # Set model to 'train' mode.
         self.fsdp_model.train()
 
@@ -396,7 +436,7 @@ class Trainer:
                 )
 
             # Maybe save checkpoint.
-            if not first_batch and self.global_step % self.cfg.save_interval == 0:
+            if self.global_step % self.cfg.save_interval == 0:
                 log.info("Saving checkpoint...")
                 checkpoint_path = self.save_checkpoint()
                 log.info(f"Checkpoint saved to {checkpoint_path}")
@@ -404,8 +444,17 @@ class Trainer:
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
                 speed_monitor.reset()
 
+            # Maybe save unsharded model-only checkpoint.
+            if self.cfg.save_interval_model is not None and self.global_step % self.cfg.save_interval_model == 0:
+                log.info("Saving unsharded model checkpoint...")
+                checkpoint_path = self.save_model_checkpoint()
+                log.info(f"Model-only checkpoint saved to {checkpoint_path}")
+
+                # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                speed_monitor.reset()
+
             # Maybe run evaluations.
-            if not first_batch and self.global_step % self.cfg.eval_interval == 0:
+            if self.global_step % self.cfg.eval_interval == 0:
                 # Zero gradients and set model to 'eval' mode.
                 self.optim.zero_grad(set_to_none=True)
                 self.fsdp_model.eval()
@@ -487,6 +536,20 @@ def main(cfg: TrainConfig) -> None:
     # Set seed.
     seed_all(cfg.seed)
 
+    # Maybe start W&B run.
+    if cfg.wandb is not None and (global_rank() == 0 or not cfg.wandb.rank_zero_only):
+        wandb_dir = Path(cfg.save_folder) / "wandb"
+        wandb_dir.mkdir(parents=True, exist_ok=True)
+        wandb.init(
+            dir=wandb_dir,
+            project=cfg.wandb.project,
+            entity=cfg.wandb.entity,
+            group=cfg.wandb.group,
+            name=cfg.wandb.name,
+            tags=cfg.wandb.tags,
+            config=cfg.asdict(exclude=["wandb"]),
+        )
+
     dist.barrier()
 
     # Initialize the model.
@@ -508,7 +571,7 @@ def main(cfg: TrainConfig) -> None:
             buffer_dtype=cfg.autocast_precision,
         ),
         auto_wrap_policy=olmo_model.fsdp_wrap_fn,
-        use_orig_params=True,  # needed for compile
+        use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile
         limit_all_gathers=True,
         device_id=local_rank(),
     )
@@ -567,14 +630,20 @@ def main(cfg: TrainConfig) -> None:
     )
 
     if not cfg.dry_run and cfg.load_path is None:
-        # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever)
+        # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever).
         log.info("Saving pre-train checkpoint...")
         checkpoint_path = trainer.save_checkpoint()
         log.info(f"Checkpoint saved to {checkpoint_path}")
 
+        # And they we verify that we can load it.
+        log.info("Attempting to load pre-train checkpoint...")
+        trainer.restore_checkpoint(checkpoint_path)
+        log.info("Checkpoint successfully loaded")
+
     if cfg.load_path is not None:
         log.info(f"Loading checkpoint from {cfg.load_path}...")
         trainer.restore_checkpoint(Path(cfg.load_path))
+        log.info("Checkpoint successfully loaded")
 
     if cfg.compile is not None:
         # NOTE: trying to compile the whole train step results in a compile-time error from within

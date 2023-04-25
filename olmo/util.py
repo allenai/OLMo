@@ -95,7 +95,7 @@ def install_excepthook():
 
 
 def filter_warnings():
-    # Filter deprecation warning from torch internal usage
+    # Filter internal deprecation warnings from torch
     warnings.filterwarnings(
         action="ignore",
         category=UserWarning,
@@ -105,6 +105,11 @@ def filter_warnings():
         action="ignore",
         category=UserWarning,
         message="TypedStorage is deprecated.*",
+    )
+    warnings.filterwarnings(
+        action="ignore",
+        category=UserWarning,
+        message="Please use DTensor instead.*",
     )
     # Torchvision warnings. We don't actually use torchvision.
     warnings.filterwarnings(
