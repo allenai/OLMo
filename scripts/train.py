@@ -165,7 +165,12 @@ class Trainer:
         dist.barrier()
 
         # Write the checkpoint.
-        with FSDP.state_dict_type(self.fsdp_model, state_dict_type=self.cfg.fsdp.state_dict_type.as_torch_type()):
+        with FSDP.state_dict_type(
+            self.fsdp_model,
+            state_dict_type=self.cfg.fsdp.state_dict_type.as_torch_type(),
+            state_dict_config=self.cfg.fsdp.state_dict_type.config(offload_to_cpu=True),
+            optim_state_dict_config=self.cfg.fsdp.state_dict_type.optim_config(offload_to_cpu=True),
+        ):
             checkpoint.save_state_dict(self.state_dict(), checkpoint.FileSystemWriter(checkpoint_dir))
 
         # Link to 'latest'.
@@ -239,7 +244,12 @@ class Trainer:
 
         # The only way I figured out how to do this was by reading the unit tests here
         # https://github.com/pytorch/pytorch/blob/main/test/distributed/checkpoint/test_fsdp_optim_state.py
-        with FSDP.state_dict_type(self.fsdp_model, state_dict_type=self.cfg.fsdp.state_dict_type.as_torch_type()):
+        with FSDP.state_dict_type(
+            self.fsdp_model,
+            state_dict_type=self.cfg.fsdp.state_dict_type.as_torch_type(),
+            state_dict_config=self.cfg.fsdp.state_dict_type.config(offload_to_cpu=True),
+            optim_state_dict_config=self.cfg.fsdp.state_dict_type.optim_config(offload_to_cpu=True),
+        ):
             # Load the serialized state dict in place.
             state_dict = self.state_dict()
             del state_dict["optim"]  # Can't load optimizer together with the model

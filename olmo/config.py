@@ -424,6 +424,29 @@ class StateDictType(StrEnum):
         else:
             raise ValueError(f"Unexpected state dict type {self}")
 
+    def config(self, offload_to_cpu: bool = False):
+        from torch.distributed.fsdp import LocalStateDictConfig, ShardedStateDictConfig
+
+        if self == StateDictType.SHARDED:
+            return ShardedStateDictConfig(offload_to_cpu=offload_to_cpu)
+        elif self == StateDictType.LOCAL:
+            return LocalStateDictConfig(offload_to_cpu=offload_to_cpu)
+        else:
+            raise ValueError(f"Unexpected state dict type {self}")
+
+    def optim_config(self, offload_to_cpu: bool = False):
+        from torch.distributed.fsdp.api import (
+            LocalOptimStateDictConfig,
+            ShardedOptimStateDictConfig,
+        )
+
+        if self == StateDictType.SHARDED:
+            return ShardedOptimStateDictConfig(offload_to_cpu=offload_to_cpu)
+        elif self == StateDictType.LOCAL:
+            return LocalOptimStateDictConfig(offload_to_cpu=offload_to_cpu)
+        else:
+            raise ValueError(f"Unexpected state dict type {self}")
+
 
 @dataclass
 class FSDPConfig(BaseConfig):
