@@ -630,14 +630,20 @@ def main(cfg: TrainConfig) -> None:
     )
 
     if not cfg.dry_run and cfg.load_path is None:
-        # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever)
+        # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever).
         log.info("Saving pre-train checkpoint...")
         checkpoint_path = trainer.save_checkpoint()
         log.info(f"Checkpoint saved to {checkpoint_path}")
 
+        # And they we verify that we can load it.
+        log.info("Attempting to load pre-train checkpoint...")
+        trainer.restore_checkpoint(checkpoint_path)
+        log.info("Checkpoint successfully loaded")
+
     if cfg.load_path is not None:
         log.info(f"Loading checkpoint from {cfg.load_path}...")
         trainer.restore_checkpoint(Path(cfg.load_path))
+        log.info("Checkpoint successfully loaded")
 
     if cfg.compile is not None:
         # NOTE: trying to compile the whole train step results in a compile-time error from within
