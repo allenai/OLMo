@@ -264,10 +264,10 @@ class Trainer:
                 storage_reader=checkpoint.FileSystemReader(load_path),
             )
             # NOTE: careful, the order of these arguments has changed since the 2.0 release.
-            if version.parse(torch.__version__) > version.parse("2.0.0"):
-                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
-            else:
+            if version.parse(torch.__version__) < version.parse("2.1.0"):
                 flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
+            else:
+                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
             self.optim.load_state_dict(flattened_osd)
 
         dist.barrier()
