@@ -12,7 +12,7 @@ import pandas as pd
 from uniseg.wordbreak import words as unicode_tokenize
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,
     format="%(asctime)s %(levelname)s %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
