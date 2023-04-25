@@ -4,3 +4,4 @@ smashed[remote]
 dateparser
 requests
 gutenbergpy
+rdflib>=6.0.0
