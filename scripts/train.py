@@ -547,7 +547,23 @@ class Trainer:
         return metrics
 
     def log_metrics_to_console(self, prefix: str, metrics: Dict[str, float]):
-        log.info(f"{prefix}\n" + "\n".join([f"    {name}={value:.4f}" for name, value in metrics.items()]))
+        def format_float(value: float) -> str:
+            if value < 0.0001:
+                return str(value)  # scientific notation
+            elif value > 1000:
+                return f"{int(value):,d}"
+            elif value > 100:
+                return f"{value:.1f}"
+            elif value > 10:
+                return f"{value:.2f}"
+            elif value > 1:
+                return f"{value:.3f}"
+            else:
+                return f"{value:.4f}"
+
+        log.info(
+            f"{prefix}\n" + "\n".join([f"    {name}={format_float(value)}" for name, value in metrics.items()])
+        )
 
     def should_log_this_step(self) -> bool:
         if self.global_step % self.cfg.console_log_interval == 0:
