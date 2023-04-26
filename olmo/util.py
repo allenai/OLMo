@@ -14,6 +14,7 @@ from rich.highlighter import NullHighlighter
 from rich.text import Text
 from rich.traceback import Traceback
 
+from .config import LogFilterType
 from .exceptions import OlmoCliError, OlmoError
 
 _log_extra_fields: Dict[str, Any] = {}
@@ -28,7 +29,7 @@ def log_extra_field(field_name: str, field_value: Any) -> None:
         _log_extra_fields[field_name] = field_value
 
 
-def setup_logging(rank0_only: bool = False) -> None:
+def setup_logging(log_filter_type: LogFilterType = LogFilterType.rank0_only) -> None:
     """
     :param rank0_only: INFO and below messages will only be emitted on the rank0 process.
     """
@@ -76,9 +77,24 @@ def setup_logging(rank0_only: bool = False) -> None:
         else:
             return 0
 
-    if rank0_only:
-        handler.addFilter(rank0_filter)  # type: ignore
+    def local_rank0_filter(record: logging.LogRecord) -> int:
+        if record.levelno > logging.INFO:
+            return 1
+        if getattr(record, "local_rank", 0) == 0:
+            return 1
+        else:
+            return 0
 
+    filter = None
+    if log_filter_type == LogFilterType.rank0_only:
+        filter = rank0_filter
+    elif log_filter_type == LogFilterType.local_rank0_only:
+        filter = local_rank0_filter  # type: ignore
+    else:
+        raise ValueError(log_filter_type)
+
+    if filter is not None:
+        handler.addFilter(filter)  # type: ignore
     logging.basicConfig(handlers=[handler], level=logging.INFO)
 
     logzio_token = os.environ.get("LOGZIO_TOKEN", None)
@@ -86,8 +102,8 @@ def setup_logging(rank0_only: bool = False) -> None:
         from logzio.handler import LogzioHandler
 
         logzio_handler = LogzioHandler(logzio_token)
-        if rank0_only:
-            logzio_handler.addFilter(rank0_filter)  # type: ignore
+        if filter is not None:
+            logzio_handler.addFilter(filter)  # type: ignore
         logging.getLogger().addHandler(logzio_handler)
 
     logging.captureWarnings(True)
@@ -142,19 +158,11 @@ def set_env_variables():
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
-def prepare_cli_environment(rank0_only_logging: Optional[bool] = None):
-    """
-    :param rank0_only_logging: Only emit INFO and below log messages from the rank0 process.
-        This defaults to ``True``, but you can disable it here or by setting the environment variable
-        "LOG_RANK0_ONLY" to "0" or "false".
-    """
-    if rank0_only_logging is None:
-        try:
-            rank0_only_logging = bool(os.environ.get("LOG_RANK0_ONLY", "1") not in {"0", "false"})
-        except ValueError:
-            rank0_only_logging = True
+def prepare_cli_environment(log_filter_type: Optional[LogFilterType] = None):
+    if log_filter_type is None:
+        log_filter_type = LogFilterType(os.environ.get("LOG_FILTER_TYPE", "rank0_only"))
     rich.reconfigure(width=max(rich.get_console().width, 180), soft_wrap=True)
-    setup_logging(rank0_only=rank0_only_logging)
+    setup_logging(log_filter_type=log_filter_type)
     install_excepthook()
     filter_warnings()
     set_env_variables()
