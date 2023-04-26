@@ -543,9 +543,9 @@ class TrainConfig(BaseConfig):
     How often (in terms of batches) to save training state checkpoints that can be used for restarts.
     """
 
-    save_interval_model: Optional[int] = None
+    save_interval_unsharded: Optional[int] = None
     """
-    How often (if at all) to save just the unsharded model weights to a single file.
+    How often (if at all) to save the unsharded state to a single file.
     For large models it can be costly to save these, so it usually makes sense to save
     these less often than regular (sharded) training checkpoints.
     """
@@ -555,9 +555,9 @@ class TrainConfig(BaseConfig):
     How many checkpoints to keep.
     """
 
-    save_num_model_checkpoints_to_keep: int = -1
+    save_num_unsharded_checkpoints_to_keep: int = -1
     """
-    How many unsharded model weights checkpoints to keep.
+    How many unsharded checkpoints to keep.
     """
 
     save_overwrite: bool = False
