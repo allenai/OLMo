@@ -262,7 +262,7 @@ class Trainer:
             self.optim.load_state_dict(flattened_osd)
 
             rng_state = state_dict.pop("rng")
-            del state_dict
+            del state_dict, flattened_osd
 
         dist.barrier()
 
