@@ -153,6 +153,14 @@ class Trainer:
             },
         }
 
+    def safe_save(self, o: Any, path: Path):
+        tmp_path = path.with_suffix(path.suffix + ".tmp")
+        try:
+            torch.save(o, tmp_path)
+            tmp_path.replace(path)
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
     def save_sharded_checkpoint(self) -> Path:
         checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}"
 
@@ -168,7 +176,9 @@ class Trainer:
         except StopIteration:
             pass
 
-        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        if global_rank() == 0:
+            checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
         self.checkpoints.append(checkpoint_dir)
         dist.barrier()
 
@@ -184,7 +194,8 @@ class Trainer:
             # but we've had issues with that on AMD GPUs. See
             # https://github.com/pytorch/pytorch/issues/100041
             #  checkpoint.save_state_dict(self.state_dict(), checkpoint.FileSystemWriter(checkpoint_dir))
-            torch.save(self.state_dict(), checkpoint_dir / f"rank{global_rank()}.pt")
+            self.safe_save(self.state_dict(), checkpoint_dir / f"rank{global_rank()}.pt")
+            dist.barrier()
 
         # Link to 'latest'.
         if global_rank() == 0:
@@ -243,12 +254,12 @@ class Trainer:
             self.checkpoints = [
                 path
                 for path in state_dict["checkpoints"]
-                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder)
+                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
             ]
             self.unsharded_checkpoints = [
                 path
                 for path in state_dict["unsharded_checkpoints"]
-                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder)
+                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
             ]
             self.scheduler.load_state_dict(state_dict["scheduler"])
             # NOTE: careful, the order of these arguments has changed since the 2.0 release.
@@ -299,7 +310,9 @@ class Trainer:
         except StopIteration:
             pass
 
-        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        if global_rank() == 0:
+            checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
         self.unsharded_checkpoints.append(checkpoint_dir)
         dist.barrier()
 
@@ -314,19 +327,20 @@ class Trainer:
             # First the model state.
             model_state_dict = self.fsdp_model.state_dict()
             if global_rank() == 0:
-                torch.save(model_state_dict, checkpoint_dir / "model.pt")
+                self.safe_save(model_state_dict, checkpoint_dir / "model.pt")
             del model_state_dict
 
             # Then the optimizer state.
             optim_state_dict = FSDP.optim_state_dict(self.fsdp_model, self.optim)
             if global_rank() == 0:
-                torch.save(optim_state_dict, checkpoint_dir / "optim.pt")
+                self.safe_save(optim_state_dict, checkpoint_dir / "optim.pt")
             del optim_state_dict
 
             # Then everything else.
             other_state_dict = self.non_tensor_state_dict()
             if global_rank() == 0:
-                torch.save(other_state_dict, checkpoint_dir / "other.pt")
+                self.safe_save(other_state_dict, checkpoint_dir / "other.pt")
+            dist.barrier()
 
         # Link to 'latest'.
         if global_rank() == 0:
@@ -342,7 +356,6 @@ class Trainer:
                     shutil.rmtree(oldest_checkpoint, ignore_errors=True)
 
         dist.barrier()
-
         return checkpoint_dir
 
     def restore_unsharded_checkpoint(self, load_path: Path):
