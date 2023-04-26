@@ -34,6 +34,7 @@ We even had our first proper loss spike!
 The issues with checkpointing have been resolved, and we have a big training run under way. We're using this
 opportunity to track speed vs. number of nodes.
 
+<img width="479" alt="Screenshot 2023-04-26 at 16 55 55" src="https://user-images.githubusercontent.com/920638/234726824-074e6386-7e8a-4ec2-9afd-38717d2e601d.png">
 
 The results are pretty good. We lose about 20% efficiency to communication overhead, which is acceptable.
 With 64 nodes we no longer have to do gradient accumulation, so it's possible that's why the 64-node configuration
