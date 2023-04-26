@@ -410,54 +410,8 @@ class CompilerConfig(BaseConfig):
     """
 
 
-class StateDictType(StrEnum):
-    SHARDED = "SHARDED"
-    LOCAL = "LOCAL"
-
-    def as_torch_type(self):
-        from torch.distributed.fsdp import StateDictType as _StateDictType
-
-        if self == StateDictType.SHARDED:
-            return _StateDictType.SHARDED_STATE_DICT
-        elif self == StateDictType.LOCAL:
-            return _StateDictType.LOCAL_STATE_DICT
-        else:
-            raise ValueError(f"Unexpected state dict type {self}")
-
-    def config(self, offload_to_cpu: bool = False):
-        from torch.distributed.fsdp import LocalStateDictConfig, ShardedStateDictConfig
-
-        if self == StateDictType.SHARDED:
-            return ShardedStateDictConfig(offload_to_cpu=offload_to_cpu)
-        elif self == StateDictType.LOCAL:
-            return LocalStateDictConfig(offload_to_cpu=offload_to_cpu)
-        else:
-            raise ValueError(f"Unexpected state dict type {self}")
-
-    def optim_config(self, offload_to_cpu: bool = False):
-        from torch.distributed.fsdp.api import (
-            LocalOptimStateDictConfig,
-            ShardedOptimStateDictConfig,
-        )
-
-        if self == StateDictType.SHARDED:
-            return ShardedOptimStateDictConfig(offload_to_cpu=offload_to_cpu)
-        elif self == StateDictType.LOCAL:
-            return LocalOptimStateDictConfig(offload_to_cpu=offload_to_cpu)
-        else:
-            raise ValueError(f"Unexpected state dict type {self}")
-
-
 @dataclass
 class FSDPConfig(BaseConfig):
-    state_dict_type: StateDictType = StateDictType.SHARDED
-    """
-    The state dict type to use when saving sharded checkpoints.
-    Currently if using the "LOCAL" state dict type, you must have ``use_orig_params=False``
-    due to an issue with PyTorch, but keep in mind that ``use_orig_params=False`` is incompatible
-    with ``compile``.
-    """
-
     use_orig_params: bool = True
     """
     This must be ``True`` if using ``compile``.

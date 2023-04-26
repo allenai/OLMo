@@ -23,7 +23,11 @@ from packaging import version
 from torch.distributed.fsdp import FullStateDictConfig
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy, StateDictType
-from torch.distributed.fsdp.api import FullOptimStateDictConfig
+from torch.distributed.fsdp.api import (
+    FullOptimStateDictConfig,
+    ShardedOptimStateDictConfig,
+    ShardedStateDictConfig,
+)
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import MeanMetric
 
@@ -149,7 +153,7 @@ class Trainer:
             },
         }
 
-    def save_checkpoint(self) -> Path:
+    def save_sharded_checkpoint(self) -> Path:
         checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}"
 
         try:
@@ -170,9 +174,9 @@ class Trainer:
         # Write the checkpoint.
         with FSDP.state_dict_type(
             self.fsdp_model,
-            state_dict_type=self.cfg.fsdp.state_dict_type.as_torch_type(),
-            state_dict_config=self.cfg.fsdp.state_dict_type.config(offload_to_cpu=True),
-            optim_state_dict_config=self.cfg.fsdp.state_dict_type.optim_config(offload_to_cpu=True),
+            state_dict_type=StateDictType.SHARDED_STATE_DICT,
+            state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
+            optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
         ):
             # NOTE: Alternatively we could use the checkpointing method in this test
             # https://github.com/pytorch/pytorch/blob/main/test/distributed/checkpoint/test_fsdp_optim_state.py
@@ -200,15 +204,15 @@ class Trainer:
 
         return checkpoint_dir
 
-    def restore_checkpoint(self, load_path: Path):
+    def restore_sharded_checkpoint(self, load_path: Path):
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
 
         with FSDP.state_dict_type(
             self.fsdp_model,
-            state_dict_type=self.cfg.fsdp.state_dict_type.as_torch_type(),
-            state_dict_config=self.cfg.fsdp.state_dict_type.config(offload_to_cpu=True),
-            optim_state_dict_config=self.cfg.fsdp.state_dict_type.optim_config(offload_to_cpu=True),
+            state_dict_type=StateDictType.SHARDED_STATE_DICT,
+            state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
+            optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
         ):
             # NOTE: Alternatively we could use the checkpointing method in this test
             # https://github.com/pytorch/pytorch/blob/main/test/distributed/checkpoint/test_fsdp_optim_state.py
@@ -421,6 +425,12 @@ class Trainer:
 
         dist.barrier()
 
+    def restore_checkpoint(self, load_path: Path):
+        if load_path.name.endswith("-unsharded"):
+            self.restore_unsharded_checkpoint(load_path)
+        else:
+            self.restore_sharded_checkpoint(load_path)
+
     def get_labels(self, batch: BatchDict) -> torch.Tensor:
         # Labels are just input IDs shifted to the left (first item is ignored).
         labels, attention_mask = batch["input_ids"], batch.get("attention_mask")
@@ -559,7 +569,7 @@ class Trainer:
             # Maybe save checkpoint.
             if self.global_step % self.cfg.save_interval == 0:
                 log.info("Saving checkpoint...")
-                checkpoint_path = self.save_checkpoint()
+                checkpoint_path = self.save_sharded_checkpoint()
                 log.info(f"Checkpoint saved to {checkpoint_path}")
 
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
@@ -761,12 +771,12 @@ def main(cfg: TrainConfig) -> None:
     if not cfg.dry_run and cfg.load_path is None:
         # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever).
         log.info("Saving pre-train checkpoint...")
-        checkpoint_path = trainer.save_checkpoint()
+        checkpoint_path = trainer.save_sharded_checkpoint()
         log.info(f"Checkpoint saved to {checkpoint_path}")
 
         # And they we verify that we can load it.
         log.info("Attempting to load pre-train checkpoint...")
-        trainer.restore_checkpoint(checkpoint_path)
+        trainer.restore_sharded_checkpoint(checkpoint_path)
         log.info("Checkpoint successfully loaded")
 
     if cfg.load_path is not None:
