@@ -153,21 +153,13 @@ class Trainer:
             },
         }
 
-    def safe_save(self, o: Any, path: Path):
-        tmp_path = path.with_suffix(path.suffix + ".tmp")
-        try:
-            torch.save(o, tmp_path)
-            tmp_path.replace(path)
-        finally:
-            tmp_path.unlink(missing_ok=True)
-
     def save_sharded_checkpoint(self) -> Path:
         checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}"
         checkpoint_dir_tmp = Path(self.cfg.save_folder) / f"step{self.global_step}-tmp"
 
         try:
             next(checkpoint_dir.glob("*"))
-            if cfg.save_overwrite:
+            if self.cfg.save_overwrite:
                 if global_rank() == 0:
                     shutil.rmtree(checkpoint_dir)
             else:
@@ -195,7 +187,10 @@ class Trainer:
             # but we've had issues with that on AMD GPUs. See
             # https://github.com/pytorch/pytorch/issues/100041
             #  checkpoint.save_state_dict(self.state_dict(), checkpoint.FileSystemWriter(checkpoint_dir))
-            self.safe_save(self.state_dict(), checkpoint_dir_tmp / f"rank{global_rank()}.pt")
+            torch.save(self.state_dict(), checkpoint_dir_tmp / f"rank{global_rank()}.pt")
+            # Save config too.
+            if global_rank() == 0:
+                self.cfg.save(checkpoint_dir_tmp / "config.yaml")
             dist.barrier()
 
         if global_rank() == 0:
@@ -305,7 +300,7 @@ class Trainer:
 
         try:
             next(checkpoint_dir.glob("*"))
-            if cfg.save_overwrite:
+            if self.cfg.save_overwrite:
                 if global_rank() == 0:
                     shutil.rmtree(checkpoint_dir)
             else:
@@ -332,19 +327,20 @@ class Trainer:
             # First the model state.
             model_state_dict = self.fsdp_model.state_dict()
             if global_rank() == 0:
-                self.safe_save(model_state_dict, checkpoint_dir_tmp / "model.pt")
+                torch.save(model_state_dict, checkpoint_dir_tmp / "model.pt")
             del model_state_dict
 
             # Then the optimizer state.
             optim_state_dict = FSDP.optim_state_dict(self.fsdp_model, self.optim)
             if global_rank() == 0:
-                self.safe_save(optim_state_dict, checkpoint_dir_tmp / "optim.pt")
+                torch.save(optim_state_dict, checkpoint_dir_tmp / "optim.pt")
             del optim_state_dict
 
             # Then everything else.
             other_state_dict = self.non_tensor_state_dict()
             if global_rank() == 0:
-                self.safe_save(other_state_dict, checkpoint_dir_tmp / "other.pt")
+                torch.save(other_state_dict, checkpoint_dir_tmp / "other.pt")
+                self.cfg.save(checkpoint_dir_tmp / "config.yaml")
             dist.barrier()
 
         if global_rank() == 0:
