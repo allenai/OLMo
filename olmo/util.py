@@ -142,10 +142,17 @@ def set_env_variables():
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
-def prepare_cli_environment(rank0_only_logging: bool = True):
+def prepare_cli_environment(rank0_only_logging: Optional[bool] = None):
     """
     :param rank0_only_logging: Only emit INFO and below log messages from the rank0 process.
+        This defaults to ``True``, but you can disable it here or by setting the environment variable
+        "LOG_RANK0_ONLY" to "0" or "false".
     """
+    if rank0_only_logging is None:
+        try:
+            rank0_only_logging = bool(os.environ.get("LOG_RANK0_ONLY", "1") not in {"0", "false"})
+        except ValueError:
+            rank0_only_logging = True
     rich.reconfigure(width=max(rich.get_console().width, 180), soft_wrap=True)
     setup_logging(rank0_only=rank0_only_logging)
     install_excepthook()
