@@ -16,15 +16,18 @@ from typing import Any, Deque, Dict, Generator, Iterator, List, Optional, Tuple
 import numpy as np
 import torch
 import torch.distributed as dist
-import torch.distributed.checkpoint as checkpoint
 import torch.nn as nn
 import torch.nn.functional as F
 import wandb
 from packaging import version
-from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.fsdp import FullStateDictConfig
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy, StateDictType
+from torch.distributed.fsdp.api import (
+    FullOptimStateDictConfig,
+    ShardedOptimStateDictConfig,
+    ShardedStateDictConfig,
+)
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import MeanMetric
 
@@ -127,17 +130,21 @@ class Trainer:
     global_step: int = 0
     global_data_step: int = 0
     checkpoints: List[Path] = field(default_factory=list)
-    checkpoints_model_only: List[Path] = field(default_factory=list)
+    unsharded_checkpoints: List[Path] = field(default_factory=list)
 
     def state_dict(self) -> Dict[str, Any]:
+        state_dict = self.non_tensor_state_dict()
+        state_dict["model"] = self.fsdp_model.state_dict()
+        state_dict["optim"] = FSDP.optim_state_dict(self.fsdp_model, self.optim)
+        return state_dict
+
+    def non_tensor_state_dict(self) -> Dict[str, Any]:
         return {
-            "model": self.fsdp_model.state_dict(),
-            "optim": FSDP.optim_state_dict(self.fsdp_model, self.optim),
             "scheduler": self.scheduler.state_dict(),
             "global_step": self.global_step,  # move forward one batch
             "global_data_step": self.global_data_step,  # move forward one batch
             "checkpoints": self.checkpoints,
-            "checkpoints_model_only": self.checkpoints_model_only,
+            "unsharded_checkpoints": self.unsharded_checkpoints,
             "rng": {
                 "python": random.getstate(),
                 "numpy": np.random.get_state(),
@@ -146,7 +153,7 @@ class Trainer:
             },
         }
 
-    def save_checkpoint(self) -> Path:
+    def save_sharded_checkpoint(self) -> Path:
         checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}"
 
         try:
@@ -165,8 +172,18 @@ class Trainer:
         dist.barrier()
 
         # Write the checkpoint.
-        with FSDP.state_dict_type(self.fsdp_model, state_dict_type=self.cfg.fsdp.state_dict_type.as_torch_type()):
-            checkpoint.save_state_dict(self.state_dict(), checkpoint.FileSystemWriter(checkpoint_dir))
+        with FSDP.state_dict_type(
+            self.fsdp_model,
+            state_dict_type=StateDictType.SHARDED_STATE_DICT,
+            state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
+            optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
+        ):
+            # NOTE: Alternatively we could use the checkpointing method in this test
+            # https://github.com/pytorch/pytorch/blob/main/test/distributed/checkpoint/test_fsdp_optim_state.py
+            # but we've had issues with that on AMD GPUs. See
+            # https://github.com/pytorch/pytorch/issues/100041
+            #  checkpoint.save_state_dict(self.state_dict(), checkpoint.FileSystemWriter(checkpoint_dir))
+            torch.save(self.state_dict(), checkpoint_dir / f"rank{global_rank()}.pt")
 
         # Link to 'latest'.
         if global_rank() == 0:
@@ -187,60 +204,40 @@ class Trainer:
 
         return checkpoint_dir
 
-    def save_model_checkpoint(self) -> Path:
-        checkpoint_path = Path(self.cfg.save_folder) / f"step{self.global_step}-model-only.pt"
+    def restore_sharded_checkpoint(self, load_path: Path):
+        # Zero-gradients to avoid gathering them.
+        self.optim.zero_grad(set_to_none=True)
 
-        if checkpoint_path.exists():
-            if cfg.save_overwrite:
-                if global_rank() == 0:
-                    checkpoint_path.unlink(missing_ok=True)
-            else:
-                raise OlmoConfigurationError(
-                    f"Model weights checkpoint for step {self.global_step} already exists, use "
-                    f"--save-overwrite to overwrite it"
-                )
-
-        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-        dist.barrier()
-
-        # Write the checkpoint.
         with FSDP.state_dict_type(
             self.fsdp_model,
-            state_dict_type=StateDictType.FULL_STATE_DICT,
-            state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
+            state_dict_type=StateDictType.SHARDED_STATE_DICT,
+            state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
+            optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
         ):
-            torch.save(self.fsdp_model.state_dict(), checkpoint_path)
-
-        # Link to 'latest'.
-        if global_rank() == 0:
-            latest_path = Path(self.cfg.save_folder) / "latest-model-only.pt"
-            latest_path.unlink(missing_ok=True)
-            latest_path.symlink_to(checkpoint_path.name, target_is_directory=False)
-
-        self.checkpoints_model_only.append(checkpoint_path)
-
-        # Remove old checkpoints.
-        if self.cfg.save_num_model_checkpoints_to_keep > 0:
-            while len(self.checkpoints_model_only) > self.cfg.save_num_model_checkpoints_to_keep:
-                oldest_checkpoint = self.checkpoints_model_only.pop(0)
-                if global_rank() == 0:
-                    oldest_checkpoint.unlink(missing_ok=True)
-
-        dist.barrier()
-
-        return checkpoint_path
-
-    def restore_checkpoint(self, load_path: Path):
-        # The only way I figured out how to do this was by reading the unit tests here
-        # https://github.com/pytorch/pytorch/blob/main/test/distributed/checkpoint/test_fsdp_optim_state.py
-
-        with FSDP.state_dict_type(self.fsdp_model, state_dict_type=self.cfg.fsdp.state_dict_type.as_torch_type()):
+            # NOTE: Alternatively we could use the checkpointing method in this test
+            # https://github.com/pytorch/pytorch/blob/main/test/distributed/checkpoint/test_fsdp_optim_state.py
+            # but we've had issues with that on AMD GPUs. See
+            # https://github.com/pytorch/pytorch/issues/100041
+            # But basically it would look like this.
             # Load the serialized state dict in place.
-            state_dict = self.state_dict()
-            del state_dict["optim"]  # Can't load optimizer together with the model
-            checkpoint.load_state_dict(state_dict, checkpoint.FileSystemReader(load_path))
+            #  state_dict = self.state_dict()
+            #  del state_dict["optim"]  # Can't load optimizer together with the model
+            #  checkpoint.load_state_dict(state_dict, checkpoint.FileSystemReader(load_path))
+            #  self.fsdp_model.load_state_dict(state_dict["model"])
+            # Load other state...
+            # Load optim state.
+            #  optim_state = load_sharded_optimizer_state_dict(
+            #      model_state_dict=state_dict["model"],
+            #      optimizer_key="optim",
+            #      storage_reader=checkpoint.FileSystemReader(load_path),
+            #  )
+            #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)
+            #  self.optim.load_state_dict(flattened_osd)
 
-            # Load state (other than optimizer).
+            # Deserialize state dictionary.
+            state_dict = torch.load(load_path / f"rank{global_rank()}.pt")
+
+            # Load state.
             self.fsdp_model.load_state_dict(state_dict["model"])
             self.global_step = state_dict["global_step"]
             self.global_data_step = state_dict["global_data_step"]
@@ -249,26 +246,23 @@ class Trainer:
                 for path in state_dict["checkpoints"]
                 if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder)
             ]
-            self.checkpoints_model_only = [
+            self.unsharded_checkpoints = [
                 path
-                for path in state_dict.get("checkpoints_model_only", [])
-                if path.is_file() and path.resolve().parent == Path(self.cfg.save_folder)
+                for path in state_dict["unsharded_checkpoints"]
+                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder)
             ]
             self.scheduler.load_state_dict(state_dict["scheduler"])
-            rng_state = state_dict.pop("rng")
-
-            # Load optim state.
-            optim_state = load_sharded_optimizer_state_dict(
-                model_state_dict=state_dict["model"],
-                optimizer_key="optim",
-                storage_reader=checkpoint.FileSystemReader(load_path),
-            )
             # NOTE: careful, the order of these arguments has changed since the 2.0 release.
             if version.parse(torch.__version__) < version.parse("2.1.0"):
-                flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
+                #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
+                flattened_osd = FSDP.optim_state_dict_to_load(state_dict["optim"], self.fsdp_model, self.optim)  # type: ignore
             else:
-                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
+                #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
+                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, state_dict["optim"])  # type: ignore
             self.optim.load_state_dict(flattened_osd)
+
+            rng_state = state_dict.pop("rng")
+            del state_dict
 
         dist.barrier()
 
@@ -278,6 +272,136 @@ class Trainer:
             self.global_data_step += self.cfg.fast_forward_batches
 
         # Fast-forward data loader.
+        if not self.cfg.dry_run:
+            self.fast_forward_batches()
+            dist.barrier()
+
+        # Set rng state.
+        random.setstate(rng_state["python"])
+        np.random.set_state(rng_state["numpy"])
+        torch.set_rng_state(rng_state["torch"])
+        torch.cuda.set_rng_state(rng_state["cuda"])
+
+    def save_unsharded_checkpoint(self) -> Path:
+        # Zero-gradients to avoid gathering them.
+        self.optim.zero_grad(set_to_none=True)
+
+        checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}-unsharded"
+
+        try:
+            next(checkpoint_dir.glob("*"))
+            if cfg.save_overwrite:
+                if global_rank() == 0:
+                    shutil.rmtree(checkpoint_dir)
+            else:
+                raise OlmoConfigurationError(
+                    f"Unsharded checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
+                )
+        except StopIteration:
+            pass
+
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        dist.barrier()
+
+        # Write the checkpoint.
+        with FSDP.state_dict_type(
+            self.fsdp_model,
+            state_dict_type=StateDictType.FULL_STATE_DICT,
+            state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
+            optim_state_dict_config=FullOptimStateDictConfig(rank0_only=True, offload_to_cpu=True),
+        ):
+            # We'll write the model and optimizer state dicts individually to reduce (CPU) memory consumption.
+            # First the model state.
+            model_state_dict = self.fsdp_model.state_dict()
+            if global_rank() == 0:
+                torch.save(model_state_dict, checkpoint_dir / "model.pt")
+            del model_state_dict
+
+            # Then the optimizer state.
+            optim_state_dict = FSDP.optim_state_dict(self.fsdp_model, self.optim)
+            if global_rank() == 0:
+                torch.save(optim_state_dict, checkpoint_dir / "optim.pt")
+            del optim_state_dict
+
+            # Then everything else.
+            other_state_dict = self.non_tensor_state_dict()
+            if global_rank() == 0:
+                torch.save(other_state_dict, checkpoint_dir / "other.pt")
+
+        # Link to 'latest'.
+        if global_rank() == 0:
+            latest_path = Path(self.cfg.save_folder) / "latest-unsharded"
+            latest_path.unlink(missing_ok=True)
+            latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
+
+        self.unsharded_checkpoints.append(checkpoint_dir)
+
+        # Remove old checkpoints.
+        if self.cfg.save_num_unsharded_checkpoints_to_keep > 0:
+            while len(self.unsharded_checkpoints) > self.cfg.save_num_unsharded_checkpoints_to_keep:
+                oldest_checkpoint = self.unsharded_checkpoints.pop(0)
+                if global_rank() == 0 and oldest_checkpoint.is_dir():
+                    shutil.rmtree(oldest_checkpoint, ignore_errors=True)
+
+        dist.barrier()
+
+        return checkpoint_dir
+
+    def restore_unsharded_checkpoint(self, load_path: Path):
+        # Zero-gradients to avoid gathering them.
+        self.optim.zero_grad(set_to_none=True)
+
+        with FSDP.state_dict_type(
+            self.fsdp_model,
+            state_dict_type=StateDictType.FULL_STATE_DICT,
+            state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
+            optim_state_dict_config=FullOptimStateDictConfig(rank0_only=True, offload_to_cpu=True),
+        ):
+            # Load model state.
+            self.fsdp_model.load_state_dict(torch.load(load_path / "model.pt"))
+
+            # Load optimizer state.
+            optim_state_dict = torch.load(load_path / "optim.pt")
+            # NOTE: careful, the order of these arguments has changed since the 2.0 release.
+            if version.parse(torch.__version__) < version.parse("2.1.0"):
+                #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
+                flattened_osd = FSDP.optim_state_dict_to_load(optim_state_dict, self.fsdp_model, self.optim)  # type: ignore
+            else:
+                #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
+                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state_dict)  # type: ignore
+            del optim_state_dict
+            self.optim.load_state_dict(flattened_osd)
+            del flattened_osd
+
+            # Load other state.
+            other_state_dict = torch.load(load_path / "other.pt")
+            self.global_step = other_state_dict["global_step"]
+            self.global_data_step = other_state_dict["global_data_step"]
+            self.checkpoints = [
+                path
+                for path in other_state_dict["checkpoints"]
+                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder)
+            ]
+            self.unsharded_checkpoints = [
+                path
+                for path in other_state_dict["unsharded_checkpoints"]
+                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder)
+            ]
+            self.scheduler.load_state_dict(other_state_dict["scheduler"])
+
+        dist.barrier()
+
+        if not self.cfg.restore_dataloader:
+            self.global_data_step = 0
+        elif self.cfg.fast_forward_batches:
+            self.global_data_step += self.cfg.fast_forward_batches
+
+        # Fast-forward data loader.
+        if not self.cfg.dry_run:
+            self.fast_forward_batches()
+            dist.barrier()
+
+    def fast_forward_batches(self):
         if self.global_data_step > 0:
             if self.global_data_step > self.global_step:
                 log.info(
@@ -292,13 +416,11 @@ class Trainer:
                 elif step + 1 % 1000 == 0:
                     log.info(f"Fast-forwarding... {step + 1}/{self.global_data_step}")
 
-        dist.barrier()
-
-        # Set rng state.
-        random.setstate(rng_state["python"])
-        np.random.set_state(rng_state["numpy"])
-        torch.set_rng_state(rng_state["torch"])
-        torch.cuda.set_rng_state(rng_state["cuda"])
+    def restore_checkpoint(self, load_path: Path):
+        if load_path.name.endswith("-unsharded"):
+            self.restore_unsharded_checkpoint(load_path)
+        else:
+            self.restore_sharded_checkpoint(load_path)
 
     def get_labels(self, batch: BatchDict) -> torch.Tensor:
         # Labels are just input IDs shifted to the left (first item is ignored).
@@ -438,17 +560,20 @@ class Trainer:
             # Maybe save checkpoint.
             if self.global_step % self.cfg.save_interval == 0:
                 log.info("Saving checkpoint...")
-                checkpoint_path = self.save_checkpoint()
+                checkpoint_path = self.save_sharded_checkpoint()
                 log.info(f"Checkpoint saved to {checkpoint_path}")
 
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
                 speed_monitor.reset()
 
             # Maybe save unsharded model-only checkpoint.
-            if self.cfg.save_interval_model is not None and self.global_step % self.cfg.save_interval_model == 0:
-                log.info("Saving unsharded model checkpoint...")
-                checkpoint_path = self.save_model_checkpoint()
-                log.info(f"Model-only checkpoint saved to {checkpoint_path}")
+            if (
+                self.cfg.save_interval_unsharded is not None
+                and self.global_step % self.cfg.save_interval_unsharded == 0
+            ):
+                log.info("Saving unsharded checkpoint...")
+                checkpoint_path = self.save_unsharded_checkpoint()
+                log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
                 speed_monitor.reset()
@@ -499,8 +624,8 @@ class Trainer:
 
         # Save final unsharded model-only checkpoint.
         log.info("Saving final unsharded model checkpoint...")
-        checkpoint_path = self.save_model_checkpoint()
-        log.info(f"Model-only checkpoint saved to {checkpoint_path}")
+        checkpoint_path = self.save_unsharded_checkpoint()
+        log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
     def close(self) -> None:
         if wandb.run is not None:
@@ -637,18 +762,23 @@ def main(cfg: TrainConfig) -> None:
     if not cfg.dry_run and cfg.load_path is None:
         # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever).
         log.info("Saving pre-train checkpoint...")
-        checkpoint_path = trainer.save_checkpoint()
+        checkpoint_path = trainer.save_sharded_checkpoint()
         log.info(f"Checkpoint saved to {checkpoint_path}")
 
         # And they we verify that we can load it.
         log.info("Attempting to load pre-train checkpoint...")
-        trainer.restore_checkpoint(checkpoint_path)
+        trainer.restore_sharded_checkpoint(checkpoint_path)
         log.info("Checkpoint successfully loaded")
 
     if cfg.load_path is not None:
         log.info(f"Loading checkpoint from {cfg.load_path}...")
         trainer.restore_checkpoint(Path(cfg.load_path))
         log.info("Checkpoint successfully loaded")
+
+    if cfg.force_save_unsharded:
+        log.info("Saving unsharded checkpoint...")
+        checkpoint_path = trainer.save_unsharded_checkpoint()
+        log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
     if cfg.compile is not None:
         # NOTE: trying to compile the whole train step results in a compile-time error from within

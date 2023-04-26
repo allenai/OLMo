@@ -410,31 +410,8 @@ class CompilerConfig(BaseConfig):
     """
 
 
-class StateDictType(StrEnum):
-    SHARDED = "SHARDED"
-    LOCAL = "LOCAL"
-
-    def as_torch_type(self):
-        from torch.distributed.fsdp import StateDictType as _StateDictType
-
-        if self == StateDictType.SHARDED:
-            return _StateDictType.SHARDED_STATE_DICT
-        elif self == StateDictType.LOCAL:
-            return _StateDictType.LOCAL_STATE_DICT
-        else:
-            raise ValueError(f"Unexpected state dict type {self}")
-
-
 @dataclass
 class FSDPConfig(BaseConfig):
-    state_dict_type: StateDictType = StateDictType.SHARDED
-    """
-    The state dict type to use when saving sharded checkpoints.
-    Currently if using the "LOCAL" state dict type, you must have ``use_orig_params=False``
-    due to an issue with PyTorch, but keep in mind that ``use_orig_params=False`` is incompatible
-    with ``compile``.
-    """
-
     use_orig_params: bool = True
     """
     This must be ``True`` if using ``compile``.
@@ -520,9 +497,9 @@ class TrainConfig(BaseConfig):
     How often (in terms of batches) to save training state checkpoints that can be used for restarts.
     """
 
-    save_interval_model: Optional[int] = None
+    save_interval_unsharded: Optional[int] = None
     """
-    How often (if at all) to save just the unsharded model weights to a single file.
+    How often (if at all) to save the unsharded state to a single file.
     For large models it can be costly to save these, so it usually makes sense to save
     these less often than regular (sharded) training checkpoints.
     """
@@ -532,14 +509,21 @@ class TrainConfig(BaseConfig):
     How many checkpoints to keep.
     """
 
-    save_num_model_checkpoints_to_keep: int = -1
+    save_num_unsharded_checkpoints_to_keep: int = -1
     """
-    How many unsharded model weights checkpoints to keep.
+    How many unsharded checkpoints to keep.
     """
 
     save_overwrite: bool = False
     """
     If ``True``, overwrite any conflicting checkpoint files.
+    """
+
+    force_save_unsharded: bool = False
+    """
+    Save an unsharded checkpoint before training (even during a dry run).
+    Use this option with `--load-path={PATH}` and `--dry_run` to convert a sharded
+    checkpoint into an unsharded checkpoint.
     """
 
     load_path: Optional[str] = None
