@@ -13,6 +13,7 @@ save_folder=$(dirname $checkpoint_dir)
 python scripts/train.py "${checkpoint_dir}/config.yaml" \
     --wandb=null \
     --compile=null \
+    --load_path=${checkpoint_dir} \
     --save_folder=${save_folder} \
     --dry_run \
     --force_save_unsharded
