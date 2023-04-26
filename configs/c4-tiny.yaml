@@ -93,6 +93,6 @@ precision: amp_bf16
 max_grad_norm: 1.0
 
 speed_monitor:
-  window_size: 20
+  window_size: 5
 
-console_log_interval: 10
+console_log_interval: 1
