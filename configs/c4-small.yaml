@@ -88,7 +88,7 @@ tokenizer:
 
 max_duration: 3814697  # 2T tokens
 
-save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
+save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_interval: 2000
 save_num_checkpoints_to_keep: -1
 save_overwrite: false
