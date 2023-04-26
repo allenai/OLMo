@@ -25,6 +25,7 @@ from .aliases import PathOrStr
 from .exceptions import OlmoConfigurationError
 
 __all__ = [
+    "LogFilterType",
     "ActivationType",
     "BlockType",
     "CompilerConfig",
@@ -40,6 +41,11 @@ __all__ = [
     "TrainConfig",
     "PaddingDirection",
     "TruncationDirection",
+    "SpeedMonitorConfig",
+    "WandbConfig",
+    "CompilerConfig",
+    "WandbConfig",
+    "FSDPConfig",
 ]
 
 
@@ -120,6 +126,11 @@ class BaseConfig:
                 if name in out:
                     del out[name]
         return out
+
+
+class LogFilterType(StrEnum):
+    rank0_only = "rank0_only"
+    local_rank0_only = "local_rank0_only"
 
 
 class LayerNormType(StrEnum):
@@ -381,6 +392,7 @@ class WandbConfig(BaseConfig):
     tags: Optional[List[str]] = None
     log_artifacts: bool = False
     rank_zero_only: bool = True
+    log_interval: int = 1
 
 
 @dataclass
