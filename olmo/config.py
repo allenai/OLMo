@@ -519,6 +519,13 @@ class TrainConfig(BaseConfig):
     If ``True``, overwrite any conflicting checkpoint files.
     """
 
+    force_save_unsharded: bool = False
+    """
+    Save an unsharded checkpoint before training (even during a dry run).
+    Use this option with `--load-path={PATH}` and `--dry_run` to convert a sharded
+    checkpoint into an unsharded checkpoint.
+    """
+
     load_path: Optional[str] = None
     """
     The path to a (sharded) training checkpoint to restore/resume from.

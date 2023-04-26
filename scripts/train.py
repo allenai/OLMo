@@ -272,21 +272,9 @@ class Trainer:
             self.global_data_step += self.cfg.fast_forward_batches
 
         # Fast-forward data loader.
-        if self.global_data_step > 0:
-            if self.global_data_step > self.global_step:
-                log.info(
-                    f"Fast-forwarding data loader to {self.global_step}+{self.global_data_step-self.global_step}..."
-                )
-            else:
-                log.info(f"Fast-forwarding data loader to {self.global_data_step}...")
-            for step, _ in self.training_batches:
-                if step + 1 >= self.global_data_step:
-                    log.info(f"Fast-forwarded to {self.global_data_step}")
-                    break
-                elif step + 1 % 1000 == 0:
-                    log.info(f"Fast-forwarding... {step + 1}/{self.global_data_step}")
-
-        dist.barrier()
+        if not self.cfg.dry_run:
+            self.fast_forward_batches()
+            dist.barrier()
 
         # Set rng state.
         random.setstate(rng_state["python"])
@@ -409,6 +397,11 @@ class Trainer:
             self.global_data_step += self.cfg.fast_forward_batches
 
         # Fast-forward data loader.
+        if not self.cfg.dry_run:
+            self.fast_forward_batches()
+            dist.barrier()
+
+    def fast_forward_batches(self):
         if self.global_data_step > 0:
             if self.global_data_step > self.global_step:
                 log.info(
@@ -422,8 +415,6 @@ class Trainer:
                     break
                 elif step + 1 % 1000 == 0:
                     log.info(f"Fast-forwarding... {step + 1}/{self.global_data_step}")
-
-        dist.barrier()
 
     def restore_checkpoint(self, load_path: Path):
         if load_path.name.endswith("-unsharded"):
@@ -783,6 +774,11 @@ def main(cfg: TrainConfig) -> None:
         log.info(f"Loading checkpoint from {cfg.load_path}...")
         trainer.restore_checkpoint(Path(cfg.load_path))
         log.info("Checkpoint successfully loaded")
+
+    if cfg.force_save_unsharded:
+        log.info(f"Saving unsharded checkpoint...")
+        checkpoint_path = trainer.save_unsharded_checkpoint()
+        log.info(f"Unshared checkpoint saved to {checkpoint_path}")
 
     if cfg.compile is not None:
         # NOTE: trying to compile the whole train step results in a compile-time error from within
