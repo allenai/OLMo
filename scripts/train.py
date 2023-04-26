@@ -776,7 +776,7 @@ def main(cfg: TrainConfig) -> None:
         log.info("Checkpoint successfully loaded")
 
     if cfg.force_save_unsharded:
-        log.info(f"Saving unsharded checkpoint...")
+        log.info("Saving unsharded checkpoint...")
         checkpoint_path = trainer.save_unsharded_checkpoint()
         log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
