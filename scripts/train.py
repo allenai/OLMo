@@ -254,12 +254,12 @@ class Trainer:
             self.checkpoints = [
                 path
                 for path in state_dict["checkpoints"]
-                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder)
+                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
             ]
             self.unsharded_checkpoints = [
                 path
                 for path in state_dict["unsharded_checkpoints"]
-                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder)
+                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
             ]
             self.scheduler.load_state_dict(state_dict["scheduler"])
             # NOTE: careful, the order of these arguments has changed since the 2.0 release.
