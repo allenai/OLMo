@@ -1,6 +1,89 @@
 Experiment Log
 ==============
 
+
+2023-04-26
+----------
+
+Large node counts means large failure rates. Yesterday's run ran out of memory at 3am, so we didn't get as many
+batches done as we were hoping. Today's issues:
+ * Something seems to be wrong with the super-fast network drive we're using for checkpointing. Writing checkpoints
+   there consistently fails today, even though it worked fine yesterday. We switched to a slower drive for
+   checkpointing for now to make some progress.
+ * Occasionally the Slingshot interconnect between the nodes fails with the message "Cassini Event Queue overflow".
+   The workaround is to set a larger event queue size by setting the environment variable
+   `FI_CXI_DEFAULT_CQ_SIZE` to `131072` (or some other large number). 
+ * A lot of nodes fail to come up when starting a job. There are at least two separate issues that cause this.
+   Low-level failures in RCCL or device drivers do not get logged properly. Instead, they just print to stdout and
+   stderr. We altered our launch script to nevertheless tell us which node is reporting which error
+   (a078ae4686e190dc1e9eb91ab8f434e90d95d152). Using this, we can exclude nodes from the launch every time one
+   errors out during startup. It's a laborious process. Starting a 64-node job will often take 30 minutes or more
+   due to these failures. To get a better handle on the situation we started a spreadsheet that keeps track of the
+   failures. If we start to see a pattern, maybe we can do something more intelligent than excluding nodes one at
+   a time.
+
+Despite all this, the model is now training properly, and at the time of writing we have trained on 7B tokens.
+We even had our first proper loss spike!
+
+<img width="557" alt="Screenshot 2023-04-26 at 16 51 59" src="https://user-images.githubusercontent.com/920638/234726481-2fceb391-65da-4da9-9844-aaf0c493ee6a.png">
+
+
+2023-04-25
+----------
+
+The issues with checkpointing have been resolved, and we have a big training run under way. We're using this
+opportunity to track speed vs. number of nodes.
+
+<img width="479" alt="Screenshot 2023-04-26 at 16 55 55" src="https://user-images.githubusercontent.com/920638/234726824-074e6386-7e8a-4ec2-9afd-38717d2e601d.png">
+
+The results are pretty good. We lose about 20% efficiency to communication overhead, which is acceptable.
+With 64 nodes we no longer have to do gradient accumulation, so it's possible that's why the 64-node configuration
+is actually faster than the 32-node one.
+
+2023-04-24
+----------
+
+We're finding more and more problems with Torch 2. We have to use Torch 2 because some drivers that make our
+hardware work are only available for Torch 2, but it seems really half-baked in its current state. Compounding the
+problems is the fact that we're attempting to use MosaicML's Composer to run the training, but Torch 2 is not
+officially supported by Composer yet. In an effort to not stack two unstable bits of software on top of each other,
+we decided to write our own trainer instead of relying on Composer.
+
+While we're tracking a number of smaller problems around `torch.compile()` and random numbers, the big issue is
+checkpointing. Writing a model that's using Torch's FSDP to disk is surprisingly difficult.
+
+
+2023-04-18
+----------
+
+While not strictly necessary from a scientific perspective, we thought it might be a good idea to train the
+medium size model to 300B tokens, to shake down the system, and make sure we're on the right track. There was no
+way we could have the data done in time for this run, so we're just training on C4. However, in an effort to make
+this run useful as a baseline, we wanted to have a somewhat reasonable validation set. We chose the recently
+released Red Pajama data, because it is quite close to what we want to do with our own data. The data team is
+working on this right now.
+
+
+2023-04-17
+----------
+
+Our original model settings and sizes came from MosaicML. We found they are a lot smaller than they say they are,
+so we went back to the [PaLM paper](https://ai.googleblog.com/2022/04/pathways-language-model-palm-scaling-to.html)
+and put in those settings. Most of our architecture choices follow the PaLM paper, so it makes sense to do it with
+the dimensions of the model as well.
+
+Since the new sizes don't follow exactly the 1B/7B/70B scheme, we now call them "small", "medium", and "large".
+The new sizes are as follows:
+
+| Name             | parameters -h |  parameters | non-embedding parameters |
+|------------------|--------------:|------------:|-------------------------:|
+| extra-tiny-debug |          16 M |    16169216 |                  3291392 |
+| tiny             |         288 M |   288706560 |                237195264 |
+| small            |            1B |  1051439104 |                948416512 |
+| medium           |         7.8 B |  7791353856 |               7585308672 |
+| large            |        60.8 B | 60818014208 |              60405923840 |
+
+
 2023-04-13
 ----------
 
