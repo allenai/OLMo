@@ -51,6 +51,7 @@ from olmo.util import (
     local_rank,
     log_extra_field,
     move_to_device,
+    peak_gpu_memory,
     prepare_cli_environment,
     seed_all,
 )
@@ -538,6 +539,16 @@ class Trainer:
                 for i in range(len(micro_batches["input_ids"]))
             ]
 
+    def system_metrics(self) -> Dict[str, float]:
+        metrics = {}
+        peak_gpu_mb = peak_gpu_memory()
+        if peak_gpu_mb is not None:
+            metrics["System/Peak GPU Memory (MB)"] = peak_gpu_mb
+        return metrics
+
+    def log_metrics_to_console(self, prefix: str, metrics: Dict[str, float]):
+        log.info(f"{prefix}\n" + "\n".join([f"    {name}={value:.4f}" for name, value in metrics.items()]))
+
     def fit(self):
         # Set model to 'train' mode.
         self.fsdp_model.train()
@@ -545,6 +556,13 @@ class Trainer:
         # Initialize monitors.
         speed_monitor = SpeedMonitor(self.cfg.speed_monitor)
         lr_monitor = LRMonitor(self.optim)
+
+        # Log system metrics at the start of training.
+        sys_metrics = self.system_metrics()
+        if sys_metrics:
+            self.log_metrics_to_console("Pre-train system metrics", sys_metrics)
+            if wandb.run is not None:
+                wandb.log(sys_metrics, step=0)
 
         # Train.
         first_batch: bool = True
@@ -561,15 +579,15 @@ class Trainer:
             # Run train step on batch.
             metrics = self.train_step(batch)
 
-            # Get speed metrics.
-            if not first_batch:
-                metrics.update(speed_monitor.check())
-
-            # Log metrics to console.
+            # Collect and log metrics to console.
             if self.global_step % self.cfg.console_log_interval == 0:
-                log.info(
-                    f"[epoch={epoch}, step={self.global_step}/{self.cfg.max_duration}]\n"
-                    + "\n".join([f"    {name}={value:.4f}" for name, value in metrics.items()])
+                # Speed metrics.
+                if not first_batch:
+                    metrics.update(speed_monitor.check())
+                # System metrics.
+                metrics.update(self.system_metrics())
+                self.log_metrics_to_console(
+                    f"[epoch={epoch}, step={self.global_step}/{self.cfg.max_duration}]", metrics
                 )
 
             # Maybe save checkpoint.
@@ -616,9 +634,8 @@ class Trainer:
 
                         # Log to console.
                         if (eval_step + 1) % self.cfg.console_log_interval == 0:
-                            log.info(
-                                f"[eval_step={eval_step + 1}/{num_eval_batches}]\n"
-                                + "\n".join([f"    {name}={value:.4f}" for name, value in eval_metrics.items()])
+                            self.log_metrics_to_console(
+                                f"[eval_step={eval_step + 1}/{num_eval_batches}]", eval_metrics
                             )
 
                     # Get final metrics.

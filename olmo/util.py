@@ -288,3 +288,25 @@ def global_rank() -> int:
 
 def local_rank() -> int:
     return int(os.environ["LOCAL_RANK"])
+
+
+def peak_gpu_memory(reset: bool = False) -> Optional[float]:
+    """
+    Get the peak GPU memory usage in MB across all ranks.
+    Only rank 0 will get the final result.
+    """
+    if not torch.cuda.is_available():
+        return None
+
+    device = torch.device("cuda")
+    peak_mb = torch.cuda.max_memory_allocated(device) / 1000000
+    if dist.is_available() and dist.is_initialized():
+        peak_mb_tensor = torch.tensor(peak_mb, device=device)
+        dist.reduce(peak_mb_tensor, 0, dist.ReduceOp.MAX)
+        peak_mb = peak_mb_tensor.item()
+
+    if reset:
+        # Reset peak stats.
+        torch.cuda.reset_max_memory_allocated(device)
+
+    return peak_mb
