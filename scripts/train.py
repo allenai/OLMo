@@ -169,6 +169,7 @@ class Trainer:
             pass
 
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        self.checkpoints.append(checkpoint_dir)
         dist.barrier()
 
         # Write the checkpoint.
@@ -190,8 +191,6 @@ class Trainer:
             latest_path = Path(self.cfg.save_folder) / "latest"
             latest_path.unlink(missing_ok=True)
             latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
-
-        self.checkpoints.append(checkpoint_dir)
 
         # Remove old checkpoints.
         if self.cfg.save_num_checkpoints_to_keep > 0:
@@ -301,6 +300,7 @@ class Trainer:
             pass
 
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        self.unsharded_checkpoints.append(checkpoint_dir)
         dist.barrier()
 
         # Write the checkpoint.
@@ -333,8 +333,6 @@ class Trainer:
             latest_path = Path(self.cfg.save_folder) / "latest-unsharded"
             latest_path.unlink(missing_ok=True)
             latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
-
-        self.unsharded_checkpoints.append(checkpoint_dir)
 
         # Remove old checkpoints.
         if self.cfg.save_num_unsharded_checkpoints_to_keep > 0:
