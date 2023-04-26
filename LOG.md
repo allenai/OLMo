@@ -25,6 +25,8 @@ batches done as we were hoping. Today's issues:
 Despite all this, the model is now training properly, and at the time of writing we have trained on 7B tokens.
 We even had our first proper loss spike!
 
+<img width="557" alt="Screenshot 2023-04-26 at 16 51 59" src="https://user-images.githubusercontent.com/920638/234726481-2fceb391-65da-4da9-9844-aaf0c493ee6a.png">
+
 
 2023-04-25
 ----------
