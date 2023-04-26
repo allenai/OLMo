@@ -28,14 +28,19 @@ def log_extra_field(field_name: str, field_value: Any) -> None:
         _log_extra_fields[field_name] = field_value
 
 
-def setup_logging() -> None:
+def setup_logging(rank0_only: bool = False) -> None:
+    """
+    :param rank0_only: INFO and below messages will only be emitted on the rank0 process.
+    """
     log_extra_field("hostname", socket.gethostname())
     if is_distributed():
         log_extra_field("node_rank", node_rank())
         log_extra_field("local_rank", local_rank())
+        log_extra_field("global_rank", global_rank())
     else:
         log_extra_field("node_rank", 0)
         log_extra_field("local_rank", 0)
+        log_extra_field("global_rank", 0)
 
     old_log_record_factory = logging.getLogRecordFactory()
 
@@ -63,13 +68,27 @@ def setup_logging() -> None:
     else:
         handler = RichHandler()
 
+    def rank0_filter(record: logging.LogRecord) -> int:
+        if record.levelno > logging.INFO:
+            return 1
+        if getattr(record, "global_rank", 0) == 0:
+            return 1
+        else:
+            return 0
+
+    if rank0_only:
+        handler.addFilter(rank0_filter)  # type: ignore
+
     logging.basicConfig(handlers=[handler], level=logging.INFO)
 
     logzio_token = os.environ.get("LOGZIO_TOKEN", None)
     if logzio_token is not None:
         from logzio.handler import LogzioHandler
 
-        logging.getLogger().addHandler(LogzioHandler(logzio_token))
+        logzio_handler = LogzioHandler(logzio_token)
+        if rank0_only:
+            logzio_handler.addFilter(rank0_filter)  # type: ignore
+        logging.getLogger().addHandler(logzio_handler)
 
     logging.captureWarnings(True)
 
@@ -123,9 +142,12 @@ def set_env_variables():
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
-def prepare_cli_environment():
+def prepare_cli_environment(rank0_only_logging: bool = True):
+    """
+    :param rank0_only_logging: Only emit INFO and below log messages from the rank0 process.
+    """
     rich.reconfigure(width=max(rich.get_console().width, 180), soft_wrap=True)
-    setup_logging()
+    setup_logging(rank0_only=rank0_only_logging)
     install_excepthook()
     filter_warnings()
     set_env_variables()
