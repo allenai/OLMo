@@ -296,15 +296,17 @@ class Trainer:
 
         checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}-unsharded"
 
-        if checkpoint_dir.exists():
+        try:
+            next(checkpoint_dir.glob("*"))
             if cfg.save_overwrite:
                 if global_rank() == 0:
                     shutil.rmtree(checkpoint_dir)
             else:
                 raise OlmoConfigurationError(
-                    f"Model weights checkpoint for step {self.global_step} already exists, use "
-                    f"--save-overwrite to overwrite it"
+                    f"Unsharded checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
                 )
+        except StopIteration:
+            pass
 
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
         dist.barrier()
@@ -352,6 +354,72 @@ class Trainer:
         dist.barrier()
 
         return checkpoint_dir
+
+    def restore_unsharded_checkpoint(self, load_path: Path):
+        # Zero-gradients to avoid gathering them.
+        self.optim.zero_grad(set_to_none=True)
+
+        with FSDP.state_dict_type(
+            self.fsdp_model,
+            state_dict_type=StateDictType.FULL_STATE_DICT,
+            state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
+            optim_state_dict_config=FullOptimStateDictConfig(rank0_only=True, offload_to_cpu=True),
+        ):
+            # Load model state.
+            self.fsdp_model.load_state_dict(torch.load(load_path / "model.pt"))
+
+            # Load optimizer state.
+            optim_state_dict = torch.load(load_path / "optim.pt")
+            # NOTE: careful, the order of these arguments has changed since the 2.0 release.
+            if version.parse(torch.__version__) < version.parse("2.1.0"):
+                #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
+                flattened_osd = FSDP.optim_state_dict_to_load(optim_state_dict, self.fsdp_model, self.optim)  # type: ignore
+            else:
+                #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
+                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state_dict)  # type: ignore
+            del optim_state_dict
+            self.optim.load_state_dict(flattened_osd)
+            del flattened_osd
+
+            # Load other state.
+            other_state_dict = torch.load(load_path / "other.pt")
+            self.global_step = other_state_dict["global_step"]
+            self.global_data_step = other_state_dict["global_data_step"]
+            self.checkpoints = [
+                path
+                for path in other_state_dict["checkpoints"]
+                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder)
+            ]
+            self.unsharded_checkpoints = [
+                path
+                for path in other_state_dict["unsharded_checkpoints"]
+                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder)
+            ]
+            self.scheduler.load_state_dict(other_state_dict["scheduler"])
+
+        dist.barrier()
+
+        if not self.cfg.restore_dataloader:
+            self.global_data_step = 0
+        elif self.cfg.fast_forward_batches:
+            self.global_data_step += self.cfg.fast_forward_batches
+
+        # Fast-forward data loader.
+        if self.global_data_step > 0:
+            if self.global_data_step > self.global_step:
+                log.info(
+                    f"Fast-forwarding data loader to {self.global_step}+{self.global_data_step-self.global_step}..."
+                )
+            else:
+                log.info(f"Fast-forwarding data loader to {self.global_data_step}...")
+            for step, _ in self.training_batches:
+                if step + 1 >= self.global_data_step:
+                    log.info(f"Fast-forwarded to {self.global_data_step}")
+                    break
+                elif step + 1 % 1000 == 0:
+                    log.info(f"Fast-forwarding... {step + 1}/{self.global_data_step}")
+
+        dist.barrier()
 
     def get_labels(self, batch: BatchDict) -> torch.Tensor:
         # Labels are just input IDs shifted to the left (first item is ignored).
