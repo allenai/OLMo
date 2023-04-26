@@ -163,6 +163,7 @@ class Trainer:
 
     def save_sharded_checkpoint(self) -> Path:
         checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}"
+        checkpoint_dir_tmp = Path(self.cfg.save_folder) / f"step{self.global_step}-tmp"
 
         try:
             next(checkpoint_dir.glob("*"))
@@ -177,7 +178,7 @@ class Trainer:
             pass
 
         if global_rank() == 0:
-            checkpoint_dir.mkdir(parents=True, exist_ok=True)
+            checkpoint_dir_tmp.mkdir(parents=True, exist_ok=True)
 
         self.checkpoints.append(checkpoint_dir)
         dist.barrier()
@@ -194,11 +195,14 @@ class Trainer:
             # but we've had issues with that on AMD GPUs. See
             # https://github.com/pytorch/pytorch/issues/100041
             #  checkpoint.save_state_dict(self.state_dict(), checkpoint.FileSystemWriter(checkpoint_dir))
-            self.safe_save(self.state_dict(), checkpoint_dir / f"rank{global_rank()}.pt")
+            self.safe_save(self.state_dict(), checkpoint_dir_tmp / f"rank{global_rank()}.pt")
             dist.barrier()
 
-        # Link to 'latest'.
         if global_rank() == 0:
+            # Replace temp directory with target checkpoint directory.
+            checkpoint_dir_tmp.replace(checkpoint_dir)
+
+            # Link to 'latest'.
             latest_path = Path(self.cfg.save_folder) / "latest"
             latest_path.unlink(missing_ok=True)
             latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
@@ -297,6 +301,7 @@ class Trainer:
         self.optim.zero_grad(set_to_none=True)
 
         checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}-unsharded"
+        checkpoint_dir_tmp = Path(self.cfg.save_folder) / f"step{self.global_step}-unsharded-tmp"
 
         try:
             next(checkpoint_dir.glob("*"))
@@ -311,7 +316,7 @@ class Trainer:
             pass
 
         if global_rank() == 0:
-            checkpoint_dir.mkdir(parents=True, exist_ok=True)
+            checkpoint_dir_tmp.mkdir(parents=True, exist_ok=True)
 
         self.unsharded_checkpoints.append(checkpoint_dir)
         dist.barrier()
@@ -327,23 +332,26 @@ class Trainer:
             # First the model state.
             model_state_dict = self.fsdp_model.state_dict()
             if global_rank() == 0:
-                self.safe_save(model_state_dict, checkpoint_dir / "model.pt")
+                self.safe_save(model_state_dict, checkpoint_dir_tmp / "model.pt")
             del model_state_dict
 
             # Then the optimizer state.
             optim_state_dict = FSDP.optim_state_dict(self.fsdp_model, self.optim)
             if global_rank() == 0:
-                self.safe_save(optim_state_dict, checkpoint_dir / "optim.pt")
+                self.safe_save(optim_state_dict, checkpoint_dir_tmp / "optim.pt")
             del optim_state_dict
 
             # Then everything else.
             other_state_dict = self.non_tensor_state_dict()
             if global_rank() == 0:
-                self.safe_save(other_state_dict, checkpoint_dir / "other.pt")
+                self.safe_save(other_state_dict, checkpoint_dir_tmp / "other.pt")
             dist.barrier()
 
-        # Link to 'latest'.
         if global_rank() == 0:
+            # Replace temp directory with target checkpoint directory.
+            checkpoint_dir_tmp.replace(checkpoint_dir)
+
+            # Link to 'latest'.
             latest_path = Path(self.cfg.save_folder) / "latest-unsharded"
             latest_path.unlink(missing_ok=True)
             latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
