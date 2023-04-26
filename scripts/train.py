@@ -549,6 +549,18 @@ class Trainer:
     def log_metrics_to_console(self, prefix: str, metrics: Dict[str, float]):
         log.info(f"{prefix}\n" + "\n".join([f"    {name}={value:.4f}" for name, value in metrics.items()]))
 
+    def should_log_this_step(self) -> bool:
+        if self.global_step % self.cfg.console_log_interval == 0:
+            return True
+        elif (
+            wandb.run is not None
+            and self.cfg.wandb is not None
+            and self.global_step % self.cfg.wandb.log_interval == 0
+        ):
+            return True
+        else:
+            return False
+
     def fit(self):
         # Set model to 'train' mode.
         self.fsdp_model.train()
@@ -579,13 +591,18 @@ class Trainer:
             # Run train step on batch.
             metrics = self.train_step(batch)
 
-            # Collect and log metrics to console.
-            if self.global_step % self.cfg.console_log_interval == 0:
+            # Maybe collect other metrics.
+            if self.should_log_this_step():
                 # Speed metrics.
                 if not first_batch:
                     metrics.update(speed_monitor.check())
                 # System metrics.
                 metrics.update(self.system_metrics())
+                # Learning rate metrics.
+                metrics.update(lr_monitor.check())
+
+            # Log metrics to console.
+            if self.global_step % self.cfg.console_log_interval == 0:
                 self.log_metrics_to_console(
                     f"[epoch={epoch}, step={self.global_step}/{self.cfg.max_duration}]", metrics
                 )
@@ -649,7 +666,6 @@ class Trainer:
 
             # Log metrics to W&B.
             if wandb.run is not None:
-                metrics.update(lr_monitor.check())
                 wandb.log(metrics, step=self.global_step)
 
             first_batch = False

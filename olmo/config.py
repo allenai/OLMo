@@ -381,6 +381,7 @@ class WandbConfig(BaseConfig):
     tags: Optional[List[str]] = None
     log_artifacts: bool = False
     rank_zero_only: bool = True
+    log_interval: int = 1
 
 
 @dataclass
