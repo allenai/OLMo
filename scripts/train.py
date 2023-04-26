@@ -778,7 +778,7 @@ def main(cfg: TrainConfig) -> None:
     if cfg.force_save_unsharded:
         log.info(f"Saving unsharded checkpoint...")
         checkpoint_path = trainer.save_unsharded_checkpoint()
-        log.info(f"Unshared checkpoint saved to {checkpoint_path}")
+        log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
     if cfg.compile is not None:
         # NOTE: trying to compile the whole train step results in a compile-time error from within
