@@ -12,10 +12,10 @@ class SVMClassifier:
         train_file = os.path.join(data_dir, "train.csv")
         # Load the dataset
         data = pd.read_csv(train_file)
-        df = pd.DataFrame(data, columns=["id","comment_text","toxic","severe_toxic","obscene","threat","insult","identity_hate"])
-        comment_texts = df['comment_text'].tolist()
-        labels = df['toxic'].tolist()
-        
+        df = pd.DataFrame(data, columns=["id", "comment_text", "toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"])
+        # comment_texts = df['comment_text'].tolist()
+        # labels = df['toxic'].tolist()
+
         # self.train_texts = ["I like you", "I hate you"]*20  # list of text samples
         # self.train_labels = [0, 1]*20  # list of corresponding labels (0 or 1)
         self.vectorizer = CountVectorizer()
@@ -27,7 +27,7 @@ class SVMClassifier:
 
         # Convert the text to a bag-of-words representation
         X_train = self.vectorizer.fit_transform(X_train)
-        
+
         X_test = self.vectorizer.transform(X_test)
 
         self.classifier.fit(X_train, y_train)
@@ -35,8 +35,3 @@ class SVMClassifier:
         y_pred = self.classifier.predict(X_test)
         accuracy = accuracy_score(y_test, y_pred)
         print("Accuracy:", accuracy)
-
-
-
-svm = SVMClassifier()
-svm.train()

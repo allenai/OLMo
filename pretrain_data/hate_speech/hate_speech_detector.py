@@ -1,19 +1,18 @@
 import argparse
+from detoxify import Detoxify
 import json
-import timeit
-
-import nltk
+import LRClassifier
 from nltk import sent_tokenize, word_tokenize
-import pandas as pd
+import timeit
+import torch
+# import nltk
+# import pandas as pd
 
-from LRClassifier import *
-
-#from detoxify import Detoxify
-#import torch
 
 def read_blocklist(file):
     terms = open(file).read().splitlines()
     return set(terms)
+
 
 if __name__ == '__main__':
 
@@ -30,8 +29,8 @@ if __name__ == '__main__':
     reader = open(args.data_file, "r")
     data = [json.loads(line) for line in reader]
     print("Evaluating {} texts for hate speech".format(len(data)))
-    
-    # Split texts into sentences 
+
+    # Split texts into sentences
     # Can be replaced with any sentence splitter as needed
     # Timing tokenization separately for now
     sentences = []
@@ -127,8 +126,5 @@ if __name__ == '__main__':
         out = open(args.preds_file, 'w')
         for i, label in enumerate(hate_speech_labels):
             if label == 1:
-                out.write(sentences[i]+'\n')
+                out.write(sentences[i] + '\n')
         out.close()
-    
-
-    # if args.model == "roberta":
