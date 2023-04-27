@@ -324,9 +324,8 @@ class OptimizerType(StrEnum):
 class OptimizerConfig(BaseConfig):
     name: OptimizerType = OptimizerType.lionw
     learning_rate: float = 1.0e-4
-    weight_decay: float = 0.0
+    weight_decay: float = 0.01
     betas: Tuple[float, float] = (0.9, 0.95)
-    eps: float = 1e-8
 
     def __post_init__(self):
         self.betas = tuple(self.betas)  # type: ignore[assignment]
