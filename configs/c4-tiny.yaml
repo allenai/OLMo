@@ -52,7 +52,7 @@ data:
   num_workers: 4
   drop_last: true
   pin_memory: true
-  prefetch_factor: 16
+  prefetch_factor: 4  # bump to 16 if on LUMI
   persistent_workers: true
   timeout: 0
 
@@ -76,8 +76,8 @@ tokenizer:
   truncate_direction: right
 
 save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
-save_interval: 2000
-save_interval_unsharded: ${save_interval}
+save_interval: 500
+save_interval_unsharded: 100000
 save_num_checkpoints_to_keep: 3
 save_num_unsharded_checkpoints_to_keep: -1
 save_overwrite: false
@@ -95,4 +95,4 @@ max_grad_norm: 1.0
 speed_monitor:
   window_size: 5
 
-console_log_interval: 1
+console_log_interval: 2
