@@ -4,6 +4,7 @@ dry_run: false
 
 wandb:
   name: ${run_name}
+  log_interval: ${console_log_interval}
 
 model:
   d_model: 1024
