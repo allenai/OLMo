@@ -44,7 +44,7 @@ from olmo.config import (
 from olmo.data import DataCollator, MemMapDataset
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
 from olmo.model import Olmo
-from olmo.optim import DecoupledLionW
+from olmo.optim import LionW
 from olmo.util import (
     clean_opt,
     global_rank,
@@ -904,8 +904,8 @@ def build_dataloader(
 
 
 def build_optimizer(cfg: TrainConfig, model: nn.Module) -> torch.optim.Optimizer:
-    if cfg.optimizer.name == OptimizerType.decoupled_lionw:
-        return DecoupledLionW(
+    if cfg.optimizer.name == OptimizerType.lionw:
+        return LionW(
             model.parameters(),
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,
