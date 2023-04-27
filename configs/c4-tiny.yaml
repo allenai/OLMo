@@ -95,4 +95,4 @@ max_grad_norm: 1.0
 speed_monitor:
   window_size: 5
 
-console_log_interval: 2
+console_log_interval: 20
