@@ -568,11 +568,7 @@ class Trainer:
     def should_log_this_step(self) -> bool:
         if self.global_step % self.cfg.console_log_interval == 0:
             return True
-        elif (
-            wandb.run is not None
-            and self.cfg.wandb is not None
-            and self.global_step % self.cfg.wandb.log_interval == 0
-        ):
+        elif self.cfg.wandb is not None and self.global_step % self.cfg.wandb.log_interval == 0:
             return True
         else:
             return False
