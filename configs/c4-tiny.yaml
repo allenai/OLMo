@@ -78,7 +78,7 @@ tokenizer:
 
 save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_interval: 500
-save_interval_unsharded: 100000
+save_interval_unsharded: 5000
 save_num_checkpoints_to_keep: 3
 save_num_unsharded_checkpoints_to_keep: -1
 save_overwrite: false
