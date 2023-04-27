@@ -44,7 +44,7 @@ optimizer:
 
 scheduler:
   name: cosine_with_warmup
-  t_warmup: 100
+  t_warmup: 2000
   alpha_f: 0.1
 
 data:
