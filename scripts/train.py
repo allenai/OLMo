@@ -619,6 +619,14 @@ class Trainer:
                     f"[epoch={epoch}, step={self.global_step}/{self.cfg.max_duration}]", metrics
                 )
 
+            # Log metrics to W&B.
+            if (
+                wandb.run is not None
+                and self.cfg.wandb is not None
+                and self.global_step % self.cfg.wandb.log_interval == 0
+            ):
+                wandb.log(metrics, step=self.global_step)
+
             # Maybe save checkpoint.
             if self.global_step % self.cfg.save_interval == 0:
                 log.info("Saving checkpoint...")
@@ -662,13 +670,20 @@ class Trainer:
                         eval_metrics = self.eval_step(eval_batch, evaluator)
 
                         # Log to console.
-                        if (eval_step + 1) % self.cfg.console_log_interval == 0:
+                        if (
+                            eval_step + 1 == num_eval_batches
+                            or (eval_step + 1) % self.cfg.console_log_interval == 0
+                        ):
                             self.log_metrics_to_console(
                                 f"[eval_step={eval_step + 1}/{num_eval_batches}]", eval_metrics
                             )
 
                     # Get final metrics.
-                    metrics.update(evaluator.compute_metrics())
+                    eval_metrics = evaluator.compute_metrics()
+
+                    # Log metrics to W&B.
+                    if wandb.run is not None:
+                        wandb.log(eval_metrics, step=self.global_step)
 
                 # Reset speed monitor so that we don't count the time taken to run evaluations.
                 speed_monitor.reset()
@@ -676,10 +691,7 @@ class Trainer:
                 # Reset model to 'train' mode.
                 self.fsdp_model.train()
 
-            # Log metrics to W&B.
-            if wandb.run is not None:
-                wandb.log(metrics, step=self.global_step)
-
+            # End of batch.
             first_batch = False
 
         # Save final unsharded model-only checkpoint.
