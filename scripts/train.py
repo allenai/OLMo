@@ -62,28 +62,31 @@ log = logging.getLogger("train")
 @dataclass
 class SpeedMonitor:
     cfg: SpeedMonitorConfig
+    device_batch_num_tokens: int
     start_times: Deque[float] = field(default_factory=lambda: deque([]))
-    num_tokens: Deque[int] = field(default_factory=lambda: deque([]))
+    global_step: int = 0
 
-    def batch_start(self, num_tokens: int) -> None:
-        if len(self.start_times) >= self.cfg.window_size:
-            self.start_times.popleft()
-            self.num_tokens.popleft()
-        self.start_times.append(time.monotonic())
-        self.num_tokens.append(num_tokens)
+    def batch_start(self, global_step: int, record: bool = True) -> None:
+        self.global_step = global_step
+        if record:
+            if len(self.start_times) >= self.cfg.window_size:
+                self.start_times.popleft()
+            self.start_times.append(time.monotonic())
 
     def reset(self) -> None:
         self.start_times.clear()
-        self.num_tokens.clear()
 
     def check(self) -> Dict[str, float]:
-        total_seconds = time.monotonic() - self.start_times[0]
-        total_tokens = sum(self.num_tokens)
-        total_batches = len(self.start_times)
-        return {
-            "throughput/device/tokens_per_second": total_tokens / total_seconds,
-            "throughput/device/batches_per_second": total_batches / total_seconds,
+        metrics: Dict[str, float] = {
+            "throughput/total_tokens": self.global_step * self.device_batch_num_tokens * dist.get_world_size()
         }
+        if self.start_times:
+            interval_seconds = time.monotonic() - self.start_times[0]
+            interval_batches = len(self.start_times)
+            interval_tokens = self.device_batch_num_tokens * interval_batches
+            metrics["throughput/device/tokens_per_second"] = interval_tokens / interval_seconds
+            metrics["throughput/device/batches_per_second"] = interval_batches / interval_seconds
+        return metrics
 
 
 @dataclass
@@ -578,7 +581,11 @@ class Trainer:
         self.fsdp_model.train()
 
         # Initialize monitors.
-        speed_monitor = SpeedMonitor(self.cfg.speed_monitor)
+        assert cfg.device_train_batch_size is not None
+        speed_monitor = SpeedMonitor(
+            self.cfg.speed_monitor,
+            device_batch_num_tokens=cfg.device_train_batch_size * cfg.model.max_sequence_length,
+        )
         lr_monitor = LRMonitor(self.optim)
 
         # Log system metrics at the start of training.
@@ -594,11 +601,12 @@ class Trainer:
             self.global_step += 1
             self.global_data_step = step + 1
 
-            # We start monitoring speed after the first batch since the first
-            # batch might be an outlier due to compiling and other initialization overhead.
-            if not first_batch:
-                num_tokens = batch["input_ids"].shape[0] * batch["input_ids"].shape[1]
-                speed_monitor.batch_start(num_tokens)
+            speed_monitor.batch_start(
+                self.global_step,
+                # We start monitoring speed after the first batch since the first
+                # batch might be an outlier due to compiling and other initialization overhead.
+                record=not first_batch,
+            )
 
             # Run train step on batch.
             metrics = self.train_step(batch)
@@ -606,8 +614,7 @@ class Trainer:
             # Maybe collect other metrics.
             if self.should_log_this_step():
                 # Speed metrics.
-                if not first_batch:
-                    metrics.update(speed_monitor.check())
+                metrics.update(speed_monitor.check())
                 # System metrics.
                 metrics.update(self.system_metrics())
                 # Learning rate metrics.
