@@ -51,8 +51,8 @@ def main(args: argparse.Namespace):
         del model_args['pretrained']
         if args.olmo_model_path:
             config_file = f"configs/{hf_name}.yaml"
-            if not os.path.exists(config_file):
-                raise ValueError(f"OLMo config file {config_file} not found!")
+            #if not os.path.exists(config_file):
+            #    raise ValueError(f"OLMo config file {config_file} not found!")
             model_args['config_file'] = config_file
             hf_name = args.olmo_model_path
             model_args['model_class'] = OlmoPretrained

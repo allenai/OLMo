@@ -10,7 +10,6 @@ class OlmoPretrained(Olmo):
 
     @classmethod
     def from_pretrained(self, model_path, config_file, **kwargs):
-        model_config = ModelConfig.load(config_file, key="model")
         if os.path.isdir(model_path):
             checkpoints = [f for f in os.listdir(model_path) if f.endswith(".pt")]
             if not checkpoints:
@@ -26,11 +25,22 @@ class OlmoPretrained(Olmo):
             model_file = model_path
         else:
             raise ValueError(f"Model path {model_path} not found!")
-        model = Olmo(model_config, init_params=False)
+        if not os.path.exists(config_file):
+            config_file = os.path.join(os.path.dirname(model_file), "config.yaml")
+        if not os.path.exists(config_file):
+            raise ValueError(f"OLMo config file {config_file} not found!")
+        model_config = ModelConfig.load(config_file, key="model")
         device_map = kwargs.get("device_map", "auto" if torch.cuda.device_count() > 0 else None)
         device = "cpu" if not device_map else "cuda"
         device = torch.device(device)
-        state_dict = torch.load(model_file, map_location=device)['state']['model']
+        model_config.init_device = device
+
+        model = Olmo(model_config, init_params=False)
+        state_dict = torch.load(model_file, map_location=device)
+        if 'state' in state_dict:
+            state_dict = state_dict['state']
+        if 'model' in state_dict:
+            state_dict = state_dict['model']
         new_state_dict = {re.sub("^model\\.","",k):v for k,v in state_dict.items()}
         model.load_state_dict(new_state_dict, strict=True)
         model.device = device
