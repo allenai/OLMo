@@ -7,7 +7,6 @@ import torch
 from torch.utils.data import Dataset
 
 from ..aliases import PathOrStr
-from ..config import TrainConfig
 
 __all__ = ["MemMapDataset"]
 
@@ -48,10 +47,6 @@ class MemMapDataset(Dataset[torch.LongTensor]):
     def max_seq_len(self) -> int:
         # For compatibility with composer's SpeedMonitor callback.
         return self.chunk_size
-
-    @classmethod
-    def from_train_config(cls, config: TrainConfig) -> MemMapDataset:
-        return cls(*config.data.paths, chunk_size=config.model.max_sequence_length)
 
     @property
     def memmaps(self) -> List[np.memmap]:

@@ -1,16 +1,18 @@
-run_name: 1.2b-c4-run-001
+run_name: c4-small-run-001
 seed: 6198
 dry_run: false
 
 model:
   d_model: 2048
   n_heads: 16
-  n_layers: 24
-  mlp_ratio: 4
+  n_layers: 16
+  mlp_ratio: 8
   alibi: true
   alibi_bias_max: 8.0
   attention_dropout: 0.0
   attention_layer_norm: true
+  multi_query_attention: true
+  block_type: sequential
   layer_norm_type: default  # if not compiling, use 'low_precision'
   activation_type: swiglu
   residual_dropout: 0.0
@@ -55,15 +57,33 @@ data:
   persistent_workers: true
   timeout: 0
 
+eval_interval: ${save_interval}
+evaluators:
+  - label: c4-validation
+    metric_names:
+      - Perplexity
+      - CrossEntropy
+    device_eval_microbatch_size: ${device_train_microbatch_size}
+    subset_num_batches: 5
+    data:
+      paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
+      pad_direction: right
+      num_workers: 4
+      drop_last: true
+      pin_memory: true
+      prefetch_factor: 16
+      persistent_workers: true
+      timeout: 0
+
 tokenizer:
   identifier: gpt2
   truncate_direction: right
 
-max_duration: 2670288ba  # 1.4T tokens
+max_duration: 3814697ba  # 2T tokens
 
 save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_interval: 2000ba
-save_num_checkpoints_to_keep: 100
+save_num_checkpoints_to_keep: -1
 save_overwrite: false
 
 load_path: null

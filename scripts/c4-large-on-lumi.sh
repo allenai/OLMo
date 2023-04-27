@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=c4-70b
+#SBATCH --job-name=c4-large
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
 #SBATCH --nodes=32              # Total number of nodes 
@@ -40,5 +40,5 @@ srun \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/llm-lumi_latest.sif \
-    python scripts/train.py configs/70b-c4.yaml --run_name=${SLURM_JOB_ID}
+    python scripts/train.py configs/c4-large.yaml --run_name=${SLURM_JOB_ID}
 

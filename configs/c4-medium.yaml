@@ -1,28 +1,27 @@
-run_name: 300m-c4-run-001
+run_name: c4-medium-run-001
 seed: 6198
 dry_run: false
 
 model:
-  d_model: 1024
+  d_model: 4096
   n_heads: 16
-  n_layers: 24
-  mlp_ratio: 4
+  n_layers: 32
+  mlp_ratio: 8
   alibi: true
   alibi_bias_max: 8.0
-  flash_attention: false
   attention_dropout: 0.0
-  attention_layer_norm: false
-  block_type: parallel
+  attention_layer_norm: true
+  multi_query_attention: true
+  block_type: sequential
   layer_norm_type: default  # if not compiling, use 'low_precision'
+  activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
-  max_sequence_length: 1024
-  include_bias: true
+  max_sequence_length: 2048
   vocab_size: 50257
-  embedding_size: 50304
   eos_token_id: 50256
   pad_token_id: 50256
-  init_device: null
+  init_device: meta
   init_std: 0.02
 
 compile:
@@ -30,8 +29,8 @@ compile:
 
 optimizer:
   name: decoupled_lionw
-  learning_rate: 3.0e-4
-  weight_decay: 1.5e-4
+  learning_rate: 1.2e-4
+  weight_decay: 0.6e-4
   betas:
   - 0.9
   - 0.95
@@ -57,22 +56,41 @@ data:
   persistent_workers: true
   timeout: 0
 
+eval_interval: ${save_interval}
+evaluators:
+  - label: c4-validation
+    metric_names:
+      - Perplexity
+      - CrossEntropy
+    device_eval_microbatch_size: ${device_train_microbatch_size}
+    subset_num_batches: 5
+    data:
+      paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
+      pad_direction: right
+      num_workers: 4
+      drop_last: true
+      pin_memory: true
+      prefetch_factor: 16
+      persistent_workers: true
+      timeout: 0
+
 tokenizer:
   identifier: gpt2
   truncate_direction: right
 
+max_duration: 953674ba  # 2T tokens
+
 save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_interval: 2000ba
-save_num_checkpoints_to_keep: 100
+save_num_checkpoints_to_keep: -1
 save_overwrite: false
 
 load_path: null
 load_weights_only: false
 
-max_duration: 1.4e12tok
-global_train_batch_size: 512
+global_train_batch_size: 1024
 device_train_batch_size: auto
-device_train_microbatch_size: 16
+device_train_microbatch_size: 2
 device_train_grad_accum: auto
 device_eval_batch_size: null
 
@@ -81,7 +99,7 @@ n_gpus: null
 precision: amp_bf16
 
 fsdp_config:
-  sharding_strategy: SHARD_GRAD_OP
+  sharding_strategy: FULL_SHARD
   mixed_precision: PURE
   activation_checkpointing: false
   activation_cpu_offload: false
@@ -90,10 +108,8 @@ fsdp_config:
   use_orig_params: true  # needed to work with compile
   verbose: false
 
-wandb:
-  name: ${run_name}
-
 speed_monitor:
   window_size: 20
 
-console_log_interval: 10ba
+wandb:
+  name: ${run_name}

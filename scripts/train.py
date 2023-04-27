@@ -48,6 +48,7 @@ def main(cfg: TrainConfig) -> None:
         OlmoConsoleLogger,
         build_algorithm,
         build_dataloader,
+        build_evaluator,
         build_optimizer,
         build_scheduler,
         update_batch_size_info,
@@ -63,12 +64,13 @@ def main(cfg: TrainConfig) -> None:
     if get_global_rank() == 0:
         log.info("Configuration:")
         log.info(cfg)
-        if not cfg.dry_run:
+        if not cfg.dry_run and (cfg.load_path is None or Path(cfg.load_path).parent != Path(cfg.save_folder)):
             # Save config.
             save_path = Path(cfg.save_folder) / "config.yaml"
             if save_path.is_file() and not cfg.save_overwrite:
                 raise OlmoConfigurationError(f"{save_path} already exists, use --save_overwrite to overwrite")
             else:
+                log.info(f"Saving config to {save_path}")
                 save_path.parent.mkdir(exist_ok=True, parents=True)
                 cfg.save(save_path)
             del save_path
@@ -109,7 +111,10 @@ def main(cfg: TrainConfig) -> None:
     scheduler = build_scheduler(cfg.scheduler)
 
     # Dataset / data loader.
-    train_loader = build_dataloader(cfg, cfg.device_train_batch_size)
+    train_loader = build_dataloader(cfg.data, cfg.model, cfg.device_train_batch_size)
+
+    # Evaluators.
+    evaluators = [build_evaluator(eval_config, cfg.model) for eval_config in cfg.evaluators]
 
     # Algorithms.
     algorithms = [
@@ -142,9 +147,8 @@ def main(cfg: TrainConfig) -> None:
         train_dataloader=train_loader,
         optimizers=optimizer,
         schedulers=scheduler,
-        #  eval_dataloader=evaluators,
-        #  eval_interval=cfg.eval_interval,
-        #  eval_subset_num_batches=cfg.get('eval_subset_num_batches', -1),
+        eval_dataloader=evaluators,
+        eval_interval=1 if not evaluators else cfg.eval_interval,
         max_duration=cfg.max_duration,
         precision=cfg.precision,
         device_train_microbatch_size=cfg.device_train_microbatch_size,
@@ -179,6 +183,7 @@ def main(cfg: TrainConfig) -> None:
             if isinstance(callback, CheckpointSaver):
                 callback._save_checkpoint(trainer.state, trainer.logger)
 
+    if not cfg.dry_run:
         log.info("Starting training...")
         trainer.fit()
 

@@ -1,11 +1,11 @@
-UNLOAD
-(
+UNLOAD (
     WITH s2ag_abstracts AS (
         SELECT
             p.corpusId,
             p.abstract,
             p.title,
             p.year,
+            ARRAY_DISTINCT(TRANSFORM(all_sources, x -> x.source)) AS sources,
             p.added as added,
             p.paperId as sha1
         FROM (
@@ -14,6 +14,7 @@ UNLOAD
             corpusId,
             title,
             year,
+            sourceInfo.sourceIds AS all_sources,
             /* Construct ID for lookup of open-access info */
             CASE
                 /* Use DOI if present */
@@ -113,6 +114,7 @@ UNLOAD
         sha1,
         added,
         created,
+        sources,
         s2ag.corpusId % 50 AS part_id
     FROM s2ag_abstracts_with_dates as s2ag
     -- exclude s2orc ids from dump

@@ -9,22 +9,40 @@ from olmo.data import DataCollator
 
 
 @pytest.mark.parametrize(
-    "alibi, rope, flash_attn, block_type, cuda, dtype",
+    "alibi, rope, flash_attn, block_type, multi_query_attention, cuda, dtype",
     [
-        pytest.param(True, False, False, BlockType.sequential, False, torch.bfloat16, id="alibi-emb-cpu-bf16"),
         pytest.param(
-            True, False, False, BlockType.parallel, False, torch.bfloat16, id="alibi-emb-parallel-block-cpu-bf16"
+            True, False, False, BlockType.sequential, False, False, torch.bfloat16, id="alibi-emb-cpu-bf16"
         ),
-        pytest.param(False, False, False, BlockType.sequential, False, torch.bfloat16, id="posit-emb-cpu-bf16"),
-        pytest.param(True, False, False, BlockType.sequential, False, torch.float32, id="alibi-emb-cpu-f32"),
-        pytest.param(False, False, False, BlockType.sequential, False, torch.float32, id="posit-emb-cpu-f32"),
-        pytest.param(False, True, False, BlockType.sequential, False, torch.bfloat16, id="rope-emb-cpu-bf16"),
-        pytest.param(False, True, False, BlockType.sequential, False, torch.float32, id="rope-emb-cpu-f32"),
+        pytest.param(
+            True,
+            False,
+            False,
+            BlockType.parallel,
+            False,
+            False,
+            torch.bfloat16,
+            id="alibi-emb-parallel-block-cpu-bf16",
+        ),
+        pytest.param(
+            False, False, False, BlockType.sequential, False, False, torch.bfloat16, id="posit-emb-cpu-bf16"
+        ),
+        pytest.param(
+            True, False, False, BlockType.sequential, False, False, torch.float32, id="alibi-emb-cpu-f32"
+        ),
+        pytest.param(
+            False, False, False, BlockType.sequential, False, False, torch.float32, id="posit-emb-cpu-f32"
+        ),
+        pytest.param(
+            False, True, False, BlockType.sequential, False, False, torch.bfloat16, id="rope-emb-cpu-bf16"
+        ),
+        pytest.param(False, True, False, BlockType.sequential, False, False, torch.float32, id="rope-emb-cpu-f32"),
         pytest.param(
             True,
             False,
             False,
             BlockType.sequential,
+            False,
             True,
             torch.bfloat16,
             id="alibi-emb-cuda-bf16",
@@ -38,6 +56,7 @@ from olmo.data import DataCollator
             False,
             False,
             BlockType.parallel,
+            False,
             True,
             torch.bfloat16,
             id="alibi-emb-parallel-block-cuda-bf16",
@@ -51,6 +70,7 @@ from olmo.data import DataCollator
             True,
             False,
             BlockType.sequential,
+            False,
             True,
             torch.bfloat16,
             id="rope-emb-cuda-bf16",
@@ -64,6 +84,7 @@ from olmo.data import DataCollator
             False,
             False,
             BlockType.sequential,
+            False,
             True,
             torch.bfloat16,
             id="posit-emb-cuda-bf16",
@@ -77,6 +98,7 @@ from olmo.data import DataCollator
             False,
             True,
             BlockType.sequential,
+            False,
             True,
             torch.bfloat16,
             id="posit-emb-flash-cuda-bf16",
@@ -90,6 +112,7 @@ from olmo.data import DataCollator
             False,
             True,
             BlockType.sequential,
+            False,
             True,
             torch.float16,
             id="posit-emb-flash-cuda-f16",
@@ -97,6 +120,19 @@ from olmo.data import DataCollator
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
             ),
+        ),
+        pytest.param(
+            False, False, False, BlockType.sequential, True, False, torch.float32, id="posit-emb-mqattn-cpu-f32"
+        ),
+        pytest.param(
+            False,
+            False,
+            False,
+            BlockType.parallel,
+            True,
+            False,
+            torch.float32,
+            id="posit-emb-parallel-block-mqattn-cpu-f32",
         ),
     ],
 )
@@ -107,6 +143,7 @@ def test_forward(
     rope: bool,
     flash_attn: bool,
     block_type: BlockType,
+    multi_query_attention: bool,
     cuda: bool,
     dtype: torch.dtype,
 ):
@@ -119,6 +156,7 @@ def test_forward(
     if flash_attn:
         train_config.model.attention_dropout = 0.0
     train_config.model.block_type = block_type
+    train_config.model.multi_query_attention = multi_query_attention
     if cuda:
         train_config.model.init_device = "cuda"
     else:

@@ -114,7 +114,7 @@ Papers published before 2022-12-01 are used as training data, and papers publish
 python pretrain_data/s2/v2/process_s2ag.py \
   src=s3://ai2-llm/pretraining-data/sources/s2/raw/2023_01_03/s2ag/ \
   dst=s3://ai2-llm/pretraining-data/sources/s2/v0/documents/dataset=s2ag \
-  parallel=96
+  parallel=120
 ```
 3. Import data into athena with `load_as_table/s2ag.sql`.
 4. Run queries in `process_corpus_dedup` and `process_corpus_hard_dedup` to create V2 and V2 hard deduped versions of the corpus.
@@ -128,7 +128,7 @@ python pretrain_data/s2/v2/process_s2ag.py \
 python pretrain_data/s2/v2/process_s2orc.py \
   src=s3://ai2-llm/pretraining-data/sources/s2/raw/2023_01_03/s2orc/ \
   dst=s3://ai2-llm/pretraining-data/sources/s2/v0/documents/dataset=s2orc \
-  parallel=96
+  parallel=120
 ```
 3. Import data into athena with `load_as_table/s2orc_paragraphs.sql`.
 4. Run queries in `process_corpus_dedup` and `process_corpus_hard_dedup` to create V2 and V2 hard deduped versions of the corpus.
