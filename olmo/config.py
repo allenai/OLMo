@@ -326,6 +326,8 @@ class OptimizerConfig(BaseConfig):
     learning_rate: float = 1.0e-4
     weight_decay: float = 0.01
     betas: Tuple[float, float] = (0.9, 0.95)
+    no_decay_norm_and_bias: bool = True
+    """Do not apply weight decay to norms and biases."""
 
     def __post_init__(self):
         self.betas = tuple(self.betas)  # type: ignore[assignment]

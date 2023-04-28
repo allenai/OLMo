@@ -44,7 +44,7 @@ from olmo.config import (
 from olmo.data import DataCollator, MemMapDataset
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
 from olmo.model import Olmo
-from olmo.optim import LionW
+from olmo.optim import LionW, get_param_groups
 from olmo.util import (
     clean_opt,
     global_rank,
@@ -764,11 +764,8 @@ def main(cfg: TrainConfig) -> None:
     # Initialize the model.
     log.info("Initializing model...")
     olmo_model = Olmo(cfg.model)
-    if global_rank() == 0:
-        log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
-        log.info(
-            f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}",
-        )
+    log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
+    log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
 
     # Wrap the model in FSDP.
     fsdp_model = FSDP(
@@ -803,6 +800,9 @@ def main(cfg: TrainConfig) -> None:
             checkpoint_wrapper_fn=non_reentrant_wrapper,  # type: ignore
             check_fn=olmo_model.activation_checkpointing_fn,  # type: ignore
         )
+
+    log.info("Model:")
+    log.info(fsdp_model)
 
     # Construct optimizer and learning rate scheduler.
     optim = build_optimizer(cfg, fsdp_model)
@@ -906,7 +906,7 @@ def build_dataloader(
 def build_optimizer(cfg: TrainConfig, model: nn.Module) -> torch.optim.Optimizer:
     if cfg.optimizer.name == OptimizerType.lionw:
         return LionW(
-            model.parameters(),
+            get_param_groups(model) if cfg.optimizer.no_decay_norm_and_bias else model.parameters(),
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,
