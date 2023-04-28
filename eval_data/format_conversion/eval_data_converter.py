@@ -9,7 +9,6 @@ from collections import defaultdict
 from tqdm import tqdm
 from bs4 import BeautifulSoup
 import html
-import html2markdown
 
 class Formatter():
     @staticmethod
@@ -47,13 +46,13 @@ class Formatter():
     @staticmethod
     def ice(args):
         '''
-        This method assumes that the data has already been parsed using ICEScenario.get_instances() from HELMs codebase. This requires unzipping the 
-        data into the right place and fixing some path names.
+        This method assumes that the data has already been preprocessed by the HELM code. You can do this by following the instructions in LLM/eval_data/format_conversion/get_ice/readme.md
         '''
         with open(os.path.join(args.in_dir, args.filename), "rt", encoding="UTF8") as f:
             for line in f:
                 doc = json.loads(line)
                 yield doc
+                
     @staticmethod
     def wikitext_103(args):
         with open(os.path.join(args.in_dir, args.filename), "rt", encoding="UTF8") as f:
