@@ -59,9 +59,9 @@ if __name__ == '__main__':
         blocked_terms = read_blocklist("en-blocklist.txt")
         for sentence in sentences:
             num_block_terms_present = len([x for x in blocked_terms
-                                          if " " + x + " " in sentence or
-                                          sentence.startswith(x) or
-                                          sentence.endswith(x)])
+                                if " " + x + " " in sentence or
+                                sentence.startswith(x) or
+                                sentence.endswith(x)])
             # num_block_terms_present = len(set(sentence).intersection(blocked_terms))
             if num_block_terms_present > 0:
                 hate_speech_labels.append(1)

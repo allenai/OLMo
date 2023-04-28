@@ -17,7 +17,7 @@ class SVMClassifier:
         comment_texts = df['comment_text'].tolist()
         toxic_column_names = ["toxic", "severe_toxic", "threat", "insult", "identity_hate"]
         toxic_labels = df[toxic_column_names].sum(axis=1)
-        toxic_labels = [1 if x>=1 else 0 for x in toxic_labels.tolist()]
+        toxic_labels = [1 if x >= 1 else 0 for x in toxic_labels.tolist()]
 
         # self.texts = ["I like you", "I hate you"]*20  # list of text samples
         # self.labels = [0, 1]*20  # list of corresponding labels (0 or 1)
