@@ -8,7 +8,7 @@ wandb:
 model:
   d_model: 4096
   n_heads: 16
-  n_layers: 32
+  n_layers: 30
   mlp_ratio: 8
   alibi: true
   alibi_bias_max: 8.0
@@ -32,7 +32,7 @@ compile:
 
 optimizer:
   name: lionw
-  learning_rate: 5.0e-5
+  learning_rate: 1.0e-5
   weight_decay: 0.01
   betas:
   - 0.9
