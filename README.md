@@ -41,7 +41,8 @@ gantry run \
   --gpus 8 \
   --nfs \
   --env-secret WANDB_API_KEY=WANDB_API_KEY \
-  --allow-dirty \
+  --env LOG_FILTER_TYPE=local_rank0_only \
+  --env OMP_NUM_THREADS=8 \
   --shared-memory 10GiB \
   --venv base \
   --yes \
