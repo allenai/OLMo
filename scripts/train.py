@@ -43,8 +43,8 @@ from olmo.config import (
 )
 from olmo.data import DataCollator, MemMapDataset
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
-from olmo.model import LayerNormBase, Olmo
-from olmo.optim import LionW
+from olmo.model import Olmo
+from olmo.optim import LionW, get_param_groups
 from olmo.util import (
     clean_opt,
     global_rank,
@@ -904,48 +904,9 @@ def build_dataloader(
 
 
 def build_optimizer(cfg: TrainConfig, model: nn.Module) -> torch.optim.Optimizer:
-    # Separate out parameters that we don't want to apply weight decay to, like norms and biases.
-    decay = set()
-    no_decay = set()
-    all_params = {}
-    for mn, m in model.named_modules():
-        for pn, p in m.named_parameters():
-            # NOTE: because named_modules and named_parameters are recursive
-            # we will see the same tensors p many many times, but doing it this way
-            # allows us to know which parent module any tensor p belongs to...
-            if not p.requires_grad:
-                continue
-
-            fpn = f"{mn}.{pn}" if mn else pn
-            all_params[fpn] = p
-
-            if pn.endswith("bias"):
-                # all biases will not be decayed
-                no_decay.add(fpn)
-            elif pn.endswith("weight") and isinstance(m, nn.Linear):
-                decay.add(fpn)
-            elif pn.endswith("weight") and isinstance(m, (LayerNormBase, nn.LayerNorm, nn.Embedding)):
-                no_decay.add(fpn)
-
-    # Validate that we've considered every parameter
-    inter_params = decay & no_decay
-    union_params = decay | no_decay
-    assert decay
-    assert no_decay
-    assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
-    assert (
-        len(all_params.keys() - union_params) == 0
-    ), f"parameters {all_params.keys() - union_params} were not separated into either decay/no_decay set!"
-
-    # Create the pytorch optimizer groups.
-    optim_groups = [
-        {"params": [all_params[pn] for pn in sorted(list(decay))]},
-        {"params": [all_params[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
-    ]
-
     if cfg.optimizer.name == OptimizerType.lionw:
         return LionW(
-            optim_groups,
+            get_param_groups(model) if cfg.optimizer.no_decay_norm_and_bias else model.parameters(),
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,

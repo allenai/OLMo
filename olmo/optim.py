@@ -1,6 +1,7 @@
-from typing import Tuple
+from typing import Any, Dict, List, Tuple
 
 import torch
+import torch.nn as nn
 from torch.optim.optimizer import Optimizer
 
 __all__ = ["LionW"]
@@ -22,29 +23,6 @@ class LionW(Optimizer):
         super().__init__(params, defaults)
         for group in self.param_groups:
             group["initial_lr"] = group["lr"]
-
-    @staticmethod
-    def lionw(
-        p: torch.Tensor,
-        grad: torch.Tensor,
-        exp_avg: torch.Tensor,
-        lr: float,
-        initial_lr: float,
-        wd: float,
-        beta1: float,
-        beta2: float,
-    ) -> None:
-        # step weight decay
-        if wd != 0:
-            decay_factor = (lr / initial_lr) if initial_lr else 1.0
-            p.data.mul_(1 - decay_factor * wd)
-
-        # update is interpolation between gradient and momentum
-        update = exp_avg.lerp(grad, 1 - beta1).sign_()
-        p.add_(update, alpha=-lr)
-
-        # momentum is interpolation between gradient and itself
-        exp_avg.lerp_(grad, 1 - beta2)
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -80,3 +58,70 @@ class LionW(Optimizer):
                 exp_avg.mul_(beta2).add_(grad, alpha=1 - beta2)
 
         return loss
+
+
+def get_param_groups(model: nn.Module) -> List[Dict[str, Any]]:
+    """
+    Separate parameters into weight decay and non weight decay groups.
+    """
+    from .model import LayerNormBase
+
+    # Separate out parameters that we don't want to apply weight decay to, like norms and biases.
+    decay = set()
+    no_decay = set()
+    all_params = {}
+    for mn, m in model.named_modules():
+        for pn, p in m.named_parameters():
+            # NOTE: because named_modules and named_parameters are recursive
+            # we will see the same tensors p many many times, but doing it this way
+            # allows us to know which parent module any tensor p belongs to...
+            if not p.requires_grad:
+                continue
+
+            fpn = f"{mn}.{pn}" if mn else pn
+            all_params[fpn] = p
+
+            if pn.endswith("bias"):
+                # all biases will not be decayed
+                no_decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, nn.Linear):
+                decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, (LayerNormBase, nn.LayerNorm, nn.Embedding)):
+                no_decay.add(fpn)
+
+    # Validate that we've considered every parameter
+    inter_params = decay & no_decay
+    union_params = decay | no_decay
+    assert decay
+    assert no_decay
+    assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
+    assert (
+        len(all_params.keys() - union_params) == 0
+    ), f"parameters {all_params.keys() - union_params} were not separated into either decay/no_decay set!"
+
+    # Create the pytorch optimizer groups.
+    return [
+        {"params": [all_params[pn] for pn in sorted(list(decay))]},
+        {"params": [all_params[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
+    ]
+
+
+def fix_optim_state_dict(optimizer: Optimizer, state_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Make sure `state_dict`, which only have 1 param group, is compatible with the optimizer
+    which may have two param groups (one for params with weight decay, the other for those without).
+    """
+    if len(state_dict["param_groups"]) == 1 and len(optimizer.param_groups) == 2:
+        assert optimizer.param_groups[1]["weight_decay"] == 0.0
+
+        # Decay
+        decay_param_group = {k: v for k, v in state_dict["param_groups"][0].items() if k != "params"}
+        decay_param_group["params"] = optimizer.state_dict()["param_groups"][0]["params"]
+
+        # No decay.
+        no_decay_param_group = {k: v for k, v in state_dict["param_groups"][0].items() if k != "params"}
+        no_decay_param_group["weight_decay"] = 0.0
+        no_decay_param_group["params"] = optimizer.state_dict()["param_groups"][1]["params"]
+
+        state_dict["param_groups"] = [decay_param_group, no_decay_param_group]
+    return state_dict
