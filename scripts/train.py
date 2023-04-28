@@ -801,6 +801,9 @@ def main(cfg: TrainConfig) -> None:
             check_fn=olmo_model.activation_checkpointing_fn,  # type: ignore
         )
 
+    log.info("Model:")
+    log.info(fsdp_model)
+
     # Construct optimizer and learning rate scheduler.
     optim = build_optimizer(cfg, fsdp_model)
     scheduler = build_scheduler(cfg, optim)
