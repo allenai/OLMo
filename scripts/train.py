@@ -764,11 +764,8 @@ def main(cfg: TrainConfig) -> None:
     # Initialize the model.
     log.info("Initializing model...")
     olmo_model = Olmo(cfg.model)
-    if global_rank() == 0:
-        log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
-        log.info(
-            f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}",
-        )
+    log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
+    log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
 
     # Wrap the model in FSDP.
     fsdp_model = FSDP(
