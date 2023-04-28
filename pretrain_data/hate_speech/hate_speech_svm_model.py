@@ -1,9 +1,10 @@
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn import svm
-from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split
 import os
 import pandas as pd
+
+from sklearn import svm
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
 
 
 class SVMClassifier:
@@ -13,8 +14,15 @@ class SVMClassifier:
         # Load the dataset
         data = pd.read_csv(train_file)
         df = pd.DataFrame(data, columns=["id", "comment_text", "toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"])
-        # comment_texts = df['comment_text'].tolist()
-        # labels = df['toxic'].tolist()
+        comment_texts = df['comment_text'].tolist()
+        toxic_column_names = ["toxic", "severe_toxic", "threat", "insult", "identity_hate"]
+        toxic_labels = df[toxic_column_names].sum(axis=1)
+        toxic_labels = [1 if x>=1 else 0 for x in toxic_labels.tolist()]
+
+        # self.texts = ["I like you", "I hate you"]*20  # list of text samples
+        # self.labels = [0, 1]*20  # list of corresponding labels (0 or 1)
+        self.texts = comment_texts
+        self.labels = toxic_labels
 
         # self.train_texts = ["I like you", "I hate you"]*20  # list of text samples
         # self.train_labels = [0, 1]*20  # list of corresponding labels (0 or 1)

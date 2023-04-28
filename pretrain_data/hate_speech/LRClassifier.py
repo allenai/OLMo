@@ -1,9 +1,10 @@
+import os
+import pandas as pd
+
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
-import os
-import pandas as pd
 
 
 class LRClassifier:
@@ -12,7 +13,7 @@ class LRClassifier:
         train_file = os.path.join(data_dir, "train.csv")
         # Load the dataset
         data = pd.read_csv(train_file)
-        df = pd.DataFrame(data, columns=["id","comment_text", "toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"])
+        df = pd.DataFrame(data, columns=["id", "comment_text", "toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"])
         comment_texts = df['comment_text'].tolist()
         toxic_column_names = ["toxic", "severe_toxic", "threat", "insult", "identity_hate"]
         toxic_labels = df[toxic_column_names].sum(axis=1)

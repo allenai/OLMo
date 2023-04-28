@@ -1,10 +1,13 @@
 import argparse
-from detoxify import Detoxify
 import json
-import LRClassifier
-from nltk import sent_tokenize, word_tokenize
+import os
 import timeit
+
 import torch
+from nltk import sent_tokenize, word_tokenize
+from detoxify import Detoxify
+import LRClassifier
+
 # import nltk
 # import pandas as pd
 
@@ -50,15 +53,15 @@ if __name__ == '__main__':
 
     if args.model == "blocklist":
         # Use a blocklist to screen for hateful terms - likely to be fast, high precision, low recall
-        # We are using this list: https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words/blob/master/en 
+        # We are using this list: https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words/blob/master/en
         start_time = timeit.default_timer()
         hate_speech_labels = []
         blocked_terms = read_blocklist("en-blocklist.txt")
         for sentence in sentences:
-            num_block_terms_present = len([x for x in blocked_terms \
-                if " "+x+" " in sentence or \
-                sentence.startswith(x) or \
-                sentence.endswith(x)])
+            num_block_terms_present = len([x for x in blocked_terms
+                                          if " " + x + " " in sentence or
+                                          sentence.startswith(x) or
+                                          sentence.endswith(x)])
             # num_block_terms_present = len(set(sentence).intersection(blocked_terms))
             if num_block_terms_present > 0:
                 hate_speech_labels.append(1)
@@ -70,35 +73,35 @@ if __name__ == '__main__':
         out = open(args.preds_file, 'w')
         for i, label in enumerate(hate_speech_labels):
             if label == 1:
-                out.write(sentences[i]+'\n')
+                out.write(sentences[i] + '\n')
                 # out.write(' '.join(sentences[i])+'\n')
         out.close()
 
     # if args.model == "svm":
-    if args.model == "lr": #95.798
-        print ("Predicting with LR")
+    if args.model == "lr":  # 95.798
+        print("Predicting with LR")
         all_preds_probs = []
         n_win = int(args.n_win)
         lr = LRClassifier()
         lr.train()
         hate_speech_labels = []
         start_time = timeit.default_timer()
-        for i, sentence in enumerate(sentences[:-n_win]):
-            combined_sentences_list = sentences[i:i+n_win]
+        for i, sentence in enumerate(sentences[: -n_win]):
+            combined_sentences_list = sentences[i : i + n_win]
             combined_sentence = " ".join(combined_sentences_list)
             pred_proba = lr.infer([combined_sentence])[0]
             score = pred_proba[1]
             all_preds_probs.append(score)
-            #hate_speech_labels.append(pred)
+            # hate_speech_labels.append(pred)
         elapsed = timeit.default_timer() - start_time
         print("Processed {} sentences in {:.6f} s".format(len(sentences), elapsed))
         print("{} out of {} sentences contain hate speech".format(sum(hate_speech_labels), len(sentences)))
         if os.path.exists(args.metadata_file):
             with open(args.metadata_file) as f:
                 metadata = json.load(f)
-        metadata = {"hate_doc": all_preds_probs }
+        metadata = {"hate_doc": all_preds_probs}
         with open(args.metadata_file, 'w') as f:
-            json.dump(metadata, f) 
+            json.dump(metadata, f)
         '''
         out = open(args.preds_file, 'w')
         for i, label in enumerate(hate_speech_labels):
@@ -109,7 +112,7 @@ if __name__ == '__main__':
 
     if args.model == "toxicbert":
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print ("Predicting with ToxicBert")
+        print("Predicting with ToxicBert")
         hate_speech_labels = []
         start_time = timeit.default_timer()
         for sentence in sentences:
