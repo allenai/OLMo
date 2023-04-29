@@ -1,5 +1,4 @@
 ''' Run CC shard PII extraction with post processing rules over regexes'''
-
 import argparse
 import re
 import jsonlines
@@ -100,7 +99,7 @@ def postprocess_pass(text_input, match, pii_type):
 
 
 
-def extract_pii_regex(batched_inputs: list[str],
+def extract_pii_regex(text_input: str,
                       context_window_one_side: int = 100):
     '''
     Function to identify PII using regular expressions
@@ -110,28 +109,27 @@ def extract_pii_regex(batched_inputs: list[str],
     '''
     pii = []
 
-    for text_input in batched_inputs:
-        for pii_type in pattern_dict:
-            pattern = pattern_dict[pii_type]
-            # search for the pattern in the string
-            matches = pattern.findall(text_input.lower())
-            # loop through the matches and print corresponding values from the dictionary
-            for match in matches:
-                if postprocess_pass(text_input, match, pii_type):
-                    match = str("".join(match))
-                    pii_start = text_input.find(match)
-                    pii_end = pii_start + len(match)
+    for pii_type in pattern_dict:
+        pattern = pattern_dict[pii_type]
+        # search for the pattern in the string
+        matches = pattern.findall(text_input.lower())
+        # loop through the matches and print corresponding values from the dictionary
+        for match in matches:
+            if postprocess_pass(text_input, match, pii_type):
+                match = str("".join(match))
+                pii_start = text_input.find(match)
 
-                    pii.append(pii_type + " | " + match + " | " + text_input[
-                                                                  max(0, pii_start - context_window_one_side): min(
-                                                                      len(text_input), pii_end + context_window_one_side
-                                                                  )
-                                                                  ].replace("\n", " "))
+                if pii_start==-1:
+                    import pdb
+                    pdb.set_trace()
+                pii_end = pii_start + len(match)
+
+                pii.append([pii_start, pii_end, pii_type, match])
 
     return pii
 
 
-def extract_pii_presidio(batched_inputs: list[str],
+def extract_pii_presidio(text_input: str,
                          context_window_one_side: int = 200):
     '''
     Function to identify PII using regular expressions
@@ -141,35 +139,39 @@ def extract_pii_presidio(batched_inputs: list[str],
     '''
     pii = []
 
-    for text_input in batched_inputs:
-        analyzer_results = analyzer.analyze(text=text_input.lower(),
-                                            entities=["EMAIL_ADDRESS", "PHONE_NUMBER", "IP_ADDRESS", "IBAN_CODE"],
-                                            language='en')
+    analyzer_results = analyzer.analyze(text=text_input.lower(),
+                                        entities=["EMAIL_ADDRESS", "PHONE_NUMBER", "IP_ADDRESS", "IBAN_CODE"],
+                                        language='en')
 
-        if len(analyzer_results) > 0:
-            for res in analyzer_results:
-                pii_start = res.start
-                pii_end = res.end
-                pii_type = res.entity_type
-                match = text_input[pii_start:pii_end]
+    if len(analyzer_results) > 0:
+        for res in analyzer_results:
+            pii_start = res.start
+            pii_end = res.end
+            pii_type = res.entity_type
+            match = text_input[pii_start:pii_end]
 
-                pii.append(pii_type + " | " + match + " | " + text_input[
-                                                              max(0, pii_start - context_window_one_side): min(
-                                                                  len(text_input), pii_end + context_window_one_side
-                                                              )
-                                                              ].replace("\n", " "))
+            pii.append([pii_start, pii_end, pii_type, match])
+
+        
+
 
     return pii
 
 
 
+def write_data(output_file, data):
+
+    with jsonlines.open(output_file, mode='w') as writer:
+        writer.write_all(data)
+        writer.close()
 
 def main():
     parse = argparse.ArgumentParser("")
 
     parse.add_argument("--in_file", type=str, help="file to analyze")
-    parse.add_argument("--bs", type=int, default=100, help="batch size for inputs")
+    parse.add_argument("--bs", type=int, default=1, help="batch size for inputs")
     parse.add_argument("--classifier", type=str, default="regex", help="regex or presidio")
+    parse.add_argument("--output_file", type=str, default="regex_pp.jsonl", help="regex or presidio")
 
     args = parse.parse_args()
 
@@ -186,27 +188,28 @@ def main():
                     }
 
 
-    g = open("./analysis_results/" + args.classifier + "_" + args.in_file.split("/")[-1].split(".")[0] + "_pp.txt", "w")
+    all_data=[]
 
     for row in data:
+        if not row['text'] or row['text'].strip() == '': continue
+        inputs=row['text']
 
         # When we hit the correct batch size
-        if len(inputs) == bs:
-            if args.classifier == "regex":
-                preds = extract_pii_regex(inputs)
-            else:
-                preds = extract_pii_presidio(inputs)
-            for p in preds:
-                g.write(p + "\n")
-                # print(p)
-            inputs = []
-        if not row['text'] or row['text'].strip() == '': continue
-        inputs.append(row['text'])
+        if args.classifier == "regex":
+            preds = extract_pii_regex(inputs)
+        else:
+            preds = extract_pii_presidio(inputs)
+            
+        doc_score=len(preds)*1.0/len(inputs.split())
 
-    if len(inputs) > 0:
-        preds = extract_pii_regex(inputs)
-        for p in preds:
-            print(p)
+        row['pii']=preds
+        row['pii_doc_score']=doc_score
+
+        all_data.append(row)
+
+        
+    write_data(args.output_file, all_data)
+
 
     print(args)
     end_time = time.time()
