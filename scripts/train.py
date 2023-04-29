@@ -917,7 +917,6 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> torch.optim.Optimizer
             model.parameters(),
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,
-            eps=cfg.optimizer.eps,
             weight_decay=cfg.optimizer.weight_decay)
     else:
         raise NotImplementedError
