@@ -6,22 +6,33 @@
 import codecs
 import hashlib
 import heapq
+import inspect
 import json
 import os
 import re
-from typing import Any, Dict, Optional, Sequence, TypedDict
+from typing import Any, Callable, Dict, List, Optional, Sequence, TypedDict
 
+import blingfire  # type: ignore
 import fire  # type: ignore
-import nltk  # type: ignore
 import requests  # type: ignore
 import six as _six  # type: ignore
-
 
 # To keep our naming consistent with the original C4 dataset,
 # We call each individual document a "page".
 # But instead of converting it to a dataclass, we just use dict
 # and specify the data with a TypedDict
+
+
+class FilterResult(TypedDict):
+    name: str
+    result: bool
+    # signature: Optional[str]  # The signature of the filter function
+    # Optionally, for each filter result, if it overrides the default
+    # filter arguments, we will store the changed arguments here
+
+
 class Page(TypedDict):
+    id: str
     url: str
     normalized_url: str
     text: str
@@ -30,6 +41,7 @@ class Page(TypedDict):
     content_type: str
     language: Optional[str]
     language_score: Optional[float]
+    filter_results: Optional[List[FilterResult]]
 
 
 ## Constants # noqa: E266
@@ -103,17 +115,8 @@ def normalize_url(url):
 _SENTENCE_TOKENIZER = None
 
 
-def _load_sentence_tokenizer():
-    """Returns a sentence tokenization function."""
-    # Lock to avoid a race-condition in the creation of the download directory.
-    return nltk.data.load("nltk:tokenizers/punkt/english.pickle")
-
-
 def get_sentences(text):
-    global _SENTENCE_TOKENIZER
-    if not _SENTENCE_TOKENIZER:
-        _SENTENCE_TOKENIZER = _load_sentence_tokenizer()
-    return list(_SENTENCE_TOKENIZER.tokenize(as_text(text)))
+    return blingfire.text_to_sentences(text)
 
 
 def cache_and_load_badwords() -> Dict[str, Sequence[str]]:
@@ -167,7 +170,7 @@ def load_badwords_regex():
 
 def get_hashed_url_filter_fn(predicate_fn):
     def filter_fn(page):
-        url = page.normalized_url
+        url = page["normalized_url"]
         val = int(hashlib.md5(as_text(url).encode("utf-8")).hexdigest(), 16)
         return predicate_fn(val)
 
@@ -176,9 +179,38 @@ def get_hashed_url_filter_fn(predicate_fn):
 
 ## Page filtering functions # noqa: E266
 
+
 # conventions for filtering functions:
 # - return True if the page passes the filter
 # - return False if the page fails the filter
+def execute_filter(
+    page: Page,
+    filter_func: Callable,
+    skip_args: Optional[List[str]] = None,
+    **kwargs,
+):
+    func_signature = inspect.signature(filter_func)
+
+    all_filter_results = page.get("filter_results", [])
+    cur_filter_result: FilterResult = {
+        "name": filter_func.__name__,
+        "result": filter_func(page, **kwargs),
+        # "signature": str(func_signature),
+    }
+
+    skip_args = skip_args or []
+    # Save filter function filter arguments
+    for param in func_signature.parameters.values():
+        if param.name in skip_args:
+            continue
+        if param.name in kwargs:
+            cur_filter_result[param.name] = kwargs[param.name]  # type: ignore
+        elif param.name != "page":
+            cur_filter_result[param.name] = param.default  # type: ignore
+
+    all_filter_results.append(cur_filter_result)  # type: ignore
+    page["filter_results"] = all_filter_results
+    return page
 
 
 def page_filter_by_paragraphs(page: Page, min_paragraphs=3, min_paragraph_len=200, line_delimiter="\n") -> bool:
@@ -281,7 +313,9 @@ def page_processing_by_lines(
     return page
 
 
-def page_filter_by_badwords(page, badwords_regex: Dict[str, Sequence[re.Pattern]], filter_fraction: float = 1.0):
+def page_filter_by_badwords(
+    page: Page, badwords_regex: Dict[str, Sequence[re.Pattern]], filter_fraction: float = 0.99
+):
     """
     Filters pages at given rate that contain language-specific bad word(s).
     When we detect a bad word on a page, we drop them with a chance of
@@ -293,14 +327,17 @@ def page_filter_by_badwords(page, badwords_regex: Dict[str, Sequence[re.Pattern]
     filter_ratio = float.as_integer_ratio(filter_fraction)
     keep_badword_page = get_hashed_url_filter_fn(lambda x: x % filter_ratio[1] >= filter_ratio[0])
 
-    lang = page["language"].split("-")[0]  # remove suffix if present
-    if lang in badwords_regex:
-        text = page["text"]
-        badwords_found = badwords_regex[lang].search(text.lower())  # type: ignore
-        if badwords_found is not None:
-            if keep_badword_page(page):
-                return True
-            return False
+    if page.get("language"):
+        lang = page["language"].split("-")[0]  # type: ignore
+        # remove suffix if present
+
+        if lang in badwords_regex:
+            text = page["text"]
+            badwords_found = badwords_regex[lang].search(text.lower())  # type: ignore
+            if badwords_found is not None:
+                if keep_badword_page(page):
+                    return True
+                return False
     return True
 
 
@@ -309,6 +346,7 @@ def page_filter_by_badwords(page, badwords_regex: Dict[str, Sequence[re.Pattern]
 
 def convert_original_data_to_page(data: Dict[str, Any]) -> Page:
     return {
+        "id": data["id"],
         "url": data["metadata"]["url"],
         "normalized_url": normalize_url(data["metadata"]["url"]),
         "text": data["text"],
@@ -317,7 +355,7 @@ def convert_original_data_to_page(data: Dict[str, Any]) -> Page:
         "content_type": "",
         "language": data["metadata"]["language"],
         "language_score": data["metadata"]["language_score"],
-    }
+    }  # type: ignore
 
 
 def load_and_parse_file(
@@ -336,21 +374,17 @@ def load_and_parse_file(
     for data in all_data:
         page = convert_original_data_to_page(data)
 
-        if not page_filter_by_language_and_score(page, 0.99):
+        page = execute_filter(page, page_filter_by_language_and_score, min_probability=0.99)
+
+        page = execute_filter(page, page_filter_by_valid_length)
+
+        page = execute_filter(page, page_filter_by_paragraphs)
+
+        page = page_processing_by_lines(page)  # type: ignore
+        if page is None:
             continue
 
-        if not page_filter_by_valid_length(page):
-            continue
-
-        if not page_filter_by_paragraphs(page):
-            continue
-
-        converted_page = page_processing_by_lines(page)
-        if converted_page is None:
-            continue
-
-        if not page_filter_by_badwords(converted_page, badwords):
-            continue
+        page = execute_filter(page, page_filter_by_badwords, skip_args=["badwords_regex"], badwords_regex=badwords)
 
         all_pages_to_save.append(page)
 
