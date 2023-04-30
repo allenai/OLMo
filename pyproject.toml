@@ -17,7 +17,6 @@ exclude = '''
 [tool.isort]
 profile = "black"
 multi_line_output = 3
-exclude = ["pretrain_data/"]
 
 [tool.pyright]
 reportPrivateImportUsage = false

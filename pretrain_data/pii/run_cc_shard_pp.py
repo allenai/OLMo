@@ -1,9 +1,9 @@
 ''' Run CC shard PII extraction with post processing rules over regexes'''
 import argparse
 import re
-import jsonlines
 import time
 
+import jsonlines
 from presidio_analyzer import AnalyzerEngine
 
 analyzer = AnalyzerEngine()
