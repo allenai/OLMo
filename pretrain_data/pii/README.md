@@ -11,6 +11,13 @@ The types of extractors currently supported are:
 + Regular-expression based extractors, and 
 + [Presidio](https://github.com/microsoft/presidio). 
 
+## Install
+
+```
+pip install presidio_analyzer
+python -m spacy download en_core_web_lg
+```
+
 ## How to run
 
 ```
