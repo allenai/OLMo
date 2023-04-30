@@ -1,14 +1,14 @@
 import argparse
+import csv
 import json
 import os
-import timeit
-import csv
 import pickle
+import timeit
 
 import fasttext
+from LRClassifier import LRClassifier
 from nltk.tokenize.punkt import PunktSentenceTokenizer
 
-from LRClassifier import LRClassifier
 
 def predict(model_type, classifier, text):
     if model_type == "lr":
