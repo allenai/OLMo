@@ -29,6 +29,7 @@ build-backend = "setuptools.build_meta"
 [tool.mypy]
 ignore_missing_imports = true
 no_site_packages = true
+exclude = ["pretrain_data/"]
 
 [[tool.mypy.overrides]]
 module = "tests.*"
