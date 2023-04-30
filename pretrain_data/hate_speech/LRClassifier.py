@@ -1,6 +1,6 @@
 import os
-import pandas as pd
 
+import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
