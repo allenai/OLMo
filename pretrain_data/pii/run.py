@@ -10,8 +10,14 @@ import os
 import time
 from typing import Dict, List
 
-from pii_detector import WINDOW, DocResult, Document, PiiDetector, PiiSpan
 from tqdm import tqdm
+
+from pretrain_data.filters.src.ai2_llm_filters.data_types import (
+    DocResult,
+    Document,
+    Span,
+)
+from pretrain_data.filters.src.ai2_llm_filters.filters import PiiFilter
 
 
 def read_jsonl_file(infile: str) -> List[Document]:
@@ -21,7 +27,7 @@ def read_jsonl_file(infile: str) -> List[Document]:
             doc = json.loads(line)
             if not doc["text"] or doc["text"].strip() == "":
                 continue
-            # common-crawl JSONs dont contain `version`
+            # TODO: common-crawl JSONs dont contain `version`
             doc = Document(
                 source=doc["source"], version=doc.get("version"), id=doc["id"], text=doc["text"].lower().strip()
             )
@@ -33,13 +39,13 @@ def main():
     parse = argparse.ArgumentParser("")
 
     parse.add_argument("--infile", type=str)
+    parse.add_argument("--outdir", type=str)
     parse.add_argument("--method", type=str, help="regex or presidio")
     parse.add_argument("--postprocess", action="store_true")
-    parse.add_argument("--batch", type=int)
     parse.add_argument("--window", type=int)
-    parse.add_argument("--outdir", type=str)
-    parse.add_argument("--verbose", action="store_true")
+    parse.add_argument("--batch", type=int)
     parse.add_argument("--head", type=int)
+    parse.add_argument("--verbose", action="store_true")
     args = parse.parse_args()
 
     print(args)
@@ -48,13 +54,13 @@ def main():
     if args.head:
         docs = docs[: args.head]
 
-    pii_detector = PiiDetector()
-
     postprocess = args.postprocess
     method = args.method
-    window = args.window if args.window else WINDOW
+    window = args.window if args.window else PiiFilter.WINDOW
     verbose = args.verbose if args.verbose else False
     batch_size = args.batch
+
+    pii_filter = PiiFilter(method=method, postprocess=postprocess, window=window)
 
     start_time = time.time()
     _infile = os.path.splitext(os.path.basename(args.infile))[0]
@@ -66,7 +72,7 @@ def main():
                 elapsed_time = end_time - start_time
                 print(f"Elapsed time: {elapsed_time:.2f} seconds")
                 start_time = time.time()
-            doc_results = pii_detector.predict(doc=doc, method=method, do_postprocess=postprocess, window=window)
+            doc_results = pii_filter.predict(doc=doc)
             json.dump(doc_results.to_json(with_doc=verbose), f_out)
             f_out.write("\n")
 
