@@ -9,9 +9,12 @@ Comparing different PII method results.
 import json
 import os
 
-INDIR = "/Users/kylel/ai2/LLM/pretrain_data/c4/"
-REGEX_OUTPUT_FILE = "part_1017.jsonl__method=regex__postprocess=True__window=50"
-PRESIDIO_OUTPUT_FILE = "part_1017.jsonl__method=presidio__postprocess=True__window=50"
+# INDIR = "/Users/kylel/ai2/LLM/pretrain_data/c4/"
+# REGEX_OUTPUT_FILE = "part_1017.jsonl__method=regex__postprocess=True__window=50"
+# PRESIDIO_OUTPUT_FILE = "part_1017.jsonl__method=presidio__postprocess=True__window=50"
+INDIR = "/Users/kylel/ai2/LLM/pretrain_data/common_crawl/"
+REGEX_OUTPUT_FILE = "cc_en_head-1334.json__method=regex__postprocess=True__window=50"
+PRESIDIO_OUTPUT_FILE = "cc_en_head-1334.json__method=presidio__postprocess=True__window=50"
 
 with open(os.path.join(INDIR, REGEX_OUTPUT_FILE)) as f_in:
     regex_preds = [json.loads(line) for line in f_in]

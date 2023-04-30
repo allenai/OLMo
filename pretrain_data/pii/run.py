@@ -21,8 +21,9 @@ def read_jsonl_file(infile: str) -> List[Document]:
             doc = json.loads(line)
             if not doc["text"] or doc["text"].strip() == "":
                 continue
+            # common-crawl JSONs dont contain `version`
             doc = Document(
-                source=doc["source"], version=doc["version"], id=doc["id"], text=doc["text"].lower().strip()
+                source=doc["source"], version=doc.get("version"), id=doc["id"], text=doc["text"].lower().strip()
             )
             docs.append(doc)
     return docs
