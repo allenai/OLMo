@@ -70,11 +70,13 @@ class DocResult:
 class PiiDetector:
     def __init__(self) -> None:
         # Regular expressions for different types of PII
-        self.email_regex = re.compile("[.\s@,?!;:)(]*([^\s@]+@[^\s@,?!;:)(]+?)[.\s@,?!;:)(]?[\s\n\r]")
-        self.phone_regex = re.compile("\s+\(?(\d{3})\)?[-\. ]*(\d{3})[-. ]?(\d{4})")
-        self.ip_regex = re.compile(
-            "(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
-        )
+        self.pii_type_to_regex = {
+            EMAIL: re.compile("[.\s@,?!;:)(]*([^\s@]+@[^\s@,?!;:)(]+?)[.\s@,?!;:)(]?[\s\n\r]"),
+            PHONE: re.compile("\s+\(?(\d{3})\)?[-\. ]*(\d{3})[-. ]?(\d{4})"),
+            IP: re.compile(
+                "(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
+            ),
+        }
         self.url_regex = re.compile(
             "(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
         )
@@ -100,8 +102,11 @@ class PiiDetector:
         """Applies some rules to remove over-prediction of PII types."""
         new_pii_spans = []
         for pii_span in pii_spans:
-            if pii_span.type == EMAIL and self._is_email(text, pii_span):
-                new_pii_spans.append(pii_span)
+            if pii_span.type == EMAIL:
+                if self._is_email(text, pii_span):
+                    new_pii_spans.append(pii_span)
+                else:
+                    pass
 
             elif pii_span.type == PHONE or pii_span.type == IP:
                 context = pii_span.context(text=text, window=window)
@@ -121,12 +126,10 @@ class PiiDetector:
                 new_pii_spans.append(pii_span)
 
             else:
-                raise NotImplementedError
+                raise NotImplementedError(f"Unsupported PII type for Postprocess: {pii_span.type}")
         return new_pii_spans
 
-    def predict(
-        self, doc: Document, method: str = PRESIDIO, do_postprocess: bool = False, window: int = WINDOW
-    ) -> List[DocResult]:
+    def predict(self, doc: Document, method: str, do_postprocess: bool, window: int) -> List[DocResult]:
         """Main runner."""
         # extract
         if method == PRESIDIO:
@@ -148,27 +151,12 @@ class PiiDetector:
         return len(pii_spans) * 1.0 / len(text.split())
 
     def _extract_pii_regex(self, text: str) -> List[PiiSpan]:
-        raise NotImplementedError("[kylel] Refactor WIP")
-        # pii = []
-
-        # for pii_type, regex_pattern in self.pattern_dict.items():
-        #     # search for the pattern in the string
-        #     matches = regex_pattern.findall(text.lower())
-        #     # loop through the matches and print corresponding values from the dictionary
-        #     for match in matches:
-        #         if self.postprocess(text, match, pii_type):
-        #             match = str("".join(match))
-        #             pii_start = text.find(match)
-
-        #             if pii_start == -1:
-        #                 import pdb
-
-        #                 pdb.set_trace()
-        #             pii_end = pii_start + len(match)
-
-        #             pii.append([pii_start, pii_end, pii_type, match])
-
-        # return pii
+        pii_spans: List[PiiSpan] = []
+        for pii_type, regex in self.pii_type_to_regex.items():
+            for match in regex.finditer(text):
+                start, end = match.span()
+                pii_spans.append(PiiSpan(start=start, end=end, type=pii_type))
+        return pii_spans
 
     def _extract_pii_presidio(self, text: str) -> List[PiiSpan]:
         analyzer_results = self.analyzer.analyze(
