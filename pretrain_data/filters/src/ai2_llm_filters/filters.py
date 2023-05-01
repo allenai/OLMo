@@ -51,7 +51,7 @@ class FastTextFilter(Filter):
         pass
 
 
-class PiiRegexFilter(Filter):
+class PiiFilter(Filter):
     EMAIL = "EMAIL_ADDRESS"
     PHONE = "PHONE_NUMBER"
     IP = "IP_ADDRESS"
@@ -80,24 +80,9 @@ class PiiRegexFilter(Filter):
             "(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
         )
 
-    def predict(self, doc: Document, method: str) -> List[DocResult]:
-        pass
-
-    def _contains_url(self, text: str) -> bool:
-        return len(self.url_regex.findall(text)) > 0
-
-    def _is_email(self, text: str, pii_span: Span) -> bool:
-        """
-        Rules:
-        (1) The email address besides the domain, cannot be only "("
-        (2) There must be a "." in the domain
-        """
-        mention = pii_span.mention(text=text)
-        addressee = mention.split("@")[0]
-        domain = mention.split("@")[1]
-        if addressee.strip() == "(" or "." not in domain:
-            return False
-        return True
+        # presidio
+        if self.method == self.PRESIDIO:
+            self.analyzer = AnalyzerEngine()
 
     def predict(self, doc: Document) -> List[DocResult]:
         """Main runner."""
@@ -115,7 +100,7 @@ class PiiRegexFilter(Filter):
             new_pii_spans = pii_spans
         # document-level score
         score = self._score(text=doc.text, pii_spans=new_pii_spans)
-        return DocResult(doc=doc, pii_spans=new_pii_spans, score=score)
+        return DocResult(doc=doc, spans=new_pii_spans, score=score)
 
     def _score(self, text: str, pii_spans: List[Span]) -> float:
         return len(pii_spans) * 1.0 / len(text.split())
@@ -150,7 +135,7 @@ class PiiRegexFilter(Filter):
                     pass
 
             elif pii_span.type == self.PHONE or pii_span.type == self.IP:
-                context = pii_span.context(text=text, window=window)
+                context = pii_span.mention(text=text, window=window)
                 # for both phone numbers & IP addresses, context shouldnt contain these strings
                 if "isbn" in context or "doi" in context or "#" in context:
                     pass
@@ -166,3 +151,19 @@ class PiiRegexFilter(Filter):
             else:
                 raise NotImplementedError(f"Unsupported PII type for Postprocess: {pii_span.type}")
         return new_pii_spans
+
+    def _contains_url(self, text: str) -> bool:
+        return len(self.url_regex.findall(text)) > 0
+
+    def _is_email(self, text: str, pii_span: Span) -> bool:
+        """
+        Rules:
+        (1) The email address besides the domain, cannot be only "("
+        (2) There must be a "." in the domain
+        """
+        mention = pii_span.mention(text=text)
+        addressee = mention.split("@")[0]
+        domain = mention.split("@")[1]
+        if addressee.strip() == "(" or "." not in domain:
+            return False
+        return True

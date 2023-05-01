@@ -20,7 +20,8 @@ dependencies = [
     "boto3",
     "uniseg",
     "cached_path",
-    "smashed[remote]==0.19.4"
+    "smashed[remote]==0.19.4",
+    "presidio_analyzer"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
