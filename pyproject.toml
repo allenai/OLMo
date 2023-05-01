@@ -11,6 +11,7 @@ exclude = '''
     | \.venv
     | \bdist\b
     | \bdoc\b
+    | pretrain_data/
 )
 '''
 
@@ -30,6 +31,7 @@ build-backend = "setuptools.build_meta"
 ignore_missing_imports = true
 no_site_packages = true
 check_untyped_defs = true
+exclude = ["pretrain_data/"]
 
 [[tool.mypy.overrides]]
 module = "tests.*"
