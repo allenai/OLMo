@@ -904,7 +904,11 @@ def build_dataloader(
 
 
 def build_optimizer(cfg: TrainConfig, model: nn.Module) -> torch.optim.Optimizer:
-    params = get_param_groups(model) if cfg.optimizer.no_decay_norm_and_bias else model.parameters()
+    params = (
+        get_param_groups(model)
+        if (cfg.optimizer.no_decay_norm_and_bias and cfg.optimizer.weight_decay > 0.0)
+        else model.parameters()
+    )
     if cfg.optimizer.name == OptimizerType.lionw:
         return LionW(
             params,
