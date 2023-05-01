@@ -47,4 +47,4 @@ srun \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/llm-lumi_latest.sif \
-    python scripts/train.py configs/c4-medium.yaml
+    python scripts/train.py configs/c4-medium.yaml --run_name=${SLURM_JOB_ID}
