@@ -319,6 +319,7 @@ class ModelConfig(BaseConfig):
 class OptimizerType(StrEnum):
     lionw = "lionw"
     adam = "adam"
+    adamw = "adamw"
 
 
 @dataclass

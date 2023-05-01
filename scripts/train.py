@@ -923,6 +923,13 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> torch.optim.Optimizer
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,
         )
+    elif cfg.optimizer.name == OptimizerType.adamw:
+        return torch.optim.AdamW(
+            params,
+            lr=cfg.optimizer.learning_rate,
+            betas=cfg.optimizer.betas,
+            weight_decay=cfg.optimizer.weight_decay,
+        )
     else:
         raise NotImplementedError
 
