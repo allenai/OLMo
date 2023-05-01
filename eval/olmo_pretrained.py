@@ -36,7 +36,7 @@ class OlmoPretrained(Olmo):
         model_config.init_device = device
 
         model = Olmo(model_config, init_params=False)
-        state_dict = torch.load(model_file, map_location=device)
+        state_dict = torch.load(model_file, map_location="cpu")
         if 'state' in state_dict:
             state_dict = state_dict['state']
         if 'model' in state_dict:
