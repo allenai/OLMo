@@ -19,9 +19,24 @@ pub struct StreamOutputConfig {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct SamplerConfig {
+    pub seed: u64,
+    pub rate: f64,
+}
+
+#[derive(Serialize, Deserialize)]
+#[derive(Clone)]
+pub struct Filterer {
+    pub include: Vec<String>,
+    pub exclude: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct StreamConfig {
     pub name: String,
     pub documents: Vec<String>,
+    pub attributes: Vec<String>,
+    pub filterer: Option<Filterer>,
     pub output: StreamOutputConfig,
 }
 
@@ -35,7 +50,7 @@ pub struct WorkDirConfig {
 #[derive(Serialize, Deserialize)]
 pub struct Config {
     pub streams: Vec<StreamConfig>,
-    pub bloom_filter: BloomFilterConfig,
+    pub bloom_filter: Option<BloomFilterConfig>,
     pub processes: usize,
     pub work_dir: WorkDirConfig,
 }

@@ -18,6 +18,7 @@ pub struct BloomFilter {
     hash_builder_seeds: Vec<[u64; 4]>,
     // RandomState does not store its seeds, so we have to store them ourselves.
     hash_builders: Vec<RandomState>,
+    pub read_only: bool,
 }
 
 impl BloomFilter {
@@ -50,6 +51,7 @@ impl BloomFilter {
         size_in_bytes
     }
 
+    #[allow(dead_code)]
     pub fn my_prob_of_false_positive(&self, expected_elements: usize) -> f64 {
         Self::prob_of_false_positive(
             self.size_in_bytes(),
@@ -57,11 +59,12 @@ impl BloomFilter {
             self.hash_builders.len())
     }
 
+    #[allow(dead_code)]
     pub fn size_in_bytes(&self) -> usize {
         self.bits.len() * size_of::<AtomicU32>()
     }
 
-    pub fn new(size_in_bytes: usize, num_hashers: usize) -> Self {
+    pub fn new(size_in_bytes: usize, num_hashers: usize, read_only: bool) -> Self {
         let mut rng = rand::thread_rng();
         let mut hash_builder_seeds = Vec::with_capacity(num_hashers);
         let mut hash_builders = Vec::with_capacity(num_hashers);
@@ -82,10 +85,10 @@ impl BloomFilter {
             bits.push(AtomicU32::new(0));
         }
 
-        Self { bits, hash_builder_seeds, hash_builders }
+        Self { bits, hash_builder_seeds, hash_builders, read_only }
     }
 
-    pub fn from_file(path: &PathBuf) -> io::Result<Self> {
+    pub fn from_file(path: &PathBuf, read_only: bool) -> io::Result<Self> {
         let mut file = OpenOptions::new()
             .read(true)
             .write(false)
@@ -128,7 +131,7 @@ impl BloomFilter {
             bits.push(AtomicU32::new(stream.read_u32::<NativeEndian>()?));
         }
 
-        Ok(Self { bits, hash_builder_seeds, hash_builders })
+        Ok(Self { bits, hash_builder_seeds, hash_builders, read_only })
     }
 
     pub fn write_to_file(&self, path: &PathBuf) -> io::Result<()> {
@@ -168,15 +171,19 @@ impl BloomFilter {
         }).collect()
     }
 
+    // No-op if read-only
     pub fn insert_hashes(&self, hashes: &Vec<u64>) {
-        for hash in hashes {
-            let hash = *hash as usize;
-            let index = hash / 32 % self.bits.len();
-            let bit = hash % 32;
-            self.bits[index].fetch_or(1 << bit, Ordering::Relaxed);
+        if !self.read_only {
+            for hash in hashes {
+                let hash = *hash as usize;
+                let index = hash / 32 % self.bits.len();
+                let bit = hash % 32;
+                self.bits[index].fetch_or(1 << bit, Ordering::Relaxed);
+            }
         }
     }
 
+    // No-op if read-only
     pub fn insert(&self, s: &VecDeque<&str>) {
         let hashes = self.hashes(s);
         self.insert_hashes(&hashes);
@@ -204,7 +211,7 @@ impl BloomFilter {
         let save_file = PathBuf::from(&config.file);
         let bloom_filter = if save_file.exists() {
             log::info!("Loading bloom filter from {:?}...", save_file.display());
-            BloomFilter::from_file(&save_file).unwrap()
+            BloomFilter::from_file(&save_file, config.read_only).unwrap()
         } else {
             log::info!("Creating new bloom filter...");
             let mut bloom_filter_size: usize = config.size_in_bytes;
@@ -217,7 +224,7 @@ impl BloomFilter {
                 config.estimated_doc_count);
             let p = BloomFilter::prob_of_false_positive(bloom_filter_size, config.estimated_doc_count, num_hashers);
             log::info!("Bloom filter will have size {}, {} hashers, false positive rate {}.", bloom_filter_size, num_hashers, p);
-            BloomFilter::new(bloom_filter_size, num_hashers)
+            BloomFilter::new(bloom_filter_size, num_hashers, config.read_only)
         };
 
         Ok(bloom_filter)
