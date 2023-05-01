@@ -742,6 +742,8 @@ def main(cfg: TrainConfig) -> None:
                 cfg.save(save_path)
             del save_path
 
+    dist.barrier()
+
     # Set seed.
     seed_all(cfg.seed)
 
