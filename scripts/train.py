@@ -938,15 +938,32 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> torch.optim.Optimizer
 
 def build_scheduler(cfg: TrainConfig, optim: torch.optim.Optimizer) -> torch.optim.lr_scheduler.LRScheduler:
     if cfg.scheduler.name == SchedulerType.cosine_with_warmup:
-        warmup = torch.optim.lr_scheduler.LinearLR(
-            optim, start_factor=cfg.scheduler.alpha_f, end_factor=1.0, total_iters=cfg.scheduler.t_warmup
-        )
-        cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optim,
-            cfg.max_duration - cfg.scheduler.t_warmup,
-            eta_min=cfg.optimizer.learning_rate * cfg.scheduler.alpha_f,
-        )
-        return torch.optim.lr_scheduler.SequentialLR(optim, [warmup, cosine], [cfg.scheduler.t_warmup])
+        milestones = [cfg.scheduler.t_warmup]
+        schedulers: List[torch.optim.lr_scheduler.LRScheduler] = [
+            torch.optim.lr_scheduler.LinearLR(
+                optim, start_factor=cfg.scheduler.alpha_f, end_factor=1.0, total_iters=cfg.scheduler.t_warmup
+            )
+        ]
+        if cfg.scheduler.t_max is None:
+            cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optim,
+                cfg.max_duration - cfg.scheduler.t_warmup,
+                eta_min=cfg.optimizer.learning_rate * cfg.scheduler.alpha_f,
+            )
+            schedulers.append(cosine)
+        else:
+            milestones.append(cfg.scheduler.t_max)
+            cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optim,
+                cfg.scheduler.t_max - cfg.scheduler.t_warmup,
+                eta_min=cfg.optimizer.learning_rate * cfg.scheduler.alpha_f,
+            )
+            constant = torch.optim.lr_scheduler.ConstantLR(
+                optim, factor=1.0, total_iters=cfg.max_duration - cfg.scheduler.t_max
+            )
+            schedulers.append(cosine)
+            schedulers.append(constant)
+        return torch.optim.lr_scheduler.SequentialLR(optim, schedulers, milestones)
     else:
         raise NotImplementedError
 

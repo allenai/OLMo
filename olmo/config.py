@@ -345,6 +345,7 @@ class SchedulerType(StrEnum):
 class SchedulerConfig(BaseConfig):
     name: SchedulerType = SchedulerType.cosine_with_warmup
     t_warmup: int = 100
+    t_max: Optional[int] = None
     alpha_f: float = 0.1
 
 
