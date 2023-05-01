@@ -1,5 +1,5 @@
 [package]
-name = "url-deduper"
+name = "mixer"
 version = "0.1.0"
 edition = "2021"
 
@@ -22,3 +22,4 @@ aws-config = "0.55.0"
 tokio = {version = "1.27.0", features = ["full"]}
 tokio-util = "0.7.7"
 rayon = "1.7.0"
+jsonpath-rust = "0.3.0"

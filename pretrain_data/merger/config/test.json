@@ -65,6 +65,9 @@
       "filterer": {
         "include": [
           "$[?(@.metadata.length > 100)]"
+        ],
+        "exclude": [
+          "$[?(@.metadata.url =~ 'https?://(www\\.)?reddit.com/.*')]"
         ]
       },
       "output": {

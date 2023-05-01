@@ -1,0 +1,31 @@
+{
+  "streams": [
+    {
+      "name": "cc_en_head",
+      "documents": [
+        "pretraining-data/sources/common-crawl/test/v0/documents/mined_split/2023-06/*/en_head.json.gz"
+      ],
+      "attributes": [
+        "attribute1",
+        "attribute2"
+      ],
+      "output": {
+        "path": "pretraining-data/sources/common-crawl/test/v1/documents",
+        "max_size_in_bytes": 4294967296
+      },
+      "filterer": {
+        "include": [
+          "$.metadata[?(@.length < 100000)]"
+        ],
+        "exclude": [
+          "$.metadata[?(@.length < 100)]"
+        ]
+      }
+    }
+  ],
+  "work_dir": {
+    "input": "test-data/input",
+    "output": "test-data/output"
+  },
+  "processes": 32
+}
