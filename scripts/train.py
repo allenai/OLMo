@@ -1008,7 +1008,7 @@ def build_scheduler(cfg: TrainConfig, optim: torch.optim.Optimizer) -> torch.opt
             torch.optim.lr_scheduler.LinearLR(
                 optim, start_factor=cfg.scheduler.alpha_f, end_factor=1.0, total_iters=cfg.scheduler.t_warmup
             ),
-            torch.optim.lr_scheduler.LambdaLR(optim, lambda step: 1 / math.sqrt(step)),
+            torch.optim.lr_scheduler.LambdaLR(optim, lambda step: 1.0 if step <= 0 else 1.0 / math.sqrt(step)),
         ]
         return torch.optim.lr_scheduler.SequentialLR(optim, schedulers, milestones)
     else:
