@@ -1,6 +1,7 @@
 """Run this script with 'torchrun'."""
 
 import logging
+import math
 import os
 import random
 import shutil
@@ -1000,6 +1001,15 @@ def build_scheduler(cfg: TrainConfig, optim: torch.optim.Optimizer) -> torch.opt
             )
             schedulers.append(cosine)
             schedulers.append(constant)
+        return torch.optim.lr_scheduler.SequentialLR(optim, schedulers, milestones)
+    elif cfg.scheduler.name == SchedulerType.inverse_sqrt_with_warmup:
+        milestones = [cfg.scheduler.t_warmup]
+        schedulers: List[torch.optim.lr_scheduler.LRScheduler] = [
+            torch.optim.lr_scheduler.LinearLR(
+                optim, start_factor=cfg.scheduler.alpha_f, end_factor=1.0, total_iters=cfg.scheduler.t_warmup
+            ),
+            torch.optim.lr_scheduler.LambdaLR(optim, lambda step: 1 / math.sqrt(step)),
+        ]
         return torch.optim.lr_scheduler.SequentialLR(optim, schedulers, milestones)
     else:
         raise NotImplementedError

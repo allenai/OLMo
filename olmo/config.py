@@ -337,8 +337,7 @@ class OptimizerConfig(BaseConfig):
 
 class SchedulerType(StrEnum):
     cosine_with_warmup = "cosine_with_warmup"
-    constant_with_warmup = "constant_with_warmup"
-    linear_decay_with_warmup = "linear_decay_with_warmup"
+    inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
 
 
 @dataclass
