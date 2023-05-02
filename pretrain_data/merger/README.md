@@ -33,6 +33,9 @@ Optional content-based filtering. Default = keep everything. Documents are retai
 
 **output**
 Local file `path` where output will be written. Output records from the same stream 
-will be written into files no larger than `max_file_size`. Use specified number of `processes` (default = one per CPU) 
+will be written into files no larger than `max_file_size`.
+
+### processes
+Number of processes to run in parallel. Default is number of CPUs.
 
 

@@ -1,5 +1,8 @@
-url-deduper:
+mixer:
 	cargo build --release
+
+test:
+	cargo test -- --nocapture
 
 debug:
 	cargo build
