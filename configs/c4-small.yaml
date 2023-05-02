@@ -40,7 +40,7 @@ optimizer:
   - 0.95
 
 scheduler:
-  name: inverse_sqrt_with_warmup
+  name: cosine_with_warmup
   t_warmup: 2000
   t_max: 100000
 
