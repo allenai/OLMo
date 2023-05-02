@@ -10,12 +10,13 @@ model:
   n_heads: 16
   n_layers: 32
   mlp_ratio: 4
-  alibi: true
+  alibi: false
   alibi_bias_max: 8.0
+  rope: true
   attention_dropout: 0.0
   attention_layer_norm: true
   multi_query_attention: false
-  block_type: sequential
+  block_type: parallel
   include_bias: false
   layer_norm_type: default  # if not compiling, use 'low_precision'
   activation_type: swiglu
@@ -34,7 +35,7 @@ compile:
 optimizer:
   name: lionw
   learning_rate: 1.0e-5
-  weight_decay: 0.1
+  weight_decay: 0.5
   betas:
   - 0.9
   - 0.95
