@@ -129,8 +129,9 @@ class Trainer:
     train_loader: DataLoader
     training_batches: Iterator[Tuple[int, Tuple[int, BatchDict]]]
     device: torch.device
-    train_loss_metric: MeanMetric
     evaluators: List[Evaluator]
+    ce_train_loss_metric: MeanMetric
+    z_train_loss_metric: Optional[MeanMetric] = None
     global_step: int = 0
     global_data_step: int = 0
     checkpoints: List[Path] = field(default_factory=list)
@@ -448,52 +449,75 @@ class Trainer:
             labels = labels.masked_fill(attention_mask == 0.0, -100)
         return labels[..., 1:].contiguous()
 
-    def model_forward(self, batch: BatchDict) -> torch.Tensor:
-        with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
-            logits = self.fsdp_model(**batch).logits[..., :-1, :].contiguous()
-            labels = self.get_labels(batch)
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1), ignore_index=-100)
-        return loss
+    def model_forward(self, batch: BatchDict) -> Tuple[torch.Tensor, torch.Tensor]:
+        # shape: (batch_size, seq_len, vocab_size)
+        logits = self.fsdp_model(**batch).logits[..., :-1, :].contiguous()
+        # shape: (batch_size * seq_len, vocab_size)
+        logits = logits.view(-1, logits.size(-1))
+        # shape: (batch_size, seq_len)
+        labels = self.get_labels(batch)
+        # shape: (batch_size,)
+        labels = labels.view(-1)
+        ce_loss = F.cross_entropy(logits, labels, ignore_index=-100)
+        return ce_loss, logits
 
-    def train_batch(self, batch: BatchDict) -> torch.Tensor:
+    def train_batch(self, batch: BatchDict) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
 
         # In case this helps with memory utilization.
         del batch
 
-        batch_loss = torch.tensor(0.0, device=self.device)
+        ce_batch_loss = torch.tensor(0.0, device=self.device)
+        z_batch_loss = None if not cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
         for micro_batch in micro_batches:
-            # Run forward pass.
-            loss = self.model_forward(micro_batch) / len(micro_batches)
+            with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
+                # Run forward pass.
+                ce_loss, logits = self.model_forward(micro_batch)
+                ce_loss = ce_loss / len(micro_batches)
 
-            # In case this helps with memory utilization.
-            del micro_batch
+                # In case this helps with memory utilization.
+                del micro_batch
 
-            # Check for nan loss.
+                # Update overall CE batch loss.
+                ce_batch_loss += ce_loss.detach()
+
+                # Get loss to optimize for.
+                if cfg.softmax_auxiliary_loss:
+                    z_squared = logits.logsumexp(-1).pow(2)
+                    z_loss = 1e-4 * z_squared / len(micro_batches)
+                    loss = ce_loss + z_loss
+
+                    # Update overall Z batch loss.
+                    z_batch_loss += z_loss.detach()
+                else:
+                    loss = ce_loss
+
+                del logits
+
+            # Check for nan.
             if torch.isnan(loss):
                 raise ValueError("nan loss encountered")
 
             # Run backward pass.
             loss.backward()
 
-            # Update overall batch loss.
-            batch_loss += loss.detach()
-
-        return batch_loss
+        return ce_batch_loss, z_batch_loss
 
     def train_step(self, batch: BatchDict) -> Dict[str, float]:
         # Zero-gradients.
         self.optim.zero_grad(set_to_none=True)
 
-        # Reset metric.
-        self.train_loss_metric.reset()
+        # Reset metrics.
+        self.ce_train_loss_metric.reset()
+        if self.z_train_loss_metric is not None:
+            self.z_train_loss_metric.reset()
 
         # Move tensors to the right device.
         batch = move_to_device(batch, self.device)
 
         # Run forward-backward pass.
-        batch_loss = self.train_batch(batch)
+        ce_batch_loss, z_batch_loss = self.train_batch(batch)
 
         # Clip gradient norms.
         grad_norm: Optional[float] = None
@@ -504,17 +528,27 @@ class Trainer:
         self.optim.step()
         self.scheduler.step()
 
-        # Reduce loss across ranks.
-        self.train_loss_metric.update(batch_loss)
-        batch_loss = self.train_loss_metric.compute()
+        # Reduce loss metrics across ranks.
+        self.ce_train_loss_metric.update(ce_batch_loss)
+        ce_batch_loss = self.ce_train_loss_metric.compute()
+        metrics = {
+            "train/CrossEntropyLoss": ce_batch_loss.item(),
+            "train/Perplexity": torch.exp(ce_batch_loss).item(),
+        }
+        if z_batch_loss is not None and self.z_train_loss_metric is not None:
+            self.z_train_loss_metric.update(z_batch_loss)
+            z_batch_loss = self.z_train_loss_metric.compute()
+            metrics["train/ZLoss"] = z_batch_loss.item()
 
-        metrics = {"train/CrossEntropyLoss": batch_loss.item(), "train/Perplexity": torch.exp(batch_loss).item()}
         if grad_norm is not None:
             metrics["optim/grad_norm"] = grad_norm
+
         return metrics
 
     def eval_batch(self, batch: BatchDict) -> torch.Tensor:
-        return self.model_forward(batch)
+        with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
+            ce_loss, _ = self.model_forward(batch)
+        return ce_loss
 
     def eval_step(self, batch: BatchDict, evaluator: Evaluator) -> Dict[str, float]:
         # Move tensors to the right device.
@@ -522,10 +556,10 @@ class Trainer:
 
         # Run forward pass.
         with torch.no_grad():  # NOTE: 'torch.inference_mode()' doesn't work with 'torch.compile()'.
-            loss = self.eval_batch(batch)
+            ce_loss = self.eval_batch(batch)
 
         # Update metrics.
-        evaluator.update_metrics(loss)
+        evaluator.update_metrics(ce_loss)
 
         return evaluator.compute_metrics()
 
@@ -836,7 +870,10 @@ def main(cfg: TrainConfig) -> None:
         train_loader=train_loader,
         training_batches=training_batches,
         device=torch.device(cfg.device),
-        train_loss_metric=MeanMetric(nan_strategy="error").to(torch.device(cfg.device)),
+        ce_train_loss_metric=MeanMetric(nan_strategy="error").to(torch.device(cfg.device)),
+        z_train_loss_metric=None
+        if not cfg.softmax_auxiliary_loss
+        else MeanMetric(nan_strategy="error").to(torch.device(cfg.device)),
         evaluators=evaluators,
     )
 

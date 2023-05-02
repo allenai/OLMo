@@ -611,6 +611,12 @@ class TrainConfig(BaseConfig):
     Fully sharded data parallel settings.
     """
 
+    softmax_auxiliary_loss: bool = False
+    """
+    If ``True``, we add the auxiliary loss function from PaLM that encourages the softmax
+    normalizing term to be close to 0.
+    """
+
     @property
     def device(self) -> str:
         return self.model.device
