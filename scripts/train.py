@@ -484,7 +484,7 @@ class Trainer:
 
                 # Get loss to optimize for.
                 if cfg.softmax_auxiliary_loss:
-                    z_squared = logits.logsumexp(-1).pow(2)
+                    z_squared = logits.logsumexp(-1).pow(2).mean()
                     z_loss = 1e-4 * z_squared / len(micro_batches)
                     loss = ce_loss + z_loss
 
