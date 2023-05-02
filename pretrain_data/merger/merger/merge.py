@@ -35,7 +35,7 @@ class Merger:
             doc = self.formatter(doc)
         attrs = {}
         for line in attr_lines:
-            attrs.update(json.loads(line))
+            attrs.update(json.loads(line)["attributes"])
         if attrs:
             doc["attributes"] = attrs
         # If "include_patterns" is empty, then include everything, otherwise include only matches
