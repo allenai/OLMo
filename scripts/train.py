@@ -996,11 +996,14 @@ def build_scheduler(cfg: TrainConfig, optim: torch.optim.Optimizer) -> torch.opt
                 cfg.scheduler.t_max - cfg.scheduler.t_warmup,
                 eta_min=cfg.optimizer.learning_rate * cfg.scheduler.alpha_f,
             )
-            constant = torch.optim.lr_scheduler.ConstantLR(
-                optim, factor=1.0, total_iters=cfg.max_duration - cfg.scheduler.t_max
+            linear = torch.optim.lr_scheduler.LinearLR(
+                optim,
+                start_factor=1.0,
+                end_factor=cfg.scheduler.alpha_f,
+                total_iters=cfg.max_duration - cfg.scheduler.t_max,
             )
             schedulers.append(cosine)
-            schedulers.append(constant)
+            schedulers.append(linear)
         return torch.optim.lr_scheduler.SequentialLR(optim, schedulers, milestones)
     elif cfg.scheduler.name == SchedulerType.inverse_sqrt_with_warmup:
         milestones = [cfg.scheduler.t_warmup]
