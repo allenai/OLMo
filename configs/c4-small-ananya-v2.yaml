@@ -43,6 +43,7 @@ optimizer:
 scheduler:
   name: cosine_with_warmup
   t_warmup: 2000
+  t_max: 160000
   alpha_f: 0.1
 
 data:
@@ -86,7 +87,7 @@ tokenizer:
   identifier: gpt2
   truncate_direction: right
 
-max_duration: 160000 # 335B tokens
+max_duration: 3814697  # 2T tokens
 
 save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_interval: 1000
