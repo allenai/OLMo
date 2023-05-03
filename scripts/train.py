@@ -444,12 +444,10 @@ class Trainer:
             for step, (_, batch) in self.training_batches:
                 del batch
                 dist.barrier()
-                if step < 10:
-                    log.info(f"Fast-forwarding... {step+1}/{self.global_data_step}")
                 if step + 1 >= self.global_data_step:
                     log.info(f"Fast-forwarded to {self.global_data_step}")
                     break
-                elif step + 1 % 100 == 0:
+                elif (step + 1) % self.cfg.console_log_interval == 0:
                     log.info(f"Fast-forwarding... {step + 1}/{self.global_data_step}")
 
     def restore_checkpoint(self, load_path: Path):
