@@ -441,15 +441,16 @@ class Trainer:
                 )
             else:
                 log.info(f"Fast-forwarding data loader to {self.global_data_step}...")
-            for step, _ in self.training_batches:
-                if step == 0:
-                    # On the first batch, wait for everyone to catch up.
+            for step, (_, batch) in self.training_batches:
+                del batch
+                if step <= 10:
+                    # On the first few batches, wait for everyone to catch up.
                     dist.barrier()
-                    log.info(f"Fast-forwarding... 1/{self.global_data_step}")
+                    log.info(f"Fast-forwarding... {step+1}/{self.global_data_step}")
                 if step + 1 >= self.global_data_step:
                     log.info(f"Fast-forwarded to {self.global_data_step}")
                     break
-                elif step + 1 % 1000 == 0:
+                elif step + 1 % 100 == 0:
                     log.info(f"Fast-forwarding... {step + 1}/{self.global_data_step}")
 
     def restore_checkpoint(self, load_path: Path):
