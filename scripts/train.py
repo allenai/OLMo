@@ -137,6 +137,7 @@ class Trainer:
     global_data_step: int = 0
     checkpoints: List[Path] = field(default_factory=list)
     unsharded_checkpoints: List[Path] = field(default_factory=list)
+    min_train_loss: float = float("inf")
 
     def state_dict(self) -> Dict[str, Any]:
         state_dict = self.non_tensor_state_dict()
@@ -543,6 +544,11 @@ class Trainer:
 
         if grad_norm is not None:
             metrics["optim/grad_norm"] = grad_norm
+
+        # Update min train loss and see if we should stop early.
+        self.min_train_loss = min(self.min_train_loss, ce_batch_loss.item())  # type: ignore
+        if self.global_step > self.cfg.scheduler.t_warmup and ce_batch_loss.item() > 1.2 * self.min_train_loss:
+            raise ValueError("Stopping early because train loss has increased substantially")
 
         return metrics
 
