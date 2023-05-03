@@ -26,7 +26,21 @@ RUN apt-get install -y \
   awscli \
   htop \
   wget \
-  fish
+  fish \
+  apt-transport-https \
+  ca-certificates \
+  gnupg \
+  curl \
+  jq \
+  parallel \
+  tmux \
+  cmake
+
+# Install Google tools
+RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+RUN apt-get update
+RUN apt-get install google-cloud-cli
 
 # Install ROCm
 RUN wget https://repo.radeon.com/amdgpu-install/5.4.3/ubuntu/jammy/amdgpu-install_5.4.50403-1_all.deb && \
@@ -34,6 +48,7 @@ RUN wget https://repo.radeon.com/amdgpu-install/5.4.3/ubuntu/jammy/amdgpu-instal
     amdgpu-install -y --accept-eula --usecase=rocm --no-dkms && \
     rm ./amdgpu-install_5.4.50403-1_all.deb && \
     apt-get install -y rccl rocm-libs
+ENV ROCM_HOME=/opt/rocm
 
 # Install MPICH
 ENV MPICH_VERSION="3.1.4"
@@ -52,7 +67,9 @@ RUN cd /opt && \
     cd aws-ofi-rccl && \
     ./autogen.sh && \
     ./configure && \
-    make -j && make install
+    make -j && \
+    make install && \
+    ldconfig
 ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # Install torch

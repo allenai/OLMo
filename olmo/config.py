@@ -35,6 +35,7 @@ __all__ = [
     "SchedulerType",
     "SchedulerConfig",
     "DataConfig",
+    "EvaluatorConfig",
     "TokenizerConfig",
     "TrainConfig",
     "PaddingDirection",
@@ -93,12 +94,15 @@ class BaseConfig:
             raise OlmoConfigurationError(str(e))
 
     @classmethod
-    def load(cls: Type[C], path: PathOrStr, overrides: Optional[List[str]] = None) -> C:
+    def load(cls: Type[C], path: PathOrStr, overrides: Optional[List[str]] = None, key: Optional[str] = None) -> C:
         """Load from a YAML file."""
         cls._register_resolvers()
         schema = om.structured(cls)
         try:
-            conf = om.merge(schema, om.load(str(path)))
+            raw = om.load(str(path))
+            if key is not None:
+                raw = raw[key]  # type: ignore
+            conf = om.merge(schema, raw)
             if overrides:
                 conf = om.merge(conf, om.from_dotlist(overrides))
             return cast(C, om.to_object(conf))
@@ -210,14 +214,15 @@ class ModelConfig(BaseConfig):
     If ``True``, use ``FlashAttention``.
     """
 
-    memory_efficient_attention: bool = False
-    """
-    If ``True``, enable memory-efficient attention.
-    """
-
     attention_dropout: float = 0.1
     """
     The dropout probability within the attention modules.
+    """
+
+    multi_query_attention: bool = False
+    """
+    Use the Multi-Query formulation of attention used in PaLM. This reduces the number of parameters
+    and is more efficient during inference.
     """
 
     attention_layer_norm: bool = False
@@ -348,6 +353,15 @@ class DataConfig(BaseConfig):
     timeout: int = 0
 
 
+@dataclass
+class EvaluatorConfig(BaseConfig):
+    label: str
+    data: DataConfig
+    device_eval_microbatch_size: int
+    metric_names: List[str]
+    subset_num_batches: int = -1
+
+
 class TruncationDirection(StrEnum):
     right = "right"
     left = "left"
@@ -385,11 +399,10 @@ class CompilerConfig(BaseConfig):
     (the fastest for larger models, but takes a long time to compile).
     """
 
-    fullgraph: Optional[bool] = None
+    fullgraph: bool = False
     """
     Whether it is OK to break model into several subgraphs when compiling.
-
-    If ``None``, ``fullgraph`` will default to ``True`` unless used during FSDP distributed training.
+    Note that this is not compatible with FSDP.
     """
 
     backend: str = "inductor"
@@ -412,6 +425,8 @@ class TrainConfig(BaseConfig):
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
     algorithms: Optional[Dict[str, Optional[Dict[str, Any]]]] = None
     data: DataConfig = field(default_factory=DataConfig)
+    evaluators: List[EvaluatorConfig] = field(default_factory=list)
+    eval_interval: Union[int, str] = "1ep"
     tokenizer: TokenizerConfig = field(default_factory=TokenizerConfig)
     save_folder: str = "./"
     save_interval: Union[str, int] = "1ep"

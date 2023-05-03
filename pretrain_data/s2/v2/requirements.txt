@@ -8,3 +8,4 @@ pycld3
 cached_path
 pyarrow
 orjson
+blingfire

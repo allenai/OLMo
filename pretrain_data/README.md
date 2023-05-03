@@ -134,11 +134,15 @@ These are flat JSONs that look like:
 {
     "source": "...",
     "id": "...",
-    "toxicity": 0.7,
+    "attributes": {
+      "toxicity": 0.7
+    }
 }
 ```
 
 where the `source` and `id` keys uniquely identify which document carries these attributes.
+
+The mixer create a unified `attributes` dictionary by merging all of the individual `attributes` dictionaries.
 
 Note that it's very important that the `*.jsonl.gz` files for attributes lines up exactly (same number of rows, same sort order) with the `*.jsonl.gz` files for the associated documents. It'll save us a lot of headache in the future.
 
@@ -149,7 +153,9 @@ For something like Language identification, this JSON might look like:
 {
     "source": "...",
     "id": "...",
-    "lang": {"en": 0.9, "fr": 0.2, "de": 0.1 }
+    "attributes": {
+      "lang": {"en": 0.9, "fr": 0.2, "de": 0.1 }
+    }
 }
 ```
 

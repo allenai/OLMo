@@ -27,10 +27,10 @@ gantry run \
   --beaker-image olmo-torch2-gantry \
   --cluster 'ai2/*-cirrascale' \
   --allow-dirty \
-  -- composer scripts/train.py configs/1.2b-c4.yaml
+  -- composer scripts/train.py configs/c4-medium.yaml
 ```
 
-Train the 70B model on c4 with gantry across multiple nodes:
+Train the largest model on c4 with gantry across multiple nodes:
 
 ```bash
 gantry run \
@@ -53,7 +53,7 @@ gantry run \
   --allow-dirty \
   --venv base \
   --yes \
-  -- /bin/bash -c 'composer --master_addr $BEAKER_LEADER_REPLICA_HOSTNAME --world_size $WORLD_SIZE --node_rank $BEAKER_REPLICA_RANK -n $GPUS --master_port 1234 scripts/train.py configs/70b-c4.yaml'
+  -- /bin/bash -c 'composer --master_addr $BEAKER_LEADER_REPLICA_HOSTNAME --world_size $WORLD_SIZE --node_rank $BEAKER_REPLICA_RANK -n $GPUS --master_port 1234 scripts/train.py configs/c4-large.yaml'
 ```
 
 This may require a reservation on the Infiniband cluster.
