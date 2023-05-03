@@ -443,9 +443,9 @@ class Trainer:
                 log.info(f"Fast-forwarding data loader to {self.global_data_step}...")
             for step, (_, batch) in self.training_batches:
                 del batch
+                dist.barrier()
                 if step <= 10:
                     # On the first few batches, wait for everyone to catch up.
-                    dist.barrier()
                     log.info(f"Fast-forwarding... {step+1}/{self.global_data_step}")
                 if step + 1 >= self.global_data_step:
                     log.info(f"Fast-forwarded to {self.global_data_step}")
