@@ -29,7 +29,8 @@ model:
   init_device: meta
   init_std: 0.02
 
-compile: null
+compile:
+  mode: default
 
 optimizer:
   name: lionw
