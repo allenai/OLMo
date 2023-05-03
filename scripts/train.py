@@ -212,13 +212,18 @@ class Trainer:
         # Remove old checkpoints.
         if self.cfg.save_num_checkpoints_to_keep > 0:
             while len(self.checkpoints) > self.cfg.save_num_checkpoints_to_keep:
-                oldest_checkpoint = self.checkpoints.pop(0)
-                if global_rank() == 0 and oldest_checkpoint.is_dir():
-                    shutil.rmtree(oldest_checkpoint, ignore_errors=True)
+                self.remove_sharded_checkpoint(0)
 
         dist.barrier()
 
         return checkpoint_dir
+
+    def remove_sharded_checkpoint(self, idx: int = 0):
+        oldest_checkpoint = self.checkpoints.pop(idx)
+        dist.barrier()
+        if global_rank() == 0 and oldest_checkpoint.is_dir():
+            shutil.rmtree(oldest_checkpoint, ignore_errors=True)
+        dist.barrier()
 
     def restore_sharded_checkpoint(self, load_path: Path):
         # Zero-gradients to avoid gathering them.
@@ -362,12 +367,17 @@ class Trainer:
         # Remove old checkpoints.
         if self.cfg.save_num_unsharded_checkpoints_to_keep > 0:
             while len(self.unsharded_checkpoints) > self.cfg.save_num_unsharded_checkpoints_to_keep:
-                oldest_checkpoint = self.unsharded_checkpoints.pop(0)
-                if global_rank() == 0 and oldest_checkpoint.is_dir():
-                    shutil.rmtree(oldest_checkpoint, ignore_errors=True)
+                self.remove_unsharded_checkpoint(0)
 
         dist.barrier()
         return checkpoint_dir
+
+    def remove_unsharded_checkpoint(self, idx: int = 0):
+        dist.barrier()
+        oldest_checkpoint = self.unsharded_checkpoints.pop(idx)
+        if global_rank() == 0 and oldest_checkpoint.is_dir():
+            shutil.rmtree(oldest_checkpoint, ignore_errors=True)
+        dist.barrier()
 
     def restore_unsharded_checkpoint(self, load_path: Path):
         # Zero-gradients to avoid gathering them.
@@ -894,6 +904,11 @@ def main(cfg: TrainConfig) -> None:
         log.info("Attempting to load pre-train checkpoint...")
         trainer.restore_sharded_checkpoint(checkpoint_path)
         log.info("Checkpoint successfully loaded")
+
+        # But now we can remove it so we don't take up unnecessary space.
+        log.info("Removing pre-train checkpoint...")
+        trainer.remove_sharded_checkpoint()
+        log.info("Successfully removed checkpoint")
 
     if cfg.load_path is not None:
         log.info(f"Loading checkpoint from {cfg.load_path}...")
