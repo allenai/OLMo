@@ -14,6 +14,7 @@ dependencies = [
     "boto3",
     "uniseg",
     "cached_path",
+    "springs",
     "smashed[remote]==0.19.4"
 ]
 classifiers = [
