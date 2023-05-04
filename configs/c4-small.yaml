@@ -16,7 +16,7 @@ model:
   attention_layer_norm: true
   multi_query_attention: true
   block_type: sequential
-  layer_norm_type: default  # if not compiling, use 'low_precision'
+  layer_norm_type: low_precision  # if not compiling, use 'low_precision'
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
@@ -28,8 +28,8 @@ model:
   init_device: meta
   init_std: 0.02
 
-compile:
-  mode: default
+compile: null
+  # mode: default
 
 optimizer:
   name: lionw
