@@ -52,7 +52,7 @@ requires = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-shadow_scholar = ["py.typed"]
+pretrain_data_toolkit = ["py.typed"]
 
 [tool.black]
 line-length = 115
