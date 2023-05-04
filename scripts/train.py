@@ -687,7 +687,7 @@ class Trainer:
             ):
                 wandb.log(metrics, step=self.global_step)
 
-            # Maybe save checkpoint.
+            # Maybe save sharded checkpoint.
             if self.global_step % self.cfg.save_interval == 0:
                 log.info("Saving checkpoint...")
                 checkpoint_path = self.save_sharded_checkpoint()
@@ -696,7 +696,7 @@ class Trainer:
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
                 speed_monitor.reset()
 
-            # Maybe save unsharded model-only checkpoint.
+            # Maybe save unsharded checkpoint.
             if (
                 self.cfg.save_interval_unsharded is not None
                 and self.global_step % self.cfg.save_interval_unsharded == 0
