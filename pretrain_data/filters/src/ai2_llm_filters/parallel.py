@@ -1,3 +1,4 @@
+import inspect
 import multiprocessing
 import random
 import time
@@ -19,6 +20,16 @@ METADATA_SUFFIX = ".done.txt"
 
 
 class BaseParallelProcessor:
+    """A base parallel processor that supports applying the same process_single method to a list of files.
+
+    This class is meant to be subclassed. The subclass must implement:
+        - `process_single` method, which takes a source path file to transform, and a destination path where
+           to save the transformed file.
+        - `increment_progressbar` method, which defines which units to keep track of in the progress bar.
+
+    See documentation of both methods for more details on how to implement them correctly.
+    """
+
     def __init__(
         self,
         source_prefix: str,
@@ -30,6 +41,29 @@ class BaseParallelProcessor:
         pbar_timeout: float = 0.01,
         ignore_existing: bool = False,
     ):
+        """Initialize the parallel processor.
+
+        Args:
+            source_prefix (str): The location where source files are stored. This can be a local directory or a
+                prefix to an S3 location.
+            destination_prefix (str): The location where to save the transformed files. This can be a local
+                directory or a prefix to an S3 location. Local directories will be created if they do not exist.
+                The directory structure from the source prefix will be replicated in the destination prefix;
+                file names will also be the same.
+            metadata_prefix (str): The prefix of the metadata files to save. This can be a local path or an
+                S3 path. Metadata output will be created for each file after it is processed. Filenames are
+                checked to verify if a file has been processed and can be skipped unless `ignore_existing` is
+                set to true.
+            num_processes (int, optional): The number of processes to use. Defaults to 1.
+            debug (bool, optional): Whether to run in debug mode; if true, no multiprocessing will be used.
+                Defaults to False.
+            seed (int, optional): The random seed to use when shuffling input files. Defaults to 0.
+            pbar_timeout (float, optional): How often to update progress bars in seconds.
+                Defaults to 0.01 seconds.
+            ignore_existing (bool, optional): Whether to ignore files that have been already processed and
+                re-run the processor on all files from scratch. Defaults to False.
+        """
+
         self.source_prefix = MultiPath.parse(source_prefix)
         self.destination_prefix = MultiPath.parse(destination_prefix)
         self.metadata_prefix = MultiPath.parse(metadata_prefix)
@@ -39,6 +73,25 @@ class BaseParallelProcessor:
         self.pbar_timeout = pbar_timeout
         self.ignore_existing = ignore_existing
 
+        # checking that the increment_progressbar method is subclassed
+        # correctly
+        sig = inspect.signature(self.increment_progressbar)
+        if "queue" not in sig.parameters or sig.parameters["queue"].kind != inspect.Parameter.POSITIONAL_ONLY:
+            raise AttributeError(
+                "increment_progressbar must have a positional-only argument named 'queue'; "
+                "Check that you have subclassed BaseParallelProcessor correctly!"
+            )
+        if "kwargs" in sig.parameters and sig.parameters["kwargs"].kind == inspect.Parameter.VAR_KEYWORD:
+            raise AttributeError(
+                "increment_progressbar must not have a **kwargs argument; "
+                "Check that you have subclassed BaseParallelProcessor correctly!"
+            )
+        if any(p.name != "queue" and p.default != 0 for p in sig.parameters.values()):
+            raise AttributeError(
+                "increment_progressbar must have a default value of 0 for all arguments except 'queue'; "
+                "Check that you have subclassed BaseParallelProcessor correctly!"
+            )
+
     @classmethod
     def process_single(
         cls,
@@ -46,6 +99,17 @@ class BaseParallelProcessor:
         destination_path: str,
         queue: "Queue[Union[None, Tuple[int, ...]]]",
     ):
+        """Process a single file.
+
+        This method must be implemented by the subclass. It takes a source path file to transform, and a
+        destination path where to save the transformed file. It also takes a queue to increment the progress
+        bars. The queue should be passed to the `increment_progressbar` method.
+
+        Args:
+            source_path (str): The path to the source file to transform. Can be an S3 path or a local path.
+            destination_path (str): The path to the destination file to save. Can be an S3 path or a local path.
+            queue (Queue[Union[None, Tuple[int, ...]]]): The queue to increment the progress bars.
+        """
         raise NotImplementedError()
 
     @classmethod
@@ -56,6 +120,7 @@ class BaseParallelProcessor:
         metadata_path: str,
         queue: "Queue[Union[None, Tuple[int, ...]]]",
     ):
+        """A wrapper around process single that saves a metadata file if processing is successful."""
         cls.process_single(source_path, destination_path, queue)
         with open_file_for_write(metadata_path) as f:
             f.write(datetime.now().isoformat())
@@ -64,7 +129,18 @@ class BaseParallelProcessor:
     def increment_progressbar(
         cls, queue: "Queue[Union[None, Tuple[int, ...]]]", /, **kwargs: int
     ) -> Dict[str, int]:
-        assert len(kwargs) > 0, "You must define increment_progressbar and provide at least one kwarg argument"
+        """Increment the progress bar by putting a tuple in the queue.
+
+        When subclassing, we recommend defining which units to keep track of in the progress bar by
+        defining keyword arguments. Then you can call the base class via `super()` and pass the keyword.
+        Example:
+
+        ```python
+        class MyProcessor(BaseParallelProcessor):
+            def increment_progressbar(self, queue, /, files = 0, documents = 0):   # we use two progress bars
+                return super().increment_progressbar(queue, files=files, documents=documents)
+        ```
+        """
         queue.put(tuple(kwargs.get(k, 0) for k in kwargs))
         return kwargs
 
@@ -74,6 +150,13 @@ class BaseParallelProcessor:
         queue: "Queue[Union[None, Tuple[int, ...]]]",
         timeout: float,
     ):
+        """Run a progress bar in a separate thread.
+
+        Args:
+            queue (Queue[Union[None, Tuple[int, ...]]]): The queue to increment the progress bars.
+            timeout (float): How often to update the progress bars in seconds.
+        """
+
         sample_queue_output = cls.increment_progressbar(queue)
 
         with ExitStack() as stack:
@@ -98,6 +181,14 @@ class BaseParallelProcessor:
         all_destination_paths: List[MultiPath],
         all_metadata_paths: List[MultiPath],
     ):
+        """Run files one by one on the main process
+
+        Args:
+            all_source_paths (List[MultiPath]): The list of source paths to process.
+            all_destination_paths (List[MultiPath]): The list of destination paths to save.
+            all_metadata_paths (List[MultiPath]): The locations where to save metadata.
+        """
+
         it = zip(all_source_paths, all_destination_paths, all_metadata_paths)
         pbar_queue: "Queue[Union[None, Tuple[int, ...]]]" = Queue()
         thread = Thread(target=self._run_threaded_progressbar, args=(pbar_queue, self.pbar_timeout), daemon=True)
@@ -120,6 +211,14 @@ class BaseParallelProcessor:
         all_destination_paths: List[MultiPath],
         all_metadata_paths: List[MultiPath],
     ):
+        """Run files in parallel using multiprocessing.
+
+        Args:
+            all_source_paths (List[MultiPath]): The list of source paths to process.
+            all_destination_paths (List[MultiPath]): The list of destination paths to save.
+            all_metadata_paths (List[MultiPath]): The locations where to save metadata.
+        """
+
         try:
             multiprocessing.set_start_method("spawn")
         except RuntimeError:
@@ -157,13 +256,17 @@ class BaseParallelProcessor:
             manager.shutdown()
 
     def _get_all_paths(self) -> Tuple[List[MultiPath], List[MultiPath], List[MultiPath]]:
+        """Get all paths to process using prefixes provided"""
         all_source_paths, all_destination_paths, all_metadata_paths = [], [], []
 
         existing_metadata_names = set(
             (MultiPath.parse(path) - self.metadata_prefix).as_str.rstrip(METADATA_SUFFIX)
             for path in recursively_list_files(self.metadata_prefix)
         )
-        for path in recursively_list_files(self.source_prefix):
+        paths = list(recursively_list_files(self.source_prefix))
+        random.shuffle(paths)
+
+        for path in paths:
             source_path = MultiPath.parse(path)
             if not self.ignore_existing and (source_path - self.source_prefix).as_str in existing_metadata_names:
                 continue
@@ -177,6 +280,7 @@ class BaseParallelProcessor:
         return all_source_paths, all_destination_paths, all_metadata_paths
 
     def __call__(self):
+        """Run the processor."""
         random.seed(self.seed)
         all_source_paths, all_destination_paths, all_metadata_paths = self._get_all_paths()
 
