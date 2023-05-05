@@ -1,0 +1,6 @@
+boto3
+pydantic
+smart-open
+pathos
+jsonpath-ng
+orjson

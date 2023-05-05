@@ -8,8 +8,11 @@ python process_text.py \
 
 """
 
+import datetime
 import gc
-import os
+import gzip
+import json
+import unicodedata
 from collections import Counter
 from contextlib import ExitStack
 from functools import partial
@@ -18,12 +21,11 @@ from queue import Queue
 from tempfile import NamedTemporaryFile
 from threading import Thread
 from time import sleep
-from typing import List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import cld3
 import numpy as np
 import pandas as pd
-import pyarrow as pa
 import springs as sp
 from blingfire import text_to_words
 from cached_path import cached_path
@@ -41,8 +43,8 @@ GOOGLE_1T_CORPUS = (
 class ProcessTextConfig:
     src: str = sp.field(default=sp.MISSING, help="Path to S3 prefix containing parqet files")
     dst: str = sp.field(default=sp.MISSING, help="Path to S3 prefix to write parqet files")
-    debug: bool = sp.field(default=False, help="Debug mode")
-    cpu_count: int = sp.field(default=cpu_count(), help="Number of processes to use")
+    debug: int = sp.field(default=0, help="Debug mode. Set to >0 to enable")
+    parallel: int = sp.field(default=cpu_count(), help="Number of processes to use")
 
 
 class UnigramPerplexityPredictor:
@@ -107,15 +109,37 @@ def is_parenthetical_spanning_two_paragraphs(
     return True
 
 
+DATA_COLUMNS = {"source", "id", "text", "added", "created", "metadata", "version"}
+
+
+def row_to_metadata(row: pd.Series) -> Dict[str, Any]:
+    return {col: row[col] for col in row.index if col not in DATA_COLUMNS}
+
+
+def fix_missing_added(row: pd.Series) -> pd.Series:
+    if pd.isna(row["added"]) or row["added"] == "":
+        t = datetime.datetime.now(datetime.timezone.utc)
+        row["added"] = t.isoformat(timespec="milliseconds") + "Z"
+    return row
+
+
+def fix_missing_created(row: pd.Series) -> pd.Series:
+    if pd.isna(row["created"]) or row["created"] == "":
+        year = 1 if pd.isna(row["year"]) else int(row["year"] or 1)
+        row["created"] = f"{year:04d}-01-01T00:00:00.000Z"
+    return row
+
+
 def process_single(
     io_paths: Tuple[io_utils.MultiPath, io_utils.MultiPath],
     pbar_queue: Optional[Queue] = None,
-    debug: bool = False,
+    debug: int = 0,
 ):
     logger = sp.configure_logging(__name__, logging_level="WARNING", force_root_reattach=True)
 
     upp = UnigramPerplexityPredictor()
     src, dst = io_paths
+    dst.path += ".gz"
 
     with io_utils.open_file_for_read(src, "rb", logger=logger) as f, NamedTemporaryFile("wb") as tmp:
         tmp.write(f.read())
@@ -123,14 +147,37 @@ def process_single(
         df = pd.read_parquet(tmp.name)
 
     # for debugging purposes, only take first 1000 rows
-    if debug:
-        df = df.head(100)
+    if debug > 0:
+        df = df.head(debug)
 
     def get_language(text: str) -> str:
         try:
             return cld3.get_language(text.strip()).language  # type: ignore
         except Exception:
             return "unk"
+
+    # assign version v0 and s2 as the source
+    df["version"] = "v0"
+    df["source"] = "s2"
+
+    # fix missing added column
+    df = df.apply(fix_missing_added, axis=1)
+
+    # fix missing created column
+    df = df.apply(fix_missing_created, axis=1)
+
+    # spec requires id to be a string
+    df["id"] = df["id"].astype(str)
+
+    # normalize the text columns
+    def norm_fn(txt: str) -> str:
+        return unicodedata.normalize("NFC", txt) if isinstance(txt, str) else txt
+
+    df["title"] = df["title"].apply(norm_fn)
+    df["abstract"] = df["abstract"].apply(norm_fn)
+
+    # create initial text by concatenating title and abstract
+    df["text"] = df["title"] + "\n\n" + df["abstract"]
 
     # create new column that is the result of the function
     # cld3.get_language(text) applied to the text column
@@ -159,46 +206,23 @@ def process_single(
     # if the value is not a float or int
     df["year"] = df["year"].apply(lambda x: int(x) if isinstance(x, (float, int)) and not pd.isna(x) else -1)
 
-    schema = pa.schema(
-        [
-            ("id", pa.int32()),
-            ("year", pa.int32()),
-            ("title", pa.string()),
-            ("abstract", pa.string()),
-            ("sha1", pa.string()),
-            ("title_language", pa.string()),
-            ("abstract_language", pa.string()),
-            ("title_perplexity", pa.float64()),
-            ("abstract_perplexity", pa.float64()),
-            ("title_count", pa.int32()),
-            ("abstract_count", pa.int32()),
-            (
-                "top_frequencies",
-                pa.list_(
-                    pa.struct(
-                        [
-                            ("token", pa.string()),
-                            ("count", pa.int32()),
-                        ]
-                    )
-                ),
-            ),
-        ]
-    )
+    # listify the sources
+    df["sources"] = df["sources"].apply(lambda x: [] if x is None else x.tolist())
 
-    # # write the dataframe to local parquet file
-    with NamedTemporaryFile("wb", delete=False) as f:
-        df.to_parquet((local_path := f.name), engine="pyarrow", schema=schema)
+    # put everything that is not part of the data spec in metadata
+    df["metadata"] = df.apply(row_to_metadata, axis=1)
+    cnt = sum(df["title_count"] + df["abstract_count"])
+    df = df.drop([c for c in df.columns if c not in DATA_COLUMNS], axis=1)
 
-    # upload the parquet file to s3
-    with io_utils.open_file_for_write(dst, "wb", logger=logger) as f, open(local_path, "rb") as tmp_read:
-        f.write(tmp_read.read())
-
-    # delete the local parquet file
-    os.remove(local_path)
+    with ExitStack() as stack:
+        out_f = stack.enter_context(io_utils.open_file_for_write(dst, "wb"))
+        out_stream = stack.enter_context(gzip.open(out_f, "wt"))
+        for row in df.itertuples(index=False):
+            row_dict = row._asdict()
+            content = json.dumps(row_dict, default=str).strip()
+            out_stream.write(content + "\n")  # type: ignore
 
     if pbar_queue is not None:
-        cnt = sum(df["title_count"] + df["abstract_count"])
         pbar_queue.put((1, int(len(df)), int(cnt)))
 
     del df
@@ -230,7 +254,8 @@ def main(cfg: ProcessTextConfig):
     src_paths = [io_utils.MultiPath.parse(p) for p in io_utils.recursively_list_files(src)]
     dst_paths = [dst / (diff) if len(diff := (single_src - src)) > 0 else dst for single_src in src_paths]
 
-    if cfg.debug:
+    if cfg.debug > 0:
+        src_paths = src_paths[: cfg.debug]
         with tqdm(total=len(src_paths)) as pbar:
             for single_src, single_dst in zip(src_paths, dst_paths):
                 process_single((single_src, single_dst), debug=cfg.debug)
@@ -239,7 +264,7 @@ def main(cfg: ProcessTextConfig):
     else:
         set_start_method("spawn")
 
-        with Pool(processes=cfg.cpu_count) as pool:
+        with Pool(processes=cfg.parallel) as pool:
             pbar_queue: Queue = (manager := Manager()).Queue()
             pbar_thread = Thread(
                 target=threaded_progressbar,

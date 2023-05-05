@@ -1,15 +1,21 @@
 
-CREATE EXTERNAL TABLE IF NOT EXISTS `temp_lucas`.`s2orc_2023_01_03_clean_processed` (
-    id INT,
-    year INT,
-    title STRING,
-    abstract STRING,
-    fields_of_study ARRAY<STRING>,
-    sha1 STRING,
-    paragraphs ARRAY<STRUCT<language:STRING,perplexity:DOUBLE,text:STRING>>,
-    count INT,
-    top_frequencies ARRAY<STRUCT<token:STRING,count:INT>>
+CREATE EXTERNAL TABLE IF NOT EXISTS `temp_lucas`.`llm_s2orc_v0` (
+    id STRING,
+    source STRING,
+    text STRING,
+    version STRING,
+    added STRING,
+    created STRING,
+    metadata STRUCT<
+        year:INT,
+        title:STRING,
+        abstract:STRING,
+        sha1:STRING,
+        fields_of_study:ARRAY<STRING>,
+        paragraphs:ARRAY<STRUCT<language:STRING,perplexity:DOUBLE,text:STRING>>,
+        count:INT,
+        top_frequencies:ARRAY<STRUCT<token:STRING,count:INT>>
+    >
 )
-STORED AS PARQUET
-LOCATION 's3://ai2-s2-lucas/s2orc_llm/2023_01_03/s2orc_clean_processed/'
-tblproperties ("parquet.compression"="SNAPPY");
+ROW FORMAT serde 'org.apache.hive.hcatalog.data.JsonSerDe'
+LOCATION 's3://ai2-llm/pretraining-data/sources/s2/v0/documents/dataset=s2orc'

@@ -1,10 +1,11 @@
 pandas
-smashed[remote]>=0.19.3
+smashed[remote]>=0.19.4
 torch==1.13.1
 springs
 s3fs
 fsspec
 pycld3
 cached_path
-blingfire
 pyarrow
+orjson
+blingfire

@@ -1,8 +1,6 @@
 [tool.black]
 line-length = 115
-
 include = '\.pyi?$'
-
 exclude = '''
 (
       __pycache__
@@ -13,6 +11,7 @@ exclude = '''
     | \.venv
     | \bdist\b
     | \bdoc\b
+    | pretrain_data/
 )
 '''
 
@@ -27,3 +26,29 @@ exclude = ["pretrain_data/"]
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.mypy]
+ignore_missing_imports = true
+no_site_packages = true
+exclude = ["pretrain_data/"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+strict_optional = false
+
+[tool.pytest.ini_options]
+testpaths = "tests/"
+python_classes = [
+  "Test*",
+  "*Test",
+]
+log_format = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+log_level = "DEBUG"
+markers = [
+    "gpu",
+]
+filterwarnings = [
+    'ignore::FutureWarning:huggingface_hub\.file_download',
+    'ignore::DeprecationWarning:pkg_resources',
+    'ignore::DeprecationWarning:google\.rpc',
+]

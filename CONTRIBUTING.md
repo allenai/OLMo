@@ -77,8 +77,8 @@ When you're ready to contribute code to address an open issue, please follow the
 
     Then you can create and activate a new Python environment by running:
 
-        conda create -n dolma python=3.9
-        conda activate dolma
+        conda create -n olmo python=3.9
+        conda activate olmo
 
     Once your virtual environment is activated, you can install your local clone in "editable mode" with
 
@@ -139,13 +139,13 @@ When you're ready to contribute code to address an open issue, please follow the
 
     We also strive to maintain high test coverage, so most contributions should include additions to [the unit tests](https://github.com/allenai/LLM/tree/main/tests). These tests are run with [`pytest`](https://docs.pytest.org/en/latest/), which you can use to locally run any test modules that you've added or changed.
 
-    For example, if you've fixed a bug in `dolma/a/b.py`, you can run the tests specific to that module with
+    For example, if you've fixed a bug in `olmo/a/b.py`, you can run the tests specific to that module with
 
         pytest -v tests/a/b_test.py
 
     To check the code coverage locally in this example, you could run
 
-        pytest -v --cov dolma.a.b tests/a/b_test.py
+        pytest -v --cov olmo.a.b tests/a/b_test.py
 
     If your contribution involves additions to any public part of the API, we require that you write docstrings
     for each function, method, class, or module that you add.

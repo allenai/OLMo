@@ -46,6 +46,13 @@ for file in $input_dir/*; do
     # remove all extensions
     filename="${filename%.*.*}"
 
+    output_final_dir=${output_dir}/${filename}
+
+    if [ -d "$output_final_dir" ]; then
+        echo "Skipping ${filename}; already extracted to ${output_final_dir}"
+        continue
+    fi
+
     # run extaction for each file
     bash ${SCRIPT_DIR}/extract.sh -i ${file} -o ${output_dir}/${filename}
 done
