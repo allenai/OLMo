@@ -1,6 +1,7 @@
 """Run this script with 'torchrun'."""
 
 import logging
+import math
 import os
 import random
 import shutil
@@ -129,12 +130,14 @@ class Trainer:
     train_loader: DataLoader
     training_batches: Iterator[Tuple[int, Tuple[int, BatchDict]]]
     device: torch.device
-    train_loss_metric: MeanMetric
     evaluators: List[Evaluator]
+    ce_train_loss_metric: MeanMetric
+    z_train_loss_metric: Optional[MeanMetric] = None
     global_step: int = 0
     global_data_step: int = 0
     checkpoints: List[Path] = field(default_factory=list)
     unsharded_checkpoints: List[Path] = field(default_factory=list)
+    min_train_loss: float = float("inf")
 
     def state_dict(self) -> Dict[str, Any]:
         state_dict = self.non_tensor_state_dict()
@@ -209,13 +212,18 @@ class Trainer:
         # Remove old checkpoints.
         if self.cfg.save_num_checkpoints_to_keep > 0:
             while len(self.checkpoints) > self.cfg.save_num_checkpoints_to_keep:
-                oldest_checkpoint = self.checkpoints.pop(0)
-                if global_rank() == 0 and oldest_checkpoint.is_dir():
-                    shutil.rmtree(oldest_checkpoint, ignore_errors=True)
+                self.remove_sharded_checkpoint(0)
 
         dist.barrier()
 
         return checkpoint_dir
+
+    def remove_sharded_checkpoint(self, idx: int = 0):
+        oldest_checkpoint = self.checkpoints.pop(idx)
+        dist.barrier()
+        if global_rank() == 0 and oldest_checkpoint.is_dir():
+            shutil.rmtree(oldest_checkpoint, ignore_errors=True)
+        dist.barrier()
 
     def restore_sharded_checkpoint(self, load_path: Path):
         # Zero-gradients to avoid gathering them.
@@ -359,12 +367,17 @@ class Trainer:
         # Remove old checkpoints.
         if self.cfg.save_num_unsharded_checkpoints_to_keep > 0:
             while len(self.unsharded_checkpoints) > self.cfg.save_num_unsharded_checkpoints_to_keep:
-                oldest_checkpoint = self.unsharded_checkpoints.pop(0)
-                if global_rank() == 0 and oldest_checkpoint.is_dir():
-                    shutil.rmtree(oldest_checkpoint, ignore_errors=True)
+                self.remove_unsharded_checkpoint(0)
 
         dist.barrier()
         return checkpoint_dir
+
+    def remove_unsharded_checkpoint(self, idx: int = 0):
+        dist.barrier()
+        oldest_checkpoint = self.unsharded_checkpoints.pop(idx)
+        if global_rank() == 0 and oldest_checkpoint.is_dir():
+            shutil.rmtree(oldest_checkpoint, ignore_errors=True)
+        dist.barrier()
 
     def restore_unsharded_checkpoint(self, load_path: Path):
         # Zero-gradients to avoid gathering them.
@@ -428,11 +441,13 @@ class Trainer:
                 )
             else:
                 log.info(f"Fast-forwarding data loader to {self.global_data_step}...")
-            for step, _ in self.training_batches:
+            for step, (_, batch) in self.training_batches:
+                del batch
+                dist.barrier()
                 if step + 1 >= self.global_data_step:
                     log.info(f"Fast-forwarded to {self.global_data_step}")
                     break
-                elif step + 1 % 1000 == 0:
+                elif (step + 1) % self.cfg.console_log_interval == 0:
                     log.info(f"Fast-forwarding... {step + 1}/{self.global_data_step}")
 
     def restore_checkpoint(self, load_path: Path):
@@ -448,52 +463,75 @@ class Trainer:
             labels = labels.masked_fill(attention_mask == 0.0, -100)
         return labels[..., 1:].contiguous()
 
-    def model_forward(self, batch: BatchDict) -> torch.Tensor:
-        with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
-            logits = self.fsdp_model(**batch).logits[..., :-1, :].contiguous()
-            labels = self.get_labels(batch)
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1), ignore_index=-100)
-        return loss
+    def model_forward(self, batch: BatchDict) -> Tuple[torch.Tensor, torch.Tensor]:
+        # shape: (batch_size, seq_len, vocab_size)
+        logits = self.fsdp_model(**batch).logits[..., :-1, :].contiguous()
+        # shape: (batch_size * seq_len, vocab_size)
+        logits = logits.view(-1, logits.size(-1))
+        # shape: (batch_size, seq_len)
+        labels = self.get_labels(batch)
+        # shape: (batch_size,)
+        labels = labels.view(-1)
+        ce_loss = F.cross_entropy(logits, labels, ignore_index=-100)
+        return ce_loss, logits
 
-    def train_batch(self, batch: BatchDict) -> torch.Tensor:
+    def train_batch(self, batch: BatchDict) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
 
         # In case this helps with memory utilization.
         del batch
 
-        batch_loss = torch.tensor(0.0, device=self.device)
+        ce_batch_loss = torch.tensor(0.0, device=self.device)
+        z_batch_loss = None if not cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
         for micro_batch in micro_batches:
-            # Run forward pass.
-            loss = self.model_forward(micro_batch) / len(micro_batches)
+            with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
+                # Run forward pass.
+                ce_loss, logits = self.model_forward(micro_batch)
+                ce_loss = ce_loss / len(micro_batches)
 
-            # In case this helps with memory utilization.
-            del micro_batch
+                # In case this helps with memory utilization.
+                del micro_batch
 
-            # Check for nan loss.
+                # Update overall CE batch loss.
+                ce_batch_loss += ce_loss.detach()
+
+                # Get loss to optimize for.
+                if cfg.softmax_auxiliary_loss:
+                    z_squared = logits.logsumexp(-1).pow(2).mean()
+                    z_loss = 1e-4 * z_squared / len(micro_batches)
+                    loss = ce_loss + z_loss
+
+                    # Update overall Z batch loss.
+                    z_batch_loss += z_loss.detach()
+                else:
+                    loss = ce_loss
+
+                del logits
+
+            # Check for nan.
             if torch.isnan(loss):
                 raise ValueError("nan loss encountered")
 
             # Run backward pass.
             loss.backward()
 
-            # Update overall batch loss.
-            batch_loss += loss.detach()
-
-        return batch_loss
+        return ce_batch_loss, z_batch_loss
 
     def train_step(self, batch: BatchDict) -> Dict[str, float]:
         # Zero-gradients.
         self.optim.zero_grad(set_to_none=True)
 
-        # Reset metric.
-        self.train_loss_metric.reset()
+        # Reset metrics.
+        self.ce_train_loss_metric.reset()
+        if self.z_train_loss_metric is not None:
+            self.z_train_loss_metric.reset()
 
         # Move tensors to the right device.
         batch = move_to_device(batch, self.device)
 
         # Run forward-backward pass.
-        batch_loss = self.train_batch(batch)
+        ce_batch_loss, z_batch_loss = self.train_batch(batch)
 
         # Clip gradient norms.
         grad_norm: Optional[float] = None
@@ -504,17 +542,32 @@ class Trainer:
         self.optim.step()
         self.scheduler.step()
 
-        # Reduce loss across ranks.
-        self.train_loss_metric.update(batch_loss)
-        batch_loss = self.train_loss_metric.compute()
+        # Reduce loss metrics across ranks.
+        self.ce_train_loss_metric.update(ce_batch_loss)
+        ce_batch_loss = self.ce_train_loss_metric.compute()
+        metrics = {
+            "train/CrossEntropyLoss": ce_batch_loss.item(),
+            "train/Perplexity": torch.exp(ce_batch_loss).item(),
+        }
+        if z_batch_loss is not None and self.z_train_loss_metric is not None:
+            self.z_train_loss_metric.update(z_batch_loss)
+            z_batch_loss = self.z_train_loss_metric.compute()
+            metrics["train/ZLoss"] = z_batch_loss.item()
 
-        metrics = {"train/CrossEntropyLoss": batch_loss.item(), "train/Perplexity": torch.exp(batch_loss).item()}
         if grad_norm is not None:
             metrics["optim/grad_norm"] = grad_norm
+
+        # Update min train loss and see if we should stop early.
+        self.min_train_loss = min(self.min_train_loss, ce_batch_loss.item())  # type: ignore
+        if self.global_step > self.cfg.scheduler.t_warmup and ce_batch_loss.item() > 1.2 * self.min_train_loss:
+            raise ValueError("Stopping early because train loss has increased substantially")
+
         return metrics
 
     def eval_batch(self, batch: BatchDict) -> torch.Tensor:
-        return self.model_forward(batch)
+        with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
+            ce_loss, _ = self.model_forward(batch)
+        return ce_loss
 
     def eval_step(self, batch: BatchDict, evaluator: Evaluator) -> Dict[str, float]:
         # Move tensors to the right device.
@@ -522,10 +575,10 @@ class Trainer:
 
         # Run forward pass.
         with torch.no_grad():  # NOTE: 'torch.inference_mode()' doesn't work with 'torch.compile()'.
-            loss = self.eval_batch(batch)
+            ce_loss = self.eval_batch(batch)
 
         # Update metrics.
-        evaluator.update_metrics(loss)
+        evaluator.update_metrics(ce_loss)
 
         return evaluator.compute_metrics()
 
@@ -634,7 +687,7 @@ class Trainer:
             ):
                 wandb.log(metrics, step=self.global_step)
 
-            # Maybe save checkpoint.
+            # Maybe save sharded checkpoint.
             if self.global_step % self.cfg.save_interval == 0:
                 log.info("Saving checkpoint...")
                 checkpoint_path = self.save_sharded_checkpoint()
@@ -643,7 +696,7 @@ class Trainer:
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
                 speed_monitor.reset()
 
-            # Maybe save unsharded model-only checkpoint.
+            # Maybe save unsharded checkpoint.
             if (
                 self.cfg.save_interval_unsharded is not None
                 and self.global_step % self.cfg.save_interval_unsharded == 0
@@ -742,6 +795,8 @@ def main(cfg: TrainConfig) -> None:
                 cfg.save(save_path)
             del save_path
 
+    dist.barrier()
+
     # Set seed.
     seed_all(cfg.seed)
 
@@ -834,7 +889,10 @@ def main(cfg: TrainConfig) -> None:
         train_loader=train_loader,
         training_batches=training_batches,
         device=torch.device(cfg.device),
-        train_loss_metric=MeanMetric(nan_strategy="error").to(torch.device(cfg.device)),
+        ce_train_loss_metric=MeanMetric(nan_strategy="error").to(torch.device(cfg.device)),
+        z_train_loss_metric=None
+        if not cfg.softmax_auxiliary_loss
+        else MeanMetric(nan_strategy="error").to(torch.device(cfg.device)),
         evaluators=evaluators,
     )
 
@@ -848,6 +906,11 @@ def main(cfg: TrainConfig) -> None:
         log.info("Attempting to load pre-train checkpoint...")
         trainer.restore_sharded_checkpoint(checkpoint_path)
         log.info("Checkpoint successfully loaded")
+
+        # But now we can remove it so we don't take up unnecessary space.
+        log.info("Removing pre-train checkpoint...")
+        trainer.remove_sharded_checkpoint()
+        log.info("Successfully removed checkpoint")
 
     if cfg.load_path is not None:
         log.info(f"Loading checkpoint from {cfg.load_path}...")
@@ -904,9 +967,28 @@ def build_dataloader(
 
 
 def build_optimizer(cfg: TrainConfig, model: nn.Module) -> torch.optim.Optimizer:
+    params = (
+        get_param_groups(model)
+        if (cfg.optimizer.no_decay_norm_and_bias and cfg.optimizer.weight_decay > 0.0)
+        else model.parameters()
+    )
     if cfg.optimizer.name == OptimizerType.lionw:
         return LionW(
-            get_param_groups(model) if cfg.optimizer.no_decay_norm_and_bias else model.parameters(),
+            params,
+            lr=cfg.optimizer.learning_rate,
+            betas=cfg.optimizer.betas,
+            weight_decay=cfg.optimizer.weight_decay,
+        )
+    elif cfg.optimizer.name == OptimizerType.adam:
+        return torch.optim.Adam(
+            params,
+            lr=cfg.optimizer.learning_rate,
+            betas=cfg.optimizer.betas,
+            weight_decay=cfg.optimizer.weight_decay,
+        )
+    elif cfg.optimizer.name == OptimizerType.adamw:
+        return torch.optim.AdamW(
+            params,
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,
@@ -916,16 +998,46 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> torch.optim.Optimizer
 
 
 def build_scheduler(cfg: TrainConfig, optim: torch.optim.Optimizer) -> torch.optim.lr_scheduler.LRScheduler:
+    schedulers: List[torch.optim.lr_scheduler.LRScheduler] = []
     if cfg.scheduler.name == SchedulerType.cosine_with_warmup:
-        warmup = torch.optim.lr_scheduler.LinearLR(
-            optim, start_factor=cfg.scheduler.alpha_f, end_factor=1.0, total_iters=cfg.scheduler.t_warmup
-        )
-        cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optim,
-            cfg.max_duration - cfg.scheduler.t_warmup,
-            eta_min=cfg.optimizer.learning_rate * cfg.scheduler.alpha_f,
-        )
-        return torch.optim.lr_scheduler.SequentialLR(optim, [warmup, cosine], [cfg.scheduler.t_warmup])
+        milestones = [cfg.scheduler.t_warmup]
+        schedulers = [
+            torch.optim.lr_scheduler.LinearLR(
+                optim, start_factor=cfg.scheduler.alpha_f, end_factor=1.0, total_iters=cfg.scheduler.t_warmup
+            )
+        ]
+        if cfg.scheduler.t_max is None:
+            cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optim,
+                cfg.max_duration - cfg.scheduler.t_warmup,
+                eta_min=cfg.optimizer.learning_rate * cfg.scheduler.alpha_f,
+            )
+            schedulers.append(cosine)
+        else:
+            milestones.append(cfg.scheduler.t_max)
+            cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optim,
+                cfg.scheduler.t_max - cfg.scheduler.t_warmup,
+                eta_min=cfg.optimizer.learning_rate * cfg.scheduler.alpha_f,
+            )
+            linear = torch.optim.lr_scheduler.LinearLR(
+                optim,
+                start_factor=1.0,
+                end_factor=cfg.scheduler.alpha_f,
+                total_iters=cfg.max_duration - cfg.scheduler.t_max,
+            )
+            schedulers.append(cosine)
+            schedulers.append(linear)
+        return torch.optim.lr_scheduler.SequentialLR(optim, schedulers, milestones)
+    elif cfg.scheduler.name == SchedulerType.inverse_sqrt_with_warmup:
+        milestones = [cfg.scheduler.t_warmup]
+        schedulers = [
+            torch.optim.lr_scheduler.LinearLR(
+                optim, start_factor=cfg.scheduler.alpha_f, end_factor=1.0, total_iters=cfg.scheduler.t_warmup
+            ),
+            torch.optim.lr_scheduler.LambdaLR(optim, lambda step: 1.0 if step <= 0 else 1.0 / math.sqrt(step)),
+        ]
+        return torch.optim.lr_scheduler.SequentialLR(optim, schedulers, milestones)
     else:
         raise NotImplementedError
 

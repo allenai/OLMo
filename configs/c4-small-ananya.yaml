@@ -8,14 +8,15 @@ wandb:
 model:
   d_model: 2048
   n_heads: 16
-  n_layers: 16
-  mlp_ratio: 8
-  alibi: true
+  n_layers: 24
+  mlp_ratio: 4
+  alibi: false
   alibi_bias_max: 8.0
+  rope: true
   attention_dropout: 0.0
   attention_layer_norm: true
-  multi_query_attention: true
-  block_type: sequential
+  multi_query_attention: false
+  block_type: parallel
   layer_norm_type: low_precision  # if not compiling, use 'low_precision'
   activation_type: swiglu
   residual_dropout: 0.0
@@ -29,12 +30,11 @@ model:
   init_std: 0.02
 
 compile: null
-  # mode: default
 
 optimizer:
   name: lionw
   learning_rate: 2.0e-4
-  weight_decay: 0.01
+  weight_decay: 0.5
   betas:
   - 0.9
   - 0.95
@@ -42,7 +42,7 @@ optimizer:
 scheduler:
   name: cosine_with_warmup
   t_warmup: 2000
-  t_max: 100000
+  alpha_f: 0.1
 
 data:
   paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-train.*.npy}
@@ -58,7 +58,7 @@ eval_interval: ${save_interval}
 evaluators:
   - label: c4-validation
     device_eval_batch_size: ${device_train_microbatch_size}
-    subset_num_batches: 5
+    subset_num_batches: 20
     data:
       paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
       pad_direction: right
@@ -70,7 +70,7 @@ evaluators:
       timeout: 0
   - label: rp-validation
     device_eval_batch_size: ${device_train_microbatch_size}
-    subset_num_batches: 5
+    subset_num_batches: 20
     data:
       paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
       pad_direction: right
@@ -85,7 +85,7 @@ tokenizer:
   identifier: gpt2
   truncate_direction: right
 
-max_duration: 3814697  # 2T tokens
+max_duration: 160000 # 335B tokens
 
 save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_interval: 1000
@@ -95,7 +95,7 @@ save_overwrite: false
 load_path: null
 
 global_train_batch_size: 1024
-device_train_microbatch_size: 8
+device_train_microbatch_size: 4
 
 precision: amp_bf16
   

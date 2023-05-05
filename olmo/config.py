@@ -318,6 +318,8 @@ class ModelConfig(BaseConfig):
 
 class OptimizerType(StrEnum):
     lionw = "lionw"
+    adam = "adam"
+    adamw = "adamw"
 
 
 @dataclass
@@ -335,14 +337,14 @@ class OptimizerConfig(BaseConfig):
 
 class SchedulerType(StrEnum):
     cosine_with_warmup = "cosine_with_warmup"
-    constant_with_warmup = "constant_with_warmup"
-    linear_decay_with_warmup = "linear_decay_with_warmup"
+    inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
 
 
 @dataclass
 class SchedulerConfig(BaseConfig):
     name: SchedulerType = SchedulerType.cosine_with_warmup
     t_warmup: int = 100
+    t_max: Optional[int] = None
     alpha_f: float = 0.1
 
 
@@ -606,6 +608,12 @@ class TrainConfig(BaseConfig):
     fsdp: FSDPConfig = field(default_factory=FSDPConfig)
     """
     Fully sharded data parallel settings.
+    """
+
+    softmax_auxiliary_loss: bool = False
+    """
+    If ``True``, we add the auxiliary loss function from PaLM that encourages the softmax
+    normalizing term to be close to 0.
     """
 
     @property
