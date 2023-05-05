@@ -94,7 +94,7 @@ print(tokenizer.decode(best_generation))
 ## Finding official runs
 
 We keep all of our runs in WandB under [the "ai2-llm" entity](https://wandb.ai/ai2-llm).
-We don't store model checkpoints in WandB. Those are in GCS under `gs://allennlp-olmo/<wandb_run_path>`.
+We don't store model checkpoints in WandB. Those are in GCS under `gs://ai2-olmo/<wandb_run_path>`.
 
 ### Highlighted models
 
