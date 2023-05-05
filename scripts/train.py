@@ -34,6 +34,7 @@ from torchmetrics import MeanMetric
 
 from olmo.aliases import BatchDict
 from olmo.config import (
+    CheckpointType,
     DataConfig,
     EvaluatorConfig,
     ModelConfig,
@@ -450,11 +451,31 @@ class Trainer:
                 elif (step + 1) % self.cfg.console_log_interval == 0:
                     log.info(f"Fast-forwarding... {step + 1}/{self.global_data_step}")
 
-    def restore_checkpoint(self, load_path: Path):
-        if load_path.name.endswith("-unsharded"):
-            self.restore_unsharded_checkpoint(load_path)
+    def save_checkpoint(self, checkpoint_type: CheckpointType = CheckpointType.sharded) -> Path:
+        if checkpoint_type == CheckpointType.sharded:
+            return self.save_sharded_checkpoint()
+        elif checkpoint_type == CheckpointType.unsharded:
+            return self.save_unsharded_checkpoint()
         else:
+            raise NotImplementedError(checkpoint_type)
+
+    def restore_checkpoint(self, load_path: Path, checkpoint_type: Optional[CheckpointType] = None):
+        if checkpoint_type == CheckpointType.unsharded or (
+            checkpoint_type is None and load_path.name.endswith("-unsharded")
+        ):
+            self.restore_unsharded_checkpoint(load_path)
+        elif checkpoint_type == CheckpointType.sharded or checkpoint_type is None:
             self.restore_sharded_checkpoint(load_path)
+        elif checkpoint_type is not None:
+            raise NotImplementedError(checkpoint_type)
+
+    def remove_checkpoint(self, idx: int = 0, checkpoint_type: CheckpointType = CheckpointType.sharded):
+        if checkpoint_type == CheckpointType.sharded:
+            self.remove_sharded_checkpoint(idx=idx)
+        elif checkpoint_type == CheckpointType.unsharded:
+            self.remove_unsharded_checkpoint(idx=idx)
+        else:
+            raise NotImplementedError(checkpoint_type)
 
     def get_labels(self, batch: BatchDict) -> torch.Tensor:
         # Labels are just input IDs shifted to the left (first item is ignored).
@@ -688,7 +709,7 @@ class Trainer:
                 wandb.log(metrics, step=self.global_step)
 
             # Maybe save sharded checkpoint.
-            if self.global_step % self.cfg.save_interval == 0:
+            if self.global_step % self.cfg.save_interval == 0 and self.cfg.save_num_checkpoints_to_keep != 0:
                 log.info("Saving checkpoint...")
                 checkpoint_path = self.save_sharded_checkpoint()
                 log.info(f"Checkpoint saved to {checkpoint_path}")
@@ -700,6 +721,7 @@ class Trainer:
             if (
                 self.cfg.save_interval_unsharded is not None
                 and self.global_step % self.cfg.save_interval_unsharded == 0
+                and self.cfg.save_num_unsharded_checkpoints_to_keep != 0
             ):
                 log.info("Saving unsharded checkpoint...")
                 checkpoint_path = self.save_unsharded_checkpoint()
@@ -897,19 +919,23 @@ def main(cfg: TrainConfig) -> None:
     )
 
     if not cfg.dry_run and cfg.load_path is None:
+        checkpoint_type = (
+            CheckpointType.sharded if cfg.save_num_checkpoints_to_keep != 0 else CheckpointType.unsharded
+        )
+
         # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever).
         log.info("Saving pre-train checkpoint...")
-        checkpoint_path = trainer.save_sharded_checkpoint()
+        checkpoint_path = trainer.save_checkpoint(checkpoint_type=checkpoint_type)
         log.info(f"Checkpoint saved to {checkpoint_path}")
 
         # And they we verify that we can load it.
         log.info("Attempting to load pre-train checkpoint...")
-        trainer.restore_sharded_checkpoint(checkpoint_path)
+        trainer.restore_checkpoint(checkpoint_path, checkpoint_type=checkpoint_type)
         log.info("Checkpoint successfully loaded")
 
         # But now we can remove it so we don't take up unnecessary space.
         log.info("Removing pre-train checkpoint...")
-        trainer.remove_sharded_checkpoint()
+        trainer.remove_checkpoint(checkpoint_type=checkpoint_type)
         log.info("Successfully removed checkpoint")
 
     if cfg.load_path is not None:

@@ -47,6 +47,7 @@ __all__ = [
     "CompilerConfig",
     "WandbConfig",
     "FSDPConfig",
+    "CheckpointType",
 ]
 
 
@@ -432,6 +433,11 @@ class FSDPConfig(BaseConfig):
     """
 
     sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD
+
+
+class CheckpointType(StrEnum):
+    sharded = "sharded"
+    unsharded = "unsharded"
 
 
 @dataclass
