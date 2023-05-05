@@ -23,7 +23,7 @@ import wandb
 from packaging import version
 from torch.distributed.fsdp import FullStateDictConfig
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import MixedPrecision, ShardingStrategy, StateDictType
+from torch.distributed.fsdp import MixedPrecision, StateDictType
 from torch.distributed.fsdp.api import (
     FullOptimStateDictConfig,
     ShardedOptimStateDictConfig,
@@ -825,7 +825,7 @@ def main(cfg: TrainConfig) -> None:
     # Wrap the model in FSDP.
     fsdp_model = FSDP(
         olmo_model,
-        sharding_strategy=ShardingStrategy.FULL_SHARD,
+        sharding_strategy=cfg.fsdp.sharding_strategy,
         mixed_precision=MixedPrecision(  # equivalent to MosaicML's "PURE"
             param_dtype=cfg.autocast_precision,
             reduce_dtype=cfg.autocast_precision,

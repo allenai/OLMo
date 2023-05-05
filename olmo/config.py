@@ -20,6 +20,7 @@ from typing import (
 import torch
 from omegaconf import OmegaConf as om
 from omegaconf.errors import OmegaConfBaseException
+from torch.distributed.fsdp import ShardingStrategy
 
 from .aliases import PathOrStr
 from .exceptions import OlmoConfigurationError
@@ -429,6 +430,8 @@ class FSDPConfig(BaseConfig):
     """
     This must be ``True`` if using ``compile``.
     """
+
+    sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD
 
 
 @dataclass
