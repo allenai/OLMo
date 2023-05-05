@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 from abc import abstractmethod
+from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional, Union, cast
 
 import torch
@@ -16,6 +17,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import einsum
 
+from .aliases import PathOrStr
 from .beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
 from .config import ActivationType, BlockType, LayerNormType, ModelConfig
 from .exceptions import OlmoConfigurationError
@@ -836,3 +838,21 @@ class Olmo(nn.Module):
             token_ids=token_ids,  # type: ignore[arg-type]
             scores=scores,  # type: ignore[arg-type]
         )
+
+    @classmethod
+    def from_checkpoint(cls, checkpoint_dir: PathOrStr) -> Olmo:
+        """
+        Load an OLMo model from a checkpoint.
+        """
+        from cached_path import cached_path
+
+        checkpoint_dir = Path(checkpoint_dir)
+        config_path = cached_path(checkpoint_dir / "config.yaml")
+        model_config = ModelConfig.load(config_path, key="model")
+        # Use init device 'cuda' (if available) or 'cpu'. We don't want 'meta' here.
+        model_config.init_device = model_config.device
+        model = Olmo(model_config)
+        state_dict_path = cached_path(checkpoint_dir / "model.pt")
+        state_dict = torch.load(state_dict_path, map_location=model_config.device)
+        model.load_state_dict(state_dict)
+        return model

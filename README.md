@@ -69,6 +69,16 @@ Sharded checkpoints are the default type of checkpoint that's saved during train
 If you plan to restart a training run using a *different* world size, you can only restart from an *unsharded* checkpoint.
 However, you can convert a sharded checkpoint into an unsharded checkpoint by launching the script [scripts/unshard_checkpoint.sh](./scripts/unshard_checkpoint.sh) in the same way you launched the training script. Note that this needs to be launched with the exact same world size as when the *sharded* checkpoint was saved.
 
+## Finding official runs
+
+We track all of our runs in Weights & Biases under [the "ai2-llm" entity](https://wandb.ai/ai2-llm).
+The corresponding checkpoints are stored in GCS under `gs://ai2-olmo/<wandb_run_path>`.
+For example, checkpoints for the run [https://wandb.ai/ai2-llm/c4-small/runs/euox4j8q](https://wandb.ai/ai2-llm/c4-small/runs/euox4j8q) are located at [gs://ai2-olmo/ai2-llm/c4-small/euox4j8q/](https://console.cloud.google.com/storage/browser/ai2-olmo/ai2-llm/c4-small/euox4j8q).
+
+### Highlighted checkpoints
+
+ * `gs://ai2-olmo/ai2-llm/c4-small/euox4j8q/step73000-unsharded` - 1B parameters, 150B tokens, this one of our first decent checkpoints at the 1B scale.
+
 ## Generating text
 
 You can use the `generate()` method to produce text using beam search with a variety of options.
@@ -90,12 +100,3 @@ outputs = model.generate(input_tensor, max_steps=3, beam_size=3)
 best_generation = outputs.token_ids[0][0].tolist()
 print(tokenizer.decode(best_generation))
 ```
-
-## Finding official runs
-
-We keep all of our runs in WandB under [the "ai2-llm" entity](https://wandb.ai/ai2-llm).
-We don't store model checkpoints in WandB. Those are in GCS under `gs://ai2-olmo/<wandb_run_path>`.
-
-### Highlighted models
-
- * 300M parameters, ~70B tokens, a starter model that's not completely random: https://wandb.ai/ai2-llm/LLM-scripts/runs/ed5krfk9
