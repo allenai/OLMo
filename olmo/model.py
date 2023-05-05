@@ -7,8 +7,8 @@ Adapted from
 from __future__ import annotations
 
 import math
+import os
 from abc import abstractmethod
-from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional, Union, cast
 
 import torch
@@ -846,13 +846,12 @@ class Olmo(nn.Module):
         """
         from cached_path import cached_path
 
-        checkpoint_dir = Path(checkpoint_dir)
-        config_path = cached_path(checkpoint_dir / "config.yaml")
+        config_path = cached_path(os.path.join(checkpoint_dir, "config.yaml"))
         model_config = ModelConfig.load(config_path, key="model")
         # Use init device 'cuda' (if available) or 'cpu'. We don't want 'meta' here.
         model_config.init_device = model_config.device
         model = Olmo(model_config)
-        state_dict_path = cached_path(checkpoint_dir / "model.pt")
+        state_dict_path = cached_path(os.path.join(checkpoint_dir, "model.pt"))
         state_dict = torch.load(state_dict_path, map_location=model_config.device)
         model.load_state_dict(state_dict)
         return model
