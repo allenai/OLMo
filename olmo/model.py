@@ -840,7 +840,7 @@ class Olmo(nn.Module):
         )
 
     @classmethod
-    def from_checkpoint(cls, checkpoint_dir: PathOrStr) -> Olmo:
+    def from_checkpoint(cls, checkpoint_dir: PathOrStr, device: str = "cpu") -> Olmo:
         """
         Load an OLMo model from a checkpoint.
         """
@@ -848,10 +848,9 @@ class Olmo(nn.Module):
 
         config_path = cached_path(os.path.join(checkpoint_dir, "config.yaml"))
         model_config = ModelConfig.load(config_path, key="model")
-        # Use init device 'cuda' (if available) or 'cpu'. We don't want 'meta' here.
-        model_config.init_device = model_config.device
+        model_config.init_device = "cpu"
         model = Olmo(model_config)
         state_dict_path = cached_path(os.path.join(checkpoint_dir, "model.pt"))
-        state_dict = torch.load(state_dict_path, map_location=model_config.device)
+        state_dict = torch.load(state_dict_path, map_location=device)
         model.load_state_dict(state_dict)
-        return model
+        return model.to(torch.device(device))
