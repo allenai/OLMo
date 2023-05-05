@@ -392,7 +392,7 @@ class WandbConfig(BaseConfig):
     entity: Optional[str] = "ai2-llm"
     group: Optional[str] = None
     name: Optional[str] = None
-    tags: Optional[List[str]] = None
+    tags: Optional[List[str]] = field(default_factory=lambda: ["watching"])
     log_artifacts: bool = False
     rank_zero_only: bool = True
     log_interval: int = 1
