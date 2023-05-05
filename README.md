@@ -69,11 +69,21 @@ Sharded checkpoints are the default type of checkpoint that's saved during train
 If you plan to restart a training run using a *different* world size, you can only restart from an *unsharded* checkpoint.
 However, you can convert a sharded checkpoint into an unsharded checkpoint by launching the script [scripts/unshard_checkpoint.sh](./scripts/unshard_checkpoint.sh) in the same way you launched the training script. Note that this needs to be launched with the exact same world size as when the *sharded* checkpoint was saved.
 
-## Finding official runs
+## Finding official runs and checkpoints
 
 We track all of our runs in Weights & Biases under [the "ai2-llm" entity](https://wandb.ai/ai2-llm).
 The corresponding checkpoints are stored in GCS under `gs://ai2-olmo/<wandb_run_path>`.
 For example, checkpoints for the run [https://wandb.ai/ai2-llm/c4-small/runs/euox4j8q](https://wandb.ai/ai2-llm/c4-small/runs/euox4j8q) are located at [gs://ai2-olmo/ai2-llm/c4-small/euox4j8q/](https://console.cloud.google.com/storage/browser/ai2-olmo/ai2-llm/c4-small/euox4j8q).
+
+You can load a checkpoint like this:
+
+```python
+from olmo import Olmo, Tokenizer
+
+checkpoint = "gs://ai2-olmo/ai2-llm/c4-small/euox4j8q/step73000-unsharded"
+model = Olmo.from_checkpoint(checkpoint, device="cuda")
+tokenizer = Tokenizer.from_checkpoint(checkpoint)
+```
 
 ### Highlighted checkpoints
 
