@@ -134,6 +134,12 @@ class Formatter():
                 posts = (post_header(doc) + html2text(doc['com']) +'\n\n\n' for doc in thread if 'com' in doc)
                 yield {"text":''.join(posts), "metadata":metadata}
     
+    @staticmethod
+    def PTB(args):
+        # PTB has no document seperation so just treat it as one big document
+        with open(os.path.join(args.in_dir, args.filename), "rt", encoding="UTF8") as f:
+            yield {"text":f.read()}
+    
 
 
 def main():
