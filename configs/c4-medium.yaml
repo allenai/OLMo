@@ -86,8 +86,8 @@ tokenizer:
 save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
-save_interval: 200
-save_num_checkpoints_to_keep: 3
+save_interval: 1000
+save_num_checkpoints_to_keep: 2
 # Unsharded checkpoints (for final storage)
 save_interval_unsharded: 50000
 save_num_unsharded_checkpoints_to_keep: -1
