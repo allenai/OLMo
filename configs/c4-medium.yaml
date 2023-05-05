@@ -56,7 +56,7 @@ eval_interval: ${save_interval}
 evaluators:
   - label: c4-validation
     device_eval_batch_size: ${device_train_microbatch_size}
-    subset_num_batches: 5
+    subset_num_batches: 10
     data:
       paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
       pad_direction: right
@@ -68,7 +68,7 @@ evaluators:
       timeout: 0
   - label: rp-validation
     device_eval_batch_size: ${device_train_microbatch_size}
-    subset_num_batches: 5
+    subset_num_batches: 10
     data:
       paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
       pad_direction: right
