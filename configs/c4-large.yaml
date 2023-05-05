@@ -27,9 +27,7 @@ model:
   init_device: meta
   init_std: 0.02
 
-compile: null  # currently this doesn't work with activation checkpointing
-#compile:
-#  mode: default
+compile: null  # causes instability on AMD GPUs and doesn't work with activation checkpointing
 
 activation_checkpointing: true
 

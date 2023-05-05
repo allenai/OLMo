@@ -28,8 +28,7 @@ model:
   init_device: meta
   init_std: 0.02
 
-compile: null
-  # mode: default
+compile: null  # causes instability on AMD GPUs
 
 optimizer:
   name: lionw
@@ -85,8 +84,6 @@ tokenizer:
   identifier: gpt2
   truncate_direction: right
 
-max_duration: 2000000  # 2T tokens
-
 save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
@@ -98,6 +95,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
+max_duration: 953674  # 2T tokens
 global_train_batch_size: 1024
 device_train_microbatch_size: 8
 
