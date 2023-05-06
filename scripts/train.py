@@ -1048,8 +1048,8 @@ def build_scheduler(cfg: TrainConfig, optim: torch.optim.Optimizer) -> torch.opt
             )
             linear = torch.optim.lr_scheduler.LinearLR(
                 optim,
-                start_factor=1.0,
-                end_factor=cfg.scheduler.alpha_f,
+                start_factor=cfg.scheduler.alpha_f,
+                end_factor=cfg.scheduler.alpha_f**2,
                 total_iters=cfg.max_duration - cfg.scheduler.t_max,
             )
             schedulers.append(cosine)
