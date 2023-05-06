@@ -33,13 +33,6 @@ class Formatter():
                 yield {"text":doc["text"], "metadata":{"url":doc["url"], "date":doc["date"]}}
     
     @staticmethod
-    def c4_en(args):
-        with gzip.open(os.path.join(args.in_dir, args.filename), "rt", encoding="UTF8") as f:
-            for line in f:
-                doc = json.loads(line)
-                yield {"text":doc["text"], "metadata":{"url":doc["url"], "date":doc["date"]}}
-    
-    @staticmethod
     def twitterAAE_helm(args):
         return [{'text':doc} for doc in open(os.path.join(args.in_dir, args.filename))]
 
