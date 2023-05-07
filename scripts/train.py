@@ -917,7 +917,7 @@ def main(cfg: TrainConfig) -> None:
                 from transformers import AutoTokenizer
                 tokenizer = AutoTokenizer.from_pretrained("gpt2")
                 tokenizer.pad_token = tokenizer.eos_token
-            evaluator = build_downstream_evaluator(eval_cfg, tokenizer=tokenizer)
+            evaluator = build_downstream_evaluator(eval_cfg, train_cfg=cfg, tokenizer=tokenizer)
         else:
             eval_loader = build_dataloader(eval_cfg.data, cfg.model, eval_cfg.device_eval_batch_size)
             evaluator = Evaluator(
@@ -1019,27 +1019,30 @@ def build_dataloader(
     )
 
 
-def build_downstream_evaluator(eval_cfg: EvaluatorConfig, tokenizer=None) -> Evaluator:
+def build_downstream_evaluator(eval_cfg: EvaluatorConfig, train_cfg: TrainConfig, tokenizer=None, is_unit_test=False) -> Evaluator:
     task_class = label_to_task_map[eval_cfg.label]
     ds_eval_dataset = task_class(tokenizer=tokenizer)
-    ds_eval_sampler = DistributedSampler(
-        ds_eval_dataset,
-        drop_last=True,
-        shuffle=False,
-        num_replicas=dist.get_world_size(),
-        rank=global_rank(),
-        seed=cfg.seed,
-    )
+    if is_unit_test:
+        ds_eval_sampler = None
+    else:
+        ds_eval_sampler = DistributedSampler(
+            ds_eval_dataset,
+            drop_last=True,
+            shuffle=False,
+            num_replicas=dist.get_world_size(),
+            rank=global_rank(),
+            seed=cfg.seed,
+        )
     ds_eval_dataloader = DataLoader(
         ds_eval_dataset,
         batch_size=eval_cfg.device_eval_batch_size,
         collate_fn=ds_eval_dataset.collate_fn,
-        num_workers=cfg.data.num_workers,
+        num_workers=eval_cfg.data.num_workers,
         sampler=ds_eval_sampler,
-        pin_memory=cfg.data.pin_memory,
-        prefetch_factor=cfg.data.prefetch_factor,
-        persistent_workers=cfg.data.persistent_workers,
-        timeout=cfg.data.timeout,
+        pin_memory=eval_cfg.data.pin_memory,
+        prefetch_factor=eval_cfg.data.prefetch_factor,
+        persistent_workers=eval_cfg.data.persistent_workers,
+        timeout=eval_cfg.data.timeout,
     )
     metric = ICLMetric(metric_type=ds_eval_dataset.metric_type)
 
@@ -1047,7 +1050,7 @@ def build_downstream_evaluator(eval_cfg: EvaluatorConfig, tokenizer=None) -> Eva
         cfg=eval_cfg,
         eval_loader=ds_eval_dataloader,
         eval_batches=cycle_through_epochs(ds_eval_dataloader),
-        eval_loss_metric=metric.to(torch.device(cfg.device)),
+        eval_loss_metric=metric.to(torch.device(train_cfg.device)),
     )
     return evaluator
 
