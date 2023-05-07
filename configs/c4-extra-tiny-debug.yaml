@@ -64,6 +64,56 @@ evaluators:
     subset_num_batches: ${downstream_eval_subset_num_batches}
     is_downstream: true
     data: ${downstream_eval_data_config}
+  - label: hellaswag
+    device_eval_batch_size: ${device_train_microbatch_size}
+    subset_num_batches: ${downstream_eval_subset_num_batches}
+    is_downstream: true
+    data: ${downstream_eval_data_config}
+  - label: winogrande
+    device_eval_batch_size: ${device_train_microbatch_size}
+    subset_num_batches: ${downstream_eval_subset_num_batches}
+    is_downstream: true
+    data: ${downstream_eval_data_config}
+  - label: openbook_qa
+    device_eval_batch_size: ${device_train_microbatch_size}
+    subset_num_batches: ${downstream_eval_subset_num_batches}
+    is_downstream: true
+    data: ${downstream_eval_data_config}
+  - label: sciq
+    device_eval_batch_size: ${device_train_microbatch_size}
+    subset_num_batches: ${downstream_eval_subset_num_batches}
+    is_downstream: true
+    data: ${downstream_eval_data_config}
+  - label: arc_easy
+    device_eval_batch_size: ${device_train_microbatch_size}
+    subset_num_batches: ${downstream_eval_subset_num_batches}
+    is_downstream: true
+    data: ${downstream_eval_data_config}
+  - label: copa
+    device_eval_batch_size: ${device_train_microbatch_size}
+    subset_num_batches: ${downstream_eval_subset_num_batches}
+    is_downstream: true
+    data: ${downstream_eval_data_config}
+  - label: rte
+    device_eval_batch_size: ${device_train_microbatch_size}
+    subset_num_batches: ${downstream_eval_subset_num_batches}
+    is_downstream: true
+    data: ${downstream_eval_data_config}
+  - label: commitment_bank
+    device_eval_batch_size: ${device_train_microbatch_size}
+    subset_num_batches: ${downstream_eval_subset_num_batches}
+    is_downstream: true
+    data: ${downstream_eval_data_config}
+  - label: mrpc
+    device_eval_batch_size: ${device_train_microbatch_size}
+    subset_num_batches: ${downstream_eval_subset_num_batches}
+    is_downstream: true
+    data: ${downstream_eval_data_config}
+  - label: sst2
+    device_eval_batch_size: ${device_train_microbatch_size}
+    subset_num_batches: ${downstream_eval_subset_num_batches}
+    is_downstream: true
+    data: ${downstream_eval_data_config}
 
 tokenizer:
   identifier: gpt2
@@ -79,7 +129,7 @@ load_path: null
 max_duration: 1708984  # 7B tokens
 global_train_batch_size: 16
 device_train_microbatch_size: 4
-downstream_eval_subset_num_batches: 20  # a small number is probably enough
+downstream_eval_subset_num_batches: 10  # a small number is probably enough
 
 downstream_eval_data_config:
   pad_direction: right
