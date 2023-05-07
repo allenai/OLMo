@@ -34,7 +34,6 @@ class ICLMetric(Metric):
         for idx, (doc_id, cont_id) in enumerate(zip(batch['doc_id'], batch['cont_id'])):
             # [cont_len]: continuation is padded for batching
             cont_tokens = batch['continuation'][idx][:batch['cont_len'][idx]]
-
             # get logits from LM for the continuation: [cont_len, vocab]
             # batch['input_ids'][idx] -> ctx + cont + padding
             # -1 in both indices: lm_logits will be left shited 1 pos as 0th pos in input generates next token in the 0th pos of lm_logits

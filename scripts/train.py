@@ -116,7 +116,7 @@ class Evaluator:
         if isinstance(self.eval_loss_metric, ICLMetric):
             # downstream eval
             return {
-                f"eval/{self.cfg.label}/{self.eval_loss_metric.metric_type}": metric_val.item()
+                f"eval/{self.cfg.label}/{self.eval_loss_metric.metric_type}": metric_val,
             }
         else:
             # metric_val is cross entropy loss
@@ -499,15 +499,16 @@ class Trainer:
 
     def model_forward(self, batch: BatchDict) -> Tuple[torch.Tensor, torch.Tensor]:
         # shape: (batch_size, seq_len, vocab_size)
-        logits = self.fsdp_model(**batch).logits[..., :-1, :].contiguous()
+        logits = self.fsdp_model(**batch).logits
+        logits_for_loss = logits[..., :-1, :].contiguous()
         # shape: (batch_size * seq_len, vocab_size)
-        logits = logits.view(-1, logits.size(-1))
+        logits_for_loss = logits_for_loss.view(-1, logits_for_loss.size(-1))
         # shape: (batch_size, seq_len)
         labels = self.get_labels(batch)
         # shape: (batch_size,)
         labels = labels.view(-1)
-        ce_loss = F.cross_entropy(logits, labels, ignore_index=-100)
-        return ce_loss, logits
+        ce_loss = F.cross_entropy(logits_for_loss, labels, ignore_index=-100)
+        return ce_loss, logits  # return
 
     def train_batch(self, batch: BatchDict) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Split into micro-batches.
@@ -601,6 +602,7 @@ class Trainer:
     def eval_batch(self, batch: BatchDict) -> torch.Tensor:
         with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
             ce_loss, logits = self.model_forward(batch)
+
         return ce_loss, logits
 
     def eval_step(self, batch: BatchDict, evaluator: Evaluator) -> Dict[str, float]:
