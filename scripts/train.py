@@ -116,7 +116,7 @@ class Evaluator:
         if isinstance(self.eval_loss_metric, ICLMetric):
             # downstream eval
             return {
-                f"eval/{self.cfg.label}/{self.eval_loss_metric.metric_type}": metric_val,
+                f"eval/{self.cfg.label}_{self.eval_loss_metric.metric_type}": metric_val,
             }
         else:
             # metric_val is cross entropy loss

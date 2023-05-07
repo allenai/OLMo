@@ -1,4 +1,4 @@
-run_name: tiny-run-001
+run_name: extra-tiny-debug
 seed: 6198
 dry_run: false
 
@@ -14,7 +14,7 @@ model:
   attention_layer_norm: false
   residual_dropout: 0.0
   embedding_dropout: 0.0
-  max_sequence_length: 256
+  max_sequence_length: 2048
   include_bias: true
   vocab_size: 50257
   eos_token_id: 50256
@@ -84,16 +84,16 @@ evaluators:
   #   subset_num_batches: ${downstream_eval_subset_num_batches}
   #   is_downstream: true
   #   data: ${downstream_eval_data_config}
-  # - label: sciq   # requires 2K sequence lengh
-  #   device_eval_batch_size: ${device_train_microbatch_size}
-  #   subset_num_batches: ${downstream_eval_subset_num_batches}
-  #   is_downstream: true
-  #   data: ${downstream_eval_data_config}
-  - label: arc_easy
+  - label: sciq
     device_eval_batch_size: ${device_train_microbatch_size}
     subset_num_batches: ${downstream_eval_subset_num_batches}
     is_downstream: true
     data: ${downstream_eval_data_config}
+  # - label: arc_easy  # crashed
+  #   device_eval_batch_size: ${device_train_microbatch_size}
+  #   subset_num_batches: ${downstream_eval_subset_num_batches}
+  #   is_downstream: true
+  #   data: ${downstream_eval_data_config}
   # - label: arc_challenge  # requires implemention of the pmi_dc matrix
   #   device_eval_batch_size: ${device_train_microbatch_size}
   #   subset_num_batches: ${downstream_eval_subset_num_batches}
@@ -109,11 +109,11 @@ evaluators:
     subset_num_batches: ${downstream_eval_subset_num_batches}
     is_downstream: true
     data: ${downstream_eval_data_config}
-  - label: commitment_bank
-    device_eval_batch_size: ${device_train_microbatch_size}
-    subset_num_batches: ${downstream_eval_subset_num_batches}
-    is_downstream: true
-    data: ${downstream_eval_data_config}
+  # - label: commitment_bank  # crashed
+  #   device_eval_batch_size: ${device_train_microbatch_size}
+  #   subset_num_batches: ${downstream_eval_subset_num_batches}
+  #   is_downstream: true
+  #   data: ${downstream_eval_data_config}
   - label: mrpc
     device_eval_batch_size: ${device_train_microbatch_size}
     subset_num_batches: ${downstream_eval_subset_num_batches}
@@ -152,8 +152,8 @@ downstream_eval_data_config:
 
 precision: fp32
 
-wandb: null
-#   name: ${run_name}
+wandb:
+  name: ${run_name}
 
 speed_monitor:
   window_size: 20
