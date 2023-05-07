@@ -126,10 +126,10 @@ class Evaluator:
                 f"eval/{self.cfg.label}/Perplexity": torch.exp(loss).item(),
             }
 
-    def update_metrics(self, batch: BatchDict, loss: torch.Tensor, lm_logits: torch.Tensor,) -> None:
+    def update_metrics(self, batch: BatchDict, loss: torch.Tensor, logits: torch.Tensor,) -> None:
         if isinstance(self.eval_loss_metric, ICLMetric):
             # downstream eval
-            self.eval_loss_metric.update(batch, lm_logits)
+            self.eval_loss_metric.update(batch, logits)
         else:
             self.eval_loss_metric.update(loss)
 
@@ -600,8 +600,8 @@ class Trainer:
 
     def eval_batch(self, batch: BatchDict) -> torch.Tensor:
         with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
-            ce_loss, _ = self.model_forward(batch)
-        return ce_loss
+            ce_loss, logits = self.model_forward(batch)
+        return ce_loss, logits
 
     def eval_step(self, batch: BatchDict, evaluator: Evaluator) -> Dict[str, float]:
         # Move tensors to the right device.
@@ -614,10 +614,10 @@ class Trainer:
 
         # Run forward pass.
         with torch.no_grad():  # NOTE: 'torch.inference_mode()' doesn't work with 'torch.compile()'.
-            loss, logits = self.eval_batch(filtered_batch)
+            ce_loss, logits = self.eval_batch(filtered_batch)
 
         # Update metrics.
-        evaluator.update_metrics(batch, loss, logits)  # batch includes all keys that the downstream evaluation needs
+        evaluator.update_metrics(batch, ce_loss, logits)  # batch includes all keys that the downstream evaluation needs
 
         return evaluator.compute_metrics()
 
@@ -1019,7 +1019,7 @@ def build_dataloader(
     )
 
 
-def build_downstream_evaluator(eval_cfg: EvaluatorConfig, tokenizer = None) -> Evaluator:
+def build_downstream_evaluator(eval_cfg: EvaluatorConfig, tokenizer=None) -> Evaluator:
     task_class = label_to_task_map[eval_cfg.label]
     ds_eval_dataset = task_class(tokenizer=tokenizer)
     ds_eval_sampler = DistributedSampler(
