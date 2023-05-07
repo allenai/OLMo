@@ -79,16 +79,26 @@ evaluators:
     subset_num_batches: ${downstream_eval_subset_num_batches}
     is_downstream: true
     data: ${downstream_eval_data_config}
-  - label: sciq
-    device_eval_batch_size: ${device_train_microbatch_size}
-    subset_num_batches: ${downstream_eval_subset_num_batches}
-    is_downstream: true
-    data: ${downstream_eval_data_config}
+  # - label: boolq  # requires implemention of the pmi_dc matrix
+  #   device_eval_batch_size: ${device_train_microbatch_size}
+  #   subset_num_batches: ${downstream_eval_subset_num_batches}
+  #   is_downstream: true
+  #   data: ${downstream_eval_data_config}
+  # - label: sciq   # requires 2K sequence lengh
+  #   device_eval_batch_size: ${device_train_microbatch_size}
+  #   subset_num_batches: ${downstream_eval_subset_num_batches}
+  #   is_downstream: true
+  #   data: ${downstream_eval_data_config}
   - label: arc_easy
     device_eval_batch_size: ${device_train_microbatch_size}
     subset_num_batches: ${downstream_eval_subset_num_batches}
     is_downstream: true
     data: ${downstream_eval_data_config}
+  # - label: arc_challenge  # requires implemention of the pmi_dc matrix
+  #   device_eval_batch_size: ${device_train_microbatch_size}
+  #   subset_num_batches: ${downstream_eval_subset_num_batches}
+  #   is_downstream: true
+  #   data: ${downstream_eval_data_config}
   - label: copa
     device_eval_batch_size: ${device_train_microbatch_size}
     subset_num_batches: ${downstream_eval_subset_num_batches}
