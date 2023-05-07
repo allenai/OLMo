@@ -10,8 +10,7 @@ def test_piqa():
     tokenizer.pad_token = tokenizer.eos_token
     evaluator = build_downstream_evaluator(cfg.evaluators[1], train_cfg=cfg, tokenizer=tokenizer, is_unit_test=True)
 
-    # mock logits as a random torch.tensor of size [224, 50304]
-    logits = torch.rand(4, 56, 50304)
+    logits = torch.rand(4, 57, 50304)
     epoch, first_batch = next(evaluator.eval_batches)
     evaluator.reset_metrics()
     evaluator.update_metrics(first_batch, logits.sum(), logits)

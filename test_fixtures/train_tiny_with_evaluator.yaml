@@ -42,7 +42,7 @@ evaluators:
       prefetch_factor: null
   - label: piqa
     device_eval_batch_size: ${device_train_microbatch_size}
-    subset_num_batches: 8  # a small number is probably enough
+    subset_num_batches: 8
     is_downstream: true
     data:
       paths: 

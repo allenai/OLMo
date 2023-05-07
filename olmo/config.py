@@ -575,6 +575,16 @@ class TrainConfig(BaseConfig):
     this as large as you can based on available GPU memory.
     """
 
+    downstream_eval_subset_num_batches: int = 20
+    """
+    The number of batches to use for downstream evaluation from each dataset.
+    """
+
+    downstream_eval_data_config: Optional[DataConfig] = None
+    """
+    The data configuration to use for the evaluatos of the downstream evaluation.
+    """
+
     device_train_grad_accum: Optional[int] = None  # calculated automatically
     """
     Don't set this manually. This will be set to ``device_train_batch_size // device_train_microbatch_size``.

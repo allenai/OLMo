@@ -61,17 +61,9 @@ evaluators:
       timeout: 0
   - label: piqa
     device_eval_batch_size: ${device_train_microbatch_size}
-    subset_num_batches: 100  # a small number is probably enough
+    subset_num_batches: ${downstream_eval_subset_num_batches}
     is_downstream: true
-    data:
-      paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
-      pad_direction: right
-      num_workers: 4
-      drop_last: false
-      pin_memory: true
-      prefetch_factor: 4  # bump to 16 if on LUMI
-      persistent_workers: true
-      timeout: 0
+    data: ${downstream_eval_data_config}
 
 tokenizer:
   identifier: gpt2
@@ -87,6 +79,16 @@ load_path: null
 max_duration: 1708984  # 7B tokens
 global_train_batch_size: 16
 device_train_microbatch_size: 4
+downstream_eval_subset_num_batches: 20  # a small number is probably enough
+
+downstream_eval_data_config:
+  pad_direction: right
+  num_workers: 4
+  drop_last: false
+  pin_memory: true
+  prefetch_factor: 4  # bump to 16 if on LUMI
+  persistent_workers: true
+  timeout: 0
 
 precision: fp32
 
