@@ -15,3 +15,6 @@ logzio-python-handler
 boto3
 google-cloud-storage
 packaging
+datasets
+scikit-learn
+transformers

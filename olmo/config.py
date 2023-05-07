@@ -373,6 +373,7 @@ class EvaluatorConfig(BaseConfig):
     data: DataConfig
     device_eval_batch_size: int
     subset_num_batches: int = -1
+    is_downstream: bool = False
 
 
 class TruncationDirection(StrEnum):

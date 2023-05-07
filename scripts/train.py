@@ -57,6 +57,7 @@ from olmo.util import (
     prepare_cli_environment,
     seed_all,
 )
+from olmo.downstream_eval import ICLMetric, label_to_task_map
 
 log = logging.getLogger("train")
 
@@ -111,14 +112,26 @@ class Evaluator:
         self.eval_loss_metric.reset()
 
     def compute_metrics(self) -> Dict[str, float]:
-        loss = self.eval_loss_metric.compute()
-        return {
-            f"eval/{self.cfg.label}/CrossEntropyLoss": loss.item(),
-            f"eval/{self.cfg.label}/Perplexity": torch.exp(loss).item(),
-        }
+        metric_val = self.eval_loss_metric.compute()
+        if isinstance(self.eval_loss_metric, ICLMetric):
+            # downstream eval
+            return {
+                f"eval/{self.cfg.label}/{self.eval_loss_metric.metric_type}": metric_val.item()
+            }
+        else:
+            # metric_val is cross entropy loss
+            loss = metric_val
+            return {
+                f"eval/{self.cfg.label}/CrossEntropyLoss": loss.item(),
+                f"eval/{self.cfg.label}/Perplexity": torch.exp(loss).item(),
+            }
 
-    def update_metrics(self, loss: torch.Tensor) -> None:
-        self.eval_loss_metric.update(loss)
+    def update_metrics(self, batch: BatchDict, loss: torch.Tensor, lm_logits: torch.Tensor,) -> None:
+        if isinstance(self.eval_loss_metric, ICLMetric):
+            # downstream eval
+            self.eval_loss_metric.update(batch, lm_logits)
+        else:
+            self.eval_loss_metric.update(loss)
 
 
 @dataclass
@@ -594,12 +607,17 @@ class Trainer:
         # Move tensors to the right device.
         batch = move_to_device(batch, self.device)
 
+        # Remove all keys except the ones that the model is expecting.
+        # This is to handle the case of downstream evaluation where the batch has more information that the model
+        # doesn't need but are needed for the metric computation
+        filtered_batch = {k: v for k, v in batch.items() if k in ["input_ids", "attention_mask", "attention_bias"]}
+
         # Run forward pass.
         with torch.no_grad():  # NOTE: 'torch.inference_mode()' doesn't work with 'torch.compile()'.
-            ce_loss = self.eval_batch(batch)
+            loss, logits = self.eval_batch(filtered_batch)
 
         # Update metrics.
-        evaluator.update_metrics(ce_loss)
+        evaluator.update_metrics(batch, loss, logits)  # batch includes all keys that the downstream evaluation needs
 
         return evaluator.compute_metrics()
 
@@ -891,14 +909,23 @@ def main(cfg: TrainConfig) -> None:
 
     # Construct evaluators.
     evaluators = []
+    tokenizer = None
     for eval_cfg in cfg.evaluators:
-        eval_loader = build_dataloader(eval_cfg.data, cfg.model, eval_cfg.device_eval_batch_size)
-        evaluator = Evaluator(
-            cfg=eval_cfg,
-            eval_loader=eval_loader,
-            eval_batches=cycle_through_epochs(eval_loader),
-            eval_loss_metric=MeanMetric(nan_strategy="error").to(torch.device(cfg.device)),
-        )
+        if eval_cfg.is_downstream:
+            if tokenizer is None:
+                # TODO: is this how we want to load the tokenizer?
+                from transformers import AutoTokenizer
+                tokenizer = AutoTokenizer.from_pretrained("gpt2")
+                tokenizer.pad_token = tokenizer.eos_token
+            evaluator = build_downstream_evaluator(eval_cfg, tokenizer=tokenizer)
+        else:
+            eval_loader = build_dataloader(eval_cfg.data, cfg.model, eval_cfg.device_eval_batch_size)
+            evaluator = Evaluator(
+                cfg=eval_cfg,
+                eval_loader=eval_loader,
+                eval_batches=cycle_through_epochs(eval_loader),
+                eval_loss_metric=MeanMetric(nan_strategy="error").to(torch.device(cfg.device)),
+            )
         evaluators.append(evaluator)
 
     # Consolidate components into `Trainer` object.
@@ -990,6 +1017,39 @@ def build_dataloader(
         persistent_workers=cfg.data.persistent_workers,
         timeout=cfg.data.timeout,
     )
+
+
+def build_downstream_evaluator(eval_cfg: EvaluatorConfig, tokenizer = None) -> Evaluator:
+    task_class = label_to_task_map[eval_cfg.label]
+    ds_eval_dataset = task_class(tokenizer=tokenizer)
+    ds_eval_sampler = DistributedSampler(
+        ds_eval_dataset,
+        drop_last=True,
+        shuffle=False,
+        num_replicas=dist.get_world_size(),
+        rank=global_rank(),
+        seed=cfg.seed,
+    )
+    ds_eval_dataloader = DataLoader(
+        ds_eval_dataset,
+        batch_size=eval_cfg.device_eval_batch_size,
+        collate_fn=ds_eval_dataset.collate_fn,
+        num_workers=cfg.data.num_workers,
+        sampler=ds_eval_sampler,
+        pin_memory=cfg.data.pin_memory,
+        prefetch_factor=cfg.data.prefetch_factor,
+        persistent_workers=cfg.data.persistent_workers,
+        timeout=cfg.data.timeout,
+    )
+    metric = ICLMetric(metric_type=ds_eval_dataset.metric_type)
+
+    evaluator = Evaluator(
+        cfg=eval_cfg,
+        eval_loader=ds_eval_dataloader,
+        eval_batches=cycle_through_epochs(ds_eval_dataloader),
+        eval_loss_metric=metric.to(torch.device(cfg.device)),
+    )
+    return evaluator
 
 
 def build_optimizer(cfg: TrainConfig, model: nn.Module) -> torch.optim.Optimizer:
