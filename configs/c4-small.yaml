@@ -41,7 +41,7 @@ optimizer:
 scheduler:
   name: cosine_with_warmup
   t_warmup: 2000
-  t_max: 100000
+  t_max: null
 
 data:
   paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-train.*.npy}
