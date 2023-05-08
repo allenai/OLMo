@@ -7,6 +7,7 @@ Adapted from
 from __future__ import annotations
 
 import math
+import os
 from abc import abstractmethod
 from typing import Dict, List, NamedTuple, Optional, Union, cast
 
@@ -16,6 +17,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import einsum
 
+from .aliases import PathOrStr
 from .beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
 from .config import ActivationType, BlockType, LayerNormType, ModelConfig
 from .exceptions import OlmoConfigurationError
@@ -531,7 +533,7 @@ class Olmo(nn.Module):
             )
         if init_params and self.config.init_device != "meta":
             self.apply(self.param_init_fn)
-        self.__num_fwd_flops = None
+        self.__num_fwd_flops: Optional[int] = None
 
         # Attention bias cache.
         # We could cache these as buffers, but we've run into various issues doing that with FSDP.
@@ -652,11 +654,15 @@ class Olmo(nn.Module):
 
         return OlmoOutput(logits=logits)  # type: ignore[arg-type]
 
-    def fsdp_wrap_fn(self, module):
+    def fsdp_wrap_fn(self, module, recurse: bool = True, nonwrapped_numel: int = 0):
+        del recurse, nonwrapped_numel
         return isinstance(module, OlmoBlock)
 
     def activation_checkpointing_fn(self, module):
         return isinstance(module, OlmoBlock)
+
+    def reset_parameters(self):
+        self.apply(self.param_init_fn)
 
     def param_init_fn(self, module):
         from functools import partial
@@ -832,3 +838,25 @@ class Olmo(nn.Module):
             token_ids=token_ids,  # type: ignore[arg-type]
             scores=scores,  # type: ignore[arg-type]
         )
+
+    @classmethod
+    def from_checkpoint(cls, checkpoint_dir: PathOrStr, device: str = "cpu") -> Olmo:
+        """
+        Load an OLMo model from a checkpoint.
+        """
+        from cached_path import cached_path
+
+        # Load config.
+        config_path = cached_path(os.path.join(checkpoint_dir, "config.yaml"))
+        model_config = ModelConfig.load(config_path, key="model")
+
+        # Initialize model (always on CPU to start with so we don't run out of GPU memory).
+        model_config.init_device = "cpu"
+        model = Olmo(model_config)
+
+        # Load state dict directly to target device.
+        state_dict_path = cached_path(os.path.join(checkpoint_dir, "model.pt"))
+        state_dict = torch.load(state_dict_path, map_location=device)
+        model.load_state_dict(state_dict)
+
+        return model.to(torch.device(device))

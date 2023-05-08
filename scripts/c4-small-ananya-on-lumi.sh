@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=c4-large
+#SBATCH --job-name=c4-small
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
-#SBATCH --nodes=32              # Total number of nodes 
+#SBATCH --nodes=16              # Total number of nodes 
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
-#SBATCH --time=00:15:00
+#SBATCH --time=48:00:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
@@ -27,12 +27,12 @@ export FI_CXI_DEFAULT_CQ_SIZE=131072
 
 #export NCCL_DEBUG=INFO
 export PYTHONPATH=.:${PYTHONPATH}
-export WANDB_PROJECT=lumi-${SLURM_JOB_PARTITION}
+export WANDB_PROJECT=c4-small
 export ROCM_PATH=/opt/rocm
 export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64
 
 # Try playing with max_split_size_mb if you run into OOM errors.
-export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:512
+# export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:512
 
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
@@ -47,5 +47,4 @@ srun \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/llm-lumi_latest.sif \
-    python scripts/train.py configs/c4-large.yaml --run_name=${SLURM_JOB_ID}
-
+    python scripts/train.py configs/c4-small-ananya.yaml --run_name=${SLURM_JOB_ID}-ananya --load_path=/scratch/project_462000229/checkpoints/3440863/latest

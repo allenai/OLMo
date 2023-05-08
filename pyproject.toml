@@ -21,7 +21,7 @@ multi_line_output = 3
 
 [tool.pyright]
 reportPrivateImportUsage = false
-exclude = ["pretrain_data/"]
+exclude = ["pretrain_data/", "tokenizer/"]
 
 [build-system]
 requires = ["setuptools", "wheel"]
@@ -30,6 +30,7 @@ build-backend = "setuptools.build_meta"
 [tool.mypy]
 ignore_missing_imports = true
 no_site_packages = true
+check_untyped_defs = true
 exclude = ["pretrain_data/"]
 
 [[tool.mypy.overrides]]

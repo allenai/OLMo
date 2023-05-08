@@ -2,8 +2,7 @@ import pytest
 import torch
 from torch.nn import CrossEntropyLoss
 
-from olmo import BlockType, ModelConfig, Olmo, Tokenizer, TrainConfig
-from olmo.composer import build_optimizer
+from olmo import BlockType, Olmo, Tokenizer, TrainConfig
 from olmo.config import PaddingDirection
 from olmo.data import DataCollator
 
@@ -290,10 +289,6 @@ def test_backward(
                 raise RuntimeError(f"{name} has zero a gradient!")
         else:
             assert parameter.grad is None
-
-
-def test_build_optimizer(model_config: ModelConfig):
-    build_optimizer(Olmo(model_config))
 
 
 @pytest.mark.parametrize(

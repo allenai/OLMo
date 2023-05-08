@@ -1,4 +1,4 @@
-run_name: c4-medium-run-001
+run_name: c4-small-run-001
 seed: 6198
 dry_run: false
 
@@ -6,33 +6,35 @@ wandb:
   name: ${run_name}
 
 model:
-  d_model: 4096
+  d_model: 2048
   n_heads: 16
-  n_layers: 30
-  mlp_ratio: 8
-  alibi: true
+  n_layers: 24
+  mlp_ratio: 4
+  alibi: false
   alibi_bias_max: 8.0
+  rope: true
   attention_dropout: 0.0
   attention_layer_norm: true
-  multi_query_attention: true
-  block_type: sequential
+  multi_query_attention: false
+  block_type: parallel
   layer_norm_type: low_precision  # if not compiling, use 'low_precision'
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
   max_sequence_length: 2048
   vocab_size: 50257
+  embedding_size: 50304
   eos_token_id: 50256
   pad_token_id: 50256
   init_device: meta
   init_std: 0.02
 
-compile: null  # causes instability on AMD GPUs
+compile: null
 
 optimizer:
   name: lionw
-  learning_rate: 1.0e-5
-  weight_decay: 0.01
+  learning_rate: 2.0e-4
+  weight_decay: 0.5
   betas:
   - 0.9
   - 0.95
@@ -40,7 +42,7 @@ optimizer:
 scheduler:
   name: cosine_with_warmup
   t_warmup: 2000
-  t_max: 160000
+  alpha_f: 0.1
 
 data:
   paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-train.*.npy}
@@ -56,7 +58,7 @@ eval_interval: ${save_interval}
 evaluators:
   - label: c4-validation
     device_eval_batch_size: ${device_train_microbatch_size}
-    subset_num_batches: 10
+    subset_num_batches: 20
     data:
       paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
       pad_direction: right
@@ -68,7 +70,7 @@ evaluators:
       timeout: 0
   - label: rp-validation
     device_eval_batch_size: ${device_train_microbatch_size}
-    subset_num_batches: 10
+    subset_num_batches: 20
     data:
       paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
       pad_direction: right
@@ -83,23 +85,20 @@ tokenizer:
   identifier: gpt2
   truncate_direction: right
 
+max_duration: 160000 # 335B tokens
+
 save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
-save_overwrite: false
-# Sharded checkpoints (best for restarts)
 save_interval: 1000
-save_num_checkpoints_to_keep: 2
-# Unsharded checkpoints (for final storage)
-save_interval_unsharded: 50000
-save_num_unsharded_checkpoints_to_keep: -1
+save_num_checkpoints_to_keep: -1
+save_overwrite: false
 
 load_path: null
 
-max_duration: 953674  # 2T tokens
 global_train_batch_size: 1024
-device_train_microbatch_size: 2
+device_train_microbatch_size: 4
 
 precision: amp_bf16
-
+  
 max_grad_norm: 1.0
 
 speed_monitor:

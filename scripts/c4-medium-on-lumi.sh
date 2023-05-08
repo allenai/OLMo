@@ -2,11 +2,11 @@
 #SBATCH --job-name=c4-medium
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
-#SBATCH --nodes=8               # Total number of nodes 
+#SBATCH --nodes=64              # Total number of nodes 
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
-#SBATCH --time=00:15:00
+#SBATCH --time=48:00:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
@@ -21,11 +21,18 @@ export MIOPEN_CUSTOM_CACHE_DIR=${MIOPEN_USER_DB_PATH}
 export CXI_FORK_SAFE=1
 export CXI_FORK_SAFE_HP=1
 export FI_CXI_DISABLE_CQ_HUGETLB=1
+
+# We need to set this to avoid "Cassini Event Queue overflow detected." errors.
+export FI_CXI_DEFAULT_CQ_SIZE=131072
+
 #export NCCL_DEBUG=INFO
 export PYTHONPATH=.:${PYTHONPATH}
-export WANDB_PROJECT=lumi-${SLURM_JOB_PARTITION}
+export WANDB_PROJECT=c4-medium
 export ROCM_PATH=/opt/rocm
 export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64
+
+# Try playing with max_split_size_mb if you run into OOM errors.
+export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:512
 
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
@@ -41,4 +48,3 @@ srun \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/llm-lumi_latest.sif \
     python scripts/train.py configs/c4-medium.yaml --run_name=${SLURM_JOB_ID}
-

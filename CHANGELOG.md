@@ -11,5 +11,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - GPT-based model.
 - Tokenizer and data pre-processing pipeline.
-- `composer` training script.
+- training script.
 - Triton-based FlashAttention.

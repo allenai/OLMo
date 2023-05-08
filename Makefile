@@ -99,7 +99,7 @@ gantry-run-ib :
 		--allow-dirty \
 		--venv base \
 		--yes \
-		-- /bin/bash -c 'composer --master_addr $$BEAKER_LEADER_REPLICA_HOSTNAME --world_size $$WORLD_SIZE --node_rank $$BEAKER_REPLICA_RANK -n $$GPUS --master_port 1234 scripts/train.py configs/70b-c4.yaml'
+		-- /bin/bash -c 'torchrun --master-addr $$BEAKER_LEADER_REPLICA_HOSTNAME --master_port 1234 --nnodes 4 --node-rank $$BEAKER_REPLICA_RANK --nproc-per-node 8 scripts/train.py configs/c4-large.yaml'
 
 .PHONY : check-cpu-install
 check-cpu-install :
