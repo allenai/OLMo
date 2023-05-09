@@ -16,8 +16,8 @@ DEST_SIZE=$(aws s3 ls --summarize --human-readable $DEST_PATH | tail -1)
 EMPTY_SIZE_STR=': 0 Bytes'
 
 # if [[ "$DEST_SIZE" = "" ]]
-if [[ "$DEST_SIZE" == *"$EMPTY_SIZE_STR"* ]]
-then
+#if [[ "$DEST_SIZE" == *"$EMPTY_SIZE_STR"* ]]
+#then
     # echo $SOURCE_PATH $DEST_PATH
 
     # Merge stats for a language under LOCAL_DIR
@@ -28,5 +28,5 @@ then
 
     # Remove the file from LOCAL_DIR to avoid filling up the disk space.
     # rm $SOURCE_PATH
-fi
+#fi
 

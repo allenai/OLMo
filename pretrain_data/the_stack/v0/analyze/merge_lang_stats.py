@@ -11,7 +11,7 @@ def merge(urls: List[str], output_path: str):
         return
     all_dfs = []
     for url in urls:
-        path = os.path.join(S3_location, url)
+        path = os.path.join(S3_location, url + ".tsv")
         df = pd.read_csv(path, sep="\t")
         all_dfs.append(df)
 

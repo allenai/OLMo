@@ -73,14 +73,16 @@ def get_filecontent_stats(instance, clean_copyright: bool = False) -> Dict[str, 
     line_lengths = list(map(len, content.splitlines()))
 
     if len(line_lengths) == 0:
-        return {
+        instance.update({
             "line_count": 0,
             "max_line_length": 0,
             "avg_line_length": 0,
             "alnum_prop": 0,
             "num_characters": 0,
-            # "num_tokens": 0,
-        }
+            "num_tokens_unicode": 0,
+            "num_tokens_whitespace": 0,
+        })
+        return instance
 
     num_characters = len(content)
 
@@ -99,7 +101,7 @@ def get_filecontent_stats(instance, clean_copyright: bool = False) -> Dict[str, 
     instance["avg_line_length"] = avg_length
     instance["alnum_prop"] = alnum_prop
     instance["num_characters"] = num_characters
-    # instance["num_tokens_unicode"] = count_tokens_unicode(content) # nobody got time for that
+    instance["num_tokens_unicode"] = count_tokens_unicode(content) # nobody got time for that
 
     # whitespace
     instance["num_tokens_whitespace"] = len(content.split())
@@ -108,7 +110,7 @@ def get_filecontent_stats(instance, clean_copyright: bool = False) -> Dict[str, 
 
 
 def process_file(url: str, output_file: str, clean_copyright: bool, version: str):
-    name = url.split("/")[-1].replace(".parquet", ".jsonl.gz")
+    name = url.split("/")[-1] + ".jsonl.gz" #.replace(".parquet", ".jsonl.gz")
     lang = url.split("/")[-2]
 
     s3_location = f"s3://ai2-llm/pretraining-data/sources/stack-dedup/{version}/documents"
@@ -130,8 +132,8 @@ def process_file(url: str, output_file: str, clean_copyright: bool, version: str
 
 
 def run(url: str, output_dir: str, clean_copyright: bool, version: str):
-    json_url = url.split("/")[-1].replace(".parquet", ".jsonl.gz")
-    name = url.split("/")[-1].replace(".parquet", ".tsv")
+    json_url = url.split("/")[-1] + ".jsonl.gz" #.replace(".parquet", ".jsonl.gz")
+    name = url.split("/")[-1] + ".tsv" #.replace(".parquet", ".tsv")
     lang = url.split("/")[-2]
     output_file = os.path.join(args.output_dir, lang, name)
     if os.path.exists(output_file):

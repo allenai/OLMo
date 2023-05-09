@@ -1,19 +1,15 @@
 import argparse
 import logging
-import os
 import re
 import string
 import sys
-from typing import Dict, Union, List, Callable
+from typing import Dict, Union
 
-import pandas as pd
-from uniseg.wordbreak import words as unicode_tokenize
-import s3fs
-
-S3_FS = s3fs.S3FileSystem()
-S3_LOCATION = "s3://ai2-llm/pretraining-data/sources/stack-dedup"
-V1_LOCATION = f"{S3_LOCATION}/v1"
-V2_LOCATION = f"{S3_LOCATION}/v2"
+from pretrain_data.the_stack.create_utils import (
+    _get_lang_list,
+    create_documents,
+    should_exclude_filename,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,21 +21,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
-def _get_lang_list(lang_list_path: str) -> List[str]:
-    with open(lang_list_path) as f:
-        langs = f.readlines()
-
-    langs = [lang.strip() for lang in langs]
-    return langs
-
-
-def _get_documents_location(base_location: str):
-    return f"{base_location}/documents"
-
-def _get_attributes_location(base_location: str):
-    return f"{base_location}/attributes"
-
 
 def filter_by_filecontent_stats(instance_attributes) -> bool:
 
@@ -60,69 +41,38 @@ def filter_by_filecontent_stats(instance_attributes) -> bool:
 
     return True
 
-def create_documents(filename: str, filter_functions: List[Callable]):
-    # eg. filename: lang/data_0000
-    v1_url = f"{_get_documents_location(V1_LOCATION)}/{filename}.jsonl.gz"
-    v2_url = f"{_get_documents_location(V2_LOCATION)}/{filename}.jsonl.gz"
 
-    v1_attributes_url = f"{_get_attributes_location(V1_LOCATION)}/{filename}.tsv"
-
-    if not S3_FS.exists(v2_url):
-        logger.info(f"Creating document {v2_url}")
-        v1_df = pd.read_json(v1_url, lines=True, compression="gzip")
-        v1_attribute_df = pd.read_csv(v1_attributes_url, sep="\t")
-
-        v1 = pd.merge(v1_df, v1_attribute_df, on="id")
-        for func in filter_functions:
-            v1 = v1[v1.apply(func, axis=1)]
-
-        removed = len(v1_df) - len(v1)
-        logger.info(f"{filename} - {removed} / {len(v1_df)} were removed.")
-        logger.info(f"{filename} - total remaining tokens: {v1['num_tokens_whitespace'].sum()}")
-
-        v1 = v1[v1_df.columns]
-        v1.to_json(v2_url, lines=True, compression="gzip", orient="records")
-
-
-def create_attributes(filename: str, functions_to_apply: List[Callable]):
-    v2_url = f"{_get_documents_location(V2_LOCATION)}/{filename}.jsonl.gz"
+def create_attributes(old_version: str, new_version: str, filename: str):
+    v2_url = f"{_get_documents_location(new_version)}/{filename}.jsonl.gz"
     v2_df = pd.read_json(v2_url, lines=True, compression="gzip")
 
-    v2_attributes_url = f"{_get_attributes_location(V2_LOCATION)}/{filename}.tsv"
+    v2_attributes_url = f"{_get_attributes_location(new_version)}/{filename}.tsv"
 
-    if not S3_FS.exists(v1_attributes_url):
+    v1_attributes_url = f"{_get_attributes_location(old_version)}/{filename}.tsv"
+    v1_adf = pd.read_csv(v1_attributes_url, sep="\t")
+
+    if not S3_FS.exists(v2_attributes_url):
         logger.info(f"Creating attributes {v2_attributes_url}")
-        ndf = v2_df
-        for func in functions_to_apply:
-            ndf = ndf.apply(func, axis=1)
-        stat_keys = ["id"] + list(set(ndf.columns) - set(v2_df.columns))
-        ndf = ndf[stat_keys]
-
+        ndf = v1_adf[v1_adf["id"].isin(v2_df["id"])]
         ndf.to_csv(v2_attributes_url, sep="\t", index=False)
 
 
-def should_exclude_filename(filename: str, lang_list: List[str]) -> bool:
-    lang = filename.split("/")[0]
-    if lang not in lang_list:
-        logger.warning(f"{filename} is excluded as it is not part of the selected languages.")
-        return True
-    return False
-
-
-def process_file(filename: str):
-    lang_list = _get_lang_list("lang_list.txt")
+def process_file(old_version: str, new_version: str, lang_list_path: str, filename: str):
+    lang_list = _get_lang_list(lang_list_path)
     if should_exclude_filename(filename, lang_list):
         return
 
-    create_documents(filename, [filter_by_filecontent_stats])
-    # create_attributes(filename, [get_filecontent_stats])
+    create_documents(old_version, new_version, filename, [filter_by_filecontent_stats])
+    create_attributes(old_version, new_version, filename)
     logger.info("Done")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Create v2 files from corresponding v1 files.")
+    parser = argparse.ArgumentParser(description="Create new version files from corresponding old version files.")
+    parser.add_argument("--old-version", type=str, required=False, default="v1")
+    parser.add_argument("--new-version", type=str, required=False, default="v2")
     parser.add_argument("--filename", type=str, required=True)
+    parser.add_argument("--lang-list", type=str, required=False, default="lang_list.txt")
     args = parser.parse_args()
 
-    process_file(args.filename)
-
+    process_file(args.old_version, args.new_version, args.lang_list, args.filename)

@@ -268,7 +268,6 @@ sparql
 sqf
 sql
 ston
-svg
 sage
 saltstack
 sass

@@ -3,4 +3,4 @@
 FILENAMES_FILE=$1
 
 echo $(wc -l $FILENAMES_FILE)
-cat $FILENAMES_FILE| parallel -j 15 --bar --max-args=1 python create_v1.py --filename {1}
+cat $FILENAMES_FILE| parallel -j 10 --bar --max-args=1 python create_v1.py --filename {1}

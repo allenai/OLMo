@@ -6,4 +6,4 @@ OUTPUT_DIR=$2
 VERSION=$3
 
 echo $(wc -l $URL_LIST_FILE)
-cat $URL_LIST_FILE| parallel -j 5 --bar --max-args=1 python file_stats.py --url {1} --output-dir $OUTPUT_DIR --version $VERSION
+cat $URL_LIST_FILE| parallel -j 10 --bar --max-args=1 python file_stats.py --url {1} --output-dir $OUTPUT_DIR --version $VERSION
