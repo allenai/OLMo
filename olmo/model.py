@@ -853,10 +853,16 @@ class Olmo(nn.Module):
         # Initialize model (always on CPU to start with so we don't run out of GPU memory).
         model_config.init_device = "cpu"
         model = Olmo(model_config)
+        model.config.init_device = device
 
         # Load state dict directly to target device.
         state_dict_path = cached_path(os.path.join(checkpoint_dir, "model.pt"))
         state_dict = torch.load(state_dict_path, map_location=device)
         model.load_state_dict(state_dict)
+
+        # Make sure bias tensors are on the right device.
+        for key, value in list(model.__bias_cache.items()):
+            if value is not None:
+                model.__bias_cache[key] = value.to(torch.device(device))  # type: ignore
 
         return model.to(torch.device(device))
