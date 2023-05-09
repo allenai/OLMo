@@ -1,15 +1,53 @@
 use std::io;
 use aws_sdk_s3::{Client as S3Client, config::Region};
 use rayon::prelude::*;
+use serde_json::Value;
+use jsonpath_rust::JsonPathFinder;
 
-use config::StreamConfig;
+use config::{StreamConfig, Filterer};
 use crate::config;
 use crate::s3_util::object_size;
 
 #[derive(Clone)]
 pub struct Shard {
-    pub inputs: Vec<String>,
+    pub inputs: Vec<DocumentData>,
+    pub filterer: Option<Filterer>,
     pub output: String,
+}
+
+#[derive(Clone)]
+pub struct DocumentData {
+    pub doc_path: String,
+    pub attribute_paths: Vec<String>,
+}
+
+pub trait PatternFilter {
+    fn should_keep(&self, json: &Value) -> Result<bool, String>;
+}
+
+impl PatternFilter for Filterer {
+    fn should_keep(&self, json: &Value) -> Result<bool, String> {
+        let mut keep = self.include.len() == 0;
+        for pattern in self.include.iter() {
+            let mut finder = JsonPathFinder::from_str("{}", pattern)?;
+            finder.set_json(Box::new(json.clone()));
+            keep = finder.find() != Value::Null;
+            if keep {
+                break;
+            }
+        }
+        if keep {
+            for pattern in self.exclude.iter() {
+                let mut finder = JsonPathFinder::from_str("{}", pattern)?;
+                finder.set_json(Box::new(json.clone()));
+                keep = finder.find() == Value::Null;
+                if !keep {
+                    break;
+                }
+            }
+        }
+        Ok(keep)
+    }
 }
 
 impl Shard {
@@ -59,16 +97,30 @@ impl Shard {
             stream_inputs.sort();
             let inputs_with_sizes = stream_inputs.par_iter().map(|input| {
                 let resp = rt.block_on(object_size(&s3_client, "ai2-llm", input));
+                let mut attr_paths = Vec::new();
+                for prefix in stream_config.attributes.iter() {
+                    let mut attr_prefix = "/attributes/".to_owned();
+                    attr_prefix.push_str(prefix);
+                    attr_prefix.push_str("/");
+                    let attr_path = input.to_owned().replace("/documents/", &attr_prefix);
+                    attr_paths.push(attr_path);
+                }
                 match resp {
                     Ok(size) =>
-                        (input.to_string(), size),
+                        (DocumentData {
+                            doc_path: input.to_owned(),
+                            attribute_paths: attr_paths,
+                        }, size),
                     Err(_) => {
-                        (input.to_string(), 0)
+                        (DocumentData {
+                            doc_path: input.to_owned(),
+                            attribute_paths: attr_paths,
+                        }, 0)
                     }
                 }
-            }).collect::<Vec<(String, usize)>>();
+            }).collect::<Vec<(DocumentData, usize)>>();
             let mut shard_size = inputs_with_sizes[0].1;
-            let mut shard_inputs: Vec<String> = Vec::new();
+            let mut shard_inputs: Vec<DocumentData> = Vec::new();
             shard_inputs.push(inputs_with_sizes[0].0.clone());
             for (input, size) in inputs_with_sizes[1..].iter() {
                 if *size == 0 {
@@ -79,6 +131,7 @@ impl Shard {
                     let output = format!("{}/{}-{:04}.json.gz", stream_config.output.path, stream_config.name, stream_shard_count);
                     let shard = Shard {
                         inputs: shard_inputs.clone(),
+                        filterer: stream_config.filterer.clone(),
                         output: output.clone(),
                     };
                     shards.push(shard);
@@ -92,6 +145,7 @@ impl Shard {
                 let output = format!("{}/{}-{:04}.json.gz", stream_config.output.path, stream_config.name, stream_shard_count);
                 let shard = Shard {
                     inputs: shard_inputs.clone(),
+                    filterer: stream_config.filterer.clone(),
                     output: output.clone(),
                 };
                 shards.push(shard);
