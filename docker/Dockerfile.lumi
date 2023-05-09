@@ -43,10 +43,10 @@ RUN apt-get update
 RUN apt-get install google-cloud-cli
 
 # Install ROCm
-RUN wget https://repo.radeon.com/amdgpu-install/5.4.3/ubuntu/jammy/amdgpu-install_5.4.50403-1_all.deb && \
-    apt-get install -y ./amdgpu-install_5.4.50403-1_all.deb && \
+RUN wget https://repo.radeon.com/amdgpu-install/5.5/ubuntu/jammy/amdgpu-install_5.5.50500-1_all.deb && \
+    apt-get install -y ./amdgpu-install_5.5.50500-1_all.deb && \
     amdgpu-install -y --accept-eula --usecase=rocm --no-dkms && \
-    rm ./amdgpu-install_5.4.50403-1_all.deb && \
+    rm ./amdgpu-install_5.5.50500-1_all.deb && \
     apt-get install -y rccl rocm-libs
 ENV ROCM_HOME=/opt/rocm
 
