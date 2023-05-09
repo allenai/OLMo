@@ -101,7 +101,6 @@ class LRMonitor:
         return {f"optim/learning_rate_group{idx}": lr for idx, lr in enumerate(lrs)}
 
 
-# in case model was moved to different device
 @dataclass
 class Evaluator:
     cfg: EvaluatorConfig

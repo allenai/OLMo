@@ -8,6 +8,8 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from torchmetrics import Metric
 
+from .tokenizer import Tokenizer
+
 
 class ICLMetric(Metric):
     # update method does not require access to global metric state
@@ -134,7 +136,13 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
 
     metric_type: ClassVar[str]
 
-    def __init__(self, tokenizer, dataset_path, dataset_name=None, model_ctx_len=2048):
+    def __init__(
+        self,
+        tokenizer: Tokenizer,
+        dataset_path: str,
+        dataset_name: Optional[str] = None,
+        model_ctx_len: int = 2048,
+    ):
         super().__init__()
 
         self.tokenizer = tokenizer
