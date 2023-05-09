@@ -373,6 +373,7 @@ class EvaluatorConfig(BaseConfig):
     data: DataConfig
     device_eval_batch_size: int
     subset_num_batches: int = -1
+    is_downstream: bool = False
 
 
 class TruncationDirection(StrEnum):
@@ -572,6 +573,16 @@ class TrainConfig(BaseConfig):
     """
     The number of instances passed to the model in a single forward-backward pass. You should set
     this as large as you can based on available GPU memory.
+    """
+
+    downstream_eval_subset_num_batches: int = 20
+    """
+    The number of batches to use for downstream evaluation from each dataset.
+    """
+
+    downstream_eval_data_config: Optional[DataConfig] = None
+    """
+    The data configuration to use for the evaluatos of the downstream evaluation.
     """
 
     device_train_grad_accum: Optional[int] = None  # calculated automatically
