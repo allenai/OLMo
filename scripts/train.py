@@ -106,17 +106,17 @@ class Evaluator:
     cfg: EvaluatorConfig
     eval_loader: DataLoader
     eval_batches: Iterator[Tuple[int, Dict[str, Any]]]
-    eval_loss_metric: Metric
+    eval_metric: Metric
 
     def reset_metrics(self) -> None:
-        self.eval_loss_metric.reset()
+        self.eval_metric.reset()
 
     def compute_metrics(self) -> Dict[str, float]:
-        metric_val = self.eval_loss_metric.compute()
-        if isinstance(self.eval_loss_metric, ICLMetric):
+        metric_val = self.eval_metric.compute()
+        if isinstance(self.eval_metric, ICLMetric):
             # downstream eval
             return {
-                f"eval/{self.cfg.label}_{self.eval_loss_metric.metric_type}": metric_val.item(),
+                f"eval/{self.cfg.label}_{self.eval_metric.metric_type}": metric_val.item(),
             }
         else:
             # metric_val is cross entropy loss
@@ -132,11 +132,11 @@ class Evaluator:
         loss: torch.Tensor,
         logits: torch.Tensor,
     ) -> None:
-        if isinstance(self.eval_loss_metric, ICLMetric):
+        if isinstance(self.eval_metric, ICLMetric):
             # downstream eval
-            self.eval_loss_metric.update(batch, logits)  # type: ignore
+            self.eval_metric.update(batch, logits)  # type: ignore
         else:
-            self.eval_loss_metric.update(loss)
+            self.eval_metric.update(loss)
 
 
 @dataclass
@@ -933,7 +933,7 @@ def main(cfg: TrainConfig) -> None:
                 cfg=eval_cfg,
                 eval_loader=eval_loader,
                 eval_batches=cycle_through_epochs(eval_loader),
-                eval_loss_metric=MeanMetric(nan_strategy="error").to(device),
+                eval_metric=MeanMetric(nan_strategy="error").to(device),
             )
         elif eval_cfg.label in label_to_task_map:
             # Downstream evaluation.
@@ -1073,7 +1073,7 @@ def build_downstream_evaluator(
         cfg=eval_cfg,
         eval_loader=ds_eval_dataloader,
         eval_batches=cycle_through_epochs(ds_eval_dataloader),
-        eval_loss_metric=metric.to(device),
+        eval_metric=metric.to(device),
     )
     return evaluator
 

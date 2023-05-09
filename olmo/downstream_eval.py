@@ -77,7 +77,7 @@ class ICLMetric(Metric):
                 torch.LongTensor((doc_id, cont_id, batch["label_id"][idx])).to(batch["label_id"][idx].device)
             )
 
-    def compute(self):
+    def compute(self) -> torch.Tensor:
         # states should have been synced from all accelerators at this point
         # account for duplicates here because of DistributedSampler compensating for drop_last=False
         loglikelihood_dict: Dict[int, Dict[int, float]] = {}
@@ -128,7 +128,7 @@ class ICLMetric(Metric):
         else:
             score = sum(correct) / len(correct)
 
-        return score
+        return torch.tensor(score)
 
 
 class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
