@@ -17,4 +17,3 @@ google-cloud-storage
 packaging
 datasets
 scikit-learn
-transformers

@@ -915,10 +915,9 @@ def main(cfg: TrainConfig) -> None:
     for eval_cfg in cfg.evaluators:
         if eval_cfg.is_downstream:
             if tokenizer is None:
-                # TODO: is this how we want to load the tokenizer?
-                from transformers import AutoTokenizer
-                tokenizer = AutoTokenizer.from_pretrained("gpt2")
-                tokenizer.pad_token = tokenizer.eos_token
+                from olmo.tokenizer import Tokenizer
+                tokenizer = Tokenizer.from_train_config(cfg)
+                tokenizer.pad_token_id = tokenizer.eos_token_id
             evaluator = build_downstream_evaluator(eval_cfg, train_cfg=cfg, tokenizer=tokenizer)
         else:
             eval_loader = build_dataloader(eval_cfg.data, cfg.model, eval_cfg.device_eval_batch_size)
