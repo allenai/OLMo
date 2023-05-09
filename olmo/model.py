@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 import os
 from abc import abstractmethod
-from typing import Dict, List, NamedTuple, Optional, Union, cast
+from typing import Dict, List, NamedTuple, Optional, cast
 
 import torch
 import torch.backends.cuda
@@ -460,11 +460,8 @@ class OlmoGenerateOutput(NamedTuple):
     """
 
 
-def causal_attention_bias(
-    config: ModelConfig, device: Optional[Union[str, torch.device]] = None
-) -> torch.FloatTensor:
+def causal_attention_bias(config: ModelConfig, device: torch.device) -> torch.FloatTensor:
     size = config.max_sequence_length
-    device = device or config.device
     att_bias = torch.triu(
         torch.ones(size, size, device=device, dtype=torch.float),
         diagonal=1,
@@ -473,11 +470,8 @@ def causal_attention_bias(
     return att_bias.view(1, 1, size, size)  # type: ignore
 
 
-def alibi_attention_bias(
-    config: ModelConfig, device: Optional[Union[str, torch.device]] = None
-) -> torch.FloatTensor:
+def alibi_attention_bias(config: ModelConfig, device: torch.device) -> torch.FloatTensor:
     size = config.max_sequence_length
-    device = device or config.device
     alibi_bias = torch.arange(1 - size, 1, dtype=torch.float, device=device).view(1, 1, 1, size)
 
     # shape: (1, 1, seq_len, seq_len)
@@ -551,20 +545,37 @@ class Olmo(nn.Module):
             self.alibi_attention_bias
 
     @property
+    def device(self) -> torch.device:
+        device: torch.device = self.transformer.wte.weight.device  # type: ignore
+        if device.type == "meta":
+            if self.config.init_device is not None and self.config.init_device != "meta":
+                return torch.device(self.config.init_device)
+            else:
+                return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            return device
+
+    @property
     def causal_attention_bias(self) -> torch.FloatTensor:
         causal_bias = self.__bias_cache["causal_attention_bias"]
         if causal_bias is None:
-            causal_bias = causal_attention_bias(self.config)
+            causal_bias = causal_attention_bias(self.config, self.device)
             self.__bias_cache["causal_attention_bias"] = causal_bias
-        return causal_bias
+        elif causal_bias.device != self.device:  # in case model was moved to different device
+            causal_bias = causal_bias.to(device=self.device)
+            self.__bias_cache["causal_attention_bias"] = causal_bias  # type: ignore
+        return causal_bias  # type: ignore
 
     @property
     def alibi_attention_bias(self) -> torch.FloatTensor:
         alibi_bias = self.__bias_cache["alibi_attention_bias"]
         if alibi_bias is None:
-            alibi_bias = alibi_attention_bias(self.config)
+            alibi_bias = alibi_attention_bias(self.config, self.device)
             self.__bias_cache["alibi_attention_bias"] = alibi_bias
-        return alibi_bias
+        elif alibi_bias.device != self.device:  # in case model was moved to different device
+            alibi_bias = alibi_bias.to(device=self.device)
+            self.__bias_cache["alibi_attention_bias"] = alibi_bias  # type: ignore
+        return alibi_bias  # type: ignore
 
     def forward(
         self,
@@ -859,10 +870,5 @@ class Olmo(nn.Module):
         state_dict_path = cached_path(os.path.join(checkpoint_dir, "model.pt"))
         state_dict = torch.load(state_dict_path, map_location=device)
         model.load_state_dict(state_dict)
-
-        # Make sure bias tensors are on the right device.
-        for key, value in list(model.__bias_cache.items()):
-            if value is not None:
-                model.__bias_cache[key] = value.to(torch.device(device))  # type: ignore
 
         return model.to(torch.device(device))

@@ -310,13 +310,6 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
-    @property
-    def device(self) -> str:
-        if self.init_device == "meta" or self.init_device is None:
-            return "cuda" if torch.cuda.is_available() else "cpu"
-        else:
-            return self.init_device
-
 
 class OptimizerType(StrEnum):
     lionw = "lionw"
@@ -635,10 +628,6 @@ class TrainConfig(BaseConfig):
     If ``True``, we add the auxiliary loss function from PaLM that encourages the softmax
     normalizing term to be close to 0.
     """
-
-    @property
-    def device(self) -> str:
-        return self.model.device
 
     @property
     def autocast_precision(self) -> torch.dtype:

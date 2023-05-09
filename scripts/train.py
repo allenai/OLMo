@@ -47,6 +47,7 @@ from olmo.downstream_eval import ICLMetric, label_to_task_map
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
 from olmo.model import Olmo
 from olmo.optim import LionW, get_param_groups
+from olmo.tokenizer import Tokenizer
 from olmo.util import (
     clean_opt,
     global_rank,
@@ -100,6 +101,7 @@ class LRMonitor:
         return {f"optim/learning_rate_group{idx}": lr for idx, lr in enumerate(lrs)}
 
 
+# in case model was moved to different device
 @dataclass
 class Evaluator:
     cfg: EvaluatorConfig
@@ -819,6 +821,7 @@ def main(cfg: TrainConfig) -> None:
     # Initialize process group and set device.
     dist.init_process_group(backend="nccl")
     torch.cuda.set_device(f"cuda:{local_rank()}")
+    device = torch.device("cuda")
 
     # Fill some configuration options.
     cfg.model.precision = cfg.precision
@@ -919,18 +922,15 @@ def main(cfg: TrainConfig) -> None:
     for eval_cfg in cfg.evaluators:
         if eval_cfg.is_downstream:
             if tokenizer is None:
-                from olmo.tokenizer import Tokenizer
-
                 tokenizer = Tokenizer.from_train_config(cfg)
-                tokenizer.pad_token_id = tokenizer.eos_token_id
-            evaluator = build_downstream_evaluator(eval_cfg, train_cfg=cfg, tokenizer=tokenizer)
+            evaluator = build_downstream_evaluator(eval_cfg, tokenizer, device)
         else:
             eval_loader = build_dataloader(eval_cfg.data, cfg.model, eval_cfg.device_eval_batch_size)
             evaluator = Evaluator(
                 cfg=eval_cfg,
                 eval_loader=eval_loader,
                 eval_batches=cycle_through_epochs(eval_loader),
-                eval_loss_metric=MeanMetric(nan_strategy="error").to(torch.device(cfg.device)),
+                eval_loss_metric=MeanMetric(nan_strategy="error").to(device),
             )
         evaluators.append(evaluator)
 
@@ -943,11 +943,11 @@ def main(cfg: TrainConfig) -> None:
         scheduler=scheduler,
         train_loader=train_loader,
         training_batches=training_batches,
-        device=torch.device(cfg.device),
-        ce_train_loss_metric=MeanMetric(nan_strategy="error").to(torch.device(cfg.device)),
+        device=device,
+        ce_train_loss_metric=MeanMetric(nan_strategy="error").to(device),
         z_train_loss_metric=None
         if not cfg.softmax_auxiliary_loss
-        else MeanMetric(nan_strategy="error").to(torch.device(cfg.device)),
+        else MeanMetric(nan_strategy="error").to(device),
         evaluators=evaluators,
     )
 
@@ -1026,7 +1026,7 @@ def build_dataloader(
 
 
 def build_downstream_evaluator(
-    eval_cfg: EvaluatorConfig, train_cfg: TrainConfig, tokenizer=None, is_unit_test=False
+    eval_cfg: EvaluatorConfig, tokenizer: Tokenizer, device: torch.device, is_unit_test=False
 ) -> Evaluator:
     task_class = label_to_task_map[eval_cfg.label]
     ds_eval_dataset = task_class(tokenizer=tokenizer)  # type: ignore
@@ -1058,7 +1058,7 @@ def build_downstream_evaluator(
         cfg=eval_cfg,
         eval_loader=ds_eval_dataloader,
         eval_batches=cycle_through_epochs(ds_eval_dataloader),
-        eval_loss_metric=metric.to(torch.device(train_cfg.device)),
+        eval_loss_metric=metric.to(device),
     )
     return evaluator
 
