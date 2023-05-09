@@ -163,14 +163,17 @@ def main(args):
             if args.test_and_val:
                 sample_ratio *= 2
                 assert sample_ratio <= 1, 'Sample ratio must be <= 0.5 when test and val are both used'
+                random.seed(args.seed)
                 sample = random.sample(full_data, int(len(full_data) * sample_ratio))
                 splits['test'] = sample[:len(sample) // 2]
                 splits['val'] = sample[len(sample) // 2:]
             else:
+                random.seed(args.seed)
                 splits[None] = random.sample(full_data, int(len(full_data) * sample_ratio))
         else:
             if args.test_and_val:
                 sample_ratio = 1.0
+                random.seed(args.seed)
                 sample = random.sample(full_data, int(len(full_data) * sample_ratio))
                 splits['test'] = sample[:len(sample) // 2]
                 splits['val'] = sample[len(sample) // 2:]
