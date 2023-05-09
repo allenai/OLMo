@@ -150,7 +150,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         self.dataset_name = dataset_name
         self.model_ctx_len = model_ctx_len
 
-        self.samples = []
+        self.samples: List[Dict[str, Any]] = []
         self.dataset = datasets.load_dataset(
             path=self.dataset_path,
             name=self.dataset_name,
