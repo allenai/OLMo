@@ -30,9 +30,8 @@ from torch.distributed.fsdp.api import (
     ShardedStateDictConfig,
 )
 from torch.utils.data import DataLoader, DistributedSampler
-from torchmetrics import MeanMetric
+from torchmetrics import MeanMetric, Metric
 
-from olmo.aliases import BatchDict
 from olmo.config import (
     CheckpointType,
     DataConfig,
@@ -44,6 +43,7 @@ from olmo.config import (
     TrainConfig,
 )
 from olmo.data import DataCollator, MemMapDataset
+from olmo.downstream_eval import ICLMetric, label_to_task_map
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
 from olmo.model import Olmo
 from olmo.optim import LionW, get_param_groups
@@ -57,7 +57,6 @@ from olmo.util import (
     prepare_cli_environment,
     seed_all,
 )
-from olmo.downstream_eval import ICLMetric, label_to_task_map
 
 log = logging.getLogger("train")
 
@@ -105,8 +104,8 @@ class LRMonitor:
 class Evaluator:
     cfg: EvaluatorConfig
     eval_loader: DataLoader
-    eval_batches: Iterator[Tuple[int, BatchDict]]
-    eval_loss_metric: MeanMetric
+    eval_batches: Iterator[Tuple[int, Dict[str, Any]]]
+    eval_loss_metric: Metric
 
     def reset_metrics(self) -> None:
         self.eval_loss_metric.reset()
@@ -116,7 +115,7 @@ class Evaluator:
         if isinstance(self.eval_loss_metric, ICLMetric):
             # downstream eval
             return {
-                f"eval/{self.cfg.label}_{self.eval_loss_metric.metric_type}": metric_val,
+                f"eval/{self.cfg.label}_{self.eval_loss_metric.metric_type}": metric_val.item(),
             }
         else:
             # metric_val is cross entropy loss
@@ -126,10 +125,15 @@ class Evaluator:
                 f"eval/{self.cfg.label}/Perplexity": torch.exp(loss).item(),
             }
 
-    def update_metrics(self, batch: BatchDict, loss: torch.Tensor, logits: torch.Tensor,) -> None:
+    def update_metrics(
+        self,
+        batch: Dict[str, Any],
+        loss: torch.Tensor,
+        logits: torch.Tensor,
+    ) -> None:
         if isinstance(self.eval_loss_metric, ICLMetric):
             # downstream eval
-            self.eval_loss_metric.update(batch, logits)
+            self.eval_loss_metric.update(batch, logits)  # type: ignore
         else:
             self.eval_loss_metric.update(loss)
 
@@ -142,7 +146,7 @@ class Trainer:
     optim: torch.optim.Optimizer
     scheduler: torch.optim.lr_scheduler.LRScheduler
     train_loader: DataLoader
-    training_batches: Iterator[Tuple[int, Tuple[int, BatchDict]]]
+    training_batches: Iterator[Tuple[int, Tuple[int, Dict[str, Any]]]]
     device: torch.device
     evaluators: List[Evaluator]
     ce_train_loss_metric: MeanMetric
@@ -490,16 +494,20 @@ class Trainer:
         else:
             raise NotImplementedError(checkpoint_type)
 
-    def get_labels(self, batch: BatchDict) -> torch.Tensor:
+    def get_labels(self, batch: Dict[str, Any]) -> torch.Tensor:
         # Labels are just input IDs shifted to the left (first item is ignored).
         labels, attention_mask = batch["input_ids"], batch.get("attention_mask")
         if attention_mask is not None:
             labels = labels.masked_fill(attention_mask == 0.0, -100)
         return labels[..., 1:].contiguous()
 
-    def model_forward(self, batch: BatchDict) -> Tuple[torch.Tensor, torch.Tensor]:
+    def model_forward(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         # shape: (batch_size, seq_len, vocab_size)
-        logits = self.fsdp_model(**batch).logits
+        logits = self.fsdp_model(
+            input_ids=batch["input_ids"],
+            attention_mask=batch.get("attention_mask"),
+            attention_bias=batch.get("attention_bias"),
+        ).logits
         logits_for_loss = logits[..., :-1, :].contiguous()
         # shape: (batch_size * seq_len, vocab_size)
         logits_for_loss = logits_for_loss.view(-1, logits_for_loss.size(-1))
@@ -508,9 +516,9 @@ class Trainer:
         # shape: (batch_size,)
         labels = labels.view(-1)
         ce_loss = F.cross_entropy(logits_for_loss, labels, ignore_index=-100)
-        return ce_loss, logits  # return
+        return ce_loss, logits
 
-    def train_batch(self, batch: BatchDict) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
 
@@ -553,7 +561,7 @@ class Trainer:
 
         return ce_batch_loss, z_batch_loss
 
-    def train_step(self, batch: BatchDict) -> Dict[str, float]:
+    def train_step(self, batch: Dict[str, Any]) -> Dict[str, float]:
         # Zero-gradients.
         self.optim.zero_grad(set_to_none=True)
 
@@ -599,31 +607,27 @@ class Trainer:
 
         return metrics
 
-    def eval_batch(self, batch: BatchDict) -> torch.Tensor:
+    def eval_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
             ce_loss, logits = self.model_forward(batch)
-
         return ce_loss, logits
 
-    def eval_step(self, batch: BatchDict, evaluator: Evaluator) -> Dict[str, float]:
+    def eval_step(self, batch: Dict[str, Any], evaluator: Evaluator) -> Dict[str, float]:
         # Move tensors to the right device.
         batch = move_to_device(batch, self.device)
 
-        # Remove all keys except the ones that the model is expecting.
-        # This is to handle the case of downstream evaluation where the batch has more information that the model
-        # doesn't need but are needed for the metric computation
-        filtered_batch = {k: v for k, v in batch.items() if k in ["input_ids", "attention_mask", "attention_bias"]}
-
         # Run forward pass.
         with torch.no_grad():  # NOTE: 'torch.inference_mode()' doesn't work with 'torch.compile()'.
-            ce_loss, logits = self.eval_batch(filtered_batch)
+            ce_loss, logits = self.eval_batch(batch)
 
         # Update metrics.
-        evaluator.update_metrics(batch, ce_loss, logits)  # batch includes all keys that the downstream evaluation needs
+        evaluator.update_metrics(
+            batch, ce_loss, logits
+        )  # batch includes all keys that the downstream evaluation needs
 
         return evaluator.compute_metrics()
 
-    def split_batch(self, batch: BatchDict) -> List[BatchDict]:
+    def split_batch(self, batch: Dict[str, Any]) -> List[Dict[str, Any]]:
         batch_size = batch["input_ids"].shape[0]
         if batch_size <= self.cfg.device_train_microbatch_size:
             return [batch]
@@ -916,6 +920,7 @@ def main(cfg: TrainConfig) -> None:
         if eval_cfg.is_downstream:
             if tokenizer is None:
                 from olmo.tokenizer import Tokenizer
+
                 tokenizer = Tokenizer.from_train_config(cfg)
                 tokenizer.pad_token_id = tokenizer.eos_token_id
             evaluator = build_downstream_evaluator(eval_cfg, train_cfg=cfg, tokenizer=tokenizer)
@@ -1020,9 +1025,11 @@ def build_dataloader(
     )
 
 
-def build_downstream_evaluator(eval_cfg: EvaluatorConfig, train_cfg: TrainConfig, tokenizer=None, is_unit_test=False) -> Evaluator:
+def build_downstream_evaluator(
+    eval_cfg: EvaluatorConfig, train_cfg: TrainConfig, tokenizer=None, is_unit_test=False
+) -> Evaluator:
     task_class = label_to_task_map[eval_cfg.label]
-    ds_eval_dataset = task_class(tokenizer=tokenizer)
+    ds_eval_dataset = task_class(tokenizer=tokenizer)  # type: ignore
     if is_unit_test:
         ds_eval_sampler = None
     else:
@@ -1132,7 +1139,7 @@ def build_scheduler(cfg: TrainConfig, optim: torch.optim.Optimizer) -> torch.opt
         raise NotImplementedError
 
 
-def cycle_through_epochs(dataloader: DataLoader) -> Generator[Tuple[int, BatchDict], None, None]:
+def cycle_through_epochs(dataloader: DataLoader) -> Generator[Tuple[int, Dict[str, Any]], None, None]:
     epoch = 0
     while True:
         if isinstance(dataloader.sampler, DistributedSampler):

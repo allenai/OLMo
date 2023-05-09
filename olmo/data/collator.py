@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Union
+from typing import Any, Dict, List, Union
 
 import torch
 import torch.nn.functional as F
 
-from ..aliases import BatchDict
 from ..config import PaddingDirection, TrainConfig
 
 __all__ = ["DataCollator"]
@@ -21,7 +20,7 @@ class DataCollator:
     def from_train_config(cls, config: TrainConfig) -> DataCollator:
         return cls(pad_direction=config.data.pad_direction, pad_token_id=config.model.pad_token_id)
 
-    def __call__(self, items: Union[List[BatchDict], List[torch.Tensor]]) -> BatchDict:
+    def __call__(self, items: Union[List[Dict[str, Any]], List[torch.Tensor]]) -> Dict[str, Any]:
         assert items
         max_len = max((len(x["input_ids"] if isinstance(x, dict) else x) for x in items))
         all_input_ids = []
@@ -82,4 +81,4 @@ class DataCollator:
             out["attention_mask"] = torch.stack(all_attention_mask)
         if all_attention_bias:
             out["attention_bias"] = torch.stack(all_attention_bias)
-        return out  # type: ignore
+        return out
