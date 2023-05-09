@@ -871,4 +871,4 @@ class Olmo(nn.Module):
         state_dict = torch.load(state_dict_path, map_location=device)
         model.load_state_dict(state_dict)
 
-        return model.to(torch.device(device))
+        return model.to(torch.device(device)).eval()
