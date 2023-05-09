@@ -769,6 +769,8 @@ class Trainer:
 
                     # Check how many batches to evaluate on.
                     num_eval_batches = evaluator.cfg.subset_num_batches
+                    if num_eval_batches is None:
+                        num_eval_batches = self.cfg.eval_subset_num_batches
                     if num_eval_batches <= 0:
                         num_eval_batches = len(evaluator.eval_loader)
 
@@ -919,18 +921,27 @@ def main(cfg: TrainConfig) -> None:
     evaluators = []
     tokenizer = None
     for eval_cfg in cfg.evaluators:
-        if eval_cfg.is_downstream:
-            if tokenizer is None:
-                tokenizer = Tokenizer.from_train_config(cfg)
-            evaluator = build_downstream_evaluator(eval_cfg, tokenizer, device)
-        else:
-            eval_loader = build_dataloader(eval_cfg.data, cfg.model, eval_cfg.device_eval_batch_size)
+        evaluator: Evaluator
+        if eval_cfg.data.paths:
+            # Language modeling evaluation.
+            eval_loader = build_dataloader(
+                eval_cfg.data,
+                cfg.model,
+                eval_cfg.device_eval_batch_size or cfg.device_eval_batch_size,
+            )
             evaluator = Evaluator(
                 cfg=eval_cfg,
                 eval_loader=eval_loader,
                 eval_batches=cycle_through_epochs(eval_loader),
                 eval_loss_metric=MeanMetric(nan_strategy="error").to(device),
             )
+        elif eval_cfg.label in label_to_task_map:
+            # Downstream evaluation.
+            if tokenizer is None:
+                tokenizer = Tokenizer.from_train_config(cfg)
+            evaluator = build_downstream_evaluator(eval_cfg, cfg, tokenizer, device)
+        else:
+            raise OlmoConfigurationError(f"Not sure how to build evaluator for {eval_cfg}")
         evaluators.append(evaluator)
 
     # Consolidate components into `Trainer` object.
@@ -1005,7 +1016,7 @@ def build_dataloader(
     dataset = MemMapDataset(*data_config.paths, chunk_size=model_config.max_sequence_length)
     sampler = DistributedSampler(
         dataset,
-        drop_last=True,
+        drop_last=data_config.drop_last,
         shuffle=shuffle,
         num_replicas=dist.get_world_size(),
         rank=global_rank(),
@@ -1025,16 +1036,21 @@ def build_dataloader(
 
 
 def build_downstream_evaluator(
-    eval_cfg: EvaluatorConfig, tokenizer: Tokenizer, device: torch.device, is_unit_test=False
+    eval_cfg: EvaluatorConfig,
+    train_config: TrainConfig,
+    tokenizer: Tokenizer,
+    device: torch.device,
+    is_unit_test=False,
 ) -> Evaluator:
     task_class = label_to_task_map[eval_cfg.label]
     ds_eval_dataset = task_class(tokenizer=tokenizer)  # type: ignore
+    data_config = eval_cfg.data
     if is_unit_test:
         ds_eval_sampler = None
     else:
         ds_eval_sampler = DistributedSampler(
             ds_eval_dataset,
-            drop_last=True,
+            drop_last=data_config.drop_last,
             shuffle=False,
             num_replicas=dist.get_world_size(),
             rank=global_rank(),
@@ -1042,14 +1058,14 @@ def build_downstream_evaluator(
         )
     ds_eval_dataloader = DataLoader(
         ds_eval_dataset,
-        batch_size=eval_cfg.device_eval_batch_size,
+        batch_size=eval_cfg.device_eval_batch_size or train_config.device_eval_batch_size,
         collate_fn=ds_eval_dataset.collate_fn,
-        num_workers=eval_cfg.data.num_workers,
+        num_workers=data_config.num_workers,
         sampler=ds_eval_sampler,
-        pin_memory=eval_cfg.data.pin_memory,
-        prefetch_factor=eval_cfg.data.prefetch_factor,
-        persistent_workers=eval_cfg.data.persistent_workers,
-        timeout=eval_cfg.data.timeout,
+        pin_memory=data_config.pin_memory,
+        prefetch_factor=data_config.prefetch_factor,
+        persistent_workers=data_config.persistent_workers,
+        timeout=data_config.timeout,
     )
     metric = ICLMetric(metric_type=ds_eval_dataset.metric_type)
 

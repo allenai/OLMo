@@ -58,31 +58,28 @@ data:
   timeout: 0
 
 eval_interval: ${save_interval}
+eval_subset_num_batches: 10  # a small number is probably enough
+device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
   - label: c4-validation
-    device_eval_batch_size: ${device_train_microbatch_size}
-    subset_num_batches: 5
     data:
       paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
-      pad_direction: right
-      num_workers: 4
-      drop_last: true
-      pin_memory: true
-      prefetch_factor: 4  # bump to 16 if on LUMI
-      persistent_workers: true
-      timeout: 0
   - label: rp-validation
-    device_eval_batch_size: ${device_train_microbatch_size}
-    subset_num_batches: 5
     data:
       paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
-      pad_direction: right
-      num_workers: 4
-      drop_last: true
-      pin_memory: true
-      prefetch_factor: 4  # bump to 16 if on LUMI
-      persistent_workers: true
-      timeout: 0
+  - label: piqa
+  - label: hellaswag
+  - label: winogrande
+  - label: openbook_qa
+  # - label: boolq  # requires implemention of the pmi_dc matrix
+  - label: sciq
+  # - label: arc_easy  # crashed
+  # - label: arc_challenge  # requires implemention of the pmi_dc matrix
+  - label: copa
+  - label: rte
+  # - label: commitment_bank  # crashed
+  - label: mrpc
+  - label: sst2
 
 tokenizer:
   identifier: gpt2

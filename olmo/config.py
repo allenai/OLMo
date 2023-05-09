@@ -352,10 +352,10 @@ class PaddingDirection(StrEnum):
 class DataConfig(BaseConfig):
     paths: List[str] = field(default_factory=lambda: [])
     pad_direction: PaddingDirection = PaddingDirection.right
-    num_workers: int = 0
+    num_workers: int = 4
     drop_last: bool = True
     pin_memory: bool = True
-    prefetch_factor: Optional[int] = 2
+    prefetch_factor: Optional[int] = 4
     persistent_workers: bool = True
     timeout: int = 0
 
@@ -363,10 +363,9 @@ class DataConfig(BaseConfig):
 @dataclass
 class EvaluatorConfig(BaseConfig):
     label: str
-    data: DataConfig
-    device_eval_batch_size: int
-    subset_num_batches: int = -1
-    is_downstream: bool = False
+    data: DataConfig = field(default_factory=DataConfig)
+    device_eval_batch_size: Optional[int] = None
+    subset_num_batches: Optional[int] = None
 
 
 class TruncationDirection(StrEnum):
@@ -568,14 +567,14 @@ class TrainConfig(BaseConfig):
     this as large as you can based on available GPU memory.
     """
 
-    downstream_eval_subset_num_batches: int = 20
+    device_eval_batch_size: int = 16
     """
-    The number of batches to use for downstream evaluation from each dataset.
+    The number of evaluation instances passed to the model in a single forward pass on each device.
     """
 
-    downstream_eval_data_config: Optional[DataConfig] = None
+    eval_subset_num_batches: int = -1
     """
-    The data configuration to use for the evaluatos of the downstream evaluation.
+    The number of batches to use for downstream evaluation from each dataset.
     """
 
     device_train_grad_accum: Optional[int] = None  # calculated automatically

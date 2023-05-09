@@ -10,7 +10,9 @@ def test_piqa():
 
     tokenizer = Tokenizer.from_train_config(cfg)
     tokenizer.pad_token_id = tokenizer.eos_token_id
-    evaluator = build_downstream_evaluator(cfg.evaluators[1], tokenizer, torch.device("cpu"), is_unit_test=True)
+    evaluator = build_downstream_evaluator(
+        cfg.evaluators[1], cfg, tokenizer, torch.device("cpu"), is_unit_test=True
+    )
     logits = torch.rand(4, 57, 50304)
     _, first_batch = next(evaluator.eval_batches)
     evaluator.reset_metrics()
