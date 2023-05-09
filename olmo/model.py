@@ -850,13 +850,13 @@ class Olmo(nn.Module):
         config_path = cached_path(os.path.join(checkpoint_dir, "config.yaml"))
         model_config = ModelConfig.load(config_path, key="model")
 
-        # Initialize model (always on CPU to start with so we don't run out of GPU memory).
-        model_config.init_device = "cpu"
+        # Initialize model to target device
+        model_config.init_device = device
         model = Olmo(model_config)
 
-        # Load state dict directly to target device.
+        # Load state dict to CPU so we don't run out of GPU memory.
         state_dict_path = cached_path(os.path.join(checkpoint_dir, "model.pt"))
-        state_dict = torch.load(state_dict_path, map_location=device)
+        state_dict = torch.load(state_dict_path, map_location="cpu")
         model.load_state_dict(state_dict)
 
         return model.to(torch.device(device))
