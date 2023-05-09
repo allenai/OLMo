@@ -73,11 +73,11 @@ evaluators:
   - label: openbook_qa
   # - label: boolq  # requires implemention of the pmi_dc matrix
   - label: sciq
-  # - label: arc_easy  # crashed
+  - label: arc_easy
   # - label: arc_challenge  # requires implemention of the pmi_dc matrix
   - label: copa
   - label: rte
-  # - label: commitment_bank  # crashed
+  - label: commitment_bank
   - label: mrpc
   - label: sst2
 
