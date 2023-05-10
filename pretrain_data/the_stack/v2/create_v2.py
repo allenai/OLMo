@@ -3,13 +3,18 @@ import logging
 import re
 import string
 import sys
-from typing import Dict, Union
+from typing import Callable, Dict, List, Union
 
 from pretrain_data.the_stack.create_utils import (
     _get_lang_list,
-    create_documents,
     should_exclude_filename,
+    _get_documents_location,
+    _get_attributes_location,
 )
+import pandas as pd
+import s3fs
+
+S3_FS = s3fs.S3FileSystem()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,14 +38,35 @@ def filter_by_filecontent_stats(instance_attributes) -> bool:
     if instance_attributes["alnum_prop"] < 0.25:
         return False
 
-    if instance_attributes["num_tokens_whitespace"] < 50:
+    if instance_attributes["num_tokens_unicode"] == 0:
         return False
 
-    if instance_attributes["alpha_count"] / instance_attributes["num_tokens_whitespace"] < 1.5:
+    if instance_attributes["alpha_count"] / instance_attributes["num_tokens_unicode"] < 1.5:
         return False
 
     return True
 
+
+def create_documents(old_version: str, new_version: str, filename: str, functions_to_apply: List[Callable]):
+    # eg. filename: lang/data_0000
+    old_url = f"{_get_documents_location(old_version)}/{filename}.jsonl.gz"
+    old_attributes_url = f"{_get_attributes_location(old_version)}/{filename}.tsv"
+
+    new_url = f"{_get_documents_location(new_version)}/{filename}.jsonl.gz"
+
+    if not S3_FS.exists(new_url):
+        logger.info(f"Creating document {new_url}")
+        old_df = pd.read_json(old_url, lines=True, compression="gzip")
+        old_adf = pd.read_csv(old_attributes_url, sep="\t")
+
+        fdf = pd.merge(old_df, old_adf, on="id")
+        for func in functions_to_apply:
+            fdf = fdf[fdf.apply(func, axis=1)]
+
+        fdf = fdf[old_df.columns]
+        logger.info(f"{filename} - {len(old_df) - len(fdf)} / {len(old_df)} removed.")
+
+        fdf.to_json(new_url, lines=True, compression="gzip", orient="records")
 
 def create_attributes(old_version: str, new_version: str, filename: str):
     v2_url = f"{_get_documents_location(new_version)}/{filename}.jsonl.gz"
