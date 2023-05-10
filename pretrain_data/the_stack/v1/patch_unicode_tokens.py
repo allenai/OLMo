@@ -1,13 +1,13 @@
 import concurrent.futures
-import os
 import logging
-from ast import literal_eval
+import os
+import string
+import sys
 from typing import Dict, List
 
 import pandas as pd
 import tqdm
-
-import sys
+from uniseg.wordbreak import words as unicode_tokenize
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,15 +28,11 @@ v0_docs = os.path.join(S3_location, "v0", "documents")
 v1_docs = os.path.join(S3_location, "v1", "documents")
 
 
-import string
-
-from uniseg.wordbreak import words as unicode_tokenize
-
-
 def count_tokens_unicode(text):
     # this is extremely slow
     count = sum(1 for word in unicode_tokenize(text) if not all(char in string.whitespace for char in word))
     return count
+
 
 def copyright_tokens(merged_instance):
     return count_tokens_unicode(merged_instance["text_x"].replace(merged_instance["text_y"], ""))
@@ -58,9 +54,9 @@ def v2_unicode_tokens(filep):
     v1doc = os.path.join(v1_docs, filep + ".jsonl.gz")
     v1ddf = pd.read_json(v1doc, lines=True, compression="gzip")
 
-    #try:
+    # try:
     #    v1adf = v1adf.drop(columns=["num_tokens_unicode"])
-    #except KeyError:
+    # except KeyError:
     #    pass
 
     v1ma = pd.merge(v0adf, v1adf, on="id")
@@ -79,6 +75,7 @@ def v2_unicode_tokens(filep):
     v1adf.to_csv(v1att, sep="\t", index=False)
     logger.info("Done")
 
+
 # df = pd.read_csv(os.path.join(S3_location, "raw_lang_infos.tsv"), sep="\t")
 
 
@@ -89,12 +86,14 @@ def _get_lang_list(lang_list_path: str) -> List[str]:
     langs = [lang.strip() for lang in langs]
     return langs
 
+
 def run_single(filep):
     lang = filep.split("/")[0]
     langs = _get_lang_list("lang_list.txt")
     if lang not in langs:
         return
     v2_unicode_tokens(filep)
+
 
 def run(lang_files: Dict):
     langs = _get_lang_list("lang_list.txt")
@@ -116,11 +115,4 @@ def run(lang_files: Dict):
 
 
 if __name__ == "__main__":
-    import json
-
-    # with open("../lang_files.json") as f:
-    #    lang_files = json.load(f)
-
-    import sys
     run_single(sys.argv[1])
-    # run(lang_files)

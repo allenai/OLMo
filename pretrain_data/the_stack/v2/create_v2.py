@@ -1,18 +1,17 @@
 import argparse
 import logging
-import re
-import string
 import sys
-from typing import Callable, Dict, List, Union
+from typing import Callable, List
 
-from pretrain_data.the_stack.create_utils import (
-    _get_lang_list,
-    should_exclude_filename,
-    _get_documents_location,
-    _get_attributes_location,
-)
 import pandas as pd
 import s3fs
+
+from pretrain_data.the_stack.create_utils import (
+    _get_attributes_location,
+    _get_documents_location,
+    _get_lang_list,
+    should_exclude_filename,
+)
 
 S3_FS = s3fs.S3FileSystem()
 
@@ -27,8 +26,8 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-def filter_by_filecontent_stats(instance_attributes) -> bool:
 
+def filter_by_filecontent_stats(instance_attributes) -> bool:
     if instance_attributes["max_line_length"] > 1000:
         return False
 
@@ -67,6 +66,7 @@ def create_documents(old_version: str, new_version: str, filename: str, function
         logger.info(f"{filename} - {len(old_df) - len(fdf)} / {len(old_df)} removed.")
 
         fdf.to_json(new_url, lines=True, compression="gzip", orient="records")
+
 
 def create_attributes(old_version: str, new_version: str, filename: str):
     v2_url = f"{_get_documents_location(new_version)}/{filename}.jsonl.gz"

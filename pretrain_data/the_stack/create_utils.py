@@ -1,5 +1,4 @@
 import logging
-import sys
 from typing import Callable, List
 
 import pandas as pd

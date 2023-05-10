@@ -5,13 +5,14 @@ import string
 import sys
 from typing import Dict, Union
 
+from uniseg.wordbreak import words as unicode_tokenize
+
 from pretrain_data.the_stack.create_utils import (
     _get_lang_list,
     create_attributes,
     create_documents,
     should_exclude_filename,
 )
-from uniseg.wordbreak import words as unicode_tokenize
 
 logging.basicConfig(
     level=logging.INFO,
@@ -116,7 +117,7 @@ def get_filecontent_stats(instance, clean_copyright: bool = False) -> Dict[str, 
     instance["alpha_count"] = alpha_count
 
     instance["num_characters"] = num_characters
-    instance["num_tokens_unicode"] = count_tokens_unicode(content) # nobody got time for that
+    instance["num_tokens_unicode"] = count_tokens_unicode(content)  # nobody got time for that
 
     # whitespace
     instance["num_tokens_whitespace"] = num_tokens_whitespace

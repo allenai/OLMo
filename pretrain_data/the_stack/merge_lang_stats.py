@@ -1,10 +1,12 @@
-import os
-from typing import List
-import pandas as pd
 import argparse
 import json
+import os
+from typing import List
+
+import pandas as pd
 
 S3_location = "s3://ai2-llm/pretraining-data/sources/stack-dedup"
+
 
 def merge(urls: List[str], output_path: str, version: str):
     if os.path.exists(output_path):
@@ -17,10 +19,12 @@ def merge(urls: List[str], output_path: str, version: str):
             all_dfs.append(df)
         except FileNotFoundError:
             import traceback
+
             traceback.print_exc()
 
     df = pd.concat(all_dfs, ignore_index=True)
     df.to_csv(output_path, sep="\t")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Merge file statistics")
@@ -34,4 +38,3 @@ if __name__ == "__main__":
         lang_paths = json.load(f)
 
     merge(lang_paths[args.lang], args.output_path, args.version)
-

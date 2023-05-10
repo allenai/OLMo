@@ -1,17 +1,16 @@
+import concurrent.futures
 import os
 from ast import literal_eval
 from typing import Dict
 
 import pandas as pd
 import tqdm
-import concurrent.futures
 
 S3_location = "s3://ai2-llm/pretraining-data/sources/stack-dedup"
 v0_atts = os.path.join(S3_location, "v0", "attributes", "file_stats")
 
 
 def patch(filep, lang_tokens_i):
-
     v0att = os.path.join(v0_atts, filep + ".tsv")
     v0adf = pd.read_csv(v0att, sep="\t")
 
@@ -20,14 +19,15 @@ def patch(filep, lang_tokens_i):
 
     v0adf.to_csv(v0att, sep="\t", index=False)
 
+
 # df = pd.read_csv(os.path.join(S3_location, "raw_lang_infos.tsv"), sep="\t")
+
 
 def run(lang_files: Dict):
     with tqdm.tqdm(total=len(lang_files)) as pbar:
         for lang in lang_files:
             pbar.set_description(lang)
-            
-            
+
             with tqdm.tqdm(total=len(lang_files[lang])) as pbar2:
                 with concurrent.futures.ThreadPoolExecutor(
                     thread_name_prefix=f"{lang}", max_workers=20
@@ -41,7 +41,8 @@ def run(lang_files: Dict):
                         future.result()
                         pbar2.update(1)
             pbar.update(1)
-            
+
+
 if __name__ == "__main__":
     import json
 
