@@ -19,9 +19,10 @@ class OlmoPretrained(Olmo):
             tokenizer_object=tokenizer_raw.base_tokenizer,
             truncation=tokenizer_raw.truncate_direction,
             max_length=tokenizer_raw.truncate_to,
+            eos_token=tokenizer_raw.decode([tokenizer_raw.eos_token_id], skip_special_tokens=False)
         )
         tokenizer.model_input_names = ['input_ids', 'attention_mask']
-        tokenizer.model_max_length = model.config.max_sequence_length
+        # tokenizer.model_max_length = model.config.max_sequence_length
         # Store tokenizer directly with model
         model.tokenizer = tokenizer
         return model
