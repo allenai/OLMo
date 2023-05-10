@@ -27,10 +27,11 @@ if __name__ == "__main__":
     parser.add_argument("--lang-files-path", type=str, required=True)
     parser.add_argument("--lang", type=str, required=True)
     parser.add_argument("--output-path", type=str, required=True)
+    parser.add_argument("--version", type=str, required=True)
     args = parser.parse_args()
 
     with open(args.lang_files_path) as f:
         lang_paths = json.load(f)
 
-    merge(lang_paths[args.lang], args.output_path)
+    merge(lang_paths[args.lang], args.output_path, args.version)
 
