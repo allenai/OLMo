@@ -22,7 +22,7 @@ then
     # echo $SOURCE_PATH $DEST_PATH
 
     # Merge stats for a language under LOCAL_DIR
-    python merge_lang_stats.py --lang-files-path $LANG_FILES_PATH --lang $LANG --output-path $SOURCE_PATH
+    python merge_lang_stats.py --lang-files-path $LANG_FILES_PATH --lang $LANG --output-path $SOURCE_PATH --version $VERSION
 
     # Copy saved file to S3 bucket.
     aws s3 cp --quiet $SOURCE_PATH $DEST_PATH
