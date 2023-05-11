@@ -60,7 +60,14 @@ def create_attributes(new_version: str, filename: str, functions_to_apply: List[
     filep = filename.split("/")[1]
     new_attributes_url = f"{_get_attributes_location(new_version)}/{lang}/code_secrets/{filep}.jsonl"
 
-    if not S3_FS.exists(new_attributes_url) or S3_FS.exists(new_attributes_url):
+    flag = False
+    if S3_FS.exists(new_attributes_url):
+        adf = pd.read_json(new_attributes_url, lines=True)
+        if "score" in adf.columns:
+            return
+        else:
+            flag = True
+    if not S3_FS.exists(new_attributes_url) or flag:
         logger.info(f"Creating attributes {new_attributes_url}")
         ndf = new_df
         for func in functions_to_apply:
