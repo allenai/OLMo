@@ -46,13 +46,15 @@ data:
   timeout: 0
 
 eval_interval: 50
-eval_subset_num_batches: 10  # a small number is probably enough
+eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
   - label: c4-validation
+    subset_num_batches: 10
     data:
       paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
   - label: rp-validation
+    subset_num_batches: 10
     data:
       paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
   - label: piqa

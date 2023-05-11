@@ -675,6 +675,40 @@ class Trainer:
         else:
             return False
 
+    def eval(self) -> Dict[str, Any]:
+        # Zero gradients and set model to 'eval' mode.
+        self.optim.zero_grad(set_to_none=True)
+        self.fsdp_model.eval()
+
+        eval_metrics = {}
+        for evaluator in self.evaluators:
+            log.info(f"Running evaluation for '{evaluator.cfg.label}'...")
+
+            # Reset metrics.
+            evaluator.reset_metrics()
+
+            # Check how many batches to evaluate on.
+            num_eval_batches = evaluator.cfg.subset_num_batches
+            if num_eval_batches is None:
+                num_eval_batches = self.cfg.eval_subset_num_batches
+            if num_eval_batches <= 0:
+                num_eval_batches = max(1, len(evaluator.eval_loader))
+
+            # Run model over batches.
+            for eval_step, (_, eval_batch) in enumerate(islice(evaluator.eval_batches, num_eval_batches)):
+                step_eval_metrics = self.eval_step(eval_batch, evaluator)
+
+                # Log to console.
+                if eval_step + 1 == num_eval_batches or (eval_step + 1) % self.cfg.console_log_interval == 0:
+                    self.log_metrics_to_console(
+                        f"[eval_step={eval_step + 1}/{num_eval_batches}]", step_eval_metrics
+                    )
+
+            # Get final metrics.
+            eval_metrics.update(evaluator.compute_metrics())
+
+        return eval_metrics
+
     def fit(self):
         # Set model to 'train' mode.
         self.fsdp_model.train()
@@ -757,42 +791,11 @@ class Trainer:
 
             # Maybe run evaluations.
             if self.global_step % self.cfg.eval_interval == 0:
-                # Zero gradients and set model to 'eval' mode.
-                self.optim.zero_grad(set_to_none=True)
-                self.fsdp_model.eval()
+                eval_metrics = self.eval()
 
-                for evaluator in self.evaluators:
-                    log.info(f"Running evaluation for '{evaluator.cfg.label}'...")
-
-                    # Reset metrics.
-                    evaluator.reset_metrics()
-
-                    # Check how many batches to evaluate on.
-                    num_eval_batches = evaluator.cfg.subset_num_batches
-                    if num_eval_batches is None:
-                        num_eval_batches = self.cfg.eval_subset_num_batches
-                    if num_eval_batches <= 0:
-                        num_eval_batches = len(evaluator.eval_loader)
-
-                    # Run model over batches.
-                    for eval_step, (_, eval_batch) in enumerate(islice(evaluator.eval_batches, num_eval_batches)):
-                        eval_metrics = self.eval_step(eval_batch, evaluator)
-
-                        # Log to console.
-                        if (
-                            eval_step + 1 == num_eval_batches
-                            or (eval_step + 1) % self.cfg.console_log_interval == 0
-                        ):
-                            self.log_metrics_to_console(
-                                f"[eval_step={eval_step + 1}/{num_eval_batches}]", eval_metrics
-                            )
-
-                    # Get final metrics.
-                    eval_metrics = evaluator.compute_metrics()
-
-                    # Log metrics to W&B.
-                    if wandb.run is not None:
-                        wandb.log(eval_metrics, step=self.global_step)
+                # Log metrics to W&B.
+                if wandb.run is not None:
+                    wandb.log(eval_metrics, step=self.global_step)
 
                 # Reset speed monitor so that we don't count the time taken to run evaluations.
                 speed_monitor.reset()
