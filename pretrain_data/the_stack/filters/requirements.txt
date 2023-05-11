@@ -1,0 +1,2 @@
+pandarallel==1.6.5
+detect-secrets==1.4.0
