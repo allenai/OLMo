@@ -47,6 +47,10 @@ lumi-image :
 	docker build -f docker/Dockerfile.lumi -t ghcr.io/allenai/llm-lumi:$(shell git log -1 --pretty=format:%h) .
 	docker push ghcr.io/allenai/llm-lumi:$(shell git log -1 --pretty=format:%h)
 
+.PHONY : singularity-pull
+singularity-pull :
+	singularity pull $PROJECT_DIR/containers/llm-lumi_$(TAG).sif docker://ghcr.io/allenai/llm-lumi:$(TAG)
+
 .PHONY : show-test-image
 show-test-image :
 	@echo $(TEST_IMAGE)
