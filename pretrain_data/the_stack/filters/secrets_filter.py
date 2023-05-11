@@ -1,4 +1,5 @@
-from typing import Generator, List
+import logging
+from typing import Generator
 
 from detect_secrets import SecretsCollection
 from detect_secrets.core.scan import (
@@ -8,12 +9,14 @@ from detect_secrets.core.scan import (
 )
 from detect_secrets.settings import default_settings
 
+logger = logging.getLogger(__name__)
+
 THE_STR = "code_str.yml"
 
 
 def scan_code(code: str) -> Generator[PotentialSecret, None, None]:
     if not get_plugins():
-        log.error("No plugins to scan with!")
+        logger.error("No plugins to scan with!")
         return
 
     has_secret = False
@@ -41,4 +44,3 @@ def get_secrets(code: str):
         secrets.scan_str(code)
 
     return secrets
-

@@ -7,13 +7,14 @@ import pandas as pd
 import s3fs
 from pandarallel import pandarallel
 
+from pretrain_data.filters.src.ai2_llm_filters.data_types import Document
+from pretrain_data.filters.src.ai2_llm_filters.filters import PiiFilter
 from pretrain_data.the_stack.create_utils import (
     _get_attributes_location,
     _get_documents_location,
     _get_lang_list,
     should_exclude_filename,
 )
-from pretrain_data.the_stack.filters.secrets_filter import get_secrets
 
 pandarallel.initialize(progress_bar=False)
 
@@ -24,31 +25,28 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler("_run_secrets.log"),
+        logging.FileHandler("_run_pii.log"),
     ],
 )
 
 logger = logging.getLogger(__name__)
 
+PII_FILTER = PiiFilter(method="regex", postprocess=True, window=PiiFilter.WINDOW)
 
-def extract_code_secrets(instance):
-    secrets_spans: List[List] = []
 
-    text = instance["text"]
-    secrets = get_secrets(text)
-    for _, secret in secrets:
-        line_number = secret.line_number - 1
-        span = secret.secret_value
-        span_line = text.splitlines()[line_number]
-        line_start = text.find(span_line)
-        start = line_start + span_line.find(span)
-        end = start + len(span)
-        assert text[start:end] == span
-        secret_type = secret.type.replace(" ", "_")
-        secrets_spans.append([start, end, f"SECRET_{secret_type}", span])
+def extract_pii(instance):
+    doc = Document(
+        source=instance["source"],
+        version=instance.get("version"),
+        id=instance["id"],
+        text=instance["text"].lower().strip(),
+    )
 
-    instance["secrets"] = secrets_spans
-    instance["score"] = len(secrets_spans) * 1.0 / len(text.split())
+    doc_results = PII_FILTER.predict(doc=doc)
+    results_json = doc_results.to_json(with_doc=False)
+
+    instance["score"] = results_json["score"]
+    instance["spans"] = results_json["spans"]
     return instance
 
 
@@ -58,9 +56,9 @@ def create_attributes(new_version: str, filename: str, functions_to_apply: List[
 
     lang = filename.split("/")[0]
     filep = filename.split("/")[1]
-    new_attributes_url = f"{_get_attributes_location(new_version)}/{lang}/code_secrets/{filep}.jsonl"
+    new_attributes_url = f"{_get_attributes_location(new_version)}/{lang}/pii/{filep}.jsonl__method=regex__postprocess=True__window=100"
 
-    if not S3_FS.exists(new_attributes_url) or S3_FS.exists(new_attributes_url):
+    if not S3_FS.exists(new_attributes_url):
         logger.info(f"Creating attributes {new_attributes_url}")
         ndf = new_df
         for func in functions_to_apply:
@@ -76,7 +74,7 @@ def process_file(new_version: str, lang_list_path: str, filename: str):
     if should_exclude_filename(filename, lang_list):
         return
 
-    create_attributes(new_version, filename, [extract_code_secrets])
+    create_attributes(new_version, filename, [extract_pii])
     logger.info("Done")
 
 
