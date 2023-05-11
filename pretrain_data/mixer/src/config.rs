@@ -34,17 +34,27 @@ pub struct Filterer {
 #[derive(Serialize, Deserialize)]
 pub struct StreamConfig {
     pub name: String,
+    // Path to core documents
     pub documents: Vec<String>,
+    // Path to auxillary attributes
     pub attributes: Vec<String>,
+    // json-path-based filtering
     pub filterer: Option<Filterer>,
     pub output: StreamOutputConfig,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct DedupeConfig {
+    // Remove duplicate paragraphs
+    pub paragraphs: bool,
+    // Use this key to dedupe whole documents
+    pub document_key: Option<String>,
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct WorkDirConfig {
     pub input: String,
-    pub output: String
+    pub output: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -53,6 +63,7 @@ pub struct Config {
     pub bloom_filter: Option<BloomFilterConfig>,
     pub processes: usize,
     pub work_dir: WorkDirConfig,
+    pub dedupe: DedupeConfig,
 }
 
 impl Config {
