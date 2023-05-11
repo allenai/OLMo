@@ -86,7 +86,10 @@ impl Shard {
             for pattern in &stream_config.documents {
                 let index = pattern.chars().position(|c| c == '*').unwrap();
                 let prefix = pattern[..index].to_string();
-                let suffix = pattern[index + 2..].to_string();
+                let mut suffix: Option<String> = None;
+                if index < pattern.len() - 1 {
+                    suffix = Some(pattern[index + 2..].to_string());
+                }
                 let mut has_more = true;
                 let mut token: Option<String> = None;
                 while has_more {
@@ -105,14 +108,20 @@ impl Shard {
                                 .delimiter("/")
                                 .send()).unwrap()
                         };
-                    for sub_folder in resp.common_prefixes().unwrap_or_default() {
-                        let mut full_path = sub_folder.prefix().unwrap().to_owned();
-                        full_path.push_str(&suffix);
-                        stream_inputs.push(full_path);
-                    }
+                    resp.contents().unwrap_or_default().iter().for_each(|obj| {
+                        stream_inputs.push(obj.key().unwrap().to_owned());
+                    });
+                    suffix.iter().for_each(|s| {
+                        resp.common_prefixes().unwrap_or_default().iter().for_each(|sub_folder| {
+                            let mut full_path = sub_folder.prefix().unwrap().to_owned();
+                            full_path.push_str(s);
+                            stream_inputs.push(full_path);
+                        });
+                    });
                     token = resp.next_continuation_token().map(String::from);
                     has_more = token.is_some();
                 }
+                log::info!("Found {} objects for pattern \"{}\"", stream_inputs.len(), pattern);
             }
             stream_inputs.sort();
             let inputs_with_sizes = stream_inputs.par_iter().map(|input| {
