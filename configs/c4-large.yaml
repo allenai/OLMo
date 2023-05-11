@@ -61,9 +61,17 @@ evaluators:
   - label: c4-validation
     data:
       paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
+      num_workers: 2
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 4
   - label: rp-validation
     data:
       paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
+      num_workers: 2
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 4
   - label: piqa
   - label: hellaswag
   - label: winogrande

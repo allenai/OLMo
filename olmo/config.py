@@ -352,11 +352,11 @@ class PaddingDirection(StrEnum):
 class DataConfig(BaseConfig):
     paths: List[str] = field(default_factory=lambda: [])
     pad_direction: PaddingDirection = PaddingDirection.right
-    num_workers: int = 4
+    num_workers: int = 0
     drop_last: bool = True
-    pin_memory: bool = True
-    prefetch_factor: Optional[int] = 4
-    persistent_workers: bool = True
+    pin_memory: bool = False
+    prefetch_factor: Optional[int] = None
+    persistent_workers: bool = False
     timeout: int = 0
 
 
