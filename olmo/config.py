@@ -353,7 +353,7 @@ class DataConfig(BaseConfig):
     paths: List[str] = field(default_factory=lambda: [])
     pad_direction: PaddingDirection = PaddingDirection.right
     num_workers: int = 0
-    drop_last: bool = True
+    drop_last: bool = False
     pin_memory: bool = False
     prefetch_factor: Optional[int] = None
     persistent_workers: bool = False
