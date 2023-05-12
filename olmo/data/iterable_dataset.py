@@ -14,6 +14,11 @@ T = TypeVar("T")
 
 
 class IterableDataset(torch.utils.data.IterableDataset[T]):
+    """
+    Adapted from PyTorch's DistributedSampler, this wraps a Dataset or arbitrary sequence
+    as an IterableDataset that can be deterministically restarted at any point by setting `start_step`.
+    """
+
     def __init__(
         self,
         dataset: Sequence[T],
@@ -66,15 +71,18 @@ class IterableDataset(torch.utils.data.IterableDataset[T]):
             indices = indices[: self.total_size]
         assert len(indices) == self.total_size
 
-        # Slice indices by rank.
+        # Slice indices by rank to avoid duplicates.
         indices = indices[self.rank : self.total_size : self.world_size]
 
+        # Truncate to max steps.
         if self.max_steps is not None:
             indices = indices[: self.max_steps]
+
+        # Start at the specified step.
         if self.start_step > 0:
             indices = indices[self.start_step :]
 
-        # Lastly, slice by data loader worker rank.
+        # Lastly, slice the indices by data loader worker rank to avoid duplicates.
         worker_info = torch.utils.data.get_worker_info()
         if worker_info is not None:
             indices = indices[worker_info.id :: worker_info.num_workers]

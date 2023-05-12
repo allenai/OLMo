@@ -109,8 +109,17 @@ class ICLMetric(Metric):
             num_continuations = len(loglikelihood_dict[doc_id].keys())
             loglikelihoods = torch.tensor([-float("inf")] * num_continuations)
 
+            skip_document = False
             for cont_id in loglikelihood_dict[doc_id]:
-                loglikelihoods[cont_id] = loglikelihood_dict[doc_id][cont_id]
+                try:
+                    loglikelihoods[cont_id] = loglikelihood_dict[doc_id][cont_id]
+                except IndexError:
+                    # We didn't process all of the continuations, so skip this document.
+                    skip_document = True
+                    break
+
+            if skip_document:
+                continue
 
             correct.append(1.0 if torch.argmax(loglikelihoods).item() == label_dict[doc_id] else 0.0)
 
