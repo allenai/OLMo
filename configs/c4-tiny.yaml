@@ -2,6 +2,10 @@ run_name: c4-tiny-run-001
 seed: 6198
 dry_run: false
 
+wandb:
+  name: ${run_name}
+  log_interval: ${console_log_interval}
+
 model:
   d_model: 1024
   n_heads: 16
@@ -14,7 +18,8 @@ model:
   attention_layer_norm: false
   multi_query_attention: true
   block_type: sequential
-  layer_norm_type: default  # if not compiling, use 'low_precision'
+  layer_norm_type: low_precision  # if not compiling, use 'low_precision'
+  activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
   max_sequence_length: 1024
@@ -23,30 +28,25 @@ model:
   embedding_size: 50304
   eos_token_id: 50256
   pad_token_id: 50256
-  init_device: null
+  init_device: meta
   init_std: 0.02
 
-compile:
-  mode: default
+compile: null  # causes instability on AMD GPUs
+# compile:
+#   mode: default
 
 optimizer:
-  name: decoupled_lionw
+  name: lionw
   learning_rate: 3.0e-4
-  weight_decay: 1.5e-4
+  weight_decay: 0.01
   betas:
   - 0.9
   - 0.95
-  eps: 1.0e-08
 
 scheduler:
   name: cosine_with_warmup
-  t_warmup: 100ba
+  t_warmup: 100
   alpha_f: 0.1
-
-algorithms:
-  gradient_clipping:
-    clipping_type: norm
-    clipping_threshold: 1.0
 
 data:
   paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-train.*.npy}
@@ -54,65 +54,70 @@ data:
   num_workers: 4
   drop_last: true
   pin_memory: true
-  prefetch_factor: 16
+  prefetch_factor: 4  # bump to 16 if on LUMI
   persistent_workers: true
   timeout: 0
 
 eval_interval: ${save_interval}
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
   - label: c4-validation
-    metric_names:
-      - Perplexity
-      - CrossEntropy
-    device_eval_microbatch_size: ${device_train_microbatch_size}
-    subset_num_batches: 5
+    subset_num_batches: 10
     data:
       paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
-      pad_direction: right
-      num_workers: 4
+      num_workers: 2
       drop_last: true
       pin_memory: true
-      prefetch_factor: 16
       persistent_workers: true
-      timeout: 0
+      prefetch_factor: 4
+  - label: rp-validation
+    subset_num_batches: 10
+    data:
+      paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
+      num_workers: 2
+      drop_last: true
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 4
+  - label: piqa
+  - label: hellaswag
+  - label: winogrande
+  - label: openbook_qa
+  # - label: boolq  # requires implemention of the pmi_dc matrix
+  - label: sciq
+  - label: arc_easy
+  # - label: arc_challenge  # requires implemention of the pmi_dc matrix
+  - label: copa
+  - label: rte
+  - label: commitment_bank
+  - label: mrpc
+  - label: sst2
 
 tokenizer:
   identifier: gpt2
   truncate_direction: right
 
-save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
-save_interval: 2000ba
-save_num_checkpoints_to_keep: -1
+save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_overwrite: false
+# Sharded checkpoints (best for restarts)
+save_interval: 1000
+save_num_checkpoints_to_keep: 2
+# Unsharded checkpoints (for final storage)
+save_interval_unsharded: 100000
+save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
-load_weights_only: false
 
-max_duration: 3814697ba  # 2T tokens
+max_duration: 3814697  # 2T tokens
 global_train_batch_size: 512
-device_train_batch_size: auto
 device_train_microbatch_size: 16
-device_train_grad_accum: auto
-device_eval_batch_size: null
-
-n_gpus: null
 
 precision: amp_bf16
 
-fsdp_config:
-  sharding_strategy: SHARD_GRAD_OP
-  mixed_precision: PURE
-  activation_checkpointing: false
-  activation_cpu_offload: false
-  activation_checkpointing_reentrant: false
-  limit_all_gathers: true
-  use_orig_params: true  # needed to work with compile
-  verbose: false
-
-wandb:
-  name: ${run_name}
+max_grad_norm: 1.0
 
 speed_monitor:
   window_size: 20
 
-console_log_interval: 10ba
+console_log_interval: 20

@@ -42,6 +42,15 @@ test-image : base-image
 	beaker image delete $(TEST_IMAGE) || true
 	beaker image rename $(BEAKER_USER)/$(IMAGE_NAME_BASE)-test-tmp $(IMAGE_NAME_BASE)-test
 
+.PHONY : lumi-image
+lumi-image :
+	docker build -f docker/Dockerfile.lumi -t ghcr.io/allenai/llm-lumi:$(shell git log -1 --pretty=format:%h) .
+	docker push ghcr.io/allenai/llm-lumi:$(shell git log -1 --pretty=format:%h)
+
+.PHONY : singularity-pull
+singularity-pull :
+	singularity pull $PROJECT_DIR/containers/llm-lumi_$(TAG).sif docker://ghcr.io/allenai/llm-lumi:$(TAG)
+
 .PHONY : show-test-image
 show-test-image :
 	@echo $(TEST_IMAGE)
@@ -99,7 +108,7 @@ gantry-run-ib :
 		--allow-dirty \
 		--venv base \
 		--yes \
-		-- /bin/bash -c 'composer --master_addr $$BEAKER_LEADER_REPLICA_HOSTNAME --world_size $$WORLD_SIZE --node_rank $$BEAKER_REPLICA_RANK -n $$GPUS --master_port 1234 scripts/train.py configs/70b-c4.yaml'
+		-- /bin/bash -c 'torchrun --master-addr $$BEAKER_LEADER_REPLICA_HOSTNAME --master_port 1234 --nnodes 4 --node-rank $$BEAKER_REPLICA_RANK --nproc-per-node 8 scripts/train.py configs/c4-large.yaml'
 
 .PHONY : check-cpu-install
 check-cpu-install :

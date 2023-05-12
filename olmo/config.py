@@ -20,11 +20,13 @@ from typing import (
 import torch
 from omegaconf import OmegaConf as om
 from omegaconf.errors import OmegaConfBaseException
+from torch.distributed.fsdp import ShardingStrategy
 
 from .aliases import PathOrStr
 from .exceptions import OlmoConfigurationError
 
 __all__ = [
+    "LogFilterType",
     "ActivationType",
     "BlockType",
     "CompilerConfig",
@@ -40,6 +42,12 @@ __all__ = [
     "TrainConfig",
     "PaddingDirection",
     "TruncationDirection",
+    "SpeedMonitorConfig",
+    "WandbConfig",
+    "CompilerConfig",
+    "WandbConfig",
+    "FSDPConfig",
+    "CheckpointType",
 ]
 
 
@@ -120,6 +128,11 @@ class BaseConfig:
                 if name in out:
                     del out[name]
         return out
+
+
+class LogFilterType(StrEnum):
+    rank0_only = "rank0_only"
+    local_rank0_only = "local_rank0_only"
 
 
 class LayerNormType(StrEnum):
@@ -297,42 +310,36 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
-    @property
-    def device(self) -> Optional[str]:
-        if self.init_device == "meta" or self.init_device is None:
-            return "cuda" if torch.cuda.is_available() else "cpu"
-        else:
-            return self.init_device
-
 
 class OptimizerType(StrEnum):
+    lionw = "lionw"
+    adam = "adam"
     adamw = "adamw"
-    decoupled_adamw = "decoupled_adamw"
-    decoupled_lionw = "decoupled_lionw"
 
 
 @dataclass
 class OptimizerConfig(BaseConfig):
-    name: OptimizerType = OptimizerType.decoupled_lionw
-    learning_rate: Optional[float] = None
-    weight_decay: float = 0.0
+    name: OptimizerType = OptimizerType.lionw
+    learning_rate: float = 1.0e-4
+    weight_decay: float = 0.01
     betas: Tuple[float, float] = (0.9, 0.95)
-    eps: float = 1e-8
+    no_decay_norm_and_bias: bool = True
+    """Do not apply weight decay to norms and biases."""
 
     def __post_init__(self):
-        self.betas = tuple(self.betas)
+        self.betas = tuple(self.betas)  # type: ignore[assignment]
 
 
 class SchedulerType(StrEnum):
     cosine_with_warmup = "cosine_with_warmup"
-    constant_with_warmup = "constant_with_warmup"
-    linear_decay_with_warmup = "linear_decay_with_warmup"
+    inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
 
 
 @dataclass
 class SchedulerConfig(BaseConfig):
     name: SchedulerType = SchedulerType.cosine_with_warmup
-    t_warmup: str = "100ba"
+    t_warmup: int = 100
+    t_max: Optional[int] = None
     alpha_f: float = 0.1
 
 
@@ -346,20 +353,19 @@ class DataConfig(BaseConfig):
     paths: List[str] = field(default_factory=lambda: [])
     pad_direction: PaddingDirection = PaddingDirection.right
     num_workers: int = 0
-    drop_last: bool = True
-    pin_memory: bool = True
-    prefetch_factor: Optional[int] = 2
-    persistent_workers: bool = True
+    drop_last: bool = False
+    pin_memory: bool = False
+    prefetch_factor: Optional[int] = None
+    persistent_workers: bool = False
     timeout: int = 0
 
 
 @dataclass
 class EvaluatorConfig(BaseConfig):
     label: str
-    data: DataConfig
-    device_eval_microbatch_size: int
-    metric_names: List[str]
-    subset_num_batches: int = -1
+    data: DataConfig = field(default_factory=DataConfig)
+    device_eval_batch_size: Optional[int] = None
+    subset_num_batches: Optional[int] = None
 
 
 class TruncationDirection(StrEnum):
@@ -379,9 +385,10 @@ class WandbConfig(BaseConfig):
     entity: Optional[str] = "ai2-llm"
     group: Optional[str] = None
     name: Optional[str] = None
-    tags: Optional[List[str]] = None
+    tags: Optional[List[str]] = field(default_factory=lambda: ["watching"])
     log_artifacts: bool = False
     rank_zero_only: bool = True
+    log_interval: int = 1
 
 
 @dataclass
@@ -412,45 +419,222 @@ class CompilerConfig(BaseConfig):
 
 
 @dataclass
+class FSDPConfig(BaseConfig):
+    use_orig_params: bool = True
+    """
+    This must be ``True`` if using ``compile``.
+    """
+
+    sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD
+
+
+class CheckpointType(StrEnum):
+    sharded = "sharded"
+    unsharded = "unsharded"
+
+
+@dataclass
 class TrainConfig(BaseConfig):
     """
     OLMo training configuration.
     """
 
     run_name: Optional[str] = None
+    """
+    The name of the run.
+    """
+
     seed: int = 6198
+    """
+    Used to seed all initial RNG states.
+    """
+
     dry_run: bool = False
+    """
+    If ``True``, don't actually train.
+    """
+
     model: ModelConfig = field(default_factory=ModelConfig)
+    """
+    OLMo Model configuration.
+    """
+
     optimizer: OptimizerConfig = field(default_factory=OptimizerConfig)
+    """
+    Optimizer configuration.
+    """
+
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
-    algorithms: Optional[Dict[str, Optional[Dict[str, Any]]]] = None
+    """
+    Learning rate scheduler configuration.
+    """
+
     data: DataConfig = field(default_factory=DataConfig)
+    """
+    Training data configuration.
+    """
+
+    restore_dataloader: bool = True
+    """
+    When restarting, restore the data loader to where it left off.
+    If you restarting in order to train on a different dataset, set this to ``False``.
+    """
+
+    fast_forward_batches: Optional[int] = None
+    """
+    When restarting, use this to fast-forward the dataloader beyond the last checkpoint.
+    This can be useful when restarting due to a loss spike in order to skip the data that
+    corresponded to the spike.
+    """
+
     evaluators: List[EvaluatorConfig] = field(default_factory=list)
-    eval_interval: Union[int, str] = "1ep"
+    """
+    Evaluation configurations.
+    """
+
+    eval_interval: int = 1000
+    """
+    How often (in terms of batches) to run evaluations.
+    """
+
     tokenizer: TokenizerConfig = field(default_factory=TokenizerConfig)
+    """
+    Tokenizer configuration.
+    """
+
     save_folder: str = "./"
-    save_interval: Union[str, int] = "1ep"
+    """
+    The directory to save checkpoints to.
+    """
+
+    save_interval: int = 1000
+    """
+    How often (in terms of batches) to save training state checkpoints that can be used for restarts.
+    """
+
+    save_interval_unsharded: Optional[int] = None
+    """
+    How often (if at all) to save the unsharded state to a single file.
+    For large models it can be costly to save these, so it usually makes sense to save
+    these less often than regular (sharded) training checkpoints.
+    """
+
     save_num_checkpoints_to_keep: int = -1
+    """
+    How many checkpoints to keep.
+    """
+
+    save_num_unsharded_checkpoints_to_keep: int = -1
+    """
+    How many unsharded checkpoints to keep.
+    """
+
     save_overwrite: bool = False
+    """
+    If ``True``, overwrite any conflicting checkpoint files.
+    """
+
+    force_save_unsharded: bool = False
+    """
+    Save an unsharded checkpoint before training (even during a dry run).
+    Use this option with `--load-path={PATH}` and `--dry_run` to convert a sharded
+    checkpoint into an unsharded checkpoint.
+    """
+
     load_path: Optional[str] = None
-    load_weights_only: bool = False
-    max_duration: Union[str, int] = "10ep"
+    """
+    The path to a (sharded) training checkpoint to restore/resume from.
+    """
+
+    max_duration: int = 10000
+    """
+    Maximum number of batches to train for.
+    """
+
     global_train_batch_size: int = 512
-    device_train_batch_size: Union[str, int] = "auto"
-    device_train_microbatch_size: Union[str, int] = "auto"
-    device_train_grad_accum: Union[str, int] = "auto"
-    device_eval_batch_size: Optional[int] = None
-    n_gpus: Optional[int] = None
+    """
+    The effective global batch size.
+    """
+
+    device_train_batch_size: Optional[int] = None  # calculated automatically
+    """
+    Don't set this manually. This will be set to ``global_train_batch_size // world_size``.
+    """
+
+    device_train_microbatch_size: int = 16
+    """
+    The number of instances passed to the model in a single forward-backward pass. You should set
+    this as large as you can based on available GPU memory.
+    """
+
+    device_eval_batch_size: int = 16
+    """
+    The number of evaluation instances passed to the model in a single forward pass on each device.
+    """
+
+    eval_subset_num_batches: int = -1
+    """
+    The number of batches to use for downstream evaluation from each dataset.
+    """
+
+    device_train_grad_accum: Optional[int] = None  # calculated automatically
+    """
+    Don't set this manually. This will be set to ``device_train_batch_size // device_train_microbatch_size``.
+    """
+
+    max_grad_norm: Optional[float] = None
+    """
+    Clip gradients to this value if set.
+    """
+
     precision: Optional[str] = None
-    fsdp_config: Optional[Dict[str, Any]] = None
+    """
+    Precision to train with (e.g. "amp_bf16", "amp_fp16", or "fp32").
+    """
+
     wandb: Optional[WandbConfig] = None
+    """
+    Weights & Biases configuration.
+    """
+
     speed_monitor: SpeedMonitorConfig = field(default_factory=SpeedMonitorConfig)
-    console_log_interval: Union[str, int] = "1ba"
+    """
+    Speed monitor configuration.
+    """
+
+    console_log_interval: int = 1
+    """
+    How often to log to the console.
+    """
+
     compile: Optional[CompilerConfig] = None
     """
     Settings for compiling the model with ``torch.compile()``.
     """
 
+    activation_checkpointing: bool = False
+    """
+    Use activation checkpointing on transformer blocks.
+    """
+
+    fsdp: FSDPConfig = field(default_factory=FSDPConfig)
+    """
+    Fully sharded data parallel settings.
+    """
+
+    softmax_auxiliary_loss: bool = False
+    """
+    If ``True``, we add the auxiliary loss function from PaLM that encourages the softmax
+    normalizing term to be close to 0.
+    """
+
     @property
-    def device(self) -> Optional[str]:
-        return self.model.device
+    def autocast_precision(self) -> torch.dtype:
+        if self.precision == "amp_bf16":
+            return torch.bfloat16
+        elif self.precision == "amp_fp16":
+            return torch.float16
+        elif self.precision == "fp32":
+            return torch.float32
+        else:
+            raise ValueError(f"Unexpected precision type '{self.precision}'")
