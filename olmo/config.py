@@ -360,9 +360,15 @@ class DataConfig(BaseConfig):
     timeout: int = 0
 
 
+class EvaluatorType(StrEnum):
+    downstream = "downstream"
+    lm = "lm"
+
+
 @dataclass
 class EvaluatorConfig(BaseConfig):
     label: str
+    type: EvaluatorType = EvaluatorType.lm
     data: DataConfig = field(default_factory=DataConfig)
     device_eval_batch_size: Optional[int] = None
     subset_num_batches: Optional[int] = None

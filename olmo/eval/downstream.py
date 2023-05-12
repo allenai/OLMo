@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from torchmetrics import Metric
 
-from .tokenizer import Tokenizer
+from ..tokenizer import Tokenizer
 
 
 class ICLMetric(Metric):
