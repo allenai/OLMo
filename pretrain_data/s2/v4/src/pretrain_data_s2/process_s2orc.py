@@ -17,15 +17,15 @@ from contextlib import ExitStack
 
 from queue import Queue
 from tempfile import NamedTemporaryFile
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
-import cld3
 import pandas as pd
 import springs as sp
 from smashed.utils import io_utils
 
 
-from .consts import LANG_ID_CUT, COMMON_CUT, DATA_COLUMNS
+from .consts import COMMON_CUT, DATA_COLUMNS
+from .lang_id import FasttextLangId, Cld2LangId
 from .utils import (
     UnigramPerplexityPredictor,
     row_to_metadata,
@@ -45,6 +45,8 @@ def process_single(
     logger = sp.configure_logging(__name__, logging_level="WARNING", force_root_reattach=True)
 
     upp = UnigramPerplexityPredictor()
+    ft_lang = FasttextLangId()
+    cld2_lang = Cld2LangId()
     src, dst = io_paths
     dst.path += ".gz"
 
@@ -90,19 +92,10 @@ def process_single(
     # all paragraphs
     df["text"] = df.apply(merge_text, axis=1)
 
-    def get_language(filtered_paragraphs: List[str]) -> List[str]:
-        langs: List[str] = []
-        for para in filtered_paragraphs:
-            try:
-                text = para.strip()[:LANG_ID_CUT]
-                langs.append(cld3.get_language(text).language)  # type: ignore
-            except Exception:
-                langs.append("unk")
-        return langs
-
     # create new column that is the result of the function
     # cld3.get_language(text) applied to the text column
-    df["language_paragraphs"] = df["filtered_paragraphs"].apply(get_language)
+    df["fasttext_language_paragraphs"] = df["filtered_paragraphs"].apply(ft_lang.get_language)
+    df["cld2_language_paragraphs"] = df["filtered_paragraphs"].apply(cld2_lang.get_language)
 
     # calculate the perplexity of each paragraph
     df["perplexity_paragraphs"] = df["filtered_paragraphs"].apply(lambda x: [upp.predict(para) for para in x])
