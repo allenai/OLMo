@@ -42,7 +42,7 @@ from olmo.config import (
     SpeedMonitorConfig,
     TrainConfig,
 )
-from olmo.data import DataCollator, MemMapDataset
+from olmo.data import DataCollator, IterableDataset, MemMapDataset
 from olmo.downstream_eval import ICLMetric, label_to_task_map
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
 from olmo.model import Olmo
@@ -105,7 +105,7 @@ class LRMonitor:
 class Evaluator:
     cfg: EvaluatorConfig
     eval_loader: DataLoader
-    eval_batches: Iterator[Tuple[int, Dict[str, Any]]]
+    eval_batches: Iterator[Dict[str, Any]]
     eval_metric: Metric
 
     def reset_metrics(self) -> None:
@@ -147,7 +147,6 @@ class Trainer:
     optim: torch.optim.Optimizer
     scheduler: torch.optim.lr_scheduler.LRScheduler
     train_loader: DataLoader
-    training_batches: Iterator[Tuple[int, Tuple[int, Dict[str, Any]]]]
     device: torch.device
     evaluators: List[Evaluator]
     ce_train_loss_metric: MeanMetric
@@ -456,18 +455,12 @@ class Trainer:
         if self.global_data_step > 0:
             if self.global_data_step > self.global_step:
                 log.info(
-                    f"Fast-forwarding data loader to {self.global_step}+{self.global_data_step-self.global_step}..."
+                    f"Fast-forwarding data loader to {self.global_step}+{self.global_data_step-self.global_step}"
                 )
             else:
-                log.info(f"Fast-forwarding data loader to {self.global_data_step}...")
-            for step, (_, batch) in self.training_batches:
-                del batch
-                dist.barrier()
-                if step + 1 >= self.global_data_step:
-                    log.info(f"Fast-forwarded to {self.global_data_step}")
-                    break
-                elif (step + 1) % self.cfg.console_log_interval == 0:
-                    log.info(f"Fast-forwarding... {step + 1}/{self.global_data_step}")
+                log.info(f"Fast-forwarding data loader to {self.global_data_step}")
+            assert isinstance(self.train_loader.dataset, IterableDataset)
+            self.train_loader.dataset.start_step = self.global_data_step
 
     def save_checkpoint(self, checkpoint_type: CheckpointType = CheckpointType.sharded) -> Path:
         if checkpoint_type == CheckpointType.sharded:
@@ -695,7 +688,7 @@ class Trainer:
                 num_eval_batches = max(1, len(evaluator.eval_loader))
 
             # Run model over batches.
-            for eval_step, (_, eval_batch) in enumerate(islice(evaluator.eval_batches, num_eval_batches)):
+            for eval_step, eval_batch in enumerate(islice(evaluator.eval_batches, num_eval_batches)):
                 step_eval_metrics = self.eval_step(eval_batch, evaluator)
 
                 # Log to console.
@@ -738,9 +731,9 @@ class Trainer:
 
         # Train.
         first_batch: bool = True
-        for step, (epoch, batch) in self.training_batches:
+        for batch in self.train_loader:
             self.global_step += 1
-            self.global_data_step = step + 1
+            self.global_data_step += 1
 
             speed_monitor.batch_start(
                 self.global_step,
@@ -763,9 +756,7 @@ class Trainer:
 
             # Log metrics to console.
             if self.global_step % self.cfg.console_log_interval == 0:
-                self.log_metrics_to_console(
-                    f"[epoch={epoch}, step={self.global_step}/{self.cfg.max_duration}]", metrics
-                )
+                self.log_metrics_to_console(f"[step={self.global_step}/{self.cfg.max_duration}]", metrics)
 
             # Log metrics to W&B.
             if (
@@ -925,8 +916,7 @@ def main(cfg: TrainConfig) -> None:
     scheduler = build_scheduler(cfg, optim)
 
     # Construct data loader.
-    train_loader = build_dataloader(cfg.data, cfg.model, cfg.device_train_batch_size)
-    training_batches = enumerate(islice(cycle_through_epochs(train_loader), cfg.max_duration))
+    train_loader = build_train_dataloader(cfg.data, cfg.model, cfg.device_train_batch_size)
 
     # Construct evaluators.
     evaluators = []
@@ -935,7 +925,7 @@ def main(cfg: TrainConfig) -> None:
         evaluator: Evaluator
         if eval_cfg.data.paths:
             # Language modeling evaluation.
-            eval_loader = build_dataloader(
+            eval_loader = build_eval_dataloader(
                 eval_cfg.data,
                 cfg.model,
                 eval_cfg.device_eval_batch_size or cfg.device_eval_batch_size,
@@ -963,7 +953,6 @@ def main(cfg: TrainConfig) -> None:
         optim=optim,
         scheduler=scheduler,
         train_loader=train_loader,
-        training_batches=training_batches,
         device=device,
         ce_train_loss_metric=MeanMetric(nan_strategy="error").to(device),
         z_train_loss_metric=None
@@ -1020,7 +1009,7 @@ def main(cfg: TrainConfig) -> None:
     trainer.close()
 
 
-def build_dataloader(
+def build_eval_dataloader(
     data_config: DataConfig, model_config: ModelConfig, batch_size: int, shuffle: bool = True
 ) -> DataLoader:
     collator = DataCollator(pad_direction=data_config.pad_direction, pad_token_id=model_config.pad_token_id)
@@ -1039,6 +1028,27 @@ def build_dataloader(
         collate_fn=collator,
         num_workers=cfg.data.num_workers,
         sampler=sampler,
+        pin_memory=cfg.data.pin_memory,
+        prefetch_factor=cfg.data.prefetch_factor,
+        persistent_workers=cfg.data.persistent_workers,
+        timeout=cfg.data.timeout,
+    )
+
+
+def build_train_dataloader(data_config: DataConfig, model_config: ModelConfig, batch_size: int) -> DataLoader:
+    collator = DataCollator(pad_direction=data_config.pad_direction, pad_token_id=model_config.pad_token_id)
+    dataset = MemMapDataset(*data_config.paths, chunk_size=model_config.max_sequence_length)
+    return DataLoader(
+        IterableDataset(
+            dataset,  # type: ignore
+            seed=cfg.seed,
+            shuffle=True,
+            drop_last=data_config.drop_last,
+            max_steps=cfg.max_duration,
+        ),
+        batch_size=batch_size,
+        collate_fn=collator,
+        num_workers=cfg.data.num_workers,
         pin_memory=cfg.data.pin_memory,
         prefetch_factor=cfg.data.prefetch_factor,
         persistent_workers=cfg.data.persistent_workers,
@@ -1165,14 +1175,14 @@ def build_scheduler(cfg: TrainConfig, optim: torch.optim.Optimizer) -> torch.opt
         raise NotImplementedError
 
 
-def cycle_through_epochs(dataloader: DataLoader) -> Generator[Tuple[int, Dict[str, Any]], None, None]:
-    epoch = 0
+def cycle_through_epochs(dataloader: DataLoader) -> Generator[Dict[str, Any], None, None]:
     while True:
-        if isinstance(dataloader.sampler, DistributedSampler):
-            dataloader.sampler.set_epoch(epoch)
         for batch in dataloader:
-            yield epoch, batch
-        epoch += 1
+            yield batch
+
+        if isinstance(dataloader.sampler, DistributedSampler):
+            epoch = dataloader.sampler.epoch + 1
+            dataloader.sampler.set_epoch(epoch)
 
 
 if __name__ == "__main__":

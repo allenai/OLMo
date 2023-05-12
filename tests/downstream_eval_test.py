@@ -14,7 +14,7 @@ def test_piqa():
         cfg.evaluators[1], cfg, tokenizer, torch.device("cpu"), is_unit_test=True
     )
     logits = torch.rand(4, 57, 50304)
-    _, first_batch = next(evaluator.eval_batches)
+    first_batch = next(evaluator.eval_batches)
     evaluator.reset_metrics()
     evaluator.update_metrics(first_batch, logits.sum(), logits)
 
