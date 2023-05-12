@@ -686,6 +686,8 @@ class Trainer:
                 num_eval_batches = self.cfg.eval_subset_num_batches
             if num_eval_batches <= 0:
                 num_eval_batches = max(1, len(evaluator.eval_loader))
+            else:
+                num_eval_batches = min(num_eval_batches, len(evaluator.eval_loader))
 
             # Run model over batches.
             for eval_step, eval_batch in enumerate(islice(evaluator.eval_batches, num_eval_batches)):
