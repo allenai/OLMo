@@ -18,7 +18,8 @@ model:
   attention_layer_norm: false
   multi_query_attention: true
   block_type: sequential
-  layer_norm_type: default  # if not compiling, use 'low_precision'
+  layer_norm_type: low_precision  # if not compiling, use 'low_precision'
+  activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
   max_sequence_length: 1024
@@ -66,6 +67,7 @@ evaluators:
     data:
       paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
       num_workers: 2
+      drop_last: true
       pin_memory: true
       persistent_workers: true
       prefetch_factor: 4
@@ -74,6 +76,7 @@ evaluators:
     data:
       paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
       num_workers: 2
+      drop_last: true
       pin_memory: true
       persistent_workers: true
       prefetch_factor: 4
