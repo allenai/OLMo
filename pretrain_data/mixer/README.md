@@ -28,6 +28,19 @@ make
 ./target/release/mixer config/example.json
 ```
 
+The `config/v1.json` and `config/v2.json` files were used to produce the `v1` and `v2` datasets.
+
+If running with lots of parallelism, you might need to increase the number of open files allowed:
+```shell
+ulimit -n 65536
+```
+
+Also, to avoid overwhelming the local credentials server, you can specify your credentials in env vars:
+```shell
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+```
+
 ## Configuration
 See sample config file [here](config/example.json)
 

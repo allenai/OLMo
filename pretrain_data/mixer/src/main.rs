@@ -45,8 +45,6 @@ fn main() {
         if output_path.exists() {
             log::info!("Skipping {:?} because it already exists", shard.output);
             continue;
-        } else {
-            log::info!("Processing {:?}...", output_path)
         }
         let shard = shard.clone();
         let bloom_filter = bloom_filter.clone();
@@ -56,7 +54,7 @@ fn main() {
         let failed_shard_count_ref = failed_shard_count_ref.clone();
 
         threadpool.execute(move || {
-            log::info!("Processing {:?}...", shard.output);
+            log::info!("Building output {:?}...", shard.output);
             let options = ShardOptions {
                 annotate_only: false,
                 input_work_dir: input_work_dir.clone(),
@@ -126,7 +124,11 @@ mod test {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build().unwrap();
-        let aws_config = rt.block_on(aws_config::from_env().region(Region::new("us-east-1")).load());
+        let aws_config = rt.block_on(
+            aws_config::from_env()
+                .region(Region::new("us-east-1"))
+                .load()
+        );
         let s3_client = S3Client::new(&aws_config);
 
         rt.block_on(upload_file(&s3_client, "ai2-llm",
