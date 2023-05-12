@@ -710,14 +710,22 @@ class Trainer:
         return eval_metrics
 
     def fit(self):
+        if self.cfg.load_path is not None and self.global_step > 0:
+            # Evaluate right away if we're loading from a checkpoint.
+            eval_metrics = self.eval()
+
+            # Log metrics to W&B.
+            if wandb.run is not None:
+                wandb.log(eval_metrics, step=self.global_step)
+
         # Set model to 'train' mode.
         self.fsdp_model.train()
 
         # Initialize monitors.
-        assert cfg.device_train_batch_size is not None
+        assert self.cfg.device_train_batch_size is not None
         speed_monitor = SpeedMonitor(
             self.cfg.speed_monitor,
-            device_batch_num_tokens=cfg.device_train_batch_size * cfg.model.max_sequence_length,
+            device_batch_num_tokens=self.cfg.device_train_batch_size * self.cfg.model.max_sequence_length,
         )
         lr_monitor = LRMonitor(self.optim)
 
