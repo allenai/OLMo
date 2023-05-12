@@ -8,6 +8,8 @@ We use the [deduplicated version](https://huggingface.co/datasets/bigcode/the-st
 # Version updates
 
 * 2023-03-17: [v0](v0/README.md)
+* 2023-05-10: [v1](v1/README.md)
+* 2023-05-10: [v2](v2/README.md)
 
 ## Notes / Comments
 

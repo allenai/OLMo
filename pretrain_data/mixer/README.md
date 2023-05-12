@@ -28,6 +28,19 @@ make
 ./target/release/mixer config/example.json
 ```
 
+The `config/v1.json` and `config/v2.json` files were used to produce the `v1` and `v2` datasets.
+
+If running with lots of parallelism, you might need to increase the number of open files allowed:
+```shell
+ulimit -n 65536
+```
+
+Also, to avoid overwhelming the local credentials server, you can specify your credentials in env vars:
+```shell
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+```
+
 ## Configuration
 See sample config file [here](config/example.json)
 
@@ -56,5 +69,33 @@ in the `output` directory, then replaced with a zero-length file after a success
 
 ### processes
 Number of processes to run in parallel. Default is number of CPUs.
+
+### bloom_filter
+If present, size of the Bloom filter to use for deduping
+
+**file**
+Save the Bloom filter to this file after processing
+
+**size_in_bytes**
+Size of the Bloom filter in bytes. Zero = set automatically based on expected number of unique documents.
+
+**read_only**
+If true, do not write to the Bloom filter. Useful for blocklisting.
+
+**estimated_doc_count**
+Estimated number of unique documents. Used to set the size of the Bloom filter.
+
+**desired_false_positive_rate**
+Desired false positive rate. Used to set the size of the Bloom filter.
+
+### dedupe
+
+Deduping uses the Bloom Filter to either remove complete documents based on some key, or paragraphs based on the raw text split by newlines. 
+
+**paragraphs**
+If true, remove duplicate paragraphs across the entire corpus.
+
+**document_key**
+Use the json-path-specified field (must be a string) as the key for deduping. 
 
 

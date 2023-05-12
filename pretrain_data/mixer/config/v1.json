@@ -29,6 +29,7 @@
         "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-10/*/en_head.json.gz",
         "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-05/*/en_head.json.gz"
       ],
+      "attributes": [],
       "output": {
         "path": "pretraining-data/sources/common-crawl/v1/documents/cc_en_head",
         "max_size_in_bytes": 4294967296
@@ -63,6 +64,7 @@
         "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-10/*/en_middle.json.gz",
         "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-05/*/en_middle.json.gz"
       ],
+      "attributes": [],
       "output": {
         "path": "pretraining-data/sources/common-crawl/v1/documents/cc_en_middle",
         "max_size_in_bytes": 4294967296
@@ -97,6 +99,7 @@
         "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-10/*/en_tail.json.gz",
         "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-05/*/en_tail.json.gz"
       ],
+      "attributes": [],
       "output": {
         "path": "pretraining-data/sources/common-crawl/v1/documents/cc_en_tail",
         "max_size_in_bytes": 4294967296
@@ -109,6 +112,10 @@
     "read_only": false,
     "estimated_doc_count": 60000000000,
     "desired_false_positive_rate": 0.0002
+  },
+  "dedupe": {
+    "paragraphs": false,
+    "document_key": "$.metadata.url"
   },
   "work_dir": {
     "input": "/data1/work/input",

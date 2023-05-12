@@ -1,8 +1,8 @@
 [project]
 name = "ai2-llm-filters"
-version = "0.0.1"
+version = "0.0.2"
 description = "Data filters"
-authors = [ 
+authors = [
     {name = "Aakanksha Naik", email = "aakankshan@allenai.org" },
     {name = "Abhilasha Ravichander", email = "abhilashar@allenai.org" },
     {name = "Ian Magnusson", email = "ianm@allenai.org" },
@@ -20,8 +20,9 @@ dependencies = [
     "boto3",
     "uniseg",
     "cached_path",
-    "smashed[remote]==0.19.4",
-    "presidio_analyzer"
+    "msgspec==0.14.2",
+    "smashed[remote]==0.19.6",
+    "presidio_analyzer==2.2.32"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -57,7 +58,7 @@ requires = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-shadow_scholar = ["py.typed"]
+ai2_llm_filters = ["py.typed"]
 
 [tool.black]
 line-length = 115
