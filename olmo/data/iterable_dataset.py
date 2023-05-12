@@ -42,7 +42,7 @@ class IterableDataset(torch.utils.data.IterableDataset[T]):
                 (len(self.dataset) - self.world_size) / self.world_size  # type: ignore[arg-type]
             )
         else:
-            self.num_samples = math.ceil(len(self.dataset) / self.num_replicas)  # type: ignore[arg-type]
+            self.num_samples = math.ceil(len(self.dataset) / self.world_size)  # type: ignore[arg-type]
         self.total_size = self.num_samples * self.world_size
 
     def __iter__(self) -> Iterator[T]:
