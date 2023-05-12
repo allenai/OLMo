@@ -37,3 +37,8 @@ We propose just removing any document with any spans in bff_duplicate_spans. You
     * removes 0.18% docs
 * if you just removed contaminated paragraphs
     * removes 0.07% data
+
+
+## v2 small
+
+We also provide a script to create a smaller version that has at most 1 million tokens per domain. To create this run `subset_v2_smal_eval.sh`.
