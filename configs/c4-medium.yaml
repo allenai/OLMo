@@ -75,18 +75,31 @@ evaluators:
       persistent_workers: true
       prefetch_factor: 4
   - label: piqa
+    type: downstream
   - label: hellaswag
+    type: downstream
   - label: winogrande
+    type: downstream
   - label: openbook_qa
+    type: downstream
   # - label: boolq  # requires implemention of the pmi_dc matrix
+    # type: downstream
   - label: sciq
+    type: downstream
   - label: arc_easy
+    type: downstream
   # - label: arc_challenge  # requires implemention of the pmi_dc matrix
+    # type: downstream
   - label: copa
+    type: downstream
   - label: rte
+    type: downstream
   - label: commitment_bank
+    type: downstream
   - label: mrpc
+    type: downstream
   - label: sst2
+    type: downstream
 
 tokenizer:
   identifier: gpt2
