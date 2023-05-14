@@ -9,7 +9,7 @@ rich
 cached-path
 beaker-gantry
 omegaconf
-wandb
+wandb @ git+https://github.com/wandb/wandb.git@amd-gpu
 logzio-python-handler
 boto3
 google-cloud-storage
