@@ -90,7 +90,7 @@ RUN cd /opt && \
 COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir py-spy
-RUN pip install --no-cache-dir wandb --upgrade
+#RUN pip install --no-cache-dir wandb --upgrade  # disabled until we can depend on wandb main branch again
 
 # Cleanup
 RUN apt-get autoremove
