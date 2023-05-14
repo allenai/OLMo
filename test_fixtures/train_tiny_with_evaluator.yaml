@@ -41,6 +41,7 @@ evaluators:
       num_workers: 0
       prefetch_factor: null
   - label: piqa
+    type: downstream
     device_eval_batch_size: ${device_train_microbatch_size}
     subset_num_batches: 8
     data:
