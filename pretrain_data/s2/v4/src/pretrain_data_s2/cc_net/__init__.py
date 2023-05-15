@@ -68,6 +68,7 @@ class CCNet:
             for elem in seq
         ]
         tokenized = self.sp(seq)
-        perplexity = self.lm(tokenized)
+        # make sure all output fields are present
+        perplexity = [{self.output_field: 0.0, **d} for d in self.lm(tokenized)]
         output = [elem[self.output_field] for elem in perplexity] if must_extract else perplexity
         return output

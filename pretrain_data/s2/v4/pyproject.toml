@@ -1,6 +1,6 @@
 [project]
 name = "pretrain-data-s2"
-version = "4.0.0"
+version = "4.0.1"
 description = "Pipeline to process s2 data"
 authors = [
     {name = "Luca Soldaini", email = "lucas@allenai.org" }
