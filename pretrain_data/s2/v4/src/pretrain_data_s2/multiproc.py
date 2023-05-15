@@ -4,8 +4,7 @@ from multiprocessing import Manager, Pool, cpu_count, set_start_method
 from queue import Queue
 from threading import Thread
 from time import sleep
-from typing import NamedTuple, Optional, Callable, Union
-
+from typing import Callable, NamedTuple, Optional, Union
 
 import springs as sp
 from smashed.utils import io_utils

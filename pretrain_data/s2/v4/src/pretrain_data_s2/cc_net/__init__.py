@@ -1,13 +1,15 @@
 from typing import Any, List, Sequence, Union
 
 from cached_path import cached_path
-from .perplexity import MultiSentencePiece, DocLM
+
+from .perplexity import DocLM, MultiSentencePiece
 
 # dl_lm:
 # 	# Download a pretrained language model
 # 	mkdir -p data/lm_sp
 # 	wget -c  -P data/lm_sp http://dl.fbaipublicfiles.com/cc_net/lm/$(lang).arpa.bin
-# 	wget -c  -P data/lm_sp http://dl.fbaipublicfiles.com/cc_net/lm/$(lang).sp.model
+# wget -c  -P data/lm_sp
+# http://dl.fbaipublicfiles.com/cc_net/lm/$(lang).sp.model
 
 # lm: data/lm_sp/$(lang).sp.model data/lm_sp/$(lang).arpa.bin
 
@@ -21,10 +23,10 @@ class CCNet:
 
     def get_lm_languages(self) -> List[str]:
         langs_str = (
-            'af,ar,az,be,bg,bn,ca,cs,da,de,el,en,es,et,fa,fi,fr,gu,he,hi,hr,hu,hy,id,'
-            'is,it,ja,ka,kk,km,kn,ko,lt,lv,mk,ml,mn,mr,my,ne,nl,no,pl,pt,ro,ru,uk,zh'
+            "af,ar,az,be,bg,bn,ca,cs,da,de,el,en,es,et,fa,fi,fr,gu,he,hi,hr,hu,hy,id,"
+            "is,it,ja,ka,kk,km,kn,ko,lt,lv,mk,ml,mn,mr,my,ne,nl,no,pl,pt,ro,ru,uk,zh"
         )
-        return langs_str.split(',')
+        return langs_str.split(",")
 
     def __init__(
         self,
@@ -44,7 +46,6 @@ class CCNet:
             models={self.lang: cached_path(self.get_sp_url(self.lang))},
             field=sp_input_field,
             output_field=sp_output_field,
-
         )
         self.lm = DocLM(
             models={self.lang: cached_path(self.get_lm_url(self.lang))},
@@ -55,7 +56,7 @@ class CCNet:
 
     @classmethod
     def prefetch(cls):
-        '''download models by creating a class, then destroying it immediately.'''
+        """download models by creating a class, then destroying it immediately."""
         (model := cls())(["hello world"])
         del model
 

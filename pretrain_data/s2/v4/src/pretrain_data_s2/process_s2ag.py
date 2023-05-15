@@ -12,7 +12,6 @@ import gzip
 import json
 from collections import Counter
 from contextlib import ExitStack
-
 from queue import Queue
 from tempfile import NamedTemporaryFile
 from typing import Optional, Tuple
@@ -21,17 +20,17 @@ import pandas as pd
 import springs as sp
 from smashed.utils import io_utils
 
+from .cc_net import CCNet
 from .consts import COMMON_CUT, DATA_COLUMNS
-from .lang_id import FasttextLangId, Cld2LangId
+from .lang_id import Cld2LangId, FasttextLangId
+from .multiproc import PbarUnit, make_runner
 from .utils import (
     UnigramPerplexityPredictor,
-    row_to_metadata,
     fix_missing_added,
     fix_missing_created,
-    nfc_normalize
+    nfc_normalize,
+    row_to_metadata,
 )
-from .multiproc import make_runner, PbarUnit
-from .cc_net import CCNet
 
 
 def process_single(

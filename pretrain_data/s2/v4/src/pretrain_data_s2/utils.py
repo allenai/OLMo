@@ -12,7 +12,6 @@ import datetime
 import unicodedata
 from typing import Any, Dict, List, Union
 
-
 import numpy as np
 import pandas as pd
 from blingfire import text_to_words
@@ -103,7 +102,8 @@ def merge_text(row: pd.Series) -> str:
     title = row.get("title", "") or ""
     abstract = row.get("abstract", "") or ""
     paragraphs = row.get("filtered_paragraphs", []) or []  # pyright: ignore
-    return f"{title.strip()}\n{abstract.strip()}\n\n{' '.join(p.strip() for p in paragraphs)}"  # pyright: ignore
+    # pyright: ignore
+    return f"{title.strip()}\n{abstract.strip()}\n\n{' '.join(p.strip() for p in paragraphs)}"
 
 
 def fix_missing_added(row: pd.Series) -> pd.Series:

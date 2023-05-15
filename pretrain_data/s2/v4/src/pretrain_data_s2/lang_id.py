@@ -1,9 +1,8 @@
-
 from typing import List, Tuple, Union, overload
+
+import pycld2 as cld2
 from cached_path import cached_path
 from fasttext.FastText import _FastText
-import pycld2 as cld2
-
 
 from .consts import FASTTEXT_PATH, LANG_ID_CUT
 
@@ -44,12 +43,13 @@ class BaseLangId:
 class FasttextLangId(BaseLangId):
     def __init__(self):
         # we use this private attribute to avoid a warning from the fasttext library
-        # see this comment: https://github.com/facebookresearch/fastText/issues/1056#issuecomment-1278058705
+        # see this comment:
+        # https://github.com/facebookresearch/fastText/issues/1056#issuecomment-1278058705
         self.model = _FastText(model_path=str(cached_path(FASTTEXT_PATH)))
 
     def predict(self, text: str) -> Tuple[str, float]:
         pred = self.model.predict(text.lower().replace("\n", " "))
-        lang = pred[0][0].split("__")[-1]   # pyright: ignore
+        lang = pred[0][0].split("__")[-1]  # pyright: ignore
         score = float(pred[1])
         return lang, score
 

@@ -12,7 +12,6 @@ import gzip
 import json
 from collections import Counter
 from contextlib import ExitStack
-
 from queue import Queue
 from tempfile import NamedTemporaryFile
 from typing import Optional, Tuple
@@ -21,19 +20,19 @@ import pandas as pd
 import springs as sp
 from smashed.utils import io_utils
 
+from .cc_net import CCNet
 from .consts import COMMON_CUT, DATA_COLUMNS
-from .lang_id import FasttextLangId, Cld2LangId
+from .lang_id import Cld2LangId, FasttextLangId
+from .multiproc import PbarUnit, make_runner
 from .utils import (
     UnigramPerplexityPredictor,
-    row_to_metadata,
     fix_missing_added,
     fix_missing_created,
     merge_text,
+    nfc_normalize,
+    row_to_metadata,
     s2orc_merge_headers,
-    nfc_normalize
 )
-from .multiproc import make_runner, PbarUnit
-from .cc_net import CCNet
 
 
 def process_single(
@@ -105,13 +104,14 @@ def process_single(
                 "cld2_language": cl,
                 "upp_perplexity": up,
                 "ccnet_perplexity": cp,
-                "text": pp
-            } for fl, cl, up, cp, pp in zip(
+                "text": pp,
+            }
+            for fl, cl, up, cp, pp in zip(
                 x["fstt_language_paragraphs"],
                 x["cld2_language_paragraphs"],
                 x["upp_perplexity_paragraphs"],
                 x["ccnet_perplexity_paragraphs"],
-                x["filtered_paragraphs"]
+                x["filtered_paragraphs"],
             )
         ),
         axis=1,

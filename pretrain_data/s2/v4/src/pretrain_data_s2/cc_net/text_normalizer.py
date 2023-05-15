@@ -66,9 +66,7 @@ def strip_accents(line: str) -> str:
 
 
 # Build a regex matching all control characters.
-NON_PRINTING_CHARS_RE = re.compile(
-    f"[{''.join(map(chr, list(range(0,32)) + list(range(127,160))))}]"
-)
+NON_PRINTING_CHARS_RE = re.compile(f"[{''.join(map(chr, list(range(0,32)) + list(range(127,160))))}]")
 DIGIT_RE = re.compile(r"\d")
 PUNCT_OR_NON_PRINTING_CHARS_RE = re.compile(
     (UNICODE_PUNCT_RE.pattern + NON_PRINTING_CHARS_RE.pattern).replace("][", "")
@@ -138,17 +136,9 @@ def normalize_spacing_for_tok(text: str, language: str = "en") -> str:
     # German/Spanish/French "quotation", followed by comma, style
     else:
         res = res.replace(',"', '",')
-        res = re.sub(
-            r"(\.+)\"(\s*[^<])", r"\"\1\2", res
-        )  # don't fix period at end of sentence
+        res = re.sub(r"(\.+)\"(\s*[^<])", r"\"\1\2", res)  # don't fix period at end of sentence
 
-    if (
-        language == "de"
-        or language == "es"
-        or language == "cz"
-        or language == "cs"
-        or language == "fr"
-    ):
+    if language == "de" or language == "es" or language == "cz" or language == "cs" or language == "fr":
         res = re.sub(r"(\d) (\d)", r"\1,\2", res)
     else:
         res = re.sub(r"(\d) (\d)", r"\1.\2", res)

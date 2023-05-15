@@ -24,7 +24,6 @@ def pp(log_score, length):
 
 
 class Transformation:
-
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.start_time = time.time()
@@ -89,13 +88,13 @@ class SentencePiece(Transformation):
         self.field = field
         self.output_field = output_field
         self.normalize = normalize
-        self.sp: sentencepiece.SentencePieceProcessor = None    # pyright: ignore
+        self.sp: sentencepiece.SentencePieceProcessor = None  # pyright: ignore
 
     def _prepare(self):
         if self.sp is not None:
             return
         self.sp = sentencepiece.SentencePieceProcessor()
-        self.sp.load(str(self.model))   # pyright: ignore
+        self.sp.load(str(self.model))  # pyright: ignore
         return self
 
     def do(self, document: dict) -> dict:
@@ -124,9 +123,7 @@ class MultiSentencePiece(Transformation):
         self._prefetch: Sequence[str] = []
 
         if isinstance(models, Path):
-            self.models = {
-                m.name.split(".")[0]: m for m in models.parent.glob(models.name)
-            }
+            self.models = {m.name.split(".")[0]: m for m in models.parent.glob(models.name)}
         else:
             self.models = models
             self._prefetch = list(models.keys())
@@ -134,9 +131,7 @@ class MultiSentencePiece(Transformation):
 
     def _prepare(self) -> None:
         for lang in self._prefetch:
-            assert (
-                self.get_sp(lang) is not None
-            ), f"No model found for {lang} at {self.models.get(lang)}."
+            assert self.get_sp(lang) is not None, f"No model found for {lang} at {self.models.get(lang)}."
 
     def get_sp(self, lang) -> Optional[sentencepiece.SentencePieceProcessor]:
         sp = self.sp.get(lang)
@@ -148,7 +143,7 @@ class MultiSentencePiece(Transformation):
         start_load = time.time()
         self.log(f"Loading {self.models[lang]}...")
         sp = sentencepiece.SentencePieceProcessor()
-        sp.load(str(self.models[lang]))     # pyright: ignore
+        sp.load(str(self.models[lang]))  # pyright: ignore
         self.sp[lang] = sp
         load_time = time.time() - start_load
         self.log(f"Loaded {self.models[lang]} (took {load_time / 60:.1f}min)")
@@ -161,7 +156,7 @@ class MultiSentencePiece(Transformation):
         sp = self.get_sp(document.get("language"))
         if sp is None:
             return document
-        tokenized = sp.encode_as_pieces(text)   # pyright: ignore
+        tokenized = sp.encode_as_pieces(text)  # pyright: ignore
         document[self.output_field] = " ".join(tokenized)
         return document
 
@@ -190,9 +185,7 @@ class DocLM(Transformation):
         self.lm_config.load_method = load_method
 
         if isinstance(models, Path):
-            self.models = {
-                m.name.split(".")[0]: m for m in models.parent.glob(models.name)
-            }
+            self.models = {m.name.split(".")[0]: m for m in models.parent.glob(models.name)}
         else:
             self.models = models
             self._prefetch = list(models.keys())
@@ -201,9 +194,7 @@ class DocLM(Transformation):
 
     def _prepare(self) -> None:
         for lang in self._prefetch:
-            assert (
-                self.get_lm(lang) is not None
-            ), f"No model found for {lang} at {self.models.get(lang)}."
+            assert self.get_lm(lang) is not None, f"No model found for {lang} at {self.models.get(lang)}."
 
     def get_lines(self, document: dict) -> List[str]:
         lang = document.get("language")
@@ -288,9 +279,7 @@ class SentencesLM(DocLM):
 
 
 class PerplexityBucket(Transformation):
-    def __init__(
-        self, cutoff_csv: Path, percentile_head: int = 30, percentile_tail: int = 60
-    ):
+    def __init__(self, cutoff_csv: Path, percentile_head: int = 30, percentile_tail: int = 60):
         super().__init__()
         self.cutoff_csv = cutoff_csv
         self.percentile_head = percentile_head
@@ -300,8 +289,7 @@ class PerplexityBucket(Transformation):
     def _prepare(self) -> None:
         cutoffs = pd.read_csv(self.cutoff_csv, index_col=0)
         self.cutoffs = {
-            cl: (cutoffs[cl][self.percentile_head], cutoffs[cl][self.percentile_tail])
-            for cl in cutoffs.columns
+            cl: (cutoffs[cl][self.percentile_head], cutoffs[cl][self.percentile_tail]) for cl in cutoffs.columns
         }
 
     def get_bucket(self, doc: dict) -> str:
