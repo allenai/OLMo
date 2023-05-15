@@ -5,7 +5,7 @@ import pycld2 as cld2
 from cached_path import cached_path
 from fasttext.FastText import _FastText
 
-from .consts import FASTTEXT_PATH, LANG_ID_CUT
+from .consts import FASTTEXT_PATH
 
 
 class BaseLangId:
@@ -13,32 +13,49 @@ class BaseLangId:
         raise NotImplementedError
 
     @overload
-    def get_language(self, texts: str, cutoff: int = LANG_ID_CUT) -> str:
+    def get_language(self, texts: str) -> Tuple[str, float]:
         ...
 
     @overload
-    def get_language(self, texts: List[str], cutoff: int = LANG_ID_CUT) -> List[str]:
+    def get_language(self, texts: List[str]) -> List[Tuple[str, float]]:
         ...
 
-    def get_language(self, texts: Union[List[str], str], cutoff: int = LANG_ID_CUT) -> Union[List[str], str]:
-        langs: Union[List[str], None] = [] if isinstance(texts, list) else None
+    def get_language(
+        self,
+        texts: Union[List[str], str],
+    ) -> Union[List[Tuple[str, float]], Tuple[str, float]]:
+        langs: Union[List[Tuple[str, float]], None] = [] if isinstance(texts, list) else None
         texts = [texts] if isinstance(texts, str) else texts
 
         for text in texts:
             try:
-                text = text.strip()[:cutoff]
-                lang, _ = self.predict(text)
-                # langs.append(lang)  # type: ignore
+                text = text.strip()
+                lang, prob = self.predict(text)
             except Exception:
-                lang = "unk"
+                lang, prob = "unk", 1.0
 
             if langs is None:
-                return lang
+                return lang, prob
 
-            langs.append(lang)
+            langs.append((lang, prob))
 
         assert langs is not None
         return langs
+
+    @overload
+    def get_language_dict(self, texts: str) -> dict:
+        ...
+
+    @overload
+    def get_language_dict(self, texts: List[str]) -> List[dict]:
+        ...
+
+    def get_language_dict(self, texts: Union[List[str], str]) -> Union[List[dict], dict]:
+        output = self.get_language(texts)
+        if isinstance(output, tuple):
+            return {"lang": output[0], "prob": output[1]}
+        else:
+            return [{"lang": lang, "prob": prob} for lang, prob in output]
 
 
 class FasttextLangId(BaseLangId):

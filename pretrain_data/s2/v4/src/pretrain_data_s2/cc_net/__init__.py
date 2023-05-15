@@ -1,4 +1,4 @@
-from typing import Any, List, Sequence, Union
+from typing import Any, List, Sequence, Union, overload
 
 from cached_path import cached_path
 
@@ -60,7 +60,15 @@ class CCNet:
         (model := cls())(["hello world"])
         del model
 
-    def __call__(self, seq: Union[Sequence[str], Sequence[dict]]) -> Union[Sequence[str], Sequence[dict]]:
+    @overload
+    def __call__(self, seq: Sequence[str]) -> List[str]:
+        ...
+
+    @overload
+    def __call__(self, seq: Sequence[dict]) -> List[dict]:
+        ...
+
+    def __call__(self, seq: Union[Sequence[str], Sequence[dict]]) -> Union[List[str], List[dict]]:
         seq = [
             {self.input_field: elem, self.language_field: self.lang}
             if (must_extract := isinstance(elem, str))
@@ -70,5 +78,8 @@ class CCNet:
         tokenized = self.sp(seq)
         # make sure all output fields are present
         perplexity = [{self.output_field: 0.0, **d} for d in self.lm(tokenized)]
-        output = [elem[self.output_field] for elem in perplexity] if must_extract else perplexity
-        return output
+
+        if must_extract:
+            return [str(elem[self.output_field]) for elem in perplexity]
+
+        return perplexity

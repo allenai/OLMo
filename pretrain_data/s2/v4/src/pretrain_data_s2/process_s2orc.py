@@ -70,7 +70,7 @@ def process_single(
 
     # assign version v0 and s2 as the source
     df["version"] = "v4"
-    df["source"] = "s2"
+    df["source"] = "s2/s2orc"
 
     # fix missing added column
     df = df.apply(fix_missing_added, axis=1)
@@ -90,9 +90,9 @@ def process_single(
 
     # create new column that is the result of the function
     # cld3.get_language(text) applied to the text column
-    df["fstt_language_paragraphs"] = df["filtered_paragraphs"].apply(ft_lang.get_language)
-    df["cld2_language_paragraphs"] = df["filtered_paragraphs"].apply(cld2_lang.get_language)
-    df["cld3_language_paragraphs"] = df["filtered_paragraphs"].apply(cld3_lang.get_language)
+    df["fstt_language_paragraphs"] = df["filtered_paragraphs"].apply(ft_lang.get_language_dict)
+    df["cld2_language_paragraphs"] = df["filtered_paragraphs"].apply(cld2_lang.get_language_dict)
+    df["cld3_language_paragraphs"] = df["filtered_paragraphs"].apply(cld3_lang.get_language_dict)
 
     # calculate the perplexity of each paragraph
     df["upp_perplexity_paragraphs"] = df["filtered_paragraphs"].apply(lambda x: [upp.predict(para) for para in x])
@@ -102,15 +102,20 @@ def process_single(
     df["paragraphs"] = df.apply(
         lambda x: list(
             {
-                "fasttext_language": fl,
-                "cld2_language": cl,
+                "fasttext_lang": fl["lang"],
+                "fasttext_prob": fl["prob"],
+                "cld2_lang": c2["lang"],
+                "cld2_prob": c2["prob"],
+                "cld3_lang": c3["lang"],
+                "cld3_prob": c3["prob"],
                 "upp_perplexity": up,
                 "ccnet_perplexity": cp,
-                "text": pp,
+                "text": pp.strip(),
             }
-            for fl, cl, up, cp, pp in zip(
+            for fl, c2, c3, up, cp, pp in zip(
                 x["fstt_language_paragraphs"],
                 x["cld2_language_paragraphs"],
+                x["cld3_language_paragraphs"],
                 x["upp_perplexity_paragraphs"],
                 x["ccnet_perplexity_paragraphs"],
                 x["filtered_paragraphs"],

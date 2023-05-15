@@ -59,7 +59,7 @@ def process_single(
 
     # assign version v0 and s2 as the source
     df["version"] = "v4"
-    df["source"] = "s2"
+    df["source"] = "s2/s2ag"
 
     # fix missing added column
     df = df.apply(fix_missing_added, axis=1)
@@ -78,12 +78,12 @@ def process_single(
     df["text"] = df["title"].str.strip() + "\n" + df["abstract"].str.strip()
 
     # create new column that is the result of the function
-    df["fstt_language_title"] = df["title"].apply(ft_lang.get_language)
-    df["cld2_language_title"] = df["title"].apply(cld2_lang.get_language)
-    df["cld3_language_title"] = df["title"].apply(cld3_lang.get_language)
-    df["fstt_language_abstract"] = df["abstract"].apply(ft_lang.get_language)
-    df["cld2_language_abstract"] = df["abstract"].apply(cld2_lang.get_language)
-    df["cld3_language_abstract"] = df["abstract"].apply(cld3_lang.get_language)
+    df["fstt_language_title"] = df["title"].apply(ft_lang.get_language_dict)
+    df["cld2_language_title"] = df["title"].apply(cld2_lang.get_language_dict)
+    df["cld3_language_title"] = df["title"].apply(cld3_lang.get_language_dict)
+    df["fstt_language_abstract"] = df["abstract"].apply(ft_lang.get_language_dict)
+    df["cld2_language_abstract"] = df["abstract"].apply(cld2_lang.get_language_dict)
+    df["cld3_language_abstract"] = df["abstract"].apply(cld3_lang.get_language_dict)
 
     # calculate the perplexity of abstract and title
     df["upp_perplexity_title"] = df["title"].apply(upp.predict)
