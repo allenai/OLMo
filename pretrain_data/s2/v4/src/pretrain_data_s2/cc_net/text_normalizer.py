@@ -136,7 +136,8 @@ def normalize_spacing_for_tok(text: str, language: str = "en") -> str:
     # German/Spanish/French "quotation", followed by comma, style
     else:
         res = res.replace(',"', '",')
-        res = re.sub(r"(\.+)\"(\s*[^<])", r"\"\1\2", res)  # don't fix period at end of sentence
+        # don't fix period at end of sentence
+        res = re.sub(r"(\.+)\"(\s*[^<])", r"\"\1\2", res)
 
     if language == "de" or language == "es" or language == "cz" or language == "cs" or language == "fr":
         res = re.sub(r"(\d) (\d)", r"\1,\2", res)

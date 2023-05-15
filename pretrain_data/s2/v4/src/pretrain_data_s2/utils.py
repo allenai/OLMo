@@ -99,9 +99,10 @@ def row_to_metadata(row: pd.Series) -> Dict[str, Any]:
 
 
 def merge_text(row: pd.Series) -> str:
-    title = row.get("title", "") or ""
-    abstract = row.get("abstract", "") or ""
+    title = str(row.get("title", "") or "")
+    abstract = str(row.get("abstract", "") or "")
     paragraphs = row.get("filtered_paragraphs", []) or []  # pyright: ignore
+    assert isinstance(paragraphs, list)
     # pyright: ignore
     return f"{title.strip()}\n{abstract.strip()}\n\n{' '.join(p.strip() for p in paragraphs)}"
 

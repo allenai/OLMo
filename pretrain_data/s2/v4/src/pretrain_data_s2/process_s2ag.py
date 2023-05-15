@@ -22,7 +22,7 @@ from smashed.utils import io_utils
 
 from .cc_net import CCNet
 from .consts import COMMON_CUT, DATA_COLUMNS
-from .lang_id import Cld2LangId, FasttextLangId
+from .lang_id import Cld2LangId, Cld3LangId, FasttextLangId
 from .multiproc import PbarUnit, make_runner
 from .utils import (
     UnigramPerplexityPredictor,
@@ -43,6 +43,7 @@ def process_single(
     upp = UnigramPerplexityPredictor()
     ft_lang = FasttextLangId()
     cld2_lang = Cld2LangId()
+    cld3_lang = Cld3LangId()
     cc_net = CCNet()
     src, dst = io_paths
     dst.path += ".gz"
@@ -74,13 +75,15 @@ def process_single(
     df["abstract"] = df["abstract"].apply(nfc_normalize)
 
     # create initial text by concatenating title and abstract
-    df["text"] = df["title"] + "\n" + df["abstract"]
+    df["text"] = df["title"].str.strip() + "\n" + df["abstract"].str.strip()
 
     # create new column that is the result of the function
     df["fstt_language_title"] = df["title"].apply(ft_lang.get_language)
     df["cld2_language_title"] = df["title"].apply(cld2_lang.get_language)
+    df["cld3_language_title"] = df["title"].apply(cld3_lang.get_language)
     df["fstt_language_abstract"] = df["abstract"].apply(ft_lang.get_language)
     df["cld2_language_abstract"] = df["abstract"].apply(cld2_lang.get_language)
+    df["cld3_language_abstract"] = df["abstract"].apply(cld3_lang.get_language)
 
     # calculate the perplexity of abstract and title
     df["upp_perplexity_title"] = df["title"].apply(upp.predict)

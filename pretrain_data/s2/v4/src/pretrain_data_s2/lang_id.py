@@ -1,5 +1,6 @@
 from typing import List, Tuple, Union, overload
 
+import cld3
 import pycld2 as cld2
 from cached_path import cached_path
 from fasttext.FastText import _FastText
@@ -60,4 +61,12 @@ class Cld2LangId(BaseLangId):
         lang = pred[2][0][1]
         score = pred[2][0][2]
         lang = "unk" if lang == "un" else lang
+        return lang, score
+
+
+class Cld3LangId(BaseLangId):
+    def predict(self, text: str) -> Tuple[str, float]:
+        pred = cld3.get_language(text)  # pyright: ignore
+        lang = pred.language
+        score = pred.probability
         return lang, score

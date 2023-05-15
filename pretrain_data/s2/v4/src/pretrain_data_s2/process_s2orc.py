@@ -22,7 +22,7 @@ from smashed.utils import io_utils
 
 from .cc_net import CCNet
 from .consts import COMMON_CUT, DATA_COLUMNS
-from .lang_id import Cld2LangId, FasttextLangId
+from .lang_id import Cld2LangId, Cld3LangId, FasttextLangId
 from .multiproc import PbarUnit, make_runner
 from .utils import (
     UnigramPerplexityPredictor,
@@ -45,6 +45,7 @@ def process_single(
     upp = UnigramPerplexityPredictor()
     ft_lang = FasttextLangId()
     cld2_lang = Cld2LangId()
+    cld3_lang = Cld3LangId()
     cc_net = CCNet()
     src, dst = io_paths
     dst.path += ".gz"
@@ -91,6 +92,7 @@ def process_single(
     # cld3.get_language(text) applied to the text column
     df["fstt_language_paragraphs"] = df["filtered_paragraphs"].apply(ft_lang.get_language)
     df["cld2_language_paragraphs"] = df["filtered_paragraphs"].apply(cld2_lang.get_language)
+    df["cld3_language_paragraphs"] = df["filtered_paragraphs"].apply(cld3_lang.get_language)
 
     # calculate the perplexity of each paragraph
     df["upp_perplexity_paragraphs"] = df["filtered_paragraphs"].apply(lambda x: [upp.predict(para) for para in x])

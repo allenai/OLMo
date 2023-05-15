@@ -18,7 +18,8 @@ dependencies = [
     "blingfire",
     "fasttext",
     "sentencepiece",
-    "kenlm"
+    "kenlm",
+    "pycld3"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
