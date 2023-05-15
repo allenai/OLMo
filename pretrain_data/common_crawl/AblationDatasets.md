@@ -73,7 +73,7 @@ Uniform sampling of `vX`
 
 ### Status
 
- - [ ] Create `vX` dataset by post-processing `v1` to drop documents that don't pass the [c4](../filtering_heuristics/c4.py) filter
+ - [ ] Create `vX` dataset by post-processing `v1` to drop documents that don't pass the [gopher](../filtering_heuristics/gopher.py) filter
  - [ ] Train model
 
 
