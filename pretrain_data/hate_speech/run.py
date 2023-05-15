@@ -1,8 +1,8 @@
 """
 
-Runner for testing out Hate Speech & NSFW detection
+Runner for testing out Hate Speech & NSFW detection under new `Filter` framework.
 
-@kylel refactored. Original from @aakankshan, @khyathic
+From @aakankshan, @khyathic. @kylel refactored. 
 
 """
 
