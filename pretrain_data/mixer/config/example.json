@@ -27,5 +27,9 @@
     "input": "test-data/input",
     "output": "test-data/output"
   },
+  "dedupe": {
+    "paragraphs": false,
+    "document_key": "$.metadata.url"
+  },
   "processes": 32
 }

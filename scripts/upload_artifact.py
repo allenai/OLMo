@@ -31,7 +31,7 @@ def main(
     WANDB_RUN_PATH: The "Weights and Biases" run path. You get this by going to the run in wandb and clicking on the "copy run path" button. We will use this as the prefix for the paths in the GCS bucket.
     """
     storage_client = storage.Client()
-    bucket = storage_client.bucket("allennlp-olmo", "ai2-allennlp")
+    bucket = storage_client.bucket("ai2-olmo", user_project="ai2-olmo")
     prefix = wandb_run_path.strip("/")
 
     files_or_directories_in_a_special_variable_because_mypy_is_lame = [

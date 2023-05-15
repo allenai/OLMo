@@ -1,4 +1,4 @@
-save_folder: "/tmp/composer-train-tiny"
+save_folder: "/tmp/olmo-train-tiny"
 model:
   d_model: 128
   n_heads: 4
@@ -20,7 +20,7 @@ optimizer:
   learning_rate: 0.001
 scheduler:
   name: "cosine_with_warmup"
-  t_warmup: "10ba"
+  t_warmup: 10
 data:
   paths:
     - "/tmp/c4-sample.npy"
@@ -30,6 +30,6 @@ data:
 tokenizer:
   identifier: "gpt2"
 save_overwrite: true
-max_duration: "2ep"
+max_duration: 4
 global_train_batch_size: 8
 device_train_microbatch_size: 4
