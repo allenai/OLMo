@@ -642,6 +642,8 @@ class Trainer:
         return eval_metrics
 
     def fit(self):
+        start_time = time.time()
+
         if self.cfg.load_path is not None and self.global_step > 0:
             # Evaluate right away if we're loading from a checkpoint.
             eval_metrics = self.eval()
@@ -714,11 +716,16 @@ class Trainer:
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
                 speed_monitor.reset()
 
+            time_limit_reached = (
+                self.cfg.time_limit is not None and time.time() - start_time >= self.cfg.time_limit
+            )
+
             # Maybe save unsharded checkpoint.
             if (
                 self.cfg.save_interval_unsharded is not None
                 and self.global_step % self.cfg.save_interval_unsharded == 0
                 and self.cfg.save_num_unsharded_checkpoints_to_keep != 0
+                and not time_limit_reached  # we save an unsharded checkpoint below
             ):
                 log.info("Saving unsharded checkpoint...")
                 checkpoint_path = self.save_unsharded_checkpoint()
@@ -726,6 +733,10 @@ class Trainer:
 
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
                 speed_monitor.reset()
+
+            if time_limit_reached:
+                log.info("Training time limit reached, ending early")
+                break
 
             # Maybe run evaluations.
             if self.global_step % self.cfg.eval_interval == 0:
