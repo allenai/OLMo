@@ -12,6 +12,11 @@ from typing import List
 # pii
 from presidio_analyzer import AnalyzerEngine
 
+# fasttext
+import fasttext
+import boto3
+from nltk.tokenize.punkt import PunktSentenceTokenizer
+
 from .data_types import DocResult, Document, Span
 
 
@@ -41,14 +46,78 @@ class CLD3LanguageFilter(Filter):
 
 
 class FastTextFilter(Filter):
-    def train(self, trainfile: str):
-        pass
 
-    def save(self, outdir: str):
-        pass
+    # Either provide path to a trained model file on S3 (<bucket>/<file>)
+    # or provide paths to training and test data files
+    # do_train flag controls whether classifier needs to be trained
+    # do_test flag controls whether to check classifier accuracy on test data
+    # level flag controls whether prediction should be run at document or sentence level
+    # By default, model is loaded from a pretrained model file and run at document level
+    def __init__(self, model_path: str = None, trainfile: str = None, testfile: str = None, savepath: str = None, do_train: bool = False, do_test: bool = False, level: str = 'doc', sent_threshold: float = None) -> None:
+        self.classifier = None
+        if model_path is not None:
+            bucket_name, file_name = model_path.split('/')
+            s3 = boto3.client('s3')
+            # TODO: Check with Kyle where trained model should be deposited?
+            s3.download_file(bucket_name, file_name, file_name)
+            self.classifier = fasttext.load_model(file_name)
+        elif do_train:
+            self.train(trainfile, savepath)
+        else:
+            raise NotImplementedError("Please either provide a path to a trained model or train a new model")
+        if do_test:
+            self.test(testfile)
+        self.level = level
+        if self.level == 'sent':
+            self.sent_tokenizer = PunktSentenceTokenizer()
+            self.sent_threshold = sent_threshold            
+
+    def train(self, trainfile: str, savepath: str):
+        if trainfile is None:
+            raise ValueError("Please provide a file containing training data")
+        classifier = fasttext.train_supervised(input=trainfile, epoch=100, wordNgrams=2)
+        self.classifier = classifier
+        if savepath is None:
+            raise Warning("Model will not be saved since no save path was provided")
+        else:
+            classifier.save_model(savepath)       
+
+    def test(self, testfile: str):
+        if testfile is None:
+            raise ValueError("Please provide a file containing test data")
+        if self.classifier is None:
+            raise ValueError("Please either download or train a classifier model first")
+        model_performance = self.classifier.test("jigsaw_nsfw/fasttext_final.test")
+        print(model_performance)
 
     def predict(self, doc: Document) -> List[DocResult]:
-        pass
+        if self.level == 'doc':
+            # Perform prediction at document level
+            # FastText complains about newlines so replace them with spaces
+            text = doc.text.replace("\n", " ")
+            pred_label, pred_probs = self.classifier.predict(text, k=-1)
+            score = pred_probs[1]
+            # TODO: Check whether empty list should be returned instead of None
+            return DocResult(doc=doc, spans=None, score=score)
+        elif self.level == 'sent':
+            # Perform prediction at sentence level
+            filter_sents: List[Span] = []
+            sent_span_indices = self.sent_tokenizer.span_tokenize(doc.text)
+            filter_sentence_count = 0.0
+            total_sentence_count = 0.0
+            for start,end in sent_span_indices:
+                total_sentence_count += 1
+                sentence_text = doc.text[start:end].replace("\n", " ")
+                pred_label, pred_probs = self.classifier.predict(sentence_text, k=-1)
+                score = pred_probs[1]
+                # TODO: Check whether/how we want to store the score
+                filter_sents.append(Span(start=start, end=end, type=str(score)))
+                # Can tweak this and experiment with different thresholds
+                hate_sentence_count += 1 if score > self.sent_threshold else 0
+            doc_score = float(filter_sentence_count)/total_sentence_count
+            return DocResult(doc=doc, spans=filter_sents, score=doc_score)
+        else:
+            raise NotImplementedError("Please provide a valid granularity for prediction (doc or sent)")
 
 
 class PiiFilter(Filter):
