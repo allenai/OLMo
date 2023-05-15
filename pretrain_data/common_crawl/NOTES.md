@@ -4,7 +4,7 @@ We ran the CCNet pipeline over 25 dumps from 2020-05 to 2023-06.  Different vers
 
 ### v0
 
-Sharded output of CCNet pipline. Duplicate paragraphs removed (exact match, but only comparing against a ~2% sample of paragraphs in the corpus). Bucketed by language (fasttext), and English perplexity on wikipedia-traing 5-gram language model.
+Sharded output of CCNet pipline. Duplicate paragraphs removed (exact match, but only comparing against a ~2% sample of paragraphs in the corpus). Bucketed by language (fasttext), and English perplexity on wikipedia-trained 5-gram language model.
 
 ### v1
 
@@ -77,30 +77,30 @@ Look in `cc_net/data/logs` for the logs of sub-processes that handle the individ
 
 Our dataset includes data from the following dumps:
 
-|dump|
-|---|
-|2023-06|
-|2022-49|
-|2022-40|
-|2022-33|
-|2022-27|
-|2022-21|
-|2022-05|
-|2021-49|
-|2021-43|
-|2021-39|
-|2021-31|
-|2021-25|
-|2021-21|
-|2021-17|
-|2021-10|
-|2021-04|
-|2020-50|
-|2020-45|
-|2020-40|
-|2020-34|
-|2020-29|
-|2020-24|
-|2020-16|
-|2020-10|
-|2020-05|
+| dump    |
+|---------|
+| 2023-06 |
+| 2022-49 |
+| 2022-40 |
+| 2022-33 |
+| 2022-27 |
+| 2022-21 |
+| 2022-05 |
+| 2021-49 |
+| 2021-43 |
+| 2021-39 |
+| 2021-31 |
+| 2021-25 |
+| 2021-21 |
+| 2021-17 |
+| 2021-10 |
+| 2021-04 |
+| 2020-50 |
+| 2020-45 |
+| 2020-40 |
+| 2020-34 |
+| 2020-29 |
+| 2020-24 |
+| 2020-16 |
+| 2020-10 |
+| 2020-05 |
