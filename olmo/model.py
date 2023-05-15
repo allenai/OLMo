@@ -7,8 +7,9 @@ Adapted from
 from __future__ import annotations
 
 import math
+import os
 from abc import abstractmethod
-from typing import Dict, List, NamedTuple, Optional, Union, cast
+from typing import Dict, List, NamedTuple, Optional, cast
 
 import torch
 import torch.backends.cuda
@@ -16,6 +17,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import einsum
 
+from .aliases import PathOrStr
 from .beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
 from .config import ActivationType, BlockType, LayerNormType, ModelConfig
 from .exceptions import OlmoConfigurationError
@@ -458,11 +460,8 @@ class OlmoGenerateOutput(NamedTuple):
     """
 
 
-def causal_attention_bias(
-    config: ModelConfig, device: Optional[Union[str, torch.device]] = None
-) -> torch.FloatTensor:
+def causal_attention_bias(config: ModelConfig, device: torch.device) -> torch.FloatTensor:
     size = config.max_sequence_length
-    device = device or config.device
     att_bias = torch.triu(
         torch.ones(size, size, device=device, dtype=torch.float),
         diagonal=1,
@@ -471,11 +470,8 @@ def causal_attention_bias(
     return att_bias.view(1, 1, size, size)  # type: ignore
 
 
-def alibi_attention_bias(
-    config: ModelConfig, device: Optional[Union[str, torch.device]] = None
-) -> torch.FloatTensor:
+def alibi_attention_bias(config: ModelConfig, device: torch.device) -> torch.FloatTensor:
     size = config.max_sequence_length
-    device = device or config.device
     alibi_bias = torch.arange(1 - size, 1, dtype=torch.float, device=device).view(1, 1, 1, size)
 
     # shape: (1, 1, seq_len, seq_len)
@@ -531,7 +527,7 @@ class Olmo(nn.Module):
             )
         if init_params and self.config.init_device != "meta":
             self.apply(self.param_init_fn)
-        self.__num_fwd_flops = None
+        self.__num_fwd_flops: Optional[int] = None
 
         # Attention bias cache.
         # We could cache these as buffers, but we've run into various issues doing that with FSDP.
@@ -549,20 +545,37 @@ class Olmo(nn.Module):
             self.alibi_attention_bias
 
     @property
+    def device(self) -> torch.device:
+        device: torch.device = self.transformer.wte.weight.device  # type: ignore
+        if device.type == "meta":
+            if self.config.init_device is not None and self.config.init_device != "meta":
+                return torch.device(self.config.init_device)
+            else:
+                return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            return device
+
+    @property
     def causal_attention_bias(self) -> torch.FloatTensor:
         causal_bias = self.__bias_cache["causal_attention_bias"]
         if causal_bias is None:
-            causal_bias = causal_attention_bias(self.config)
+            causal_bias = causal_attention_bias(self.config, self.device)
             self.__bias_cache["causal_attention_bias"] = causal_bias
-        return causal_bias
+        elif causal_bias.device != self.device:  # in case model was moved to different device
+            causal_bias = causal_bias.to(device=self.device)
+            self.__bias_cache["causal_attention_bias"] = causal_bias  # type: ignore
+        return causal_bias  # type: ignore
 
     @property
     def alibi_attention_bias(self) -> torch.FloatTensor:
         alibi_bias = self.__bias_cache["alibi_attention_bias"]
         if alibi_bias is None:
-            alibi_bias = alibi_attention_bias(self.config)
+            alibi_bias = alibi_attention_bias(self.config, self.device)
             self.__bias_cache["alibi_attention_bias"] = alibi_bias
-        return alibi_bias
+        elif alibi_bias.device != self.device:  # in case model was moved to different device
+            alibi_bias = alibi_bias.to(device=self.device)
+            self.__bias_cache["alibi_attention_bias"] = alibi_bias  # type: ignore
+        return alibi_bias  # type: ignore
 
     def forward(
         self,
@@ -652,11 +665,15 @@ class Olmo(nn.Module):
 
         return OlmoOutput(logits=logits)  # type: ignore[arg-type]
 
-    def fsdp_wrap_fn(self, module):
+    def fsdp_wrap_fn(self, module, recurse: bool = True, nonwrapped_numel: int = 0):
+        del recurse, nonwrapped_numel
         return isinstance(module, OlmoBlock)
 
     def activation_checkpointing_fn(self, module):
         return isinstance(module, OlmoBlock)
+
+    def reset_parameters(self):
+        self.apply(self.param_init_fn)
 
     def param_init_fn(self, module):
         from functools import partial
@@ -832,3 +849,26 @@ class Olmo(nn.Module):
             token_ids=token_ids,  # type: ignore[arg-type]
             scores=scores,  # type: ignore[arg-type]
         )
+
+    @classmethod
+    def from_checkpoint(cls, checkpoint_dir: PathOrStr, device: str = "cpu") -> Olmo:
+        """
+        Load an OLMo model from a checkpoint.
+        """
+        from cached_path import cached_path
+
+        # Load config.
+        config_path = cached_path(os.path.join(checkpoint_dir, "config.yaml"))
+        model_config = ModelConfig.load(config_path, key="model")
+
+        # Initialize model (always on CPU to start with so we don't run out of GPU memory).
+        model_config.init_device = "cpu"
+        model = Olmo(model_config)
+        model.config.init_device = device
+
+        # Load state dict directly to target device.
+        state_dict_path = cached_path(os.path.join(checkpoint_dir, "model.pt"))
+        state_dict = torch.load(state_dict_path, map_location=device)
+        model.load_state_dict(state_dict)
+
+        return model.to(torch.device(device)).eval()

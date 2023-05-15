@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import os
 from threading import Lock
 from typing import List, Optional, Union
 
 from tokenizers import Tokenizer as BaseTokenizer
 
-from .config import TrainConfig, TruncationDirection
+from .aliases import PathOrStr
+from .config import ModelConfig, TokenizerConfig, TrainConfig, TruncationDirection
 from .exceptions import OlmoConfigurationError
 
 __all__ = ["Tokenizer"]
@@ -32,12 +34,14 @@ class Tokenizer:
         self,
         base_tokenizer: BaseTokenizer,
         eos_token_id: int,
+        pad_token_id: Optional[int] = None,
         truncate_to: Optional[int] = None,
         truncate_direction: Union[str, TruncationDirection] = TruncationDirection.right,
     ):
         self.base_tokenizer = base_tokenizer
         self.base_tokenizer.no_truncation()
         self.eos_token_id = eos_token_id
+        self.pad_token_id = pad_token_id if pad_token_id is not None else eos_token_id
         self.truncate_to = truncate_to
         self.truncate_direction = TruncationDirection(truncate_direction)
 
@@ -47,7 +51,11 @@ class Tokenizer:
 
     @classmethod
     def from_train_config(cls, config: TrainConfig) -> Tokenizer:
-        tokenizer = cls.from_pretrained(config.tokenizer.identifier, eos_token_id=config.model.eos_token_id)
+        tokenizer = cls.from_pretrained(
+            config.tokenizer.identifier,
+            eos_token_id=config.model.eos_token_id,
+            pad_token_id=config.model.pad_token_id,
+        )
         if config.model.vocab_size != tokenizer.vocab_size:
             raise OlmoConfigurationError("vocab size mismatch between config and tokenizer")
         return tokenizer
@@ -64,6 +72,28 @@ class Tokenizer:
         base_tokenizer = BaseTokenizer.from_pretrained(identifier)
         eos_token_id = kwargs.pop("eos_token_id", base_tokenizer.get_vocab_size() - 1)
         return cls(base_tokenizer, eos_token_id, **kwargs)
+
+    @classmethod
+    def from_checkpoint(cls, checkpoint_dir: PathOrStr) -> Tokenizer:
+        """
+        Load a tokenizer from a checkpoint.
+        """
+        from cached_path import cached_path
+
+        # Load configs.
+        config_path = cached_path(os.path.join(checkpoint_dir, "config.yaml"))
+        tokenizer_config = TokenizerConfig.load(config_path, key="tokenizer")
+        model_config = ModelConfig.load(config_path, key="model")
+
+        # Initialize tokenizer and validate vocab size.
+        tokenizer = cls.from_pretrained(
+            tokenizer_config.identifier,
+            eos_token_id=model_config.eos_token_id,
+            pad_token_id=model_config.pad_token_id,
+        )
+        if model_config.vocab_size != tokenizer.vocab_size:
+            raise OlmoConfigurationError("vocab size mismatch between config and tokenizer")
+        return tokenizer
 
     def add_special_tokens(self, input_ids: List[int]) -> List[int]:
         """

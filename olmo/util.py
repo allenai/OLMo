@@ -4,15 +4,18 @@ import socket
 import sys
 import warnings
 from datetime import datetime
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Generator, Optional, TypeVar, Union
 
 import rich
-from composer.utils.dist import get_local_rank, get_node_rank
+import torch
+import torch.distributed as dist
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.text import Text
 from rich.traceback import Traceback
+from torch.utils.data import DataLoader, DistributedSampler
 
+from .config import LogFilterType
 from .exceptions import OlmoCliError, OlmoError
 
 _log_extra_fields: Dict[str, Any] = {}
@@ -27,10 +30,20 @@ def log_extra_field(field_name: str, field_value: Any) -> None:
         _log_extra_fields[field_name] = field_value
 
 
-def setup_logging() -> None:
-    log_extra_field("node_rank", get_node_rank())
-    log_extra_field("local_rank", get_local_rank())
+def setup_logging(log_filter_type: LogFilterType = LogFilterType.rank0_only) -> None:
+    """
+    :param rank0_only: INFO and below messages will only be emitted on the rank0 process.
+    """
     log_extra_field("hostname", socket.gethostname())
+    if is_distributed():
+        log_extra_field("node_rank", node_rank())
+        log_extra_field("local_rank", local_rank())
+        log_extra_field("global_rank", global_rank())
+    else:
+        log_extra_field("node_rank", 0)
+        log_extra_field("local_rank", 0)
+        log_extra_field("global_rank", 0)
+
     old_log_record_factory = logging.getLogRecordFactory()
 
     def log_record_factory(*args, **kwargs) -> logging.LogRecord:
@@ -57,13 +70,42 @@ def setup_logging() -> None:
     else:
         handler = RichHandler()
 
+    def rank0_filter(record: logging.LogRecord) -> int:
+        if record.levelno > logging.INFO:
+            return 1
+        if getattr(record, "global_rank", 0) == 0:
+            return 1
+        else:
+            return 0
+
+    def local_rank0_filter(record: logging.LogRecord) -> int:
+        if record.levelno > logging.INFO:
+            return 1
+        if getattr(record, "local_rank", 0) == 0:
+            return 1
+        else:
+            return 0
+
+    filter = None
+    if log_filter_type == LogFilterType.rank0_only:
+        filter = rank0_filter
+    elif log_filter_type == LogFilterType.local_rank0_only:
+        filter = local_rank0_filter  # type: ignore
+    else:
+        raise ValueError(log_filter_type)
+
+    if filter is not None:
+        handler.addFilter(filter)  # type: ignore
     logging.basicConfig(handlers=[handler], level=logging.INFO)
 
     logzio_token = os.environ.get("LOGZIO_TOKEN", None)
     if logzio_token is not None:
         from logzio.handler import LogzioHandler
 
-        logging.getLogger().addHandler(LogzioHandler(logzio_token))
+        logzio_handler = LogzioHandler(logzio_token)
+        if filter is not None:
+            logzio_handler.addFilter(filter)  # type: ignore
+        logging.getLogger().addHandler(logzio_handler)
 
     logging.captureWarnings(True)
 
@@ -89,20 +131,23 @@ def install_excepthook():
 
 
 def filter_warnings():
-    # Filter deprecation warning from torch internal usage
+    # Filter internal deprecation warnings from torch
     warnings.filterwarnings(
         action="ignore",
         category=UserWarning,
         message="torch.distributed.*_base is a private function and will be deprecated.*",
     )
-    # Filter composer warnings about loggers.
     warnings.filterwarnings(
         action="ignore",
-        message="Specifying the ConsoleLogger via `loggers` is not recommended.*",
-        module="composer.trainer.trainer",
+        category=UserWarning,
+        message="TypedStorage is deprecated.*",
     )
-    # Torchvision warnings. We don't actually use torchvision at the moment
-    # but composer imports it at some point and we see these warnings.
+    warnings.filterwarnings(
+        action="ignore",
+        category=UserWarning,
+        message="Please use DTensor instead.*",
+    )
+    # Torchvision warnings. We don't actually use torchvision.
     warnings.filterwarnings(
         action="ignore",
         message="failed to load.*",
@@ -114,9 +159,11 @@ def set_env_variables():
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
-def prepare_cli_environment():
+def prepare_cli_environment(log_filter_type: Optional[LogFilterType] = None):
+    if log_filter_type is None:
+        log_filter_type = LogFilterType(os.environ.get("LOG_FILTER_TYPE", "rank0_only"))
     rich.reconfigure(width=max(rich.get_console().width, 180), soft_wrap=True)
-    setup_logging()
+    setup_logging(log_filter_type=log_filter_type)
     install_excepthook()
     filter_warnings()
     set_env_variables()
@@ -195,3 +242,90 @@ class RichHandler(logging.Handler):
         name_and_line = f"{record.name}:{record.lineno}" if record.name != "root" else "root"
         text = f"[{name_and_line}, rank={record.local_rank}]"  # type: ignore
         return Text(text, style="log.path")
+
+
+def seed_all(seed: int):
+    """Seed all rng objects."""
+    import random
+
+    import numpy as np
+
+    if seed < 0 or seed > 2**32 - 1:
+        raise ValueError(f"Seed {seed} is invalid. It must be on [0; 2^32 - 1]")
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    # torch.manual_seed may call manual_seed_all but calling it again here
+    # to make sure it gets called at least once
+    torch.cuda.manual_seed_all(seed)
+
+
+T = TypeVar("T")
+
+
+def move_to_device(o: T, device: torch.device) -> T:
+    if isinstance(o, torch.Tensor):
+        return o.to(device)  # type: ignore[return-value]
+    elif isinstance(o, dict):
+        return {k: move_to_device(v, device) for k, v in o.items()}  # type: ignore[return-value]
+    elif isinstance(o, list):
+        return [move_to_device(x, device) for x in o]  # type: ignore[return-value]
+    elif isinstance(o, tuple):
+        return tuple((move_to_device(x, device) for x in o))  # type: ignore[return-value]
+    else:
+        return o
+
+
+def is_distributed() -> bool:
+    if "LOCAL_RANK" in os.environ:
+        return True
+    else:
+        return False
+
+
+def node_rank() -> int:
+    return int(os.environ.get("NODE_RANK") or (global_rank() - local_rank()) // local_world_size())
+
+
+def local_world_size() -> int:
+    return int(os.environ["LOCAL_WORLD_SIZE"])
+
+
+def global_rank() -> int:
+    return int(os.environ.get("RANK") or dist.get_rank())
+
+
+def local_rank() -> int:
+    return int(os.environ["LOCAL_RANK"])
+
+
+def peak_gpu_memory(reset: bool = False) -> Optional[float]:
+    """
+    Get the peak GPU memory usage in MB across all ranks.
+    Only rank 0 will get the final result.
+    """
+    if not torch.cuda.is_available():
+        return None
+
+    device = torch.device("cuda")
+    peak_mb = torch.cuda.max_memory_allocated(device) / 1000000
+    if dist.is_available() and dist.is_initialized():
+        peak_mb_tensor = torch.tensor(peak_mb, device=device)
+        dist.reduce(peak_mb_tensor, 0, dist.ReduceOp.MAX)
+        peak_mb = peak_mb_tensor.item()
+
+    if reset:
+        # Reset peak stats.
+        torch.cuda.reset_max_memory_allocated(device)
+
+    return peak_mb
+
+
+def cycle_through_epochs(dataloader: DataLoader) -> Generator[Dict[str, Any], None, None]:
+    while True:
+        for batch in dataloader:
+            yield batch
+
+        if isinstance(dataloader.sampler, DistributedSampler):
+            epoch = dataloader.sampler.epoch + 1
+            dataloader.sampler.set_epoch(epoch)
