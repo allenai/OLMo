@@ -1,7 +1,7 @@
 
-from typing import List, Tuple
+from typing import List, Tuple, Union, overload
 from cached_path import cached_path
-import fasttext
+from fasttext.FastText import _FastText
 import pycld2 as cld2
 
 
@@ -12,21 +12,40 @@ class BaseLangId:
     def predict(self, text: str) -> Tuple[str, float]:
         raise NotImplementedError
 
+    @overload
+    def get_language(self, texts: str, cutoff: int = LANG_ID_CUT) -> str:
+        ...
+
+    @overload
     def get_language(self, texts: List[str], cutoff: int = LANG_ID_CUT) -> List[str]:
-        langs: List[str] = []
+        ...
+
+    def get_language(self, texts: Union[List[str], str], cutoff: int = LANG_ID_CUT) -> Union[List[str], str]:
+        langs: Union[List[str], None] = [] if isinstance(texts, list) else None
+        texts = [texts] if isinstance(texts, str) else texts
+
         for text in texts:
             try:
                 text = text.strip()[:cutoff]
                 lang, _ = self.predict(text)
-                langs.append(lang)  # type: ignore
+                # langs.append(lang)  # type: ignore
             except Exception:
-                langs.append("unk")
+                lang = "unk"
+
+            if langs is None:
+                return lang
+
+            langs.append(lang)
+
+        assert langs is not None
         return langs
 
 
 class FasttextLangId(BaseLangId):
     def __init__(self):
-        self.model = fasttext.load_model(str(cached_path(FASTTEXT_PATH)))
+        # we use this private attribute to avoid a warning from the fasttext library
+        # see this comment: https://github.com/facebookresearch/fastText/issues/1056#issuecomment-1278058705
+        self.model = _FastText(model_path=str(cached_path(FASTTEXT_PATH)))
 
     def predict(self, text: str) -> Tuple[str, float]:
         pred = self.model.predict(text.lower().replace("\n", " "))

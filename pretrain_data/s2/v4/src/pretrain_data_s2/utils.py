@@ -52,6 +52,15 @@ class UnigramPerplexityPredictor:
         return log_prob
 
 
+def nfc_normalize(txt: Union[str, List[str]]) -> Union[str, List[str]]:
+    if isinstance(txt, str):
+        return unicodedata.normalize("NFC", txt)
+    elif isinstance(txt, list):
+        return [unicodedata.normalize("NFC", t) for t in txt]
+    else:
+        return txt
+
+
 def is_parenthetical_spanning_two_paragraphs(
     prev_para: str, curr_para: str, open_sym: str = "(", clos_sym: str = ")"
 ) -> bool:
@@ -94,7 +103,7 @@ def merge_text(row: pd.Series) -> str:
     title = row.get("title", "") or ""
     abstract = row.get("abstract", "") or ""
     paragraphs = row.get("filtered_paragraphs", []) or []  # pyright: ignore
-    return f"{title}\n{abstract}\n\n{' '.join(paragraphs)}"  # pyright: ignore
+    return f"{title.strip()}\n{abstract.strip()}\n\n{' '.join(p.strip() for p in paragraphs)}"  # pyright: ignore
 
 
 def fix_missing_added(row: pd.Series) -> pd.Series:

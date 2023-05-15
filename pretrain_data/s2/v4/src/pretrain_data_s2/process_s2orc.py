@@ -8,10 +8,8 @@ python process_text.py \
 
 """
 
-from functools import partial
 import gzip
 import json
-import unicodedata
 from collections import Counter
 from contextlib import ExitStack
 
@@ -23,7 +21,6 @@ import pandas as pd
 import springs as sp
 from smashed.utils import io_utils
 
-
 from .consts import COMMON_CUT, DATA_COLUMNS
 from .lang_id import FasttextLangId, Cld2LangId
 from .utils import (
@@ -32,9 +29,11 @@ from .utils import (
     fix_missing_added,
     fix_missing_created,
     merge_text,
-    s2orc_merge_headers
+    s2orc_merge_headers,
+    nfc_normalize
 )
-from .multiproc import runner, PbarUnit
+from .multiproc import make_runner, PbarUnit
+from .cc_net import CCNet
 
 
 def process_single(
@@ -47,6 +46,7 @@ def process_single(
     upp = UnigramPerplexityPredictor()
     ft_lang = FasttextLangId()
     cld2_lang = Cld2LangId()
+    cc_net = CCNet()
     src, dst = io_paths
     dst.path += ".gz"
 
@@ -57,23 +57,19 @@ def process_single(
 
     # for debugging purposes, only take first 1000 rows
     if debug:
-        df = df.head(100)
+        df = df.head(1000)
 
     # filter all rows that don't have a "all_paragraphs" column
     df = df[df["all_paragraphs"].notna()]
 
-    # normalize the text columns
-    def norm_fn(txt: str) -> str:
-        return unicodedata.normalize("NFC", txt) if isinstance(txt, str) else txt
+    df["title"] = df["title"].apply(nfc_normalize)
+    df["abstract"] = df["abstract"].apply(nfc_normalize)
 
-    df["title"] = df["title"].apply(norm_fn)
-    df["abstract"] = df["abstract"].apply(norm_fn)
-
-    df["filtered_paragraphs"] = df["all_paragraphs"].apply(s2orc_merge_headers)
+    df["filtered_paragraphs"] = df["all_paragraphs"].apply(nfc_normalize).apply(s2orc_merge_headers)
     df.drop(columns=["all_paragraphs"], inplace=True)
 
     # assign version v0 and s2 as the source
-    df["version"] = "v0"
+    df["version"] = "v4"
     df["source"] = "s2"
 
     # fix missing added column
@@ -94,18 +90,28 @@ def process_single(
 
     # create new column that is the result of the function
     # cld3.get_language(text) applied to the text column
-    df["fasttext_language_paragraphs"] = df["filtered_paragraphs"].apply(ft_lang.get_language)
+    df["fstt_language_paragraphs"] = df["filtered_paragraphs"].apply(ft_lang.get_language)
     df["cld2_language_paragraphs"] = df["filtered_paragraphs"].apply(cld2_lang.get_language)
 
     # calculate the perplexity of each paragraph
-    df["perplexity_paragraphs"] = df["filtered_paragraphs"].apply(lambda x: [upp.predict(para) for para in x])
+    df["upp_perplexity_paragraphs"] = df["filtered_paragraphs"].apply(lambda x: [upp.predict(para) for para in x])
+    df["ccnet_perplexity_paragraphs"] = df["filtered_paragraphs"].apply(lambda x: cc_net(x))
 
     # zip the language, perplexity, and filtered paragraphs columns together
     df["paragraphs"] = df.apply(
         lambda x: list(
-            dict(language=lang, perplexity=perp, text=para)
-            for lang, perp, para in zip(
-                x["language_paragraphs"], x["perplexity_paragraphs"], x["filtered_paragraphs"]
+            {
+                "fasttext_language": fl,
+                "cld2_language": cl,
+                "upp_perplexity": up,
+                "ccnet_perplexity": cp,
+                "text": pp
+            } for fl, cl, up, cp, pp in zip(
+                x["fstt_language_paragraphs"],
+                x["cld2_language_paragraphs"],
+                x["upp_perplexity_paragraphs"],
+                x["ccnet_perplexity_paragraphs"],
+                x["filtered_paragraphs"]
             )
         ),
         axis=1,
@@ -129,7 +135,14 @@ def process_single(
     df["year"] = df["year"].apply(lambda x: int(x) if isinstance(x, (float, int)) and not pd.isna(x) else -1)
 
     # drop after zipping
-    df.drop(columns=["language_paragraphs", "perplexity_paragraphs", "filtered_paragraphs"], inplace=True)
+    to_drop = [
+        "fstt_language_paragraphs",
+        "cld2_language_paragraphs",
+        "upp_perplexity_paragraphs",
+        "ccnet_perplexity_paragraphs",
+        "filtered_paragraphs",
+    ]
+    df.drop(columns=to_drop, inplace=True)
 
     # put everything that is not part of the data spec in metadata
     df["metadata"] = df.apply(row_to_metadata, axis=1)
@@ -146,6 +159,9 @@ def process_single(
     if pbar_queue is not None:
         pbar_queue.put(PbarUnit.new(files=1, docs=int(len(df)), tokens=int(cnt)))
 
+    del df
+
 
 if __name__ == "__main__":
-    partial(runner, fn=process_single)()
+    CCNet().prefetch()
+    make_runner(process_single)()

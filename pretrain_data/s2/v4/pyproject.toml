@@ -17,6 +17,8 @@ dependencies = [
     "orjson",
     "blingfire",
     "fasttext",
+    "sentencepiece",
+    "kenlm"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

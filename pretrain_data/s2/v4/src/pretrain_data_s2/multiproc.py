@@ -46,7 +46,12 @@ def threaded_progressbar(q: "Queue[Union[PbarUnit, None]]", timeout: float, tota
             sleep(timeout)
 
 
-@sp.cli(ProcessTextConfig)
+def make_runner(fn: Callable):
+    _runner = partial(runner, fn=fn)
+    _decorated = sp.cli(ProcessTextConfig)(_runner)
+    return _decorated
+
+
 def runner(cfg: ProcessTextConfig, fn: Callable):
     src = io_utils.MultiPath.parse(cfg.src)
     dst = io_utils.MultiPath.parse(cfg.dst)
