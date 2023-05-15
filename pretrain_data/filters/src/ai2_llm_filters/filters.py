@@ -5,17 +5,18 @@ Filters.
 @kylel
 
 """
+import os
 import re
 from abc import abstractmethod
 from typing import List
-
-# pii
-from presidio_analyzer import AnalyzerEngine
 
 # fasttext
 import fasttext
 import wget
 from nltk.tokenize.punkt import PunktSentenceTokenizer
+
+# pii
+from presidio_analyzer import AnalyzerEngine
 
 from .data_types import DocResult, Document, Span
 
@@ -66,7 +67,10 @@ class FastTextFilter(Filter):
     ) -> None:
         self.classifier = None
         if model_path is not None:
-            file_name = wget.download(model_path)
+            if os.path.exists(model_path):
+                file_name = model_path
+            else:
+                file_name = wget.download(model_path, out=savepath)
             self.classifier = fasttext.load_model(file_name)
         elif do_train:
             self.train(trainfile, savepath)
