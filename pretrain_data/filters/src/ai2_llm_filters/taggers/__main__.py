@@ -1,6 +1,6 @@
-from .base import TaggerProcessor, TaggerConfig
-
 import springs as sp
+
+from .base import TaggerConfig, TaggerProcessor
 
 
 @sp.cli(TaggerConfig)

@@ -1,15 +1,14 @@
-from abc import abstractmethod
-from queue import Queue
-from tempfile import tempdir
-from typing import Dict, Generator, Iterable, List, Tuple, Type, Union
 import gzip
 import json
 import re
+from abc import abstractmethod
 from contextlib import ExitStack
-from typing import Dict
+from queue import Queue
+from tempfile import tempdir
+from typing import Dict, Generator, Iterable, List, Tuple, Type, Union
 
-from smashed.utils.io_utils import open_file_for_read, open_file_for_write
 import springs as sp
+from smashed.utils.io_utils import open_file_for_read, open_file_for_write
 
 from ..parallel import BaseParallelProcessor
 
@@ -43,12 +42,10 @@ class TaggerRegistry:
         return cls.__taggers[name]
 
 
-
 @sp.dataclass
 class TaggerConfig:
     dataset: str = sp.field(
-        default=sp.MISSING,
-        help="Name of the pretraining dataset to consider when applying filters, e.g. 's2/v4'"
+        default=sp.MISSING, help="Name of the pretraining dataset to consider when applying filters, e.g. 's2/v4'"
     )
     name: str = sp.field(
         default=sp.MISSING,
@@ -65,7 +62,6 @@ class TaggerConfig:
 
 
 class TaggerProcessor(BaseParallelProcessor):
-
     BASE_S3_PREFIX = "s3://ai2-llm/pretrain_data"
 
     @classmethod
@@ -113,7 +109,7 @@ class TaggerProcessor(BaseParallelProcessor):
                 output = {
                     "source": row["source"],
                     "id": row["id"],
-                    "attributes": {tagger.__class__.__name__: tagger.tag(row["source"]) for tagger in taggers}
+                    "attributes": {tagger.__class__.__name__: tagger.tag(row["source"]) for tagger in taggers},
                 }
                 # write the output to the output file
                 out_stream.write(json.dumps(output) + "\n")  # pyright: ignore

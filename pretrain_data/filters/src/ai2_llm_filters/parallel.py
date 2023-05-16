@@ -121,7 +121,7 @@ class BaseParallelProcessor:
         destination_path: str,
         metadata_path: str,
         queue: "Queue[Union[None, Tuple[int, ...]]]",
-        serialized_kwargs: bytes
+        serialized_kwargs: bytes,
     ):
         """A wrapper around process single that saves a metadata file if processing is successful."""
 

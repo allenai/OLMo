@@ -12,4 +12,4 @@ class sample(BaseTagger):
         random.seed(self.seed)
 
     def tag(self, text: str) -> dict:
-        return {'sample': random.random()}
+        return {"sample": random.random()}
