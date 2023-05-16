@@ -59,13 +59,7 @@ class TaggerConfig:
         default=sp.MISSING,
         help="Name of the tagger to use, e.g. 'language-id-v1' ",
     )
-    taggers: list = sp.field(
-        default_factory=list,
-        help=(
-            "List of taggers to use, e.g. `[cld3,sampling]`. "
-            f"Taggers available: {', '.join([tn for tn, _ in TaggerRegistry.taggers()])}"
-        ),
-    )
+    taggers: list = sp.field(default_factory=list, help="List of taggers to use, e.g. `[cld3,sampling]`.")
     num_processes: int = sp.field(
         default=1,
         help="Number of processes to use for parallel processing",
