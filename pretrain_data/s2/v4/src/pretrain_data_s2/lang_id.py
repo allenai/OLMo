@@ -77,6 +77,7 @@ class Cld2LangId(BaseLangId):
         pred = cld2.detect(text)
         lang = pred[2][0][1]
         score = pred[2][0][2]
+        score /= 100.0  # score is in percentage
         lang = "unk" if lang == "un" else lang
         return lang, score
 
