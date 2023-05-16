@@ -61,14 +61,14 @@ class CCNet:
         del model
 
     @overload
-    def __call__(self, seq: Sequence[str]) -> List[str]:
+    def __call__(self, seq: Sequence[str]) -> List[float]:
         ...
 
     @overload
     def __call__(self, seq: Sequence[dict]) -> List[dict]:
         ...
 
-    def __call__(self, seq: Union[Sequence[str], Sequence[dict]]) -> Union[List[str], List[dict]]:
+    def __call__(self, seq: Union[Sequence[str], Sequence[dict]]) -> Union[List[float], List[dict]]:
         seq = [
             {self.input_field: elem, self.language_field: self.lang}
             if (must_extract := isinstance(elem, str))
@@ -80,6 +80,6 @@ class CCNet:
         perplexity = [{self.output_field: 0.0, **d} for d in self.lm(tokenized)]
 
         if must_extract:
-            return [str(elem[self.output_field]) for elem in perplexity]
+            return [float(elem[self.output_field]) for elem in perplexity]
 
         return perplexity
