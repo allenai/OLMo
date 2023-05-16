@@ -25,6 +25,7 @@ dependencies = [
     "presidio_analyzer==2.2.32",
     "pycld2==0.41",
     "pycld3==0.22",
+    "springs==1.12.3"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
