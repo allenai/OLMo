@@ -1,11 +1,11 @@
 import gzip
 import json
-import re
+import multiprocessing
 from abc import abstractmethod
 from contextlib import ExitStack
 from queue import Queue
 from tempfile import tempdir
-from typing import Dict, Generator, Iterable, List, Tuple, Type, Union
+from typing import Callable, Dict, Generator, List, Tuple, Type
 
 import springs as sp
 from smashed.utils.io_utils import open_file_for_read, open_file_for_write
@@ -18,20 +18,28 @@ class BaseTagger:
         pass
 
     @abstractmethod
-    def tag(self, text: str) -> dict:
+    def tag(self, row: dict) -> dict:
         raise NotImplementedError
 
 
 class TaggerRegistry:
-    __taggers: dict
+    __taggers: Dict[str, Type[BaseTagger]] = {}
 
     @classmethod
     def taggers(cls) -> Generator[Tuple[str, Type[BaseTagger]], None, None]:
         yield from cls.__taggers.items()
 
     @classmethod
-    def add(cls, tagger_cls: Type[BaseTagger]):
-        cls.__taggers[tagger_cls.__name__] = tagger_cls
+    def add(cls, name: str) -> Callable[[Type[BaseTagger]], Type[BaseTagger]]:
+        def _add(
+            tagger_cls: Type[BaseTagger],
+            tagger_name: str = name,
+            taggers_dict: Dict[str, Type[BaseTagger]] = cls.__taggers,
+        ) -> Type[BaseTagger]:
+            taggers_dict[tagger_name] = tagger_cls
+            return tagger_cls
+
+        return _add
 
     @classmethod
     def get(cls, name: str) -> Type[BaseTagger]:
@@ -53,16 +61,23 @@ class TaggerConfig:
     )
     taggers: list = sp.field(
         default_factory=list,
-        help="List of taggers to use, e.g. ['cld3']",
+        help=(
+            "List of taggers to use, e.g. `[cld3,sampling]`. "
+            f"Taggers available: {', '.join([tn for tn, _ in TaggerRegistry.taggers()])}"
+        ),
     )
     num_processes: int = sp.field(
         default=1,
         help="Number of processes to use for parallel processing",
     )
+    debug: bool = sp.field(
+        default=False,
+        help="Whether to run in debug mode; in debug mode, parallel processing is disabled",
+    )
 
 
 class TaggerProcessor(BaseParallelProcessor):
-    BASE_S3_PREFIX = "s3://ai2-llm/pretrain_data"
+    BASE_S3_PREFIX = "s3://ai2-llm/pretraining-data/sources"
 
     @classmethod
     def increment_progressbar(  # type: ignore
@@ -92,7 +107,14 @@ class TaggerProcessor(BaseParallelProcessor):
         config = TaggerConfig(**kwargs)
         taggers: List[BaseTagger] = [TaggerRegistry.get(t)() for t in config.taggers]
 
+        # interval at which to update the progress bar; will double if it gets
+        # too full
+        update_interval = 1
+
+        # running document count; gets reset every time we update the progress
+        # bar
         docs_cnt = 0
+
         with ExitStack() as stack:
             # open each file for reading and writing. We use open_file_for_read to handle s3 paths and
             # download the file locally if needed, while gzip.open is used to
@@ -105,34 +127,58 @@ class TaggerProcessor(BaseParallelProcessor):
             for raw in in_stream:
                 row = json.loads(raw)
 
-                # running the taggers
-                output = {
-                    "source": row["source"],
-                    "id": row["id"],
-                    "attributes": {tagger.__class__.__name__: tagger.tag(row["source"]) for tagger in taggers},
-                }
+                # running the taggers and merging them flat
+                attributes = {}
+                for tagger in taggers:
+                    attributes.update(tagger.tag(row))
+
+                # make output file
+                output = {"source": row["source"], "id": row["id"], "attributes": attributes}
+
                 # write the output to the output file
                 out_stream.write(json.dumps(output) + "\n")  # pyright: ignore
 
                 # increment the number of documents processed so far
                 docs_cnt += 1
 
-                if docs_cnt % 1000 == 0:
+                if docs_cnt % update_interval == 0:
                     # update the progress bar every 1000 documents to prevent
                     # buffering
                     cls.increment_progressbar(queue, documents=docs_cnt)
                     docs_cnt = 0
+
+                    if queue.qsize() >= multiprocessing.cpu_count():
+                        # double the update interval if the queue is full
+                        update_interval *= 2
 
         # increment the files progress bar
         cls.increment_progressbar(queue, files=1, documents=docs_cnt)
 
     @classmethod
     def main(cls, config: TaggerConfig):
+        assert len(config.taggers) > 0, "At least one tagger must be specified"
+
+        source_prefix = f"{cls.BASE_S3_PREFIX}/{config.dataset}/documents"
+        destination_prefix = f"{cls.BASE_S3_PREFIX}/{config.dataset}/attributes/{config.name}"
+        metadata_prefix = f"{(tempdir or '/tmp').lstrip('/')}/{config.name}"
+
+        msg = (
+            "----- TaggerProcessor -----\n"
+            f"source:       {source_prefix}\n"
+            f"destination:  {destination_prefix}\n"
+            f"scratch:      {metadata_prefix}\n"
+            f"taggers:      {' -> '.join(config.taggers)}\n"
+            f"parallel:     {config.num_processes}\n"
+            "---------------------------\n"
+        )
+        print(msg)
+
         parallel_compute = cls(
-            source_prefix=f"{cls.BASE_S3_PREFIX}/{config.dataset}/documents",
-            destination_prefix=f"{cls.BASE_S3_PREFIX}/{config.dataset}/attributes/{config.name}",
-            metadata_prefix=f"{(tempdir or '/tmp').lstrip('/')}/{config.name}",
+            source_prefix=source_prefix,
+            destination_prefix=destination_prefix,
+            metadata_prefix=metadata_prefix,
             num_processes=config.num_processes,
             ignore_existing=True,
+            debug=config.debug,
         )
-        parallel_compute(config=sp.to_dict(config))
+        parallel_compute(**sp.to_dict(config))  # pyright: ignore

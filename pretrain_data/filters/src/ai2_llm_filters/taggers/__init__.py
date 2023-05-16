@@ -1,3 +1,3 @@
-from .sampling import sample
+from .sampling import SampleTagger
 
-__all__ = ["sample"]
+__all__ = ["SampleTagger"]

@@ -298,5 +298,5 @@ class BaseParallelProcessor:
             all_source_paths=all_source_paths,
             all_destination_paths=all_destination_paths,
             all_metadata_paths=all_metadata_paths,
-            process_single_kwargs=process_single_kwargs,
+            **process_single_kwargs,
         )
