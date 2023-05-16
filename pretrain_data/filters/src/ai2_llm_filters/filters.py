@@ -107,7 +107,8 @@ class FastTextFilter(Filter):
             # FastText complains about newlines so replace them with spaces
             text = doc.text.replace("\n", " ")
             pred_label, pred_probs = self.classifier.predict(text, k=-1)
-            score = pred_probs[1]
+            label_index = 1 if "non" in pred_label[0] else 0
+            score = pred_probs[label_index]
             return DocResult(doc=doc, spans=[], score=score)
         elif self.level == "sent":
             # Perform prediction at sentence level
@@ -119,7 +120,8 @@ class FastTextFilter(Filter):
                 total_sentence_count += 1
                 sentence_text = doc.text[start:end].replace("\n", " ")
                 pred_label, pred_probs = self.classifier.predict(sentence_text, k=-1)
-                score = pred_probs[1]
+                label_index = 1 if "non" in pred_label[0] else 0
+                score = pred_probs[label_index]
                 # Can tweak this and experiment with different thresholds
                 if score > self.sent_threshold:
                     span = Span(start=start, end=end, type=f"{score:.4f}")
