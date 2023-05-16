@@ -2,7 +2,7 @@
 
 Data types assumed by Filters.
 
-@kylel
+@kylel, @soldni
 
 """
 
@@ -10,6 +10,8 @@ from typing import Dict, List
 
 
 class Document:
+    __slots__ = "source", "version", "id", "text"
+
     def __init__(self, source: str, version: str, id: str, text: str) -> None:
         self.source = source
         self.version = version
@@ -21,6 +23,8 @@ class Document:
 
 
 class Span:
+    __slots__ = "start", "end", "type"
+
     def __init__(self, start: int, end: int, type: str):
         self.start = start
         self.end = end
@@ -37,6 +41,8 @@ class Span:
 
 
 class DocResult:
+    __slots__ = "doc", "spans", "score"
+
     def __init__(self, doc: Document, spans: List[Span], score: float) -> None:
         self.doc = doc
         self.spans = spans

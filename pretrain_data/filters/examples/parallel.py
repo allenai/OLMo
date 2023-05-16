@@ -11,8 +11,9 @@ from contextlib import ExitStack
 from typing import Dict
 
 import springs as sp
-from ai2_llm_filters.parallel import BaseParallelProcessor
 from smashed.utils.io_utils import open_file_for_read, open_file_for_write
+
+from ai2_llm_filters.parallel import BaseParallelProcessor
 
 
 def get_word_count(text: str) -> int:

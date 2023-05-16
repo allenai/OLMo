@@ -2,12 +2,18 @@
 
 Filters.
 
-@kylel
+@kylel, @soldni
 
 """
 import re
 from abc import abstractmethod
-from typing import List
+from typing import List, Optional
+
+# language id
+import cld3
+import pycld2 as cld2
+from cached_path import cached_path
+from fasttext.FastText import _FastText
 
 # pii
 from presidio_analyzer import AnalyzerEngine
@@ -29,7 +35,7 @@ class Filter:
         raise NotImplementedError
 
 
-class CLD3LanguageFilter(Filter):
+class Cld3LanguageFilter(Filter):
     def train(self, trainfile: str):
         pass
 
@@ -37,10 +43,15 @@ class CLD3LanguageFilter(Filter):
         pass
 
     def predict(self, doc: Document) -> List[DocResult]:
-        pass
+        pred = cld3.get_language(doc.text)  # pyright: ignore
+        return [
+            DocResult(
+                doc=doc, spans=[Span(start=0, end=len(doc.text), type=pred.language)], score=pred.probability
+            )
+        ]
 
 
-class FastTextFilter(Filter):
+class Cld2LanguageFilter(Filter):
     def train(self, trainfile: str):
         pass
 
@@ -48,7 +59,47 @@ class FastTextFilter(Filter):
         pass
 
     def predict(self, doc: Document) -> List[DocResult]:
+        is_reliable, text_bytes_found, details = cld2.detect(doc.text)
+        return [
+            DocResult(
+                doc=doc,
+                spans=[Span(start=0, end=len(doc.text), type=details[0].language_code)],
+                score=details[0].percent,
+            )
+        ]
+
+
+class FastTextLanguageFilter(Filter):
+    MODEL_PATH = "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
+
+    def __init__(self, model_path: str = MODEL_PATH) -> None:
+        # we use this private attribute to avoid a warning from the fasttext library
+        # see this comment:
+        # https://github.com/facebookresearch/fastText/issues/1056#issuecomment-1278058705
+        self.model = _FastText(model_path=str(cached_path(model_path)))
+
+    def train(self, trainfile: str):
         pass
+
+    def save(self, outdir: str):
+        pass
+
+    def predict(self, doc: Document) -> List[DocResult]:
+        pred = self.model.predict(doc.text.lower().replace("\n", " "))
+        lang = pred[0][0].split("__")[-1]  # pyright: ignore
+        score = float(pred[1])
+        return [DocResult(doc=doc, spans=[Span(start=0, end=len(doc.text), type=lang)], score=score)]
+
+
+# class FastTextFilter(Filter):
+#     def train(self, trainfile: str):
+#         pass
+
+#     def save(self, outdir: str):
+#         pass
+
+#     def predict(self, doc: Document) -> List[DocResult]:
+#         pass
 
 
 class PiiFilter(Filter):
@@ -62,7 +113,9 @@ class PiiFilter(Filter):
     ENGLISH = "en"
     WINDOW = 100
 
-    def __init__(self, method: str = None, postprocess: bool = None, window: int = None) -> None:
+    def __init__(
+        self, method: Optional[str] = None, postprocess: Optional[bool] = None, window: Optional[int] = None
+    ) -> None:
         # configs
         self.method = method if method else self.REGEX
         self.postprocess = postprocess if postprocess else True
@@ -77,7 +130,9 @@ class PiiFilter(Filter):
             ),
         }
         self.url_regex = re.compile(
-            "(?i)\b((?:https?://|www\\d{0,3}[.]|[a-z0-9.\\-]+[.][a-z]{2,4}/)(?:[^\\s()<>]+|\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\))+(?:\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\)|[^\\s`!()\\[\\]{};:'\".,<>?«»“”‘’]))"
+            "(?i)\b((?:https?://|www\\d{0,3}[.]|[a-z0-9.\\-]+[.][a-z]{2,4}/)(?:[^\\s()<>]+|\\(([^\\s()<>]+|"
+            "(\\([^\\s()<>]+\\)))*\\))+(?:\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\)|[^\\s`!()\\[\\]"
+            "{};:'\".,<>?«»“”‘’]))"
         )
 
         # presidio
@@ -100,7 +155,7 @@ class PiiFilter(Filter):
             new_pii_spans = pii_spans
         # document-level score
         score = self._score(text=doc.text, pii_spans=new_pii_spans)
-        return DocResult(doc=doc, spans=new_pii_spans, score=score)
+        return [DocResult(doc=doc, spans=new_pii_spans, score=score)]
 
     def _score(self, text: str, pii_spans: List[Span]) -> float:
         return len(pii_spans) * 1.0 / len(text.split())
