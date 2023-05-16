@@ -5,7 +5,6 @@ import pycld2 as cld2
 from cached_path import cached_path
 from fasttext.FastText import _FastText
 
-
 FASTTEXT_PATH = "https://s3-us-west-2.amazonaws.com/ai2-s2-research-public/s2and-release/lid.176.bin"
 
 
