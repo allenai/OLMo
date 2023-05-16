@@ -45,7 +45,8 @@ def main():
     parse.add_argument("--outdir", type=str)
     parse.add_argument("--model_path", type=str)
     parse.add_argument("--model_name", type=str)
-    parse.add_argument("--level", type=int)
+    parse.add_argument("--level", type=str)
+    parse.add_argument("--sent_threshold", type=float)
     parse.add_argument("--batch", type=int)
     parse.add_argument("--head", type=int)
     parse.add_argument("--verbose", action="store_true")
@@ -57,17 +58,20 @@ def main():
     
     if args.head:
         docs = docs[: args.head]
-    level = args.level if args.level else 'doc'
+    level = args.level
+    sent_threshold = args.sent_threshold if level == 'sent' else None
     batch_size = args.batch
     verbose = args.verbose if args.verbose else False
     model_path = args.model_path
     model_name = args.model_name
 
-    filter = FastTextFilter(model_path=model_path, level=level)
+    filter = FastTextFilter(model_path=model_path, level=level, sent_threshold=sent_threshold)
 
     start_time = time.time()
     _infile = os.path.splitext(os.path.basename(args.infile))[0]
     outfile = os.path.join(args.outdir, f"{_infile}__model={model_name}__level={level}")
+    if sent_threshold:
+        outfile += f'__threshold={sent_threshold}'
     with open(outfile, mode="w") as f_out:
         for i, doc in enumerate(docs):
             if i % batch_size == 0:
