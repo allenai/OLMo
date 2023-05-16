@@ -634,6 +634,13 @@ class TrainConfig(BaseConfig):
     normalizing term to be close to 0.
     """
 
+    time_limit: Optional[float] = 60 * 60 * 47.5
+    """
+    The maximum amount of time to train for before saving a checkpoint and ending early.
+    On LUMI we have 48 hours max per job, so we default to just under 48 hours to give us time
+    to write out a final checkpoint.
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":

@@ -1,30 +1,25 @@
 [project]
-name = "ai2-llm-filters"
-version = "0.0.2"
-description = "Data filters"
+name = "pretrain-data-s2"
+version = "4.0.1"
+description = "Pipeline to process s2 data"
 authors = [
-    {name = "Aakanksha Naik", email = "aakankshan@allenai.org" },
-    {name = "Abhilasha Ravichander", email = "abhilashar@allenai.org" },
-    {name = "Ian Magnusson", email = "ianm@allenai.org" },
-    {name = "Khyathi Chandu", email = "khyathic@allenai.org" },
-    {name = "Kyle Lo", email = "kylel@allenai.org" },
-    {name = "Luca Soldaini", email = "lucas@allenai.org" },
-    {name = "Rodney Kinney", email = "rodneyk@allenai.org" }
+    {name = "Luca Soldaini", email = "lucas@allenai.org" }
 ]
 license = {text = "Apache-2.0"}
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-    "requests",
-    "tqdm",
-    "boto3",
-    "uniseg",
+    "pandas",
+    "smashed[remote]>=0.19.4",
+    "springs",
+    "pycld2",
     "cached_path",
-    "msgspec==0.14.2",
-    "smashed[remote]==0.19.6",
-    "presidio_analyzer==2.2.32",
-    "wget",
-    "nltk"
+    "orjson",
+    "blingfire",
+    "fasttext",
+    "sentencepiece",
+    "kenlm",
+    "pycld3"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -60,7 +55,7 @@ requires = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-ai2_llm_filters = ["py.typed"]
+pretrain_data_s2 = ["py.typed"]
 
 [tool.black]
 line-length = 115
