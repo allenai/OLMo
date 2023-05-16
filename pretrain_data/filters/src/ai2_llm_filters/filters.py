@@ -12,13 +12,13 @@ from typing import List, Optional
 
 # language id
 import cld3
-import pycld2 as cld2
-from cached_path import cached_path
-from fasttext.FastText import _FastText
 
 # fasttext
 import fasttext
+import pycld2 as cld2
 import wget
+from cached_path import cached_path
+from fasttext.FastText import _FastText
 from nltk.tokenize.punkt import PunktSentenceTokenizer
 
 # pii
@@ -37,7 +37,7 @@ class Filter:
         raise NotImplementedError
 
     @abstractmethod
-    def predict(self, doc: Document) -> List[DocResult]:
+    def predict(self, doc: Document) -> DocResult:
         raise NotImplementedError
 
 
@@ -48,15 +48,12 @@ class Cld3LanguageFilter(Filter):
     def save(self, outdir: str):
         pass
 
-    def predict(self, doc: Document) -> List[DocResult]:
+    def predict(self, doc: Document) -> DocResult:
         pred = cld3.get_language(doc.text)  # pyright: ignore
-        return [
-            DocResult(
-                doc=doc, spans=[Span(start=0, end=len(doc.text), type=pred.language)], score=pred.probability
-            )
-        ]
+        score = pred.probability if pred.language == "en" else 0.0
+        return DocResult(doc=doc, spans=[Span(start=0, end=len(doc.text), type="cld3")], score=score)
 
-    
+
 class Cld2LanguageFilter(Filter):
     def train(self, trainfile: str):
         pass
@@ -64,17 +61,12 @@ class Cld2LanguageFilter(Filter):
     def save(self, outdir: str):
         pass
 
-    def predict(self, doc: Document) -> List[DocResult]:
+    def predict(self, doc: Document) -> DocResult:
         is_reliable, text_bytes_found, details = cld2.detect(doc.text)
-        return [
-            DocResult(
-                doc=doc,
-                spans=[Span(start=0, end=len(doc.text), type=details[0].language_code)],
-                score=details[0].percent,
-            )
-        ]
-      
- 
+        score = max([d[2] for d in details if d[0] == "ENGLISH"] or [0.0])
+        return DocResult(doc=doc, spans=[Span(start=0, end=len(doc.text), type="cld2")], score=score / 100.0)
+
+
 class FastTextLanguageFilter(Filter):
     MODEL_PATH = "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
 
@@ -90,31 +82,30 @@ class FastTextLanguageFilter(Filter):
     def save(self, outdir: str):
         pass
 
-    def predict(self, doc: Document) -> List[DocResult]:
+    def predict(self, doc: Document) -> DocResult:
         pred = self.model.predict(doc.text.lower().replace("\n", " "))
-        lang = pred[0][0].split("__")[-1]  # pyright: ignore
-        score = float(pred[1])
-        return [DocResult(doc=doc, spans=[Span(start=0, end=len(doc.text), type=lang)], score=score)]
+        score = max([float(p) for p, l in zip(pred[1], pred[0]) if l == "__label__en"] or [0.0])
+        return DocResult(doc=doc, spans=[Span(start=0, end=len(doc.text), type="ft_lid_176")], score=score)
 
 
 class FastTextFilter(Filter):
-
     # Either provide path to a trained model file on S3 (<bucket>/<file>)
     # or provide paths to training and test data files
     # do_train flag controls whether classifier needs to be trained
     # do_test flag controls whether to check classifier accuracy on test data
     # level flag controls whether prediction should be run at document or sentence level
-    # By default, model is loaded from a pretrained model file and run at document level
+    # By default, model is loaded from a pretrained model file and run at
+    # document level
     def __init__(
         self,
-        model_path: str = None,
-        trainfile: str = None,
-        testfile: str = None,
-        savepath: str = None,
+        model_path: Optional[str] = None,
+        trainfile: Optional[str] = None,
+        testfile: Optional[str] = None,
+        savepath: Optional[str] = None,
         do_train: bool = False,
         do_test: bool = False,
         level: str = "doc",
-        sent_threshold: float = None,
+        sent_threshold: Optional[float] = None,
     ) -> None:
         self.classifier = None
         if model_path is not None:
@@ -124,25 +115,28 @@ class FastTextFilter(Filter):
                 file_name = wget.download(model_path, out=savepath)
             self.classifier = fasttext.load_model(file_name)
         elif do_train:
-            self.train(trainfile, savepath)
+            assert trainfile is not None, "Please provide a path to save the train a model"
+            if savepath:
+                self.save(savepath)
         else:
             raise NotImplementedError("Please either provide a path to a trained model or train a new model")
         if do_test:
+            assert testfile is not None, "Please provide a path to test data"
             self.test(testfile)
         self.level = level
         if self.level == "sent":
             self.sent_tokenizer = PunktSentenceTokenizer()
             self.sent_threshold = sent_threshold
 
-    def train(self, trainfile: str, savepath: str):
+    def save(self, outdir: str):
+        assert self.classifier is not None, "Please either download or train a classifier model first"
+        self.classifier.save_model(outdir)
+
+    def train(self, trainfile: str):
         if trainfile is None:
             raise ValueError("Please provide a file containing training data")
         classifier = fasttext.train_supervised(input=trainfile, epoch=100, wordNgrams=2)
         self.classifier = classifier
-        if savepath is None:
-            raise Warning("Model will not be saved since no save path was provided")
-        else:
-            classifier.save_model(savepath)
 
     def test(self, testfile: str):
         if testfile is None:
@@ -152,7 +146,10 @@ class FastTextFilter(Filter):
         model_performance = self.classifier.test("jigsaw_nsfw/fasttext_final.test")
         print(model_performance)
 
-    def predict(self, doc: Document) -> List[DocResult]:
+    def predict(self, doc: Document) -> DocResult:
+        if self.classifier is None:
+            raise ValueError("Please either download or train a classifier model first")
+
         if self.level == "doc":
             # Perform prediction at document level
             # FastText complains about newlines so replace them with spaces
@@ -180,6 +177,7 @@ class FastTextFilter(Filter):
             return DocResult(doc=doc, spans=filter_sents, score=doc_score)
         else:
             raise NotImplementedError("Please provide a valid granularity for prediction (doc or sent)")
+
 
 class PiiFilter(Filter):
     EMAIL = "EMAIL_ADDRESS"
@@ -218,7 +216,7 @@ class PiiFilter(Filter):
         if self.method == self.PRESIDIO:
             self.analyzer = AnalyzerEngine()
 
-    def predict(self, doc: Document) -> List[DocResult]:
+    def predict(self, doc: Document) -> DocResult:
         """Main runner."""
         # extract
         if self.method == self.PRESIDIO:
@@ -234,7 +232,7 @@ class PiiFilter(Filter):
             new_pii_spans = pii_spans
         # document-level score
         score = self._score(text=doc.text, pii_spans=new_pii_spans)
-        return [DocResult(doc=doc, spans=new_pii_spans, score=score)]
+        return DocResult(doc=doc, spans=new_pii_spans, score=score)
 
     def _score(self, text: str, pii_spans: List[Span]) -> float:
         return len(pii_spans) * 1.0 / len(text.split())
