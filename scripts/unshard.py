@@ -2,21 +2,22 @@ import logging
 import os
 import shutil
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any, Union
-
-import torch
-from torch import Tensor
-from torch.distributed import FileStore, init_process_group
-from torch.distributed._shard.sharded_tensor import ShardedTensor
 
 logger = logging.getLogger(__name__)
 
 
 def _unshard_worker(shard_count: int, shard: Path, output_dir: Path):
+    import torch
+    from torch import Tensor
+    from torch.distributed import init_process_group
+    from torch.distributed._shard.sharded_tensor import ShardedTensor
+
     shard_number = int(shard.name[4:-3])  # shard names look like "rankXX.pt"
-    init_process_group(world_size=shard_count, rank=shard_number, init_method='tcp://127.0.0.1:32323', backend="gloo")
+    init_process_group(
+        world_size=shard_count, rank=shard_number, init_method="tcp://127.0.0.1:32323", backend="gloo"
+    )
 
     logger.info("Loading %s ...", shard.name)
     state_dict = torch.load(shard, map_location="cpu")
@@ -83,9 +84,6 @@ def unshard(input_dir: Union[str, Path], output_dir: Union[str, Path]) -> None:
         output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # This environment variable needs to be set on LUMI in the workers.
-    os.environ["OMP_NUM_THREADS"] = "1"
-
     shards = list(input_dir.glob("rank*.pt"))
     if len(shards) <= 0:
         raise RuntimeError(f"Could not find any shards at {input_dir}")
@@ -115,5 +113,7 @@ if __name__ == "__main__":
         sys.stderr.write("Usage: unshard.py <input dir> <output dir>")
         sys.exit(1)
     else:
+        # This environment variable needs to be set on LUMI in the workers.
+        os.environ["OMP_NUM_THREADS"] = "1"
         logging.basicConfig(level=logging.INFO)
         unshard(sys.argv[1], sys.argv[2])
