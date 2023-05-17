@@ -14,9 +14,9 @@ from torch.distributed._shard.sharded_tensor import ShardedTensor
 logger = logging.getLogger(__name__)
 
 
-def _unshard_worker(rdzv_filename: str, shard_count: int, shard: Path, output_dir: Path):
+def _unshard_worker(shard_count: int, shard: Path, output_dir: Path):
     shard_number = int(shard.name[4:-3])  # shard names look like "rankXX.pt"
-    init_process_group(world_size=shard_count, rank=shard_number, store=FileStore(rdzv_filename), backend="gloo")
+    init_process_group(world_size=shard_count, rank=shard_number, init_method='tcp://127.0.0.1:32323', backend="gloo")
 
     logger.info("Loading %s ...", shard.name)
     state_dict = torch.load(shard, map_location="cpu")
@@ -83,7 +83,8 @@ def unshard(input_dir: Union[str, Path], output_dir: Union[str, Path]) -> None:
         output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    _, rdzv_filename = tempfile.mkstemp(suffix=".rdzv", dir=output_dir)
+    # This environment variable needs to be set on LUMI in the workers.
+    os.environ["OMP_NUM_THREADS"] = "1"
 
     shards = list(input_dir.glob("rank*.pt"))
     if len(shards) <= 0:
@@ -92,7 +93,7 @@ def unshard(input_dir: Union[str, Path], output_dir: Union[str, Path]) -> None:
     for shard in shards:
         pid = os.fork()
         if pid == 0:
-            _unshard_worker(rdzv_filename, len(shards), shard, output_dir)
+            _unshard_worker(len(shards), shard, output_dir)
             sys.exit(0)
         else:
             pids.append(pid)
@@ -107,8 +108,6 @@ def unshard(input_dir: Union[str, Path], output_dir: Union[str, Path]) -> None:
         if retval != 0:
             raise RuntimeError("Child process returned non-zero status code.")
     logger.info("Workers finished")
-
-    os.remove(rdzv_filename)
 
 
 if __name__ == "__main__":
