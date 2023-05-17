@@ -22,7 +22,9 @@ dependencies = [
     "cached_path",
     "msgspec==0.14.2",
     "smashed[remote]==0.19.6",
-    "presidio_analyzer==2.2.32"
+    "presidio_analyzer==2.2.32",
+    "wget",
+    "nltk"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
