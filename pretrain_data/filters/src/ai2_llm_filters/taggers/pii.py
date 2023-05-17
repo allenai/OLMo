@@ -2,13 +2,12 @@
 
 Filters.
 
-@kylel
+@kylel, @soldni
 
 """
 import os
 import re
-from abc import abstractmethod
-from typing import List
+from typing import List, Literal, Optional
 
 # fasttext
 import fasttext
@@ -18,52 +17,28 @@ from nltk.tokenize.punkt import PunktSentenceTokenizer
 # pii
 from presidio_analyzer import AnalyzerEngine
 
-from .data_types import DocResult, Document, Span
+from ..core_tools.data_types import DocResult, Document, Span
+from ..core_tools.registry import TaggerRegistry
+from ..core_tools.taggers import BaseTagger
 
 
-class Filter:
-    @abstractmethod
-    def train(self, trainfile: str):
-        raise NotImplementedError
-
-    @abstractmethod
-    def save(self, outdir: str):
-        raise NotImplementedError
-
-    @abstractmethod
-    def predict(self, doc: Document) -> List[DocResult]:
-        raise NotImplementedError
-
-
-class CLD3LanguageFilter(Filter):
-    def train(self, trainfile: str):
-        pass
-
-    def save(self, outdir: str):
-        pass
-
-    def predict(self, doc: Document) -> List[DocResult]:
-        pass
-
-
-class FastTextFilter(Filter):
-
+class BaseFastTextTagger(BaseTagger):
     # Either provide path to a trained model file on S3 (<bucket>/<file>)
     # or provide paths to training and test data files
     # do_train flag controls whether classifier needs to be trained
     # do_test flag controls whether to check classifier accuracy on test data
     # level flag controls whether prediction should be run at document or sentence level
-    # By default, model is loaded from a pretrained model file and run at document level
+    # By default, model is loaded from a pretrained model file and run at
+    # document level
     def __init__(
         self,
-        model_path: str = None,
-        trainfile: str = None,
-        testfile: str = None,
-        savepath: str = None,
+        model_path: Optional[str] = None,
+        trainfile: Optional[str] = None,
+        testfile: Optional[str] = None,
+        savepath: Optional[str] = None,
         do_train: bool = False,
         do_test: bool = False,
-        level: str = "doc",
-        sent_threshold: float = None,
+        level: str = "sent"
     ) -> None:
         self.classifier = None
         if model_path is not None:
@@ -73,35 +48,55 @@ class FastTextFilter(Filter):
                 file_name = wget.download(model_path, out=savepath)
             self.classifier = fasttext.load_model(file_name)
         elif do_train:
-            self.train(trainfile, savepath)
+            assert trainfile is not None, "Please provide a path to save the train a model"
+            if savepath:
+                self.save(savepath)
         else:
             raise NotImplementedError("Please either provide a path to a trained model or train a new model")
         if do_test:
+            assert testfile is not None, "Please provide a path to test data"
             self.test(testfile)
+
+        assert level in ["doc", "sent"], "Please provide a valid level, either 'doc' or 'sent'"
         self.level = level
+
         if self.level == "sent":
             self.sent_tokenizer = PunktSentenceTokenizer()
-            self.sent_threshold = sent_threshold
 
-    def train(self, trainfile: str, savepath: str):
+    def save(self, outdir: str):
+        assert self.classifier is not None, "Please either download or train a classifier model first"
+        self.classifier.save_model(outdir)
+
+    def train(self, trainfile: str):
         if trainfile is None:
             raise ValueError("Please provide a file containing training data")
         classifier = fasttext.train_supervised(input=trainfile, epoch=100, wordNgrams=2)
         self.classifier = classifier
-        if savepath is None:
-            raise Warning("Model will not be saved since no save path was provided")
-        else:
-            classifier.save_model(savepath)
 
     def test(self, testfile: str):
         if testfile is None:
             raise ValueError("Please provide a file containing test data")
         if self.classifier is None:
             raise ValueError("Please either download or train a classifier model first")
-        model_performance = self.classifier.test("jigsaw_nsfw/fasttext_final.test")
+        model_performance = self.classifier.test(testfile)
         print(model_performance)
 
-    def predict(self, doc: Document) -> List[DocResult]:
+    def predict(self, doc: Document) -> DocResult:
+        if self.classifier is None:
+            raise ValueError("Please either download or train a classifier model first")
+        spans = self._predict(doc)
+        return DocResult(doc=doc, spans=spans)
+
+    def _predict(self, doc: Document) -> List[Span]:
+        raise NotImplementedError("Please implement the predict method")
+
+
+class JigsawFastTextTagger(BaseFastTextTagger):
+    
+    def _predict(self, doc: Document) -> DocResult:
+
+        spans: List[Span] = []
+
         if self.level == "doc":
             # Perform prediction at document level
             # FastText complains about newlines so replace them with spaces
@@ -109,31 +104,26 @@ class FastTextFilter(Filter):
             pred_label, pred_probs = self.classifier.predict(text, k=-1)
             label_index = 1 if "non" in pred_label[0] else 0
             score = pred_probs[label_index]
-            return DocResult(doc=doc, spans=[], score=score)
+            spans.append(Span(start=0, end=len(doc.text)), type="ft_doc", score=score)
+            
         elif self.level == "sent":
             # Perform prediction at sentence level
-            filter_sents: List[Span] = []
             sent_span_indices = self.sent_tokenizer.span_tokenize(doc.text)
-            filter_sentence_count = 0.0
-            total_sentence_count = 0.0
+
             for start, end in sent_span_indices:
-                total_sentence_count += 1
                 sentence_text = doc.text[start:end].replace("\n", " ")
                 pred_label, pred_probs = self.classifier.predict(sentence_text, k=-1)
                 label_index = 1 if "non" in pred_label[0] else 0
                 score = pred_probs[label_index]
-                # Can tweak this and experiment with different thresholds
-                if score > self.sent_threshold:
-                    span = Span(start=start, end=end, type=f"{score:.4f}")
-                    filter_sents.append(span)
-                    filter_sentence_count += 1
-            doc_score = float(filter_sentence_count) / total_sentence_count
-            return DocResult(doc=doc, spans=filter_sents, score=doc_score)
+                span = Span(start=start, end=end, type="ft_sent", score=score)
+                spans.append(span)
         else:
             raise NotImplementedError("Please provide a valid granularity for prediction (doc or sent)")
 
+        return spans
 
-class PiiFilter(Filter):
+
+class BasePiiFilter(BaseTagger):
     EMAIL = "EMAIL_ADDRESS"
     PHONE = "PHONE_NUMBER"
     IP = "IP_ADDRESS"
@@ -144,11 +134,21 @@ class PiiFilter(Filter):
     ENGLISH = "en"
     WINDOW = 100
 
-    def __init__(self, method: str = None, postprocess: bool = None, window: int = None) -> None:
+    def __init__(
+        self,
+        method: str,
+        postprocess: bool,
+        window: int,
+    ) -> None:
+        assert method in [
+            self.PRESIDIO,
+            self.REGEX,
+        ], f"Please provide a valid method for filtering ({self.PRESIDIO} or {self.REGEX})"
+
         # configs
-        self.method = method if method else self.REGEX
-        self.postprocess = postprocess if postprocess else True
-        self.window = window if window else self.WINDOW
+        self.method = method
+        self.postprocess = postprocess
+        self.window = window
 
         # Regular expressions for different types of PII
         self.pii_type_to_regex = {
@@ -159,14 +159,16 @@ class PiiFilter(Filter):
             ),
         }
         self.url_regex = re.compile(
-            "(?i)\b((?:https?://|www\\d{0,3}[.]|[a-z0-9.\\-]+[.][a-z]{2,4}/)(?:[^\\s()<>]+|\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\))+(?:\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\)|[^\\s`!()\\[\\]{};:'\".,<>?«»“”‘’]))"
+            "(?i)\b((?:https?://|www\\d{0,3}[.]|[a-z0-9.\\-]+[.][a-z]{2,4}/)(?:[^\\s()<>]+|\\(([^\\s()<>]+|"
+            "(\\([^\\s()<>]+\\)))*\\))+(?:\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\)|[^\\s`!()\\[\\]"
+            "{};:'\".,<>?«»“”‘’]))"
         )
 
         # presidio
         if self.method == self.PRESIDIO:
             self.analyzer = AnalyzerEngine()
 
-    def predict(self, doc: Document) -> List[DocResult]:
+    def predict(self, doc: Document) -> DocResult:
         """Main runner."""
         # extract
         if self.method == self.PRESIDIO:
@@ -180,9 +182,11 @@ class PiiFilter(Filter):
             new_pii_spans = self._postprocess(text=doc.text, pii_spans=pii_spans, window=self.window)
         else:
             new_pii_spans = pii_spans
+
         # document-level score
         score = self._score(text=doc.text, pii_spans=new_pii_spans)
-        return DocResult(doc=doc, spans=new_pii_spans, score=score)
+        new_pii_spans.append(Span(start=0, end=len(doc.text), type="doc", score=score))
+        return DocResult(doc=doc, spans=new_pii_spans)
 
     def _score(self, text: str, pii_spans: List[Span]) -> float:
         return len(pii_spans) * 1.0 / len(text.split())
@@ -250,3 +254,15 @@ class PiiFilter(Filter):
         if addressee.strip() == "(" or "." not in domain:
             return False
         return True
+
+
+@TaggerRegistry.add("pii_presidio_v1")
+class PiiPresidioV1(BasePiiFilter):
+    def __init__(self):
+        super().__init__(method=self.PRESIDIO, postprocess=True, window=self.WINDOW)
+
+
+@TaggerRegistry.add("pii_regex_v1")
+class PiiRegexV1(BasePiiFilter):
+    def __init__(self):
+        super().__init__(method=self.REGEX, postprocess=True, window=self.WINDOW)
