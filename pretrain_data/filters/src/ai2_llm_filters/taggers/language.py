@@ -9,11 +9,9 @@ from typing import List, Tuple
 
 import cld3
 import pycld2 as cld2
-from pretrain_data.filters.src.ai2_llm_filters.core_tools.data_types import TextSlice
-from pretrain_data.filters.src.ai2_llm_filters.core_tools.ft_tagger import Prediction
 
-from ..core_tools.data_types import DocResult, Document, Span
-from ..core_tools.ft_tagger import BaseFastTextTagger
+from ..core_tools.data_types import DocResult, Document, Span, TextSlice
+from ..core_tools.ft_tagger import BaseFastTextTagger, Prediction
 from ..core_tools.registry import TaggerRegistry
 from ..core_tools.taggers import BaseTagger
 from ..core_tools.utils import split_paragraphs
