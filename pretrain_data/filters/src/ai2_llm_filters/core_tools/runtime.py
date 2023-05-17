@@ -1,3 +1,4 @@
+import argparse
 import gzip
 import json
 import multiprocessing
@@ -107,17 +108,49 @@ class TaggerProcessor(BaseParallelProcessor):
         cls.increment_progressbar(queue, files=1, documents=docs_cnt)
 
     @classmethod
-    def main(
-        cls,
-        dataset: str,
-        taggers: List[str],
-        num_processes: int = 1,
-        debug: bool = False,
-    ):
-        assert len(taggers) > 0, "At least one tagger must be specified"
+    def main(cls):
+        ap = argparse.ArgumentParser()
+        ap.add_argument(
+            "-d",
+            "--dataset",
+            default=None,
+            help=f"Dataset to process; this should be relative path from {TaggerProcessor.BASE_S3_PREFIX}.",
+        )
+        ap.add_argument(
+            "-n",
+            "--experiment-name",
+            default=None,
+            help=(
+                "Name of for this sequence of taggers to be grouped under; "
+                "it could be 'experiment_n' or a more descriptive name."
+            ),
+        )
+        ap.add_argument(
+            "-t",
+            "--taggers",
+            default=[],
+            nargs="+",
+            help="One or more taggers to run; use -l to list available taggers.",
+        )
+        ap.add_argument("-l", "--list-taggers", action="store_true", help="List available taggers.")
+        ap.add_argument("-p", "--parallel", type=int, default=1, help="Number of parallel processes to use.")
+        ap.add_argument(
+            "-u", "--debug", action="store_true", help="Run in debug mode; parallelism will be disabled."
+        )
+        opts = ap.parse_args()
 
-        source_prefix = f"{cls.BASE_S3_PREFIX}/{dataset}/documents"
-        destination_prefix = f"{cls.BASE_S3_PREFIX}/{dataset}/attributes"
+        if opts.list_taggers:
+            print("Available taggers:")
+            for tagger_name, tagger_cls in TaggerRegistry.taggers():
+                print(f"  {tagger_name} ({tagger_cls.__name__})")
+            return
+
+        assert opts.dataset is not None, "Dataset must be specified."
+        assert opts.experiment_name is not None, "Experiment name must be specified."
+        assert len(opts.taggers) > 0, "At least one tagger must be specified."
+
+        source_prefix = f"{cls.BASE_S3_PREFIX}/{opts.dataset}/documents"
+        destination_prefix = f"{cls.BASE_S3_PREFIX}/{opts.dataset}/attributes/{opts.experiment_name}"
 
         with tempfile.TemporaryDirectory() as tempdir:
             msg = (
@@ -125,8 +158,8 @@ class TaggerProcessor(BaseParallelProcessor):
                 f"source:       {source_prefix}\n"
                 f"destination:  {destination_prefix}\n"
                 f"scratch:      {tempdir}\n"
-                f"taggers:      {' -> '.join(taggers)}\n"
-                f"parallel:     {num_processes}\n"
+                f"taggers:      {', '.join(opts.taggers)}\n"
+                f"parallel:     {opts.parallel}\n"
                 "---------------------------\n"
             )
             print(msg)
@@ -135,8 +168,8 @@ class TaggerProcessor(BaseParallelProcessor):
                 source_prefix=source_prefix,
                 destination_prefix=destination_prefix,
                 metadata_prefix=tempdir,
-                num_processes=num_processes,
+                num_processes=opts.parallel,
                 ignore_existing=True,
-                debug=debug,
+                debug=opts.debug,
             )
-            parallel_compute(taggers_names=taggers)
+            parallel_compute(taggers_names=opts.taggers, experiment_name=opts.experiment_name)

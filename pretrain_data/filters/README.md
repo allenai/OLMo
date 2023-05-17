@@ -15,10 +15,10 @@ python -m spacy download en_core_web_lg
 To run taggers, use the following command:
 
 ```bash
-python -m ai2_llm_filters.taggers \
-    dataset="<name of dataset>" \
-    name="<name for group of taggers>" \
-    taggers="[<tagger1>,<tagger2>]"  \
+python -m ai2_llm_filters \
+    -d "<name of dataset>" \
+    -n "<name for group of taggers>" \
+    -t "<tagger 1>" -t "<tagger 2>"  \
     num_processes=<num processes>
 ```
 

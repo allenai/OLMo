@@ -18,6 +18,3 @@ class RandomNumberTagger(BaseTagger):
     def predict(self, doc: Document) -> DocResult:
         score = random.random()
         return DocResult(doc=doc, spans=[Span(start=0, end=len(doc.text), type="random", score=score)])
-
-    def tag(self, row: dict) -> dict:
-        return {"sample": random.random()}
