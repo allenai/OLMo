@@ -5,12 +5,10 @@ Filters.
 @kylel, @soldni
 
 """
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import cld3
 import pycld2 as cld2
-from cached_path import cached_path
-from fasttext.FastText import _FastText
 from pretrain_data.filters.src.ai2_llm_filters.core_tools.data_types import TextSlice
 from pretrain_data.filters.src.ai2_llm_filters.core_tools.ft_tagger import Prediction
 
