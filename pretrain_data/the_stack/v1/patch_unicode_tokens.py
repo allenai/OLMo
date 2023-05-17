@@ -7,6 +7,8 @@ from typing import Dict, List
 
 import pandas as pd
 import tqdm
+
+from pandarallel import pandarallel
 from uniseg.wordbreak import words as unicode_tokenize
 
 logging.basicConfig(
@@ -17,6 +19,8 @@ logging.basicConfig(
         logging.FileHandler("_patch_unicode_tokens.log"),
     ],
 )
+
+pandarallel.initialize(progress_bar=False)
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +66,7 @@ def v2_unicode_tokens(filep):
     v1ma = pd.merge(v0adf, v1adf, on="id")
     v1md = pd.merge(v0ddf, v1ddf, on="id")
 
-    to_remove = v1md.apply(copyright_tokens, axis=1)
+    to_remove = v1md.parallel_apply(copyright_tokens, axis=1)
 
     assert len(v1ma) == len(v1adf) == len(to_remove), (len(v1ma), len(v1adf), len(to_remove))
 
@@ -71,7 +75,7 @@ def v2_unicode_tokens(filep):
 
     v1adf.loc[v1adf["id"].isin(error_ids), "num_tokens_unicode"] = v1md[v1md["id"].isin(error_ids)][
         "text_y"
-    ].apply(count_tokens_unicode)
+    ].parallel_apply(count_tokens_unicode)
     v1adf.to_csv(v1att, sep="\t", index=False)
     logger.info("Done")
 
