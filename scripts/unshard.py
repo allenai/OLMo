@@ -15,6 +15,7 @@ def _unshard_worker(shard_count: int, shard: Path, output_dir: Path):
     from torch.distributed._shard.sharded_tensor import ShardedTensor
 
     shard_number = int(shard.name[4:-3])  # shard names look like "rankXX.pt"
+    logger.info("Starting rank %d", shard_number)
     init_process_group(
         world_size=shard_count, rank=shard_number, init_method="tcp://127.0.0.1:32323", backend="gloo"
     )
