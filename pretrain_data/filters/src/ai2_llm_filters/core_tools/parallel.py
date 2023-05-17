@@ -1,5 +1,6 @@
 import inspect
 import multiprocessing
+import pickle
 import random
 import time
 from contextlib import ExitStack
@@ -7,7 +8,7 @@ from datetime import datetime
 from functools import partial
 from queue import Queue
 from threading import Thread
-from typing import Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import tqdm
 from smashed.utils.io_utils import (
@@ -98,6 +99,7 @@ class BaseParallelProcessor:
         source_path: str,
         destination_path: str,
         queue: "Queue[Union[None, Tuple[int, ...]]]",
+        **kwargs: Any,
     ):
         """Process a single file.
 
@@ -119,9 +121,12 @@ class BaseParallelProcessor:
         destination_path: str,
         metadata_path: str,
         queue: "Queue[Union[None, Tuple[int, ...]]]",
+        serialized_kwargs: bytes,
     ):
         """A wrapper around process single that saves a metadata file if processing is successful."""
-        cls.process_single(source_path, destination_path, queue)
+
+        kwargs = pickle.loads(serialized_kwargs)
+        cls.process_single(source_path=source_path, destination_path=destination_path, queue=queue, **kwargs)
         with open_file_for_write(metadata_path) as f:
             f.write(datetime.now().isoformat())
 
@@ -180,6 +185,7 @@ class BaseParallelProcessor:
         all_source_paths: List[MultiPath],
         all_destination_paths: List[MultiPath],
         all_metadata_paths: List[MultiPath],
+        **process_single_kwargs: Any,
     ):
         """Run files one by one on the main process
 
@@ -200,6 +206,7 @@ class BaseParallelProcessor:
                 destination_path=destination_prefix.as_str,
                 metadata_path=metadata_prefix.as_str,
                 queue=pbar_queue,
+                serialized_kwargs=pickle.dumps(process_single_kwargs),
             )
 
         pbar_queue.put(None)
@@ -210,6 +217,7 @@ class BaseParallelProcessor:
         all_source_paths: List[MultiPath],
         all_destination_paths: List[MultiPath],
         all_metadata_paths: List[MultiPath],
+        **process_single_kwargs: Any,
     ):
         """Run files in parallel using multiprocessing.
 
@@ -218,7 +226,6 @@ class BaseParallelProcessor:
             all_destination_paths (List[MultiPath]): The list of destination paths to save.
             all_metadata_paths (List[MultiPath]): The locations where to save metadata.
         """
-
         try:
             multiprocessing.set_start_method("spawn")
         except RuntimeError:
@@ -241,6 +248,7 @@ class BaseParallelProcessor:
                     source_path=s.as_str,
                     destination_path=d.as_str,
                     metadata_path=m.as_str,
+                    serialized_kwargs=pickle.dumps(process_single_kwargs),
                 )
                 result = pool.apply_async(process_single_fn)
                 results.append(result)
@@ -279,7 +287,7 @@ class BaseParallelProcessor:
 
         return all_source_paths, all_destination_paths, all_metadata_paths
 
-    def __call__(self):
+    def __call__(self, **process_single_kwargs: Any):
         """Run the processor."""
         random.seed(self.seed)
         all_source_paths, all_destination_paths, all_metadata_paths = self._get_all_paths()
@@ -290,4 +298,5 @@ class BaseParallelProcessor:
             all_source_paths=all_source_paths,
             all_destination_paths=all_destination_paths,
             all_metadata_paths=all_metadata_paths,
+            **process_single_kwargs,
         )
