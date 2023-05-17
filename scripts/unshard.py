@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 import sys
+import time
 from pathlib import Path
 from typing import Any, Union
 
@@ -11,12 +12,18 @@ logger = logging.getLogger(__name__)
 def _unshard_worker(shard_count: int, shard: Path, output_dir: Path):
     import torch
     from torch import Tensor
-    from torch.distributed import init_process_group
+    from torch.distributed import TCPStore, init_process_group
     from torch.distributed._shard.sharded_tensor import ShardedTensor
 
     shard_number = int(shard.name[4:-3])  # shard names look like "rankXX.pt"
+    if shard_number != 0:
+        # Wait for the main process to start up.
+        time.sleep(1)
     init_process_group(
-        world_size=shard_count, rank=shard_number, init_method="tcp://127.0.0.1:32323", backend="gloo"
+        world_size=shard_count,
+        rank=shard_number,
+        store=TCPStore("127.0.0.1", 32321, shard_count, shard_number == 0),
+        backend="gloo",
     )
 
     logger.info("Loading %s ...", shard.name)
