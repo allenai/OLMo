@@ -75,7 +75,7 @@ class FastTextEnglishLanguageDocumentTagger(BaseFastTextTagger):
         for label, score in zip(*pred):
             if label == "__label__en":
                 return Prediction(label=label, score=score)
-        raise RuntimeError("No English prediction found")
+        return Prediction(label="__label__en", score=0.0)
 
 
 @TaggerRegistry.add("ft_lang_id_en_paragraph_v1")
