@@ -15,13 +15,14 @@ import cld3
 import pycld2 as cld2
 from cached_path import cached_path
 from fasttext.FastText import _FastText
-
-from pretrain_data.filters.src.ai2_llm_filters.core_tools.data_types import DocResult, Document
-
+from pretrain_data.filters.src.ai2_llm_filters.core_tools.data_types import (
+    DocResult,
+    Document,
+)
 
 from ..core_tools.data_types import DocResult, Document, Span
-from ..core_tools.taggers import BaseTagger
 from ..core_tools.registry import TaggerRegistry
+from ..core_tools.taggers import BaseTagger
 from ..core_tools.utils import split_paragraphs
 
 
@@ -73,7 +74,6 @@ class Cld2LanguageFilterParagraph(Cld2LanguageFilter):
 
 @TaggerRegistry.add("fasttext_en_doc_v1")
 class FastTextLanguageFilter(BaseTagger):
-
     def __init__(self, model_path: str = "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"):
         # we use this private attribute to avoid a warning from the fasttext library
         # see this comment:

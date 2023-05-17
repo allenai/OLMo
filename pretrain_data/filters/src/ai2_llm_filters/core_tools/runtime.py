@@ -1,9 +1,9 @@
 import gzip
 import json
 import multiprocessing
+import tempfile
 from contextlib import ExitStack
 from queue import Queue
-import tempfile
 from typing import Dict, List
 
 from smashed.utils.io_utils import open_file_for_read, open_file_for_write
@@ -80,7 +80,7 @@ class TaggerProcessor(BaseParallelProcessor):
                 attributes = {}
                 for tagger_name, tagger in taggers.items():
                     for key_name, key_value in tagger.tag(row).items():
-                        key_name = f'{experiment_name}__{tagger_name}__{make_variable_name(key_name)}'
+                        key_name = f"{experiment_name}__{tagger_name}__{make_variable_name(key_name)}"
                         attributes[key_name] = key_value
                     attributes.update(tagger.tag(row))
 

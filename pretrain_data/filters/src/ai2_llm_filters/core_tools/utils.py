@@ -2,6 +2,7 @@ import re
 import string
 from typing import List, NamedTuple
 
+
 def make_variable_name(name: str) -> str:
     # use underscores for any non-valid characters in variable name
     name = re.sub(r"[^a-zA-Z0-9_]", "_", name)

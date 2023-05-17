@@ -25,7 +25,7 @@ class BaseTagger:
         raise NotImplementedError
 
     def tag(self, row: Dict[str, Any]) -> Dict[str, list]:
-        """Internal function that is used by the tagger to get data """
+        """Internal function that is used by the tagger to get data"""
         doc = Document(source=row["source"], version=row["version"], id=row["id"], text=row["text"])
         doc_result = self.predict(doc)
         tagger_output: Dict[str, list] = {}

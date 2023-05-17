@@ -43,9 +43,9 @@ class Span:
         return Span(start=di["start"], end=di["end"], type=di["type"], score=di["score"])
 
     def to_json(self, text: str, window: int = 0) -> dict:
-        span_repr = {'start': self.start, 'end': self.end, 'type': self.type, 'score': self.score}
+        span_repr = {"start": self.start, "end": self.end, "type": self.type, "score": self.score}
         if text:
-            span_repr['mention'] = self.mention(text=text, window=window)
+            span_repr["mention"] = self.mention(text=text, window=window)
         return span_repr
 
 

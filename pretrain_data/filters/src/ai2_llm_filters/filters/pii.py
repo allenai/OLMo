@@ -7,7 +7,7 @@ Filters.
 """
 import os
 import re
-from typing import List, Optional, Literal
+from typing import List, Literal, Optional
 
 # fasttext
 import fasttext
@@ -18,8 +18,8 @@ from nltk.tokenize.punkt import PunktSentenceTokenizer
 from presidio_analyzer import AnalyzerEngine
 
 from ..core_tools.data_types import DocResult, Document, Span
-from ..core_tools.taggers import BaseTagger
 from ..core_tools.registry import TaggerRegistry
+from ..core_tools.taggers import BaseTagger
 
 
 class BaseFastTextTagger(BaseTagger):
@@ -56,7 +56,6 @@ class BaseFastTextTagger(BaseTagger):
         if do_test:
             assert testfile is not None, "Please provide a path to test data"
             self.test(testfile)
-
 
         assert level in ["doc", "sent"], "Please provide a valid level, either 'doc' or 'sent'"
         self.level = level
@@ -112,7 +111,6 @@ class BaseFastTextTagger(BaseTagger):
         return DocResult(doc=doc, spans=spans)
 
 
-
 class BasePiiFilter(BaseTagger):
     EMAIL = "EMAIL_ADDRESS"
     PHONE = "PHONE_NUMBER"
@@ -130,8 +128,10 @@ class BasePiiFilter(BaseTagger):
         postprocess: bool,
         window: int,
     ) -> None:
-        assert method in [self.PRESIDIO, self.REGEX], \
-            f"Please provide a valid method for filtering ({self.PRESIDIO} or {self.REGEX})"
+        assert method in [
+            self.PRESIDIO,
+            self.REGEX,
+        ], f"Please provide a valid method for filtering ({self.PRESIDIO} or {self.REGEX})"
 
         # configs
         self.method = method
