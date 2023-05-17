@@ -5,10 +5,7 @@ Filters.
 @kylel, @soldni
 
 """
-import os
-import re
-from abc import abstractmethod
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 # language id
 import cld3

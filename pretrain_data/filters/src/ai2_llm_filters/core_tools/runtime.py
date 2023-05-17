@@ -83,7 +83,6 @@ class TaggerProcessor(BaseParallelProcessor):
                     for key_name, key_value in tagger.tag(row).items():
                         key_name = f"{experiment_name}__{tagger_name}__{make_variable_name(key_name)}"
                         attributes[key_name] = key_value
-                    attributes.update(tagger.tag(row))
 
                 # make output file
                 output = {"source": row["source"], "id": row["id"], "attributes": attributes}
