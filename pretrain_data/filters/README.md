@@ -4,9 +4,23 @@ General implementation of document-level scoring functions used for data filteri
 
 ## Setup
 
+To install the filters package, simply run:
+
+```bash
+pip install .
+```
+
+To install the package in development mode (e.g., if you are adding taggers), run:
+
 ```bash
 pip install -e '.[dev]'
-python -m spacy download en_core_web_lg
+```
+
+If you are planning to run this code on a Mac with Apple Silicon, you will need to run the following to install blingfire (used for sentence splitting):
+
+
+```bash
+python -m smashed.utils.install_blingfire_macos
 ```
 
 ## Running Taggers

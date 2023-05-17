@@ -9,10 +9,9 @@ from typing import List, Tuple
 
 import cld3
 import pycld2 as cld2
-from cached_path import cached_path
-from fasttext.FastText import _FastText
 
-from ..core_tools.data_types import DocResult, Document, Span
+from ..core_tools.data_types import DocResult, Document, Span, TextSlice
+from ..core_tools.ft_tagger import BaseFastTextTagger, Prediction
 from ..core_tools.registry import TaggerRegistry
 from ..core_tools.taggers import BaseTagger
 from ..core_tools.utils import split_paragraphs
@@ -64,30 +63,22 @@ class Cld2LanguageFilterParagraph(Cld2LanguageFilter):
         return DocResult(doc=doc, spans=spans)
 
 
-@TaggerRegistry.add("fasttext_en_doc_v1")
-class FastTextLanguageFilter(BaseTagger):
-    def __init__(self, model_path: str = "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"):
-        # we use this private attribute to avoid a warning from the fasttext library
-        # see this comment:
-        # https://github.com/facebookresearch/fastText/issues/1056#issuecomment-1278058705
-        self.model = _FastText(model_path=str(cached_path(model_path)))
+@TaggerRegistry.add("ft_lang_id_en_doc_v1")
+class FastTextEnglishLanguageDocumentTagger(BaseFastTextTagger):
+    MODEL_PATH = "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
 
-    def _predict_text(self, text: str) -> Tuple[str, float]:
-        pred = self.model.predict(text.lower().replace("\n", " "))
-        score = max([float(p) for p, l in zip(pred[1], pred[0]) if l == "__label__en"] or [0.0])
-        return "en", score
+    def __init__(self):
+        super().__init__(model_path=self.MODEL_PATH, model_mode=self.DOCUMENT_LEVEL_TAGGER)
 
-    def predict(self, doc: Document) -> DocResult:
-        lang, score = self._predict_text(doc.text)
-        return DocResult(doc=doc, spans=[Span(start=0, end=len(doc.text), type=lang, score=score)])
+    def predict_slice(self, text_slice: TextSlice) -> Prediction:
+        pred = self.classifier.predict(text_slice.text.lower().replace("\n", " ").strip(), k=-1)
+        for label, score in zip(*pred):
+            if label == "__label__en":
+                return Prediction(label=label, score=score)
+        return Prediction(label="__label__en", score=0.0)
 
 
-@TaggerRegistry.add("fasttext_en_paragraph_v1")
-class FastTextLanguageFilterParagraph(FastTextLanguageFilter):
-    def predict(self, doc: Document) -> DocResult:
-        paragraphs = split_paragraphs(doc.text)
-        spans: List[Span] = []
-        for paragraph in paragraphs:
-            lang, score = self._predict_text(paragraph.text)  # pyright: ignore
-            spans.append(Span(start=paragraph.start, end=paragraph.end, type=lang, score=score))
-        return DocResult(doc=doc, spans=spans)
+@TaggerRegistry.add("ft_lang_id_en_paragraph_v1")
+class FastTextEnglishLanguageParagraphTagger(FastTextEnglishLanguageDocumentTagger):
+    def __init__(self):
+        BaseFastTextTagger.__init__(self, model_path=self.MODEL_PATH, model_mode=self.PARAGRAPH_LEVEL_TAGGER)
