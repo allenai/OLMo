@@ -1,6 +1,6 @@
 [project]
 name = "ai2-llm-filters"
-version = "0.0.4"
+version = "0.1.0"
 description = "Data filters"
 authors = [
     {name = "Aakanksha Naik", email = "aakankshan@allenai.org" },
@@ -25,7 +25,6 @@ dependencies = [
     "presidio_analyzer==2.2.32",
     "pycld2==0.41",
     "pycld3==0.22",
-    "springs==1.12.3",
     "wget",
     "nltk"
 ]

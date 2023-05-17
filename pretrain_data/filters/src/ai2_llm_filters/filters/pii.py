@@ -7,88 +7,22 @@ Filters.
 """
 import os
 import re
-from abc import abstractmethod
-from typing import List, Optional
-
-# language id
-import cld3
+from typing import List, Optional, Literal
 
 # fasttext
 import fasttext
-import pycld2 as cld2
 import wget
-from cached_path import cached_path
-from fasttext.FastText import _FastText
 from nltk.tokenize.punkt import PunktSentenceTokenizer
 
 # pii
 from presidio_analyzer import AnalyzerEngine
 
-from .data_types import DocResult, Document, Span
+from ..core_tools.data_types import DocResult, Document, Span
+from ..core_tools.taggers import BaseTagger
+from ..core_tools.registry import TaggerRegistry
 
 
-class Filter:
-    @abstractmethod
-    def train(self, trainfile: str):
-        raise NotImplementedError
-
-    @abstractmethod
-    def save(self, outdir: str):
-        raise NotImplementedError
-
-    @abstractmethod
-    def predict(self, doc: Document) -> DocResult:
-        raise NotImplementedError
-
-
-class Cld3LanguageFilter(Filter):
-    def train(self, trainfile: str):
-        pass
-
-    def save(self, outdir: str):
-        pass
-
-    def predict(self, doc: Document) -> DocResult:
-        pred = cld3.get_language(doc.text)  # pyright: ignore
-        score = pred.probability if pred.language == "en" else 0.0
-        return DocResult(doc=doc, spans=[Span(start=0, end=len(doc.text), type="cld3")], score=score)
-
-
-class Cld2LanguageFilter(Filter):
-    def train(self, trainfile: str):
-        pass
-
-    def save(self, outdir: str):
-        pass
-
-    def predict(self, doc: Document) -> DocResult:
-        is_reliable, text_bytes_found, details = cld2.detect(doc.text)
-        score = max([d[2] for d in details if d[0] == "ENGLISH"] or [0.0])
-        return DocResult(doc=doc, spans=[Span(start=0, end=len(doc.text), type="cld2")], score=score / 100.0)
-
-
-class FastTextLanguageFilter(Filter):
-    MODEL_PATH = "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
-
-    def __init__(self, model_path: str = MODEL_PATH) -> None:
-        # we use this private attribute to avoid a warning from the fasttext library
-        # see this comment:
-        # https://github.com/facebookresearch/fastText/issues/1056#issuecomment-1278058705
-        self.model = _FastText(model_path=str(cached_path(model_path)))
-
-    def train(self, trainfile: str):
-        pass
-
-    def save(self, outdir: str):
-        pass
-
-    def predict(self, doc: Document) -> DocResult:
-        pred = self.model.predict(doc.text.lower().replace("\n", " "))
-        score = max([float(p) for p, l in zip(pred[1], pred[0]) if l == "__label__en"] or [0.0])
-        return DocResult(doc=doc, spans=[Span(start=0, end=len(doc.text), type="ft_lid_176")], score=score)
-
-
-class FastTextFilter(Filter):
+class BaseFastTextTagger(BaseTagger):
     # Either provide path to a trained model file on S3 (<bucket>/<file>)
     # or provide paths to training and test data files
     # do_train flag controls whether classifier needs to be trained
@@ -105,7 +39,6 @@ class FastTextFilter(Filter):
         do_train: bool = False,
         do_test: bool = False,
         level: str = "doc",
-        sent_threshold: Optional[float] = None,
     ) -> None:
         self.classifier = None
         if model_path is not None:
@@ -123,10 +56,13 @@ class FastTextFilter(Filter):
         if do_test:
             assert testfile is not None, "Please provide a path to test data"
             self.test(testfile)
+
+
+        assert level in ["doc", "sent"], "Please provide a valid level, either 'doc' or 'sent'"
         self.level = level
+
         if self.level == "sent":
             self.sent_tokenizer = PunktSentenceTokenizer()
-            self.sent_threshold = sent_threshold
 
     def save(self, outdir: str):
         assert self.classifier is not None, "Please either download or train a classifier model first"
@@ -150,36 +86,34 @@ class FastTextFilter(Filter):
         if self.classifier is None:
             raise ValueError("Please either download or train a classifier model first")
 
+        spans: List[Span] = []
+
         if self.level == "doc":
             # Perform prediction at document level
             # FastText complains about newlines so replace them with spaces
             text = doc.text.replace("\n", " ")
-            pred_label, pred_probs = self.classifier.predict(text, k=-1)
+            _, pred_probs = self.classifier.predict(text, k=-1)
             score = pred_probs[1]
-            return DocResult(doc=doc, spans=[], score=score)
+            spans.append(Span(start=0, end=len(doc.text), type="ft_doc", score=score))
+
         elif self.level == "sent":
             # Perform prediction at sentence level
-            filter_sents: List[Span] = []
             sent_span_indices = self.sent_tokenizer.span_tokenize(doc.text)
-            filter_sentence_count = 0.0
-            total_sentence_count = 0.0
+
             for start, end in sent_span_indices:
-                total_sentence_count += 1
                 sentence_text = doc.text[start:end].replace("\n", " ")
-                pred_label, pred_probs = self.classifier.predict(sentence_text, k=-1)
+                _, pred_probs = self.classifier.predict(sentence_text, k=-1)
                 score = pred_probs[1]
-                # Can tweak this and experiment with different thresholds
-                if score > self.sent_threshold:
-                    span = Span(start=start, end=end, type=f"{score:.4f}")
-                    filter_sents.append(span)
-                    filter_sentence_count += 1
-            doc_score = float(filter_sentence_count) / total_sentence_count
-            return DocResult(doc=doc, spans=filter_sents, score=doc_score)
+                span = Span(start=start, end=end, type="ft_sent", score=score)
+                spans.append(span)
         else:
             raise NotImplementedError("Please provide a valid granularity for prediction (doc or sent)")
 
+        return DocResult(doc=doc, spans=spans)
 
-class PiiFilter(Filter):
+
+
+class BasePiiFilter(BaseTagger):
     EMAIL = "EMAIL_ADDRESS"
     PHONE = "PHONE_NUMBER"
     IP = "IP_ADDRESS"
@@ -191,12 +125,18 @@ class PiiFilter(Filter):
     WINDOW = 100
 
     def __init__(
-        self, method: Optional[str] = None, postprocess: Optional[bool] = None, window: Optional[int] = None
+        self,
+        method: str,
+        postprocess: bool,
+        window: int,
     ) -> None:
+        assert method in [self.PRESIDIO, self.REGEX], \
+            f"Please provide a valid method for filtering ({self.PRESIDIO} or {self.REGEX})"
+
         # configs
-        self.method = method if method else self.REGEX
-        self.postprocess = postprocess if postprocess else True
-        self.window = window if window else self.WINDOW
+        self.method = method
+        self.postprocess = postprocess
+        self.window = window
 
         # Regular expressions for different types of PII
         self.pii_type_to_regex = {
@@ -230,9 +170,11 @@ class PiiFilter(Filter):
             new_pii_spans = self._postprocess(text=doc.text, pii_spans=pii_spans, window=self.window)
         else:
             new_pii_spans = pii_spans
+
         # document-level score
         score = self._score(text=doc.text, pii_spans=new_pii_spans)
-        return DocResult(doc=doc, spans=new_pii_spans, score=score)
+        new_pii_spans.append(Span(start=0, end=len(doc.text), type="doc", score=score))
+        return DocResult(doc=doc, spans=new_pii_spans)
 
     def _score(self, text: str, pii_spans: List[Span]) -> float:
         return len(pii_spans) * 1.0 / len(text.split())
@@ -300,3 +242,15 @@ class PiiFilter(Filter):
         if addressee.strip() == "(" or "." not in domain:
             return False
         return True
+
+
+@TaggerRegistry.add("pii_presidio_v1")
+class PiiPresidioV1(BasePiiFilter):
+    def __init__(self):
+        super().__init__(method=self.PRESIDIO, postprocess=True, window=self.WINDOW)
+
+
+@TaggerRegistry.add("pii_regex_v1")
+class PiiRegexV1(BasePiiFilter):
+    def __init__(self):
+        super().__init__(method=self.REGEX, postprocess=True, window=self.WINDOW)

@@ -1,0 +1,70 @@
+"""
+
+Data types assumed by Filters.
+
+@kylel, @soldni
+
+"""
+
+from typing import Any, Dict, List
+
+
+class Document:
+    __slots__ = "source", "version", "id", "text"
+
+    def __init__(self, source: str, version: str, id: str, text: str) -> None:
+        self.source = source
+        self.version = version
+        self.id = id
+        self.text = text
+
+    @classmethod
+    def from_json(cls, d: Dict) -> "Document":
+        return Document(source=d["source"], version=d["version"], id=d["id"], text=d["text"])
+
+    def to_json(self) -> Dict:
+        return {"source": self.source, "version": self.version, "id": self.id, "text": self.text}
+
+
+class Span:
+    __slots__ = "start", "end", "type", "score"
+
+    def __init__(self, start: int, end: int, type: str, score: float = 1.0):
+        self.start = start
+        self.end = end
+        self.type = type
+        self.score = score
+
+    def mention(self, text: str, window: int = 0) -> str:
+        return text[max(0, self.start - window) : min(len(text), self.end + window)]
+
+    @classmethod
+    def from_json(cls, di: Dict) -> "Span":
+        return Span(start=di["start"], end=di["end"], type=di["type"], score=di["score"])
+
+    def to_json(self, text: str, window: int = 0) -> dict:
+        span_repr = {'start': self.start, 'end': self.end, 'type': self.type, 'score': self.score}
+        if text:
+            span_repr['mention'] = self.mention(text=text, window=window)
+        return span_repr
+
+
+class DocResult:
+    __slots__ = "doc", "spans"
+
+    def __init__(self, doc: Document, spans: List[Span]) -> None:
+        self.doc = doc
+        self.spans = spans
+
+    @classmethod
+    def from_json(cls, d: Dict[str, Any]) -> "DocResult":
+        return DocResult(
+            doc=Document.from_json(d["doc"]),
+            spans=[Span.from_json(span) for span in d["spans"]],
+        )
+
+    def to_json(self, with_doc: bool = False, window: int = 0) -> Dict[str, Any]:
+        d: Dict[str, Any] = {"spans": [span.to_json(text=self.doc.text, window=window) for span in self.spans]}
+        if with_doc:
+            d["doc"] = self.doc.to_json()
+        return d
