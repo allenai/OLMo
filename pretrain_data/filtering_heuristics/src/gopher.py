@@ -19,13 +19,15 @@ def get_attributes(text: str) -> Dict:
         word_count = len(words)
         character_count = sum(len(word) for word in words)
 
-        attrs["word_count"] = word_count
-        attrs["median_word_length"] = median([len(word) for word in words])
-        attrs["symbol_to_word_ratio"] = sum(1 for word in words if any(s in word for s in SYMBOLS)) / word_count
-        attrs["fraction_of_words_with_alpha_character"] = (
+        attrs["gopher_word_count"] = word_count
+        attrs["gopher_median_word_length"] = median([len(word) for word in words])
+        attrs["gopher_symbol_to_word_ratio"] = (
+            sum(1 for word in words if any(s in word for s in SYMBOLS)) / word_count
+        )
+        attrs["gopher_fraction_of_words_with_alpha_character"] = (
             sum(1 for word in words if any(c.isalpha() for c in word)) / word_count
         )
-        attrs["required_word_count"] = sum(1 for word in words if word in REQUIRED_ENGLISH_WORDS)
+        attrs["gopher_required_word_count"] = sum(1 for word in words if word in REQUIRED_ENGLISH_WORDS)
 
         for n in range(2, 5):
             value = 0.0
@@ -34,7 +36,7 @@ def get_attributes(text: str) -> Dict:
                 ngram_counts = occurrence_counts(ngrams)
                 most_common_ngram, count = max(ngram_counts.items(), key=lambda x: x[1])
                 value = sum(len(s) for s in most_common_ngram) / character_count
-            attrs[f"fraction_of_characters_in_most_common_{n}gram"] = value
+            attrs[f"gopher_fraction_of_characters_in_most_common_{n}gram"] = value
 
         for n in range(5, 11):
             value = 0.0
@@ -52,16 +54,16 @@ def get_attributes(text: str) -> Dict:
         lines = text.split("\n")
         line_count = len(lines)
 
-        attrs["fraction_of_lines_starting_with_bullet_point"] = (
+        attrs["gopher_fraction_of_lines_starting_with_bullet_point"] = (
             sum(1 for line in lines if any(line.startswith(s) for s in BULLET_POINTS)) / line_count
         )
-        attrs["fraction_of_lines_ending_with_ellipsis"] = sum(
+        attrs["gopher_fraction_of_lines_ending_with_ellipsis"] = sum(
             1 for line in lines if line.endswith("\u2026")
         ) / len(lines)
-        attrs["fraction_of_duplicate_lines"] = (
+        attrs["gopher_fraction_of_duplicate_lines"] = (
             sum(count for line, count in occurrence_counts(lines).items() if count > 1) / line_count
         )
-        attrs["fraction__of_characters_in_duplicate_lines"] = (
+        attrs["gopher_fraction__of_characters_in_duplicate_lines"] = (
             sum(len(line) * count for line, count in occurrence_counts(lines).items() if count > 1)
             / character_count
         )
