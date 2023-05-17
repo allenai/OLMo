@@ -19,7 +19,7 @@ def _unshard_worker(shard_count: int, shard: Path, output_dir: Path):
     logger.info("Starting rank %d", shard_number)
     if shard_number != 0:
         # Wait for the main process to start up.
-        time.sleep(1)
+        time.sleep(1 + 0.1 * shard_number)
     init_process_group(
         world_size=shard_count,
         rank=shard_number,
