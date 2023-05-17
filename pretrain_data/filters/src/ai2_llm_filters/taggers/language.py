@@ -7,15 +7,10 @@ Filters.
 """
 from typing import List, Tuple
 
-# language id
 import cld3
 import pycld2 as cld2
 from cached_path import cached_path
 from fasttext.FastText import _FastText
-from pretrain_data.filters.src.ai2_llm_filters.core_tools.data_types import (
-    DocResult,
-    Document,
-)
 
 from ..core_tools.data_types import DocResult, Document, Span
 from ..core_tools.registry import TaggerRegistry
