@@ -12,13 +12,13 @@ from .data_types import DocResult, Document
 
 
 class BaseTagger:
-    @abstractmethod
-    def train(self, trainfile: str):
-        ...
+    @classmethod
+    def train(cls, *args, **kwargs):
+        raise RuntimeError("This tagger does not support training")
 
-    @abstractmethod
-    def save(self, outdir: str):
-        ...
+    @classmethod
+    def test(cls, *args, **kwargs):
+        raise RuntimeError("This tagger does not support testing")
 
     @abstractmethod
     def predict(self, doc: Document) -> DocResult:

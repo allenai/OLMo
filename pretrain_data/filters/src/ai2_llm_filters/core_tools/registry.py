@@ -1,6 +1,8 @@
-from typing import Callable, Dict, Generator, Tuple, Type
+from typing import Callable, Dict, Generator, Tuple, Type, TypeVar
 
 from .taggers import BaseTagger
+
+T = TypeVar("T", bound=BaseTagger)
 
 
 class TaggerRegistry:
@@ -11,13 +13,13 @@ class TaggerRegistry:
         yield from cls.__taggers.items()
 
     @classmethod
-    def add(cls, name: str) -> Callable[[Type[BaseTagger]], Type[BaseTagger]]:
+    def add(cls, name: str) -> Callable[[Type[T]], Type[T]]:
         def _add(
-            tagger_cls: Type[BaseTagger],
+            tagger_cls: Type[T],
             tagger_name: str = name,
             taggers_dict: Dict[str, Type[BaseTagger]] = cls.__taggers,
-        ) -> Type[BaseTagger]:
-            if tagger_name in taggers_dict:
+        ) -> Type[T]:
+            if tagger_name in taggers_dict and taggers_dict[tagger_name] != tagger_cls:
                 raise ValueError(f"Tagger {tagger_name} already exists")
 
             taggers_dict[tagger_name] = tagger_cls

@@ -5,122 +5,14 @@ Filters.
 @kylel, @soldni
 
 """
-import os
 import re
-from typing import List, Literal, Optional
+from typing import List
 
-# fasttext
-import fasttext
-import wget
-from nltk.tokenize.punkt import PunktSentenceTokenizer
-
-# pii
 from presidio_analyzer import AnalyzerEngine
 
 from ..core_tools.data_types import DocResult, Document, Span
 from ..core_tools.registry import TaggerRegistry
 from ..core_tools.taggers import BaseTagger
-
-
-class BaseFastTextTagger(BaseTagger):
-    # Either provide path to a trained model file on S3 (<bucket>/<file>)
-    # or provide paths to training and test data files
-    # do_train flag controls whether classifier needs to be trained
-    # do_test flag controls whether to check classifier accuracy on test data
-    # level flag controls whether prediction should be run at document or sentence level
-    # By default, model is loaded from a pretrained model file and run at
-    # document level
-    def __init__(
-        self,
-        model_path: Optional[str] = None,
-        trainfile: Optional[str] = None,
-        testfile: Optional[str] = None,
-        savepath: Optional[str] = None,
-        do_train: bool = False,
-        do_test: bool = False,
-        level: str = "sent"
-    ) -> None:
-        self.classifier = None
-        if model_path is not None:
-            if os.path.exists(model_path):
-                file_name = model_path
-            else:
-                file_name = wget.download(model_path, out=savepath)
-            self.classifier = fasttext.load_model(file_name)
-        elif do_train:
-            assert trainfile is not None, "Please provide a path to save the train a model"
-            if savepath:
-                self.save(savepath)
-        else:
-            raise NotImplementedError("Please either provide a path to a trained model or train a new model")
-        if do_test:
-            assert testfile is not None, "Please provide a path to test data"
-            self.test(testfile)
-
-        assert level in ["doc", "sent"], "Please provide a valid level, either 'doc' or 'sent'"
-        self.level = level
-
-        if self.level == "sent":
-            self.sent_tokenizer = PunktSentenceTokenizer()
-
-    def save(self, outdir: str):
-        assert self.classifier is not None, "Please either download or train a classifier model first"
-        self.classifier.save_model(outdir)
-
-    def train(self, trainfile: str):
-        if trainfile is None:
-            raise ValueError("Please provide a file containing training data")
-        classifier = fasttext.train_supervised(input=trainfile, epoch=100, wordNgrams=2)
-        self.classifier = classifier
-
-    def test(self, testfile: str):
-        if testfile is None:
-            raise ValueError("Please provide a file containing test data")
-        if self.classifier is None:
-            raise ValueError("Please either download or train a classifier model first")
-        model_performance = self.classifier.test(testfile)
-        print(model_performance)
-
-    def predict(self, doc: Document) -> DocResult:
-        if self.classifier is None:
-            raise ValueError("Please either download or train a classifier model first")
-        spans = self._predict(doc)
-        return DocResult(doc=doc, spans=spans)
-
-    def _predict(self, doc: Document) -> List[Span]:
-        raise NotImplementedError("Please implement the predict method")
-
-
-class JigsawFastTextTagger(BaseFastTextTagger):
-    
-    def _predict(self, doc: Document) -> DocResult:
-
-        spans: List[Span] = []
-
-        if self.level == "doc":
-            # Perform prediction at document level
-            # FastText complains about newlines so replace them with spaces
-            text = doc.text.replace("\n", " ")
-            pred_label, pred_probs = self.classifier.predict(text, k=-1)
-            label_index = 1 if "non" in pred_label[0] else 0
-            score = pred_probs[label_index]
-            spans.append(Span(start=0, end=len(doc.text)), type="ft_doc", score=score)
-            
-        elif self.level == "sent":
-            # Perform prediction at sentence level
-            sent_span_indices = self.sent_tokenizer.span_tokenize(doc.text)
-
-            for start, end in sent_span_indices:
-                sentence_text = doc.text[start:end].replace("\n", " ")
-                pred_label, pred_probs = self.classifier.predict(sentence_text, k=-1)
-                label_index = 1 if "non" in pred_label[0] else 0
-                score = pred_probs[label_index]
-                span = Span(start=start, end=end, type="ft_sent", score=score)
-                spans.append(span)
-        else:
-            raise NotImplementedError("Please provide a valid granularity for prediction (doc or sent)")
-
-        return spans
 
 
 class BasePiiFilter(BaseTagger):
