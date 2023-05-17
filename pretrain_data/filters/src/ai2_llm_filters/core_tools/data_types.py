@@ -6,7 +6,7 @@ Data types assumed by Filters.
 
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 class Document:
@@ -25,6 +25,12 @@ class Document:
     def to_json(self) -> Dict:
         return {"source": self.source, "version": self.version, "id": self.id, "text": self.text}
 
+    def __str__(self) -> str:
+        return (
+            str(self.__class__.__name__)
+            + f"(source={repr(self.source)},version={repr(self.version)},id={repr(self.id)},text={repr(self.text)})"
+        )
+
 
 class Span:
     __slots__ = "start", "end", "type", "score"
@@ -42,11 +48,15 @@ class Span:
     def from_json(cls, di: Dict) -> "Span":
         return Span(start=di["start"], end=di["end"], type=di["type"], score=di["score"])
 
-    def to_json(self, text: str, window: int = 0) -> dict:
+    def to_json(self, text: Optional[str] = None, window: int = 0) -> dict:
         span_repr = {"start": self.start, "end": self.end, "type": self.type, "score": self.score}
-        if text:
+        if text is not None:
             span_repr["mention"] = self.mention(text=text, window=window)
         return span_repr
+
+    def __str__(self) -> str:
+        cls_name = self.__class__.__name__
+        return f"{cls_name}(start={self.start},end={self.end},type={repr(self.type)},score={self.score:.5f})"
 
 
 class DocResult:
@@ -68,3 +78,24 @@ class DocResult:
         if with_doc:
             d["doc"] = self.doc.to_json()
         return d
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}(doc={self.doc},spans=[{','.join(str(s) for s in self.spans)}])"
+
+
+class TextSlice:
+    """A slice of text from a document."""
+
+    __slots__ = "doc", "start", "end"
+
+    def __init__(self, doc: str, start: int, end: int):
+        self.doc = doc
+        self.start = start
+        self.end = end
+
+    @property
+    def text(self) -> str:
+        return self.doc[self.start : self.end]
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}(text={repr(self.text)},start={self.start},end={self.end})"
