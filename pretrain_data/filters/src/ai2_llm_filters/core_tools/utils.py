@@ -1,6 +1,10 @@
 import re
 import string
-from typing import List, NamedTuple
+from typing import List
+
+import blingfire
+
+from .data_types import TextSlice
 
 
 def make_variable_name(name: str) -> str:
@@ -16,17 +20,19 @@ def make_variable_name(name: str) -> str:
     return name
 
 
-class Paragraph(NamedTuple):
-    text: str
-    start: int
-    end: int
-
-
-def split_paragraphs(text: str) -> List[Paragraph]:
+def split_paragraphs(text: str) -> List[TextSlice]:
     """
     Split a string into paragraphs.
     """
     return [
-        Paragraph(text=match.group(0), start=match.start(), end=match.end())
-        for match in re.finditer(r"[^\n]+(\n+|$)", text)
+        TextSlice(doc=text, start=match.start(), end=match.end())
+        for match in re.finditer(r"(^\n*)?[^\n]+(\n+|$)", text)
     ]
+
+
+def split_sentences(text: str) -> List[TextSlice]:
+    """
+    Split a string into sentences.
+    """
+    _, offsets = blingfire.text_to_sentences_and_offsets(text)
+    return [TextSlice(doc=text, start=start, end=end) for (start, end) in offsets]

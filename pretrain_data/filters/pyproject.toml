@@ -25,8 +25,8 @@ dependencies = [
     "presidio_analyzer==2.2.32",
     "pycld2==0.41",
     "pycld3==0.22",
-    "wget",
-    "nltk"
+    "blingfire==0.1.8",
+    "wget"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
