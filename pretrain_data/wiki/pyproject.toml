@@ -1,15 +1,9 @@
 [project]
-name = "ai2-llm-filters"
-version = "0.2.0"
-description = "Data filters"
+name = "pretrain_data_wiki"
+version = "0.0.2"
+description = "Process wikipedia"
 authors = [
-    {name = "Aakanksha Naik", email = "aakankshan@allenai.org" },
-    {name = "Abhilasha Ravichander", email = "abhilashar@allenai.org" },
-    {name = "Ian Magnusson", email = "ianm@allenai.org" },
-    {name = "Khyathi Chandu", email = "khyathic@allenai.org" },
-    {name = "Kyle Lo", email = "kylel@allenai.org" },
-    {name = "Luca Soldaini", email = "lucas@allenai.org" },
-    {name = "Rodney Kinney", email = "rodneyk@allenai.org" }
+    {name = "Luca Soldaini", email = "lucas@allenai.org" }
 ]
 license = {text = "Apache-2.0"}
 readme = "README.md"
@@ -18,13 +12,10 @@ dependencies = [
     "requests",
     "tqdm",
     "boto3",
-    "cached-path==1.3.4",
-    "msgspec==0.14.2",
-    "smashed[remote]==0.19.6",
-    "presidio_analyzer==2.2.32",
-    "pycld2==0.41",
-    "pycld3==0.22",
-    "blingfire==0.1.8",
+    "uniseg",
+    "cached_path",
+    "springs",
+    "smashed[remote]==0.19.4"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -33,10 +24,6 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/allenai/llm"
-
-
-[project.scripts]
-ai2_llm_filters = "ai2_llm_filters.core_tools.runtime:TaggerProcessor.main"
 
 
 [project.optional-dependencies]
@@ -64,7 +51,7 @@ requires = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-ai2_llm_filters = ["py.typed"]
+pretrain_data_wiki = ["py.typed"]
 
 [tool.black]
 line-length = 115
@@ -89,7 +76,7 @@ profile = "black"
 multi_line_output = 3
 
 [tool.autopep8]
-max_line_length = 79
+max_line_length = 115
 in-place = true
 recursive = true
 aggressive = 3
