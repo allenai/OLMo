@@ -24,7 +24,7 @@ def _unshard_worker(shard_count: int, shard: Path, output_dir: Path):
         world_size=shard_count,
         rank=shard_number,
         store=TCPStore("127.0.0.1", 32321, shard_count, shard_number == 0),
-        backend="nccl",
+        backend="gloo" if shard_count <= 128 else "nccl",
     )
 
     logger.info("Loading %s ...", shard.name)
