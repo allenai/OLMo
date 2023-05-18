@@ -30,9 +30,9 @@ To run taggers, use the following command:
 ```bash
 python -m ai2_llm_filters \
     -d "<name of dataset>" \
-    -n "<name for group of taggers>" \
-    -t <tagger 1> <tagger 2>  \
-    num_processes=<num processes>
+    -n "<experiment name>" \
+    -t <tagger 1> ... <tagger n>  \
+    -p <num processes>
 ```
 
 To get a list of all options, run `python -m ai2_llm_filters -l`.
