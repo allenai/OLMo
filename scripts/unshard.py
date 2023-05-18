@@ -14,6 +14,15 @@ def _unshard_worker(shard_count: int, shard: Path, output_dir: Path):
     from torch import Tensor
     from torch.distributed import TCPStore, init_process_group
     from torch.distributed._shard.sharded_tensor import ShardedTensor
+    from torch._tensor import _rebuild_from_type_v2
+
+    # Monkey-patch the function that torch uses to deserialize
+    def _rebuild_from_type_v2_monkey(*args, **kwargs):
+        o = _rebuild_from_type_v2(*args, **kwargs)
+        if isinstance(o, ShardedTensor):
+            o = o.cpu()
+        return o
+    torch._tensor._rebuild_from_type_v2 = _rebuild_from_type_v2_monkey
 
     shard_number = int(shard.name[4:-3])  # shard names look like "rankXX.pt"
     logger.info("Starting rank %d", shard_number)
