@@ -45,6 +45,6 @@ if __name__ == "__main__":
         raise OlmoCliError(f"Usage: {sys.argv[0]} [CONFIG_PATH] [OPTIONS]")
 
     cfg = TrainConfig.load(
-        yaml_path, [clean_opt(s) for s in args_list + ["--data.paths=[]", "--save_folder=/tmp"]]
+        yaml_path, [clean_opt(s) for s in args_list + ["--data.paths=[]", "--save_folder=/tmp", "--evaluators=[]"]]
     )
     main(cfg)

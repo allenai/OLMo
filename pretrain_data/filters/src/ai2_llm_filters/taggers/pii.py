@@ -2,56 +2,20 @@
 
 Filters.
 
-@kylel
+@kylel, @soldni
 
 """
 import re
-from abc import abstractmethod
 from typing import List
 
-# pii
 from presidio_analyzer import AnalyzerEngine
 
-from .data_types import DocResult, Document, Span
+from ..core_tools.data_types import DocResult, Document, Span
+from ..core_tools.registry import TaggerRegistry
+from ..core_tools.taggers import BaseTagger
 
 
-class Filter:
-    @abstractmethod
-    def train(self, trainfile: str):
-        raise NotImplementedError
-
-    @abstractmethod
-    def save(self, outdir: str):
-        raise NotImplementedError
-
-    @abstractmethod
-    def predict(self, doc: Document) -> List[DocResult]:
-        raise NotImplementedError
-
-
-class CLD3LanguageFilter(Filter):
-    def train(self, trainfile: str):
-        pass
-
-    def save(self, outdir: str):
-        pass
-
-    def predict(self, doc: Document) -> List[DocResult]:
-        pass
-
-
-class FastTextFilter(Filter):
-    def train(self, trainfile: str):
-        pass
-
-    def save(self, outdir: str):
-        pass
-
-    def predict(self, doc: Document) -> List[DocResult]:
-        pass
-
-
-class PiiFilter(Filter):
+class BasePiiFilter(BaseTagger):
     EMAIL = "EMAIL_ADDRESS"
     PHONE = "PHONE_NUMBER"
     IP = "IP_ADDRESS"
@@ -62,29 +26,41 @@ class PiiFilter(Filter):
     ENGLISH = "en"
     WINDOW = 100
 
-    def __init__(self, method: str = None, postprocess: bool = None, window: int = None) -> None:
+    def __init__(
+        self,
+        method: str,
+        postprocess: bool,
+        window: int,
+    ) -> None:
+        assert method in [
+            self.PRESIDIO,
+            self.REGEX,
+        ], f"Please provide a valid method for filtering ({self.PRESIDIO} or {self.REGEX})"
+
         # configs
-        self.method = method if method else self.REGEX
-        self.postprocess = postprocess if postprocess else True
-        self.window = window if window else self.WINDOW
+        self.method = method
+        self.postprocess = postprocess
+        self.window = window
 
         # Regular expressions for different types of PII
         self.pii_type_to_regex = {
-            self.EMAIL: re.compile("[.\s@,?!;:)(]*([^\s@]+@[^\s@,?!;:)(]+?)[.\s@,?!;:)(]?[\s\n\r]"),
-            self.PHONE: re.compile("\s+\(?(\d{3})\)?[-\. ]*(\d{3})[-. ]?(\d{4})"),
+            self.EMAIL: re.compile("[.\\s@,?!;:)(]*([^\\s@]+@[^\\s@,?!;:)(]+?)[.\\s@,?!;:)(]?[\\s\n\r]"),
+            self.PHONE: re.compile("\\s+\\(?(\\d{3})\\)?[-\\. ]*(\\d{3})[-. ]?(\\d{4})"),
             self.IP: re.compile(
-                "(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
+                "(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
             ),
         }
         self.url_regex = re.compile(
-            "(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
+            "(?i)\b((?:https?://|www\\d{0,3}[.]|[a-z0-9.\\-]+[.][a-z]{2,4}/)(?:[^\\s()<>]+|\\(([^\\s()<>]+|"
+            "(\\([^\\s()<>]+\\)))*\\))+(?:\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\)|[^\\s`!()\\[\\]"
+            "{};:'\".,<>?«»“”‘’]))"
         )
 
         # presidio
         if self.method == self.PRESIDIO:
             self.analyzer = AnalyzerEngine()
 
-    def predict(self, doc: Document) -> List[DocResult]:
+    def predict(self, doc: Document) -> DocResult:
         """Main runner."""
         # extract
         if self.method == self.PRESIDIO:
@@ -98,9 +74,11 @@ class PiiFilter(Filter):
             new_pii_spans = self._postprocess(text=doc.text, pii_spans=pii_spans, window=self.window)
         else:
             new_pii_spans = pii_spans
+
         # document-level score
         score = self._score(text=doc.text, pii_spans=new_pii_spans)
-        return DocResult(doc=doc, spans=new_pii_spans, score=score)
+        new_pii_spans.append(Span(start=0, end=len(doc.text), type="doc", score=score))
+        return DocResult(doc=doc, spans=new_pii_spans)
 
     def _score(self, text: str, pii_spans: List[Span]) -> float:
         return len(pii_spans) * 1.0 / len(text.split())
@@ -136,7 +114,8 @@ class PiiFilter(Filter):
 
             elif pii_span.type == self.PHONE or pii_span.type == self.IP:
                 context = pii_span.mention(text=text, window=window)
-                # for both phone numbers & IP addresses, context shouldnt contain these strings
+                # for both phone numbers & IP addresses, context shouldnt
+                # contain these strings
                 if "isbn" in context or "doi" in context or "#" in context:
                     pass
                 elif pii_span.type == self.IP:
@@ -167,3 +146,15 @@ class PiiFilter(Filter):
         if addressee.strip() == "(" or "." not in domain:
             return False
         return True
+
+
+@TaggerRegistry.add("pii_presidio_v1")
+class PiiPresidioV1(BasePiiFilter):
+    def __init__(self):
+        super().__init__(method=self.PRESIDIO, postprocess=True, window=self.WINDOW)
+
+
+@TaggerRegistry.add("pii_regex_v1")
+class PiiRegexV1(BasePiiFilter):
+    def __init__(self):
+        super().__init__(method=self.REGEX, postprocess=True, window=self.WINDOW)

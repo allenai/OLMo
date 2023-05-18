@@ -2,8 +2,7 @@ import pytest
 import torch
 from torch.nn import CrossEntropyLoss
 
-from olmo import BlockType, ModelConfig, Olmo, Tokenizer, TrainConfig
-from olmo.composer import build_optimizer
+from olmo import BlockType, Olmo, Tokenizer, TrainConfig
 from olmo.config import PaddingDirection
 from olmo.data import DataCollator
 
@@ -175,7 +174,7 @@ def test_forward(
         ]
     )
     batch_inputs = {  # type: ignore
-        k: v.to(device=train_config.device) if isinstance(v, torch.Tensor) else v for k, v in batch_inputs.items()
+        k: v.to(device=model.device) if isinstance(v, torch.Tensor) else v for k, v in batch_inputs.items()
     }
 
     # Run forward pass.
@@ -183,8 +182,8 @@ def test_forward(
         with torch.autocast(
             device_type="cuda" if cuda else "cpu", enabled=use_amp, dtype=None if not use_amp else dtype
         ):
-            output1 = model(torch.tensor(input1, device=train_config.device).unsqueeze(0))
-            output2 = model(torch.tensor(input2, device=train_config.device).unsqueeze(0))
+            output1 = model(torch.tensor(input1, device=model.device).unsqueeze(0))
+            output2 = model(torch.tensor(input2, device=model.device).unsqueeze(0))
             batch_output = model(**batch_inputs)
 
     # Check that logits from individual inputs are equal to logits from batch.
@@ -267,7 +266,7 @@ def test_backward(
         device_type="cuda" if cuda else "cpu", enabled=use_amp, dtype=None if not use_amp else dtype
     ):
         # Forward pass to get logits.
-        input_ids = torch.tensor(tokenizer.encode("My name is OLMo!"), device=train_config.device).unsqueeze(0)
+        input_ids = torch.tensor(tokenizer.encode("My name is OLMo!"), device=model.device).unsqueeze(0)
         logits = model(input_ids).logits
 
         # Compute loss.
@@ -285,15 +284,11 @@ def test_backward(
     for name, parameter in model.named_parameters():
         if parameter.requires_grad:
             assert parameter.grad is not None
-            zeros = torch.zeros(parameter.size(), device=train_config.device)
+            zeros = torch.zeros(parameter.size(), device=model.device)
             if (parameter.grad == zeros).all():
                 raise RuntimeError(f"{name} has zero a gradient!")
         else:
             assert parameter.grad is None
-
-
-def test_build_optimizer(model_config: ModelConfig):
-    build_optimizer(Olmo(model_config))
 
 
 @pytest.mark.parametrize(
@@ -346,7 +341,7 @@ def test_generate(
         ]
     )
     batch_inputs = {  # type: ignore
-        k: v.to(device=train_config.device) if isinstance(v, torch.Tensor) else v for k, v in batch_inputs.items()
+        k: v.to(device=model.device) if isinstance(v, torch.Tensor) else v for k, v in batch_inputs.items()
     }
     beam_search_kwargs = dict(beam_size=3, max_steps=5)
 
@@ -355,7 +350,7 @@ def test_generate(
             device_type="cuda" if cuda else "cpu", enabled=use_amp, dtype=None if not use_amp else dtype
         ):
             output1 = model.generate(
-                torch.tensor(input1, device=train_config.device).unsqueeze(0),  # type: ignore
+                torch.tensor(input1, device=model.device).unsqueeze(0),  # type: ignore
                 **beam_search_kwargs,
             )
             batch_output = model.generate(**{**batch_inputs, **beam_search_kwargs})

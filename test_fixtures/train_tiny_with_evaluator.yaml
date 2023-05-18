@@ -1,0 +1,54 @@
+save_folder: "/tmp/olmo-train-tiny"
+model:
+  d_model: 128
+  n_heads: 4
+  n_layers: 4
+  mlp_ratio: 4
+  alibi: false
+  alibi_bias_max: 8.0
+  attention_dropout: 0.1
+  attention_layer_norm: false
+  residual_dropout: 0.1
+  embedding_dropout: 0.1
+  max_sequence_length: 512
+  vocab_size: 50257
+  eos_token_id: 50256
+  pad_token_id: 50256
+  init_device: null
+  init_std: 0.02
+optimizer:
+  learning_rate: 0.001
+scheduler:
+  name: "cosine_with_warmup"
+  t_warmup: 10
+data:
+  paths:
+    - "/tmp/c4-sample.npy"
+  persistent_workers: false
+  num_workers: 0
+  prefetch_factor: null
+tokenizer:
+  identifier: "gpt2"
+eval_interval: 50
+evaluators:
+  - label: c4-validation
+    device_eval_batch_size: ${device_train_microbatch_size}
+    subset_num_batches: 5
+    data:
+      paths:
+        - "/tmp/c4-sample.npy"
+      persistent_workers: false
+      num_workers: 0
+      prefetch_factor: null
+  - label: piqa
+    type: downstream
+    device_eval_batch_size: ${device_train_microbatch_size}
+    subset_num_batches: 8
+    data:
+      persistent_workers: false
+      num_workers: 0
+      prefetch_factor: null
+save_overwrite: true
+max_duration: 4
+global_train_batch_size: 8
+device_train_microbatch_size: 4

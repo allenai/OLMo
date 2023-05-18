@@ -16,6 +16,3 @@ pytest-sphinx
 twine>=1.11.0
 setuptools
 wheel
-
-# For parsing and comparing version numbers.
-packaging

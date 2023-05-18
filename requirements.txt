@@ -2,8 +2,6 @@
 # Docker images. See each Dockerfile for details on how to do that.
 numpy
 torch>=2.0
-einops
-mosaicml@git+https://github.com/allenai/composer.git@Torch2
 torchmetrics
 tokenizers
 click
@@ -12,9 +10,9 @@ cached-path
 beaker-gantry
 omegaconf
 wandb
-# Can't install these on a CPU-only environment:
-# triton
-# flash-attn
 logzio-python-handler
 boto3
 google-cloud-storage
+packaging
+datasets
+scikit-learn

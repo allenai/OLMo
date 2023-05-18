@@ -61,10 +61,9 @@ jobs:
 
           - python: '3.10'
             task:
-              name: Train pipeline
+              name: Data pipeline
               run: |
                 python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/c4-sample.npy --validate
-                composer scripts/train.py test_fixtures/train_tiny.yaml
 
     steps:
       - uses: actions/checkout@v3
