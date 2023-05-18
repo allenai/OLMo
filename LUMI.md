@@ -94,7 +94,7 @@ export S3_SECRET_ACCESS_KEY=YYYYYYY
 
 # Other API keys for logging and metric tracking.
 export WANDB_API_KEY=XXXXXXX
-export LOGZIO_TOKEN=XXXXXX  # find this at https://app.logz.io/#/dashboard/settings/general
+export LOGZIO_TOKEN=XXXXXX  # find this in 1Password
 ```
 
 I `git clone` the repo directly into my home directory, and I'm running from there.
