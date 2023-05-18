@@ -6,9 +6,9 @@ Filters.
 
 """
 from abc import abstractmethod
-from typing import Any, Dict
+from typing import Dict
 
-from .data_types import DocResult, Document
+from .data_types import DocResult, Document, InputSpec
 
 
 class BaseTagger:
@@ -24,10 +24,11 @@ class BaseTagger:
     def predict(self, doc: Document) -> DocResult:
         raise NotImplementedError
 
-    def tag(self, row: Dict[str, Any]) -> Dict[str, list]:
+    def tag(self, row: InputSpec) -> Dict[str, list]:
         """Internal function that is used by the tagger to get data"""
-        doc = Document(source=row["source"], version=row["version"], id=row["id"], text=row["text"])
+        doc = Document(source=row.source, version=row.version, id=row.id, text=row.text)
         doc_result = self.predict(doc)
+
         tagger_output: Dict[str, list] = {}
         for span in doc_result.spans:
             tagger_output.setdefault(span.type, []).append([span.start, span.end, round(span.score, 5)])

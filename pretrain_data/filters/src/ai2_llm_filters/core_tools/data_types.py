@@ -6,7 +6,22 @@ Data types assumed by Filters.
 
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
+
+from msgspec import Struct
+
+
+class InputSpec(Struct):
+    id: str
+    text: str
+    source: str
+    version: str
+
+
+class OutputSpec(Struct):
+    source: str
+    id: str
+    attributes: Dict[str, List[Union[int, float]]]
 
 
 class Document:
@@ -39,7 +54,7 @@ class Span:
         self.start = start
         self.end = end
         self.type = type
-        self.score = score
+        self.score = float(score)
 
     def mention(self, text: str, window: int = 0) -> str:
         return text[max(0, self.start - window) : min(len(text), self.end + window)]
