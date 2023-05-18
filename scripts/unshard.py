@@ -29,16 +29,23 @@ def _unshard_worker(shard_count: int, shard: Path, output_dir: Path):
     if shard_number != 0:
         # Wait for the main process to start up.
         time.sleep(1 + 0.1 * shard_number)
+    backend = "gloo" if shard_count <= 128 else "nccl"
     init_process_group(
         world_size=shard_count,
         rank=shard_number,
         store=TCPStore("127.0.0.1", 32321, shard_count, shard_number == 0),
-        backend="gloo" if shard_count <= 128 else "nccl",
+        backend=backend,
     )
 
+    if backend == "nccl":
+        for _ in range(shard_number):
+            torch.distributed.barrier()
     logger.info("Loading %s ...", shard.name)
     state_dict = torch.load(shard, map_location="cpu")
     logger.info("Loaded %s", shard.name)
+    if backend == "nccl":
+        for _ in range(shard_count - shard_number):
+            torch.distributed.barrier()
 
     def unshard_tensor(t: ShardedTensor) -> Tensor:
         if shard_number == 0:
