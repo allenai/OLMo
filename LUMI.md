@@ -150,7 +150,7 @@ export LOCAL_RANK=$SLURM_LOCALID
 export NODE_RANK=$((($RANK - $LOCAL_RANK) / $LOCAL_WORLD_SIZE))
 
 # Delete debris that ROCm sometimes leaves around
-rm -f /dev/shm/rocm_smi*
+rm -f /dev/shm/rocm_smi_card$LOCAL_RANK
 ```
 
 Note that the documentation tells us to set `ROCM_VISIBLE_DEVICES`, but this is wrong.
