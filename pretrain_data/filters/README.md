@@ -35,7 +35,7 @@ ai2_llm_filters \
     -p <num processes>
 ```
 
-To get a list of all options, run `python -m ai2_llm_filters -l`.
+To get a list of all options, run `ai2_llm_filters -l`.
 
 
 ## Adding a Tagger
