@@ -6,11 +6,12 @@
 # -o: Output directory where to store the extracted files
 
 # Case statement to parse flags
-while getopts i:o: flag
+while getopts i:o:n: flag
 do
     case "${flag}" in
         i) input_file=${OPTARG};;
         o) output_dir=${OPTARG};;
+        n) namespaces=${OPTARG};;
     esac
 done
 
@@ -34,5 +35,5 @@ python -m wikiextractor.WikiExtractor \
     --processes 60 \
     --bytes 500M \
     --json \
-    --namespaces "[[Article]]"
+    --namespaces "[[${namespaces}]]"
 set +ex

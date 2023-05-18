@@ -11,11 +11,12 @@ SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
 
 
 # Case statement to parse flags
-while getopts i:o: flag
+while getopts i:o:n: flag
 do
     case "${flag}" in
         i) input_dir=${OPTARG};;
         o) output_dir=${OPTARG};;
+        n) namespaces=${OPTARG};;
     esac
 done
 
@@ -32,6 +33,10 @@ if [ -z "$output_dir" ]; then
     exit 1
 elif [ ! -d "$output_dir" ]; then
     mkdir -p "$output_dir"
+fi
+
+if [ -z "$namespaces" ]; then
+    namespaces="Article"
 fi
 
 # remove trailing slash from input_dir and output_dir
@@ -54,5 +59,5 @@ for file in $input_dir/*; do
     fi
 
     # run extaction for each file
-    bash ${SCRIPT_DIR}/extract.sh -i ${file} -o ${output_dir}/${filename}
+    bash ${SCRIPT_DIR}/extract.sh -i ${file} -o ${output_dir}/${filename} -n "${namespaces}"
 done

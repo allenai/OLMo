@@ -50,21 +50,23 @@ def download_single(
 @sp.dataclass
 class DownloadConfig:
     langs: List[str] = sp.flist(*LANGUAGES)
+    section: str = "wiki"
+    date: str = "20230320"
     url: str = (
-        "https://dumps.wikimedia.org/{lang_code}wiki/20230320/"
-        "{lang_code}wiki-20230320-pages-articles-multistream.xml.bz2"
+        "https://dumps.wikimedia.org/{lang_code}{section}/{date}/"
+        "{lang_code}{section}-{date}-pages-articles-multistream.xml.bz2"
     )
     local_dst: str = sp.MISSING
-    local_name: str = "wiki_{lang_code}.xml.bz2"
+    local_name: str = "{section}{lang_code}.xml.bz2"
     remote_dst: Optional[str] = None
     parallel: int = 1
     debug: bool = False
 
 
 def prepare(config: DownloadConfig, lang: str):
-    url = config.url.format(lang_code=lang)
+    url = config.url.format(lang_code=lang, section=config.section, date=config.date)
     (local_dst := Path(config.local_dst)).mkdir(parents=True, exist_ok=True)
-    fname = local_dst / config.local_name.format(lang_code=lang)
+    fname = local_dst / config.local_name.format(section=config.section, lang_code=lang)
 
     return url, fname
 

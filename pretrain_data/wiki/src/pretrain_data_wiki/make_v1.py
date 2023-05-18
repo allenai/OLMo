@@ -134,8 +134,9 @@ def process_single(
 
 @sp.dataclass
 class Config:
-    src: str = sp.MISSING
-    dst: str = sp.MISSING
+    section: str = "wikipedia"
+    src: str = "s3://ai2-llm/pretraining-data/sources/{section}/v0/documents"
+    dst: str = "s3://ai2-llm/pretraining-data/sources/{section}/v1/documents"
     parallel: int = 1
     debug: bool = False
     tmp_dir: Optional[str] = None
@@ -164,8 +165,8 @@ def threaded_progressbar(q: Queue, timeout: float, total_files: Optional[int] = 
 
 @sp.cli(Config)
 def main(cfg: Config):
-    src = MultiPath.parse(cfg.src)
-    dst = MultiPath.parse(cfg.dst)
+    src = MultiPath.parse(cfg.src.format(section=cfg.section))
+    dst = MultiPath.parse(cfg.dst.format(section=cfg.section))
     src_paths = [MultiPath.parse(p) for p in recursively_list_files(src)]
     dst_paths = [dst / (p - src) for p in src_paths]
 
