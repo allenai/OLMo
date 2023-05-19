@@ -9,9 +9,7 @@ use rand::Rng;
 use ahash::RandomState;
 use std::fs::{create_dir_all, OpenOptions};
 use std::path::PathBuf;
-
-use config::BloomFilterConfig;
-use crate::config;
+use serde::{Deserialize, Serialize};
 
 pub struct BloomFilter {
     bits: Vec<AtomicU32>,
@@ -231,3 +229,11 @@ impl BloomFilter {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct BloomFilterConfig {
+    pub file: String,
+    pub size_in_bytes: usize,
+    pub read_only: bool,
+    pub estimated_doc_count: usize,
+    pub desired_false_positive_rate: f64,
+}

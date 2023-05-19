@@ -30,6 +30,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "ai2_pretraining"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "aws-config",
+ "aws-sdk-s3",
+ "byteorder",
+ "clap",
+ "env_logger",
+ "flate2",
+ "jsonpath-rust",
+ "log",
+ "rand",
+ "rayon",
+ "serde",
+ "serde_json",
+ "threadpool",
+ "tokio",
+ "tokio-util",
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1070,29 +1093,6 @@ dependencies = [
  "log",
  "wasi",
  "windows-sys 0.45.0",
-]
-
-[[package]]
-name = "mixer"
-version = "0.1.0"
-dependencies = [
- "ahash",
- "aws-config",
- "aws-sdk-s3",
- "byteorder",
- "clap",
- "env_logger",
- "flate2",
- "jsonpath-rust",
- "log",
- "rand",
- "rayon",
- "serde",
- "serde_json",
- "threadpool",
- "tokio",
- "tokio-util",
- "unicode-segmentation",
 ]
 
 [[package]]
