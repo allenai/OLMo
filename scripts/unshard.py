@@ -44,9 +44,9 @@ def gather(shards: List[ShardedTensor]) -> Tensor:
         for shard in shards:
             data = torch.empty(max_rank_size)
 
-            for shard in shard.local_shards():
-                src = shard.tensor.flatten()
-                shard_offset = shard_placement[shard.metadata][1]
+            for local_shard in shard.local_shards():
+                src = local_shard.tensor.flatten()
+                shard_offset = shard_placement[local_shard.metadata][1]
                 data[shard_offset: shard_offset + src.numel()].copy_(src)
 
             datas.append(data)
