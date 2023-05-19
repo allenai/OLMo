@@ -8,7 +8,7 @@ Combines data from multiple sources into a unified output. Input data must be in
 Merges the named attributes and applies the configured filters. Substitutes text in any configured spans.
 
 ### Configuration
-See sample config files [mixer.json](tests/config/mixer.json) and [spans.json](test/config/spans.json)
+See sample config files [mixer.json](tests/config/mixer.json) and [spans.json](tests/config/spans.json)
 
 **streams.name**
 Prefix for output file name of each stream.
@@ -58,7 +58,7 @@ Dropping any documents that are identified as duplicates, or deleting the duplic
 done in a subsequent run of the `mixer`.
 
 ### Configuration
-See sample config files [dedupe-by-url.json](tests/config/dedupe-by-url.json) and [dedupe-paragraphs.json](test/config/dedupe-paragraphs.json)
+See sample config files [dedupe-by-url.json](tests/config/dedupe-by-url.json) and [dedupe-paragraphs.json](tests/config/dedupe-paragraphs.json)
 
 **name**
 

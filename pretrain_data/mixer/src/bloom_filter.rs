@@ -11,6 +11,7 @@ use std::fs::{create_dir_all, OpenOptions};
 use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
+// A thread-safe bloom filter.
 pub struct BloomFilter {
     bits: Vec<AtomicU32>,
     hash_builder_seeds: Vec<[u64; 4]>,

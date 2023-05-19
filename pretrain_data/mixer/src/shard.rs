@@ -13,6 +13,8 @@ use crate::shard::shard_config::*;
 use crate::s3_util;
 use crate::s3_util::{download_to_file, object_size, upload_file};
 
+// A shard is a unit of work for the mixer.
+// It is a collection of input files that are combined into a single output file.
 #[derive(Clone)]
 pub struct Shard {
     pub inputs: Vec<DocumentPaths>,
@@ -21,6 +23,7 @@ pub struct Shard {
     pub span_replacements: Option<Vec<SpanReplacementConfig>>,
 }
 
+// A collection of paths to a document file and corresponding attribute files.
 #[derive(Clone)]
 pub struct DocumentPaths {
     pub doc_path: String,
@@ -28,6 +31,10 @@ pub struct DocumentPaths {
 }
 
 impl Shard {
+    // Partition the input files of a stream into a set of shards.
+    // Try to respect the max_size_in_bytes in the configuration, but this is approximate
+    // since it doesn't account for the size of any attributes to merged,
+    // or documents dropped by the filter.
     pub fn split_streams(streams: &Vec<StreamConfig>) -> Result<Vec<Shard>, io::Error> {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -103,6 +110,12 @@ impl Shard {
         Ok(shards)
     }
 
+    // Process a shard:
+    // Read all input files sequentially,
+    // Merge attributes
+    // Apply filters
+    // Apply span replacements
+    // Upload the output file to S3.
     pub fn process(&self,
                    work_dirs: WorkDirConfig,
     ) -> Result<(), io::Error> {
@@ -360,6 +373,9 @@ pub mod shard_config {
     }
 
     impl SpanReplacementConfig {
+        // Search for the configured attribute name in the given json
+        // Attribute must contains a list of [start, end, score] spans.
+        // Return a list of spans to be replaced.
         pub fn find_spans_to_replace(&self, json: &Value) -> Result<Vec<SpanReplacement>, String> {
             let mut finder = JsonPathFinder::from_str("{}", &self.span)?;
             finder.set_json(Box::new(json.clone()));
@@ -391,6 +407,8 @@ pub mod shard_config {
     }
 
     impl FilterConfig {
+        // Check the json for the existence of any element matching the configured include/exclude patterns
+        // Determine whether to keep the document based on the include/exclude matches
         pub fn should_keep(&self, json: &Value) -> Result<bool, String> {
             let mut keep = self.include.len() == 0;
             for pattern in self.include.iter() {
