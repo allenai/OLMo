@@ -7,13 +7,13 @@ General implementation of document-level scoring functions used for data filteri
 To install the filters package, simply run:
 
 ```bash
-pip install .
+pip install pretrain_data/filters
 ```
 
 To install the package in development mode (e.g., if you are adding taggers), run:
 
 ```bash
-pip install -e '.[dev]'
+pip install -e pretrain_data/filters'[dev]'
 ```
 
 If you are planning to run this code on a Mac with Apple Silicon, you will need to run the following to install blingfire (used for sentence splitting):
@@ -28,14 +28,14 @@ python -m smashed.utils.install_blingfire_macos
 To run taggers, use the following command:
 
 ```bash
-python -m ai2_llm_filters \
+ai2_llm_filters \
     -d "<name of dataset>" \
-    -n "<name for group of taggers>" \
-    -t <tagger 1> <tagger 2>  \
-    num_processes=<num processes>
+    -n "<experiment name>" \
+    -t <tagger 1> ... <tagger n>  \
+    -p <num processes>
 ```
 
-To get a list of all options, run `python -m ai2_llm_filters -l`.
+To get a list of all options, run `ai2_llm_filters -l`.
 
 
 ## Adding a Tagger

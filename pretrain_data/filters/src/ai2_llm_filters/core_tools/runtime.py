@@ -1,14 +1,15 @@
 import argparse
 import gzip
-import json
 import multiprocessing
 import tempfile
 from contextlib import ExitStack
 from queue import Queue
-from typing import Dict, List
+from typing import Dict
 
+import msgspec
 from smashed.utils.io_utils import open_file_for_read, open_file_for_write
 
+from .data_types import InputSpec, OutputSpec
 from .parallel import BaseParallelProcessor
 from .registry import TaggerRegistry
 from .utils import make_variable_name
@@ -64,6 +65,10 @@ class TaggerProcessor(BaseParallelProcessor):
         # bar
         docs_cnt = 0
 
+        # creating dedicated encoders/decoders speeds up the process
+        encoder = msgspec.json.Encoder()
+        decoder = msgspec.json.Decoder(InputSpec)
+
         with ExitStack() as stack:
             # open each file for reading and writing. We use open_file_for_read to handle s3 paths and
             # download the file locally if needed, while gzip.open is used to
@@ -74,8 +79,8 @@ class TaggerProcessor(BaseParallelProcessor):
             out_stream = stack.enter_context(gzip.open(out_file, "wt"))
 
             for raw in in_stream:
-                row = json.loads(raw)
-                assert isinstance(row, dict), f"Expected dict, got {type(row)}"
+                # row = json.loads(raw)
+                row = decoder.decode(raw)
 
                 # running the taggers and merging them flat
                 attributes = {}
@@ -85,10 +90,10 @@ class TaggerProcessor(BaseParallelProcessor):
                         attributes[key_name] = key_value
 
                 # make output file
-                output = {"source": row["source"], "id": row["id"], "attributes": attributes}
+                output = OutputSpec(source=row.source, id=row.id, attributes=attributes)
 
                 # write the output to the output file
-                out_stream.write(json.dumps(output) + "\n")  # pyright: ignore
+                out_stream.write(encoder.encode(output).decode("utf-8") + "\n")  # pyright: ignore
 
                 # increment the number of documents processed so far
                 docs_cnt += 1

@@ -94,7 +94,7 @@ export S3_SECRET_ACCESS_KEY=YYYYYYY
 
 # Other API keys for logging and metric tracking.
 export WANDB_API_KEY=XXXXXXX
-export LOGZIO_TOKEN=XXXXXX  # find this at https://app.logz.io/#/dashboard/settings/general
+export LOGZIO_TOKEN=XXXXXX  # find this in 1Password
 ```
 
 I `git clone` the repo directly into my home directory, and I'm running from there.
@@ -150,7 +150,7 @@ export LOCAL_RANK=$SLURM_LOCALID
 export NODE_RANK=$((($RANK - $LOCAL_RANK) / $LOCAL_WORLD_SIZE))
 
 # Delete debris that ROCm sometimes leaves around
-rm -f /dev/shm/rocm_smi*
+rm -f /dev/shm/rocm_smi_card$LOCAL_RANK
 ```
 
 Note that the documentation tells us to set `ROCM_VISIBLE_DEVICES`, but this is wrong.
