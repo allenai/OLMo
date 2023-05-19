@@ -12,33 +12,39 @@ This produces a subset with
 
 ## decontamination against this eval data
 
-1) Setup bff ([repo](https://github.com/allenai/bff))
-2) build a bloom-filter on the eval data
-```
-bff --bloom-filter-file perplexity_suite.bff --bloom-filter-size 268435456 --expected-ngram-count 88440012 --output-directory trash --filtering-threshold 1.0 --annotate-attribute-only `find /path/to/ai2-llm/eval-data/perplexity/v2/ -name *.gz`
-```
-3) Either for each data source or for each finished ablation dataset, run decontamination against the bloom-filter
-```
-bff --bloom-filter-file perplexity_suite.bff --bloom-filter-size 268435456 --expected-ngram-count 88440012 --output-directory path/to/output --no-update-bloom-filter --annotate-only /path/to/training/data/*.gz
-```
+1) Setup bff at this exact commit ([repo at specific commit](https://github.com/allenai/bff/tree/27e30eb64dea98796a4877ea80ea37de4cbe442f))
+2) get a bloom-filter of the eval data to decontaminate against
+
+    Either download the bloom-filter from `$llm-bucket/eval-data/perplexity/blocklists/eval_subset_v2/decontaminating_filter_full_paragraph.bff` for `$llm-bucket=<path to shared project bucket>`
+    <details><summary> Or rebuild the filter from the eval data</summary>
+        ```
+        bff --bloom-filter-file path/to/decontaminating_filter_full_paragraph.bff --bloom-filter-size 8388608 --expected-ngram-count 4751287 --output-directory trash --filtering-threshold 1.0 --min-ngram-size 13  --whole-paragraphs --annotate-attribute-only `find /path/to/ai2-llm/eval-data/perplexity/v2/ -name *.gz`
+        ```
+    </details>
+
+3) Now run decontamination against the bloom-filter over some training data
+    ```
+    bff --bloom-filter-file path/to/decontaminating_filter_full_paragraph.bff --bloom-filter-size 8388608 --expected-ngram-count 4751287 --output-directory path/to/output --no-update-bloom-filter --min-ngram-size 13  --whole-paragraphs --annotate-attribute-only /path/to/training/data/*.gz
+    ```
+
+    The output will json lines for each document as follows:
+    ```
+    {
+        "bff_duplicate_spans"  : [[start, end]. ... ] # byte indices of contaminated paragraphs
+        "bff_contained_ngram_count" : int # count of ngrams overlapping with training corpus.
+        "id": str # orginal id from input data
+        "source": str # original source from input data
+    }
+    ```
+
+At this time we propose just removing any document with any spans in bff_duplicate_spans.
 
 
-The output will be the original data with two new json fields:
-* "bff_duplicate_spans"  : [[start, end]. ... ] # byte indices of contaminated paragraphs
-* "bff_contained_ngram_count" : int #count of ngrams overlapping with training corpus.
-
-We propose just removing any document with any spans in bff_duplicate_spans. You can also just get the new fields without the old data by using `--annotate-attribute-only` instead of `--annotate-only`  in the second command.
-
-
-### decontamination results on C4 (using )
-* takes about ~30 mins to run on a machine with ~200 cpus.
-* if you then remove any doc with any paragraph marked as contaminated
-    * removes 0.24% data
-    * removes 0.18% docs
-* if you just removed contaminated paragraphs
-    * removes 0.07% data
+### decontamination results on C4
+* takes about 4 mins to run on a machine with ~200 cpus (so about 640 million tokens per wall clock second).
+* removes 0.02% of tokens and 0.01% of documents
 
 
 ## v2 small
 
-We also provide a script to create a smaller version that has at most 1 million tokens per domain. To create this run `subset_v2_smal_eval.sh`.
+We also provide a script to create a smaller version that has at most 1 million tokens per domain. To create this run `subset_v2_smal_eval.sh`. It is a subset of the v2 data, so decontaminating against the full v2 subset will also cover v2 small.
