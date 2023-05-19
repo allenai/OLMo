@@ -59,6 +59,10 @@ pub async fn object_size(s3_client: &S3Client, bucket: &str, key: &str) -> Resul
     }
 }
 
+// Expand wildcard patterns into a list of object paths
+// Only handles one wildcard per pattern
+// e.g.: a/b/* -> a/b/1, a/b/2, a/b/3
+// or:   a/*/b.txt -> a/1/b.txt, a/2/b.txt, a/3/b.txt
 pub fn find_objects_matching_patterns(s3_client: &S3Client, patterns: &Vec<String>) -> Result<Vec<String>, io::Error> {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
