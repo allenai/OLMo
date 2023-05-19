@@ -26,6 +26,7 @@ def gather(shards: List[ShardedTensor]) -> Tensor:
 
     def shard_size(shard_md):
         return reduce((lambda x, y: x * y), shard_md.shard_sizes)  # type: ignore[attr-defined]
+
     rank_sizes = [0 for _ in range(world_size)]
     max_rank_size = 0
     shard_placement: Dict[ShardMetadata, Tuple[int, int]] = {}
@@ -47,7 +48,7 @@ def gather(shards: List[ShardedTensor]) -> Tensor:
             for local_shard in shard.local_shards():
                 src = local_shard.tensor.flatten()
                 shard_offset = shard_placement[local_shard.metadata][1]
-                data[shard_offset: shard_offset + src.numel()].copy_(src)
+                data[shard_offset : shard_offset + src.numel()].copy_(src)
 
             datas.append(data)
 
@@ -111,14 +112,12 @@ def unshard(input_dir: Union[str, Path], output_dir: Union[str, Path]) -> None:
         # Tensor does define __setstate__ even though it doesn't define
         # __getstate__. So only use __setstate__ if it is NOT the one defined
         # on Tensor
-        if (
-            getattr(ret.__class__, "__setstate__", Tensor.__setstate__)
-            is not Tensor.__setstate__
-        ):
+        if getattr(ret.__class__, "__setstate__", Tensor.__setstate__) is not Tensor.__setstate__:
             ret.__setstate__(state)
         else:
             ret = torch._utils._set_obj_state(ret, state)
         return ret
+
     torch._tensor._rebuild_from_type_v2 = _rebuild_from_type_v2_monkey
 
     shards_dict = {}
@@ -133,6 +132,7 @@ def unshard(input_dir: Union[str, Path], output_dir: Union[str, Path]) -> None:
     del shards_dict
 
     logger.info("Unsharding from %d shards ...", len(shards))
+
     def unshard_object(os: List[Any]) -> Any:
         rank0_item = os[0]
         assert all(type(o) == type(rank0_item) for o in os)
