@@ -16,6 +16,7 @@ use threadpool::ThreadPool;
 use ai2_pretraining::bloom_filter::BloomFilter;
 use ai2_pretraining::s3_util;
 use ai2_pretraining::s3_util::{download_to_file, upload_file};
+use ai2_pretraining::shard::shard_config::WorkDirConfig;
 
 use deduper_config::*;
 
@@ -46,22 +47,23 @@ pub fn run(config: DeduperConfig) {
     let bloom_filter = BloomFilter::initialize(&config.bloom_filter).unwrap();
     let bloom_filter = Arc::new(bloom_filter);
 
-    let options = Options {
-        output_work_dir: config.work_dir.output.clone(),
-        input_work_dir: config.work_dir.input.clone(),
-        dedupe: config.dedupe.clone(),
-    };
     let paths = s3_util::find_objects_matching_patterns(&s3_client, &config.documents).unwrap().clone();
 
     let threadpool = ThreadPool::new(config.processes);
     let failed_shard_count = AtomicU32::new(0);
     let failed_shard_count_ref = Arc::new(failed_shard_count);
     for path in paths {
-        let options = options.clone();
+        let path = path.clone();
+        let work_dirs = config.work_dir.clone();
+        let dedupe = config.dedupe.clone();
         let bloom_filter = bloom_filter.clone();
         let failed_shard_count_ref = failed_shard_count_ref.clone();
         threadpool.execute(move || {
-            let result = process_documents(&path, &options, bloom_filter);
+            let result = process_documents(
+                &path,
+                work_dirs,
+                dedupe,
+                bloom_filter);
             match result {
                 Ok(_) => {}
                 Err(e) => {
@@ -87,7 +89,8 @@ pub fn run(config: DeduperConfig) {
 }
 
 fn process_documents(input_path: &String,
-                     options: &Options,
+                     work_dirs: WorkDirConfig,
+                     dedupe_config: DedupeConfig,
                      bloom_filter: Arc<BloomFilter>) -> Result<(), io::Error> {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -96,12 +99,12 @@ fn process_documents(input_path: &String,
 
     let s3_client = s3_util::new_client()?;
 
-    let input_work_dir = Path::new(&options.input_work_dir);
-    let output_work_dir = Path::new(&options.output_work_dir);
+    let input_work_dir = Path::new(&work_dirs.input);
+    let output_work_dir = Path::new(&work_dirs.output);
 
     let output_path = {
         let mut attr_prefix = "/attributes/".to_owned();
-        attr_prefix.push_str(&options.dedupe.name);
+        attr_prefix.push_str(&dedupe_config.name);
         attr_prefix.push_str("/");
         input_path.to_owned().replace("/documents/", &attr_prefix)
     };
@@ -157,7 +160,7 @@ fn process_documents(input_path: &String,
             let data: Value = serde_json::from_str(&line)?;
             let mut attributes = json!({});
 
-            match options.dedupe.documents {
+            match dedupe_config.documents {
                 Some(ref cfg) => {
                     let document_key = {
                         let mut finder = jsonpath_rust::JsonPathFinder::from_str("{}", &cfg.key).map_err(|e| io::Error::new(io::ErrorKind::Other, e)).unwrap();
@@ -175,7 +178,7 @@ fn process_documents(input_path: &String,
                 }
                 None => {}
             }
-            match options.dedupe.paragraphs {
+            match dedupe_config.paragraphs {
                 None => {}
                 Some(ref cfg) => {
                     // Split the text into paragraphs and check each one.
@@ -261,13 +264,6 @@ mod deduper_config {
         pub name: String,
         pub documents: Option<DocumentDedupeConfig>,
         pub paragraphs: Option<ParagraphDedupeConfig>,
-    }
-
-    #[derive(Clone)]
-    pub struct Options {
-        pub input_work_dir: String,
-        pub output_work_dir: String,
-        pub dedupe: DedupeConfig,
     }
 
     #[derive(Serialize, Deserialize, Clone)]

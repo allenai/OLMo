@@ -8,7 +8,6 @@ use serde_json;
 use threadpool::ThreadPool;
 
 use ai2_pretraining::shard::Shard;
-use ai2_pretraining::shard::shard_config::WorkDirConfig;
 
 use mixer_config::*;
 
@@ -41,18 +40,13 @@ pub fn run(config: MixerConfig) {
             continue;
         }
         let shard = shard.clone();
-        let input_work_dir = config.work_dir.input.clone();
-        let output_work_dir = config.work_dir.output.clone();
+        let work_dirs = config.work_dir.clone();
         let failed_shard_count_ref = failed_shard_count_ref.clone();
 
         threadpool.execute(move || {
             log::info!("Building output {:?}...", shard.output);
-            let options = WorkDirConfig {
-                input: input_work_dir.clone(),
-                output: output_work_dir.clone(),
-            };
             match shard.clone().process(
-                options,
+                work_dirs,
             ) {
                 Ok(_) => {}
                 Err(e) => {
