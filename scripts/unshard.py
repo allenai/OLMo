@@ -1,9 +1,10 @@
 import logging
 import shutil
 import sys
-from pathlib import Path
-from typing import Any, Union, List, Dict, Tuple, cast
+from concurrent.futures import ThreadPoolExecutor
 from functools import reduce
+from pathlib import Path
+from typing import Any, Dict, List, Tuple, Union, cast
 
 import numpy as np
 import torch
@@ -120,15 +121,18 @@ def unshard(input_dir: Union[str, Path], output_dir: Union[str, Path]) -> None:
 
     torch._tensor._rebuild_from_type_v2 = _rebuild_from_type_v2_monkey
 
+    # We load in threads because it's faster.
+    executor = ThreadPoolExecutor()
     shards_dict = {}
     for shard_name in input_dir.glob("rank*.pt"):
         logger.info("Loading %s ...", shard_name)
         shard_number = int(shard_name.name[4:-3])  # shard names look like "rankXX.pt"
-        shards_dict[shard_number] = torch.load(shard_name, map_location="cpu")
+        shards_dict[shard_number] = executor.submit(torch.load, shard_name, map_location="cpu")
     shards = [None] * len(shards_dict)
-    for rank, shard in shards_dict.items():
-        shards[rank] = shard
+    for rank, shard_future in shards_dict.items():
+        shards[rank] = shard_future.result()
     assert all(shard is not None for shard in shards)
+    executor.shutdown()
     del shards_dict
 
     logger.info("Unsharding from %d shards ...", len(shards))
