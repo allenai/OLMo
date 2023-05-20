@@ -18,3 +18,5 @@ wandb
 logzio-python-handler
 boto3
 google-cloud-storage
+# For HF datasets
+datasets
