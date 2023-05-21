@@ -1,10 +1,13 @@
+import math
 from typing import Any, Dict, List, Tuple
 
 import torch
 import torch.nn as nn
 from torch.optim.optimizer import Optimizer
 
-__all__ = ["LionW"]
+from .config import OptimizerType, SchedulerType, TrainConfig
+
+__all__ = ["LionW", "build_optimizer", "build_scheduler"]
 
 
 class LionW(Optimizer):
@@ -125,3 +128,79 @@ def fix_optim_state_dict(optimizer: Optimizer, state_dict: Dict[str, Any]) -> Di
 
         state_dict["param_groups"] = [decay_param_group, no_decay_param_group]
     return state_dict
+
+
+def build_optimizer(cfg: TrainConfig, model: nn.Module) -> torch.optim.Optimizer:
+    params = (
+        get_param_groups(model)
+        if (cfg.optimizer.no_decay_norm_and_bias and cfg.optimizer.weight_decay > 0.0)
+        else model.parameters()
+    )
+    if cfg.optimizer.name == OptimizerType.lionw:
+        return LionW(
+            params,
+            lr=cfg.optimizer.learning_rate,
+            betas=cfg.optimizer.betas,
+            weight_decay=cfg.optimizer.weight_decay,
+        )
+    elif cfg.optimizer.name == OptimizerType.adam:
+        return torch.optim.Adam(
+            params,
+            lr=cfg.optimizer.learning_rate,
+            betas=cfg.optimizer.betas,
+            weight_decay=cfg.optimizer.weight_decay,
+        )
+    elif cfg.optimizer.name == OptimizerType.adamw:
+        return torch.optim.AdamW(
+            params,
+            lr=cfg.optimizer.learning_rate,
+            betas=cfg.optimizer.betas,
+            weight_decay=cfg.optimizer.weight_decay,
+        )
+    else:
+        raise NotImplementedError
+
+
+def build_scheduler(cfg: TrainConfig, optim: torch.optim.Optimizer) -> torch.optim.lr_scheduler.LRScheduler:
+    schedulers: List[torch.optim.lr_scheduler.LRScheduler] = []
+    if cfg.scheduler.name == SchedulerType.cosine_with_warmup:
+        milestones = [cfg.scheduler.t_warmup]
+        schedulers = [
+            torch.optim.lr_scheduler.LinearLR(
+                optim, start_factor=cfg.scheduler.alpha_f, end_factor=1.0, total_iters=cfg.scheduler.t_warmup
+            )
+        ]
+        if cfg.scheduler.t_max is None:
+            cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optim,
+                cfg.max_duration - cfg.scheduler.t_warmup,
+                eta_min=cfg.optimizer.learning_rate * cfg.scheduler.alpha_f,
+            )
+            schedulers.append(cosine)
+        else:
+            milestones.append(cfg.scheduler.t_max)
+            cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optim,
+                cfg.scheduler.t_max - cfg.scheduler.t_warmup,
+                eta_min=cfg.optimizer.learning_rate * cfg.scheduler.alpha_f,
+            )
+            linear = torch.optim.lr_scheduler.LinearLR(
+                optim,
+                start_factor=cfg.scheduler.alpha_f,
+                end_factor=cfg.scheduler.alpha_f**2,
+                total_iters=cfg.max_duration - cfg.scheduler.t_max,
+            )
+            schedulers.append(cosine)
+            schedulers.append(linear)
+        return torch.optim.lr_scheduler.SequentialLR(optim, schedulers, milestones)
+    elif cfg.scheduler.name == SchedulerType.inverse_sqrt_with_warmup:
+        milestones = [cfg.scheduler.t_warmup]
+        schedulers = [
+            torch.optim.lr_scheduler.LinearLR(
+                optim, start_factor=cfg.scheduler.alpha_f, end_factor=1.0, total_iters=cfg.scheduler.t_warmup
+            ),
+            torch.optim.lr_scheduler.LambdaLR(optim, lambda step: 1.0 if step <= 0 else 1.0 / math.sqrt(step)),
+        ]
+        return torch.optim.lr_scheduler.SequentialLR(optim, schedulers, milestones)
+    else:
+        raise NotImplementedError

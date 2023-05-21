@@ -360,9 +360,15 @@ class DataConfig(BaseConfig):
     timeout: int = 0
 
 
+class EvaluatorType(StrEnum):
+    downstream = "downstream"
+    lm = "lm"
+
+
 @dataclass
 class EvaluatorConfig(BaseConfig):
     label: str
+    type: EvaluatorType = EvaluatorType.lm
     data: DataConfig = field(default_factory=DataConfig)
     device_eval_batch_size: Optional[int] = None
     subset_num_batches: Optional[int] = None
@@ -626,6 +632,13 @@ class TrainConfig(BaseConfig):
     """
     If ``True``, we add the auxiliary loss function from PaLM that encourages the softmax
     normalizing term to be close to 0.
+    """
+
+    time_limit: Optional[float] = 60 * 60 * 47.5
+    """
+    The maximum amount of time to train for before saving a checkpoint and ending early.
+    On LUMI we have 48 hours max per job, so we default to just under 48 hours to give us time
+    to write out a final checkpoint.
     """
 
     @property
