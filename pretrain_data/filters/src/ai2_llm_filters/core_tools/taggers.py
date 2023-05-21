@@ -12,6 +12,14 @@ from .data_types import DocResult, Document, InputSpec
 
 
 class BaseTagger:
+
+    @classmethod
+    def environment_setup(cls) -> None:
+        """Run any setup code for the tagger; this is called only once on startup, and not per process. You
+        likely don't need this, but it is useful for things like downloading models, installing binaries, etc.
+        """
+        pass
+
     @classmethod
     def train(cls, *args, **kwargs):
         raise RuntimeError("This tagger does not support training")

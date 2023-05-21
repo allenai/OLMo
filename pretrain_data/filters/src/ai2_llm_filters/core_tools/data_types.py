@@ -27,7 +27,7 @@ class OutputSpec(Struct):
 class Document:
     __slots__ = "source", "version", "id", "text"
 
-    def __init__(self, source: str, version: str, id: str, text: str) -> None:
+    def __init__(self, source: str, id: str, text: str, version: Optional[str] = None) -> None:
         self.source = source
         self.version = version
         self.id = id

@@ -1,10 +1,9 @@
 import argparse
-import gzip
 import multiprocessing
 import tempfile
 from contextlib import ExitStack
 from queue import Queue
-from typing import Dict
+from typing import Dict, List
 
 import msgspec
 from smashed.utils.io_utils import (
@@ -22,6 +21,12 @@ from .utils import make_variable_name
 
 class TaggerProcessor(BaseParallelProcessor):
     BASE_S3_PREFIX = "s3://ai2-llm/pretraining-data/sources"
+
+    @classmethod
+    def environment_setup(cls, taggers_names: List[str]) -> None:
+        # set up environment for each tagger
+        for tagger_name in taggers_names:
+            TaggerRegistry.get(tagger_name).environment_setup()
 
     @classmethod
     def increment_progressbar(  # type: ignore
@@ -181,4 +186,5 @@ class TaggerProcessor(BaseParallelProcessor):
                 ignore_existing=True,
                 debug=opts.debug,
             )
+            parallel_compute.environment_setup(taggers_names=opts.taggers)
             parallel_compute(taggers_names=opts.taggers, experiment_name=opts.experiment_name)
