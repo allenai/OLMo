@@ -25,6 +25,7 @@ dependencies = [
     "pycld2==0.41",
     "pycld3==0.22",
     "blingfire==0.1.8",
+    "platformdirs==3.2.0"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

@@ -23,12 +23,6 @@ class TaggerProcessor(BaseParallelProcessor):
     BASE_S3_PREFIX = "s3://ai2-llm/pretraining-data/sources"
 
     @classmethod
-    def environment_setup(cls, taggers_names: List[str]) -> None:
-        # set up environment for each tagger
-        for tagger_name in taggers_names:
-            TaggerRegistry.get(tagger_name).environment_setup()
-
-    @classmethod
     def increment_progressbar(  # type: ignore
         cls,
         queue,  # queue must be the first argument, and it should be a positional-only argument
@@ -151,6 +145,11 @@ class TaggerProcessor(BaseParallelProcessor):
         ap.add_argument(
             "-u", "--debug", action="store_true", help="Run in debug mode; parallelism will be disabled."
         )
+        ap.add_argument(
+            "--base-s3-prefix",
+            default=cls.BASE_S3_PREFIX,
+            help=f"Base S3 prefix to use; defaults to {cls.BASE_S3_PREFIX}.",
+        )
         opts = ap.parse_args()
 
         if opts.list_taggers:
@@ -178,6 +177,9 @@ class TaggerProcessor(BaseParallelProcessor):
             )
             print(msg)
 
+            # override base s3 prefix
+            cls.BASE_S3_PREFIX = opts.base_s3_prefix
+
             parallel_compute = cls(
                 source_prefix=source_prefix,
                 destination_prefix=destination_prefix,
@@ -186,5 +188,4 @@ class TaggerProcessor(BaseParallelProcessor):
                 ignore_existing=True,
                 debug=opts.debug,
             )
-            parallel_compute.environment_setup(taggers_names=opts.taggers)
             parallel_compute(taggers_names=opts.taggers, experiment_name=opts.experiment_name)

@@ -7,17 +7,15 @@ Filters.
 """
 from abc import abstractmethod
 from typing import Dict
+from logging import getLogger, Logger
 
 from .data_types import DocResult, Document, InputSpec
 
 
 class BaseTagger:
     @classmethod
-    def environment_setup(cls) -> None:
-        """Run any setup code for the tagger; this is called only once on startup, and not per process. You
-        likely don't need this, but it is useful for things like downloading models, installing binaries, etc.
-        """
-        pass
+    def get_logger(cls) -> Logger:
+        return getLogger(name=cls.__name__)
 
     @classmethod
     def train(cls, *args, **kwargs):
