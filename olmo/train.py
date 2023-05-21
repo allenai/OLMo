@@ -30,7 +30,7 @@ from .data import IterableDataset
 from .eval import Evaluator
 from .exceptions import OlmoConfigurationError
 from .model import Olmo
-from .util import global_rank, move_to_device, peak_gpu_memory
+from .util import global_rank, move_to_device, peak_gpu_memory, syncronize_flag
 
 __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
 
@@ -716,8 +716,8 @@ class Trainer:
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
                 speed_monitor.reset()
 
-            time_limit_reached = (
-                self.cfg.time_limit is not None and time.time() - start_time >= self.cfg.time_limit
+            time_limit_reached = syncronize_flag(
+                self.cfg.time_limit is not None and time.time() - start_time >= self.cfg.time_limit, self.device
             )
 
             # Maybe save unsharded checkpoint.
