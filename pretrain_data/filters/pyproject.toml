@@ -1,6 +1,6 @@
 [project]
 name = "ai2-llm-filters"
-version = "0.2.0"
+version = "0.3.0"
 description = "Data filters"
 authors = [
     {name = "Aakanksha Naik", email = "aakankshan@allenai.org" },
@@ -20,7 +20,7 @@ dependencies = [
     "boto3",
     "cached-path==1.3.4",
     "msgspec==0.14.2",
-    "smashed[remote]==0.19.6",
+    "smashed[remote]==0.20.0",
     "presidio_analyzer==2.2.32",
     "pycld2==0.41",
     "pycld3==0.22",

@@ -7,7 +7,12 @@ from queue import Queue
 from typing import Dict
 
 import msgspec
-from smashed.utils.io_utils import open_file_for_read, open_file_for_write
+from smashed.utils.io_utils import (
+    compress_stream,
+    decompress_stream,
+    open_file_for_write,
+    stream_file_for_read,
+)
 
 from .data_types import InputSpec, OutputSpec
 from .parallel import BaseParallelProcessor
@@ -73,10 +78,10 @@ class TaggerProcessor(BaseParallelProcessor):
             # open each file for reading and writing. We use open_file_for_read to handle s3 paths and
             # download the file locally if needed, while gzip.open is used to
             # read and write gzipped files.
-            in_file = stack.enter_context(open_file_for_read(source_path, "rb"))
-            in_stream = stack.enter_context(gzip.open(in_file, "rt"))
+            in_file = stack.enter_context(stream_file_for_read(source_path, "rb"))
+            in_stream = stack.enter_context(decompress_stream(in_file, "rt"))
             out_file = stack.enter_context(open_file_for_write(destination_path, "wb"))
-            out_stream = stack.enter_context(gzip.open(out_file, "wt"))
+            out_stream = stack.enter_context(compress_stream(out_file, "wt"))
 
             for raw in in_stream:
                 # row = json.loads(raw)

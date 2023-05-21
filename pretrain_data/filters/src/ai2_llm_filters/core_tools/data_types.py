@@ -15,7 +15,7 @@ class InputSpec(Struct):
     id: str
     text: str
     source: str
-    version: str
+    version: Optional[str] = None
 
 
 class OutputSpec(Struct):
