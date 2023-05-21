@@ -12,7 +12,6 @@ from .data_types import DocResult, Document, InputSpec
 
 
 class BaseTagger:
-
     @classmethod
     def environment_setup(cls) -> None:
         """Run any setup code for the tagger; this is called only once on startup, and not per process. You
