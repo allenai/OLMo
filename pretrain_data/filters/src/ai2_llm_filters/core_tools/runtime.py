@@ -7,7 +7,12 @@ from queue import Queue
 from typing import Dict
 
 import msgspec
-from smashed.utils.io_utils import open_file_for_write, stream_file_for_read, decompress_stream, compress_stream
+from smashed.utils.io_utils import (
+    compress_stream,
+    decompress_stream,
+    open_file_for_write,
+    stream_file_for_read,
+)
 
 from .data_types import InputSpec, OutputSpec
 from .parallel import BaseParallelProcessor
