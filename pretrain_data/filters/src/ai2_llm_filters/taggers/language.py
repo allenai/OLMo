@@ -66,7 +66,7 @@ class Cld2LanguageFilter(BaseTagger):
                 ...
 
         score = max([d[2] for d in details if d[0] == "ENGLISH" and is_reliable] or [0])
-        return "ENGLISH" if is_reliable else "UNKNOWN", score / 100.0
+        return "ENGLISH", score / 100.0
 
     def predict(self, doc: Document) -> DocResult:
         lang, score = self._predict_text(doc.text)
