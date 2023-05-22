@@ -825,8 +825,7 @@ class Olmo(nn.Module):
             tokens_generated += 1
 
             # Run forward pass of model to get logits, then normalize to get log probs.
-            with torch.no_grad():
-                output = self(input_ids, attention_mask=attention_mask, attention_bias=attention_bias)
+            output = self(input_ids, attention_mask=attention_mask, attention_bias=attention_bias)
             log_probs = F.log_softmax(output.logits[:, -1, :], dim=-1)
 
             # Create new state.
@@ -844,7 +843,8 @@ class Olmo(nn.Module):
             state["attention_mask"] = attention_mask
         if attention_bias is not None:
             state["attention_bias"] = attention_bias
-        token_ids, scores = beam_search.search(initial_preds, state, step)
+        with torch.no_grad():
+            token_ids, scores = beam_search.search(initial_preds, state, step)
 
         return OlmoGenerateOutput(
             token_ids=token_ids,  # type: ignore[arg-type]
