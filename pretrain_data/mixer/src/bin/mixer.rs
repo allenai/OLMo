@@ -13,7 +13,7 @@ use mixer_config::*;
 
 fn main() {
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "info")
+        env::set_var("RUST_LOG", "ai2_pretraining=info,mixer=info");
     }
     env_logger::init();
     let args: Vec<String> = env::args().collect();
@@ -166,6 +166,31 @@ mod test {
                                      Path::new(local_output_file)))?;
 
         compare_contents("tests/data/expected/spans.json.gz",
+                         local_output_file);
+        Ok(())
+    }
+
+    #[test]
+    fn test_filter_by_span() -> Result<(), io::Error> {
+        if env::var("RUST_LOG").is_err() {
+            env::set_var("RUST_LOG", "info")
+        }
+        env_logger::init();
+
+        let config = MixerConfig::read_from_file("tests/config/filter-by-spans.json")?;
+        run(config);
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build().unwrap();
+        let s3_client = s3_util::new_client()?;
+
+        let local_output_file = "tests/work/output/filter-by-spans.json.gz";
+        rt.block_on(download_to_file(&s3_client, "ai2-llm",
+                                     "pretraining-data/tests/mixer/outputs/v1/documents/head/filter-by-spans-test-0000.json.gz",
+                                     Path::new(local_output_file)))?;
+
+        compare_contents("tests/data/expected/filter-by-spans.json.gz",
                          local_output_file);
         Ok(())
     }
