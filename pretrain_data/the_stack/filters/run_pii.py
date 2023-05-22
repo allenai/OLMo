@@ -41,24 +41,29 @@ def extract_pii(instance):
         id=instance["id"],
         text=instance["text"].lower().strip(),
     )
+    try:
+        doc_results = PII_FILTER.predict(doc=doc)
+        results_json = doc_results.to_json(with_doc=False)
 
-    doc_results = PII_FILTER.predict(doc=doc)
-    results_json = doc_results.to_json(with_doc=False)
-
-    instance["score"] = results_json["score"]
-    instance["spans"] = results_json["spans"]
+        instance["score"] = results_json["score"]
+        instance["spans"] = results_json["spans"]
+    except ZeroDivisionError:
+        instance["score"] = -1.0
+        instance["spans"] = []
     return instance
 
 
 def create_attributes(new_version: str, filename: str, functions_to_apply: List[Callable]):
-    new_url = f"{_get_documents_location(new_version)}/{filename}.jsonl.gz"
-    new_df = pd.read_json(new_url, lines=True, compression="gzip")
+    #new_url = f"{_get_documents_location(new_version)}/{filename}.jsonl.gz"
+    #new_df = pd.read_json(new_url, lines=True, compression="gzip")
 
     lang = filename.split("/")[0]
     filep = filename.split("/")[1]
     new_attributes_url = f"{_get_attributes_location(new_version)}/{lang}/pii/{filep}.jsonl__method=regex__postprocess=True__window=100"
 
     if not S3_FS.exists(new_attributes_url):
+        new_url = f"{_get_documents_location(new_version)}/{filename}.jsonl.gz"
+        new_df = pd.read_json(new_url, lines=True, compression="gzip")
         logger.info(f"Creating attributes {new_attributes_url}")
         ndf = new_df
         for func in functions_to_apply:

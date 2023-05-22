@@ -5,4 +5,4 @@ VERSION=$2
 LANG_LIST=$3
 
 echo $(wc -l $FILENAMES_FILE)
-cat $FILENAMES_FILE| parallel -j 5 --bar --max-args=1 python run_pii.py --filename {1} --new-version $VERSION --lang-list $LANG_LIST
+cat $FILENAMES_FILE| parallel -j 20 --bar --max-args=1 python run_pii.py --filename {1} --new-version $VERSION --lang-list $LANG_LIST
