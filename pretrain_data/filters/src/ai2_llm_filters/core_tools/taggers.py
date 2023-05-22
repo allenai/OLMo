@@ -6,8 +6,8 @@ Filters.
 
 """
 from abc import abstractmethod
+from logging import Logger, getLogger
 from typing import Dict
-from logging import getLogger, Logger
 
 from .data_types import DocResult, Document, InputSpec
 
