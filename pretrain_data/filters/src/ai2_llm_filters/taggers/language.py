@@ -61,8 +61,9 @@ class Cld2LanguageFilter(BaseTagger):
         for fn in (self._identity_fn, self._to_ascii_input, self._sanitize_input):
             try:
                 is_reliable, _, details = cld2.detect(fn(text))
+                break
             except cld2.error:
-                continue
+                ...
 
         score = max([d[2] for d in details if d[0] == "ENGLISH" and is_reliable] or [0])
         return "ENGLISH" if is_reliable else "UNKNOWN", score / 100.0
