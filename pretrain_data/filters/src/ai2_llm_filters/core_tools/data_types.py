@@ -11,6 +11,10 @@ from typing import Any, Dict, List, Optional, Union
 from msgspec import Struct
 
 
+class Ai2LlmFilterError(Exception):
+    pass
+
+
 class InputSpec(Struct):
     id: str
     text: str
