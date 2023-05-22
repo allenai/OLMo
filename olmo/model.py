@@ -825,7 +825,8 @@ class Olmo(nn.Module):
             tokens_generated += 1
 
             # Run forward pass of model to get logits, then normalize to get log probs.
-            output = self(input_ids, attention_mask=attention_mask, attention_bias=attention_bias)
+            with torch.no_grad():
+                output = self(input_ids, attention_mask=attention_mask, attention_bias=attention_bias)
             log_probs = F.log_softmax(output.logits[:, -1, :], dim=-1)
 
             # Create new state.
