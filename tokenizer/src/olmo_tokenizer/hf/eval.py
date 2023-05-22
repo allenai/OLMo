@@ -4,7 +4,7 @@ from collections import Counter
 import numpy as np
 from cached_path import cached_path
 from datasets import load_dataset
-from transformers impsort AutoTokenizer, LlamaTokenizer, PreTrainedTokenizerFast
+from transformers import AutoTokenizer, LlamaTokenizer, PreTrainedTokenizerFast
 
 AI2_PATH = "s3://ai2-llm/tokenizer/model/v1.json"
 LLAMA_PATH = "s3://ai2-s2-lucas/llama/tokenizer.model"
