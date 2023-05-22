@@ -9,6 +9,8 @@ from typing import List, Tuple
 
 import cld3
 import pycld2 as cld2
+import regex
+from unidecode import unidecode
 
 from ..core_tools.data_types import DocResult, Document, Span, TextSlice
 from ..core_tools.ft_tagger import BaseFastTextTagger, Prediction
@@ -42,10 +44,28 @@ class Cld3LanguageTaggerParagraph(Cld3LanguageTagger):
 
 @TaggerRegistry.add("cld2_en_doc_v1")
 class Cld2LanguageFilter(BaseTagger):
+    RE_BAD_CHARS = regex.compile(r"[\p{Cc}\p{Cs}]+")
+
+    def _sanitize_input(self, text: str) -> str:
+        return self.RE_BAD_CHARS.sub("", text)
+
+    def _to_ascii_input(self, text: str) -> str:
+        return unidecode(text)
+
+    def _identity_fn(self, text: str) -> str:
+        return text
+
     def _predict_text(self, text: str) -> Tuple[str, float]:
-        is_reliable, text_bytes_found, details = cld2.detect(text)
-        score = max([d[2] for d in details if d[0] == "ENGLISH" and is_reliable] or [0.0])
-        return "ENGLISH" if is_reliable else "UNKNOWN", score
+        details = []
+        is_reliable = False
+        for fn in (self._identity_fn, self._to_ascii_input, self._sanitize_input):
+            try:
+                is_reliable, _, details = cld2.detect(fn(text))
+            except cld2.error:
+                continue
+
+        score = max([d[2] for d in details if d[0] == "ENGLISH" and is_reliable] or [0])
+        return "ENGLISH" if is_reliable else "UNKNOWN", score / 100.0
 
     def predict(self, doc: Document) -> DocResult:
         lang, score = self._predict_text(doc.text)

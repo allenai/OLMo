@@ -1,5 +1,4 @@
 import argparse
-import gzip
 import multiprocessing
 import tempfile
 from contextlib import ExitStack
