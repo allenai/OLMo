@@ -1,5 +1,5 @@
 import argparse
-import gzip
+import logging
 import multiprocessing
 import tempfile
 from contextlib import ExitStack
@@ -14,7 +14,7 @@ from smashed.utils.io_utils import (
     stream_file_for_read,
 )
 
-from .data_types import InputSpec, OutputSpec
+from .data_types import Ai2LlmFilterError, InputSpec, OutputSpec
 from .parallel import BaseParallelProcessor
 from .registry import TaggerRegistry
 from .utils import make_variable_name
@@ -22,6 +22,10 @@ from .utils import make_variable_name
 
 class TaggerProcessor(BaseParallelProcessor):
     BASE_S3_PREFIX = "s3://ai2-llm/pretraining-data/sources"
+
+    @classmethod
+    def get_logger(cls) -> logging.Logger:
+        return logging.getLogger(cls.__name__)
 
     @classmethod
     def increment_progressbar(  # type: ignore
@@ -45,8 +49,9 @@ class TaggerProcessor(BaseParallelProcessor):
         queue: "Queue",
         **kwargs,
     ):
-        """Lets count the number of word! We will use the destination path to save the number of lines
-        for each file."""
+        """Lets count run the taggers! We will use the destination path to save each tagger output."""
+
+        logger = cls.get_logger()
 
         # get names of taggers
         taggers_names = kwargs.get("taggers_names", None)
@@ -62,6 +67,9 @@ class TaggerProcessor(BaseParallelProcessor):
             raise RuntimeError("Experiment name not in kwargs, this is a bug! Please report it.")
         experiment_name = make_variable_name(experiment_name)
 
+        # skip on failure
+        skip_on_failure = kwargs.get("skip_on_failure", False)
+
         # interval at which to update the progress bar; will double if it gets
         # too full
         update_interval = 1
@@ -75,43 +83,51 @@ class TaggerProcessor(BaseParallelProcessor):
         decoder = msgspec.json.Decoder(InputSpec)
 
         with ExitStack() as stack:
-            # open each file for reading and writing. We use open_file_for_read to handle s3 paths and
-            # download the file locally if needed, while gzip.open is used to
-            # read and write gzipped files.
-            in_file = stack.enter_context(stream_file_for_read(source_path, "rb"))
-            in_stream = stack.enter_context(decompress_stream(in_file, "rt"))
-            out_file = stack.enter_context(open_file_for_write(destination_path, "wb"))
-            out_stream = stack.enter_context(compress_stream(out_file, "wt"))
+            try:
+                # open each file for reading and writing. We use open_file_for_read to handle s3 paths and
+                # download the file locally if needed, while gzip.open is used to
+                # read and write gzipped files.
+                in_file = stack.enter_context(stream_file_for_read(source_path, "rb"))
+                in_stream = stack.enter_context(decompress_stream(in_file, "rt"))
+                out_file = stack.enter_context(open_file_for_write(destination_path, "wb"))
+                out_stream = stack.enter_context(compress_stream(out_file, "wt"))
 
-            for raw in in_stream:
-                # row = json.loads(raw)
-                row = decoder.decode(raw)
+                for raw in in_stream:
+                    # row = json.loads(raw)
+                    row = decoder.decode(raw)
 
-                # running the taggers and merging them flat
-                attributes = {}
-                for tagger_name, tagger in taggers.items():
-                    for key_name, key_value in tagger.tag(row).items():
-                        key_name = f"{experiment_name}__{tagger_name}__{make_variable_name(key_name)}"
-                        attributes[key_name] = key_value
+                    # running the taggers and merging them flat
+                    attributes = {}
+                    for tagger_name, tagger in taggers.items():
+                        for key_name, key_value in tagger.tag(row).items():
+                            key_name = f"{experiment_name}__{tagger_name}__{make_variable_name(key_name)}"
+                            attributes[key_name] = key_value
 
-                # make output file
-                output = OutputSpec(source=row.source, id=row.id, attributes=attributes)
+                    # make output file
+                    output = OutputSpec(source=row.source, id=row.id, attributes=attributes)
 
-                # write the output to the output file
-                out_stream.write(encoder.encode(output).decode("utf-8") + "\n")  # pyright: ignore
+                    # write the output to the output file
+                    out_stream.write(encoder.encode(output).decode("utf-8") + "\n")  # pyright: ignore
 
-                # increment the number of documents processed so far
-                docs_cnt += 1
+                    # increment the number of documents processed so far
+                    docs_cnt += 1
 
-                if docs_cnt % update_interval == 0:
-                    # update the progress bar every 1000 documents to prevent
-                    # buffering
-                    cls.increment_progressbar(queue, documents=docs_cnt)
-                    docs_cnt = 0
+                    if docs_cnt % update_interval == 0:
+                        # update the progress bar every 1000 documents to prevent
+                        # buffering
+                        cls.increment_progressbar(queue, documents=docs_cnt)
+                        docs_cnt = 0
 
-                    if queue.qsize() >= multiprocessing.cpu_count():
-                        # double the update interval if the queue is full
-                        update_interval *= 2
+                        if queue.qsize() >= multiprocessing.cpu_count():
+                            # double the update interval if the queue is full
+                            update_interval *= 2
+
+            except Exception as e:
+                # handle any exception that might have occurred
+                msg = f"Failed to process {source_path} due to {e.__class__.__name__}: {' '.join(e.args)}"
+                logger.warning("\n" + msg)
+                if not skip_on_failure:
+                    raise Ai2LlmFilterError(msg) from e
 
         # increment the files progress bar
         cls.increment_progressbar(queue, files=1, documents=docs_cnt)
@@ -146,6 +162,17 @@ class TaggerProcessor(BaseParallelProcessor):
         ap.add_argument(
             "-u", "--debug", action="store_true", help="Run in debug mode; parallelism will be disabled."
         )
+        ap.add_argument(
+            "--skip-on-failure",
+            action="store_true",
+            help="Skip documents that fail to process instead of raising an error.",
+        )
+        ap.add_argument(
+            "--reuse-existing",
+            default=None,
+            type=str,
+            help="If provided, keeps track of which files have already been processed and skips them. ",
+        )
         opts = ap.parse_args()
 
         if opts.list_taggers:
@@ -162,6 +189,9 @@ class TaggerProcessor(BaseParallelProcessor):
         destination_prefix = f"{cls.BASE_S3_PREFIX}/{opts.dataset}/attributes/{opts.experiment_name}"
 
         with tempfile.TemporaryDirectory() as tempdir:
+            metadata_workdir = opts.reuse_existing or tempdir
+            ignore_existing = opts.reuse_existing is None
+
             msg = (
                 "----- TaggerProcessor -----\n"
                 f"source:       {source_prefix}\n"
@@ -169,6 +199,10 @@ class TaggerProcessor(BaseParallelProcessor):
                 f"scratch:      {tempdir}\n"
                 f"taggers:      {', '.join(opts.taggers)}\n"
                 f"parallel:     {opts.parallel}\n"
+                f"debug:        {opts.debug}\n"
+                f"skip on fail: {opts.skip_on_failure}\n"
+                f"reuse prev:   {not ignore_existing}\n"
+                f"workdir:      {metadata_workdir}\n"
                 "---------------------------\n"
             )
             print(msg)
@@ -176,9 +210,13 @@ class TaggerProcessor(BaseParallelProcessor):
             parallel_compute = cls(
                 source_prefix=source_prefix,
                 destination_prefix=destination_prefix,
-                metadata_prefix=tempdir,
+                metadata_prefix=metadata_workdir,
                 num_processes=opts.parallel,
-                ignore_existing=True,
+                ignore_existing=ignore_existing,
                 debug=opts.debug,
             )
-            parallel_compute(taggers_names=opts.taggers, experiment_name=opts.experiment_name)
+            parallel_compute(
+                taggers_names=opts.taggers,
+                experiment_name=opts.experiment_name,
+                skip_on_failure=opts.skip_on_failure,
+            )

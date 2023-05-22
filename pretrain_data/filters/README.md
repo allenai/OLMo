@@ -23,6 +23,12 @@ If you are planning to run this code on a Mac with Apple Silicon, you will need 
 python -m smashed.utils.install_blingfire_macos
 ```
 
+If you are running on a bare EC2 instance, you will need to install `gcc` and `protobuf`, e.g. on Ubuntu:
+
+```bash
+sudo apt install build-essential protobuf-compiler -y
+```
+
 ## Running Taggers
 
 To run taggers, use the following command:
