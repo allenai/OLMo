@@ -31,7 +31,7 @@ To run taggers, use the following command:
 ai2_llm_filters \
     -d "<name of dataset>" \
     -n "<experiment name>" \
-    -t <tagger 1> ... <tagger n>  \
+    -t <tagger 1> ... <tagger n> \
     -p <num processes>
 ```
 

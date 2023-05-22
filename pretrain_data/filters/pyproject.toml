@@ -62,7 +62,7 @@ requires = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["py_src"]
 
 [tool.setuptools.package-data]
 ai2_llm_filters = ["py.typed"]
