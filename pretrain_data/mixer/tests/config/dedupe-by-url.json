@@ -1,0 +1,24 @@
+{
+  "documents": [
+    "pretraining-data/tests/mixer/inputs/v0/documents/*/0000.json.gz"
+  ],
+  "work_dir": {
+    "input": "tests/work/url/input",
+    "output": "tests/work/url/output"
+  },
+  "dedupe": {
+    "name": "dedupe_by_url",
+    "documents": {
+      "attribute_name": "bff_duplicate_url",
+      "key": "$.metadata.url"
+    }
+  },
+  "bloom_filter": {
+    "file": "tests/work/url_bloom_filter.bin",
+    "size_in_bytes": 0,
+    "read_only": false,
+    "estimated_doc_count": 1000,
+    "desired_false_positive_rate": 0.001
+  },
+  "processes": 1
+}
