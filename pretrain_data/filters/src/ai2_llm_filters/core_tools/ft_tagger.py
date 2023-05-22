@@ -7,7 +7,7 @@ Base implementation for a fasttext tagger; all fasttext taggers should inherit f
 """
 import os
 from tempfile import NamedTemporaryFile
-from typing import Literal, NamedTuple, Optional
+from typing import Iterable, Literal, NamedTuple, Optional
 
 from cached_path import cached_path
 from fasttext import train_supervised
@@ -144,9 +144,12 @@ class BaseFastTextTagger(BaseTagger):
         else:
             raise ValueError(f"Unknown mode {self.mode}")
 
-        predictions = [self.predict_slice(unit) for unit in units]
-        spans = [Span(start=u.start, end=u.end, type=p.label, score=p.score) for p, u in zip(predictions, units)]
+        spans = []
+        for unit in units:
+            for prediction in self.predict_slice(unit):
+                spans.append(Span(start=unit.start, end=unit.end, type=prediction.label, score=prediction.score))
+
         return DocResult(doc=doc, spans=spans)
 
-    def predict_slice(self, text_slice: TextSlice) -> Prediction:
+    def predict_slice(self, text_slice: TextSlice) -> Iterable[Prediction]:
         raise NotImplementedError("Please implement the predict slice method")
