@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 )
 def main(
     wandb_run_path: str,
-    files_or_directories: Tuple[Path],
+    files_or_directories: Tuple[Path, ...],
 ):
     """
     Uploads artifacts to GCS. This uploads to a hardcoded bucket in GCS, because that's where we expect to keep all the artifacts for OLMo.
@@ -34,11 +34,12 @@ def main(
     bucket = storage_client.bucket("ai2-olmo", user_project="ai2-olmo")
     prefix = wandb_run_path.strip("/")
 
-    files_or_directories_in_a_special_variable_because_mypy_is_lame = [
-        (file_or_directory, prefix + "/" + file_or_directory.name) for file_or_directory in files_or_directories
+    artifacts_to_upload = [
+        (file_or_directory, prefix + "/" + file_or_directory.resolve().name)
+        for file_or_directory in files_or_directories
     ]
-    while len(files_or_directories_in_a_special_variable_because_mypy_is_lame) > 0:
-        file_or_directory, key = files_or_directories_in_a_special_variable_because_mypy_is_lame.pop()
+    while len(artifacts_to_upload) > 0:
+        file_or_directory, key = artifacts_to_upload.pop()
         if file_or_directory.is_file():
             blob = bucket.blob(key)
             with file_or_directory.open("rb") as f:
@@ -52,9 +53,7 @@ def main(
                     blob.upload_from_file(f)
         elif file_or_directory.is_dir():
             for directory_entry in file_or_directory.iterdir():
-                files_or_directories_in_a_special_variable_because_mypy_is_lame.append(
-                    (directory_entry, key + "/" + directory_entry.name)
-                )
+                artifacts_to_upload.append((directory_entry, key + "/" + directory_entry.name))
 
 
 if __name__ == "__main__":

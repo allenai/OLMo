@@ -22,7 +22,7 @@ use deduper_config::*;
 
 fn main() {
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "info")
+        env::set_var("RUST_LOG", "ai2_pretraining=info,deduper=info");
     }
     env_logger::init();
 

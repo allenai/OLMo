@@ -173,6 +173,15 @@ class TaggerProcessor(BaseParallelProcessor):
             type=str,
             help="If provided, keeps track of which files have already been processed and skips them. ",
         )
+        ap.add_argument(
+            "--manually-included-paths",
+            default=None,
+            nargs="+",
+            help="If provided, only these paths will be processed.",
+        )
+        ap.add_argument(
+            "--manually-excluded-paths", default=None, nargs="+", help="If provided, these paths will be skipped."
+        )
         opts = ap.parse_args()
 
         if opts.list_taggers:
@@ -214,6 +223,8 @@ class TaggerProcessor(BaseParallelProcessor):
                 num_processes=opts.parallel,
                 ignore_existing=ignore_existing,
                 debug=opts.debug,
+                include_paths=opts.manually_included_paths,
+                exclude_paths=opts.manually_excluded_paths,
             )
             parallel_compute(
                 taggers_names=opts.taggers,
