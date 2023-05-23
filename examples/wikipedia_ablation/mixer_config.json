@@ -58,8 +58,8 @@
     }
   ],
   "work_dir": {
-    "input": "/tmp/input",
-    "output": "/tmp/output"
+    "input": "/tmp/mixer/input",
+    "output": "/tmp/mixer/output"
   },
   "processes": 96
 }

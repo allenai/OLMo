@@ -35,9 +35,9 @@ ai2_llm_filters \
     -p 96   # run on 96 cores
 ```
 
-## Step 2: Run Mixer
+## Step 2: Deduplicate Against Perplexity Eval Set
 
-Compile and install mixer
+Compile and install mixer/deduper:
 
 ```shell
 cd pretrain_data/mixer
@@ -45,7 +45,17 @@ make build-tools    # will install rust and tools to build the mixer
 make mixer          # will build the mixer; available at ./target/release/mixer
 ```
 
-Now run mixer with `mixer_config.json`:
+Now run the deduper:
+
+```shell
+DEDUPER_BIN="pretrain_data/mixer/target/release/deduper"
+$DEDUPER_BIN \
+    examples/wikipedia_ablation/deduper_config.json
+```
+
+## Step 3: Run Mixer
+
+Run mixer with `mixer_config.json`:
 
 ```shell
 MIXER_BIN="pretrain_data/mixer/target/release/mixer"
