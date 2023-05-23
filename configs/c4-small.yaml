@@ -53,55 +53,6 @@ data:
   persistent_workers: true
   timeout: 0
 
-eval_interval: ${save_interval}
-eval_subset_num_batches: -1
-device_eval_batch_size: ${device_train_microbatch_size}
-evaluators:
-  - label: c4-validation
-    subset_num_batches: 10
-    data:
-      paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
-      num_workers: 2
-      drop_last: true
-      pin_memory: true
-      persistent_workers: true
-      prefetch_factor: 4
-  - label: rp-validation
-    subset_num_batches: 10
-    data:
-      paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
-      num_workers: 2
-      drop_last: true
-      pin_memory: true
-      persistent_workers: true
-      prefetch_factor: 4
-  - label: piqa
-    type: downstream
-  - label: hellaswag
-    type: downstream
-  - label: winogrande
-    type: downstream
-  - label: openbook_qa
-    type: downstream
-  # - label: boolq  # requires implemention of the pmi_dc matrix
-    # type: downstream
-  - label: sciq
-    type: downstream
-  - label: arc_easy
-    type: downstream
-  # - label: arc_challenge  # requires implemention of the pmi_dc matrix
-    # type: downstream
-  - label: copa
-    type: downstream
-  - label: rte
-    type: downstream
-  - label: commitment_bank
-    type: downstream
-  - label: mrpc
-    type: downstream
-  - label: sst2
-    type: downstream
-
 tokenizer:
   identifier: gpt2
   truncate_direction: right
@@ -127,3 +78,158 @@ max_grad_norm: 1.0
 
 speed_monitor:
   window_size: 20
+
+eval_interval: ${save_interval}
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators:
+  ##########################
+  # Perplexity evaluations #
+  ##########################
+  - label: c4-validation
+    subset_num_batches: 10
+    data:
+      paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
+      num_workers: 2
+      drop_last: true
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 4
+
+  - label: rp-validation
+    subset_num_batches: 10
+    data:
+      paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
+      num_workers: 2
+      drop_last: true
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 4
+
+  - label: 4chan-validation
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/4chan/val.npy
+      drop_last: true
+
+  - label: 4chan-validation
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/4chan/val.npy
+      drop_last: true
+
+  - label: c4_100_domains
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/c4_100_domains/val.npy
+      drop_last: true
+
+  - label: c4_en
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/c4_en/val.npy
+      drop_last: true
+
+  - label: gab
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/gab/val.npy
+      drop_last: true
+
+  - label: ice
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/ice/val.npy
+      drop_last: true
+
+  - label: m2d2_s2orc
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/m2d2_s2orc/val.npy
+      drop_last: true
+
+  - label: m2d2_wiki
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/m2d2_wiki/val.npy
+      drop_last: true
+
+  - label: manosphere
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/manosphere/val.npy
+      drop_last: true
+
+  - label: mc4_en
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/mc4_en/val.npy
+      drop_last: true
+
+  - label: pile
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/pile/val.npy
+      drop_last: true
+
+  # Too small (not enough tokens for a single batch)
+  # - label: ptb
+  #   data:
+  #     paths:
+  #       - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/ptb/val.npy
+  #     drop_last: true
+
+  - label: twitterAEE
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/twitterAEE/val.npy
+      drop_last: true
+
+  # Too small (not enough tokens for a single batch)
+  # - label: wikitext_103
+  #   data:
+  #     paths:
+  #       - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/wikitext_103/val.npy
+  #     drop_last: true
+
+  ##########################
+  # Downstream evaluations #
+  ##########################
+  - label: piqa
+    type: downstream
+
+  - label: hellaswag
+    type: downstream
+
+  - label: winogrande
+    type: downstream
+
+  - label: openbook_qa
+    type: downstream
+
+  # - label: boolq  # requires implemention of the pmi_dc matrix
+    # type: downstream
+    #
+  - label: sciq
+    type: downstream
+
+  - label: arc_easy
+    type: downstream
+
+  # - label: arc_challenge  # requires implemention of the pmi_dc matrix
+    # type: downstream
+    #
+  - label: copa
+    type: downstream
+
+  - label: rte
+    type: downstream
+
+  - label: commitment_bank
+    type: downstream
+
+  - label: mrpc
+    type: downstream
+
+  - label: sst2
+    type: downstream

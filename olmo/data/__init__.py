@@ -18,6 +18,11 @@ def build_eval_dataloader(
 ) -> DataLoader:
     collator = DataCollator(pad_direction=data_config.pad_direction, pad_token_id=train_config.model.pad_token_id)
     dataset = MemMapDataset(*data_config.paths, chunk_size=train_config.model.max_sequence_length)
+    if data_config.drop_last:
+        # Make sure batch size is small enough.
+        samples_per_device = len(dataset) // dist.get_world_size()
+        batch_size = min(batch_size, samples_per_device)
+        assert batch_size > 0, f"dataset for {data_config.paths} is too small"
     sampler = DistributedSampler(
         dataset,
         drop_last=data_config.drop_last,
