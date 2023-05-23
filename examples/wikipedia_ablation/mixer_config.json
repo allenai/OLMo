@@ -34,10 +34,11 @@
       ],
       "output": {
         "path": "pretraining-data/sources/wikipedia/a0/documents",
-        "max_size_in_bytes": 10000000
+        "max_size_in_bytes": 1000000000
       },
       "attributes": [
-        "abl0"
+        "abl0",
+        "decontamination"
       ],
       "filter": {
         "include": [
@@ -52,6 +53,11 @@
         {
           "span": "$.attributes.abl0__cld2_en_paragraph_with_doc_score_v2__not_en",
           "min_score": 0.1,
+          "replacement": ""
+        },
+        {
+          "span": "$.attributes.bff_duplicate_paragraph_spans",
+          "min_score": 1,
           "replacement": ""
         }
       ]
