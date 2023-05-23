@@ -84,3 +84,5 @@ You can check out the mixer config to see how it works. In particular, it applie
         }
     ]
     ```
+
+Note how the configuration only runs the mixing on 27 languages. Nevertheless, we go from 27GB to just over 8.8GB.
