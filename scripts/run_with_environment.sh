@@ -2,7 +2,7 @@
 
 # Note: This script does not run inside the container. It runs on the bare compute node.
 
-set -xeuo pipefail
+set -euo pipefail
 
 # Redirect stdout and stderr so that we get a prefix with the node name
 export NODENAME=$(hostname -s)
