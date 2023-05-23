@@ -12,7 +12,6 @@
 
 module load LUMI/22.08 partition/G
 
-# export OLMO_CONTAINER=llm-lumi_8b28f1d.sif
 export OLMO_CONTAINER=llm-lumi-rocm55_latest.sif
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
@@ -50,4 +49,4 @@ srun \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
-    python scripts/train.py configs/c4-medium.yaml --run_name=${SLURM_JOB_ID}-2x-bz --global_train_batch_size=2048 --scheduler.t_warmup=1000 --scheduler.t_max=80000
+    python scripts/train.py configs/c4-medium.yaml --run_name=${SLURM_JOB_ID}
