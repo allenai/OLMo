@@ -42,7 +42,7 @@
     }
   },
   "bloom_filter": {
-    "file": "eval-data/perplexity/blocklists/eval_subset_v2/deduper_valid_decontamination_lucas_20230522.bin",
+    "file": "eval-data/perplexity/blocklists/eval_subset_v2/deduper_decontamination_lucas_20230522.bin",
     "size_in_bytes": 8388608,
     "read_only": false,
     "estimated_doc_count": 4751287,
