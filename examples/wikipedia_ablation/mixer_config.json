@@ -1,0 +1,65 @@
+{
+  "streams": [
+    {
+      "name": "example-wikipedia-ablation",
+      "documents": [
+          "pretraining-data/sources/wikipedia/v0/documents/lang=en/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=de/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=ja/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=fr/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=es/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=ru/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=it/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=zh/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=pt/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=uk/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=nl/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=pl/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=ca/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=ar/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=vi/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=cs/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=th/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=he/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=hu/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=fa/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=no/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=id/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=sr/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=fi/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=el/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=ko/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=ro/*.gz",
+          "pretraining-data/sources/wikipedia/v0/documents/lang=simple/*.gz"
+      ],
+      "output": {
+        "path": "pretraining-data/sources/wikipedia/a0/documents",
+        "max_size_in_bytes": 10000000
+      },
+      "attributes": [
+        "abl0"
+      ],
+      "filter": {
+        "include": [
+          "$.attributes[?(@.abl0__whitespace_tokenizer_with_paragraphs_v1__document[0][2] < 100000)]"
+        ],
+        "exclude": [
+          "$.attributes[?(@.abl0__whitespace_tokenizer_with_paragraphs_v1__document[0][2] < 50)]",
+          "$.attributes[?(@.abl0__ft_lang_id_en_paragraph_with_doc_score_v2__doc_en[0][2] <= 0.5)]"
+        ]
+      },
+      "span_replacement": [
+        {
+          "span": "$.attributes.abl0__cld2_en_paragraph_with_doc_score_v2__not_en",
+          "min_score": 0.1,
+          "replacement": ""
+        }
+      ]
+    }
+  ],
+  "work_dir": {
+    "input": "/tmp/mixer/input",
+    "output": "/tmp/mixer/output"
+  },
+  "processes": 96
+}
