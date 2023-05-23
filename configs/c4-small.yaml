@@ -115,12 +115,6 @@ evaluators:
         - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/4chan/val.npy
       drop_last: true
 
-  - label: 4chan-validation
-    data:
-      paths:
-        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/4chan/val.npy
-      drop_last: true
-
   - label: c4_100_domains
     data:
       paths:
