@@ -843,7 +843,8 @@ class Olmo(nn.Module):
             state["attention_mask"] = attention_mask
         if attention_bias is not None:
             state["attention_bias"] = attention_bias
-        token_ids, scores = beam_search.search(initial_preds, state, step)
+        with torch.no_grad():
+            token_ids, scores = beam_search.search(initial_preds, state, step)
 
         return OlmoGenerateOutput(
             token_ids=token_ids,  # type: ignore[arg-type]
