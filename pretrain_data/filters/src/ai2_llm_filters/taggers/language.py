@@ -114,11 +114,13 @@ class FastTextEnglishLanguageParagraphTagger(FastTextEnglishLanguageDocumentTagg
 
 
 def add_global_language_score_from_slice_score(result: DocResult) -> DocResult:
-    en_cnt = sum(s.end - s.start for s in result.spans if s.type == "en")
-    not_en_cnt = len(result.doc.text) - en_cnt
+    # the total document score is # of characters in each "english" span multiplied by the likelihood
+    # of said span being english
+    doc_en_score = sum((s.end - s.start) * s.score for s in result.spans if s.type == "en") / len(result.doc.text)
+
     doc_level = (
-        Span(start=0, end=len(result.doc.text), type="doc_en", score=en_cnt / len(result.doc.text)),
-        Span(start=0, end=len(result.doc.text), type="doc_not_en", score=not_en_cnt / len(result.doc.text)),
+        Span(start=0, end=len(result.doc.text), type="doc_en", score=doc_en_score),
+        Span(start=0, end=len(result.doc.text), type="doc_not_en", score=1.0 - doc_en_score),
     )
     result.spans.extend(doc_level)
     return result
