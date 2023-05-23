@@ -12,6 +12,8 @@ Post-process of v0. Drop non-English documents. Deduplicate whole documents by U
 
 ~4.8T tokens. High/Med/Low quality split: 20%/25%/55%
 
+**v1-small** is an 8.5% sample of `v1`, about 300B tokens.
+
 ### v2
 
 Post-process of v1. Remove duplicate paragraphs across the entire corpus

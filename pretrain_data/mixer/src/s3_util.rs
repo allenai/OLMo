@@ -4,6 +4,7 @@ use std::path::Path;
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::{Client as S3Client};
 use aws_sdk_s3::config::Region;
+use aws_sdk_s3::error::ProvideErrorMetadata;
 use tokio::fs::{File as TokioFile};
 
 
@@ -19,7 +20,9 @@ pub async fn download_to_file(
         .key(key)
         .send()
         .await
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        .map_err(|e|
+            io::Error::new(io::ErrorKind::Other, format!("Error downloading {}: {}", key, e.message().unwrap_or_default()))
+        )?;
 
     std::fs::create_dir_all(path.parent().unwrap())?;
     let mut file = TokioFile::create(path).await?;
@@ -42,7 +45,9 @@ pub async fn upload_file(
         .body(ByteStream::from_path(path).await?)
         .send()
         .await
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        .map_err(|e|
+            io::Error::new(io::ErrorKind::Other, format!("Error uploading {}: {}", key, e.message().unwrap_or_default()))
+        )?;
 
     Ok(())
 }
@@ -70,11 +75,16 @@ pub fn find_objects_matching_patterns(s3_client: &S3Client, patterns: &Vec<Strin
 
     let mut stream_inputs: Vec<String> = Vec::new();
     for pattern in patterns.iter() {
-        let index = pattern.chars().position(|c| c == '*').unwrap();
-        let prefix = pattern[..index].to_string();
-        let mut suffix: Option<String> = None;
-        if index < pattern.len() - 1 {
-            suffix = Some(pattern[index + 2..].to_string());
+        let start_size = stream_inputs.len();
+        let mut prefix = pattern.clone();
+        let mut suffix: Option<String> = Some("".to_owned());
+        let maybe_index = pattern.chars().position(|c| c == '*');
+        if let Some(index) = maybe_index {
+            prefix = pattern[..index].to_string();
+            suffix = None;
+            if index < pattern.len() - 1 {
+                suffix = Some(pattern[index + 2..].to_string());
+            }
         }
         let mut has_more = true;
         let mut token: Option<String> = None;
@@ -107,7 +117,7 @@ pub fn find_objects_matching_patterns(s3_client: &S3Client, patterns: &Vec<Strin
             token = resp.next_continuation_token().map(String::from);
             has_more = token.is_some();
         }
-        log::info!("Found {} objects for pattern \"{}\"", stream_inputs.len(), pattern);
+        log::info!("Found {} objects for pattern \"{}\"", stream_inputs.len() - start_size, pattern);
     }
     stream_inputs.sort();
     Ok(stream_inputs)
