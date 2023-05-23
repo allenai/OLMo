@@ -111,3 +111,40 @@ class FastTextEnglishLanguageDocumentTagger(BaseFastTextTagger):
 class FastTextEnglishLanguageParagraphTagger(FastTextEnglishLanguageDocumentTagger):
     def __init__(self):
         BaseFastTextTagger.__init__(self, model_path=self.MODEL_PATH, model_mode=self.PARAGRAPH_LEVEL_TAGGER)
+
+
+def add_global_language_score_from_slice_score(result: DocResult) -> DocResult:
+    # the total document score is # of characters in each "english" span multiplied by the likelihood
+    # of said span being english
+    doc_en_score = sum((s.end - s.start) * s.score for s in result.spans if s.type == "en") / len(result.doc.text)
+
+    doc_level = (
+        Span(start=0, end=len(result.doc.text), type="doc_en", score=doc_en_score),
+        Span(start=0, end=len(result.doc.text), type="doc_not_en", score=1.0 - doc_en_score),
+    )
+    result.spans.extend(doc_level)
+    return result
+
+
+@TaggerRegistry.add("cld2_en_paragraph_with_doc_score_v2")
+class Cld2LanguageFilterParagraphWithDocScoreTagger(Cld2LanguageFilterParagraph):
+    def predict(self, doc: Document) -> DocResult:
+        doc_result = super().predict(doc)
+        doc_result = add_global_language_score_from_slice_score(doc_result)
+        return doc_result
+
+
+@TaggerRegistry.add("cld3_en_paragraph_with_doc_score_v2")
+class Cld3LanguageFilterParagraphWithDocScoreTagger(Cld3LanguageTaggerParagraph):
+    def predict(self, doc: Document) -> DocResult:
+        doc_result = super().predict(doc)
+        doc_result = add_global_language_score_from_slice_score(doc_result)
+        return doc_result
+
+
+@TaggerRegistry.add("ft_lang_id_en_paragraph_with_doc_score_v2")
+class FastTextEnglishLanguageParagraphWithDocScoreTagger(FastTextEnglishLanguageParagraphTagger):
+    def predict(self, doc: Document) -> DocResult:
+        doc_result = super().predict(doc)
+        doc_result = add_global_language_score_from_slice_score(doc_result)
+        return doc_result
