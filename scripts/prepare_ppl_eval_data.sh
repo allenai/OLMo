@@ -25,6 +25,7 @@ done
 echo "$(du -h -d 0 ${output_dir} | cut -d$'\t' -f1) total"
 
 # Preprocess, creating numpy memmap files of token IDs.
+PYTHONPATH=./
 for dir in ${output_dir}/*/${eval_set}; do
   output_file=${dir}.npy
   echo "Preparing ${dir}..."
