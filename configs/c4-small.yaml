@@ -115,75 +115,75 @@ evaluators:
         - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/4chan/val.npy
       drop_last: true
 
-  - label: c4_100_domains
+  - label: c4_100_domains-validation
     data:
       paths:
         - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/c4_100_domains/val.npy
       drop_last: true
 
-  - label: c4_en
+  - label: c4_en-validation
     data:
       paths:
         - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/c4_en/val.npy
       drop_last: true
 
-  - label: gab
+  - label: gab-validation
     data:
       paths:
         - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/gab/val.npy
       drop_last: true
 
-  - label: ice
+  - label: ice-validation
     data:
       paths:
         - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/ice/val.npy
       drop_last: true
 
-  - label: m2d2_s2orc
+  - label: m2d2_s2orc-validation
     data:
       paths:
         - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/m2d2_s2orc/val.npy
       drop_last: true
 
-  - label: m2d2_wiki
+  - label: m2d2_wiki-validation
     data:
       paths:
         - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/m2d2_wiki/val.npy
       drop_last: true
 
-  - label: manosphere
+  - label: manosphere-validation
     data:
       paths:
         - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/manosphere/val.npy
       drop_last: true
 
-  - label: mc4_en
+  - label: mc4_en-validation
     data:
       paths:
         - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/mc4_en/val.npy
       drop_last: true
 
-  - label: pile
+  - label: pile-validation
     data:
       paths:
         - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/pile/val.npy
       drop_last: true
 
   # Too small (not enough tokens for a single batch)
-  # - label: ptb
+  # - label: ptb-validation
   #   data:
   #     paths:
   #       - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/ptb/val.npy
   #     drop_last: true
 
-  - label: twitterAEE
+  - label: twitterAEE-validation
     data:
       paths:
         - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/twitterAEE/val.npy
       drop_last: true
 
   # Too small (not enough tokens for a single batch)
-  # - label: wikitext_103
+  # - label: wikitext_103-validation
   #   data:
   #     paths:
   #       - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/wikitext_103/val.npy
