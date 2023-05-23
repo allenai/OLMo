@@ -3,3 +3,4 @@ from .language import *  # noqa: F403
 from .length import *  # noqa: F403
 from .pii import *  # noqa: F403
 from .sampling import *  # noqa: F403
+from .code_secrets import *  # noqa: F403
