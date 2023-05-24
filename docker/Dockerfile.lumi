@@ -50,7 +50,7 @@ RUN wget http://repo.radeon.com/amdgpu-install/latest/ubuntu/jammy/amdgpu-instal
     sed -i 's/@AMDGPUVER@/5.5/g' /etc/apt/sources.list.d/amdgpu-proprietary.list && \
     amdgpu-install -y --accept-eula --usecase=rocm --no-dkms && \
     rm ./amdgpu-install_5.5.50500-1_all.deb && \
-    apt-get install -y rccl rocm-libs
+    apt-get install -y rccl5.5.0 rocm-libs5.5.0 rccl-dev5.5.0
 ENV ROCM_HOME=/opt/rocm
 
 # Install MPICH
