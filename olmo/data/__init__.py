@@ -45,6 +45,7 @@ def build_eval_dataloader(
 
 
 def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
+    assert train_config.device_train_batch_size is not None
     collator = DataCollator(
         pad_direction=train_config.data.pad_direction, pad_token_id=train_config.model.pad_token_id
     )
@@ -55,7 +56,7 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
             seed=train_config.seed,
             shuffle=True,
             drop_last=train_config.data.drop_last,
-            max_steps=train_config.max_duration,
+            max_steps=train_config.device_train_batch_size * train_config.max_duration,
         ),
         batch_size=train_config.device_train_batch_size,
         collate_fn=collator,

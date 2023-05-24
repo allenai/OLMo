@@ -7,6 +7,7 @@ Filters.
 """
 
 import regex
+import uniseg.wordbreak
 from tokenizers import Regex, pre_tokenizers
 
 from ..core_tools.data_types import DocResult, Document, Span
@@ -49,6 +50,22 @@ class WhitespaceLengthParagraphsV1(WhitespaceLengthV1):
             for p in split_paragraphs(doc.text)
         ]
         spans.append(Span(start=0, end=len(doc.text), type="document", score=sum(s.score for s in spans)))
+        return DocResult(doc=doc, spans=spans)
+
+
+@TaggerRegistry.add("uniseg_length_paragraphs_v1")
+class UnisegParagraphsV1(BaseTagger):
+    def predict(self, doc: Document) -> DocResult:
+        spans = []
+        for para in split_paragraphs(doc.text):
+            # we ignore whitespace-only tokens when counting words
+            para_length = sum(1 for w in uniseg.wordbreak.words(para.text.strip()) if w.strip())
+            spans.append(Span(start=para.start, end=para.end, type="paragraph", score=para_length))
+
+            # we have to record negative length because mixer can only work on greater than operations,
+            # and we might want to drop paragraphs that are shorter than a certain length n, so we need
+            # to filter on >= n
+            spans.append(Span(start=para.start, end=para.end, type="negative_paragraph", score=-para_length))
         return DocResult(doc=doc, spans=spans)
 
 

@@ -23,11 +23,12 @@ def make_variable_name(name: str, remove_multiple_underscores: bool = False) -> 
 
 def split_paragraphs(text: str) -> List[TextSlice]:
     """
-    Split a string into paragraphs.
+    Split a string into paragraphs. A paragraph is defined as a sequence of zero or more characters, followed
+    by a newline character, or a sequence of one or more characters, followed by the end of the string.
     """
     return [
         TextSlice(doc=text, start=match.start(), end=match.end())
-        for match in re.finditer(r"(^\n*)?[^\n]+(\n+|$)", text)
+        for match in re.finditer(r"([^\n]*\n|[^\n]+$)", text)
     ]
 
 

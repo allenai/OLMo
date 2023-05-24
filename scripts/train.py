@@ -200,6 +200,7 @@ def main(cfg: TrainConfig) -> None:
     if not cfg.dry_run:
         log.info("Starting training...")
         trainer.fit()
+        log.info("Training complete")
     else:
         log.info("Dry run complete")
 

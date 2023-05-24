@@ -1,0 +1,52 @@
+{
+  "streams": [
+    {
+      "name": "ian_perplexity_test_valid_set",
+      "documents": [
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/c4_100_domains/val/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/c4_100_domains/test/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/c4_en/val/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/c4_en/test/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/gab/val/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/gab/test/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/ice/val/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/ice/test/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/m2d2_s2orc/val/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/m2d2_s2orc/test/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/m2d2_wiki/val/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/m2d2_wiki/test/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/manosphere/val/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/manosphere/test/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/mc4_en/val/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/mc4_en/test/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/pile/val/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/pile/test/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/ptb/val/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/ptb/test/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/twitterAEE/val/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/twitterAEE/test/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/wikitext_103/val/*.gz",
+        "pretraining-data/sources/ian_perplexity_test_valid_set/v2/documents/wikitext_103/test/*.gz"
+      ],
+      "output": {
+        "path": "pretraining-data/sources/ian_perplexity_test_valid_set/v2_filtered/documents",
+        "max_size_in_bytes": 10000000
+      },
+      "attributes": [
+        "counts"
+      ],
+      "span_replacement": [
+        {
+          "span": "$.attributes.counts__uniseg_length_paragraphs_v1__negative_paragraph",
+          "min_score": -12,
+          "replacement": ""
+        }
+      ]
+    }
+  ],
+  "work_dir": {
+    "input": "/tmp/decontamination/mixer/input",
+    "output": "/tmp/decontamination/mixer/output"
+  },
+  "processes": 96
+}
