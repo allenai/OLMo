@@ -45,6 +45,14 @@ make build-tools    # will install rust and tools to build the mixer
 make mixer          # will build the mixer; available at ./target/release/mixer
 ```
 
+Download the bloom filter for decontamination:
+
+```shell
+aws s3 cp \
+    s3://ai2-llm/eval-data/perplexity/blocklists/eval_subset_v2/deduper_decontamination_lucas_20230522.bin \
+    /tmp/deduper_decontamination_lucas_20230523.bin
+```
+
 Now run the deduper:
 
 ```shell
@@ -91,8 +99,20 @@ You can check out the mixer config to see how it works. In particular, it applie
             "span": "$.attributes.abl0__cld2_en_paragraph_with_doc_score_v2__not_en",
             "min_score": 0.1,
             "replacement": ""
+        },
+        ...
+    ]
+- Remove all paragraphs that are been tagged as duplicates with the validation set using bff
+    ```json
+    "span_replacement": [
+        ...,
+        {
+          "span": "$.attributes.bff_duplicate_paragraph_spans",
+          "min_score": 1,
+          "replacement": ""
         }
     ]
     ```
 
-Note how the configuration only runs the mixing on 27 languages. Nevertheless, we go from 27GB to just over 8.8GB.
+Note how the configuration only runs the mixing on 27 languages.
+Nevertheless, with the filters above, we went from 27GB to just over 8.4GB.

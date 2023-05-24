@@ -185,9 +185,10 @@ class TaggerProcessor(BaseParallelProcessor):
         opts = ap.parse_args()
 
         if opts.list_taggers:
-            print("Available taggers:")
-            for tagger_name, tagger_cls in TaggerRegistry.taggers():
+            print("\nAvailable Taggers:")
+            for tagger_name, tagger_cls in sorted(TaggerRegistry.taggers()):
                 print(f"  {tagger_name} ({tagger_cls.__name__})")
+            print()
             return
 
         assert opts.dataset is not None, "Dataset must be specified."
