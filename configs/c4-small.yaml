@@ -4,7 +4,6 @@ dry_run: false
 
 wandb:
   name: ${run_name}
-  group: 1B-baseline-v1
   project: c4-small
 
 model:
