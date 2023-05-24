@@ -1,0 +1,50 @@
+{
+    "documents": [
+        "pretraining-data/sources/wikipedia/v0/documents/lang=en/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=de/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=ja/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=fr/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=es/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=ru/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=it/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=zh/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=pt/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=uk/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=nl/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=pl/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=ca/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=ar/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=vi/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=cs/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=th/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=he/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=hu/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=fa/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=no/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=id/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=sr/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=fi/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=el/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=ko/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=ro/*.gz",
+        "pretraining-data/sources/wikipedia/v0/documents/lang=simple/*.gz"
+    ],
+    "work_dir": {
+        "input": "/tmp/deduper/input",
+        "output": "/tmp/deduper/output"
+    },
+    "dedupe": {
+        "name": "decontamination",
+        "paragraphs": {
+            "attribute_name": "bff_duplicate_paragraph_spans"
+        }
+    },
+    "bloom_filter": {
+        "file": "/tmp/deduper_decontamination_lucas_20230523.bin",
+        "size_in_bytes": 8388608,
+        "read_only": true,
+        "estimated_doc_count": 3898706,
+        "desired_false_positive_rate": 0.001
+    },
+    "processes": 96
+}

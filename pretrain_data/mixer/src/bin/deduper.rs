@@ -22,7 +22,7 @@ use deduper_config::*;
 
 fn main() {
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "info")
+        env::set_var("RUST_LOG", "ai2_pretraining=info,deduper=info");
     }
     env_logger::init();
 
@@ -211,6 +211,7 @@ fn write_attributes(doc_path: String,
                 }
             }
             let mut output_object = json!({});
+            output_object["id"] = data["id"].clone();
             output_object["attributes"] = attributes;
             serde_json::to_writer(&mut writer, &output_object)?;
             writer.write_all(b"\n")?;

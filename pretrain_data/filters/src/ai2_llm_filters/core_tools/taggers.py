@@ -31,5 +31,5 @@ class BaseTagger:
 
         tagger_output: Dict[str, list] = {}
         for span in doc_result.spans:
-            tagger_output.setdefault(span.type, []).append([span.start, span.end, round(span.score, 5)])
+            tagger_output.setdefault(span.type, []).append([span.start, span.end, round(float(span.score), 5)])
         return tagger_output

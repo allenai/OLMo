@@ -7,12 +7,13 @@ import blingfire
 from .data_types import TextSlice
 
 
-def make_variable_name(name: str) -> str:
+def make_variable_name(name: str, remove_multiple_underscores: bool = False) -> str:
     # use underscores for any non-valid characters in variable name
     name = re.sub(r"[^a-zA-Z0-9_]", "_", name)
 
-    # replace multiple underscores with a single underscore
-    name = re.sub(r"__+", "_", name)
+    if remove_multiple_underscores:
+        # replace multiple underscores with a single underscore
+        name = re.sub(r"__+", "_", name)
 
     if name[0] in string.digits:
         raise ValueError(f"Invalid variable name {name}")
@@ -22,11 +23,12 @@ def make_variable_name(name: str) -> str:
 
 def split_paragraphs(text: str) -> List[TextSlice]:
     """
-    Split a string into paragraphs.
+    Split a string into paragraphs. A paragraph is defined as a sequence of zero or more characters, followed
+    by a newline character, or a sequence of one or more characters, followed by the end of the string.
     """
     return [
         TextSlice(doc=text, start=match.start(), end=match.end())
-        for match in re.finditer(r"(^\n*)?[^\n]+(\n+|$)", text)
+        for match in re.finditer(r"([^\n]*\n|[^\n]+$)", text)
     ]
 
 

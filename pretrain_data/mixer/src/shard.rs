@@ -75,6 +75,7 @@ impl Shard {
             shard_inputs.push(inputs_with_sizes[0].0.clone());
             for (input, size) in inputs_with_sizes[1..].iter() {
                 if *size == 0 {
+                    log::warn!("Skipping input {}. Could not determine size", input.doc_path);
                     continue;
                 }
                 shard_size += size;
