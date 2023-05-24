@@ -121,17 +121,6 @@ fn write_attributes(doc_path: String,
 
     let tmp_output_path = output_work_dir.join(output_path.clone() + ".tmp");
     {
-        let tmp_output = OpenOptions::new().
-            read(false).
-            write(true).
-            create(true).
-            truncate(true).
-            open(&tmp_output_path)?;
-
-        let mut writer = BufWriter::with_capacity(
-            1024 * 1024,
-            GzEncoder::new(tmp_output, Compression::default()));
-
         let local_input = input_work_dir.join(Path::new(&doc_path));
         log::info!("Downloading {} to {}", doc_path, local_input.display());
         rt.block_on(download_to_file(
@@ -148,6 +137,17 @@ fn write_attributes(doc_path: String,
         let reader = BufReader::with_capacity(
             1024 * 1024,
             MultiGzDecoder::new(input_file));
+
+        let tmp_output = OpenOptions::new().
+            read(false).
+            write(true).
+            create(true).
+            truncate(true).
+            open(&tmp_output_path)?;
+
+        let mut writer = BufWriter::with_capacity(
+            1024 * 1024,
+            GzEncoder::new(tmp_output, Compression::default()));
 
         let mut line_number = 0;
         for line in reader.lines() {

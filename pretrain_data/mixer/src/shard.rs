@@ -270,7 +270,13 @@ impl Shard {
                                                 }
                                                 span_index += 1;
                                             }
-                                            new_text.push(c);
+                                            if span_index < replacements.len()
+                                                && replacements[span_index].start == i {
+                                                span_start_byte_index = byte_index;
+                                            }
+                                            else {
+                                                new_text.push(c);
+                                            }
                                         }
                                     }
                                     else {

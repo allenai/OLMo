@@ -151,8 +151,8 @@ mod test {
     }
 
     #[test]
-    fn test_span_replacement() -> Result<(), io::Error> {
-        let config = MixerConfig::read_from_file("tests/config/spans.json")?;
+    fn test_email_span_replacement() -> Result<(), io::Error> {
+        let config = MixerConfig::read_from_file("tests/config/email-spans.json")?;
         run(config);
 
         let rt = tokio::runtime::Builder::new_current_thread()
@@ -160,12 +160,32 @@ mod test {
             .build().unwrap();
         let s3_client = s3_util::new_client()?;
 
-        let local_output_file = "tests/work/output/spans.json.gz";
+        let local_output_file = "tests/work/output/email-spans.json.gz";
         rt.block_on(download_to_file(&s3_client, "ai2-llm",
-                                     "pretraining-data/tests/mixer/outputs/v1/documents/head/spans-test-0000.json.gz",
+                                     "pretraining-data/tests/mixer/outputs/v1/documents/head/email-spans-test-0000.json.gz",
                                      Path::new(local_output_file)))?;
 
-        compare_contents("tests/data/expected/spans.json.gz",
+        compare_contents("tests/data/expected/email-spans.json.gz",
+                         local_output_file);
+        Ok(())
+    }
+
+    #[test]
+    fn test_paragraph_removal() -> Result<(), io::Error> {
+        let config = MixerConfig::read_from_file("tests/config/paragraph-spans.json")?;
+        run(config);
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build().unwrap();
+        let s3_client = s3_util::new_client()?;
+
+        let local_output_file = "tests/work/output/remove-paragraphs.json.gz";
+        rt.block_on(download_to_file(&s3_client, "ai2-llm",
+                                     "pretraining-data/tests/mixer/outputs/v1/documents/head/paragraph-spans-test-0000.json.gz",
+                                     Path::new(local_output_file)))?;
+
+        compare_contents("tests/data/expected/remove-paragraphs.json.gz",
                          local_output_file);
         Ok(())
     }
