@@ -645,11 +645,8 @@ class Trainer:
     def fit(self):
         start_time = time.time()
 
-        if self.cfg.load_path is not None and self.global_step > 0:
-            # Evaluate right away if we're loading from a checkpoint.
+        if self.cfg.load_path is not None and self.global_step > 0 and self.cfg.eval_on_load:
             eval_metrics = self.eval()
-
-            # Log metrics to W&B.
             if wandb.run is not None:
                 wandb.log(eval_metrics, step=self.global_step)
 
