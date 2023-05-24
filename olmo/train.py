@@ -397,7 +397,8 @@ class Trainer:
             else:
                 log.info(f"Fast-forwarding data loader to {self.global_data_step}")
             assert isinstance(self.train_loader.dataset, IterableDataset)
-            self.train_loader.dataset.start_step = self.global_data_step
+            assert self.cfg.device_train_batch_size is not None
+            self.train_loader.dataset.start_step = self.cfg.device_train_batch_size * self.global_data_step
 
     def save_checkpoint(self, checkpoint_type: CheckpointType = CheckpointType.sharded) -> Path:
         if checkpoint_type == CheckpointType.sharded:
@@ -734,10 +735,6 @@ class Trainer:
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
                 speed_monitor.reset()
 
-            if time_limit_reached:
-                log.info("Training time limit reached, ending early")
-                break
-
             # Maybe run evaluations.
             if self.global_step % self.cfg.eval_interval == 0:
                 eval_metrics = self.eval()
@@ -754,6 +751,12 @@ class Trainer:
 
             # End of batch.
             first_batch = False
+
+            if time_limit_reached:
+                log.info("Training time limit reached, ending early")
+                break
+        else:
+            log.info("Training loop complete")
 
         # Save final unsharded model-only checkpoint.
         log.info("Saving final unsharded model checkpoint...")
