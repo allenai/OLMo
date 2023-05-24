@@ -16,7 +16,9 @@ T = TypeVar("T")
 class IterableDataset(torch.utils.data.IterableDataset[T]):
     """
     Adapted from PyTorch's DistributedSampler, this wraps a Dataset or arbitrary sequence
-    as an IterableDataset that can be deterministically restarted at any point by setting `start_step`.
+    as an IterableDataset that can be deterministically restarted at any point by setting `start_step`,
+    which should be a multiple of your per-device batch size.
+    Similarly `max_steps`, if set, should be a multiple of per-device batch size.
     """
 
     def __init__(
@@ -27,7 +29,9 @@ class IterableDataset(torch.utils.data.IterableDataset[T]):
         start_step: int = 0,
         max_steps: Optional[int] = None,
         shuffle: bool = True,
-        drop_last: bool = False
+        drop_last: bool = False,
+        world_size: Optional[int] = None,
+        rank: Optional[int] = None,
     ):
         self.dataset = dataset
         self.seed = seed
@@ -35,8 +39,12 @@ class IterableDataset(torch.utils.data.IterableDataset[T]):
         self.max_steps = max_steps
         self.shuffle = shuffle
         self.drop_last = drop_last
-        self.rank = global_rank()
-        self.world_size = dist.get_world_size() if (dist.is_available() and dist.is_initialized()) else 1
+        self.rank = rank if rank is not None else global_rank()
+        self.world_size = (
+            world_size
+            if world_size is not None
+            else (dist.get_world_size() if (dist.is_available() and dist.is_initialized()) else 1)
+        )
         # If the dataset length is evenly divisible by # of replicas, then there
         # is no need to drop any data, since the dataset will be split equally.
         if self.drop_last and len(self.dataset) % self.world_size != 0:  # type: ignore[arg-type]
