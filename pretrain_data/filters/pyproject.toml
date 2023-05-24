@@ -5,6 +5,7 @@ description = "Data filters"
 authors = [
     {name = "Aakanksha Naik", email = "aakankshan@allenai.org" },
     {name = "Abhilasha Ravichander", email = "abhilashar@allenai.org" },
+    {name = "Akshita Bhagia", email = "akshitab@allenai.org" },
     {name = "Ian Magnusson", email = "ianm@allenai.org" },
     {name = "Khyathi Chandu", email = "khyathic@allenai.org" },
     {name = "Kyle Lo", email = "kylel@allenai.org" },
@@ -28,7 +29,8 @@ dependencies = [
     "fasttext==0.9.2",
     "tokenizers==0.13.3",
     "unidecode",
-    "uniseg"
+    "uniseg",
+    "detect-secrets==1.4.0"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
