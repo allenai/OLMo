@@ -1,0 +1,24 @@
+{
+  "streams": [
+    {
+      "name": "v1_small-head",
+      "documents": [
+        "pretraining-data/sources/common-crawl/v1/documents/cc_en_head/*"
+      ],
+      "output": {
+        "path": "pretraining-data/sources/common-crawl/v1-small-head/documents",
+        "max_size_in_bytes": 8589934592
+      },
+      "attributes": ["sample"],
+      "filter": {
+        "include": ["$.attributes[?(@.sample__random_number_v1__random[0][2] < 0.34)]"],
+        "exclude": []
+      }
+    }
+  ],
+  "work_dir": {
+    "input": "/data1/work/input",
+    "output": "/data2/work/output"
+  },
+  "processes": 128
+}
