@@ -15,6 +15,7 @@ import concurrent.futures
 import gzip
 import json
 import logging
+import os
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Generator, List, Optional, Tuple
@@ -107,7 +108,9 @@ def main(
     # Tokenize all documents to determine how many tokens are in each file.
     src_to_num_tokens: Dict[Path, int] = defaultdict(int)
     total_docs = 0
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+    with concurrent.futures.ProcessPoolExecutor(
+        max_workers=min(max_workers or os.cpu_count() or 1, len(src))
+    ) as executor:
         futures = []
         for path in src:
             future = executor.submit(count_tokens, tokenizer, path)
@@ -134,7 +137,9 @@ def main(
 
     # Now tokenizer all documents again and populate the memmap array.
     # We do this in parallel.
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+    with concurrent.futures.ProcessPoolExecutor(
+        max_workers=min(max_workers or os.cpu_count() or 1, len(src))
+    ) as executor:
         futures = []
         offset = 0
         for path in sorted(src):
