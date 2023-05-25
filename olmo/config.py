@@ -583,6 +583,11 @@ class TrainConfig(BaseConfig):
     The number of batches to use for downstream evaluation from each dataset.
     """
 
+    eval_on_load: bool = False
+    """
+    When resuming from a checkpoint, run the evaluation loop right away.
+    """
+
     device_train_grad_accum: Optional[int] = None  # calculated automatically
     """
     Don't set this manually. This will be set to ``device_train_batch_size // device_train_microbatch_size``.
