@@ -53,7 +53,9 @@ def tokenize_file(tokenizer: Tokenizer, path: Path) -> Generator[List[int], None
             yield tokenizer.encode(text, add_special_tokens=True)
 
 
-def count_tokens(tokenizer: Tokenizer, path: Path) -> Tuple[Path, int, int]:
+#def count_tokens(tokenizer: Tokenizer, path: Path) -> Tuple[Path, int, int]:
+def count_tokens(tokenizer_id: str, path: Path) -> Tuple[Path, int, int]:
+    tokenizer = Tokenizer.from_pretrained(tokenizer_id, truncate_to=None)
     num_tokens = 0
     num_docs = 0
     for token_ids in tokenize_file(tokenizer, path):
@@ -110,15 +112,22 @@ def main(
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = []
         for path in src:
-            future = executor.submit(count_tokens, tokenizer, path)
+            #future = executor.submit(count_tokens, tokenizer, path)
+            future = executor.submit(count_tokens, tokenizer_id, path)
             futures.append(future)
-        with get_progress() as progress:
-            for future in progress.track(
-                concurrent.futures.as_completed(futures), description="Counting tokens...", total=len(futures)
-            ):
-                path, num_tokens, num_docs = future.result()
-                src_to_num_tokens[path] = num_tokens
-                total_docs += num_docs
+
+        for future in concurrent.futures.as_completed(futures):
+            path, num_tokens, num_docs = future.result()
+            src_to_num_tokens[path] = num_tokens
+            total_docs += num_docs
+
+#        with get_progress() as progress:
+#            for future in progress.track(
+#                concurrent.futures.as_completed(futures), description="Counting tokens...", total=len(futures)
+#            ):
+#                path, num_tokens, num_docs = future.result()
+#                src_to_num_tokens[path] = num_tokens
+#                total_docs += num_docs
 
     total_tokens = sum(src_to_num_tokens.values())
     log.info(f"Counted {total_tokens:,d} tokens over {total_docs:,d} documents")
