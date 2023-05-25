@@ -56,7 +56,6 @@ def tokenize_file(tokenizer: Tokenizer, path: Path) -> Generator[List[int], None
 
 
 def count_tokens(tokenizer_id: str, path: Path) -> Tuple[Path, int, int]:
-    print(os.getpid())
     tokenizer = Tokenizer.from_pretrained(tokenizer_id, truncate_to=None)
     num_tokens = 0
     num_docs = 0
@@ -67,7 +66,6 @@ def count_tokens(tokenizer_id: str, path: Path) -> Tuple[Path, int, int]:
 
 
 def fill_memmap(tokenizer_id: str, path: Path, memmap_path: Path, num_tokens: int, offset: int, dtype: np.dtype):
-    print(os.getpid())
     tokenizer = Tokenizer.from_pretrained(tokenizer_id, truncate_to=None)
     memmap = np.memmap(memmap_path, mode="r+", dtype=dtype, offset=offset * dtype.itemsize, shape=(num_tokens,))
     index = 0
