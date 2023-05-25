@@ -49,8 +49,8 @@ Download the bloom filter for decontamination:
 
 ```shell
 aws s3 cp \
-    s3://ai2-llm/eval-data/perplexity/blocklists/eval_subset_v2/deduper_decontamination_lucas_20230522.bin \
-    /tmp/deduper_decontamination_lucas_20230523.bin
+    s3://ai2-llm/eval-data/perplexity/blocklists/eval_subset_v2/deduper_decontamination_lucas_20230525.bin \
+    /tmp/decontamination/deduper_decontamination_lucas_20230525.bin
 ```
 
 Now run the deduper:

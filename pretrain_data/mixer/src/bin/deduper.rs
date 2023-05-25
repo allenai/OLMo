@@ -171,6 +171,11 @@ fn write_attributes(doc_path: String,
                         finder.find().as_array().unwrap().get(0).unwrap().as_str().unwrap().to_string()
                     };
 
+                    // skip empty documents if configured
+                    if !dedupe_config.skip_empty.unwrap_or(false) || document_key.trim().is_empty() {
+                        continue;
+                    }
+
                     let mut dedupe_key = VecDeque::with_capacity(1);
                     dedupe_key.push_back(document_key.as_str());
                     if bloom_filter.contains(&dedupe_key) {
@@ -198,10 +203,16 @@ fn write_attributes(doc_path: String,
                         }
                         let par_end = offset;
 
+                        if dedupe_config.skip_empty.unwrap_or(false) && p.trim().is_empty()  {
+                            // exit early if we're skipping empty paragraphs
+                            continue;
+                        }
+
                         let mut dedupe_key = VecDeque::with_capacity(1);
                         dedupe_key.push_back(p);
                         if bloom_filter.contains(&dedupe_key) {
                             let span = vec! {Value::Number(par_start.into()), Value::Number(par_end.into()), Value::Number(1.into())};
+                            // add span to duplicate_paragraph_spans
                             duplicate_paragraph_spans.push(Value::Array(span));
                         } else if !bloom_filter.read_only {
                             bloom_filter.insert(&dedupe_key);
@@ -268,6 +279,8 @@ mod deduper_config {
         pub name: String,
         pub documents: Option<DocumentDedupeConfig>,
         pub paragraphs: Option<ParagraphDedupeConfig>,
+
+        pub skip_empty: Option<bool>,
     }
 
     #[derive(Serialize, Deserialize, Clone)]
@@ -288,6 +301,7 @@ mod deduper_config {
         }
     }
 }
+
 
 #[cfg(test)]
 mod test {

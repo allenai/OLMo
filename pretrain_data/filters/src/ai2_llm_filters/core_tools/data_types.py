@@ -23,9 +23,9 @@ class InputSpec(Struct):
 
 
 class OutputSpec(Struct):
-    source: str
     id: str
     attributes: Dict[str, List[List[Union[int, float]]]]
+    source: Optional[str] = None
 
 
 class Document:
@@ -85,7 +85,12 @@ class Span:
 
     @classmethod
     def from_spec(cls, attribute_name: str, attribute_value: List[Union[int, float]]) -> "Span":
-        exp_name, tgr_name, attr_type = attribute_name.split("__", 2)
+        if "__" in attribute_name:
+            # bff tagger has different name
+            exp_name, tgr_name, attr_type = attribute_name.split("__", 2)
+        else:
+            exp_name = tgr_name = attr_type = attribute_name
+
         start, end, score = attribute_value
         return Span(
             start=int(start),
