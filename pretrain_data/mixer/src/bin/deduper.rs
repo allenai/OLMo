@@ -327,14 +327,16 @@ mod test {
                     read(true).
                     write(false).
                     create(false).
-                    open(expected).unwrap())).lines();
+                    open(expected).unwrap())).lines().collect::<Vec<Result<String, io::Error>>>();
         let actual_lines = BufReader::new(
             MultiGzDecoder::new(
                 OpenOptions::new().
                     read(true).
                     write(false).
                     create(false).
-                    open(actual).unwrap())).lines();
+                    open(actual).unwrap())).lines().collect::<Vec<Result<String, io::Error>>>();
+
+        assert_eq!(expected_lines.len(), actual_lines.len(), "Wrong number of output documents");
 
         for (actual, expected) in std::iter::zip(
             expected_lines,
