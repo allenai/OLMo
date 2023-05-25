@@ -171,8 +171,9 @@ fn write_attributes(doc_path: String,
                         finder.find().as_array().unwrap().get(0).unwrap().as_str().unwrap().to_string()
                     };
 
-                    // skip empty documents if configured
-                    if !dedupe_config.skip_empty.unwrap_or(false) || document_key.trim().is_empty() {
+                    if dedupe_config.skip_empty.unwrap_or(false) && document_key.trim().is_empty() {
+                        // skip empty documents if dedupe_config.skip_empty is true
+                        // and the document key is empty after trimming (i.e., removing whitespace)
                         continue;
                     } else {
                         let mut dedupe_key = VecDeque::with_capacity(1);
@@ -204,7 +205,8 @@ fn write_attributes(doc_path: String,
                         let par_end = offset;
 
                         if dedupe_config.skip_empty.unwrap_or(false) && p.trim().is_empty()  {
-                            // exit early if we're skipping empty paragraphs
+                            // skip empty paragraphs if dedupe_config.skip_empty is true
+                            // and the paragraph is empty after trimming (i.e., removing whitespace)
                             continue;
                         } else {
                             let mut dedupe_key = VecDeque::with_capacity(1);
