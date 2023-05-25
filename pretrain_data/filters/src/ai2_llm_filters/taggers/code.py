@@ -7,8 +7,10 @@ Code secrets.
 """
 import logging
 import re
+import regex
 from typing import Generator, List
 
+import numpy as np
 from detect_secrets import SecretsCollection
 from detect_secrets.core.scan import (
     PotentialSecret,
@@ -156,3 +158,42 @@ class CodeCopyrightTagger(BaseTagger):
         except ZeroDivisionError:
             score = -1.0
         return score
+
+
+@TaggerRegistry.add("code_redpajama_taggers_v1")
+class CodeRedPajamaTaggers(BaseTagger):
+    """
+    Based on RedPajama code filtering.
+    """
+
+    WHITESPACE_REGEX = regex.compile(r"\w+|[^\w\s]+")
+
+    def _get_num_tokens(self, text: str):
+        return len(self.WHITESPACE_REGEX.split(text))
+
+    def predict(self, doc: Document) -> DocResult:
+        """Main runner."""
+
+        spans: List[Span] = []
+
+        doc_length = len(doc.text)
+
+        line_lengths = list(map(len, doc.text.splitlines()))
+
+        max_line_length = max(line_lengths, default=0.0)
+        avg_line_length = np.mean(line_lengths) if len(line_lengths) > 0 else 0.0
+
+        alnum_count = sum(map(lambda char: 1 if char.isalnum() else 0, doc.text))
+        alnum_prop = (alnum_count / doc_length) if doc_length > 0 else 0.0
+
+        num_tokens = self._get_num_tokens(doc.text)
+        num_alpha = len([c for c in doc.text if c.isalpha()])
+        alpha_token_prop = (num_alpha / num_tokens) if num_tokens > 0 else 0.0
+
+        # document-level scores
+        spans.append(Span(start=0, end=doc_length, type="max_line_length_doc", score=max_line_length))
+        spans.append(Span(start=0, end=doc_length, type="avg_line_length_doc", score=avg_line_length))
+        spans.append(Span(start=0, end=doc_length, type="alnum_prop_doc", score=alnum_prop))
+        spans.append(Span(start=0, end=doc_length, type="alpha_token_prop_doc", score=alpha_token_prop))
+
+        return DocResult(doc=doc, spans=spans)
