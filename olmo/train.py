@@ -397,8 +397,7 @@ class Trainer:
             else:
                 log.info(f"Fast-forwarding data loader to {self.global_data_step}")
             assert isinstance(self.train_loader.dataset, IterableDataset)
-            assert self.cfg.device_train_batch_size is not None
-            self.train_loader.dataset.start_step = self.cfg.device_train_batch_size * self.global_data_step
+            self.train_loader.dataset.start_index = self.cfg.global_train_batch_size * self.global_data_step
 
     def save_checkpoint(self, checkpoint_type: CheckpointType = CheckpointType.sharded) -> Path:
         if checkpoint_type == CheckpointType.sharded:
