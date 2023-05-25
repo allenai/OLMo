@@ -19,7 +19,7 @@ export NODE_RANK=$((($RANK - $LOCAL_RANK) / $LOCAL_WORLD_SIZE))
 
 if [ $SLURM_LOCALID -eq 0 ] ; then
   rm -rf /dev/shm/*
-  rocm-smi
+  rocm-smi || true	# rocm-smi returns exit code 2 even when it succeeds
 else
   sleep 2
 fi
