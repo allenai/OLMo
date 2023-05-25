@@ -15,6 +15,8 @@ import concurrent.futures
 import gzip
 import json
 import logging
+import multiprocessing as mp
+import os
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Generator, List, Optional, Tuple
@@ -53,7 +55,6 @@ def tokenize_file(tokenizer: Tokenizer, path: Path) -> Generator[List[int], None
             yield tokenizer.encode(text, add_special_tokens=True)
 
 
-#def count_tokens(tokenizer: Tokenizer, path: Path) -> Tuple[Path, int, int]:
 def count_tokens(tokenizer_id: str, path: Path) -> Tuple[Path, int, int]:
     tokenizer = Tokenizer.from_pretrained(tokenizer_id, truncate_to=None)
     num_tokens = 0
@@ -64,9 +65,8 @@ def count_tokens(tokenizer_id: str, path: Path) -> Tuple[Path, int, int]:
     return path, num_tokens, num_docs
 
 
-def fill_memmap(
-    tokenizer: Tokenizer, path: Path, memmap_path: Path, num_tokens: int, offset: int, dtype: np.dtype
-):
+def fill_memmap(tokenizer_id: str, path: Path, memmap_path: Path, num_tokens: int, offset: int, dtype: np.dtype):
+    tokenizer = Tokenizer.from_pretrained(tokenizer_id, truncate_to=None)
     memmap = np.memmap(memmap_path, mode="r+", dtype=dtype, offset=offset * dtype.itemsize, shape=(num_tokens,))
     index = 0
     for token_ids in tokenize_file(tokenizer, path):
@@ -102,32 +102,26 @@ def main(
     validate: bool,
     max_workers: Optional[int] = None,
 ):
-    tokenizer = Tokenizer.from_pretrained(tokenizer_id, truncate_to=None)
     dtype = np.dtype(dtype_str)
     dtype_max = np.iinfo(dtype).max
 
     # Tokenize all documents to determine how many tokens are in each file.
     src_to_num_tokens: Dict[Path, int] = defaultdict(int)
     total_docs = 0
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+    with concurrent.futures.ProcessPoolExecutor(
+        max_workers=min(max_workers or os.cpu_count() or 1, len(src))
+    ) as executor:
         futures = []
         for path in src:
-            #future = executor.submit(count_tokens, tokenizer, path)
             future = executor.submit(count_tokens, tokenizer_id, path)
             futures.append(future)
-
-        for future in concurrent.futures.as_completed(futures):
-            path, num_tokens, num_docs = future.result()
-            src_to_num_tokens[path] = num_tokens
-            total_docs += num_docs
-
-#        with get_progress() as progress:
-#            for future in progress.track(
-#                concurrent.futures.as_completed(futures), description="Counting tokens...", total=len(futures)
-#            ):
-#                path, num_tokens, num_docs = future.result()
-#                src_to_num_tokens[path] = num_tokens
-#                total_docs += num_docs
+        with get_progress() as progress:
+            for future in progress.track(
+                concurrent.futures.as_completed(futures), description="Counting tokens...", total=len(futures)
+            ):
+                path, num_tokens, num_docs = future.result()
+                src_to_num_tokens[path] = num_tokens
+                total_docs += num_docs
 
     total_tokens = sum(src_to_num_tokens.values())
     log.info(f"Counted {total_tokens:,d} tokens over {total_docs:,d} documents")
@@ -143,11 +137,15 @@ def main(
 
     # Now tokenizer all documents again and populate the memmap array.
     # We do this in parallel.
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+    with concurrent.futures.ProcessPoolExecutor(
+        max_workers=min(max_workers or os.cpu_count() or 1, len(src))
+    ) as executor:
         futures = []
         offset = 0
         for path in sorted(src):
-            future = executor.submit(fill_memmap, tokenizer, path, output, src_to_num_tokens[path], offset, dtype)
+            future = executor.submit(
+                fill_memmap, tokenizer_id, path, output, src_to_num_tokens[path], offset, dtype
+            )
             futures.append(future)
             offset += src_to_num_tokens[path]
         with get_progress() as progress:
@@ -160,6 +158,7 @@ def main(
 
     if validate:
         log.info("Validating...")
+        tokenizer = Tokenizer.from_pretrained(tokenizer_id, truncate_to=None)
         memmap = np.memmap(output, mode="r", dtype=dtype, shape=(total_tokens,))
         # Should have an EOS token for every document.
         assert (memmap == tokenizer.eos_token_id).sum() == total_docs
@@ -170,5 +169,6 @@ def main(
 
 
 if __name__ == "__main__":
+    mp.set_start_method("spawn")
     prepare_cli_environment()
     main()
