@@ -158,3 +158,13 @@ class PiiPresidioV1(BasePiiFilter):
 class PiiRegexV1(BasePiiFilter):
     def __init__(self):
         super().__init__(method=self.REGEX, postprocess=True, window=self.WINDOW)
+
+
+@TaggerRegistry.add("pii_regex_v2")
+class PiiRegexV2(PiiRegexV1):
+    def _score(self, text: str, pii_spans: List[Span]) -> float:
+        try:
+            score = len(pii_spans) * 1.0 / len(text.split())
+        except ZeroDivisionError:
+            score = -1.0
+        return score
