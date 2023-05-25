@@ -43,6 +43,7 @@ Homepage = "https://github.com/allenai/llm"
 [project.scripts]
 ai2_llm_filters = "ai2_llm_filters.core_tools.runtime:TaggerProcessor.main"
 ai2_llm_filters_viz = "ai2_llm_filters.core_tools.vizualizer:Visualizer.main"
+ai2_llm_filters_pre = "ai2_llm_filters.core_tools.vizualizer:RawPreviewer.main"
 
 
 [project.optional-dependencies]
