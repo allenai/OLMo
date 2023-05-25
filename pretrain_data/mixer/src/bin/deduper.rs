@@ -174,14 +174,14 @@ fn write_attributes(doc_path: String,
                     // skip empty documents if configured
                     if !dedupe_config.skip_empty.unwrap_or(false) || document_key.trim().is_empty() {
                         continue;
-                    }
-
-                    let mut dedupe_key = VecDeque::with_capacity(1);
-                    dedupe_key.push_back(document_key.as_str());
-                    if bloom_filter.contains(&dedupe_key) {
-                        attributes[&cfg.attribute_name] = Value::Bool(true);
-                    } else if !bloom_filter.read_only {
-                        bloom_filter.insert(&dedupe_key);
+                    } else {
+                        let mut dedupe_key = VecDeque::with_capacity(1);
+                        dedupe_key.push_back(document_key.as_str());
+                        if bloom_filter.contains(&dedupe_key) {
+                            attributes[&cfg.attribute_name] = Value::Bool(true);
+                        } else if !bloom_filter.read_only {
+                            bloom_filter.insert(&dedupe_key);
+                        }
                     }
                 }
                 None => {}
@@ -206,16 +206,16 @@ fn write_attributes(doc_path: String,
                         if dedupe_config.skip_empty.unwrap_or(false) && p.trim().is_empty()  {
                             // exit early if we're skipping empty paragraphs
                             continue;
-                        }
-
-                        let mut dedupe_key = VecDeque::with_capacity(1);
-                        dedupe_key.push_back(p);
-                        if bloom_filter.contains(&dedupe_key) {
-                            let span = vec! {Value::Number(par_start.into()), Value::Number(par_end.into()), Value::Number(1.into())};
-                            // add span to duplicate_paragraph_spans
-                            duplicate_paragraph_spans.push(Value::Array(span));
-                        } else if !bloom_filter.read_only {
-                            bloom_filter.insert(&dedupe_key);
+                        } else {
+                            let mut dedupe_key = VecDeque::with_capacity(1);
+                            dedupe_key.push_back(p);
+                            if bloom_filter.contains(&dedupe_key) {
+                                let span = vec! {Value::Number(par_start.into()), Value::Number(par_end.into()), Value::Number(1.into())};
+                                // add span to duplicate_paragraph_spans
+                                duplicate_paragraph_spans.push(Value::Array(span));
+                            } else if !bloom_filter.read_only {
+                                bloom_filter.insert(&dedupe_key);
+                            }
                         }
                     }
                     attributes[&cfg.attribute_name] = Value::Array(duplicate_paragraph_spans);
