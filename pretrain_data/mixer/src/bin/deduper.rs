@@ -121,17 +121,6 @@ fn write_attributes(doc_path: String,
 
     let tmp_output_path = output_work_dir.join(output_path.clone() + ".tmp");
     {
-        let tmp_output = OpenOptions::new().
-            read(false).
-            write(true).
-            create(true).
-            truncate(true).
-            open(&tmp_output_path)?;
-
-        let mut writer = BufWriter::with_capacity(
-            1024 * 1024,
-            GzEncoder::new(tmp_output, Compression::default()));
-
         let local_input = input_work_dir.join(Path::new(&doc_path));
         log::info!("Downloading {} to {}", doc_path, local_input.display());
         rt.block_on(download_to_file(
@@ -148,6 +137,17 @@ fn write_attributes(doc_path: String,
         let reader = BufReader::with_capacity(
             1024 * 1024,
             MultiGzDecoder::new(input_file));
+
+        let tmp_output = OpenOptions::new().
+            read(false).
+            write(true).
+            create(true).
+            truncate(true).
+            open(&tmp_output_path)?;
+
+        let mut writer = BufWriter::with_capacity(
+            1024 * 1024,
+            GzEncoder::new(tmp_output, Compression::default()));
 
         let mut line_number = 0;
         for line in reader.lines() {
@@ -171,12 +171,18 @@ fn write_attributes(doc_path: String,
                         finder.find().as_array().unwrap().get(0).unwrap().as_str().unwrap().to_string()
                     };
 
-                    let mut dedupe_key = VecDeque::with_capacity(1);
-                    dedupe_key.push_back(document_key.as_str());
-                    if bloom_filter.contains(&dedupe_key) {
-                        attributes[&cfg.attribute_name] = Value::Bool(true);
-                    } else if !bloom_filter.read_only {
-                        bloom_filter.insert(&dedupe_key);
+                    if dedupe_config.skip_empty.unwrap_or(false) && document_key.trim().is_empty() {
+                        // skip empty documents if dedupe_config.skip_empty is true
+                        // and the document key is empty after trimming (i.e., removing whitespace)
+                        continue;
+                    } else {
+                        let mut dedupe_key = VecDeque::with_capacity(1);
+                        dedupe_key.push_back(document_key.as_str());
+                        if bloom_filter.contains(&dedupe_key) {
+                            attributes[&cfg.attribute_name] = Value::Bool(true);
+                        } else if !bloom_filter.read_only {
+                            bloom_filter.insert(&dedupe_key);
+                        }
                     }
                 }
                 None => {}
@@ -198,19 +204,27 @@ fn write_attributes(doc_path: String,
                         }
                         let par_end = offset;
 
-                        let mut dedupe_key = VecDeque::with_capacity(1);
-                        dedupe_key.push_back(p);
-                        if bloom_filter.contains(&dedupe_key) {
-                            let span = vec! {Value::Number(par_start.into()), Value::Number(par_end.into()), Value::Number(1.into())};
-                            duplicate_paragraph_spans.push(Value::Array(span));
-                        } else if !bloom_filter.read_only {
-                            bloom_filter.insert(&dedupe_key);
+                        if dedupe_config.skip_empty.unwrap_or(false) && p.trim().is_empty()  {
+                            // skip empty paragraphs if dedupe_config.skip_empty is true
+                            // and the paragraph is empty after trimming (i.e., removing whitespace)
+                            continue;
+                        } else {
+                            let mut dedupe_key = VecDeque::with_capacity(1);
+                            dedupe_key.push_back(p);
+                            if bloom_filter.contains(&dedupe_key) {
+                                let span = vec! {Value::Number(par_start.into()), Value::Number(par_end.into()), Value::Number(1.into())};
+                                // add span to duplicate_paragraph_spans
+                                duplicate_paragraph_spans.push(Value::Array(span));
+                            } else if !bloom_filter.read_only {
+                                bloom_filter.insert(&dedupe_key);
+                            }
                         }
                     }
                     attributes[&cfg.attribute_name] = Value::Array(duplicate_paragraph_spans);
                 }
             }
             let mut output_object = json!({});
+            output_object["id"] = data["id"].clone();
             output_object["attributes"] = attributes;
             serde_json::to_writer(&mut writer, &output_object)?;
             writer.write_all(b"\n")?;
@@ -267,6 +281,8 @@ mod deduper_config {
         pub name: String,
         pub documents: Option<DocumentDedupeConfig>,
         pub paragraphs: Option<ParagraphDedupeConfig>,
+
+        pub skip_empty: Option<bool>,
     }
 
     #[derive(Serialize, Deserialize, Clone)]
@@ -287,6 +303,7 @@ mod deduper_config {
         }
     }
 }
+
 
 #[cfg(test)]
 mod test {
@@ -310,14 +327,16 @@ mod test {
                     read(true).
                     write(false).
                     create(false).
-                    open(expected).unwrap())).lines();
+                    open(expected).unwrap())).lines().collect::<Vec<Result<String, io::Error>>>();
         let actual_lines = BufReader::new(
             MultiGzDecoder::new(
                 OpenOptions::new().
                     read(true).
                     write(false).
                     create(false).
-                    open(actual).unwrap())).lines();
+                    open(actual).unwrap())).lines().collect::<Vec<Result<String, io::Error>>>();
+
+        assert_eq!(expected_lines.len(), actual_lines.len(), "Wrong number of output documents");
 
         for (actual, expected) in std::iter::zip(
             expected_lines,

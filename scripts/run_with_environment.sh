@@ -2,7 +2,7 @@
 
 # Note: This script does not run inside the container. It runs on the bare compute node.
 
-set -xeuo pipefail
+set -euo pipefail
 
 # Redirect stdout and stderr so that we get a prefix with the node name
 export NODENAME=$(hostname -s)
@@ -17,6 +17,11 @@ export LOCAL_WORLD_SIZE=$SLURM_NTASKS_PER_NODE
 export LOCAL_RANK=$SLURM_LOCALID
 export NODE_RANK=$((($RANK - $LOCAL_RANK) / $LOCAL_WORLD_SIZE))
 
-rm -f /dev/shm/rocm_smi_card$LOCAL_RANK
+if [ $SLURM_LOCALID -eq 0 ] ; then
+  rm -rf /dev/shm/*
+  rocm-smi || true	# rocm-smi returns exit code 2 even when it succeeds
+else
+  sleep 2
+fi
 
 exec $*

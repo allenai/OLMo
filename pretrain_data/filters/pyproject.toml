@@ -1,6 +1,6 @@
 [project]
 name = "ai2-llm-filters"
-version = "0.3.1"
+version = "0.4.0"
 description = "Data filters"
 authors = [
     {name = "Aakanksha Naik", email = "aakankshan@allenai.org" },
@@ -27,7 +27,9 @@ dependencies = [
     "blingfire==0.1.8",
     "fasttext==0.9.2",
     "tokenizers==0.13.3",
-    "unidecode"
+    "unidecode",
+    "uniseg",
+    "termcolor==2.3.0"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -40,6 +42,8 @@ Homepage = "https://github.com/allenai/llm"
 
 [project.scripts]
 ai2_llm_filters = "ai2_llm_filters.core_tools.runtime:TaggerProcessor.main"
+ai2_llm_filters_viz = "ai2_llm_filters.core_tools.vizualizer:Visualizer.main"
+ai2_llm_filters_pre = "ai2_llm_filters.core_tools.vizualizer:RawPreviewer.main"
 
 
 [project.optional-dependencies]
@@ -92,7 +96,7 @@ profile = "black"
 multi_line_output = 3
 
 [tool.autopep8]
-max_line_length = 79
+max_line_length = 115
 in-place = true
 recursive = true
 aggressive = 3
