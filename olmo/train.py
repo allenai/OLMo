@@ -40,29 +40,28 @@ log = logging.getLogger(__name__)
 @dataclass
 class SpeedMonitor:
     cfg: SpeedMonitorConfig
-    device_batch_num_tokens: int
     start_times: Deque[float] = field(default_factory=lambda: deque([]))
-    global_step: int = 0
+    global_total_tokens: int = 0
+    device_interval_tokens: int = 0
 
-    def batch_start(self, global_step: int, record: bool = True) -> None:
-        self.global_step = global_step
+    def batch_start(self, global_total_tokens: int, device_batch_num_tokens: int, record: bool = True) -> None:
+        self.global_total_tokens = global_total_tokens
         if record:
             if len(self.start_times) >= self.cfg.window_size:
                 self.start_times.popleft()
             self.start_times.append(time.monotonic())
+            self.device_interval_tokens += device_batch_num_tokens
 
     def reset(self) -> None:
         self.start_times.clear()
+        self.device_interval_tokens = 0
 
     def check(self) -> Dict[str, float]:
-        metrics: Dict[str, float] = {
-            "throughput/total_tokens": self.global_step * self.device_batch_num_tokens * dist.get_world_size()
-        }
+        metrics: Dict[str, float] = {"throughput/total_tokens": self.global_total_tokens}
         if self.start_times:
             interval_seconds = time.monotonic() - self.start_times[0]
             interval_batches = len(self.start_times)
-            interval_tokens = self.device_batch_num_tokens * interval_batches
-            metrics["throughput/device/tokens_per_second"] = interval_tokens / interval_seconds
+            metrics["throughput/device/tokens_per_second"] = self.device_interval_tokens / interval_seconds
             metrics["throughput/device/batches_per_second"] = interval_batches / interval_seconds
         return metrics
 
@@ -90,6 +89,12 @@ class Trainer:
     z_train_loss_metric: Optional[MeanMetric] = None
     global_step: int = 0
     global_data_step: int = 0
+    """This is now redundant since adding 'global_train_examples_seen'."""
+    global_train_examples_seen: int = 0
+    """Tracks the global number of training examples seen for the purpose of restoring the dataset
+    position on restarts."""
+    global_train_tokens_seen: int = 0
+    """Tracks the global total number of tokens trained on."""
     checkpoints: List[Path] = field(default_factory=list)
     unsharded_checkpoints: List[Path] = field(default_factory=list)
     min_train_loss: float = float("inf")
@@ -103,8 +108,10 @@ class Trainer:
     def non_tensor_state_dict(self) -> Dict[str, Any]:
         return {
             "scheduler": self.scheduler.state_dict(),
-            "global_step": self.global_step,  # move forward one batch
-            "global_data_step": self.global_data_step,  # move forward one batch
+            "global_step": self.global_step,
+            "global_data_step": self.global_data_step,
+            "global_train_examples_seen": self.global_train_examples_seen,
+            "global_train_tokens_seen": self.global_train_tokens_seen,
             "checkpoints": self.checkpoints,
             "unsharded_checkpoints": self.unsharded_checkpoints,
             "rng": {
@@ -116,8 +123,7 @@ class Trainer:
         }
 
     def load_non_tensor_state_dict(self, state_dict: Dict[str, Any]) -> None:
-        self.global_step = state_dict["global_step"]
-        self.global_data_step = state_dict["global_data_step"]
+        # Checkpoint paths.
         self.checkpoints = [
             path
             for path in state_dict["checkpoints"]
@@ -128,23 +134,43 @@ class Trainer:
             for path in state_dict["unsharded_checkpoints"]
             if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
         ]
+
+        # Learning rate scheduler.
         self.scheduler.load_state_dict(state_dict["scheduler"])
 
+        # Dataset / dataloader position.
+        self.global_step = state_dict["global_step"]
+        self.global_data_step = state_dict["global_data_step"]
+        self.global_train_examples_seen = state_dict.get(  # newer addition
+            "global_train_examples_seen", self.global_data_step * self.cfg.global_train_batch_size
+        )
+        self.global_train_tokens_seen = state_dict.get(  # newer addition
+            "global_train_tokens_seen",
+            self.global_data_step * self.cfg.global_train_batch_size * self.cfg.model.max_sequence_length,
+        )
         if not self.cfg.restore_dataloader:
             self.global_data_step = 0
+            self.global_train_examples_seen = 0
+            self.global_train_tokens_seen = 0
         elif self.cfg.fast_forward_batches:
             self.global_data_step += self.cfg.fast_forward_batches
+            # Technically we don't "see" these batches that we fast-forward through, but we use
+            # this variable to update the position of the dataset so we need to include them here.
+            self.global_train_examples_seen += self.cfg.fast_forward_batches * self.cfg.global_train_batch_size
+            # NOTE: on the other hand we don't add anything to 'self.global_train_tokens_seen' here because
+            # that variable is meant to track the actual number of tokens trained on.
 
         if self.global_data_step > 0:
             if self.global_data_step > self.global_step:
                 log.info(
-                    f"Fast-forwarding data loader to {self.global_step}+{self.global_data_step-self.global_step}"
+                    f"Fast-forwarding data loader to step {self.global_step}+{self.global_data_step-self.global_step}"
                 )
             else:
-                log.info(f"Fast-forwarding data loader to {self.global_data_step}")
+                log.info(f"Fast-forwarding data loader to step {self.global_data_step}")
             assert isinstance(self.train_loader.dataset, IterableDataset)
-            self.train_loader.dataset.start_index = self.cfg.global_train_batch_size * self.global_data_step
+            self.train_loader.dataset.start_index = self.global_train_examples_seen
 
+        # RNG states.
         if "rng" in state_dict:
             rng_state = state_dict["rng"]
             self.restore_rng_state(rng_state)
@@ -639,10 +665,7 @@ class Trainer:
 
         # Initialize monitors.
         assert self.cfg.device_train_batch_size is not None
-        speed_monitor = SpeedMonitor(
-            self.cfg.speed_monitor,
-            device_batch_num_tokens=self.cfg.device_train_batch_size * self.cfg.model.max_sequence_length,
-        )
+        speed_monitor = SpeedMonitor(self.cfg.speed_monitor)
         lr_monitor = LRMonitor(self.optim)
 
         # Log system metrics at the start of training.
@@ -655,11 +678,23 @@ class Trainer:
         # Train.
         first_batch: bool = True
         for batch in self.train_loader:
+            # Bookkeeping.
+            # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
+            # batches see the same number of tokens, which should be the case for language model pre-training
+            # (at least when drop_last=True).
+            # Alternatively we'd have to use a distributed all reduce over seq_len here, but I don't want to that overhead.
+            # So for now I'm putting these assertions here so that if the assumption is violated it will fail loudly.
+            batch_size, seq_len = batch["input_ids"].shape
+            assert seq_len == self.cfg.model.max_sequence_length
+            assert batch_size == self.cfg.device_train_batch_size
+            global_batch_size = batch_size * dist.get_world_size()  # assumes batch size equal across ranks
             self.global_step += 1
             self.global_data_step += 1
-
+            self.global_train_examples_seen += global_batch_size
+            self.global_train_tokens_seen += global_batch_size * seq_len
             speed_monitor.batch_start(
-                self.global_step,
+                self.global_train_tokens_seen,
+                batch_size * seq_len,
                 # We start monitoring speed after the first batch since the first
                 # batch might be an outlier due to compiling and other initialization overhead.
                 record=not first_batch,
