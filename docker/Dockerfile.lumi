@@ -58,6 +58,7 @@ ENV MPICH_VERSION="3.1.4"
 RUN cd /opt && \
     wget https://www.mpich.org/static/downloads/${MPICH_VERSION}/mpich-${MPICH_VERSION}.tar.gz && \
     tar xf mpich-${MPICH_VERSION}.tar.gz && \
+    rm mpich-${MPICH_VERSION}.tar.gz && \
     cd mpich-${MPICH_VERSION} && \
     ./configure --disable-fortran --enable-fast=all,O3 --prefix=/usr && \
     make -j install && \
