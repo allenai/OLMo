@@ -221,7 +221,14 @@ impl Shard {
                     }
 
                     if !attrs.is_empty() {
-                        mutable_data["attributes"] = Value::Object(attrs);
+                        // Add to existing attributes if they exist, otherwise create them.
+                        if let Value::Object(ref mut existing_attrs) = mutable_data["attributes"] {
+                            for (k, v) in attrs.iter() {
+                                existing_attrs.insert(k.clone(), v.clone());
+                            }
+                        } else {
+                            mutable_data["attributes"] = Value::Object(attrs);
+                        }
                     }
 
                     let mut should_write = true;
