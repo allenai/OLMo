@@ -10,10 +10,11 @@
     "name": "decontamination",
     "paragraphs": {
       "attribute_name": "bff_duplicate_paragraph_spans"
-    }
+    },
+    "skip_empty": true
   },
   "bloom_filter": {
-    "file": "/tmp/deduper_decontamination_lucas_20230523.bin",
+    "file": "/tmp/decontamination/deduper_decontamination_lucas_20230525.bin",
     "size_in_bytes": 8388608,
     "read_only": false,
     "estimated_doc_count": 3898706,

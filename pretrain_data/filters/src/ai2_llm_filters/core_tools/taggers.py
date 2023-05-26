@@ -6,7 +6,7 @@ Filters.
 
 """
 from abc import abstractmethod
-from typing import Dict
+from typing import Dict, List, Union
 
 from .data_types import DocResult, Document, InputSpec
 
@@ -24,7 +24,7 @@ class BaseTagger:
     def predict(self, doc: Document) -> DocResult:
         raise NotImplementedError
 
-    def tag(self, row: InputSpec) -> Dict[str, list]:
+    def tag(self, row: InputSpec) -> Dict[str, List[List[Union[int, float]]]]:
         """Internal function that is used by the tagger to get data"""
         doc = Document(source=row.source, version=row.version, id=row.id, text=row.text)
         doc_result = self.predict(doc)

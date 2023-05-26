@@ -3,15 +3,15 @@ use std::io;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
-use flate2::Compression;
 use flate2::read::MultiGzDecoder;
 use flate2::write::GzEncoder;
+use flate2::Compression;
 use rayon::prelude::*;
 use serde_json::Value;
 
-use crate::shard::shard_config::*;
 use crate::s3_util;
 use crate::s3_util::{download_to_file, object_size, upload_file};
+use crate::shard::shard_config::*;
 
 // A shard is a unit of work for the mixer.
 // It is a collection of input files that are combined into a single output file.
@@ -38,49 +38,63 @@ impl Shard {
     pub fn split_streams(streams: &Vec<StreamConfig>) -> Result<Vec<Shard>, io::Error> {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
-            .build().unwrap();
+            .build()
+            .unwrap();
         let s3_client = s3_util::new_client()?;
 
         let mut shards: Vec<Shard> = Vec::new();
         for stream_config in streams {
             let mut stream_shard_count = 0;
             log::info!("Computing shards for stream {}...", stream_config.name);
-            let stream_inputs = s3_util::find_objects_matching_patterns(&s3_client, &stream_config.documents)?;
-            let inputs_with_sizes = stream_inputs.par_iter().map(|input| {
-                let resp = rt.block_on(object_size(&s3_client, "ai2-llm", input));
-                let mut attr_paths = Vec::new();
-                for prefix in stream_config.attributes.iter() {
-                    let mut attr_prefix = "/attributes/".to_owned();
-                    attr_prefix.push_str(prefix);
-                    attr_prefix.push_str("/");
-                    let attr_path = input.to_owned().replace("/documents/", &attr_prefix);
-                    attr_paths.push(attr_path);
-                }
-                match resp {
-                    Ok(size) =>
-                        (DocumentPaths {
-                            doc_path: input.to_owned(),
-                            attribute_paths: attr_paths,
-                        }, size),
-                    Err(_) => {
-                        (DocumentPaths {
-                            doc_path: input.to_owned(),
-                            attribute_paths: attr_paths,
-                        }, 0)
+            let stream_inputs =
+                s3_util::find_objects_matching_patterns(&s3_client, &stream_config.documents)?;
+            let inputs_with_sizes = stream_inputs
+                .par_iter()
+                .map(|input| {
+                    let resp = rt.block_on(object_size(&s3_client, "ai2-llm", input));
+                    let mut attr_paths = Vec::new();
+                    for prefix in stream_config.attributes.iter() {
+                        let mut attr_prefix = "/attributes/".to_owned();
+                        attr_prefix.push_str(prefix);
+                        attr_prefix.push_str("/");
+                        let attr_path = input.to_owned().replace("/documents/", &attr_prefix);
+                        attr_paths.push(attr_path);
                     }
-                }
-            }).collect::<Vec<(DocumentPaths, usize)>>();
+                    match resp {
+                        Ok(size) => (
+                            DocumentPaths {
+                                doc_path: input.to_owned(),
+                                attribute_paths: attr_paths,
+                            },
+                            size,
+                        ),
+                        Err(_) => (
+                            DocumentPaths {
+                                doc_path: input.to_owned(),
+                                attribute_paths: attr_paths,
+                            },
+                            0,
+                        ),
+                    }
+                })
+                .collect::<Vec<(DocumentPaths, usize)>>();
             let mut shard_size = inputs_with_sizes[0].1;
             let mut shard_inputs: Vec<DocumentPaths> = Vec::new();
             shard_inputs.push(inputs_with_sizes[0].0.clone());
             for (input, size) in inputs_with_sizes[1..].iter() {
                 if *size == 0 {
-                    log::warn!("Skipping input {}. Could not determine size", input.doc_path);
+                    log::warn!(
+                        "Skipping input {}. Could not determine size",
+                        input.doc_path
+                    );
                     continue;
                 }
                 shard_size += size;
                 if shard_size > stream_config.output.max_size_in_bytes {
-                    let output = format!("{}/{}-{:04}.json.gz", stream_config.output.path, stream_config.name, stream_shard_count);
+                    let output = format!(
+                        "{}/{}-{:04}.json.gz",
+                        stream_config.output.path, stream_config.name, stream_shard_count
+                    );
                     let shard = Shard {
                         inputs: shard_inputs.clone(),
                         output: output.clone(),
@@ -89,13 +103,16 @@ impl Shard {
                     };
                     shards.push(shard);
                     stream_shard_count += 1;
-                    shard_size = 0;
+                    shard_size = *size;
                     shard_inputs = Vec::new();
                 }
                 shard_inputs.push(input.clone());
             }
             if shard_inputs.len() > 0 {
-                let output = format!("{}/{}-{:04}.json.gz", stream_config.output.path, stream_config.name, stream_shard_count);
+                let output = format!(
+                    "{}/{}-{:04}.json.gz",
+                    stream_config.output.path, stream_config.name, stream_shard_count
+                );
                 let shard = Shard {
                     inputs: shard_inputs.clone(),
                     output: output.clone(),
@@ -105,7 +122,12 @@ impl Shard {
                 shards.push(shard);
                 stream_shard_count += 1;
             }
-            log::info!("Splitting {} files for {} into {} shards", stream_inputs.len(), stream_config.name, stream_shard_count);
+            log::info!(
+                "Splitting {} files for {} into {} shards",
+                stream_inputs.len(),
+                stream_config.name,
+                stream_shard_count
+            );
         }
 
         Ok(shards)
@@ -117,12 +139,11 @@ impl Shard {
     // Apply filters
     // Apply span replacements
     // Upload the output file to S3.
-    pub fn process(&self,
-                   work_dirs: WorkDirConfig,
-    ) -> Result<(), io::Error> {
+    pub fn process(&self, work_dirs: WorkDirConfig) -> Result<(), io::Error> {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
-            .build().unwrap();
+            .build()
+            .unwrap();
 
         let s3_client = s3_util::new_client()?;
 
@@ -134,22 +155,26 @@ impl Shard {
 
         let tmp_output_path = outputs_dir.join(self.output.clone() + ".tmp");
         {
-            let output_file = OpenOptions::new().
-                read(false).
-                write(true).
-                create(true).
-                truncate(true).
-                open(tmp_output_path.clone())?;
+            let output_file = OpenOptions::new()
+                .read(false)
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(tmp_output_path.clone())?;
 
             let mut writer = BufWriter::with_capacity(
                 1024 * 1024,
-                GzEncoder::new(output_file, Compression::default()));
-
+                GzEncoder::new(output_file, Compression::default()),
+            );
 
             for input_path in self.inputs.iter() {
                 log::info!("Merging {} into {}", input_path.doc_path, self.output);
                 let local_docs_file = inputs_dir.join(Path::new(&input_path.doc_path));
-                log::info!("Downloading {} to {}", input_path.doc_path, local_docs_file.display());
+                log::info!(
+                    "Downloading {} to {}",
+                    input_path.doc_path,
+                    local_docs_file.display()
+                );
                 rt.block_on(download_to_file(
                     &s3_client,
                     "ai2-llm",
@@ -166,24 +191,20 @@ impl Shard {
                         &attr,
                         &local_attr_file,
                     ))?;
-                    let f = OpenOptions::new().
-                        read(true).
-                        write(false).
-                        create(false).
-                        open(local_attr_file.clone())?;
-                    let attr_reader = BufReader::with_capacity(
-                        1024 * 1024,
-                        MultiGzDecoder::new(f));
+                    let f = OpenOptions::new()
+                        .read(true)
+                        .write(false)
+                        .create(false)
+                        .open(local_attr_file.clone())?;
+                    let attr_reader = BufReader::with_capacity(1024 * 1024, MultiGzDecoder::new(f));
                     local_attr_readers.push(attr_reader.lines());
                 }
-                let input_file = OpenOptions::new().
-                    read(true).
-                    write(false).
-                    create(false).
-                    open(local_docs_file.clone())?;
-                let reader = BufReader::with_capacity(
-                    1024 * 1024,
-                    MultiGzDecoder::new(input_file));
+                let input_file = OpenOptions::new()
+                    .read(true)
+                    .write(false)
+                    .create(false)
+                    .open(local_docs_file.clone())?;
+                let reader = BufReader::with_capacity(1024 * 1024, MultiGzDecoder::new(input_file));
 
                 let mut line_number = 0;
                 let mut lines_written = 0;
@@ -191,7 +212,12 @@ impl Shard {
                     match line {
                         Ok(_) => {}
                         Err(e) => {
-                            log::error!("Error reading line {} of {}: {}", line_number, &input_path.doc_path, e);
+                            log::error!(
+                                "Error reading line {} of {}: {}",
+                                line_number,
+                                &input_path.doc_path,
+                                e
+                            );
                             break;
                         }
                     }
@@ -204,43 +230,71 @@ impl Shard {
                         match attr_reader.next() {
                             Some(Ok(line)) => {
                                 let data: Value = serde_json::from_str(&line)?;
-                                assert_eq!(data["id"], mutable_data["id"], "Mismatched ids for line {} of {}: {} != {}", line_number, &input_path.doc_path, data["id"], mutable_data["id"]);
+                                assert_eq!(
+                                    data["id"],
+                                    mutable_data["id"],
+                                    "Mismatched ids for line {} of {}: {} != {}",
+                                    line_number,
+                                    &input_path.doc_path,
+                                    data["id"],
+                                    mutable_data["id"]
+                                );
                                 for (k, v) in data["attributes"].as_object().unwrap().iter() {
                                     attrs.insert(k.clone(), v.clone());
                                 }
                             }
                             Some(Err(e)) => {
-                                log::error!("Error reading attributes for line {} of {}: {}", line_number, &input_path.doc_path, e);
+                                log::error!(
+                                    "Error reading attributes for line {} of {}: {}",
+                                    line_number,
+                                    &input_path.doc_path,
+                                    e
+                                );
                                 break;
                             }
                             None => {
-                                log::error!("Error reading attributes for line {} of {}: EOF", line_number, &input_path.doc_path);
+                                log::error!(
+                                    "Error reading attributes for line {} of {}: EOF",
+                                    line_number,
+                                    &input_path.doc_path
+                                );
                                 break;
                             }
                         }
                     }
 
                     if !attrs.is_empty() {
-                        mutable_data["attributes"] = Value::Object(attrs);
+                        // Add to existing attributes if they exist, otherwise create them.
+                        if let Value::Object(ref mut existing_attrs) = mutable_data["attributes"] {
+                            for (k, v) in attrs.iter() {
+                                existing_attrs.insert(k.clone(), v.clone());
+                            }
+                        } else {
+                            mutable_data["attributes"] = Value::Object(attrs);
+                        }
                     }
 
                     let mut should_write = true;
                     for f in self.filter.iter() {
-                        if !f.should_keep(&mutable_data).map_err(|s| io::Error::new(io::ErrorKind::Other, s))? {
+                        if !f
+                            .should_keep(&mutable_data)
+                            .map_err(|s| io::Error::new(io::ErrorKind::Other, s))?
+                        {
                             should_write = false;
                             break;
                         }
                     }
                     if should_write {
                         if self.span_replacements.is_some() {
-                            let mut replacements =
-                                self.span_replacements.as_ref().unwrap().iter().flat_map(|r|
-                                    r.find_spans_to_replace(&mutable_data).unwrap()
-                                ).collect::<Vec<SpanReplacement>>();
+                            let mut replacements = self
+                                .span_replacements
+                                .as_ref()
+                                .unwrap()
+                                .iter()
+                                .flat_map(|r| r.find_spans_to_replace(&mutable_data).unwrap())
+                                .collect::<Vec<SpanReplacement>>();
                             if !replacements.is_empty() {
-                                replacements.sort_by(|a, b|
-                                    a.start.cmp(&b.start)
-                                );
+                                replacements.sort_by(|a, b| a.start.cmp(&b.start));
 
                                 let mut new_text = String::new();
                                 let old_text = mutable_data["text"].as_str().unwrap().to_owned();
@@ -252,34 +306,37 @@ impl Shard {
                                 while byte_index_with_char.is_some() {
                                     let (byte_index, c) = byte_index_with_char.unwrap();
                                     if span_index < replacements.len() {
-                                        let is_inside_span =
-                                            i >= replacements[span_index].start &&
-                                            i < replacements[span_index].end;
+                                        let is_inside_span = i >= replacements[span_index].start
+                                            && i < replacements[span_index].end;
                                         if i == replacements[span_index].start {
                                             span_start_byte_index = byte_index;
                                         }
                                         if !is_inside_span {
                                             if i == replacements[span_index].end {
                                                 if replacements[span_index].replacement.len() > 0 {
-                                                    let replacement_text =
-                                                        replacements[span_index].replacement.to_owned().replace(
+                                                    let replacement_text = replacements[span_index]
+                                                        .replacement
+                                                        .to_owned()
+                                                        .replace(
                                                             "{}",
-                                                            old_text[span_start_byte_index..byte_index].to_owned().as_str(),
+                                                            old_text
+                                                                [span_start_byte_index..byte_index]
+                                                                .to_owned()
+                                                                .as_str(),
                                                         );
                                                     new_text.push_str(&replacement_text);
                                                 }
                                                 span_index += 1;
                                             }
                                             if span_index < replacements.len()
-                                                && replacements[span_index].start == i {
+                                                && replacements[span_index].start == i
+                                            {
                                                 span_start_byte_index = byte_index;
-                                            }
-                                            else {
+                                            } else {
                                                 new_text.push(c);
                                             }
                                         }
-                                    }
-                                    else {
+                                    } else {
                                         new_text.push(c);
                                     }
                                     i += 1;
@@ -287,10 +344,14 @@ impl Shard {
                                 }
                                 if span_index < replacements.len() {
                                     if replacements[span_index].replacement.len() > 0 {
-                                        let replacement_text =
-                                            replacements[span_index].replacement.to_owned().replace(
+                                        let replacement_text = replacements[span_index]
+                                            .replacement
+                                            .to_owned()
+                                            .replace(
                                                 "{}",
-                                                old_text[span_start_byte_index..].to_owned().as_str(),
+                                                old_text[span_start_byte_index..]
+                                                    .to_owned()
+                                                    .as_str(),
                                             );
                                         new_text.push_str(&replacement_text);
                                     }
@@ -307,11 +368,20 @@ impl Shard {
                 for attr in &input_path.attribute_paths {
                     std::fs::remove_file(inputs_dir.join(Path::new(&attr)))?;
                 }
-                log::info!("Dropped {} of {} documents from {}", line_number - lines_written, line_number, &input_path.doc_path);
+                log::info!(
+                    "Dropped {} of {} documents from {}",
+                    line_number - lines_written,
+                    line_number,
+                    &input_path.doc_path
+                );
             }
         }
 
-        log::info!("Uploading {} to {}", &tmp_output_path.display(), &self.output);
+        log::info!(
+            "Uploading {} to {}",
+            &tmp_output_path.display(),
+            &self.output
+        );
         rt.block_on(upload_file(
             &s3_client,
             "ai2-llm",
@@ -321,7 +391,10 @@ impl Shard {
 
         {
             // Create empty file to indicate that the shard is done.
-            OpenOptions::new().create(true).write(true).open(&output_path)?;
+            OpenOptions::new()
+                .create(true)
+                .write(true)
+                .open(&output_path)?;
             std::fs::remove_file(&tmp_output_path)?;
         }
 
@@ -330,9 +403,9 @@ impl Shard {
 }
 
 pub mod shard_config {
+    use jsonpath_rust::JsonPathFinder;
     use serde::{Deserialize, Serialize};
     use serde_json::Value;
-    use jsonpath_rust::JsonPathFinder;
 
     #[derive(Serialize, Deserialize, Clone)]
     pub struct StreamConfig {
@@ -390,25 +463,28 @@ pub mod shard_config {
             if spans == Value::Null {
                 return Ok(Vec::new());
             }
-            let replacements: Vec<SpanReplacement> =
-                spans.as_array().unwrap().iter()
-                    .flat_map(|span| span.as_array().unwrap().iter())
-                    .filter_map(|span| {
-                let span = span.as_array().unwrap();
-                let start = span[0].as_u64().unwrap();
-                let end = span[1].as_u64().unwrap();
-                let score = span[2].as_f64().unwrap();
-                if score >= self.min_score {
-                    let replacement = SpanReplacement {
-                        start: start as usize,
-                        end: end as usize,
-                        replacement: self.replacement.clone(),
-                    };
-                    Some(replacement)
-                } else {
-                    None
-                }
-            }).collect::<Vec<SpanReplacement>>();
+            let replacements: Vec<SpanReplacement> = spans
+                .as_array()
+                .unwrap()
+                .iter()
+                .flat_map(|span| span.as_array().unwrap().iter())
+                .filter_map(|span| {
+                    let span = span.as_array().unwrap();
+                    let start = span[0].as_u64().unwrap();
+                    let end = span[1].as_u64().unwrap();
+                    let score = span[2].as_f64().unwrap();
+                    if score >= self.min_score {
+                        let replacement = SpanReplacement {
+                            start: start as usize,
+                            end: end as usize,
+                            replacement: self.replacement.clone(),
+                        };
+                        Some(replacement)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<SpanReplacement>>();
             Ok(replacements)
         }
     }
