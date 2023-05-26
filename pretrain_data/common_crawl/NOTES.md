@@ -6,6 +6,8 @@ We ran the CCNet pipeline over 25 dumps from 2020-05 to 2023-06.  Different vers
 
 Sharded output of CCNet pipline. Duplicate paragraphs removed (exact match, but only comparing against a ~2% sample of paragraphs in the corpus). Bucketed by language (fasttext), and English perplexity on wikipedia-trained 5-gram language model.
 
+**v0-en** is the re-sharded English content of `v0`
+
 ### v1
 
 Post-process of v0. Drop non-English documents. Deduplicate whole documents by URL. Coalesce shards.
@@ -14,9 +16,16 @@ Post-process of v0. Drop non-English documents. Deduplicate whole documents by U
 
 **v1-small** is an 8.5% sample of `v1`, about 300B tokens.
 
+**v1-small-head** is a sample of the `cc_en_head` (low-perplexity) subset of `v1`
+
+**v1-small-head-middle** is a sample of the `cc_en_head` and `cc_en_middle` (low- and mid-perplexity) setset of `v1`
+
 ### v2
 
 Post-process of v1. Remove duplicate paragraphs across the entire corpus
+
+**v2-small** is a post-process of `v1-small` to remove duplicate paragraphs.
+
 
 ## CCNet Overview
 

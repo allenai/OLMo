@@ -41,6 +41,7 @@ def main(cfg: TrainConfig) -> None:
 
     # Initialize process group and set device.
     dist.init_process_group(backend="nccl")
+    dist.barrier()
     torch.cuda.set_device(f"cuda:{local_rank()}")
     device = torch.device("cuda")
 
@@ -69,6 +70,17 @@ def main(cfg: TrainConfig) -> None:
 
     # Set seed.
     seed_all(cfg.seed)
+
+    # Construct data loader.
+    train_loader = build_train_dataloader(cfg)
+
+    # Construct evaluators.
+    evaluators = []
+    tokenizer = Tokenizer.from_train_config(cfg)
+    for eval_cfg in cfg.evaluators:
+        evaluators.append(build_evaluator(cfg, eval_cfg, tokenizer, device))
+
+    dist.barrier()
 
     # Maybe start W&B run.
     if cfg.wandb is not None and (global_rank() == 0 or not cfg.wandb.rank_zero_only):
@@ -133,15 +145,6 @@ def main(cfg: TrainConfig) -> None:
     optim = build_optimizer(cfg, fsdp_model)
     scheduler = build_scheduler(cfg, optim)
 
-    # Construct data loader.
-    train_loader = build_train_dataloader(cfg)
-
-    # Construct evaluators.
-    evaluators = []
-    tokenizer = Tokenizer.from_train_config(cfg)
-    for eval_cfg in cfg.evaluators:
-        evaluators.append(build_evaluator(cfg, eval_cfg, tokenizer, device))
-
     # Consolidate components into `Trainer` object.
     trainer = Trainer(
         cfg=cfg,
@@ -200,6 +203,7 @@ def main(cfg: TrainConfig) -> None:
     if not cfg.dry_run:
         log.info("Starting training...")
         trainer.fit()
+        log.info("Training complete")
     else:
         log.info("Dry run complete")
 
