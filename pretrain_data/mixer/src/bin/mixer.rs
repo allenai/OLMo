@@ -194,11 +194,6 @@ mod test {
 
     #[test]
     fn test_filter_by_span() -> Result<(), io::Error> {
-        if env::var("RUST_LOG").is_err() {
-            env::set_var("RUST_LOG", "info")
-        }
-        env_logger::init();
-
         let config = MixerConfig::read_from_file("tests/config/filter-by-spans.json")?;
         run(config);
 
