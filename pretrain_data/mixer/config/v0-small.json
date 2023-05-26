@@ -4,7 +4,8 @@
       "name": "v0_small",
       "documents": [
         "pretraining-data/sources/common-crawl/v0-en/cc_en_head/*",
-        "pretraining-data/sources/common-crawl/v0-en/cc_en_head/*",
+        "pretraining-data/sources/common-crawl/v0-en/cc_en_middle/*",
+        "pretraining-data/sources/common-crawl/v0-en/cc_en_tail/*"
       ],
       "output": {
         "path": "pretraining-data/sources/common-crawl/v0-small/documents",
