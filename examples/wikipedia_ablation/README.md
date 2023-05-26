@@ -107,7 +107,7 @@ You can check out the mixer config to see how it works. In particular, it applie
     ```json
     "exclude": [
         ...,
-        "$.attributes[?(@.bff_duplicate_paragraph_spans[0][2] >= 1.0)]"
+        "$@.attributes[?(@.bff_duplicate_paragraph_spans && @.bff_duplicate_paragraph_spans[0] && @.bff_duplicate_paragraph_spans[0][2] >= 1.0)]"
     ]
     ```
 

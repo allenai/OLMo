@@ -47,7 +47,7 @@
         "exclude": [
           "$.attributes[?(@.abl0__whitespace_tokenizer_with_paragraphs_v1__document[0][2] < 50)]",
           "$.attributes[?(@.abl0__ft_lang_id_en_paragraph_with_doc_score_v2__doc_en[0][2] <= 0.5)]",
-          "$.attributes[?(@.bff_duplicate_paragraph_spans[0][2] >= 1.0)]"
+          "$@.attributes[?(@.bff_duplicate_paragraph_spans && @.bff_duplicate_paragraph_spans[0] && @.bff_duplicate_paragraph_spans[0][2] >= 1.0)]"
         ]
       },
       "span_replacement": [
