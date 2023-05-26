@@ -1,3 +1,5 @@
+from typing import Set
+
 import pytest
 
 from olmo.data import IterableDataset
@@ -39,7 +41,7 @@ def test_iterable_dataset_start_step():
 @pytest.mark.parametrize("world_size", [2, 4])
 def test_iterable_dataset_restart_different_world_size(world_size: int):
     start_index = 4
-    all_indices = set()
+    all_indices: Set[int] = set()
     for rank in range(world_size):
         dataset = IterableDataset(
             list(range(20)), world_size=world_size, rank=rank, shuffle=False, start_index=start_index
