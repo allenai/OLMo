@@ -244,6 +244,9 @@ class Trainer:
         dist.barrier()
         if global_rank() == 0 and oldest_checkpoint.is_dir():
             shutil.rmtree(oldest_checkpoint, ignore_errors=True)
+            latest_path = Path(self.cfg.save_folder) / "latest"
+            if latest_path.resolve() == oldest_checkpoint.resolve():
+                latest_path.unlink()
         dist.barrier()
 
     def restore_sharded_checkpoint(self, load_path: Path):
@@ -376,6 +379,9 @@ class Trainer:
         oldest_checkpoint = self.unsharded_checkpoints.pop(idx)
         if global_rank() == 0 and oldest_checkpoint.is_dir():
             shutil.rmtree(oldest_checkpoint, ignore_errors=True)
+            latest_path = Path(self.cfg.save_folder) / "latest-unsharded"
+            if latest_path.resolve() == oldest_checkpoint.resolve():
+                latest_path.unlink()
         dist.barrier()
 
     def restore_unsharded_checkpoint(self, load_path: Path):
