@@ -163,10 +163,14 @@ class Trainer:
         if self.global_data_step > 0:
             if self.global_data_step > self.global_step:
                 log.info(
-                    f"Fast-forwarding data loader to step {self.global_step}+{self.global_data_step-self.global_step}"
+                    f"Fast-forwarding data loader to step {self.global_step:,d}+{self.global_data_step-self.global_step:,d} "
+                    f"({self.global_train_examples_seen:,d} examples)"
                 )
             else:
-                log.info(f"Fast-forwarding data loader to step {self.global_data_step}")
+                log.info(
+                    f"Fast-forwarding data loader to step {self.global_data_step:,d} "
+                    f"({self.global_train_examples_seen:,d} examples)"
+                )
             assert isinstance(self.train_loader.dataset, IterableDataset)
             self.train_loader.dataset.start_index = self.global_train_examples_seen
 
