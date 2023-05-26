@@ -80,6 +80,12 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/rocm5.4.2
 
+# Replace ROCm libraries that ship with torch with symlinks to /opt/rocm
+RUN ["/bin/bash", "-c", "for i in /usr/local/lib/python3.10/dist-packages/torch/lib/*.so; do \
+      test -e /opt/rocm/lib/$(basename $i) && \
+      ln -fs /opt/rocm/lib/$(basename $i) $i; \
+    done || true"]
+
 # Install DeepSpeed
 RUN pip install --no-cache-dir mpi4py
 RUN cd /opt && \
