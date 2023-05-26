@@ -40,29 +40,28 @@ log = logging.getLogger(__name__)
 @dataclass
 class SpeedMonitor:
     cfg: SpeedMonitorConfig
-    device_batch_num_tokens: int
     start_times: Deque[float] = field(default_factory=lambda: deque([]))
-    global_step: int = 0
+    global_total_tokens: int = 0
+    device_interval_tokens: int = 0
 
-    def batch_start(self, global_step: int, record: bool = True) -> None:
-        self.global_step = global_step
+    def batch_start(self, global_total_tokens: int, device_batch_num_tokens: int, record: bool = True) -> None:
+        self.global_total_tokens = global_total_tokens
         if record:
             if len(self.start_times) >= self.cfg.window_size:
                 self.start_times.popleft()
             self.start_times.append(time.monotonic())
+            self.device_interval_tokens += device_batch_num_tokens
 
     def reset(self) -> None:
         self.start_times.clear()
+        self.device_interval_tokens = 0
 
     def check(self) -> Dict[str, float]:
-        metrics: Dict[str, float] = {
-            "throughput/total_tokens": self.global_step * self.device_batch_num_tokens * dist.get_world_size()
-        }
+        metrics: Dict[str, float] = {"throughput/total_tokens": self.global_total_tokens}
         if self.start_times:
             interval_seconds = time.monotonic() - self.start_times[0]
             interval_batches = len(self.start_times)
-            interval_tokens = self.device_batch_num_tokens * interval_batches
-            metrics["throughput/device/tokens_per_second"] = interval_tokens / interval_seconds
+            metrics["throughput/device/tokens_per_second"] = self.device_interval_tokens / interval_seconds
             metrics["throughput/device/batches_per_second"] = interval_batches / interval_seconds
         return metrics
 
@@ -90,6 +89,12 @@ class Trainer:
     z_train_loss_metric: Optional[MeanMetric] = None
     global_step: int = 0
     global_data_step: int = 0
+    """This is now redundant since adding 'global_train_examples_seen'."""
+    global_train_examples_seen: int = 0
+    """Tracks the global number of training examples seen for the purpose of restoring the dataset
+    position on restarts."""
+    global_train_tokens_seen: int = 0
+    """Tracks the global total number of tokens trained on."""
     checkpoints: List[Path] = field(default_factory=list)
     unsharded_checkpoints: List[Path] = field(default_factory=list)
     min_train_loss: float = float("inf")
@@ -103,8 +108,10 @@ class Trainer:
     def non_tensor_state_dict(self) -> Dict[str, Any]:
         return {
             "scheduler": self.scheduler.state_dict(),
-            "global_step": self.global_step,  # move forward one batch
-            "global_data_step": self.global_data_step,  # move forward one batch
+            "global_step": self.global_step,
+            "global_data_step": self.global_data_step,
+            "global_train_examples_seen": self.global_train_examples_seen,
+            "global_train_tokens_seen": self.global_train_tokens_seen,
             "checkpoints": self.checkpoints,
             "unsharded_checkpoints": self.unsharded_checkpoints,
             "rng": {
@@ -114,6 +121,69 @@ class Trainer:
                 "cuda": torch.cuda.get_rng_state(),
             },
         }
+
+    def load_non_tensor_state_dict(self, state_dict: Dict[str, Any]) -> None:
+        # Checkpoint paths.
+        self.checkpoints = [
+            path
+            for path in state_dict["checkpoints"]
+            if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
+        ]
+        self.unsharded_checkpoints = [
+            path
+            for path in state_dict["unsharded_checkpoints"]
+            if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
+        ]
+
+        # Learning rate scheduler.
+        self.scheduler.load_state_dict(state_dict["scheduler"])
+
+        # Dataset / dataloader position.
+        self.global_step = state_dict["global_step"]
+        self.global_data_step = state_dict["global_data_step"]
+        self.global_train_examples_seen = state_dict.get(  # newer addition
+            "global_train_examples_seen", self.global_data_step * self.cfg.global_train_batch_size
+        )
+        self.global_train_tokens_seen = state_dict.get(  # newer addition
+            "global_train_tokens_seen",
+            self.global_data_step * self.cfg.global_train_batch_size * self.cfg.model.max_sequence_length,
+        )
+        if not self.cfg.restore_dataloader:
+            self.global_data_step = 0
+            self.global_train_examples_seen = 0
+            self.global_train_tokens_seen = 0
+        elif self.cfg.fast_forward_batches:
+            self.global_data_step += self.cfg.fast_forward_batches
+            # Technically we don't "see" these batches that we fast-forward through, but we use
+            # this variable to update the position of the dataset so we need to include them here.
+            self.global_train_examples_seen += self.cfg.fast_forward_batches * self.cfg.global_train_batch_size
+            # NOTE: on the other hand we don't add anything to 'self.global_train_tokens_seen' here because
+            # that variable is meant to track the actual number of tokens trained on.
+
+        if self.global_data_step > 0:
+            if self.global_data_step > self.global_step:
+                log.info(
+                    f"Fast-forwarding data loader to step {self.global_step:,d}+{self.global_data_step-self.global_step:,d} "
+                    f"({self.global_train_examples_seen:,d} examples)"
+                )
+            else:
+                log.info(
+                    f"Fast-forwarding data loader to step {self.global_data_step:,d} "
+                    f"({self.global_train_examples_seen:,d} examples)"
+                )
+            assert isinstance(self.train_loader.dataset, IterableDataset)
+            self.train_loader.dataset.start_index = self.global_train_examples_seen
+
+        # RNG states.
+        if "rng" in state_dict:
+            rng_state = state_dict["rng"]
+            self.restore_rng_state(rng_state)
+
+    def restore_rng_state(self, rng_state: Dict[str, Any]) -> None:
+        random.setstate(rng_state["python"])
+        np.random.set_state(rng_state["numpy"])
+        torch.set_rng_state(rng_state["torch"])
+        torch.cuda.set_rng_state(rng_state["cuda"])
 
     def save_sharded_checkpoint(self) -> Path:
         checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}"
@@ -178,6 +248,9 @@ class Trainer:
         dist.barrier()
         if global_rank() == 0 and oldest_checkpoint.is_dir():
             shutil.rmtree(oldest_checkpoint, ignore_errors=True)
+            latest_path = Path(self.cfg.save_folder) / "latest"
+            if latest_path.resolve() == oldest_checkpoint.resolve():
+                latest_path.unlink()
         dist.barrier()
 
     def restore_sharded_checkpoint(self, load_path: Path):
@@ -212,22 +285,14 @@ class Trainer:
 
             # Deserialize state dictionary.
             state_dict = torch.load(load_path / f"rank{global_rank()}.pt")
+            # We'll restore RNG state last to make sure we don't alter it through loading the state dict.
+            rng_state = state_dict.pop("rng")
 
-            # Load state.
+            # Load non-tensor state.
+            self.load_non_tensor_state_dict(state_dict)
+
+            # Load model and optimizer state.
             self.fsdp_model.load_state_dict(state_dict["model"])
-            self.global_step = state_dict["global_step"]
-            self.global_data_step = state_dict["global_data_step"]
-            self.checkpoints = [
-                path
-                for path in state_dict["checkpoints"]
-                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
-            ]
-            self.unsharded_checkpoints = [
-                path
-                for path in state_dict["unsharded_checkpoints"]
-                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
-            ]
-            self.scheduler.load_state_dict(state_dict["scheduler"])
             # NOTE: careful, the order of these arguments has changed since the 2.0 release.
             if version.parse(torch.__version__) < version.parse("2.1.0"):
                 #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
@@ -237,26 +302,12 @@ class Trainer:
                 flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, state_dict["optim"])  # type: ignore
             self.optim.load_state_dict(flattened_osd)
 
-            rng_state = state_dict.pop("rng")
             del state_dict, flattened_osd
 
         dist.barrier()
 
-        if not self.cfg.restore_dataloader:
-            self.global_data_step = 0
-        elif self.cfg.fast_forward_batches:
-            self.global_data_step += self.cfg.fast_forward_batches
-
-        # Fast-forward data loader.
-        if not self.cfg.dry_run:
-            self.fast_forward_batches()
-            dist.barrier()
-
-        # Set rng state.
-        random.setstate(rng_state["python"])
-        np.random.set_state(rng_state["numpy"])
-        torch.set_rng_state(rng_state["torch"])
-        torch.cuda.set_rng_state(rng_state["cuda"])
+        # Lastly, restore RNG state.
+        self.restore_rng_state(rng_state)
 
     def save_unsharded_checkpoint(self) -> Path:
         # Zero-gradients to avoid gathering them.
@@ -332,6 +383,9 @@ class Trainer:
         oldest_checkpoint = self.unsharded_checkpoints.pop(idx)
         if global_rank() == 0 and oldest_checkpoint.is_dir():
             shutil.rmtree(oldest_checkpoint, ignore_errors=True)
+            latest_path = Path(self.cfg.save_folder) / "latest-unsharded"
+            if latest_path.resolve() == oldest_checkpoint.resolve():
+                latest_path.unlink()
         dist.barrier()
 
     def restore_unsharded_checkpoint(self, load_path: Path):
@@ -362,42 +416,9 @@ class Trainer:
 
             # Load other state.
             other_state_dict = torch.load(load_path / "other.pt")
-            self.global_step = other_state_dict["global_step"]
-            self.global_data_step = other_state_dict["global_data_step"]
-            self.checkpoints = [
-                path
-                for path in other_state_dict["checkpoints"]
-                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder)
-            ]
-            self.unsharded_checkpoints = [
-                path
-                for path in other_state_dict["unsharded_checkpoints"]
-                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder)
-            ]
-            self.scheduler.load_state_dict(other_state_dict["scheduler"])
+            self.load_non_tensor_state_dict(other_state_dict)
 
         dist.barrier()
-
-        if not self.cfg.restore_dataloader:
-            self.global_data_step = 0
-        elif self.cfg.fast_forward_batches:
-            self.global_data_step += self.cfg.fast_forward_batches
-
-        # Fast-forward data loader.
-        if not self.cfg.dry_run:
-            self.fast_forward_batches()
-            dist.barrier()
-
-    def fast_forward_batches(self):
-        if self.global_data_step > 0:
-            if self.global_data_step > self.global_step:
-                log.info(
-                    f"Fast-forwarding data loader to {self.global_step}+{self.global_data_step-self.global_step}"
-                )
-            else:
-                log.info(f"Fast-forwarding data loader to {self.global_data_step}")
-            assert isinstance(self.train_loader.dataset, IterableDataset)
-            self.train_loader.dataset.start_index = self.cfg.global_train_batch_size * self.global_data_step
 
     def save_checkpoint(self, checkpoint_type: CheckpointType = CheckpointType.sharded) -> Path:
         if checkpoint_type == CheckpointType.sharded:
@@ -654,10 +675,7 @@ class Trainer:
 
         # Initialize monitors.
         assert self.cfg.device_train_batch_size is not None
-        speed_monitor = SpeedMonitor(
-            self.cfg.speed_monitor,
-            device_batch_num_tokens=self.cfg.device_train_batch_size * self.cfg.model.max_sequence_length,
-        )
+        speed_monitor = SpeedMonitor(self.cfg.speed_monitor)
         lr_monitor = LRMonitor(self.optim)
 
         # Log system metrics at the start of training.
@@ -670,11 +688,23 @@ class Trainer:
         # Train.
         first_batch: bool = True
         for batch in self.train_loader:
+            # Bookkeeping.
+            # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
+            # batches see the same number of tokens, which should be the case for language model pre-training
+            # (at least when drop_last=True).
+            # Alternatively we'd have to use a distributed all reduce over seq_len here, but I don't want that overhead.
+            # So for now I'm putting these assertions here so if the assumption is violated it will fail loudly.
+            batch_size, seq_len = batch["input_ids"].shape
+            assert seq_len == self.cfg.model.max_sequence_length
+            assert batch_size == self.cfg.device_train_batch_size
+            global_batch_size = batch_size * dist.get_world_size()  # assumes batch size equal across ranks
             self.global_step += 1
             self.global_data_step += 1
-
+            self.global_train_examples_seen += global_batch_size
+            self.global_train_tokens_seen += global_batch_size * seq_len
             speed_monitor.batch_start(
-                self.global_step,
+                self.global_train_tokens_seen,
+                batch_size * seq_len,  # num tokens in batch for this device
                 # We start monitoring speed after the first batch since the first
                 # batch might be an outlier due to compiling and other initialization overhead.
                 record=not first_batch,
