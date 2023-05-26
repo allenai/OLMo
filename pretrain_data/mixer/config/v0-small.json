@@ -1,7 +1,7 @@
 {
   "streams": [
     {
-      "name": "v_small",
+      "name": "v0_small",
       "documents": [
         "pretraining-data/sources/common-crawl/v0/documents/mined_split/2023-06/*/en_head.json.gz",
         "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-49/*/en_head.json.gz",

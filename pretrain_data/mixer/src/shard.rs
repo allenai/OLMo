@@ -89,7 +89,7 @@ impl Shard {
                     };
                     shards.push(shard);
                     stream_shard_count += 1;
-                    shard_size = 0;
+                    shard_size = *size;
                     shard_inputs = Vec::new();
                 }
                 shard_inputs.push(input.clone());

@@ -49,8 +49,8 @@ Download the bloom filter for decontamination:
 
 ```shell
 aws s3 cp \
-    s3://ai2-llm/eval-data/perplexity/blocklists/eval_subset_v2/deduper_decontamination_lucas_20230522.bin \
-    /tmp/deduper_decontamination_lucas_20230523.bin
+    s3://ai2-llm/eval-data/perplexity/blocklists/eval_subset_v2/deduper_decontamination_lucas_20230525.bin \
+    /tmp/decontamination/deduper_decontamination_lucas_20230525.bin
 ```
 
 Now run the deduper:
@@ -89,7 +89,8 @@ You can check out the mixer config to see how it works. In particular, it applie
     ```json
     "exclude": [
         ...,
-        "$.attributes[?(@.abl0__ft_lang_id_en_paragraph_with_doc_score_v2__doc_en[0][2] <= 0.5)]"
+        "$.attributes[?(@.abl0__ft_lang_id_en_paragraph_with_doc_score_v2__doc_en[0][2] <= 0.5)]",
+        ...
     ]
     ```
 - Replace paragraphs whose not-English cld2 socre is below 0.9 in a document with an empty string
@@ -102,15 +103,11 @@ You can check out the mixer config to see how it works. In particular, it applie
         },
         ...
     ]
-- Remove all paragraphs that are been tagged as duplicates with the validation set using bff
+- Remove all documents that contain a paragraph that has tagged as duplicates with the validation set using bff
     ```json
-    "span_replacement": [
+    "exclude": [
         ...,
-        {
-          "span": "$.attributes.bff_duplicate_paragraph_spans",
-          "min_score": 1,
-          "replacement": ""
-        }
+        "$@.attributes[?(@.bff_duplicate_paragraph_spans && @.bff_duplicate_paragraph_spans[0] && @.bff_duplicate_paragraph_spans[0][2] >= 1.0)]"
     ]
     ```
 
