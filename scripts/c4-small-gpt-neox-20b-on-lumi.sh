@@ -12,7 +12,9 @@
 
 module load LUMI/22.08 partition/G
 
-export OLMO_CONTAINER=llm-lumi-rocm55_latest.sif
+#export OLMO_CONTAINER=llm-lumi-rocm55_latest.sif
+export OLMO_CONTAINER=llm-lumi-rocm550_latest.sif
+#export OLMO_CONTAINER=llm-lumi_latest.sif
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
