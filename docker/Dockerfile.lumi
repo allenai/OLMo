@@ -87,27 +87,8 @@ RUN cd /opt && \
     ldconfig
 
 # Install torch
-RUN cd /opt && \
-    git clone --recursive -b v2.0.1 --single-branch https://github.com/pytorch/pytorch && \
-    cd pytorch && \
-    export PYTORCH_ROCM_ARCH=gfx90a && \
-    for d in cmake caffe2 third_party; do \
-      cd $d && \
-      find -iname '*.cmake' | xargs -r sed -i "s#/opt/rocm#$ROCM_PATH#g" && \
-      find -iname 'CMakeLists.txt' | xargs -r sed -i "s#/opt/rocm#$ROCM_PATH#g" \
-    done && \
-    python tools/amd_build/build_amd.py && \
-    CC=$(which gcc) \
-    CXX=$(which g++) \
-    CMAKE_MODULE_PATH=$CMAKE_MODULE_PATH:/opt/pytorch/cmake/Modules_CUDA_fix \
-    LDFLAGS='-L${ROCM_PATH}/deps -lstdc++ -ltinfo -lcrypto -lssl' \
-    PYTORCH_ROCM_ARCH="gfx90a" \
-    RCCL_DIR=${RCCL_PATH}/lib/cmake/rccl \
-    hip_DIR=${ROCM_HOME}/hip/cmake/ \
-    VERBOSE=1 \
-    V=1 \
-    USE_ROCM=1 \
-    python3 setup.py develop
+RUN pip install --upgrade pip
+RUN pip install --no-cache-dir torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/rocm5.4.2
 
 # Install DeepSpeed
 RUN pip install --no-cache-dir mpi4py
@@ -125,6 +106,6 @@ RUN pip install --no-cache-dir wandb --upgrade
 
 # Cleanup
 RUN apt-get autoremove
-RUN rm -rf /opt/mpich-3.1.4 /opt/aws-ofi-rccl /opt/DeepSpeed /opt/libfabric-1.18.0/ /opt/pytorch/
+RUN rm -rf /opt/mpich-3.1.4 /opt/aws-ofi-rccl /opt/DeepSpeed
 RUN apt-get clean
 RUN pip cache purge
