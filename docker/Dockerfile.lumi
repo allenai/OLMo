@@ -66,7 +66,7 @@ RUN cd /opt && \
 ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # Install libfabric
-RUN cd /opt && \
+RUN cp /opt && \
     wget "https://github.com/ofiwg/libfabric/releases/download/v1.18.0/libfabric-1.18.0.tar.bz2" && \
     tar xjf libfabric-1.18.0.tar.bz2 && \
     rm libfabric-1.18.0.tar.bz2 && \
