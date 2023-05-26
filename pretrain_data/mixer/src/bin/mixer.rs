@@ -1,8 +1,8 @@
 use std::env;
 use std::path::Path;
 use std::process;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
 
 use serde_json;
 use threadpool::ThreadPool;
@@ -22,7 +22,10 @@ fn main() {
         process::exit(1);
     }
     let config: MixerConfig = MixerConfig::read_from_file(&args[1]).unwrap();
-    log::info!("Running with config: {:#?}", serde_json::to_string(&config).unwrap());
+    log::info!(
+        "Running with config: {:#?}",
+        serde_json::to_string(&config).unwrap()
+    );
 
     run(config);
 }
@@ -45,9 +48,7 @@ pub fn run(config: MixerConfig) {
 
         threadpool.execute(move || {
             log::info!("Building output {:?}...", shard.output);
-            match shard.clone().process(
-                work_dirs,
-            ) {
+            match shard.clone().process(work_dirs) {
                 Ok(_) => {}
                 Err(e) => {
                     log::error!("Error processing {:?}: {}", shard.output, e);
@@ -57,7 +58,6 @@ pub fn run(config: MixerConfig) {
         });
     }
     threadpool.join();
-
 
     let failure_count = failed_shard_count_ref.fetch_add(0, Ordering::Relaxed);
     if failure_count > 0 {
@@ -69,9 +69,9 @@ pub fn run(config: MixerConfig) {
 }
 
 mod mixer_config {
-    use std::io;
-    use std::fs::File;
     use serde::{Deserialize, Serialize};
+    use std::fs::File;
+    use std::io;
 
     use ai2_pretraining::shard::shard_config::{StreamConfig, WorkDirConfig};
 
@@ -101,31 +101,41 @@ mod test {
 
     use flate2::read::MultiGzDecoder;
 
+    use crate::mixer_config::MixerConfig;
     use ai2_pretraining::s3_util;
     use ai2_pretraining::s3_util::download_to_file;
-    use crate::mixer_config::MixerConfig;
 
     use super::*;
 
-    fn compare_contents(expected: &str,
-                        actual: &str) {
-        let expected_lines = BufReader::new(MultiGzDecoder::new(OpenOptions::new().
-            read(true).
-            write(false).
-            create(false).
-            open(expected).unwrap())).lines().collect::<Vec<Result<String, io::Error>>>();
-        let actual_lines = BufReader::new(MultiGzDecoder::new(OpenOptions::new().
-            read(true).
-            write(false).
-            create(false).
-            open(actual).unwrap())).lines().collect::<Vec<Result<String, io::Error>>>();
+    fn compare_contents(expected: &str, actual: &str) {
+        let expected_lines = BufReader::new(MultiGzDecoder::new(
+            OpenOptions::new()
+                .read(true)
+                .write(false)
+                .create(false)
+                .open(expected)
+                .unwrap(),
+        ))
+        .lines()
+        .collect::<Vec<Result<String, io::Error>>>();
+        let actual_lines = BufReader::new(MultiGzDecoder::new(
+            OpenOptions::new()
+                .read(true)
+                .write(false)
+                .create(false)
+                .open(actual)
+                .unwrap(),
+        ))
+        .lines()
+        .collect::<Vec<Result<String, io::Error>>>();
 
-        assert_eq!(expected_lines.len(), actual_lines.len(), "Wrong number of output documents");
+        assert_eq!(
+            expected_lines.len(),
+            actual_lines.len(),
+            "Wrong number of output documents"
+        );
 
-        for (actual, expected) in std::iter::zip(
-            expected_lines,
-            actual_lines,
-        ) {
+        for (actual, expected) in std::iter::zip(expected_lines, actual_lines) {
             let actual = actual.unwrap();
             let expected = expected.unwrap();
             assert_eq!(actual, expected);
@@ -139,16 +149,19 @@ mod test {
 
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
-            .build().unwrap();
+            .build()
+            .unwrap();
         let s3_client = s3_util::new_client()?;
 
         let local_output_file = "tests/work/output/mixer.json.gz";
-        rt.block_on(download_to_file(&s3_client, "ai2-llm",
-                                     "pretraining-data/tests/mixer/outputs/v1/documents/head/mixer-test-0000.json.gz",
-                                     Path::new(local_output_file)))?;
+        rt.block_on(download_to_file(
+            &s3_client,
+            "ai2-llm",
+            "pretraining-data/tests/mixer/outputs/v1/documents/head/mixer-test-0000.json.gz",
+            Path::new(local_output_file),
+        ))?;
 
-        compare_contents("tests/data/expected/mixer.json.gz",
-                         local_output_file);
+        compare_contents("tests/data/expected/mixer.json.gz", local_output_file);
         Ok(())
     }
 
@@ -159,16 +172,19 @@ mod test {
 
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
-            .build().unwrap();
+            .build()
+            .unwrap();
         let s3_client = s3_util::new_client()?;
 
         let local_output_file = "tests/work/output/email-spans.json.gz";
-        rt.block_on(download_to_file(&s3_client, "ai2-llm",
-                                     "pretraining-data/tests/mixer/outputs/v1/documents/head/email-spans-test-0000.json.gz",
-                                     Path::new(local_output_file)))?;
+        rt.block_on(download_to_file(
+            &s3_client,
+            "ai2-llm",
+            "pretraining-data/tests/mixer/outputs/v1/documents/head/email-spans-test-0000.json.gz",
+            Path::new(local_output_file),
+        ))?;
 
-        compare_contents("tests/data/expected/email-spans.json.gz",
-                         local_output_file);
+        compare_contents("tests/data/expected/email-spans.json.gz", local_output_file);
         Ok(())
     }
 
@@ -179,7 +195,8 @@ mod test {
 
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
-            .build().unwrap();
+            .build()
+            .unwrap();
         let s3_client = s3_util::new_client()?;
 
         let local_output_file = "tests/work/output/remove-paragraphs.json.gz";
@@ -187,8 +204,10 @@ mod test {
                                      "pretraining-data/tests/mixer/outputs/v1/documents/head/paragraph-spans-test-0000.json.gz",
                                      Path::new(local_output_file)))?;
 
-        compare_contents("tests/data/expected/remove-paragraphs.json.gz",
-                         local_output_file);
+        compare_contents(
+            "tests/data/expected/remove-paragraphs.json.gz",
+            local_output_file,
+        );
         Ok(())
     }
 
@@ -199,7 +218,8 @@ mod test {
 
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
-            .build().unwrap();
+            .build()
+            .unwrap();
         let s3_client = s3_util::new_client()?;
 
         let local_output_file = "tests/work/output/filter-by-spans.json.gz";
@@ -207,8 +227,10 @@ mod test {
                                      "pretraining-data/tests/mixer/outputs/v1/documents/head/filter-by-spans-test-0000.json.gz",
                                      Path::new(local_output_file)))?;
 
-        compare_contents("tests/data/expected/filter-by-spans.json.gz",
-                         local_output_file);
+        compare_contents(
+            "tests/data/expected/filter-by-spans.json.gz",
+            local_output_file,
+        );
         Ok(())
     }
 }
