@@ -115,6 +115,46 @@ class Trainer:
             },
         }
 
+    def load_non_tensor_state_dict(self, state_dict: Dict[str, Any]) -> None:
+        self.global_step = state_dict["global_step"]
+        self.global_data_step = state_dict["global_data_step"]
+        self.checkpoints = [
+            path
+            for path in state_dict["checkpoints"]
+            if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
+        ]
+        self.unsharded_checkpoints = [
+            path
+            for path in state_dict["unsharded_checkpoints"]
+            if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
+        ]
+        self.scheduler.load_state_dict(state_dict["scheduler"])
+
+        if not self.cfg.restore_dataloader:
+            self.global_data_step = 0
+        elif self.cfg.fast_forward_batches:
+            self.global_data_step += self.cfg.fast_forward_batches
+
+        if self.global_data_step > 0:
+            if self.global_data_step > self.global_step:
+                log.info(
+                    f"Fast-forwarding data loader to {self.global_step}+{self.global_data_step-self.global_step}"
+                )
+            else:
+                log.info(f"Fast-forwarding data loader to {self.global_data_step}")
+            assert isinstance(self.train_loader.dataset, IterableDataset)
+            self.train_loader.dataset.start_index = self.cfg.global_train_batch_size * self.global_data_step
+
+        if "rng" in state_dict:
+            rng_state = state_dict["rng"]
+            self.restore_rng_state(rng_state)
+
+    def restore_rng_state(self, rng_state: Dict[str, Any]) -> None:
+        random.setstate(rng_state["python"])
+        np.random.set_state(rng_state["numpy"])
+        torch.set_rng_state(rng_state["torch"])
+        torch.cuda.set_rng_state(rng_state["cuda"])
+
     def save_sharded_checkpoint(self) -> Path:
         checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}"
         checkpoint_dir_tmp = Path(self.cfg.save_folder) / f"step{self.global_step}-tmp"
@@ -212,22 +252,14 @@ class Trainer:
 
             # Deserialize state dictionary.
             state_dict = torch.load(load_path / f"rank{global_rank()}.pt")
+            # We'll restore RNG state last to make sure we don't alter it through loading the state dict.
+            rng_state = state_dict.pop("rng")
 
-            # Load state.
+            # Load non-tensor state.
+            self.load_non_tensor_state_dict(state_dict)
+
+            # Load model and optimizer state.
             self.fsdp_model.load_state_dict(state_dict["model"])
-            self.global_step = state_dict["global_step"]
-            self.global_data_step = state_dict["global_data_step"]
-            self.checkpoints = [
-                path
-                for path in state_dict["checkpoints"]
-                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
-            ]
-            self.unsharded_checkpoints = [
-                path
-                for path in state_dict["unsharded_checkpoints"]
-                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
-            ]
-            self.scheduler.load_state_dict(state_dict["scheduler"])
             # NOTE: careful, the order of these arguments has changed since the 2.0 release.
             if version.parse(torch.__version__) < version.parse("2.1.0"):
                 #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
@@ -237,26 +269,12 @@ class Trainer:
                 flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, state_dict["optim"])  # type: ignore
             self.optim.load_state_dict(flattened_osd)
 
-            rng_state = state_dict.pop("rng")
             del state_dict, flattened_osd
 
         dist.barrier()
 
-        if not self.cfg.restore_dataloader:
-            self.global_data_step = 0
-        elif self.cfg.fast_forward_batches:
-            self.global_data_step += self.cfg.fast_forward_batches
-
-        # Fast-forward data loader.
-        if not self.cfg.dry_run:
-            self.fast_forward_batches()
-            dist.barrier()
-
-        # Set rng state.
-        random.setstate(rng_state["python"])
-        np.random.set_state(rng_state["numpy"])
-        torch.set_rng_state(rng_state["torch"])
-        torch.cuda.set_rng_state(rng_state["cuda"])
+        # Lastly, restore RNG state.
+        self.restore_rng_state(rng_state)
 
     def save_unsharded_checkpoint(self) -> Path:
         # Zero-gradients to avoid gathering them.
@@ -362,42 +380,9 @@ class Trainer:
 
             # Load other state.
             other_state_dict = torch.load(load_path / "other.pt")
-            self.global_step = other_state_dict["global_step"]
-            self.global_data_step = other_state_dict["global_data_step"]
-            self.checkpoints = [
-                path
-                for path in other_state_dict["checkpoints"]
-                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder)
-            ]
-            self.unsharded_checkpoints = [
-                path
-                for path in other_state_dict["unsharded_checkpoints"]
-                if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder)
-            ]
-            self.scheduler.load_state_dict(other_state_dict["scheduler"])
+            self.load_non_tensor_state_dict(other_state_dict)
 
         dist.barrier()
-
-        if not self.cfg.restore_dataloader:
-            self.global_data_step = 0
-        elif self.cfg.fast_forward_batches:
-            self.global_data_step += self.cfg.fast_forward_batches
-
-        # Fast-forward data loader.
-        if not self.cfg.dry_run:
-            self.fast_forward_batches()
-            dist.barrier()
-
-    def fast_forward_batches(self):
-        if self.global_data_step > 0:
-            if self.global_data_step > self.global_step:
-                log.info(
-                    f"Fast-forwarding data loader to {self.global_step}+{self.global_data_step-self.global_step}"
-                )
-            else:
-                log.info(f"Fast-forwarding data loader to {self.global_data_step}")
-            assert isinstance(self.train_loader.dataset, IterableDataset)
-            self.train_loader.dataset.start_index = self.cfg.global_train_batch_size * self.global_data_step
 
     def save_checkpoint(self, checkpoint_type: CheckpointType = CheckpointType.sharded) -> Path:
         if checkpoint_type == CheckpointType.sharded:
