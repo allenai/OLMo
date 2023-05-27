@@ -1,25 +1,18 @@
 
-from argparse import ArgumentParser
-from contextlib import ExitStack
 import datetime
-from hashlib import md5
+import json
 import multiprocessing
 import os
+from argparse import ArgumentParser
+from contextlib import ExitStack
+from hashlib import md5
 from queue import Queue
-from typing import List, Union, Tuple, Dict
-
-import json
-from datasets import load_dataset
-from datasets.utils.logging import disable_progress_bar
-
-from smashed.utils.io_utils import (
-    MultiPath,
-    open_file_for_write,
-    compress_stream
-)
+from typing import Dict, List, Tuple, Union
 
 from ai2_llm_filters.core_tools.parallel import BaseParallelProcessor
-
+from datasets import load_dataset
+from datasets.utils.logging import disable_progress_bar
+from smashed.utils.io_utils import MultiPath, compress_stream, open_file_for_write
 
 NUM_EXAMPLES = 968_000_015
 NUM_BYTES = 2_766_953_721_769
