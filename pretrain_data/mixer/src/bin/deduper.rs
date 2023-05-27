@@ -1,15 +1,15 @@
-use std::{env, io};
 use std::collections::VecDeque;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::process;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
+use std::{env, io};
 
-use flate2::Compression;
 use flate2::read::MultiGzDecoder;
 use flate2::write::GzEncoder;
+use flate2::Compression;
 use serde_json::{json, Value};
 use threadpool::ThreadPool;
 
@@ -33,21 +33,28 @@ fn main() {
     }
 
     let config: DeduperConfig = DeduperConfig::read_from_file(&args[1]).unwrap();
-    log::info!("Running with config: {:#?}", serde_json::to_string(&config).unwrap());
+    log::info!(
+        "Running with config: {:#?}",
+        serde_json::to_string(&config).unwrap()
+    );
 
     run(config);
 }
 
 pub fn run(config: DeduperConfig) {
-    assert!(config.dedupe.paragraphs.is_some() ^ config.dedupe.documents.is_some(),
-            "Must dedupe either paragraphs or documents");
+    assert!(
+        config.dedupe.paragraphs.is_some() ^ config.dedupe.documents.is_some(),
+        "Must dedupe either paragraphs or documents"
+    );
 
     let s3_client = s3_util::new_client().unwrap();
 
     let bloom_filter = BloomFilter::initialize(&config.bloom_filter).unwrap();
     let bloom_filter = Arc::new(bloom_filter);
 
-    let paths = s3_util::find_objects_matching_patterns(&s3_client, &config.documents).unwrap().clone();
+    let paths = s3_util::find_objects_matching_patterns(&s3_client, &config.documents)
+        .unwrap()
+        .clone();
 
     let threadpool = ThreadPool::new(config.processes);
     let failed_shard_count = AtomicU32::new(0);
@@ -59,11 +66,7 @@ pub fn run(config: DeduperConfig) {
         let bloom_filter = bloom_filter.clone();
         let failed_shard_count_ref = failed_shard_count_ref.clone();
         threadpool.execute(move || {
-            let result = write_attributes(
-                path,
-                work_dirs,
-                dedupe,
-                bloom_filter);
+            let result = write_attributes(path, work_dirs, dedupe, bloom_filter);
             match result {
                 Ok(_) => {}
                 Err(e) => {
@@ -91,10 +94,12 @@ pub fn run(config: DeduperConfig) {
 // Write attributes for the documents in the given file:
 // For doc-level deduping, check the Bloom filter for existence of the configured key and set the configured attribute to true.
 // For paragraph-level deduping, check the Bloom filter for existence of a paragraph in the text and add a span to the configured attribute.
-fn write_attributes(doc_path: String,
-                    work_dirs: WorkDirConfig,
-                    dedupe_config: DedupeConfig,
-                    bloom_filter: Arc<BloomFilter>) -> Result<(), io::Error> {
+fn write_attributes(
+    doc_path: String,
+    work_dirs: WorkDirConfig,
+    dedupe_config: DedupeConfig,
+    bloom_filter: Arc<BloomFilter>,
+) -> Result<(), io::Error> {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -129,25 +134,24 @@ fn write_attributes(doc_path: String,
             &doc_path,
             &local_input,
         ))?;
-        let input_file = OpenOptions::new().
-            read(true).
-            write(false).
-            create(false).
-            open(local_input.clone())?;
-        let reader = BufReader::with_capacity(
-            1024 * 1024,
-            MultiGzDecoder::new(input_file));
+        let input_file = OpenOptions::new()
+            .read(true)
+            .write(false)
+            .create(false)
+            .open(local_input.clone())?;
+        let reader = BufReader::with_capacity(1024 * 1024, MultiGzDecoder::new(input_file));
 
-        let tmp_output = OpenOptions::new().
-            read(false).
-            write(true).
-            create(true).
-            truncate(true).
-            open(&tmp_output_path)?;
+        let tmp_output = OpenOptions::new()
+            .read(false)
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&tmp_output_path)?;
 
         let mut writer = BufWriter::with_capacity(
             1024 * 1024,
-            GzEncoder::new(tmp_output, Compression::default()));
+            GzEncoder::new(tmp_output, Compression::default()),
+        );
 
         let mut line_number = 0;
         for line in reader.lines() {
@@ -166,9 +170,19 @@ fn write_attributes(doc_path: String,
             match dedupe_config.documents {
                 Some(ref cfg) => {
                     let document_key = {
-                        let mut finder = jsonpath_rust::JsonPathFinder::from_str("{}", &cfg.key).map_err(|e| io::Error::new(io::ErrorKind::Other, e)).unwrap();
+                        let mut finder = jsonpath_rust::JsonPathFinder::from_str("{}", &cfg.key)
+                            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+                            .unwrap();
                         finder.set_json(Box::new(data.clone()));
-                        finder.find().as_array().unwrap().get(0).unwrap().as_str().unwrap().to_string()
+                        finder
+                            .find()
+                            .as_array()
+                            .unwrap()
+                            .get(0)
+                            .unwrap()
+                            .as_str()
+                            .unwrap()
+                            .to_string()
                     };
 
                     if dedupe_config.skip_empty.unwrap_or(false) && document_key.trim().is_empty() {
@@ -204,7 +218,7 @@ fn write_attributes(doc_path: String,
                         }
                         let par_end = offset;
 
-                        if dedupe_config.skip_empty.unwrap_or(false) && p.trim().is_empty()  {
+                        if dedupe_config.skip_empty.unwrap_or(false) && p.trim().is_empty() {
                             // skip empty paragraphs if dedupe_config.skip_empty is true
                             // and the paragraph is empty after trimming (i.e., removing whitespace)
                             continue;
@@ -212,7 +226,11 @@ fn write_attributes(doc_path: String,
                             let mut dedupe_key = VecDeque::with_capacity(1);
                             dedupe_key.push_back(p);
                             if bloom_filter.contains(&dedupe_key) {
-                                let span = vec! {Value::Number(par_start.into()), Value::Number(par_end.into()), Value::Number(1.into())};
+                                let span = vec![
+                                    Value::Number(par_start.into()),
+                                    Value::Number(par_end.into()),
+                                    Value::Number(1.into()),
+                                ];
                                 // add span to duplicate_paragraph_spans
                                 duplicate_paragraph_spans.push(Value::Array(span));
                             } else if !bloom_filter.read_only {
@@ -232,7 +250,11 @@ fn write_attributes(doc_path: String,
         std::fs::remove_file(local_input)?;
     }
 
-    log::info!("Uploading {} to {}", &tmp_output_path.display(), &output_path);
+    log::info!(
+        "Uploading {} to {}",
+        &tmp_output_path.display(),
+        &output_path
+    );
     rt.block_on(upload_file(
         &s3_client,
         "ai2-llm",
@@ -242,7 +264,10 @@ fn write_attributes(doc_path: String,
 
     {
         // Create empty file to indicate that the shard is done.
-        OpenOptions::new().create(true).write(true).open(&local_output)?;
+        OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open(&local_output)?;
         std::fs::remove_file(&tmp_output_path)?;
     }
 
@@ -250,12 +275,12 @@ fn write_attributes(doc_path: String,
 }
 
 mod deduper_config {
-    use std::io;
-    use std::fs::File;
     use serde::{Deserialize, Serialize};
+    use std::fs::File;
+    use std::io;
 
-    use ai2_pretraining::shard::shard_config::*;
     use ai2_pretraining::bloom_filter::BloomFilterConfig;
+    use ai2_pretraining::shard::shard_config::*;
 
     #[derive(Serialize, Deserialize, Clone)]
     pub struct DuplicateKeyConfig {
@@ -304,11 +329,10 @@ mod deduper_config {
     }
 }
 
-
 #[cfg(test)]
 mod test {
-    use std::io;
     use std::fs::OpenOptions;
+    use std::io;
     use std::io::{BufRead, BufReader};
     use std::path::Path;
 
@@ -319,29 +343,35 @@ mod test {
 
     use super::*;
 
-    fn compare_contents(expected: &str,
-                        actual: &str) {
-        let expected_lines = BufReader::new(
-            MultiGzDecoder::new(
-                OpenOptions::new().
-                    read(true).
-                    write(false).
-                    create(false).
-                    open(expected).unwrap())).lines().collect::<Vec<Result<String, io::Error>>>();
-        let actual_lines = BufReader::new(
-            MultiGzDecoder::new(
-                OpenOptions::new().
-                    read(true).
-                    write(false).
-                    create(false).
-                    open(actual).unwrap())).lines().collect::<Vec<Result<String, io::Error>>>();
+    fn compare_contents(expected: &str, actual: &str) {
+        let expected_lines = BufReader::new(MultiGzDecoder::new(
+            OpenOptions::new()
+                .read(true)
+                .write(false)
+                .create(false)
+                .open(expected)
+                .unwrap(),
+        ))
+        .lines()
+        .collect::<Vec<Result<String, io::Error>>>();
+        let actual_lines = BufReader::new(MultiGzDecoder::new(
+            OpenOptions::new()
+                .read(true)
+                .write(false)
+                .create(false)
+                .open(actual)
+                .unwrap(),
+        ))
+        .lines()
+        .collect::<Vec<Result<String, io::Error>>>();
 
-        assert_eq!(expected_lines.len(), actual_lines.len(), "Wrong number of output documents");
+        assert_eq!(
+            expected_lines.len(),
+            actual_lines.len(),
+            "Wrong number of output documents"
+        );
 
-        for (actual, expected) in std::iter::zip(
-            expected_lines,
-            actual_lines,
-        ) {
+        for (actual, expected) in std::iter::zip(expected_lines, actual_lines) {
             let actual = actual.unwrap();
             let expected = expected.unwrap();
             assert_eq!(actual, expected);
@@ -355,16 +385,22 @@ mod test {
 
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
-            .build().unwrap();
+            .build()
+            .unwrap();
         let s3_client = s3_util::new_client()?;
 
         let local_output_file = "tests/work/output/dedupe-by-url.json.gz";
-        rt.block_on(download_to_file(&s3_client, "ai2-llm",
-                                     "pretraining-data/tests/mixer/inputs/v0/attributes/dedupe_by_url/head/0000.json.gz",
-                                     Path::new(local_output_file)))?;
+        rt.block_on(download_to_file(
+            &s3_client,
+            "ai2-llm",
+            "pretraining-data/tests/mixer/inputs/v0/attributes/dedupe_by_url/head/0000.json.gz",
+            Path::new(local_output_file),
+        ))?;
 
-        compare_contents("tests/data/expected/dedupe-by-url.json.gz",
-                         local_output_file);
+        compare_contents(
+            "tests/data/expected/dedupe-by-url.json.gz",
+            local_output_file,
+        );
         Ok(())
     }
 
@@ -375,16 +411,22 @@ mod test {
 
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
-            .build().unwrap();
+            .build()
+            .unwrap();
         let s3_client = s3_util::new_client()?;
 
         let local_output_file = "tests/work/output/dedupe-paragraphs.json.gz";
-        rt.block_on(download_to_file(&s3_client, "ai2-llm",
-                                     "pretraining-data/tests/mixer/inputs/v0/attributes/dedupe_paragraphs/head/0000.json.gz",
-                                     Path::new(local_output_file)))?;
+        rt.block_on(download_to_file(
+            &s3_client,
+            "ai2-llm",
+            "pretraining-data/tests/mixer/inputs/v0/attributes/dedupe_paragraphs/head/0000.json.gz",
+            Path::new(local_output_file),
+        ))?;
 
-        compare_contents("tests/data/expected/dedupe-paragraphs.json.gz",
-                         local_output_file);
+        compare_contents(
+            "tests/data/expected/dedupe-paragraphs.json.gz",
+            local_output_file,
+        );
         Ok(())
     }
 }
