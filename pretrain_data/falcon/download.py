@@ -18,6 +18,7 @@ NUM_EXAMPLES = 968_000_015
 NUM_BYTES = 2_766_953_721_769
 DOWNLOAD_SIZE = 466_888_198_663
 N_SHARDS = 5_534
+PARTITIONS = 500
 
 
 def convert_timestamp(d: datetime.datetime) -> str:
@@ -40,7 +41,7 @@ class FalconDownloader(BaseParallelProcessor):
         added = datetime.datetime.now()
 
         shard_id = int(shard_id_str)
-        num_shards = int(dataset.n_shards)   # pyright: ignore
+        num_shards = PARTITIONS
         num_examples = int(NUM_EXAMPLES)
         shard_start = round(shard_id * num_examples / num_shards)
         shard_end = round((shard_id + 1) * num_examples / num_shards)
@@ -108,24 +109,9 @@ class FalconDownloader(BaseParallelProcessor):
 
     def _get_all_paths(self) -> Tuple[List[MultiPath], List[MultiPath], List[MultiPath]]:
         """Get all paths to process using prefixes provided"""
-        hf_access_token = os.environ.get("HF_ACCESS_TOKEN")
-
-        dataset = load_dataset(
-            self.source_prefix.as_str, split='train', streaming=True, use_auth_token=hf_access_token
-        )
-
-        all_src = [
-            MultiPath.parse(f'{self.source_prefix.as_str}/{i}')
-            for i in range(dataset.n_shards)    # pyright: ignore
-        ]
-        all_dst = [
-            MultiPath.parse(f'{self.destination_prefix}/{i}.jsonl.gz')
-            for i in range(dataset.n_shards)   # pyright: ignore
-        ]
-        all_meta = [
-            MultiPath.parse(f'{self.metadata_prefix}/{i}.meta')
-            for i in range(dataset.n_shards)   # pyright: ignore
-        ]
+        all_src = [MultiPath.parse(f'{self.source_prefix.as_str}/{i}') for i in range(PARTITIONS)]
+        all_dst = [MultiPath.parse(f'{self.destination_prefix}/{i}.jsonl.gz') for i in range(PARTITIONS)]
+        all_meta = [MultiPath.parse(f'{self.metadata_prefix}/{i}.meta') for i in range(PARTITIONS)]
 
         return all_src, all_dst, all_meta
 

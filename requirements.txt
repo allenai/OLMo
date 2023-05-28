@@ -16,3 +16,4 @@ google-cloud-storage
 packaging
 datasets
 scikit-learn
+smashed[remote]
