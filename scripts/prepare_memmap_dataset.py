@@ -12,24 +12,19 @@ python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/out.npy
 """
 
 import concurrent.futures
-import contextlib
 import functools
-import gzip
-import json
 import logging
 import multiprocessing as mp
 import os
-from collections import defaultdict
 from concurrent.futures import Future
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Dict, Generator, Iterator, List, Optional, Tuple
+from typing import Generator, List, Optional, Sequence, Tuple, TypeVar
 
 import click
 import msgspec
 import numpy as np
-import tqdm
 from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
@@ -49,6 +44,8 @@ from olmo import Tokenizer
 from olmo.util import prepare_cli_environment
 
 log = logging.getLogger(__name__)
+
+T = TypeVar("T", bound=Sequence)
 
 
 def get_progress() -> Progress:
@@ -80,38 +77,98 @@ def tokenize_file(tokenizer: Tokenizer, path: str, batch_size: int = 1_000) -> G
             yield tokenizer.encode(row.text, add_special_tokens=True)
 
 
-@contextmanager
-def make_mmap_file(
-    path: str,
-    dtype: np.dtype,
-    max_tokens: int = 2 * 1024 * 1024 * 1024,  # 2B tokens * 2 bytes per token (uint16) = 4GB
-) -> Iterator[np.memmap]:
-    """Make a memory-mapped file."""
-    parsed_path = MultiPath.parse(path)
-    if parsed_path.is_local:
-        local_memmap_path = parsed_path.as_path
+class MemmapFile:
+    """Context manager responsible for writing, resizing, and closing / uploading a memmap file."""
 
-        # make sure the directory exists
-        local_memmap_path.parent.mkdir(parents=True, exist_ok=True)
-    else:
-        with NamedTemporaryFile(delete=False) as f:
-            # if the destination for the memmap is not local, we need to write to a temporary file first
-            local_memmap_path = Path(f.name)
+    DEFAULT_2G_MAX_TOKENS = 2 * 1024 * 1024 * 1024  # 2B tokens
 
-    memmap = np.memmap(local_memmap_path, mode="w+", dtype=dtype, shape=(max_tokens,))
+    def __init__(
+        self,
+        path: str,
+        dtype: np.dtype,
+        max_tokens: int = DEFAULT_2G_MAX_TOKENS,
+    ):
+        self.path = MultiPath.parse(path)
+        self.dtype = dtype
+        self.max_tokens = max_tokens
 
-    log.info(f"Created memmap file at {local_memmap_path} of size {memmap.nbytes:,} bytes")
-    yield memmap
+        self._local_path: Optional[Path] = None
+        self._written_tokens = 0
+        self._memmap: Optional[np.memmap] = None
 
-    # write the memmap to the destination
-    memmap.flush()
-    if not parsed_path.is_local:
-        with stream_file_for_read(local_memmap_path, "rb") as f, open_file_for_write(parsed_path, mode="wb") as g:
-            g.write(f.read())
-        log.info(f"Written memmap file to {parsed_path.as_str}")
+    def __len__(self) -> int:
+        return self._written_tokens
 
-        # delete the temporary file
-        os.remove(local_memmap_path)
+    def write(self, values: List[int], flush: bool = False) -> Optional[List[int]]:
+        if self._memmap is None:
+            raise RuntimeError("MemmapFile is not open")
+
+        if (len(values) + self._written_tokens) >= self.max_tokens:
+            values = values[: self.max_tokens - self._written_tokens]
+            rest = values[self.max_tokens - self._written_tokens :]
+        else:
+            rest = None
+
+        self._memmap[self._written_tokens : self._written_tokens + len(values)] = values
+        self._written_tokens += len(values)
+
+        if flush:
+            self._memmap.flush()
+
+        return rest
+
+    def __enter__(self) -> "MemmapFile":
+        assert self._memmap is None, "MemmapFile is already open"
+
+        if self.path.is_local:
+            self._local_path = self.path.as_path
+            # make sure the directory exists
+            self._local_path.parent.mkdir(parents=True, exist_ok=True)  # type: ignore
+        else:
+            with NamedTemporaryFile(delete=False) as f:
+                # if the destination for the memmap is not local, we need to write to a temporary file first
+                self._local_path = Path(f.name)
+
+        self._memmap = np.memmap(mode="w+", filename=self._local_path, dtype=self.dtype, shape=(self.max_tokens,))
+        log.info(f"Created memmap file at {self._local_path} of size {self._memmap.nbytes:,} bytes")
+
+        return self
+
+    def __exit__(self, *_):
+        return self.close()
+
+    def close(self):
+        assert self._local_path is not None, "MemmapFile is not open"
+        assert self._memmap is not None, "MemmapFile is not open"
+
+        # write the memmap to the destination
+        self._memmap.flush()
+
+        # we resize the memmap to the number of tokens actually written
+        if self._written_tokens < self.max_tokens:
+            del self._memmap
+            os.rename(self._local_path, (temp_path := self._local_path.with_suffix(".tmp")))
+
+            new_memmap = np.memmap(
+                mode="w+", filename=self._local_path, dtype=self.dtype, shape=(self._written_tokens,)
+            )
+            old_memmap = np.memmap(mode="r", filename=temp_path, dtype=self.dtype, shape=(self.max_tokens,))
+            new_memmap[:] = old_memmap[: self._written_tokens]
+            new_memmap.flush()
+            log.info(f"Resized memmap file from {old_memmap.nbytes:,} to {new_memmap.nbytes:,} bytes")
+            os.remove(temp_path)
+
+        if not self.path.is_local:
+            with ExitStack() as stack:
+                f = stack.enter_context(stream_file_for_read(self._local_path, "rb"))
+                g = stack.enter_context(open_file_for_write(self.path, mode="wb"))
+                g.write(f.read())
+            log.info(f"Written memmap file to {self.path.as_str}")
+
+            # delete the temporary file
+            os.remove(self._local_path)
+
+        self._local_path = self._memmap = None
 
 
 def fill_memmap(
@@ -121,25 +178,36 @@ def fill_memmap(
     dtype: np.dtype,
     max_tokens: int = 2 * 1024 * 1024 * 1024,  # 2B tokens * 2 bytes per token (uint16) = 4GB
 ):
-    file_index = 0
+    # we need to make a new tokenizer here because it's not pickleable
     tokenizer = Tokenizer.from_pretrained(tokenizer_id, truncate_to=None)
 
-    memmap: Optional[np.memmap] = None
-    tokens_index = 0
+    # first memmap file will be created in the loop below
+    memmap: Optional[MemmapFile] = None
+
+    file_index = 0
 
     with ExitStack() as stack:
-        for token_ids in tqdm.tqdm(tokenize_file(tokenizer=tokenizer, path=path)):
-            if memmap is None or tokens_index + len(token_ids) >= max_tokens:
+        # `tokenize_file` is a generator that yields tokenized documents
+        for token_ids in tokenize_file(tokenizer=tokenizer, path=path):
+            # if token_ids_to_still_write is not None it means that either memmap is None or it's full,
+            # so we will need to create a new one later
+            token_ids_to_still_write = memmap.write(token_ids) if memmap is not None else token_ids
+
+            if token_ids_to_still_write is not None:
+                # close the previous memmap (if one is open)
                 stack.pop_all().close()
-                current_memmap_path = f"{memmap_path}_{file_index:05d}.npy"
-                memmap = stack.enter_context(
-                    make_mmap_file(path=current_memmap_path, dtype=dtype, max_tokens=max_tokens)
-                )
+
+                # create a new memmap file; progressively name them with an index
+                curr_memmap_path = f"{memmap_path}_{file_index:05d}.npy"
+                memmap = stack.enter_context(MemmapFile(path=curr_memmap_path, dtype=dtype, max_tokens=max_tokens))
+
+                # increment the file index and reset the tokens index
                 file_index += 1
 
-            memmap[tokens_index : tokens_index + len(token_ids)] = token_ids
-            tokens_index += len(token_ids)
+                # do the actual writing
+                memmap.write(token_ids_to_still_write)
 
+        # close the last memmap
         stack.pop_all().close()
 
 
@@ -162,13 +230,14 @@ def make_source_and_target(src: Tuple[str, ...], output: str) -> Tuple[Tuple[str
     "src",
     nargs=-1,
     type=str,
+    required=True,
 )
 @click.option(
     "-o",
     "--output",
     type=str,
     help="Specify the output path.",
-    prompt="Output file",
+    prompt="Output directory",
 )
 @click.option(
     "--tokenizer", "tokenizer_id", type=str, help="Name of path of a pretrained tokenizer", default="gpt2"
