@@ -67,6 +67,10 @@ class InputDocumentSpec(msgspec.Struct):
 
 
 def tokenize_file(tokenizer: Tokenizer, path: str) -> Generator[List[int], None, None]:
+    """Tokenize a file of documents using the provided tokenizer; file is expected to be a gzipped JSON lines
+    file, each containing a field named `text`.
+    """
+
     decoder = msgspec.json.Decoder(InputDocumentSpec)
 
     with ExitStack() as stack:
@@ -81,14 +85,22 @@ def tokenize_file(tokenizer: Tokenizer, path: str) -> Generator[List[int], None,
 class MemmapFile:
     """Context manager responsible for writing, resizing, and closing / uploading a memmap file."""
 
-    DEFAULT_2G_MAX_TOKENS = 512 * 1024 * 1024  # 500M tokens / 1GB
+    DEFAULT_MAX_TOKENS = 512 * 1024 * 1024  # 500M tokens / 1GB
 
     def __init__(
         self,
         path: str,
         dtype: np.dtype,
-        max_tokens: int = DEFAULT_2G_MAX_TOKENS,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
     ):
+        """Create a new memmap file.
+
+        Args:
+            path (str): Location for the memmap file. If the path is not local, the memmap file will be
+                written to a temporary file first and then uploaded to the destination.
+            dtype (np.dtype): Data type for the memmap file; must be a valid numpy dtype.
+            max_tokens (int, optional): Maximum number of tokens per file. Defaults to 500M tokens, which is 1GB.
+        """
         self.path = MultiPath.parse(path)
         self.dtype = dtype
         self.max_tokens = max_tokens
@@ -98,9 +110,18 @@ class MemmapFile:
         self._memmap: Optional[np.memmap] = None
 
     def __len__(self) -> int:
+        """Length of the memmap file in tokens that have been written."""
         return self._written_tokens
 
     def write(self, values: List[int], flush: bool = False) -> Optional[List[int]]:
+        """Write a list of token IDs to the memmap file; if only a subset of the values can be written,
+        return the rest.
+
+        Args:
+            values (List[int]): List of token IDs to write.
+            flush (bool, optional): Whether to flush the memmap file after writing. Defaults to False.
+        """
+
         if self._memmap is None:
             raise RuntimeError("MemmapFile is not open")
 
@@ -119,6 +140,8 @@ class MemmapFile:
         return rest
 
     def __enter__(self) -> "MemmapFile":
+        """Context manager entry point. Creates the memmap file and returns self."""
+
         assert self._memmap is None, "MemmapFile is already open"
 
         if self.path.is_local:
@@ -136,9 +159,11 @@ class MemmapFile:
         return self
 
     def __exit__(self, *_):
+        """Context manager exit point. Closes the memmap file."""
         return self.close()
 
     def close(self):
+        """Close the memmap file and optionally upload it to the destination (in the case of a remote path)."""
         assert self._local_path is not None, "MemmapFile is not open"
         assert self._memmap is not None, "MemmapFile is not open"
 
@@ -180,6 +205,8 @@ def fill_memmap(
     dtype: np.dtype,
     max_tokens: int = 512 * 1024 * 1024,  # 512M tokens * 2 bytes per token (uint16) = 1GB
 ):
+    """Write a memmap file from a file of documents."""
+
     # we need to make a new tokenizer here because it's not pickleable
     tokenizer = Tokenizer.from_pretrained(tokenizer_id, truncate_to=None)
 
@@ -216,6 +243,8 @@ def fill_memmap(
 
 
 def make_source_and_target(src: Tuple[str, ...], output: str) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
+    """Recursively list all files in the source directories and create a corresponding list of destination."""
+
     exploded_src = [path for prefix in src for path in recursively_list_files(prefix)]
     output_digits = np.ceil(np.log10(len(exploded_src) + 1)).astype(int)
     exploded_dst = [f'{output.rstrip("/")}/{i:0{output_digits}d}' for i in range(len(exploded_src))]
