@@ -66,7 +66,7 @@ class InputDocumentSpec(msgspec.Struct):
     text: str
 
 
-def tokenize_file(tokenizer: Tokenizer, path: str, batch_size: int = 1_000) -> Generator[List[int], None, None]:
+def tokenize_file(tokenizer: Tokenizer, path: str) -> Generator[List[int], None, None]:
     decoder = msgspec.json.Decoder(InputDocumentSpec)
 
     with ExitStack() as stack:
@@ -81,7 +81,7 @@ def tokenize_file(tokenizer: Tokenizer, path: str, batch_size: int = 1_000) -> G
 class MemmapFile:
     """Context manager responsible for writing, resizing, and closing / uploading a memmap file."""
 
-    DEFAULT_2G_MAX_TOKENS = 2 * 1024 * 1024 * 1024  # 2B tokens
+    DEFAULT_2G_MAX_TOKENS = 512 * 1024 * 1024  # 500M tokens / 1GB
 
     def __init__(
         self,
@@ -126,7 +126,7 @@ class MemmapFile:
             # make sure the directory exists
             self._local_path.parent.mkdir(parents=True, exist_ok=True)  # type: ignore
         else:
-            with NamedTemporaryFile(delete=False) as f:
+            with NamedTemporaryFile(delete=False, prefix="olmo_memmap") as f:
                 # if the destination for the memmap is not local, we need to write to a temporary file first
                 self._local_path = Path(f.name)
 
@@ -142,31 +142,33 @@ class MemmapFile:
         assert self._local_path is not None, "MemmapFile is not open"
         assert self._memmap is not None, "MemmapFile is not open"
 
-        # write the memmap to the destination
-        self._memmap.flush()
+        try:
+            # write the memmap to the destination
+            self._memmap.flush()
 
-        # we resize the memmap to the number of tokens actually written
-        if self._written_tokens < self.max_tokens:
-            del self._memmap
-            os.rename(self._local_path, (temp_path := self._local_path.with_suffix(".tmp")))
-            new_memmap = np.memmap(
-                mode="w+", filename=self._local_path, dtype=self.dtype, shape=(self._written_tokens,)
-            )
-            old_memmap = np.memmap(mode="r", filename=temp_path, dtype=self.dtype, shape=(self.max_tokens,))
-            new_memmap[:] = old_memmap[: self._written_tokens]
-            new_memmap.flush()
-            log.info(f"Resized memmap file from {old_memmap.nbytes:,} to {new_memmap.nbytes:,} bytes")
-            os.remove(temp_path)
+            # we resize the memmap to the number of tokens actually written
+            if self._written_tokens < self.max_tokens:
+                del self._memmap
+                os.rename(self._local_path, (temp_path := self._local_path.with_suffix(".tmp")))
+                new_memmap = np.memmap(
+                    mode="w+", filename=self._local_path, dtype=self.dtype, shape=(self._written_tokens,)
+                )
+                old_memmap = np.memmap(mode="r", filename=temp_path, dtype=self.dtype, shape=(self.max_tokens,))
+                new_memmap[:] = old_memmap[: self._written_tokens]
+                new_memmap.flush()
+                log.info(f"Resized memmap file from {old_memmap.nbytes:,} to {new_memmap.nbytes:,} bytes")
+                os.remove(temp_path)
 
-        if not self.path.is_local:
-            with ExitStack() as stack:
-                f = stack.enter_context(stream_file_for_read(self._local_path, "rb"))
-                g = stack.enter_context(open_file_for_write(self.path, mode="wb"))
-                g.write(f.read())
-            log.info(f"Written memmap file to {self.path.as_str}")
-
-            # delete the temporary file
-            os.remove(self._local_path)
+            if not self.path.is_local:
+                with ExitStack() as stack:
+                    f = stack.enter_context(stream_file_for_read(self._local_path, "rb"))
+                    g = stack.enter_context(open_file_for_write(self.path, mode="wb"))
+                    g.write(f.read())
+                log.info(f"Written memmap file to {self.path.as_str}")
+        finally:
+            if not self.path.is_local:
+                # delete the temporary file under any circumstances
+                os.remove(self._local_path)
 
         self._local_path = self._memmap = None
 
@@ -176,7 +178,7 @@ def fill_memmap(
     path: str,
     memmap_path: str,
     dtype: np.dtype,
-    max_tokens: int = 2 * 1024 * 1024 * 1024,  # 2B tokens * 2 bytes per token (uint16) = 4GB
+    max_tokens: int = 512 * 1024 * 1024,  # 512M tokens * 2 bytes per token (uint16) = 1GB
 ):
     # we need to make a new tokenizer here because it's not pickleable
     tokenizer = Tokenizer.from_pretrained(tokenizer_id, truncate_to=None)
@@ -187,13 +189,15 @@ def fill_memmap(
     file_index = 0
 
     with ExitStack() as stack:
-        # `tokenize_file` is a generator that yields tokenized documents
-        for token_ids in tokenize_file(tokenizer=tokenizer, path=path):
-            # if token_ids_to_still_write is not None it means that either memmap is None or it's full,
-            # so we will need to create a new one later
-            token_ids_to_still_write = memmap.write(token_ids) if memmap is not None else token_ids
+        for line_no, token_ids in enumerate(tokenize_file(tokenizer=tokenizer, path=path), start=1):
+            # flush any 10k lines or so; improves stability
+            flush = line_no % 10_000 == 0
 
-            if token_ids_to_still_write is not None:
+            # if leftovers_to_write is not None it means that either memmap is None or it's full,
+            # so we will need to create a new one later
+            leftovers_to_write = memmap.write(token_ids, flush=flush) if memmap is not None else token_ids
+
+            if leftovers_to_write is not None:
                 # close the previous memmap (if one is open)
                 stack.pop_all().close()
 
@@ -205,7 +209,7 @@ def fill_memmap(
                 file_index += 1
 
                 # do the actual writing
-                memmap.write(token_ids_to_still_write)
+                memmap.write(leftovers_to_write)
 
         # close the last memmap
         stack.pop_all().close()
@@ -239,9 +243,9 @@ def make_source_and_target(src: Tuple[str, ...], output: str) -> Tuple[Tuple[str
 @click.option("--validate/--no-validate", default=False)
 @click.option(
     "--max-tokens",
-    default=2 * 1024 * 1024 * 1024,
+    default=512 * 1024 * 1024,
     type=int,
-    help="Maximum number of tokens to store in a single memmap file (default: 2B tokens or 4GB)",
+    help="Maximum number of tokens to store in a single memmap file (default: 512M tokens or 1GB)",
 )
 @click.option("--debug/--no-debug", default=False, help="Enable debug (single process mode)")
 @click.option("-j", "--workers", "max_workers", type=int, default=None, help="Defaults to number of CPUs")
