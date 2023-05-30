@@ -89,8 +89,8 @@ export SALLOC_ACCOUNT=$SBATCH_ACCOUNT
 export EBU_USER_PREFIX=/project/$SBATCH_ACCOUNT
 
 # For downloading things from the ai2-llm bucket.
-export S3_ACCESS_KEY_ID=XXXXXXX
-export S3_SECRET_ACCESS_KEY=YYYYYYY
+export AWS_ACCESS_KEY_ID=XXXXXXX
+export AWS_SECRET_ACCESS_KEY=YYYYYYY
 
 # Other API keys for logging and metric tracking.
 export WANDB_API_KEY=XXXXXXX
