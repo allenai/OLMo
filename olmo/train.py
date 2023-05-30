@@ -42,26 +42,28 @@ class SpeedMonitor:
     cfg: SpeedMonitorConfig
     start_times: Deque[float] = field(default_factory=lambda: deque([]))
     global_total_tokens: int = 0
-    device_interval_tokens: int = 0
+    device_interval_tokens: Deque[int] = field(default_factory=lambda: deque([]))
 
     def batch_start(self, global_total_tokens: int, device_batch_num_tokens: int, record: bool = True) -> None:
         self.global_total_tokens = global_total_tokens
         if record:
             if len(self.start_times) >= self.cfg.window_size:
                 self.start_times.popleft()
+                self.device_interval_tokens.popleft()
             self.start_times.append(time.monotonic())
-            self.device_interval_tokens += device_batch_num_tokens
+            self.device_interval_tokens.append(device_batch_num_tokens)
 
     def reset(self) -> None:
         self.start_times.clear()
-        self.device_interval_tokens = 0
+        self.device_interval_tokens.clear()
 
     def check(self) -> Dict[str, float]:
         metrics: Dict[str, float] = {"throughput/total_tokens": self.global_total_tokens}
         if self.start_times:
             interval_seconds = time.monotonic() - self.start_times[0]
             interval_batches = len(self.start_times)
-            metrics["throughput/device/tokens_per_second"] = self.device_interval_tokens / interval_seconds
+            interval_tokens = sum(self.device_interval_tokens)
+            metrics["throughput/device/tokens_per_second"] = interval_tokens / interval_seconds
             metrics["throughput/device/batches_per_second"] = interval_batches / interval_seconds
         return metrics
 
