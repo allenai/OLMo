@@ -8,6 +8,8 @@ Sharded output of CCNet pipline. Duplicate paragraphs removed (exact match, but 
 
 **v0-en** is the re-sharded English content of `v0`
 
+**v0-small** is a sample of of `v0-en`, about 300B tokens.
+
 ### v1
 
 Post-process of v0. Drop non-English documents. Deduplicate whole documents by URL. Coalesce shards.
@@ -38,7 +40,7 @@ The pipeline has two fundamental steps:
 **Hash Content**
 
 A sha hash is computed for each paragraph of each document.
-This step is unlikely to ever change, so we pre-compute it and store the data S3 under `raw`.
+This step is unlikely to ever change, so we pre-compute it and store the data S3 under `s3://ai2-llm/pretraining-data/sources/common-crawl/raw`.
 
 **Deduplicate and Transform**
 
