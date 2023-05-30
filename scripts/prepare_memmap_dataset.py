@@ -13,6 +13,7 @@ python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/out.npy
 
 import concurrent.futures
 import functools
+import json
 import logging
 import multiprocessing as mp
 import os
@@ -148,7 +149,6 @@ class MemmapFile:
         if self._written_tokens < self.max_tokens:
             del self._memmap
             os.rename(self._local_path, (temp_path := self._local_path.with_suffix(".tmp")))
-
             new_memmap = np.memmap(
                 mode="w+", filename=self._local_path, dtype=self.dtype, shape=(self._written_tokens,)
             )
@@ -212,16 +212,9 @@ def fill_memmap(
 
 
 def make_source_and_target(src: Tuple[str, ...], output: str) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
-    exploded_src: List[str] = []
-    exploded_dst: List[str] = []
-
-    parsed_output = MultiPath.parse(output)
-    for prefix in src:
-        parsed_prefix = MultiPath.parse(prefix)
-        for path in recursively_list_files(parsed_prefix):
-            exploded_src.append(path)
-            exploded_dst.append((parsed_output / MultiPath.parse(path) - parsed_prefix).as_str.replace(".", "_"))
-
+    exploded_src = [path for prefix in src for path in recursively_list_files(prefix)]
+    output_digits = np.ceil(np.log10(len(exploded_src) + 1)).astype(int)
+    exploded_dst = [f'{output.rstrip("/")}/{i:0{output_digits}d}' for i in range(len(exploded_src))]
     return tuple(sorted(exploded_src)), tuple(sorted(exploded_dst))
 
 
@@ -273,35 +266,48 @@ def main(
         log.info("Running in debug mode. Only one process will be used.")
         for src_path, dst_path in zip(src, dst):
             fill_memmap_fn(path=src_path, memmap_path=dst_path)
-        return
+    else:
+        # Now tokenizer all documents again and populate the memmap array. We do this in parallel.
+        workers_cnt = min(max_workers or os.cpu_count() or 1, len(src))
+        with concurrent.futures.ProcessPoolExecutor(max_workers=workers_cnt) as executor:
+            futures: List[Future[None]] = []
+            for src_path, dst_path in zip(src, dst):
+                future = executor.submit(fill_memmap_fn, path=src_path, memmap_path=dst_path)
+                futures.append(future)
+            with get_progress() as progress:
+                for future in progress.track(
+                    concurrent.futures.as_completed(futures),
+                    description="Filling memmap arrays...",
+                    total=len(futures),
+                ):
+                    future.result()
 
-    # Now tokenizer all documents again and populate the memmap array. We do this in parallel.
-    workers_cnt = min(max_workers or os.cpu_count() or 1, len(src))
-    with concurrent.futures.ProcessPoolExecutor(max_workers=workers_cnt) as executor:
-        futures: List[Future[None]] = []
-        for src_path, dst_path in zip(src, dst):
-            future = executor.submit(fill_memmap_fn, path=src_path, memmap_path=dst_path)
-            futures.append(future)
-        with get_progress() as progress:
-            for future in progress.track(
-                concurrent.futures.as_completed(futures),
-                description="Filling memmap arrays...",
-                total=len(futures),
-            ):
-                future.result()
+    log.info(f"Done! File(s) written to {output}")
 
-    log.info(f"Done! File written to {output}")
+    if validate:
+        log.info("Validating...")
+        tokenizer = Tokenizer.from_pretrained(tokenizer_id, truncate_to=None)
 
-    # if validate:
-    #     log.info("Validating...")
-    #     tokenizer = Tokenizer.from_pretrained(tokenizer_id, truncate_to=None)
-    #     memmap = np.memmap(output, mode="r", dtype=dtype, shape=(total_tokens,))
-    #     # Should have an EOS token for every document.
-    #     assert (memmap == tokenizer.eos_token_id).sum() == total_docs
-    #     assert memmap[-1] == tokenizer.eos_token_id
-    #     # Make sure all entries have been filled with actual token IDs.
-    #     assert (memmap < tokenizer.vocab_size).all()
-    #     log.info("All good!")
+        def encode_fn(row):
+            return tokenizer.encode(json.loads(row)["text"], add_special_tokens=True)  # noqa
+
+        total_tokens = total_docs = 0
+        for input_path in (path for prefix in src for path in recursively_list_files(prefix)):
+            with stream_file_for_read(input_path, mode="rb") as f, decompress_stream(f, mode="rt") as g:
+                for row in g:
+                    total_docs += 1
+                    total_tokens += len(encode_fn(row))
+
+        for output_path in recursively_list_files(output):
+            memmap = np.memmap(output_path, mode="r", dtype=dtype)
+            total_tokens -= len(memmap)
+            total_docs -= (memmap == tokenizer.eos_token_id).sum()
+            assert (memmap < tokenizer.vocab_size).all(), f"Invalid token ID in {output_path}"
+
+        assert total_tokens == 0, f"Total tokens mismatch: {total_tokens} != 0"
+        assert total_docs == 0, f"Total docs mismatch: {total_docs} != 0"
+
+        log.info("All good!")
 
 
 if __name__ == "__main__":
