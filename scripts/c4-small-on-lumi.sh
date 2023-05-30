@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
-#SBATCH --time=00:15:00
+#SBATCH --time=00:30:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=small-g
 
@@ -29,7 +29,7 @@ export FI_CXI_DEFAULT_CQ_SIZE=131072
 
 #export NCCL_DEBUG=INFO
 export PYTHONPATH=.:${PYTHONPATH}
-export WANDB_PROJECT=c4-small-small-g
+export WANDB_PROJECT=lumi-small-g
 export ROCM_PATH=/opt/rocm
 export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64
 
