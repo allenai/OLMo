@@ -1,5 +1,6 @@
 """Run this script with 'torchrun'."""
 
+import gzip
 import logging
 import os
 import sys
@@ -149,11 +150,11 @@ def main(cfg: TrainConfig) -> None:
     # Data indices file.
     indices_file: Optional[TextIO] = None
     if cfg.save_data_indices:
-        indices_file_path = Path(cfg.save_folder) / f"data-indices/rank{global_rank()}.tsv"
+        indices_file_path = Path(cfg.save_folder) / f"data-indices/rank{global_rank()}.tsv.gz"
         if indices_file_path.exists() and not cfg.save_overwrite:
             raise OlmoConfigurationError(f"{indices_file_path} already exists, use --save_overwrite to overwrite")
         indices_file_path.parent.mkdir(exist_ok=True, parents=True)
-        indices_file = open(indices_file_path, "w")
+        indices_file = gzip.open(indices_file_path, "wt")
 
     # Consolidate components into `Trainer` object.
     with Trainer(
