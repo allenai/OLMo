@@ -74,7 +74,7 @@ class BaseConfig:
         def path_glob(*paths) -> List[str]:
             out = []
             for path in paths:
-                matches = glob(path)
+                matches = sorted(glob(path))
                 if not matches:
                     raise FileNotFoundError(f"{path} does not match any files or dirs")
                 out.extend(matches)
