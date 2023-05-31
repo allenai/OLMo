@@ -10,6 +10,7 @@ import argparse
 import gzip
 import json
 import os
+import random
 from dataclasses import dataclass
 from functools import partial
 from multiprocessing import Event, Manager, Pool, Process, Queue
@@ -119,21 +120,20 @@ def write_results(config: Config, q: Queue, flag: Event):
 
 
 def process_paths(paths: list[str], config: Config, q: Queue, flag: Event, label: str):
-    # Gather all positive labels
     fns = [fn for p in paths for fn in recursively_list_files(p)]
+    random.shuffle(fns)
+
     work_fn = partial(process_file, config, q, flag, label)
 
-    # FIXME
-    for fn in fns:
-        work_fn(fn)
-
-    # with Pool(processes=max(1, config.n_proc - 1)) as pool:
-    #    pool.map(work_fn, fns)
-    #    pool.close()
-    #    pool.join()
+    with Pool(processes=max(1, config.n_proc - 1)) as pool:
+        pool.map(work_fn, fns)
+        pool.close()
+        pool.join()
 
 
 def main(config: Config):
+    random.seed(117)
+
     with Manager() as manager:
         q = manager.Queue()
         flag = manager.Event()
