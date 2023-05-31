@@ -213,6 +213,10 @@ class Trainer:
         self.checkpoints.append(checkpoint_dir)
         dist.barrier()
 
+        # Flush data indices file.
+        if self.indices_file is not None:
+            self.indices_file.flush()
+
         # Write the checkpoint.
         with FSDP.state_dict_type(
             self.fsdp_model,
@@ -339,6 +343,10 @@ class Trainer:
 
         self.unsharded_checkpoints.append(checkpoint_dir)
         dist.barrier()
+
+        # Flush data indices file.
+        if self.indices_file is not None:
+            self.indices_file.flush()
 
         # Write the checkpoint.
         with FSDP.state_dict_type(
