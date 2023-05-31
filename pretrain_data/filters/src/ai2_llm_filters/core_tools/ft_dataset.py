@@ -67,11 +67,17 @@ class ReadResult:
 
 
 def process_file(config: Config, q: Queue, flag: Event, label: str, fn):
+    # Check a global exit flag and stop processing file
+    if flag.is_set():
+        return
+
+    print(f"Processing {fn}")
+
     with open_file_for_read(fn, "rb", open_fn=gzip_open) as f:
         for line in f:
-            # Check a global exit flag
+            # Abort part way through processing this file is flag set
             if flag.is_set():
-                break
+                return
 
             # Expected JSONL format following OLMo data spec
             data = json.loads(line.decode("utf-8"))
@@ -117,10 +123,14 @@ def process_paths(paths: list[str], config: Config, q: Queue, flag: Event, label
     fns = [fn for p in paths for fn in recursively_list_files(p)]
     work_fn = partial(process_file, config, q, flag, label)
 
-    with Pool(processes=max(1, config.n_proc - 1)) as pool:
-        pool.map(work_fn, fns)
-        pool.close()
-        pool.join()
+    # FIXME
+    for fn in fns:
+        work_fn(fn)
+
+    # with Pool(processes=max(1, config.n_proc - 1)) as pool:
+    #    pool.map(work_fn, fns)
+    #    pool.close()
+    #    pool.join()
 
 
 def main(config: Config):
@@ -187,12 +197,6 @@ if __name__ == "__main__":
         type=str,
         required=True,
         help="Path to write the processed result (can be on S3)",
-    )
-    parser.add_argument(
-        "--n-words",
-        type=int,
-        required=False,
-        help="Stop after generating at least this many words",
     )
     parser.add_argument(
         "--n-segments",
