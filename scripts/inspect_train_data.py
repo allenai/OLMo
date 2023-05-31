@@ -16,11 +16,11 @@ from olmo.util import clean_opt, prepare_cli_environment
 
 def main(save_folder: Path, *steps: int, rank: Optional[int] = None):
     cfg = TrainConfig.load(save_folder / "config.yaml", overrides=[clean_opt("--evaluators=[]")])
-    world_size = len(list((save_folder / "data-indices").glob("*.tsv.gz")))
-
     dataset = MemMapDataset(*cfg.data.paths, chunk_size=cfg.model.max_sequence_length)
     tokenizer = Tokenizer.from_train_config(cfg)
+
     if rank is None:
+        world_size = len(list((save_folder / "data-indices").glob("*.tsv.gz")))
         indices_files = {
             rank: gzip.open(save_folder / "data-indices" / f"rank{rank}.tsv.gz", "rt")
             for rank in range(world_size)
@@ -30,7 +30,7 @@ def main(save_folder: Path, *steps: int, rank: Optional[int] = None):
 
     try:
         for step in sorted(steps):
-            for rank in range(world_size):
+            for rank in sorted(indices_files.keys()):
                 for line in indices_files[rank]:
                     if line.startswith(f"{step}\t"):
                         indices = [int(i) for i in line.strip().split("\t")[1:]]
