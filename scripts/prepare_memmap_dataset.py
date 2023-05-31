@@ -266,7 +266,7 @@ def make_source_and_target(src: Tuple[str, ...], output: str) -> Tuple[Tuple[str
     prompt="Output directory",
 )
 @click.option(
-    "--tokenizer", "tokenizer_id", type=str, help="Name of path of a pretrained tokenizer", default="gpt2"
+    "--tokenizer", "tokenizer_id", type=str, help="Name of path of a pretrained tokenizer", default="EleutherAI/gpt-neox-20b"
 )
 @click.option("--dtype", "dtype_str", default="uint16")
 @click.option("--validate/--no-validate", default=False)
