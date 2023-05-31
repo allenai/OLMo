@@ -33,7 +33,7 @@ compile: null  # causes instability on AMD GPUs
 
 optimizer:
   name: lionw
-  learning_rate: 1.0e-4
+  learning_rate: 2.0e-4
   weight_decay: 0.01
   betas:
   - 0.9
@@ -69,9 +69,9 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-# max_duration: 953674  # 2T tokens
-max_duration: 95367  # 200B tokens
-global_train_batch_size: 1024
+# max_duration: 476837  # 2T tokens
+max_duration: 47684  # 200B tokens
+global_train_batch_size: 2048
 device_train_microbatch_size: 8
 
 precision: amp_bf16
