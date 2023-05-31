@@ -11,11 +11,11 @@ from olmo.config import TrainConfig
 from olmo.data import MemMapDataset
 from olmo.exceptions import OlmoCliError
 from olmo.tokenizer import Tokenizer
-from olmo.util import prepare_cli_environment
+from olmo.util import clean_opt, prepare_cli_environment
 
 
 def main(save_folder: Path, *steps: int, rank: Optional[int] = None):
-    cfg = TrainConfig.load(save_folder / "config.yaml", overrides=["--evaluators=[]"])
+    cfg = TrainConfig.load(save_folder / "config.yaml", overrides=[clean_opt("--evaluators=[]")])
     world_size = len(list((save_folder / "data-indices").glob("*.tsv.gz")))
 
     dataset = MemMapDataset(*cfg.data.paths, chunk_size=cfg.model.max_sequence_length)
