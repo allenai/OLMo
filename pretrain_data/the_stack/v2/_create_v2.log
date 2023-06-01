@@ -32373,3 +32373,1489 @@
 2023-05-10 08:49:15,499 INFO Done
 2023-05-10 08:49:15,601 INFO Done
 2023-05-10 08:49:16,265 INFO Done
+2023-05-11 19:28:11,186 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:28:11,429 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0002.jsonl.gz
+2023-05-11 19:28:11,560 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:28:11,626 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:28:11,694 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:28:11,780 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:28:11,818 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:28:11,852 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:28:11,875 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:28:11,896 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:28:11,908 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:28:12,043 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0006.jsonl.gz
+2023-05-11 19:28:12,064 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0003.jsonl.gz
+2023-05-11 19:28:12,091 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0005.jsonl.gz
+2023-05-11 19:28:12,157 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0004.jsonl.gz
+2023-05-11 19:29:33,701 INFO Done
+2023-05-11 19:29:34,190 INFO Done
+2023-05-11 19:29:36,677 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:29:37,092 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:29:37,259 INFO Done
+2023-05-11 19:29:37,317 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0011.jsonl.gz
+2023-05-11 19:29:38,482 INFO Done
+2023-05-11 19:29:39,302 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:29:39,459 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0012.jsonl.gz
+2023-05-11 19:29:40,659 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:29:40,926 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0013.jsonl.gz
+2023-05-11 19:29:41,990 INFO Done
+2023-05-11 19:29:45,184 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:30:32,157 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:30:32,570 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0015.jsonl.gz
+2023-05-11 19:30:46,458 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:30:46,712 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0016.jsonl.gz
+2023-05-11 19:30:51,708 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:30:52,461 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:30:52,744 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0018.jsonl.gz
+2023-05-11 19:31:00,576 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:31:02,937 INFO Done
+2023-05-11 19:31:06,579 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:31:06,807 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0020.jsonl.gz
+2023-05-11 19:31:08,792 INFO Done
+2023-05-11 19:31:11,234 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:31:11,455 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0021.jsonl.gz
+2023-05-11 19:32:23,242 INFO Done
+2023-05-11 19:32:23,496 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:32:23,791 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0022.jsonl.gz
+2023-05-11 19:32:25,565 INFO Done
+2023-05-11 19:32:26,221 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:32:26,466 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0023.jsonl.gz
+2023-05-11 19:32:28,828 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:32:29,103 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0024.jsonl.gz
+2023-05-11 19:32:29,184 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:32:48,216 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:32:48,529 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0026.jsonl.gz
+2023-05-11 19:33:43,582 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:33:43,848 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0027.jsonl.gz
+2023-05-11 19:33:43,909 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:33:44,078 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0028.jsonl.gz
+2023-05-11 19:34:03,716 INFO Done
+2023-05-11 19:34:05,586 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:34:05,870 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0029.jsonl.gz
+2023-05-11 19:34:07,538 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:34:21,554 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:34:22,082 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:34:22,374 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0032.jsonl.gz
+2023-05-11 19:35:13,476 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:35:13,714 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0033.jsonl.gz
+2023-05-11 19:35:17,407 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:35:19,407 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:35:19,666 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0035.jsonl.gz
+2023-05-11 19:35:24,937 INFO Done
+2023-05-11 19:35:28,465 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:35:28,734 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0036.jsonl.gz
+2023-05-11 19:35:43,041 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:35:43,269 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0037.jsonl.gz
+2023-05-11 19:35:43,654 INFO Done
+2023-05-11 19:35:46,469 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:36:16,655 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:36:16,985 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0039.jsonl.gz
+2023-05-11 19:36:16,998 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:36:17,216 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0040.jsonl.gz
+2023-05-11 19:36:36,970 INFO Done
+2023-05-11 19:36:41,962 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:36:45,799 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:36:46,109 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0042.jsonl.gz
+2023-05-11 19:37:15,668 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:37:16,005 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0043.jsonl.gz
+2023-05-11 19:37:31,395 INFO Done
+2023-05-11 19:37:35,457 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:38:15,360 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:38:17,402 INFO Done
+2023-05-11 19:38:20,734 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:38:20,981 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0046.jsonl.gz
+2023-05-11 19:38:42,019 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:38:42,313 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0047.jsonl.gz
+2023-05-11 19:38:44,678 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:39:11,357 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:39:11,652 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0049.jsonl.gz
+2023-05-11 19:39:24,044 INFO Done
+2023-05-11 19:39:24,652 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:39:24,927 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0050.jsonl.gz
+2023-05-11 19:39:27,757 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:39:28,077 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0051.jsonl.gz
+2023-05-11 19:39:40,223 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:39:40,534 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0052.jsonl.gz
+2023-05-11 19:40:03,363 INFO Done
+2023-05-11 19:40:07,213 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:40:07,509 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0053.jsonl.gz
+2023-05-11 19:40:10,272 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:40:32,172 INFO Done
+2023-05-11 19:40:35,967 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:40:36,166 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0055.jsonl.gz
+2023-05-11 19:40:42,457 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:40:42,737 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0056.jsonl.gz
+2023-05-11 19:41:41,817 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:41:42,298 INFO Done
+2023-05-11 19:41:45,777 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:41:46,046 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0058.jsonl.gz
+2023-05-11 19:41:51,732 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:41:52,070 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0059.jsonl.gz
+2023-05-11 19:42:19,559 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:42:26,099 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:42:26,461 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0061.jsonl.gz
+2023-05-11 19:42:36,041 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:30,825 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:30,894 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:30,898 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:30,908 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:30,913 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:30,919 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:30,920 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:30,952 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:30,977 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:31,023 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0002.jsonl.gz
+2023-05-12 05:18:31,049 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:31,049 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0003.jsonl.gz
+2023-05-12 05:18:31,065 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0005.jsonl.gz
+2023-05-12 05:18:31,116 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0006.jsonl.gz
+2023-05-12 05:18:31,173 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0004.jsonl.gz
+2023-05-12 05:18:56,514 INFO Done
+2023-05-12 05:18:57,202 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:57,379 INFO Done
+2023-05-12 05:18:57,515 INFO Done
+2023-05-12 05:18:58,136 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:58,225 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:58,252 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0011.jsonl.gz
+2023-05-12 05:18:58,347 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0012.jsonl.gz
+2023-05-12 05:18:58,500 INFO Done
+2023-05-12 05:18:59,227 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:59,244 INFO Done
+2023-05-12 05:18:59,363 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0013.jsonl.gz
+2023-05-12 05:18:59,951 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:19:26,988 INFO Done
+2023-05-12 05:19:27,882 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:19:28,022 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0015.jsonl.gz
+2023-05-12 05:19:29,815 INFO javascript/data_0004 - 30218 / 244689 removed.
+2023-05-12 05:19:30,705 INFO Done
+2023-05-12 05:19:31,289 INFO javascript/data_0002 - 30398 / 250370 removed.
+2023-05-12 05:19:31,472 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:19:31,594 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0016.jsonl.gz
+2023-05-12 05:19:32,750 INFO javascript/data_0006 - 30259 / 251732 removed.
+2023-05-12 05:19:34,263 INFO javascript/data_0003 - 30199 / 245141 removed.
+2023-05-12 05:19:35,330 INFO javascript/data_0005 - 30987 / 255764 removed.
+2023-05-12 05:20:02,491 INFO javascript/data_0013 - 30949 / 261787 removed.
+2023-05-12 05:20:03,789 INFO javascript/data_0011 - 30326 / 256264 removed.
+2023-05-12 05:20:04,396 INFO javascript/data_0012 - 31285 / 263088 removed.
+2023-05-12 05:20:29,736 INFO javascript/data_0015 - 30285 / 241416 removed.
+2023-05-12 05:20:33,124 INFO javascript/data_0016 - 30436 / 253361 removed.
+2023-05-12 05:20:54,937 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0004.tsv
+2023-05-12 05:20:57,746 INFO Done
+2023-05-12 05:20:58,742 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:20:59,763 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0006.tsv
+2023-05-12 05:21:00,979 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0002.tsv
+2023-05-12 05:21:02,608 INFO Done
+2023-05-12 05:21:02,727 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0003.tsv
+2023-05-12 05:21:03,520 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:21:03,659 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0018.jsonl.gz
+2023-05-12 05:21:03,904 INFO Done
+2023-05-12 05:21:04,746 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0005.tsv
+2023-05-12 05:21:04,819 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:21:05,469 INFO Done
+2023-05-12 05:21:06,303 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:21:06,420 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0020.jsonl.gz
+2023-05-12 05:21:07,632 INFO Done
+2023-05-12 05:21:08,472 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:21:08,591 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0021.jsonl.gz
+2023-05-12 05:21:27,352 INFO Done
+2023-05-12 05:21:28,126 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:21:28,250 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0022.jsonl.gz
+2023-05-12 05:21:28,883 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0013.tsv
+2023-05-12 05:21:31,720 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0011.tsv
+2023-05-12 05:21:31,780 INFO Done
+2023-05-12 05:21:32,959 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:21:33,119 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0023.jsonl.gz
+2023-05-12 05:21:33,490 INFO Done
+2023-05-12 05:21:34,310 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0012.tsv
+2023-05-12 05:21:34,363 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:21:34,485 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0024.jsonl.gz
+2023-05-12 05:21:35,211 INFO Done
+2023-05-12 05:21:36,073 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:21:37,567 INFO Done
+2023-05-12 05:21:38,413 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:21:38,524 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0026.jsonl.gz
+2023-05-12 05:21:59,054 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0015.tsv
+2023-05-12 05:22:01,760 INFO Done
+2023-05-12 05:22:01,919 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0016.tsv
+2023-05-12 05:22:02,587 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:22:02,722 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0027.jsonl.gz
+2023-05-12 05:22:05,273 INFO Done
+2023-05-12 05:22:06,092 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:22:06,235 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0028.jsonl.gz
+2023-05-12 05:22:06,236 INFO Done
+2023-05-12 05:22:06,978 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:22:07,104 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0029.jsonl.gz
+2023-05-12 05:22:08,721 INFO javascript/data_0018 - 29625 / 238718 removed.
+2023-05-12 05:22:11,308 INFO javascript/data_0020 - 30392 / 253702 removed.
+2023-05-12 05:22:13,480 INFO javascript/data_0021 - 30648 / 253210 removed.
+2023-05-12 05:22:32,049 INFO javascript/data_0022 - 30332 / 241634 removed.
+2023-05-12 05:22:35,677 INFO javascript/data_0024 - 30134 / 252110 removed.
+2023-05-12 05:22:38,488 INFO javascript/data_0023 - 30398 / 241869 removed.
+2023-05-12 05:22:42,417 INFO javascript/data_0026 - 31458 / 265116 removed.
+2023-05-12 05:23:15,450 INFO javascript/data_0027 - 30194 / 253875 removed.
+2023-05-12 05:23:22,435 INFO javascript/data_0029 - 30866 / 255849 removed.
+2023-05-12 05:23:23,466 INFO javascript/data_0028 - 30679 / 260913 removed.
+2023-05-12 05:23:39,270 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0018.tsv
+2023-05-12 05:23:41,807 INFO Done
+2023-05-12 05:23:42,752 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:23:43,981 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0020.tsv
+2023-05-12 05:23:45,149 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0021.tsv
+2023-05-12 05:23:46,649 INFO Done
+2023-05-12 05:23:47,490 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:23:47,781 INFO Done
+2023-05-12 05:23:48,715 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:23:48,827 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0032.jsonl.gz
+2023-05-12 05:24:00,854 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0022.tsv
+2023-05-12 05:24:03,757 INFO Done
+2023-05-12 05:24:06,563 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:24:06,932 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0033.jsonl.gz
+2023-05-12 05:24:11,359 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0024.tsv
+2023-05-12 05:24:13,958 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0023.tsv
+2023-05-12 05:24:14,601 INFO Done
+2023-05-12 05:24:14,969 INFO Done
+2023-05-12 05:24:15,638 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:24:15,817 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:24:15,940 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0035.jsonl.gz
+2023-05-12 05:24:16,741 INFO Done
+2023-05-12 05:24:17,657 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:24:17,769 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0036.jsonl.gz
+2023-05-12 05:24:18,376 INFO Done
+2023-05-12 05:24:19,215 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:24:19,330 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0037.jsonl.gz
+2023-05-12 05:24:21,928 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0026.tsv
+2023-05-12 05:24:24,829 INFO Done
+2023-05-12 05:24:25,692 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:24:43,700 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0027.tsv
+2023-05-12 05:24:44,296 INFO Done
+2023-05-12 05:24:45,192 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:24:45,302 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0039.jsonl.gz
+2023-05-12 05:24:46,666 INFO Done
+2023-05-12 05:24:47,526 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:24:47,686 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0040.jsonl.gz
+2023-05-12 05:24:52,885 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0028.tsv
+2023-05-12 05:24:52,941 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0029.tsv
+2023-05-12 05:24:54,789 INFO javascript/data_0032 - 30842 / 260882 removed.
+2023-05-12 05:24:55,653 INFO Done
+2023-05-12 05:24:55,836 INFO Done
+2023-05-12 05:24:56,282 INFO Done
+2023-05-12 05:24:56,712 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:24:56,807 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:24:56,936 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0042.jsonl.gz
+2023-05-12 05:24:57,092 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:24:57,225 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0043.jsonl.gz
+2023-05-12 05:25:09,259 INFO javascript/data_0033 - 30188 / 238261 removed.
+2023-05-12 05:25:20,417 INFO javascript/data_0035 - 30806 / 253779 removed.
+2023-05-12 05:25:20,824 INFO javascript/data_0036 - 30956 / 263081 removed.
+2023-05-12 05:25:24,720 INFO Done
+2023-05-12 05:25:25,477 INFO javascript/data_0037 - 30999 / 263611 removed.
+2023-05-12 05:25:25,531 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:25:49,441 INFO javascript/data_0039 - 30187 / 239739 removed.
+2023-05-12 05:25:54,016 INFO javascript/data_0040 - 30335 / 254559 removed.
+2023-05-12 05:25:55,409 INFO Done
+2023-05-12 05:25:56,186 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:26:02,771 INFO javascript/data_0043 - 31147 / 262076 removed.
+2023-05-12 05:26:03,040 INFO javascript/data_0042 - 30491 / 253364 removed.
+2023-05-12 05:26:33,593 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0032.tsv
+2023-05-12 05:26:35,802 INFO Done
+2023-05-12 05:26:36,594 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:26:36,676 INFO Done
+2023-05-12 05:26:36,748 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0046.jsonl.gz
+2023-05-12 05:26:37,601 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:26:37,719 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0047.jsonl.gz
+2023-05-12 05:26:44,135 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0033.tsv
+2023-05-12 05:26:46,722 INFO Done
+2023-05-12 05:26:47,664 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:26:53,383 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0035.tsv
+2023-05-12 05:26:55,688 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0036.tsv
+2023-05-12 05:26:56,000 INFO Done
+2023-05-12 05:26:56,908 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:26:57,029 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0049.jsonl.gz
+2023-05-12 05:26:58,931 INFO Done
+2023-05-12 05:26:59,876 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:27:00,002 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0050.jsonl.gz
+2023-05-12 05:27:01,856 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0037.tsv
+2023-05-12 05:27:05,151 INFO Done
+2023-05-12 05:27:06,075 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:27:06,228 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0051.jsonl.gz
+2023-05-12 05:27:17,923 INFO Done
+2023-05-12 05:27:18,696 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0039.tsv
+2023-05-12 05:27:18,714 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:27:18,826 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0052.jsonl.gz
+2023-05-12 05:27:21,783 INFO Done
+2023-05-12 05:27:22,790 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:27:22,935 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0053.jsonl.gz
+2023-05-12 05:27:27,516 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0040.tsv
+2023-05-12 05:27:31,514 INFO Done
+2023-05-12 05:27:32,586 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:27:35,290 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0042.tsv
+2023-05-12 05:27:37,511 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0043.tsv
+2023-05-12 05:27:37,876 INFO Done
+2023-05-12 05:27:38,807 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:27:38,960 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0055.jsonl.gz
+2023-05-12 05:27:40,199 INFO javascript/data_0046 - 30365 / 253098 removed.
+2023-05-12 05:27:40,635 INFO Done
+2023-05-12 05:27:41,532 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:27:41,652 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0056.jsonl.gz
+2023-05-12 05:27:43,694 INFO javascript/data_0047 - 30350 / 261167 removed.
+2023-05-12 05:28:00,476 INFO javascript/data_0049 - 30100 / 250389 removed.
+2023-05-12 05:28:03,421 INFO Done
+2023-05-12 05:28:03,887 INFO javascript/data_0050 - 30583 / 255793 removed.
+2023-05-12 05:28:04,180 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:28:08,803 INFO javascript/data_0051 - 31149 / 258011 removed.
+2023-05-12 05:28:20,719 INFO javascript/data_0052 - 30703 / 256390 removed.
+2023-05-12 05:28:29,636 INFO javascript/data_0053 - 30542 / 260145 removed.
+2023-05-12 05:28:37,902 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:28:38,139 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0058.jsonl.gz
+2023-05-12 05:28:38,229 INFO Done
+2023-05-12 05:28:39,022 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:28:39,131 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0059.jsonl.gz
+2023-05-12 05:28:48,002 INFO javascript/data_0056 - 30370 / 236601 removed.
+2023-05-12 05:29:09,687 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0046.tsv
+2023-05-12 05:29:12,338 INFO Done
+2023-05-12 05:29:13,196 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:29:17,640 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0047.tsv
+2023-05-12 05:29:20,795 INFO Done
+2023-05-12 05:29:22,206 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:29:22,574 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0061.jsonl.gz
+2023-05-12 05:29:28,099 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0049.tsv
+2023-05-12 05:29:31,099 INFO Done
+2023-05-12 05:29:32,077 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:29:35,402 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0050.tsv
+2023-05-12 05:29:38,102 INFO Done
+2023-05-12 05:29:39,070 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:29:40,835 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0051.tsv
+2023-05-12 05:29:42,535 INFO javascript/data_0058 - 31365 / 255325 removed.
+2023-05-12 05:29:43,398 INFO javascript/data_0059 - 30490 / 242730 removed.
+2023-05-12 05:29:43,713 INFO Done
+2023-05-12 05:29:44,659 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:29:44,717 INFO Done
+2023-05-12 05:29:45,517 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:29:45,634 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0065.jsonl.gz
+2023-05-12 05:29:52,174 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0052.tsv
+2023-05-12 05:29:55,360 INFO Done
+2023-05-12 05:29:56,251 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:29:56,360 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0066.jsonl.gz
+2023-05-12 05:29:57,908 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0053.tsv
+2023-05-12 05:30:00,498 INFO Done
+2023-05-12 05:30:00,562 INFO Done
+2023-05-12 05:30:01,348 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:30:01,437 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:30:01,477 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0067.jsonl.gz
+2023-05-12 05:30:01,694 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0068.jsonl.gz
+2023-05-12 05:30:09,621 INFO Done
+2023-05-12 05:30:10,457 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:30:10,586 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0069.jsonl.gz
+2023-05-12 05:30:12,465 INFO Done
+2023-05-12 05:30:13,164 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:30:13,279 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0070.jsonl.gz
+2023-05-12 05:30:13,791 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0056.tsv
+2023-05-12 05:30:16,277 INFO Done
+2023-05-12 05:30:17,200 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:30:23,125 INFO javascript/data_0061 - 30080 / 241745 removed.
+2023-05-12 05:30:43,287 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:30:43,409 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0072.jsonl.gz
+2023-05-12 05:30:49,522 INFO Done
+2023-05-12 05:30:50,329 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:31:05,250 INFO javascript/data_0066 - 30946 / 264337 removed.
+2023-05-12 05:31:07,456 INFO javascript/data_0067 - 30339 / 253081 removed.
+2023-05-12 05:31:08,196 INFO javascript/data_0068 - 30409 / 243627 removed.
+2023-05-12 05:31:09,687 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0059.tsv
+2023-05-12 05:31:12,417 INFO Done
+2023-05-12 05:31:13,401 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:31:13,515 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0074.jsonl.gz
+2023-05-12 05:31:16,260 INFO javascript/data_0069 - 30768 / 257492 removed.
+2023-05-12 05:31:17,496 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0058.tsv
+2023-05-12 05:31:17,684 INFO javascript/data_0070 - 30396 / 246716 removed.
+2023-05-12 05:31:20,330 INFO Done
+2023-05-12 05:31:21,235 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:31:21,360 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0075.jsonl.gz
+2023-05-12 05:31:21,402 INFO Done
+2023-05-12 05:31:22,219 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:31:22,356 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0076.jsonl.gz
+2023-05-12 05:31:55,998 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0061.tsv
+2023-05-12 05:31:57,080 INFO javascript/data_0072 - 30950 / 262553 removed.
+2023-05-12 05:31:59,067 INFO Done
+2023-05-12 05:31:59,996 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:32:00,112 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0077.jsonl.gz
+2023-05-12 05:32:17,729 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:32:33,866 INFO javascript/data_0075 - 30633 / 257653 removed.
+2023-05-12 05:32:34,291 INFO javascript/data_0076 - 30635 / 239994 removed.
+2023-05-12 05:32:39,922 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0068.tsv
+2023-05-12 05:32:40,473 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0067.tsv
+2023-05-12 05:32:55,065 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0066.tsv
+2023-05-12 05:32:56,774 INFO Done
+2023-05-12 05:32:57,600 INFO Done
+2023-05-12 05:32:57,798 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:32:58,616 INFO Done
+2023-05-12 05:32:58,640 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:32:58,759 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0080.jsonl.gz
+2023-05-12 05:32:59,611 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:32:59,730 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0081.jsonl.gz
+2023-05-12 05:33:02,961 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0070.tsv
+2023-05-12 05:33:04,128 INFO Done
+2023-05-12 05:33:04,888 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:33:04,932 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0069.tsv
+2023-05-12 05:33:05,002 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0082.jsonl.gz
+2023-05-12 05:33:05,846 INFO Done
+2023-05-12 05:33:06,787 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:33:06,894 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0083.jsonl.gz
+2023-05-12 05:33:07,912 INFO Done
+2023-05-12 05:33:08,950 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:33:22,334 INFO javascript/data_0077 - 30519 / 243871 removed.
+2023-05-12 05:33:26,345 INFO Done
+2023-05-12 05:33:27,177 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:33:27,289 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0085.jsonl.gz
+2023-05-12 05:33:40,245 INFO Done
+2023-05-12 05:33:41,018 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:33:41,888 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0072.tsv
+2023-05-12 05:33:44,700 INFO Done
+2023-05-12 05:33:45,551 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:33:45,664 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0087.jsonl.gz
+2023-05-12 05:33:55,471 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:33:55,876 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0088.jsonl.gz
+2023-05-12 05:34:06,347 INFO javascript/data_0081 - 30900 / 261951 removed.
+2023-05-12 05:34:08,364 INFO Done
+2023-05-12 05:34:09,225 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:34:09,608 INFO javascript/data_0083 - 29714 / 233613 removed.
+2023-05-12 05:34:10,015 INFO javascript/data_0082 - 31005 / 258946 removed.
+2023-05-12 05:34:13,982 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0076.tsv
+2023-05-12 05:34:16,655 INFO Done
+2023-05-12 05:34:17,542 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:34:18,437 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0075.tsv
+2023-05-12 05:34:21,286 INFO Done
+2023-05-12 05:34:22,214 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:34:22,323 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0091.jsonl.gz
+2023-05-12 05:34:32,119 INFO javascript/data_0085 - 30381 / 247971 removed.
+2023-05-12 05:34:38,635 INFO Done
+2023-05-12 05:34:39,443 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:34:39,578 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0092.jsonl.gz
+2023-05-12 05:34:42,690 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:34:42,936 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0093.jsonl.gz
+2023-05-12 05:34:47,645 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0077.tsv
+2023-05-12 05:34:48,961 INFO Done
+2023-05-12 05:34:49,769 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:34:49,932 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0094.jsonl.gz
+2023-05-12 05:34:50,450 INFO Done
+2023-05-12 05:34:51,395 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:34:51,545 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0095.jsonl.gz
+2023-05-12 05:34:58,193 INFO javascript/data_0088 - 30496 / 250199 removed.
+2023-05-12 05:36:13,118 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:36:18,600 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0096.jsonl.gz
+2023-05-12 05:36:38,535 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:36:43,913 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0083.tsv
+2023-05-12 05:36:46,403 INFO Done
+2023-05-12 05:36:46,565 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0081.tsv
+2023-05-12 05:36:47,285 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:36:47,912 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0082.tsv
+2023-05-12 05:36:48,560 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0085.tsv
+2023-05-12 05:36:49,749 INFO Done
+2023-05-12 05:36:50,699 INFO Done
+2023-05-12 05:36:50,702 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:36:51,411 INFO Done
+2023-05-12 05:36:51,594 INFO javascript/data_0093 - 30795 / 256366 removed.
+2023-05-12 05:36:51,670 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:37:01,158 INFO javascript/data_0094 - 31128 / 262587 removed.
+2023-05-12 05:37:01,820 INFO javascript/data_0095 - 31079 / 260636 removed.
+2023-05-12 05:37:07,401 INFO Done
+2023-05-12 05:37:13,912 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0088.tsv
+2023-05-12 05:37:16,870 INFO Done
+2023-05-12 05:37:16,922 INFO Done
+2023-05-12 05:37:20,964 INFO Done
+2023-05-12 05:37:21,575 INFO Done
+2023-05-12 05:37:23,507 INFO javascript/data_0096 - 30905 / 266102 removed.
+2023-05-12 05:38:18,462 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0093.tsv
+2023-05-12 05:38:21,271 INFO Done
+2023-05-12 05:38:27,897 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0094.tsv
+2023-05-12 05:38:30,632 INFO Done
+2023-05-12 05:38:32,180 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0095.tsv
+2023-05-12 05:38:34,650 INFO Done
+2023-05-12 05:38:51,337 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0096.tsv
+2023-05-12 05:38:54,092 INFO Done
+2023-05-12 06:23:26,967 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:23:26,972 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:23:26,973 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:23:26,974 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:23:26,986 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:23:26,998 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:23:26,999 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:23:26,999 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:23:27,002 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:23:27,003 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:23:27,076 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0002.jsonl.gz
+2023-05-12 06:23:27,089 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0008.jsonl.gz
+2023-05-12 06:23:27,090 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0003.jsonl.gz
+2023-05-12 06:23:27,097 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0001.jsonl.gz
+2023-05-12 06:23:27,103 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0000.jsonl.gz
+2023-05-12 06:23:27,105 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0009.jsonl.gz
+2023-05-12 06:23:27,111 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0007.jsonl.gz
+2023-05-12 06:23:27,118 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0004.jsonl.gz
+2023-05-12 06:23:27,125 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0006.jsonl.gz
+2023-05-12 06:23:44,777 INFO Done
+2023-05-12 06:23:45,424 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:23:45,548 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0010.jsonl.gz
+2023-05-12 06:24:38,609 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:24:38,948 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0011.jsonl.gz
+2023-05-12 06:24:41,306 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:24:50,029 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:24:56,010 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:25:02,778 INFO text/data_0009 - 99411 / 172447 removed.
+2023-05-12 06:25:03,253 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:25:03,273 INFO Done
+2023-05-12 06:25:03,377 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0015.jsonl.gz
+2023-05-12 06:25:03,977 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:25:04,001 INFO text/data_0004 - 97978 / 170757 removed.
+2023-05-12 06:25:04,020 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:25:04,143 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0016.jsonl.gz
+2023-05-12 06:25:04,152 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0017.jsonl.gz
+2023-05-12 06:25:04,361 INFO text/data_0002 - 99909 / 173008 removed.
+2023-05-12 06:25:08,227 INFO Done
+2023-05-12 06:25:08,926 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:25:09,042 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0018.jsonl.gz
+2023-05-12 06:25:14,130 INFO Done
+2023-05-12 06:25:14,794 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:25:18,210 INFO text/data_0010 - 96273 / 167295 removed.
+2023-05-12 06:25:32,203 INFO Done
+2023-05-12 06:25:32,820 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:25:32,978 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0020.jsonl.gz
+2023-05-12 06:26:11,182 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:26:28,335 INFO Done
+2023-05-12 06:26:29,003 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:26:29,156 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0022.jsonl.gz
+2023-05-12 06:26:29,763 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0009.tsv
+2023-05-12 06:26:30,299 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0002.tsv
+2023-05-12 06:26:30,658 INFO Done
+2023-05-12 06:26:31,295 INFO Done
+2023-05-12 06:26:31,584 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:26:31,756 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0023.jsonl.gz
+2023-05-12 06:26:31,928 INFO text/data_0016 - 96870 / 168733 removed.
+2023-05-12 06:26:32,279 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:26:32,437 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0024.jsonl.gz
+2023-05-12 06:26:33,436 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0004.tsv
+2023-05-12 06:26:33,620 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:26:33,737 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0025.jsonl.gz
+2023-05-12 06:26:34,167 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:26:34,289 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0026.jsonl.gz
+2023-05-12 06:26:34,589 INFO Done
+2023-05-12 06:26:35,582 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:26:35,696 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0027.jsonl.gz
+2023-05-12 06:26:39,781 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:26:44,171 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0010.tsv
+2023-05-12 06:26:45,081 INFO Done
+2023-05-12 06:26:45,962 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:26:46,101 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0029.jsonl.gz
+2023-05-12 22:55:43,103 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:55:43,118 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:55:43,121 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:55:43,143 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:55:43,162 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:55:43,165 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:55:43,166 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:55:43,171 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:55:43,172 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:55:43,213 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:55:43,229 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0000.jsonl.gz
+2023-05-12 22:55:43,237 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0003.jsonl.gz
+2023-05-12 22:55:43,278 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0006.jsonl.gz
+2023-05-12 22:55:43,285 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0001.jsonl.gz
+2023-05-12 22:55:43,288 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0007.jsonl.gz
+2023-05-12 22:55:43,290 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0008.jsonl.gz
+2023-05-12 22:56:01,418 INFO Done
+2023-05-12 22:56:02,131 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:56:03,376 INFO Done
+2023-05-12 22:56:03,966 INFO Done
+2023-05-12 22:56:04,133 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:56:04,246 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0011.jsonl.gz
+2023-05-12 22:56:04,620 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:56:05,380 INFO Done
+2023-05-12 22:56:06,090 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:56:24,045 INFO Done
+2023-05-12 22:56:25,230 INFO Done
+2023-05-12 22:56:25,750 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:56:27,212 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:56:27,420 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0015.jsonl.gz
+2023-05-12 22:56:29,299 INFO Done
+2023-05-12 22:56:30,591 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:56:30,752 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0016.jsonl.gz
+2023-05-12 22:56:58,815 INFO Done
+2023-05-12 22:57:01,287 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:57:01,522 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0017.jsonl.gz
+2023-05-12 22:57:23,686 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:57:24,130 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0018.jsonl.gz
+2023-05-12 22:57:31,570 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:57:51,255 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:57:51,640 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0020.jsonl.gz
+2023-05-12 22:58:01,682 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:58:19,612 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:58:20,074 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0022.jsonl.gz
+2023-05-12 22:58:24,262 INFO Done
+2023-05-12 22:58:26,529 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:58:26,756 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0023.jsonl.gz
+2023-05-12 22:58:37,865 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:58:38,371 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0024.jsonl.gz
+2023-05-12 22:58:45,757 INFO Done
+2023-05-12 22:58:48,211 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:58:48,481 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0025.jsonl.gz
+2023-05-12 22:59:06,259 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:59:06,690 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0026.jsonl.gz
+2023-05-12 22:59:28,849 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 22:59:29,248 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0027.jsonl.gz
+2023-05-12 22:59:50,591 INFO text/data_0016 - 96870 / 168733 removed.
+2023-05-12 23:00:02,247 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:00:15,986 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:00:16,346 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0029.jsonl.gz
+2023-05-12 23:00:39,744 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:00:40,224 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0030.jsonl.gz
+2023-05-12 23:00:48,606 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:00:49,003 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0031.jsonl.gz
+2023-05-12 23:00:49,772 INFO Done
+2023-05-12 23:00:52,415 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:00:52,706 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0032.jsonl.gz
+2023-05-12 23:01:11,121 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:01:11,628 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0033.jsonl.gz
+2023-05-12 23:01:37,373 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:01:37,836 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0034.jsonl.gz
+2023-05-12 23:01:59,069 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:02:20,713 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:02:33,178 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:02:33,547 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0037.jsonl.gz
+2023-05-12 23:02:42,350 INFO Done
+2023-05-12 23:02:45,023 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:02:45,300 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0038.jsonl.gz
+2023-05-12 23:02:54,138 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:03:06,190 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:03:06,543 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0040.jsonl.gz
+2023-05-12 23:03:08,198 INFO Done
+2023-05-12 23:03:10,836 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:03:22,351 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:03:22,833 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0042.jsonl.gz
+2023-05-12 23:03:41,153 INFO Done
+2023-05-12 23:03:44,151 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:03:44,579 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0043.jsonl.gz
+2023-05-12 23:03:44,921 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:03:45,173 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0044.jsonl.gz
+2023-05-12 23:03:57,226 INFO Done
+2023-05-12 23:03:59,478 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:03:59,698 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0045.jsonl.gz
+2023-05-12 23:04:07,071 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0016.tsv
+2023-05-12 23:04:13,022 INFO Done
+2023-05-12 23:04:15,909 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:04:16,236 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:04:16,521 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0047.jsonl.gz
+2023-05-12 23:04:46,689 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:04:47,163 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0048.jsonl.gz
+2023-05-12 23:04:57,317 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:04:57,700 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0049.jsonl.gz
+2023-05-12 23:05:04,491 INFO Done
+2023-05-12 23:05:07,414 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:05:07,630 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0050.jsonl.gz
+2023-05-12 23:05:19,491 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:05:19,961 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0051.jsonl.gz
+2023-05-12 23:05:28,284 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:05:28,660 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0052.jsonl.gz
+2023-05-12 23:06:03,364 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:06:03,836 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0053.jsonl.gz
+2023-05-12 23:06:13,768 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:06:14,129 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0054.jsonl.gz
+2023-05-12 23:06:28,360 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:06:41,250 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:06:41,577 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0056.jsonl.gz
+2023-05-12 23:07:07,234 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:07:07,697 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0057.jsonl.gz
+2023-05-12 23:07:19,405 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:07:19,803 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0058.jsonl.gz
+2023-05-12 23:07:30,518 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:07:30,889 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0059.jsonl.gz
+2023-05-12 23:07:32,346 INFO Done
+2023-05-12 23:07:35,215 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:07:44,639 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:07:59,038 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:07:59,508 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0062.jsonl.gz
+2023-05-12 23:08:12,791 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:08:13,204 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0063.jsonl.gz
+2023-05-12 23:08:26,156 INFO Done
+2023-05-12 23:08:29,639 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:08:29,711 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:08:30,035 INFO Done
+2023-05-12 23:08:30,118 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0064.jsonl.gz
+2023-05-12 23:08:32,676 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:08:32,931 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0066.jsonl.gz
+2023-05-12 23:08:53,592 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:08:54,147 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0067.jsonl.gz
+2023-05-12 23:09:10,270 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:09:10,718 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0068.jsonl.gz
+2023-05-12 23:09:19,803 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:09:20,186 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0069.jsonl.gz
+2023-05-12 23:09:22,329 INFO Done
+2023-05-12 23:09:25,028 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:09:25,296 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0070.jsonl.gz
+2023-05-12 23:09:42,414 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:09:42,847 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0071.jsonl.gz
+2023-05-12 23:10:03,690 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:10:04,192 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0072.jsonl.gz
+2023-05-12 23:10:18,985 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:10:25,740 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:10:26,102 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0074.jsonl.gz
+2023-05-12 23:10:44,062 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:10:44,534 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0075.jsonl.gz
+2023-05-12 23:10:53,114 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:10:53,494 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0076.jsonl.gz
+2023-05-12 23:11:08,118 INFO Done
+2023-05-12 23:11:11,352 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:11:13,492 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0077.jsonl.gz
+2023-05-12 23:11:17,732 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:11:18,106 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0078.jsonl.gz
+2023-05-12 23:11:28,061 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:11:37,700 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:11:53,087 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:11:53,554 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0081.jsonl.gz
+2023-05-12 23:12:07,059 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:12:07,429 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0082.jsonl.gz
+2023-05-12 23:12:15,276 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:12:21,839 INFO Done
+2023-05-12 23:12:24,429 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:12:26,164 INFO Done
+2023-05-12 23:12:29,179 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:12:29,428 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0085.jsonl.gz
+2023-05-12 23:12:45,396 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:12:45,833 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0086.jsonl.gz
+2023-05-12 23:12:58,318 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:12:58,697 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0087.jsonl.gz
+2023-05-12 23:13:02,494 INFO Done
+2023-05-12 23:13:06,728 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:13:06,887 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:13:07,107 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0088.jsonl.gz
+2023-05-12 23:13:07,125 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0089.jsonl.gz
+2023-05-12 23:13:16,199 INFO Done
+2023-05-12 23:13:19,449 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:13:19,679 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0090.jsonl.gz
+2023-05-12 23:13:32,886 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:13:51,828 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:14:08,764 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:14:16,029 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:14:16,439 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0094.jsonl.gz
+2023-05-12 23:14:22,085 INFO Done
+2023-05-12 23:14:25,148 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:14:39,694 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:14:40,190 INFO Done
+2023-05-12 23:14:43,054 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:14:49,096 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:14:59,412 INFO Done
+2023-05-12 23:15:03,845 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:15:08,854 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 23:15:14,350 INFO Done
+2023-05-12 23:15:30,920 INFO Done
+2023-05-12 23:15:33,587 INFO Done
+2023-05-12 23:15:38,253 INFO Done
+2023-05-12 23:15:51,388 INFO Done
+2023-05-12 23:15:55,319 INFO Done
+2023-05-12 23:16:58,475 INFO text/data_0090 - 98735 / 170821 removed.
+2023-05-12 23:17:28,214 INFO text/data_0094 - 98990 / 171466 removed.
+2023-05-12 23:20:58,967 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0090.tsv
+2023-05-12 23:21:01,933 INFO Done
+2023-05-12 23:21:45,050 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0094.tsv
+2023-05-12 23:21:46,644 INFO Done
+2023-05-13 05:18:32,012 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-13 05:18:32,259 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0000.jsonl.gz
+2023-05-13 05:21:40,106 INFO text/data_0000 - 99323 / 172854 removed.
+2023-05-13 05:24:45,104 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0000.tsv
+2023-05-13 05:24:46,737 INFO Done
+2023-05-17 05:16:52,076 WARNING s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0065.tsv is excluded as it is not part of the selected languages.
+2023-05-17 05:16:52,078 WARNING s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/markdown/data_0001.tsv is excluded as it is not part of the selected languages.
+2023-05-17 05:16:52,081 WARNING s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0074.tsv is excluded as it is not part of the selected languages.
+2023-05-17 05:16:52,089 WARNING s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/markdown/data_0000.tsv is excluded as it is not part of the selected languages.
+2023-05-17 05:16:52,091 WARNING s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0092.tsv is excluded as it is not part of the selected languages.
+2023-05-17 05:16:52,093 WARNING s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0091.tsv is excluded as it is not part of the selected languages.
+2023-05-17 05:16:52,098 WARNING s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0055.tsv is excluded as it is not part of the selected languages.
+2023-05-17 05:16:52,113 WARNING s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/jupyter-notebook/data_0000.tsv is excluded as it is not part of the selected languages.
+2023-05-17 05:16:52,116 WARNING s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0087.tsv is excluded as it is not part of the selected languages.
+2023-05-17 05:16:52,138 WARNING s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0080.tsv is excluded as it is not part of the selected languages.
+2023-05-17 05:16:52,638 WARNING s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/markdown/data_0004.tsv is excluded as it is not part of the selected languages.
+2023-05-17 05:16:52,647 WARNING s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/markdown/data_0002.tsv is excluded as it is not part of the selected languages.
+2023-05-17 05:16:52,669 WARNING s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/php/data_0003.tsv is excluded as it is not part of the selected languages.
+2023-05-17 05:19:05,468 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:19:05,604 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/markdown/data_0000.jsonl.gz
+2023-05-17 06:10:29,293 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:10:29,295 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:10:29,299 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:10:29,304 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:10:29,307 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:10:29,310 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:10:29,315 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:10:29,315 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:10:29,322 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:10:29,325 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:10:29,413 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0001.jsonl.gz
+2023-05-17 06:10:29,413 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0007.jsonl.gz
+2023-05-17 06:10:29,413 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0006.jsonl.gz
+2023-05-17 06:10:29,428 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0008.jsonl.gz
+2023-05-17 06:10:29,455 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0003.jsonl.gz
+2023-05-17 06:10:48,299 INFO Done
+2023-05-17 06:10:48,904 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:10:49,744 INFO Done
+2023-05-17 06:10:50,229 INFO Done
+2023-05-17 06:10:50,347 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:10:50,466 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0011.jsonl.gz
+2023-05-17 06:10:50,779 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:10:51,338 INFO Done
+2023-05-17 06:10:51,640 INFO Done
+2023-05-17 06:10:51,960 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:10:52,223 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:11:08,077 INFO Done
+2023-05-17 06:11:08,289 INFO Done
+2023-05-17 06:11:08,726 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:11:08,848 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0015.jsonl.gz
+2023-05-17 06:11:08,939 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:11:09,415 INFO Done
+2023-05-17 06:11:10,003 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:11:10,069 INFO Done
+2023-05-17 06:11:10,143 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0017.jsonl.gz
+2023-05-17 06:11:10,645 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:11:10,763 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0018.jsonl.gz
+2023-05-17 06:11:29,984 INFO Done
+2023-05-17 06:11:30,576 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:11:48,363 INFO Done
+2023-05-17 06:11:49,015 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:11:49,135 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0020.jsonl.gz
+2023-05-17 06:12:00,482 INFO text/data_0003 - 98285 / 172208 removed.
+2023-05-17 06:12:00,532 INFO text/data_0001 - 100280 / 172864 removed.
+2023-05-17 06:12:01,312 INFO text/data_0006 - 100059 / 173154 removed.
+2023-05-17 06:12:01,779 INFO text/data_0007 - 98598 / 171679 removed.
+2023-05-17 06:12:01,829 INFO text/data_0008 - 98931 / 171731 removed.
+2023-05-17 06:12:21,301 INFO text/data_0011 - 97488 / 169707 removed.
+2023-05-17 06:12:40,259 INFO text/data_0015 - 98916 / 171837 removed.
+2023-05-17 06:12:41,431 INFO text/data_0018 - 98974 / 170972 removed.
+2023-05-17 06:12:41,844 INFO text/data_0017 - 96542 / 168698 removed.
+2023-05-17 06:13:19,572 INFO text/data_0020 - 97838 / 171195 removed.
+2023-05-17 06:13:19,583 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0003.tsv
+2023-05-17 06:13:20,672 INFO Done
+2023-05-17 06:13:22,024 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:13:23,673 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0006.tsv
+2023-05-17 06:13:24,517 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0001.tsv
+2023-05-17 06:13:24,696 INFO Done
+2023-05-17 06:13:24,860 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0007.tsv
+2023-05-17 06:13:25,411 INFO Done
+2023-05-17 06:13:25,473 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:13:25,581 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0022.jsonl.gz
+2023-05-17 06:13:25,830 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0008.tsv
+2023-05-17 06:13:25,921 INFO Done
+2023-05-17 06:13:26,164 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:13:26,277 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0023.jsonl.gz
+2023-05-17 06:13:26,681 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:13:26,767 INFO Done
+2023-05-17 06:13:26,794 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0024.jsonl.gz
+2023-05-17 06:13:27,461 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:13:27,590 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0025.jsonl.gz
+2023-05-17 06:13:39,474 INFO Done
+2023-05-17 06:13:40,082 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:13:40,198 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0026.jsonl.gz
+2023-05-17 06:13:47,656 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0011.tsv
+2023-05-17 06:13:48,564 INFO Done
+2023-05-17 06:13:49,295 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:13:49,405 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0027.jsonl.gz
+2023-05-17 06:14:07,224 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0018.tsv
+2023-05-17 06:14:08,276 INFO Done
+2023-05-17 06:14:08,318 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0015.tsv
+2023-05-17 06:14:09,080 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:14:09,396 INFO Done
+2023-05-17 06:14:10,217 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:14:10,315 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0029.jsonl.gz
+2023-05-17 06:14:10,456 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0017.tsv
+2023-05-17 06:14:11,398 INFO Done
+2023-05-17 06:14:12,154 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:14:12,267 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0030.jsonl.gz
+2023-05-17 06:14:27,871 INFO Done
+2023-05-17 06:14:28,530 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:14:28,646 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0031.jsonl.gz
+2023-05-17 06:14:44,364 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0020.tsv
+2023-05-17 06:14:45,365 INFO Done
+2023-05-17 06:14:46,184 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:14:46,300 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0032.jsonl.gz
+2023-05-17 06:14:55,485 INFO text/data_0024 - 98493 / 170639 removed.
+2023-05-17 06:14:56,164 INFO text/data_0022 - 99541 / 173043 removed.
+2023-05-17 06:15:00,979 INFO text/data_0025 - 98338 / 171229 removed.
+2023-05-17 06:15:01,820 INFO text/data_0023 - 97763 / 170319 removed.
+2023-05-17 06:15:09,688 INFO text/data_0026 - 99580 / 173326 removed.
+2023-05-17 06:15:17,856 INFO text/data_0027 - 96307 / 168255 removed.
+2023-05-17 06:15:40,066 INFO text/data_0030 - 97772 / 170696 removed.
+2023-05-17 06:15:41,080 INFO text/data_0029 - 98125 / 169782 removed.
+2023-05-17 06:16:03,735 INFO text/data_0031 - 99853 / 172957 removed.
+2023-05-17 06:16:15,438 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0024.tsv
+2023-05-17 06:16:16,342 INFO Done
+2023-05-17 06:16:17,259 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:16:17,407 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0033.jsonl.gz
+2023-05-17 06:16:18,719 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0022.tsv
+2023-05-17 06:16:19,594 INFO Done
+2023-05-17 06:16:20,455 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:16:20,577 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0034.jsonl.gz
+2023-05-17 06:16:20,725 INFO text/data_0032 - 98084 / 170877 removed.
+2023-05-17 06:16:25,349 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0023.tsv
+2023-05-17 06:16:26,373 INFO Done
+2023-05-17 06:16:27,168 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:16:28,503 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0025.tsv
+2023-05-17 06:16:29,443 INFO Done
+2023-05-17 06:16:30,243 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:16:31,032 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0026.tsv
+2023-05-17 06:16:31,990 INFO Done
+2023-05-17 06:16:32,797 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:16:32,944 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0037.jsonl.gz
+2023-05-17 06:16:42,192 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0027.tsv
+2023-05-17 06:16:43,077 INFO Done
+2023-05-17 06:16:43,927 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:16:44,055 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0038.jsonl.gz
+2023-05-17 06:16:45,922 INFO Done
+2023-05-17 06:16:46,574 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:16:50,203 INFO Done
+2023-05-17 06:16:50,829 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:16:50,948 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0040.jsonl.gz
+2023-05-17 06:17:01,903 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0029.tsv
+2023-05-17 06:17:02,839 INFO Done
+2023-05-17 06:17:03,629 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:17:04,611 INFO Done
+2023-05-17 06:17:05,261 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:17:05,397 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0042.jsonl.gz
+2023-05-17 06:17:07,067 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0030.tsv
+2023-05-17 06:17:08,064 INFO Done
+2023-05-17 06:17:08,808 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:17:08,915 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0043.jsonl.gz
+2023-05-17 06:17:22,286 INFO Done
+2023-05-17 06:17:22,902 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:17:23,022 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0044.jsonl.gz
+2023-05-17 06:17:26,240 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0031.tsv
+2023-05-17 06:17:27,126 INFO Done
+2023-05-17 06:17:27,927 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:17:28,041 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0045.jsonl.gz
+2023-05-17 06:17:44,738 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0032.tsv
+2023-05-17 06:17:45,654 INFO Done
+2023-05-17 06:17:46,398 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:17:51,971 INFO text/data_0033 - 98765 / 171687 removed.
+2023-05-17 06:17:52,153 INFO text/data_0034 - 98750 / 170658 removed.
+2023-05-17 06:18:03,655 INFO Done
+2023-05-17 06:18:04,282 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:18:04,402 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0047.jsonl.gz
+2023-05-17 06:18:04,953 INFO text/data_0037 - 99651 / 172025 removed.
+2023-05-17 06:18:17,282 INFO text/data_0038 - 99308 / 172066 removed.
+2023-05-17 06:18:21,530 INFO text/data_0040 - 100768 / 174808 removed.
+2023-05-17 06:18:36,656 INFO text/data_0042 - 96760 / 168427 removed.
+2023-05-17 06:18:37,418 INFO text/data_0043 - 95379 / 167210 removed.
+2023-05-17 06:18:54,783 INFO text/data_0044 - 97467 / 170024 removed.
+2023-05-17 06:18:58,034 INFO text/data_0045 - 100038 / 172631 removed.
+2023-05-17 06:19:15,844 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0034.tsv
+2023-05-17 06:19:16,866 INFO Done
+2023-05-17 06:19:17,686 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:19:17,833 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0048.jsonl.gz
+2023-05-17 06:19:21,912 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0033.tsv
+2023-05-17 06:19:22,910 INFO Done
+2023-05-17 06:19:23,707 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:19:23,826 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0049.jsonl.gz
+2023-05-17 06:19:27,032 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0037.tsv
+2023-05-17 06:19:27,989 INFO Done
+2023-05-17 06:19:28,822 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:19:29,005 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0050.jsonl.gz
+2023-05-17 06:19:33,343 INFO text/data_0047 - 97239 / 169517 removed.
+2023-05-17 06:19:40,460 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0038.tsv
+2023-05-17 06:19:41,292 INFO Done
+2023-05-17 06:19:42,134 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:19:42,247 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0051.jsonl.gz
+2023-05-17 06:19:46,916 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0040.tsv
+2023-05-17 06:19:47,824 INFO Done
+2023-05-17 06:19:48,606 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:19:48,774 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0052.jsonl.gz
+2023-05-17 06:20:00,236 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0043.tsv
+2023-05-17 06:20:00,914 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0042.tsv
+2023-05-17 06:20:01,304 INFO Done
+2023-05-17 06:20:01,894 INFO Done
+2023-05-17 06:20:02,096 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:20:02,255 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0053.jsonl.gz
+2023-05-17 06:20:02,681 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:20:02,823 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0054.jsonl.gz
+2023-05-17 06:20:21,958 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0044.tsv
+2023-05-17 06:20:22,977 INFO Done
+2023-05-17 06:20:23,777 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:20:26,844 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0045.tsv
+2023-05-17 06:20:27,830 INFO Done
+2023-05-17 06:20:28,685 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:20:28,812 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0056.jsonl.gz
+2023-05-17 06:20:43,541 INFO Done
+2023-05-17 06:20:44,209 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:20:44,318 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0057.jsonl.gz
+2023-05-17 06:20:48,933 INFO text/data_0048 - 98687 / 171315 removed.
+2023-05-17 06:20:53,491 INFO text/data_0049 - 96295 / 167788 removed.
+2023-05-17 06:20:54,585 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0047.tsv
+2023-05-17 06:20:55,532 INFO Done
+2023-05-17 06:20:56,363 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:20:56,504 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0058.jsonl.gz
+2023-05-17 06:20:56,841 INFO text/data_0050 - 98170 / 171382 removed.
+2023-05-17 06:21:11,864 INFO text/data_0051 - 98769 / 171178 removed.
+2023-05-17 06:21:20,599 INFO text/data_0052 - 98950 / 171061 removed.
+2023-05-17 06:21:33,850 INFO text/data_0054 - 97203 / 167987 removed.
+2023-05-17 06:21:34,607 INFO text/data_0053 - 99188 / 171419 removed.
+2023-05-17 06:21:57,411 INFO text/data_0056 - 99869 / 173114 removed.
+2023-05-17 06:22:15,295 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0049.tsv
+2023-05-17 06:22:15,696 INFO text/data_0057 - 96913 / 168441 removed.
+2023-05-17 06:22:16,289 INFO Done
+2023-05-17 06:22:17,167 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:22:17,287 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0059.jsonl.gz
+2023-05-17 06:22:18,246 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0048.tsv
+2023-05-17 06:22:19,287 INFO Done
+2023-05-17 06:22:20,088 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:22:21,544 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0050.tsv
+2023-05-17 06:22:22,587 INFO Done
+2023-05-17 06:22:23,383 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:22:24,119 INFO text/data_0058 - 97502 / 169911 removed.
+2023-05-17 06:22:37,820 INFO Done
+2023-05-17 06:22:38,462 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:22:38,581 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0062.jsonl.gz
+2023-05-17 06:22:41,808 INFO Done
+2023-05-17 06:22:42,392 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0051.tsv
+2023-05-17 06:22:42,420 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:22:42,568 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0063.jsonl.gz
+2023-05-17 06:22:43,316 INFO Done
+2023-05-17 06:22:44,202 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:22:44,341 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0064.jsonl.gz
+2023-05-17 06:22:47,583 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0052.tsv
+2023-05-17 06:22:48,460 INFO Done
+2023-05-17 06:22:49,259 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:23:01,692 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0053.tsv
+2023-05-17 06:23:02,605 INFO Done
+2023-05-17 06:23:03,146 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0054.tsv
+2023-05-17 06:23:03,456 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:23:03,589 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0066.jsonl.gz
+2023-05-17 06:23:04,150 INFO Done
+2023-05-17 06:23:04,909 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:23:05,028 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0067.jsonl.gz
+2023-05-17 06:23:07,994 INFO Done
+2023-05-17 06:23:08,627 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:23:08,731 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0068.jsonl.gz
+2023-05-17 06:23:24,633 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0056.tsv
+2023-05-17 06:23:25,609 INFO Done
+2023-05-17 06:23:26,343 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:23:26,475 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0069.jsonl.gz
+2023-05-17 06:23:41,292 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0057.tsv
+2023-05-17 06:23:42,164 INFO Done
+2023-05-17 06:23:42,950 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:23:43,073 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0070.jsonl.gz
+2023-05-17 06:23:52,122 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0058.tsv
+2023-05-17 06:23:52,148 INFO text/data_0059 - 97699 / 169189 removed.
+2023-05-17 06:23:53,172 INFO Done
+2023-05-17 06:23:53,970 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:23:54,079 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0071.jsonl.gz
+2023-05-17 06:24:09,460 INFO text/data_0062 - 96559 / 167356 removed.
+2023-05-17 06:24:12,109 INFO text/data_0063 - 96988 / 168592 removed.
+2023-05-17 06:24:13,009 INFO text/data_0064 - 97348 / 169629 removed.
+2023-05-17 06:24:38,597 INFO text/data_0067 - 99424 / 172295 removed.
+2023-05-17 06:24:39,400 INFO text/data_0068 - 98232 / 169786 removed.
+2023-05-17 06:24:39,579 INFO text/data_0066 - 99287 / 171927 removed.
+2023-05-17 06:24:58,208 INFO text/data_0069 - 97230 / 169213 removed.
+2023-05-17 06:25:10,617 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0059.tsv
+2023-05-17 06:25:11,552 INFO Done
+2023-05-17 06:25:12,059 INFO text/data_0070 - 101247 / 175892 removed.
+2023-05-17 06:25:12,421 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:25:12,552 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0072.jsonl.gz
+2023-05-17 06:25:23,753 INFO text/data_0071 - 98659 / 171911 removed.
+2023-05-17 06:25:31,616 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0062.tsv
+2023-05-17 06:25:32,556 INFO Done
+2023-05-17 06:25:33,444 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:25:39,186 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0064.tsv
+2023-05-17 06:25:40,051 INFO Done
+2023-05-17 06:25:40,922 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:25:41,026 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0074.jsonl.gz
+2023-05-17 06:25:51,877 INFO Done
+2023-05-17 06:25:52,514 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:25:52,630 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0075.jsonl.gz
+2023-05-17 06:25:59,997 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0067.tsv
+2023-05-17 06:26:01,035 INFO Done
+2023-05-17 06:26:01,873 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:26:01,992 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0076.jsonl.gz
+2023-05-17 06:26:03,049 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0068.tsv
+2023-05-17 06:26:04,010 INFO Done
+2023-05-17 06:26:04,608 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0066.tsv
+2023-05-17 06:26:04,850 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:26:04,968 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0077.jsonl.gz
+2023-05-17 06:26:05,558 INFO Done
+2023-05-17 06:26:06,399 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:26:06,510 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0078.jsonl.gz
+2023-05-17 06:26:18,837 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0069.tsv
+2023-05-17 06:26:19,781 INFO Done
+2023-05-17 06:26:20,597 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:26:22,137 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0063.tsv
+2023-05-17 06:26:23,017 INFO Done
+2023-05-17 06:26:23,856 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:26:33,635 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0070.tsv
+2023-05-17 06:26:34,576 INFO Done
+2023-05-17 06:26:35,399 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:26:35,513 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0081.jsonl.gz
+2023-05-17 06:26:39,907 INFO Done
+2023-05-17 06:26:40,454 INFO text/data_0072 - 94727 / 165418 removed.
+2023-05-17 06:26:40,587 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:26:40,700 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0082.jsonl.gz
+2023-05-17 06:26:42,275 INFO Done
+2023-05-17 06:26:42,895 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:26:50,040 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0071.tsv
+2023-05-17 06:26:51,051 INFO Done
+2023-05-17 06:26:51,917 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:27:00,645 INFO Done
+2023-05-17 06:27:01,247 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:27:01,368 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0085.jsonl.gz
+2023-05-17 06:27:10,529 INFO Done
+2023-05-17 06:27:11,151 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:27:11,265 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0086.jsonl.gz
+2023-05-17 06:27:11,896 INFO text/data_0074 - 95905 / 167977 removed.
+2023-05-17 06:27:20,782 INFO text/data_0075 - 97197 / 170393 removed.
+2023-05-17 06:27:34,093 INFO text/data_0076 - 97849 / 170402 removed.
+2023-05-17 06:27:36,067 INFO text/data_0077 - 98738 / 171798 removed.
+2023-05-17 06:27:39,672 INFO text/data_0078 - 98662 / 170575 removed.
+2023-05-17 06:28:05,269 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0072.tsv
+2023-05-17 06:28:06,171 INFO Done
+2023-05-17 06:28:06,273 INFO text/data_0081 - 97769 / 169763 removed.
+2023-05-17 06:28:07,477 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:28:07,689 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0087.jsonl.gz
+2023-05-17 06:28:09,735 INFO text/data_0082 - 97476 / 169561 removed.
+2023-05-17 06:28:31,118 INFO text/data_0085 - 101747 / 175532 removed.
+2023-05-17 06:28:37,127 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0074.tsv
+2023-05-17 06:28:37,981 INFO Done
+2023-05-17 06:28:38,798 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:28:38,902 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0088.jsonl.gz
+2023-05-17 06:28:39,560 INFO text/data_0086 - 98446 / 170620 removed.
+2023-05-17 06:28:51,485 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0075.tsv
+2023-05-17 06:28:52,459 INFO Done
+2023-05-17 06:28:53,328 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:28:53,442 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/text/data_0089.jsonl.gz
+2023-05-17 06:28:58,761 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0077.tsv
+2023-05-17 06:28:59,705 INFO Done
+2023-05-17 06:29:00,484 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:29:01,499 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0076.tsv
+2023-05-17 06:29:02,492 INFO Done
+2023-05-17 06:29:03,275 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:29:04,770 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0078.tsv
+2023-05-17 06:29:05,659 INFO Done
+2023-05-17 06:29:06,366 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:29:22,063 INFO Done
+2023-05-17 06:29:22,148 INFO Done
+2023-05-17 06:29:22,700 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:29:22,847 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:29:23,822 INFO Done
+2023-05-17 06:29:24,489 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:29:34,093 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0081.tsv
+2023-05-17 06:29:35,021 INFO Done
+2023-05-17 06:29:35,902 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:29:36,707 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0082.tsv
+2023-05-17 06:29:37,723 INFO Done
+2023-05-17 06:29:38,238 INFO text/data_0087 - 100852 / 175063 removed.
+2023-05-17 06:29:38,641 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:29:40,424 INFO Done
+2023-05-17 06:29:41,141 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:29:43,312 INFO Done
+2023-05-17 06:29:43,764 INFO Done
+2023-05-17 06:29:44,021 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:29:44,465 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:29:54,100 INFO Done
+2023-05-17 06:29:54,955 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0085.tsv
+2023-05-17 06:29:55,895 INFO Done
+2023-05-17 06:29:57,120 INFO Done
+2023-05-17 06:30:00,110 INFO Done
+2023-05-17 06:30:02,804 INFO Done
+2023-05-17 06:30:03,062 INFO Done
+2023-05-17 06:30:05,113 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0086.tsv
+2023-05-17 06:30:05,972 INFO Done
+2023-05-17 06:30:12,319 INFO text/data_0088 - 98125 / 170241 removed.
+2023-05-17 06:30:21,912 INFO text/data_0089 - 100484 / 173346 removed.
+2023-05-17 06:30:59,630 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0087.tsv
+2023-05-17 06:31:00,505 INFO Done
+2023-05-17 06:31:35,816 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0088.tsv
+2023-05-17 06:31:36,735 INFO Done
+2023-05-17 06:31:45,939 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/text/data_0089.tsv
+2023-05-17 06:31:46,899 INFO Done
+2023-05-17 06:35:46,469 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:35:46,483 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:35:46,486 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:35:46,490 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:35:46,491 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:35:46,501 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:35:46,504 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:35:46,508 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:35:46,514 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:35:46,515 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:35:46,581 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0055.jsonl.gz
+2023-05-17 06:35:46,600 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0074.jsonl.gz
+2023-05-17 06:35:46,607 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/jupyter-notebook/data_0000.jsonl.gz
+2023-05-17 06:35:46,607 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0080.jsonl.gz
+2023-05-17 06:35:46,618 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0087.jsonl.gz
+2023-05-17 06:35:46,623 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0065.jsonl.gz
+2023-05-17 06:35:46,626 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/markdown/data_0001.jsonl.gz
+2023-05-17 06:35:46,633 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/markdown/data_0000.jsonl.gz
+2023-05-17 06:35:46,636 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0092.jsonl.gz
+2023-05-17 06:35:46,651 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/javascript/data_0091.jsonl.gz
+2023-05-17 06:36:35,932 INFO markdown/data_0001 - 48011 / 252758 removed.
+2023-05-17 06:36:38,186 INFO markdown/data_0000 - 44587 / 239128 removed.
+2023-05-17 06:36:44,788 INFO javascript/data_0091 - 30221 / 236170 removed.
+2023-05-17 06:36:46,576 INFO javascript/data_0065 - 30439 / 260774 removed.
+2023-05-17 06:36:46,970 INFO javascript/data_0080 - 30706 / 251101 removed.
+2023-05-17 06:36:47,326 INFO javascript/data_0055 - 30796 / 254356 removed.
+2023-05-17 06:36:47,600 INFO javascript/data_0092 - 30268 / 248187 removed.
+2023-05-17 06:36:49,072 INFO javascript/data_0074 - 31306 / 262723 removed.
+2023-05-17 06:36:49,234 INFO javascript/data_0087 - 30751 / 254679 removed.
+2023-05-17 06:37:00,497 INFO jupyter-notebook/data_0000 - 8880 / 11929 removed.
+2023-05-17 06:37:04,718 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/jupyter-notebook/data_0000.tsv
+2023-05-17 06:37:04,827 INFO Done
+2023-05-17 06:37:05,468 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:37:05,579 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/markdown/data_0002.jsonl.gz
+2023-05-17 06:37:56,300 INFO markdown/data_0002 - 49930 / 262011 removed.
+2023-05-17 06:37:56,950 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/markdown/data_0001.tsv
+2023-05-17 06:37:58,146 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/markdown/data_0000.tsv
+2023-05-17 06:37:59,454 INFO Done
+2023-05-17 06:38:00,241 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:38:00,358 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/markdown/data_0004.jsonl.gz
+2023-05-17 06:38:00,630 INFO Done
+2023-05-17 06:38:01,447 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:38:01,542 INFO Creating document s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/documents/php/data_0003.jsonl.gz
+2023-05-17 06:38:03,633 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0091.tsv
+2023-05-17 06:38:06,255 INFO Done
+2023-05-17 06:38:10,493 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0092.tsv
+2023-05-17 06:38:10,697 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0080.tsv
+2023-05-17 06:38:12,603 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0065.tsv
+2023-05-17 06:38:12,867 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0055.tsv
+2023-05-17 06:38:13,277 INFO Done
+2023-05-17 06:38:13,358 INFO Done
+2023-05-17 06:38:14,438 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0087.tsv
+2023-05-17 06:38:14,632 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/javascript/data_0074.tsv
+2023-05-17 06:38:15,310 INFO Done
+2023-05-17 06:38:15,316 INFO Done
+2023-05-17 06:38:16,813 INFO Done
+2023-05-17 06:38:17,167 INFO Done
+2023-05-17 06:38:35,980 INFO php/data_0003 - 28909 / 223246 removed.
+2023-05-17 06:38:50,395 INFO markdown/data_0004 - 51287 / 266390 removed.
+2023-05-17 06:39:16,374 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/markdown/data_0002.tsv
+2023-05-17 06:39:18,904 INFO Done
+2023-05-17 06:39:47,488 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/php/data_0003.tsv
+2023-05-17 06:39:49,595 INFO Done
+2023-05-17 06:40:11,601 INFO Creating attributes s3://ai2-llm/pretraining-data/sources/stack-dedup/v2/attributes/markdown/data_0004.tsv
+2023-05-17 06:40:14,262 INFO Done
+2023-05-17 06:41:20,786 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:20,786 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:20,787 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:20,787 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:20,797 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:20,798 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:20,803 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:20,818 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:20,819 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:20,821 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:38,469 INFO Done
+2023-05-17 06:41:39,149 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:39,839 INFO Done
+2023-05-17 06:41:40,369 INFO Done
+2023-05-17 06:41:40,475 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:40,497 INFO Done
+2023-05-17 06:41:40,616 INFO Done
+2023-05-17 06:41:41,037 INFO Done
+2023-05-17 06:41:41,046 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:41,069 INFO Done
+2023-05-17 06:41:41,141 INFO Done
+2023-05-17 06:41:41,216 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:41,347 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:41,581 INFO Done
+2023-05-17 06:41:41,740 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:41,742 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:41,890 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:42,170 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:42,239 INFO Done
+2023-05-17 06:41:42,840 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:58,064 INFO Done
+2023-05-17 06:41:58,730 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:59,017 INFO Done
+2023-05-17 06:41:59,251 INFO Done
+2023-05-17 06:41:59,700 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:59,893 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:41:59,961 INFO Done
+2023-05-17 06:42:00,397 INFO Done
+2023-05-17 06:42:00,597 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:00,841 INFO Done
+2023-05-17 06:42:00,997 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:01,452 INFO Done
+2023-05-17 06:42:01,483 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:01,646 INFO Done
+2023-05-17 06:42:01,980 INFO Done
+2023-05-17 06:42:02,072 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:02,336 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:02,629 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:03,066 INFO Done
+2023-05-17 06:42:03,675 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:17,495 INFO Done
+2023-05-17 06:42:17,606 INFO Done
+2023-05-17 06:42:18,217 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:18,348 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:18,960 INFO Done
+2023-05-17 06:42:19,613 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:19,987 INFO Done
+2023-05-17 06:42:20,596 INFO Done
+2023-05-17 06:42:20,669 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:20,776 INFO Done
+2023-05-17 06:42:21,256 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:21,417 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:21,779 INFO Done
+2023-05-17 06:42:22,008 INFO Done
+2023-05-17 06:42:22,060 INFO Done
+2023-05-17 06:42:22,499 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:22,697 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:22,714 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:23,816 INFO Done
+2023-05-17 06:42:24,413 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:37,115 INFO Done
+2023-05-17 06:42:37,772 INFO Done
+2023-05-17 06:42:37,815 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:38,466 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:38,603 INFO Done
+2023-05-17 06:42:38,857 INFO Done
+2023-05-17 06:42:39,364 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:39,529 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:40,538 INFO Done
+2023-05-17 06:42:40,558 INFO Done
+2023-05-17 06:42:41,233 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:41,236 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:41,510 INFO Done
+2023-05-17 06:42:41,730 INFO Done
+2023-05-17 06:42:42,078 INFO Done
+2023-05-17 06:42:42,184 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:42,430 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:42,685 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:42,784 INFO Done
+2023-05-17 06:42:43,388 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:56,701 INFO Done
+2023-05-17 06:42:57,049 INFO Done
+2023-05-17 06:42:57,417 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:57,740 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:58,789 INFO Done
+2023-05-17 06:42:59,067 INFO Done
+2023-05-17 06:42:59,460 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:42:59,462 INFO Done
+2023-05-17 06:42:59,795 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:00,147 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:01,723 INFO Done
+2023-05-17 06:43:02,226 INFO Done
+2023-05-17 06:43:02,319 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:02,343 INFO Done
+2023-05-17 06:43:02,702 INFO Done
+2023-05-17 06:43:02,815 INFO Done
+2023-05-17 06:43:02,948 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:03,038 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:03,350 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:03,523 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:16,737 INFO Done
+2023-05-17 06:43:17,140 INFO Done
+2023-05-17 06:43:17,481 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:17,840 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:19,087 INFO Done
+2023-05-17 06:43:19,746 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:20,141 INFO Done
+2023-05-17 06:43:20,335 INFO Done
+2023-05-17 06:43:20,466 INFO Done
+2023-05-17 06:43:20,867 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:21,057 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:21,188 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:21,888 INFO Done
+2023-05-17 06:43:22,128 INFO Done
+2023-05-17 06:43:22,540 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:22,597 INFO Done
+2023-05-17 06:43:22,755 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:23,215 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:23,418 INFO Done
+2023-05-17 06:43:24,040 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:35,124 INFO Done
+2023-05-17 06:43:35,683 INFO Done
+2023-05-17 06:43:35,872 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:36,366 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:38,778 INFO Done
+2023-05-17 06:43:39,154 INFO Done
+2023-05-17 06:43:39,480 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:39,726 INFO Done
+2023-05-17 06:43:39,847 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:40,420 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:40,637 INFO Done
+2023-05-17 06:43:41,278 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:41,933 INFO Done
+2023-05-17 06:43:42,071 INFO Done
+2023-05-17 06:43:42,253 INFO Done
+2023-05-17 06:43:42,381 INFO Done
+2023-05-17 06:43:42,639 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:42,814 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:42,975 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:43,061 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:55,358 INFO Done
+2023-05-17 06:43:56,078 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:56,485 INFO Done
+2023-05-17 06:43:57,194 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:57,231 INFO Done
+2023-05-17 06:43:57,904 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:58,312 INFO Done
+2023-05-17 06:43:58,996 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:43:59,482 INFO Done
+2023-05-17 06:44:00,084 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:44:00,288 INFO Done
+2023-05-17 06:44:00,933 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:44:01,120 INFO Done
+2023-05-17 06:44:01,198 INFO Done
+2023-05-17 06:44:01,271 INFO Done
+2023-05-17 06:44:01,805 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:44:01,881 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:44:01,979 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:44:02,369 INFO Done
+2023-05-17 06:44:02,997 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:44:13,260 INFO Done
+2023-05-17 06:44:13,955 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:44:15,548 INFO Done
+2023-05-17 06:44:15,701 INFO Done
+2023-05-17 06:44:16,277 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:44:16,399 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:44:17,211 INFO Done
+2023-05-17 06:44:17,757 INFO Done
+2023-05-17 06:44:17,881 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:44:18,415 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:44:20,032 INFO Done
+2023-05-17 06:44:20,579 INFO Done
+2023-05-17 06:44:20,599 INFO Done
+2023-05-17 06:44:20,644 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:44:20,738 INFO Done
+2023-05-17 06:44:21,276 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:44:21,282 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:44:21,429 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:44:21,772 INFO Done
+2023-05-17 06:44:22,388 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:44:33,596 INFO Done
+2023-05-17 06:44:33,642 INFO Done
+2023-05-17 06:44:34,271 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:44:34,798 INFO Done
+2023-05-17 06:44:35,284 INFO Done
+2023-05-17 06:44:38,343 INFO Done
+2023-05-17 06:44:38,343 INFO Done
+2023-05-17 06:44:38,411 INFO Done
+2023-05-17 06:44:38,620 INFO Done
+2023-05-17 06:44:39,859 INFO Done
+2023-05-17 06:44:39,995 INFO Done
+2023-05-17 06:44:51,329 INFO Done
+2023-05-17 06:46:00,989 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:46:01,003 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:46:01,003 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:46:01,009 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:46:01,016 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:46:01,016 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:46:01,016 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:46:01,019 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:46:01,027 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:46:01,043 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:46:02,369 INFO Done
+2023-05-17 06:46:02,911 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:46:28,317 INFO Done
+2023-05-17 06:46:28,772 INFO Done
+2023-05-17 06:46:29,045 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:46:29,233 INFO Done
+2023-05-17 06:46:29,284 INFO Done
+2023-05-17 06:46:29,452 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:46:29,755 INFO Done
+2023-05-17 06:46:30,188 INFO Done
+2023-05-17 06:46:30,396 INFO Done
+2023-05-17 06:46:32,172 INFO Done
+2023-05-17 06:46:33,064 INFO Done
+2023-05-17 06:46:34,909 INFO Done
+2023-05-17 06:46:53,453 INFO Done
+2023-05-17 06:47:00,179 INFO Done

@@ -10016,3 +10016,707 @@
 2023-05-08 07:33:12,118 INFO Done
 2023-05-08 07:33:12,927 INFO Done
 2023-05-08 07:33:12,932 INFO Done
+2023-05-11 19:43:16,464 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:16,741 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:17,150 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:17,209 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:17,241 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:17,292 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:17,296 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:17,304 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:17,308 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:17,329 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:17,356 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:17,404 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:17,433 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:17,505 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:17,549 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:25,966 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:26,309 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:26,396 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:26,492 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:26,737 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:27,092 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:27,566 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:34,032 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:43:34,772 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:44:44,062 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:44:45,545 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:44:50,777 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:44:58,822 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:44:59,416 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:45:00,047 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:45:06,546 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:45:19,370 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:45:22,833 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:45:32,426 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:45:33,775 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:45:43,767 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:46:08,849 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:46:18,908 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:46:29,190 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:46:38,007 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:46:50,298 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:46:57,903 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:47:03,179 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:47:07,008 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:47:25,989 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:47:31,553 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:47:36,532 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:47:41,021 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:47:50,019 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:47:58,957 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:48:04,143 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:48:07,182 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:48:26,877 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:48:37,037 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:48:46,260 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:48:54,417 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:49:04,192 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:49:08,008 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:49:20,479 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:49:24,106 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:49:30,963 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:49:42,545 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:49:43,356 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:49:53,166 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:49:57,448 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:50:01,583 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:50:03,424 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:50:06,464 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:50:13,589 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:50:24,804 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:50:35,016 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:50:52,016 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:50:57,240 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:51:02,269 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:51:08,675 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:51:11,368 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:51:29,351 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:51:36,608 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:51:47,700 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:51:54,640 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:52:01,398 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:52:04,461 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:52:04,500 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:52:16,993 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:52:31,830 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:52:38,290 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:52:41,857 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:52:50,092 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:52:56,630 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:53:03,934 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:53:14,104 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:53:14,901 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:53:24,335 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:53:26,580 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:53:33,200 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:53:41,995 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:53:46,241 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:53:52,934 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:53:59,978 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:54:03,143 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 19:54:06,676 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 20:24:46,796 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 20:24:57,012 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 20:25:07,181 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 20:29:25,933 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 20:34:43,430 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 20:39:57,734 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 20:48:04,639 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 20:53:13,746 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 20:53:25,932 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 20:53:37,228 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 20:53:48,328 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 20:53:59,416 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 21:02:50,589 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 21:06:27,354 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 21:10:40,467 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 21:10:52,020 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 21:12:09,168 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 21:15:05,008 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 21:15:14,622 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 21:19:11,267 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 21:19:21,383 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 21:23:42,009 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 21:27:55,200 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 21:32:47,752 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 21:48:53,556 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 21:53:03,691 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 21:53:12,191 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 21:59:02,856 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 22:21:43,937 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 22:30:04,305 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 22:33:59,777 INFO Done
+2023-05-11 22:34:52,850 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 22:34:59,101 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 22:35:05,259 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 22:35:10,346 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 22:38:58,564 INFO Done
+2023-05-11 22:39:02,291 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 22:42:55,753 INFO Done
+2023-05-11 22:43:01,304 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 22:46:53,157 INFO Done
+2023-05-11 22:46:58,823 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 22:51:24,823 INFO Done
+2023-05-11 22:51:29,378 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 22:51:34,556 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 22:51:39,712 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 22:51:45,364 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 22:51:50,702 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 22:55:06,667 INFO Done
+2023-05-11 22:55:10,883 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 22:59:41,972 INFO Done
+2023-05-11 22:59:45,566 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:04:01,051 INFO Done
+2023-05-11 23:04:07,061 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:04:12,113 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:08:26,053 INFO Done
+2023-05-11 23:08:29,669 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:12:49,876 INFO Done
+2023-05-11 23:12:53,100 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:12:58,068 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:17:08,616 INFO Done
+2023-05-11 23:17:12,493 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:17:17,416 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:21:29,857 INFO Done
+2023-05-11 23:21:33,386 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:25:40,640 INFO Done
+2023-05-11 23:25:45,362 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:29:43,378 INFO Done
+2023-05-11 23:29:48,316 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:33:38,765 INFO Done
+2023-05-11 23:33:42,856 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:37:40,180 INFO Done
+2023-05-11 23:37:44,848 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:37:50,459 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:41:31,681 INFO Done
+2023-05-11 23:41:36,174 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:45:16,480 INFO Done
+2023-05-11 23:45:21,315 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:48:46,389 INFO Done
+2023-05-11 23:48:51,017 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:52:32,465 INFO Done
+2023-05-11 23:52:37,360 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:52:42,718 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:52:48,014 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:56:32,046 INFO Done
+2023-05-11 23:56:36,113 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-11 23:59:59,622 INFO Done
+2023-05-12 00:00:04,812 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:00:09,661 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:03:40,684 INFO Done
+2023-05-12 00:03:45,608 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:07:24,086 INFO Done
+2023-05-12 00:07:28,428 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:10:54,596 INFO Done
+2023-05-12 00:10:59,229 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:11:04,492 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:15:12,004 INFO Done
+2023-05-12 00:15:15,281 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:19:16,393 INFO Done
+2023-05-12 00:19:21,748 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:19:27,116 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:23:25,379 INFO Done
+2023-05-12 00:23:34,165 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:27:57,239 INFO Done
+2023-05-12 00:28:02,268 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:28:08,934 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:28:15,519 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:32:20,409 INFO Done
+2023-05-12 00:32:24,119 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:36:14,778 INFO Done
+2023-05-12 00:36:23,568 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:36:29,741 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:40:08,408 INFO Done
+2023-05-12 00:40:12,225 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:43:47,362 INFO Done
+2023-05-12 00:43:51,366 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:47:21,896 INFO Done
+2023-05-12 00:47:28,221 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:51:14,201 INFO Done
+2023-05-12 00:51:19,693 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:56:06,453 INFO Done
+2023-05-12 00:56:14,051 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 00:56:19,490 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:01:10,054 INFO Done
+2023-05-12 01:01:13,471 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:05:28,797 INFO Done
+2023-05-12 01:05:32,979 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:05:39,776 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:09:39,497 INFO Done
+2023-05-12 01:09:44,055 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:14:11,195 INFO Done
+2023-05-12 01:14:14,451 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:14:21,113 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:18:36,060 INFO Done
+2023-05-12 01:18:39,388 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:18:45,364 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:18:52,051 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:18:58,261 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:23:01,395 INFO Done
+2023-05-12 01:23:05,070 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:27:23,653 INFO Done
+2023-05-12 01:27:27,318 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:31:27,095 INFO Done
+2023-05-12 01:31:30,799 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:35:34,829 INFO Done
+2023-05-12 01:35:38,207 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:39:42,521 INFO Done
+2023-05-12 01:39:50,344 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:43:37,551 INFO Done
+2023-05-12 01:43:44,255 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:43:50,067 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:47:38,204 INFO Done
+2023-05-12 01:47:42,615 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:47:48,877 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:50:26,365 INFO Done
+2023-05-12 01:50:29,232 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:53:11,229 INFO Done
+2023-05-12 01:53:14,369 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:55:46,813 INFO Done
+2023-05-12 01:55:50,013 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:58:19,000 INFO Done
+2023-05-12 01:58:22,135 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:58:27,298 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 01:58:31,759 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:01:01,047 INFO Done
+2023-05-12 02:01:04,319 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:03:37,771 INFO Done
+2023-05-12 02:03:40,802 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:06:20,098 INFO Done
+2023-05-12 02:06:23,331 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:09:00,279 INFO Done
+2023-05-12 02:09:03,136 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:09:08,931 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:11:48,670 INFO Done
+2023-05-12 02:11:51,479 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:11:56,102 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:14:33,932 INFO Done
+2023-05-12 02:14:37,004 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:17:15,066 INFO Done
+2023-05-12 02:17:18,177 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:17:23,257 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:17:28,595 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:20:05,614 INFO Done
+2023-05-12 02:20:08,385 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:22:42,382 INFO Done
+2023-05-12 02:22:45,398 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:25:23,698 INFO Done
+2023-05-12 02:25:26,870 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:28:07,058 INFO Done
+2023-05-12 02:28:10,075 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:30:45,442 INFO Done
+2023-05-12 02:30:48,322 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:33:25,720 INFO Done
+2023-05-12 02:33:28,967 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:33:34,160 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:33:39,362 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 02:33:44,357 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:15:34,158 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:15:34,159 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:15:34,160 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:15:34,166 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:15:34,180 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:31,709 INFO Done
+2023-05-12 05:18:31,975 INFO Done
+2023-05-12 05:18:34,057 INFO Done
+2023-05-12 05:18:34,224 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:34,273 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:35,196 INFO Done
+2023-05-12 05:18:36,335 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:37,349 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:37,419 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:18:38,666 INFO Done
+2023-05-12 05:18:40,678 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:19:42,720 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:19:43,603 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:19:47,359 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:19:50,808 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:19:53,837 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:20:52,223 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:21:46,905 INFO Done
+2023-05-12 05:21:49,731 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:21:51,286 INFO Done
+2023-05-12 05:21:53,173 INFO Done
+2023-05-12 05:21:53,741 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:21:55,765 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:21:59,434 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:22:50,078 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:22:59,876 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:23:01,445 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:23:13,984 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:24:07,259 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:24:16,928 INFO Done
+2023-05-12 05:24:19,391 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:25:18,230 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:25:26,452 INFO Done
+2023-05-12 05:25:28,619 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:25:32,092 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:25:44,779 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:26:26,244 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:26:51,617 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:27:30,769 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:27:41,022 INFO Done
+2023-05-12 05:27:43,388 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:28:21,342 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:28:24,970 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:28:28,910 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:28:30,285 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:29:22,206 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:29:25,637 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:29:30,165 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:29:33,838 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:30:36,729 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:30:42,214 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:30:54,634 INFO Done
+2023-05-12 05:30:57,048 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:31:43,976 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:31:47,830 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:31:58,895 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:32:07,223 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:32:56,480 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:34:37,055 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:36:29,854 INFO Done
+2023-05-12 05:36:32,913 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:36:32,913 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:36:42,207 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:39:34,864 INFO Done
+2023-05-12 05:39:37,293 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:39:40,614 INFO Done
+2023-05-12 05:39:41,101 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:39:43,150 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:39:45,339 INFO Done
+2023-05-12 05:39:47,648 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:41:04,080 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:41:12,165 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:41:18,840 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:41:18,858 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:41:23,639 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:44:33,646 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:44:40,053 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:44:44,678 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:45:40,236 INFO Done
+2023-05-12 05:45:41,574 INFO Done
+2023-05-12 05:45:43,794 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:45:44,506 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:47:21,114 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:48:20,145 INFO Done
+2023-05-12 05:48:24,562 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:48:25,006 INFO Done
+2023-05-12 05:48:29,821 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:49:35,965 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:51:21,627 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:51:26,179 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:51:34,585 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:51:54,783 INFO Done
+2023-05-12 05:51:57,181 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:53:26,324 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:53:46,783 INFO Done
+2023-05-12 05:53:51,152 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:54:58,340 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:55:04,228 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:55:04,230 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:55:09,307 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:55:33,484 INFO Done
+2023-05-12 05:55:38,318 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:55:42,538 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:55:47,423 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:56:37,299 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:57:49,654 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:58:34,551 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 05:59:32,210 INFO Done
+2023-05-12 05:59:36,847 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:00:03,546 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:04:09,369 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:04:15,869 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:04:20,683 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:04:25,500 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:05:19,565 INFO Done
+2023-05-12 06:05:23,257 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:05:26,895 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:05:31,054 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:05:36,294 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:05:40,789 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:05:45,811 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:07:11,299 INFO Done
+2023-05-12 06:07:42,573 INFO Done
+2023-05-12 06:08:41,220 INFO Done
+2023-05-12 06:27:12,672 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:27:12,672 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:27:15,694 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:27:16,019 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:27:17,843 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:27:18,928 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:27:20,633 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:27:21,615 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:30:08,636 INFO Done
+2023-05-12 06:30:10,117 INFO Done
+2023-05-12 06:30:10,630 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:30:12,083 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:30:13,844 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:30:14,497 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:30:16,655 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:30:19,927 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:30:22,877 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:30:25,759 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:33:03,607 INFO Done
+2023-05-12 06:33:05,833 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:33:08,993 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:33:22,152 INFO Done
+2023-05-12 06:33:24,080 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:35:53,559 INFO Done
+2023-05-12 06:35:55,544 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:35:58,610 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:36:01,726 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:36:04,884 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:36:12,515 INFO Done
+2023-05-12 06:36:14,506 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:38:58,193 INFO Done
+2023-05-12 06:39:00,422 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:39:05,477 INFO Done
+2023-05-12 06:39:07,442 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:41:49,084 INFO Done
+2023-05-12 06:41:51,695 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:41:54,425 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:41:56,207 INFO Done
+2023-05-12 06:41:58,178 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:42:01,120 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:44:52,758 INFO Done
+2023-05-12 06:44:54,900 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:44:59,465 INFO Done
+2023-05-12 06:45:01,620 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:47:52,693 INFO Done
+2023-05-12 06:47:54,880 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:48:18,915 INFO Done
+2023-05-12 06:48:21,596 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:50:46,164 INFO Done
+2023-05-12 06:50:48,353 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:50:51,514 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:50:54,188 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:50:57,378 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:51:20,939 INFO Done
+2023-05-12 06:51:23,281 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:53:52,585 INFO Done
+2023-05-12 06:53:54,987 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:53:58,114 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:54:16,249 INFO Done
+2023-05-12 06:54:18,643 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:54:22,058 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:56:54,128 INFO Done
+2023-05-12 06:56:56,531 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 06:57:15,569 INFO Done
+2023-05-12 06:57:17,707 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:00:28,537 INFO Done
+2023-05-12 07:00:35,689 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:02:06,349 INFO Done
+2023-05-12 07:02:14,315 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:02:20,424 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:07:28,322 INFO Done
+2023-05-12 07:07:36,584 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:09:21,605 INFO Done
+2023-05-12 07:09:29,291 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:09:34,778 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:13:25,681 INFO Done
+2023-05-12 07:13:34,051 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:15:42,521 INFO Done
+2023-05-12 07:15:50,472 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:15:56,560 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:16:02,943 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:16:08,595 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:16:15,334 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:20:48,072 INFO Done
+2023-05-12 07:20:56,363 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:23:25,294 INFO Done
+2023-05-12 07:23:33,557 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:27:31,681 INFO Done
+2023-05-12 07:27:40,297 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:29:34,855 INFO Done
+2023-05-12 07:29:43,561 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:29:50,135 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:29:56,421 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:30:02,301 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:30:08,900 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:30:15,273 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:30:21,838 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:30:28,283 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:34:49,725 INFO Done
+2023-05-12 07:34:57,901 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:40:54,300 INFO Done
+2023-05-12 07:41:02,199 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:41:03,180 INFO Done
+2023-05-12 07:41:08,083 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:41:10,968 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:48:24,502 INFO Done
+2023-05-12 07:48:25,520 INFO Done
+2023-05-12 07:48:32,263 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:48:34,118 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:48:37,898 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:48:40,207 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:48:44,649 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:54:19,152 INFO Done
+2023-05-12 07:54:29,223 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 07:54:48,909 INFO Done
+2023-05-12 07:54:57,334 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:01:22,206 INFO Done
+2023-05-12 08:01:29,987 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:01:35,815 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:01:41,850 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:01:51,629 INFO Done
+2023-05-12 08:01:58,655 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:07:28,612 INFO Done
+2023-05-12 08:07:36,972 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:07:43,396 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:07:49,750 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:07:55,959 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:08:22,054 INFO Done
+2023-05-12 08:08:29,386 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:08:34,758 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:14:37,683 INFO Done
+2023-05-12 08:14:40,558 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:14:40,783 INFO Done
+2023-05-12 08:14:43,531 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:14:44,229 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:14:46,812 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:14:47,815 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:14:50,405 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:14:51,612 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:14:54,719 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:14:55,795 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:14:59,460 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:15:01,140 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-12 08:15:04,457 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:20:57,498 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:22:38,846 INFO Done
+2023-05-17 05:36:16,151 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:36:16,164 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:36:20,780 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:36:20,782 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:36:25,679 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:36:25,859 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:36:30,154 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:36:30,711 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:36:34,168 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:36:37,504 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:38:36,786 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:38:36,786 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:38:40,944 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:38:41,128 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:38:45,289 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:38:45,679 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:38:49,557 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:38:49,799 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:38:53,675 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:38:57,243 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:44:35,337 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:50:27,919 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:52:41,053 INFO Done
+2023-05-17 05:53:10,815 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:54:49,810 INFO Done
+2023-05-17 05:57:12,039 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 05:58:53,035 INFO Done
+2023-05-17 06:00:25,337 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:02:10,510 INFO Done
+2023-05-17 06:03:17,675 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:04:48,837 INFO Done
+2023-05-17 06:06:59,185 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:06:59,187 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:02,350 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:02,454 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:05,570 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:06,100 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:08,697 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:09,508 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:11,513 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:12,951 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:14,746 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:16,338 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:17,794 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:19,682 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:21,720 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:23,093 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:24,890 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:26,785 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:28,856 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:29,585 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:32,044 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:33,282 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:35,175 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:36,260 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:38,056 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:39,405 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:41,291 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:42,378 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:44,716 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:45,706 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:48,092 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:48,535 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:51,251 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:51,626 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:53,952 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:55,421 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:57,108 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:07:58,417 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:00,433 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:01,572 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:03,300 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:05,020 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:06,495 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:08,705 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:09,314 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:11,898 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:12,864 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:15,283 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:16,136 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:18,099 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:19,099 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:21,073 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:22,435 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:24,358 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:25,731 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:27,917 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:28,544 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:31,523 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:31,733 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:34,829 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:34,973 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:37,942 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:38,413 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:40,722 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:41,378 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:43,863 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:44,370 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:47,031 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:47,341 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:50,387 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:50,607 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:53,441 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:53,524 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:56,321 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:56,339 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:59,254 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:08:59,494 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:01,805 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:03,173 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:04,838 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:06,399 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:07,640 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:09,762 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:11,004 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:13,441 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:14,241 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:16,747 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:17,673 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:19,941 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:20,678 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:23,289 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:24,182 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:26,149 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:27,518 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:29,165 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:30,741 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:31,974 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:33,838 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:35,165 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:37,375 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2023-05-17 06:09:38,320 INFO Found credentials in shared credentials file: ~/.aws/credentials
