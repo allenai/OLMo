@@ -5,7 +5,7 @@
 |  | Processing details | # whitespace tokens | # documents |
 | --- | --- | --- | --- |
 | v0 | raw | 448 B | 272455312 |
-| v1 | remove copyright lines (RedPajama) | 334 B |  |
+| v1 | remove copyright lines (RedPajama) | 446 B | 271636653 |
 | v2 | line-based-heuristics (RedPajama) | 296 B | 255064041 |
 
 ### Evaluation-set preparation
