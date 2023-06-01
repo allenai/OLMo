@@ -7,10 +7,10 @@ Code-related taggers.
 """
 import logging
 import re
-import regex
 from typing import Generator, List
 
 import numpy as np
+import regex
 from detect_secrets import SecretsCollection
 from detect_secrets.core.scan import (
     PotentialSecret,
