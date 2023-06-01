@@ -3,9 +3,8 @@ import logging
 import multiprocessing
 import tempfile
 from contextlib import ExitStack
-from os import read
 from queue import Queue
-from typing import Dict, Optional
+from typing import Dict
 
 import msgspec
 from smashed.utils.io_utils import (
