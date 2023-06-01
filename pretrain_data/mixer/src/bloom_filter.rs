@@ -1,15 +1,15 @@
+use ahash::RandomState;
+use byteorder::{LittleEndian, NativeEndian, ReadBytesExt, WriteBytesExt};
+use rand::Rng;
+use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
+use std::fs::{create_dir_all, OpenOptions};
+use std::hash::{BuildHasher, Hash, Hasher};
 use std::io;
 use std::io::{BufReader, BufWriter, Write};
-use std::collections::VecDeque;
-use byteorder::{LittleEndian, NativeEndian, ReadBytesExt, WriteBytesExt};
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::hash::{BuildHasher, Hash, Hasher};
 use std::mem::size_of;
-use rand::Rng;
-use ahash::RandomState;
-use std::fs::{create_dir_all, OpenOptions};
 use std::path::PathBuf;
-use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 // A thread-safe bloom filter.
 pub struct BloomFilter {
@@ -31,20 +31,29 @@ impl BloomFilter {
         k.ceil() as usize
     }
 
-    pub fn prob_of_false_positive(size_in_bytes: usize, expected_elements: usize, num_hashers: usize) -> f64 {
+    pub fn prob_of_false_positive(
+        size_in_bytes: usize,
+        expected_elements: usize,
+        num_hashers: usize,
+    ) -> f64 {
         let k = num_hashers as f64;
         let m = (size_in_bytes * 8) as f64;
         let n = expected_elements as f64;
         (1.0 - (1.0 - (1.0 / m)).powf(k * n)).powf(k)
     }
 
-    pub fn suggest_size_in_bytes(expected_elements: usize, desired_false_positive_rate: f64) -> usize {
+    pub fn suggest_size_in_bytes(
+        expected_elements: usize,
+        desired_false_positive_rate: f64,
+    ) -> usize {
         let mut size_in_bytes = 1024 * 1024;
-        while size_in_bytes < usize::MAX / 2 && Self::prob_of_false_positive(
-            size_in_bytes,
-            expected_elements,
-            Self::optimal_number_of_hashers(size_in_bytes, expected_elements),
-        ) > desired_false_positive_rate {
+        while size_in_bytes < usize::MAX / 2
+            && Self::prob_of_false_positive(
+                size_in_bytes,
+                expected_elements,
+                Self::optimal_number_of_hashers(size_in_bytes, expected_elements),
+            ) > desired_false_positive_rate
+        {
             size_in_bytes *= 2;
         }
         size_in_bytes
@@ -55,7 +64,8 @@ impl BloomFilter {
         Self::prob_of_false_positive(
             self.size_in_bytes(),
             expected_elements,
-            self.hash_builders.len())
+            self.hash_builders.len(),
+        )
     }
 
     #[allow(dead_code)]
@@ -70,10 +80,8 @@ impl BloomFilter {
         for _ in 0..num_hashers {
             let seeds = rng.gen::<[u64; 4]>();
             hash_builders.push(RandomState::with_seeds(
-                seeds[0],
-                seeds[1],
-                seeds[2],
-                seeds[3]));
+                seeds[0], seeds[1], seeds[2], seeds[3],
+            ));
             hash_builder_seeds.push(seeds);
         }
 
@@ -84,7 +92,12 @@ impl BloomFilter {
             bits.push(AtomicU32::new(0));
         }
 
-        Self { bits, hash_builder_seeds, hash_builders, read_only }
+        Self {
+            bits,
+            hash_builder_seeds,
+            hash_builders,
+            read_only,
+        }
     }
 
     pub fn from_file(path: &PathBuf, read_only: bool) -> io::Result<Self> {
@@ -102,7 +115,10 @@ impl BloomFilter {
 
         let version: u32 = stream.read_u32::<LittleEndian>()?;
         if version != Self::VERSION {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid version"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid version",
+            ));
         }
 
         let num_hashers: u32 = stream.read_u32::<LittleEndian>()?;
@@ -116,10 +132,8 @@ impl BloomFilter {
                 stream.read_u64::<LittleEndian>()?,
             ];
             hash_builders.push(RandomState::with_seeds(
-                seeds[0],
-                seeds[1],
-                seeds[2],
-                seeds[3]));
+                seeds[0], seeds[1], seeds[2], seeds[3],
+            ));
             hash_builder_seeds.push(seeds);
         }
 
@@ -130,7 +144,12 @@ impl BloomFilter {
             bits.push(AtomicU32::new(stream.read_u32::<NativeEndian>()?));
         }
 
-        Ok(Self { bits, hash_builder_seeds, hash_builders, read_only })
+        Ok(Self {
+            bits,
+            hash_builder_seeds,
+            hash_builders,
+            read_only,
+        })
     }
 
     pub fn write_to_file(&self, path: &PathBuf) -> io::Result<()> {
@@ -155,7 +174,8 @@ impl BloomFilter {
         unsafe {
             let bytes: &[u8] = std::slice::from_raw_parts(
                 self.bits.as_ptr() as *const u8,
-                self.bits.len() * size_of::<AtomicU32>());
+                self.bits.len() * size_of::<AtomicU32>(),
+            );
             stream.write_all(bytes)?;
         };
 
@@ -163,11 +183,14 @@ impl BloomFilter {
     }
 
     pub fn hashes(&self, s: &VecDeque<&str>) -> Vec<u64> {
-        self.hash_builders.iter().map(|hash_builder| {
-            let mut hasher = hash_builder.build_hasher();
-            s.hash(&mut hasher);
-            hasher.finish()
-        }).collect()
+        self.hash_builders
+            .iter()
+            .map(|hash_builder| {
+                let mut hasher = hash_builder.build_hasher();
+                s.hash(&mut hasher);
+                hasher.finish()
+            })
+            .collect()
     }
 
     // No-op if read-only
@@ -215,14 +238,27 @@ impl BloomFilter {
             log::info!("Creating new bloom filter...");
             let mut bloom_filter_size: usize = config.size_in_bytes;
             if bloom_filter_size <= 0 {
-                bloom_filter_size = BloomFilter::suggest_size_in_bytes(config.estimated_doc_count, config.desired_false_positive_rate);
+                bloom_filter_size = BloomFilter::suggest_size_in_bytes(
+                    config.estimated_doc_count,
+                    config.desired_false_positive_rate,
+                );
                 log::info!("Creating bloom filter with size {} bytes to achieve false positive rate {} for {} elements", bloom_filter_size, config.desired_false_positive_rate, config.estimated_doc_count);
             }
             let num_hashers = BloomFilter::optimal_number_of_hashers(
                 bloom_filter_size,
-                config.estimated_doc_count);
-            let p = BloomFilter::prob_of_false_positive(bloom_filter_size, config.estimated_doc_count, num_hashers);
-            log::info!("Bloom filter will have size {}, {} hashers, false positive rate {}.", bloom_filter_size, num_hashers, p);
+                config.estimated_doc_count,
+            );
+            let p = BloomFilter::prob_of_false_positive(
+                bloom_filter_size,
+                config.estimated_doc_count,
+                num_hashers,
+            );
+            log::info!(
+                "Bloom filter will have size {}, {} hashers, false positive rate {}.",
+                bloom_filter_size,
+                num_hashers,
+                p
+            );
             BloomFilter::new(bloom_filter_size, num_hashers, config.read_only)
         };
 

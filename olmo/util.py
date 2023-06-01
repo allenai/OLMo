@@ -99,7 +99,7 @@ def setup_logging(log_filter_type: LogFilterType = LogFilterType.rank0_only) -> 
     logging.basicConfig(handlers=[handler], level=logging.INFO)
 
     logzio_token = os.environ.get("LOGZIO_TOKEN", None)
-    if logzio_token is not None:
+    if logzio_token:
         from logzio.handler import LogzioHandler
 
         logzio_handler = LogzioHandler(logzio_token)

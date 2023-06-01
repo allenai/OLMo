@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from threading import Lock
 from typing import List, Optional, Union
 
 from tokenizers import Tokenizer as BaseTokenizer
@@ -24,11 +23,6 @@ class Tokenizer:
         on the right. "left" means truncate the tokens on the left. If ``truncate_to`` is null,
         this setting has no effect.
     """
-
-    # The base tokenizer is not thread safe, so we use a lock to ensure
-    # we're only using it in a single thread at once.
-    # See https://github.com/huggingface/tokenizers/issues/537
-    MUTEX = Lock()
 
     def __init__(
         self,
