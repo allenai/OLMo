@@ -3,13 +3,15 @@ import logging
 import multiprocessing
 import tempfile
 from contextlib import ExitStack
+from os import read
 from queue import Queue
-from typing import Dict
+from typing import Dict, Optional
 
 import msgspec
 from smashed.utils.io_utils import (
     compress_stream,
     decompress_stream,
+    open_file_for_read,
     open_file_for_write,
     stream_file_for_read,
 )
@@ -70,6 +72,9 @@ class TaggerProcessor(BaseParallelProcessor):
         # skip on failure
         skip_on_failure = kwargs.get("skip_on_failure", False)
 
+        # local read cache
+        local_read_cache = kwargs.get("local_read_cache", None)
+
         # interval at which to update the progress bar; will double if it gets
         # too full
         update_interval = 1
@@ -87,7 +92,11 @@ class TaggerProcessor(BaseParallelProcessor):
                 # open each file for reading and writing. We use open_file_for_read to handle s3 paths and
                 # download the file locally if needed, while gzip.open is used to
                 # read and write gzipped files.
-                in_file = stack.enter_context(stream_file_for_read(source_path, "rb"))
+                in_file = stack.enter_context(
+                    stream_file_for_read(source_path, "rb")
+                    if local_read_cache is None
+                    else open_file_for_read(local_read_cache, "rb", temp_dir=local_read_cache)
+                )
                 in_stream = stack.enter_context(decompress_stream(in_file, "rt"))
                 out_file = stack.enter_context(open_file_for_write(destination_path, "wb"))
                 out_stream = stack.enter_context(compress_stream(out_file, "wt"))
@@ -174,6 +183,12 @@ class TaggerProcessor(BaseParallelProcessor):
             help="If provided, keeps track of which files have already been processed and skips them. ",
         )
         ap.add_argument(
+            "--local-read-cache",
+            default=None,
+            type=str,
+            help="If provided, will cache the files locally before processing them.",
+        )
+        ap.add_argument(
             "--manually-included-paths",
             default=None,
             nargs="+",
@@ -231,4 +246,5 @@ class TaggerProcessor(BaseParallelProcessor):
                 taggers_names=opts.taggers,
                 experiment_name=opts.experiment_name,
                 skip_on_failure=opts.skip_on_failure,
+                local_read_cache=opts.local_read_cache,
             )

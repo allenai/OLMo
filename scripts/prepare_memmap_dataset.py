@@ -77,9 +77,15 @@ def tokenize_file(tokenizer: Tokenizer, path: str) -> Generator[List[int], None,
         input_file = stack.enter_context(stream_file_for_read(path, mode="rb"))
         input_stream = stack.enter_context(decompress_stream(input_file, mode="rt"))
 
-        for line in input_stream:
-            row = decoder.decode(line)
-            yield tokenizer.encode(row.text, add_special_tokens=True)
+        i = 1
+        try:
+            for line in input_stream:
+                row = decoder.decode(line)
+                yield tokenizer.encode(row.text, add_special_tokens=True)
+                i += 1
+        except Exception as e:
+            log.error(f"Error processing {path}:{i:,} -> {e}")
+            pass
 
 
 class MemmapFile:
