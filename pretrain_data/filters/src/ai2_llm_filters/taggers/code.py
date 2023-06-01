@@ -1,6 +1,6 @@
 """
 
-Code secrets.
+Code-related taggers.
 
 @akshitab
 
