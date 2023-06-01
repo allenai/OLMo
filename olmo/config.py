@@ -74,7 +74,7 @@ class BaseConfig:
         def path_glob(*paths) -> List[str]:
             out = []
             for path in paths:
-                matches = glob(path)
+                matches = sorted(glob(path))
                 if not matches:
                     raise FileNotFoundError(f"{path} does not match any files or dirs")
                 out.extend(matches)
@@ -581,6 +581,11 @@ class TrainConfig(BaseConfig):
     eval_subset_num_batches: int = -1
     """
     The number of batches to use for downstream evaluation from each dataset.
+    """
+
+    eval_on_load: bool = False
+    """
+    When resuming from a checkpoint, run the evaluation loop right away.
     """
 
     device_train_grad_accum: Optional[int] = None  # calculated automatically

@@ -16,7 +16,9 @@ T = TypeVar("T")
 class IterableDataset(torch.utils.data.IterableDataset[T]):
     """
     Adapted from PyTorch's DistributedSampler, this wraps a Dataset or arbitrary sequence
-    as an IterableDataset that can be deterministically restarted at any point by setting `start_step`.
+    as an IterableDataset that can be deterministically restarted at any point by setting `start_index`,
+    which should be a multiple of your global batch size.
+    Similarly `max_examples`, if set, should be a multiple of global batch size.
     """
 
     def __init__(
@@ -24,31 +26,36 @@ class IterableDataset(torch.utils.data.IterableDataset[T]):
         dataset: Sequence[T],
         *,
         seed: int = 0,
-        start_step: int = 0,
-        max_steps: Optional[int] = None,
+        start_index: int = 0,
+        max_examples: Optional[int] = None,
         shuffle: bool = True,
-        drop_last: bool = False
+        drop_last: bool = False,
+        world_size: Optional[int] = None,
+        rank: Optional[int] = None,
     ):
         self.dataset = dataset
         self.seed = seed
-        self.start_step = start_step
-        self.max_steps = max_steps
+        self.start_index = start_index
+        self.max_examples = max_examples
         self.shuffle = shuffle
         self.drop_last = drop_last
-        self.rank = global_rank()
-        self.world_size = dist.get_world_size() if (dist.is_available() and dist.is_initialized()) else 1
+        self.rank = rank if rank is not None else global_rank()
+        self.world_size = (
+            world_size
+            if world_size is not None
+            else (dist.get_world_size() if (dist.is_available() and dist.is_initialized()) else 1)
+        )
         # If the dataset length is evenly divisible by # of replicas, then there
         # is no need to drop any data, since the dataset will be split equally.
         if self.drop_last and len(self.dataset) % self.world_size != 0:  # type: ignore[arg-type]
-            # Split to nearest available length that is evenly divisible.
-            # This is to ensure each rank receives the same amount of data when
-            # using this Sampler.
-            self.num_samples = math.ceil(
+            # Split to nearest available length that is evenly divisible by world size.
+            # This is to ensure each rank receives the same amount of data.
+            num_samples = math.ceil(
                 (len(self.dataset) - self.world_size) / self.world_size  # type: ignore[arg-type]
             )
         else:
-            self.num_samples = math.ceil(len(self.dataset) / self.world_size)  # type: ignore[arg-type]
-        self.total_size = self.num_samples * self.world_size
+            num_samples = math.ceil(len(self.dataset) / self.world_size)  # type: ignore[arg-type]
+        self.total_size = num_samples * self.world_size
 
     def __iter__(self) -> Iterator[T]:
         if self.shuffle:
@@ -71,16 +78,18 @@ class IterableDataset(torch.utils.data.IterableDataset[T]):
             indices = indices[: self.total_size]
         assert len(indices) == self.total_size
 
+        # Truncate to max_examples.
+        if self.max_examples is not None:
+            assert self.max_examples % self.world_size == 0
+            indices = indices[: self.max_examples]
+
+        # Start at the specified index.
+        if self.start_index > 0:
+            assert self.start_index % self.world_size == 0
+            indices = indices[self.start_index :]
+
         # Slice indices by rank to avoid duplicates.
         indices = indices[self.rank : self.total_size : self.world_size]
-
-        # Truncate to max steps.
-        if self.max_steps is not None:
-            indices = indices[: self.max_steps]
-
-        # Start at the specified step.
-        if self.start_step > 0:
-            indices = indices[self.start_step :]
 
         # Lastly, slice the indices by data loader worker rank to avoid duplicates.
         worker_info = torch.utils.data.get_worker_info()

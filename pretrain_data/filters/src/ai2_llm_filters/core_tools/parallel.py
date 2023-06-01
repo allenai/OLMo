@@ -8,7 +8,7 @@ from datetime import datetime
 from functools import partial
 from queue import Queue
 from threading import Thread
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import tqdm
 from smashed.utils.io_utils import (
@@ -41,6 +41,8 @@ class BaseParallelProcessor:
         seed: int = 0,
         pbar_timeout: float = 0.01,
         ignore_existing: bool = False,
+        include_paths: Optional[List[str]] = None,
+        exclude_paths: Optional[List[str]] = None,
     ):
         """Initialize the parallel processor.
 
@@ -63,6 +65,10 @@ class BaseParallelProcessor:
                 Defaults to 0.01 seconds.
             ignore_existing (bool, optional): Whether to ignore files that have been already processed and
                 re-run the processor on all files from scratch. Defaults to False.
+            include_paths (Optional[List[str]], optional): A list of paths to include. If provided, only files
+                that match one of the paths will be processed. Defaults to None.
+            exclude_paths (Optional[List[str]], optional): A list of paths to exclude. If provided, files that
+                match one of the paths will be skipped. Defaults to None.
         """
 
         self.source_prefix = MultiPath.parse(source_prefix)
@@ -73,6 +79,9 @@ class BaseParallelProcessor:
         self.seed = seed
         self.pbar_timeout = pbar_timeout
         self.ignore_existing = ignore_existing
+
+        self.include_paths = set(include_paths) if include_paths is not None else None
+        self.exclude_paths = set(exclude_paths) if exclude_paths is not None else None
 
         # checking that the increment_progressbar method is subclassed
         # correctly
@@ -267,9 +276,15 @@ class BaseParallelProcessor:
         """Get all paths to process using prefixes provided"""
         all_source_paths, all_destination_paths, all_metadata_paths = [], [], []
 
+        def _valid_path(path: str) -> bool:
+            return (self.include_paths is None or path in self.include_paths) and (
+                self.exclude_paths is None or path not in self.exclude_paths
+            )
+
         existing_metadata_names = set(
             (MultiPath.parse(path) - self.metadata_prefix).as_str.rstrip(METADATA_SUFFIX)
             for path in recursively_list_files(self.metadata_prefix)
+            if _valid_path(path)
         )
         paths = list(recursively_list_files(self.source_prefix))
         random.shuffle(paths)

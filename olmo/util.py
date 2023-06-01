@@ -99,7 +99,7 @@ def setup_logging(log_filter_type: LogFilterType = LogFilterType.rank0_only) -> 
     logging.basicConfig(handlers=[handler], level=logging.INFO)
 
     logzio_token = os.environ.get("LOGZIO_TOKEN", None)
-    if logzio_token is not None:
+    if logzio_token:
         from logzio.handler import LogzioHandler
 
         logzio_handler = LogzioHandler(logzio_token)
@@ -329,3 +329,12 @@ def cycle_through_epochs(dataloader: DataLoader) -> Generator[Dict[str, Any], No
         if isinstance(dataloader.sampler, DistributedSampler):
             epoch = dataloader.sampler.epoch + 1
             dataloader.sampler.set_epoch(epoch)
+
+
+def syncronize_flag(flag: bool, device: torch.device) -> bool:
+    if dist.is_available() and dist.is_initialized():
+        flag_tensor = torch.tensor(flag, device=device)
+        dist.broadcast(flag_tensor, 0)
+        return flag_tensor.item()  # type: ignore
+    else:
+        return flag

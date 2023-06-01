@@ -6,32 +6,43 @@ Data types assumed by Filters.
 
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from msgspec import Struct
+
+
+class Ai2LlmFilterError(Exception):
+    pass
 
 
 class InputSpec(Struct):
     id: str
     text: str
     source: str
-    version: str
+    version: Optional[str] = None
 
 
 class OutputSpec(Struct):
-    source: str
     id: str
-    attributes: Dict[str, List[Union[int, float]]]
+    attributes: Dict[str, List[List[Union[int, float]]]]
+    source: Optional[str] = None
 
 
 class Document:
     __slots__ = "source", "version", "id", "text"
 
-    def __init__(self, source: str, version: str, id: str, text: str) -> None:
+    def __init__(self, source: str, id: str, text: str, version: Optional[str] = None) -> None:
         self.source = source
         self.version = version
         self.id = id
         self.text = text
+
+    @classmethod
+    def from_spec(cls, spec: InputSpec) -> "Document":
+        return Document(source=spec.source, version=spec.version, id=spec.id, text=spec.text)
+
+    def to_spec(self) -> InputSpec:
+        return InputSpec(source=self.source, version=self.version, id=self.id, text=self.text)
 
     @classmethod
     def from_json(cls, d: Dict) -> "Document":
@@ -48,16 +59,55 @@ class Document:
 
 
 class Span:
-    __slots__ = "start", "end", "type", "score"
+    __slots__ = "start", "end", "type", "score", "experiment", "tagger"
 
-    def __init__(self, start: int, end: int, type: str, score: float = 1.0):
+    def __init__(
+        self,
+        start: int,
+        end: int,
+        type: str,
+        score: float = 1.0,
+        experiment: Optional[str] = None,
+        tagger: Optional[str] = None,
+    ):
         self.start = start
         self.end = end
         self.type = type
         self.score = float(score)
+        self.experiment = experiment
+        self.tagger = tagger
 
     def mention(self, text: str, window: int = 0) -> str:
         return text[max(0, self.start - window) : min(len(text), self.end + window)]
+
+    def select(self, doc: Document) -> str:
+        return doc.text[self.start : self.end]
+
+    @classmethod
+    def from_spec(cls, attribute_name: str, attribute_value: List[Union[int, float]]) -> "Span":
+        if "__" in attribute_name:
+            # bff tagger has different name
+            exp_name, tgr_name, attr_type = attribute_name.split("__", 2)
+        else:
+            exp_name = tgr_name = attr_type = attribute_name
+
+        start, end, score = attribute_value
+        return Span(
+            start=int(start),
+            end=int(end),
+            type=attr_type,
+            score=float(score),
+            experiment=exp_name,
+            tagger=tgr_name,
+        )
+
+    def to_spec(self) -> Tuple[str, List[Union[int, float]]]:
+        assert self.experiment is not None, "Experiment name must be set to convert to spec"
+        assert self.tagger is not None, "Tagger name must be set to convert to spec"
+        return (
+            f"{self.experiment}__{self.tagger}__{self.type}",
+            [self.start, self.end, self.score],
+        )
 
     @classmethod
     def from_json(cls, di: Dict) -> "Span":
@@ -80,6 +130,30 @@ class DocResult:
     def __init__(self, doc: Document, spans: List[Span]) -> None:
         self.doc = doc
         self.spans = spans
+
+    @classmethod
+    def from_spec(cls, doc: InputSpec, *attrs_groups: OutputSpec) -> "DocResult":
+        spans: List[Span] = []
+        for attrs in attrs_groups:
+            assert doc.id == attrs.id, f"doc.id={doc.id} != attrs.id={attrs.id}"
+            spans.extend(
+                [
+                    Span.from_spec(attribute_name=attr_name, attribute_value=attr_value)
+                    for attr_name, attr_values in attrs.attributes.items()
+                    for attr_value in attr_values
+                ]
+            )
+        return DocResult(doc=Document.from_spec(doc), spans=spans)
+
+    def to_spec(self) -> Tuple[InputSpec, OutputSpec]:
+        doc_spec = self.doc.to_spec()
+        attributes: Dict[str, List[List[Union[int, float]]]] = {}
+
+        for span in self.spans:
+            attr_name, attr_value = span.to_spec()
+            attributes.setdefault(attr_name, []).append(attr_value)
+
+        return doc_spec, OutputSpec(source=self.doc.source, id=self.doc.id, attributes=attributes)
 
     @classmethod
     def from_json(cls, d: Dict[str, Any]) -> "DocResult":
