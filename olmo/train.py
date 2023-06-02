@@ -486,7 +486,7 @@ class Trainer:
         ce_loss = F.cross_entropy(logits_for_loss, labels, ignore_index=-100, reduction=loss_reduction)
         if loss_reduction == "none":
             # Reshape (batch_size * seq_len,) -> (batch_size, seq_len)
-            ce_loss = ce_loss.view(batch["input_ids"].shape)
+            ce_loss = ce_loss.view(batch["input_ids"].shape[0], -1)
         return ce_loss, logits
 
     def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
