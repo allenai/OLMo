@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from olmo.config import TrainConfig
-from olmo.data import MemMapDataset
+from olmo.data import build_memmap_dataset
 from olmo.exceptions import OlmoCliError
 from olmo.tokenizer import Tokenizer
 from olmo.util import clean_opt, prepare_cli_environment
@@ -16,7 +16,7 @@ from olmo.util import clean_opt, prepare_cli_environment
 
 def main(save_folder: Path, *steps: int, rank: Optional[int] = None):
     cfg = TrainConfig.load(save_folder / "config.yaml", overrides=[clean_opt("--evaluators=[]")])
-    dataset = MemMapDataset(*cfg.data.paths, chunk_size=cfg.model.max_sequence_length)
+    dataset = build_memmap_dataset(cfg, cfg.data)
     tokenizer = Tokenizer.from_train_config(cfg)
 
     if rank is None:

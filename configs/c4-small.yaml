@@ -111,7 +111,7 @@ evaluators:
   # lump all the small datasets together (we still get separate metrics).
   - label: all-small-ppl-validation
     data:
-      paths:
+      datasets:
         4chan-validation:
           - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/4chan/val.npy
         c4_100_domains-validation:

@@ -4,6 +4,7 @@ import torch.distributed as dist
 from torch.utils.data import DataLoader, DistributedSampler
 
 from ..config import DataConfig, TrainConfig
+from ..exceptions import OlmoConfigurationError
 from ..util import global_rank
 from .collator import DataCollator
 from .iterable_dataset import IterableDataset
@@ -15,15 +16,19 @@ __all__ = ["MemMapDataset", "DataCollator", "IterableDataset", "build_eval_datal
 def build_memmap_dataset(train_config: TrainConfig, data_config: DataConfig) -> MemMapDataset:
     paths: List[str]
     metadata: Optional[List[Dict[str, Any]]] = None
-    if isinstance(data_config.paths, list):
+    if data_config.paths:
+        if data_config.datasets:
+            raise OlmoConfigurationError("DataConfig.paths is mutually exclusive with DataConfig.datasets")
         paths = data_config.paths
-    else:
+    elif data_config.datasets:
         paths = []
         metadata = []
-        for label in sorted(data_config.paths.keys()):
-            label_paths = data_config.paths[label]
+        for label in sorted(data_config.datasets.keys()):
+            label_paths = data_config.datasets[label]
             paths.extend(label_paths)
             metadata.extend([{"label": label}] * len(label_paths))
+    else:
+        raise OlmoConfigurationError("One of DataConfig.paths or DataConfig.datasets is required")
     return MemMapDataset(*paths, chunk_size=train_config.model.max_sequence_length, metadata=metadata)
 
 
