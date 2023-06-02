@@ -1,10 +1,12 @@
 """Run this script with 'torchrun'."""
 
+import gzip
 import logging
 import os
 import sys
 from functools import partial
 from pathlib import Path
+from typing import Optional, TextIO
 
 import torch
 import torch.distributed as dist
@@ -145,8 +147,17 @@ def main(cfg: TrainConfig) -> None:
     optim = build_optimizer(cfg, fsdp_model)
     scheduler = build_scheduler(cfg, optim)
 
+    # Data indices file.
+    indices_file: Optional[TextIO] = None
+    if cfg.save_data_indices:
+        indices_file_path = Path(cfg.save_folder) / f"data-indices/rank{global_rank()}.tsv.gz"
+        if indices_file_path.exists() and not cfg.save_overwrite:
+            raise OlmoConfigurationError(f"{indices_file_path} already exists, use --save_overwrite to overwrite")
+        indices_file_path.parent.mkdir(exist_ok=True, parents=True)
+        indices_file = gzip.open(indices_file_path, "wt")
+
     # Consolidate components into `Trainer` object.
-    trainer = Trainer(
+    with Trainer(
         cfg=cfg,
         model=olmo_model,
         fsdp_model=fsdp_model,
@@ -159,55 +170,53 @@ def main(cfg: TrainConfig) -> None:
         if not cfg.softmax_auxiliary_loss
         else MeanMetric(nan_strategy="error").to(device),
         evaluators=evaluators,
-    )
+        indices_file=indices_file,
+    ) as trainer:
+        if not cfg.dry_run and cfg.load_path is None:
+            checkpoint_type = (
+                CheckpointType.sharded if cfg.save_num_checkpoints_to_keep != 0 else CheckpointType.unsharded
+            )
 
-    if not cfg.dry_run and cfg.load_path is None:
-        checkpoint_type = (
-            CheckpointType.sharded if cfg.save_num_checkpoints_to_keep != 0 else CheckpointType.unsharded
-        )
+            # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever).
+            log.info("Saving pre-train checkpoint...")
+            checkpoint_path = trainer.save_checkpoint(checkpoint_type=checkpoint_type)
+            log.info(f"Checkpoint saved to {checkpoint_path}")
 
-        # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever).
-        log.info("Saving pre-train checkpoint...")
-        checkpoint_path = trainer.save_checkpoint(checkpoint_type=checkpoint_type)
-        log.info(f"Checkpoint saved to {checkpoint_path}")
+            # And they we verify that we can load it.
+            log.info("Attempting to load pre-train checkpoint...")
+            trainer.restore_checkpoint(checkpoint_path, checkpoint_type=checkpoint_type)
+            log.info("Checkpoint successfully loaded")
 
-        # And they we verify that we can load it.
-        log.info("Attempting to load pre-train checkpoint...")
-        trainer.restore_checkpoint(checkpoint_path, checkpoint_type=checkpoint_type)
-        log.info("Checkpoint successfully loaded")
+            # But now we can remove it so we don't take up unnecessary space.
+            log.info("Removing pre-train checkpoint...")
+            trainer.remove_checkpoint(checkpoint_type=checkpoint_type)
+            log.info("Successfully removed checkpoint")
 
-        # But now we can remove it so we don't take up unnecessary space.
-        log.info("Removing pre-train checkpoint...")
-        trainer.remove_checkpoint(checkpoint_type=checkpoint_type)
-        log.info("Successfully removed checkpoint")
+        if cfg.load_path is not None:
+            log.info(f"Loading checkpoint from {cfg.load_path}...")
+            trainer.restore_checkpoint(Path(cfg.load_path))
+            log.info("Checkpoint successfully loaded")
 
-    if cfg.load_path is not None:
-        log.info(f"Loading checkpoint from {cfg.load_path}...")
-        trainer.restore_checkpoint(Path(cfg.load_path))
-        log.info("Checkpoint successfully loaded")
+        if cfg.force_save_unsharded:
+            log.info("Saving unsharded checkpoint...")
+            checkpoint_path = trainer.save_unsharded_checkpoint()
+            log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
-    if cfg.force_save_unsharded:
-        log.info("Saving unsharded checkpoint...")
-        checkpoint_path = trainer.save_unsharded_checkpoint()
-        log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
+        if cfg.compile is not None:
+            # NOTE: trying to compile the whole train step results in a compile-time error from within
+            # the optimizer. We should investigate this further at some point.
+            #  trainer.train_step = torch.compile(trainer.train_step, **cfg.compile.asdict())
+            trainer.train_batch = torch.compile(trainer.train_batch, **cfg.compile.asdict())  # type: ignore
+            trainer.eval_batch = torch.compile(trainer.eval_batch, **cfg.compile.asdict())  # type: ignore
+            # Alternatively, could just do this:
+            #  trainer.fsdp_model = torch.compile(trainer.fsdp_model, **cfg.compile.asdict())
 
-    if cfg.compile is not None:
-        # NOTE: trying to compile the whole train step results in a compile-time error from within
-        # the optimizer. We should investigate this further at some point.
-        #  trainer.train_step = torch.compile(trainer.train_step, **cfg.compile.asdict())
-        trainer.train_batch = torch.compile(trainer.train_batch, **cfg.compile.asdict())  # type: ignore
-        trainer.eval_batch = torch.compile(trainer.eval_batch, **cfg.compile.asdict())  # type: ignore
-        # Alternatively, could just do this:
-        #  trainer.fsdp_model = torch.compile(trainer.fsdp_model, **cfg.compile.asdict())
-
-    if not cfg.dry_run:
-        log.info("Starting training...")
-        trainer.fit()
-        log.info("Training complete")
-    else:
-        log.info("Dry run complete")
-
-    trainer.close()
+        if not cfg.dry_run:
+            log.info("Starting training...")
+            trainer.fit()
+            log.info("Training complete")
+        else:
+            log.info("Dry run complete")
 
 
 if __name__ == "__main__":
