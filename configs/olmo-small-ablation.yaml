@@ -1,4 +1,4 @@
-run_name: abl-s2-v3
+run_name: abl-s2-v2
 seed: 6198
 dry_run: false
 
@@ -45,7 +45,7 @@ scheduler:
   t_max: null
 
 data:
-  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/s2/abl-s2-v3/gpt-neox-20b/*.npy}
+  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/s2/abl-s2-v2/gpt-neox-20b/*.npy}
   pad_direction: right
   num_workers: 4
   drop_last: true
