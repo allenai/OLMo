@@ -91,10 +91,11 @@ class TaggerProcessor(BaseParallelProcessor):
                 # open each file for reading and writing. We use open_file_for_read to handle s3 paths and
                 # download the file locally if needed, while gzip.open is used to
                 # read and write gzipped files.
+
                 in_file = stack.enter_context(
                     stream_file_for_read(source_path, "rb")
                     if local_read_cache is None
-                    else open_file_for_read(local_read_cache, "rb", temp_dir=local_read_cache)
+                    else open_file_for_read(source_path, "rb", temp_dir=local_read_cache)
                 )
                 in_stream = stack.enter_context(decompress_stream(in_file, "rt"))
                 out_file = stack.enter_context(open_file_for_write(destination_path, "wb"))
