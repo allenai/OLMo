@@ -27,6 +27,7 @@ from typing import Generator, List, Optional, Sequence, Tuple, TypeVar
 import click
 import msgspec
 import numpy as np
+from cached_path import cached_path
 from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
@@ -41,7 +42,6 @@ from smashed.utils.io_utils import (
     recursively_list_files,
     stream_file_for_read,
 )
-from cached_path import cached_path
 
 from olmo import Tokenizer
 from olmo.util import prepare_cli_environment
@@ -299,7 +299,9 @@ def make_source_and_target(src: Tuple[str, ...], output: str) -> Tuple[Tuple[str
     help="Maximum number of tokens to store in a single memmap file (default: 512M tokens or 1GB)",
 )
 @click.option("--debug/--no-debug", default=False, help="Enable debug (single process mode)")
-@click.option("--safe-mode/--fast-mode", default=False, help="Safe mode caches locally and decompresses using gzip.open")
+@click.option(
+    "--safe-mode/--fast-mode", default=False, help="Safe mode caches locally and decompresses using gzip.open"
+)
 @click.option("-j", "--workers", "max_workers", type=int, default=None, help="Defaults to number of CPUs")
 def main(
     src: Tuple[str, ...],
@@ -318,11 +320,7 @@ def main(
     # creating a partial here with all the arguments we need to pass to fill_memmap except for the paths
     # so that we don't make mistakes between debug and non-debug mode
     fill_memmap_fn = functools.partial(
-        fill_memmap,
-        tokenizer_id=tokenizer_id,
-        dtype=dtype,
-        max_tokens=max_tokens,
-        safe_mode=safe_mode
+        fill_memmap, tokenizer_id=tokenizer_id, dtype=dtype, max_tokens=max_tokens, safe_mode=safe_mode
     )
 
     if debug:
