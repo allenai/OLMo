@@ -467,7 +467,9 @@ class Trainer:
             labels = labels.masked_fill(attention_mask == 0.0, -100)
         return labels[..., 1:].contiguous()
 
-    def model_forward(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
+    def model_forward(
+        self, batch: Dict[str, Any], loss_reduction: str = "mean"
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         # shape: (batch_size, seq_len, vocab_size)
         logits = self.fsdp_model(
             input_ids=batch["input_ids"],
@@ -481,7 +483,7 @@ class Trainer:
         labels = self.get_labels(batch)
         # shape: (batch_size,)
         labels = labels.view(-1)
-        ce_loss = F.cross_entropy(logits_for_loss, labels, ignore_index=-100)
+        ce_loss = F.cross_entropy(logits_for_loss, labels, ignore_index=-100, reduction=loss_reduction)
         return ce_loss, logits
 
     def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
@@ -580,8 +582,8 @@ class Trainer:
 
     def eval_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
-            ce_loss, logits = self.model_forward(batch)
-        return ce_loss, logits
+            ce_loss, logits = self.model_forward(batch, loss_reduction="none")
+        return ce_loss.mean(dim=-1), logits
 
     def eval_step(self, batch: Dict[str, Any], evaluator: Evaluator) -> Dict[str, float]:
         # Move tensors to the right device.
@@ -661,13 +663,13 @@ class Trainer:
 
         eval_metrics = {}
         for evaluator in self.evaluators:
-            log.info(f"Running evaluation for '{evaluator.cfg.label}'...")
+            log.info(f"Running evaluation for '{evaluator.label}'...")
 
             # Reset metrics.
             evaluator.reset_metrics()
 
             # Check how many batches to evaluate on.
-            num_eval_batches = evaluator.cfg.subset_num_batches
+            num_eval_batches = evaluator.subset_num_batches
             if num_eval_batches is None:
                 num_eval_batches = self.cfg.eval_subset_num_batches
             if num_eval_batches <= 0:

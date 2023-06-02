@@ -35,7 +35,7 @@ def main(save_folder: Path, *steps: int, rank: Optional[int] = None):
                     if line.startswith(f"{step}\t"):
                         indices = [int(i) for i in line.strip().split("\t")[1:]]
                         for i, index in enumerate(indices):
-                            token_ids = dataset[index]
+                            token_ids = dataset[index]["input_ids"]
                             example = tokenizer.decode(token_ids.tolist())
                             print(f'[step={step}, rank={rank}, example={i}] "{example}"\n')
                     else:
