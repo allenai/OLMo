@@ -20,13 +20,21 @@ Post-process of v0. Drop non-English documents. Deduplicate whole documents by U
 
 **v1-small-head** is a sample of the `cc_en_head` (low-perplexity) subset of `v1`
 
-**v1-small-head-middle** is a sample of the `cc_en_head` and `cc_en_middle` (low- and mid-perplexity) setset of `v1`
+**v1-small-head-middle** is a sample of the `cc_en_head` and `cc_en_middle` (low- and mid-perplexity) subset of `v1`
+
+**v1-small-c4-cleaned** applies C4's text-cleanup rules
+
+**v1-small-c4-filtered** applies C4's drop-junk-documents rules
+
+**v1-small-gopher-filtered** applies Gopher's drop-junk-documents rules
+
+**v1-small-c4-cleaned-gopher-filtered** applies Gopher's drop-junk-documents rules to the C4-cleaned text
 
 ### v2
 
 Post-process of v1. Remove duplicate paragraphs across the entire corpus
 
-**v2-small** is a post-process of `v1-small` to remove duplicate paragraphs.
+**v2-small** is a post-process of `v1-small-head-middle` to remove duplicate paragraphs.
 
 
 ## CCNet Overview
