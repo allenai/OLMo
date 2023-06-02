@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import logging
+import math
 import random
 import shutil
 import time
@@ -6,7 +9,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
-from typing import Any, Deque, Dict, List, Optional, Tuple
+from typing import Any, Deque, Dict, List, Optional, TextIO, Tuple
 
 import numpy as np
 import torch
@@ -100,6 +103,7 @@ class Trainer:
     checkpoints: List[Path] = field(default_factory=list)
     unsharded_checkpoints: List[Path] = field(default_factory=list)
     min_train_loss: float = float("inf")
+    indices_file: Optional[TextIO] = None
 
     def state_dict(self) -> Dict[str, Any]:
         state_dict = self.non_tensor_state_dict()
@@ -208,6 +212,10 @@ class Trainer:
 
         self.checkpoints.append(checkpoint_dir)
         dist.barrier()
+
+        # Flush data indices file.
+        if self.indices_file is not None:
+            self.indices_file.flush()
 
         # Write the checkpoint.
         with FSDP.state_dict_type(
@@ -335,6 +343,10 @@ class Trainer:
 
         self.unsharded_checkpoints.append(checkpoint_dir)
         dist.barrier()
+
+        # Flush data indices file.
+        if self.indices_file is not None:
+            self.indices_file.flush()
 
         # Write the checkpoint.
         with FSDP.state_dict_type(
@@ -516,6 +528,11 @@ class Trainer:
         return ce_batch_loss, z_batch_loss
 
     def train_step(self, batch: Dict[str, Any]) -> Dict[str, float]:
+        # Write data-indices to file.
+        if self.indices_file is not None and "index" in batch:
+            indices = "\t".join(str(int(i)) for i in batch["index"])
+            self.indices_file.write(f"{self.global_step}\t{indices}\n")
+
         # Zero-gradients.
         self.optim.zero_grad(set_to_none=True)
 
@@ -582,15 +599,24 @@ class Trainer:
         return evaluator.compute_metrics()
 
     def split_batch(self, batch: Dict[str, Any]) -> List[Dict[str, Any]]:
+        microbatch_size = self.cfg.device_train_microbatch_size
         batch_size = batch["input_ids"].shape[0]
-        if batch_size <= self.cfg.device_train_microbatch_size:
+        if batch_size <= microbatch_size:
             return [batch]
         else:
             micro_batches = {}
-            for key, tensor in batch.items():
-                micro_batches[key] = tensor.split(self.cfg.device_train_microbatch_size, dim=0)  # type: ignore
+            for key, value in batch.items():
+                if isinstance(value, torch.Tensor):
+                    micro_batches[key] = value.split(microbatch_size, dim=0)
+                elif isinstance(value, list):
+                    micro_batches[key] = [
+                        value[microbatch_size * i : microbatch_size * i + microbatch_size]
+                        for i in range(math.ceil(batch_size / microbatch_size))
+                    ]
+                else:
+                    raise ValueError(f"unexpected item in batch: '{key}={value}'")
             return [
-                {key: tensor[i] for key, tensor in micro_batches.items()}  # type: ignore
+                {key: value[i] for key, value in micro_batches.items()}  # type: ignore
                 for i in range(len(micro_batches["input_ids"]))
             ]
 
@@ -791,6 +817,16 @@ class Trainer:
         checkpoint_path = self.save_unsharded_checkpoint()
         log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
-    def close(self) -> None:
+    def close(self, exit_code: int = 0) -> None:
+        if self.indices_file is not None:
+            self.indices_file.flush()
+            self.indices_file.close()
         if wandb.run is not None:
-            wandb.finish()
+            wandb.finish(exit_code=exit_code)
+
+    def __enter__(self) -> Trainer:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        del exc_val, exc_tb
+        self.close(0 if exc_type is None else 1)
