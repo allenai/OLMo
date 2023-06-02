@@ -3,7 +3,7 @@ from typing import Any, Dict, Iterator, Optional, Union
 
 import torch
 from torch.utils.data import DataLoader
-from torchmetrics import Metric
+from torchmetrics import MeanMetric, Metric
 
 from ..config import EvaluatorType
 from .downstream import ICLMetric
@@ -43,10 +43,18 @@ class Evaluator:
             out = {}
             for label in sorted(metrics.keys()):
                 metric = metrics[label]
+                assert isinstance(metric, MeanMetric)
+                if metric.weight.item() == 0.0:  # type: ignore
+                    # In this case we probably haven't called '.update()' on this metric yet,
+                    # so we do so here with dummy values. Since we pass 0.0 in for weight this won't
+                    # affect the final value.
+                    # This can happen when the evaluator contains multiple tasks/datasets and we didn't
+                    # get to this one within the current evaluation loop.
+                    metric.update(0.0, 0.0)
                 loss = metric.compute()
                 if loss.isnan().item():
-                    # This can happen when this evaluator contains multiple tasks/datasets and we didn't
-                    # get to one within the current evaluation loop.
+                    # This can happen when the evaluator contains multiple tasks/datasets and we didn't
+                    # get to this one within the current evaluation loop.
                     continue
                 else:
                     out[f"eval/{label}/CrossEntropyLoss"] = loss.item()
