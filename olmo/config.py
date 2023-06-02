@@ -350,7 +350,8 @@ class PaddingDirection(StrEnum):
 
 @dataclass
 class DataConfig(BaseConfig):
-    paths: List[str] = field(default_factory=lambda: [])
+    paths: Union[List[str], Dict[str, List[str]]] = field(default_factory=lambda: [])
+    """A list of paths, or a mapping of labels to a list of paths."""
     pad_direction: PaddingDirection = PaddingDirection.right
     num_workers: int = 0
     drop_last: bool = False

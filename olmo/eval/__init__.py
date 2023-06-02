@@ -81,12 +81,15 @@ def build_evaluator(
             eval_config.data,
             eval_config.device_eval_batch_size or train_config.device_eval_batch_size,
         )
+        make_metric = lambda: MeanMetric(nan_strategy="error").to(device)
         return Evaluator(
             label=eval_config.label,
             type=eval_config.type,
             eval_loader=eval_loader,
             eval_batches=cycle_through_epochs(eval_loader),
-            eval_metric=MeanMetric(nan_strategy="error").to(device),
+            eval_metric=make_metric()
+            if isinstance(eval_config.data.paths, list)
+            else {label: make_metric() for label in eval_config.data.paths.keys()},
             subset_num_batches=eval_config.subset_num_batches,
         )
     else:

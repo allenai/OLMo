@@ -44,8 +44,13 @@ class Evaluator:
             for label in sorted(metrics.keys()):
                 metric = metrics[label]
                 loss = metric.compute()
-                out[f"eval/{label}/CrossEntropyLoss"] = loss.item()
-                out[f"eval/{label}/Perplexity"] = torch.exp(loss).item()
+                if loss.isnan().item():
+                    # This can happen when this evaluator contains multiple tasks/datasets and we didn't
+                    # get to one within the current evaluation loop.
+                    continue
+                else:
+                    out[f"eval/{label}/CrossEntropyLoss"] = loss.item()
+                    out[f"eval/{label}/Perplexity"] = torch.exp(loss).item()
             return out
         else:
             raise ValueError(f"Unexpected evaluator type '{self.type}'")
