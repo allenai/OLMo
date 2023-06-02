@@ -588,7 +588,7 @@ class Trainer:
             ce_loss, logits = self.model_forward(batch, loss_reduction="none")
         return ce_loss.mean(dim=-1), logits
 
-    def eval_step(self, batch: Dict[str, Any], evaluator: Evaluator) -> Dict[str, float]:
+    def eval_step(self, batch: Dict[str, Any], evaluator: Evaluator) -> None:
         # Move tensors to the right device.
         batch = move_to_device(batch, self.device)
 
@@ -601,7 +601,7 @@ class Trainer:
             batch, ce_loss, logits
         )  # batch includes all keys that the downstream evaluation needs
 
-        return evaluator.compute_metrics()
+        dist.barrier()
 
     def split_batch(self, batch: Dict[str, Any]) -> List[Dict[str, Any]]:
         microbatch_size = self.cfg.device_train_microbatch_size
@@ -682,13 +682,11 @@ class Trainer:
 
             # Run model over batches.
             for eval_step, eval_batch in enumerate(islice(evaluator.eval_batches, num_eval_batches)):
-                step_eval_metrics = self.eval_step(eval_batch, evaluator)
+                self.eval_step(eval_batch, evaluator)
 
                 # Log to console.
                 if eval_step + 1 == num_eval_batches or (eval_step + 1) % self.cfg.console_log_interval == 0:
-                    self.log_metrics_to_console(
-                        f"[eval_step={eval_step + 1}/{num_eval_batches}]", step_eval_metrics
-                    )
+                    log.info(f"[eval_step={eval_step + 1}/{num_eval_batches}]")
 
             # Get final metrics.
             eval_metrics.update(evaluator.compute_metrics())
