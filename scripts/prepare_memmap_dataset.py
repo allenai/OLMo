@@ -74,11 +74,12 @@ def tokenize_file(tokenizer: Tokenizer, path: str, safe_mode: bool = False) -> G
     """
 
     decoder = msgspec.json.Decoder(InputDocumentSpec)
+    caching_path = path
 
     with ExitStack() as stack:
         if safe_mode:
-            local_path = cached_path(path)
-            input_stream = stack.enter_context(gzip.open(local_path, mode="rt"))
+            caching_path = cached_path(path)
+            input_stream = stack.enter_context(gzip.open(caching_path, mode="rt"))
         else:
             input_file = stack.enter_context(stream_file_for_read(path, mode="rb"))
             input_stream = stack.enter_context(decompress_stream(input_file, mode="rt"))
@@ -92,6 +93,9 @@ def tokenize_file(tokenizer: Tokenizer, path: str, safe_mode: bool = False) -> G
         except Exception as e:
             log.error(f"Error processing {path}:{i:,} -> {e}")
             pass
+
+    if caching_path != path and os.path.exists(caching_path):
+        os.remove(caching_path)
 
 
 class MemmapFile:
