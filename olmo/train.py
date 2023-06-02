@@ -689,7 +689,9 @@ class Trainer:
                     log.info(f"[eval_step={eval_step + 1}/{num_eval_batches}]")
 
             # Get final metrics.
-            eval_metrics.update(evaluator.compute_metrics())
+            metrics = evaluator.compute_metrics()
+            eval_metrics.update(metrics)
+            self.log_metrics_to_console(f"{evaluator.label}", metrics)
 
         return eval_metrics
 
