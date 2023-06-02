@@ -82,7 +82,10 @@ def build_evaluator(
             eval_config.data,
             eval_config.device_eval_batch_size or train_config.device_eval_batch_size,
         )
-        make_metric = lambda: MeanMetric(nan_strategy="error").to(device)
+
+        def make_metric():
+            return MeanMetric(nan_strategy="error").to(device)
+
         eval_metric: Union[Metric, Dict[str, Metric]]
         if eval_config.data.paths:
             eval_metric = make_metric()
@@ -90,6 +93,7 @@ def build_evaluator(
             eval_metric = {label: make_metric() for label in eval_config.data.datasets.keys()}
         else:
             raise OlmoConfigurationError("One of DataConfig.paths or DataConfig.datasets is required")
+
         return Evaluator(
             label=eval_config.label,
             type=eval_config.type,
