@@ -17,6 +17,8 @@ from smashed.utils.io_utils import (
     recursively_list_files,
 )
 
+from .data_types import Ai2LlmFilterError, Ai2LlmRetryableFailure
+
 METADATA_SUFFIX = ".done.txt"
 
 
@@ -135,7 +137,15 @@ class BaseParallelProcessor:
         """A wrapper around process single that saves a metadata file if processing is successful."""
 
         kwargs = pickle.loads(serialized_kwargs)
-        cls.process_single(source_path=source_path, destination_path=destination_path, queue=queue, **kwargs)
+        tries_remaining = kwargs.get("retry_on_read_error", 0) + 1
+        while True:
+            try:
+                cls.process_single(source_path=source_path, destination_path=destination_path, queue=queue, **kwargs)
+                break
+            except Ai2LlmRetryableFailure as e:
+                tries_remaining -= 1
+                if tries_remaining == 0:
+                    raise Ai2LlmFilterError from e
         with open_file_for_write(metadata_path) as f:
             f.write(datetime.now().isoformat())
 
