@@ -225,6 +225,9 @@ class TaggerProcessor(BaseParallelProcessor):
         source_prefix = f"{cls.BASE_S3_PREFIX}/{opts.dataset}/documents"
         destination_prefix = f"{cls.BASE_S3_PREFIX}/{opts.dataset}/attributes/{opts.experiment_name}"
 
+        # use a local read cache if we are in safe mode or if a local read cache is provided
+        local_read_cache = opts.local_read_cache or (tempfile.gettempdir() if opts.safe_mode else None)
+
         with tempfile.TemporaryDirectory() as tempdir:
             metadata_workdir = opts.reuse_existing or tempdir
             ignore_existing = opts.reuse_existing is None
@@ -241,13 +244,10 @@ class TaggerProcessor(BaseParallelProcessor):
                 f"reuse prev:   {not ignore_existing}\n"
                 f"workdir:      {metadata_workdir}\n"
                 f"safe mode:    {opts.safe_mode}\n"
-                f"local cache:  {opts.local_read_cache}\n"
+                f"local cache:  {local_read_cache}\n"
                 "---------------------------\n"
             )
             print(msg)
-
-            # use a local read cache if we are in safe mode or if a local read cache is provided
-            local_read_cache = opts.local_read_cache or (tempfile.gettempdir() if opts.safe_mode else None)
 
             parallel_compute = cls(
                 source_prefix=source_prefix,
