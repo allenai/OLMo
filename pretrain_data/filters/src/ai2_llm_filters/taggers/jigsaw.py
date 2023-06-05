@@ -42,4 +42,4 @@ class FastTextJigsawNsfwDocumentTagger(FastTextJigsawHatespeechDocumentTagger):
 
 @TaggerRegistry.add("jigsaw_nsfw_sencence_v2")
 class FastTextJigsawNsfwSentenceTagger(FastTextJigsawHatespeechSentenceTagger):
-    ...
+    MODEL_PATH = "https://ai2-s2-research-public.s3.us-west-2.amazonaws.com/aakankshan/olmo-data-filters/jigsaw_fasttext_bigrams_nsfw_final.bin"  # noqa: E501

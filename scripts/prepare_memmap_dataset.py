@@ -13,6 +13,7 @@ python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/out.npy
 
 import concurrent.futures
 import functools
+import gzip
 import json
 import logging
 import multiprocessing as mp
@@ -26,6 +27,7 @@ from typing import Generator, List, Optional, Sequence, Tuple, TypeVar
 import click
 import msgspec
 import numpy as np
+from cached_path import cached_path
 from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
@@ -66,20 +68,35 @@ class InputDocumentSpec(msgspec.Struct):
     text: str
 
 
-def tokenize_file(tokenizer: Tokenizer, path: str) -> Generator[List[int], None, None]:
+def tokenize_file(tokenizer: Tokenizer, path: str, safe_mode: bool = False) -> Generator[List[int], None, None]:
     """Tokenize a file of documents using the provided tokenizer; file is expected to be a gzipped JSON lines
     file, each containing a field named `text`.
     """
 
     decoder = msgspec.json.Decoder(InputDocumentSpec)
+    caching_path = path
 
     with ExitStack() as stack:
-        input_file = stack.enter_context(stream_file_for_read(path, mode="rb"))
-        input_stream = stack.enter_context(decompress_stream(input_file, mode="rt"))
+        if safe_mode:
+            caching_path = cached_path(path)
+            input_stream = stack.enter_context(gzip.open(caching_path, mode="rt"))
+        else:
+            input_file = stack.enter_context(stream_file_for_read(path, mode="rb"))
+            input_stream = stack.enter_context(decompress_stream(input_file, mode="rt"))
 
-        for line in input_stream:
-            row = decoder.decode(line)
-            yield tokenizer.encode(row.text, add_special_tokens=True)
+        i = 1
+        try:
+            for line in input_stream:
+                row = decoder.decode(line)
+                if row.text.strip():
+                    yield tokenizer.encode(row.text, add_special_tokens=True)
+                i += 1
+        except Exception as e:
+            log.error(f"Error processing {path}:{i:,} -> {e}")
+            pass
+
+    if caching_path != path and os.path.exists(caching_path):
+        os.remove(caching_path)
 
 
 class MemmapFile:
@@ -203,6 +220,7 @@ def fill_memmap(
     path: str,
     memmap_path: str,
     dtype: np.dtype,
+    safe_mode: bool = False,
     max_tokens: int = 512 * 1024 * 1024,  # 512M tokens * 2 bytes per token (uint16) = 1GB
 ):
     """Write a memmap file from a file of documents."""
@@ -216,7 +234,8 @@ def fill_memmap(
     file_index = 0
 
     with ExitStack() as stack:
-        for line_no, token_ids in enumerate(tokenize_file(tokenizer=tokenizer, path=path), start=1):
+        it = tokenize_file(tokenizer=tokenizer, path=path, safe_mode=safe_mode)
+        for line_no, token_ids in enumerate(it, start=1):
             # flush any 10k lines or so; improves stability
             flush = line_no % 10_000 == 0
 
@@ -281,6 +300,9 @@ def make_source_and_target(src: Tuple[str, ...], output: str) -> Tuple[Tuple[str
     help="Maximum number of tokens to store in a single memmap file (default: 512M tokens or 1GB)",
 )
 @click.option("--debug/--no-debug", default=False, help="Enable debug (single process mode)")
+@click.option(
+    "--safe-mode/--fast-mode", default=False, help="Safe mode caches locally and decompresses using gzip.open"
+)
 @click.option("-j", "--workers", "max_workers", type=int, default=None, help="Defaults to number of CPUs")
 def main(
     src: Tuple[str, ...],
@@ -289,6 +311,7 @@ def main(
     dtype_str: str,
     validate: bool,
     max_tokens: int,
+    safe_mode: bool,
     debug: bool,
     max_workers: Optional[int] = None,
 ):
@@ -297,7 +320,9 @@ def main(
 
     # creating a partial here with all the arguments we need to pass to fill_memmap except for the paths
     # so that we don't make mistakes between debug and non-debug mode
-    fill_memmap_fn = functools.partial(fill_memmap, tokenizer_id=tokenizer_id, dtype=dtype, max_tokens=max_tokens)
+    fill_memmap_fn = functools.partial(
+        fill_memmap, tokenizer_id=tokenizer_id, dtype=dtype, max_tokens=max_tokens, safe_mode=safe_mode
+    )
 
     if debug:
         log.info("Running in debug mode. Only one process will be used.")

@@ -1,12 +1,15 @@
 import argparse
+import gzip
 import logging
 import multiprocessing
+import os
 import tempfile
 from contextlib import ExitStack
 from queue import Queue
 from typing import Dict
 
 import msgspec
+from cached_path import cached_path
 from smashed.utils.io_utils import (
     compress_stream,
     decompress_stream,
@@ -70,6 +73,9 @@ class TaggerProcessor(BaseParallelProcessor):
         # skip on failure
         skip_on_failure = kwargs.get("skip_on_failure", False)
 
+        # local read cache
+        local_read_cache = kwargs.get("local_read_cache", None)
+
         # interval at which to update the progress bar; will double if it gets
         # too full
         update_interval = 1
@@ -82,13 +88,22 @@ class TaggerProcessor(BaseParallelProcessor):
         encoder = msgspec.json.Encoder()
         decoder = msgspec.json.Decoder(InputSpec)
 
+        # this will be used to cache the file locally if needed
+        caching_path = source_path
+
         with ExitStack() as stack:
             try:
                 # open each file for reading and writing. We use open_file_for_read to handle s3 paths and
                 # download the file locally if needed, while gzip.open is used to
                 # read and write gzipped files.
-                in_file = stack.enter_context(stream_file_for_read(source_path, "rb"))
-                in_stream = stack.enter_context(decompress_stream(in_file, "rt"))
+
+                if local_read_cache is not None:
+                    caching_path = cached_path(source_path, cache_dir=local_read_cache)
+                    in_stream = stack.enter_context(gzip.open(caching_path, mode="rt"))
+                else:
+                    input_file = stack.enter_context(stream_file_for_read(source_path, mode="rb"))
+                    in_stream = stack.enter_context(decompress_stream(input_file, mode="rt"))
+
                 out_file = stack.enter_context(open_file_for_write(destination_path, "wb"))
                 out_stream = stack.enter_context(compress_stream(out_file, "wt"))
 
@@ -134,6 +149,9 @@ class TaggerProcessor(BaseParallelProcessor):
                         raise Ai2LlmRetryableFailure(msg) from e
                     logger.warning("\nFatal " + msg)
                     raise Ai2LlmFilterError(msg) from e
+            finally:
+                if caching_path != source_path and os.path.exists(caching_path):
+                    os.remove(caching_path)
 
         # increment the files progress bar
         cls.increment_progressbar(queue, files=1, documents=docs_cnt)
@@ -186,6 +204,12 @@ class TaggerProcessor(BaseParallelProcessor):
             help="If provided, keeps track of which files have already been processed and skips them. ",
         )
         ap.add_argument(
+            "--local-read-cache",
+            default=None,
+            type=str,
+            help="If provided, will cache the files locally before processing them.",
+        )
+        ap.add_argument(
             "--manually-included-paths",
             default=None,
             nargs="+",
@@ -193,6 +217,9 @@ class TaggerProcessor(BaseParallelProcessor):
         )
         ap.add_argument(
             "--manually-excluded-paths", default=None, nargs="+", help="If provided, these paths will be skipped."
+        )
+        ap.add_argument(
+            "--safe-mode", action="store_true", help="Run in safe mode; will download locally before processing."
         )
         opts = ap.parse_args()
 
@@ -210,6 +237,9 @@ class TaggerProcessor(BaseParallelProcessor):
         source_prefix = f"{cls.BASE_S3_PREFIX}/{opts.dataset}/documents"
         destination_prefix = f"{cls.BASE_S3_PREFIX}/{opts.dataset}/attributes/{opts.experiment_name}"
 
+        # use a local read cache if we are in safe mode or if a local read cache is provided
+        local_read_cache = opts.local_read_cache or (tempfile.gettempdir() if opts.safe_mode else None)
+
         with tempfile.TemporaryDirectory() as tempdir:
             metadata_workdir = opts.reuse_existing or tempdir
             ignore_existing = opts.reuse_existing is None
@@ -225,6 +255,8 @@ class TaggerProcessor(BaseParallelProcessor):
                 f"skip on fail: {opts.skip_on_failure}\n"
                 f"reuse prev:   {not ignore_existing}\n"
                 f"workdir:      {metadata_workdir}\n"
+                f"safe mode:    {opts.safe_mode}\n"
+                f"local cache:  {local_read_cache}\n"
                 "---------------------------\n"
             )
             print(msg)
@@ -243,5 +275,6 @@ class TaggerProcessor(BaseParallelProcessor):
                 taggers_names=opts.taggers,
                 experiment_name=opts.experiment_name,
                 skip_on_failure=opts.skip_on_failure,
+                local_read_cache=local_read_cache,
                 retry_on_read_error=opts.retry_on_read_error,
             )
