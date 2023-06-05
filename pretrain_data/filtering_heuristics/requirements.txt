@@ -1,3 +1,0 @@
-smart_open
-pathos
-boto3

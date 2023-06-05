@@ -17,7 +17,7 @@ from smashed.utils.io_utils import (
     stream_file_for_read,
 )
 
-from .data_types import Ai2LlmFilterError, InputSpec, OutputSpec
+from .data_types import Ai2LlmFilterError, Ai2LlmRetryableFailure, InputSpec, OutputSpec
 from .parallel import BaseParallelProcessor
 from .registry import TaggerRegistry
 from .utils import make_variable_name
@@ -139,9 +139,15 @@ class TaggerProcessor(BaseParallelProcessor):
 
             except Exception as e:
                 # handle any exception that might have occurred
-                msg = f"Failed to process {source_path} due to {e.__class__.__name__}: {' '.join(e.args)}"
-                logger.warning("\n" + msg)
-                if not skip_on_failure:
+                msg = f"failure to process {source_path} due to {e.__class__.__name__}: {' '.join(e.args)}"
+                if skip_on_failure:
+                    logger.warning("\nContinuing from " + msg)
+                else:
+                    if e.__class__.__name__ == "IncompleteReadError":
+                        # Intermittent error that occurs when reading from S3
+                        logger.warning("\nRetryable " + msg)
+                        raise Ai2LlmRetryableFailure(msg) from e
+                    logger.warning("\nFatal " + msg)
                     raise Ai2LlmFilterError(msg) from e
             finally:
                 if caching_path != source_path and os.path.exists(caching_path):
@@ -184,6 +190,12 @@ class TaggerProcessor(BaseParallelProcessor):
             "--skip-on-failure",
             action="store_true",
             help="Skip documents that fail to process instead of raising an error.",
+        )
+        ap.add_argument(
+            "--retry-on-read-error",
+            default=0,
+            type=int,
+            help="Number of retries to attempt after an error from reading inputs.",
         )
         ap.add_argument(
             "--reuse-existing",
@@ -264,4 +276,5 @@ class TaggerProcessor(BaseParallelProcessor):
                 experiment_name=opts.experiment_name,
                 skip_on_failure=opts.skip_on_failure,
                 local_read_cache=local_read_cache,
+                retry_on_read_error=opts.retry_on_read_error,
             )
