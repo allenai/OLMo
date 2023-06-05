@@ -14,6 +14,7 @@ python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/out.npy
 import concurrent.futures
 import functools
 import gzip
+import itertools
 import json
 import logging
 import multiprocessing as mp
@@ -21,8 +22,9 @@ import os
 from concurrent.futures import Future
 from contextlib import ExitStack
 from pathlib import Path
+import random
 from tempfile import NamedTemporaryFile
-from typing import Generator, List, Optional, Sequence, Tuple, TypeVar
+from typing import Generator, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import click
 import msgspec
@@ -217,13 +219,19 @@ class MemmapFile:
 
 def fill_memmap(
     tokenizer_id: str,
-    path: str,
+    path_or_paths: Union[str, List[str]],
     memmap_path: str,
     dtype: np.dtype,
     safe_mode: bool = False,
     max_tokens: int = 512 * 1024 * 1024,  # 512M tokens * 2 bytes per token (uint16) = 1GB
+    sample_rate: float = 1.0,
+    random_seed: int = 3920,
+    repeat_sequence: int = 1,
 ):
     """Write a memmap file from a file of documents."""
+
+    # set the seed in case we need to sample
+    np.random.seed(random_seed)
 
     # we need to make a new tokenizer here because it's not pickleable
     tokenizer = Tokenizer.from_pretrained(tokenizer_id, truncate_to=None)
@@ -231,11 +239,24 @@ def fill_memmap(
     # first memmap file will be created in the loop below
     memmap: Optional[MemmapFile] = None
 
+    # we increment this every time we create a new memmap file
     file_index = 0
 
+    # make sure path is a list
+    path_or_paths = [path_or_paths] if isinstance(path_or_paths, str) else path_or_paths
+
     with ExitStack() as stack:
-        it = tokenize_file(tokenizer=tokenizer, path=path, safe_mode=safe_mode)
+        it = itertools.chain.from_iterable(
+            # repeat the sequence if necessary
+            tokenize_file(tokenizer=tokenizer, path=path, safe_mode=safe_mode)
+            for _ in range(repeat_sequence)
+            for path in path_or_paths
+        )
         for line_no, token_ids in enumerate(it, start=1):
+            # perform sampling if necessary
+            if sample_rate < 1.0 and np.random.rand() > sample_rate:
+                continue
+
             # flush any 10k lines or so; improves stability
             flush = line_no % 10_000 == 0
 
@@ -261,13 +282,36 @@ def fill_memmap(
         stack.pop_all().close()
 
 
-def make_source_and_target(src: Tuple[str, ...], output: str) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
+def make_source_and_target(
+    src: Tuple[str, ...],
+    output: str,
+    random_seed: int = 3920,
+    paths_per_worker: int = 1,
+) -> Tuple[Tuple[Union[str, List[str]], ...], Tuple[str, ...]]:
     """Recursively list all files in the source directories and create a corresponding list of destination."""
 
-    exploded_src = [path for prefix in src for path in recursively_list_files(prefix)]
+    np.random.seed(random_seed)
+    random.seed(random_seed)
+
+    exploded_src = list(set(path for prefix in src for path in recursively_list_files(prefix)))
     output_digits = np.ceil(np.log10(len(exploded_src) + 1)).astype(int)
+
+    # shuffle the source paths
+    random.shuffle(exploded_src)
+
+    if paths_per_worker > 1:
+        assert len(exploded_src) >= paths_per_worker, \
+            f"Number of paths ({len(exploded_src)}) must be <= paths_per_worker ({paths_per_worker})"
+
+        # group the paths into chunks of paths_per_worker
+        exploded_src = [
+            sorted(exploded_src[i: i + paths_per_worker]) for i in range(0, len(exploded_src), paths_per_worker)
+        ]
+
+    # determine the destination paths
     exploded_dst = [f'{output.rstrip("/")}/{i:0{output_digits}d}' for i in range(len(exploded_src))]
-    return tuple(sorted(exploded_src)), tuple(sorted(exploded_dst))
+
+    return tuple(exploded_src), tuple(exploded_dst)
 
 
 @click.command()
@@ -293,6 +337,10 @@ def make_source_and_target(src: Tuple[str, ...], output: str) -> Tuple[Tuple[str
 )
 @click.option("--dtype", "dtype_str", default="uint16")
 @click.option("--validate/--no-validate", default=False)
+@click.option("--sample-rate", type=click.FloatRange(min=0.0, max=1.0), default=1.0)
+@click.option("--random-seed", type=int, default=3920)
+@click.option("--repeat-sequence", type=click.IntRange(min=1), default=1)
+@click.option("--paths-per-worker", type=click.IntRange(min=1), default=1)
 @click.option(
     "--max-tokens",
     default=512 * 1024 * 1024,
@@ -307,34 +355,47 @@ def make_source_and_target(src: Tuple[str, ...], output: str) -> Tuple[Tuple[str
 def main(
     src: Tuple[str, ...],
     output: str,
-    tokenizer_id: str,
-    dtype_str: str,
-    validate: bool,
-    max_tokens: int,
-    safe_mode: bool,
-    debug: bool,
+    tokenizer_id: str = "EleutherAI/gpt-neox-20b",
+    dtype_str: str = "uint16",
+    validate: bool = False,
+    max_tokens: int = 512 * 1024 * 1024,
+    safe_mode: bool = False,
+    debug: bool = False,
+    sample_rate: float = 1.0,
+    random_seed: int = 3920,
+    repeat_sequence: int = 1,
+    paths_per_worker: int = 1,
     max_workers: Optional[int] = None,
 ):
     dtype = np.dtype(dtype_str)
-    src, dst = make_source_and_target(src=src, output=output)
+    exploded_src, exploded_dst = make_source_and_target(
+        src=src, output=output, random_seed=random_seed, paths_per_worker=paths_per_worker
+    )
 
     # creating a partial here with all the arguments we need to pass to fill_memmap except for the paths
     # so that we don't make mistakes between debug and non-debug mode
     fill_memmap_fn = functools.partial(
-        fill_memmap, tokenizer_id=tokenizer_id, dtype=dtype, max_tokens=max_tokens, safe_mode=safe_mode
+        fill_memmap,
+        tokenizer_id=tokenizer_id,
+        dtype=dtype,
+        max_tokens=max_tokens,
+        safe_mode=safe_mode,
+        sample_rate=sample_rate,
+        random_seed=random_seed,
+        repeat_sequence=repeat_sequence,
     )
 
     if debug:
         log.info("Running in debug mode. Only one process will be used.")
-        for src_path, dst_path in zip(src, dst):
-            fill_memmap_fn(path=src_path, memmap_path=dst_path)
+        for src_path, dst_path in zip(exploded_src, exploded_dst):
+            fill_memmap_fn(path_or_paths=src_path, memmap_path=dst_path)
     else:
         # Now tokenizer all documents again and populate the memmap array. We do this in parallel.
-        workers_cnt = min(max_workers or os.cpu_count() or 1, len(src))
+        workers_cnt = min(max_workers or os.cpu_count() or 1, len(exploded_src))
         with concurrent.futures.ProcessPoolExecutor(max_workers=workers_cnt) as executor:
             futures: List[Future[None]] = []
-            for src_path, dst_path in zip(src, dst):
-                future = executor.submit(fill_memmap_fn, path=src_path, memmap_path=dst_path)
+            for src_path, dst_path in zip(exploded_src, exploded_dst):
+                future = executor.submit(fill_memmap_fn, path_or_paths=src_path, memmap_path=dst_path)
                 futures.append(future)
             with get_progress() as progress:
                 for future in progress.track(
