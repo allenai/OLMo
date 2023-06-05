@@ -5,4 +5,4 @@ VERSION=$2
 OUTDIR=$3
 
 echo $(wc -l $FILENAMES_FILE)
-cat $FILENAMES_FILE| parallel -j 5 --bar --max-args=1 python get_num_tokens.py {1} $VERSION $OUTDIR
+cat $FILENAMES_FILE| parallel -j 15 --bar --max-args=1 python get_num_tokens.py {1} $VERSION $OUTDIR

@@ -8,7 +8,7 @@ key = "basic__whitespace_tokenizer_with_paragraphs_v1__document"
 
 
 def func(s3_path, filep):
-    path = os.path.join(s3_path, filep + ".json.gz")
+    path = os.path.join(s3_path, filep + ".jsonl.gz")
     df = pd.read_json(
         path, lines=True, compression="gzip", storage_options={"config_kwargs": {"read_timeout": 600}}
     )
@@ -21,11 +21,11 @@ if __name__ == "__main__":
     import sys
 
     version = sys.argv[2]
-    s3_path = f"s3://ai2-llm/pretraining-data/sources/stack-dedup/{version}/attributes/basic"
+    s3_path = f"s3://ai2-llm/pretraining-data/sources/{version}/attributes/basic"
 
     filep = sys.argv[1]
 
-    outdir = sys.argv[2]
+    outdir = sys.argv[3]
     path = f"{outdir}/{filep}.txt"
     if not os.path.exists(path):
         x, y = func(s3_path, filep)
