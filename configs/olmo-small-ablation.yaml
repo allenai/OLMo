@@ -45,7 +45,7 @@ scheduler:
   t_max: null
 
 data:
-  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/gpt-neox-20b/c4-train.*.npy}
+  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4_en/gpt-neox-20b/c4-train.*.npy}
   pad_direction: right
   num_workers: 4
   drop_last: true
@@ -166,6 +166,24 @@ evaluators:
     data:
       paths:
         - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/pile/val.npy
+      drop_last: true
+
+  - label: stack_v2_held_out
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/stack_v2_held_out/000_00000.npy
+      drop_last: true
+
+  - label: openai_humaneval_test
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/openai_humaneval_test/0_00000.npy
+      drop_last: true
+
+  - label: mbpp_valid
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/mbpp_valid/0_00000.npy
       drop_last: true
 
   # Too small (not enough tokens for a single batch)
