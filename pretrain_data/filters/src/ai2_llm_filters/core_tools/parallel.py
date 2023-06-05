@@ -140,7 +140,9 @@ class BaseParallelProcessor:
         tries_remaining = kwargs.get("retry_on_read_error", 0) + 1
         while True:
             try:
-                cls.process_single(source_path=source_path, destination_path=destination_path, queue=queue, **kwargs)
+                cls.process_single(
+                    source_path=source_path, destination_path=destination_path, queue=queue, **kwargs
+                )
                 break
             except Ai2LlmRetryableFailure as e:
                 tries_remaining -= 1

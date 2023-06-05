@@ -14,6 +14,7 @@ from msgspec import Struct
 class Ai2LlmFilterError(Exception):
     pass
 
+
 class Ai2LlmRetryableFailure(Exception):
     pass
 

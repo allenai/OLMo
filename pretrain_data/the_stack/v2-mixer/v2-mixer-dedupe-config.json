@@ -1,0 +1,24 @@
+{
+  "documents": [
+    "pretraining-data/sources/stack-dedup/v2-mixer/documents/*"
+  ],
+  "work_dir": {
+    "input": "/tmp/v2-mixer-dedup/work/input",
+    "output": "/tmp/v2-mixer-dedup/work/output"
+  },
+  "dedupe": {
+    "name": "dedupe_documents",
+    "documents": {
+      "attribute_name": "bff_duplicate_documents",
+      "key": "$.text"
+    }
+  },
+  "bloom_filter": {
+    "file": "/tmp/v2-mixer-dedup/work/bloom_filter.bin",
+    "size_in_bytes": 0,
+    "read_only": false,
+    "estimated_doc_count": 255064041,
+    "desired_false_positive_rate": 0.000001
+  },
+  "processes": 32
+}

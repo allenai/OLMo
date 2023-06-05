@@ -1,0 +1,27 @@
+{
+    "streams": [
+        {
+            "name": "c4-stack-5p",
+            "documents": [
+                "pretraining-data/sources/stack-dedup/v2-mixer-sampled-5p/documents/*.json.gz",
+		"pretraining-data/sources/c4/v0-sampled-95p/documents/train/*.json.gz"
+            ],
+            "output": {
+                "path": "pretraining-data/sources/stack-dedup/c4-stack-5p/documents",
+                "max_size_in_bytes": 1000000000
+            },
+            "attributes": [],
+            "filter": {
+                "include": [
+
+                ],
+                "exclude": [
+                    
+                ]
+            }
+        }
+    ],
+    "work_dir": {"input": "/tmp/mixer-c4-stack-5p/input", "output": "/tmp/mixer-c4-stack-5p/output"},
+    "processes": 32
+}
+
