@@ -168,3 +168,15 @@ class PiiRegexV2(PiiRegexV1):
         except ZeroDivisionError:
             score = -1.0
         return score
+
+
+@TaggerRegistry.add("pii_regex_with_counts_v1")
+class PiiRegexWithCountV1(BasePiiFilter):
+    def __init__(self):
+        super().__init__(method=self.REGEX, postprocess=True, window=self.WINDOW)
+
+    def predict(self, doc: Document) -> DocResult:
+        doc_result = super().predict(doc=doc)
+        count = sum(1 for s in doc_result.spans if s.type != "doc")
+        doc_result.spans.append(Span(start=0, end=len(doc.text), type="doc_count", score=count))
+        return doc_result

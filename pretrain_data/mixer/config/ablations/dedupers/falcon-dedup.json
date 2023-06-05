@@ -1,0 +1,24 @@
+{
+  "documents": [
+    "pretraining-data/sources/falcon-refinedweb/v0/documents/*.json.gz"
+  ],
+  "work_dir": {
+    "input": "/data2/falcon/deduper/input",
+    "output": "/data2/falcon/deduper/output"
+  },
+  "dedupe": {
+    "name": "decontamination",
+    "paragraphs": {
+      "attribute_name": "bff_duplicate_paragraph_spans"
+    },
+    "skip_empty": true
+  },
+  "bloom_filter": {
+    "file": "/tmp/decontamination/deduper_decontamination_lucas_20230525.bin",
+    "size_in_bytes": 8388608,
+    "read_only": true,
+    "estimated_doc_count": 3898706,
+    "desired_false_positive_rate": 0.001
+  },
+  "processes": 120
+}

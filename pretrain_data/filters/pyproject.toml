@@ -73,7 +73,7 @@ requires = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-ai2_llm_filters = ["py.typed"]
+ai2_llm_filters = ["py.typed", "data"]
 
 [tool.black]
 line-length = 115
