@@ -19,10 +19,10 @@ import json
 import logging
 import multiprocessing as mp
 import os
+import random
 from concurrent.futures import Future
 from contextlib import ExitStack
 from pathlib import Path
-import random
 from tempfile import NamedTemporaryFile
 from typing import Generator, List, Optional, Sequence, Tuple, TypeVar, Union
 
@@ -300,12 +300,13 @@ def make_source_and_target(
     random.shuffle(exploded_src)
 
     if paths_per_worker > 1:
-        assert len(exploded_src) >= paths_per_worker, \
-            f"Number of paths ({len(exploded_src)}) must be <= paths_per_worker ({paths_per_worker})"
+        assert (
+            len(exploded_src) >= paths_per_worker
+        ), f"Number of paths ({len(exploded_src)}) must be <= paths_per_worker ({paths_per_worker})"
 
         # group the paths into chunks of paths_per_worker
         exploded_src = [
-            sorted(exploded_src[i: i + paths_per_worker]) for i in range(0, len(exploded_src), paths_per_worker)
+            sorted(exploded_src[i : i + paths_per_worker]) for i in range(0, len(exploded_src), paths_per_worker)
         ]
 
     # determine the destination paths
