@@ -12,6 +12,15 @@
 
 module load LUMI/22.08 partition/G
 
+# check if LOAD_PATH is provided as an environment variable; if so, create an argument
+# to pass to the training script
+if [ -z ${LOAD_PATH+x} ]; then
+  LOAD_PATH_ARG=""
+else
+  LOAD_PATH_ARG="--load_path=${LOAD_PATH}"
+fi
+
+
 export OLMO_CONTAINER=llm-lumi_latest.sif
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
@@ -57,4 +66,5 @@ srun \
     python scripts/train.py $CONFIG_PATH \
       --run_name="${RUN_NAME}_${SLURM_JOB_ID}" \
       --wandb.project=$WANDB_PROJECT \
+      $LOAD_PATH_ARG \
       ${@}
