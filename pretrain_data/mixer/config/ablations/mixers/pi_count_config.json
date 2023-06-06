@@ -1,0 +1,34 @@
+{
+	"streams": [
+	{
+		"name": "commoncrawl-all-pi-removed-ablation",
+		"documents": [
+			"pretraining-data/sources/common-crawl/v1-small/documents/*.gz"
+		],
+		"output": {
+			"path": "pretraining-data/sources/common-crawl/v1-small-all-pi-removed/documents",
+			"max_size_in_bytes": 3894967296
+		},
+		"attributes": [
+			"hatespeech_nsfw_cc_v3",
+			"decontamination",
+			"pi_regex_count_tagger"
+		],
+		"filter": {
+			"include": [
+				"$.attributes[?(@.pi_regex_count_tagger__pii_regex_with_counts_v1__doc_count[0][2] < 1)]",
+				"$.attributes[?(@.hatespeech_nsfw_cc_v3__whitespace_tokenizer_with_paragraphs_v1__document[0][2] < 100000)]"
+			],
+			"exclude": [
+				"$.attributes[?(@.hatespeech_nsfw_cc_v3__whitespace_tokenizer_with_paragraphs_v1__document[0][2] < 50)]",
+				"$@.attributes[?(@.bff_duplicate_paragraph_spans && @.bff_duplicate_paragraph_spans[0] && @.bff_duplicate_paragraph_spans[0][2] >= 1.0)]"
+			]
+		}
+	}
+	],
+	"work_dir": {
+		"input": "/tmp/mixer-test-pi-v1/input",
+		"output": "/tmp/mixer-test-pi-v1/output"
+	},
+	"processes": 110
+}

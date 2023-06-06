@@ -18,3 +18,4 @@ datasets
 scikit-learn
 smashed[remote]>=0.21.1
 msgspec>=0.14.0
+cached_path

@@ -5,6 +5,7 @@ description = "Data filters"
 authors = [
     {name = "Aakanksha Naik", email = "aakankshan@allenai.org" },
     {name = "Abhilasha Ravichander", email = "abhilashar@allenai.org" },
+    {name = "Akshita Bhagia", email = "akshitab@allenai.org" },
     {name = "Ian Magnusson", email = "ianm@allenai.org" },
     {name = "Khyathi Chandu", email = "khyathic@allenai.org" },
     {name = "Kyle Lo", email = "kylel@allenai.org" },
@@ -29,6 +30,7 @@ dependencies = [
     "tokenizers==0.13.3",
     "unidecode",
     "uniseg",
+    "detect-secrets==1.4.0",
     "termcolor==2.3.0"
 ]
 classifiers = [
@@ -71,7 +73,7 @@ requires = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-ai2_llm_filters = ["py.typed"]
+ai2_llm_filters = ["py.typed", "data"]
 
 [tool.black]
 line-length = 115
