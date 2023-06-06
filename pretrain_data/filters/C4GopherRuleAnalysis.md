@@ -1,6 +1,9 @@
-# Filtering Heuristics
+# C4 and Gopher Filtering and Cleanup
 
-Content-based rules for junk filtering.
+## Overview
+
+C4 implements some heuristics for filtering out junk documents, and for removing junk content from documents. 
+Gopher applies thresholds on character/word/line statistics to filter out junk documents 
 
 My subjective opinion:
  - C4's text-modification rules are good

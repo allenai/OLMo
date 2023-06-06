@@ -21,6 +21,7 @@ pub struct Shard {
     pub output: String,
     pub filter: Option<FilterConfig>,
     pub span_replacements: Option<Vec<SpanReplacementConfig>>,
+    pub discard_fields: Option<Vec<String>>,
 }
 
 // A collection of paths to a document file and corresponding attribute files.
@@ -100,6 +101,7 @@ impl Shard {
                         output: output.clone(),
                         filter: stream_config.filter.clone(),
                         span_replacements: stream_config.span_replacement.clone(),
+                        discard_fields: stream_config.output.discard_fields.clone(),
                     };
                     shards.push(shard);
                     stream_shard_count += 1;
@@ -118,6 +120,7 @@ impl Shard {
                     output: output.clone(),
                     filter: stream_config.filter.clone(),
                     span_replacements: stream_config.span_replacement.clone(),
+                    discard_fields: stream_config.output.discard_fields.clone(),
                 };
                 shards.push(shard);
                 stream_shard_count += 1;
@@ -182,6 +185,7 @@ impl Shard {
                     &local_docs_file,
                 ))?;
                 let mut local_attr_readers = Vec::new();
+                let mut attr_reader_failure_counts = Vec::new();
                 for attr in &input_path.attribute_paths {
                     let local_attr_file = inputs_dir.join(Path::new(&attr));
                     log::info!("Downloading {} to {}", attr, local_attr_file.display());
@@ -198,6 +202,7 @@ impl Shard {
                         .open(local_attr_file.clone())?;
                     let attr_reader = BufReader::with_capacity(1024 * 1024, MultiGzDecoder::new(f));
                     local_attr_readers.push(attr_reader.lines());
+                    attr_reader_failure_counts.push(0);
                 }
                 let input_file = OpenOptions::new()
                     .read(true)
@@ -223,61 +228,68 @@ impl Shard {
                     }
                     line_number += 1;
                     let line = line?;
-                    let data: Value = serde_json::from_str(&line)?;
-                    let mut mutable_data = data.clone();
+                    let mut data: Value = serde_json::from_str(&line)?;
                     let mut attrs = serde_json::Map::new();
+                    let mut attr_reader_index = 0;
                     for attr_reader in local_attr_readers.iter_mut() {
                         match attr_reader.next() {
                             Some(Ok(line)) => {
-                                let data: Value = serde_json::from_str(&line)?;
+                                let attr_data: Value = serde_json::from_str(&line)?;
                                 assert_eq!(
+                                    attr_data["id"],
                                     data["id"],
-                                    mutable_data["id"],
                                     "Mismatched ids for line {} of {}: {} != {}",
                                     line_number,
                                     &input_path.doc_path,
-                                    data["id"],
-                                    mutable_data["id"]
+                                    attr_data["id"],
+                                    data["id"]
                                 );
-                                for (k, v) in data["attributes"].as_object().unwrap().iter() {
+                                for (k, v) in attr_data["attributes"].as_object().unwrap().iter() {
                                     attrs.insert(k.clone(), v.clone());
                                 }
                             }
                             Some(Err(e)) => {
-                                log::error!(
-                                    "Error reading attributes for line {} of {}: {}",
-                                    line_number,
-                                    &input_path.doc_path,
-                                    e
-                                );
+                                if attr_reader_failure_counts[attr_reader_index] == 0 {
+                                    log::warn!(
+                                        "Error reading attributes from {} at line {}: {}",
+                                        input_path.attribute_paths[attr_reader_index],
+                                        line_number,
+                                        e
+                                    );
+                                }
+                                attr_reader_failure_counts[attr_reader_index] += 1;
                                 break;
                             }
                             None => {
-                                log::error!(
-                                    "Error reading attributes for line {} of {}: EOF",
-                                    line_number,
-                                    &input_path.doc_path
-                                );
+                                if attr_reader_failure_counts[attr_reader_index] == 0 {
+                                    log::warn!(
+                                        "Missing attributes from {} at line {}",
+                                        input_path.attribute_paths[attr_reader_index],
+                                        line_number
+                                    );
+                                }
+                                attr_reader_failure_counts[attr_reader_index] += 1;
                                 break;
                             }
                         }
+                        attr_reader_index += 1;
                     }
 
                     if !attrs.is_empty() {
                         // Add to existing attributes if they exist, otherwise create them.
-                        if let Value::Object(ref mut existing_attrs) = mutable_data["attributes"] {
+                        if let Value::Object(ref mut existing_attrs) = data["attributes"] {
                             for (k, v) in attrs.iter() {
                                 existing_attrs.insert(k.clone(), v.clone());
                             }
                         } else {
-                            mutable_data["attributes"] = Value::Object(attrs);
+                            data["attributes"] = Value::Object(attrs);
                         }
                     }
 
                     let mut should_write = true;
                     for f in self.filter.iter() {
                         if !f
-                            .should_keep(&mutable_data)
+                            .should_keep(&data)
                             .map_err(|s| io::Error::new(io::ErrorKind::Other, s))?
                         {
                             should_write = false;
@@ -291,13 +303,13 @@ impl Shard {
                                 .as_ref()
                                 .unwrap()
                                 .iter()
-                                .flat_map(|r| r.find_spans_to_replace(&mutable_data).unwrap())
+                                .flat_map(|r| r.find_spans_to_replace(&data).unwrap())
                                 .collect::<Vec<SpanReplacement>>();
                             if !replacements.is_empty() {
                                 replacements.sort_by(|a, b| a.start.cmp(&b.start));
 
                                 let mut new_text = String::new();
-                                let old_text = mutable_data["text"].as_str().unwrap().to_owned();
+                                let old_text = data["text"].as_str().unwrap().to_owned();
                                 let mut span_index = 0;
                                 let mut i = 0;
                                 let mut span_start_byte_index = 0;
@@ -326,7 +338,10 @@ impl Shard {
                                                         );
                                                     new_text.push_str(&replacement_text);
                                                 }
-                                                span_index += 1;
+                                                while span_index < replacements.len()
+                                                    && replacements[span_index].start < i {
+                                                    span_index += 1;
+                                                }
                                             }
                                             if span_index < replacements.len()
                                                 && replacements[span_index].start == i
@@ -356,17 +371,27 @@ impl Shard {
                                         new_text.push_str(&replacement_text);
                                     }
                                 }
-                                mutable_data["text"] = Value::String(new_text);
+                                data["text"] = Value::String(new_text);
                             }
                         }
+                        for f in self.discard_fields.iter().flatten() {
+                            data.as_object_mut().unwrap().remove(f);
+                        }
                         lines_written += 1;
-                        serde_json::to_writer(&mut writer, &mutable_data)?;
+                        serde_json::to_writer(&mut writer, &data)?;
                         writer.write_all(b"\n")?;
                     }
                 }
                 std::fs::remove_file(local_docs_file)?;
-                for attr in &input_path.attribute_paths {
-                    std::fs::remove_file(inputs_dir.join(Path::new(&attr)))?;
+                for i in 0..input_path.attribute_paths.len() {
+                    if attr_reader_failure_counts[i] > 0 {
+                        log::warn!(
+                            "Failed to read {} attributes from {}",
+                            input_path.attribute_paths[i],
+                            attr_reader_failure_counts[i]
+                        );
+                    }
+                    std::fs::remove_file(inputs_dir.join(Path::new(&input_path.attribute_paths[i])))?;
                 }
                 log::info!(
                     "Dropped {} of {} documents from {}",
@@ -425,6 +450,7 @@ pub mod shard_config {
     pub struct StreamOutputConfig {
         pub path: String,
         pub max_size_in_bytes: usize,
+        pub discard_fields: Option<Vec<String>>,
     }
 
     #[derive(Serialize, Deserialize, Clone)]

@@ -40,6 +40,7 @@ export CONFIG_PATH=configs/olmo-small-ablation.yaml
 # get run name, we will postpend it with the job id of this slurm run
 export RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:\s*//')
 
+# actually run the training script
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
   --distribution=block:block \
@@ -55,4 +56,5 @@ srun \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
     python scripts/train.py $CONFIG_PATH \
       --run_name="${RUN_NAME}_${SLURM_JOB_ID}" \
-      --wandb.project=$WANDB_PROJECT
+      --wandb.project=$WANDB_PROJECT \
+      ${@}
