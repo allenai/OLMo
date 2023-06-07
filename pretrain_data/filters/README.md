@@ -20,6 +20,7 @@ If you are planning to run this code on a Mac with Apple Silicon, you will need 
 
 
 ```bash
+conda install -c anaconda protobuf -y
 python -m smashed.utils.install_blingfire_macos
 ```
 

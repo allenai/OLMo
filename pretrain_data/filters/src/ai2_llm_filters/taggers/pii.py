@@ -159,6 +159,7 @@ class PiiRegexV1(BasePiiFilter):
     def __init__(self):
         super().__init__(method=self.REGEX, postprocess=True, window=self.WINDOW)
 
+
 @TaggerRegistry.add("pii_regex_with_counts_v1")
 class PiiRegexWithCountV1(BasePiiFilter):
     def __init__(self):

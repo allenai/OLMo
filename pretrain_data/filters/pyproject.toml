@@ -1,6 +1,6 @@
 [project]
 name = "ai2-llm-filters"
-version = "0.4.0"
+version = "0.5.0"
 description = "Data filters"
 authors = [
     {name = "Aakanksha Naik", email = "aakankshan@allenai.org" },
@@ -29,6 +29,7 @@ dependencies = [
     "tokenizers==0.13.3",
     "unidecode",
     "uniseg",
+    "pyyaml",
     "termcolor==2.3.0"
 ]
 classifiers = [
