@@ -467,7 +467,9 @@ class Trainer:
             labels = labels.masked_fill(attention_mask == 0.0, -100)
         return labels[..., 1:].contiguous()
 
-    def model_forward(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
+    def model_forward(
+        self, batch: Dict[str, Any], loss_reduction: str = "mean"
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         # shape: (batch_size, seq_len, vocab_size)
         logits = self.fsdp_model(
             input_ids=batch["input_ids"],
@@ -479,9 +481,12 @@ class Trainer:
         logits_for_loss = logits_for_loss.view(-1, logits_for_loss.size(-1))
         # shape: (batch_size, seq_len)
         labels = self.get_labels(batch)
-        # shape: (batch_size,)
+        # shape: (batch_size * seq_len,)
         labels = labels.view(-1)
-        ce_loss = F.cross_entropy(logits_for_loss, labels, ignore_index=-100)
+        ce_loss = F.cross_entropy(logits_for_loss, labels, ignore_index=-100, reduction=loss_reduction)
+        if loss_reduction == "none":
+            # Reshape (batch_size * seq_len,) -> (batch_size, seq_len)
+            ce_loss = ce_loss.view(batch["input_ids"].shape[0], -1)
         return ce_loss, logits
 
     def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
@@ -580,10 +585,10 @@ class Trainer:
 
     def eval_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
-            ce_loss, logits = self.model_forward(batch)
-        return ce_loss, logits
+            ce_loss, logits = self.model_forward(batch, loss_reduction="none")
+        return ce_loss.mean(dim=-1), logits
 
-    def eval_step(self, batch: Dict[str, Any], evaluator: Evaluator) -> Dict[str, float]:
+    def eval_step(self, batch: Dict[str, Any], evaluator: Evaluator) -> None:
         # Move tensors to the right device.
         batch = move_to_device(batch, self.device)
 
@@ -596,7 +601,7 @@ class Trainer:
             batch, ce_loss, logits
         )  # batch includes all keys that the downstream evaluation needs
 
-        return evaluator.compute_metrics()
+        dist.barrier()
 
     def split_batch(self, batch: Dict[str, Any]) -> List[Dict[str, Any]]:
         microbatch_size = self.cfg.device_train_microbatch_size
@@ -661,13 +666,13 @@ class Trainer:
 
         eval_metrics = {}
         for evaluator in self.evaluators:
-            log.info(f"Running evaluation for '{evaluator.cfg.label}'...")
+            log.info(f"Running evaluation for '{evaluator.label}'...")
 
             # Reset metrics.
             evaluator.reset_metrics()
 
             # Check how many batches to evaluate on.
-            num_eval_batches = evaluator.cfg.subset_num_batches
+            num_eval_batches = evaluator.subset_num_batches
             if num_eval_batches is None:
                 num_eval_batches = self.cfg.eval_subset_num_batches
             if num_eval_batches <= 0:
@@ -677,16 +682,16 @@ class Trainer:
 
             # Run model over batches.
             for eval_step, eval_batch in enumerate(islice(evaluator.eval_batches, num_eval_batches)):
-                step_eval_metrics = self.eval_step(eval_batch, evaluator)
+                self.eval_step(eval_batch, evaluator)
 
                 # Log to console.
                 if eval_step + 1 == num_eval_batches or (eval_step + 1) % self.cfg.console_log_interval == 0:
-                    self.log_metrics_to_console(
-                        f"[eval_step={eval_step + 1}/{num_eval_batches}]", step_eval_metrics
-                    )
+                    log.info(f"[eval_step={eval_step + 1}/{num_eval_batches}]")
 
             # Get final metrics.
-            eval_metrics.update(evaluator.compute_metrics())
+            metrics = evaluator.compute_metrics()
+            eval_metrics.update(metrics)
+            self.log_metrics_to_console(f"{evaluator.label}", metrics)
 
         return eval_metrics
 
