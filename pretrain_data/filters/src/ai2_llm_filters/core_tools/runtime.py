@@ -17,7 +17,13 @@ from smashed.utils.io_utils import (
     stream_file_for_read,
 )
 
-from .data_types import Ai2LlmFilterError, Ai2LlmRetryableFailure, InputSpec, OutputSpec
+from .data_types import (
+    Ai2LlmFatalError,
+    Ai2LlmRetryableFailure,
+    Ai2LlmShardError,
+    InputSpec,
+    OutputSpec,
+)
 from .parallel import BaseParallelProcessor
 from .registry import TaggerRegistry
 from .utils import make_variable_name
@@ -139,16 +145,15 @@ class TaggerProcessor(BaseParallelProcessor):
 
             except Exception as e:
                 # handle any exception that might have occurred
-                msg = f"failure to process {source_path} due to {e.__class__.__name__}: {' '.join(e.args)}"
-                if skip_on_failure:
-                    logger.warning("\nContinuing from " + msg)
+                msg = f"Failed to process {source_path} due to {e.__class__.__name__}: {' '.join(e.args)}"
+                if e.__class__.__name__ == "IncompleteReadError":
+                    # Intermittent error that occurs when reading from S3
+                    raise Ai2LlmRetryableFailure(msg) from e
                 else:
-                    if e.__class__.__name__ == "IncompleteReadError":
-                        # Intermittent error that occurs when reading from S3
-                        logger.warning("\nRetryable " + msg)
-                        raise Ai2LlmRetryableFailure(msg) from e
-                    logger.warning("\nFatal " + msg)
-                    raise Ai2LlmFilterError(msg) from e
+                    if skip_on_failure:
+                        raise Ai2LlmShardError(msg) from e
+                    else:
+                        raise Ai2LlmFatalError(msg) from e
             finally:
                 if caching_path != source_path and os.path.exists(caching_path):
                     os.remove(caching_path)
