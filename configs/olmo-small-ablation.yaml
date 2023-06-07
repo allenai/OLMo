@@ -1,4 +1,4 @@
-run_name: v1-small-all-pi-removed
+run_name: v1-small-pi-less-than-5-anonymize
 seed: 6198
 dry_run: false
 
@@ -45,7 +45,7 @@ scheduler:
   t_max: null
 
 data:
-  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/common-crawl/v1-small-all-pi-removed/gpt-neox-20b/*.npy}
+  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/common-crawl/v1-small-pi-less-than-5-anonymize/gpt-neox-20b/*.npy}
   pad_direction: right
   num_workers: 4
   drop_last: true
