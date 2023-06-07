@@ -12,6 +12,15 @@
 
 module load LUMI/22.08 partition/G
 
+# check if LOAD_PATH is provided as an environment variable; if so, create an argument
+# to pass to the training script
+if [ -z ${LOAD_PATH+x} ]; then
+  LOAD_PATH_ARG=""
+else
+  LOAD_PATH_ARG="--load_path=${LOAD_PATH}"
+fi
+
+
 export OLMO_CONTAINER=llm-lumi_latest.sif
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
@@ -40,6 +49,7 @@ export CONFIG_PATH=configs/olmo-small-ablation.yaml
 # get run name, we will postpend it with the job id of this slurm run
 export RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:\s*//')
 
+# actually run the training script
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
   --distribution=block:block \
@@ -55,4 +65,6 @@ srun \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
     python scripts/train.py $CONFIG_PATH \
       --run_name="${RUN_NAME}_${SLURM_JOB_ID}" \
-      --wandb.project=$WANDB_PROJECT
+      --wandb.project=$WANDB_PROJECT \
+      $LOAD_PATH_ARG \
+      ${@}
