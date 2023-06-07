@@ -187,7 +187,7 @@ class TrainConfig:
     input_dir: Optional[str] = None
     input_dirs: Optional[List[str]] = None
     save_path: str = sp.MISSING
-    normalization: Union[str, None] = sp.field(default="NFD", help="Choose between NFD, NFKD, NFC, or NFKC")
+    normalization: Union[str, None] = sp.field(default="NFC", help="Choose between NFD, NFKD, NFC, or NFKC")
     vocab_size: int = 64_000
     model: str = sp.field(default="BPE", help="Choose between BPE (default) or Unigram.")
 

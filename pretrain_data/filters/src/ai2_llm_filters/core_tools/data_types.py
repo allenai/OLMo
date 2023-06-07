@@ -15,6 +15,10 @@ class Ai2LlmFilterError(Exception):
     pass
 
 
+class Ai2LlmRetryableFailure(Exception):
+    pass
+
+
 class InputSpec(Struct):
     id: str
     text: str

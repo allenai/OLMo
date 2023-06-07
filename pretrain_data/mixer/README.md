@@ -21,7 +21,8 @@ Merge attributes with the specified names.
 Looks for files by substituting `documents` with `attributes/<attribute_name≥` in the S3 path of each input document file.
 
 **streams.output**
-Output will be uploaded to the S3 `path`. Data will be coalesced into files no bigger than `max_size_in_bytes`.
+Output will be uploaded to the S3 `path`. Data will be coalesced into files no bigger than `max_size_in_bytes`. 
+Top-level fields in the `discard_fields` list will be dropped from the output documents. 
 
 **filter**
 Optional content-based filtering. Default = keep everything. Documents are retained if they match any of the `include` patterns
