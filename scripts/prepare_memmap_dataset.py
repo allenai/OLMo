@@ -90,7 +90,7 @@ def tokenize_file(tokenizer: Tokenizer, path: str, safe_mode: bool = False) -> G
         try:
             for line in input_stream:
                 row = decoder.decode(line)
-                if (text := row.text.strip()):
+                if text := row.text.strip():
                     # skip empty docs
                     yield tokenizer.encode(text, add_special_tokens=True)
                 i += 1
