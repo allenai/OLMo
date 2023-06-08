@@ -121,6 +121,9 @@ class Span:
             [self.start, self.end, self.score],
         )
 
+    def __len__(self) -> int:
+        return self.end - self.start
+
     @classmethod
     def from_json(cls, di: Dict) -> "Span":
         return Span(start=di["start"], end=di["end"], type=di["type"], score=di["score"])
