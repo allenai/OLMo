@@ -3,21 +3,19 @@
     {
       "name": "v1_small",
       "documents": [
-        "pretraining-data/sources/common-crawl/v1-small-c4-cleaned/documents/*"
+        "pretraining-data/sources/common-crawl/v1-small-head-middle-c4-cleaned/documents/*"
       ],
       "output": {
-        "path": "pretraining-data/sources/common-crawl/v1-small-c4-cleaned-gopher-filtered/documents",
+        "path": "pretraining-data/sources/common-crawl/v1-small-head-middle-c4-cleaned-gopher-filtered/documents",
         "max_size_in_bytes": 1,
         "discard_fields": ["attributes", "metadata", "added", "created"]
       },
       "attributes": [
-        "gopher_rules",
-        "decontamination"
+        "gopher_rules"
       ],
       "filter": {
         "include": [],
         "exclude": [
-          "$.attributes[?(@.bff_duplicate_paragraph_spans && @.bff_duplicate_paragraph_spans[0] && @.bff_duplicate_paragraph_spans[0][2] >= 1.0)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__word_count && @.gopher_rules__gopher_v1__word_count[0] && @.gopher_rules__gopher_v1__word_count[0][2] < 50)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__word_count && @.gopher_rules__gopher_v1__word_count[0] && @.gopher_rules__gopher_v1__word_count[0][2] > 100000)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__median_word_length && @.gopher_rules__gopher_v1__median_word_length[0] && @.gopher_rules__gopher_v1__median_word_length[0][2] < 3)]",
@@ -28,7 +26,7 @@
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_lines_starting_with_bullet_point && @.gopher_rules__gopher_v1__fraction_of_lines_starting_with_bullet_point[0] && @.gopher_rules__gopher_v1__fraction_of_lines_starting_with_bullet_point[0][2] > 0.9)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_lines_ending_with_ellipsis && @.gopher_rules__gopher_v1__fraction_of_lines_ending_with_ellipsis[0] && @.gopher_rules__gopher_v1__fraction_of_lines_ending_with_ellipsis[0][2] > 0.3)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_duplicate_lines && @.gopher_rules__gopher_v1__fraction_of_duplicate_lines[0] && @.gopher_rules__gopher_v1__fraction_of_duplicate_lines[0][2] > 0.3)]",
-          "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_lines && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_lines[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_lines[0][2] > 0.3)]", q
+          "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_lines && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_lines[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_lines[0][2] > 0.3)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_2gram && @.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_2gram[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_2gram[0][2] > 0.2)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_3gram && @.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_3gram[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_3gram[0][2] > 0.18)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_4gram && @.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_4gram[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_4gram[0][2] > 0.16)]",
