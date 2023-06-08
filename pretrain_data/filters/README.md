@@ -18,7 +18,6 @@ pip install -e pretrain_data/filters'[dev]'
 
 If you are planning to run this code on a Mac with Apple Silicon, you will need to run the following to install blingfire (used for sentence splitting):
 
-
 ```bash
 conda install -c anaconda protobuf -y
 python -m smashed.utils.install_blingfire_macos
@@ -43,7 +42,6 @@ ai2_llm_filters \
 ```
 
 To get a list of all options, run `ai2_llm_filters -l`.
-
 
 ## Adding a Tagger
 
@@ -96,6 +94,26 @@ class SampleTagger(BaseTagger):
 ```
 
 Note that, in case you create a new file under `src/ai2_llm_filters/taggers`, you need to import it in `src/ai2_llm_filters/taggers/__init__.py`.
+
+### Creating a training dataset for a FastText Tagger
+
+A binary classification dataset in the FastText format can be created using the `ft_dataset.py` module. The following example invocation will create a training file with 2 labels -- `__c4__` (positive) and `__gutenberg__` (negative) -- where a FastText tagger trained on the file can be trained to predict segments that are in C4 (using examples from Gutenberg as non-C4 examples). Each example has just one label. The flag `-t` is the dataset used for the target (positive) examples. The flag `-s` specifies one or more negative datasets to use.
+
+```bash
+python -m ai2_llm_filters.core_tools.ft_dataset \
+  -t s3://ai2-llm/pretraining-data/sources/c4/v0/documents/train/ \
+  -s s3://ai2-llm/pretraining-data/sources/gutenberg/v0/documents/ \
+  -m sentence \
+  --newlines skip \
+  -o ./test-output.txt \
+  --pos-label c4 \
+  --neg-label gutenberg \
+  --n-segments 3
+```
+
+The final training file will include at most 6 examples (3 sentences of both positive and negative). The file is NOT shuffled and should be shuffled on disk or during training if desired. Since files are processed in parallel from the target and then the source datasets there may be some random ordering within a class but all negative examples follow all positive.
+
+Specifying `--n-segments` is HIGHLY recommended otherwise the entire dataset will be downloaded. If `--n-segments` is provided only enough dataset files are downloaded to keep the parallel worker processes busy. The file construction will terminate once enough examples have been generated.
 
 ## Output Format
 

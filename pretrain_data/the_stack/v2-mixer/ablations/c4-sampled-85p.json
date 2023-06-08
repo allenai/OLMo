@@ -1,0 +1,26 @@
+{
+    "streams": [
+        {
+            "name": "c4-sampled-85p",
+            "documents": [
+                "pretraining-data/sources/c4/v0/documents/train/part_*.jsonl.gz"
+            ],
+            "output": {
+                "path": "pretraining-data/sources/c4/v0-sampled-85p/documents/train",
+                "max_size_in_bytes": 1000000000
+            },
+            "attributes": ["basic"],
+            "filter": {
+                "include": [
+                  "$.attributes[?(@.basic__random_number_v1__random[0][2] < 0.64)]"
+                ],
+                "exclude": [
+                    
+                ]
+            }
+        }
+    ],
+    "work_dir": {"input": "/tmp/mixer-sampled85/input", "output": "/tmp/mixer-sampled85/output"},
+    "processes": 32
+}
+

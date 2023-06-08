@@ -350,7 +350,8 @@ class PaddingDirection(StrEnum):
 
 @dataclass
 class DataConfig(BaseConfig):
-    paths: List[str] = field(default_factory=lambda: [])
+    paths: Optional[List[str]] = None
+    datasets: Optional[Dict[str, List[str]]] = None
     pad_direction: PaddingDirection = PaddingDirection.right
     num_workers: int = 0
     drop_last: bool = False

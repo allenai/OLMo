@@ -1,0 +1,39 @@
+{
+  "streams": [
+    {
+      "name": "commoncrawl-hatespeech-highthresh-ablation",
+      "documents": [
+        "pretraining-data/sources/common-crawl/v1-small/documents/*.gz"
+      ],
+      "output": {
+        "path": "pretraining-data/sources/common-crawl/v1-small-hatespeech-filtered-highthresh/documents",
+        "max_size_in_bytes": 3894967296
+      },
+      "attributes": [
+        "hatespeech_nsfw_cc_v3",
+        "decontamination"
+      ],
+      "filter": {
+        "include": [
+          "$.attributes[?(@.hatespeech_nsfw_cc_v3__whitespace_tokenizer_with_paragraphs_v1__document[0][2] < 100000)]"
+        ],
+        "exclude": [
+          "$.attributes[?(@.hatespeech_nsfw_cc_v3__whitespace_tokenizer_with_paragraphs_v1__document[0][2] < 50)]",
+          "$@.attributes[?(@.bff_duplicate_paragraph_spans && @.bff_duplicate_paragraph_spans[0] && @.bff_duplicate_paragraph_spans[0][2] >= 1.0)]"
+        ]
+      },
+      "span_replacement": [
+        {
+          "span": "$.attributes.hatespeech_nsfw_cc_v3__jigsaw_hatespeech_sentence_v2____label__toxic",
+          "min_score": 0.4,
+          "replacement": ""
+        }
+      ]
+    }
+  ],
+  "work_dir": {
+    "input": "/tmp/mixer-hatespeech-highthresh-v1/input",
+    "output": "/tmp/mixer-hatespeech-highthresh-v2/output"
+  },
+  "processes": 96
+}

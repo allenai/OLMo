@@ -8,4 +8,4 @@ Author: Akshita Bhagia @akshitab
 	* Average line length > 100 characters
 	* Proportion of alphanumeric characters < 0.25
 	* Ratio of alphabetical characters to number of tokens < 1.5
-* Number of unicode tokens: 212 billion.
+* Number of whitespace tokens: 296 B
