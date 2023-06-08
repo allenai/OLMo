@@ -90,8 +90,9 @@ def tokenize_file(tokenizer: Tokenizer, path: str, safe_mode: bool = False) -> G
         try:
             for line in input_stream:
                 row = decoder.decode(line)
-                if row.text.strip():
-                    yield tokenizer.encode(row.text, add_special_tokens=True)
+                if text := row.text.strip():
+                    # skip empty docs
+                    yield tokenizer.encode(text, add_special_tokens=True)
                 i += 1
         except Exception as e:
             log.error(f"Error processing {path}:{i:,} -> {e}")

@@ -187,7 +187,9 @@ class BaseParallelProcessor:
 
         with ExitStack() as stack:
             pbars = [
-                stack.enter_context(tqdm.tqdm(desc=str(k), unit=str(k)[:1], position=i, unit_scale=True))
+                stack.enter_context(
+                    tqdm.tqdm(desc=str(k), unit=str(k)[:1], position=i, unit_scale=True)  # pyright: ignore
+                )
                 for i, k in enumerate(sample_queue_output)
             ]
 
