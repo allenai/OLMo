@@ -20,7 +20,7 @@ dependencies = [
     "tqdm",
     "boto3",
     "cached-path==1.3.4",
-    "msgspec==0.14.2",
+    "msgspec>=0.14.2",
     "smashed[remote]>=0.20.0",
     "presidio_analyzer==2.2.32",
     "pycld2==0.41",

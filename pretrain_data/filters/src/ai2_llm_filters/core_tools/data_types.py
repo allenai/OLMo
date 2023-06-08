@@ -11,20 +11,20 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from msgspec import Struct
 
 
-class Ai2LlmFatalError(Exception):
+class Ai2LlmFilterError(Exception):
+    """Base class for all errors"""
+
+
+class Ai2LlmFatalError(Ai2LlmFilterError):
     """Fatal error. Abort the entire process"""
 
-    pass
 
-
-class Ai2LlmShardError(Exception):
+class Ai2LlmShardError(Ai2LlmFilterError):
     """Fail the shard and continue"""
 
 
-class Ai2LlmRetryableFailure(Exception):
+class Ai2LlmRetryableFailure(Ai2LlmFilterError):
     """Retry if a shard throws this error"""
-
-    pass
 
 
 class InputSpec(Struct):

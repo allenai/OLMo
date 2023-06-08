@@ -5,14 +5,15 @@ Filters.
 @kylel, @soldni
 
 """
-import gzip
-import itertools
-import json
-import os
-import re
-import time
-from hashlib import md5
-from pathlib import Path
+
+try:
+    import re2 as re
+except ImportError:
+    import re
+else:
+    re.set_fallback_notification(re.FALLBACK_WARNING)
+
+
 from typing import List
 
 from presidio_analyzer import AnalyzerEngine
@@ -178,6 +179,7 @@ class PiiRegexV2(PiiRegexV1):
         return score
 
 
+@TaggerRegistry.add("pii_regex_with_counts_fast_v2")
 class FastPiiRegex(BaseTagger):
     EMAIL_KEY = "EMAIL_ADDRESS"
     PHONE_KEY = "PHONE_NUMBER"
@@ -278,51 +280,3 @@ class PiiRegexWithCountV2(BasePiiFilter):
         count = sum(1 for s in doc_result.spans if s.type != "doc")
         doc_result.spans.append(Span(start=0, end=len(doc.text), type="doc_count", score=count))
         return doc_result
-
-
-def main():
-    root = Path(__file__).parent.parent.parent.parent.parent.parent
-    docs = []
-    for fn in os.listdir(root / "test_fixtures"):
-        if not fn.endswith("json.gz"):
-            continue
-        with gzip.open(root / "test_fixtures" / fn, "rt") as f:
-            for ln in f:
-                raw = json.loads(ln)
-                id_ = raw.get("id", None) or md5(raw["text"].encode("utf-8")).hexdigest()
-                docs.append(Document(source="test_fixture", text=raw["text"], id=id_))
-
-    t1 = PiiRegexWithCountV2()
-    start = time.time()
-    slow_results: List[DocResult] = []
-    for doc in docs:
-        slow_results.append(t1.predict(doc))
-    delta_slow = time.time() - start
-
-    t2 = FastPiiRegex()
-    start = time.time()
-    fast_results: List[DocResult] = []
-    for doc in docs:
-        fast_results.append(t2.predict(doc))
-    delta_fast = time.time() - start
-
-    for dr1, dr2 in itertools.zip_longest(slow_results, fast_results):
-        for sp1, sp2 in itertools.zip_longest((dr1.spans if dr1 else []), (dr2.spans if dr2 else [])):
-            if sp1.type == "doc_count" or sp1.type == "doc" or sp2.type == "doc_count" or sp2.type == "doc_frac":
-                continue
-            print("SLOW")
-            print(sp1.start, sp1.end, sp1.type, sp1.score)
-            print(sp1.mention(dr1.doc.text))
-            print("FAST")
-            print(sp2.start, sp2.end, sp2.type, sp2.score)
-            print(sp2.mention(dr2.doc.text))
-            print("-----------------")
-        print("===============")
-
-    print("----------")
-    print(f"PiiRegexWithCountV2: {delta_slow:.2e} ({sum(len(dr.spans) for dr in slow_results)} spans)")
-    print(f"FastPiiRegex: {delta_fast:.2e} ({sum(len(dr.spans) for dr in fast_results)} spans)")
-
-
-if __name__ == "__main__":
-    main()
