@@ -218,10 +218,13 @@ class TaggerProcessor(BaseParallelProcessor):
             "--manually-included-paths",
             default=None,
             nargs="+",
-            help="If provided, only these paths will be processed.",
+            help="If provided, only these paths will be processed. If points to an existing file, read s3:// URLs from it.",
         )
         ap.add_argument(
-            "--manually-excluded-paths", default=None, nargs="+", help="If provided, these paths will be skipped."
+            "--manually-excluded-paths",
+            default=None,
+            nargs="+",
+            help="If provided, these paths will be skipped. If points to an existing file, read s3:// URLs from it.",
         )
         ap.add_argument(
             "--safe-mode", action="store_true", help="Run in safe mode; will download locally before processing."
@@ -248,6 +251,20 @@ class TaggerProcessor(BaseParallelProcessor):
         with tempfile.TemporaryDirectory() as tempdir:
             metadata_workdir = opts.reuse_existing or tempdir
             ignore_existing = opts.reuse_existing is None
+            manually_included_paths = opts.manually_included_paths
+            if (
+                manually_included_paths
+                and len(manually_included_paths) == 1
+                and os.path.exists(manually_included_paths[0])
+            ):
+                manually_included_paths = [l.strip() for l in open(manually_included_paths[0])]
+            manually_excluded_paths = opts.manually_excluded_paths
+            if (
+                manually_excluded_paths
+                and len(manually_excluded_paths) == 1
+                and os.path.exists(manually_excluded_paths[0])
+            ):
+                manually_excluded_paths = [l.strip() for l in open(manually_excluded_paths[0])]
 
             msg = (
                 "----- TaggerProcessor -----\n"
@@ -273,8 +290,8 @@ class TaggerProcessor(BaseParallelProcessor):
                 num_processes=opts.parallel,
                 ignore_existing=ignore_existing,
                 debug=opts.debug,
-                include_paths=opts.manually_included_paths,
-                exclude_paths=opts.manually_excluded_paths,
+                include_paths=manually_included_paths,
+                exclude_paths=manually_excluded_paths,
             )
             parallel_compute(
                 taggers_names=opts.taggers,
