@@ -318,6 +318,9 @@ class BaseParallelProcessor:
             if not self.ignore_existing and (source_path - self.source_prefix).as_str in existing_metadata_names:
                 continue
 
+            if not _valid_path(source_path.as_str):
+                continue
+
             all_source_paths.append(source_path)
             all_destination_paths.append(self.destination_prefix / (source_path - self.source_prefix))
 

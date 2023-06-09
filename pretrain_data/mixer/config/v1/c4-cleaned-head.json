@@ -1,0 +1,38 @@
+{
+  "streams": [
+    {
+      "name": "cc_en_head",
+      "documents": [
+        "pretraining-data/sources/common-crawl/v1/documents/cc_en_head/*"
+      ],
+      "output": {
+        "path": "pretraining-data/sources/common-crawl/v1-c4-cleaned/documents/cc_en_head",
+        "max_size_in_bytes": 1
+      },
+      "attributes": [
+        "c4_rules"
+      ],
+      "filter": {
+        "include": [],
+        "exclude": []
+      },
+      "span_replacement": [
+        {
+          "span": "$.attributes.c4_rules__c4_v1__lines_with_no_ending_punctuation",
+          "min_score": 0.5,
+          "replacement": ""
+        },
+        {
+          "span": "$.attributes.c4_rules__c4_v1__lines_with_too_few_words",
+          "min_score": 0.5,
+          "replacement": ""
+        }
+      ]
+    }
+  ],
+  "work_dir": {
+    "input": "/data1/work/input",
+    "output": "/data2/work/output"
+  },
+  "processes": 128
+}
