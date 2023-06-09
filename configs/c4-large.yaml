@@ -15,8 +15,8 @@ model:
   attention_dropout: 0.0
   attention_layer_norm: true
   multi_query_attention: true
-  block_type: sequential
-  layer_norm_type: default  # if not compiling, use 'low_precision'
+  block_type: parallel
+  layer_norm_type: low_precision  # if not compiling, use 'low_precision'
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
@@ -69,7 +69,8 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 476837  # 2T tokens
+# max_duration: 476837  # 2T tokens
+max_duration: 47684  # 200B tokens
 global_train_batch_size: 2048
 device_train_microbatch_size: 4
 
