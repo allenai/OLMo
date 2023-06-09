@@ -17,6 +17,8 @@ from smashed.utils.io_utils import (
     recursively_list_files,
 )
 
+from .data_types import Ai2LlmFilterError, Ai2LlmRetryableFailure
+
 METADATA_SUFFIX = ".done.txt"
 
 
@@ -135,7 +137,17 @@ class BaseParallelProcessor:
         """A wrapper around process single that saves a metadata file if processing is successful."""
 
         kwargs = pickle.loads(serialized_kwargs)
-        cls.process_single(source_path=source_path, destination_path=destination_path, queue=queue, **kwargs)
+        tries_remaining = kwargs.get("retry_on_read_error", 0) + 1
+        while True:
+            try:
+                cls.process_single(
+                    source_path=source_path, destination_path=destination_path, queue=queue, **kwargs
+                )
+                break
+            except Ai2LlmRetryableFailure as e:
+                tries_remaining -= 1
+                if tries_remaining == 0:
+                    raise Ai2LlmFilterError from e
         with open_file_for_write(metadata_path) as f:
             f.write(datetime.now().isoformat())
 
@@ -175,7 +187,9 @@ class BaseParallelProcessor:
 
         with ExitStack() as stack:
             pbars = [
-                stack.enter_context(tqdm.tqdm(desc=str(k), unit=str(k)[:1], position=i, unit_scale=True))
+                stack.enter_context(
+                    tqdm.tqdm(desc=str(k), unit=str(k)[:1], position=i, unit_scale=True)  # pyright: ignore
+                )
                 for i, k in enumerate(sample_queue_output)
             ]
 
@@ -292,6 +306,9 @@ class BaseParallelProcessor:
         for path in paths:
             source_path = MultiPath.parse(path)
             if not self.ignore_existing and (source_path - self.source_prefix).as_str in existing_metadata_names:
+                continue
+
+            if not _valid_path(source_path.as_str):
                 continue
 
             all_source_paths.append(source_path)

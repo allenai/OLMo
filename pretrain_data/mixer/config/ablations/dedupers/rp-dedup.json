@@ -1,0 +1,44 @@
+{
+  "documents": [
+      "pretraining-data/sources/redpajama/v1/documents/split=train/dataset=arxiv/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=train/dataset=book/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=train/dataset=c4/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=train/dataset=common_crawl/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=train/dataset=github/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=train/dataset=stackexchange/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=train/dataset=wikipedia/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=valid/dataset=arxiv/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=valid/dataset=book/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=valid/dataset=c4/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=valid/dataset=common_crawl/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=valid/dataset=github/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=valid/dataset=stackexchange/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=valid/dataset=wikipedia/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=test/dataset=arxiv/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=test/dataset=book/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=test/dataset=c4/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=test/dataset=common_crawl/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=test/dataset=github/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=test/dataset=stackexchange/*.gz",
+      "pretraining-data/sources/redpajama/v1/documents/split=test/dataset=wikipedia/*.gz"
+  ],
+  "work_dir": {
+    "input": "/data2/redpajama-v1/deduper/input",
+    "output": "/data2/redpajama-v1/deduper/output"
+  },
+  "dedupe": {
+    "name": "decontamination",
+    "paragraphs": {
+      "attribute_name": "bff_duplicate_paragraph_spans"
+    },
+    "skip_empty": true
+  },
+  "bloom_filter": {
+    "file": "/tmp/decontamination/deduper_decontamination_lucas_20230525.bin",
+    "size_in_bytes": 8388608,
+    "read_only": true,
+    "estimated_doc_count": 3898706,
+    "desired_false_positive_rate": 0.001
+  },
+  "processes": 120
+}

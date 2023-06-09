@@ -1,5 +1,5 @@
 import math
-from typing import Iterator, Optional, Sequence, TypeVar
+from typing import Any, Dict, Iterator, List, Optional, Sequence, Union
 
 import torch
 import torch.distributed as dist
@@ -10,10 +10,7 @@ from ..util import global_rank
 __all__ = ["IterableDataset"]
 
 
-T = TypeVar("T")
-
-
-class IterableDataset(torch.utils.data.IterableDataset[T]):
+class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
     """
     Adapted from PyTorch's DistributedSampler, this wraps a Dataset or arbitrary sequence
     as an IterableDataset that can be deterministically restarted at any point by setting `start_index`,
@@ -23,7 +20,7 @@ class IterableDataset(torch.utils.data.IterableDataset[T]):
 
     def __init__(
         self,
-        dataset: Sequence[T],
+        dataset: Union[Sequence[List[int]], Sequence[torch.Tensor], Sequence[Dict[str, Any]]],
         *,
         seed: int = 0,
         start_index: int = 0,
@@ -57,7 +54,7 @@ class IterableDataset(torch.utils.data.IterableDataset[T]):
             num_samples = math.ceil(len(self.dataset) / self.world_size)  # type: ignore[arg-type]
         self.total_size = num_samples * self.world_size
 
-    def __iter__(self) -> Iterator[T]:
+    def __iter__(self) -> Iterator[Dict[str, Any]]:
         if self.shuffle:
             # Deterministically shuffle based on epoch and seed
             g = torch.Generator()
@@ -96,4 +93,11 @@ class IterableDataset(torch.utils.data.IterableDataset[T]):
         if worker_info is not None:
             indices = indices[worker_info.id :: worker_info.num_workers]
 
-        return (self.dataset[idx] for idx in indices)
+        return (self._get_dataset_item(idx) for idx in indices)
+
+    def _get_dataset_item(self, idx: int) -> Dict[str, Any]:
+        item = self.dataset[idx]
+        if isinstance(item, dict):
+            return dict(**item, index=idx)
+        else:
+            return {"input_ids": item, "index": idx}

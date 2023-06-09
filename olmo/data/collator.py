@@ -26,6 +26,8 @@ class DataCollator:
         all_input_ids = []
         all_attention_mask = []
         all_attention_bias = []
+        all_indices = []
+        all_metadata = []
         for x in items:
             input_ids = x["input_ids"] if isinstance(x, dict) else x
             if not isinstance(input_ids, torch.Tensor):
@@ -76,9 +78,23 @@ class DataCollator:
                     )
                 )
 
-        out = {"input_ids": torch.stack(all_input_ids)}
+            # Indices.
+            index = x.get("index") if isinstance(x, dict) else None
+            if index is not None:
+                all_indices.append(torch.tensor(index))
+
+            # Metadata.
+            metadata = x.get("metadata") if isinstance(x, dict) else None
+            if metadata is not None:
+                all_metadata.append(metadata)
+
+        out: Dict[str, Any] = {"input_ids": torch.stack(all_input_ids)}
         if all_attention_mask:
             out["attention_mask"] = torch.stack(all_attention_mask)
         if all_attention_bias:
             out["attention_bias"] = torch.stack(all_attention_bias)
+        if all_indices:
+            out["index"] = torch.stack(all_indices)
+        if all_metadata:
+            out["metadata"] = all_metadata
         return out

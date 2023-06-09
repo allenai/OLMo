@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import logging
+import math
 import random
 import shutil
 import time
@@ -6,7 +9,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
-from typing import Any, Deque, Dict, List, Optional, Tuple
+from typing import Any, Deque, Dict, List, Optional, TextIO, Tuple
 
 import numpy as np
 import torch
@@ -100,6 +103,7 @@ class Trainer:
     checkpoints: List[Path] = field(default_factory=list)
     unsharded_checkpoints: List[Path] = field(default_factory=list)
     min_train_loss: float = float("inf")
+    indices_file: Optional[TextIO] = None
 
     def state_dict(self) -> Dict[str, Any]:
         state_dict = self.non_tensor_state_dict()
@@ -208,6 +212,10 @@ class Trainer:
 
         self.checkpoints.append(checkpoint_dir)
         dist.barrier()
+
+        # Flush data indices file.
+        if self.indices_file is not None:
+            self.indices_file.flush()
 
         # Write the checkpoint.
         with FSDP.state_dict_type(
@@ -336,6 +344,10 @@ class Trainer:
         self.unsharded_checkpoints.append(checkpoint_dir)
         dist.barrier()
 
+        # Flush data indices file.
+        if self.indices_file is not None:
+            self.indices_file.flush()
+
         # Write the checkpoint.
         with FSDP.state_dict_type(
             self.fsdp_model,
@@ -455,7 +467,9 @@ class Trainer:
             labels = labels.masked_fill(attention_mask == 0.0, -100)
         return labels[..., 1:].contiguous()
 
-    def model_forward(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
+    def model_forward(
+        self, batch: Dict[str, Any], loss_reduction: str = "mean"
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         # shape: (batch_size, seq_len, vocab_size)
         logits = self.fsdp_model(
             input_ids=batch["input_ids"],
@@ -467,9 +481,12 @@ class Trainer:
         logits_for_loss = logits_for_loss.view(-1, logits_for_loss.size(-1))
         # shape: (batch_size, seq_len)
         labels = self.get_labels(batch)
-        # shape: (batch_size,)
+        # shape: (batch_size * seq_len,)
         labels = labels.view(-1)
-        ce_loss = F.cross_entropy(logits_for_loss, labels, ignore_index=-100)
+        ce_loss = F.cross_entropy(logits_for_loss, labels, ignore_index=-100, reduction=loss_reduction)
+        if loss_reduction == "none":
+            # Reshape (batch_size * seq_len,) -> (batch_size, seq_len)
+            ce_loss = ce_loss.view(batch["input_ids"].shape[0], -1)
         return ce_loss, logits
 
     def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
@@ -516,6 +533,11 @@ class Trainer:
         return ce_batch_loss, z_batch_loss
 
     def train_step(self, batch: Dict[str, Any]) -> Dict[str, float]:
+        # Write data-indices to file.
+        if self.indices_file is not None and "index" in batch:
+            indices = "\t".join(str(int(i)) for i in batch["index"])
+            self.indices_file.write(f"{self.global_step}\t{indices}\n")
+
         # Zero-gradients.
         self.optim.zero_grad(set_to_none=True)
 
@@ -563,10 +585,10 @@ class Trainer:
 
     def eval_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
-            ce_loss, logits = self.model_forward(batch)
-        return ce_loss, logits
+            ce_loss, logits = self.model_forward(batch, loss_reduction="none")
+        return ce_loss.mean(dim=-1), logits
 
-    def eval_step(self, batch: Dict[str, Any], evaluator: Evaluator) -> Dict[str, float]:
+    def eval_step(self, batch: Dict[str, Any], evaluator: Evaluator) -> None:
         # Move tensors to the right device.
         batch = move_to_device(batch, self.device)
 
@@ -579,18 +601,27 @@ class Trainer:
             batch, ce_loss, logits
         )  # batch includes all keys that the downstream evaluation needs
 
-        return evaluator.compute_metrics()
+        dist.barrier()
 
     def split_batch(self, batch: Dict[str, Any]) -> List[Dict[str, Any]]:
+        microbatch_size = self.cfg.device_train_microbatch_size
         batch_size = batch["input_ids"].shape[0]
-        if batch_size <= self.cfg.device_train_microbatch_size:
+        if batch_size <= microbatch_size:
             return [batch]
         else:
             micro_batches = {}
-            for key, tensor in batch.items():
-                micro_batches[key] = tensor.split(self.cfg.device_train_microbatch_size, dim=0)  # type: ignore
+            for key, value in batch.items():
+                if isinstance(value, torch.Tensor):
+                    micro_batches[key] = value.split(microbatch_size, dim=0)
+                elif isinstance(value, list):
+                    micro_batches[key] = [
+                        value[microbatch_size * i : microbatch_size * i + microbatch_size]
+                        for i in range(math.ceil(batch_size / microbatch_size))
+                    ]
+                else:
+                    raise ValueError(f"unexpected item in batch: '{key}={value}'")
             return [
-                {key: tensor[i] for key, tensor in micro_batches.items()}  # type: ignore
+                {key: value[i] for key, value in micro_batches.items()}  # type: ignore
                 for i in range(len(micro_batches["input_ids"]))
             ]
 
@@ -635,13 +666,13 @@ class Trainer:
 
         eval_metrics = {}
         for evaluator in self.evaluators:
-            log.info(f"Running evaluation for '{evaluator.cfg.label}'...")
+            log.info(f"Running evaluation for '{evaluator.label}'...")
 
             # Reset metrics.
             evaluator.reset_metrics()
 
             # Check how many batches to evaluate on.
-            num_eval_batches = evaluator.cfg.subset_num_batches
+            num_eval_batches = evaluator.subset_num_batches
             if num_eval_batches is None:
                 num_eval_batches = self.cfg.eval_subset_num_batches
             if num_eval_batches <= 0:
@@ -651,16 +682,16 @@ class Trainer:
 
             # Run model over batches.
             for eval_step, eval_batch in enumerate(islice(evaluator.eval_batches, num_eval_batches)):
-                step_eval_metrics = self.eval_step(eval_batch, evaluator)
+                self.eval_step(eval_batch, evaluator)
 
                 # Log to console.
                 if eval_step + 1 == num_eval_batches or (eval_step + 1) % self.cfg.console_log_interval == 0:
-                    self.log_metrics_to_console(
-                        f"[eval_step={eval_step + 1}/{num_eval_batches}]", step_eval_metrics
-                    )
+                    log.info(f"[eval_step={eval_step + 1}/{num_eval_batches}]")
 
             # Get final metrics.
-            eval_metrics.update(evaluator.compute_metrics())
+            metrics = evaluator.compute_metrics()
+            eval_metrics.update(metrics)
+            self.log_metrics_to_console(f"{evaluator.label}", metrics)
 
         return eval_metrics
 
@@ -791,6 +822,16 @@ class Trainer:
         checkpoint_path = self.save_unsharded_checkpoint()
         log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
-    def close(self) -> None:
+    def close(self, exit_code: int = 0) -> None:
+        if self.indices_file is not None:
+            self.indices_file.flush()
+            self.indices_file.close()
         if wandb.run is not None:
-            wandb.finish()
+            wandb.finish(exit_code=exit_code)
+
+    def __enter__(self) -> Trainer:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        del exc_val, exc_tb
+        self.close(0 if exc_type is None else 1)
