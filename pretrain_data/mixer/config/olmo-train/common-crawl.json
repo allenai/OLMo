@@ -9,7 +9,7 @@
         "gopher_rules"
       ],
       "output": {
-        "path": "pretraining-data/sources/common-crawl/olmo-v1/documents/cc_en_head",
+        "path": "pretraining-data/sources/olmo-v1/common-crawl/documents/cc_en_head",
         "max_size_in_bytes": 4294967296,
         "discard_fields": [
           "attributes",
@@ -53,7 +53,7 @@
         "gopher_rules"
       ],
       "output": {
-        "path": "pretraining-data/sources/common-crawl/olmo-v1/documents/cc_en_middle",
+        "path": "pretraining-data/sources/olmo-v1/common-crawl/documents/cc_en_middle",
         "max_size_in_bytes": 4294967296,
         "discard_fields": [
           "attributes",
@@ -97,7 +97,7 @@
         "gopher_rules"
       ],
       "output": {
-        "path": "pretraining-data/sources/common-crawl/olmo-v1/documents/cc_en_tail",
+        "path": "pretraining-data/sources/olmo-v1/common-crawl/documents/cc_en_tail",
         "max_size_in_bytes": 4294967296,
         "discard_fields": [
           "attributes",
