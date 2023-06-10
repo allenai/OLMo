@@ -25,7 +25,7 @@ DESTINATION = Path(__file__).parent.parent / "config/pdedup_c1_v1_c4-cleaned"
 DOCUMENTS_PREFIX = "pretraining-data/sources/common-crawl/v1-c4-cleaned/documents"
 BUCKET_NAME = "ai2-llm"
 WORKDIR_PREFIX = Path("/tmp/v1-c4-cleaned")
-ONE_GB = 1024 ** 3
+ONE_GB = 1024**3
 
 
 def parse_options() -> Namespace:
