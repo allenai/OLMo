@@ -263,10 +263,14 @@ class FastPiiRegex(BaseTagger):
         score = sum(1.0 for s in spans if s.type != "doc")
         spans.append(Span(start=0, end=len(doc.text), type="doc_count", score=score))
 
-        # fraction of words that are PII
-        score = sum(len(s) for s in spans) / len(doc.text)
-        spans.append(Span(start=0, end=len(doc.text), type="doc_frac", score=score))
+        try:
+            # fraction of words that are PII
+            score = sum(len(s) for s in spans) / len(doc.text)
+        except ZeroDivisionError:
+            # empty doc
+            score = -1.0
 
+        spans.append(Span(start=0, end=len(doc.text), type="doc_frac", score=score))
         return DocResult(doc=doc, spans=spans)
 
 
