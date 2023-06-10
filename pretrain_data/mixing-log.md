@@ -86,3 +86,15 @@ ai2_llm_filters\
     --local-read-cache $HOME/wikibooks/cache
 ```
 
+Running PII detection on v1-c4-small:
+
+```shell
+ai2_llm_filters \
+    -d common-crawl/v1-c4-cleaned \
+    -n pii_detection \
+    -t pii_regex_with_counts_fast_v2 \
+    -p 120 \
+    --reuse-existing $HOME/v1-c4-cleaned-pii/cc_en_head \
+    --skip-on-failure \
+    --local-read-cache $HOME/v1-c4-cleaned/cc_en_head_download
+```
