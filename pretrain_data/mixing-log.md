@@ -98,3 +98,44 @@ ai2_llm_filters \
     --skip-on-failure \
     --local-read-cache $HOME/v1-c4-cleaned/cc_en_head_download
 ```
+
+Created configurations 
+
+```shell
+python /Users/lucas/Code/LLM/pretrain_data/mixer/scripts/partition_deduper.py -w 100 -o pretrain_data
+```
+
+Output: 
+
+```text
+pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/0.json: 1105.45 GB, 756 files.
+pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/1.json: 1105.15 GB, 756 files.
+pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/2.json: 1104.69 GB, 756 files.
+pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/3.json: 1104.00 GB, 755 files.
+pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/4.json: 1103.65 GB, 755 files.
+pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/5.json: 1103.37 GB, 755 files.
+pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/6.json: 1103.09 GB, 755 files.
+pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/7.json: 1102.80 GB, 755 files.
+```
+
+Running paragraph deduplication on ~8 shards, each has about 1.1TB (see above).
+
+```shell
+~/target/release/deduper pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/0.json
+~/target/release/deduper pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/1.json
+```
+
+```shell
+~/target/release/deduper pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/2.json
+~/target/release/deduper pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/3.json
+```
+
+```shell
+~/target/release/deduper pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/4.json
+~/target/release/deduper pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/5.json
+```
+
+```shell
+~/target/release/deduper pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/6.json
+~/target/release/deduper pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/7.json
+```

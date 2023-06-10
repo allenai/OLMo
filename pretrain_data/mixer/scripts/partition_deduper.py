@@ -20,10 +20,12 @@ except ImportError:
     print("Missing dependencies. Please run `pip install 'smashed[remote]' tqdm`")
 
 
-CONFIG_PATH = Path(__file__).parent.parent / "config/v1-small/c4-cleaned/gopher-filtered/dedupe-paragraphs.json"
+CONFIG_PATH = Path(__file__).parent / "partition_deduper.json"
+DESTINATION = Path(__file__).parent.parent / "config/pdedup_c1_v1_c4-cleaned"
 DOCUMENTS_PREFIX = "pretraining-data/sources/common-crawl/v1-c4-cleaned/documents"
 BUCKET_NAME = "ai2-llm"
 WORKDIR_PREFIX = Path("/tmp/v1-c4-cleaned")
+ONE_GB = 1024 ** 3
 
 
 def parse_options() -> Namespace:
@@ -41,17 +43,16 @@ def parse_options() -> Namespace:
     ap.add_argument("-b", "--bucket-name", type=str, default=BUCKET_NAME, help="Name of the S3 bucket")
     ap.add_argument(
         "-p",
-        "--max-partition-size",
+        "--partitions",
         type=int,
-        default=1024 * 1024 * 1024 * 1024,  # 1 TB
-        help="Maximum size of a partition in bytes",
+        default=8,
+        help="Numbers of files to generate",
     )
     ap.add_argument(
         "-o",
         "--output-dir",
         type=Path,
-        default=None,
-        required=True,
+        default=DESTINATION,
         help="Path to the output directory for the new configs",
     )
     ap.add_argument("-s", "--seed", type=int, default=5051, help="Random seed for the partitioning.")
@@ -110,50 +111,31 @@ def main():
 
     sizes_and_keys = parallel_get_size(all_files, max_workers=opts.workers)
 
-    current_size = 0
-    output_cnt = 0
-    current_files: List[str] = []
+    # distribute files evenly across partitions
+    grouped_files: List[List[Tuple[str, int]]] = [list() for _ in range(opts.partitions)]
+    current = 0
+    for path in sorted(sizes_and_keys, key=lambda x: x[1], reverse=True):
+        grouped_files[current].append(path)
+        current = (current + 1) % opts.partitions
 
-    for key, size in sizes_and_keys:
-        if current_size + size > opts.max_partition_size:
-            # create a new config, figure out where to write it
-            output_path = opts.output_dir / f"{output_cnt}.json"
-            current_config = customize_config(
-                config=base_config,
-                output_cnt=output_cnt,
-                documents=current_files,
-                local_workdir_prefix=opts.local_workdir_prefix,
-            )
+    # write configs
+    for i, group in enumerate(grouped_files):
+        current_files, current_sizes = zip(*group)
+        total_size = sum(current_sizes)
+        output_path = opts.output_dir / f"{i}.json"
 
-            # actually write the config
-            with open_file_for_write(output_path, "wt") as f:
-                json.dump(current_config, f, indent=4)
-
-            # print stats
-            print(f"{output_path}: {current_size:.2e} bytes, {len(current_config['documents'])} files.")
-
-            # reset
-            current_size = 0
-            current_files = []
-            output_cnt += 1
-
-        current_files.append(key)
-        current_size += size
-
-    if len(current_files) > 0:
-        # in case we have some files left over, write them out
-        output_path = opts.output_dir / f"{output_cnt}.json"
         current_config = customize_config(
             config=base_config,
-            output_cnt=output_cnt,
-            documents=current_files,
+            output_cnt=i,
+            documents=[str(p) for p in current_files],
             local_workdir_prefix=opts.local_workdir_prefix,
         )
-
         with open_file_for_write(output_path, "wt") as f:
             json.dump(current_config, f, indent=4)
 
-        print(f"{output_path}: {current_size:.2e} bytes, {len(current_config['documents'])} files.")
+        # print stats
+        gb_size = total_size / ONE_GB
+        print(f"{output_path}: {gb_size:.2f} GB, {len(current_config['documents']):,} files.")
 
 
 if __name__ == "__main__":
