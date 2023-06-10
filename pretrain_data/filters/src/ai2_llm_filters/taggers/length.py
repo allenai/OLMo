@@ -69,6 +69,17 @@ class UnisegParagraphsV1(BaseTagger):
         return DocResult(doc=doc, spans=spans)
 
 
+@TaggerRegistry.add("uniseg_length_paragraphs_with_doc_length_v1")
+class UnisegParagraphsWithDocLengthV1(UnisegParagraphsV1):
+    def predict(self, doc: Document) -> DocResult:
+        doc_results = super().predict(doc)
+        pos_len = sum(s.score for s in doc_results.spans if s.type == "paragraph")
+        neg_len = sum(s.score for s in doc_results.spans if s.type == "negative_paragraph")
+        doc_results.spans.append(Span(start=0, end=len(doc.text), type="document", score=pos_len))
+        doc_results.spans.append(Span(start=0, end=len(doc.text), type="negative_document", score=neg_len))
+        return doc_results
+
+
 @TaggerRegistry.add("olmo_pretokenizer_v1")
 class OlmoPreTokenizerV1(BaseTagger):
     def __init__(self) -> None:

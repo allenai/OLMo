@@ -311,14 +311,11 @@ class BaseParallelProcessor:
         random.shuffle(paths)
 
         for path in paths:
-            if not self._valid_path(path):
-                continue
-
             source_path = MultiPath.parse(path)
             if not self.ignore_existing and (source_path - self.source_prefix).as_str in existing_metadata_names:
                 continue
 
-            if not _valid_path(source_path.as_str):
+            if not self._valid_path(source_path.as_str):
                 continue
 
             all_source_paths.append(source_path)
