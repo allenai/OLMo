@@ -1,12 +1,10 @@
 {
   "documents": [
-      "pretraining-data/sources/common-crawl/v1/documents/cc_en_head/*.gz",
-      "pretraining-data/sources/common-crawl/v1/documents/cc_en_middle/*.gz",
-      "pretraining-data/sources/common-crawl/v1/documents/cc_en_tail/*.gz"
+    "pretraining-data/sources/c4/v0-c4-cleaned/documents/*.gz"
   ],
   "work_dir": {
-    "input": "/tmp/v1/deduper/input",
-    "output": "/tmp/v1/deduper/output"
+    "input": "/tmp/c4/deduper/input",
+    "output": "/tmp/c4/deduper/output"
   },
   "dedupe": {
     "name": "decontamination",

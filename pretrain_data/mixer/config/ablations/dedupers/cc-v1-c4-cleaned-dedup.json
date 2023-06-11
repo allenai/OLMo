@@ -11,7 +11,7 @@
   "dedupe": {
     "name": "decontamination",
     "paragraphs": {
-      "attribute_name": "bff_duplicate_paragraph_spans"
+      "attribute_name": "bff_duplicate_paragraph_spans_decontamination"
     },
     "skip_empty": true
   },

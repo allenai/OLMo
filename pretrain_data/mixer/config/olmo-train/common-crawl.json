@@ -9,7 +9,7 @@
         "gopher_rules"
       ],
       "output": {
-        "path": "pretraining-data/sources/olmo-v1/common-crawl/documents/cc_en_head",
+        "path": "pretraining-data/sources/olmo-mix/v1/common-crawl/documents/cc_en_head",
         "max_size_in_bytes": 4294967296,
         "discard_fields": [
           "attributes",
@@ -40,9 +40,40 @@
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_7grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_7grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_7grams[0][2] > 0.13)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_8grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_8grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_8grams[0][2] > 0.12)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams[0][2] > 0.11)]",
-          "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0][2] > 0.10)]"
+          "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0][2] > 0.10)]",
+
+          "$@.attributes[?(@.bff_duplicate_paragraph_spans_decontamination && @.bff_duplicate_paragraph_spans_decontamination[0] && @.bff_duplicate_paragraph_spans_decontamination[0][2] >= 1.0)]",
+
+          "$.attributes[?(@.pi_regex_count_tagger__pii_regex_with_counts_v1__doc_count[0][2] > 5)]"
         ]
-      }
+      },
+      "span_replacement": [
+        {
+          "span": "$.attributes.hatespeech_nsfw_cc_v3__jigsaw_hatespeech_sentence_v2____label__toxic",
+          "min_score": 0.4,
+          "replacement": ""
+        },
+        {
+          "span": "$.attributes.hatespeech_nsfw_cc_v3__jigsaw_nsfw_sencence_v2____label__nsfw",
+          "min_score": 0.4,
+          "replacement": ""
+        },
+        {
+          "span": "$.attributes.pi_regex_count_tagger__pii_regex_with_counts_v1__EMAIL_ADDRESS",
+          "min_score": 0.5,
+          "replacement": " |||EMAIL_ADDRESS||| "
+        },
+        {
+          "span": "$.attributes.pi_regex_count_tagger__pii_regex_with_counts_v1__PHONE_NUMBER",
+          "min_score": 0.5,
+          "replacement": " |||PHONE_NUMBER||| "
+        },
+        {
+          "span": "$.attributes.pi_regex_count_tagger__pii_regex_with_counts_v1__IP_ADDRESS",
+          "min_score": 0.5,
+          "replacement": " |||IP_ADDRESS||| "
+        }
+      ]
     },
     {
       "name": "cc_en_middle",
@@ -53,7 +84,7 @@
         "gopher_rules"
       ],
       "output": {
-        "path": "pretraining-data/sources/olmo-v1/common-crawl/documents/cc_en_middle",
+        "path": "pretraining-data/sources/olmo-mix/v1/common-crawl/documents/cc_en_middle",
         "max_size_in_bytes": 4294967296,
         "discard_fields": [
           "attributes",
@@ -84,9 +115,40 @@
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_7grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_7grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_7grams[0][2] > 0.13)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_8grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_8grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_8grams[0][2] > 0.12)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams[0][2] > 0.11)]",
-          "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0][2] > 0.10)]"
+          "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0][2] > 0.10)]",
+
+          "$@.attributes[?(@.bff_duplicate_paragraph_spans_decontamination && @.bff_duplicate_paragraph_spans_decontamination[0] && @.bff_duplicate_paragraph_spans_decontamination[0][2] >= 1.0)]",
+
+          "$.attributes[?(@.pi_regex_count_tagger__pii_regex_with_counts_v1__doc_count[0][2] > 5)]"
         ]
-      }
+      },
+      "span_replacement": [
+        {
+          "span": "$.attributes.hatespeech_nsfw_cc_v3__jigsaw_hatespeech_sentence_v2____label__toxic",
+          "min_score": 0.4,
+          "replacement": ""
+        },
+        {
+          "span": "$.attributes.hatespeech_nsfw_cc_v3__jigsaw_nsfw_sencence_v2____label__nsfw",
+          "min_score": 0.4,
+          "replacement": ""
+        },
+        {
+          "span": "$.attributes.pi_regex_count_tagger__pii_regex_with_counts_v1__EMAIL_ADDRESS",
+          "min_score": 0.5,
+          "replacement": " |||EMAIL_ADDRESS||| "
+        },
+        {
+          "span": "$.attributes.pi_regex_count_tagger__pii_regex_with_counts_v1__PHONE_NUMBER",
+          "min_score": 0.5,
+          "replacement": " |||PHONE_NUMBER||| "
+        },
+        {
+          "span": "$.attributes.pi_regex_count_tagger__pii_regex_with_counts_v1__IP_ADDRESS",
+          "min_score": 0.5,
+          "replacement": " |||IP_ADDRESS||| "
+        }
+      ]
     },
     {
       "name": "cc_en_tail",
@@ -97,7 +159,7 @@
         "gopher_rules"
       ],
       "output": {
-        "path": "pretraining-data/sources/olmo-v1/common-crawl/documents/cc_en_tail",
+        "path": "pretraining-data/sources/olmo-mix/v1/common-crawl/documents/cc_en_tail",
         "max_size_in_bytes": 4294967296,
         "discard_fields": [
           "attributes",
@@ -128,14 +190,45 @@
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_7grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_7grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_7grams[0][2] > 0.13)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_8grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_8grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_8grams[0][2] > 0.12)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams[0][2] > 0.11)]",
-          "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0][2] > 0.10)]"
+          "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0][2] > 0.10)]",
+
+          "$@.attributes[?(@.bff_duplicate_paragraph_spans_decontamination && @.bff_duplicate_paragraph_spans_decontamination[0] && @.bff_duplicate_paragraph_spans_decontamination[0][2] >= 1.0)]",
+
+          "$.attributes[?(@.pi_regex_count_tagger__pii_regex_with_counts_v1__doc_count[0][2] > 5)]"
         ]
-      }
+      },
+      "span_replacement": [
+        {
+          "span": "$.attributes.hatespeech_nsfw_cc_v3__jigsaw_hatespeech_sentence_v2____label__toxic",
+          "min_score": 0.4,
+          "replacement": ""
+        },
+        {
+          "span": "$.attributes.hatespeech_nsfw_cc_v3__jigsaw_nsfw_sencence_v2____label__nsfw",
+          "min_score": 0.4,
+          "replacement": ""
+        },
+        {
+          "span": "$.attributes.pi_regex_count_tagger__pii_regex_with_counts_v1__EMAIL_ADDRESS",
+          "min_score": 0.5,
+          "replacement": " |||EMAIL_ADDRESS||| "
+        },
+        {
+          "span": "$.attributes.pi_regex_count_tagger__pii_regex_with_counts_v1__PHONE_NUMBER",
+          "min_score": 0.5,
+          "replacement": " |||PHONE_NUMBER||| "
+        },
+        {
+          "span": "$.attributes.pi_regex_count_tagger__pii_regex_with_counts_v1__IP_ADDRESS",
+          "min_score": 0.5,
+          "replacement": " |||IP_ADDRESS||| "
+        }
+      ]
     }
   ],
   "work_dir": {
-    "input": "/data/v2/work/input",
-    "output": "/data/v2/work/output"
+    "input": "/tmp/olmo-mix-v1/input",
+    "output": "/tmp/olmo-mix-v1/output"
   },
   "processes": 128
 }
