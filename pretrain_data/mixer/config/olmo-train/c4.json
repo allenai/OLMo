@@ -11,7 +11,7 @@
         "decontamination"
       ],
       "output": {
-        "path": "pretraining-data/sources/olmo-mix/v1/c4/documents/",
+        "path": "pretraining-data/sources/olmo-mix/v1/documents/c4",
         "max_size_in_bytes": 4294967296,
         "discard_fields": [
           "attributes",

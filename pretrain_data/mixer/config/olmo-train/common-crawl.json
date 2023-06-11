@@ -13,7 +13,7 @@
         "pii_detection"
       ],
       "output": {
-        "path": "pretraining-data/sources/olmo-mix/v1/common-crawl/documents/cc_en_head",
+        "path": "pretraining-data/sources/olmo-mix/v1/documents/common-crawl/cc_en_head",
         "max_size_in_bytes": 4294967296,
         "discard_fields": [
           "attributes",
@@ -92,7 +92,7 @@
         "pii_detection"
       ],
       "output": {
-        "path": "pretraining-data/sources/olmo-mix/v1/common-crawl/documents/cc_en_middle",
+        "path": "pretraining-data/sources/olmo-mix/v1/documents/common-crawl/cc_en_middle",
         "max_size_in_bytes": 4294967296,
         "discard_fields": [
           "attributes",
@@ -171,7 +171,7 @@
         "pii_detection"
       ],
       "output": {
-        "path": "pretraining-data/sources/olmo-mix/v1/common-crawl/documents/cc_en_tail",
+        "path": "pretraining-data/sources/olmo-mix/v1/documents/common-crawl/cc_en_tail",
         "max_size_in_bytes": 4294967296,
         "discard_fields": [
           "attributes",
