@@ -15,6 +15,7 @@ else:
 
 
 from typing import List
+from warnings import warn
 
 from presidio_analyzer import AnalyzerEngine
 
@@ -253,6 +254,10 @@ class FastPiiRegex(BaseTagger):
     def predict(self, doc: Document) -> DocResult:
         paragraphs = split_paragraphs(doc.text)
         spans: List[Span] = []
+
+        if doc.text.count('?') > 10_000:
+            warn("Skipping regex PII detection for doc with >10k question marks")
+            paragraphs = []
 
         for paragraph in paragraphs:
             spans.extend(self._predict_email(paragraph))
