@@ -6,7 +6,11 @@
         "pretraining-data/sources/common-crawl/v1-c4-cleaned/documents/cc_en_head/*"
       ],
       "attributes": [
-        "gopher_rules"
+        "decontamination",
+        "dedupe_paragraphs",
+        "gopher_rules",
+        "hatespeech_nsfw_cc_v3",
+        "pii_detection"
       ],
       "output": {
         "path": "pretraining-data/sources/olmo-mix/v1/common-crawl/documents/cc_en_head",
@@ -81,7 +85,11 @@
         "pretraining-data/sources/common-crawl/v1-c4-cleaned/documents/cc_en_middle/*"
       ],
       "attributes": [
-        "gopher_rules"
+        "decontamination",
+        "dedupe_paragraphs",
+        "gopher_rules",
+        "hatespeech_nsfw_cc_v3",
+        "pii_detection"
       ],
       "output": {
         "path": "pretraining-data/sources/olmo-mix/v1/common-crawl/documents/cc_en_middle",
@@ -156,7 +164,11 @@
         "pretraining-data/sources/common-crawl/v1-c4-cleaned/documents/cc_en_tail/*"
       ],
       "attributes": [
-        "gopher_rules"
+        "decontamination",
+        "dedupe_paragraphs",
+        "gopher_rules",
+        "hatespeech_nsfw_cc_v3",
+        "pii_detection"
       ],
       "output": {
         "path": "pretraining-data/sources/olmo-mix/v1/common-crawl/documents/cc_en_tail",

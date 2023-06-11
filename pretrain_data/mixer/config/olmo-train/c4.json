@@ -7,8 +7,8 @@
       ],
       "attributes": [
         "gopher_rules",
-        "olmo_mix_v1_taggers"
-
+        "olmo_mix_v1_taggers",
+        "decontamination"
       ],
       "output": {
         "path": "pretraining-data/sources/olmo-mix/v1/c4/documents/",
