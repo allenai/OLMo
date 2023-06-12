@@ -335,7 +335,7 @@ def make_source_and_target(
     "tokenizer_id",
     type=str,
     help="Name of path of a pretrained tokenizer",
-    default="EleutherAI/gpt-neox-20b",
+    default="allenai/eleuther-ai-gpt-neox-20b-pii-special",
 )
 @click.option("--dtype", "dtype_str", default="uint16")
 @click.option("--validate/--no-validate", default=False)
