@@ -2,6 +2,7 @@ import inspect
 import multiprocessing
 import pickle
 import random
+import re
 import time
 from contextlib import ExitStack
 from datetime import datetime
@@ -45,6 +46,7 @@ class BaseParallelProcessor:
         ignore_existing: bool = False,
         include_paths: Optional[List[str]] = None,
         exclude_paths: Optional[List[str]] = None,
+        files_regex_pattern: Optional[str] = None,
     ):
         """Initialize the parallel processor.
 
@@ -84,6 +86,7 @@ class BaseParallelProcessor:
 
         self.include_paths = set(include_paths) if include_paths is not None else None
         self.exclude_paths = set(exclude_paths) if exclude_paths is not None else None
+        self.files_regex_pattern = re.compile(files_regex_pattern) if files_regex_pattern else None
 
         # checking that the increment_progressbar method is subclassed
         # correctly
@@ -140,7 +143,9 @@ class BaseParallelProcessor:
         tries_remaining = kwargs.get("retry_on_read_error", 0) + 1
         while True:
             try:
-                cls.process_single(source_path=source_path, destination_path=destination_path, queue=queue, **kwargs)
+                cls.process_single(
+                    source_path=source_path, destination_path=destination_path, queue=queue, **kwargs
+                )
                 break
             except Ai2LlmRetryableFailure as e:
                 tries_remaining -= 1
@@ -185,7 +190,9 @@ class BaseParallelProcessor:
 
         with ExitStack() as stack:
             pbars = [
-                stack.enter_context(tqdm.tqdm(desc=str(k), unit=str(k)[:1], position=i, unit_scale=True))
+                stack.enter_context(
+                    tqdm.tqdm(desc=str(k), unit=str(k)[:1], position=i, unit_scale=True)  # pyright: ignore
+                )
                 for i, k in enumerate(sample_queue_output)
             ]
 
@@ -282,26 +289,33 @@ class BaseParallelProcessor:
             thread.join()
             manager.shutdown()
 
+    def _valid_path(self, path: str) -> bool:
+        if self.include_paths is not None and path not in self.include_paths:
+            return False
+        if self.exclude_paths is not None and path in self.exclude_paths:
+            return False
+        if self.files_regex_pattern is not None and not self.files_regex_pattern.search(path):
+            return False
+        return True
+
     def _get_all_paths(self) -> Tuple[List[MultiPath], List[MultiPath], List[MultiPath]]:
         """Get all paths to process using prefixes provided"""
         all_source_paths, all_destination_paths, all_metadata_paths = [], [], []
 
-        def _valid_path(path: str) -> bool:
-            return (self.include_paths is None or path in self.include_paths) and (
-                self.exclude_paths is None or path not in self.exclude_paths
-            )
-
         existing_metadata_names = set(
             (MultiPath.parse(path) - self.metadata_prefix).as_str.rstrip(METADATA_SUFFIX)
             for path in recursively_list_files(self.metadata_prefix)
-            if _valid_path(path)
         )
+
         paths = list(recursively_list_files(self.source_prefix))
         random.shuffle(paths)
 
         for path in paths:
             source_path = MultiPath.parse(path)
             if not self.ignore_existing and (source_path - self.source_prefix).as_str in existing_metadata_names:
+                continue
+
+            if not self._valid_path(source_path.as_str):
                 continue
 
             all_source_paths.append(source_path)
@@ -315,7 +329,10 @@ class BaseParallelProcessor:
     def __call__(self, **process_single_kwargs: Any):
         """Run the processor."""
         random.seed(self.seed)
+
         all_source_paths, all_destination_paths, all_metadata_paths = self._get_all_paths()
+
+        print(f"Found {len(all_source_paths):,} files to process")
 
         fn = self._debug_run_all if self.debug else self._multiprocessing_run_all
 

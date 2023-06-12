@@ -36,5 +36,8 @@ def split_sentences(text: str) -> List[TextSlice]:
     """
     Split a string into sentences.
     """
-    _, offsets = blingfire.text_to_sentences_and_offsets(text)
+    if text:
+        _, offsets = blingfire.text_to_sentences_and_offsets(text)
+    else:
+        offsets = []
     return [TextSlice(doc=text, start=start, end=end) for (start, end) in offsets]

@@ -17,11 +17,10 @@ from torchmetrics import MeanMetric
 
 from olmo.config import CheckpointType, TrainConfig
 from olmo.data import build_train_dataloader
-from olmo.eval import build_evaluator
+from olmo.eval import build_evaluators
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
 from olmo.model import Olmo
 from olmo.optim import build_optimizer, build_scheduler
-from olmo.tokenizer import Tokenizer
 from olmo.train import Trainer
 from olmo.util import (
     clean_opt,
@@ -77,11 +76,7 @@ def main(cfg: TrainConfig) -> None:
     train_loader = build_train_dataloader(cfg)
 
     # Construct evaluators.
-    evaluators = []
-    tokenizer = Tokenizer.from_train_config(cfg)
-    for eval_cfg in cfg.evaluators:
-        evaluators.append(build_evaluator(cfg, eval_cfg, tokenizer, device))
-
+    evaluators = build_evaluators(cfg, device)
     dist.barrier()
 
     # Maybe start W&B run.

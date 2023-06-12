@@ -2,10 +2,10 @@ import argparse
 import json
 import os
 from contextlib import ExitStack
-from pprint import pprint
 from typing import Dict, List, Optional
 
 import msgspec
+import yaml
 from smashed.utils.io_utils import (
     decompress_stream,
     recursively_list_files,
@@ -188,10 +188,23 @@ class RawPreviewer:
             file = stack.enter_context(stream_file_for_read(path, "rb"))
             stream = stack.enter_context(decompress_stream(file, "rt"))
 
+            list_colors = ["red", "green", "blue", "magenta", "cyan"]
+
             for line in stream:
                 row = json.loads(line)
-                pprint(row) if self.pretty else print(row)
-                input(colored("[press enter for next line]", color="yellow"))
+                if self.pretty:
+                    out = yaml.dump(row, width=float("inf"))
+                    for ln in out.split("\n"):
+                        if not ln.startswith("  "):
+                            key, *rest = ln.split(":")
+                            rest = (":" + ":".join(rest) if rest else "").strip()
+                            print(colored(key, color=list_colors[0]) + rest)
+                            list_colors = list_colors[1:] + list_colors[:1]
+                        else:
+                            print(ln)
+                else:
+                    print(row)
+                input(colored("\n[press enter for next line]", color="yellow"))
 
     def list_files(self):
         prefix = f"{self.BASE_S3_PREFIX}/{self.dataset}/documents"

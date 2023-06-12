@@ -20,6 +20,9 @@ class TaggerRegistry:
             taggers_dict: Dict[str, Type[BaseTagger]] = cls.__taggers,
         ) -> Type[T]:
             if tagger_name in taggers_dict and taggers_dict[tagger_name] != tagger_cls:
+                if tagger_cls.__module__ == "__main__":
+                    return tagger_cls
+
                 raise ValueError(f"Tagger {tagger_name} already exists")
 
             taggers_dict[tagger_name] = tagger_cls

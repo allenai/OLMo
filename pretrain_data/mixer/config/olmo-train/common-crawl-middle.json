@@ -1,23 +1,30 @@
 {
   "streams": [
     {
-      "name": "v1_small",
+      "name": "cc_en_middle",
       "documents": [
-        "pretraining-data/sources/common-crawl/v1-small-c4-cleaned/documents/*"
+        "pretraining-data/sources/common-crawl/v1-c4-cleaned/documents/cc_en_middle/*.json.gz"
+      ],
+      "attributes": [
+        "decontamination",
+        "dedupe_paragraphs",
+        "gopher_rules",
+        "hatespeech_nsfw_cc_v3",
+        "pii_detection"
       ],
       "output": {
-        "path": "pretraining-data/sources/common-crawl/v1-small-c4-cleaned-gopher-filtered/documents",
-        "max_size_in_bytes": 1,
-        "discard_fields": ["attributes", "metadata", "added", "created"]
+        "path": "pretraining-data/sources/olmo-mix/v1/documents/common-crawl/cc_en_middle",
+        "max_size_in_bytes": 4294967296,
+        "discard_fields": [
+          "attributes",
+          "metadata",
+          "added",
+          "created"
+        ]
       },
-      "attributes": [
-        "gopher_rules",
-        "decontamination"
-      ],
       "filter": {
         "include": [],
         "exclude": [
-          "$.attributes[?(@.bff_duplicate_paragraph_spans && @.bff_duplicate_paragraph_spans[0] && @.bff_duplicate_paragraph_spans[0][2] >= 1.0)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__word_count && @.gopher_rules__gopher_v1__word_count[0] && @.gopher_rules__gopher_v1__word_count[0][2] < 50)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__word_count && @.gopher_rules__gopher_v1__word_count[0] && @.gopher_rules__gopher_v1__word_count[0][2] > 100000)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__median_word_length && @.gopher_rules__gopher_v1__median_word_length[0] && @.gopher_rules__gopher_v1__median_word_length[0][2] < 3)]",
@@ -28,7 +35,7 @@
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_lines_starting_with_bullet_point && @.gopher_rules__gopher_v1__fraction_of_lines_starting_with_bullet_point[0] && @.gopher_rules__gopher_v1__fraction_of_lines_starting_with_bullet_point[0][2] > 0.9)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_lines_ending_with_ellipsis && @.gopher_rules__gopher_v1__fraction_of_lines_ending_with_ellipsis[0] && @.gopher_rules__gopher_v1__fraction_of_lines_ending_with_ellipsis[0][2] > 0.3)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_duplicate_lines && @.gopher_rules__gopher_v1__fraction_of_duplicate_lines[0] && @.gopher_rules__gopher_v1__fraction_of_duplicate_lines[0][2] > 0.3)]",
-          "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_lines && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_lines[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_lines[0][2] > 0.3)]", q
+          "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_lines && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_lines[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_lines[0][2] > 0.3)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_2gram && @.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_2gram[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_2gram[0][2] > 0.2)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_3gram && @.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_3gram[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_3gram[0][2] > 0.18)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_4gram && @.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_4gram[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_most_common_4gram[0][2] > 0.16)]",
@@ -37,14 +44,48 @@
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_7grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_7grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_7grams[0][2] > 0.13)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_8grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_8grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_8grams[0][2] > 0.12)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams[0][2] > 0.11)]",
-          "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0][2] > 0.10)]"
+          "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0][2] > 0.10)]",
+          "$@.attributes[?(@.bff_duplicate_paragraph_spans_decontamination && @.bff_duplicate_paragraph_spans_decontamination[0] && @.bff_duplicate_paragraph_spans_decontamination[0][2] >= 1.0)]",
+          "$.attributes[?(@.pii_detection__pii_regex_with_counts_fast_v2__doc_count[0][2] > 5)]"
         ]
-      }
+      },
+      "span_replacement": [
+        {
+          "span": "$.attributes.bff_duplicate_paragraph_spans",
+          "min_score": 0.5,
+          "replacement": ""
+        },
+        {
+          "span": "$.attributes.hatespeech_nsfw_cc_v3__jigsaw_hatespeech_sentence_v2____label__toxic",
+          "min_score": 0.4,
+          "replacement": ""
+        },
+        {
+          "span": "$.attributes.hatespeech_nsfw_cc_v3__jigsaw_nsfw_sencence_v2____label__nsfw",
+          "min_score": 0.4,
+          "replacement": ""
+        },
+        {
+          "span": "$.attributes.pii_detection__pii_regex_with_counts_fast_v2__EMAIL_ADDRESS",
+          "min_score": 0.5,
+          "replacement": " |||EMAIL_ADDRESS||| "
+        },
+        {
+          "span": "$.attributes.pii_detection__pii_regex_with_counts_fast_v2__PHONE_NUMBER",
+          "min_score": 0.5,
+          "replacement": " |||PHONE_NUMBER||| "
+        },
+        {
+          "span": "$.attributes.pii_detection__pii_regex_with_counts_fast_v2__IP_ADDRESS",
+          "min_score": 0.5,
+          "replacement": " |||IP_ADDRESS||| "
+        }
+      ]
     }
   ],
   "work_dir": {
-    "input": "/data1/work/input",
-    "output": "/data2/work/output"
+    "input": "/tmp/olmo-mix-v1/input",
+    "output": "/tmp/olmo-mix-v1/output"
   },
   "processes": 128
 }

@@ -1,8 +1,9 @@
 import logging
-from collections import defaultdict
+from collections import Counter
 from dataclasses import dataclass
 from statistics import median
-from typing import Any, Dict, List, Tuple
+from typing import Counter as CounterType
+from typing import List, Tuple
 
 from ..core_tools.data_types import DocResult, Document, Span
 from ..core_tools.registry import TaggerRegistry
@@ -106,59 +107,61 @@ def get_attributes(text: str) -> GopherAttributes:
         )
         attrs.required_word_count = sum(1 for word in words if word in REQUIRED_ENGLISH_WORDS)
 
-        for n in range(2, 5):
-            value = 0.0
-            ngrams = find_ngrams(words, n)
-            if ngrams:
-                ngram_counts = occurrence_counts(ngrams)
-                most_common_ngram, count = max(ngram_counts.items(), key=lambda x: x[1])
-                value = sum(len(s) for s in most_common_ngram) / character_count
-            attrs.fraction_of_characters_in_most_common_ngram.append((n, value))
+        all_counts = all_ngram_counts(words)
 
-        for n in range(5, 11):
-            value = 0.0
-            ngrams = find_ngrams(words, n)
-            if ngrams:
-                ngram_counts = occurrence_counts(ngrams)
-                # Over-count the characters in the same way for the denominator and numerator
-                ng_char_count = sum(sum(len(w) for w in ng) for ng in ngrams)
+        count_most_common_ngrams = {2, 3, 4}
+        for n, ngram_counts in all_counts:
+            if not ngram_counts:
+                continue
+            if n in count_most_common_ngrams:
+                most_common_ngram, count = ngram_counts.most_common(1)[0]
+                value = count * sum(len(w) for w in most_common_ngram) / character_count
+                attrs.fraction_of_characters_in_most_common_ngram.append((n, value))
+            else:
+                ng_char_count = sum(count * sum(len(w) for w in ng) for ng, count in ngram_counts.items())
                 value = (
-                    sum(sum(len(w) for w in ng) * count for ng, count in ngram_counts.items() if count > 1)
+                    sum(count * sum(len(w) for w in ng) for ng, count in ngram_counts.items() if count > 1)
                     / ng_char_count
                 )
-            attrs.fraction_of_characters_in_duplicate_ngrams.append((n, value))
+                attrs.fraction_of_characters_in_duplicate_ngrams.append((n, value))
 
         lines = text.split("\n")
         line_count = len(lines)
+        for line in lines:
+            if any(line.startswith(s) for s in BULLET_POINTS):
+                attrs.fraction_of_lines_starting_with_bullet_point += 1
+            if line.endswith("\u2026"):
+                attrs.fraction_of_lines_ending_with_ellipsis += 1
+        attrs.fraction_of_lines_starting_with_bullet_point /= line_count
+        attrs.fraction_of_lines_ending_with_ellipsis /= line_count
 
-        attrs.fraction_of_lines_starting_with_bullet_point = (
-            sum(1 for line in lines if any(line.startswith(s) for s in BULLET_POINTS)) / line_count
-        )
-        attrs.fraction_of_lines_ending_with_ellipsis = sum(1 for line in lines if line.endswith("\u2026")) / len(
-            lines
-        )
+        line_counts = Counter(lines)
         attrs.fraction_of_duplicate_lines = (
-            sum(count for line, count in occurrence_counts(lines).items() if count > 1) / line_count
+            sum(count for line, count in line_counts.items() if count > 1) / line_count
         )
-        attrs.fraction__of_characters_in_duplicate_lines = (
-            sum(len(line) * count for line, count in occurrence_counts(lines).items() if count > 1)
-            / character_count
+        attrs.fraction_of_characters_in_duplicate_lines = (
+            sum(len(line) * count for line, count in line_counts.items() if count > 1) / character_count
         )
     except Exception as e:
-        logging.exception(f"Error processing text: {text[:200]}")
+        logging.exception(f"Error processing text {e}: {text[:200]}")
 
     return attrs
 
 
-def occurrence_counts(objects: List[Any]) -> Dict[Any, int]:
-    counts = defaultdict(int)
-    for line in objects:
-        counts[line] += 1
-    return counts
+def all_ngram_counts(words) -> List[Tuple[int, CounterType[Tuple[str, ...]]]]:
+    return [(n, Counter(list(zip(*[words[i:] for i in range(n)])))) for n in range(2, 11)]
 
 
-def find_ngrams(words: List[str], n: int) -> List[Tuple[str, ...]]:
-    return list(zip(*[words[i:] for i in range(n)]))
+def all_ngram_counts_alt(words: List[str]) -> List[Tuple[int, CounterType[Tuple[str, ...]]]]:
+    """Seems like it should be faster, but isn't"""
+    ngram: List[Tuple[str, ...]] = list(zip(words, words[1:]))
+    all_counts = [(2, Counter(ngram))]
+
+    for n in range(3, 11):
+        ngram = list(a + (b,) for a, b in zip(ngram, words[n - 1 :]))
+        all_counts.append((n, Counter(ngram)))
+
+    return all_counts
 
 
 @TaggerRegistry.add("gopher_v1")

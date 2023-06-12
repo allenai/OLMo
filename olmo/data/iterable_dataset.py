@@ -20,7 +20,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
 
     def __init__(
         self,
-        dataset: Union[Sequence[List[int]], Sequence[torch.Tensor]],
+        dataset: Union[Sequence[List[int]], Sequence[torch.Tensor], Sequence[Dict[str, Any]]],
         *,
         seed: int = 0,
         start_index: int = 0,
@@ -93,4 +93,11 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         if worker_info is not None:
             indices = indices[worker_info.id :: worker_info.num_workers]
 
-        return ({"input_ids": self.dataset[idx], "index": idx} for idx in indices)
+        return (self._get_dataset_item(idx) for idx in indices)
+
+    def _get_dataset_item(self, idx: int) -> Dict[str, Any]:
+        item = self.dataset[idx]
+        if isinstance(item, dict):
+            return dict(**item, index=idx)
+        else:
+            return {"input_ids": item, "index": idx}

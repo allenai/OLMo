@@ -1,10 +1,11 @@
 [project]
 name = "ai2-llm-filters"
-version = "0.4.0"
+version = "0.5.1"
 description = "Data filters"
 authors = [
     {name = "Aakanksha Naik", email = "aakankshan@allenai.org" },
     {name = "Abhilasha Ravichander", email = "abhilashar@allenai.org" },
+    {name = "Akshita Bhagia", email = "akshitab@allenai.org" },
     {name = "Ian Magnusson", email = "ianm@allenai.org" },
     {name = "Khyathi Chandu", email = "khyathic@allenai.org" },
     {name = "Kyle Lo", email = "kylel@allenai.org" },
@@ -19,8 +20,8 @@ dependencies = [
     "tqdm",
     "boto3",
     "cached-path==1.3.4",
-    "msgspec==0.14.2",
-    "smashed[remote]==0.20.0",
+    "msgspec>=0.14.2",
+    "smashed[remote]>=0.20.0",
     "presidio_analyzer==2.2.32",
     "pycld2==0.41",
     "pycld3==0.22",
@@ -29,6 +30,8 @@ dependencies = [
     "tokenizers==0.13.3",
     "unidecode",
     "uniseg",
+    "pyyaml",
+    "detect-secrets==1.4.0",
     "termcolor==2.3.0"
 ]
 classifiers = [
