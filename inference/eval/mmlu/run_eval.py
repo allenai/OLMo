@@ -1,22 +1,25 @@
 import argparse
+import json
 import os
-import torch
+
 import numpy as np
 import pandas as pd
-import time
-import json
+import torch
+from eval.mmlu.categories import categories, subcategories
+from eval.utils import (
+    get_next_word_predictions,
+    load_hf_lm_and_tokenizer,
+    query_openai_chat_model,
+)
 from tqdm import tqdm
-import time
-from eval.mmlu.categories import subcategories, categories
-from eval.utils import get_next_word_predictions, load_hf_lm_and_tokenizer, query_openai_chat_model
 
 choices = ["A", "B", "C", "D"]
 
 
 def format_subject(subject):
-    l = subject.split("_")
+    lst = subject.split("_")
     s = ""
-    for entry in l:
+    for entry in lst:
         s += " " + entry
     return s
 
@@ -51,7 +54,7 @@ def eval_hf_model(args, subject, model, tokenizer, dev_df, test_df, batch_size=1
         prompt_end = format_example(test_df, i, include_answer=False)
         train_prompt = gen_prompt(dev_df, subject, k)
         prompt = train_prompt + prompt_end
-        
+
         tokenized_prompt = tokenizer(prompt, return_tensors="pt", add_special_tokens=False).input_ids
         # make sure every prompt is less than 2048 tokens
         while tokenized_prompt.shape[-1] > 2048:
@@ -62,14 +65,19 @@ def eval_hf_model(args, subject, model, tokenizer, dev_df, test_df, batch_size=1
 
         if args.use_chat_format:
             prompt = "<|user|>\n" + prompt.strip() + "\n<|assistant|>\nThe answer is:"
-            
+
         prompts.append(prompt)
 
     # get the answer for all examples
     # note: here we cannot directly use convert_tokens_to_ids because the some tokenizers will automatically add space prefix.
     answer_choice_ids = [tokenizer.encode(answer_choice, add_special_tokens=False)[0] for answer_choice in choices]
     pred_indices, all_probs = get_next_word_predictions(
-        model, tokenizer, prompts, candidate_token_ids=answer_choice_ids, return_token_predictions=False, batch_size=batch_size
+        model,
+        tokenizer,
+        prompts,
+        candidate_token_ids=answer_choice_ids,
+        return_token_predictions=False,
+        batch_size=batch_size,
     )
 
     # get the metrics
@@ -79,7 +87,7 @@ def eval_hf_model(args, subject, model, tokenizer, dev_df, test_df, batch_size=1
         prediction = choices[pred_indices[i]]
         ground_truth = groud_truths[i]
         cors.append(prediction == ground_truth)
-        
+
     acc = np.mean(cors)
     cors = np.array(cors)
 
@@ -89,17 +97,19 @@ def eval_hf_model(args, subject, model, tokenizer, dev_df, test_df, batch_size=1
 
 
 def eval_openai_chat_engine(args, subject, engine, dev_df, test_df, batch_size=1):
-    
     import tiktoken
+
     gpt_tokenizer = tiktoken.get_encoding("cl100k_base")
-    answer_choice_ids = [gpt_tokenizer.encode(" " + x)[0] for x in choices]  # be careful, the tokenizer will tokenize " A" and "A" differently.
+    answer_choice_ids = [
+        gpt_tokenizer.encode(" " + x)[0] for x in choices
+    ]  # be careful, the tokenizer will tokenize " A" and "A" differently.
 
     prompts = []
     for i in range(0, test_df.shape[0]):
         k = args.ntrain
         prompt_end = format_example(test_df, i, include_answer=False)
         train_prompt = gen_prompt(dev_df, subject, k)
-        prompt = train_prompt + prompt_end        
+        prompt = train_prompt + prompt_end
         prompts.append(prompt)
 
     instances = [{"id": prompt, "prompt": prompt} for _, prompt in enumerate(prompts)]
@@ -111,7 +121,7 @@ def eval_openai_chat_engine(args, subject, engine, dev_df, test_df, batch_size=1
         logit_bias={token_id: 100 for token_id in answer_choice_ids},
         max_tokens=1,
     )
-    
+
     # get the metrics
     cors = []
     groud_truths = test_df.iloc[:, -1].values
@@ -119,37 +129,37 @@ def eval_openai_chat_engine(args, subject, engine, dev_df, test_df, batch_size=1
         prediction = results[i]["output"].strip()
         ground_truth = groud_truths[i]
         cors.append(prediction == ground_truth)
-        
+
     acc = np.mean(cors)
     cors = np.array(cors)
 
-    all_probs = np.array([[0.25, 0.25, 0.25, 0.25] for _ in range(len(test_df))]) # dummy probs, just don't want to dig into the openai probs
+    all_probs = np.array(
+        [[0.25, 0.25, 0.25, 0.25] for _ in range(len(test_df))]
+    )  # dummy probs, just don't want to dig into the openai probs
 
     print("Average accuracy {:.3f} - {}".format(acc, subject))
     return cors, acc, all_probs
 
-def main(args):
 
+def main(args):
     if args.model_name_or_path:
         print("Loading model and tokenizer...")
         model, tokenizer = load_hf_lm_and_tokenizer(
-            model_name_or_path=args.model_name_or_path, 
+            model_name_or_path=args.model_name_or_path,
             tokenizer_name_or_path=args.tokenizer_name_or_path,
-            load_in_8bit=args.load_in_8bit, 
+            load_in_8bit=args.load_in_8bit,
             load_in_half=True,
-            gptq_model=args.gptq
+            gptq_model=args.gptq,
         )
-    
+
     subjects = sorted(
-        [
-            f.split("_test.csv")[0]
-            for f in os.listdir(os.path.join(args.data_dir, "test"))
-            if "_test.csv" in f
-        ]
+        [f.split("_test.csv")[0] for f in os.listdir(os.path.join(args.data_dir, "test")) if "_test.csv" in f]
     )
 
     if args.subjects:
-        assert all(subj in subjects for subj in args.subjects), f"Some of the subjects you specified are not valid: {args.subjects}"
+        assert all(
+            subj in subjects for subj in args.subjects
+        ), f"Some of the subjects you specified are not valid: {args.subjects}"
         subjects = args.subjects
 
     if not os.path.exists(args.save_dir):
@@ -158,27 +168,24 @@ def main(args):
         os.makedirs(os.path.join(args.save_dir))
 
     all_cors = []
-    subcat_cors = {
-        subcat: [] for subcat_lists in subcategories.values() for subcat in subcat_lists
-    }
+    subcat_cors = {subcat: [] for subcat_lists in subcategories.values() for subcat in subcat_lists}
     cat_cors = {cat: [] for cat in categories}
 
-    for subject in tqdm(subjects, desc=f"Evaluating subjects: "):
-        
-        dev_df = pd.read_csv(
-            os.path.join(args.data_dir, "dev", subject + "_dev.csv"), header=None
-        )[: args.ntrain]
-        test_df = pd.read_csv(
-            os.path.join(args.data_dir, "test", subject + "_test.csv"), header=None
-        )
+    for subject in tqdm(subjects, desc="Evaluating subjects: "):
+        dev_df = pd.read_csv(os.path.join(args.data_dir, "dev", subject + "_dev.csv"), header=None)[: args.ntrain]
+        test_df = pd.read_csv(os.path.join(args.data_dir, "test", subject + "_test.csv"), header=None)
         if args.n_instances and args.n_instances < test_df.shape[0]:
             test_df = test_df.sample(args.n_instances, random_state=42)
 
         if args.model_name_or_path:
-            cors, acc, probs = eval_hf_model(args, subject, model, tokenizer, dev_df, test_df, args.eval_batch_size)
+            cors, acc, probs = eval_hf_model(
+                args, subject, model, tokenizer, dev_df, test_df, args.eval_batch_size
+            )
         else:
-            cors, acc, probs = eval_openai_chat_engine(args, subject, args.openai_engine, dev_df, test_df, args.eval_batch_size)
-            
+            cors, acc, probs = eval_openai_chat_engine(
+                args, subject, args.openai_engine, dev_df, test_df, args.eval_batch_size
+            )
+
         subcats = subcategories[subject]
         for subcat in subcats:
             subcat_cors[subcat].append(cors)
@@ -192,9 +199,7 @@ def main(args):
             choice = choices[j]
             test_df["choice{}_probs".format(choice)] = probs[:, j]
         test_df.to_csv(
-            os.path.join(
-                args.save_dir, "{}.csv".format(subject)
-            ),
+            os.path.join(args.save_dir, "{}.csv".format(subject)),
             index=None,
         )
 
@@ -213,14 +218,8 @@ def main(args):
         json.dump(
             {
                 "average_acc": weighted_acc,
-                "subcat_acc": {
-                    subcat: np.mean(np.concatenate(subcat_cors[subcat]))
-                    for subcat in subcat_cors
-                },
-                "cat_acc": {
-                    cat: np.mean(np.concatenate(cat_cors[cat]))
-                    for cat in cat_cors
-                },
+                "subcat_acc": {subcat: np.mean(np.concatenate(subcat_cors[subcat])) for subcat in subcat_cors},
+                "cat_acc": {cat: np.mean(np.concatenate(cat_cors[cat])) for cat in cat_cors},
             },
             f,
         )
@@ -231,17 +230,52 @@ if __name__ == "__main__":
     parser.add_argument("--ntrain", type=int, default=5)
     parser.add_argument("--data_dir", type=str, default="data/mmlu")
     parser.add_argument("--save_dir", type=str, default="results/mmlu/llama-7B/")
-    parser.add_argument("--model_name_or_path", type=str, default=None, help="if specified, we will load the model to generate the predictions.")
-    parser.add_argument("--tokenizer_name_or_path", type=str, default=None, help="if specified, we will load the tokenizer from here.")
-    parser.add_argument("--openai_engine", type=str, default=None, help="if specified, we will use the OpenAI API to generate the predictions.")
-    parser.add_argument("--subjects", nargs="*", help="which subjects to evaluate. If not specified, all the 57 subjects will be evaluated.")
-    parser.add_argument("--n_instances", type=int, help="if specified, a maximum of n_instances per subject will be used for the evaluation.")
+    parser.add_argument(
+        "--model_name_or_path",
+        type=str,
+        default=None,
+        help="if specified, we will load the model to generate the predictions.",
+    )
+    parser.add_argument(
+        "--tokenizer_name_or_path",
+        type=str,
+        default=None,
+        help="if specified, we will load the tokenizer from here.",
+    )
+    parser.add_argument(
+        "--openai_engine",
+        type=str,
+        default=None,
+        help="if specified, we will use the OpenAI API to generate the predictions.",
+    )
+    parser.add_argument(
+        "--subjects",
+        nargs="*",
+        help="which subjects to evaluate. If not specified, all the 57 subjects will be evaluated.",
+    )
+    parser.add_argument(
+        "--n_instances",
+        type=int,
+        help="if specified, a maximum of n_instances per subject will be used for the evaluation.",
+    )
     parser.add_argument("--eval_batch_size", type=int, default=1, help="batch size for evaluation.")
-    parser.add_argument("--load_in_8bit", action="store_true", help="load model in 8bit mode, which will reduce memory and speed up inference.")
-    parser.add_argument("--gptq", action="store_true", help="If given, we're evaluating a 4-bit quantized GPTQ model.")
-    parser.add_argument("--use_chat_format", action="store_true", help="If given, the prompt will be encoded as a chat format with the roles in prompt.")
+    parser.add_argument(
+        "--load_in_8bit",
+        action="store_true",
+        help="load model in 8bit mode, which will reduce memory and speed up inference.",
+    )
+    parser.add_argument(
+        "--gptq", action="store_true", help="If given, we're evaluating a 4-bit quantized GPTQ model."
+    )
+    parser.add_argument(
+        "--use_chat_format",
+        action="store_true",
+        help="If given, the prompt will be encoded as a chat format with the roles in prompt.",
+    )
     args = parser.parse_args()
 
     # model_name_or_path and openai_engine cannot be both None or both not None.
-    assert (args.model_name_or_path is None) != (args.openai_engine is None), "Either model_name_or_path or openai_engine should be specified."
+    assert (args.model_name_or_path is None) != (
+        args.openai_engine is None
+    ), "Either model_name_or_path or openai_engine should be specified."
     main(args)

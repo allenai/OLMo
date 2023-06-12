@@ -1,19 +1,21 @@
-'''
+"""
 This file is copied and modified from https://gist.github.com/neubig/80de662fb3e225c18172ec218be4917a.
 Thanks to Graham Neubig for sharing the original code.
-'''
+"""
 
-import openai
 import asyncio
 from typing import Any
 
+import openai
+
+
 async def dispatch_openai_chat_requesets(
-    messages_list: list[list[dict[str,Any]]],
+    messages_list: list[list[dict[str, Any]]],
     model: str,
     **completion_kwargs: Any,
 ) -> list[str]:
     """Dispatches requests to OpenAI chat completion API asynchronously.
-    
+
     Args:
         messages_list: List of messages to be sent to OpenAI chat completion API.
         model: OpenAI model to use.
@@ -38,7 +40,7 @@ async def dispatch_openai_prompt_requesets(
     **completion_kwargs: Any,
 ) -> list[str]:
     """Dispatches requests to OpenAI text completion API asynchronously.
-    
+
     Args:
         prompt_list: List of prompts to be sent to OpenAI text completion API.
         model: OpenAI model to use.
@@ -68,13 +70,11 @@ if __name__ == "__main__":
             temperature=0.3,
             max_tokens=200,
             top_p=1.0,
-
         )
     )
 
     for i, x in enumerate(chat_completion_responses):
         print(f"Chat completion response {i}:\n{x['choices'][0]['message']['content']}\n\n")
-
 
     prompt_completion_responses = asyncio.run(
         dispatch_openai_prompt_requesets(
