@@ -139,3 +139,39 @@ Running paragraph deduplication on ~8 shards, each has about 1.1TB (see above).
 ~/target/release/deduper pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/6.json
 ~/target/release/deduper pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/7.json
 ```
+
+
+After mixing, start tokenizing sources:
+
+Books:
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1/documents/books \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/sources/olmo-mix/v1/gpt-neox-20b-pii-special/books \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120
+```
+
+Semantic Scholar:
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1/documents/s2 \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/sources/olmo-mix/v1/gpt-neox-20b-pii-special/s2 \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120
+```
+
+Wikipedia:
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1/documents/wiki \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/sources/olmo-mix/v1/gpt-neox-20b-pii-special/wiki \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120
+```

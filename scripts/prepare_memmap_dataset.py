@@ -353,7 +353,7 @@ def make_source_and_target(
 @click.option(
     "--safe-mode/--fast-mode", default=False, help="Safe mode caches locally and decompresses using gzip.open"
 )
-@click.option("-j", "--workers", "max_workers", type=int, default=None, help="Defaults to number of CPUs")
+@click.option("-j", "--workers", "max_workers", type=int, default=1, help="Defaults to number of CPUs")
 def main(
     src: Tuple[str, ...],
     output: str,
@@ -367,8 +367,24 @@ def main(
     random_seed: int = 3920,
     repeat_sequence: int = 1,
     paths_per_worker: int = 1,
-    max_workers: Optional[int] = None,
+    max_workers: int = 1,
 ):
+    print("=== CONFIGURATION ===")
+    print(f"src:              {src}")
+    print(f"output:           {output}")
+    print(f"tokenizer_id:     {tokenizer_id}")
+    print(f"dtype_str:        {dtype_str}")
+    print(f"validate:         {validate}")
+    print(f"max_tokens:       {max_tokens}")
+    print(f"safe_mode:        {safe_mode}")
+    print(f"debug:            {debug}")
+    print(f"sample_rate:      {sample_rate}")
+    print(f"random_seed:      {random_seed}")
+    print(f"repeat_sequence:  {repeat_sequence}")
+    print(f"paths_per_worker: {paths_per_worker}")
+    print(f"max_workers:      {max_workers}")
+    print("=====================")
+
     dtype = np.dtype(dtype_str)
     exploded_src, exploded_dst = make_source_and_target(
         src=src, output=output, random_seed=random_seed, paths_per_worker=paths_per_worker
