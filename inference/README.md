@@ -5,7 +5,7 @@
 Run the following:
 
 ```
-python run_compression.py \
+python compression/run_compression.py \
     --pretrained-model facebook/opt-125m \
     --quantized-model-dir quantized_opt125m \
     --n-samples 128
@@ -53,6 +53,7 @@ Average accuracy: 0.229
 Run the following:
 
 ```
+cd efficiency
 ./run_efficiency_benchmark.sh facebook/opt-125m quantized_opt125m
 ```
 
