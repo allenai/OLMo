@@ -74,7 +74,7 @@ if __name__ == "__main__":
     )
 
     for i, x in enumerate(chat_completion_responses):
-        print(f"Chat completion response {i}:\n{x['choices'][0]['message']['content']}\n\n")
+        print(f"Chat completion response {i}:\n{x['choices'][0]['message']['content']}\n\n")  # type: ignore
 
     prompt_completion_responses = asyncio.run(
         dispatch_openai_prompt_requesets(
@@ -90,4 +90,4 @@ if __name__ == "__main__":
     )
 
     for i, x in enumerate(prompt_completion_responses):
-        print(f"Prompt completion response {i}:\n{x['choices'][0]['text']}\n\n")
+        print(f"Prompt completion response {i}:\n{x['choices'][0]['text']}\n\n")  # type: ignore
