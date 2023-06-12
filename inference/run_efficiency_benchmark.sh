@@ -1,1 +1,0 @@
-efficiency-benchmark run --task wikitext-prompt   --scenario single_stream --limit 100 -- python run_efficiency_benchmark.py --pretrained_model_dir facebook/opt-125m --quantized_model_dir quantized_opt_test

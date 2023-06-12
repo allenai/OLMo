@@ -1,9 +1,9 @@
 # Code to run model using Hao's efficiency benchmark.
 # To get this to run, do `pip install auto-gptq[triton]`
 
+import argparse
 import json
 import sys
-import argparse
 
 import torch
 from auto_gptq import AutoGPTQForCausalLM
@@ -33,28 +33,22 @@ def stdio_predictor_wrapper(predictor):
 
 class AutoGPTQAlpaca:
     def __init__(self, pretrained_model_dir, quantized_model_dir):
-        device = (
-            torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-        )
+        device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
         # pretrained_model_dir = (
         #    "/net/nfs.cirrascale/allennlp/yizhongw/hf_llama_models/7B"
         # )
         # quantized_model_dir = (
-        #    "/net/nfs.cirrascale/allennlp/davidw/checkpoints/gptq_llama_7b" 
+        #    "/net/nfs.cirrascale/allennlp/davidw/checkpoints/gptq_llama_7b"
         # )
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            pretrained_model_dir, use_fast=False
-        )
+        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model_dir, use_fast=False)
         self.tokenizer.padding_size = "left"
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.unk_token
             self.tokenizer.pad_token_id = self.tokenizer.unk_token_id
 
-        self.model = AutoGPTQForCausalLM.from_quantized(
-            quantized_model_dir, device=device, use_triton=False
-        )
+        self.model = AutoGPTQForCausalLM.from_quantized(quantized_model_dir, device=device, use_triton=False)
 
     def predict(self, inputs):
         inputs = self.tokenizer.batch_encode_plus(
@@ -68,22 +62,21 @@ class AutoGPTQAlpaca:
         for output in outputs:
             yield output.strip()
 
+
 def get_args():
-    parser = argparse.ArgumentParser(
-        description="Run efficiency benchmark"
-    )
+    parser = argparse.ArgumentParser(description="Run efficiency benchmark")
     parser.add_argument(
-        "--pretrained_model_dir", type=str, help="Path to unquantized model."
+        "--pretrained-model",
+        type=str,
+        help="Path to the unquantized model / Name of the unquantized huggingface model.",
     )
-    parser.add_argument(
-        "--quantized_model_dir", type=str, help="Path to quantized model."
-    )
+    parser.add_argument("--quantized-model-dir", type=str, help="Path to quantized model.")
     args = parser.parse_args()
 
     return args
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     args = get_args()
     predictor = AutoGPTQAlpaca(args.pretrained_model_dir, args.quantized_model_dir)
     stdio_predictor_wrapper(predictor)

@@ -2,6 +2,7 @@ from auto_gptq.modeling._base import BaseGPTQForCausalLM
 
 # NOTE: In progress; may change if OLMo model is updated.
 
+
 class OlmoGPTQForCausalLM(BaseGPTQForCausalLM):
     # Attribute name of Transformer layer block.
     layers_block_name = "transformer.blocks"  # NOTE(wadden) Correct
@@ -27,9 +28,8 @@ class OlmoGPTQForCausalLM(BaseGPTQForCausalLM):
         ["transformer.blocks.att_proj"],
         ["transformer.blocks.att_out"],
         ["transformer.blocks.ff_proj"],
-        ["transformer.blocks.ff_out"]
+        ["transformer.blocks.ff_out"],
     ]
 
 
 __all__ = ["OlmoGPTQForCausalLM"]
-

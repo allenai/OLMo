@@ -10,12 +10,13 @@ python quantize_autogptq.py \
 
 
 import argparse
-from transformers import AutoTokenizer
-from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
-from datasets import load_dataset
+import time
+
 import numpy as np
 import torch
-import time
+from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
+from datasets import load_dataset
+from transformers import AutoTokenizer
 
 
 def get_wikitext2(nsamples, seed, seqlen, model):
@@ -43,18 +44,14 @@ def get_wikitext2(nsamples, seed, seqlen, model):
 
 
 def get_args():
-    parser = argparse.ArgumentParser(
-        description="Run 4-bit model quantization using GPTQ."
-    )
+    parser = argparse.ArgumentParser(description="Run 4-bit model quantization using GPTQ.")
     parser.add_argument(
-        "--pretrained_model_dir", type=str, help="Path to unquantized model."
+        "--pretrained-model",
+        type=str,
+        help="Path to the unquantized model / Name of the unquantized huggingface model.",
     )
-    parser.add_argument(
-        "--quantized_model_dir", type=str, help="Path to quantized model."
-    )
-    parser.add_argument(
-        "--n_samples", type=int, help="How many samples from Wikitext.", default=128
-    )
+    parser.add_argument("--quantized-model-dir", type=str, help="Output path for the quantized model.")
+    parser.add_argument("--n-samples", type=int, help="Number of samples from Wikitext", default=128)
     args = parser.parse_args()
 
     return args
@@ -65,9 +62,7 @@ def main():
     args = get_args()
 
     print("Getting data.")
-    trainloader, testenc = get_wikitext2(
-        args.n_samples, 0, 2048, args.pretrained_model_dir
-    )
+    trainloader, testenc = get_wikitext2(args.n_samples, 0, 2048, args.pretrained_model_dir)
     print("Done.")
 
     quantize_config = BaseQuantizeConfig(
@@ -77,9 +72,7 @@ def main():
 
     print("Loading unquantized model")
     # Load un-quantized model, the model will always be force loaded into cpu
-    model = AutoGPTQForCausalLM.from_pretrained(
-        args.pretrained_model_dir, quantize_config
-    )
+    model = AutoGPTQForCausalLM.from_pretrained(args.pretrained_model_dir, quantize_config)
     print("Done")
 
     # Quantize model, the examples should be list of dict whose keys can only be
