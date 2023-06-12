@@ -17,7 +17,7 @@ Run the following:
 
 ```
 cd eval/mmlu
-./eval_on_mmlu.sh ../../quantized_opt125m facebook/opt-125m /net/nfs.cirrascale/allennlp/akshitab/data eval_results
+./eval_on_mmlu.sh ../../quantized_opt125m facebook/opt-125m /net/nfs.cirrascale/allennlp/akshitab/data/mmlu eval_results
 ```
 
 Output format:
