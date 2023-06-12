@@ -15,6 +15,7 @@ else:
 
 
 from typing import List
+from warnings import warn
 
 from presidio_analyzer import AnalyzerEngine
 
@@ -254,6 +255,10 @@ class FastPiiRegex(BaseTagger):
         paragraphs = split_paragraphs(doc.text)
         spans: List[Span] = []
 
+        if doc.text.count('?') > 10_000:
+            warn("Skipping regex PII detection for doc with >10k question marks")
+            paragraphs = []
+
         for paragraph in paragraphs:
             spans.extend(self._predict_email(paragraph))
             spans.extend(self._predict_phone(paragraph))
@@ -263,10 +268,14 @@ class FastPiiRegex(BaseTagger):
         score = sum(1.0 for s in spans if s.type != "doc")
         spans.append(Span(start=0, end=len(doc.text), type="doc_count", score=score))
 
-        # fraction of words that are PII
-        score = sum(len(s) for s in spans) / len(doc.text)
-        spans.append(Span(start=0, end=len(doc.text), type="doc_frac", score=score))
+        try:
+            # fraction of words that are PII
+            score = sum(len(s) for s in spans) / len(doc.text)
+        except ZeroDivisionError:
+            # empty doc
+            score = -1.0
 
+        spans.append(Span(start=0, end=len(doc.text), type="doc_frac", score=score))
         return DocResult(doc=doc, spans=spans)
 
 

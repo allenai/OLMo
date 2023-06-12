@@ -1,17 +1,19 @@
 {
   "streams": [
     {
-      "name": "c4",
+      "name": "cc_en_tail",
       "documents": [
-        "pretraining-data/sources/c4/v0-c4-cleaned/documents/*"
+        "pretraining-data/sources/common-crawl/v1-c4-cleaned/documents/cc_en_tail/*.json.gz"
       ],
       "attributes": [
+        "decontamination",
+        "dedupe_paragraphs",
         "gopher_rules",
-        "olmo_mix_v1_taggers",
-        "decontamination"
+        "hatespeech_nsfw_cc_v3",
+        "pii_detection"
       ],
       "output": {
-        "path": "pretraining-data/sources/olmo-mix/v1/documents/c4",
+        "path": "pretraining-data/sources/olmo-mix/v1/documents/common-crawl/cc_en_tail",
         "max_size_in_bytes": 4294967296,
         "discard_fields": [
           "attributes",
@@ -43,35 +45,38 @@
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_8grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_8grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_8grams[0][2] > 0.12)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams[0][2] > 0.11)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0][2] > 0.10)]",
-
           "$@.attributes[?(@.bff_duplicate_paragraph_spans_decontamination && @.bff_duplicate_paragraph_spans_decontamination[0] && @.bff_duplicate_paragraph_spans_decontamination[0][2] >= 1.0)]",
-
-          "$.attributes[?(@.olmo_mix_v1_taggers__pii_regex_with_counts_v2__doc[0][2] > 5)]"
+          "$.attributes[?(@.pii_detection__pii_regex_with_counts_fast_v2__doc_count[0][2] > 5)]"
         ]
       },
       "span_replacement": [
         {
-          "span": "$.attributes.olmo_mix_v1_taggers__jigsaw_hatespeech_sentence_v2____label__toxic",
+          "span": "$.attributes.bff_duplicate_paragraph_spans",
+          "min_score": 0.5,
+          "replacement": ""
+        },
+        {
+          "span": "$.attributes.hatespeech_nsfw_cc_v3__jigsaw_hatespeech_sentence_v2____label__toxic",
           "min_score": 0.4,
           "replacement": ""
         },
         {
-          "span": "$.attributes.olmo_mix_v1_taggers__jigsaw_nsfw_sencence_v2____label__nsfw",
+          "span": "$.attributes.hatespeech_nsfw_cc_v3__jigsaw_nsfw_sencence_v2____label__nsfw",
           "min_score": 0.4,
           "replacement": ""
         },
         {
-          "span": "$.attributes.olmo_mix_v1_taggers__pii_regex_with_counts_v2__EMAIL_ADDRESS",
+          "span": "$.attributes.pii_detection__pii_regex_with_counts_fast_v2__EMAIL_ADDRESS",
           "min_score": 0.5,
           "replacement": " |||EMAIL_ADDRESS||| "
         },
         {
-          "span": "$.attributes.olmo_mix_v1_taggers__pii_regex_with_counts_v2__PHONE_NUMBER",
+          "span": "$.attributes.pii_detection__pii_regex_with_counts_fast_v2__PHONE_NUMBER",
           "min_score": 0.5,
           "replacement": " |||PHONE_NUMBER||| "
         },
         {
-          "span": "$.attributes.olmo_mix_v1_taggers__pii_regex_with_counts_v2__IP_ADDRESS",
+          "span": "$.attributes.pii_detection__pii_regex_with_counts_fast_v2__IP_ADDRESS",
           "min_score": 0.5,
           "replacement": " |||IP_ADDRESS||| "
         }
@@ -79,8 +84,8 @@
     }
   ],
   "work_dir": {
-    "input": "/tmp/olmo-mix-v1/c4/input",
-    "output": "/tmp/olmo-mix-v1/c4/output"
+    "input": "/tmp/olmo-mix-v1/input",
+    "output": "/tmp/olmo-mix-v1/output"
   },
   "processes": 128
 }
