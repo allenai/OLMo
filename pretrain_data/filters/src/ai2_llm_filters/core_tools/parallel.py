@@ -312,15 +312,13 @@ class BaseParallelProcessor:
 
         for path in paths:
             source_path = MultiPath.parse(path)
-            print(f"Checking {source_path.as_str}")
             if not self.ignore_existing and (source_path - self.source_prefix).as_str in existing_metadata_names:
-                print(f"Skipping {source_path.as_str} because it already exists")
                 continue
 
             if not self._valid_path(source_path.as_str):
-                print(f"Skipping {source_path.as_str} because it is not valid")
                 continue
 
+            print(f"Adding {source_path.as_str}")
             all_source_paths.append(source_path)
             all_destination_paths.append(self.destination_prefix / (source_path - self.source_prefix))
 
