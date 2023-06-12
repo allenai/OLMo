@@ -40,7 +40,7 @@ optimizer:
 scheduler:
   name: cosine_with_warmup
   t_warmup: 2000
-  t_max: 47684  # 200B tokens, after which we decay linearly to 1/100th of initial LR
+  # t_max: 47684  # 200B tokens, after which we decay linearly to 1/100th of initial LR
 
 data:
   # TODO: change path to v1 mix.
