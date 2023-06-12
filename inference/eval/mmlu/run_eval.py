@@ -168,7 +168,9 @@ def main(args):
         os.makedirs(os.path.join(args.save_dir))
 
     all_cors = []
-    subcat_cors: dict[str, list] = {subcat: [] for subcat_lists in subcategories.values() for subcat in subcat_lists}
+    subcat_cors: dict[str, list] = {
+        subcat: [] for subcat_lists in subcategories.values() for subcat in subcat_lists
+    }
     cat_cors: dict[str, list] = {cat: [] for cat in categories}
 
     for subject in tqdm(subjects, desc="Evaluating subjects: "):
