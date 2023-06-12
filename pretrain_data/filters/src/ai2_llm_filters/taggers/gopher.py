@@ -133,7 +133,7 @@ def get_attributes(text: str) -> GopherAttributes:
             if line.endswith("\u2026"):
                 attrs.fraction_of_lines_ending_with_ellipsis += 1
         attrs.fraction_of_lines_starting_with_bullet_point /= line_count
-        attrs.fraction_of_words_with_alpha_character /= line_count
+        attrs.fraction_of_lines_ending_with_ellipsis /= line_count
 
         line_counts = Counter(lines)
         attrs.fraction_of_duplicate_lines = (
