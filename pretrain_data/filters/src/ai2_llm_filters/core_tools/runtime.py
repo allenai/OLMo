@@ -295,8 +295,8 @@ class TaggerProcessor(BaseParallelProcessor):
                 num_processes=opts.parallel,
                 ignore_existing=ignore_existing,
                 debug=opts.debug,
-                include_paths=opts.manually_included_paths,
-                exclude_paths=opts.manually_excluded_paths,
+                include_paths=manually_included_paths,
+                exclude_paths=manually_excluded_paths,
                 files_regex_pattern=opts.files_regex_pattern,
             )
             parallel_compute(
