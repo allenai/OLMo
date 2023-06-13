@@ -7,6 +7,18 @@ from uuid import uuid4
 
 from datasets import load_dataset
 
+"""
+Sample script to convert all the datasets into the required format. 
+
+for dataset in arc_challenge_test arc_easy_test boolq_dev hellaswag_test obqa_test mmlu_test \
+    xsum_test imdb_test scitldr_test multi_eurlex_test drop_val headqa_test piqa_test \
+    winogrande_test logiqa_test;
+do 
+  python eval_data/format_conversion/hf_dataset_converter.py \
+          --dataset $dataset \
+          --out_dir outputs/downstream_perplexity/
+done
+"""
 
 class HFFormatter:
     @staticmethod
@@ -106,6 +118,69 @@ class HFFormatter:
                 "text": item["text"],
             }
 
+    @staticmethod
+    def scitldr_test(args):
+        # Same target text for all splits, so using the smallest one: Abstract
+        dataset = load_dataset("allenai/scitldr", "Abstract")
+        for item in dataset["test"]:
+            yield {
+                "text": item["target"],
+            }
+
+    @staticmethod
+    def multi_eurlex_test(args):
+        # Most likely contamination on the en split
+        dataset = load_dataset("multi_eurlex", "en")
+        for item in dataset["test"]:
+            yield {
+                # look for source text
+                "text": item["text"],
+            }
+
+    @staticmethod
+    def drop_val(args):
+        # Most likely contamination on the en split
+        dataset = load_dataset("drop")
+        for item in dataset["validation"]:
+            yield {
+                "text": item["question"],
+            }
+
+    @staticmethod
+    def headqa_test(args):
+        # Most likely contamination on the en split
+        dataset = load_dataset("head_qa", "en")
+        for item in dataset["test"]:
+            yield {
+                "text": item["qtext"],
+            }
+    @staticmethod
+    def piqa_test(args):
+        # Note only validation set is available
+        dataset = load_dataset("piqa")
+        for item in dataset["test"]:
+            yield {
+                "text": item["goal"],
+            }
+
+    @staticmethod
+    def winogrande_test(args):
+        # Note that the test set does not change between the smallest or largest dataset?
+        dataset = load_dataset("winogrande", "winogrande_xs")
+        for item in dataset["test"]:
+            yield {
+                "text": item["sentence"],
+            }
+
+
+    @staticmethod
+    def logiqa_test(args):
+        # Note that the test set does not change between the smallest or largest dataset?
+        dataset = load_dataset("lucasmccabe/logiqa")
+        for item in dataset["test"]:
+            yield {
+                "text": item["context"],
+            }
 
 def main():
     parse = argparse.ArgumentParser("")
