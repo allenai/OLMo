@@ -29,6 +29,7 @@ pip-wheel-metadata/
 doc/_build/
 *.swp
 .DS_Store
+cray-deps
 
 
 # python
