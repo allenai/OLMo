@@ -15,6 +15,7 @@ model:
   attention_dropout: 0.0
   attention_layer_norm: true
   multi_query_attention: true
+  include_bias: false
   block_type: parallel
   layer_norm_type: low_precision  # if not compiling, use 'low_precision'
   activation_type: swiglu
