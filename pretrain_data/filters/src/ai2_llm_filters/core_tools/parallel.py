@@ -4,6 +4,7 @@ import pickle
 import random
 import re
 import time
+import logging
 from contextlib import ExitStack
 from datetime import datetime
 from functools import partial
@@ -18,7 +19,7 @@ from smashed.utils.io_utils import (
     recursively_list_files,
 )
 
-from .data_types import Ai2LlmFilterError, Ai2LlmRetryableFailure
+from .data_types import Ai2LlmFilterError, Ai2LlmRetryableFailure, Ai2LlmShardError
 
 METADATA_SUFFIX = ".done.txt"
 
@@ -151,6 +152,9 @@ class BaseParallelProcessor:
                 tries_remaining -= 1
                 if tries_remaining == 0:
                     raise Ai2LlmFilterError from e
+            except Ai2LlmShardError:
+                logging.exception(f"\nFailed to process {destination_path}")
+                break
         with open_file_for_write(metadata_path) as f:
             f.write(datetime.now().isoformat())
 
