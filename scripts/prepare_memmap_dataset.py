@@ -70,7 +70,12 @@ class InputDocumentSpec(msgspec.Struct):
     text: str
 
 
-def tokenize_file(tokenizer: Tokenizer, path: str, safe_mode: bool = False) -> Generator[List[int], None, None]:
+def tokenize_file(
+    tokenizer: Tokenizer,
+    path: str,
+    safe_mode: bool = False,
+    cache_dir: Optional[str] = None,
+) -> Generator[List[int], None, None]:
     """Tokenize a file of documents using the provided tokenizer; file is expected to be a gzipped JSON lines
     file, each containing a field named `text`.
     """
@@ -80,7 +85,7 @@ def tokenize_file(tokenizer: Tokenizer, path: str, safe_mode: bool = False) -> G
 
     with ExitStack() as stack:
         if safe_mode:
-            caching_path = cached_path(path)
+            caching_path = cached_path(path, cache_dir=cache_dir)
             input_stream = stack.enter_context(gzip.open(caching_path, mode="rt"))
         else:
             input_file = stack.enter_context(stream_file_for_read(path, mode="rb"))
@@ -228,7 +233,8 @@ def fill_memmap(
     sample_rate: float = 1.0,
     random_seed: int = 3920,
     repeat_sequence: int = 1,
-):
+    cache_dir: Optional[str] = None,
+) -> int:
     """Write a memmap file from a file of documents."""
 
     # set the seed in case we need to sample
@@ -243,13 +249,16 @@ def fill_memmap(
     # we increment this every time we create a new memmap file
     file_index = 0
 
+    # total number of tokens written
+    total_tokens = 0
+
     # make sure path is a list
     path_or_paths = [path_or_paths] if isinstance(path_or_paths, str) else path_or_paths
 
     with ExitStack() as stack:
         it = itertools.chain.from_iterable(
             # repeat the sequence if necessary
-            tokenize_file(tokenizer=tokenizer, path=path, safe_mode=safe_mode)
+            tokenize_file(tokenizer=tokenizer, path=path, safe_mode=safe_mode, cache_dir=cache_dir)
             for _ in range(repeat_sequence)
             for path in path_or_paths
         )
@@ -260,6 +269,9 @@ def fill_memmap(
 
             # flush any 10k lines or so; improves stability
             flush = line_no % 10_000 == 0
+
+            # increment the total number of tokens written
+            total_tokens += len(token_ids)
 
             # if leftovers_to_write is not None it means that either memmap is None or it's full,
             # so we will need to create a new one later
@@ -281,6 +293,8 @@ def fill_memmap(
 
         # close the last memmap
         stack.pop_all().close()
+
+    return total_tokens
 
 
 def make_source_and_target(
@@ -344,6 +358,12 @@ def make_source_and_target(
 @click.option("--repeat-sequence", type=click.IntRange(min=1), default=1)
 @click.option("--paths-per-worker", type=click.IntRange(min=1), default=1)
 @click.option(
+    "--cache-dir",
+    type=str,
+    default=None,
+    help="Cache directory for the tokenizer; use system default if not specified"
+)
+@click.option(
     "--max-tokens",
     default=512 * 1024 * 1024,
     type=int,
@@ -368,6 +388,7 @@ def main(
     repeat_sequence: int = 1,
     paths_per_worker: int = 1,
     max_workers: int = 1,
+    cache_dir: Optional[str] = None,
 ):
     print("=== CONFIGURATION ===")
     print(f"src:              {src}")
@@ -383,6 +404,7 @@ def main(
     print(f"repeat_sequence:  {repeat_sequence}")
     print(f"paths_per_worker: {paths_per_worker}")
     print(f"max_workers:      {max_workers}")
+    print(f"cache_dir:        {cache_dir}")
     print("=====================")
 
     dtype = np.dtype(dtype_str)
@@ -401,17 +423,20 @@ def main(
         sample_rate=sample_rate,
         random_seed=random_seed,
         repeat_sequence=repeat_sequence,
+        cache_dir=cache_dir,
     )
+
+    total_tokens_written = 0
 
     if debug:
         log.info("Running in debug mode. Only one process will be used.")
         for src_path, dst_path in zip(exploded_src, exploded_dst):
-            fill_memmap_fn(path_or_paths=src_path, memmap_path=dst_path)
+            total_tokens_written += fill_memmap_fn(path_or_paths=src_path, memmap_path=dst_path)
     else:
         # Now tokenizer all documents again and populate the memmap array. We do this in parallel.
         workers_cnt = min(max_workers or os.cpu_count() or 1, len(exploded_src))
         with concurrent.futures.ProcessPoolExecutor(max_workers=workers_cnt) as executor:
-            futures: List[Future[None]] = []
+            futures: List[Future[int]] = []
             for src_path, dst_path in zip(exploded_src, exploded_dst):
                 future = executor.submit(fill_memmap_fn, path_or_paths=src_path, memmap_path=dst_path)
                 futures.append(future)
@@ -421,9 +446,10 @@ def main(
                     description="Filling memmap arrays...",
                     total=len(futures),
                 ):
-                    future.result()
+                    total_tokens_written += future.result()
 
     log.info(f"Done! File(s) written to {output}")
+    log.info(f"Total tokens written: {total_tokens_written:,}")
 
     if validate:
         log.info("Validating...")
