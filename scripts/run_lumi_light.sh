@@ -5,6 +5,8 @@
 # Load PyTorch environment.
 source /opt/miniconda3/bin/activate pytorch
 
+cd /workdir
+
 # Additional stuff from Samuel Antao. We might want to move these lines to `run_with_environment.sh`
 # but I'm not sure if the other image needs this stuff.
 export NCCL_SOCKET_IFNAME=hsn0,hsn1,hsn2,hsn3

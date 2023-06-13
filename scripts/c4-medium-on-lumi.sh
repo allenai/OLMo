@@ -50,12 +50,13 @@ srun \
   --kill-on-bad-exit \
   scripts/run_with_environment.sh \
     singularity exec \
-    -B"$PROJECT_DIR:$PROJECT_DIR" \
-    -B"$SCRATCH_DIR:$SCRATCH_DIR" \
-    -B"$FLASH_DIR:$FLASH_DIR" \
+    -B $PROJECT_DIR:$PROJECT_DIR \
+    -B $SCRATCH_DIR:$SCRATCH_DIR \
+    -B $FLASH_DIR:$FLASH_DIR \
     -B /opt/cray:/opt/cray \
     -B $wd/cray-deps:/opt/cray-deps \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
+    -B $wd:/workdir \
     $OLMO_CONTAINER \
-    python scripts/train.py configs/c4-medium.yaml --run_name=${SLURM_JOB_ID}
+    /workdir/scripts/run_lumi_light.sh python scripts/train.py configs/c4-medium.yaml --run_name=${SLURM_JOB_ID}
