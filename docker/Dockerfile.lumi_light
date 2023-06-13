@@ -1,0 +1,8 @@
+FROM sfantao/pytorch-lumi:sles-rocm-5.5.1-python-3.10-pytorch-v2.0.1
+
+# Install other Python dependencies.
+COPY requirements.txt requirements.txt
+RUN set -eux ; \
+    source ~/.bashrc ; \
+    conda activate pytorch ; \
+    pip install --no-cache-dir -r requirements.txt
