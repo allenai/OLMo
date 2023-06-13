@@ -5,4 +5,4 @@ COPY requirements.txt requirements.txt
 RUN set -eux ; \
     source ~/.bashrc ; \
     conda activate pytorch ; \
-    pip install --no-cache-dir -r requirements.txt
+    cat requirements.txt | grep -Ev '#|torch[>=<]' | xargs pip install --no-cache-dir
