@@ -1,0 +1,28 @@
+{
+    "streams": [
+      {
+        "name": "abl-paragraph-decon",
+        "documents": [
+            "pretraining-data/sources/redpajama/v1-small/documents/*.gz"
+        ],
+        "output": {
+          "path": "/mnt/tank/rp-small-decontaminated",
+          "max_size_in_bytes": 3894967296
+        },
+        "attributes": [
+          "decontamination"
+        ],
+        "filter": {
+          "include": [],
+          "exclude": [
+            "$@.attributes[?(@.bff_duplicate_paragraph_spans && @.bff_duplicate_paragraph_spans[0] && @.bff_duplicate_paragraph_spans[0][2] >= 1.0)]"
+          ]
+        }
+      }
+    ],
+    "work_dir": {
+      "input": "/mnt/tank/rp-small",
+      "output": "/mnt/tank/rp-small-decontaminated"
+    },
+    "processes": 224
+  }
