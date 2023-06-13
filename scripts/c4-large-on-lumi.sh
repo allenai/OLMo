@@ -12,7 +12,8 @@
 
 module load LUMI/22.08 partition/G
 
-export OLMO_CONTAINER=llm-lumi_latest-light.sif
+export OLMO_CONTAINER=$FLASH_DIR/containers/llm-lumi_latest-light.sif
+# export OLMO_CONTAINER=$PROJECT_DIR/containers/llm-lumi_latest.sif
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
@@ -56,5 +57,5 @@ srun \
     -B $wd/cray-deps:/opt/cray-deps \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
-    $PROJECT_DIR/containers/$OLMO_CONTAINER \
+    $OLMO_CONTAINER \
     python scripts/train.py configs/c4-large.yaml --run_name=${SLURM_JOB_ID}
