@@ -44,6 +44,15 @@ To add an `olmo.py` module, we can basically just imitate what was done for othe
 
 There's one important wrinkle here: some OLMo models use *fused linear attention*. I'm not sure how GPTQ handles this or whether any existing supported models implement attention the same way. This might be something to discuss with Dirk and Pete.
 
+Also note: we need to always use triton. This requires a machine that has NVidia triton (This may possibly have been fixed now).
+
+```python
+model_wrapper = AutoGPTQForCausalLM.from_quantized(
+    quantized_model_dir, device="cuda:0", use_triton=True
+)
+```
+
+
 ```python
 Olmo(
   (transformer): ModuleDict(
