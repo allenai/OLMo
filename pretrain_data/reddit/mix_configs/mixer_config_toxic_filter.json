@@ -1,0 +1,32 @@
+{
+  "streams": [
+    {
+      "name": "reddit-ablation-base",
+      "documents": [
+	"pretraining-data/sources/reddit/a0/documents/*.gz"
+      ],
+      "output": {
+        "path": "pretraining-data/sources/reddit/a3-toxic/documents",
+        "max_size_in_bytes": 1000000000
+      },
+      "attributes": [
+        "toxicity_nsfw"
+      ],
+      "filter": {
+        "include": [
+	  "$.attributes[?(@.toxicity_nsfw__random_number_v1__random[0][2] < 0.20)]"
+        ],
+        "exclude": [
+	  "$.attributes[?(@.toxicity_nsfw__jigsaw_hatespeech_document_v2____label__toxic[0][2] > 0.9)]"
+        ]
+      },
+      "span_replacement": [
+      ]
+    }
+  ],
+  "work_dir": {
+    "input": "/tmp/mixer/input",
+    "output": "/tmp/mixer/output"
+  },
+  "processes": 110
+}

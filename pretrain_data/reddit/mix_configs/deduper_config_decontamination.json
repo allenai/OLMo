@@ -1,0 +1,25 @@
+{
+    "documents": [
+        "pretraining-data/sources/reddit/a0/documents/*.gz"
+    ],
+    "work_dir": {
+        "input": "/tmp/deduper/input",
+        "output": "/tmp/deduper/output"
+    },
+    "dedupe": {
+        "name": "dedupe_documents",
+        "documents": {
+            "attribute_name": "bff_duplicate_documents",
+	    "key": "$.text"
+        },
+        "skip_empty": true
+    },
+    "bloom_filter": {
+        "file": "/tmp/doc_dedupe/bloom_filt.bin",
+        "size_in_bytes": 0,
+        "read_only": false,
+        "estimated_doc_count": 2249798700,
+        "desired_false_positive_rate": 0.001
+    },
+    "processes": 175
+}

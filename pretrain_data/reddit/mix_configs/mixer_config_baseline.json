@@ -1,0 +1,35 @@
+{
+  "streams": [
+    {
+     "name": "reddit-ablation-base",
+      "documents": [
+	"pretraining-data/sources/reddit/v1/documents/*.gz"
+      ],
+      "output": {
+        "path": "pretraining-data/sources/reddit/a0/documents",
+        "max_size_in_bytes": 1000000000
+      },
+      "attributes": [
+        "ablation-base",
+        "decontamination"
+      ],
+      "filter": {
+        "include": [
+          "$.attributes[?(@.ablation_base__whitespace_tokenizer_with_paragraphs_v1__document[0][2] < 100000)]"
+        ],
+        "exclude": [
+          "$.attributes[?(@.ablation_base__whitespace_tokenizer_with_paragraphs_v1__document[0][2] < 50)]",
+          "$.attributes[?(@.ablation_base__ft_lang_id_en_paragraph_with_doc_score_v2__doc_en[0][2] <= 0.5)]",
+          "$@.attributes[?(@.bff_duplicate_paragraph_spans && @.bff_duplicate_paragraph_spans[0] && @.bff_duplicate_paragraph_spans[0][2] >= 1.0)]"
+        ]
+      },
+      "span_replacement": [
+      ]
+    }
+  ],
+  "work_dir": {
+    "input": "/tmp/mixer/input",
+    "output": "/tmp/mixer/output"
+  },
+  "processes": 96
+}
