@@ -1,0 +1,31 @@
+{
+  "streams": [
+    {
+      "name": "reddit-ablation-base",
+      "documents": [
+	"pretraining-data/sources/reddit/a0/documents/*.gz"
+      ],
+      "output": {
+        "path": "pretraining-data/sources/reddit/a2/documents",
+        "max_size_in_bytes": 1000000000
+      },
+      "attributes": [
+        "dedupe_paragraphs"
+      ],
+      "filter": {
+        "include": [
+        ],
+        "exclude": [
+	 "$@.attributes[?(@.bff_duplicate_paragraphs && @.bff_duplicate_paragraphs[0] && @.bff_duplicate_paragraphs[0][2] >= 1.0)]"
+        ]
+      },
+      "span_replacement": [
+      ]
+    }
+  ],
+  "work_dir": {
+    "input": "/tmp/mixer/input",
+    "output": "/tmp/mixer/output"
+  },
+  "processes": 96
+}
