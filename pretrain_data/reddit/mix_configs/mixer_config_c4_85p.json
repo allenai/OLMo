@@ -1,0 +1,27 @@
+{
+    "streams": [
+        {
+            "name": "c4-reddit-15p",
+            "documents": [
+                "pretraining-data/sources/reddit/a0_p15/documents/*.json.gz",
+		"pretraining-data/sources/c4/v0-sampled-85p/documents/train/*.json.gz"
+            ],
+            "output": {
+                "path": "pretraining-data/sources/reddit/c4-reddit-15p/documents",
+                "max_size_in_bytes": 1000000000
+            },
+            "attributes": [],
+            "filter": {
+                "include": [
+
+                ],
+                "exclude": [
+                    
+                ]
+            }
+        }
+    ],
+    "work_dir": {"input": "/tmp/input", "output": "/tmp/output"},
+    "processes": 96
+}
+
