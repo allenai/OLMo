@@ -1,3 +1,17 @@
+{
+  "streams": [
+    {
+      "name": "reddit-ablation-base",
+      "documents": [
+	"pretraining-data/sources/reddit/a0/documents/*.gz"
+      ],
+      "output": {
+        "path": "pretraining-data/sources/reddit/a4-pii-nsfw-toxic/documents",
+        "max_size_in_bytes": 1000000000
+      },
+      "attributes": [
+	"pii_sent_toxicty_nsfw"
+      ],
       "filter": {
         "include": [
         ],
@@ -5,7 +19,7 @@
         ]
       },
       "span_replacement": [
-        {
+	{
           "span": "$.attributes.hatespeech_nsfw_cc_v3__jigsaw_hatespeech_sentence_v2____label__toxic",
           "min_score": 0.4,
           "replacement": ""
