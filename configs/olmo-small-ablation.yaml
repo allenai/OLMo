@@ -1,4 +1,4 @@
-run_name: reddit-v1-dedup-ablation-base
+run_name: reddit-v1-ablation-base
 seed: 6198
 dry_run: false
 
