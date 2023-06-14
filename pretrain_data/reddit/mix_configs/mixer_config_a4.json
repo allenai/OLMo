@@ -1,0 +1,41 @@
+      "filter": {
+        "include": [
+        ],
+        "exclude": [
+        ]
+      },
+      "span_replacement": [
+        {
+          "span": "$.attributes.hatespeech_nsfw_cc_v3__jigsaw_hatespeech_sentence_v2____label__toxic",
+          "min_score": 0.4,
+          "replacement": ""
+        },
+        {
+          "span": "$.attributes.hatespeech_nsfw_cc_v3__jigsaw_nsfw_sencence_v2____label__nsfw",
+          "min_score": 0.4,
+          "replacement": ""
+        },
+        {
+          "span": "$.attributes.pii_detection__pii_regex_with_counts_fast_v2__EMAIL_ADDRESS",
+          "min_score": 0.5,
+          "replacement": " |||EMAIL_ADDRESS||| "
+        },
+        {
+          "span": "$.attributes.pii_detection__pii_regex_with_counts_fast_v2__PHONE_NUMBER",
+          "min_score": 0.5,
+          "replacement": " |||PHONE_NUMBER||| "
+        },
+        {
+          "span": "$.attributes.pii_detection__pii_regex_with_counts_fast_v2__IP_ADDRESS",
+          "min_score": 0.5,
+          "replacement": " |||IP_ADDRESS||| "
+        }
+      ]
+    }
+  ],
+  "work_dir": {
+    "input": "/tmp/mixer/input",
+    "output": "/tmp/mixer/output"
+  },
+  "processes": 96
+}
