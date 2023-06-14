@@ -110,13 +110,13 @@ class Tokenizer:
         else:
             return input_ids[: -(len(input_ids) - truncate_to)]
 
-    def encode(self, input: str, add_special_tokens: bool = True) -> List[int]:
+    def encode(self, input: str, add_special_tokens: bool = True, **kwargs) -> List[int]:
         """
         Encode a string into token IDs.
         """
-        return self.encode_batch([input], add_special_tokens=add_special_tokens)[0]
+        return self.encode_batch([input], add_special_tokens=add_special_tokens, **kwargs)[0]
 
-    def encode_batch(self, inputs: List[str], add_special_tokens: bool = True) -> List[List[int]]:
+    def encode_batch(self, inputs: List[str], add_special_tokens: bool = True, **kwargs) -> List[List[int]]:
         """
         Encode a batch of strings into token IDs.
         """
@@ -124,7 +124,7 @@ class Tokenizer:
         if truncate_to is not None and add_special_tokens:
             truncate_to -= self.num_special_tokens_to_add(False)
 
-        batch_encoding = self.base_tokenizer.encode_batch(inputs)
+        batch_encoding = self.base_tokenizer.encode_batch(inputs, **kwargs)
 
         all_input_ids = []
         for encoding in batch_encoding:

@@ -31,5 +31,7 @@ class OlmoGPTQForCausalLM(BaseGPTQForCausalLM):
         ["transformer.blocks.ff_out"],
     ]
 
+    # TODO: add from_pretrained()
+
 
 __all__ = ["OlmoGPTQForCausalLM"]

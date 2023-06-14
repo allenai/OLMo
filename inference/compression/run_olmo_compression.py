@@ -14,18 +14,22 @@ import time
 
 import numpy as np
 import torch
-from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
+from auto_gptq import BaseQuantizeConfig
 from datasets import load_dataset
+from olmo_compression import OlmoGPTQForCausalLM
 from transformers import AutoTokenizer
 
+from olmo import Tokenizer
 
-def get_wikitext2(nsamples, seed, seqlen, model):
+
+def get_wikitext2(nsamples, seed, seqlen, tokenizer_id):
     traindata = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
     testdata = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
 
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
-    trainenc = tokenizer("\n\n".join(traindata["text"]), return_tensors="pt")
-    testenc = tokenizer("\n\n".join(testdata["text"]), return_tensors="pt")
+    tokenizer = Tokenizer.from_pretrained(tokenizer_id, truncate_to=None)
+    # tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+    trainenc = tokenizer.encode("\n\n".join(traindata["text"])) #, return_tensors="pt")
+    testenc = tokenizer.encode("\n\n".join(testdata["text"])) #, return_tensors="pt")
 
     import random
 
@@ -35,9 +39,9 @@ def get_wikitext2(nsamples, seed, seqlen, model):
 
     traindataset = []
     for _ in range(nsamples):
-        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
+        i = random.randint(0, len(trainenc) - seqlen - 1)
         j = i + seqlen
-        inp = trainenc.input_ids[:, i:j]
+        inp = torch.Tensor(trainenc[i:j]).unsqueeze(0)
         attention_mask = torch.ones_like(inp)
         traindataset.append({"input_ids": inp, "attention_mask": attention_mask})
     return traindataset, testenc
@@ -51,6 +55,7 @@ def get_args():
         help="Path to the unquantized model / Name of the unquantized huggingface model.",
     )
     parser.add_argument("--quantized-model-dir", type=str, help="Output path for the quantized model.")
+    parser.add_argument("--tokenizer-id", type=str, help="Olmo tokenizer id", default="EleutherAI/gpt-neox-20b")
     parser.add_argument("--n-samples", type=int, help="Number of samples from Wikitext", default=128)
     args = parser.parse_args()
 
@@ -62,7 +67,7 @@ def main():
     args = get_args()
 
     print("Getting data.")
-    trainloader, testenc = get_wikitext2(args.n_samples, 0, 2048, args.pretrained_model)
+    trainloader, testenc = get_wikitext2(args.n_samples, 0, 2048, args.tokenizer_id)
     print("Done.")
 
     quantize_config = BaseQuantizeConfig(
@@ -72,7 +77,7 @@ def main():
 
     print("Loading unquantized model")
     # Load un-quantized model, the model will always be force loaded into cpu
-    model = AutoGPTQForCausalLM.from_pretrained(args.pretrained_model, quantize_config)
+    model = OlmoGPTQForCausalLM.from_pretrained(args.pretrained_model, quantize_config)
     print("Done")
 
     # Quantize model, the examples should be list of dict whose keys can only be
