@@ -187,3 +187,31 @@ python scripts/prepare_memmap_dataset.py  \
     --workers 120 \
     --cache-dir /data2/llm-preprocessed
 ```
+
+Stack:
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1/documents/stack \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1/gpt-neox-20b-pii-special/stack \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120 \
+    --cache-dir /data2/llm-preprocessed
+```
+
+
+## Calculating Size
+
+- Wiki: 6.21 GB -> 3,635,728,771 tokens (585m tokens per GB)
+- Books: 7.08 GB -> 4,755,860,202 tokens (672m tokens per GB)
+- S2: 160.01 GB -> 56,783,583,427 tokens (355m tokens per GB)
+- C4: 323.95 GB -> 174,398,315,760 tokens (538m tokens per GB)
+- Stack: 724.28 GB -> 430,067,843,952 tokens (593m tokens per GB)
+
+
+Over a single cc
+
+2.87 GB -> 1.76 GB (61.3% reduction)
+
+9.48 TB -> 5.81 TB -> 3,450,675,200,000,000 tokens? (3.45 T)

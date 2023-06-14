@@ -46,7 +46,7 @@
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams[0][2] > 0.11)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0][2] > 0.10)]",
           "$@.attributes[?(@.bff_duplicate_paragraph_spans_decontamination && @.bff_duplicate_paragraph_spans_decontamination[0] && @.bff_duplicate_paragraph_spans_decontamination[0][2] >= 1.0)]",
-          "$.attributes[?(@.pii_detection__pii_regex_with_counts_fast_v2__doc_count[0][2] > 5)]"
+          "$.attributes[?(@.pii_detection__pii_regex_with_counts_fast_v2__doc_count && @.pii_detection__pii_regex_with_counts_fast_v2__doc_count[0] && @.pii_detection__pii_regex_with_counts_fast_v2__doc_count[0][2] > 5)]"
         ]
       },
       "span_replacement": [
