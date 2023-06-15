@@ -1,4 +1,4 @@
-run_name: olmo-small-ablation
+run_name: olmo-mix-v1-sample
 seed: 6198
 dry_run: false
 
@@ -22,10 +22,10 @@ model:
   residual_dropout: 0.0
   embedding_dropout: 0.0
   max_sequence_length: 2048
-  vocab_size: 50277
+  vocab_size: 50280
   embedding_size: 50304
-  eos_token_id: 50276
-  pad_token_id: 50276
+  eos_token_id: 0
+  pad_token_id: 0
   init_device: meta
   init_std: 0.02
 
@@ -45,7 +45,7 @@ scheduler:
   t_max: null
 
 data:
-  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4_en/gpt-neox-20b/c4-train.*.npy}
+  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/olmo-mix/v1-sample/gpt-neox-20b-pii-special/*.npy}
   pad_direction: right
   num_workers: 4
   drop_last: true
@@ -55,7 +55,7 @@ data:
   timeout: 0
 
 tokenizer:
-  identifier: EleutherAI/gpt-neox-20b
+  identifier: allenai/eleuther-ai-gpt-neox-20b-pii-special
   truncate_direction: right
 
 save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
@@ -69,8 +69,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-# max_duration: 953674  # 2T tokens
-max_duration: 95367  # 200B tokens
+max_duration: 843998  # 1.77T tokens
 global_train_batch_size: 1024
 device_train_microbatch_size: 8
 
