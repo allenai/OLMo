@@ -310,6 +310,16 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
+    model_type: str = "Olmo"
+    """
+    Boilerplate needed for quantization.
+    """
+
+    use_cache: bool = False
+    """
+    More boilerplate. TODO: fix
+    """
+
 
 class OptimizerType(StrEnum):
     lionw = "lionw"
