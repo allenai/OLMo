@@ -12,6 +12,8 @@
 
 module load LUMI/22.08 partition/G
 
+set -ex
+
 # check if LOAD_PATH is provided as an environment variable; if so, create an argument
 # to pass to the training script
 if [ -z ${LOAD_PATH+x} ]; then
@@ -44,7 +46,7 @@ export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.
 export CONFIG_PATH=configs/olmo-small-ablation.yaml
 
 # Try playing with max_split_size_mb if you run into OOM errors.
-# export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:512
+export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:256
 
 # get run name, we will postpend it with the job id of this slurm run
 export RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:\s*//')
