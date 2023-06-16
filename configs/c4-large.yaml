@@ -4,6 +4,7 @@ dry_run: false
 
 wandb:
   name: ${run_name}
+  project: c4-large
 
 model:
   d_model: 8192

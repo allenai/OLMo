@@ -29,7 +29,6 @@ export FI_CXI_DEFAULT_CQ_SIZE=131072
 
 #export NCCL_DEBUG=INFO
 export PYTHONPATH=.:${PYTHONPATH}
-export WANDB_PROJECT=c4-medium
 export ROCM_PATH=/opt/rocm
 export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64
 
