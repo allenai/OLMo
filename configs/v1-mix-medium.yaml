@@ -4,6 +4,7 @@ dry_run: false
 
 wandb:
   name: ${run_name}
+  project: c4-medium
 
 model:
   d_model: 4096
@@ -22,10 +23,10 @@ model:
   residual_dropout: 0.0
   embedding_dropout: 0.0
   max_sequence_length: 2048
-  vocab_size: 50257
+  vocab_size: 50280
   embedding_size: 50304
-  eos_token_id: 50256
-  pad_token_id: 50256
+  eos_token_id: 0
+  pad_token_id: 0
   init_device: meta
   init_std: 0.02
 
@@ -45,8 +46,7 @@ scheduler:
   # t_max: 47684  # 200B tokens, after which we decay linearly to 1/100th of initial LR
 
 data:
-  # TODO: change path to v1 mix.
-  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-train.*.npy}
+  paths: ${path.glob:${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/books/*.npy,${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/c4/*.npy,${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/common-crawl/*/*.npy,${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/s2/*.npy,${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/stack/*.npy,${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/wiki/*.npy}
   pad_direction: right
   num_workers: 4
   drop_last: true
@@ -56,7 +56,7 @@ data:
   timeout: 0
 
 tokenizer:
-  identifier: gpt2
+  identifier: allenai/eleuther-ai-gpt-neox-20b-pii-special
   truncate_direction: right
 
 save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
@@ -89,57 +89,57 @@ evaluators:
   ##########################
   # Perplexity evaluations #
   ##########################
-  # TODO: do we care about c4 and RP validation?
-  - label: c4-validation
-    subset_num_batches: 10
-    data:
-      paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
-      num_workers: 2
-      drop_last: true
-      pin_memory: true
-      persistent_workers: true
-      prefetch_factor: 4
+  # TODO: do we care about c4 and RP validation? We don't have these tokenized at the moment.
+  # - label: c4-validation
+  #   subset_num_batches: 10
+  #   data:
+  #     paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
+  #     num_workers: 2
+  #     drop_last: true
+  #     pin_memory: true
+  #     persistent_workers: true
+  #     prefetch_factor: 4
 
-  - label: rp-validation
-    subset_num_batches: 10
-    data:
-      paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
-      num_workers: 2
-      drop_last: true
-      pin_memory: true
-      persistent_workers: true
-      prefetch_factor: 4
+  # - label: rp-validation
+  #   subset_num_batches: 10
+  #   data:
+  #     paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
+  #     num_workers: 2
+  #     drop_last: true
+  #     pin_memory: true
+  #     persistent_workers: true
+  #     prefetch_factor: 4
 
   # lump all the small datasets together (we still get separate metrics).
   - label: all-small-ppl-validation
     data:
       datasets:
         4chan-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/4chan/val.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
         c4_100_domains-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/c4_100_domains/val.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/c4_100_domains/val.npy
         c4_en-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/c4_en/val.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/c4_en/val.npy
         gab-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/gab/val.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/gab/val.npy
         ice-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/ice/val.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/ice/val.npy
         m2d2_s2orc-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/m2d2_s2orc/val.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/m2d2_s2orc/val.npy
         m2d2_wiki-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/m2d2_wiki/val.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/m2d2_wiki/val.npy
         manosphere-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/manosphere/val.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/manosphere/val.npy
         mc4_en-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/mc4_en/val.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/mc4_en/val.npy
         pile-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/pile/val.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/pile/val.npy
         ptb-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/ptb/val.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/ptb/val.npy
         twitterAEE-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/twitterAEE/val.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
         wikitext_103-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/wikitext_103/val.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/wikitext_103/val.npy
       drop_last: true
 
   ##########################
