@@ -60,8 +60,6 @@ class TaggerProcessor(BaseParallelProcessor):
     ):
         """Lets count run the taggers! We will use the destination path to save each tagger output."""
 
-        logger = cls.get_logger()
-
         # get names of taggers
         taggers_names = kwargs.get("taggers_names", None)
         if taggers_names is None:
@@ -221,6 +219,12 @@ class TaggerProcessor(BaseParallelProcessor):
             help="If provided, only these paths will be processed. If points to an existing file, read s3:// URLs from it.",
         )
         ap.add_argument(
+            "--files-regex-pattern",
+            default=None,
+            type=str,
+            help="If provided, only files matching this regex pattern will be processed.",
+        )
+        ap.add_argument(
             "--manually-excluded-paths",
             default=None,
             nargs="+",
@@ -279,6 +283,7 @@ class TaggerProcessor(BaseParallelProcessor):
                 f"workdir:      {metadata_workdir}\n"
                 f"safe mode:    {opts.safe_mode}\n"
                 f"local cache:  {local_read_cache}\n"
+                f"file regex:   {opts.files_regex_pattern}\n"
                 "---------------------------\n"
             )
             print(msg)
@@ -290,8 +295,9 @@ class TaggerProcessor(BaseParallelProcessor):
                 num_processes=opts.parallel,
                 ignore_existing=ignore_existing,
                 debug=opts.debug,
-                include_paths=manually_included_paths,
-                exclude_paths=manually_excluded_paths,
+                include_paths=opts.manually_included_paths,
+                exclude_paths=opts.manually_excluded_paths,
+                files_regex_pattern=opts.files_regex_pattern,
             )
             parallel_compute(
                 taggers_names=opts.taggers,

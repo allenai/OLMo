@@ -2,6 +2,7 @@ import logging
 from collections import Counter
 from dataclasses import dataclass
 from statistics import median
+from typing import Counter as CounterType
 from typing import List, Tuple
 
 from ..core_tools.data_types import DocResult, Document, Span
@@ -132,32 +133,34 @@ def get_attributes(text: str) -> GopherAttributes:
             if line.endswith("\u2026"):
                 attrs.fraction_of_lines_ending_with_ellipsis += 1
         attrs.fraction_of_lines_starting_with_bullet_point /= line_count
-        attrs.fraction_of_words_with_alpha_character /= line_count
+        attrs.fraction_of_lines_ending_with_ellipsis /= line_count
 
         line_counts = Counter(lines)
         attrs.fraction_of_duplicate_lines = (
             sum(count for line, count in line_counts.items() if count > 1) / line_count
         )
-        attrs.fraction__of_characters_in_duplicate_lines = (
+        attrs.fraction_of_characters_in_duplicate_lines = (
             sum(len(line) * count for line, count in line_counts.items() if count > 1) / character_count
         )
     except Exception as e:
-        logging.exception(f"Error processing text: {text[:200]}")
+        logging.exception(f"Error processing text {e}: {text[:200]}")
 
     return attrs
 
 
-def all_ngram_counts(words) -> List[Tuple[int, Counter[Tuple[str, ...]]]]:
+def all_ngram_counts(words) -> List[Tuple[int, CounterType[Tuple[str, ...]]]]:
     return [(n, Counter(list(zip(*[words[i:] for i in range(n)])))) for n in range(2, 11)]
 
 
-def all_ngram_counts_alt(words) -> List[Tuple[int, Counter[Tuple[str, ...]]]]:
+def all_ngram_counts_alt(words: List[str]) -> List[Tuple[int, CounterType[Tuple[str, ...]]]]:
     """Seems like it should be faster, but isn't"""
-    ngram = list(zip(words, words[1:]))
+    ngram: List[Tuple[str, ...]] = list(zip(words, words[1:]))
     all_counts = [(2, Counter(ngram))]
+
     for n in range(3, 11):
         ngram = list(a + (b,) for a, b in zip(ngram, words[n - 1 :]))
         all_counts.append((n, Counter(ngram)))
+
     return all_counts
 
 
