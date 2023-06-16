@@ -45,15 +45,7 @@ scheduler:
   t_max: null
 
 data:
-  paths: >
-    ${path.glob:
-    ${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/books/*.npy,
-    ${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/c4/*.npy,
-    ${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/common-crawl/*/*.npy,
-    ${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/s2/*.npy,
-    ${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/stack/*.npy,
-    ${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/wiki/*.npy,
-    }
+  paths: ${path.glob:${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/books/*.npy,${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/c4/*.npy,${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/common-crawl/*/*.npy,${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/s2/*.npy,${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/stack/*.npy,${oc.env:SCRATCH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/wiki/*.npy}
   pad_direction: right
   num_workers: 4
   drop_last: true
