@@ -23,6 +23,15 @@ else
 fi
 
 
+# check if CONFIG PATH is provided as an environment variable; 
+# if so, use that instead of olmo-small-ablation.yaml
+if [ -z ${CONFIG_PATH+x} ]; then
+  export CONFIG_PATH=configs/olmo-small-ablation.yaml
+else
+  export CONFIG_PATH="${CONFIG_PATH}"
+fi
+
+
 export OLMO_CONTAINER=llm-lumi_latest.sif
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
@@ -43,10 +52,9 @@ export PYTHONPATH=.:${PYTHONPATH}
 export WANDB_PROJECT=c4-small
 export ROCM_PATH=/opt/rocm
 export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64
-export CONFIG_PATH=configs/olmo-small-ablation.yaml
 
 # Try playing with max_split_size_mb if you run into OOM errors.
-export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:256
+# export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:512
 
 # get run name, we will postpend it with the job id of this slurm run
 export RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:\s*//')
