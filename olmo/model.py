@@ -323,7 +323,6 @@ class OlmoBlock(nn.Module):
         if attention_bias is not None:
             query_len, key_len = q.shape[-2], k.shape[-2]
             attention_bias = attention_bias[:, :, key_len - query_len : key_len, :key_len]
-            print(attention_bias.shape)
 
         # Get the attention scores.
         # shape: (B, nh, T, hs)
