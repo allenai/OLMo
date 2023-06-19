@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 import os
 from abc import abstractmethod
-from typing import Dict, List, NamedTuple, Optional, cast
+from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
 
 import torch
 import torch.backends.cuda
@@ -275,8 +275,14 @@ class OlmoBlock(nn.Module):
         return pos_emb
 
     def attention(
-        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, attention_bias: Optional[torch.FloatTensor] = None
-    ) -> torch.Tensor:
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        attention_bias: Optional[torch.Tensor] = None,
+        layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        use_cache: bool = False,
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         B, T, C = q.size()  # batch size, sequence length, d_model
         dtype = k.dtype
 
@@ -299,10 +305,25 @@ class OlmoBlock(nn.Module):
             # shape: (B, nh, T, hs)
             v = v.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
 
+        if layer_past is not None:
+            past_key, past_value = layer_past
+            k = torch.cat((past_key, k), dim=-2)
+            v = torch.cat((past_value, v), dim=-2)
+
+        if use_cache:
+            present = (k, v)
+        else:
+            present = None
+
         if self.config.rope:
             # Apply rotary embeddings.
             positions = self.get_rotary_embedding(T, q.device)
             q, k = map(lambda t: apply_rotary_pos_emb(positions, t), (q, k))
+
+        if attention_bias is not None:
+            query_len, key_len = q.shape[-2], k.shape[-2]
+            attention_bias = attention_bias[:, :, key_len - query_len : key_len, :key_len]
+            print(attention_bias.shape)
 
         # Get the attention scores.
         # shape: (B, nh, T, hs)
@@ -319,14 +340,14 @@ class OlmoBlock(nn.Module):
         att = att.transpose(1, 2).contiguous().view(B, T, C)
 
         # Apply output projection.
-        return self.attn_out(att)
+        return self.attn_out(att), present
 
     @abstractmethod
     def forward(
         self,
         x: torch.Tensor,
         attention_bias: Optional[torch.FloatTensor] = None,
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         raise NotImplementedError
 
     @classmethod
@@ -364,8 +385,10 @@ class OlmoSequentialBlock(OlmoBlock):
     def forward(
         self,
         x: torch.Tensor,
-        attention_bias: Optional[torch.FloatTensor] = None,
-    ) -> torch.Tensor:
+        attention_bias: Optional[torch.Tensor] = None,
+        layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        use_cache: bool = False,
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         # Get query, key, value projections.
         # shape:
         #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
@@ -373,15 +396,18 @@ class OlmoSequentialBlock(OlmoBlock):
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
         q, k, v = self.att_proj(self.norm(x)).split(self.fused_dims, dim=-1)
 
+        # Get attention scores.
+        att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
+
         # Add attention scores.
         # shape: (B, T, C)
-        x = x + self.dropout(self.attention(q, k, v, attention_bias))
+        x = x + self.dropout(att)
 
         # Add feed-forward projection.
         # shape: (batch_size, seq_len, d_model)
         x = x + self.dropout(self.ff_out(self.act(self.ff_proj(self.norm(x)))))
 
-        return x
+        return x, cache
 
 
 class OlmoParallelBlock(OlmoBlock):
@@ -419,8 +445,10 @@ class OlmoParallelBlock(OlmoBlock):
     def forward(
         self,
         x: torch.Tensor,
-        attention_bias: Optional[torch.FloatTensor] = None,
-    ) -> torch.Tensor:
+        attention_bias: Optional[torch.Tensor] = None,
+        layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        use_cache: bool = False,
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         # Get query, key, value, and feed-forward projections.
         # shape of q, k, v:
         #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
@@ -431,12 +459,12 @@ class OlmoParallelBlock(OlmoBlock):
 
         # Get attention scores.
         # shape: (B, T, C)
-        att = self.attention(q, k, v, attention_bias)
+        att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
 
         # Apply output projections (and activation function) and sum the results.
         # We keep these projections separate because we found that we got better throughput this
         # way compared to fusing them.
-        return x + self.dropout(self.ff_out(self.act(ff))) + self.dropout(att)
+        return x + self.dropout(self.ff_out(self.act(ff))) + self.dropout(att), cache
 
 
 class OlmoOutput(NamedTuple):
@@ -444,6 +472,11 @@ class OlmoOutput(NamedTuple):
     """
     A tensor of shape `(batch_size, seq_len, vocab_size)` representing the log probabilities
     for the next token *before* normalization via (log) softmax.
+    """
+
+    key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]]
+    """
+    Cached attention keys and values for each block.
     """
 
 
@@ -582,6 +615,8 @@ class Olmo(nn.Module):
         input_ids: torch.LongTensor,
         attention_mask: Optional[torch.Tensor] = None,
         attention_bias: Optional[torch.Tensor] = None,
+        past_key_values: Optional[Sequence[Tuple[torch.Tensor, torch.Tensor]]] = None,
+        use_cache: bool = False,
     ) -> OlmoOutput:
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
@@ -604,7 +639,14 @@ class Olmo(nn.Module):
             scores before the softmax.
 
             The default is causal, which corresponds to a lower-diagonal byte matrix of ones.
+        :param past_key_values: Pre-computed keys and values for each attention block.
+             Can be used to speed up sequential decoding. The `input_ids` which have
+             their past given to this model should not be passed as `input_ids` as they have already been computed.
+        :param use_cache: If `True`, return key and value tensors for each block.
         """
+        if past_key_values:
+            assert len(past_key_values) == self.config.n_layers
+
         batch_size, seq_len = input_ids.size()
         assert seq_len <= self.config.max_sequence_length, (
             f"Cannot forward input with seq_len={seq_len}, "
@@ -644,16 +686,30 @@ class Olmo(nn.Module):
                 attention_bias = attention_bias.to(dtype=x.dtype)
                 attention_bias.masked_fill_(attention_bias == 0.0, float("-inf"))
 
-            attention_bias = attention_bias[:, :, :seq_len, :seq_len].to(x.dtype)
+            # Transform to the right shape and data type.
+            mask_len = seq_len
+            if attention_mask is not None:
+                mask_len = attention_mask.shape[-1]
+            elif past_key_values is not None:
+                mask_len = past_key_values[0][0].shape[-2] + input_ids.shape[-1]
+            attention_bias = attention_bias[:, :, :mask_len, :mask_len].to(x.dtype)
 
             # Add in the masking bias.
             if attention_mask is not None:
                 attention_bias = attention_bias + attention_mask
 
+        key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
+
         # Apply blocks one-by-one.
-        for block in self.transformer.blocks:  # type: ignore
+        for block, layer_past in zip(
+            self.transformer.blocks,  # type: ignore
+            past_key_values or [None] * self.config.n_layers,
+        ):
             # shape: (batch_size, seq_len, d_model)
-            x = block(x, attention_bias=attention_bias)
+            x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
+            if key_values is not None:
+                assert cache is not None
+                key_values.append(cache)
 
         # Apply final layer norm.
         # shape: (batch_size, seq_len, d_model)
@@ -663,7 +719,7 @@ class Olmo(nn.Module):
         # shape: (batch_size, seq_len, vocab_size)
         logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
 
-        return OlmoOutput(logits=logits)  # type: ignore[arg-type]
+        return OlmoOutput(logits=logits, key_values=key_values)  # type: ignore[arg-type]
 
     def fsdp_wrap_fn(self, module, recurse: bool = True, nonwrapped_numel: int = 0):
         del recurse, nonwrapped_numel
@@ -807,29 +863,57 @@ class Olmo(nn.Module):
 
         tokens_generated = 0
 
+        def flatten_past_key_values(
+            past_key_values: List[Tuple[torch.Tensor, torch.Tensor]]
+        ) -> Dict[str, torch.Tensor]:
+            out = {}
+            for i, (key, value) in enumerate(past_key_values):
+                out[f"past_key_{i}"] = key
+                out[f"past_value_{i}"] = value
+            return out
+
+        def unflatten_past_key_values(
+            past_key_values: Dict[str, torch.Tensor]
+        ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
+            out = []
+            for i in range(self.config.n_layers):
+                past_key = past_key_values[f"past_key_{i}"]
+                past_value = past_key_values[f"past_value_{i}"]
+                out.append((past_key, past_value))
+            return out
+
         def step(
             last_predictions: torch.Tensor, state: dict[str, torch.Tensor]
         ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
             nonlocal tokens_generated
 
-            input_ids = state["input_ids"]
             attention_mask = state.get("attention_mask")
             attention_bias = state.get("attention_bias")
-            group_size = input_ids.shape[0]
 
             if tokens_generated > 0:
-                input_ids = torch.cat((input_ids, last_predictions.unsqueeze(1)), dim=-1)
+                past_key_values = unflatten_past_key_values(state)
+                input_ids = last_predictions.unsqueeze(1)
                 if attention_mask is not None:
+                    group_size = input_ids.shape[0]
                     attention_mask = torch.cat((attention_mask, attention_mask.new_ones((group_size, 1))), dim=-1)
+            else:
+                past_key_values = None
+                input_ids = state["input_ids"]
 
             tokens_generated += 1
 
             # Run forward pass of model to get logits, then normalize to get log probs.
-            output = self(input_ids, attention_mask=attention_mask, attention_bias=attention_bias)
+            output = self(
+                input_ids,
+                attention_mask=attention_mask,
+                attention_bias=attention_bias,
+                past_key_values=past_key_values,
+                use_cache=True,
+            )
             log_probs = F.log_softmax(output.logits[:, -1, :], dim=-1)
 
             # Create new state.
-            state = {"input_ids": input_ids}
+            state = flatten_past_key_values(output.key_values)
             if attention_mask is not None:
                 state["attention_mask"] = attention_mask
             if attention_bias is not None:
