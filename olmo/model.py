@@ -703,7 +703,7 @@ class Olmo(nn.Module):
         # Apply blocks one-by-one.
         for block, layer_past in zip(
             self.transformer.blocks,  # type: ignore
-            past_key_values or [None] * self.config.n_layers,
+            past_key_values or [None] * self.config.n_layers,  # type: ignore
         ):
             # shape: (batch_size, seq_len, d_model)
             x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
