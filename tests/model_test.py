@@ -183,7 +183,7 @@ def test_forward(
             output1 = model(torch.tensor(input1, device=model.device).unsqueeze(0))
             key_value_cache1 = model(
                 torch.tensor(input1[:-1], device=model.device).unsqueeze(0), use_cache=True
-            ).key_values
+            ).attn_key_values
             output1_from_cached = model(
                 torch.tensor(input1[-1:], device=model.device).unsqueeze(0), past_key_values=key_value_cache1
             )
@@ -193,7 +193,7 @@ def test_forward(
                 batch_inputs["input_ids"][:, :-1],
                 attention_mask=batch_inputs["attention_mask"][:, :-1],
                 use_cache=True,
-            ).key_values
+            ).attn_key_values
             batch_output_from_cached = model(
                 batch_inputs["input_ids"][:, -1].unsqueeze(1),
                 attention_mask=batch_inputs["attention_mask"],

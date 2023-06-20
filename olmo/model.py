@@ -475,9 +475,9 @@ class OlmoOutput(NamedTuple):
     for the next token *before* normalization via (log) softmax.
     """
 
-    key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]]
+    attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]]
     """
-    Cached attention keys and values for each block.
+    Attention keys and values from each block.
     """
 
 
@@ -713,7 +713,7 @@ class Olmo(nn.Module):
             if attention_mask is not None:
                 attention_bias = attention_bias + attention_mask
 
-        key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
+        attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
 
         # Apply blocks one-by-one.
         for block, layer_past in zip(
@@ -722,9 +722,9 @@ class Olmo(nn.Module):
         ):
             # shape: (batch_size, seq_len, d_model)
             x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
-            if key_values is not None:
+            if attn_key_values is not None:
                 assert cache is not None
-                key_values.append(cache)
+                attn_key_values.append(cache)
 
         # Apply final layer norm.
         # shape: (batch_size, seq_len, d_model)
@@ -734,7 +734,7 @@ class Olmo(nn.Module):
         # shape: (batch_size, seq_len, vocab_size)
         logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
 
-        return OlmoOutput(logits=logits, key_values=key_values)  # type: ignore[arg-type]
+        return OlmoOutput(logits=logits, attn_key_values=attn_key_values)  # type: ignore[arg-type]
 
     def fsdp_wrap_fn(self, module, recurse: bool = True, nonwrapped_numel: int = 0):
         del recurse, nonwrapped_numel
