@@ -928,7 +928,7 @@ class Olmo(nn.Module):
             log_probs = F.log_softmax(output.logits[:, -1, :], dim=-1)
 
             # Create new state.
-            state = flatten_past_key_values(output.key_values)
+            state = flatten_past_key_values(output.attn_key_values)
             if attention_mask is not None:
                 state["attention_mask"] = attention_mask
             if attention_bias is not None:
