@@ -14,7 +14,7 @@ class OlmoPretrained(Olmo):
         device = "cuda" if device_map or torch.cuda.device_count() > 0 else "cpu"
         model = OlmoPretrained.from_checkpoint(model_path, device=device)
         device = torch.device(device)
-        model.device = device
+        # model.device = device
         # Don't load tokenizer for now, due to incompatible format
         tokenizer_raw = Tokenizer.from_checkpoint(model_path)
         tokenizer = PreTrainedTokenizerFast(
