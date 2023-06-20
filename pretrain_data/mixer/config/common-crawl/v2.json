@@ -1,0 +1,52 @@
+{
+  "streams": [
+    {
+      "name": "cc_en_head",
+      "documents": [
+        "pretraining-data/sources/common-crawl/v1/documents/cc_en_head/*"
+      ],
+      "attributes": [],
+      "output": {
+        "path": "pretraining-data/sources/common-crawl/v2/documents/cc_en_head",
+        "max_size_in_bytes": 4294967296
+      }
+    },
+    {
+      "name": "cc_en_middle",
+      "documents": [
+        "pretraining-data/sources/common-crawl/v1/documents/cc_en_middle/*"
+      ],
+      "attributes": [],
+      "output": {
+        "path": "pretraining-data/sources/common-crawl/v2/documents/cc_en_middle",
+        "max_size_in_bytes": 4294967296
+      }
+    },
+    {
+      "name": "cc_en_tail",
+      "documents": [
+        "pretraining-data/sources/common-crawl/v1/documents/cc_en_tail/*"
+      ],
+      "attributes": [],
+      "output": {
+        "path": "pretraining-data/sources/common-crawl/v2/documents/cc_en_tail",
+        "max_size_in_bytes": 4294967296
+      }
+    }
+  ],
+  "bloom_filter": {
+    "file": "/data/v2/bloom_filter.bin",
+    "size_in_bytes": 3023656976384,
+    "read_only": false,
+    "estimated_doc_count": 600000000000,
+    "desired_false_positive_rate": 0.000001
+  },
+  "dedupe": {
+    "paragraphs": true
+  },
+  "work_dir": {
+    "input": "/data/v2/work/input",
+    "output": "/data/v2/work/output"
+  },
+  "processes": 128
+}

@@ -7,3 +7,4 @@ huggingface_hub
 pyarrow
 fastparquet
 s3fs
+uniseg

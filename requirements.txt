@@ -2,7 +2,6 @@
 # Docker images. See each Dockerfile for details on how to do that.
 numpy
 torch>=2.0
-einops
 torchmetrics
 tokenizers
 click
@@ -15,3 +14,8 @@ logzio-python-handler
 boto3
 google-cloud-storage
 packaging
+datasets
+scikit-learn
+smashed[remote]>=0.21.1
+msgspec>=0.14.0
+cached_path

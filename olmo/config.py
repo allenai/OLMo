@@ -74,7 +74,7 @@ class BaseConfig:
         def path_glob(*paths) -> List[str]:
             out = []
             for path in paths:
-                matches = glob(path)
+                matches = sorted(glob(path))
                 if not matches:
                     raise FileNotFoundError(f"{path} does not match any files or dirs")
                 out.extend(matches)
@@ -310,13 +310,6 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
-    @property
-    def device(self) -> str:
-        if self.init_device == "meta" or self.init_device is None:
-            return "cuda" if torch.cuda.is_available() else "cpu"
-        else:
-            return self.init_device
-
 
 class OptimizerType(StrEnum):
     lionw = "lionw"
@@ -357,22 +350,29 @@ class PaddingDirection(StrEnum):
 
 @dataclass
 class DataConfig(BaseConfig):
-    paths: List[str] = field(default_factory=lambda: [])
+    paths: Optional[List[str]] = None
+    datasets: Optional[Dict[str, List[str]]] = None
     pad_direction: PaddingDirection = PaddingDirection.right
     num_workers: int = 0
-    drop_last: bool = True
-    pin_memory: bool = True
-    prefetch_factor: Optional[int] = 2
-    persistent_workers: bool = True
+    drop_last: bool = False
+    pin_memory: bool = False
+    prefetch_factor: Optional[int] = None
+    persistent_workers: bool = False
     timeout: int = 0
+
+
+class EvaluatorType(StrEnum):
+    downstream = "downstream"
+    lm = "lm"
 
 
 @dataclass
 class EvaluatorConfig(BaseConfig):
     label: str
-    data: DataConfig
-    device_eval_batch_size: int
-    subset_num_batches: int = -1
+    type: EvaluatorType = EvaluatorType.lm
+    data: DataConfig = field(default_factory=DataConfig)
+    device_eval_batch_size: Optional[int] = None
+    subset_num_batches: Optional[int] = None
 
 
 class TruncationDirection(StrEnum):
@@ -574,6 +574,21 @@ class TrainConfig(BaseConfig):
     this as large as you can based on available GPU memory.
     """
 
+    device_eval_batch_size: int = 16
+    """
+    The number of evaluation instances passed to the model in a single forward pass on each device.
+    """
+
+    eval_subset_num_batches: int = -1
+    """
+    The number of batches to use for downstream evaluation from each dataset.
+    """
+
+    eval_on_load: bool = False
+    """
+    When resuming from a checkpoint, run the evaluation loop right away.
+    """
+
     device_train_grad_accum: Optional[int] = None  # calculated automatically
     """
     Don't set this manually. This will be set to ``device_train_batch_size // device_train_microbatch_size``.
@@ -625,9 +640,17 @@ class TrainConfig(BaseConfig):
     normalizing term to be close to 0.
     """
 
-    @property
-    def device(self) -> str:
-        return self.model.device
+    time_limit: Optional[float] = 60 * 60 * 47.5
+    """
+    The maximum amount of time to train for before saving a checkpoint and ending early.
+    On LUMI we have 48 hours max per job, so we default to just under 48 hours to give us time
+    to write out a final checkpoint.
+    """
+
+    save_data_indices: bool = False
+    """
+    If ``True``, write the indices of the examples in each batch for each rank to a tsv file in the save folder.
+    """
 
     @property
     def autocast_precision(self) -> torch.dtype:

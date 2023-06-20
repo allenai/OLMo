@@ -1,0 +1,23 @@
+{
+  "documents": [
+    "pretraining-data/tests/mixer/inputs/v0/documents/*/0000.json.gz"
+  ],
+  "work_dir": {
+    "input": "tests/work/para/input",
+    "output": "tests/work/para/output"
+  },
+  "dedupe": {
+    "name": "dedupe_paragraphs",
+    "paragraphs": {
+      "attribute_name": "bff_duplicate_paragraph_spans"
+    }
+  },
+  "bloom_filter": {
+    "file": "tests/work/para_bloom_filter.bin",
+    "size_in_bytes": 0,
+    "read_only": false,
+    "estimated_doc_count": 1000,
+    "desired_false_positive_rate": 0.001
+  },
+  "processes": 1
+}

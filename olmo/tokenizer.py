@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from threading import Lock
 from typing import List, Optional, Union
 
 from tokenizers import Tokenizer as BaseTokenizer
@@ -25,21 +24,18 @@ class Tokenizer:
         this setting has no effect.
     """
 
-    # The base tokenizer is not thread safe, so we use a lock to ensure
-    # we're only using it in a single thread at once.
-    # See https://github.com/huggingface/tokenizers/issues/537
-    MUTEX = Lock()
-
     def __init__(
         self,
         base_tokenizer: BaseTokenizer,
         eos_token_id: int,
+        pad_token_id: Optional[int] = None,
         truncate_to: Optional[int] = None,
         truncate_direction: Union[str, TruncationDirection] = TruncationDirection.right,
     ):
         self.base_tokenizer = base_tokenizer
         self.base_tokenizer.no_truncation()
         self.eos_token_id = eos_token_id
+        self.pad_token_id = pad_token_id if pad_token_id is not None else eos_token_id
         self.truncate_to = truncate_to
         self.truncate_direction = TruncationDirection(truncate_direction)
 
@@ -49,7 +45,11 @@ class Tokenizer:
 
     @classmethod
     def from_train_config(cls, config: TrainConfig) -> Tokenizer:
-        tokenizer = cls.from_pretrained(config.tokenizer.identifier, eos_token_id=config.model.eos_token_id)
+        tokenizer = cls.from_pretrained(
+            config.tokenizer.identifier,
+            eos_token_id=config.model.eos_token_id,
+            pad_token_id=config.model.pad_token_id,
+        )
         if config.model.vocab_size != tokenizer.vocab_size:
             raise OlmoConfigurationError("vocab size mismatch between config and tokenizer")
         return tokenizer
@@ -80,7 +80,11 @@ class Tokenizer:
         model_config = ModelConfig.load(config_path, key="model")
 
         # Initialize tokenizer and validate vocab size.
-        tokenizer = cls.from_pretrained(tokenizer_config.identifier, eos_token_id=model_config.eos_token_id)
+        tokenizer = cls.from_pretrained(
+            tokenizer_config.identifier,
+            eos_token_id=model_config.eos_token_id,
+            pad_token_id=model_config.pad_token_id,
+        )
         if model_config.vocab_size != tokenizer.vocab_size:
             raise OlmoConfigurationError("vocab size mismatch between config and tokenizer")
         return tokenizer

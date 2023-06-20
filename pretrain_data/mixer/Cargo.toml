@@ -1,7 +1,15 @@
 [package]
-name = "mixer"
+name = "ai2_pretraining"
 version = "0.1.0"
 edition = "2021"
+
+#[[bin]]
+#name= "mixer"
+#path="src/bin/mixer.rs"
+#
+#[[bin]]
+#name="deduper"
+#path="src/bin/deduper.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

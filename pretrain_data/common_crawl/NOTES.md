@@ -1,25 +1,60 @@
-# Preparing CommonCrawl Data
+## Dataset Summary
 
-## Overview
+We ran the CCNet pipeline over 25 dumps from 2020-05 to 2023-06.  Different versions are stored under `s3://ai2-llm/pretraining-data/sources/common-crawl/`:
+
+### v0
+
+Sharded output of CCNet pipline. Duplicate paragraphs removed (exact match, but only comparing against a ~2% sample of paragraphs in the corpus). Bucketed by language (fasttext), and English perplexity on wikipedia-trained 5-gram language model.
+
+**v0-en** is the re-sharded English content of `v0`
+
+**v0-small** is a sample of of `v0-en`, about 300B tokens.
+
+### v1
+
+Post-process of v0. Drop non-English documents. Deduplicate whole documents by URL. Coalesce shards.
+
+~4.8T tokens. High/Med/Low quality split: 20%/25%/55%
+
+**v1-small** is an 8.5% sample of `v1`, about 300B tokens.
+
+**v1-small-head** is a sample of the `cc_en_head` (low-perplexity) subset of `v1`
+
+**v1-small-head-middle** is a sample of the `cc_en_head` and `cc_en_middle` (low- and mid-perplexity) subset of `v1`
+
+**v1-small-c4-cleaned** applies C4's text-cleanup rules
+
+**v1-small-c4-filtered** applies C4's drop-junk-documents rules
+
+**v1-small-gopher-filtered** applies Gopher's drop-junk-documents rules
+
+**v1-small-c4-cleaned-gopher-filtered** applies Gopher's drop-junk-documents rules to the C4-cleaned text
+
+### v2
+
+Post-process of v1. Remove duplicate paragraphs across the entire corpus
+
+**v2-small** is a post-process of `v1-small-head-middle` to remove duplicate paragraphs.
+
+
+## CCNet Overview
 
 We run a fork of CCNet at https://github.com/allenai/cc_net.git
 
-Note that we are not storing our own copy of the CC data. Files are downloaded on demand from http://data.commoncrawl.org. The Hashes and Transform steps each involve a full pass over the data.
+We are not storing our own copy of the CC data. Files are downloaded on demand from http://data.commoncrawl.org. The Hashes and Transform steps each involve a full pass over the data. Downloads can be throttled, which is the main cause of failure.
 
 The pipeline has two fundamental steps:
 
 **Hash Content**
 
 A sha hash is computed for each paragraph of each document.
-This step is unlikely to ever change, so we pre-compute it and store the data S3 under `raw`.
-The step is CPU-bound, so is most efficiently run on a low-memory-per-CPU machine, like a `c6a.32xlarge`
+This step is unlikely to ever change, so we pre-compute it and store the data S3 under `s3://ai2-llm/pretraining-data/sources/common-crawl/raw`.
 
 **Deduplicate and Transform**
 
-Use the shas to deduplicate the data within a single dump at the paragraph level. Produce separate sets of JSON files for each shard.
-This step is the slowest, and memory-bound, so it's most efficiently run on a high-memory-per-CPU machine, like a `u-3tb1.56xlarge`. Data remains on local disk. 
+Use the shas to deduplicate the data within a single dump at the paragraph level. Produce separate sets of JSON files for each shard, in AI2 format.  Data is uploaded to S3 when finished.
 
-## Running
+## Running CCNet
 
 Create an EC2 machine from [this template](https://us-east-1.console.aws.amazon.com/ec2/home?region=us-east-1#LaunchTemplateDetails:launchTemplateId=lt-0be9ec34ba9794d3e).
 The user-data initialization script will install dependencies and place a `READY` file in the home directory when finished. Check `/var/log/cloud-init-output.log` for progress.
@@ -27,6 +62,9 @@ The user-data initialization script will install dependencies and place a `READY
 Run commands from `$HOME/cc_net`. All commands are idempotent. Sometimes a shard will fail because the CC download was unsuccessful. In that case, repeat the command until it succeeds.
 
 ### Hash Content
+
+This step is CPU-bound, so is most efficiently run on a low-memory-per-CPU machine, like a `c6a.32xlarge`
+
 ```
 make hashes dump=<YYYY-nn> threads=<# CPUs>
 
@@ -40,6 +78,8 @@ for d in `aws s3 ls s3://ai2-llm/pretraining-data/sources/common-crawl/raw/hashe
 ```
 
 ### Deduplicate and Transform
+
+This step is the slowest, and memory-bound, so it's most efficiently run on a high-memory-per-CPU machine, like a `u-3tb1.56xlarge`.
 ```
 make transform dump=<YYYY-nn> threads=<available RAM / 20GB>
 ```
@@ -54,98 +94,34 @@ for d in `aws s3 ls s3://ai2-llm/pretraining-data/sources/common-crawl/v0/docume
 
 Look in `cc_net/data/logs` for the logs of sub-processes that handle the individual tasks. A `Failed job ... has not produced any output` error indicates that the process was killed, probably for running out of memory.
 
-## Status
+## Dumps Processed
 
-|dump|hashes|documents|en tokens (high)|en tokens (med)|en tokens (low)|
-|---|---|---|---|---|---|
-|2023-14| | ||||
-|2023-06|X|X|111B|130B|164B|
-|2022-49|X|X|107B|128B|174B|
-|2022-40|X|X|99B|114B|150B|
-|2022-33|X|X|77B|93B|135B|
-|2022-27|X|X||||
-|2022-21|X|X||||
-|2022-05|X|X||||
-|2021-49|X|X||||
-|2021-43|X|X||||
-|2021-39|X|X||||
-|2021-31|X|X||||
-|2021-25|X|X||||
-|2021-21|X|X||||
-|2021-17|X|X||||
-|2021-10|X|X||||
-|2021-04|X|X||||
-|2020-50|X|X||||
-|2020-45|X|X||||
-|2020-40|X|X||||
-|2020-34|X|X||||
-|2020-29|X|X||||
-|2020-24|X|X||||
-|2020-16|X|X||||
-|2020-10|X|X||||
-|2020-05|X|3||||
-|2019-51| | ||||
-|2019-47| | ||||
-|2019-43| | ||||
-|2019-39| | ||||
-|2019-35| | ||||
-|2019-30| | ||||
-|2019-26| | ||||
-|2019-22| | ||||
-|2019-18| | ||||
-|2019-13| | ||||
-|2019-09| | ||||
-|2019-04| | ||||
-|2018-51| | ||||
-|2018-47| | ||||
-|2018-43| | ||||
-|2018-39| | ||||
-|2018-34| | ||||
-|2018-30| | ||||
-|2018-26| | ||||
-|2018-22| | ||||
-|2018-17| | ||||
-|2018-13| | ||||
-|2018-09| | ||||
-|2018-05| | ||||
-|2017-51| | ||||
-|2017-47| | ||||
-|2017-43| | ||||
-|2017-39| | ||||
-|2017-34| | ||||
-|2017-30| | ||||
-|2017-26| | ||||
-|2017-22| | ||||
-|2017-17| | ||||
-|2017-13| | ||||
-|2017-09| | ||||
-|2017-04| | ||||
-|2016-50| | ||||
-|2016-44| | ||||
-|2016-40| | ||||
-|2016-36| | ||||
-|2016-30| | ||||
-|2016-26| | ||||
-|2016-22| | ||||
-|2016-18| | ||||
-|2016-07| | ||||
-|2015-48| | ||||
-|2015-40| | ||||
-|2015-35| | ||||
-|2015-32| | ||||
-|2015-27| | ||||
-|2015-22| | ||||
-|2015-18| | ||||
-|2015-14| | ||||
-|2015-11| | ||||
-|2015-06| | ||||
-|2014-52| | ||||
-|2014-49| | ||||
-|2014-42| | ||||
-|2014-41| | ||||
-|2014-35| | ||||
-|2014-23| | ||||
-|2014-15| | ||||
-|2014-10| | ||||
-|2013-48| | ||||
-|2013-20| | ||||
+Our dataset includes data from the following dumps:
+
+| dump    |
+|---------|
+| 2023-06 |
+| 2022-49 |
+| 2022-40 |
+| 2022-33 |
+| 2022-27 |
+| 2022-21 |
+| 2022-05 |
+| 2021-49 |
+| 2021-43 |
+| 2021-39 |
+| 2021-31 |
+| 2021-25 |
+| 2021-21 |
+| 2021-17 |
+| 2021-10 |
+| 2021-04 |
+| 2020-50 |
+| 2020-45 |
+| 2020-40 |
+| 2020-34 |
+| 2020-29 |
+| 2020-24 |
+| 2020-16 |
+| 2020-10 |
+| 2020-05 |

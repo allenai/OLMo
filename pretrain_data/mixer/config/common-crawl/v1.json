@@ -1,0 +1,125 @@
+{
+  "streams": [
+    {
+      "name": "cc_en_head",
+      "documents": [
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2023-06/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-49/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-40/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-33/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-27/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-21/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-05/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-49/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-43/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-39/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-31/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-25/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-21/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-17/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-10/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-04/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-50/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-45/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-40/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-34/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-29/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-24/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-16/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-10/*/en_head.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-05/*/en_head.json.gz"
+      ],
+      "attributes": [],
+      "output": {
+        "path": "pretraining-data/sources/common-crawl/v1/documents/cc_en_head",
+        "max_size_in_bytes": 4294967296
+      }
+    },
+    {
+      "name": "cc_en_middle",
+      "documents": [
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2023-06/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-49/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-40/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-33/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-27/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-21/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-05/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-49/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-43/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-39/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-31/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-25/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-21/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-17/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-10/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-04/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-50/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-45/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-40/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-34/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-29/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-24/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-16/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-10/*/en_middle.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-05/*/en_middle.json.gz"
+      ],
+      "attributes": [],
+      "output": {
+        "path": "pretraining-data/sources/common-crawl/v1/documents/cc_en_middle",
+        "max_size_in_bytes": 4294967296
+      }
+    },
+    {
+      "name": "cc_en_tail",
+      "documents": [
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2023-06/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-49/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-40/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-33/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-27/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-21/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2022-05/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-49/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-43/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-39/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-31/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-25/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-21/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-17/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-10/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2021-04/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-50/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-45/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-40/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-34/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-29/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-24/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-16/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-10/*/en_tail.json.gz",
+        "pretraining-data/sources/common-crawl/v0/documents/mined_split/2020-05/*/en_tail.json.gz"
+      ],
+      "attributes": [],
+      "output": {
+        "path": "pretraining-data/sources/common-crawl/v1/documents/cc_en_tail",
+        "max_size_in_bytes": 4294967296
+      }
+    }
+  ],
+  "bloom_filter": {
+    "file": "/data4/v1/bloom_filter.bin",
+    "size_in_bytes": 0,
+    "read_only": false,
+    "estimated_doc_count": 60000000000,
+    "desired_false_positive_rate": 0.0002
+  },
+  "dedupe": {
+    "paragraphs": false,
+    "document_key": "$.metadata.url"
+  },
+  "work_dir": {
+    "input": "/data1/work/input",
+    "output": "/data2/work/output"
+  },
+  "processes": 128
+}

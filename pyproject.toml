@@ -32,6 +32,7 @@ ignore_missing_imports = true
 no_site_packages = true
 check_untyped_defs = true
 exclude = ["pretrain_data/"]
+no_namespace_packages = true
 
 [[tool.mypy.overrides]]
 module = "tests.*"

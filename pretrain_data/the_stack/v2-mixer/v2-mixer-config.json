@@ -1,0 +1,28 @@
+{
+    "streams": [
+        {
+            "name": "v2-mixer",
+            "documents": [
+                "pretraining-data/sources/stack-dedup/v1-mixer/documents/v1-mixer-*.json.gz"
+            ],
+            "output": {
+                "path": "pretraining-data/sources/stack-dedup/v2-mixer/documents",
+                "max_size_in_bytes": 1000000000
+            },
+            "attributes": ["rpj-heuristics"],
+	    "filter": {
+		"include": [
+
+		],
+		"exclude": [
+		    "$.attributes.[?(@.rpj_heuristics__code_redpajama_taggers_v1__max_line_length_doc[0][2] > 1000)]",
+		    "$.attributes.[?(@.rpj_heuristics__code_redpajama_taggers_v1__avg_line_length_doc[0][2] > 100)]",
+		    "$.attributes.[?(@.rpj_heuristics__code_redpajama_taggers_v1__alnum_prop_doc[0][2] < 0.25)]",
+		    "$.attributes.[?(@.rpj_heuristics__code_redpajama_taggers_v1__alpha_token_prop_doc < 1.5)]"
+		]
+	    }
+        }
+    ],
+    "work_dir": {"input": "/tmp/mixer/input", "output": "/tmp/mixer/output"},
+    "processes": 64
+}
