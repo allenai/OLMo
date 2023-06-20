@@ -12,7 +12,8 @@
 
 module load LUMI/22.08 partition/G
 
-export OLMO_CONTAINER=llm-lumi_latest.sif
+export OLMO_CONTAINER=$FLASH_DIR/containers/llm-lumi_latest-light.sif
+# export OLMO_CONTAINER=$PROJECT_DIR/containers/llm-lumi_latest.sif
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
@@ -36,17 +37,26 @@ export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.
 # Try playing with max_split_size_mb if you run into OOM errors.
 # export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:512
 
+wd=$(realpath .)
+if [ ! -d $wd/cray-deps ] ; then
+  rm -rf $wd/cray-deps
+  mkdir $wd/cray-deps
+  cp /usr/lib64/libcxi* $wd/cray-deps
+fi
+
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
   --distribution=block:block \
   --kill-on-bad-exit \
   scripts/run_with_environment.sh \
     singularity exec \
-    -B"$PROJECT_DIR:$PROJECT_DIR" \
-    -B"$SCRATCH_DIR:$SCRATCH_DIR" \
-    -B"$FLASH_DIR:$FLASH_DIR" \
+    -B $PROJECT_DIR:$PROJECT_DIR \
+    -B $SCRATCH_DIR:$SCRATCH_DIR \
+    -B $FLASH_DIR:$FLASH_DIR \
     -B /opt/cray:/opt/cray \
+    -B $wd/cray-deps:/opt/cray-deps \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
-    $PROJECT_DIR/containers/$OLMO_CONTAINER \
-    python scripts/train.py configs/c4-small.yaml --run_name=${SLURM_JOB_ID}
+    -B $wd:/workdir \
+    $OLMO_CONTAINER \
+    /workdir/scripts/run_lumi_light.sh python scripts/train.py configs/c4-small.yaml --run_name=${SLURM_JOB_ID}
