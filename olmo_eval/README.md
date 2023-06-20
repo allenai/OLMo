@@ -3,10 +3,9 @@
 ## Downstream task evaluation during pretraining
 
 This contains basic plumbing to hook OLMo into catwalk, using code currently 
-available at https://github.com/OyvindTafjord/catwalk. Best used by running
+available at the branch https://github.com/allenai/catwalk/tree/olmo-eval. Best used by running
 beaker-gantry from within the catwalk repo, pointing to an appropriate beaker image,
-such as [`oyvindt/OLMoEvalV4`](https://beaker.org/im/01GZZ48Q0CNJ1QD20QCH891306/details)
-(typically pick the highest version number).
+a good choice is usually `oyvindt/OLMoEvalLatest`.
 
 See the Jupyter Notebook(s) in this directory for examples of launching Beaker
 experiments.
