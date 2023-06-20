@@ -315,13 +315,15 @@ class OlmoBlock(nn.Module):
         else:
             present = None
 
+        query_len, key_len = q.shape[-2], k.shape[-2]  # could be different if layer_past not None
+
         if self.config.rope:
             # Apply rotary embeddings.
-            positions = self.get_rotary_embedding(T, q.device)
-            q, k = map(lambda t: apply_rotary_pos_emb(positions, t), (q, k))
+            positions = self.get_rotary_embedding(key_len, q.device)
+            q = apply_rotary_pos_emb(positions[key_len - query_len : key_len], q)
+            k = apply_rotary_pos_emb(positions, k)
 
         if attention_bias is not None:
-            query_len, key_len = q.shape[-2], k.shape[-2]
             attention_bias = attention_bias[:, :, key_len - query_len : key_len, :key_len]
 
         # Get the attention scores.
@@ -658,8 +660,14 @@ class Olmo(nn.Module):
 
         if not (self.config.alibi or self.config.rope):
             # Get positional embeddings.
+            if past_key_values is None:
+                past_length = 0
+            else:
+                past_length = past_key_values[0][0].size(-2)
             # shape: (1, seq_len)
-            pos = torch.arange(0, seq_len, dtype=torch.long, device=input_ids.device).unsqueeze(0)
+            pos = torch.arange(
+                past_length, past_length + seq_len, dtype=torch.long, device=input_ids.device
+            ).unsqueeze(0)
             # shape: (1, seq_len, d_model)
             pos_emb = self.transformer.wpe(pos)  # type: ignore
             x = pos_emb + x
@@ -676,7 +684,15 @@ class Olmo(nn.Module):
             attention_mask.masked_fill_(attention_mask == 1.0, float("-inf"))
 
         # Merge attention mask with attention bias.
-        if attention_bias is not None or attention_mask is not None or self.config.alibi:
+        if (
+            attention_bias is not None
+            or attention_mask is not None
+            or self.config.alibi
+            # NOTE (epwalsh): we need to initialize the attn bias in order for attn to work properly
+            # with key+value cache. Otherwise `F.scaled_dot_product_attention()` doesn't seem to compute
+            # scores correctly.
+            or past_key_values is not None
+        ):
             if attention_bias is None and self.config.alibi:
                 attention_bias = self.causal_attention_bias + self.alibi_attention_bias
             elif attention_bias is None:
