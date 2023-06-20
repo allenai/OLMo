@@ -618,6 +618,7 @@ class Olmo(nn.Module):
         attention_bias: Optional[torch.Tensor] = None,
         past_key_values: Optional[Sequence[Tuple[torch.Tensor, torch.Tensor]]] = None,
         use_cache: bool = False,
+        last_logits_only: bool = False,
     ) -> OlmoOutput:
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
@@ -641,9 +642,11 @@ class Olmo(nn.Module):
 
             The default is causal, which corresponds to a lower-diagonal byte matrix of ones.
         :param past_key_values: Pre-computed keys and values for each attention block.
-             Can be used to speed up sequential decoding. The `input_ids` which have
-             their past given to this model should not be passed as `input_ids` as they have already been computed.
+            Can be used to speed up sequential decoding. The `input_ids` which have
+            their past given to this model should not be passed as `input_ids` as they have already been computed.
         :param use_cache: If `True`, return key and value tensors for each block.
+        :param last_logits_only: If `True`, only compute the logits for the last token of each sequence.
+            This can speed up decoding when you only care about the next token.
         """
         if past_key_values:
             assert len(past_key_values) == self.config.n_layers
@@ -726,12 +729,16 @@ class Olmo(nn.Module):
                 assert cache is not None
                 attn_key_values.append(cache)
 
+        if last_logits_only:
+            # shape: (batch_size, 1, d_model)
+            x = x[:, -1, :].unsqueeze(1)
+
         # Apply final layer norm.
-        # shape: (batch_size, seq_len, d_model)
+        # shape: (batch_size, seq_len or 1, d_model)
         x = self.transformer.ln_f(x)  # type: ignore
 
         # Get logits.
-        # shape: (batch_size, seq_len, vocab_size)
+        # shape: (batch_size, seq_len or 1, vocab_size)
         logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
 
         return OlmoOutput(logits=logits, attn_key_values=attn_key_values)  # type: ignore[arg-type]
@@ -924,6 +931,7 @@ class Olmo(nn.Module):
                 attention_bias=attention_bias,
                 past_key_values=past_key_values,
                 use_cache=True,
+                last_logits_only=True,
             )
             log_probs = F.log_softmax(output.logits[:, -1, :], dim=-1)
 
