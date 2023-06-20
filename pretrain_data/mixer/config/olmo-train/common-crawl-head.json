@@ -25,7 +25,7 @@
       "filter": {
         "include": [],
         "exclude": [
-                    "$.attributes[?(@.gopher_rules__gopher_v1__word_count && @.gopher_rules__gopher_v1__word_count[0] && @.gopher_rules__gopher_v1__word_count[0][2] < 50)]",
+          "$.attributes[?(@.gopher_rules__gopher_v1__word_count && @.gopher_rules__gopher_v1__word_count[0] && @.gopher_rules__gopher_v1__word_count[0][2] < 50)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__word_count && @.gopher_rules__gopher_v1__word_count[0] && @.gopher_rules__gopher_v1__word_count[0][2] > 100000)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__median_word_length && @.gopher_rules__gopher_v1__median_word_length[0] && @.gopher_rules__gopher_v1__median_word_length[0][2] < 3)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__median_word_length && @.gopher_rules__gopher_v1__median_word_length[0] && @.gopher_rules__gopher_v1__median_word_length[0][2] > 10)]",

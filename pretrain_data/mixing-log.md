@@ -319,3 +319,46 @@ python scripts/prepare_memmap_dataset.py  \
 ```shell
 ~/target/release/mixer pretrain_data/mixer/config/olmo-train/common-crawl-tail.json && ai2_llm_filters -d 'olmo-mix/v1' -n random -t random_number_v1 -p 120 --reuse-existing /tmp/olmo_mix/meta --files-regex-pattern 'cc_en_tail' --local-read-cache /tmp/olmo_mix/cache && ~/target/release/mixer pretrain_data/mixer/config/olmo-train-sample/common-crawl-tail.json
 ```
+
+## Gopher-like
+
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-sample-small/documents/stack \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1-sample-small/gpt-neox-20b-pii-special/stack \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120 \
+    --cache-dir /tmp/llm-preprocessed
+```
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-sample-small/documents/cc_en_head \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1-sample-small/gpt-neox-20b-pii-special/common-crawl/cc_en_head \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120 \
+    --cache-dir /tmp/llm-preprocessed/cc_en_head
+```
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-sample-small/documents/cc_en_middle \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1-sample-small/gpt-neox-20b-pii-special/common-crawl/cc_en_middle \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120 \
+    --cache-dir /tmp/llm-preprocessed
+```
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-sample-small/documents/cc_en_tail \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1-sample-small/gpt-neox-20b-pii-special/common-crawl/cc_en_tail \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120 \
+    --cache-dir /tmp/llm-preprocessed
+```
