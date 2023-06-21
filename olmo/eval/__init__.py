@@ -1,14 +1,13 @@
 from typing import Dict, List, Union
 
 import torch
-import torch.distributed as dist
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import MeanMetric, Metric
 
 from ..config import EvaluatorConfig, EvaluatorType, TrainConfig
 from ..exceptions import OlmoConfigurationError
 from ..tokenizer import Tokenizer
-from ..util import cycle_through_epochs, get_global_rank
+from ..util import cycle_through_epochs, get_global_rank, get_world_size
 from .downstream import ICLMetric, label_to_task_map
 from .evaluator import Evaluator
 
@@ -39,7 +38,7 @@ def build_downstream_evaluator(
             ds_eval_dataset,
             drop_last=data_config.drop_last,
             shuffle=False,
-            num_replicas=dist.get_world_size(),
+            num_replicas=get_world_size(),
             rank=get_global_rank(),
             seed=train_config.seed,
         )
