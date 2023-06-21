@@ -22,7 +22,7 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
     remainder of the tokens will be ignored.
 
     No special tokens are added to the input IDs so it's assumed that if you want
-    EOS tokens between documents, for example, those will already by in the memory-mapped array.
+    EOS tokens between documents, for example, those will already be in the memory-mapped array.
 
     :param paths: Paths to memory-mapped token arrays.
     :param chunk_size: The number of tokens to chunk together into a single instance.
