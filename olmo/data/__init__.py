@@ -1,11 +1,11 @@
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import torch.distributed as dist
 from torch.utils.data import DataLoader, DistributedSampler
 
 from ..config import DataConfig, TrainConfig
 from ..exceptions import OlmoConfigurationError
-from ..util import global_rank
+from ..util import barrier, get_global_rank, get_world_size
 from .collator import DataCollator
 from .iterable_dataset import IterableDataset
 from .memmap_dataset import MemMapDataset
@@ -42,15 +42,15 @@ def build_eval_dataloader(
     collator = DataCollator(pad_direction=data_config.pad_direction, pad_token_id=train_config.model.pad_token_id)
     if data_config.drop_last:
         # Make sure batch size is small enough.
-        samples_per_device = len(dataset) // dist.get_world_size()
+        samples_per_device = len(dataset) // get_world_size()
         batch_size = min(batch_size, samples_per_device)
         assert batch_size > 0, f"dataset for {data_config.paths} is too small"
     sampler = DistributedSampler(
         dataset,
         drop_last=data_config.drop_last,
         shuffle=shuffle,
-        num_replicas=dist.get_world_size(),
-        rank=global_rank(),
+        num_replicas=get_world_size(),
+        rank=get_global_rank(),
         seed=train_config.seed,
     )
     return DataLoader(
@@ -72,6 +72,15 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
         pad_direction=train_config.data.pad_direction, pad_token_id=train_config.model.pad_token_id
     )
     dataset = build_memmap_dataset(train_config, train_config.data)
+    work_dir = Path(train_config.save_folder) / "train_data"
+    if get_global_rank() == 0:
+        if work_dir.is_dir() and not train_config.save_overwrite:
+            raise OlmoConfigurationError(
+                "train data working directory already exists, use --save_overwrite to overwrite"
+            )
+        else:
+            work_dir.mkdir(exist_ok=True, parents=True)
+    barrier()
     return DataLoader(
         IterableDataset(
             dataset,  # type: ignore
@@ -79,6 +88,7 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
             shuffle=True,
             drop_last=train_config.data.drop_last,
             max_examples=train_config.global_train_batch_size * train_config.max_duration,
+            work_dir=work_dir,
         ),
         batch_size=train_config.device_train_batch_size,
         drop_last=train_config.data.drop_last,
