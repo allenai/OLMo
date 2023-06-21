@@ -1,11 +1,13 @@
 import math
+from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Union
 
+import numpy as np
 import torch
-import torch.distributed as dist
 import torch.utils.data
 
-from ..util import global_rank
+from ..aliases import PathOrStr
+from ..util import barrier, get_global_rank, get_world_size
 
 __all__ = ["IterableDataset"]
 
@@ -29,6 +31,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         drop_last: bool = False,
         world_size: Optional[int] = None,
         rank: Optional[int] = None,
+        work_dir: Optional[PathOrStr] = None,
     ):
         self.dataset = dataset
         self.seed = seed
@@ -36,12 +39,8 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         self.max_examples = max_examples
         self.shuffle = shuffle
         self.drop_last = drop_last
-        self.rank = rank if rank is not None else global_rank()
-        self.world_size = (
-            world_size
-            if world_size is not None
-            else (dist.get_world_size() if (dist.is_available() and dist.is_initialized()) else 1)
-        )
+        self.rank = rank if rank is not None else get_global_rank()
+        self.world_size = world_size if world_size is not None else get_world_size()
         # If the dataset length is evenly divisible by # of replicas, then there
         # is no need to drop any data, since the dataset will be split equally.
         if self.drop_last and len(self.dataset) % self.world_size != 0:  # type: ignore[arg-type]
@@ -53,8 +52,21 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         else:
             num_samples = math.ceil(len(self.dataset) / self.world_size)  # type: ignore[arg-type]
         self.total_size = num_samples * self.world_size
+        self.global_indices_file: Optional[Path] = None
+        if work_dir is not None:
+            self.global_indices_file = Path(work_dir) / "global_indices.npy"
+            if rank == 0:
+                self.global_indices_file.parent.mkdir(parents=True, exist_ok=True)
+                global_indices = self._build_global_indices()
+                global_indices_mmap = np.memmap(
+                    self.global_indices_file, dtype=np.uint64, mode="w+", shape=(len(global_indices),)
+                )
+                global_indices_mmap[:] = global_indices
+                global_indices_mmap.flush()
+                del global_indices_mmap
+            barrier()
 
-    def __iter__(self) -> Iterator[Dict[str, Any]]:
+    def _build_global_indices(self) -> List[int]:
         if self.shuffle:
             # Deterministically shuffle based on epoch and seed
             g = torch.Generator()
@@ -74,6 +86,16 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             # Remove tail of data to make it evenly divisible.
             indices = indices[: self.total_size]
         assert len(indices) == self.total_size
+        return indices
+
+    def get_global_indices(self) -> Sequence[int]:
+        if self.global_indices_file is not None:
+            return np.memmap(self.global_indices_file, mode="r", dtype=np.uint64)  # type: ignore
+        else:
+            return self._build_global_indices()
+
+    def __iter__(self) -> Iterator[Dict[str, Any]]:
+        indices = self.get_global_indices()
 
         # Truncate to max_examples.
         if self.max_examples is not None:

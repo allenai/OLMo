@@ -8,7 +8,7 @@ from torchmetrics import MeanMetric, Metric
 from ..config import EvaluatorConfig, EvaluatorType, TrainConfig
 from ..exceptions import OlmoConfigurationError
 from ..tokenizer import Tokenizer
-from ..util import cycle_through_epochs, global_rank
+from ..util import cycle_through_epochs, get_global_rank
 from .downstream import ICLMetric, label_to_task_map
 from .evaluator import Evaluator
 
@@ -40,7 +40,7 @@ def build_downstream_evaluator(
             drop_last=data_config.drop_last,
             shuffle=False,
             num_replicas=dist.get_world_size(),
-            rank=global_rank(),
+            rank=get_global_rank(),
             seed=train_config.seed,
         )
     ds_eval_dataloader = DataLoader(
