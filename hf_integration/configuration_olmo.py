@@ -9,13 +9,10 @@ from olmo.config import ModelConfig
 
 logger = logging.get_logger(__name__)
 
-OLMO_PRETRAINED_CONFIG_ARCHIVE_MAP = {}
-
 
 class OLMoConfig(PretrainedConfig):  # trying to keep it as simple as possible.
-
     model_type = "olmo"
-    keys_to_ignore_at_inference = ["past_key_values"]   # TODO: confirm
+    keys_to_ignore_at_inference = ["past_key_values"]  # TODO: confirm
 
     def __init__(self, **kwargs):
         # TODO: pass it as arg?

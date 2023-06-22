@@ -1,15 +1,11 @@
-
-from hf_integration.configuration_olmo import OLMoConfig
-from hf_integration.modeling_olmo import OLMoForCausalLM, OLMoModel
-from olmo.model import Olmo
-
 import pytest
 import torch
-from torch.nn import CrossEntropyLoss
 
-from olmo import BlockType, Olmo, Tokenizer, TrainConfig
-from olmo.config import PaddingDirection
+from hf_integration.configuration_olmo import OLMoConfig
+from hf_integration.modeling_olmo import OLMoForCausalLM
+from olmo import BlockType, Tokenizer, TrainConfig
 from olmo.data import DataCollator
+from olmo.model import Olmo
 
 
 @pytest.mark.parametrize(
@@ -170,6 +166,9 @@ def test_forward(
 
     model = Olmo(train_config.model).eval()
 
+    hf_config = OLMoConfig(**model.config.asdict())
+    hf_model = OLMoForCausalLM(hf_config, model=model)
+
     input1 = tokenizer.encode("My name is OLMo!")
     input2 = tokenizer.encode("I'm a delightful large open language model :)")
     batch_inputs = DataCollator.from_train_config(train_config)(
@@ -185,11 +184,15 @@ def test_forward(
     # Run forward pass.
     with torch.inference_mode():
         with torch.autocast(
-                device_type="cuda" if cuda else "cpu", enabled=use_amp, dtype=None if not use_amp else dtype
+            device_type="cuda" if cuda else "cpu", enabled=use_amp, dtype=None if not use_amp else dtype
         ):
             output1 = model(torch.tensor(input1, device=model.device).unsqueeze(0))
             output2 = model(torch.tensor(input2, device=model.device).unsqueeze(0))
             batch_output = model(**batch_inputs)
+
+            hf_output1 = hf_model(torch.tensor(input1, device=model.device).unsqueeze(0))
+            hf_output2 = hf_model(torch.tensor(input2, device=model.device).unsqueeze(0))
+            hf_batch_output = hf_model(**batch_inputs)
 
     # Check that logits from individual inputs are equal to logits from batch.
     # With using half-precision types these might have some big differences in a small
@@ -197,9 +200,12 @@ def test_forward(
     atol = 1e-2 if use_amp else None
     rtol = 1e3 if use_amp else None
     torch.testing.assert_close(
-        output1.logits[0][: len(input1)], batch_output.logits[0][: len(input1)], rtol=rtol, atol=atol
+        hf_output1.logits[0][: len(input1)], hf_batch_output.logits[0][: len(input1)], rtol=rtol, atol=atol
     )
     torch.testing.assert_close(
-        output2.logits[0][: len(input2)], batch_output.logits[1][: len(input2)], rtol=rtol, atol=atol
+        hf_output2.logits[0][: len(input2)], hf_batch_output.logits[1][: len(input2)], rtol=rtol, atol=atol
     )
 
+    torch.testing.assert_close(hf_output1.logits, output1.logits)
+    torch.testing.assert_close(hf_output2.logits, output2.logits)
+    torch.testing.assert_close(hf_batch_output.logits, batch_output.logits)

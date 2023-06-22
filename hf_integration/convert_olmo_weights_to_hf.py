@@ -240,9 +240,10 @@
 #
 import argparse
 import os
-from olmo import Olmo, ModelConfig
+
 from hf_integration.configuration_olmo import OLMoConfig
-from hf_integration.modeling_olmo import OLMoPretrainedModel
+from hf_integration.modeling_olmo import OLMoForCausalLM
+from olmo import ModelConfig, Olmo
 
 
 def write_model(model_path: str, checkpoint_dir: str):
@@ -255,7 +256,7 @@ def write_model(model_path: str, checkpoint_dir: str):
     config = OLMoConfig(**model.config.asdict())
     config.save_pretrained(model_path)
 
-    OLMoPretrainedModel(model)
+    OLMoForCausalLM(model)
 
     # save tokenizer? not needed?
 

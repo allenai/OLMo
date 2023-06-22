@@ -1,8 +1,8 @@
-from olmo.config import ModelConfig
 from hf_integration.configuration_olmo import OLMoConfig
+from olmo.config import ModelConfig
 
 
-def test_config_save(path: str="test-path"):
+def test_config_save(path: str = "test-path"):
     config = ModelConfig()
     hf_config = OLMoConfig(**config.asdict())
 
