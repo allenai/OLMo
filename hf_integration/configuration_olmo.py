@@ -2,7 +2,7 @@
 OLMo configuration
 """
 
-from transformers.configuration_utils import PretrainedConfig
+from transformers import AutoConfig, PretrainedConfig
 from transformers.utils import logging
 
 from olmo.config import ModelConfig
@@ -28,3 +28,7 @@ class OLMoConfig(PretrainedConfig):  # trying to keep it as simple as possible.
     #     the_dict = PretrainedConfig.to_dict(self)
     #     the_dict.update(ModelConfig.asdict(self))
     #     return the_dict
+
+
+# Register
+AutoConfig.register("olmo", OLMoConfig)

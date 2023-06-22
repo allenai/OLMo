@@ -1,11 +1,28 @@
 import pytest
 import torch
+from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
-from hf_integration.configuration_olmo import OLMoConfig
-from hf_integration.modeling_olmo import OLMoForCausalLM
+from hf_integration import OLMoConfig, OLMoForCausalLM, OLMoTokenizerFast
+from hf_integration.add_hf_config_to_olmo_checkpoint import write_config
 from olmo import BlockType, Tokenizer, TrainConfig
 from olmo.data import DataCollator
 from olmo.model import Olmo
+
+
+def test_auto_hf_classes(model_path: str):
+    # model_path is an OLMo checkpoint.
+
+    # Creates HF-compatible config.json
+    write_config(model_path)
+
+    config = AutoConfig.from_pretrained(model_path)
+    assert isinstance(config, OLMoConfig)
+
+    model = AutoModelForCausalLM.from_pretrained(model_path)
+    assert isinstance(model, OLMoForCausalLM)
+
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    assert isinstance(tokenizer, OLMoTokenizerFast)
 
 
 @pytest.mark.parametrize(
