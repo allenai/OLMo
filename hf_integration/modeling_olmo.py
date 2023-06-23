@@ -62,6 +62,8 @@ class OLMoForCausalLM(PreTrainedModel):
             self.model = model
 
     def forward(self, *args, **kwargs):
+        # use_cache = self.config.use_cache or kwargs.pop("use_cache", False)
+        kwargs["use_cache"] = kwargs.pop("use_cache", self.config.use_cache)
         return self.model.forward(*args, **kwargs)
 
     def generate(self, input_ids, *args, **kwargs):
