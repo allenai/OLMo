@@ -63,6 +63,9 @@ exclude = '''
 )
 '''
 
+[tool.setuptools]
+py-modules = []
+
 [tool.isort]
 profile = "black"
 multi_line_output = 3

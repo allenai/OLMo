@@ -47,6 +47,7 @@ runs:
         # Set up virtual environment from cache hit.
         . .venv/bin/activate
         pip install --no-deps -e .[dev]
+        pip install -e hf_integration
 
     - shell: bash
       run: |
