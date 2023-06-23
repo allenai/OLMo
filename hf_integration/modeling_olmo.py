@@ -64,24 +64,10 @@ class OLMoForCausalLM(PreTrainedModel):
     def forward(self, *args, **kwargs):
         return self.model.forward(*args, **kwargs)
 
-    # def generate(self, *args, **kwargs):
-    #     return self.model.generate(*args, **kwargs)
-
-    def generate(
-        self,
-        input_ids,
-        max_length=256,
-        max_new_tokens=None,
-        # eos_token_id=None,
-        # do_sample=False,
-        # pad_token_id=None,
-        **kwargs,
-    ):
-        # TODO: fix.
-        max_steps = max_new_tokens or max_length - input_ids.shape[1]  # max new tokens
+    def generate(self, input_ids, *args, **kwargs):
         with torch.no_grad():
-            res = self.model.generate(input_ids, max_steps=max_steps, beam_size=1, **kwargs)
-        # Add back input_ids to top beam output since this is what's expected
+            res = self.model.generate(input_ids, **kwargs)
+        # Add back input_ids to top beam output since this is what's expected for AutoModelForCausalLM
         return torch.cat((input_ids, res.token_ids[:, 0]), dim=1)
 
     @classmethod
