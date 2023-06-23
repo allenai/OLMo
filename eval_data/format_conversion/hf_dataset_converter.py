@@ -14,11 +14,12 @@ for dataset in arc_challenge_test arc_easy_test boolq_dev hellaswag_test obqa_te
     xsum_test imdb_test scitldr_test multi_eurlex_test drop_val headqa_test piqa_test \
     winogrande_test logiqa_test;
 do 
-  python eval_data/format_conversion/hf_dataset_converter.py \
+  d
           --dataset $dataset \
           --out_dir outputs/downstream_perplexity/
 done
 """
+
 
 class HFFormatter:
     @staticmethod
@@ -123,9 +124,10 @@ class HFFormatter:
         # Same target text for all splits, so using the smallest one: Abstract
         dataset = load_dataset("allenai/scitldr", "Abstract")
         for item in dataset["test"]:
-            yield {
-                "text": item["target"],
-            }
+            for target_text in item["target"]:
+                yield {
+                    "text": target_text
+                }
 
     @staticmethod
     def multi_eurlex_test(args):
@@ -154,6 +156,7 @@ class HFFormatter:
             yield {
                 "text": item["qtext"],
             }
+
     @staticmethod
     def piqa_test(args):
         # Note only validation set is available
@@ -172,7 +175,6 @@ class HFFormatter:
                 "text": item["sentence"],
             }
 
-
     @staticmethod
     def logiqa_test(args):
         # Note that the test set does not change between the smallest or largest dataset?
@@ -181,6 +183,7 @@ class HFFormatter:
             yield {
                 "text": item["context"],
             }
+
 
 def main():
     parse = argparse.ArgumentParser("")
