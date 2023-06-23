@@ -1,10 +1,10 @@
 import os
-from typing import Optional, Union, Tuple, List
+from typing import List, Optional, Tuple, Union
 
 import torch
 from transformers import PreTrainedModel
-from transformers.models.auto import AutoModelForCausalLM
 from transformers.modeling_outputs import CausalLMOutputWithPast
+from transformers.models.auto import AutoModelForCausalLM
 
 from olmo.config import ModelConfig
 from olmo.model import Olmo
@@ -78,7 +78,6 @@ class OLMoForCausalLM(PreTrainedModel):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
     ) -> Union[Tuple, CausalLMOutputWithPast]:
-
         if use_cache is None:
             use_cache = self.config.use_cache
 
