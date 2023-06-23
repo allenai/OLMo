@@ -40,6 +40,7 @@ runs:
         . .venv/bin/activate
         pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
         pip install -e .[dev]
+        pip install -e hf_integration
 
     - if: steps.virtualenv-cache.outputs.cache-hit == 'true'
       shell: bash
@@ -47,7 +48,7 @@ runs:
         # Set up virtual environment from cache hit.
         . .venv/bin/activate
         pip install --no-deps -e .[dev]
-        pip install -e hf_integration
+        pip install --no-deps -e hf_integration
 
     - shell: bash
       run: |
