@@ -1,11 +1,13 @@
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from hf_integration import OLMoForCausalLM  # noqa: F401
 from olmo.model import Olmo
 
 
 def test_olmo_model(model_path: str):
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    from hf_integration import OLMoForCausalLM  # noqa: F401
+
     model = Olmo.from_checkpoint(model_path)
     hf_model = AutoModelForCausalLM.from_pretrained(model_path)
 
