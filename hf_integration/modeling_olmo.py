@@ -107,5 +107,5 @@ class OLMoForCausalLM(PreTrainedModel):
     #     pass
 
 
-# Register the model so that it is available for transformer pipelines, etc.
+# Register the model so that it is available for transformer pipelines, auto-loading, etc.
 AutoModelForCausalLM.register(OLMoConfig, OLMoForCausalLM)

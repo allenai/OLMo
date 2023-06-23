@@ -2,8 +2,8 @@ from hf_integration.configuration_olmo import OLMoConfig
 from olmo.config import ModelConfig
 
 
-def test_config_save(path: str = "test-path"):
-    config = ModelConfig()
+def test_config_save(path: str):
+    config = ModelConfig(alibi=True)  # default is False
     hf_config = OLMoConfig(**config.asdict())
 
     hf_config.save_pretrained(path)

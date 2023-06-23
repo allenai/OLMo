@@ -1,5 +1,5 @@
 import os
-from typing import Union
+from typing import Optional, Tuple, Union
 
 from transformers import AutoTokenizer, PreTrainedTokenizerFast
 
@@ -8,10 +8,10 @@ from olmo import Tokenizer
 
 
 class OLMoTokenizerFast(PreTrainedTokenizerFast):
-    # TODO: olmo's tokenizer is already a wrapper around huggingface. this is potentially unnecessary.
+    # Note: Olmo's tokenizer is already a wrapper around huggingface. This is potentially unnecessary.
 
-    # TODO: `save_vocabulary` is required to make the implementation complete.
     # def save_vocabulary(self, save_directory: str, filename_prefix: Optional[str] = None) -> Tuple[str]:
+    #     # This is required to make the implementation complete.
     #     pass
 
     @classmethod
@@ -27,5 +27,5 @@ class OLMoTokenizerFast(PreTrainedTokenizerFast):
         return tokenizer
 
 
-# Register
+# Register the tokenizer class so that it is available for transformer pipelines, auto-loading etc.
 AutoTokenizer.register(OLMoConfig, fast_tokenizer_class=OLMoTokenizerFast)
