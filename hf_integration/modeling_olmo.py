@@ -1,10 +1,11 @@
 import os
+
 # import warnings
 from typing import List, Optional, Tuple, Union
-# from typing import Callable, Sequence
 
 import torch
 from transformers import PreTrainedModel
+
 # from transformers.generation.utils import (  # BaseStreamer,
 #     GenerateOutput,
 #     LogitsProcessorList,
@@ -17,6 +18,8 @@ from olmo.config import ModelConfig
 from olmo.model import Olmo
 
 from .configuration_olmo import OLMoConfig
+
+# from typing import Callable, Sequence
 
 
 def create_model_config_from_pretrained_config(config: OLMoConfig):
