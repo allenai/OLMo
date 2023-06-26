@@ -570,7 +570,7 @@ class Trainer:
 
         # Update min train loss and see if we should stop early.
         self.min_train_loss = min(self.min_train_loss, ce_batch_loss.item())  # type: ignore
-        if self.global_step > self.cfg.scheduler.t_warmup and ce_batch_loss.item() > 1.2 * self.min_train_loss:
+        if self.global_step > self.cfg.scheduler.t_warmup and ce_batch_loss.item() > 3.0 * self.min_train_loss:
             raise ValueError("Stopping early because train loss has increased substantially")
 
         return metrics
