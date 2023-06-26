@@ -30,7 +30,7 @@ runs:
       id: virtualenv-cache
       with:
         path: .venv
-        key: ${{ inputs.cache-prefix }}-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'dev-requirements.txt') }}
+        key: ${{ inputs.cache-prefix }}-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'dev-requirements.txt', 'hf_olmo/requirements.txt') }}
 
     - if: steps.virtualenv-cache.outputs.cache-hit != 'true'
       shell: bash
@@ -48,7 +48,7 @@ runs:
         # Set up virtual environment from cache hit.
         . .venv/bin/activate
         pip install --no-deps -e .[dev]
-        pip install -e hf_olmo
+        pip install --no-deps -e hf_olmo
 
     - shell: bash
       run: |
