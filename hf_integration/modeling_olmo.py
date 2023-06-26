@@ -150,7 +150,6 @@ class OLMoForCausalLM(PreTrainedModel):
     #     **kwargs,
     # ) -> Union[GenerateOutput, torch.LongTensor]:
     #
-    #
     #     assert input_ids is not None
     #
     #     # TODO: use stopping_criteria, since it's being used by instruct-eval
@@ -180,12 +179,22 @@ class OLMoForCausalLM(PreTrainedModel):
         else:
             device = "cpu"
         model = Olmo.from_checkpoint(pretrained_model_name_or_path, device=device)
-        config = OLMoConfig(**model.config.asdict())
+        try:
+            config = OLMoConfig.from_pretrained(pretrained_model_name_or_path)
+        except FileNotFoundError:
+            config = OLMoConfig(use_cache=True, **model.config.asdict())
         return cls(config, model)
 
-    def prepare_inputs_for_generation(self, input_ids: torch.LongTensor, **kwargs):
-        model_inputs = {"input_ids": input_ids}
+    def prepare_inputs_for_generation(
+        self, input_ids: torch.LongTensor, past_key_values: Optional[List[Tuple]] = None, **kwargs
+    ):
+        if past_key_values:
+            # This is because we want the model to only process the last generated token.
+            input_ids = input_ids[:, -1:]
+        model_inputs = {"input_ids": input_ids, "past_key_values": past_key_values}
+
         model_inputs.update(kwargs)
+        model_inputs["use_cache"] = kwargs.pop("use_cache", self.config.use_cache)
         return model_inputs
 
     # TODO: these are required to make the implementation complete.

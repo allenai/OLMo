@@ -13,7 +13,9 @@ def write_config(checkpoint_dir: str):
     logger.info(f"Loading checkpoint from {checkpoint_dir}")
     model = Olmo.from_checkpoint(checkpoint_dir)
 
-    config = OLMoConfig(**model.config.asdict())
+    config_kwargs = model.config.asdict()
+    config_kwargs["use_cache"] = True
+    config = OLMoConfig(**config_kwargs)
 
     logger.info(f"Saving HF-compatible config to {os.path.join(checkpoint_dir, 'config.json')}")
     config.save_pretrained(checkpoint_dir)
@@ -29,9 +31,7 @@ def main():
     )
 
     args = parser.parse_args()
-    write_config(
-        checkpoint_dir=args.checkpoint_dir,
-    )
+    write_config(checkpoint_dir=args.checkpoint_dir)
 
 
 if __name__ == "__main__":
