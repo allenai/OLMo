@@ -129,12 +129,11 @@ class OLMoForCausalLM(PreTrainedModel):
     def can_generate(self) -> bool:
         return True
 
-    # Note (akshitab): This model uses OLMo's generate() function which does not support all the bells and whistles
-    # that HF's generation-compatible models do, such as `StoppingCriteria` or top-p sampling, etc.
-    # This is commented out for the time-being, until we support more generation kwargs.
-    # Instead, this model sets `can_generate` to True, and relies on HF's default `.generate()`, and implements
+    # Note (akshitab): This model does not use OLMo's generate() function as it does not support all the
+    # bells and whistles that HF's generation-compatible models do, such as `StoppingCriteria` or top-p sampling, etc.
+    # Instead, the model sets `can_generate` to True, and relies on HF's default `.generate()`, and implements
     # supporting functions like `prepare_inputs_for_generation()`. This allows us to use HF's various generation
-    # options, but seems to make the generation slower.
+    # options.
 
     # def generate(
     #     self,
