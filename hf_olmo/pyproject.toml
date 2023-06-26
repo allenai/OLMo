@@ -1,5 +1,5 @@
 [project]
-name = "olmo_hf_integration"
+name = "hf_olmo"
 version = "0.0.1"
 description = "Lightweight HF-OLMo"
 authors = [

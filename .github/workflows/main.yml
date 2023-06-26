@@ -152,7 +152,7 @@ jobs:
                     value: ":16:8"
                   - name: TOKENIZERS_PARALLELISM
                     value: "false"
-                command: ["/entrypoint.sh", "pytest", "-v", "-m", "gpu", "tests/", "-k", "not hf_integration"]
+                command: ["/entrypoint.sh", "pytest", "-v", "-m", "gpu", "tests/", "-k", "not hf_olmo"]
                 result:
                   path: /unused
           token: ${{ env.BEAKER_TOKEN }}
