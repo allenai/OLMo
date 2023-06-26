@@ -1,8 +1,14 @@
 import os
-from typing import List, Optional, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import torch
 from transformers import PreTrainedModel
+from transformers.generation.utils import (
+    GenerateOutput,
+    GenerationConfig,
+    LogitsProcessorList,
+    StoppingCriteriaList,
+)
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.models.auto import AutoModelForCausalLM
 
@@ -116,18 +122,39 @@ class OLMoForCausalLM(PreTrainedModel):
             past_key_values=outputs.attn_key_values,
         )
 
-    def generate(self, input_ids, *args, **kwargs):
-        with torch.no_grad():
-            res = self.model.generate(input_ids, **kwargs)
-        # Add back input_ids to top beam output since this is what's expected for AutoModelForCausalLM
-        return torch.cat((input_ids, res.token_ids[:, 0]), dim=1)
+    def generate(
+        self,
+        input_ids: Optional[torch.Tensor] = None,
+        max_length: int = 20,
+        max_new_tokens: Optional[int] = None,
+        logits_processor: Optional[LogitsProcessorList] = None,
+        stopping_criteria: Optional[StoppingCriteriaList] = None,
+        prefix_allowed_tokens_fn: Optional[Callable[[int, torch.Tensor], List[int]]] = None,
+        synced_gpus: Optional[bool] = None,
+        assistant_model: Optional["PreTrainedModel"] = None,
+        streamer: Optional["BaseStreamer"] = None,
+        **kwargs,
+    ) -> Union[GenerateOutput, torch.LongTensor]:
+        max_steps = max_new_tokens or max_length - input_ids.shape[1]
+        result = self.model.generate(
+            input_ids,
+            max_steps=max_steps,
+            beam_size=1,
+            **kwargs,
+        )
+
+        return torch.cat((input_ids, result.token_ids[:, 0]), dim=1)
 
     @classmethod
     def from_pretrained(
         cls, pretrained_model_name_or_path: Optional[Union[str, os.PathLike]], *model_args, **kwargs
     ):
         assert pretrained_model_name_or_path is not None
-        model = Olmo.from_checkpoint(pretrained_model_name_or_path)
+        if kwargs.get("device_map", "auto") == "auto":
+            device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        else:
+            device = "cpu"
+        model = Olmo.from_checkpoint(pretrained_model_name_or_path, device=device)
         config = OLMoConfig(**model.config.asdict())
         return cls(config, model)
 
