@@ -647,6 +647,8 @@ class TrainConfig(BaseConfig):
     to write out a final checkpoint.
     """
 
+    early_stopping_factor: Optional[float] = None
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":
