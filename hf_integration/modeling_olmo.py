@@ -1,14 +1,15 @@
 import os
-from typing import Callable, List, Optional, Tuple, Union
+# import warnings
+from typing import List, Optional, Tuple, Union
+# from typing import Callable, Sequence
 
 import torch
 from transformers import PreTrainedModel
-from transformers.generation.utils import (
-    GenerateOutput,
-    GenerationConfig,
-    LogitsProcessorList,
-    StoppingCriteriaList,
-)
+# from transformers.generation.utils import (  # BaseStreamer,
+#     GenerateOutput,
+#     LogitsProcessorList,
+#     StoppingCriteriaList,
+# )
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.models.auto import AutoModelForCausalLM
 
@@ -122,28 +123,49 @@ class OLMoForCausalLM(PreTrainedModel):
             past_key_values=outputs.attn_key_values,
         )
 
-    def generate(
-        self,
-        input_ids: Optional[torch.Tensor] = None,
-        max_length: int = 20,
-        max_new_tokens: Optional[int] = None,
-        logits_processor: Optional[LogitsProcessorList] = None,
-        stopping_criteria: Optional[StoppingCriteriaList] = None,
-        prefix_allowed_tokens_fn: Optional[Callable[[int, torch.Tensor], List[int]]] = None,
-        synced_gpus: Optional[bool] = None,
-        assistant_model: Optional["PreTrainedModel"] = None,
-        streamer: Optional["BaseStreamer"] = None,
-        **kwargs,
-    ) -> Union[GenerateOutput, torch.LongTensor]:
-        max_steps = max_new_tokens or max_length - input_ids.shape[1]
-        result = self.model.generate(
-            input_ids,
-            max_steps=max_steps,
-            beam_size=1,
-            **kwargs,
-        )
+    def can_generate(self) -> bool:
+        return True
 
-        return torch.cat((input_ids, result.token_ids[:, 0]), dim=1)
+    # Note (akshitab): This model uses OLMo's generate() function which does not support all the bells and whistles
+    # that HF's generation-compatible models do, such as `StoppingCriteria` or top-p sampling, etc.
+    # This is commented out for the time-being, until we support more generation kwargs.
+    # Instead, this model sets `can_generate` to True, and relies on HF's default `.generate()`, and implements
+    # supporting functions like `prepare_inputs_for_generation()`. This allows us to use HF's various generation
+    # options, but seems to make the generation slower.
+
+    # def generate(
+    #     self,
+    #     input_ids: Optional[torch.Tensor] = None,
+    #     max_length: int = 20,
+    #     max_new_tokens: Optional[int] = None,
+    #     logits_processor: Optional[LogitsProcessorList] = None,
+    #     stopping_criteria: Optional[StoppingCriteriaList] = None,
+    #     prefix_allowed_tokens_fn: Optional[Callable[[int, torch.Tensor], List[int]]] = None,
+    #     synced_gpus: Optional[bool] = None,
+    #     assistant_model: Optional["PreTrainedModel"] = None,
+    #     streamer: Optional["BaseStreamer"] = None,
+    #     **kwargs,
+    # ) -> Union[GenerateOutput, torch.LongTensor]:
+    #
+    #
+    #     assert input_ids is not None
+    #
+    #     # TODO: use stopping_criteria, since it's being used by instruct-eval
+    #     if stopping_criteria is not None:
+    #         warnings.warn(
+    #             "OLMo's generate() function does not currently support `stopping_criteria`. "
+    #             "This will likely result in worse performance on tasks."
+    #         )
+    #
+    #     max_steps = max_new_tokens or max_length - input_ids.shape[1]
+    #     result = self.model.generate(
+    #         input_ids,
+    #         max_steps=max_steps,
+    #         beam_size=1,
+    #         **kwargs,
+    #     )
+    #
+    #     return torch.cat((input_ids, result.token_ids[:, 0]), dim=1)
 
     @classmethod
     def from_pretrained(
@@ -158,14 +180,16 @@ class OLMoForCausalLM(PreTrainedModel):
         config = OLMoConfig(**model.config.asdict())
         return cls(config, model)
 
-    # TODO: these 4 are required to make the implementation complete.
+    def prepare_inputs_for_generation(self, input_ids: torch.LongTensor, **kwargs):
+        model_inputs = {"input_ids": input_ids}
+        model_inputs.update(kwargs)
+        return model_inputs
+
+    # TODO: these are required to make the implementation complete.
     # def resize_position_embeddings(self, new_num_position_embeddings: int):
     #     pass
     #
     # def get_position_embeddings(self) -> Union[nn.Embedding, Tuple[nn.Embedding]]:
-    #     pass
-    #
-    # def prepare_inputs_for_generation(self, *args, **kwargs):
     #     pass
     #
     # def _reorder_cache(self, past_key_values, beam_idx):

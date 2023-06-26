@@ -7,5 +7,5 @@ def test_pipeline(model_path: str):
     model = AutoModelForCausalLM.from_pretrained(model_path)
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     pipeline = TextGenerationPipeline(model=model, tokenizer=tokenizer)
-    output = pipeline("question: who wrote romeo and juliet? answer: ")
+    output = pipeline("question: who wrote romeo and juliet? answer: ", max_new_tokens=30)
     assert "generated_text" in output[0]
