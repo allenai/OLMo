@@ -165,7 +165,7 @@ def test_forward(
     cuda: bool,
     dtype: torch.dtype,
 ):
-    from hf_integration import OLMoConfig, OLMoForCausalLM
+    from hf_olmo import OLMoConfig, OLMoForCausalLM
 
     torch.manual_seed(0)
     torch.use_deterministic_algorithms(True)
