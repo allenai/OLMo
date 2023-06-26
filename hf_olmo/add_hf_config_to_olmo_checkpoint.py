@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 
-from hf_integration.configuration_olmo import OLMoConfig
+from hf_olmo.configuration_olmo import OLMoConfig
 from olmo import Olmo
 
 logger = logging.getLogger(__name__)

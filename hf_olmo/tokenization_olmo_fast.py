@@ -3,7 +3,7 @@ from typing import Union
 
 from transformers import AutoTokenizer, PreTrainedTokenizerFast
 
-from hf_integration.configuration_olmo import OLMoConfig
+from hf_olmo.configuration_olmo import OLMoConfig
 from olmo import Tokenizer
 
 

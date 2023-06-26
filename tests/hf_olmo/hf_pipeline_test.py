@@ -2,7 +2,7 @@ def test_pipeline(model_path: str):
     from transformers import TextGenerationPipeline
     from transformers.models.auto import AutoModelForCausalLM, AutoTokenizer
 
-    from hf_integration.modeling_olmo import OLMoConfig, OLMoForCausalLM  # noqa: F401
+    from hf_olmo.modeling_olmo import OLMoConfig, OLMoForCausalLM  # noqa: F401
 
     model = AutoModelForCausalLM.from_pretrained(model_path)
     tokenizer = AutoTokenizer.from_pretrained(model_path)

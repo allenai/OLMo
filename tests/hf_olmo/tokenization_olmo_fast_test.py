@@ -4,7 +4,7 @@ from olmo.tokenizer import Tokenizer
 def test_olmo_tokenizer(model_path: str):
     from transformers import AutoTokenizer
 
-    from hf_integration import OLMoTokenizerFast  # noqa: F401
+    from hf_olmo import OLMoTokenizerFast  # noqa: F401
 
     tok = Tokenizer.from_checkpoint(model_path)
     hf_tok = AutoTokenizer.from_pretrained(model_path)

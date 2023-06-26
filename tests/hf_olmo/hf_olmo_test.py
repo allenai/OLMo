@@ -9,8 +9,8 @@ from olmo.model import Olmo
 def test_auto_hf_classes(model_path: str):
     from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
-    from hf_integration import OLMoConfig, OLMoForCausalLM, OLMoTokenizerFast
-    from hf_integration.add_hf_config_to_olmo_checkpoint import write_config
+    from hf_olmo import OLMoConfig, OLMoForCausalLM, OLMoTokenizerFast
+    from hf_olmo.add_hf_config_to_olmo_checkpoint import write_config
 
     # model_path is an OLMo checkpoint.
     # Creates HF-compatible config.json
