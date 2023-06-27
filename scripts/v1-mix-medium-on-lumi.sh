@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=c4-medium
+#SBATCH --job-name=v1-mix-medium
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
 #SBATCH --nodes=128              # Total number of nodes 
