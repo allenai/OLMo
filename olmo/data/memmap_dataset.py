@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -49,7 +49,6 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         self._memmap_paths = paths
         self._metadata = metadata
         self._chunk_size = chunk_size
-        self._mmaps: Optional[List[np.memmap]] = None
         self._mmap_offsets: Optional[List[Tuple[int, int]]] = None
         self._num_instances: Optional[int] = None
         self.dtype = memmap_dtype
@@ -63,21 +62,22 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         # For compatibility with composer's SpeedMonitor callback.
         return self.chunk_size
 
-    @property
-    def memmaps(self) -> List[np.memmap]:
-        if self._mmaps is None:
-            self._mmaps = []
-            for path in self._memmap_paths:
-                mmap = np.memmap(path, mode="r", dtype=self.dtype)
-                self._mmaps.append(mmap)
-        return self._mmaps
+    def get_memmaps(self) -> Generator[np.memmap, None, None]:
+        for path in self._memmap_paths:
+            yield self._get_memmap_for_path(path)
+
+    def _get_memmap_for_path(self, path: PathOrStr) -> np.memmap:
+        return np.memmap(path, mode="r", dtype=self.dtype)
+
+    def _get_memmap_for_idx(self, idx: int) -> np.memmap:
+        return self._get_memmap_for_path(self._memmap_paths[idx])
 
     @property
     def offsets(self) -> List[Tuple[int, int]]:
         if self._mmap_offsets is None:
             start_offset = 0
             self._mmap_offsets = []
-            for mmap in self.memmaps:
+            for mmap in self.get_memmaps():
                 length = mmap.shape[0] // self._chunk_size
                 end_offset = start_offset + length
                 self._mmap_offsets.append((start_offset, end_offset))
@@ -104,7 +104,7 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         if memmap_index is None or memmap_local_index is None:
             raise IndexError(f"{index} is out of bounds for dataset of size {len(self)}")
 
-        memmap = self.memmaps[memmap_index]
+        memmap = self._get_memmap_for_idx(memmap_index)
         metadata = self._metadata[memmap_index]
         index_start = memmap_local_index * self._chunk_size
         index_stop = (memmap_local_index + 1) * self._chunk_size
