@@ -335,9 +335,9 @@ python scripts/prepare_memmap_dataset.py  \
 
 ```shell
 python scripts/prepare_memmap_dataset.py  \
-    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-sample-small/documents/cc_en_head \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-no-removal/documents/common-crawl/cc_en_head \
     --safe-mode \
-    --output s3://ai2-llm/preprocessed/olmo-mix/v1-sample-small/gpt-neox-20b-pii-special/common-crawl/cc_en_head \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1-no-removal/gpt-neox-20b-pii-special/common-crawl/cc_en_head \
     --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
     --workers 120 \
     --cache-dir /tmp/llm-preprocessed/cc_en_head
@@ -345,9 +345,9 @@ python scripts/prepare_memmap_dataset.py  \
 
 ```shell
 python scripts/prepare_memmap_dataset.py  \
-    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-sample-small/documents/cc_en_middle \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-no-removal/documents/common-crawl/cc_en_middle \
     --safe-mode \
-    --output s3://ai2-llm/preprocessed/olmo-mix/v1-sample-small/gpt-neox-20b-pii-special/common-crawl/cc_en_middle \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1-no-removal/gpt-neox-20b-pii-special/common-crawl/cc_en_middle \
     --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
     --workers 120 \
     --cache-dir /tmp/llm-preprocessed
@@ -355,9 +355,9 @@ python scripts/prepare_memmap_dataset.py  \
 
 ```shell
 python scripts/prepare_memmap_dataset.py  \
-    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-sample-small/documents/cc_en_tail \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-no-removal/documents/common-crawl/cc_en_tail \
     --safe-mode \
-    --output s3://ai2-llm/preprocessed/olmo-mix/v1-sample-small/gpt-neox-20b-pii-special/common-crawl/cc_en_tail \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1-no-removal/gpt-neox-20b-pii-special/common-crawl/cc_en_tail \
     --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
     --workers 120 \
     --cache-dir /tmp/llm-preprocessed
