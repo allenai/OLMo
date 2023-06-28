@@ -3,17 +3,20 @@ import logging
 import os
 
 from hf_olmo.configuration_olmo import OLMoConfig
-from olmo import Olmo
+from olmo import ModelConfig
 
 logger = logging.getLogger(__name__)
 
 
 def write_config(checkpoint_dir: str):
     # save config as HF config
-    logger.info(f"Loading checkpoint from {checkpoint_dir}")
-    model = Olmo.from_checkpoint(checkpoint_dir)
+    from cached_path import cached_path
 
-    config_kwargs = model.config.asdict()
+    logger.info(f"Loading checkpoint from {checkpoint_dir}")
+
+    config_path = cached_path(os.path.join(checkpoint_dir, "config.yaml"))
+    model_config = ModelConfig.load(config_path, key="model")
+    config_kwargs = model_config.asdict()
     config_kwargs["use_cache"] = True
     config = OLMoConfig(**config_kwargs)
 
