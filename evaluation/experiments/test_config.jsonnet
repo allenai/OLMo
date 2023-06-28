@@ -5,7 +5,7 @@
             "string1": "Hello",
             "string2": "World!"
         },
-        "hf-env": {
+        "hf-env2": {
             "type": "env-location-check",
             "env_var": "HF_DATASETS_CACHE"
         }

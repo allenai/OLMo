@@ -28,45 +28,34 @@ executor:
   venv_name: base
   # The scheduler determines where to run your steps on Beaker, the compute resources
   # to allocate to them, and what priority they should be run at.
-  priority: preemptible
-  clusters:
-    - ai2/general-cirrascale
-    - ai2/allennlp-cirrascale
+  scheduler:
+    type: simple
+    priority: preemptible
+    clusters:
+      # Add your own team's clusters here 👇
+      - ai2/general-cirrascale
+      - ai2/allennlp-cirrascale
   allow_dirty: true
   install_cmd: "pip install -r evaluation/requirements.txt"
+  datasets:
+    - source:
+        host_path: /net/nfs/
+      mount_path: /net/nfs/
   env_vars:
     - name: "HF_DATASETS_CACHE"
       value: "/net/nfs.cirrascale/aristo/oyvindt/hf_datasets_cache"
 
-#  scheduler:
-#    # The simple scheduler will assign the given priority to all steps, and for
-#    # each step will pick the first cluster from the given list that has enough
-#    # resources to match the step's requested resources (given by the 'step_resources'
-#    # parameter to the Step class).
-#    # You can also write your own scheduler.
-#    type: beaker
-#    priority: normal
-#    clusters:
-#      # Add your own team's clusters here 👇
-#      - ai2/general-cirrascale
-#      - ai2/allennlp-cirrascale
-#    allow_dirty: true
-#    #parallelism: 2
-#  # You can mount Beaker datasets or NFS drives here.
-#  # In this example we just mount the NFS drive.
-   datasets:
-    - source:
-        host_path: /net/nfs/
-      mount_path: /net/nfs/
+  #parallelism: 2
+
 
 # This tells Tango where to look for your custom step classes and other registrable classes.
 # Each item in the list can be a path to a directory or Python file, or a Python
 # module name (e.g. 'my_package.steps').
-include_package:
-   It's not strictly necessary to list Python files / modules here that are in
-   the same directory that you're going to call the 'tango run' command from, since
-   Tango will automatically search files in the working directory to find steps.
-  - evaluation/steps/get_model.py
+#include_package:
+#   It's not strictly necessary to list Python files / modules here that are in
+#   the same directory that you're going to call the 'tango run' command from, since
+#   Tango will automatically search files in the working directory to find steps.
+#  - evaluation/steps/get_model.py
 
 # Adjust the log level as you want. "info" is probably a good place to start.
 log_level: info
