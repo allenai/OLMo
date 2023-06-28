@@ -60,8 +60,8 @@ def build_eval_dataloader(
         num_workers=data_config.num_workers,
         sampler=sampler,
         pin_memory=data_config.pin_memory,
-        prefetch_factor=None if train_config.data.num_workers == 0 else train_config.data.prefetch_factor,
-        persistent_workers=False if train_config.data.num_workers == 0 else train_config.data.persistent_workers,
+        prefetch_factor=None if data_config.num_workers == 0 else data_config.prefetch_factor,
+        persistent_workers=False if data_config.num_workers == 0 else data_config.persistent_workers,
         timeout=data_config.timeout,
     )
 
