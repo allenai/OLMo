@@ -369,8 +369,8 @@ class OlmoSequentialBlock(OlmoBlock):
     def __init__(self, config: ModelConfig):
         super().__init__(config)
         # Layer norms.
-        self.norm1 = LayerNorm.build(config)
-        self.norm2 = LayerNorm.build(config)
+        self.attn_norm = LayerNorm.build(config)
+        self.ff_norm = LayerNorm.build(config)
         # Attention input projection. Projects x -> (q, k, v)
         if config.multi_query_attention:
             self.fused_dims = (config.d_model, config.d_model // config.n_heads, config.d_model // config.n_heads)
@@ -397,7 +397,7 @@ class OlmoSequentialBlock(OlmoBlock):
         #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
-        q, k, v = self.att_proj(self.norm1(x)).split(self.fused_dims, dim=-1)
+        q, k, v = self.att_proj(self.attn_norm(x)).split(self.fused_dims, dim=-1)
 
         # Get attention scores.
         att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
@@ -408,7 +408,7 @@ class OlmoSequentialBlock(OlmoBlock):
 
         # Add feed-forward projection.
         # shape: (batch_size, seq_len, d_model)
-        x = x + self.dropout(self.ff_out(self.act(self.ff_proj(self.norm2(x)))))
+        x = x + self.dropout(self.ff_out(self.act(self.ff_proj(self.ff_norm(x)))))
 
         return x, cache
 
@@ -992,10 +992,10 @@ class Olmo(nn.Module):
                 norm_b_key = f"transformer.blocks.{block_idx}.norm.bias"
                 if norm_w_key in state_dict:
                     norm_w = state_dict.pop(norm_w_key)
-                    state_dict[f"transformer.blocks.{block_idx}.norm1.weight"] = norm_w
-                    state_dict[f"transformer.blocks.{block_idx}.norm2.weight"] = norm_w.clone()
+                    state_dict[f"transformer.blocks.{block_idx}.attn_norm.weight"] = norm_w
+                    state_dict[f"transformer.blocks.{block_idx}.ff_norm.weight"] = norm_w.clone()
                 if norm_b_key in state_dict:
                     norm_b = state_dict.pop(norm_b_key)
-                    state_dict[f"transformer.blocks.{block_idx}.norm1.bias"] = norm_b
-                    state_dict[f"transformer.blocks.{block_idx}.norm2.bias"] = norm_b.clone()
+                    state_dict[f"transformer.blocks.{block_idx}.attn_norm.bias"] = norm_b
+                    state_dict[f"transformer.blocks.{block_idx}.ff_norm.bias"] = norm_b.clone()
         return state_dict
