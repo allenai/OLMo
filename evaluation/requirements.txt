@@ -1,2 +1,2 @@
 hf_olmo @ git+https://github.com/allenai/LLM.git@main#subdirectory=hf_olmo
-ai2-tango[beaker]
+ai2-tango[beaker,gs]
