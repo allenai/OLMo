@@ -3,6 +3,16 @@
 
 We use tango and catwalk to build the pipeline.
 
+
+tango run evaluation/experiments/test_config.jsonnet -w wandb://ai2-llm/wandb-eval-test --include-package evaluation.steps
+
+tango --settings evaluation/tango-in-beaker.yml run evaluation/experiments/test_config.jsonnet -w wandb://ai2-llm/wandb-eval-test --include-package evaluation.steps
+
+
+
+
+
+
 TODO
 
 * beaker_config.yaml (for gantry runs)
