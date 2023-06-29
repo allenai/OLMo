@@ -168,6 +168,19 @@ local metrics_steps = std.foldl(
     {}
 );
 
+local wandb_log_step = {
+    logged_metrics: {
+        type: "log-metrics",
+            //project: "wandb-eval-test",
+            //entity: "ai2-llm",
+            model_name: "test-olmo-model",
+            task_set: "rc20tasks",
+            task: "boolq",
+            metrics: {type: "ref", "ref": "metrics_test-olmo-model_rc20tasks_boolq"}
+
+    }
+};
+
 /* ----------------------------------------- All steps ----------------------------------------*/
 
 {
@@ -176,5 +189,6 @@ local metrics_steps = std.foldl(
         catwalk_model_steps +
         task_steps +
         predictions_steps +
-        metrics_steps
+        metrics_steps +
+        wandb_log_step
 }
