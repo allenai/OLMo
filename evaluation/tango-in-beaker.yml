@@ -39,8 +39,8 @@ executor:
   install_cmd: "pip install -r evaluation/requirements.txt"
   datasets:
     - source:
-        host_path: /net/nfs/
-      mount_path: /net/nfs/
+        host_path: /net/nfs.cirrascale
+      mount_path: /net/nfs.cirrascale
   env_vars:
     - name: "HF_DATASETS_CACHE"
       value: "/net/nfs.cirrascale/aristo/oyvindt/hf_datasets_cache"

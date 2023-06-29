@@ -3,6 +3,7 @@ import logging
 import os
 
 from hf_olmo.configuration_olmo import OLMoConfig
+from hf_olmo.tokenization_olmo_fast import OLMoTokenizerFast
 from olmo import ModelConfig
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,9 @@ def write_config(checkpoint_dir: str):
 
     logger.info(f"Saving HF-compatible config to {os.path.join(checkpoint_dir, 'config.json')}")
     config.save_pretrained(checkpoint_dir)
+
+    tokenizer = OLMoTokenizerFast.from_pretrained(checkpoint_dir)
+    tokenizer.save_pretrained(checkpoint_dir)
 
 
 def main():
