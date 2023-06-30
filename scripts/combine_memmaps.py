@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 def main(cfg: DataConfig, output_path: str) -> None:
     paths = cfg.paths
     assert paths
-    log.info(f"Reading memmaps to find total size...")
+    log.info("Reading memmaps to find total size...")
     total_size = 0
     for path in paths:
         mmap = np.memmap(path, mode="r", dtype=np.uint16)
