@@ -1,4 +1,5 @@
 import logging
+import shutil
 import sys
 
 import torch
@@ -33,16 +34,20 @@ def main(cfg: TrainConfig) -> None:
     assert cfg.device_train_batch_size is not None  # for mypy
     cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
 
-    log.info("Building data loader...")
-    data_loader = build_train_dataloader(cfg)
-    for i, batch in enumerate(data_loader):
-        batch = move_to_device(batch, torch.device("cuda"))
-        log.info(f"Batch {i}, size: ({batch['input_ids'].shape[0]}, {batch['input_ids'].shape[1]})")
-        barrier()
-        if i > 9:
-            break
+    try:
+        log.info("Building data loader...")
+        data_loader = build_train_dataloader(cfg)
+        for i, batch in enumerate(data_loader):
+            batch = move_to_device(batch, torch.device("cuda"))
+            log.info(f"Batch {i}, size: ({batch['input_ids'].shape[0]}, {batch['input_ids'].shape[1]})")
+            barrier()
+            if i > 9:
+                break
 
-    log.info("Done!")
+        log.info("Done!")
+    finally:
+        log.info("Cleaning up...")
+        shutil.rmtree(cfg.save_folder, ignore_errors=True)
 
 
 if __name__ == "__main__":
