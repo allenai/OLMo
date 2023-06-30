@@ -48,4 +48,4 @@ srun \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
-    python scripts/error_repro.py
+    python scripts/error_repro.py configs/v1-mix-medium.yaml --run_name=${SLURM_JOB_ID} ${@}
