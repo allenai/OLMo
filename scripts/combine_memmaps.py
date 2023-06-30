@@ -17,13 +17,17 @@ log = logging.getLogger(__name__)
 def main(cfg: DataConfig, output_path: str) -> None:
     paths = cfg.paths
     assert paths
-    mmaps = [np.memmap(path, mode="r", dtype=np.uint16) for path in paths]
-    total_size = sum(mmap.shape[0] for mmap in mmaps)
+    log.info(f"Reading memmaps to find total size...")
+    total_size = 0
+    for path in paths:
+        mmap = np.memmap(path, mode="r", dtype=np.uint16)
+        total_size += mmap.shape[0]
 
     log.info(f"Combining {len(paths)} memory-mapped data files into {output_path} with {total_size:,d} items...")
     out = np.memmap(output_path, mode="w+", dtype=np.uint16, shape=(total_size,))
     offset = 0
-    for mmap in mmaps:
+    for path in paths:
+        mmap = np.memmap(path, mode="r", dtype=np.uint16)
         out[offset : offset + mmap.shape[0]] = mmap
         offset += mmap.shape[0]
     out.flush()
