@@ -82,6 +82,7 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
                 end_offset = start_offset + length
                 self._mmap_offsets.append((start_offset, end_offset))
                 start_offset += length
+                del mmap
         return self._mmap_offsets
 
     def __len__(self) -> int:
@@ -108,8 +109,9 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         metadata = self._metadata[memmap_index]
         index_start = memmap_local_index * self._chunk_size
         index_stop = (memmap_local_index + 1) * self._chunk_size
-        data = memmap[index_start:index_stop].astype(np.int_)
-        return {"input_ids": torch.tensor(data, dtype=torch.long), "metadata": deepcopy(metadata)}
+        tensor = torch.tensor(memmap[index_start:index_stop].astype(np.int_), dtype=torch.long)
+        del memmap
+        return {"input_ids": tensor, "metadata": deepcopy(metadata)}
 
     def __add__(self, other: MemMapDataset) -> MemMapDataset:
         """
