@@ -22,7 +22,9 @@ This produces a subset with
         ```
     </details>
 
-3) Now run decontamination against the bloom-filter over some training data
+
+### Now there are three options to run decontamination against the bloom-filter over some training data
+3.1) If you want want to create an "attributes" file without the actual text data for use with OLMo mixer:
     ```
     bff --bloom-filter-file path/to/decontaminating_filter_full_paragraph.bff --bloom-filter-size 8388608 --expected-ngram-count 4751287 --output-directory path/to/output --no-update-bloom-filter --min-ngram-size 13  --whole-paragraphs --annotate-attribute-only /path/to/training/data/*.gz
     ```
@@ -36,6 +38,46 @@ This produces a subset with
         "source": str # original source from input data
     }
     ```
+3.2) If you just want to filter the data contaminated paragraphs directly out of the data:
+    ```
+    bff --bloom-filter-file path/to/decontaminating_filter_full_paragraph.bff --bloom-filter-size 8388608 --expected-ngram-count 4751287 --output-directory path/to/output --no-update-bloom-filter --min-ngram-size 13  --whole-paragraphs /path/to/training/data/*.gz
+    ```
+    
+    The output will json lines for each document as follows:
+    ```
+    {
+        "text": str # the original data with the contaminated paragraphs removed
+        "bff_duplicate_spans"  : [[start, end]. ... ] # byte indices of contaminated paragraphs
+        "bff_contained_ngram_count" : int # count of ngrams overlapping with training corpus.
+        "id": str # orginal id from input data
+        "source": str # original source from input data
+    }
+    ```
+3.3) If you want to remove any document with any contaminated paragraph:
+    ```
+    bff --bloom-filter-file path/to/decontaminating_filter_full_paragraph.bff --bloom-filter-size 8388608 --expected-ngram-count 4751287 --output-directory path/to/output --no-update-bloom-filter --min-ngram-size 13  --whole-paragraphs --annotate-only /path/to/training/data/*.gz
+    ```
+    
+    Then remove the documents that have some contamination
+    ```
+    mkdir doc_removal
+    parallel --eta --bar "zcat {} | grep -E '"bff_duplicate_spans":\[\]' | gzip > doc_removal{/}" ::: path/to/output/*.gz
+    ```
+
+    The output will json lines for each document (without contamination) as follows:
+    ```
+    {
+        "text": str # the original data with nothing removed at the subdocument level
+        "bff_duplicate_spans"  : [[start, end]. ... ] # byte indices of contaminated paragraphs
+        "bff_contained_ngram_count" : int # count of ngrams overlapping with training corpus.
+        "id": str # orginal id from input data
+        "source": str # original source from input data
+    }
+    ```
+
+
+----
+
 
 At this time we propose just removing any document with any spans in bff_duplicate_spans.
 
