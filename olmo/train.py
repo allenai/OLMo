@@ -303,7 +303,9 @@ class Trainer:
             self.load_non_tensor_state_dict(state_dict)
 
             # Load model and optimizer state.
+            log.info("Loading model state...")
             self.fsdp_model.load_state_dict(state_dict["model"])
+            log.info("Loading optimizer state...")
             # NOTE: careful, the order of these arguments has changed since the 2.0 release.
             if version.parse(torch.__version__) < version.parse("2.1.0"):
                 #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
@@ -410,9 +412,11 @@ class Trainer:
             optim_state_dict_config=FullOptimStateDictConfig(rank0_only=True, offload_to_cpu=True),
         ):
             # Load model state.
+            log.info("Loading model state...")
             self.fsdp_model.load_state_dict(torch.load(load_path / "model.pt"))
 
             # Load optimizer state.
+            log.info("Loading optimizer state...")
             optim_state_dict = torch.load(load_path / "optim.pt")
             # NOTE: careful, the order of these arguments has changed since the 2.0 release.
             if version.parse(torch.__version__) < version.parse("2.1.0"):
