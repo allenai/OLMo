@@ -131,7 +131,7 @@ UNLOAD (
         ARRAY_AGG(metadata)[1] AS metadata,
         ARRAY_AGG(split)[1] AS split,
         CAST(id AS INT) % 10 AS part_id
-    FROM filtered_corpus
+    FROM filtered_corpus_with_fos
     GROUP BY id
 )
 TO 's3://ai2-llm/pretraining-data/sources/s2/v3-fos/documents/dataset=s2orc'
