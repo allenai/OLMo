@@ -3,10 +3,10 @@
     {
       "name": "commoncrawl-nsfw-highthresh-ablation",
       "documents": [
-        "pretraining-data/sources/common-crawl/v1-small/documents/*.gz"
+        "s3://ai2-llm/pretraining-data/sources/common-crawl/v1-small/documents/*.gz"
       ],
       "output": {
-        "path": "pretraining-data/sources/common-crawl/v1-small-nsfw-filtered-highthresh/documents",
+        "path": "s3://ai2-llm/pretraining-data/sources/common-crawl/v1-small-nsfw-filtered-highthresh/documents",
         "max_size_in_bytes": 3894967296
       },
       "attributes": [

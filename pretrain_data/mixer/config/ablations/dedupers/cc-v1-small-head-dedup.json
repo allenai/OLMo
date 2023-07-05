@@ -1,6 +1,6 @@
 {
   "documents": [
-    "pretraining-data/sources/common-crawl/v1-small-head/documents/v1_small-head-0101.json.gz"
+    "s3://ai2-llm/pretraining-data/sources/common-crawl/v1-small-head/documents/v1_small-head-0101.json.gz"
   ],
   "work_dir": {
     "input": "/data2/v1-small-head/deduper/input",

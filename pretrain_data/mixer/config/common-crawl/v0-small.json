@@ -3,12 +3,12 @@
     {
       "name": "v0_small",
       "documents": [
-        "pretraining-data/sources/common-crawl/v0-en/documents/cc_en_head/*",
-        "pretraining-data/sources/common-crawl/v0-en/documents/cc_en_middle/*",
-        "pretraining-data/sources/common-crawl/v0-en/documents/cc_en_tail/*"
+        "s3://ai2-llm/pretraining-data/sources/common-crawl/v0-en/documents/cc_en_head/*",
+        "s3://ai2-llm/pretraining-data/sources/common-crawl/v0-en/documents/cc_en_middle/*",
+        "s3://ai2-llm/pretraining-data/sources/common-crawl/v0-en/documents/cc_en_tail/*"
       ],
       "output": {
-        "path": "pretraining-data/sources/common-crawl/v0-small/documents",
+        "path": "s3://ai2-llm/pretraining-data/sources/common-crawl/v0-small/documents",
         "max_size_in_bytes": 85899345920
       },
       "attributes": ["sample"],

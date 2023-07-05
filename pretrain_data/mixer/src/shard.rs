@@ -1,16 +1,17 @@
 use std::fs::OpenOptions;
 use std::io;
 use std::io::{BufRead, BufReader, BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
+use aws_sdk_s3::Client as S3Client;
 use flate2::read::MultiGzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
+use glob::glob;
 use rayon::prelude::*;
 use serde_json::Value;
 
 use crate::s3_util;
-use crate::s3_util::{download_to_file, object_size, upload_file};
 use crate::shard::shard_config::*;
 
 // A shard is a unit of work for the mixer.
@@ -37,46 +38,30 @@ impl Shard {
     // since it doesn't account for the size of any attributes to merged,
     // or documents dropped by the filter.
     pub fn split_streams(streams: &Vec<StreamConfig>) -> Result<Vec<Shard>, io::Error> {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        let s3_client = s3_util::new_client()?;
-
         let mut shards: Vec<Shard> = Vec::new();
         for stream_config in streams {
             let mut stream_shard_count = 0;
             log::info!("Computing shards for stream {}...", stream_config.name);
-            let stream_inputs =
-                s3_util::find_objects_matching_patterns(&s3_client, &stream_config.documents)?;
-            let inputs_with_sizes = stream_inputs
-                .par_iter()
-                .map(|input| {
-                    let resp = rt.block_on(object_size(&s3_client, "ai2-llm", input));
+            let stream_inputs = find_objects_matching_patterns(&stream_config.documents)?;
+            let input_count = stream_inputs.len();
+            let input_sizes = get_object_sizes(&stream_inputs)?;
+            let inputs_with_sizes = std::iter::zip(stream_inputs, input_sizes)
+                .map(|(input, size)| {
                     let mut attr_paths = Vec::new();
                     for prefix in stream_config.attributes.iter() {
                         let mut attr_prefix = "/attributes/".to_owned();
                         attr_prefix.push_str(prefix);
                         attr_prefix.push_str("/");
-                        let attr_path = input.to_owned().replace("/documents/", &attr_prefix);
+                        let attr_path = input.replace("/documents/", &attr_prefix);
                         attr_paths.push(attr_path);
                     }
-                    match resp {
-                        Ok(size) => (
-                            DocumentPaths {
-                                doc_path: input.to_owned(),
-                                attribute_paths: attr_paths,
-                            },
-                            size,
-                        ),
-                        Err(_) => (
-                            DocumentPaths {
-                                doc_path: input.to_owned(),
-                                attribute_paths: attr_paths,
-                            },
-                            0,
-                        ),
-                    }
+                    (
+                        DocumentPaths {
+                            doc_path: input,
+                            attribute_paths: attr_paths,
+                        },
+                        size,
+                    )
                 })
                 .collect::<Vec<(DocumentPaths, usize)>>();
             let mut shard_size = inputs_with_sizes[0].1;
@@ -127,7 +112,7 @@ impl Shard {
             }
             log::info!(
                 "Splitting {} files for {} into {} shards",
-                stream_inputs.len(),
+                input_count,
                 stream_config.name,
                 stream_shard_count
             );
@@ -143,27 +128,19 @@ impl Shard {
     // Apply span replacements
     // Upload the output file to S3.
     pub fn process(&self, work_dirs: WorkDirConfig) -> Result<(), io::Error> {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
+        let cache = FileCache {
+            s3_client: Box::new(s3_util::new_client()?),
+            work: work_dirs.clone(),
+        };
 
-        let s3_client = s3_util::new_client()?;
-
-        let inputs_dir = Path::new(&work_dirs.input);
-        let outputs_dir = Path::new(&work_dirs.output);
-
-        let output_path = outputs_dir.join(self.output.clone());
-        std::fs::create_dir_all(output_path.parent().unwrap())?;
-
-        let tmp_output_path = outputs_dir.join(self.output.clone() + ".tmp");
+        let output_path = cache.prepare_output(&self.output)?;
         {
             let output_file = OpenOptions::new()
                 .read(false)
                 .write(true)
                 .create(true)
                 .truncate(true)
-                .open(tmp_output_path.clone())?;
+                .open(output_path.clone())?;
 
             let mut writer = BufWriter::with_capacity(
                 1024 * 1024,
@@ -172,43 +149,25 @@ impl Shard {
 
             for input_path in self.inputs.iter() {
                 log::info!("Merging {} into {}", input_path.doc_path, self.output);
-                let local_docs_file = inputs_dir.join(Path::new(&input_path.doc_path));
-                log::info!(
-                    "Downloading {} to {}",
-                    input_path.doc_path,
-                    local_docs_file.display()
-                );
-                rt.block_on(download_to_file(
-                    &s3_client,
-                    "ai2-llm",
-                    &input_path.doc_path,
-                    &local_docs_file,
-                ))?;
+                let local_docs_file = cache.prepare_input(&input_path.doc_path)?;
                 let mut local_attr_readers = Vec::new();
                 let mut attr_reader_failure_counts = Vec::new();
                 for attr in &input_path.attribute_paths {
-                    let local_attr_file = inputs_dir.join(Path::new(&attr));
-                    log::info!("Downloading {} to {}", attr, local_attr_file.display());
-                    rt.block_on(download_to_file(
-                        &s3_client,
-                        "ai2-llm",
-                        &attr,
-                        &local_attr_file,
-                    ))?;
+                    let local_attr_file = cache.prepare_input(&attr)?;
                     let f = OpenOptions::new()
                         .read(true)
                         .write(false)
                         .create(false)
-                        .open(local_attr_file.clone())?;
+                        .open(&local_attr_file)?;
                     let attr_reader = BufReader::with_capacity(1024 * 1024, MultiGzDecoder::new(f));
-                    local_attr_readers.push(attr_reader.lines());
+                    local_attr_readers.push((local_attr_file, attr_reader.lines()));
                     attr_reader_failure_counts.push(0);
                 }
                 let input_file = OpenOptions::new()
                     .read(true)
                     .write(false)
                     .create(false)
-                    .open(local_docs_file.clone())?;
+                    .open(&local_docs_file)?;
                 let reader = BufReader::with_capacity(1024 * 1024, MultiGzDecoder::new(input_file));
 
                 let mut line_number = 0;
@@ -231,18 +190,14 @@ impl Shard {
                     let mut data: Value = serde_json::from_str(&line)?;
                     let mut attrs = serde_json::Map::new();
                     let mut attr_reader_index = 0;
-                    for attr_reader in local_attr_readers.iter_mut() {
+                    for (_, attr_reader) in local_attr_readers.iter_mut() {
                         match attr_reader.next() {
                             Some(Ok(line)) => {
                                 let attr_data: Value = serde_json::from_str(&line)?;
                                 assert_eq!(
-                                    attr_data["id"],
-                                    data["id"],
+                                    attr_data["id"], data["id"],
                                     "Mismatched ids for line {} of {}: {} != {}",
-                                    line_number,
-                                    &input_path.doc_path,
-                                    attr_data["id"],
-                                    data["id"]
+                                    line_number, &input_path.doc_path, attr_data["id"], data["id"]
                                 );
                                 for (k, v) in attr_data["attributes"].as_object().unwrap().iter() {
                                     attrs.insert(k.clone(), v.clone());
@@ -339,7 +294,8 @@ impl Shard {
                                                     new_text.push_str(&replacement_text);
                                                 }
                                                 while span_index < replacements.len()
-                                                    && replacements[span_index].start < i {
+                                                    && replacements[span_index].start < i
+                                                {
                                                     span_index += 1;
                                                 }
                                             }
@@ -382,7 +338,7 @@ impl Shard {
                         writer.write_all(b"\n")?;
                     }
                 }
-                std::fs::remove_file(local_docs_file)?;
+                cache.finalize_input(&input_path.doc_path)?;
                 for i in 0..input_path.attribute_paths.len() {
                     if attr_reader_failure_counts[i] > 0 {
                         log::warn!(
@@ -391,7 +347,7 @@ impl Shard {
                             attr_reader_failure_counts[i]
                         );
                     }
-                    std::fs::remove_file(inputs_dir.join(Path::new(&input_path.attribute_paths[i])))?;
+                    cache.finalize_input(&input_path.attribute_paths[i])?;
                 }
                 log::info!(
                     "Dropped {} of {} documents from {}",
@@ -401,28 +357,7 @@ impl Shard {
                 );
             }
         }
-
-        log::info!(
-            "Uploading {} to {}",
-            &tmp_output_path.display(),
-            &self.output
-        );
-        rt.block_on(upload_file(
-            &s3_client,
-            "ai2-llm",
-            &self.output,
-            &tmp_output_path,
-        ))?;
-
-        {
-            // Create empty file to indicate that the shard is done.
-            OpenOptions::new()
-                .create(true)
-                .write(true)
-                .open(&output_path)?;
-            std::fs::remove_file(&tmp_output_path)?;
-        }
-
+        cache.finalize_output(&self.output)?;
         Ok(())
     }
 }
@@ -540,5 +475,175 @@ pub mod shard_config {
             }
             Ok(keep)
         }
+    }
+}
+
+// Handles input/output files, including S3 downloads/uploads
+pub struct FileCache {
+    pub s3_client: Box<S3Client>,
+    pub work: WorkDirConfig,
+}
+
+macro_rules! parse_s3_url {
+    ($url:expr) => {{
+        let url = $url;
+        let parts = url[5..].split("/").collect::<Vec<&str>>();
+        let bucket = parts[0];
+        let key = parts[1..].join("/");
+        (bucket, key)
+    }};
+}
+
+macro_rules! cached_s3_location {
+    ($url:expr, $dir:expr) => {{
+        let (bucket, key) = parse_s3_url!($url);
+        (bucket, key.clone(), Path::new($dir).join(key.clone()))
+    }};
+}
+
+impl FileCache {
+    // If "location" is a path to a local file that exists, return it
+    // If it is an S3 URL, download the contents to the working input directory, and return the path
+    pub fn prepare_input(&self, location: &str) -> Result<PathBuf, io::Error> {
+        if location.starts_with("s3://") {
+            let (bucket, key, path) = cached_s3_location!(location, &self.work.input);
+            log::info!("Downloading {} to {}", location, path.display());
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            rt.block_on(s3_util::download_to_file(
+                &self.s3_client,
+                bucket,
+                &key,
+                &path,
+            ))?;
+            Ok(path.clone())
+        } else {
+            let path = Path::new(location);
+            if path.exists() {
+                Ok(path.to_path_buf())
+            } else {
+                Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("File not found: {}", location),
+                ))
+            }
+        }
+    }
+
+    // If input was downloaded from S3, delete the local cache
+    // Otherwise, do nothing
+    pub fn finalize_input(&self, location: &str) -> Result<(), io::Error> {
+        if location.starts_with("s3://") {
+            let (_, _, path) = cached_s3_location!(location, &self.work.input);
+            std::fs::remove_file(&path)?;
+            Ok(())
+        } else {
+            Ok(())
+        }
+    }
+
+    // If output is an S3 URL, return a path to a new temporary location in the working output directory
+    // If it is a local path, return a ".tmp" path in the same directory
+    pub fn prepare_output(&self, location: &str) -> Result<PathBuf, io::Error> {
+        if location.starts_with("s3://") {
+            let (_, _, path) = cached_s3_location!(location, &self.work.output);
+            std::fs::create_dir_all(path.parent().unwrap())?;
+            Ok(path.clone())
+        } else {
+            let tmp_location = location.to_owned() + ".tmp";
+            let path = Path::new(tmp_location.as_str());
+            std::fs::create_dir_all(path.parent().unwrap())?;
+            Ok(path.to_path_buf())
+        }
+    }
+
+    // If "output" is an S3 URL, upload contents from the temporary file,
+    //      then replace the temporary file with an empty one as a checkpoint
+    // If "output" is a local path, rename the ".tmp" file to the original name
+    pub fn finalize_output(&self, location: &str) -> Result<(), io::Error> {
+        if location.starts_with("s3://") {
+            let (bucket, key, path) = cached_s3_location!(location, &self.work.output);
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            rt.block_on(s3_util::upload_file(&self.s3_client, &path, &bucket, &key))?;
+            std::fs::remove_file(&path)?;
+            {
+                // Create empty file to indicate that the shard is done.
+                OpenOptions::new().create(true).write(true).open(&path)?;
+            }
+            Ok(())
+        } else {
+            let tmp_path = location.to_owned() + ".tmp";
+            let tmp_path = Path::new(tmp_path.as_str());
+            std::fs::rename(&tmp_path, &location)?;
+            Ok(())
+        }
+    }
+}
+
+pub fn find_objects_matching_patterns(patterns: &Vec<String>) -> Result<Vec<String>, io::Error> {
+    let s3_url_count = patterns.iter().filter(|p| p.starts_with("s3://")).count();
+    if s3_url_count == 0 {
+        let mut matches = Vec::new();
+        for pattern in patterns.iter() {
+            for entry in
+                glob(pattern).expect(format! {"Invalid file pattern: {}",pattern.clone()}.as_str())
+            {
+                matches.push(entry.unwrap().to_str().unwrap().to_owned());
+            }
+        }
+        Ok(matches)
+    } else if s3_url_count == patterns.len() {
+        let s3_client = s3_util::new_client()?;
+        s3_util::find_objects_matching_patterns(&s3_client, patterns)
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "Cannot mix S3 and local paths",
+        ))
+    }
+}
+
+// Get the size in bytes of a list of objects, either S3 urls or local file paths
+pub fn get_object_sizes(locations: &Vec<String>) -> Result<Vec<usize>, io::Error> {
+    let s3_url_count = locations.iter().filter(|p| p.starts_with("s3://")).count();
+    if s3_url_count == 0 {
+        let sizes: Vec<usize> = locations
+            .par_iter()
+            .map(|location| {
+                let path = Path::new(location);
+                let metadata = path.metadata().unwrap();
+                metadata.len() as usize
+            })
+            .collect();
+        Ok(sizes)
+    } else if s3_url_count == locations.len() {
+        let s3_client = s3_util::new_client()?;
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        let sizes = locations
+            .par_iter()
+            .map(|location| {
+                let (bucket, key) = parse_s3_url!(location);
+                let resp = rt.block_on(s3_util::object_size(&s3_client, &bucket, &key));
+                match resp {
+                    Ok(size) => size,
+                    Err(_) => 0,
+                }
+            })
+            .collect();
+        Ok(sizes)
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "Cannot mix S3 and local paths",
+        ))
     }
 }

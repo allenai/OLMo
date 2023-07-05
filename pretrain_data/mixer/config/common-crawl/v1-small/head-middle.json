@@ -3,11 +3,11 @@
     {
       "name": "v1_small-head-middle",
       "documents": [
-        "pretraining-data/sources/common-crawl/v1/documents/cc_en_head/*",
-        "pretraining-data/sources/common-crawl/v1/documents/cc_en_middle/*"
+        "s3://ai2-llm/pretraining-data/sources/common-crawl/v1/documents/cc_en_head/*",
+        "s3://ai2-llm/pretraining-data/sources/common-crawl/v1/documents/cc_en_middle/*"
       ],
       "output": {
-        "path": "pretraining-data/sources/common-crawl/v1-small-head-middle/documents",
+        "path": "s3://ai2-llm/pretraining-data/sources/common-crawl/v1-small-head-middle/documents",
         "max_size_in_bytes": 21474836480
       },
       "attributes": ["sample"],

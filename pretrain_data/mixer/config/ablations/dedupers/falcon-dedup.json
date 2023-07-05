@@ -1,6 +1,6 @@
 {
   "documents": [
-    "pretraining-data/sources/falcon-refinedweb/v0/documents/*.json.gz"
+    "s3://ai2-llm/pretraining-data/sources/falcon-refinedweb/v0/documents/*.json.gz"
   ],
   "work_dir": {
     "input": "/data2/falcon/deduper/input",

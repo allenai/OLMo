@@ -3,10 +3,10 @@
     {
       "name": "falcon-v0",
       "documents": [
-        "pretraining-data/sources/falcon-refinedweb/v0/documents/*.json.gz"
+        "s3://ai2-llm/pretraining-data/sources/falcon-refinedweb/v0/documents/*.json.gz"
       ],
       "output": {
-        "path": "pretraining-data/sources/falcon-refinedweb/abl-v0/documents",
+        "path": "s3://ai2-llm/pretraining-data/sources/falcon-refinedweb/abl-v0/documents",
         "max_size_in_bytes": 3894967296
       },
       "attributes": ["decontamination"],

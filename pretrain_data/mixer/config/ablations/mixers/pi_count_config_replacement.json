@@ -3,10 +3,10 @@
         {
                 "name": "commoncrawl-pi-less-than-5-anonymize",
                 "documents": [
-                        "pretraining-data/sources/common-crawl/v1-small/documents/*.gz"
+                        "s3://ai2-llm/pretraining-data/sources/common-crawl/v1-small/documents/*.gz"
                 ],
                 "output": {
-                        "path": "pretraining-data/sources/common-crawl/v1-small-pi-less-than-5-anonymize/documents",
+                        "path": "s3://ai2-llm/pretraining-data/sources/common-crawl/v1-small-pi-less-than-5-anonymize/documents",
                         "max_size_in_bytes": 3894967296
                 },
                 "attributes": [

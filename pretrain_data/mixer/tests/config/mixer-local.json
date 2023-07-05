@@ -1,12 +1,12 @@
 {
   "streams": [
     {
-      "name": "mixer-test",
+      "name": "mixer-local-test",
       "documents": [
-        "s3://ai2-llm/pretraining-data/tests/mixer/inputs/v0/documents/*/0000.json.gz"
+        "tests/work/mixer-local/input/documents/*/0000.json.gz"
       ],
       "output": {
-        "path": "s3://ai2-llm/pretraining-data/tests/mixer/outputs/v1/documents/head",
+        "path": "tests/work/mixer-local/output",
         "max_size_in_bytes": 100000
       },
       "attributes": [
@@ -26,8 +26,8 @@
     }
   ],
   "work_dir": {
-    "input": "tests/work/mixer/input",
-    "output": "tests/work/mixer/output"
+    "input": "tests/work/mixer-local/input",
+    "output": "tests/work/mixer-local/output"
   },
   "processes": 1
 }

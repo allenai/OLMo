@@ -31,3 +31,4 @@ tokio = {version = "1.27.0", features = ["full"]}
 tokio-util = "0.7.7"
 rayon = "1.7.0"
 jsonpath-rust = "0.3.0"
+glob = "0.3.1"

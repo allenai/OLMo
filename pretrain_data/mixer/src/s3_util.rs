@@ -16,7 +16,7 @@ pub async fn download_to_file(
     let result = s3_client
         .get_object()
         .bucket(bucket)
-        .key(key)
+        .key(key.clone())
         .send()
         .await
         .map_err(|e| {
@@ -40,14 +40,14 @@ pub async fn download_to_file(
 
 pub async fn upload_file(
     s3_client: &S3Client,
+    path: &Path,
     bucket: &str,
     key: &str,
-    path: &Path,
 ) -> Result<(), io::Error> {
     s3_client
         .put_object()
         .bucket(bucket)
-        .key(key)
+        .key(key.clone())
         .body(ByteStream::from_path(path).await?)
         .send()
         .await
@@ -112,12 +112,16 @@ pub fn find_objects_matching_patterns(
         let mut has_more = true;
         let mut token: Option<String> = None;
         while has_more {
+            let parts = prefix[5..].split("/").collect::<Vec<&str>>();
+            let bucket = parts[0];
+            let key = parts[1..].join("/");
             let resp = if token.is_some() {
+                log::info!("Listing objects in bucket={}, prefix={}", bucket, key);
                 rt.block_on(
                     s3_client
                         .list_objects_v2()
-                        .bucket("ai2-llm")
-                        .prefix(&prefix)
+                        .bucket(bucket)
+                        .prefix(&key)
                         .delimiter("/")
                         .continuation_token(token.unwrap())
                         .send(),
@@ -127,15 +131,16 @@ pub fn find_objects_matching_patterns(
                 rt.block_on(
                     s3_client
                         .list_objects_v2()
-                        .bucket("ai2-llm")
-                        .prefix(&prefix)
+                        .bucket(bucket)
+                        .prefix(&key)
                         .delimiter("/")
                         .send(),
                 )
                 .unwrap()
             };
             resp.contents().unwrap_or_default().iter().for_each(|obj| {
-                stream_inputs.push(obj.key().unwrap().to_owned());
+                let s3_url = format!("s3://{}/{}", bucket, obj.key().unwrap());
+                stream_inputs.push(s3_url);
             });
             suffix.iter().for_each(|s| {
                 resp.common_prefixes()
@@ -144,7 +149,8 @@ pub fn find_objects_matching_patterns(
                     .for_each(|sub_folder| {
                         let mut full_path = sub_folder.prefix().unwrap().to_owned();
                         full_path.push_str(s);
-                        stream_inputs.push(full_path);
+                        let s3_url = format!("s3://{}/{}", bucket, full_path);
+                        stream_inputs.push(s3_url);
                     });
             });
             token = resp.next_continuation_token().map(String::from);

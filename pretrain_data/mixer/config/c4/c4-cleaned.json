@@ -3,10 +3,10 @@
     {
       "name": "part",
       "documents": [
-        "pretraining-data/sources/c4/v0/documents/train/*"
+        "s3://ai2-llm/pretraining-data/sources/c4/v0/documents/train/*"
       ],
       "output": {
-        "path": "pretraining-data/sources/c4/v0-c4-cleaned/documents",
+        "path": "s3://ai2-llm/pretraining-data/sources/c4/v0-c4-cleaned/documents",
         "max_size_in_bytes": 1
       },
       "attributes": [

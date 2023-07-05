@@ -3,10 +3,10 @@
     {
       "name": "cc-v1-small-head-middle-dedup",
       "documents": [
-        "pretraining-data/sources/common-crawl/v1-small-head-middle/documents/*"
+        "s3://ai2-llm/pretraining-data/sources/common-crawl/v1-small-head-middle/documents/*"
       ],
       "output": {
-        "path": "pretraining-data/sources/common-crawl/abl-cc-v1-small-head-middle-dedup/documents",
+        "path": "s3://ai2-llm/pretraining-data/sources/common-crawl/abl-cc-v1-small-head-middle-dedup/documents",
         "max_size_in_bytes": 3894967296
       },
       "attributes": ["decontamination"],

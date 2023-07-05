@@ -3,14 +3,14 @@
     {
       "name": "books",
       "documents": [
-        "pretraining-data/sources/gutenberg/v0/documents/*.gz"
+        "s3://ai2-llm/pretraining-data/sources/gutenberg/v0/documents/*.gz"
       ],
       "attributes": [
         "decontamination",
         "olmo_mix_v1_taggers"
       ],
       "output": {
-        "path": "pretraining-data/sources/olmo-mix/v1/documents/books",
+        "path": "s3://ai2-llm/pretraining-data/sources/olmo-mix/v1/documents/books",
         "max_size_in_bytes": 4294967296,
         "discard_fields": [
           "attributes",

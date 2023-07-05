@@ -18,6 +18,12 @@ setup-test-data:
 debug:
 	cargo build
 
+check-format:
+	cargo fmt --all -- --check
+
+format:
+	cargo fmt --all
+
 build-tools:
 	which cmake || sudo apt-get install --yes build-essential cmake
 	which cargo || curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh

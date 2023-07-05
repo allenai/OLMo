@@ -3,10 +3,10 @@
     {
       "name": "v1_small",
       "documents": [
-        "pretraining-data/sources/common-crawl/v1-small-c4-cleaned-gopher-filtered/documents/*"
+        "s3://ai2-llm/pretraining-data/sources/common-crawl/v1-small-c4-cleaned-gopher-filtered/documents/*"
       ],
       "output": {
-        "path": "pretraining-data/sources/common-crawl/v1-small-c4-cleaned-gopher-filtered-deduped/documents",
+        "path": "s3://ai2-llm/pretraining-data/sources/common-crawl/v1-small-c4-cleaned-gopher-filtered-deduped/documents",
         "max_size_in_bytes": 1,
         "discard_fields": ["attributes", "metadata", "added", "created"]
       },

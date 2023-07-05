@@ -3,10 +3,10 @@
     {
       "name": "abl-cc-v2-dedup",
       "documents": [
-        "pretraining-data/sources/common-crawl/v2-small/documents/*"
+        "s3://ai2-llm/pretraining-data/sources/common-crawl/v2-small/documents/*"
       ],
       "output": {
-        "path": "pretraining-data/sources/common-crawl/abl-cc-v2-dedup/documents",
+        "path": "s3://ai2-llm/pretraining-data/sources/common-crawl/abl-cc-v2-dedup/documents",
         "max_size_in_bytes": 4294967296
       },
       "attributes": ["decontamination"],

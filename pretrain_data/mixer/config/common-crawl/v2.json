@@ -3,33 +3,33 @@
     {
       "name": "cc_en_head",
       "documents": [
-        "pretraining-data/sources/common-crawl/v1/documents/cc_en_head/*"
+        "s3://ai2-llm/s3://ai2-llm/pretraining-data/sources/common-crawl/v1/documents/cc_en_head/*"
       ],
       "attributes": [],
       "output": {
-        "path": "pretraining-data/sources/common-crawl/v2/documents/cc_en_head",
+        "path": "s3://ai2-llm/s3://ai2-llm/pretraining-data/sources/common-crawl/v2/documents/cc_en_head",
         "max_size_in_bytes": 4294967296
       }
     },
     {
       "name": "cc_en_middle",
       "documents": [
-        "pretraining-data/sources/common-crawl/v1/documents/cc_en_middle/*"
+        "s3://ai2-llm/s3://ai2-llm/pretraining-data/sources/common-crawl/v1/documents/cc_en_middle/*"
       ],
       "attributes": [],
       "output": {
-        "path": "pretraining-data/sources/common-crawl/v2/documents/cc_en_middle",
+        "path": "s3://ai2-llm/s3://ai2-llm/pretraining-data/sources/common-crawl/v2/documents/cc_en_middle",
         "max_size_in_bytes": 4294967296
       }
     },
     {
       "name": "cc_en_tail",
       "documents": [
-        "pretraining-data/sources/common-crawl/v1/documents/cc_en_tail/*"
+        "s3://ai2-llm/s3://ai2-llm/pretraining-data/sources/common-crawl/v1/documents/cc_en_tail/*"
       ],
       "attributes": [],
       "output": {
-        "path": "pretraining-data/sources/common-crawl/v2/documents/cc_en_tail",
+        "path": "s3://ai2-llm/s3://ai2-llm/pretraining-data/sources/common-crawl/v2/documents/cc_en_tail",
         "max_size_in_bytes": 4294967296
       }
     }

@@ -1,6 +1,6 @@
 {
   "documents": [
-    "pretraining-data/tests/mixer/inputs/v0/documents/*/0000.json.gz"
+    "s3://ai2-llm/pretraining-data/tests/mixer/inputs/v0/documents/*/0000.json.gz"
   ],
   "work_dir": {
     "input": "tests/work/url/input",

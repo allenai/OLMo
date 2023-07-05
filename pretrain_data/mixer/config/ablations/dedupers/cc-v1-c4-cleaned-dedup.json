@@ -1,8 +1,8 @@
 {
   "documents": [
-      "pretraining-data/sources/common-crawl/v1-c4-cleaned/documents/cc_en_head/*.gz",
-      "pretraining-data/sources/common-crawl/v1-c4-cleaned/documents/cc_en_middle/*.gz",
-      "pretraining-data/sources/common-crawl/v1-c4-cleaned/documents/cc_en_tail/*.gz"
+      "s3://ai2-llm/pretraining-data/sources/common-crawl/v1-c4-cleaned/documents/cc_en_head/*.gz",
+      "s3://ai2-llm/pretraining-data/sources/common-crawl/v1-c4-cleaned/documents/cc_en_middle/*.gz",
+      "s3://ai2-llm/pretraining-data/sources/common-crawl/v1-c4-cleaned/documents/cc_en_tail/*.gz"
   ],
   "work_dir": {
     "input": "/tmp/v1-c4-cleaned/deduper/input",

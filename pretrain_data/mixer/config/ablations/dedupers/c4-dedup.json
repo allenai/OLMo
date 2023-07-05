@@ -1,6 +1,6 @@
 {
   "documents": [
-    "pretraining-data/sources/c4/v0-c4-cleaned/documents/*.gz"
+    "s3://ai2-llm/pretraining-data/sources/c4/v0-c4-cleaned/documents/*.gz"
   ],
   "work_dir": {
     "input": "/tmp/c4/deduper/input",

@@ -1,6 +1,6 @@
 {
   "documents": [
-    "pretraining-data/sources/common-crawl/v1-small/documents/*"
+    "s3://ai2-llm/pretraining-data/sources/common-crawl/v1-small/documents/*"
   ],
   "work_dir": {
     "input": "/data1/work/input",

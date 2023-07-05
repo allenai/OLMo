@@ -3,10 +3,10 @@
     {
       "name": "v1_small",
       "documents": [
-        "pretraining-data/sources/common-crawl/v1-small/documents/*"
+        "s3://ai2-llm/pretraining-data/sources/common-crawl/v1-small/documents/*"
       ],
       "output": {
-        "path": "pretraining-data/sources/common-crawl/v1-small-c4-filtered/documents",
+        "path": "s3://ai2-llm/pretraining-data/sources/common-crawl/v1-small-c4-filtered/documents",
         "max_size_in_bytes": 1,
         "discard_fields": ["attributes", "metadata", "added", "created"]
       },

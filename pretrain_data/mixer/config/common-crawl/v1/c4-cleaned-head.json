@@ -3,10 +3,10 @@
     {
       "name": "cc_en_head",
       "documents": [
-        "pretraining-data/sources/common-crawl/v1/documents/cc_en_head/*"
+        "s3://ai2-llm/pretraining-data/sources/common-crawl/v1/documents/cc_en_head/*"
       ],
       "output": {
-        "path": "pretraining-data/sources/common-crawl/v1-c4-cleaned/documents/cc_en_head",
+        "path": "s3://ai2-llm/pretraining-data/sources/common-crawl/v1-c4-cleaned/documents/cc_en_head",
         "max_size_in_bytes": 1
       },
       "attributes": [
