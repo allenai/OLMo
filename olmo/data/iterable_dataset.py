@@ -121,7 +121,14 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         if worker_info is not None:
             indices = indices[worker_info.id :: worker_info.num_workers]
 
-        return (self._get_dataset_item(int(idx)) for idx in indices)
+        # Convert to a list at this point so we don't have to rely on memory-mapping.
+        if isinstance(indices, np.memmap):
+            indices_list = indices.tolist()  # type: ignore
+        else:
+            indices_list = indices
+        del indices
+
+        return (self._get_dataset_item(int(idx)) for idx in indices_list)
 
     def _get_dataset_item(self, idx: int) -> Dict[str, Any]:
         item = self.dataset[idx]
