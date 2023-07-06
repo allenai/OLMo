@@ -1,0 +1,89 @@
+run_name: null
+seed: 6198
+dry_run: false
+model:
+  d_model: 32
+  n_heads: 1
+  n_layers: 1
+  mlp_ratio: 4
+  activation_type: swiglu
+  block_type: sequential
+  alibi: false
+  alibi_bias_max: 8.0
+  rope: false
+  flash_attention: false
+  attention_dropout: 0.1
+  multi_query_attention: false
+  attention_layer_norm: false
+  residual_dropout: 0.1
+  embedding_dropout: 0.1
+  layer_norm_type: default
+  max_sequence_length: 1024
+  include_bias: true
+  vocab_size: 50257
+  embedding_size: 50304
+  eos_token_id: 50256
+  pad_token_id: 50256
+  init_device: null
+  init_std: 0.02
+  precision: null
+optimizer:
+  name: lionw
+  learning_rate: 0.0001
+  weight_decay: 0.01
+  betas:
+  - 0.9
+  - 0.95
+  no_decay_norm_and_bias: true
+scheduler:
+  name: cosine_with_warmup
+  t_warmup: 100
+  t_max: null
+  alpha_f: 0.1
+data:
+  paths: null
+  datasets: null
+  pad_direction: right
+  num_workers: 0
+  drop_last: false
+  pin_memory: false
+  prefetch_factor: null
+  persistent_workers: false
+  timeout: 0
+restore_dataloader: true
+fast_forward_batches: null
+evaluators: []
+eval_interval: 1000
+tokenizer:
+  identifier: gpt2
+  truncate_direction: right
+save_folder: ./
+save_interval: 1000
+save_interval_unsharded: null
+save_num_checkpoints_to_keep: -1
+save_num_unsharded_checkpoints_to_keep: -1
+save_overwrite: false
+force_save_unsharded: false
+load_path: null
+max_duration: 10000
+global_train_batch_size: 512
+device_train_batch_size: null
+device_train_microbatch_size: 16
+device_eval_batch_size: 16
+eval_subset_num_batches: -1
+eval_on_load: false
+device_train_grad_accum: null
+max_grad_norm: null
+precision: null
+wandb: null
+speed_monitor:
+  window_size: 100
+  gpu_flops_available: null
+console_log_interval: 1
+compile: null
+activation_checkpointing: false
+fsdp:
+  use_orig_params: true
+  sharding_strategy: FULL_SHARD
+softmax_auxiliary_loss: false
+time_limit: 171000.0

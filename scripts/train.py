@@ -1,10 +1,12 @@
 """Run this script with 'torchrun'."""
 
+import gzip
 import logging
 import os
 import sys
 from functools import partial
 from pathlib import Path
+from typing import Optional, TextIO
 
 import torch
 import torch.distributed as dist
@@ -142,6 +144,15 @@ def main(cfg: TrainConfig) -> None:
     optim = build_optimizer(cfg, fsdp_model)
     scheduler = build_scheduler(cfg, optim)
 
+    # Data indices file.
+    indices_file: Optional[TextIO] = None
+    if cfg.save_data_indices:
+        indices_file_path = Path(cfg.save_folder) / f"data-indices/rank{get_global_rank()}.tsv.gz"
+        if indices_file_path.exists() and not cfg.save_overwrite:
+            raise OlmoConfigurationError(f"{indices_file_path} already exists, use --save_overwrite to overwrite")
+        indices_file_path.parent.mkdir(exist_ok=True, parents=True)
+        indices_file = gzip.open(indices_file_path, "wt")
+
     # Consolidate components into `Trainer` object.
     with Trainer(
         cfg=cfg,
@@ -156,6 +167,7 @@ def main(cfg: TrainConfig) -> None:
         if not cfg.softmax_auxiliary_loss
         else MeanMetric(nan_strategy="error").to(device),
         evaluators=evaluators,
+        indices_file=indices_file,
     ) as trainer:
         if not cfg.dry_run and cfg.load_path is None:
             checkpoint_type = (

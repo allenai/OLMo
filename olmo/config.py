@@ -649,6 +649,11 @@ class TrainConfig(BaseConfig):
 
     early_stopping_factor: Optional[float] = None
 
+    save_data_indices: bool = True
+    """
+    Save training data indices from each batch for each worker.
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":

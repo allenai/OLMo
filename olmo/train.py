@@ -9,7 +9,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
-from typing import Any, Deque, Dict, List, Optional, Tuple
+from typing import Any, Deque, Dict, List, Optional, TextIO, Tuple
 
 import numpy as np
 import torch
@@ -109,6 +109,7 @@ class Trainer:
     checkpoints: List[Path] = field(default_factory=list)
     unsharded_checkpoints: List[Path] = field(default_factory=list)
     min_train_loss: float = float("inf")
+    indices_file: Optional[TextIO] = None
 
     def state_dict(self) -> Dict[str, Any]:
         state_dict = self.non_tensor_state_dict()
@@ -217,6 +218,10 @@ class Trainer:
 
         self.checkpoints.append(checkpoint_dir)
         barrier()
+
+        # Flush data indices file.
+        if self.indices_file is not None:
+            self.indices_file.flush()
 
         # Write the checkpoint.
         with FSDP.state_dict_type(
@@ -346,6 +351,10 @@ class Trainer:
 
         self.unsharded_checkpoints.append(checkpoint_dir)
         barrier()
+
+        # Flush data indices file.
+        if self.indices_file is not None:
+            self.indices_file.flush()
 
         # Write the checkpoint.
         with FSDP.state_dict_type(
@@ -534,6 +543,11 @@ class Trainer:
         return ce_batch_loss, z_batch_loss
 
     def train_step(self, batch: Dict[str, Any]) -> Dict[str, float]:
+        # Write data-indices to file.
+        if self.indices_file is not None and "index" in batch:
+            indices = "\t".join(str(int(i)) for i in batch["index"])
+            self.indices_file.write(f"{self.global_step}\t{indices}\n")
+
         # Zero-gradients.
         self.optim.zero_grad(set_to_none=True)
 
@@ -823,6 +837,9 @@ class Trainer:
         log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
     def close(self, exit_code: int = 0) -> None:
+        if self.indices_file is not None:
+            self.indices_file.flush()
+            self.indices_file.close()
         if wandb.run is not None:
             wandb.finish(exit_code=exit_code)
 

@@ -89,3 +89,8 @@ def lorem_ipsum() -> str:
 @pytest.fixture(scope="module")
 def lorem_ipsum_docs() -> List[str]:
     return [text.replace("\n", " ").strip() for text in (LOREM_IPSUM_1, LOREM_IPSUM_2)]
+
+
+@pytest.fixture(scope="function")
+def model_path() -> str:
+    return "test_fixtures/test-olmo-model"
