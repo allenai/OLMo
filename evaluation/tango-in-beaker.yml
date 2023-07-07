@@ -36,7 +36,7 @@ executor:
       - ai2/general-cirrascale
       - ai2/allennlp-cirrascale
   allow_dirty: true
-  install_cmd: "pip install --upgrade pip; pip install -r requirements.txt; pip install -r evaluation/requirements.txt; pip install 'ai2-tango[gs,beaker] @ git+https://github.com/allenai/tango.git@main';"
+  install_cmd: "pip install -r evaluation/requirements.txt;"
   datasets:
     - source:
         host_path: /net/nfs.cirrascale
