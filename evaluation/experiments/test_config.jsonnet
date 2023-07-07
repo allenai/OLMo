@@ -84,13 +84,14 @@ local basepath(path) =
 local model_location_step_name(model_config) = "model_location_" + basepath(model_config.model_path);
 local model_location_ref(model_config) = {type: "ref", ref: model_location_step_name(model_config)};
 
-//TODO: specify step_resources
-
 local model_location_steps = std.foldl(
     function(x, model_config) x + {
         [model_location_step_name(model_config)]: {
             type: "get-model-path",
             model_path: model_config.model_path,
+            step_resources: {
+                gpu_count: 0
+            }
         }
     },
     models,
@@ -106,7 +107,10 @@ local catwalk_model_steps = std.foldl(
             type: "construct-catwalk-model",
             model: model_config.catwalk_wrapper,
             model_path: model_location_ref(model_config),
-            model_class: std.get(model_config, "hf_model_class")
+            model_class: std.get(model_config, "hf_model_class"),
+            step_resources: {
+                gpu_count: 0
+            }
         }
     },
     models,
@@ -122,7 +126,10 @@ local task_steps = std.foldl(
     function(x, config) x + {
         [task_step_name(config)]: {
             type: "construct-task",
-            task_name: config.task
+            task_name: config.task,
+            step_resources: {
+                gpu_count: 0
+            }
         }
     },
     task_configs,
@@ -145,7 +152,11 @@ local outputs_steps = std.foldl(
             type: "predict-and-calculate-metrics",
             model: catwalk_model_ref(config),
             task_dict: {type: "ref", ref: task_step_name(config)},
+            step_resources: {
+                gpu_count: 0
+            }
         } + config.prediction_kwargs,
+
     },
     model_task_configs,
     {}
@@ -186,6 +197,9 @@ local post_process_task_set_steps = std.foldl(
             type: "post-process-outputs",
             outputs: all_outputs(model_task_set.task_set, model_task_set.model),
             model: model_task_set.model,
+            step_resources: {
+                gpu_count: 0
+            }
         }
     },
     model_task_sets,
