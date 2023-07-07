@@ -11,7 +11,7 @@
   "eos_token_id": 50256,
   "flash_attention": false,
   "include_bias": true,
-  "init_device": "cpu",
+  "init_device": null,
   "init_std": 0.02,
   "layer_norm_type": "default",
   "max_sequence_length": 1024,
@@ -24,7 +24,7 @@
   "precision": null,
   "residual_dropout": 0.1,
   "rope": false,
-  "transformers_version": "4.30.2",
+  "transformers_version": "4.29.0",
   "use_cache": true,
   "vocab_size": 50257
 }

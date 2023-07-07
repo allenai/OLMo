@@ -2,11 +2,20 @@
 
 // Models to evaluate
 
-local model_paths = ["test_fixtures/test-olmo-model"];  //"s3://ai2-llm/test_fixtures/olmo-1b"
+local models = [
+    {
+        model_path: "test_fixtures/test-olmo-model", //"s3://ai2-llm/test_fixtures/olmo-1b"
+        catwalk_wrapper: "lm::pretrained=olmo-1b",
+        hf_model_class: "hf_olmo.OLMoForCausalLM"
+    },
+    {
+        model_path: "sshleifer/tiny-gpt2",
+        catwalk_wrapper: "lm::pretrained=sshleifer/tiny-gpt2"
+    }
+];
 
 // Defaults (can be overridden for specific task sets)
 local model_max_length = 256;
-
 
 local task_set1 = {
     name: "rc20tasks",
@@ -58,117 +67,132 @@ local task_configs = std.flatMap(
 
 local model_task_configs = std.flatMap(
     function(task_config) std.map(
-        function(model_path) {
-            model_path: model_path,
-        } + task_config,
-        model_paths
+        function(model_config) model_config + task_config,
+        models
     ),
     task_configs
 );
 
 
-
 /* ------------------------------------------ Model steps ----------------------------------------*/
 
-//TODO: it should be last index [-1], but for some reason, it does not work.
-local index = 1;
+local basepath(path) =
+  // -1 index does not work, so we do this.
+  local temp = std.split(path, "/");
+  temp[std.length(temp)-1];
 
-local model_location_step_name(model_path) = "model_location_" + std.split(model_path, "/")[index];
-local model_location_ref(model_path) = {type: "ref", ref: model_location_step_name(model_path)};
+local model_location_step_name(model_config) = "model_location_" + basepath(model_config.model_path);
+local model_location_ref(model_config) = {type: "ref", ref: model_location_step_name(model_config)};
 
 //TODO: specify step_resources
 
 local model_location_steps = std.foldl(
-    function(x, model_path) x + {
-        [model_location_step_name(model_path)]: {
-            type: "get-model",
-            model_path: model_path,
+    function(x, model_config) x + {
+        [model_location_step_name(model_config)]: {
+            type: "get-model-path",
+            model_path: model_config.model_path,
         }
     },
-    model_paths,
+    models,
     {}
 );
 
-local catwalk_model_step_name(model_path) = "catwalk_model_" + std.split(model_path, "/")[index];
-local catwalk_model_ref(model_path) = {type: "ref", ref: catwalk_model_step_name(model_path)};
+local catwalk_model_step_name(model_config) = "catwalk_model_" + basepath(model_config.model_path);
+local catwalk_model_ref(model_config) = {type: "ref", ref: catwalk_model_step_name(model_config)};
 
 local catwalk_model_steps = std.foldl(
-    function(x, model_path) x + {
-        [catwalk_model_step_name(model_path)]: {
+    function(x, model_config) x + {
+        [catwalk_model_step_name(model_config)]: {
             type: "construct-catwalk-model",
-            model: "lm::pretrained=olmo-1b", //TODO: use configs instead, to allow for other types
-            model_path: model_location_ref(model_path),
-            model_class: "hf_olmo.OLMoForCausalLM" //TODO
+            model: model_config.catwalk_wrapper,
+            model_path: model_location_ref(model_config),
+            model_class: std.get(model_config, "hf_model_class")
         }
     },
-    model_paths,
+    models,
     {}
 );
 
 /* ------------------------------------------ Task steps -----------------------------------------*/
 
 local task_step_name(config) = "task_" + config.task_set + "_" + config.task;
-local task_ref(model_path) = {type: "ref", ref: task_step_name(config)};
+local task_ref(config) = {type: "ref", ref: task_step_name(config)};
 
 local task_steps = std.foldl(
     function(x, config) x + {
         [task_step_name(config)]: {
             type: "construct-task",
-            task_name: config.task,
+            task_name: config.task
         }
     },
     task_configs,
     {}
 );
 
+/* ----------------------------- Prediction and metric steps -----------------------------------*/
 
-/* --------------------------------------- Prediction steps -------------------------------------*/
-
-
-local predictions_step_name(config) =
-    "predictions_" +
-    std.split(config.model_path, "/")[index] + "_" +
+local outputs_step_name(config) =
+    "outputs_" +
+    basepath(config.model_path) + "_" +
     config.task_set + "_" +
     config.task;
 
-local predictions_ref(config) = {type: "ref", ref: predictions_step_name(config)};
+local outputs_ref(config) = {type: "ref", ref: outputs_step_name(config)};
 
-local predictions_steps = std.foldl(
+local outputs_steps = std.foldl(
     function(x, config) x + {
-        [predictions_step_name(config)]: {
-            type: "simple-predict",
-            model: catwalk_model_ref(config.model_path),
-            task: {type: "ref", ref: task_step_name(config)},
+        [outputs_step_name(config)]: {
+            type: "predict-and-calculate-metrics",
+            model: catwalk_model_ref(config),
+            task_dict: {type: "ref", ref: task_step_name(config)},
         } + config.prediction_kwargs,
     },
     model_task_configs,
     {}
 );
 
-/* ----------------------------------------- Metrics steps ----------------------------------------*/
 
-local metrics_step_name(config) =
-    "metrics_" +
-    std.split(config.model_path, "/")[index] + "_" +
-    config.task_set + "_" +
-    config.task;
+/* --------------------------------------- Postprocess steps -------------------------------------*/
 
-local metrics_ref(config) = {type: "ref", ref: metrics_step_name(config)};
+// Aggregate results for each task set and model combination
 
-local metrics_steps = std.foldl(
-    function(x, config) x + {
-        [metrics_step_name(config)]: {
-            type: "simple-calculate-metrics",
-            model: catwalk_model_ref(config.model_path),
-            task: {type: "ref", ref: task_step_name(config)},
-            predictions: predictions_ref(config)
+local model_task_sets = std.flatMap(
+    function(task_set) std.map(
+        function(model) {
+            task_set: task_set.name,
+            model: model.model_path
+        },
+        models
+    ),
+    task_sets
+);
+
+local post_process_task_set_step_name(model_path, task_set) =
+    "post_process_task_set_" +
+    basepath(model_path) + "_" +
+    task_set;
+
+local post_process_task_set_ref(model_path, task_set) = {type: "ref", ref: post_process_task_set_step_name(model_path, task_set)};
+
+local all_outputs(task_set, model) = [
+    outputs_ref(config)
+    for config in model_task_configs
+    if config.task_set == task_set && config.model_path == model
+];
+
+local post_process_task_set_steps = std.foldl(
+    function(x, model_task_set) x + {
+        [post_process_task_set_step_name(model_task_set.model, model_task_set.task_set)]: {
+            type: "post-process-outputs",
+            outputs: all_outputs(model_task_set.task_set, model_task_set.model),
+            model: model_task_set.model,
         }
     },
-    model_task_configs,
+    model_task_sets,
     {}
 );
 
-local wandb_log_step = {
+/*local wandb_log_step = {
     logged_metrics: {
         type: "log-metrics",
             //project: "wandb-eval-test",
@@ -179,7 +203,7 @@ local wandb_log_step = {
             metrics: {type: "ref", "ref": "metrics_test-olmo-model_rc20tasks_boolq"}
 
     }
-};
+};*/
 
 /* ----------------------------------------- All steps ----------------------------------------*/
 
@@ -188,7 +212,6 @@ local wandb_log_step = {
         model_location_steps +
         catwalk_model_steps +
         task_steps +
-        predictions_steps +
-        metrics_steps +
-        wandb_log_step
+        outputs_steps +
+        post_process_task_set_steps
 }

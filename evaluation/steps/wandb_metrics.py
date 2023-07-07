@@ -1,4 +1,5 @@
 from typing import Tuple
+
 import wandb
 from tango import Step
 
@@ -6,8 +7,8 @@ from tango import Step
 @Step.register("log-metrics")
 class LogMetrics(Step):
     VERSION = "003"
-    def run(self, model_name, task_set, task, metrics: Tuple): #, project: str, entity: str):
 
+    def run(self, model_name, task_set, task, metrics: Tuple):  # , project: str, entity: str):
         # run_id: str = (
         #     wandb.run.id  # type: ignore[attr-defined]
         #     if wandb.run is not None
