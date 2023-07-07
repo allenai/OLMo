@@ -10,7 +10,7 @@ local models = [
     },
     {
         model_path: "sshleifer/tiny-gpt2",
-        catwalk_wrapper: "lm::pretrained=sshleifer/tiny-gpt2"
+        catwalk_wrapper: "lm::pretrained=sshleifer/tiny-gpt2"  //TODO: is this needed?
     }
 ];
 

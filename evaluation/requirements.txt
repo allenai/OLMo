@@ -1,5 +1,4 @@
 ai2-catwalk @ git+https://github.com/allenai/catwalk.git@olmo-eval
 # todo: change hf_olmo's branch to main once PR is ready.
 hf_olmo @ git+https://github.com/allenai/LLM.git@eval-streamline#subdirectory=hf_olmo
-ai2-tango[beaker,gs]==1.2.1
-
+#ai2-tango[beaker,gs]==1.2.1
