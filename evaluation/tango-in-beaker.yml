@@ -37,7 +37,7 @@ executor:
       - ai2/general-cirrascale
       - ai2/allennlp-cirrascale
   allow_dirty: true
-  install_cmd: "pip install --upgrade pip; pip install -r evaluation/requirements.txt"
+  install_cmd: "pip install --upgrade pip; pip install -r requirements.txt; pip install -r evaluation/requirements.txt"
   datasets:
     - source:
         host_path: /net/nfs.cirrascale
