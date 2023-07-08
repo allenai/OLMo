@@ -28,7 +28,6 @@ executor:
   # The scheduler determines where to run your steps on Beaker, the compute resources
   # to allocate to them, and what priority they should be run at.
   scheduler:
-    # TODO: parallelism, gpu resources.
     type: simple
     priority: preemptible
     clusters:
@@ -36,7 +35,7 @@ executor:
       - ai2/general-cirrascale
       - ai2/allennlp-cirrascale
   allow_dirty: true
-  install_cmd: "pip install -r evaluation/requirements.txt;"
+  install_cmd: "pip install --upgrade pip; pip install -r evaluation/requirements.txt;"
   datasets:
     - source:
         host_path: /net/nfs.cirrascale
@@ -44,8 +43,6 @@ executor:
   env_vars:
     - name: "HF_DATASETS_CACHE"
       value: "/net/nfs.cirrascale/aristo/oyvindt/hf_datasets_cache"
-
-  #parallelism: 2
 
 
 # This tells Tango where to look for your custom step classes and other registrable classes.
