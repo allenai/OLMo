@@ -48,11 +48,12 @@ executor:
 # This tells Tango where to look for your custom step classes and other registrable classes.
 # Each item in the list can be a path to a directory or Python file, or a Python
 # module name (e.g. 'my_package.steps').
-#include_package:
+include_package:
 #   It's not strictly necessary to list Python files / modules here that are in
 #   the same directory that you're going to call the 'tango run' command from, since
 #   Tango will automatically search files in the working directory to find steps.
-#  - evaluation/steps/get_model.py
+  - evaluation.steps
+
 
 # Adjust the log level as you want. "info" is probably a good place to start.
 log_level: info

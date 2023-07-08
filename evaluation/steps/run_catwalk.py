@@ -1,7 +1,7 @@
 import logging
 import time
 from pydoc import locate
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Dict, List, Optional
 
 from catwalk.dependencies.lm_eval.utils import simple_parse_args_string
 from catwalk.model import Model
