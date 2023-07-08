@@ -84,6 +84,15 @@ UNLOAD (
             AND metadata.abstract is not NULL
             AND metadata.year >= 1970
     ),
+    filtered_espresso AS (
+        SELECT
+            pq.corpusid,
+            COALESCE(pq.s2FieldsOfStudy, ARRAY[]) as s2FieldsOfStudy,
+            COALESCE(pq.fieldsOfStudy, ARRAY[]) as fieldsOfStudy
+        from espresso.pq_paper as pq
+        INNER JOIN filtered_corpus as cr
+            ON pq.corpusid = cr.corpusid
+    ),
     filtered_corpus_with_fos AS (
         SELECT
             cr.id,
@@ -98,11 +107,11 @@ UNLOAD (
                     cr.metadata.title,
                     cr.metadata.abstract,
                     cr.metadata.sha1,
-                    cr.metadata.paragraphs,
+                    -- cr.metadata.paragraphs,
                     cr.metadata.count,
                     cr.metadata.top_frequencies,
-                    COALESCE(pq.s2FieldsOfStudy, ARRAY[]),
-                    COALESCE(pq.fieldsOfStudy, ARRAY[])
+                    pq.s2FieldsOfStudy,
+                    pq.fieldsOfStudy
                 )
                 AS
                 ROW(
@@ -110,14 +119,14 @@ UNLOAD (
                     title VARCHAR,
                     abstract VARCHAR,
                     sha1 VARCHAR,
-                    paragraphs ARRAY<ROW(language VARCHAR, perplexity DOUBLE, text VARCHAR)>,
+                    -- paragraphs ARRAY<ROW(language VARCHAR, perplexity DOUBLE, text VARCHAR)>,
                     count BIGINT,
                     top_frequencies ARRAY<ROW(token VARCHAR, count BIGINT)>,
                     s2FieldsOfStudy ARRAY<VARCHAR>,
                     extFieldsOfStudy ARRAY<VARCHAR>
                 )
             ) AS metadata
-        from espresso.pq_paper  as pq
+        from filtered_espresso as pq
         INNER JOIN filtered_corpus as cr
             ON pq.corpusid = cr.corpusid
     )
