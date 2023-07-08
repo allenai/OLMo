@@ -18,7 +18,6 @@ local models = [
 
 // Defaults (can be overridden for specific task sets)
 local model_max_length = 256;
-local batch_size = 32;
 
 local task_set1 = {
     name: "rc20tasks",
@@ -232,3 +231,6 @@ local post_process_task_set_steps = std.foldl(
         outputs_steps +
         post_process_task_set_steps
 }
+
+//TODO: put all step creations and functions into a utils.libsonnet.
+//experiment files should only have the model and task configs.
