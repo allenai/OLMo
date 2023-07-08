@@ -361,7 +361,7 @@ def make_source_and_target(
     "--cache-dir",
     type=str,
     default=None,
-    help="Cache directory for the tokenizer; use system default if not specified"
+    help="Cache directory for the tokenizer; use system default if not specified",
 )
 @click.option(
     "--max-tokens",
