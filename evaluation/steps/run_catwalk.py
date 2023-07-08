@@ -14,10 +14,6 @@ from tango.step import Step
 
 logger = logging.getLogger(__name__)
 
-"""
-TODO: lm_eval.utils.simple_parse_args_string, MODELS, add_decoder_only_model, tasks_lm.
-"""
-
 
 @Step.register("construct-task")
 class ConstructTaskDict(Step):
@@ -105,6 +101,9 @@ class PredictAndCalculateMetricsStep(Step):
         split: Optional[str] = None,
         limit: Optional[int] = None,
         random_subsample_seed: Optional[int] = None,
+        model_max_length: int = 2048,
+        max_batch_tokens: int = 20480,
+        batch_size: int = 32,
         **kwargs,
     ) -> Dict:
         task_name = task_dict["name"]
@@ -113,7 +112,17 @@ class PredictAndCalculateMetricsStep(Step):
         start_time = time.time()
 
         instances = get_instances(task, split, limit, random_subsample_seed)
-        predictions = [result for result in model.predict(task, instances, **kwargs)]
+        predictions = [
+            result
+            for result in model.predict(
+                task,
+                instances,
+                batch_size=batch_size,
+                model_max_length=model_max_length,
+                max_batch_tokens=max_batch_tokens,
+                **kwargs,
+            )
+        ]
         metrics = model.calculate_metrics(task, predictions)  # this updates the `predictions` object too
 
         end_time = time.time()

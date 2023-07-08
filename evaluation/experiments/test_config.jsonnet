@@ -6,16 +6,19 @@ local models = [
     {
         model_path: "test_fixtures/test-olmo-model", //"s3://ai2-llm/test_fixtures/olmo-1b"
         catwalk_wrapper: "lm::pretrained=olmo-1b",
-        hf_model_class: "hf_olmo.OLMoForCausalLM"
+        hf_model_class: "hf_olmo.OLMoForCausalLM",
+        gpus_needed: 0
     },
     {
         model_path: "sshleifer/tiny-gpt2",
-        catwalk_wrapper: "lm::pretrained=sshleifer/tiny-gpt2"  //TODO: is this needed?
+        catwalk_wrapper: "lm::pretrained=sshleifer/tiny-gpt2",
+        gpus_needed: 0
     }
 ];
 
 // Defaults (can be overridden for specific task sets)
 local model_max_length = 256;
+local batch_size = 32;
 
 local task_set1 = {
     name: "rc20tasks",
@@ -153,7 +156,7 @@ local outputs_steps = std.foldl(
             model: catwalk_model_ref(config),
             task_dict: {type: "ref", ref: task_step_name(config)},
             step_resources: {
-                gpu_count: 0
+                gpu_count: config.gpus_needed
             }
         } + config.prediction_kwargs,
 
