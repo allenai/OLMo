@@ -36,9 +36,9 @@ def setup_logging(log_filter_type: LogFilterType = LogFilterType.rank0_only) -> 
     """
     log_extra_field("hostname", socket.gethostname())
     if is_distributed():
-        log_extra_field("node_rank", node_rank())
-        log_extra_field("local_rank", local_rank())
-        log_extra_field("global_rank", global_rank())
+        log_extra_field("node_rank", get_node_rank())
+        log_extra_field("local_rank", get_local_rank())
+        log_extra_field("global_rank", get_global_rank())
     else:
         log_extra_field("node_rank", 0)
         log_extra_field("local_rank", 0)
@@ -283,20 +283,32 @@ def is_distributed() -> bool:
         return False
 
 
-def node_rank() -> int:
-    return int(os.environ.get("NODE_RANK") or (global_rank() - local_rank()) // local_world_size())
+def get_node_rank() -> int:
+    return int(os.environ.get("NODE_RANK") or (get_global_rank() - get_local_rank()) // get_local_world_size())
 
 
-def local_world_size() -> int:
-    return int(os.environ["LOCAL_WORLD_SIZE"])
+def get_world_size() -> int:
+    if dist.is_available() and dist.is_initialized():
+        return dist.get_world_size()
+    else:
+        return 1
 
 
-def global_rank() -> int:
+def get_local_world_size() -> int:
+    return int(os.environ.get("LOCAL_WORLD_SIZE") or 1)
+
+
+def get_global_rank() -> int:
     return int(os.environ.get("RANK") or dist.get_rank())
 
 
-def local_rank() -> int:
-    return int(os.environ["LOCAL_RANK"])
+def get_local_rank() -> int:
+    return int(os.environ.get("LOCAL_RANK") or 0)
+
+
+def barrier() -> None:
+    if dist.is_available() and dist.is_initialized():
+        dist.barrier()
 
 
 def peak_gpu_memory(reset: bool = False) -> Optional[float]:

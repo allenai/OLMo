@@ -24,14 +24,12 @@ from olmo.data import DataCollator
             id="alibi-emb-parallel-block-cpu-bf16",
         ),
         pytest.param(
-            False, False, False, BlockType.sequential, False, False, torch.bfloat16, id="posit-emb-cpu-bf16"
+            False, False, False, BlockType.sequential, False, False, torch.bfloat16, id="abs-emb-cpu-bf16"
         ),
         pytest.param(
             True, False, False, BlockType.sequential, False, False, torch.float32, id="alibi-emb-cpu-f32"
         ),
-        pytest.param(
-            False, False, False, BlockType.sequential, False, False, torch.float32, id="posit-emb-cpu-f32"
-        ),
+        pytest.param(False, False, False, BlockType.sequential, False, False, torch.float32, id="abs-emb-cpu-f32"),
         pytest.param(
             False, True, False, BlockType.sequential, False, False, torch.bfloat16, id="rope-emb-cpu-bf16"
         ),
@@ -86,7 +84,7 @@ from olmo.data import DataCollator
             False,
             True,
             torch.bfloat16,
-            id="posit-emb-cuda-bf16",
+            id="abs-emb-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
@@ -100,7 +98,7 @@ from olmo.data import DataCollator
             False,
             True,
             torch.bfloat16,
-            id="posit-emb-flash-cuda-bf16",
+            id="abs-emb-flash-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
@@ -114,14 +112,14 @@ from olmo.data import DataCollator
             False,
             True,
             torch.float16,
-            id="posit-emb-flash-cuda-f16",
+            id="abs-emb-flash-cuda-f16",
             marks=(
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
             ),
         ),
         pytest.param(
-            False, False, False, BlockType.sequential, True, False, torch.float32, id="posit-emb-mqattn-cpu-f32"
+            False, False, False, BlockType.sequential, True, False, torch.float32, id="abs-emb-mqattn-cpu-f32"
         ),
         pytest.param(
             False,
@@ -131,7 +129,7 @@ from olmo.data import DataCollator
             True,
             False,
             torch.float32,
-            id="posit-emb-parallel-block-mqattn-cpu-f32",
+            id="abs-emb-parallel-block-mqattn-cpu-f32",
         ),
     ],
 )
@@ -183,14 +181,31 @@ def test_forward(
             device_type="cuda" if cuda else "cpu", enabled=use_amp, dtype=None if not use_amp else dtype
         ):
             output1 = model(torch.tensor(input1, device=model.device).unsqueeze(0))
+            key_value_cache1 = model(
+                torch.tensor(input1[:-1], device=model.device).unsqueeze(0), use_cache=True
+            ).attn_key_values
+            output1_from_cached = model(
+                torch.tensor(input1[-1:], device=model.device).unsqueeze(0), past_key_values=key_value_cache1
+            )
             output2 = model(torch.tensor(input2, device=model.device).unsqueeze(0))
             batch_output = model(**batch_inputs)
+            batch_key_value_cache = model(
+                batch_inputs["input_ids"][:, :-1],
+                attention_mask=batch_inputs["attention_mask"][:, :-1],
+                use_cache=True,
+            ).attn_key_values
+            batch_output_from_cached = model(
+                batch_inputs["input_ids"][:, -1].unsqueeze(1),
+                attention_mask=batch_inputs["attention_mask"],
+                past_key_values=batch_key_value_cache,
+            )
 
-    # Check that logits from individual inputs are equal to logits from batch.
     # With using half-precision types these might have some big differences in a small
     # percentage of the elements.
     atol = 1e-2 if use_amp else None
     rtol = 1e3 if use_amp else None
+
+    # Check that logits from individual inputs are equal to logits from batch.
     torch.testing.assert_close(
         output1.logits[0][: len(input1)], batch_output.logits[0][: len(input1)], rtol=rtol, atol=atol
     )
@@ -198,12 +213,17 @@ def test_forward(
         output2.logits[0][: len(input2)], batch_output.logits[1][: len(input2)], rtol=rtol, atol=atol
     )
 
+    # Check that output using cached attention keys + values matches.
+    torch.testing.assert_close(output1.logits[0][-1], output1_from_cached.logits[0][-1], rtol=rtol, atol=atol)
+    # For the batched output this only makes sense for the longer of the two inputs, since the shorter one is padded on the right.
+    torch.testing.assert_close(output2.logits[0][-1], batch_output_from_cached.logits[1][-1], rtol=rtol, atol=atol)
+
 
 @pytest.mark.parametrize(
     "alibi, flash_attn, cuda, dtype",
     [
         pytest.param(True, False, False, torch.bfloat16, id="alibi-emb-cpu-bf16"),
-        pytest.param(False, False, False, torch.bfloat16, id="posit-emb-cpu-bf16"),
+        pytest.param(False, False, False, torch.bfloat16, id="abs-emb-cpu-bf16"),
         pytest.param(
             True,
             False,
@@ -220,7 +240,7 @@ def test_forward(
             False,
             True,
             torch.bfloat16,
-            id="posit-emb-cuda-bf16",
+            id="abs-emb-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
@@ -231,7 +251,7 @@ def test_forward(
             True,
             True,
             torch.bfloat16,
-            id="posit-emb-flash-cuda-bf16",
+            id="abs-emb-flash-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),

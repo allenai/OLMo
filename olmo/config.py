@@ -647,9 +647,9 @@ class TrainConfig(BaseConfig):
     to write out a final checkpoint.
     """
 
-    save_data_indices: bool = False
+    save_data_indices: bool = True
     """
-    If ``True``, write the indices of the examples in each batch for each rank to a tsv file in the save folder.
+    Save training data indices from each batch for each worker.
     """
 
     @property

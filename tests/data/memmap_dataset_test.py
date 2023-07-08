@@ -7,7 +7,22 @@ from olmo.data.memmap_dataset import MemMapDataset
 from olmo.tokenizer import Tokenizer
 
 
-def test_mmap_dataset(tokenizer: Tokenizer, tmp_path: Path, lorem_ipsum_docs: List[str]):
+def test_mmap_dataset(tmp_path: Path):
+    mmap1 = np.memmap(tmp_path / "mmap1.npy", mode="w+", dtype=np.uint16, shape=(16,))
+    mmap1[:] = np.array(list(range(16)), dtype=np.uint16)
+    mmap1.flush()
+
+    mmap2 = np.memmap(tmp_path / "mmap2.npy", mode="w+", dtype=np.uint16, shape=(16,))
+    mmap2[:] = np.array(list(range(16, 32)), dtype=np.uint16)
+    mmap2.flush()
+
+    ds = MemMapDataset(tmp_path / "mmap1.npy", tmp_path / "mmap2.npy", chunk_size=4)
+    assert ds[0]["input_ids"].tolist() == [0, 1, 2, 3]
+    assert ds[1]["input_ids"].tolist() == [4, 5, 6, 7]
+    assert ds[7]["input_ids"].tolist() == [28, 29, 30, 31]
+
+
+def test_mmap_dataset_with_metadata(tokenizer: Tokenizer, tmp_path: Path, lorem_ipsum_docs: List[str]):
     chunk_size = 24
 
     # Tokenize input, adding the EOS token between documents.
