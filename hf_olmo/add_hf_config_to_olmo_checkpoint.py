@@ -31,11 +31,12 @@ def write_config(checkpoint_dir: str):
 
 def download_remote_checkpoint_and_add_hf_config(checkpoint_dir: str, local_dir: str):
     from cached_path import cached_path
+
     model_name = os.path.basename(checkpoint_dir)
     local_model_path = os.path.join(local_dir, model_name)
     os.makedirs(local_model_path, exist_ok=True)
 
-    model_files = ["model.pt", "config.yaml"]  #, "optim.pt", "other.pt"]
+    model_files = ["model.pt", "config.yaml"]  # , "optim.pt", "other.pt"]
     for filename in model_files:
         final_location = os.path.join(local_model_path, filename)
         if not os.path.exists(final_location):
