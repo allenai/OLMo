@@ -10,14 +10,18 @@ from hf_olmo.add_hf_config_to_olmo_checkpoint import (
 
 logger = logging.getLogger(__name__)
 
-MODEL_DIR = os.path.join(os.getenv("HOME"), "models")
 
-
-@step("get-model-path", cacheable=True, version="002")
+@step("get-model-path", cacheable=True, version="003")
 def get_model_path(model_path: Union[str, os.PathLike]) -> Union[str, os.PathLike]:
     if "olmo" in model_path:  # TODO: ugly. fix.
+        try:
+            model_dir = os.environ["GLOBAL_MODEL_DIR"]
+        except KeyError:
+            raise KeyError("Please set `GLOBAL_MODEL_DIR` to some location locally accessible to your experiment run"
+                           ", like /net/nfs.cirrascale")
+
         local_model_path = download_remote_checkpoint_and_add_hf_config(
-            checkpoint_dir=str(model_path), local_dir=MODEL_DIR
+            checkpoint_dir=str(model_path), local_dir=model_dir
         )
     else:
         local_model_path = model_path

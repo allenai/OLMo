@@ -35,7 +35,7 @@ executor:
       - ai2/general-cirrascale
       - ai2/allennlp-cirrascale
   allow_dirty: true
-  install_cmd: "pip install --upgrade pip; pip install -r evaluation/requirements.txt;"
+  install_cmd: "pip install --upgrade pip; pip install -e .; pip install -r evaluation/requirements.txt;"
   datasets:
     - source:
         host_path: /net/nfs.cirrascale
@@ -43,6 +43,8 @@ executor:
   env_vars:
     - name: "HF_DATASETS_CACHE"
       value: "/net/nfs.cirrascale/aristo/oyvindt/hf_datasets_cache"
+    - name: "GLOBAL_MODEL_DIR"
+      value: "/net/nfs.cirrascale/allennlp/akshitab/eval_models"
 
 
 # This tells Tango where to look for your custom step classes and other registrable classes.
