@@ -10,7 +10,7 @@ local gentasks = import 'task_sets/gentasks.libsonnet';
 local models = [
     {
         model_path: "test_fixtures/test-olmo-model", //"s3://ai2-llm/test_fixtures/olmo-1b"
-        hf_model_class: "hf_olmo.OLMoForCausalLM",
+        //hf_model_class: "hf_olmo.OLMoForCausalLM",
         gpus_needed: 0
     },
     {
