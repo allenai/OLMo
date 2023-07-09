@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Union
+from typing import Union, Optional
 
 from tango import step
 
@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 
 @step("get-model-path", cacheable=True, version="003")
 def get_model_path(model_path: Union[str, os.PathLike]) -> Union[str, os.PathLike]:
-    if "olmo" in model_path:  # TODO: ugly. fix.
+    # TODO: ugly. fix.
+    if "olmo" in model_path:
         try:
             model_dir = os.environ["GLOBAL_MODEL_DIR"]
         except KeyError:

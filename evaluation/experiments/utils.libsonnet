@@ -65,7 +65,6 @@ local create_catwalk_model_steps(models) = std.foldl(
     function(x, model_config) x + {
         [catwalk_model_step_name(model_config)]: {
             type: "construct-catwalk-model",
-            model: model_config.catwalk_wrapper,
             model_path: model_location_ref(model_config),
             model_class: std.get(model_config, "hf_model_class"),
             step_resources: {
@@ -178,15 +177,9 @@ local create_pipeline(models, task_sets) =
 
     all_steps;
 
+
 {
-    /*flatten_task_sets: flatten_task_sets,
-    model_task_cross_product: model_task_cross_product,
-    model_task_set_cross_product: model_task_set_cross_product,
-    create_model_location_steps: create_model_location_steps,
-    create_catwalk_model_steps: create_catwalk_model_steps,
-    create_task_steps: create_task_steps,
-    create_outputs_steps: create_outputs_steps,
-    create_post_process_task_set_steps: create_post_process_task_set_steps,*/
+
     create_pipeline: create_pipeline
 }
 

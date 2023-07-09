@@ -65,8 +65,13 @@ class ConstructTaskDict(Step):
 class ConstructCatwalkModel(Step):
     VERSION = "002"
 
-    def run(self, model: str, model_path: Optional[str] = None, model_class: Optional[str] = None) -> Model:
-        # TODO: ugly. clean up later.
+    def run(self, model_path: Optional[str] = None, model_class: Optional[str] = None) -> Model:
+
+        if "::" in model_path:
+            model = model_path
+        else:
+            model = f"lm::pretrained={model_path.replace('/', '-')}"
+
         if model not in MODELS:
             prefix_split = model.split("::", 1)
             model_name = prefix_split[-1]
@@ -96,7 +101,7 @@ class PredictAndCalculateMetricsStep(Step):
 
     def run(
         self,
-        model: Model,  # TODO: we need a catwalk version of the olmo model
+        model: Model,
         task_dict: Dict,
         split: Optional[str] = None,
         limit: Optional[int] = None,

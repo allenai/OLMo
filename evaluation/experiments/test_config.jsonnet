@@ -1,6 +1,5 @@
 /*--------------------------------------- Configurations -----------------------------------------*/
 
-
 local utils = import 'utils.libsonnet';
 
 local rc20tasks = import 'task_sets/rc20tasks.libsonnet';
@@ -11,13 +10,11 @@ local gentasks = import 'task_sets/gentasks.libsonnet';
 local models = [
     {
         model_path: "test_fixtures/test-olmo-model", //"s3://ai2-llm/test_fixtures/olmo-1b"
-        catwalk_wrapper: "lm::pretrained=olmo-1b",
         hf_model_class: "hf_olmo.OLMoForCausalLM",
         gpus_needed: 0
     },
     {
         model_path: "sshleifer/tiny-gpt2",
-        catwalk_wrapper: "lm::pretrained=sshleifer/tiny-gpt2",
         gpus_needed: 0
     }
 ];
