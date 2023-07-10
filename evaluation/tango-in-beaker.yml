@@ -3,12 +3,6 @@
 # See https://ai2-tango.readthedocs.io/en/latest/api/settings.html
 # for a list and description of all available fields.
 
-# Define the workspace to use (where results will be stored).
-# ❗NOTE: The Beaker executor (see below) requires a "remote workspace", such
-# as the Beaker workspace (used here), the Weights & Biases workspace, or the "local" workspace with
-# a directory on an NFS drive.
-# If you go with the local NFS workspace approach, you'll need to ensure the NFS drive
-# is mounted to the Docker containers for your steps (see below).
 workspace:
   type: "gs"
   workspace: "akshitab-eval-test"
@@ -18,15 +12,8 @@ workspace:
 executor:
   type: beaker
   beaker_workspace: ai2/akshitab_llm
-  # See https://github.com/allenai/docker-images/pkgs/container/pytorch
-  # for a list of all available pytorch images.
-  # docker_image: ghcr.io/allenai/pytorch:1.12.0-cuda11.3-python3.9
-  # You probably want to leave this as 'base' unless you have your own image
-  # that already has a conda environment under a different name.
-  beaker_image: akshitab/eval-streamline-image
-  venv_name: eval-streamline-image
-  # The scheduler determines where to run your steps on Beaker, the compute resources
-  # to allocate to them, and what priority they should be run at.
+  # beaker_image: akshitab/eval-streamline-image
+  venv_name: base
   scheduler:
     type: simple
     priority: preemptible
@@ -35,7 +22,7 @@ executor:
       - ai2/general-cirrascale
       - ai2/allennlp-cirrascale
   allow_dirty: true
-  # install_cmd: "pip install --upgrade pip; pip install -e .; pip install -r evaluation/requirements.txt;"
+  install_cmd: "pip install --upgrade pip; pip install -e .; pip install -r evaluation/requirements.txt;"
   datasets:
     - source:
         host_path: /net/nfs.cirrascale
@@ -49,15 +36,7 @@ executor:
       value: "/net/nfs.cirrascale/allennlp/akshitab/eval_data"
 
 
-# This tells Tango where to look for your custom step classes and other registrable classes.
-# Each item in the list can be a path to a directory or Python file, or a Python
-# module name (e.g. 'my_package.steps').
 include_package:
-#   It's not strictly necessary to list Python files / modules here that are in
-#   the same directory that you're going to call the 'tango run' command from, since
-#   Tango will automatically search files in the working directory to find steps.
   - evaluation.steps
 
-
-# Adjust the log level as you want. "info" is probably a good place to start.
 log_level: info

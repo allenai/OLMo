@@ -162,6 +162,29 @@ local create_post_process_task_set_steps(model_task_sets, model_task_configs) = 
     {}
 );
 
+local write_outputs_as_rows_step_name(model_path, task_set) =
+    "write_outputs_as_rows_" +
+    basepath(model_path) + "_" +
+    task_set;
+
+local write_outputs_as_rows_ref(model_path, task_set) = {type: "ref", ref: write_outputs_as_rows_step_name(model_path, task_set)};
+
+local create_write_outputs_as_rows_steps(model_task_sets, model_task_configs) = std.foldl(
+    function(x, model_task_set) x + {
+        [write_outputs_as_rows_step_name(model_task_set.model, model_task_set.task_set)]: {
+            type: "write-outputs-as-rows",
+            outputs: all_outputs(model_task_set.task_set, model_task_set.model, model_task_configs),
+            model: model_task_set.model,
+            gsheet: "auto-gsheet-test",
+            step_resources: {
+                gpu_count: 0
+            }
+        }
+    },
+    model_task_sets,
+    {}
+);
+
 
 local create_pipeline(models, task_sets) =
 
@@ -178,21 +201,22 @@ local create_pipeline(models, task_sets) =
     local outputs_steps = create_outputs_steps(model_task_configs);
 
     // Aggregate results for each task set and model combination
-    //local model_task_sets = model_task_set_cross_product(models, task_sets);
-    //local post_process_task_set_steps = create_post_process_task_set_steps(model_task_sets, model_task_configs);
+    local model_task_sets = model_task_set_cross_product(models, task_sets);
+    local post_process_task_set_steps = create_post_process_task_set_steps(model_task_sets, model_task_configs);
+    local write_outputs_as_rows_steps = create_write_outputs_as_rows_steps(model_task_sets, model_task_configs);
 
     local all_steps =
         model_location_steps +
         catwalk_model_steps +
         task_steps +
-        outputs_steps; // +
-        //post_process_task_set_steps;
+        outputs_steps +
+        post_process_task_set_steps +
+        write_outputs_as_rows_steps;
 
     all_steps;
 
 
 {
-
     create_pipeline: create_pipeline
 }
 

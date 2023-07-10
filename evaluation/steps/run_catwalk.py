@@ -4,6 +4,7 @@ import time
 from pydoc import locate
 from typing import Dict, List, Optional
 
+import pandas as pd
 from catwalk.dependencies.lm_eval.utils import simple_parse_args_string
 from catwalk.model import Model
 from catwalk.models import MODELS, add_decoder_only_model
@@ -109,7 +110,7 @@ class ConstructCatwalkModel(Step):
 
 @Step.register("predict-and-calculate-metrics")
 class PredictAndCalculateMetricsStep(Step):
-    VERSION = "001"
+    VERSION = "002"
 
     def run(
         self,
@@ -151,9 +152,10 @@ class PredictAndCalculateMetricsStep(Step):
         if instance_predictions:
             self.logger.info(f"First instance details for task {task_name}: {instance_predictions[0]}")
 
+        task_options = {key: val for key, val in task_dict.items() if key not in ["name", "task_obj"]}
         output = {
             "task": task_dict["name"],
-            "task_options": kwargs,  # model prediction kwargs
+            "task_options": task_options,  # model prediction kwargs
             "metrics": metrics,
             "num_instances": len(instances),
             "processing_time": end_time - start_time,
@@ -216,3 +218,47 @@ class PostProcessOutputPerTaskSpec(Step):
             metrics_printed.append("-----------------")
         logger.info("Overall metrics:\n  " + "\n".join(metrics_printed))
         return metrics_printed
+
+
+@Step.register("write-outputs-as-rows")
+class WriteOutputsAsRows(Step):
+    VERSION = "002"
+
+    def run(self, model: str, outputs: List[Dict], gsheet: Optional[str] = None) -> List:
+        tsv_outputs = []
+        for d in outputs:
+            row = {}
+            row["model"] = model
+            row["full_model"] = f"lm::pretrained={model}"
+            metrics_dict = list(d["metrics"].values())[0]
+
+            # TODO: Very hacky.
+            # TODO: also include prediction_kwargs.
+            if "primary_metric" not in metrics_dict:
+                primary_metric = "f1"
+            else:
+                primary_metric = metrics_dict["primary_metric"]
+
+            row["primary_metric"] = primary_metric
+            row["metric"] = metrics_dict[primary_metric]
+            row["processing_time"] = d["processing_time"]
+            row["num_instances"] = d["num_instances"]
+            tsv_outputs.append(row)
+
+        if gsheet:
+            self._write_to_gsheet(gsheet, tsv_outputs)
+
+        return tsv_outputs
+
+    def _write_to_gsheet(self, gsheet: str, rows: List[Dict]):
+        import pygsheets
+
+        # TODO: add env var as secret to tango beaker config.
+        client = pygsheets.authorize(service_account_json=os.environ["GDRIVE_SERVICE_ACCOUNT_JSON"])
+        #client = pygsheets.authorize(service_file=os.environ["GDRIVE_SERVICE_ACCOUNT_JSON"])
+        sheet = client.open(gsheet)
+        worksheet = sheet[0]  # TODO: pass in sheet title, etc.
+        current_df = worksheet.get_as_df()
+        new_df = pd.concat([current_df, pd.DataFrame(rows)])
+        worksheet.set_dataframe(new_df, (1, 1))
+
