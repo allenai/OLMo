@@ -1,18 +1,29 @@
 
 
+/*
+
+task_set: {
+    name: task_set_name,
+    task_dicts: [
+        {task: task_name, prediction_kwargs: prediction_kwargs, task_kwargs: task_kwargs}
+    ],
+}
+
+*/
+
 // task_set1: [task1, task2], task_set2: [task3, task4] --> [task1, task2, task3, task4]
 local flatten_task_sets(task_sets) = std.flatMap(
     function(task_set) std.map(
         function(task) {
             task_set: task_set.name,
-            task: task,
-            prediction_kwargs: task_set.prediction_kwargs
+            task_name: task.task_name,
+            prediction_kwargs: task.prediction_kwargs,
+            task_kwargs: task.task_kwargs
         },
         task_set.tasks
     ),
     task_sets
 );
-
 
 local model_task_cross_product(models, task_configs) = std.flatMap(
     function(task_config) std.map(
@@ -78,14 +89,15 @@ local create_catwalk_model_steps(models) = std.foldl(
 
 
 
-local task_step_name(config) = "task_" + config.task_set + "_" + config.task;
+local task_step_name(config) = "task_" + config.task_set + "_" + config.task_name + std.get(config.task_kwargs, "task_rename", "");
 local task_ref(config) = {type: "ref", ref: task_step_name(config)};
+
 
 local create_task_steps(task_configs) = std.foldl(
     function(x, config) x + {
-        [task_step_name(config)]: {
+        [task_step_name(config)]: config.task_kwargs + {
             type: "construct-task",
-            task_name: config.task,
+            task_name: config.task_name,
             step_resources: {
                 gpu_count: 0
             }
@@ -101,7 +113,7 @@ local outputs_step_name(config) =
     "outputs_" +
     basepath(config.model_path) + "_" +
     config.task_set + "_" +
-    config.task;
+    config.task_name + std.get(config.task_kwargs, "task_rename", "");
 
 local outputs_ref(config) = {type: "ref", ref: outputs_step_name(config)};
 
@@ -152,28 +164,29 @@ local create_post_process_task_set_steps(model_task_sets, model_task_configs) = 
 
 
 local create_pipeline(models, task_sets) =
-    // Cross product of models and tasks
-    local task_configs = flatten_task_sets(task_sets);
-    local model_task_configs = model_task_cross_product(models, task_configs);
 
+    // Model steps
     local model_location_steps = create_model_location_steps(models);
     local catwalk_model_steps = create_catwalk_model_steps(models);
 
+    // Task steps
+    local task_configs = flatten_task_sets(task_sets);
     local task_steps = create_task_steps(task_configs);
 
+    // Prediction and metrics
+    local model_task_configs = model_task_cross_product(models, task_configs);
     local outputs_steps = create_outputs_steps(model_task_configs);
 
     // Aggregate results for each task set and model combination
-
-    local model_task_sets = model_task_set_cross_product(models, task_sets);
-    local post_process_task_set_steps = create_post_process_task_set_steps(model_task_sets, model_task_configs);
+    //local model_task_sets = model_task_set_cross_product(models, task_sets);
+    //local post_process_task_set_steps = create_post_process_task_set_steps(model_task_sets, model_task_configs);
 
     local all_steps =
         model_location_steps +
         catwalk_model_steps +
         task_steps +
-        outputs_steps +
-        post_process_task_set_steps;
+        outputs_steps; // +
+        //post_process_task_set_steps;
 
     all_steps;
 

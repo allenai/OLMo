@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from pydoc import locate
 from typing import Dict, List, Optional
@@ -17,9 +18,9 @@ logger = logging.getLogger(__name__)
 
 @Step.register("construct-task")
 class ConstructTaskDict(Step):
-    VERSION = "003"
+    VERSION = "004"
 
-    def run(self, task_name: str) -> Dict:  # Task:
+    def run(self, task_name: str, task_rename: Optional[str] = None, **kwargs) -> Dict:  # Task:
         # TODO: deal with task_file case, it's the reason for task_dict.
         task_dict = {"name": task_name}
         try:
@@ -27,7 +28,19 @@ class ConstructTaskDict(Step):
         except KeyError:
             raise KeyError(f"{task_name} not found")
 
+        # TODO: not clean.
+        if hasattr(task_obj, "clone") and "files" in kwargs:
+            if "EVAL_DATA_PATH" in os.environ:
+                files = [os.path.join(os.environ["EVAL_DATA_PATH"], filename) for filename in kwargs["files"]]
+            else:
+                files = kwargs["files"]
+            task_obj = task_obj.clone(files=files)
         task_dict["task_obj"] = task_obj
+
+        if task_rename:
+            task_dict["name"] = task_rename
+
+        task_dict.update(**kwargs)
 
         task_dict = self._update_task_metrics(task_dict)
         task_dict = self._update_unconditioned_prompt(task_dict)
@@ -65,8 +78,7 @@ class ConstructTaskDict(Step):
 class ConstructCatwalkModel(Step):
     VERSION = "002"
 
-    def run(self, model_path: Optional[str] = None, model_class: Optional[str] = None) -> Model:
-
+    def run(self, model_path: str, model_class: Optional[str] = None) -> Model:
         if "::" in model_path:
             model = model_path
         else:

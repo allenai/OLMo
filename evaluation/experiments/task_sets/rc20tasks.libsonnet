@@ -1,18 +1,18 @@
+
 local task_utils = import 'task_utils.libsonnet';
 
-local task_set = {
-    name: "rc20tasks",
-    tasks: ["boolq"],
-    prediction_kwargs: {
-        split: "validation",
-        limit: 1000,
-        num_shots: 0,
-        num_recorded_inputs: 3,
-        model_max_length: task_utils.model_max_length
-    }
+local name = "rc20tasks";
+local task_names = ["boolq"];
+local prediction_kwargs = {
+    split: "validation",
+    limit: 1000,
+    num_shots: 0,
+    num_recorded_inputs: 3,
+    //model_max_length: task_utils.model_max_length
+    model_max_length: 256
 };
-
+local task_kwargs = {};
 
 {
-    task_set: task_set
+    task_set: task_utils.create_task_set_from_task_names(name, task_names, prediction_kwargs, task_kwargs)
 }

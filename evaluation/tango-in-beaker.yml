@@ -45,6 +45,8 @@ executor:
       value: "/net/nfs.cirrascale/aristo/oyvindt/hf_datasets_cache"
     - name: "GLOBAL_MODEL_DIR"
       value: "/net/nfs.cirrascale/allennlp/akshitab/eval_models"
+    - name: "EVAL_DATA_PATH"
+      value: "/net/nfs.cirrascale/allennlp/akshitab/eval_data"
 
 
 # This tells Tango where to look for your custom step classes and other registrable classes.
