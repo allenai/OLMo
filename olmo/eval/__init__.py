@@ -97,7 +97,7 @@ def build_evaluator(
             label=eval_config.label,
             type=eval_config.type,
             eval_loader=eval_loader,
-            eval_batches=cycle_through_epochs(eval_loader),
+            eval_batches=cycle_through_epochs(eval_loader, update_epoch_seed=False),
             eval_metric=eval_metric,
             subset_num_batches=eval_config.subset_num_batches,
         )

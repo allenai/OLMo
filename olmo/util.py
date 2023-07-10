@@ -333,12 +333,14 @@ def peak_gpu_memory(reset: bool = False) -> Optional[float]:
     return peak_mb
 
 
-def cycle_through_epochs(dataloader: DataLoader) -> Generator[Dict[str, Any], None, None]:
+def cycle_through_epochs(
+    dataloader: DataLoader, update_epoch_seed: bool = True
+) -> Generator[Dict[str, Any], None, None]:
     while True:
         for batch in dataloader:
             yield batch
 
-        if isinstance(dataloader.sampler, DistributedSampler):
+        if update_epoch_seed and isinstance(dataloader.sampler, DistributedSampler):
             epoch = dataloader.sampler.epoch + 1
             dataloader.sampler.set_epoch(epoch)
 
