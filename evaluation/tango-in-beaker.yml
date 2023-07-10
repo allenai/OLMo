@@ -23,8 +23,8 @@ executor:
   # docker_image: ghcr.io/allenai/pytorch:1.12.0-cuda11.3-python3.9
   # You probably want to leave this as 'base' unless you have your own image
   # that already has a conda environment under a different name.
-  # TODO: create a docker image with tango and catwalk installed
-  venv_name: base
+  beaker_image: akshitab/eval-streamline-image
+  venv_name: eval-streamline-image
   # The scheduler determines where to run your steps on Beaker, the compute resources
   # to allocate to them, and what priority they should be run at.
   scheduler:
@@ -35,7 +35,7 @@ executor:
       - ai2/general-cirrascale
       - ai2/allennlp-cirrascale
   allow_dirty: true
-  install_cmd: "pip install --upgrade pip; pip install -e .; pip install -r evaluation/requirements.txt;"
+  # install_cmd: "pip install --upgrade pip; pip install -e .; pip install -r evaluation/requirements.txt;"
   datasets:
     - source:
         host_path: /net/nfs.cirrascale
