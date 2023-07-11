@@ -11,7 +11,6 @@ local ppl_suite = import 'task_sets/eval_suite_ppl_val_v2_small.libsonnet';
 local models = [
     {
         model_path: "test_fixtures/test-olmo-model", //"s3://ai2-llm/test_fixtures/olmo-1b"
-        //hf_model_class: "hf_olmo.OLMoForCausalLM",
         gpus_needed: 1
     },
     {
