@@ -4,7 +4,7 @@ import socket
 import sys
 import warnings
 from datetime import datetime
-from typing import Any, Dict, Generator, Optional, TypeVar, Union
+from typing import Any, Dict, Optional, TypeVar, Union
 
 import rich
 import torch
@@ -13,7 +13,6 @@ from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.text import Text
 from rich.traceback import Traceback
-from torch.utils.data import DataLoader, DistributedSampler
 
 from .config import LogFilterType
 from .exceptions import OlmoCliError, OlmoError
@@ -331,18 +330,6 @@ def peak_gpu_memory(reset: bool = False) -> Optional[float]:
         torch.cuda.reset_max_memory_allocated(device)
 
     return peak_mb
-
-
-def cycle_through_epochs(
-    dataloader: DataLoader, update_epoch_seed: bool = True
-) -> Generator[Dict[str, Any], None, None]:
-    while True:
-        for batch in dataloader:
-            yield batch
-
-        if update_epoch_seed and isinstance(dataloader.sampler, DistributedSampler):
-            epoch = dataloader.sampler.epoch + 1
-            dataloader.sampler.set_epoch(epoch)
 
 
 def syncronize_flag(flag: bool, device: torch.device) -> bool:
