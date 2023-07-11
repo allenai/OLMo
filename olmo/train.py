@@ -677,17 +677,21 @@ class Trainer:
             # Reset metrics.
             evaluator.reset_metrics()
 
-            # Check how many batches to evaluate on.
-            num_eval_batches = evaluator.subset_num_batches
-            if num_eval_batches is None:
-                num_eval_batches = self.cfg.eval_subset_num_batches
-            if num_eval_batches <= 0:
-                num_eval_batches = max(1, len(evaluator.eval_loader))
-            else:
+            # Initialize data loader iterator.
+            eval_batches = iter(evaluator.eval_loader)
+
+            # Adjust how many batches to evaluate on.
+            num_eval_batches = (
+                evaluator.subset_num_batches
+                if evaluator.subset_num_batches is not None
+                else self.cfg.eval_subset_num_batches
+            )
+            if num_eval_batches > 0:
                 num_eval_batches = min(num_eval_batches, len(evaluator.eval_loader))
+                eval_batches = islice(eval_batches, num_eval_batches)
 
             # Run model over batches.
-            for eval_step, eval_batch in enumerate(islice(evaluator.eval_batches, num_eval_batches)):
+            for eval_step, eval_batch in enumerate(eval_batches):
                 self.eval_step(eval_batch, evaluator)
 
                 # Log to console.
@@ -698,6 +702,8 @@ class Trainer:
             metrics = evaluator.compute_metrics()
             eval_metrics.update(metrics)
             self.log_metrics_to_console(f"{evaluator.label}", metrics)
+
+            del eval_batches
 
         return eval_metrics
 
