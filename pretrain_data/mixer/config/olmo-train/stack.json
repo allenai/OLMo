@@ -1,0 +1,24 @@
+{
+  "streams": [
+    {
+      "name": "stack-v2-mixer-train",
+      "documents": [
+        "pretraining-data/sources/stack-dedup/v2-mixer-train/documents/*.gz"
+      ],
+      "output": {
+        "path": "pretraining-data/sources/olmo-mix/v1/documents/stack",
+        "max_size_in_bytes": 3894967296
+      },
+      "attributes": [],
+      "filter": {
+        "include": [],
+        "exclude": []
+      }
+    }
+  ],
+  "work_dir": {
+    "input": "/tmp/stack/mixer/input",
+    "output": "/tmp/stack/mixer/output"
+  },
+  "processes": 120
+}

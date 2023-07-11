@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from torch.utils.data import DataLoader, DistributedSampler
 
@@ -15,14 +15,15 @@ __all__ = ["MemMapDataset", "DataCollator", "IterableDataset", "build_eval_datal
 
 def build_memmap_dataset(train_config: TrainConfig, data_config: DataConfig) -> MemMapDataset:
     paths: List[str]
-    metadata: Optional[List[Dict[str, Any]]] = None
+    metadata: List[Dict[str, Any]] = []
     if data_config.paths:
         if data_config.datasets:
             raise OlmoConfigurationError("DataConfig.paths is mutually exclusive with DataConfig.datasets")
         paths = data_config.paths
+        for path in paths:
+            metadata.append({"path": str(path)})
     elif data_config.datasets:
         paths = []
-        metadata = []
         for label in sorted(data_config.datasets.keys()):
             label_paths = data_config.datasets[label]
             paths.extend(label_paths)

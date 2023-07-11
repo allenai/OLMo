@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Iterator, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import torch
 from torch.utils.data import DataLoader
@@ -16,7 +16,6 @@ class Evaluator:
     label: str
     type: EvaluatorType
     eval_loader: DataLoader
-    eval_batches: Iterator[Dict[str, Any]]
     eval_metric: Union[Metric, Dict[str, Metric]]
     subset_num_batches: Optional[int] = None
 
