@@ -22,10 +22,17 @@ fi
 # get run name, we will use this as task name in gantry
 RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:\s*//')
 
+# get a hash of the load path and config path; take the first 8 characters
+RUN_HASH=$(echo "${LOAD_PATH_ARG}-${CONFIG_PATH}" | md5sum | cut -c 1-8)
+
+# compose the two
+FULL_RUN_NAME="${RUN_NAME}-${RUN_HASH}"
+
+
 gantry run \
   --workspace ai2/llm-testing \
-  --name "${RUN_NAME}" \
-  --task-name "${RUN_NAME}" \
+  --name "${FULL_RUN_NAME}" \
+  --task-name "${FULL_RUN_NAME}" \
   --priority "normal" \
   --beaker-image olmo-torch2-gantry \
   --cluster ai2/general-cirrascale-a100-80g-ib \
@@ -40,4 +47,4 @@ gantry run \
   --shared-memory 10GiB \
   --venv base \
   --yes \
-  -- /bin/bash -c "torchrun --nproc-per-node 8 scripts/train.py ${CONFIG_PATH} --save_folder=/net/nfs.cirrascale/allennlp/llm-checkpoints/tmp --run_name=${RUN_NAME} ${LOAD_PATH_ARG} --device_train_microbatch_size 16 ${@}"
+  -- /bin/bash -c "torchrun --nproc-per-node 8 scripts/train.py ${CONFIG_PATH} --save_folder=/net/nfs.cirrascale/allennlp/llm-checkpoints/tmp --run_name=${FULL_RUN_NAME} ${LOAD_PATH_ARG} --device_train_microbatch_size 16 ${@}"
