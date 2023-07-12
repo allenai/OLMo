@@ -47,4 +47,4 @@ gantry run \
   --shared-memory 10GiB \
   --venv base \
   --yes \
-  -- /bin/bash -c "torchrun --nproc-per-node 8 scripts/train.py ${CONFIG_PATH} --save_folder=/net/nfs.cirrascale/allennlp/llm-checkpoints/tmp --run_name=${FULL_RUN_NAME} ${LOAD_PATH_ARG} --device_train_microbatch_size=16 ${@}"
+  -- /bin/bash -c "torchrun --nproc-per-node 8 scripts/train.py ${CONFIG_PATH} --run_name=${FULL_RUN_NAME} ${LOAD_PATH_ARG} --device_train_microbatch_size=16 ${@}"
