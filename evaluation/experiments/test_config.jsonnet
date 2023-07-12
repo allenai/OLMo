@@ -2,8 +2,8 @@
 
 local utils = import 'utils.libsonnet';
 
-local rc20tasks = import 'task_sets/test_sets/test_rc20_tasks.libsonnet';
-local gentasks = import 'task_sets/test_sets/test_gen_tasks.libsonnet';
+local rc_20tasks = import 'task_sets/test_sets/test_rc20_tasks.libsonnet';
+local gen_tasks = import 'task_sets/test_sets/test_gen_tasks.libsonnet';
 local ppl_suite = import 'task_sets/test_sets/test_eval_suite_ppl_val_v2_small.libsonnet';
 
 local gsheet = "auto-gsheet-test";
@@ -22,8 +22,8 @@ local models = [
 ];
 
 local task_sets = [
-    rc20tasks.task_set,
-    gentasks.task_set,
+    rc20_tasks.task_set,
+    gen_tasks.task_set,
     ppl_suite.task_set
 ];
 
