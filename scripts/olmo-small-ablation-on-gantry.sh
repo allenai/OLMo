@@ -24,6 +24,7 @@ RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:
 
 gantry run \
   --workspace ai2/llm-testing \
+  --name "${RUN_NAME}" \
   --task-name "${RUN_NAME}" \
   --priority "normal" \
   --beaker-image olmo-torch2-gantry \
