@@ -9,7 +9,7 @@ The catwalk code exists [here](https://github.com/allenai/catwalk/tree/olmo-eval
 The evaluation pipeline is run as a cross product of models that need to be evaluated, and task sets.
 
 1. Ensure that model paths are present in a `gs://` or `s3://` location.
-2. Copy `evaluation/test_config.jsonnet` to `evaluation/experiment_YYYY_MM_DD.jsonnet`
+2. Copy `evaluation/experiments/test_config.jsonnet` to `evaluation/experiment_YYYY_MM_DD.jsonnet`
 3. Add models and choose relevant task sets from [experiments/task_sets](evaluation/experiments/task_sets).
 
 ### Running the pipeline
