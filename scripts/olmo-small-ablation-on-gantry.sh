@@ -29,7 +29,7 @@ gantry run \
   --beaker-image olmo-torch2-gantry \
   --cluster ai2/general-cirrascale-a100-80g-ib \
   --gpus 8 \
-  --replicas 5 \
+  --replicas 4 \
   --leader-selection  \
   --host-networking \
   --nfs \
