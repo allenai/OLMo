@@ -2,9 +2,9 @@
 
 local utils = import 'utils.libsonnet';
 
-local rc20tasks = import 'task_sets/rc20tasks.libsonnet';
-local gentasks = import 'task_sets/gentasks.libsonnet';
-local ppl_suite = import 'task_sets/eval_suite_ppl_val_v2_small.libsonnet';
+local rc20tasks = import 'task_sets/test_sets/test_rc20_tasks.libsonnet';
+local gentasks = import 'task_sets/test_sets/test_gen_tasks.libsonnet';
+local ppl_suite = import 'task_sets/test_sets/test_eval_suite_ppl_val_v2_small.libsonnet';
 
 local gsheet = "auto-gsheet-test";
 

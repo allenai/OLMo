@@ -117,9 +117,9 @@ DEFAULT_PREDICTION_KWARGS: Dict[str, Any] = {
     "model_max_length": 2048,
     "max_batch_tokens": 20480,
     "batch_size": 32,
-    "limit": None,
-    "split": None,
-    "random_subsample_seed": None,
+    "limit": 1000,
+    "split": "validation",
+    "random_subsample_seed": 1234,
 }
 
 

@@ -1,14 +1,14 @@
 
-local task_utils = import 'task_utils.libsonnet';
+local task_utils = import '../task_utils.libsonnet';
 
-local name = "rc20tasks";
-local task_names = ["boolq"];
+local name = "gen_tasks";
+local task_names = ["drop"];
 local prediction_kwargs = {
     split: "validation",
     limit: 1000,
-    num_shots: 0,
+    num_shots: 5,
+    fewshot_seed: 1234,
     num_recorded_inputs: 3,
-    //model_max_length: task_utils.model_max_length
     model_max_length: 256
 };
 local task_kwargs = {};

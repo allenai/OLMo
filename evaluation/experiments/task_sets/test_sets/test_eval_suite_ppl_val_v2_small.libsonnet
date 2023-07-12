@@ -1,5 +1,7 @@
 
-local task_utils = import 'task_utils.libsonnet';
+local task_utils = import '../task_utils.libsonnet';
+
+local task_set_name = "eval_suite";
 
 local common_kwargs = {
     task_name: "ppl_custom",
@@ -13,7 +15,7 @@ local common_kwargs = {
 };
 
 // TODO: refactor catwalk's Perplexity task so that it actually uses the s3 path.
-// until then, let the path be present in nfs ($EVAL_DATA_PATH).
+// until then, let the path be present in nfs
 local data_dir = "olmo-ppl-val-v2-small/";
 
 local create_task_kwargs(task_names) = [
@@ -27,10 +29,9 @@ local create_task_kwargs(task_names) = [
 ];
 
 local task_dicts = create_task_kwargs(
-    ["4chan", "c4_100_domains", "c4_en", "gab", "ice", "m2d2_s2orc", "m2d2_wiki",
-    "manosphere", "mc4_en", "pile", "ptb", "twitterAEE", "wikitext_103"]
+    ["4chan", "c4_100_domains"]
 );
 
 {
-    task_set: task_utils.create_task_set_from_task_dicts("eval_suite", task_dicts, common_kwargs)
+    task_set: task_utils.create_task_set_from_task_dicts(task_set_name, task_dicts, common_kwargs)
 }
