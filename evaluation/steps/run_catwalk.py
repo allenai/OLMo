@@ -1,8 +1,11 @@
+import copy
 import logging
 import os
 import time
 from pydoc import locate
 from typing import Dict, List, Optional
+from datetime import datetime
+import pytz
 
 import pandas as pd
 from catwalk.dependencies.lm_eval.utils import simple_parse_args_string
@@ -22,7 +25,6 @@ class ConstructTaskDict(Step):
     VERSION = "004"
 
     def run(self, task_name: str, task_rename: Optional[str] = None, **kwargs) -> Dict:  # Task:
-        # TODO: deal with task_file case, it's the reason for task_dict.
         task_dict = {"name": task_name}
         try:
             task_obj = TASKS_LM.get(task_name, TASKS.get(task_name))
@@ -108,6 +110,15 @@ class ConstructCatwalkModel(Step):
         return MODELS[model]
 
 
+DEFAULT_PREDICTION_KWARGS = {
+    "model_max_length": 2048,
+    "max_batch_tokens": 20480,
+    "batch_size": 32,
+    "limit": None,
+    "split": None,
+    "random_subsample_seed": None,
+}
+
 @Step.register("predict-and-calculate-metrics")
 class PredictAndCalculateMetricsStep(Step):
     VERSION = "002"
@@ -116,12 +127,12 @@ class PredictAndCalculateMetricsStep(Step):
         self,
         model: Model,
         task_dict: Dict,
-        split: Optional[str] = None,
-        limit: Optional[int] = None,
-        random_subsample_seed: Optional[int] = None,
-        model_max_length: int = 2048,
-        max_batch_tokens: int = 20480,
-        batch_size: int = 32,
+        split: Optional[str] = DEFAULT_PREDICTION_KWARGS["split"],
+        limit: Optional[int] = DEFAULT_PREDICTION_KWARGS["limit"],
+        random_subsample_seed: Optional[int] = DEFAULT_PREDICTION_KWARGS["random_subsample_seed"],
+        model_max_length: int = DEFAULT_PREDICTION_KWARGS["model_max_length"],
+        max_batch_tokens: int = DEFAULT_PREDICTION_KWARGS["max_batch_tokens"],
+        batch_size: int = DEFAULT_PREDICTION_KWARGS["batch_size"],
         **kwargs,
     ) -> Dict:
         task_name = task_dict["name"]
@@ -222,12 +233,15 @@ class PostProcessOutputPerTaskSpec(Step):
 
 @Step.register("write-outputs-as-rows")
 class WriteOutputsAsRows(Step):
-    VERSION = "002"
+    VERSION = "007"
 
-    def run(self, model: str, outputs: List[Dict], gsheet: Optional[str] = None) -> List:
+    def run(self, model: str, outputs: List[Dict], prediction_kwargs: List[Dict], gsheet: Optional[str] = None) -> List:
         tsv_outputs = []
-        for d in outputs:
+        for idx, d in enumerate(outputs):
+            pred_kwargs = copy.deepcopy(DEFAULT_PREDICTION_KWARGS)
+            pred_kwargs.update(prediction_kwargs[idx])
             row = {}
+            row["date"] = datetime.now(tz=pytz.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
             row["model"] = model
             row["full_model"] = f"lm::pretrained={model}"
             metrics_dict = list(d["metrics"].values())[0]
@@ -243,6 +257,10 @@ class WriteOutputsAsRows(Step):
             row["metric"] = metrics_dict[primary_metric]
             row["processing_time"] = d["processing_time"]
             row["num_instances"] = d["num_instances"]
+            row["tango_workspace"] = self.workspace.url
+            row["tango_step"] = self.unique_id
+
+            row.update(pred_kwargs)
             tsv_outputs.append(row)
 
         if gsheet:
@@ -253,12 +271,10 @@ class WriteOutputsAsRows(Step):
     def _write_to_gsheet(self, gsheet: str, rows: List[Dict]):
         import pygsheets
 
-        # TODO: add env var as secret to tango beaker config.
         client = pygsheets.authorize(service_account_json=os.environ["GDRIVE_SERVICE_ACCOUNT_JSON"])
-        #client = pygsheets.authorize(service_file=os.environ["GDRIVE_SERVICE_ACCOUNT_JSON"])
         sheet = client.open(gsheet)
         worksheet = sheet[0]  # TODO: pass in sheet title, etc.
         current_df = worksheet.get_as_df()
         new_df = pd.concat([current_df, pd.DataFrame(rows)])
-        worksheet.set_dataframe(new_df, (1, 1))
+        worksheet.set_dataframe(new_df, (1, 1), nan="")
 
