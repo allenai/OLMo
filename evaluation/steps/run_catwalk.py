@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 @Step.register("construct-task")
 class ConstructTaskDict(Step):
     VERSION = "004"
+    # TODO
+    # CACHEABLE = False
 
     def run(self, task_name: str, task_rename: Optional[str] = None, **kwargs) -> Dict:  # Task:
         task_dict = {"name": task_name}
@@ -80,6 +82,7 @@ class ConstructTaskDict(Step):
 @Step.register("construct-catwalk-model")
 class ConstructCatwalkModel(Step):
     VERSION = "002"
+    # CACHEABLE = False
 
     def run(self, model_path: str, model_class: Optional[str] = None) -> Model:
         if "::" in model_path:
@@ -118,6 +121,7 @@ DEFAULT_PREDICTION_KWARGS = {
     "split": None,
     "random_subsample_seed": None,
 }
+
 
 @Step.register("predict-and-calculate-metrics")
 class PredictAndCalculateMetricsStep(Step):
@@ -208,27 +212,27 @@ class PredictAndCalculateMetricsStep(Step):
         return instance_predictions
 
 
-@Step.register("post-process-outputs")
-class PostProcessOutputPerTaskSpec(Step):
-    # TODO: save as required csv instead.
-    VERSION = "002"
-
-    def run(self, model: str, outputs: List[Dict]) -> List:
-        metrics_printed = []
-        for d in outputs:
-            metrics_printed.append(f" *** {d['task']} ***  (n = {d['num_instances']})  [{d['task_options']}]")
-            metrics = {}
-            # Code is a bit confused about nestedness of metrics
-            for metric_name, metric in d["metrics"].items():
-                if isinstance(metric, dict):
-                    metrics.update(metric)
-                else:
-                    metrics[metric_name] = metric
-            for metric_name, metric in metrics.items():
-                metrics_printed.append(f"    {metric_name}: {metric}")
-            metrics_printed.append("-----------------")
-        logger.info("Overall metrics:\n  " + "\n".join(metrics_printed))
-        return metrics_printed
+# @Step.register("post-process-outputs")
+# class PostProcessOutputPerTaskSpec(Step):
+#     # TODO: save as required csv instead.
+#     VERSION = "002"
+#
+#     def run(self, model: str, outputs: List[Dict]) -> List:
+#         metrics_printed = []
+#         for d in outputs:
+#             metrics_printed.append(f" *** {d['task']} ***  (n = {d['num_instances']})  [{d['task_options']}]")
+#             metrics = {}
+#             # Code is a bit confused about nestedness of metrics
+#             for metric_name, metric in d["metrics"].items():
+#                 if isinstance(metric, dict):
+#                     metrics.update(metric)
+#                 else:
+#                     metrics[metric_name] = metric
+#             for metric_name, metric in metrics.items():
+#                 metrics_printed.append(f"    {metric_name}: {metric}")
+#             metrics_printed.append("-----------------")
+#         logger.info("Overall metrics:\n  " + "\n".join(metrics_printed))
+#         return metrics_printed
 
 
 @Step.register("write-outputs-as-rows")

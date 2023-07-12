@@ -210,7 +210,7 @@ local create_pipeline(models, task_sets, gsheet) =
 
     // Aggregate results for each task set and model combination
     local model_task_sets = model_task_set_cross_product(models, task_sets);
-    local post_process_task_set_steps = create_post_process_task_set_steps(model_task_sets, model_task_configs);
+    //local post_process_task_set_steps = create_post_process_task_set_steps(model_task_sets, model_task_configs);
     local write_outputs_as_rows_steps = create_write_outputs_as_rows_steps(model_task_sets, model_task_configs, gsheet);
 
     local all_steps =
@@ -218,7 +218,7 @@ local create_pipeline(models, task_sets, gsheet) =
         catwalk_model_steps +
         task_steps +
         outputs_steps +
-        post_process_task_set_steps +
+        //post_process_task_set_steps +
         write_outputs_as_rows_steps;
 
     all_steps;
