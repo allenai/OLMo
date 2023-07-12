@@ -31,8 +31,8 @@ FULL_RUN_NAME="${RUN_NAME}-${RUN_HASH}"
 
 gantry run \
   --workspace ai2/llm-testing \
-  --name "${FULL_RUN_NAME}" \
   --task-name "${FULL_RUN_NAME}" \
+  --description "${FULL_RUN_NAME}(config='${CONFIG_PATH}',checkpoint='${LOAD_PATH}')" \
   --priority "normal" \
   --beaker-image olmo-torch2-gantry \
   --cluster ai2/general-cirrascale-a100-80g-ib \
