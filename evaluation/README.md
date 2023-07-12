@@ -51,11 +51,11 @@ If specifying a Google Sheets to write to:
 * Add a beaker secret:
 
 ```python
-from beaker import Beaker
-b = Beaker.from_env()
+from tango.integrations.beaker.common import get_client
+beaker = get_client("<beaker_workspace>")
 
 with open("credentials_file.json") as f:
-    b.secret.write("GDRIVE_SERVICE_ACCOUNT_JSON", f.read())
+    beaker.secret.write("GDRIVE_SERVICE_ACCOUNT_JSON", f.read())
 ```
 
 #### Run on beaker

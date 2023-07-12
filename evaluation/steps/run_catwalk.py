@@ -237,7 +237,9 @@ class PredictAndCalculateMetricsStep(Step):
 
 @Step.register("write-outputs-as-rows")
 class WriteOutputsAsRows(Step):
-    VERSION = "007"
+    VERSION = "008"
+    # TODO: this will start writing outputs as soon as a task_set is complete.
+    #  should we wait until all task_sets are complete?
 
     def run(self, model: str, outputs: List[Dict], prediction_kwargs: List[Dict], gsheet: Optional[str] = None) -> List:
         tsv_outputs = []
@@ -257,6 +259,7 @@ class WriteOutputsAsRows(Step):
             else:
                 primary_metric = metrics_dict["primary_metric"]
 
+            row["task"] = d["task"]
             row["primary_metric"] = primary_metric
             row["metric"] = metrics_dict[primary_metric]
             row["processing_time"] = d["processing_time"]
@@ -281,4 +284,3 @@ class WriteOutputsAsRows(Step):
         current_df = worksheet.get_as_df()
         new_df = pd.concat([current_df, pd.DataFrame(rows)])
         worksheet.set_dataframe(new_df, (1, 1), nan="")
-
