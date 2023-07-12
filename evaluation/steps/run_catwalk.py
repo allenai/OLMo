@@ -2,12 +2,12 @@ import copy
 import logging
 import os
 import time
-from pydoc import locate
-from typing import Dict, List, Optional
 from datetime import datetime
-import pytz
+from pydoc import locate
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
+import pytz
 from catwalk.dependencies.lm_eval.utils import simple_parse_args_string
 from catwalk.model import Model
 from catwalk.models import MODELS, add_decoder_only_model
@@ -113,7 +113,7 @@ class ConstructCatwalkModel(Step):
         return MODELS[model]
 
 
-DEFAULT_PREDICTION_KWARGS = {
+DEFAULT_PREDICTION_KWARGS: Dict[str, Any] = {
     "model_max_length": 2048,
     "max_batch_tokens": 20480,
     "batch_size": 32,
@@ -241,7 +241,9 @@ class WriteOutputsAsRows(Step):
     # TODO: this will start writing outputs as soon as a task_set is complete.
     #  should we wait until all task_sets are complete?
 
-    def run(self, model: str, outputs: List[Dict], prediction_kwargs: List[Dict], gsheet: Optional[str] = None) -> List:
+    def run(
+        self, model: str, outputs: List[Dict], prediction_kwargs: List[Dict], gsheet: Optional[str] = None
+    ) -> List:
         tsv_outputs = []
         for idx, d in enumerate(outputs):
             pred_kwargs = copy.deepcopy(DEFAULT_PREDICTION_KWARGS)
