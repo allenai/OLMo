@@ -4,7 +4,7 @@
 
 task_set: {
     name: task_set_name,
-    task_dicts: [
+    tasks: [
         {task: task_name, prediction_kwargs: prediction_kwargs, task_kwargs: task_kwargs}
     ],
 }
