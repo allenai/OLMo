@@ -141,8 +141,14 @@ local post_process_task_set_step_name(model_path, task_set) =
 
 local post_process_task_set_ref(model_path, task_set) = {type: "ref", ref: post_process_task_set_step_name(model_path, task_set)};
 
-local all_outputs(task_set, model, model_task_configs) = [
+local all_outputs_for_task_set(task_set, model, model_task_configs) = [
     outputs_ref(config)
+    for config in model_task_configs
+    if config.task_set == task_set && config.model_path == model
+];
+
+local all_pred_kwargs_for_task_set(task_set, model, model_task_configs) = [
+    config.prediction_kwargs
     for config in model_task_configs
     if config.task_set == task_set && config.model_path == model
 ];
@@ -151,7 +157,7 @@ local create_post_process_task_set_steps(model_task_sets, model_task_configs) = 
     function(x, model_task_set) x + {
         [post_process_task_set_step_name(model_task_set.model, model_task_set.task_set)]: {
             type: "post-process-outputs",
-            outputs: all_outputs(model_task_set.task_set, model_task_set.model, model_task_configs),
+            outputs: all_outputs_for_task_set(model_task_set.task_set, model_task_set.model, model_task_configs),
             model: model_task_set.model,
             step_resources: {
                 gpu_count: 0
@@ -169,13 +175,15 @@ local write_outputs_as_rows_step_name(model_path, task_set) =
 
 local write_outputs_as_rows_ref(model_path, task_set) = {type: "ref", ref: write_outputs_as_rows_step_name(model_path, task_set)};
 
-local create_write_outputs_as_rows_steps(model_task_sets, model_task_configs) = std.foldl(
+local create_write_outputs_as_rows_steps(model_task_sets, model_task_configs, gsheet) =
+    std.foldl(
     function(x, model_task_set) x + {
         [write_outputs_as_rows_step_name(model_task_set.model, model_task_set.task_set)]: {
             type: "write-outputs-as-rows",
-            outputs: all_outputs(model_task_set.task_set, model_task_set.model, model_task_configs),
+            outputs: all_outputs_for_task_set(model_task_set.task_set, model_task_set.model, model_task_configs),
             model: model_task_set.model,
-            gsheet: "auto-gsheet-test",
+            prediction_kwargs: all_pred_kwargs_for_task_set(model_task_set.task_set, model_task_set.model, model_task_configs),
+            gsheet: gsheet,
             step_resources: {
                 gpu_count: 0
             }
@@ -186,7 +194,7 @@ local create_write_outputs_as_rows_steps(model_task_sets, model_task_configs) = 
 );
 
 
-local create_pipeline(models, task_sets) =
+local create_pipeline(models, task_sets, gsheet) =
 
     // Model steps
     local model_location_steps = create_model_location_steps(models);
@@ -203,7 +211,7 @@ local create_pipeline(models, task_sets) =
     // Aggregate results for each task set and model combination
     local model_task_sets = model_task_set_cross_product(models, task_sets);
     local post_process_task_set_steps = create_post_process_task_set_steps(model_task_sets, model_task_configs);
-    local write_outputs_as_rows_steps = create_write_outputs_as_rows_steps(model_task_sets, model_task_configs);
+    local write_outputs_as_rows_steps = create_write_outputs_as_rows_steps(model_task_sets, model_task_configs, gsheet);
 
     local all_steps =
         model_location_steps +
