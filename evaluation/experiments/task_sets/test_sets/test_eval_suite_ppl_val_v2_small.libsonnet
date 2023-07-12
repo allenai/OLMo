@@ -16,7 +16,7 @@ local common_kwargs = {
 
 // TODO: refactor catwalk's Perplexity task so that it actually uses the s3 path.
 // until then, let the path be present in nfs
-local data_dir = "olmo-ppl-val-v2-small/";
+local data_dir = "test_fixtures/evaluation/ppl-test-data";
 
 local create_task_kwargs(task_names) = [
     {

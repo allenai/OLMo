@@ -62,7 +62,7 @@ All intermediate and final results will also be saved to the specified workspace
 ```python
 from tango import Workspace
 workspace = Workspace.from_url("gs://your-workspace-url")
-result = workspace.step_result("outputs_as_rows_<model_name>_<task_set>")
+result = workspace.step_result("combine-all-outputs")
 ```
 
 

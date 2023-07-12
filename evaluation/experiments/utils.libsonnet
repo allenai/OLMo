@@ -1,14 +1,5 @@
-
-
 /*
-
-task_set: {
-    name: task_set_name,
-    tasks: [
-        {task: task_name, prediction_kwargs: prediction_kwargs, task_kwargs: task_kwargs}
-    ],
-}
-
+    Utility functions for composing jsonnet configurations for the evaluation pipeline.
 */
 
 // task_set1: [task1, task2], task_set2: [task3, task4] --> [task1, task2, task3, task4]
@@ -32,19 +23,6 @@ local model_task_cross_product(models, task_configs) = std.flatMap(
     ),
     task_configs
 );
-
-
-local model_task_set_cross_product(models, task_sets) = std.flatMap(
-    function(task_set) std.map(
-        function(model) {
-            task_set: task_set.name,
-            model: model.model_path
-        },
-        models
-    ),
-    task_sets
-);
-
 
 local basepath(path) =
   // -1 index does not work, so we do this.
@@ -107,8 +85,6 @@ local create_task_steps(task_configs) = std.foldl(
     {}
 );
 
-
-
 local outputs_step_name(config) =
     "outputs_" +
     basepath(config.model_path) + "_" +
@@ -134,65 +110,34 @@ local create_outputs_steps(model_task_configs) = std.foldl(
 );
 
 
-local post_process_task_set_step_name(model_path, task_set) =
-    "post_process_task_set_" +
-    basepath(model_path) + "_" +
-    task_set;
-
-local post_process_task_set_ref(model_path, task_set) = {type: "ref", ref: post_process_task_set_step_name(model_path, task_set)};
-
-local all_outputs_for_task_set(task_set, model, model_task_configs) = [
+local all_outputs(model_task_configs) = [
     outputs_ref(config)
     for config in model_task_configs
-    if config.task_set == task_set && config.model_path == model
 ];
 
-local all_pred_kwargs_for_task_set(task_set, model, model_task_configs) = [
+local all_pred_kwargs(model_task_configs) = [
     config.prediction_kwargs
     for config in model_task_configs
-    if config.task_set == task_set && config.model_path == model
 ];
 
-local create_post_process_task_set_steps(model_task_sets, model_task_configs) = std.foldl(
-    function(x, model_task_set) x + {
-        [post_process_task_set_step_name(model_task_set.model, model_task_set.task_set)]: {
-            type: "post-process-outputs",
-            outputs: all_outputs_for_task_set(model_task_set.task_set, model_task_set.model, model_task_configs),
-            model: model_task_set.model,
-            step_resources: {
-                gpu_count: 0
-            }
-        }
-    },
-    model_task_sets,
-    {}
-);
+local all_models(model_task_configs) = [
+    config.model_path
+    for config in model_task_configs
+];
 
-local write_outputs_as_rows_step_name(model_path, task_set) =
-    "outputs_as_rows_" +
-    basepath(model_path) + "_" +
-    task_set;
-
-local write_outputs_as_rows_ref(model_path, task_set) = {type: "ref", ref: write_outputs_as_rows_step_name(model_path, task_set)};
-
-local create_write_outputs_as_rows_steps(model_task_sets, model_task_configs, gsheet) =
-    std.foldl(
-    function(x, model_task_set) x + {
-        [write_outputs_as_rows_step_name(model_task_set.model, model_task_set.task_set)]: {
+local create_outputs_as_rows_steps(model_task_configs, gsheet) =
+    {
+        "combine-all-outputs": {
             type: "write-outputs-as-rows",
-            outputs: all_outputs_for_task_set(model_task_set.task_set, model_task_set.model, model_task_configs),
-            model: model_task_set.model,
-            prediction_kwargs: all_pred_kwargs_for_task_set(model_task_set.task_set, model_task_set.model, model_task_configs),
+            outputs: all_outputs(model_task_configs),
+            models: all_models(model_task_configs),
+            prediction_kwargs: all_pred_kwargs(model_task_configs),
             gsheet: gsheet,
             step_resources: {
                 gpu_count: 0
             }
         }
-    },
-    model_task_sets,
-    {}
-);
-
+    };
 
 local create_pipeline(models, task_sets, gsheet) =
 
@@ -209,17 +154,14 @@ local create_pipeline(models, task_sets, gsheet) =
     local outputs_steps = create_outputs_steps(model_task_configs);
 
     // Aggregate results for each task set and model combination
-    local model_task_sets = model_task_set_cross_product(models, task_sets);
-    //local post_process_task_set_steps = create_post_process_task_set_steps(model_task_sets, model_task_configs);
-    local write_outputs_as_rows_steps = create_write_outputs_as_rows_steps(model_task_sets, model_task_configs, gsheet);
+    local combine_all_outputs = create_outputs_as_rows_steps(model_task_configs, gsheet);
 
     local all_steps =
         model_location_steps +
         catwalk_model_steps +
         task_steps +
         outputs_steps +
-        //post_process_task_set_steps +
-        write_outputs_as_rows_steps;
+        combine_all_outputs;
 
     all_steps;
 
