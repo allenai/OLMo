@@ -32,19 +32,19 @@ A task set is of the form:
 1. Add new task sets under `evaluation/experiments/task_sets` (Examples: `gentasks.libsonnet`, `eval_suite_ppl_val_v2_small.libsonnet`). 
 2. See `gentasks.libsonnet` for a simple example (should cover most cases).
 3. See `eval_suite_ppl_val_v2_small` for an example where we use our custom perplexity eval set.
-4. The list of potential tasks are in [TASKS_LM](https://github.com/allenai/catwalk/blob/olmo-eval/catwalk/tasks/tasks_lm.py)
- and [TASKS](https://github.com/allenai/catwalk/blob/olmo-eval/catwalk/tasks/__init__.py). New tasks should be added here.
+4. The list of potential tasks can be seen by running `python evaluation/see_available_tasks.py`. The tasks are defined in [TASKS_LM](https://github.com/allenai/catwalk/blob/olmo-eval/catwalk/tasks/tasks_lm.py)
+ and [TASKS](https://github.com/allenai/catwalk/blob/olmo-eval/catwalk/tasks/__init__.py). New tasks should be added there.
 
 ### Running the pipeline
 
-### Setup
+#### Basic setup
 
-```commandline
-gcloud auth login  # This will automatically set `GOOGLE_TOKEN` to your default credentials. 
+```commandline 
 export GITHUB_TOKEN="<your token>"  # Needed for beaker to clone the repo.
+gcloud auth login OR export GOOGLE_TOKEN="<google credentials>"  # If you are using a GS workspace.
 ```
 
-If specifying a Google Sheets to write to:
+#### If specifying a Google Sheets to write results to
 
 * Share the google sheet with `olmo-eval@ai2-allennlp.iam.gserviceaccount.com`.
 * Create API json key and download from [here](https://console.cloud.google.com/iam-admin/serviceaccounts/details/101308414346962828659;edit=true/keys?project=ai2-allennlp).
