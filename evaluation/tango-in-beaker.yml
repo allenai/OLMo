@@ -39,6 +39,7 @@ executor:
       value: "/net/nfs.cirrascale/allennlp/akshitab/eval_data"
     - name: GDRIVE_SERVICE_ACCOUNT_JSON
       secret: GDRIVE_SERVICE_ACCOUNT_JSON
+      value: "test-if-this-works"
 
 
 include_package:
