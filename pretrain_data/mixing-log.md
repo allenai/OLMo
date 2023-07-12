@@ -1,4 +1,4 @@
-# OLMO Mixing Log 
+# OLMO Mixing Log
 
 
 Tagged Wikipedia using following command
@@ -17,7 +17,7 @@ ai2_llm_filters \
     -p 96 \
     --reuse-existing $HOME/wikipedia/meta \
     --local-read-cache $HOME/wikipedia/cache  \
-    --skip-on-failure 
+    --skip-on-failure
 ```
 
 Tagged C4 with the following. Using both `v0` and `v0-c4-cleaned`. The `c4-cleaned` shouldn't have much of a diff, but it's good for consistency.
@@ -34,7 +34,7 @@ ai2_llm_filters \
         gopher_v1 \
     -p 96 \
     --reuse-existing $HOME/c4-v0-c4-cleaned/meta \
-    --local-read-cache $HOME/c4-v0-c4-cleaned/cache 
+    --local-read-cache $HOME/c4-v0-c4-cleaned/cache
 ```
 
 ```shell
@@ -48,7 +48,7 @@ ai2_llm_filters \
         gopher_v1 \
     -p 96 \
     --reuse-existing $HOME/c4-v0/meta \
-    --local-read-cache $HOME/c4-v0/cache 
+    --local-read-cache $HOME/c4-v0/cache
 ```
 
 
@@ -99,13 +99,13 @@ ai2_llm_filters \
     --local-read-cache $HOME/v1-c4-cleaned/cc_en_head_download
 ```
 
-Created configurations 
+Created configurations
 
 ```shell
 python /Users/lucas/Code/LLM/pretrain_data/mixer/scripts/partition_deduper.py -w 100 -o pretrain_data
 ```
 
-Output: 
+Output:
 
 ```text
 pretrain_data/mixer/config/pdedup_c1_v1_c4-cleaned/0.json: 1105.45 GB, 756 files.
@@ -149,7 +149,7 @@ Books:
 python scripts/prepare_memmap_dataset.py  \
     s3://ai2-llm/pretraining-data/sources/olmo-mix/v1/documents/books \
     --safe-mode \
-    --output s3://ai2-llm/preprocessed/sources/olmo-mix/v1/gpt-neox-20b-pii-special/books \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1/gpt-neox-20b-pii-special/books \
     --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
     --workers 120
 ```
@@ -160,7 +160,7 @@ Semantic Scholar:
 python scripts/prepare_memmap_dataset.py  \
     s3://ai2-llm/pretraining-data/sources/olmo-mix/v1/documents/s2 \
     --safe-mode \
-    --output s3://ai2-llm/preprocessed/sources/olmo-mix/v1/gpt-neox-20b-pii-special/s2 \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1/gpt-neox-20b-pii-special/s2 \
     --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
     --workers 120
 ```
@@ -171,7 +171,194 @@ Wikipedia:
 python scripts/prepare_memmap_dataset.py  \
     s3://ai2-llm/pretraining-data/sources/olmo-mix/v1/documents/wiki \
     --safe-mode \
-    --output s3://ai2-llm/preprocessed/sources/olmo-mix/v1/gpt-neox-20b-pii-special/wiki \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1/gpt-neox-20b-pii-special/wiki \
     --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
     --workers 120
+```
+
+C4:
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1/documents/c4 \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1/gpt-neox-20b-pii-special/c4 \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120 \
+    --cache-dir /data2/llm-preprocessed
+```
+
+Stack:
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1/documents/stack \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1/gpt-neox-20b-pii-special/stack \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120 \
+    --cache-dir /data2/llm-preprocessed
+```
+
+
+## Calculating Size
+
+- Wiki: 6.21 GB -> 3,635,728,771 tokens (585m tokens per GB)
+- Books: 7.08 GB -> 4,755,860,202 tokens (672m tokens per GB)
+- S2: 160.01 GB -> 56,783,583,427 tokens (355m tokens per GB)
+- C4: 323.95 GB -> 174,398,315,760 tokens (538m tokens per GB)
+- Stack: 724.28 GB -> 430,067,843,952 tokens (593m tokens per GB)
+
+
+Sampled
+
+- Wiki: 6.21 GB -> 3,635,728,771 tokens (585m tokens per GB)
+- Books: 7.08 GB -> 4,755,860,202 tokens (672m tokens per GB)
+- S2: 160.01 GB -> 56,783,583,427 tokens (355m tokens per GB)
+- C4: 323.95 GB -> 174,398,315,760 tokens (538m tokens per GB)
+- Stack: 593.4 GB -> 430,067,843,952 tokens (593m tokens per GB)
+- Common Crawl: 2.61 TB -> 1,500,000,000,000 tokens (574m tokens per GB)
+
+
+Over a single cc
+
+2.87 GB -> 1.76 GB (61.3% reduction)
+
+9.48 TB -> 4.89 TB -> 2.861T tokens
+
+
+Random tagger:
+
+```shell
+ai2_llm_filters \
+    -d 'olmo-mix/v1' \
+    -n random \
+    -t random_number_v1 \
+    -p 120 \
+    --reuse-existing $HOME/olmo_mix/meta \
+    --files-regex-pattern 'stack-v2-mxixer-train' \
+    --local-read-cache $HOME/olmo_mix/cache
+```
+
+```shell
+ai2_llm_filters \
+    -d 'olmo-mix/v1' \
+    -n random \
+    -t random_number_v1 \
+    -p 120 \
+    --reuse-existing /data2/olmo_mix/meta \
+    --files-regex-pattern 'cc_en_head' \
+    --local-read-cache /data2/olmo_mix/cache
+```
+
+```shell
+ai2_llm_filters \
+    -d 'olmo-mix/v1' \
+    -n random \
+    -t random_number_v1 \
+    -p 120 \
+    --reuse-existing /tmp/olmo_mix/meta \
+    --files-regex-pattern 'cc_en_middle' \
+    --local-read-cache /tmp/olmo_mix/cache
+```
+
+```shell
+ai2_llm_filters \
+    -d 'olmo-mix/v1' \
+    -n random \
+    -t random_number_v1 \
+    -p 120 \
+    --reuse-existing /tmp/olmo_mix/meta \
+    --files-regex-pattern 'reddit-ablation-base' \
+    --local-read-cache /tmp/olmo_mix/cache
+```
+
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-sample/documents/stack \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/stack \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120 \
+    --cache-dir /tmp/llm-preprocessed
+```
+
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-sample/documents/cc_en_head \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/common-crawl/cc_en_head \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120 \
+    --cache-dir /tmp/llm-preprocessed/cc_en_head
+```
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-sample/documents/cc_en_middle \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/common-crawl/cc_en_middle \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120 \
+    --cache-dir /tmp/llm-preprocessed
+```
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-sample/documents/cc_en_tail \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/common-crawl/cc_en_tail \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120 \
+    --cache-dir /tmp/llm-preprocessed
+```
+
+
+```shell
+~/target/release/mixer pretrain_data/mixer/config/olmo-train/common-crawl-tail.json && ai2_llm_filters -d 'olmo-mix/v1' -n random -t random_number_v1 -p 120 --reuse-existing /tmp/olmo_mix/meta --files-regex-pattern 'cc_en_tail' --local-read-cache /tmp/olmo_mix/cache && ~/target/release/mixer pretrain_data/mixer/config/olmo-train-sample/common-crawl-tail.json
+```
+
+## Gopher-like
+
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-sample-small/documents/stack \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1-sample-small/gpt-neox-20b-pii-special/stack \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120 \
+    --cache-dir /tmp/llm-preprocessed
+```
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-no-removal/documents/common-crawl/cc_en_head \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1-no-removal/gpt-neox-20b-pii-special/common-crawl/cc_en_head \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120 \
+    --cache-dir /tmp/llm-preprocessed/cc_en_head
+```
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-no-removal/documents/common-crawl/cc_en_middle \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1-no-removal/gpt-neox-20b-pii-special/common-crawl/cc_en_middle \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120 \
+    --cache-dir /tmp/llm-preprocessed
+```
+
+```shell
+python scripts/prepare_memmap_dataset.py  \
+    s3://ai2-llm/pretraining-data/sources/olmo-mix/v1-no-removal/documents/common-crawl/cc_en_tail \
+    --safe-mode \
+    --output s3://ai2-llm/preprocessed/olmo-mix/v1-no-removal/gpt-neox-20b-pii-special/common-crawl/cc_en_tail \
+    --tokenizer "allenai/eleuther-ai-gpt-neox-20b-pii-special" \
+    --workers 120 \
+    --cache-dir /tmp/llm-preprocessed
 ```
