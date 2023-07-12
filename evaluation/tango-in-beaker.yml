@@ -12,6 +12,7 @@ workspace:
 executor:
   type: beaker
   beaker_workspace: ai2/akshitab_llm
+  # TODO: uncomment once the beaker image creation issue is fixed.
   # beaker_image: akshitab/eval-streamline-image
   venv_name: base
   scheduler:
@@ -30,10 +31,14 @@ executor:
   env_vars:
     - name: "HF_DATASETS_CACHE"
       value: "/net/nfs.cirrascale/aristo/oyvindt/hf_datasets_cache"
+    # This is the location for downloading models and making them HF-compatible (nfs for accessibility across steps).
     - name: "GLOBAL_MODEL_DIR"
       value: "/net/nfs.cirrascale/allennlp/akshitab/eval_models"
+    # This is the location for our perplexity-based eval datasets. In the future, they can be uploaded to huggingface.
     - name: "EVAL_DATA_PATH"
       value: "/net/nfs.cirrascale/allennlp/akshitab/eval_data"
+    - name: GDRIVE_SERVICE_ACCOUNT_JSON
+      secret: GDRIVE_SERVICE_ACCOUNT_JSON
 
 
 include_package:
