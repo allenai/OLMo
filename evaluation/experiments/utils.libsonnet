@@ -169,7 +169,7 @@ local create_post_process_task_set_steps(model_task_sets, model_task_configs) = 
 );
 
 local write_outputs_as_rows_step_name(model_path, task_set) =
-    "write_outputs_as_rows_" +
+    "outputs_as_rows_" +
     basepath(model_path) + "_" +
     task_set;
 
