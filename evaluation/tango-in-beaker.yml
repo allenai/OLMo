@@ -12,7 +12,7 @@ workspace:
 executor:
   type: beaker
   beaker_workspace: ai2/akshitab_llm
-  beaker_image: akshitab/olmo-eval-image
+  beaker_image: akshitab/olmo-eval-image-2
   venv_name: eval-env
   scheduler:
     type: simple

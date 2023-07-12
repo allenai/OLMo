@@ -1,3 +1,4 @@
 ai2-catwalk @ git+https://github.com/allenai/catwalk.git@olmo-eval
 hf_olmo @ git+https://github.com/allenai/LLM.git@main#subdirectory=hf_olmo
+pygsheets
 #ai2-tango[beaker,gs]==1.2.1
