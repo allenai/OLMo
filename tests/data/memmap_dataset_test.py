@@ -16,7 +16,7 @@ def test_mmap_dataset(tmp_path: Path):
     mmap2[:] = np.array(list(range(16, 32)), dtype=np.uint16)
     mmap2.flush()
 
-    ds = MemMapDataset("/tmp/mmap1.npy", "/tmp/mmap2.npy", chunk_size=4)
+    ds = MemMapDataset(tmp_path / "mmap1.npy", tmp_path / "mmap2.npy", chunk_size=4)
     assert ds[0]["input_ids"].tolist() == [0, 1, 2, 3]
     assert ds[1]["input_ids"].tolist() == [4, 5, 6, 7]
     assert ds[7]["input_ids"].tolist() == [28, 29, 30, 31]

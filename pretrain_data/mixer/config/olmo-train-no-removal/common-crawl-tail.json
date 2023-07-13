@@ -10,10 +10,11 @@
         "dedupe_paragraphs",
         "gopher_rules",
         "hatespeech_nsfw_cc_v3",
-        "pii_detection"
+        "pii_detection",
+        "random"
       ],
       "output": {
-        "path": "pretraining-data/sources/olmo-mix/v1/documents/common-crawl/cc_en_tail",
+        "path": "pretraining-data/sources/olmo-mix/v1-no-removal/documents/common-crawl/cc_en_tail",
         "max_size_in_bytes": 4294967296,
         "discard_fields": [
           "attributes",
@@ -46,23 +47,14 @@
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_9grams[0][2] > 0.11)]",
           "$.attributes[?(@.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0] && @.gopher_rules__gopher_v1__fraction_of_characters_in_duplicate_10grams[0][2] > 0.10)]",
           "$@.attributes[?(@.bff_duplicate_paragraph_spans_decontamination && @.bff_duplicate_paragraph_spans_decontamination[0] && @.bff_duplicate_paragraph_spans_decontamination[0][2] >= 1.0)]",
-          "$.attributes[?(@.pii_detection__pii_regex_with_counts_fast_v2__doc_count && @.pii_detection__pii_regex_with_counts_fast_v2__doc_count[0] && @.pii_detection__pii_regex_with_counts_fast_v2__doc_count[0][2] > 5)]"
+          "$.attributes[?(@.pii_detection__pii_regex_with_counts_fast_v2__doc_count && @.pii_detection__pii_regex_with_counts_fast_v2__doc_count[0] && @.pii_detection__pii_regex_with_counts_fast_v2__doc_count[0][2] > 5)]",
+          "$.attributes[?(@.random__random_number_v1__random[0][2] < 0.5104606781)]"
         ]
       },
       "span_replacement": [
         {
           "span": "$.attributes.bff_duplicate_paragraph_spans",
           "min_score": 0.5,
-          "replacement": ""
-        },
-        {
-          "span": "$.attributes.hatespeech_nsfw_cc_v3__jigsaw_hatespeech_sentence_v2____label__toxic",
-          "min_score": 0.4,
-          "replacement": ""
-        },
-        {
-          "span": "$.attributes.hatespeech_nsfw_cc_v3__jigsaw_nsfw_sencence_v2____label__nsfw",
-          "min_score": 0.4,
           "replacement": ""
         },
         {
