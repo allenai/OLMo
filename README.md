@@ -31,23 +31,18 @@ torchrun --nproc-per-node=8 scripts/train.py configs/c4-tiny.yaml \
 
 #### Running on Cirrascale via [beaker-gantry](https://github.com/allenai/beaker-gantry)
 
+Check the script at [`scripts/olmo-small-ablation-on-gantry.sh`](scripts/olmo-small-ablation-on-gantry.sh) for an example on how to run a training job on Cirrascale.
+
+After installing `beaker-gantry`, you can launch a training job like this:
+
 ```bash
-gantry run \
-  --workspace ai2/llm-testing \
-  --task-name "OLMo-tiny-c4" \
-  --priority "high" \
-  --beaker-image olmo-torch2-gantry \
-  --cluster ai2/general-cirrascale-a100-80g-ib \
-  --gpus 8 \
-  --nfs \
-  --env-secret WANDB_API_KEY=WANDB_API_KEY \
-  --env LOG_FILTER_TYPE=local_rank0_only \
-  --env OMP_NUM_THREADS=8 \
-  --shared-memory 10GiB \
-  --venv base \
-  --yes \
-  -- /bin/bash -c 'torchrun --nproc-per-node 8 scripts/train.py configs/c4-tiny.yaml --save_folder=/net/nfs.cirrascale/allennlp/llm-checkpoints/tmp --run_name=c4-tiny-test-run'
+CONFIG_PATH=configs/choose_a_config.yml \
+LOAD_PATH=/optional/path/to/checkpoint/ \
+  bash scripts/olmo-small-ablation-on-gantry.sh
 ```
+
+if `CONFIG_PATH` is not specified, the default config is `configs/olmo-small-ablation.yaml`;
+if `LOAD_PATH` is not specified, the training will start from scratch.
 
 #### Running on LUMI via Slurm
 
