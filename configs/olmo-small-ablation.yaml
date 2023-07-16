@@ -1,9 +1,9 @@
-run_name: reddit-v1-ablation-base
+run_name: reddit-v2-ablation-base
 seed: 6198
 dry_run: false
 
 wandb:
-  name: ${run_name}
+  name: 
   project: c4-small
 
 model:
@@ -45,7 +45,7 @@ scheduler:
   t_max: null
 
 data:
-  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/dschwenk/v2/EleutherAI/gpt-neox-20b/*.npy}
+  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/}/dschwenk/llm-data/v2/EleutherAI/gpt-neox-20b/*.npy}
   pad_direction: right
   num_workers: 4
   drop_last: true
