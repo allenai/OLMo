@@ -1,0 +1,23 @@
+{
+    "documents": [
+        "pretraining-data/sources/common-crawl/v1-c4-cleaned/documents/cc_en_tail/cc_en_tail-1005.json.gz"
+    ],
+    "work_dir": {
+        "input": "/tmp/v1-c4-cleaned/7.input",
+        "output": "/tmp/v1-c4-cleaned/7.output"
+    },
+    "dedupe": {
+        "name": "dedupe_paragraphs",
+        "paragraphs": {
+            "attribute_name": "bff_duplicate_paragraph_spans"
+        }
+    },
+    "bloom_filter": {
+        "file": "/tmp/v1-c4-cleaned/7.bloom",
+        "size_in_bytes": 0,
+        "read_only": true,
+        "estimated_doc_count": 30000000000,
+        "desired_false_positive_rate": 1e-06
+    },
+    "processes": 128
+}

@@ -1,15 +1,24 @@
+from typing import Dict, List, Union
+
 import torch
-import torch.distributed as dist
 from torch.utils.data import DataLoader, DistributedSampler
-from torchmetrics import MeanMetric
+from torchmetrics import MeanMetric, Metric
 
 from ..config import EvaluatorConfig, EvaluatorType, TrainConfig
+from ..exceptions import OlmoConfigurationError
 from ..tokenizer import Tokenizer
-from ..util import cycle_through_epochs, global_rank
+from ..util import get_global_rank, get_world_size
 from .downstream import ICLMetric, label_to_task_map
 from .evaluator import Evaluator
 
-__all__ = ["Evaluator", "ICLMetric", "label_to_task_map", "build_downstream_evaluator", "build_evaluator"]
+__all__ = [
+    "Evaluator",
+    "ICLMetric",
+    "label_to_task_map",
+    "build_downstream_evaluator",
+    "build_evaluator",
+    "build_evaluators",
+]
 
 
 def build_downstream_evaluator(
@@ -29,8 +38,8 @@ def build_downstream_evaluator(
             ds_eval_dataset,
             drop_last=data_config.drop_last,
             shuffle=False,
-            num_replicas=dist.get_world_size(),
-            rank=global_rank(),
+            num_replicas=get_world_size(),
+            rank=get_global_rank(),
             seed=train_config.seed,
         )
     ds_eval_dataloader = DataLoader(
@@ -47,10 +56,11 @@ def build_downstream_evaluator(
     metric = ICLMetric(metric_type=ds_eval_dataset.metric_type)
 
     evaluator = Evaluator(
-        cfg=eval_cfg,
+        label=eval_cfg.label,
+        type=eval_cfg.type,
         eval_loader=ds_eval_dataloader,
-        eval_batches=cycle_through_epochs(ds_eval_dataloader),
         eval_metric=metric.to(device),
+        subset_num_batches=eval_cfg.subset_num_batches,
     )
     return evaluator
 
@@ -70,11 +80,32 @@ def build_evaluator(
             eval_config.data,
             eval_config.device_eval_batch_size or train_config.device_eval_batch_size,
         )
+
+        def make_metric():
+            return MeanMetric(nan_strategy="error").to(device)
+
+        eval_metric: Union[Metric, Dict[str, Metric]]
+        if eval_config.data.paths:
+            eval_metric = make_metric()
+        elif eval_config.data.datasets:
+            eval_metric = {label: make_metric() for label in eval_config.data.datasets.keys()}
+        else:
+            raise OlmoConfigurationError("One of DataConfig.paths or DataConfig.datasets is required")
+
         return Evaluator(
-            cfg=eval_config,
+            label=eval_config.label,
+            type=eval_config.type,
             eval_loader=eval_loader,
-            eval_batches=cycle_through_epochs(eval_loader),
-            eval_metric=MeanMetric(nan_strategy="error").to(device),
+            eval_metric=eval_metric,
+            subset_num_batches=eval_config.subset_num_batches,
         )
     else:
         raise ValueError(f"Unexpected evaluator type '{eval_config.type}'")
+
+
+def build_evaluators(cfg: TrainConfig, device: torch.device) -> List[Evaluator]:
+    evaluators = []
+    tokenizer = Tokenizer.from_train_config(cfg)
+    for eval_cfg in cfg.evaluators:
+        evaluators.append(build_evaluator(cfg, eval_cfg, tokenizer, device))
+    return evaluators

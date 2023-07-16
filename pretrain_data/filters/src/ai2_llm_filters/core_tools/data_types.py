@@ -12,11 +12,19 @@ from msgspec import Struct
 
 
 class Ai2LlmFilterError(Exception):
-    pass
+    """Base class for all errors"""
 
 
-class Ai2LlmRetryableFailure(Exception):
-    pass
+class Ai2LlmFatalError(Ai2LlmFilterError):
+    """Fatal error. Abort the entire process"""
+
+
+class Ai2LlmShardError(Ai2LlmFilterError):
+    """Fail the shard and continue"""
+
+
+class Ai2LlmRetryableFailure(Ai2LlmFilterError):
+    """Retry if a shard throws this error"""
 
 
 class InputSpec(Struct):
@@ -112,6 +120,9 @@ class Span:
             f"{self.experiment}__{self.tagger}__{self.type}",
             [self.start, self.end, self.score],
         )
+
+    def __len__(self) -> int:
+        return self.end - self.start
 
     @classmethod
     def from_json(cls, di: Dict) -> "Span":

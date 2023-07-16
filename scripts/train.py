@@ -17,16 +17,17 @@ from torchmetrics import MeanMetric
 
 from olmo.config import CheckpointType, TrainConfig
 from olmo.data import build_train_dataloader
-from olmo.eval import build_evaluator
+from olmo.eval import build_evaluators
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
 from olmo.model import Olmo
 from olmo.optim import build_optimizer, build_scheduler
-from olmo.tokenizer import Tokenizer
 from olmo.train import Trainer
 from olmo.util import (
+    barrier,
     clean_opt,
-    global_rank,
-    local_rank,
+    get_global_rank,
+    get_local_rank,
+    get_world_size,
     log_extra_field,
     prepare_cli_environment,
     seed_all,
@@ -43,18 +44,18 @@ def main(cfg: TrainConfig) -> None:
 
     # Initialize process group and set device.
     dist.init_process_group(backend="nccl")
-    dist.barrier()
-    torch.cuda.set_device(f"cuda:{local_rank()}")
+    barrier()
+    torch.cuda.set_device(f"cuda:{get_local_rank()}")
     device = torch.device("cuda")
 
     # Fill some configuration options.
     cfg.model.precision = cfg.precision
-    cfg.device_train_batch_size = cfg.global_train_batch_size // dist.get_world_size()
+    cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
     assert cfg.device_train_batch_size is not None  # for mypy
     cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
 
     # Display and save configuration.
-    if global_rank() == 0:
+    if get_global_rank() == 0:
         log.info("Configuration:")
         log.info(cfg)
         if not cfg.dry_run and (cfg.load_path is None or Path(cfg.load_path).parent != Path(cfg.save_folder)):
@@ -68,7 +69,7 @@ def main(cfg: TrainConfig) -> None:
                 cfg.save(save_path)
             del save_path
 
-    dist.barrier()
+    barrier()
 
     # Set seed.
     seed_all(cfg.seed)
@@ -77,15 +78,11 @@ def main(cfg: TrainConfig) -> None:
     train_loader = build_train_dataloader(cfg)
 
     # Construct evaluators.
-    evaluators = []
-    tokenizer = Tokenizer.from_train_config(cfg)
-    for eval_cfg in cfg.evaluators:
-        evaluators.append(build_evaluator(cfg, eval_cfg, tokenizer, device))
-
-    dist.barrier()
+    evaluators = build_evaluators(cfg, device)
+    barrier()
 
     # Maybe start W&B run.
-    if cfg.wandb is not None and (global_rank() == 0 or not cfg.wandb.rank_zero_only):
+    if cfg.wandb is not None and (get_global_rank() == 0 or not cfg.wandb.rank_zero_only):
         wandb_dir = Path(cfg.save_folder) / "wandb"
         wandb_dir.mkdir(parents=True, exist_ok=True)
         wandb.init(
@@ -98,7 +95,7 @@ def main(cfg: TrainConfig) -> None:
             config=cfg.asdict(exclude=["wandb"]),
         )
 
-    dist.barrier()
+    barrier()
 
     # Initialize the model.
     log.info("Initializing model...")
@@ -118,7 +115,7 @@ def main(cfg: TrainConfig) -> None:
         auto_wrap_policy=olmo_model.fsdp_wrap_fn,
         use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile
         limit_all_gathers=True,
-        device_id=local_rank(),
+        device_id=get_local_rank(),
     )
 
     if cfg.activation_checkpointing:
@@ -150,7 +147,7 @@ def main(cfg: TrainConfig) -> None:
     # Data indices file.
     indices_file: Optional[TextIO] = None
     if cfg.save_data_indices:
-        indices_file_path = Path(cfg.save_folder) / f"data-indices/rank{global_rank()}.tsv.gz"
+        indices_file_path = Path(cfg.save_folder) / f"data-indices/rank{get_global_rank()}.tsv.gz"
         if indices_file_path.exists() and not cfg.save_overwrite:
             raise OlmoConfigurationError(f"{indices_file_path} already exists, use --save_overwrite to overwrite")
         indices_file_path.parent.mkdir(exist_ok=True, parents=True)

@@ -17,7 +17,13 @@ from smashed.utils.io_utils import (
     stream_file_for_read,
 )
 
-from .data_types import Ai2LlmFilterError, Ai2LlmRetryableFailure, InputSpec, OutputSpec
+from .data_types import (
+    Ai2LlmFatalError,
+    Ai2LlmRetryableFailure,
+    Ai2LlmShardError,
+    InputSpec,
+    OutputSpec,
+)
 from .parallel import BaseParallelProcessor
 from .registry import TaggerRegistry
 from .utils import make_variable_name
@@ -53,8 +59,6 @@ class TaggerProcessor(BaseParallelProcessor):
         **kwargs,
     ):
         """Lets count run the taggers! We will use the destination path to save each tagger output."""
-
-        logger = cls.get_logger()
 
         # get names of taggers
         taggers_names = kwargs.get("taggers_names", None)
@@ -139,16 +143,15 @@ class TaggerProcessor(BaseParallelProcessor):
 
             except Exception as e:
                 # handle any exception that might have occurred
-                msg = f"failure to process {source_path} due to {e.__class__.__name__}: {' '.join(e.args)}"
-                if skip_on_failure:
-                    logger.warning("\nContinuing from " + msg)
+                msg = f"Failed to process {source_path} due to {e.__class__.__name__}: {' '.join(e.args)}"
+                if e.__class__.__name__ == "IncompleteReadError":
+                    # Intermittent error that occurs when reading from S3
+                    raise Ai2LlmRetryableFailure(msg) from e
                 else:
-                    if e.__class__.__name__ == "IncompleteReadError":
-                        # Intermittent error that occurs when reading from S3
-                        logger.warning("\nRetryable " + msg)
-                        raise Ai2LlmRetryableFailure(msg) from e
-                    logger.warning("\nFatal " + msg)
-                    raise Ai2LlmFilterError(msg) from e
+                    if skip_on_failure:
+                        raise Ai2LlmShardError(msg) from e
+                    else:
+                        raise Ai2LlmFatalError(msg) from e
             finally:
                 if caching_path != source_path and os.path.exists(caching_path):
                     os.remove(caching_path)
@@ -213,10 +216,19 @@ class TaggerProcessor(BaseParallelProcessor):
             "--manually-included-paths",
             default=None,
             nargs="+",
-            help="If provided, only these paths will be processed.",
+            help="If provided, only these paths will be processed. If points to an existing file, read s3:// URLs from it.",
         )
         ap.add_argument(
-            "--manually-excluded-paths", default=None, nargs="+", help="If provided, these paths will be skipped."
+            "--files-regex-pattern",
+            default=None,
+            type=str,
+            help="If provided, only files matching this regex pattern will be processed.",
+        )
+        ap.add_argument(
+            "--manually-excluded-paths",
+            default=None,
+            nargs="+",
+            help="If provided, these paths will be skipped. If points to an existing file, read s3:// URLs from it.",
         )
         ap.add_argument(
             "--safe-mode", action="store_true", help="Run in safe mode; will download locally before processing."
@@ -243,6 +255,20 @@ class TaggerProcessor(BaseParallelProcessor):
         with tempfile.TemporaryDirectory() as tempdir:
             metadata_workdir = opts.reuse_existing or tempdir
             ignore_existing = opts.reuse_existing is None
+            manually_included_paths = opts.manually_included_paths
+            if (
+                manually_included_paths
+                and len(manually_included_paths) == 1
+                and os.path.exists(manually_included_paths[0])
+            ):
+                manually_included_paths = [l.strip() for l in open(manually_included_paths[0])]
+            manually_excluded_paths = opts.manually_excluded_paths
+            if (
+                manually_excluded_paths
+                and len(manually_excluded_paths) == 1
+                and os.path.exists(manually_excluded_paths[0])
+            ):
+                manually_excluded_paths = [l.strip() for l in open(manually_excluded_paths[0])]
 
             msg = (
                 "----- TaggerProcessor -----\n"
@@ -257,6 +283,7 @@ class TaggerProcessor(BaseParallelProcessor):
                 f"workdir:      {metadata_workdir}\n"
                 f"safe mode:    {opts.safe_mode}\n"
                 f"local cache:  {local_read_cache}\n"
+                f"file regex:   {opts.files_regex_pattern}\n"
                 "---------------------------\n"
             )
             print(msg)
@@ -270,6 +297,7 @@ class TaggerProcessor(BaseParallelProcessor):
                 debug=opts.debug,
                 include_paths=opts.manually_included_paths,
                 exclude_paths=opts.manually_excluded_paths,
+                files_regex_pattern=opts.files_regex_pattern,
             )
             parallel_compute(
                 taggers_names=opts.taggers,

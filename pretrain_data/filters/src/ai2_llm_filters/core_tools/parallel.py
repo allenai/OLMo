@@ -1,7 +1,9 @@
 import inspect
+import logging
 import multiprocessing
 import pickle
 import random
+import re
 import time
 from contextlib import ExitStack
 from datetime import datetime
@@ -18,8 +20,6 @@ from smashed.utils.io_utils import (
 )
 
 from .data_types import Ai2LlmFilterError, Ai2LlmRetryableFailure
-
-METADATA_SUFFIX = ".done.txt"
 
 
 class BaseParallelProcessor:
@@ -45,6 +45,9 @@ class BaseParallelProcessor:
         ignore_existing: bool = False,
         include_paths: Optional[List[str]] = None,
         exclude_paths: Optional[List[str]] = None,
+        files_regex_pattern: Optional[str] = None,
+        logger: Optional["logging.Logger"] = None,
+        metadata_suffix: str = ".done.txt",
     ):
         """Initialize the parallel processor.
 
@@ -71,6 +74,11 @@ class BaseParallelProcessor:
                 that match one of the paths will be processed. Defaults to None.
             exclude_paths (Optional[List[str]], optional): A list of paths to exclude. If provided, files that
                 match one of the paths will be skipped. Defaults to None.
+            files_regex_pattern (Optional[str], optional): A regex pattern to match files to process. If
+                provided, only files that match the pattern will be processed. Defaults to None.
+            logger (Optional[logging.Logger], optional): A logger to use. If none is provided, a logger will
+                be created. Defaults to None.
+            metadata_suffix (str, optional): The suffix of the metadata files to save. Defaults to ".done.txt".
         """
 
         self.source_prefix = MultiPath.parse(source_prefix)
@@ -84,6 +92,11 @@ class BaseParallelProcessor:
 
         self.include_paths = set(include_paths) if include_paths is not None else None
         self.exclude_paths = set(exclude_paths) if exclude_paths is not None else None
+        self.files_regex_pattern = re.compile(files_regex_pattern) if files_regex_pattern else None
+
+        # for internal use
+        self.logger = logger or logging.getLogger(self.__class__.__name__)
+        self.metadata_suffix = metadata_suffix
 
         # checking that the increment_progressbar method is subclassed
         # correctly
@@ -187,7 +200,9 @@ class BaseParallelProcessor:
 
         with ExitStack() as stack:
             pbars = [
-                stack.enter_context(tqdm.tqdm(desc=str(k), unit=str(k)[:1], position=i, unit_scale=True))
+                stack.enter_context(
+                    tqdm.tqdm(desc=str(k), unit=str(k)[:1], position=i, unit_scale=True)  # pyright: ignore
+                )
                 for i, k in enumerate(sample_queue_output)
             ]
 
@@ -284,40 +299,64 @@ class BaseParallelProcessor:
             thread.join()
             manager.shutdown()
 
+    def _valid_path(self, path: str) -> bool:
+        if self.include_paths is not None and path not in self.include_paths:
+            return False
+        if self.exclude_paths is not None and path in self.exclude_paths:
+            return False
+        if self.files_regex_pattern is not None and not self.files_regex_pattern.search(path):
+            return False
+        return True
+
     def _get_all_paths(self) -> Tuple[List[MultiPath], List[MultiPath], List[MultiPath]]:
         """Get all paths to process using prefixes provided"""
         all_source_paths, all_destination_paths, all_metadata_paths = [], [], []
 
-        def _valid_path(path: str) -> bool:
-            return (self.include_paths is None or path in self.include_paths) and (
-                self.exclude_paths is None or path not in self.exclude_paths
-            )
-
         existing_metadata_names = set(
-            (MultiPath.parse(path) - self.metadata_prefix).as_str.rstrip(METADATA_SUFFIX)
+            (MultiPath.parse(path) - self.metadata_prefix).as_str.rstrip(self.metadata_suffix).lstrip("/")
             for path in recursively_list_files(self.metadata_prefix)
-            if _valid_path(path)
         )
+
         paths = list(recursively_list_files(self.source_prefix))
         random.shuffle(paths)
+        metadata_skipped_cnt = 0
+        invalid_path_skipped_cnt = 0
 
         for path in paths:
             source_path = MultiPath.parse(path)
             if not self.ignore_existing and (source_path - self.source_prefix).as_str in existing_metadata_names:
+                # exists already in metadata, skip
+                metadata_skipped_cnt += 1
+                continue
+
+            if not self._valid_path(source_path.as_str):
+                # is not a valid path, skip
+                invalid_path_skipped_cnt += 1
                 continue
 
             all_source_paths.append(source_path)
             all_destination_paths.append(self.destination_prefix / (source_path - self.source_prefix))
 
-            metadata_path = MultiPath.parse(source_path.as_str + METADATA_SUFFIX)
+            metadata_path = MultiPath.parse(source_path.as_str + self.metadata_suffix)
             all_metadata_paths.append(self.metadata_prefix / (metadata_path - self.source_prefix))
+
+        if metadata_skipped_cnt > 0:
+            self.logger.info(f"Skipped {metadata_skipped_cnt:,} files because they have been already processed.")
+
+        if invalid_path_skipped_cnt > 0:
+            self.logger.info(
+                f"Skipped {invalid_path_skipped_cnt:,} files because they don't match '{self.files_regex_pattern}'."
+            )
 
         return all_source_paths, all_destination_paths, all_metadata_paths
 
     def __call__(self, **process_single_kwargs: Any):
         """Run the processor."""
         random.seed(self.seed)
+
         all_source_paths, all_destination_paths, all_metadata_paths = self._get_all_paths()
+
+        self.logger.info(f"Found {len(all_source_paths):,} files to process.")
 
         fn = self._debug_run_all if self.debug else self._multiprocessing_run_all
 

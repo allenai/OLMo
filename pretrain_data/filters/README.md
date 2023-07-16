@@ -19,6 +19,7 @@ pip install -e pretrain_data/filters'[dev]'
 If you are planning to run this code on a Mac with Apple Silicon, you will need to run the following to install blingfire (used for sentence splitting):
 
 ```bash
+conda install -c anaconda protobuf -y
 python -m smashed.utils.install_blingfire_macos
 ```
 

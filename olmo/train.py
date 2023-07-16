@@ -13,7 +13,6 @@ from typing import Any, Deque, Dict, List, Optional, TextIO, Tuple
 
 import numpy as np
 import torch
-import torch.distributed as dist
 import torch.nn.functional as F
 import wandb
 from packaging import version
@@ -33,7 +32,14 @@ from .data import IterableDataset
 from .eval import Evaluator
 from .exceptions import OlmoConfigurationError
 from .model import Olmo
-from .util import global_rank, move_to_device, peak_gpu_memory, syncronize_flag
+from .util import (
+    barrier,
+    get_global_rank,
+    get_world_size,
+    move_to_device,
+    peak_gpu_memory,
+    syncronize_flag,
+)
 
 __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
 
@@ -198,7 +204,7 @@ class Trainer:
         try:
             next(checkpoint_dir.glob("*"))
             if self.cfg.save_overwrite:
-                if global_rank() == 0:
+                if get_global_rank() == 0:
                     shutil.rmtree(checkpoint_dir)
             else:
                 raise OlmoConfigurationError(
@@ -207,11 +213,11 @@ class Trainer:
         except StopIteration:
             pass
 
-        if global_rank() == 0:
+        if get_global_rank() == 0:
             checkpoint_dir_tmp.mkdir(parents=True, exist_ok=True)
 
         self.checkpoints.append(checkpoint_dir)
-        dist.barrier()
+        barrier()
 
         # Flush data indices file.
         if self.indices_file is not None:
@@ -229,13 +235,13 @@ class Trainer:
             # but we've had issues with that on AMD GPUs. See
             # https://github.com/pytorch/pytorch/issues/100041
             #  checkpoint.save_state_dict(self.state_dict(), checkpoint.FileSystemWriter(checkpoint_dir))
-            torch.save(self.state_dict(), checkpoint_dir_tmp / f"rank{global_rank()}.pt")
+            torch.save(self.state_dict(), checkpoint_dir_tmp / f"rank{get_global_rank()}.pt")
             # Save config too.
-            if global_rank() == 0:
+            if get_global_rank() == 0:
                 self.cfg.save(checkpoint_dir_tmp / "config.yaml")
-            dist.barrier()
+            barrier()
 
-        if global_rank() == 0:
+        if get_global_rank() == 0:
             # Replace temp directory with target checkpoint directory.
             checkpoint_dir_tmp.replace(checkpoint_dir)
 
@@ -249,19 +255,19 @@ class Trainer:
             while len(self.checkpoints) > self.cfg.save_num_checkpoints_to_keep:
                 self.remove_sharded_checkpoint(0)
 
-        dist.barrier()
+        barrier()
 
         return checkpoint_dir
 
     def remove_sharded_checkpoint(self, idx: int = 0):
         oldest_checkpoint = self.checkpoints.pop(idx)
-        dist.barrier()
-        if global_rank() == 0 and oldest_checkpoint.is_dir():
+        barrier()
+        if get_global_rank() == 0 and oldest_checkpoint.is_dir():
             shutil.rmtree(oldest_checkpoint, ignore_errors=True)
             latest_path = Path(self.cfg.save_folder) / "latest"
             if latest_path.resolve() == oldest_checkpoint.resolve():
                 latest_path.unlink()
-        dist.barrier()
+        barrier()
 
     def restore_sharded_checkpoint(self, load_path: Path):
         # Zero-gradients to avoid gathering them.
@@ -294,7 +300,7 @@ class Trainer:
             #  self.optim.load_state_dict(flattened_osd)
 
             # Deserialize state dictionary.
-            state_dict = torch.load(load_path / f"rank{global_rank()}.pt")
+            state_dict = torch.load(load_path / f"rank{get_global_rank()}.pt")
             # We'll restore RNG state last to make sure we don't alter it through loading the state dict.
             rng_state = state_dict.pop("rng")
 
@@ -314,7 +320,7 @@ class Trainer:
 
             del state_dict, flattened_osd
 
-        dist.barrier()
+        barrier()
 
         # Lastly, restore RNG state.
         self.restore_rng_state(rng_state)
@@ -329,7 +335,7 @@ class Trainer:
         try:
             next(checkpoint_dir.glob("*"))
             if self.cfg.save_overwrite:
-                if global_rank() == 0:
+                if get_global_rank() == 0:
                     shutil.rmtree(checkpoint_dir)
             else:
                 raise OlmoConfigurationError(
@@ -338,11 +344,11 @@ class Trainer:
         except StopIteration:
             pass
 
-        if global_rank() == 0:
+        if get_global_rank() == 0:
             checkpoint_dir_tmp.mkdir(parents=True, exist_ok=True)
 
         self.unsharded_checkpoints.append(checkpoint_dir)
-        dist.barrier()
+        barrier()
 
         # Flush data indices file.
         if self.indices_file is not None:
@@ -358,24 +364,24 @@ class Trainer:
             # We'll write the model and optimizer state dicts individually to reduce (CPU) memory consumption.
             # First the model state.
             model_state_dict = self.fsdp_model.state_dict()
-            if global_rank() == 0:
+            if get_global_rank() == 0:
                 torch.save(model_state_dict, checkpoint_dir_tmp / "model.pt")
             del model_state_dict
 
             # Then the optimizer state.
             optim_state_dict = FSDP.optim_state_dict(self.fsdp_model, self.optim)
-            if global_rank() == 0:
+            if get_global_rank() == 0:
                 torch.save(optim_state_dict, checkpoint_dir_tmp / "optim.pt")
             del optim_state_dict
 
             # Then everything else.
             other_state_dict = self.non_tensor_state_dict()
-            if global_rank() == 0:
+            if get_global_rank() == 0:
                 torch.save(other_state_dict, checkpoint_dir_tmp / "other.pt")
                 self.cfg.save(checkpoint_dir_tmp / "config.yaml")
-            dist.barrier()
+            barrier()
 
-        if global_rank() == 0:
+        if get_global_rank() == 0:
             # Replace temp directory with target checkpoint directory.
             checkpoint_dir_tmp.replace(checkpoint_dir)
 
@@ -389,18 +395,18 @@ class Trainer:
             while len(self.unsharded_checkpoints) > self.cfg.save_num_unsharded_checkpoints_to_keep:
                 self.remove_unsharded_checkpoint(0)
 
-        dist.barrier()
+        barrier()
         return checkpoint_dir
 
     def remove_unsharded_checkpoint(self, idx: int = 0):
-        dist.barrier()
+        barrier()
         oldest_checkpoint = self.unsharded_checkpoints.pop(idx)
-        if global_rank() == 0 and oldest_checkpoint.is_dir():
+        if get_global_rank() == 0 and oldest_checkpoint.is_dir():
             shutil.rmtree(oldest_checkpoint, ignore_errors=True)
             latest_path = Path(self.cfg.save_folder) / "latest-unsharded"
             if latest_path.resolve() == oldest_checkpoint.resolve():
                 latest_path.unlink()
-        dist.barrier()
+        barrier()
 
     def restore_unsharded_checkpoint(self, load_path: Path):
         # Zero-gradients to avoid gathering them.
@@ -432,7 +438,7 @@ class Trainer:
             other_state_dict = torch.load(load_path / "other.pt")
             self.load_non_tensor_state_dict(other_state_dict)
 
-        dist.barrier()
+        barrier()
 
     def save_checkpoint(self, checkpoint_type: CheckpointType = CheckpointType.sharded) -> Path:
         if checkpoint_type == CheckpointType.sharded:
@@ -467,7 +473,9 @@ class Trainer:
             labels = labels.masked_fill(attention_mask == 0.0, -100)
         return labels[..., 1:].contiguous()
 
-    def model_forward(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
+    def model_forward(
+        self, batch: Dict[str, Any], loss_reduction: str = "mean"
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         # shape: (batch_size, seq_len, vocab_size)
         logits = self.fsdp_model(
             input_ids=batch["input_ids"],
@@ -479,9 +487,12 @@ class Trainer:
         logits_for_loss = logits_for_loss.view(-1, logits_for_loss.size(-1))
         # shape: (batch_size, seq_len)
         labels = self.get_labels(batch)
-        # shape: (batch_size,)
+        # shape: (batch_size * seq_len,)
         labels = labels.view(-1)
-        ce_loss = F.cross_entropy(logits_for_loss, labels, ignore_index=-100)
+        ce_loss = F.cross_entropy(logits_for_loss, labels, ignore_index=-100, reduction=loss_reduction)
+        if loss_reduction == "none":
+            # Reshape (batch_size * seq_len,) -> (batch_size, seq_len)
+            ce_loss = ce_loss.view(batch["input_ids"].shape[0], -1)
         return ce_loss, logits
 
     def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
@@ -580,10 +591,10 @@ class Trainer:
 
     def eval_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
-            ce_loss, logits = self.model_forward(batch)
-        return ce_loss, logits
+            ce_loss, logits = self.model_forward(batch, loss_reduction="none")
+        return ce_loss.mean(dim=-1), logits
 
-    def eval_step(self, batch: Dict[str, Any], evaluator: Evaluator) -> Dict[str, float]:
+    def eval_step(self, batch: Dict[str, Any], evaluator: Evaluator) -> None:
         # Move tensors to the right device.
         batch = move_to_device(batch, self.device)
 
@@ -596,7 +607,7 @@ class Trainer:
             batch, ce_loss, logits
         )  # batch includes all keys that the downstream evaluation needs
 
-        return evaluator.compute_metrics()
+        barrier()
 
     def split_batch(self, batch: Dict[str, Any]) -> List[Dict[str, Any]]:
         microbatch_size = self.cfg.device_train_microbatch_size
@@ -661,32 +672,38 @@ class Trainer:
 
         eval_metrics = {}
         for evaluator in self.evaluators:
-            log.info(f"Running evaluation for '{evaluator.cfg.label}'...")
+            log.info(f"Running evaluation for '{evaluator.label}'...")
 
             # Reset metrics.
             evaluator.reset_metrics()
 
-            # Check how many batches to evaluate on.
-            num_eval_batches = evaluator.cfg.subset_num_batches
-            if num_eval_batches is None:
-                num_eval_batches = self.cfg.eval_subset_num_batches
-            if num_eval_batches <= 0:
-                num_eval_batches = max(1, len(evaluator.eval_loader))
-            else:
+            # Initialize data loader iterator.
+            eval_batches = iter(evaluator.eval_loader)
+
+            # Adjust how many batches to evaluate on.
+            num_eval_batches = (
+                evaluator.subset_num_batches
+                if evaluator.subset_num_batches is not None
+                else self.cfg.eval_subset_num_batches
+            )
+            if num_eval_batches > 0:
                 num_eval_batches = min(num_eval_batches, len(evaluator.eval_loader))
+                eval_batches = islice(eval_batches, num_eval_batches)
 
             # Run model over batches.
-            for eval_step, eval_batch in enumerate(islice(evaluator.eval_batches, num_eval_batches)):
-                step_eval_metrics = self.eval_step(eval_batch, evaluator)
+            for eval_step, eval_batch in enumerate(eval_batches):
+                self.eval_step(eval_batch, evaluator)
 
                 # Log to console.
                 if eval_step + 1 == num_eval_batches or (eval_step + 1) % self.cfg.console_log_interval == 0:
-                    self.log_metrics_to_console(
-                        f"[eval_step={eval_step + 1}/{num_eval_batches}]", step_eval_metrics
-                    )
+                    log.info(f"[eval_step={eval_step + 1}/{num_eval_batches}]")
 
             # Get final metrics.
-            eval_metrics.update(evaluator.compute_metrics())
+            metrics = evaluator.compute_metrics()
+            eval_metrics.update(metrics)
+            self.log_metrics_to_console(f"{evaluator.label}", metrics)
+
+            del eval_batches
 
         return eval_metrics
 
@@ -725,7 +742,7 @@ class Trainer:
             batch_size, seq_len = batch["input_ids"].shape
             assert seq_len == self.cfg.model.max_sequence_length
             assert batch_size == self.cfg.device_train_batch_size
-            global_batch_size = batch_size * dist.get_world_size()  # assumes batch size equal across ranks
+            global_batch_size = batch_size * get_world_size()  # assumes batch size equal across ranks
             self.global_step += 1
             self.global_data_step += 1
             self.global_train_examples_seen += global_batch_size

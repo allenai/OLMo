@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import List, Optional, Tuple, cast
+from copy import deepcopy
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -11,7 +12,7 @@ from ..aliases import PathOrStr
 __all__ = ["MemMapDataset"]
 
 
-class MemMapDataset(Dataset[torch.LongTensor]):
+class MemMapDataset(Dataset[Dict[str, Any]]):
     """
     A PyTorch :class:`~torch.utils.data.Dataset` backed by one or more numpy memory-mapped arrays
     of token IDs. Token IDs are chunked together into contiguous blocks of ``chunk_size``
@@ -21,18 +22,32 @@ class MemMapDataset(Dataset[torch.LongTensor]):
     remainder of the tokens will be ignored.
 
     No special tokens are added to the input IDs so it's assumed that if you want
-    EOS tokens between documents, for example, those will already by in the memory-mapped array.
+    EOS tokens between documents, for example, those will already be in the memory-mapped array.
 
     :param paths: Paths to memory-mapped token arrays.
     :param chunk_size: The number of tokens to chunk together into a single instance.
         Generally this should correspond to your model's maximum input length.
     :param memmap_dtype: The numpy datatype of the memory-mapped array.
+    :param metadata: Metadata to add to each item. This should be a dictionary or a list of dictionaries
+        with the same number of items as there are paths.
     """
 
-    def __init__(self, *paths: PathOrStr, chunk_size: int = 1024, memmap_dtype=np.uint16):
+    def __init__(
+        self,
+        *paths: PathOrStr,
+        chunk_size: int = 1024,
+        memmap_dtype=np.uint16,
+        metadata: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None,
+    ):
         if not paths:
             raise ValueError("At least one path is required")
+        if isinstance(metadata, list):
+            if len(metadata) != len(paths):
+                raise ValueError("'metadata' should have the same length as the number of file paths")
+        else:
+            metadata = [metadata or {}] * len(paths)
         self._memmap_paths = paths
+        self._metadata = metadata
         self._chunk_size = chunk_size
         self._mmaps: Optional[List[np.memmap]] = None
         self._mmap_offsets: Optional[List[Tuple[int, int]]] = None
@@ -74,7 +89,7 @@ class MemMapDataset(Dataset[torch.LongTensor]):
             self._num_instances = self.offsets[-1][1]
         return self._num_instances
 
-    def __getitem__(self, index: int) -> torch.LongTensor:
+    def __getitem__(self, index: int) -> Dict[str, Any]:
         pos_index = index if index >= 0 else len(self) + index
 
         # The index of the memmap array within 'self.memmaps'
@@ -90,10 +105,11 @@ class MemMapDataset(Dataset[torch.LongTensor]):
             raise IndexError(f"{index} is out of bounds for dataset of size {len(self)}")
 
         memmap = self.memmaps[memmap_index]
+        metadata = self._metadata[memmap_index]
         index_start = memmap_local_index * self._chunk_size
         index_stop = (memmap_local_index + 1) * self._chunk_size
         data = memmap[index_start:index_stop].astype(np.int_)
-        return cast(torch.LongTensor, torch.tensor(data, dtype=torch.long))
+        return {"input_ids": torch.tensor(data, dtype=torch.long), "metadata": deepcopy(metadata)}
 
     def __add__(self, other: MemMapDataset) -> MemMapDataset:
         """
@@ -102,5 +118,8 @@ class MemMapDataset(Dataset[torch.LongTensor]):
         if not isinstance(other, MemMapDataset):
             raise NotImplementedError(f"Expected another MemMapDataset but got {type(other)}")
         return MemMapDataset(
-            *(self._memmap_paths + other._memmap_paths), chunk_size=self._chunk_size, memmap_dtype=self.dtype
+            *(self._memmap_paths + other._memmap_paths),
+            chunk_size=self._chunk_size,
+            memmap_dtype=self.dtype,
+            metadata=self._metadata + other._metadata,
         )

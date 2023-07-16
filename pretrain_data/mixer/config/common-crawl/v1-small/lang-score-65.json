@@ -1,0 +1,29 @@
+{
+  "streams": [
+    {
+      "name": "v1_small",
+      "documents": [
+        "pretraining-data/sources/common-crawl/v1-small/documents/*"
+      ],
+      "output": {
+        "path": "pretraining-data/sources/common-crawl/v1-small-lang-score-65/documents",
+        "max_size_in_bytes": 1,
+        "discard_fields": ["attributes", "metadata", "added", "created"]
+      },
+      "attributes": [
+        "decontamination"
+      ],
+      "filter": {
+        "include": ["$.metadata[?(@.language_score >= 0.65)]"],
+        "exclude": [
+          "$.attributes[?(@.bff_duplicate_paragraph_spans && @.bff_duplicate_paragraph_spans[0] && @.bff_duplicate_paragraph_spans[0][2] >= 1.0)]"
+        ]
+      }
+    }
+  ],
+  "work_dir": {
+    "input": "/data1/work/input",
+    "output": "/data2/work/output"
+  },
+  "processes": 128
+}

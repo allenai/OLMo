@@ -350,7 +350,8 @@ class PaddingDirection(StrEnum):
 
 @dataclass
 class DataConfig(BaseConfig):
-    paths: List[str] = field(default_factory=lambda: [])
+    paths: Optional[List[str]] = None
+    datasets: Optional[Dict[str, List[str]]] = None
     pad_direction: PaddingDirection = PaddingDirection.right
     num_workers: int = 0
     drop_last: bool = False
@@ -646,9 +647,9 @@ class TrainConfig(BaseConfig):
     to write out a final checkpoint.
     """
 
-    save_data_indices: bool = False
+    save_data_indices: bool = True
     """
-    If ``True``, write the indices of the examples in each batch for each rank to a tsv file in the save folder.
+    Save training data indices from each batch for each worker.
     """
 
     @property

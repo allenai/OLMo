@@ -4,7 +4,7 @@ import socket
 import sys
 import warnings
 from datetime import datetime
-from typing import Any, Dict, Generator, Optional, TypeVar, Union
+from typing import Any, Dict, Optional, TypeVar, Union
 
 import rich
 import torch
@@ -13,7 +13,6 @@ from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.text import Text
 from rich.traceback import Traceback
-from torch.utils.data import DataLoader, DistributedSampler
 
 from .config import LogFilterType
 from .exceptions import OlmoCliError, OlmoError
@@ -36,9 +35,9 @@ def setup_logging(log_filter_type: LogFilterType = LogFilterType.rank0_only) -> 
     """
     log_extra_field("hostname", socket.gethostname())
     if is_distributed():
-        log_extra_field("node_rank", node_rank())
-        log_extra_field("local_rank", local_rank())
-        log_extra_field("global_rank", global_rank())
+        log_extra_field("node_rank", get_node_rank())
+        log_extra_field("local_rank", get_local_rank())
+        log_extra_field("global_rank", get_global_rank())
     else:
         log_extra_field("node_rank", 0)
         log_extra_field("local_rank", 0)
@@ -283,20 +282,32 @@ def is_distributed() -> bool:
         return False
 
 
-def node_rank() -> int:
-    return int(os.environ.get("NODE_RANK") or (global_rank() - local_rank()) // local_world_size())
+def get_node_rank() -> int:
+    return int(os.environ.get("NODE_RANK") or (get_global_rank() - get_local_rank()) // get_local_world_size())
 
 
-def local_world_size() -> int:
-    return int(os.environ["LOCAL_WORLD_SIZE"])
+def get_world_size() -> int:
+    if dist.is_available() and dist.is_initialized():
+        return dist.get_world_size()
+    else:
+        return 1
 
 
-def global_rank() -> int:
+def get_local_world_size() -> int:
+    return int(os.environ.get("LOCAL_WORLD_SIZE") or 1)
+
+
+def get_global_rank() -> int:
     return int(os.environ.get("RANK") or dist.get_rank())
 
 
-def local_rank() -> int:
-    return int(os.environ["LOCAL_RANK"])
+def get_local_rank() -> int:
+    return int(os.environ.get("LOCAL_RANK") or 0)
+
+
+def barrier() -> None:
+    if dist.is_available() and dist.is_initialized():
+        dist.barrier()
 
 
 def peak_gpu_memory(reset: bool = False) -> Optional[float]:
@@ -319,16 +330,6 @@ def peak_gpu_memory(reset: bool = False) -> Optional[float]:
         torch.cuda.reset_max_memory_allocated(device)
 
     return peak_mb
-
-
-def cycle_through_epochs(dataloader: DataLoader) -> Generator[Dict[str, Any], None, None]:
-    while True:
-        for batch in dataloader:
-            yield batch
-
-        if isinstance(dataloader.sampler, DistributedSampler):
-            epoch = dataloader.sampler.epoch + 1
-            dataloader.sampler.set_epoch(epoch)
 
 
 def syncronize_flag(flag: bool, device: torch.device) -> bool:

@@ -1,6 +1,38 @@
 Experiment Log
 ==============
 
+2023-07-12
+----------
+
+For about a week, we have been chasing an issue where our loss curve looks wavy like this:
+<img width="519" alt="Screenshot 2023-07-13 at 14 56 19" src="https://github.com/allenai/LLM/assets/920638/5fec3ad9-5fd6-4959-956d-9f47e5232bd2">
+
+Our colleagues from MosaicML suggested that our data might not be properly mixed, but we reviewed the code carefully and
+found no problems. However, after exhausting all other possibilities, we had nothing left to go on, so we decided
+to try and graph our batch composition over time. Turns out, there are significant changes in batch composition after all:
+
+![image](https://github.com/allenai/LLM/assets/920638/3362e78e-4554-451e-8a59-a0114a4c4d56)
+
+In this graph, organge is content from Common Crawl, and green is content from The Stack, i.e., code. As you can see, the
+proportion of code changes significantly over time, and if you overlay the graphs, you can see that more code means lower
+loss. So clearly something is up with our shuffling after all.
+
+When we construct batches, we concatenate all content into one giant array of instances (samples), and then shuffle the
+array. We use `torch.randperm()` to shuffle. Long story short, it turns out that `torch.randperm()` does not shuffle very
+well. When you graph the index of the instances that end up in our batches over time, you see a very pronounced pattern:
+
+![image](https://github.com/allenai/LLM/assets/920638/39b01f8d-f1db-4485-b339-c20ee423b98a)
+
+While it would be interesting to find out why this happens, we left that as an exercise for the PyTorch team, and
+re-implemented our shuffling code to use NumPy. Now the curve looks like this:
+
+![image](https://github.com/allenai/LLM/assets/920638/192c5790-ab1f-4a3d-8fb6-a9dbc74391e8)
+
+Nice and random!
+
+![image](https://imgs.xkcd.com/comics/random_number.png)
+
+
 
 2023-04-26
 ----------

@@ -73,7 +73,7 @@ def get_attributes(text: str) -> C4Attributes:
             if "{" in line:
                 attrs.has_curly_brace = True
             offset = end_offset
-    except:
+    except Exception:
         logging.exception(f"Error parsing text: {text[:200]}")
 
     return attrs

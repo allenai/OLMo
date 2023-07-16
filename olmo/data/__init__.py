@@ -1,13 +1,36 @@
-import torch.distributed as dist
+from pathlib import Path
+from typing import Any, Dict, List
+
 from torch.utils.data import DataLoader, DistributedSampler
 
 from ..config import DataConfig, TrainConfig
-from ..util import global_rank
+from ..exceptions import OlmoConfigurationError
+from ..util import barrier, get_global_rank, get_world_size
 from .collator import DataCollator
 from .iterable_dataset import IterableDataset
 from .memmap_dataset import MemMapDataset
 
 __all__ = ["MemMapDataset", "DataCollator", "IterableDataset", "build_eval_dataloader", "build_train_dataloader"]
+
+
+def build_memmap_dataset(train_config: TrainConfig, data_config: DataConfig) -> MemMapDataset:
+    paths: List[str]
+    metadata: List[Dict[str, Any]] = []
+    if data_config.paths:
+        if data_config.datasets:
+            raise OlmoConfigurationError("DataConfig.paths is mutually exclusive with DataConfig.datasets")
+        paths = data_config.paths
+        for path in paths:
+            metadata.append({"path": str(path)})
+    elif data_config.datasets:
+        paths = []
+        for label in sorted(data_config.datasets.keys()):
+            label_paths = data_config.datasets[label]
+            paths.extend(label_paths)
+            metadata.extend([{"label": label}] * len(label_paths))
+    else:
+        raise OlmoConfigurationError("One of DataConfig.paths or DataConfig.datasets is required")
+    return MemMapDataset(*paths, chunk_size=train_config.model.max_sequence_length, metadata=metadata)
 
 
 def build_eval_dataloader(
@@ -16,19 +39,19 @@ def build_eval_dataloader(
     batch_size: int,
     shuffle: bool = True,
 ) -> DataLoader:
+    dataset = build_memmap_dataset(train_config, data_config)
     collator = DataCollator(pad_direction=data_config.pad_direction, pad_token_id=train_config.model.pad_token_id)
-    dataset = MemMapDataset(*data_config.paths, chunk_size=train_config.model.max_sequence_length)
     if data_config.drop_last:
         # Make sure batch size is small enough.
-        samples_per_device = len(dataset) // dist.get_world_size()
+        samples_per_device = len(dataset) // get_world_size()
         batch_size = min(batch_size, samples_per_device)
         assert batch_size > 0, f"dataset for {data_config.paths} is too small"
     sampler = DistributedSampler(
         dataset,
         drop_last=data_config.drop_last,
         shuffle=shuffle,
-        num_replicas=dist.get_world_size(),
-        rank=global_rank(),
+        num_replicas=get_world_size(),
+        rank=get_global_rank(),
         seed=train_config.seed,
     )
     return DataLoader(
@@ -49,7 +72,16 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
     collator = DataCollator(
         pad_direction=train_config.data.pad_direction, pad_token_id=train_config.model.pad_token_id
     )
-    dataset = MemMapDataset(*train_config.data.paths, chunk_size=train_config.model.max_sequence_length)
+    dataset = build_memmap_dataset(train_config, train_config.data)
+    work_dir = Path(train_config.save_folder) / "train_data"
+    if get_global_rank() == 0:
+        if work_dir.is_dir() and not train_config.save_overwrite:
+            raise OlmoConfigurationError(
+                "train data working directory already exists, use --save_overwrite to overwrite"
+            )
+        else:
+            work_dir.mkdir(exist_ok=True, parents=True)
+    barrier()
     return DataLoader(
         IterableDataset(
             dataset,  # type: ignore
@@ -57,6 +89,7 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
             shuffle=True,
             drop_last=train_config.data.drop_last,
             max_examples=train_config.global_train_batch_size * train_config.max_duration,
+            work_dir=work_dir,
         ),
         batch_size=train_config.device_train_batch_size,
         drop_last=train_config.data.drop_last,

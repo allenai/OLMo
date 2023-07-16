@@ -1,0 +1,37 @@
+{
+  "streams": [
+    {
+      "name": "c4",
+      "documents": [
+        "pretraining-data/sources/c4/v0-c4-cleaned/documents/*"
+      ],
+      "attributes": [
+        "gopher_rules",
+        "olmo_mix_v1_taggers",
+        "decontamination"
+      ],
+      "output": {
+        "path": "pretraining-data/sources/olmo-mix/v1/documents/c4",
+        "max_size_in_bytes": 4294967296,
+        "discard_fields": [
+          "attributes",
+          "metadata",
+          "added",
+          "created"
+        ]
+      },
+      "filter": {
+        "include": [],
+        "exclude": [
+          "$@.attributes[?(@.bff_duplicate_paragraph_spans_decontamination && @.bff_duplicate_paragraph_spans_decontamination[0] && @.bff_duplicate_paragraph_spans_decontamination[0][2] >= 1.0)]"
+        ]
+      },
+      "span_replacement": []
+    }
+  ],
+  "work_dir": {
+    "input": "/tmp/olmo-mix-v1/c4/input",
+    "output": "/tmp/olmo-mix-v1/c4/output"
+  },
+  "processes": 128
+}

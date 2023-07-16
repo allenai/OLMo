@@ -1,0 +1,100 @@
+[project]
+name = "hf_olmo"
+version = "0.0.1"
+description = "Lightweight HF-OLMo"
+authors = [
+    {name = "Akshita Bhagia", email = "akshitab@allenai.org" }
+]
+license = {text = "Apache-2.0"}
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "transformers>=4.27",
+    "tokenizers",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/allenai/llm"
+
+
+[project.optional-dependencies]
+dev = [
+    "black>=22.6.0",
+    "isort>=5.10.1",
+    "mypy>=0.971",
+    "pytest>=5.2",
+    "ipython>=8.4.0",
+    "autopep8>=1.7.0",
+    "flake8>=5.0",
+    "ipdb>=0.13.0",
+    "flake8-pyi>=22.8.1",
+    "Flake8-pyproject>=1.1.0",
+]
+
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools >= 61.0.0",
+    "wheel"
+]
+
+[tool.setuptools.package-data]
+olmo_hf_integration = ["py.typed"]
+
+[tool.black]
+line-length = 115
+
+include = '\.pyi?$'
+
+exclude = '''
+(
+      __pycache__
+    | \.git
+    | \.mypy_cache
+    | \.pytest_cache
+    | \.vscode
+    | \.venv
+    | \bdist\b
+    | \bdoc\b
+)
+'''
+
+[tool.setuptools]
+py-modules = []
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.autopep8]
+max_line_length = 79
+in-place = true
+recursive = true
+aggressive = 3
+
+[tool.mypy]
+python_version = 3.8
+ignore_missing_imports = true
+no_site_packages = true
+allow_redefinition = false
+warn_unused_configs = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_return_any = false
+warn_unreachable = true
+show_error_codes = true
+pretty = true
+
+[tool.mypy-tests]
+strict_optional = false
+
+[tool.flake8]
+per-file-ignores = [
+    '__init__.py:F401',
+    '*.pyi:E302,E305',
+    '*.py:E203'
+]

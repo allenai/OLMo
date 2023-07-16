@@ -16,7 +16,7 @@ model:
   attention_layer_norm: true
   multi_query_attention: true
   block_type: parallel
-  layer_norm_type: default  # if not compiling, use 'low_precision'
+  layer_norm_type: low_precision  # if not compiling, use 'low_precision'
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
@@ -54,55 +54,6 @@ data:
   persistent_workers: true
   timeout: 0
 
-eval_interval: ${save_interval}
-eval_subset_num_batches: -1
-device_eval_batch_size: ${device_train_microbatch_size}
-evaluators:
-  - label: c4-validation
-    subset_num_batches: 10
-    data:
-      paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
-      num_workers: 2
-      drop_last: true
-      pin_memory: true
-      persistent_workers: true
-      prefetch_factor: 4
-  - label: rp-validation
-    subset_num_batches: 10
-    data:
-      paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
-      num_workers: 2
-      drop_last: true
-      pin_memory: true
-      persistent_workers: true
-      prefetch_factor: 4
-  - label: piqa
-    type: downstream
-  - label: hellaswag
-    type: downstream
-  - label: winogrande
-    type: downstream
-  - label: openbook_qa
-    type: downstream
-  # - label: boolq  # requires implemention of the pmi_dc matrix
-    # type: downstream
-  - label: sciq
-    type: downstream
-  - label: arc_easy
-    type: downstream
-  # - label: arc_challenge  # requires implemention of the pmi_dc matrix
-    # type: downstream
-  - label: copa
-    type: downstream
-  - label: rte
-    type: downstream
-  - label: commitment_bank
-    type: downstream
-  - label: mrpc
-    type: downstream
-  - label: sst2
-    type: downstream
-
 tokenizer:
   identifier: gpt2
   truncate_direction: right
@@ -118,7 +69,8 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 476837  # 2T tokens
+# max_duration: 476837  # 2T tokens
+max_duration: 47684  # 200B tokens
 global_train_batch_size: 2048
 device_train_microbatch_size: 4
 
@@ -128,3 +80,104 @@ max_grad_norm: 1.0
 
 speed_monitor:
   window_size: 20
+
+eval_interval: ${save_interval}
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators:
+  ##########################
+  # Perplexity evaluations #
+  ##########################
+  - label: c4-validation
+    subset_num_batches: 10
+    data:
+      paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
+      num_workers: 2
+      drop_last: true
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 4
+
+  - label: rp-validation
+    subset_num_batches: 10
+    data:
+      paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
+      num_workers: 2
+      drop_last: true
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 4
+
+  # lump all the small datasets together (we still get separate metrics).
+  - label: all-small-ppl-validation
+    data:
+      datasets:
+        4chan-validation:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/4chan/val.npy
+        c4_100_domains-validation:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/c4_100_domains/val.npy
+        c4_en-validation:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/c4_en/val.npy
+        gab-validation:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/gab/val.npy
+        ice-validation:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/ice/val.npy
+        m2d2_s2orc-validation:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/m2d2_s2orc/val.npy
+        m2d2_wiki-validation:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/m2d2_wiki/val.npy
+        manosphere-validation:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/manosphere/val.npy
+        mc4_en-validation:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/mc4_en/val.npy
+        pile-validation:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/pile/val.npy
+        ptb-validation:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/ptb/val.npy
+        twitterAEE-validation:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/twitterAEE/val.npy
+        wikitext_103-validation:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small/wikitext_103/val.npy
+      drop_last: true
+
+  ##########################
+  # Downstream evaluations #
+  ##########################
+  - label: piqa
+    type: downstream
+
+  - label: hellaswag
+    type: downstream
+
+  - label: winogrande
+    type: downstream
+
+  - label: openbook_qa
+    type: downstream
+
+  # - label: boolq  # requires implemention of the pmi_dc matrix
+    # type: downstream
+    #
+  - label: sciq
+    type: downstream
+
+  - label: arc_easy
+    type: downstream
+
+  # - label: arc_challenge  # requires implemention of the pmi_dc matrix
+    # type: downstream
+    #
+  - label: copa
+    type: downstream
+
+  - label: rte
+    type: downstream
+
+  - label: commitment_bank
+    type: downstream
+
+  - label: mrpc
+    type: downstream
+
+  - label: sst2
+    type: downstream
