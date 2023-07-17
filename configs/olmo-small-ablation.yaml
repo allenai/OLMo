@@ -3,7 +3,7 @@ seed: 6198
 dry_run: false
 
 wandb:
-  name: ${run_name}
+  name: 
   project: c4-small
 
 model:
