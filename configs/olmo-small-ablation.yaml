@@ -58,7 +58,7 @@ tokenizer:
   identifier: EleutherAI/gpt-neox-20b
   truncate_direction: right
 
-save_folder: ${path.choose:/net/nfs.cirrascale/allennlp/dschwenk/checkpoints,/net/nfs.cirrascale/allennlp/dschwenk/results}/${oc.env:SLURM_JOB_ID,${run_name}}
+save_folder: ${/net/nfs.cirrascale/allennlp/dschwenk/checkpoints/${run_name}}
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
 save_interval: 1000
