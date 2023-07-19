@@ -178,9 +178,9 @@ def main(cfg: TrainConfig) -> None:
             log.info("Saving pre-train checkpoint...")
             checkpoint_path = trainer.save_checkpoint(checkpoint_type=checkpoint_type)
             log.info(f"Checkpoint saved to {checkpoint_path}")
-            
+
             barrier()
-            
+
             # And they we verify that we can load it.
             log.info("Attempting to load pre-train checkpoint...")
             trainer.restore_checkpoint(checkpoint_path, checkpoint_type=checkpoint_type)
