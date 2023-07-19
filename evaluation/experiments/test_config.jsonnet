@@ -2,11 +2,16 @@
 
 local utils = import 'utils.libsonnet';
 
+// These are using smaller test sets. 
+// ❗Please use full sets 'task_sets/rc20_tasks.libsonnet', etc for your actual experiments.
 local rc20_tasks = import 'task_sets/test_sets/test_rc20_tasks.libsonnet';
 local gen_tasks = import 'task_sets/test_sets/test_gen_tasks.libsonnet';
 local ppl_suite = import 'task_sets/test_sets/test_eval_suite_ppl_val_v2_small.libsonnet';
 
-local gsheet = "auto-gsheet-test";
+
+//❗Set gsheet to the name of your google sheet.
+// Set it to null if you do not want your results to be uploaded to a google sheet.
+local gsheet = "auto-gsheet-test"; //null;
 
 // Models to evaluate
 
