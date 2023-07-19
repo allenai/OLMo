@@ -23,6 +23,8 @@ from ..core_tools.data_types import DocResult, Document, Span
 from ..core_tools.registry import TaggerRegistry
 from ..core_tools.taggers import BaseTagger
 
+from .utils import get_nl_ratio
+
 logger = logging.getLogger(__name__)
 
 
@@ -195,5 +197,25 @@ class CodeRedPajamaTaggers(BaseTagger):
         spans.append(Span(start=0, end=doc_length, type="avg_line_length_doc", score=avg_line_length))
         spans.append(Span(start=0, end=doc_length, type="alnum_prop_doc", score=alnum_prop))
         spans.append(Span(start=0, end=doc_length, type="alpha_token_prop_doc", score=alpha_token_prop))
+
+        return DocResult(doc=doc, spans=spans)
+
+@TaggerRegistry.add("code_starcoder_taggers_v1")
+class CodeStarCoderTaggers(BaseTagger):
+    """
+    Based on StarCoder filtering.
+    """
+    def predict(self, doc: Document) -> DocResult:
+        spans: List[Span] = []
+        doc_length = len(doc.text)
+
+        has_xml_template = 1.0 if "<?xml version=" in doc.text[:100] else 0.0
+        num_github_stars = doc.metadata["max_stars_count"]
+
+
+
+        # document-level scores
+        spans.append(Span(start=0, end=doc_length, type="has_xml_template_doc", score=has_xml_template))
+        spans.append(Span(start=0, end=doc_length, type="num_github_stars_doc", score=num_github_stars))
 
         return DocResult(doc=doc, spans=spans)
