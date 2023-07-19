@@ -42,12 +42,12 @@ export GDRIVE_SERVICE_ACCOUNT_JSON=$(cat credentials_file.json)
 #### Run locally
 
 ```commandline
-tango run evaluation/experiments/test_config.jsonnet -w your-local-workspace
+tango run evaluation/experiments/test_config.jsonnet -w your-local-workspace --include-package evaluation.steps
 ```
 
 #### Run on beaker
 
-* Update `evaluation/tango-in-beaker.yml` to use your chosen google cloud bucket.
+* Update `evaluation/tango-in-beaker.yml` (the fields that should be updated are marked).
 
 ```commandline
 tango --settings evaluation/tango-in-beaker.yml run evaluation/experiments/test_config.jsonnet
