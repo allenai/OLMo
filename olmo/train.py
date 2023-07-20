@@ -39,6 +39,7 @@ from .util import (
     move_to_device,
     peak_gpu_memory,
     syncronize_flag,
+    wait_on,
 )
 
 __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
@@ -254,8 +255,7 @@ class Trainer:
         # replacing the temp directory with the final directory from rank 0 might not be immediately
         # realized in the file systems of the other ranks.
         # So we wait here across all ranks until that final checkpoint directory is visible.
-        while not checkpoint_dir.exists():
-            time.sleep(0.5)
+        wait_on(lambda: checkpoint_dir.exists(), "Waiting for checkpoint directory", timeout=10.0)
 
         # Remove old checkpoints.
         if self.cfg.save_num_checkpoints_to_keep > 0:
@@ -401,8 +401,7 @@ class Trainer:
         # replacing the temp directory with the final directory from rank 0 might not be immediately
         # realized in the file systems of the other ranks.
         # So we wait here across all ranks until that final checkpoint directory is visible.
-        while not checkpoint_dir.exists():
-            time.sleep(0.5)
+        wait_on(lambda: checkpoint_dir.exists(), "Waiting for checkpoint directory", timeout=10.0)
 
         # Remove old checkpoints.
         if self.cfg.save_num_unsharded_checkpoints_to_keep > 0:
