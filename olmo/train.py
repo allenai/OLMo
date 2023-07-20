@@ -39,6 +39,7 @@ from .util import (
     move_to_device,
     peak_gpu_memory,
     syncronize_flag,
+    wait_on,
 )
 
 __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
@@ -250,6 +251,12 @@ class Trainer:
             latest_path.unlink(missing_ok=True)
             latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
 
+        # In the cases where we're using a shared NFS drive between ranks to save checkpoints,
+        # replacing the temp directory with the final directory from rank 0 might not be immediately
+        # realized in the file systems of the other ranks.
+        # So we wait here across all ranks until that final checkpoint directory is visible.
+        wait_on(lambda: checkpoint_dir.exists(), "Waiting for checkpoint directory", timeout=10.0)
+
         # Remove old checkpoints.
         if self.cfg.save_num_checkpoints_to_keep > 0:
             while len(self.checkpoints) > self.cfg.save_num_checkpoints_to_keep:
@@ -391,6 +398,12 @@ class Trainer:
             latest_path = Path(self.cfg.save_folder) / "latest-unsharded"
             latest_path.unlink(missing_ok=True)
             latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
+
+        # In the cases where we're using a shared NFS drive between ranks to save checkpoints,
+        # replacing the temp directory with the final directory from rank 0 might not be immediately
+        # realized in the file systems of the other ranks.
+        # So we wait here across all ranks until that final checkpoint directory is visible.
+        wait_on(lambda: checkpoint_dir.exists(), "Waiting for checkpoint directory", timeout=10.0)
 
         # Remove old checkpoints.
         if self.cfg.save_num_unsharded_checkpoints_to_keep > 0:
