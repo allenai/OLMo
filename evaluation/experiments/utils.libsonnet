@@ -29,7 +29,7 @@ local basepath(path) =
   local temp = std.split(path, "/");
   temp[std.length(temp)-1];
 
-local model_location_step_name(model_config) = "model_location_" + basepath(model_config.model_path);
+local model_location_step_name(model_config) = "model_location_" + basepath(model_config.model_path) + std.get(model_config, "revision", "");
 local model_location_ref(model_config) = {type: "ref", ref: model_location_step_name(model_config)};
 
 local create_model_location_steps(models) = std.foldl(
@@ -47,7 +47,7 @@ local create_model_location_steps(models) = std.foldl(
 );
 
 
-local catwalk_model_step_name(model_config) = "catwalk_model_" + basepath(model_config.model_path);
+local catwalk_model_step_name(model_config) = "catwalk_model_" + basepath(model_config.model_path) + std.get(model_config, "revision", "");
 local catwalk_model_ref(model_config) = {type: "ref", ref: catwalk_model_step_name(model_config)};
 
 local create_catwalk_model_steps(models) = std.foldl(

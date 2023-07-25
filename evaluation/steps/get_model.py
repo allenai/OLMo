@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Union
+from typing import Optional, Union
 
 from tango import step
 
@@ -11,9 +11,13 @@ from hf_olmo.add_hf_config_to_olmo_checkpoint import (
 logger = logging.getLogger(__name__)
 
 
-@step("get-model-path", cacheable=True, version="003")
-def get_model_path(model_path: Union[str, os.PathLike]) -> Union[str, os.PathLike]:
-    # TODO: ugly. fix.
+@step("get-model-path", cacheable=True, version="004")
+def get_model_path(
+    model_path: Union[str, os.PathLike],
+    revision: Optional[str] = None,
+    trust_remote_code: bool = False,
+) -> Union[str, os.PathLike]:
+    # TODO: ugly. fix. Ideally, the model_path already has HF-olmo model.
     if "olmo" in str(model_path):
         try:
             model_dir = os.environ["GLOBAL_MODEL_DIR"]
@@ -23,10 +27,18 @@ def get_model_path(model_path: Union[str, os.PathLike]) -> Union[str, os.PathLik
                 ", like /net/nfs.cirrascale"
             )
 
+        checkpoint_dir = str(model_path)
+        if revision:
+            checkpoint_dir += "/" + revision
+
         local_model_path = download_remote_checkpoint_and_add_hf_config(
-            checkpoint_dir=str(model_path), local_dir=model_dir
+            checkpoint_dir=checkpoint_dir, local_dir=model_dir
         )
     else:
         local_model_path = model_path
+        if revision:
+            local_model_path += f",revision={revision}"
+        if trust_remote_code:
+            local_model_path += f",trust_remote_code={trust_remote_code}"
 
     return local_model_path
