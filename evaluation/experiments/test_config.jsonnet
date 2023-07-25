@@ -28,7 +28,7 @@ local models = [
     {
         model_path: "EleutherAI/pythia-1b",
         revision: "step140000",
-        gpus_needed: 1
+        gpus_needed: 2
     }
 ];
 
