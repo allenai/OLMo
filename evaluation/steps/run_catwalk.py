@@ -82,7 +82,13 @@ class ConstructCatwalkModel(Step):
     VERSION = "002"
     # CACHEABLE = False
 
-    def run(self, model_path: str, model_class: Optional[str] = None) -> Model:
+    def run(
+        self,
+        model_path: str,
+        model_class: Optional[str] = None,
+        revision: Optional[str] = None,
+        trust_remote_code: bool = False,
+    ) -> Model:
         if "::" in model_path:
             model = model_path
         else:
@@ -93,6 +99,7 @@ class ConstructCatwalkModel(Step):
             model_name = prefix_split[-1]
             # prefix = "" if len(prefix_split) == 1 else prefix_split[0]+"::"
             model_args = simple_parse_args_string(model_name)
+            model_args.update({"revision": revision, "trust_remote_code": trust_remote_code})
             if "pretrained" not in model_args:
                 raise ValueError(f"Unknown model {model}")
             hf_name = model_args["pretrained"]

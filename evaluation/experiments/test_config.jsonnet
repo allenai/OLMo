@@ -34,8 +34,8 @@ local models = [
 
 local task_sets = [
     rc20_tasks.task_set,
-    gen_tasks.task_set,
-    ppl_suite.task_set
+    //gen_tasks.task_set,
+    //ppl_suite.task_set
 ];
 
 

@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 def get_model_path(
     model_path: Union[str, os.PathLike],
     revision: Optional[str] = None,
-    trust_remote_code: bool = False,
 ) -> Union[str, os.PathLike]:
     # TODO: ugly. fix. Ideally, the model_path already has HF-olmo model.
     if "olmo" in str(model_path):
@@ -36,9 +35,9 @@ def get_model_path(
         )
     else:
         local_model_path = model_path
-        if revision:
-            local_model_path += f",revision={revision}"
-        if trust_remote_code:
-            local_model_path += f",trust_remote_code={trust_remote_code}"
+        # if revision:
+        #     local_model_path += f",revision={revision}"
+        # if trust_remote_code:
+        #     local_model_path += f",trust_remote_code={trust_remote_code}"
 
     return local_model_path
