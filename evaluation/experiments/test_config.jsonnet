@@ -27,7 +27,7 @@ local models = [
         gpus_needed: 1,
         //❗Task sets contain default values for prediction_kwargs. These can be overriden for each model here.
         prediction_kwargs: {
-            model_max_length: 32,
+            model_max_length: 128,
             // max_batch_tokens: 32,
             // limit: 1000,
             //fewshot_seed: 1234, //etc.
