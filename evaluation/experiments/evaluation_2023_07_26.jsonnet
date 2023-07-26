@@ -4,6 +4,7 @@ local utils = import 'utils.libsonnet';
 
 local rc20_tasks = import 'task_sets/rc20_tasks.libsonnet';
 local gen_tasks = import 'task_sets/gen_tasks.libsonnet';
+local summary_tasks = import 'task_sets/summary_tasks.libsonnet';
 local ppl_suite = import 'task_sets/eval_suite_ppl_val_v2_small.libsonnet';
 
 
@@ -35,6 +36,7 @@ local models = [
 local task_sets = [
     rc20_tasks.task_set,
     gen_tasks.task_set,
+    summary_tasks.task_set,
     ppl_suite.task_set
 ];
 
