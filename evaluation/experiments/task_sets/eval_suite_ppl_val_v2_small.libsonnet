@@ -8,7 +8,7 @@ local common_kwargs = {
     },
     prediction_kwargs: {
         split: "validation",
-        model_max_length: 256,
+        model_max_length: task_utils.model_max_length,
     }
 };
 

@@ -10,8 +10,7 @@ local prediction_kwargs = {
     limit: 1000,
     num_shots: 0,
     num_recorded_inputs: 3,
-    //model_max_length: task_utils.model_max_length
-    model_max_length: 256
+    model_max_length: task_utils.model_max_length
 };
 local task_kwargs = {};
 

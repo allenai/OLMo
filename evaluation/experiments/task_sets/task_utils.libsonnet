@@ -25,6 +25,7 @@ local create_task_set_from_task_names(name, task_names, prediction_kwargs, task_
 
 {
     model_max_length: 2048,
+    max_batch_tokens: 2048,
     create_task_set_from_task_names: create_task_set_from_task_names,
     create_task_set_from_task_dicts: create_task_set_from_task_dicts
 }

@@ -18,7 +18,11 @@ local flatten_task_sets(task_sets) = std.flatMap(
 
 local model_task_cross_product(models, task_configs) = std.flatMap(
     function(task_config) std.map(
-        function(model_config) model_config + task_config,
+        function(model_config)
+            // model pred kwargs override task pred kwargs.
+            local prediction_kwargs = std.get(task_config, "prediction_kwargs", {}) + std.get(model_config, "prediction_kwargs", {});
+            local full_config = model_config + task_config;
+            full_config + {"prediction_kwargs": prediction_kwargs},
         models
     ),
     task_configs
@@ -40,7 +44,7 @@ local create_model_location_steps(models) = std.foldl(
         [model_location_step_name(model_config)]: {
             type: "get-model-path",
             model_path: model_config.model_path,
-            revision: model_config.revision,
+            revision: std.get(model_config, "revision"),
             step_resources: {
                 gpu_count: 0
             }
