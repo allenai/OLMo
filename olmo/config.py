@@ -69,13 +69,13 @@ class StrEnum(str, Enum):
 
 class BaseConfig:
     @classmethod
-    def _register_resolvers(cls):
+    def _register_resolvers(cls, validate_paths: bool = True):
         # Expands path globs into a list.
         def path_glob(*paths) -> List[str]:
             out = []
             for path in paths:
                 matches = sorted(glob(path))
-                if not matches:
+                if not matches and validate_paths:
                     raise FileNotFoundError(f"{path} does not match any files or dirs")
                 out.extend(matches)
             return out
@@ -85,7 +85,10 @@ class BaseConfig:
             for path in paths:
                 if Path(path).exists():
                     return path
-            raise FileNotFoundError(", ".join(paths))
+            if validate_paths:
+                raise FileNotFoundError(", ".join(paths))
+            else:
+                return ""
 
         om.register_new_resolver("path.glob", path_glob, replace=True)
         om.register_new_resolver("path.choose", path_choose, replace=True)
@@ -102,9 +105,15 @@ class BaseConfig:
             raise OlmoConfigurationError(str(e))
 
     @classmethod
-    def load(cls: Type[C], path: PathOrStr, overrides: Optional[List[str]] = None, key: Optional[str] = None) -> C:
+    def load(
+        cls: Type[C],
+        path: PathOrStr,
+        overrides: Optional[List[str]] = None,
+        key: Optional[str] = None,
+        validate_paths: bool = True,
+    ) -> C:
         """Load from a YAML file."""
-        cls._register_resolvers()
+        cls._register_resolvers(validate_paths=validate_paths)
         schema = om.structured(cls)
         try:
             raw = om.load(str(path))

@@ -970,7 +970,7 @@ class Olmo(nn.Module):
 
         # Load config.
         config_path = cached_path(os.path.join(checkpoint_dir, "config.yaml"))
-        model_config = ModelConfig.load(config_path, key="model")
+        model_config = ModelConfig.load(config_path, key="model", validate_paths=False)
 
         # Initialize model (always on CPU to start with so we don't run out of GPU memory).
         model_config.init_device = "cpu"
