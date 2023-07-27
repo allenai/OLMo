@@ -647,6 +647,8 @@ class TrainConfig(BaseConfig):
     to write out a final checkpoint.
     """
 
+    early_stopping_factor: Optional[float] = None
+
     save_data_indices: bool = True
     """
     Save training data indices from each batch for each worker.

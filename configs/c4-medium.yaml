@@ -22,6 +22,7 @@ model:
   embedding_dropout: 0.0
   max_sequence_length: 2048
   vocab_size: 50257
+  embedding_size: 50304
   eos_token_id: 50256
   pad_token_id: 50256
   init_device: meta
@@ -45,7 +46,7 @@ scheduler:
 data:
   paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-train.*.npy}
   pad_direction: right
-  num_workers: 4
+  num_workers: 2
   drop_last: true
   pin_memory: true
   prefetch_factor: 16
@@ -90,7 +91,7 @@ evaluators:
     subset_num_batches: 10
     data:
       paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
-      num_workers: 2
+      num_workers: 1
       drop_last: true
       pin_memory: true
       persistent_workers: true
@@ -100,7 +101,7 @@ evaluators:
     subset_num_batches: 10
     data:
       paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
-      num_workers: 2
+      num_workers: 1
       drop_last: true
       pin_memory: true
       persistent_workers: true

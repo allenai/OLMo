@@ -1,3 +1,4 @@
+import logging
 import math
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Union
@@ -10,6 +11,9 @@ from ..aliases import PathOrStr
 from ..util import barrier, get_global_rank, get_world_size
 
 __all__ = ["IterableDataset"]
+
+
+log = logging.getLogger(__name__)
 
 
 class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
@@ -56,6 +60,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         if work_dir is not None:
             self.global_indices_file = Path(work_dir) / "global_indices.npy"
             if self.rank == 0:
+                log.info("Saving global data order indices...")
                 self.global_indices_file.parent.mkdir(parents=True, exist_ok=True)
                 global_indices = self._build_global_indices()
                 global_indices_mmap = np.memmap(
@@ -64,6 +69,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
                 global_indices_mmap[:] = global_indices
                 global_indices_mmap.flush()
                 del global_indices_mmap
+                log.info("Global data order indices saved to '%s'", self.global_indices_file)
             barrier()
 
     def _build_global_indices(self) -> List[int]:
@@ -117,7 +123,14 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         if worker_info is not None:
             indices = indices[worker_info.id :: worker_info.num_workers]
 
-        return (self._get_dataset_item(int(idx)) for idx in indices)
+        # Convert to a list at this point so we don't have to rely on memory-mapping.
+        if isinstance(indices, np.memmap):
+            indices_list = indices.tolist()  # type: ignore
+        else:
+            indices_list = indices
+        del indices
+
+        return (self._get_dataset_item(int(idx)) for idx in indices_list)
 
     def _get_dataset_item(self, idx: int) -> Dict[str, Any]:
         item = self.dataset[idx]

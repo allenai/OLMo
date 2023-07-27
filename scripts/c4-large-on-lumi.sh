@@ -29,7 +29,6 @@ export FI_CXI_DEFAULT_CQ_SIZE=131072
 
 #export NCCL_DEBUG=INFO
 export PYTHONPATH=.:${PYTHONPATH}
-export WANDB_PROJECT=lumi-${SLURM_JOB_PARTITION}
 export ROCM_PATH=/opt/rocm
 export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64
 
@@ -49,4 +48,4 @@ srun \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
-    python scripts/train.py configs/c4-large.yaml --run_name=${SLURM_JOB_ID}
+    python scripts/train.py configs/c4-large.yaml --run_name=${SLURM_JOB_ID} ${@}

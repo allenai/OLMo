@@ -184,10 +184,10 @@ def main(cfg: TrainConfig) -> None:
             trainer.restore_checkpoint(checkpoint_path, checkpoint_type=checkpoint_type)
             log.info("Checkpoint successfully loaded")
 
-            # But now we can remove it so we don't take up unnecessary space.
-            log.info("Removing pre-train checkpoint...")
-            trainer.remove_checkpoint(checkpoint_type=checkpoint_type)
-            log.info("Successfully removed checkpoint")
+            # NOTE: https://github.com/allenai/LLM/issues/233
+            #  log.info("Removing pre-train checkpoint...")
+            #  trainer.remove_checkpoint(checkpoint_type=checkpoint_type)
+            #  log.info("Successfully removed checkpoint")
 
         if cfg.load_path is not None:
             log.info(f"Loading checkpoint from {cfg.load_path}...")
