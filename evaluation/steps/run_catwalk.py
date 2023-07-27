@@ -130,7 +130,7 @@ DEFAULT_PREDICTION_KWARGS: Dict[str, Any] = {
 
 @Step.register("predict-and-calculate-metrics")
 class PredictAndCalculateMetricsStep(Step):
-    VERSION = "002"
+    VERSION = "003"
 
     def run(
         self,
