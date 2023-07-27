@@ -2,7 +2,7 @@
 local task_utils = import '../task_utils.libsonnet';
 
 local name = "rc20_tasks";
-local task_names = ["boolq"];
+local task_names = ["boolq", "arc_easy"];
 local prediction_kwargs = {
     split: "validation",
     limit: 1000,

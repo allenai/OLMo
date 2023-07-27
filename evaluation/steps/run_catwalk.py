@@ -150,6 +150,7 @@ class PredictAndCalculateMetricsStep(Step):
         start_time = time.time()
 
         instances = get_instances(task, split, limit, random_subsample_seed)
+
         predictions = [
             result
             for result in model.predict(
@@ -158,6 +159,7 @@ class PredictAndCalculateMetricsStep(Step):
                 batch_size=batch_size,
                 model_max_length=model_max_length,
                 max_batch_tokens=max_batch_tokens,
+                unconditioned_prompt=task_dict.get("unconditioned_prompt", None),
                 **kwargs,
             )
         ]
