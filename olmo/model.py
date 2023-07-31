@@ -979,7 +979,7 @@ class Olmo(nn.Module):
 
         # Load state dict directly to target device.
         state_dict_path = cached_path(os.path.join(checkpoint_dir, "model.pt"))
-        state_dict = torch.load(state_dict_path, map_location=device)
+        state_dict = torch.load(state_dict_path, map_location="cpu")
         model.load_state_dict(model._make_state_dict_compatible(state_dict))
 
         return model.to(torch.device(device)).eval()
