@@ -485,6 +485,11 @@ class TrainConfig(BaseConfig):
     Learning rate scheduler configuration.
     """
 
+    restore_base_learning_rate: bool = True
+    """
+    Set to ``False`` if you want to restart with the base learning rate from the config, not the checkpoint.
+    """
+
     data: DataConfig = field(default_factory=DataConfig)
     """
     Training data configuration.
