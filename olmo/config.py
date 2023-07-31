@@ -523,6 +523,11 @@ class TrainConfig(BaseConfig):
     The directory to save checkpoints to.
     """
 
+    remote_save_folder: Optional[str] = None
+    """
+    A folder in a cloud bucket to upload saved checkpoints to.
+    """
+
     save_interval: int = 1000
     """
     How often (in terms of batches) to save training state checkpoints that can be used for restarts.

@@ -5,6 +5,7 @@ import sys
 import time
 import warnings
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
 import rich
@@ -15,6 +16,7 @@ from rich.highlighter import NullHighlighter
 from rich.text import Text
 from rich.traceback import Traceback
 
+from .aliases import PathOrStr
 from .config import LogFilterType
 from .exceptions import OlmoCliError, OlmoError
 
@@ -349,3 +351,53 @@ def wait_on(condition: Callable[[], bool], description: str, timeout: float = 10
         time.sleep(0.5)
         if time.monotonic() - start_time > timeout:
             raise TimeoutError(f"{description} timed out")
+
+
+def upload(source: PathOrStr, target: str, save_overwrite: bool = False):
+    """Upload source file to a target location on GCS or S3."""
+    from urllib.parse import urlparse
+
+    source = Path(source)
+    assert source.is_file()
+    parsed = urlparse(target)
+    if parsed.scheme == "gs":
+        _gcs_upload(source, parsed.netloc, parsed.path, save_overwrite=save_overwrite)
+    elif parsed.scheme == "s3":
+        _s3_upload(source, parsed.netloc, parsed.path, save_overwrite=save_overwrite)
+    else:
+        raise NotImplementedError(f"Upload not implemented for '{parsed.scheme}' scheme")
+
+
+def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
+    from google.cloud import storage as gcs
+
+    storage_client = gcs.Client()
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(key)
+    if not save_overwrite and blob.exists():
+        raise FileExistsError(f"gs://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
+    blob.upload_from_filename(source)
+
+
+def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
+    import boto3
+    from botocore.exceptions import ClientError
+
+    s3_client = boto3.client("s3")
+    if not save_overwrite:
+        try:
+            s3_client.head_object(Bucket=bucket_name, Key=key)
+            raise FileExistsError(f"gs://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
+        except ClientError as e:
+            if int(e.response["Error"]["Code"]) != 404:
+                raise
+    s3_client.upload_file(source, bucket_name, key)
+
+
+def resource_path(folder: PathOrStr, fname: str) -> PathOrStr:
+    if isinstance(folder, str) and "://" in folder:
+        from cached_path import cached_path
+
+        return cached_path(f"{folder}/{fname}")
+    else:
+        return Path(folder) / fname
