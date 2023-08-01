@@ -2,9 +2,10 @@ import logging
 import os
 import socket
 import sys
+import time
 import warnings
 from datetime import datetime
-from typing import Any, Dict, Optional, TypeVar, Union
+from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
 import rich
 import torch
@@ -339,3 +340,12 @@ def syncronize_flag(flag: bool, device: torch.device) -> bool:
         return flag_tensor.item()  # type: ignore
     else:
         return flag
+
+
+def wait_on(condition: Callable[[], bool], description: str, timeout: float = 10.0):
+    """Wait on the condition function to return True."""
+    start_time = time.monotonic()
+    while not condition():
+        time.sleep(0.5)
+        if time.monotonic() - start_time > timeout:
+            raise TimeoutError(f"{description} timed out")

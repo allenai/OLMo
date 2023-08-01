@@ -1,12 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=c4-small
+#SBATCH --job-name=v1-mix-medium
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
-#SBATCH --nodes=32              # Total number of nodes 
+#SBATCH --nodes=128             # Total number of nodes 
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
 #SBATCH --time=48:00:00
+#SBATCH --time-min=24:00:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
@@ -33,7 +34,7 @@ export ROCM_PATH=/opt/rocm
 export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64
 
 # Try playing with max_split_size_mb if you run into OOM errors.
-# export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:512
+export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:128
 
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
@@ -48,4 +49,4 @@ srun \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
-    python scripts/train.py configs/c4-small.yaml --run_name=${SLURM_JOB_ID} ${@}
+    python scripts/train.py configs/v1-mix-medium.yaml --run_name=${SLURM_JOB_ID} ${@}

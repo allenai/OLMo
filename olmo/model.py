@@ -232,7 +232,6 @@ class OlmoBlock(nn.Module):
         self.dropout = nn.Dropout(config.residual_dropout)
 
         # Layer norms.
-        self.norm = LayerNorm.build(config)
         self.k_norm: Optional[LayerNormBase] = None
         self.q_norm: Optional[LayerNormBase] = None
         if config.attention_layer_norm:
@@ -369,6 +368,9 @@ class OlmoSequentialBlock(OlmoBlock):
 
     def __init__(self, config: ModelConfig):
         super().__init__(config)
+        # Layer norms.
+        self.attn_norm = LayerNorm.build(config)
+        self.ff_norm = LayerNorm.build(config)
         # Attention input projection. Projects x -> (q, k, v)
         if config.multi_query_attention:
             self.fused_dims = (config.d_model, config.d_model // config.n_heads, config.d_model // config.n_heads)
@@ -395,7 +397,7 @@ class OlmoSequentialBlock(OlmoBlock):
         #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
-        q, k, v = self.att_proj(self.norm(x)).split(self.fused_dims, dim=-1)
+        q, k, v = self.att_proj(self.attn_norm(x)).split(self.fused_dims, dim=-1)
 
         # Get attention scores.
         att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
@@ -406,7 +408,7 @@ class OlmoSequentialBlock(OlmoBlock):
 
         # Add feed-forward projection.
         # shape: (batch_size, seq_len, d_model)
-        x = x + self.dropout(self.ff_out(self.act(self.ff_proj(self.norm(x)))))
+        x = x + self.dropout(self.ff_out(self.act(self.ff_proj(self.ff_norm(x)))))
 
         return x, cache
 
@@ -424,6 +426,7 @@ class OlmoParallelBlock(OlmoBlock):
 
     def __init__(self, config: ModelConfig):
         super().__init__(config)
+        self.norm = LayerNorm.build(config)
         # Fused attention and feed-forward projection.
         # NOTE: we could also fuse the attention and feed-forward output projections
         # but we found that didn't help, possibly because of the overhead of joining the `att`
@@ -967,7 +970,7 @@ class Olmo(nn.Module):
 
         # Load config.
         config_path = cached_path(os.path.join(checkpoint_dir, "config.yaml"))
-        model_config = ModelConfig.load(config_path, key="model")
+        model_config = ModelConfig.load(config_path, key="model", validate_paths=False)
 
         # Initialize model (always on CPU to start with so we don't run out of GPU memory).
         model_config.init_device = "cpu"
@@ -976,7 +979,23 @@ class Olmo(nn.Module):
 
         # Load state dict directly to target device.
         state_dict_path = cached_path(os.path.join(checkpoint_dir, "model.pt"))
-        state_dict = torch.load(state_dict_path, map_location=device)
-        model.load_state_dict(state_dict)
+        state_dict = torch.load(state_dict_path, map_location="cpu")
+        model.load_state_dict(model._make_state_dict_compatible(state_dict))
 
         return model.to(torch.device(device)).eval()
+
+    def _make_state_dict_compatible(self, state_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        # For backwards compatibility prior to fixing https://github.com/allenai/LLM/issues/222
+        if self.config.block_type == BlockType.sequential:
+            for block_idx in range(self.config.n_layers):
+                norm_w_key = f"transformer.blocks.{block_idx}.norm.weight"
+                norm_b_key = f"transformer.blocks.{block_idx}.norm.bias"
+                if norm_w_key in state_dict:
+                    norm_w = state_dict.pop(norm_w_key)
+                    state_dict[f"transformer.blocks.{block_idx}.attn_norm.weight"] = norm_w
+                    state_dict[f"transformer.blocks.{block_idx}.ff_norm.weight"] = norm_w.clone()
+                if norm_b_key in state_dict:
+                    norm_b = state_dict.pop(norm_b_key)
+                    state_dict[f"transformer.blocks.{block_idx}.attn_norm.bias"] = norm_b
+                    state_dict[f"transformer.blocks.{block_idx}.ff_norm.bias"] = norm_b.clone()
+        return state_dict
