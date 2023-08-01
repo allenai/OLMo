@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import socket
 import sys
 import time
@@ -15,6 +16,7 @@ from rich.highlighter import NullHighlighter
 from rich.text import Text
 from rich.traceback import Traceback
 
+from .aliases import PathOrStr
 from .config import LogFilterType
 from .exceptions import OlmoCliError, OlmoError
 
@@ -349,3 +351,53 @@ def wait_on(condition: Callable[[], bool], description: str, timeout: float = 10
         time.sleep(0.5)
         if time.monotonic() - start_time > timeout:
             raise TimeoutError(f"{description} timed out")
+
+
+def is_remote_file(path: PathOrStr) -> bool:
+    return re.match(r"[a-z0-9]+://.*", str(path)) is not None
+
+
+def file_size(path: PathOrStr) -> int:
+    """
+    Get the size of a local or remote file in bytes.
+    """
+    if is_remote_file(path):
+        from urllib.parse import urlparse
+
+        parsed = urlparse(str(path))
+        if parsed.scheme == "gs":
+            return _gcs_file_size(parsed.netloc, parsed.path)
+        elif parsed.scheme == "s3":
+            return _s3_file_size(parsed.netloc, parsed.path)
+        else:
+            raise NotImplementedError(f"file size not implemented for '{parsed.scheme}' files")
+    else:
+        return os.stat(path).st_size
+
+
+def _gcs_file_size(bucket_name: str, key: str) -> int:
+    from google.api_core.exceptions import NotFound
+    from google.cloud import storage as gcs
+
+    storage_client = gcs.Client()
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(key)
+    try:
+        blob.reload()
+    except NotFound:
+        raise FileNotFoundError("gs://{bucket_name}/{key}")
+    assert blob.size is not None
+    return blob.size
+
+
+def _s3_file_size(bucket_name: str, key: str) -> int:
+    import boto3
+    from botocore.exceptions import ClientError
+
+    s3_client = boto3.client("s3")
+    try:
+        return s3_client.head_object(Bucket=bucket_name, Key=key)["ContentLength"]
+    except ClientError as e:
+        if int(e.response["Error"]["Code"]) != 404:
+            raise
+        raise FileNotFoundError("s3://{bucket_name}/{key}")
