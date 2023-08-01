@@ -24,7 +24,6 @@ from torch.distributed.fsdp import ShardingStrategy
 
 from .aliases import PathOrStr
 from .exceptions import OlmoConfigurationError
-from .util import is_remote_file
 
 __all__ = [
     "LogFilterType",
@@ -83,6 +82,8 @@ class BaseConfig:
 
         # Chooses the first path in the arguments that exists.
         def path_choose(*paths) -> str:
+            from .util import is_remote_file
+
             for path in paths:
                 if is_remote_file(path) or Path(path).exists():
                     return path
