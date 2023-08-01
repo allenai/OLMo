@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import socket
 import sys
 import time
@@ -353,6 +354,37 @@ def wait_on(condition: Callable[[], bool], description: str, timeout: float = 10
             raise TimeoutError(f"{description} timed out")
 
 
+def is_remote_file(path: PathOrStr) -> bool:
+    return re.match(r"[a-z0-9]+://.*", str(path)) is not None
+
+
+def resource_path(folder: PathOrStr, fname: str) -> PathOrStr:
+    if is_remote_file(folder):
+        from cached_path import cached_path
+
+        return cached_path(f"{folder}/{fname}")
+    else:
+        return Path(folder) / fname
+
+
+def file_size(path: PathOrStr) -> int:
+    """
+    Get the size of a local or remote file in bytes.
+    """
+    if is_remote_file(path):
+        from urllib.parse import urlparse
+
+        parsed = urlparse(str(path))
+        if parsed.scheme == "gs":
+            return _gcs_file_size(parsed.netloc, parsed.path)
+        elif parsed.scheme == "s3":
+            return _s3_file_size(parsed.netloc, parsed.path)
+        else:
+            raise NotImplementedError(f"file size not implemented for '{parsed.scheme}' files")
+    else:
+        return os.stat(path).st_size
+
+
 def upload(source: PathOrStr, target: str, save_overwrite: bool = False):
     """Upload source file to a target location on GCS or S3."""
     from urllib.parse import urlparse
@@ -366,6 +398,21 @@ def upload(source: PathOrStr, target: str, save_overwrite: bool = False):
         _s3_upload(source, parsed.netloc, parsed.path, save_overwrite=save_overwrite)
     else:
         raise NotImplementedError(f"Upload not implemented for '{parsed.scheme}' scheme")
+
+
+def _gcs_file_size(bucket_name: str, key: str) -> int:
+    from google.api_core.exceptions import NotFound
+    from google.cloud import storage as gcs
+
+    storage_client = gcs.Client()
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(key)
+    try:
+        blob.reload()
+    except NotFound:
+        raise FileNotFoundError("gs://{bucket_name}/{key}")
+    assert blob.size is not None
+    return blob.size
 
 
 def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
@@ -394,10 +441,14 @@ def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = 
     s3_client.upload_file(source, bucket_name, key)
 
 
-def resource_path(folder: PathOrStr, fname: str) -> PathOrStr:
-    if isinstance(folder, str) and "://" in folder:
-        from cached_path import cached_path
+def _s3_file_size(bucket_name: str, key: str) -> int:
+    import boto3
+    from botocore.exceptions import ClientError
 
-        return cached_path(f"{folder}/{fname}")
-    else:
-        return Path(folder) / fname
+    s3_client = boto3.client("s3")
+    try:
+        return s3_client.head_object(Bucket=bucket_name, Key=key)["ContentLength"]
+    except ClientError as e:
+        if int(e.response["Error"]["Code"]) != 404:
+            raise
+        raise FileNotFoundError("s3://{bucket_name}/{key}")

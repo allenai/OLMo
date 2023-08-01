@@ -33,6 +33,7 @@ from .data import IterableDataset
 from .eval import Evaluator
 from .exceptions import OlmoConfigurationError
 from .model import Olmo
+from .optim import set_new_base_lr
 from .util import (
     barrier,
     get_global_rank,
@@ -190,6 +191,10 @@ class Trainer:
             assert isinstance(self.train_loader.dataset, IterableDataset)
             self.train_loader.dataset.start_index = self.global_train_examples_seen
 
+        if not self.cfg.restore_base_learning_rate:
+            # Reset base learning rate to the value in the config, not the checkpoint.
+            set_new_base_lr(self.optim, self.scheduler, self.cfg.optimizer.learning_rate)
+
         # RNG states.
         if "rng" in state_dict:
             rng_state = state_dict["rng"]
@@ -323,11 +328,6 @@ class Trainer:
 
             # Deserialize state dictionary.
             state_dict = torch.load(resource_path(load_path, f"rank{get_global_rank()}.pt"))
-            # We'll restore RNG state last to make sure we don't alter it through loading the state dict.
-            rng_state = state_dict.pop("rng")
-
-            # Load non-tensor state.
-            self.load_non_tensor_state_dict(state_dict)
 
             # Load model and optimizer state.
             log.info("Loading model state...")
@@ -342,12 +342,12 @@ class Trainer:
                 flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, state_dict["optim"])  # type: ignore
             self.optim.load_state_dict(flattened_osd)
 
+            # Load non-tensor state.
+            self.load_non_tensor_state_dict(state_dict)
+
             del state_dict, flattened_osd
 
         barrier()
-
-        # Lastly, restore RNG state.
-        self.restore_rng_state(rng_state)
 
     def save_unsharded_checkpoint(self) -> Path:
         # Zero-gradients to avoid gathering them.

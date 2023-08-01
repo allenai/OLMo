@@ -1,4 +1,5 @@
 import math
+from bisect import bisect_right
 from typing import Any, Dict, List, Tuple
 
 import torch
@@ -7,7 +8,7 @@ from torch.optim.optimizer import Optimizer
 
 from .config import OptimizerType, SchedulerType, TrainConfig
 
-__all__ = ["LionW", "build_optimizer", "build_scheduler"]
+__all__ = ["LionW", "build_optimizer", "build_scheduler", "set_new_base_lr"]
 
 
 class LionW(Optimizer):
@@ -204,3 +205,33 @@ def build_scheduler(cfg: TrainConfig, optim: torch.optim.Optimizer) -> torch.opt
         return torch.optim.lr_scheduler.SequentialLR(optim, schedulers, milestones)
     else:
         raise NotImplementedError
+
+
+def set_new_base_lr(
+    optim: torch.optim.Optimizer, scheduler: torch.optim.lr_scheduler.LRScheduler, new_base_lr: float
+):
+    """
+    Set a new base learning rate in the optimizer and scheduler.
+    """
+    # Hack scheduler state to start with the new base LR.
+    if isinstance(scheduler, torch.optim.lr_scheduler.SequentialLR):
+        # Update 'base_lr' for all sub-schedulers.
+        for sched in scheduler._schedulers:  # type: ignore
+            sched.base_lrs = [new_base_lr] * len(sched.base_lrs)
+
+        # Update '_last_lr' for current sub-scheduler.
+        current_sched = scheduler._schedulers[bisect_right(scheduler._milestones, scheduler.last_epoch)]  # type: ignore
+        if hasattr(current_sched, "_get_closed_form_lr"):
+            current_sched._last_lr = current_sched._get_closed_form_lr()
+        elif isinstance(current_sched, torch.optim.lr_scheduler.LambdaLR):
+            current_sched._last_lr = current_sched.get_lr()  # type: ignore
+        else:
+            raise NotImplementedError
+        scheduler._last_lr = current_sched.get_last_lr()  # type: ignore
+    else:
+        raise NotImplementedError
+
+    # Update LR in optimizer.
+    for param_group, new_lr in zip(optim.param_groups, scheduler.get_last_lr()):
+        param_group["lr"] = new_lr
+        param_group["initial_lr"] = new_base_lr
