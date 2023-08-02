@@ -34,7 +34,7 @@ from .data import IterableDataset
 from .eval import Evaluator
 from .exceptions import OlmoConfigurationError
 from .model import Olmo
-from .optim import set_new_base_lr
+from .optim import Scheduler
 from .util import (
     barrier,
     get_global_rank,
@@ -98,7 +98,7 @@ class Trainer:
     model: Olmo
     fsdp_model: FSDP
     optim: torch.optim.Optimizer
-    scheduler: torch.optim.lr_scheduler.LRScheduler
+    scheduler: Scheduler
     train_loader: DataLoader
     device: torch.device
     evaluators: List[Evaluator]
@@ -125,7 +125,6 @@ class Trainer:
 
     def non_tensor_state_dict(self) -> Dict[str, Any]:
         return {
-            "scheduler": self.scheduler.state_dict(),
             "global_step": self.global_step,
             "global_data_step": self.global_data_step,
             "global_train_examples_seen": self.global_train_examples_seen,
@@ -152,9 +151,6 @@ class Trainer:
             for path in state_dict["unsharded_checkpoints"]
             if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
         ]
-
-        # Learning rate scheduler.
-        self.scheduler.load_state_dict(state_dict["scheduler"])
 
         # Dataset / dataloader position.
         self.global_step = state_dict["global_step"]
@@ -192,11 +188,13 @@ class Trainer:
             assert isinstance(self.train_loader.dataset, IterableDataset)
             self.train_loader.dataset.start_index = self.global_train_examples_seen
 
-        # Reset base learning rate to the value in the config, not the checkpoint.
-        set_new_base_lr(self.optim, self.scheduler, self.cfg.optimizer.learning_rate)
-
-        # Reset weight decay to the value in the config, not the checkpoint.
+        # Reset learning rate and weight decay to the values from the config, not the checkpoint.
+        new_learning_rate = self.scheduler.get_lr(
+            self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
+        )
         for group in self.optim.param_groups:
+            group["lr"] = new_learning_rate
+            group["initial_lr"] = self.cfg.optimizer.learning_rate
             if "weight_decay" in group and group["weight_decay"] > 0.0:
                 group["weight_decay"] = self.cfg.optimizer.weight_decay
 
@@ -611,9 +609,14 @@ class Trainer:
         if self.cfg.max_grad_norm is not None:
             grad_norm = self.fsdp_model.clip_grad_norm_(self.cfg.max_grad_norm).item()
 
+        # Adjust the learning rate.
+        for group in self.optim.param_groups:
+            group["lr"] = self.scheduler.get_lr(
+                self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
+            )
+
         # Optimizer step.
         self.optim.step()
-        self.scheduler.step()
 
         # Reduce loss metrics across ranks.
         self.ce_train_loss_metric.update(ce_batch_loss)

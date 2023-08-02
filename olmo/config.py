@@ -344,6 +344,7 @@ class OptimizerConfig(BaseConfig):
 class SchedulerType(StrEnum):
     cosine_with_warmup = "cosine_with_warmup"
     inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
+    max_scheduler = "max_scheduler"
 
 
 @dataclass

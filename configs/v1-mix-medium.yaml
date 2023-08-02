@@ -42,9 +42,10 @@ optimizer:
   - 0.95
 
 scheduler:
-  name: cosine_with_warmup
+  name: max_scheduler
   t_warmup: 2000
-  # t_max: 47684  # 200B tokens, after which we decay linearly to 1/100th of initial LR
+  t_max: 238418  # half of training
+  alpha_f: 0.0
 
 data:
   paths: ${path.glob:${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/books/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/c4/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/common-crawl/*/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/s2/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/stack/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/wiki/*.npy}

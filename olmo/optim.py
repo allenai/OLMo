@@ -1,6 +1,7 @@
-import math
-from bisect import bisect_right
-from typing import Any, Dict, List, Tuple
+from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
+from math import cos, pi, sqrt
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -8,7 +9,15 @@ from torch.optim.optimizer import Optimizer
 
 from .config import OptimizerType, SchedulerType, TrainConfig
 
-__all__ = ["LionW", "build_optimizer", "build_scheduler", "set_new_base_lr"]
+__all__ = [
+    "LionW",
+    "Scheduler",
+    "CosWithWarmup",
+    "InvSqrtWithWarmup",
+    "MaxScheduler",
+    "build_optimizer",
+    "build_scheduler",
+]
 
 
 class LionW(Optimizer):
@@ -62,6 +71,54 @@ class LionW(Optimizer):
                 exp_avg.mul_(beta2).add_(grad, alpha=1 - beta2)
 
         return loss
+
+
+class Scheduler(metaclass=ABCMeta):
+    @abstractmethod
+    def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
+        raise NotImplementedError
+
+    def _linear_warmup(self, initial_lr: float, step: int, warmup_steps: int = 2000) -> float:
+        return initial_lr * (0.1 + 0.9 * min(step, warmup_steps) / warmup_steps)
+
+
+@dataclass
+class CosWithWarmup(Scheduler):
+    warmup_steps: int
+    alpha_f: float = 0.1
+    t_max: Optional[int] = None
+
+    def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
+        max_steps = max_steps if self.t_max is None else self.t_max
+        eta_min = initial_lr * self.alpha_f
+        if step < self.warmup_steps:
+            return self._linear_warmup(initial_lr, step, self.warmup_steps)
+        elif step >= max_steps:
+            return eta_min
+        else:
+            return eta_min + (initial_lr - eta_min) * (1 + cos(pi * step / max_steps)) / 2
+
+
+@dataclass
+class InvSqrtWithWarmup(Scheduler):
+    warmup_steps: int
+
+    def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
+        if step < self.warmup_steps:
+            return self._linear_warmup(initial_lr, step, self.warmup_steps)
+        del max_steps
+        return initial_lr * sqrt(self.warmup_steps) / sqrt(max(self.warmup_steps, step))
+
+
+@dataclass
+class MaxScheduler(Scheduler):
+    sched1: Scheduler
+    sched2: Scheduler
+
+    def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
+        return max(
+            self.sched1.get_lr(initial_lr, step, max_steps), self.sched2.get_lr(initial_lr, step, max_steps)
+        )
 
 
 def get_param_groups(model: nn.Module) -> List[Dict[str, Any]]:
@@ -162,76 +219,18 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> torch.optim.Optimizer
         raise NotImplementedError
 
 
-def build_scheduler(cfg: TrainConfig, optim: torch.optim.Optimizer) -> torch.optim.lr_scheduler.LRScheduler:
-    schedulers: List[torch.optim.lr_scheduler.LRScheduler] = []
+def build_scheduler(cfg: TrainConfig) -> Scheduler:
+    sched_cfg = cfg.scheduler
     if cfg.scheduler.name == SchedulerType.cosine_with_warmup:
-        milestones = [cfg.scheduler.t_warmup]
-        schedulers = [
-            torch.optim.lr_scheduler.LinearLR(
-                optim, start_factor=cfg.scheduler.alpha_f, end_factor=1.0, total_iters=cfg.scheduler.t_warmup
-            )
-        ]
-        if cfg.scheduler.t_max is None:
-            cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
-                optim,
-                cfg.max_duration - cfg.scheduler.t_warmup,
-                eta_min=cfg.optimizer.learning_rate * cfg.scheduler.alpha_f,
-            )
-            schedulers.append(cosine)
-        else:
-            milestones.append(cfg.scheduler.t_max)
-            cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
-                optim,
-                cfg.scheduler.t_max - cfg.scheduler.t_warmup,
-                eta_min=cfg.optimizer.learning_rate * cfg.scheduler.alpha_f,
-            )
-            linear = torch.optim.lr_scheduler.LinearLR(
-                optim,
-                start_factor=cfg.scheduler.alpha_f,
-                end_factor=cfg.scheduler.alpha_f**2,
-                total_iters=cfg.max_duration - cfg.scheduler.t_max,
-            )
-            schedulers.append(cosine)
-            schedulers.append(linear)
-        return torch.optim.lr_scheduler.SequentialLR(optim, schedulers, milestones)
+        return CosWithWarmup(warmup_steps=sched_cfg.t_warmup, alpha_f=sched_cfg.alpha_f, t_max=sched_cfg.t_max)
     elif cfg.scheduler.name == SchedulerType.inverse_sqrt_with_warmup:
-        milestones = [cfg.scheduler.t_warmup]
-        schedulers = [
-            torch.optim.lr_scheduler.LinearLR(
-                optim, start_factor=cfg.scheduler.alpha_f, end_factor=1.0, total_iters=cfg.scheduler.t_warmup
+        return InvSqrtWithWarmup(warmup_steps=sched_cfg.t_warmup)
+    elif cfg.scheduler.name == SchedulerType.max_scheduler:
+        return MaxScheduler(
+            sched1=CosWithWarmup(
+                warmup_steps=sched_cfg.t_warmup, alpha_f=sched_cfg.alpha_f, t_max=sched_cfg.t_max
             ),
-            torch.optim.lr_scheduler.LambdaLR(optim, lambda step: 1.0 if step <= 0 else 1.0 / math.sqrt(step)),
-        ]
-        return torch.optim.lr_scheduler.SequentialLR(optim, schedulers, milestones)
+            sched2=InvSqrtWithWarmup(warmup_steps=sched_cfg.t_warmup),
+        )
     else:
         raise NotImplementedError
-
-
-def set_new_base_lr(
-    optim: torch.optim.Optimizer, scheduler: torch.optim.lr_scheduler.LRScheduler, new_base_lr: float
-):
-    """
-    Set a new base learning rate in the optimizer and scheduler.
-    """
-    # Hack scheduler state to start with the new base LR.
-    if isinstance(scheduler, torch.optim.lr_scheduler.SequentialLR):
-        # Update 'base_lr' for all sub-schedulers.
-        for sched in scheduler._schedulers:  # type: ignore
-            sched.base_lrs = [new_base_lr] * len(sched.base_lrs)
-
-        # Update '_last_lr' for current sub-scheduler.
-        current_sched = scheduler._schedulers[bisect_right(scheduler._milestones, scheduler.last_epoch)]  # type: ignore
-        if hasattr(current_sched, "_get_closed_form_lr"):
-            current_sched._last_lr = current_sched._get_closed_form_lr()
-        elif isinstance(current_sched, torch.optim.lr_scheduler.LambdaLR):
-            current_sched._last_lr = current_sched.get_lr()  # type: ignore
-        else:
-            raise NotImplementedError
-        scheduler._last_lr = current_sched.get_last_lr()  # type: ignore
-    else:
-        raise NotImplementedError
-
-    # Update LR in optimizer.
-    for param_group, new_lr in zip(optim.param_groups, scheduler.get_last_lr()):
-        param_group["lr"] = new_lr
-        param_group["initial_lr"] = new_base_lr

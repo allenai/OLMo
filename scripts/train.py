@@ -142,7 +142,7 @@ def main(cfg: TrainConfig) -> None:
 
     # Construct optimizer and learning rate scheduler.
     optim = build_optimizer(cfg, fsdp_model)
-    scheduler = build_scheduler(cfg, optim)
+    scheduler = build_scheduler(cfg)
 
     # Data indices file.
     indices_file: Optional[TextIO] = None
