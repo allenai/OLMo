@@ -769,8 +769,8 @@ class Trainer:
             api = wandb.Api(api_key=os.environ["WANDB_API_TOKEN"])
             run = api.run(wandb.run.path)
             for tag in run.tags or []:
-                if tag.lower() in {"cancel", "cancelled"}:
-                    raise ValueError("run has been cancelled from Weights & Biases")
+                if tag.lower() in {"cancel", "cancelled", "canceled"}:
+                    raise ValueError("run has been canceled from Weights & Biases")
 
     def fit(self):
         start_time = time.time()
