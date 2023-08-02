@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 import random
 import shutil
 import time
@@ -754,6 +755,16 @@ class Trainer:
 
         return eval_metrics
 
+    def check_if_cancelled(self):
+        if wandb.run is not None:
+            # If someone added the 'cancel' / 'cancelled' tag on the web dashboard, we won't
+            # see it in the run object. So we have to use the import/export API to check.
+            api = wandb.Api(api_key=os.environ["WANDB_API_TOKEN"])
+            run = api.run(wandb.run.path)
+            for tag in run.tags or []:
+                if tag.lower() in {"cancel", "cancelled"}:
+                    raise ValueError("run has been cancelled from Weights & Biases")
+
     def fit(self):
         start_time = time.time()
 
@@ -835,6 +846,8 @@ class Trainer:
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
                 speed_monitor.reset()
 
+                self.check_if_cancelled()
+
             time_limit_reached = syncronize_flag(
                 self.cfg.time_limit is not None and time.time() - start_time >= self.cfg.time_limit, self.device
             )
@@ -852,6 +865,8 @@ class Trainer:
 
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
                 speed_monitor.reset()
+
+                self.check_if_cancelled()
 
             # Maybe run evaluations.
             if self.global_step % self.cfg.eval_interval == 0:
