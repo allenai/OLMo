@@ -354,12 +354,12 @@ def wait_on(condition: Callable[[], bool], description: str, timeout: float = 10
             raise TimeoutError(f"{description} timed out")
 
 
-def is_remote_file(path: PathOrStr) -> bool:
+def is_url(path: PathOrStr) -> bool:
     return re.match(r"[a-z0-9]+://.*", str(path)) is not None
 
 
 def resource_path(folder: PathOrStr, fname: str) -> PathOrStr:
-    if is_remote_file(folder):
+    if is_url(folder):
         from cached_path import cached_path
 
         return cached_path(f"{folder}/{fname}")
@@ -371,7 +371,7 @@ def file_size(path: PathOrStr) -> int:
     """
     Get the size of a local or remote file in bytes.
     """
-    if is_remote_file(path):
+    if is_url(path):
         from urllib.parse import urlparse
 
         parsed = urlparse(str(path))
@@ -379,6 +379,8 @@ def file_size(path: PathOrStr) -> int:
             return _gcs_file_size(parsed.netloc, parsed.path)
         elif parsed.scheme == "s3":
             return _s3_file_size(parsed.netloc, parsed.path)
+        elif parsed.scheme == "file":
+            return file_size(str(path).replace("file://", "", 1))
         else:
             raise NotImplementedError(f"file size not implemented for '{parsed.scheme}' files")
     else:

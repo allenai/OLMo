@@ -82,10 +82,10 @@ class BaseConfig:
 
         # Chooses the first path in the arguments that exists.
         def path_choose(*paths) -> str:
-            from .util import is_remote_file
+            from .util import is_url
 
             for path in paths:
-                if is_remote_file(path) or Path(path).exists():
+                if is_url(path) or Path(path).exists():
                     return path
             if validate_paths:
                 raise FileNotFoundError(", ".join(paths))
