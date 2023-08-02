@@ -192,9 +192,8 @@ class Trainer:
             assert isinstance(self.train_loader.dataset, IterableDataset)
             self.train_loader.dataset.start_index = self.global_train_examples_seen
 
-        if not self.cfg.restore_base_learning_rate:
-            # Reset base learning rate to the value in the config, not the checkpoint.
-            set_new_base_lr(self.optim, self.scheduler, self.cfg.optimizer.learning_rate)
+        # Reset base learning rate to the value in the config, not the checkpoint.
+        set_new_base_lr(self.optim, self.scheduler, self.cfg.optimizer.learning_rate)
 
         # RNG states.
         if "rng" in state_dict:
