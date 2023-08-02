@@ -27,6 +27,7 @@ from torch.distributed.fsdp.api import (
 from torch.utils.data import DataLoader
 from torchmetrics import MeanMetric
 
+from .aliases import PathOrStr
 from .config import CheckpointType, SpeedMonitorConfig, TrainConfig
 from .data import IterableDataset
 from .eval import Evaluator
@@ -39,7 +40,9 @@ from .util import (
     get_world_size,
     move_to_device,
     peak_gpu_memory,
+    resource_path,
     syncronize_flag,
+    upload,
     wait_on,
 )
 
@@ -269,6 +272,18 @@ class Trainer:
 
         barrier()
 
+        # Upload checkpoint to bucket.
+        if self.cfg.remote_save_folder is not None:
+            files_to_upload = [f"rank{get_global_rank()}.pt"]
+            if get_global_rank() == 0:
+                files_to_upload.append("config.yaml")
+            for fname in files_to_upload:
+                source = checkpoint_dir / fname
+                target = f"{self.cfg.remote_save_folder}/{checkpoint_dir.name}/{fname}"
+                log.info(f"Uploading {source} to {target}...")
+                upload(source, target, save_overwrite=self.cfg.save_overwrite)
+            barrier()
+
         return checkpoint_dir
 
     def remove_sharded_checkpoint(self, idx: int = 0):
@@ -281,7 +296,7 @@ class Trainer:
                 latest_path.unlink()
         barrier()
 
-    def restore_sharded_checkpoint(self, load_path: Path):
+    def restore_sharded_checkpoint(self, load_path: PathOrStr):
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
 
@@ -312,7 +327,7 @@ class Trainer:
             #  self.optim.load_state_dict(flattened_osd)
 
             # Deserialize state dictionary.
-            state_dict = torch.load(load_path / f"rank{get_global_rank()}.pt")
+            state_dict = torch.load(resource_path(load_path, f"rank{get_global_rank()}.pt"))
 
             # Load model and optimizer state.
             log.info("Loading model state...")
@@ -411,6 +426,17 @@ class Trainer:
                 self.remove_unsharded_checkpoint(0)
 
         barrier()
+
+        # Upload checkpoint to bucket.
+        if self.cfg.remote_save_folder is not None:
+            if get_global_rank() == 0:
+                for fname in ["config.yaml", "model.pt", "optim.pt", "other.pt"]:
+                    source = checkpoint_dir / fname
+                    target = f"{self.cfg.remote_save_folder}/{checkpoint_dir.name}/{fname}"
+                    log.info(f"Uploading {source} to {target}...")
+                    upload(source, target, save_overwrite=self.cfg.save_overwrite)
+            barrier()
+
         return checkpoint_dir
 
     def remove_unsharded_checkpoint(self, idx: int = 0):
@@ -423,7 +449,7 @@ class Trainer:
                 latest_path.unlink()
         barrier()
 
-    def restore_unsharded_checkpoint(self, load_path: Path):
+    def restore_unsharded_checkpoint(self, load_path: PathOrStr):
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
 
@@ -435,11 +461,11 @@ class Trainer:
         ):
             # Load model state.
             log.info("Loading model state...")
-            self.fsdp_model.load_state_dict(torch.load(load_path / "model.pt"))
+            self.fsdp_model.load_state_dict(torch.load(resource_path(load_path, "model.pt")))
 
             # Load optimizer state.
             log.info("Loading optimizer state...")
-            optim_state_dict = torch.load(load_path / "optim.pt")
+            optim_state_dict = torch.load(resource_path(load_path, "optim.pt"))
             # NOTE: careful, the order of these arguments has changed since the 2.0 release.
             if version.parse(torch.__version__) < version.parse("2.1.0"):
                 #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
@@ -452,7 +478,7 @@ class Trainer:
             del flattened_osd
 
             # Load other state.
-            other_state_dict = torch.load(load_path / "other.pt")
+            other_state_dict = torch.load(resource_path(load_path, "other.pt"))
             self.load_non_tensor_state_dict(other_state_dict)
 
         barrier()
@@ -465,9 +491,9 @@ class Trainer:
         else:
             raise NotImplementedError(checkpoint_type)
 
-    def restore_checkpoint(self, load_path: Path, checkpoint_type: Optional[CheckpointType] = None):
+    def restore_checkpoint(self, load_path: PathOrStr, checkpoint_type: Optional[CheckpointType] = None):
         if checkpoint_type == CheckpointType.unsharded or (
-            checkpoint_type is None and load_path.name.endswith("-unsharded")
+            checkpoint_type is None and str(load_path).endswith("-unsharded")
         ):
             self.restore_unsharded_checkpoint(load_path)
         elif checkpoint_type == CheckpointType.sharded or checkpoint_type is None:

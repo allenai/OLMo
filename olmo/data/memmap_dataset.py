@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-import os
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
+from cached_path import cached_path
 from torch.utils.data import Dataset
 
 from ..aliases import PathOrStr
+from ..util import file_size
 
 __all__ = ["MemMapDataset"]
 
@@ -70,7 +71,7 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
             start_offset = 0
             self._mmap_offsets = []
             for path in self._memmap_paths:
-                length = os.stat(path).st_size // (self._item_size * self._chunk_size)
+                length = file_size(path) // (self._item_size * self._chunk_size)
                 end_offset = start_offset + length
                 self._mmap_offsets.append((start_offset, end_offset))
                 start_offset += length
@@ -78,7 +79,7 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
 
     def _read_chunk_from_memmap(self, path: PathOrStr, index: int) -> torch.Tensor:
         index_start = index * self._item_size * self._chunk_size
-        with open(path, "rb") as f:
+        with open(cached_path(path), "rb") as f:
             f.seek(index_start)
             buffer = f.read(self._item_size * self._chunk_size)
             array = np.frombuffer(buffer, dtype=self.dtype)

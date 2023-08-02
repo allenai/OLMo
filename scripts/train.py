@@ -191,7 +191,7 @@ def main(cfg: TrainConfig) -> None:
 
         if cfg.load_path is not None:
             log.info(f"Loading checkpoint from {cfg.load_path}...")
-            trainer.restore_checkpoint(Path(cfg.load_path))
+            trainer.restore_checkpoint(cfg.load_path)
             log.info("Checkpoint successfully loaded")
 
         if cfg.force_save_unsharded:
