@@ -2,7 +2,7 @@
 PRETRAINED_MODEL=$1
 QUANTIZED_MODEL=$2
 
-efficiency-benchmark run \
+efficiency-pentathlon run \
 	--task wikitext-prompt \
       	--scenario single_stream \
 	--limit 100 \

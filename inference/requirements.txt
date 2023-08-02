@@ -1,2 +1,2 @@
 auto-gptq
-efficiency-benchmark @ git+https://github.com/haopeng-nlp/efficiency-benchmark@main
+efficiency-pentathlon @ git+https://github.com/allenai/efficiency-pentathlon@main
