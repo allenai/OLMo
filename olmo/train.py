@@ -195,6 +195,11 @@ class Trainer:
         # Reset base learning rate to the value in the config, not the checkpoint.
         set_new_base_lr(self.optim, self.scheduler, self.cfg.optimizer.learning_rate)
 
+        # Reset weight decay to the value in the config, not the checkpoint.
+        for group in self.optim.param_groups:
+            if "weight_decay" in group and group["weight_decay"] > 0.0:
+                group["weight_decay"] = self.cfg.optimizer.weight_decay
+
         # RNG states.
         if "rng" in state_dict:
             rng_state = state_dict["rng"]
