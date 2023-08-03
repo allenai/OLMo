@@ -37,6 +37,7 @@ from .model import Olmo
 from .optim import Scheduler
 from .util import (
     barrier,
+    fsdp_clip_grads_and_get_norms,
     get_global_rank,
     get_world_size,
     move_to_device,
@@ -607,8 +608,11 @@ class Trainer:
 
         # Clip gradient norms.
         grad_norm: Optional[float] = None
+        param_norm: Optional[float] = None
         if self.cfg.max_grad_norm is not None:
-            grad_norm = self.fsdp_model.clip_grad_norm_(self.cfg.max_grad_norm).item()
+            norms = fsdp_clip_grads_and_get_norms(self.fsdp_model, self.cfg.max_grad_norm)
+            grad_norm = norms.grad_norm.item()
+            param_norm = norms.param_norm.item()
 
         # Adjust the learning rate.
         for group in self.optim.param_groups:
@@ -633,6 +637,8 @@ class Trainer:
 
         if grad_norm is not None:
             metrics["optim/grad_norm"] = grad_norm
+        if param_norm is not None:
+            metrics["optim/param_norm"] = param_norm
 
         # Update min train loss and see if we should stop early.
         self.min_train_loss = min(self.min_train_loss, ce_batch_loss.item())  # type: ignore

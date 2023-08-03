@@ -1,4 +1,6 @@
+import functools
 import logging
+import math
 import os
 import re
 import socket
@@ -7,15 +9,28 @@ import time
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Set,
+    TypeVar,
+    Union,
+)
 
 import rich
 import torch
 import torch.distributed as dist
+import torch.nn as nn
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.text import Text
 from rich.traceback import Traceback
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 from .aliases import PathOrStr
 from .config import LogFilterType
@@ -454,3 +469,178 @@ def _s3_file_size(bucket_name: str, key: str) -> int:
         if int(e.response["Error"]["Code"]) != 404:
             raise
         raise FileNotFoundError("s3://{bucket_name}/{key}")
+
+
+class GradParamNorms(NamedTuple):
+    grad_norm: torch.Tensor
+    param_norm: torch.Tensor
+    #  grad_param_angle: torch.Tensor  # TODO
+
+
+def fsdp_clip_grads_and_get_norms(module: FSDP, max_norm: float, norm_type: float = 2.0) -> GradParamNorms:
+    """
+    Clip the gradient norms of all parameters in an FSDP module. The norm
+    is computed over all parameters' gradients as viewed as a single vector,
+    and the gradients are modified in-place.
+
+    Adapted from PyTorch's `FullyShardedDataParallel.clip_grad_norm_()` method to also return
+    the parameter norm.
+
+    :param max_norm: max allowed norm of the gradients.
+    :param norm_type: type of the p-norm. Can be ``inf`` for infinity norm.
+
+    Returns the gradient norm and parameter norm.
+    """
+    import torch.distributed.fsdp._traversal_utils as traversal_utils
+    from torch.distributed.fsdp._common_utils import TrainingState
+
+    module._assert_state(TrainingState.IDLE)
+
+    # NOTE: Skipped check if every FSDP instance uses `NO_SHARD` since we don't use that.
+
+    # Collect parameters are gradients.
+    sharded_params: Set[nn.Parameter] = set()
+    nonsharded_params: Set[nn.Parameter] = set()  # `NO_SHARD` or not FSDP-managed
+    grads: List[torch.Tensor] = []
+    for handle in traversal_utils._get_fsdp_handles(module):
+        target_set = sharded_params if handle.uses_sharded_strategy else nonsharded_params
+        if handle._use_orig_params:
+            for param in handle.flat_param._params:
+                target_set.add(param)
+                if param.grad is not None:
+                    grads.append(param.grad)
+        else:
+            target_set.add(handle.flat_param)
+            if handle.flat_param.grad is not None:
+                grads.append(handle.flat_param.grad)
+    for param in module.parameters():
+        not_fsdp_managed = param not in sharded_params and param not in nonsharded_params
+        if not_fsdp_managed:
+            nonsharded_params.add(param)
+            if param.grad is not None:
+                grads.append(param.grad)
+
+    # Compute total norms.
+    total_grad_norm = _get_total_norm(module, sharded_params, nonsharded_params, norm_type, for_gradients=True)
+    total_param_norm = _get_total_norm(module, sharded_params, nonsharded_params, norm_type, for_gradients=False)
+
+    # Clip gradients.
+    clip_coef = max_norm / (total_grad_norm + 1e-6)
+    # Multiplying by the clamped coefficient is meaningless when it is
+    # equal to 1, but it avoids the host-device sync that would result from
+    # `if clip_coef < 1`
+    clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
+    for grad in grads:
+        grad.detach().mul_(clip_coef_clamped.to(grad.device, grad.dtype))
+
+    # NOTE: skipped case where `len(grads) == 0`
+    assert grads
+
+    total_grad_norm_dtype = functools.reduce(
+        lambda dtype1, dtype2: torch.promote_types(dtype1, dtype2),
+        [grad.dtype for grad in grads],
+    )
+    total_param_norm_dtype = functools.reduce(
+        lambda dtype1, dtype2: torch.promote_types(dtype1, dtype2),
+        [param.dtype for param in sharded_params] + [param.dtype for param in nonsharded_params],
+    )
+    return GradParamNorms(
+        grad_norm=total_grad_norm.to(total_grad_norm_dtype), param_norm=total_param_norm.to(total_param_norm_dtype)
+    )
+
+
+def _get_grad_norm(
+    params: Iterable[nn.Parameter],
+    norm_type: float,
+) -> torch.Tensor:
+    """
+    Returns the gradient norm of parameters, where the gradients
+    are viewed as a single vector. The returned norm is in FP32 even if
+    parameters/gradients are in a low precision. This is because the downstream
+    use of this return value is a reduction across ranks.
+
+    Adapted from `torch.distributed.fsdp.fully_sharded_data_parallel._get_grad_norm()`.
+    """
+    grads = [param.grad for param in params if param.grad is not None]
+    if len(grads) == 0:
+        return torch.tensor(0.0)
+
+    grad_dtypes = {grad.dtype for grad in grads}
+    if len(grad_dtypes) != 1:
+        raise ValueError(f"Requires uniform dtype across all gradients but got {grad_dtypes}")
+
+    # Compute the gradient norm in FP32, where we treat the gradients as a single vector.
+    grad_norm = torch.linalg.vector_norm(
+        torch.stack(
+            [torch.linalg.vector_norm(grad.detach(), norm_type, dtype=torch.float32) for grad in grads],
+        ),
+        norm_type,
+        dtype=torch.float32,
+    )
+    return grad_norm
+
+
+def _get_param_norm(
+    params: Iterable[nn.Parameter],
+    norm_type: float,
+) -> torch.Tensor:
+    """
+    Returns the norm of all parameters that have gradients, where the params
+    are viewed as a single vector. The returned norm is in FP32 even if
+    parameters/gradients are in a low precision. This is because the downstream
+    use of this return value is a reduction across ranks.
+
+    Adapted from `torch.distributed.fsdp.fully_sharded_data_parallel._get_grad_norm()`.
+    """
+    params_with_grad = [param for param in params if param.grad is not None]
+    if len(params_with_grad) == 0:
+        return torch.tensor(0.0)
+
+    param_dtypes = {param.dtype for param in params_with_grad}
+    if len(param_dtypes) != 1:
+        raise ValueError(f"Requires uniform dtype across all parameters but got {param_dtypes}")
+
+    # Compute the norm in FP32, where we treat the params as a single vector.
+    param_norm = torch.linalg.vector_norm(
+        torch.stack(
+            [
+                torch.linalg.vector_norm(param.data.detach(), norm_type, dtype=torch.float32)
+                for param in params_with_grad
+            ],
+        ),
+        norm_type,
+        dtype=torch.float32,
+    )
+    return param_norm
+
+
+def _get_total_norm(
+    module: FSDP,
+    sharded_params: Iterable[nn.Parameter],
+    nonsharded_params: Iterable[nn.Parameter],
+    norm_type: float,
+    for_gradients: bool = True,
+) -> torch.Tensor:
+    if for_gradients:
+        local_sharded_norm = _get_grad_norm(sharded_params, norm_type).to(module.compute_device)
+        local_nonsharded_norm = _get_grad_norm(nonsharded_params, norm_type).to(module.compute_device)
+    else:
+        local_sharded_norm = _get_param_norm(sharded_params, norm_type).to(module.compute_device)
+        local_nonsharded_norm = _get_param_norm(nonsharded_params, norm_type).to(module.compute_device)
+
+    # Reconstruct the total gradient norm depending on the norm type
+    if norm_type == math.inf:
+        total_norm = torch.maximum(local_sharded_norm, local_nonsharded_norm)
+        dist.all_reduce(total_norm, op=dist.ReduceOp.MAX, group=module.process_group)
+    else:
+        total_norm = local_sharded_norm**norm_type
+        dist.all_reduce(total_norm, group=module.process_group)
+        # All-reducing the local non-sharded norm would count it an extra
+        # world-size-many times
+        total_norm += local_nonsharded_norm**norm_type
+        total_norm = total_norm ** (1.0 / norm_type)
+
+    if module.cpu_offload.offload_params:
+        total_norm = total_norm.cpu()
+
+    return total_norm
