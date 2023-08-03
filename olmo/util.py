@@ -498,7 +498,7 @@ def fsdp_clip_grads_and_get_norms(module: FSDP, max_norm: float, norm_type: floa
 
     # NOTE: Skipped check if every FSDP instance uses `NO_SHARD` since we don't use that.
 
-    # Collect parameters are gradients.
+    # Collect parameters and gradients.
     sharded_params: Set[nn.Parameter] = set()
     nonsharded_params: Set[nn.Parameter] = set()  # `NO_SHARD` or not FSDP-managed
     grads: List[torch.Tensor] = []
