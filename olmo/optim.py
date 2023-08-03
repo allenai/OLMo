@@ -109,7 +109,7 @@ class InvSqrtWithWarmup(Scheduler):
         if step < self.warmup_steps:
             return self._linear_warmup(initial_lr, step, self.warmup_steps)
         del max_steps
-        return initial_lr * sqrt(self.warmup_steps) / sqrt(max(self.warmup_steps, step))
+        return initial_lr * sqrt(self.warmup_steps / max(self.warmup_steps, step))
 
 
 @dataclass
