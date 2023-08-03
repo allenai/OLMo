@@ -96,6 +96,8 @@ class CosWithWarmup(Scheduler):
         elif step >= max_steps:
             return eta_min
         else:
+            step = step - self.warmup_steps
+            max_steps = max_steps - self.warmup_steps
             return eta_min + (initial_lr - eta_min) * (1 + cos(pi * step / max_steps)) / 2
 
 
