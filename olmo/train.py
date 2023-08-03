@@ -116,6 +116,7 @@ class Trainer:
     unsharded_checkpoints: List[Path] = field(default_factory=list)
     min_train_loss: float = float("inf")
     indices_file: Optional[TextIO] = None
+    _start_time: float = 0.0
 
     def state_dict(self) -> Dict[str, Any]:
         state_dict = self.non_tensor_state_dict()
@@ -762,18 +763,36 @@ class Trainer:
 
         return eval_metrics
 
-    def check_if_cancelled(self):
-        if wandb.run is not None:
-            # If someone added the 'cancel' / 'cancelled' tag on the web dashboard, we won't
+    def check_if_cancelled(self) -> bool:
+        # First check if we've reached the training time limit.
+        run_canceled = syncronize_flag(
+            self.cfg.time_limit is not None and time.time() - self._start_time >= self.cfg.time_limit,
+            self.device,
+        )
+        if run_canceled:
+            log.warning("Run canceled due to time limit")
+            return run_canceled
+
+        # Now check if someone canceled this run by adding a tag in W&B.
+        if get_global_rank() == 0 and wandb.run is not None:
+            # If someone added the 'cancel' / 'canceled' tag on the web dashboard, we won't
             # see it in the run object. So we have to use the import/export API to check.
             api = wandb.Api(api_key=os.environ["WANDB_API_TOKEN"])
             run = api.run(wandb.run.path)
             for tag in run.tags or []:
-                if tag.lower() in {"cancel", "cancelled", "canceled"}:
-                    raise ValueError("run has been canceled from Weights & Biases")
+                if tag.lower() in {"cancel", "canceled", "cancelled"}:
+                    log.warning("Run has been canceled via Weights & Biases tag.")
+                    run_canceled = syncronize_flag(True, self.device)
+                    break
+            else:
+                run_canceled = syncronize_flag(False, self.device)
+        else:
+            run_canceled = syncronize_flag(False, self.device)
+
+        return run_canceled
 
     def fit(self):
-        start_time = time.time()
+        self._start_time = time.time()
 
         if self.cfg.load_path is not None and self.global_step > 0 and self.cfg.eval_on_load:
             eval_metrics = self.eval()
@@ -797,6 +816,7 @@ class Trainer:
 
         # Train.
         first_batch: bool = True
+        canceled: bool = False
         for batch in self.train_loader:
             # Bookkeeping.
             # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
@@ -844,8 +864,14 @@ class Trainer:
             ):
                 wandb.log(metrics, step=self.global_step)
 
+            # Check if run should be canceled.
+            if self.global_step % self.cfg.canceled_check_interval == 0:
+                canceled = self.check_if_cancelled()
+
             # Maybe save sharded checkpoint.
-            if self.global_step % self.cfg.save_interval == 0 and self.cfg.save_num_checkpoints_to_keep != 0:
+            if canceled or (
+                self.global_step % self.cfg.save_interval == 0 and self.cfg.save_num_checkpoints_to_keep != 0
+            ):
                 log.info("Saving checkpoint...")
                 checkpoint_path = self.save_sharded_checkpoint()
                 log.info(f"Checkpoint saved to {checkpoint_path}")
@@ -853,18 +879,12 @@ class Trainer:
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
                 speed_monitor.reset()
 
-                self.check_if_cancelled()
-
-            time_limit_reached = syncronize_flag(
-                self.cfg.time_limit is not None and time.time() - start_time >= self.cfg.time_limit, self.device
-            )
-
             # Maybe save unsharded checkpoint.
             if (
-                self.cfg.save_interval_unsharded is not None
+                not canceled  # we already save a sharded checkpoint when canceled
+                and self.cfg.save_interval_unsharded is not None
                 and self.global_step % self.cfg.save_interval_unsharded == 0
                 and self.cfg.save_num_unsharded_checkpoints_to_keep != 0
-                and not time_limit_reached  # we save an unsharded checkpoint below
             ):
                 log.info("Saving unsharded checkpoint...")
                 checkpoint_path = self.save_unsharded_checkpoint()
@@ -873,10 +893,8 @@ class Trainer:
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
                 speed_monitor.reset()
 
-                self.check_if_cancelled()
-
             # Maybe run evaluations.
-            if self.global_step % self.cfg.eval_interval == 0:
+            if not canceled and self.global_step % self.cfg.eval_interval == 0:
                 eval_metrics = self.eval()
 
                 # Log metrics to W&B.
@@ -892,16 +910,16 @@ class Trainer:
             # End of batch.
             first_batch = False
 
-            if time_limit_reached:
-                log.info("Training time limit reached, ending early")
+            if canceled:
                 break
         else:
             log.info("Training loop complete")
 
         # Save final unsharded model-only checkpoint.
-        log.info("Saving final unsharded model checkpoint...")
-        checkpoint_path = self.save_unsharded_checkpoint()
-        log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
+        if not canceled and self.cfg.save_interval_unsharded is not None:
+            log.info("Saving final unsharded model checkpoint...")
+            checkpoint_path = self.save_unsharded_checkpoint()
+            log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
     def close(self, exit_code: int = 0) -> None:
         if self.indices_file is not None:

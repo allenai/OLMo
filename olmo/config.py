@@ -531,6 +531,11 @@ class TrainConfig(BaseConfig):
     A folder in a cloud bucket to upload saved checkpoints to.
     """
 
+    canceled_check_interval: int = 5
+    """
+    How often (in batches) to check if the run has been canceled or reached its time limit.
+    """
+
     save_interval: int = 1000
     """
     How often (in terms of batches) to save training state checkpoints that can be used for restarts.

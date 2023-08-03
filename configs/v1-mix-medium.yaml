@@ -67,7 +67,7 @@ save_overwrite: false
 save_interval: 5000
 save_num_checkpoints_to_keep: -1
 # Unsharded checkpoints (for final storage)
-save_interval_unsharded: 1000000  # getting errors on LUMI right now
+save_interval_unsharded: null  # getting errors on LUMI right now
 save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
