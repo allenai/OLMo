@@ -986,16 +986,19 @@ class Olmo(nn.Module):
 
     def _make_state_dict_compatible(self, state_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         # For backwards compatibility prior to fixing https://github.com/allenai/LLM/issues/222
+        prefix = ""
+        if next(iter(state_dict.keys())).startswith((fsdp_prefix := "_fsdp_wrapped_module.")):
+            prefix = fsdp_prefix
         if self.config.block_type == BlockType.sequential:
             for block_idx in range(self.config.n_layers):
-                norm_w_key = f"transformer.blocks.{block_idx}.norm.weight"
-                norm_b_key = f"transformer.blocks.{block_idx}.norm.bias"
+                norm_w_key = f"{prefix}transformer.blocks.{block_idx}.norm.weight"
+                norm_b_key = f"{prefix}transformer.blocks.{block_idx}.norm.bias"
                 if norm_w_key in state_dict:
                     norm_w = state_dict.pop(norm_w_key)
-                    state_dict[f"transformer.blocks.{block_idx}.attn_norm.weight"] = norm_w
-                    state_dict[f"transformer.blocks.{block_idx}.ff_norm.weight"] = norm_w.clone()
+                    state_dict[f"{prefix}transformer.blocks.{block_idx}.attn_norm.weight"] = norm_w
+                    state_dict[f"{prefix}transformer.blocks.{block_idx}.ff_norm.weight"] = norm_w.clone()
                 if norm_b_key in state_dict:
                     norm_b = state_dict.pop(norm_b_key)
-                    state_dict[f"transformer.blocks.{block_idx}.attn_norm.bias"] = norm_b
-                    state_dict[f"transformer.blocks.{block_idx}.ff_norm.bias"] = norm_b.clone()
+                    state_dict[f"{prefix}transformer.blocks.{block_idx}.attn_norm.bias"] = norm_b
+                    state_dict[f"{prefix}transformer.blocks.{block_idx}.ff_norm.bias"] = norm_b.clone()
         return state_dict

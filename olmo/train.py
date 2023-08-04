@@ -466,7 +466,9 @@ class Trainer:
         ):
             # Load model state.
             log.info("Loading model state...")
-            self.fsdp_model.load_state_dict(torch.load(resource_path(load_path, "model.pt")))
+            self.fsdp_model.load_state_dict(
+                self.model._make_state_dict_compatible(torch.load(resource_path(load_path, "model.pt")))
+            )
 
             # Load optimizer state.
             log.info("Loading optimizer state...")
