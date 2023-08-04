@@ -471,17 +471,27 @@ def _s3_file_size(bucket_name: str, key: str) -> int:
         raise FileNotFoundError(f"s3://{bucket_name}/{key}")
 
 
+def is_weight_decay_module(module: nn.Module) -> bool:
+    """Returns true if the module should use weight decay."""
+    from .model import LayerNormBase
+
+    return not isinstance(module, (LayerNormBase, nn.LayerNorm, nn.Embedding))
+
+
 class GradParamNorms(NamedTuple):
     grad_norm: torch.Tensor
-    param_norm: torch.Tensor
+    param_norm: Optional[torch.Tensor]
     #  grad_param_angle: torch.Tensor  # TODO
 
 
 def fsdp_clip_grads_and_get_norms(module: FSDP, max_norm: float, norm_type: float = 2.0) -> GradParamNorms:
     """
-    Clip the gradient norms of all parameters in an FSDP module. The norm
-    is computed over all parameters' gradients as viewed as a single vector,
-    and the gradients are modified in-place.
+    Clip the gradient norms and parameter norms of all parameters in an FSDP module. The norm
+    is computed over all parameters' gradients or weights as viewed as a single vector,
+    and the gradients are modified in-place when clipping.
+
+    The parameter norm is only calculated when `use_orig_params=True`, and ignores any modules that
+    should not use weight decay, like embeddings or layer norms.
 
     Adapted from PyTorch's `FullyShardedDataParallel.clip_grad_norm_()` method to also return
     the parameter norm.
@@ -500,12 +510,17 @@ def fsdp_clip_grads_and_get_norms(module: FSDP, max_norm: float, norm_type: floa
 
     # Collect parameters and gradients.
     sharded_params: Set[nn.Parameter] = set()
+    sharded_wd_only: Set[nn.Parameter] = set()
     nonsharded_params: Set[nn.Parameter] = set()  # `NO_SHARD` or not FSDP-managed
+    nonsharded_wd_only: Set[nn.Parameter] = set()
     grads: List[torch.Tensor] = []
     for handle in traversal_utils._get_fsdp_handles(module):
         target_set = sharded_params if handle.uses_sharded_strategy else nonsharded_params
+        target_wd_only = sharded_wd_only if handle.uses_sharded_strategy else nonsharded_wd_only
         if handle._use_orig_params:
-            for param in handle.flat_param._params:
+            for param, param_info in zip(handle.flat_param._params, handle.flat_param._param_infos):
+                if is_weight_decay_module(param_info.module):
+                    target_wd_only.add(param)
                 target_set.add(param)
                 if param.grad is not None:
                     grads.append(param.grad)
@@ -513,16 +528,27 @@ def fsdp_clip_grads_and_get_norms(module: FSDP, max_norm: float, norm_type: floa
             target_set.add(handle.flat_param)
             if handle.flat_param.grad is not None:
                 grads.append(handle.flat_param.grad)
-    for param in module.parameters():
-        not_fsdp_managed = param not in sharded_params and param not in nonsharded_params
-        if not_fsdp_managed:
-            nonsharded_params.add(param)
-            if param.grad is not None:
-                grads.append(param.grad)
 
-    # Compute total norms.
+    # NOTE: Skipped case for parameters that are not handled by FSDP.
+
+    # Compute total gradient norm.
     total_grad_norm = _get_total_norm(module, sharded_params, nonsharded_params, norm_type, for_gradients=True)
-    total_param_norm = _get_total_norm(module, sharded_params, nonsharded_params, norm_type, for_gradients=False)
+    total_grad_norm_dtype = functools.reduce(
+        lambda dtype1, dtype2: torch.promote_types(dtype1, dtype2),
+        [grad.dtype for grad in grads],
+    )
+
+    # Compute total parameter norm over weight-decayed params.
+    total_param_norm: Optional[torch.Tensor] = None
+    if sharded_wd_only or nonsharded_wd_only:
+        total_param_norm = _get_total_norm(
+            module, sharded_wd_only, nonsharded_wd_only, norm_type, for_gradients=False
+        )
+        total_param_norm_dtype = functools.reduce(
+            lambda dtype1, dtype2: torch.promote_types(dtype1, dtype2),
+            [param.dtype for param in sharded_wd_only] + [param.dtype for param in nonsharded_wd_only],
+        )
+        total_param_norm = total_param_norm.to(total_param_norm_dtype)
 
     # Clip gradients.
     clip_coef = max_norm / (total_grad_norm + 1e-6)
@@ -536,17 +562,7 @@ def fsdp_clip_grads_and_get_norms(module: FSDP, max_norm: float, norm_type: floa
     # NOTE: skipped case where `len(grads) == 0`
     assert grads
 
-    total_grad_norm_dtype = functools.reduce(
-        lambda dtype1, dtype2: torch.promote_types(dtype1, dtype2),
-        [grad.dtype for grad in grads],
-    )
-    total_param_norm_dtype = functools.reduce(
-        lambda dtype1, dtype2: torch.promote_types(dtype1, dtype2),
-        [param.dtype for param in sharded_params] + [param.dtype for param in nonsharded_params],
-    )
-    return GradParamNorms(
-        grad_norm=total_grad_norm.to(total_grad_norm_dtype), param_norm=total_param_norm.to(total_param_norm_dtype)
-    )
+    return GradParamNorms(grad_norm=total_grad_norm.to(total_grad_norm_dtype), param_norm=total_param_norm)
 
 
 def _get_grad_norm(

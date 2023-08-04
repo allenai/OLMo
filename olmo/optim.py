@@ -127,7 +127,7 @@ def get_param_groups(model: nn.Module) -> List[Dict[str, Any]]:
     """
     Separate parameters into weight decay and non weight decay groups.
     """
-    from .model import LayerNormBase
+    from .util import is_weight_decay_module
 
     # Separate out parameters that we don't want to apply weight decay to, like norms and biases.
     decay = set()
@@ -149,7 +149,7 @@ def get_param_groups(model: nn.Module) -> List[Dict[str, Any]]:
                 no_decay.add(fpn)
             elif pn.endswith("weight") and isinstance(m, nn.Linear):
                 decay.add(fpn)
-            elif pn.endswith("weight") and isinstance(m, (LayerNormBase, nn.LayerNorm, nn.Embedding)):
+            elif pn.endswith("weight") and not is_weight_decay_module(m):
                 no_decay.add(fpn)
 
     # Validate that we've considered every parameter

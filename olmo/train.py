@@ -614,7 +614,8 @@ class Trainer:
         if self.cfg.max_grad_norm is not None:
             norms = fsdp_clip_grads_and_get_norms(self.fsdp_model, self.cfg.max_grad_norm)
             grad_norm = norms.grad_norm.item()
-            param_norm = norms.param_norm.item()
+            if norms.param_norm is not None:
+                param_norm = norms.param_norm.item()
 
         # Adjust the learning rate.
         for group in self.optim.param_groups:
