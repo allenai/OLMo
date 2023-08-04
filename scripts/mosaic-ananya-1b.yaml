@@ -7,7 +7,7 @@ integrations:
   - integration_type: git_repo
     git_repo: allenai/LLM
     git_branch: petew-train-updates
-    pip_install: -e .[dev]
+    pip_install: -e .[all]
     ssh_clone: true
 command: |-
   cd LLM
