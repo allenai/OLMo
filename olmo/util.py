@@ -532,7 +532,9 @@ def fsdp_clip_grads_and_get_norms(module: FSDP, max_norm: float, norm_type: floa
     # NOTE: Skipped case for parameters that are not handled by FSDP.
 
     # Compute total gradient norm.
-    total_grad_norm = _get_total_norm(module, sharded_params, nonsharded_params, norm_type, for_gradients=True)
+    total_grad_norm = _get_total_param_or_grad_norm(
+        module, sharded_params, nonsharded_params, norm_type, for_gradients=True
+    )
     total_grad_norm_dtype = functools.reduce(
         lambda dtype1, dtype2: torch.promote_types(dtype1, dtype2),
         [grad.dtype for grad in grads],
@@ -541,7 +543,7 @@ def fsdp_clip_grads_and_get_norms(module: FSDP, max_norm: float, norm_type: floa
     # Compute total parameter norm over weight-decayed params.
     total_param_norm: Optional[torch.Tensor] = None
     if sharded_wd_only or nonsharded_wd_only:
-        total_param_norm = _get_total_norm(
+        total_param_norm = _get_total_param_or_grad_norm(
             module, sharded_wd_only, nonsharded_wd_only, norm_type, for_gradients=False
         )
         total_param_norm_dtype = functools.reduce(
@@ -565,6 +567,43 @@ def fsdp_clip_grads_and_get_norms(module: FSDP, max_norm: float, norm_type: floa
     return GradParamNorms(grad_norm=total_grad_norm.to(total_grad_norm_dtype), param_norm=total_param_norm)
 
 
+def get_norm(tensors: Iterable[torch.Tensor], norm_type: float) -> torch.Tensor:
+    """
+    Returns the norm of all tensors where the tensors are viewed as a single vector.
+    """
+    dtypes = {tensor.dtype for tensor in tensors}
+    if len(dtypes) != 1:
+        raise ValueError(f"Requires uniform dtype across all parameters but got {dtypes}")
+
+    # Compute the norm in FP32, where we treat the params as a single vector.
+    tensor_norm = torch.linalg.vector_norm(
+        torch.stack(
+            [torch.linalg.vector_norm(tensor.detach(), norm_type, dtype=torch.float32) for tensor in tensors],
+        ),
+        norm_type,
+        dtype=torch.float32,
+    )
+    return tensor_norm
+
+
+def get_total_norm(
+    tensors: Iterable[torch.Tensor], norm_type: float, device: torch.device, group: Optional[dist.group] = None
+) -> torch.Tensor:
+    """
+    Get the total norm of all tensors across all ranks, treated as a single flat tensor.
+    """
+    total_norm = get_norm(tensors, norm_type).to(device)
+    if not is_distributed():
+        return total_norm
+    if norm_type == math.inf:
+        dist.all_reduce(total_norm, op=dist.ReduceOp.MAX, group=group)
+    else:
+        total_norm = total_norm**norm_type
+        dist.all_reduce(total_norm, group=group)
+        total_norm = total_norm ** (1.0 / norm_type)
+    return total_norm
+
+
 def _get_grad_norm(
     params: Iterable[nn.Parameter],
     norm_type: float,
@@ -580,20 +619,7 @@ def _get_grad_norm(
     grads = [param.grad for param in params if param.grad is not None]
     if len(grads) == 0:
         return torch.tensor(0.0)
-
-    grad_dtypes = {grad.dtype for grad in grads}
-    if len(grad_dtypes) != 1:
-        raise ValueError(f"Requires uniform dtype across all gradients but got {grad_dtypes}")
-
-    # Compute the gradient norm in FP32, where we treat the gradients as a single vector.
-    grad_norm = torch.linalg.vector_norm(
-        torch.stack(
-            [torch.linalg.vector_norm(grad.detach(), norm_type, dtype=torch.float32) for grad in grads],
-        ),
-        norm_type,
-        dtype=torch.float32,
-    )
-    return grad_norm
+    return get_norm(grads, norm_type)
 
 
 def _get_param_norm(
@@ -608,29 +634,13 @@ def _get_param_norm(
 
     Adapted from `torch.distributed.fsdp.fully_sharded_data_parallel._get_grad_norm()`.
     """
-    params_with_grad = [param for param in params if param.grad is not None]
+    params_with_grad = [param.data for param in params if param.grad is not None]
     if len(params_with_grad) == 0:
         return torch.tensor(0.0)
-
-    param_dtypes = {param.dtype for param in params_with_grad}
-    if len(param_dtypes) != 1:
-        raise ValueError(f"Requires uniform dtype across all parameters but got {param_dtypes}")
-
-    # Compute the norm in FP32, where we treat the params as a single vector.
-    param_norm = torch.linalg.vector_norm(
-        torch.stack(
-            [
-                torch.linalg.vector_norm(param.data.detach(), norm_type, dtype=torch.float32)
-                for param in params_with_grad
-            ],
-        ),
-        norm_type,
-        dtype=torch.float32,
-    )
-    return param_norm
+    return get_norm(params_with_grad, norm_type)
 
 
-def _get_total_norm(
+def _get_total_param_or_grad_norm(
     module: FSDP,
     sharded_params: Iterable[nn.Parameter],
     nonsharded_params: Iterable[nn.Parameter],

@@ -65,7 +65,8 @@ class LionW(Optimizer):
 
                 # Weight update
                 update = exp_avg * beta1 + grad * (1 - beta1)
-                p.add_(torch.sign(update), alpha=-group["lr"])
+                signed_update = torch.sign(update)
+                p.add_(signed_update, alpha=-group["lr"])
 
                 # Decay the momentum running average coefficient
                 exp_avg.mul_(beta2).add_(grad, alpha=1 - beta2)
