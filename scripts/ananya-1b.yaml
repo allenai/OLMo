@@ -1,5 +1,5 @@
 run_name: olmo-1b-400b-high-lr-1e-3-${optimizer.name}
-save_folder: ./checkpoint/${run_name}  # doesn't matter since we'll upload to S3
+save_folder: /workspace/${run_name}  # doesn't matter since we'll upload to S3
 remote_save_folder: s3://ai2-llm/checkpoints/ananya-1b-ablations/${run_name}
 load_path: s3://ai2-llm/checkpoints/olmo-mix-v1-sample/step200000-unsharded
 
