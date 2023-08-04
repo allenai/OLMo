@@ -391,9 +391,9 @@ def file_size(path: PathOrStr) -> int:
 
         parsed = urlparse(str(path))
         if parsed.scheme == "gs":
-            return _gcs_file_size(parsed.netloc, parsed.path)
+            return _gcs_file_size(parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "s3":
-            return _s3_file_size(parsed.netloc, parsed.path)
+            return _s3_file_size(parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return file_size(str(path).replace("file://", "", 1))
         else:
@@ -410,9 +410,9 @@ def upload(source: PathOrStr, target: str, save_overwrite: bool = False):
     assert source.is_file()
     parsed = urlparse(target)
     if parsed.scheme == "gs":
-        _gcs_upload(source, parsed.netloc, parsed.path, save_overwrite=save_overwrite)
+        _gcs_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
     elif parsed.scheme == "s3":
-        _s3_upload(source, parsed.netloc, parsed.path, save_overwrite=save_overwrite)
+        _s3_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
     else:
         raise NotImplementedError(f"Upload not implemented for '{parsed.scheme}' scheme")
 
