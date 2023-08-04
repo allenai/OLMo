@@ -427,7 +427,7 @@ def _gcs_file_size(bucket_name: str, key: str) -> int:
     try:
         blob.reload()
     except NotFound:
-        raise FileNotFoundError("gs://{bucket_name}/{key}")
+        raise FileNotFoundError(f"gs://{bucket_name}/{key}")
     assert blob.size is not None
     return blob.size
 
@@ -468,7 +468,7 @@ def _s3_file_size(bucket_name: str, key: str) -> int:
     except ClientError as e:
         if int(e.response["Error"]["Code"]) != 404:
             raise
-        raise FileNotFoundError("s3://{bucket_name}/{key}")
+        raise FileNotFoundError(f"s3://{bucket_name}/{key}")
 
 
 class GradParamNorms(NamedTuple):
@@ -628,7 +628,7 @@ def _get_total_norm(
         local_sharded_norm = _get_param_norm(sharded_params, norm_type).to(module.compute_device)
         local_nonsharded_norm = _get_param_norm(nonsharded_params, norm_type).to(module.compute_device)
 
-    # Reconstruct the total gradient norm depending on the norm type
+    # Reconstruct the total norm depending on the norm type.
     if norm_type == math.inf:
         total_norm = torch.maximum(local_sharded_norm, local_nonsharded_norm)
         dist.all_reduce(total_norm, op=dist.ReduceOp.MAX, group=module.process_group)
