@@ -780,10 +780,11 @@ class Trainer:
             return run_canceled
 
         # Now check if someone canceled this run by adding a tag in W&B.
-        if get_global_rank() == 0 and wandb.run is not None:
+        api_key = os.environ.get("WANDB_API_KEY")
+        if get_global_rank() == 0 and wandb.run is not None and api_key is not None:
             # If someone added the 'cancel' / 'canceled' tag on the web dashboard, we won't
             # see it in the run object. So we have to use the import/export API to check.
-            api = wandb.Api(api_key=os.environ["WANDB_API_TOKEN"])
+            api = wandb.Api(api_key=api_key)
             run = api.run(wandb.run.path)
             for tag in run.tags or []:
                 if tag.lower() in {"cancel", "canceled", "cancelled"}:
