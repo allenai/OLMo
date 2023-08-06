@@ -4,10 +4,12 @@ from math import cos, pi, sqrt
 from typing import Any, Dict, List, Optional, Tuple
 
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 from torch.optim.optimizer import Optimizer
 
 from .config import OptimizerType, SchedulerType, TrainConfig
+from .util import get_default_device, is_distributed
 
 __all__ = [
     "LionW",
@@ -21,7 +23,13 @@ __all__ = [
 
 
 class LionW(Optimizer):
-    """Adapted from https://github.com/google/automl/blob/master/lion/lion_pytorch.py"""
+    """
+    Adapted from https://github.com/google/automl/blob/master/lion/lion_pytorch.py
+
+    The `step()` method also returns some metrics which include the cosine similarity between
+    the update and the signed update. For distributed training the computation of this metric assumes
+    all parameters and gradients are fully sharded through FSDP.
+    """
 
     def __init__(
         self,
@@ -38,18 +46,23 @@ class LionW(Optimizer):
             group["initial_lr"] = group["lr"]
 
     @torch.no_grad()
-    def step(self, closure=None):
-        loss = None
+    def step(self, closure=None) -> Dict[str, torch.Tensor]:
         if closure is not None:
             with torch.enable_grad():
-                loss = closure()
+                closure()
+
+        metrics = {}
+
+        update_total_dot_prod = torch.tensor(0.0, dtype=torch.float32)
+        update_norms = []
+        signed_update_norms = []
 
         for group in self.param_groups:
             for p in group["params"]:
                 if p.grad is None:
                     continue
 
-                # Perform stepweight decay
+                # Perform step weight decay
                 p.data.mul_(1 - group["lr"] * group["weight_decay"])
 
                 grad = p.grad
@@ -71,7 +84,40 @@ class LionW(Optimizer):
                 # Decay the momentum running average coefficient
                 exp_avg.mul_(beta2).add_(grad, alpha=1 - beta2)
 
-        return loss
+                # Track dot product and norms of update vs signed update in order to calculate
+                # their cosine similarity.
+                update_total_dot_prod += torch.tensordot(update, signed_update, dims=len(update.shape))
+                update_norms.append(torch.linalg.vector_norm(update, 2.0, dtype=torch.float32))
+                signed_update_norms.append(torch.linalg.vector_norm(signed_update, 2.0, dtype=torch.float32))
+
+        # Compute cosine similarity.
+        update_total_dot_prod = update_total_dot_prod.to(get_default_device())
+        update_total_norm = torch.linalg.vector_norm(
+            torch.stack(update_norms),
+            2.0,
+            dtype=torch.float32,
+        ).to(get_default_device())
+        signed_update_total_norm = torch.linalg.vector_norm(
+            torch.stack(signed_update_norms),
+            2.0,
+            dtype=torch.float32,
+        ).to(get_default_device())
+        if is_distributed():
+            # Get total norm of update across all ranks.
+            update_total_norm = update_total_norm**2.0
+            dist.all_reduce(update_total_norm)
+            update_total_norm = update_total_norm ** (0.5)
+            # Get total norm of signed update across all ranks.
+            signed_update_total_norm = signed_update_total_norm**2.0
+            dist.all_reduce(signed_update_total_norm)
+            signed_update_total_norm = signed_update_total_norm ** (0.5)
+            # Get total dot product across all ranks.
+            update_total_dot_prod = dist.all_reduce(update_total_dot_prod)
+        metrics["update_cos_sim"] = update_total_dot_prod / torch.max(
+            update_total_norm * signed_update_total_norm, torch.tensor(1e-8, device=get_default_device())
+        )
+
+        return metrics
 
 
 class Scheduler(metaclass=ABCMeta):

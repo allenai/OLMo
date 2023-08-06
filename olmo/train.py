@@ -624,7 +624,7 @@ class Trainer:
             )
 
         # Optimizer step.
-        self.optim.step()
+        optim_metrics = self.optim.step()
 
         # Reduce loss metrics across ranks.
         self.ce_train_loss_metric.update(ce_batch_loss)
@@ -642,6 +642,9 @@ class Trainer:
             metrics["optim/grad_norm"] = grad_norm
         if param_norm is not None:
             metrics["optim/param_norm"] = param_norm
+        if isinstance(optim_metrics, dict):
+            for key, value in optim_metrics.items():
+                metrics[f"optim/{key}"] = value.item()
 
         # Update min train loss and see if we should stop early.
         self.min_train_loss = min(self.min_train_loss, ce_batch_loss.item())  # type: ignore

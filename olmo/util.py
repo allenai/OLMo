@@ -329,6 +329,13 @@ def barrier() -> None:
         dist.barrier()
 
 
+def get_default_device() -> torch.device:
+    if torch.cuda.is_available() and torch.cuda.is_initialized():
+        return torch.device("cuda")
+    else:
+        return torch.device("cpu")
+
+
 def peak_gpu_memory(reset: bool = False) -> Optional[float]:
     """
     Get the peak GPU memory usage in MB across all ranks.
