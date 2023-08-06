@@ -103,16 +103,15 @@ class LionW(Optimizer):
             dtype=torch.float32,
         ).to(get_default_device())
         if is_distributed():
-            # Get total norm of update across all ranks.
+            # Reduce total dot prod and norms across all ranks.
             update_total_norm = update_total_norm**2.0
-            dist.all_reduce(update_total_norm)
-            update_total_norm = update_total_norm ** (0.5)
-            # Get total norm of signed update across all ranks.
             signed_update_total_norm = signed_update_total_norm**2.0
-            dist.all_reduce(signed_update_total_norm)
+            # Reduce all together to avoid multiple communication calls.
+            all_together = torch.stack([update_total_dot_prod, update_total_norm, signed_update_total_norm])
+            dist.all_reduce(all_together)
+            update_total_dot_prod, update_total_norm, signed_update_total_norm = all_together
+            update_total_norm = update_total_norm ** (0.5)
             signed_update_total_norm = signed_update_total_norm ** (0.5)
-            # Get total dot product across all ranks.
-            update_total_dot_prod = dist.all_reduce(update_total_dot_prod)
         metrics["update_cos_sim"] = update_total_dot_prod / torch.max(
             update_total_norm * signed_update_total_norm, torch.tensor(1e-8, device=get_default_device())
         )
