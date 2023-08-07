@@ -21,6 +21,7 @@ from .aliases import PathOrStr
 from .beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
 from .config import ActivationType, BlockType, LayerNormType, ModelConfig
 from .exceptions import OlmoConfigurationError
+from .initialization import linear_init_fn
 
 __all__ = [
     "LayerNormBase",
@@ -72,6 +73,11 @@ class LayerNormBase(nn.Module):
                 raise NotImplementedError()
             return tensor.to(dtype=dtype)
         return tensor
+
+    def reset_parameters(self):
+        torch.nn.init.ones_(self.weight)  # type: ignore
+        if self.bias is not None:
+            torch.nn.init.zeros_(self.bias)  # type: ignore
 
 
 class LayerNorm(LayerNormBase):
@@ -223,8 +229,9 @@ class OlmoBlock(nn.Module):
     A base class for transformer block implementations.
     """
 
-    def __init__(self, config: ModelConfig):
+    def __init__(self, layer_id: int, config: ModelConfig):
         super().__init__()
+        self.layer_id = layer_id
         self.config = config
         assert config.d_model % config.n_heads == 0
 
@@ -264,6 +271,20 @@ class OlmoBlock(nn.Module):
             self.register_buffer(
                 "pos_emb", self.rotary_emb(config.max_sequence_length, device=config.init_device), persistent=False
             )
+
+    def reset_parameters(self):
+        if self.k_norm is not None:
+            self.k_norm.reset_parameters()
+        if self.q_norm is not None:
+            self.q_norm.reset_parameters()
+        linear_init_fn(
+            self.config, self.attn_out, std=1.0 / math.sqrt(self.config.d_model * 2 * (self.layer_id + 1))
+        )
+        linear_init_fn(
+            self.config,
+            self.ff_out,
+            std=1.0 / math.sqrt(self.ff_out.in_features * 2 * (self.layer_id + 1)),
+        )
 
     def get_rotary_embedding(self, seq_len: int, device: Optional[torch.device]) -> torch.Tensor:
         if self.pos_emb is not None and self.pos_emb.shape[-2] >= seq_len:  # type: ignore
@@ -351,11 +372,11 @@ class OlmoBlock(nn.Module):
         raise NotImplementedError
 
     @classmethod
-    def build(cls, config: ModelConfig) -> OlmoBlock:
+    def build(cls, layer_id: int, config: ModelConfig) -> OlmoBlock:
         if config.block_type == BlockType.sequential:
-            return OlmoSequentialBlock(config)
+            return OlmoSequentialBlock(layer_id, config)
         elif config.block_type == BlockType.parallel:
-            return OlmoParallelBlock(config)
+            return OlmoParallelBlock(layer_id, config)
         else:
             raise NotImplementedError(f"not sure how to handle block type '{config.block_type}'")
 
@@ -366,8 +387,8 @@ class OlmoSequentialBlock(OlmoBlock):
     (plus another skip connection).
     """
 
-    def __init__(self, config: ModelConfig):
-        super().__init__(config)
+    def __init__(self, layer_id: int, config: ModelConfig):
+        super().__init__(layer_id, config)
         # Layer norms.
         self.attn_norm = LayerNorm.build(config)
         self.ff_norm = LayerNorm.build(config)
@@ -379,11 +400,17 @@ class OlmoSequentialBlock(OlmoBlock):
         self.att_proj = nn.Linear(
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
-        self.att_proj._fused = (0, self.fused_dims)  # type: ignore
         # Feed-forward input projection.
         self.ff_proj = nn.Linear(
             config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
         )
+
+    def reset_parameters(self):
+        super().reset_parameters()
+        self.attn_norm.reset_parameters()
+        self.ff_norm.reset_parameters()
+        linear_init_fn(self.config, self.att_proj)
+        linear_init_fn(self.config, self.ff_proj)
 
     def forward(
         self,
@@ -424,8 +451,8 @@ class OlmoParallelBlock(OlmoBlock):
     to fuse the output projections, but we found that didn't help.
     """
 
-    def __init__(self, config: ModelConfig):
-        super().__init__(config)
+    def __init__(self, layer_id: int, config: ModelConfig):
+        super().__init__(layer_id, config)
         self.norm = LayerNorm.build(config)
         # Fused attention and feed-forward projection.
         # NOTE: we could also fuse the attention and feed-forward output projections
@@ -444,7 +471,11 @@ class OlmoParallelBlock(OlmoBlock):
         self.fused_attn_ff_proj = nn.Linear(
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
-        self.fused_attn_ff_proj._fused = (0, self.fused_dims)  # type: ignore
+
+    def reset_parameters(self):
+        super().reset_parameters()
+        self.norm.reset_parameters()
+        linear_init_fn(self.config, self.fused_attn_ff_proj)
 
     def forward(
         self,
@@ -554,7 +585,7 @@ class Olmo(nn.Module):
                     config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
                 ),
                 emb_drop=nn.Dropout(config.embedding_dropout),
-                blocks=nn.ModuleList([OlmoBlock.build(config) for _ in range(config.n_layers)]),
+                blocks=nn.ModuleList([OlmoBlock.build(i, config) for i in range(config.n_layers)]),
                 ln_f=LayerNorm.build(config),
             )
         )
@@ -562,8 +593,9 @@ class Olmo(nn.Module):
             self.transformer.update(
                 {"wpe": nn.Embedding(config.max_sequence_length, config.d_model, device=config.init_device)}
             )
+        # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
         if init_params and self.config.init_device != "meta":
-            self.apply(self.param_init_fn)
+            self.reset_parameters()
         self.__num_fwd_flops: Optional[int] = None
 
         # Attention bias cache.
@@ -580,6 +612,19 @@ class Olmo(nn.Module):
             # Warm up cache.
             self.causal_attention_bias
             self.alibi_attention_bias
+
+    def reset_parameters(self):
+        # Top-level embeddings / linear layers.
+        linear_init_fn(self.config, self.transformer.wte)  # type: ignore
+        if hasattr(self.transformer, "wpe"):
+            linear_init_fn(self.config, self.transformer.wpe)  # type: ignore
+
+        # Top-level layer norm.
+        self.transformer.ln_f.reset_parameters()  # type: ignore
+
+        # Let the blocks handle themselves.
+        for block in self.transformer.blocks:  # type: ignore
+            block.reset_parameters()  # type: ignore
 
     @property
     def device(self) -> torch.device:
@@ -752,58 +797,6 @@ class Olmo(nn.Module):
 
     def activation_checkpointing_fn(self, module):
         return isinstance(module, OlmoBlock)
-
-    def reset_parameters(self):
-        self.apply(self.param_init_fn)
-
-    def param_init_fn(self, module):
-        from functools import partial
-
-        init_fn = partial(nn.init.normal_, mean=0.0, std=self.config.init_std)
-
-        def fused_init_fn(module):
-            # Parameter initialization is often based on the parameters shape.
-            # If a layer is fused, initialization should be based on the shapes
-            # of the original tensor instead of the shape of the fused tensor.
-            # Layers which are fused should have the _fused attribute defined.
-            # The first element of _fused is the dimension along which the tensor is fused.
-            # This is followed by an iterable of split indices.
-            _fused = getattr(module, "_fused", None)
-            if _fused is None:
-                raise RuntimeError("Internal logic error")
-
-            dim, splits = _fused
-            splits = (0, *splits, module.weight.size(dim))
-            for s, e in zip(splits[:-1], splits[1:]):
-                slice_indices = [slice(None)] * module.weight.ndim
-                slice_indices[dim] = slice(s, e)
-                init_fn(module.weight[slice_indices])
-
-        # Linear
-        if isinstance(module, nn.Linear):
-            if hasattr(module, "_fused"):
-                fused_init_fn(module)
-            else:
-                init_fn(module.weight)
-
-            if module.bias is not None:
-                nn.init.zeros_(module.bias)
-
-            if getattr(module, "_is_residual", False):
-                with torch.no_grad():
-                    module.weight.div_(math.sqrt(2 * self.config.n_layers))
-
-            if module.bias is not None:
-                nn.init.zeros_(module.bias)
-
-        # Embedding
-        if isinstance(module, nn.Embedding):
-            init_fn(module.weight)
-
-        # LayerNorm
-        if isinstance(module, (nn.LayerNorm, LayerNorm, RMSLayerNorm)):
-            torch.nn.init.ones_(module.weight)
-            torch.nn.init.zeros_(module.bias)
 
     def num_params(self, include_embedding: bool = True) -> int:
         """

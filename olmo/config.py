@@ -180,6 +180,25 @@ class BlockType(StrEnum):
     parallel = "parallel"
 
 
+class WeightsInitFnType(StrEnum):
+    mitchell = "mitchell"
+    """
+    The strategy suggested to us by Mitchell Wortsman from UW.
+    This uses a truncated normal distribution with an adaptive standard deviation that depends
+    on the size of the weights as well as the depth of the layer.
+    """
+
+    normal = "normal"
+    """
+    All weights are initialized from the same normal distribution.
+    """
+
+
+class WeightsInitConfig(BaseConfig):
+    name: WeightsInitFnType = WeightsInitFnType.mitchell
+    std: float = 0.02
+
+
 @dataclass
 class ModelConfig(BaseConfig):
     """
@@ -312,13 +331,18 @@ class ModelConfig(BaseConfig):
 
     init_std: float = 0.02
     """
-    Standard deviation used when initializing parameters.
+    Deprecated. See `weights_init_fn.std` instead.
     """
 
     precision: Optional[str] = None
     """
     Precision used to train/evaluate with. You shouldn't set this directly.
     See :data:`TrainConfig.precision` instead.
+    """
+
+    weights_init_fn: WeightsInitConfig = field(default_factory=WeightsInitConfig)
+    """
+    Weight initialization strategy.
     """
 
 
