@@ -424,6 +424,28 @@ def upload(source: PathOrStr, target: str, save_overwrite: bool = False):
         raise NotImplementedError(f"Upload not implemented for '{parsed.scheme}' scheme")
 
 
+def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> bytes:
+    if is_url(source):
+        from urllib.parse import urlparse
+
+        parsed = urlparse(str(source))
+        if parsed.scheme == "gs":
+            from cached_path import cached_path
+
+            # TODO: directly request range from GCS.
+            return get_bytes_range(cached_path(source), bytes_start, num_bytes)
+        elif parsed.scheme == "s3":
+            return _s3_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
+        elif parsed.scheme == "file":
+            return get_bytes_range(str(source).replace("file://", "", 1), bytes_start, num_bytes)
+        else:
+            raise NotImplementedError(f"file size not implemented for '{parsed.scheme}' files")
+    else:
+        with open(source, "rb") as f:
+            f.seek(bytes_start)
+            return f.read(num_bytes)
+
+
 def _gcs_file_size(bucket_name: str, key: str) -> int:
     from google.api_core.exceptions import NotFound
     from google.cloud import storage as gcs
@@ -472,6 +494,21 @@ def _s3_file_size(bucket_name: str, key: str) -> int:
     s3_client = boto3.client("s3")
     try:
         return s3_client.head_object(Bucket=bucket_name, Key=key)["ContentLength"]
+    except ClientError as e:
+        if int(e.response["Error"]["Code"]) != 404:
+            raise
+        raise FileNotFoundError(f"s3://{bucket_name}/{key}")
+
+
+def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int) -> bytes:
+    import boto3
+    from botocore.exceptions import ClientError
+
+    s3_client = boto3.client("s3")
+    try:
+        return s3_client.get_object(
+            Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
+        )["Body"].read()
     except ClientError as e:
         if int(e.response["Error"]["Code"]) != 404:
             raise
