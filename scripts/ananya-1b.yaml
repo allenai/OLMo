@@ -1,7 +1,7 @@
-run_name: olmo-1b-400b-high-lr-1e-3-${optimizer.name}
+run_name: olmo-1b-lr-2.0e-4-${optimizer.name}
 save_folder: /workspace/${run_name}  # doesn't matter since we'll upload to S3
 remote_save_folder: s3://ai2-llm/checkpoints/ananya-1b-ablations/${run_name}
-load_path: s3://ai2-llm/checkpoints/olmo-mix-v1-sample/step200000-unsharded
+# load_path: s3://ai2-llm/checkpoints/olmo-mix-v1-sample/step200000-unsharded
 
 seed: 6198
 
@@ -35,7 +35,7 @@ model:
 
 optimizer:
   name: lionw
-  learning_rate: 1.0e-4
+  learning_rate: 2.0e-4
   weight_decay: 0.01
   betas:
   - 0.9
