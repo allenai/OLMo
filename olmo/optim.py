@@ -28,7 +28,7 @@ class LionW(Optimizer):
 
     The `step()` method also returns some metrics which include the cosine similarity between
     the update and the signed update. For distributed training the computation of this metric assumes
-    all parameters and gradients are fully sharded through FSDP.
+    all parameters and gradients are fully sharded through FSDP, otherwise you should set ``fsdp=False``.
     """
 
     def __init__(
@@ -37,6 +37,7 @@ class LionW(Optimizer):
         lr: float = 1e-4,
         betas: Tuple[float, float] = (0.9, 0.99),
         weight_decay: float = 0.0,
+        fsdp: bool = True,
     ):
         assert lr > 0.0
         assert all([0.0 <= beta <= 1.0 for beta in betas])
@@ -44,6 +45,7 @@ class LionW(Optimizer):
         super().__init__(params, defaults)
         for group in self.param_groups:
             group["initial_lr"] = group["lr"]
+        self.fsdp = fsdp
 
     @torch.no_grad()
     def step(self, closure=None) -> Dict[str, torch.Tensor]:
@@ -90,7 +92,7 @@ class LionW(Optimizer):
                 update_norms.append(torch.linalg.vector_norm(update, 2.0, dtype=torch.float32))
                 signed_update_norms.append(torch.linalg.vector_norm(signed_update, 2.0, dtype=torch.float32))
 
-        # Compute cosine similarity.
+        # Compute cosine similarity between update and signed update.
         update_total_dot_prod = update_total_dot_prod.to(get_default_device())
         update_total_norm = torch.linalg.vector_norm(
             torch.stack(update_norms),
@@ -102,7 +104,9 @@ class LionW(Optimizer):
             2.0,
             dtype=torch.float32,
         ).to(get_default_device())
-        if is_distributed():
+
+        # Add up over all ranks.
+        if is_distributed() and self.fsdp:
             # Reduce total dot prod and norms across all ranks.
             update_total_norm = update_total_norm**2.0
             signed_update_total_norm = signed_update_total_norm**2.0
@@ -110,8 +114,9 @@ class LionW(Optimizer):
             all_together = torch.stack([update_total_dot_prod, update_total_norm, signed_update_total_norm])
             dist.all_reduce(all_together)
             update_total_dot_prod, update_total_norm, signed_update_total_norm = all_together
-            update_total_norm = update_total_norm ** (0.5)
-            signed_update_total_norm = signed_update_total_norm ** (0.5)
+            update_total_norm = update_total_norm**0.5
+            signed_update_total_norm = signed_update_total_norm**0.5
+
         metrics["update_cos_sim"] = update_total_dot_prod / torch.max(
             update_total_norm * signed_update_total_norm, torch.tensor(1e-8, device=get_default_device())
         )
