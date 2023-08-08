@@ -1,5 +1,5 @@
 run_name: olmo-1b-400b-high-lr-1e-3
-image: mosaicml/pytorch:1.12.1_cu116-python3.9-ubuntu20.04
+image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
 # cluster: r8z3
 cluster: r9z1
 gpu_num: 32

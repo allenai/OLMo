@@ -1,4 +1,4 @@
-run_name: olmo-1b-${optimizer.name}-lr-1e-3-mitch-init
+run_name: olmo-1b-${optimizer.name}-${model.init_fn}-init
 
 seed: 6198
 
