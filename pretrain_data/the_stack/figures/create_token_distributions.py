@@ -38,9 +38,8 @@ def _create_lang_size_dict(file_sizes_path: str) -> dict:
     return lang_size_dict
 
 
-def create_figure(file_sizes_path: str, version: str, output_file: str, top_n: int = 30):
+def create_figure(lang_size_dict: dict, version: str, output_file: str, top_n: int = 30):
     
-    lang_size_dict = _create_lang_size_dict(file_sizes_path)
     sorted_lang_sizes = sorted(lang_size_dict.items(), key=lambda x:x[1], reverse=True)
 
     top_n_langs = [tup[0] for tup in sorted_lang_sizes[:top_n]]
@@ -57,6 +56,10 @@ def create_figure(file_sizes_path: str, version: str, output_file: str, top_n: i
     ax.set_title(f"Distribution of top 30 programming languages in stack-{version}")
     ax.figure.savefig(output_file, bbox_inches="tight")
 
+def _get_total_tokens(lang_size_dict: dict):
+    total = sum([val for _, val in lang_size_dict.items()]) / 2
+    return total
+
 
 if __name__ == "__main__":
 
@@ -65,6 +68,12 @@ if __name__ == "__main__":
     parser.add_argument("--output-file", type=str, required=True)
     parser.add_argument("--version", type=str, required=True)
     parser.add_argument("--top-n", type=int, required=False, default=30)
+    parser.add_argument("--dry-run", action="store_true")
 
     args = parser.parse_args()
-    create_figure(args.input_file, args.version, args.output_file, args.top_n)
+
+    lang_size_dict = _create_lang_size_dict(args.input_file)
+    print("Total size: ", _get_total_tokens(lang_size_dict))
+
+    if not args.dry_run:
+        create_figure(lang_size_dict, args.version, args.output_file, args.top_n)
