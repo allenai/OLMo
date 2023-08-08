@@ -4,7 +4,8 @@ seed: 6198
 
 wandb:
   name: ${run_name}
-  project: ananya-1b
+  project: olmo-small
+  group: v1-mix
   entity: ai2-llm
 
 model:
