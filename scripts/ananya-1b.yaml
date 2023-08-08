@@ -46,16 +46,6 @@ scheduler:
   t_warmup: 2000
   alpha_f: 0.1
 
-data:
-  paths: ${path.glob:${oc.env:FLASH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/books/*.npy,${oc.env:FLASH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/c4/*.npy,${oc.env:FLASH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/common-crawl/*/*.npy,${oc.env:FLASH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/s2/*.npy,${oc.env:FLASH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/stack/*.npy,${oc.env:FLASH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/wiki/*.npy}
-  pad_direction: right
-  num_workers: 1
-  drop_last: true
-  pin_memory: true
-  prefetch_factor: 16
-  persistent_workers: true
-  timeout: 0
-
 tokenizer:
   identifier: allenai/eleuther-ai-gpt-neox-20b-pii-special
   truncate_direction: right
@@ -86,40 +76,81 @@ eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 
 evaluators:
-- label: all-small-ppl-validation
-  type: lm
-  data:
-    paths: null
-    pad_direction: right
-    num_workers: 0
-    drop_last: true
-    datasets:
-      4chan-validation:
-      - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
-      c4_100_domains-validation:
-      - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/c4_100_domains/val.npy
-      c4_en-validation:
-      - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/c4_en/val.npy
-      gab-validation:
-      - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/gab/val.npy
-      ice-validation:
-      - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/ice/val.npy
-      m2d2_s2orc-validation:
-      - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/m2d2_s2orc/val.npy
-      m2d2_wiki-validation:
-      - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/m2d2_wiki/val.npy
-      manosphere-validation:
-      - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/manosphere/val.npy
-      mc4_en-validation:
-      - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/mc4_en/val.npy
-      pile-validation:
-      - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/pile/val.npy
-      ptb-validation:
-      - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/ptb/val.npy
-      twitterAEE-validation:
-      - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
-      wikitext_103-validation:
-      - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/wikitext_103/val.npy
+  - label: all-small-ppl-validation
+    type: lm
+    data:
+      paths: null
+      pad_direction: right
+      num_workers: 0
+      drop_last: true
+      datasets:
+        4chan-validation:
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
+        c4_100_domains-validation:
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/c4_100_domains/val.npy
+        c4_en-validation:
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/c4_en/val.npy
+        gab-validation:
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/gab/val.npy
+        ice-validation:
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/ice/val.npy
+        m2d2_s2orc-validation:
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/m2d2_s2orc/val.npy
+        m2d2_wiki-validation:
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/m2d2_wiki/val.npy
+        manosphere-validation:
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/manosphere/val.npy
+        mc4_en-validation:
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/mc4_en/val.npy
+        pile-validation:
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/pile/val.npy
+        ptb-validation:
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/ptb/val.npy
+        twitterAEE-validation:
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
+        wikitext_103-validation:
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/wikitext_103/val.npy
+  ##########################
+  # Downstream evaluations #
+  ##########################
+  - label: piqa
+    type: downstream
+
+  - label: hellaswag
+    type: downstream
+
+  - label: winogrande
+    type: downstream
+
+  - label: openbook_qa
+    type: downstream
+
+  # - label: boolq  # requires implemention of the pmi_dc matrix
+    # type: downstream
+    #
+  - label: sciq
+    type: downstream
+
+  - label: arc_easy
+    type: downstream
+
+  # - label: arc_challenge  # requires implemention of the pmi_dc matrix
+    # type: downstream
+    #
+  - label: copa
+    type: downstream
+
+  - label: rte
+    type: downstream
+
+  - label: commitment_bank
+    type: downstream
+
+  - label: mrpc
+    type: downstream
+
+  - label: sst2
+    type: downstream
 
 data:
   pad_direction: right
