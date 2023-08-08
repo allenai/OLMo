@@ -4,14 +4,13 @@ import pytest
 
 from olmo.config import (
     DataConfig,
+    InitFnType,
     ModelConfig,
     OptimizerConfig,
     PaddingDirection,
     SchedulerConfig,
     TokenizerConfig,
     TrainConfig,
-    WeightsInitConfig,
-    WeightsInitFnType,
 )
 from olmo.tokenizer import Tokenizer
 
@@ -51,7 +50,7 @@ def model_config() -> ModelConfig:
         n_heads=2,
         n_layers=3,
         max_sequence_length=512,
-        weights_init_fn=WeightsInitConfig(name=WeightsInitFnType.normal),
+        init_fn=InitFnType.normal,
     )
 
 
