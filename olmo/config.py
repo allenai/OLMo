@@ -194,6 +194,7 @@ class WeightsInitFnType(StrEnum):
     """
 
 
+@dataclass
 class WeightsInitConfig(BaseConfig):
     name: WeightsInitFnType = WeightsInitFnType.mitchell
     std: float = 0.02
