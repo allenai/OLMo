@@ -4,7 +4,8 @@ dry_run: false
 
 wandb:
   name: ${run_name}
-  project: c4-small
+  project: olmo-small
+  group: v1-mix
 
 model:
   d_model: 2048
