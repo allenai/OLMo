@@ -10,6 +10,8 @@ from olmo.config import (
     SchedulerConfig,
     TokenizerConfig,
     TrainConfig,
+    WeightsInitConfig,
+    WeightsInitFnType,
 )
 from olmo.tokenizer import Tokenizer
 
@@ -49,6 +51,7 @@ def model_config() -> ModelConfig:
         n_heads=2,
         n_layers=3,
         max_sequence_length=512,
+        weights_init_fn=WeightsInitConfig(name=WeightsInitFnType.normal),
     )
 
 

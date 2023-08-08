@@ -31,6 +31,8 @@ __all__ = [
     "BlockType",
     "CompilerConfig",
     "LayerNormType",
+    "WeightsInitFnType",
+    "WeightsInitConfig",
     "ModelConfig",
     "OptimizerType",
     "OptimizerConfig",
