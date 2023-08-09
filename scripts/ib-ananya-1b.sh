@@ -4,6 +4,7 @@ set -ex
 
 export LOAD_PATH_ARG=""
 export CONFIG_PATH=scripts/ananya-1b-ib.yaml
+export  NCCL_DEBUG=INFO
 
 # get run name, we will use this as task name in gantry
 RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:\s*//')
