@@ -25,7 +25,7 @@ fi
 NUM_NODES=4
 
 gantry run \
-  --workspace ai2/ananyaj \
+  --workspace ai2/llm-testing \
   --task-name "${FULL_RUN_NAME}" \
   --description "${FULL_RUN_NAME}" \
   --priority "high" \
