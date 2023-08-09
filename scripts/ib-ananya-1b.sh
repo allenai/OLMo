@@ -4,7 +4,7 @@ set -ex
 
 export LOAD_PATH_ARG=""
 export CONFIG_PATH=scripts/ananya-1b-ib.yaml
-export  NCCL_DEBUG=INFO
+export NCCL_DEBUG=INFO
 
 # get run name, we will use this as task name in gantry
 RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:\s*//')
@@ -49,7 +49,7 @@ gantry run \
   --nfs \
   ${WANDB_API_KEY_ARG} \
   ${AWS_ACCESS_KEY_ID_ARG} \
-  ${AWS_SECRET_ACCESS_KEY_ARGG} \
+  ${AWS_SECRET_ACCESS_KEY_ARG} \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --shared-memory 10GiB \

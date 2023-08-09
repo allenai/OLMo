@@ -16,7 +16,7 @@ command: |-
   torchrun --nnodes $NUM_NODES:$NUM_NODES \
   --nproc-per-node 8 \
   --rdzv_id=101 \
-  --rdzv_backend=etcd \
+  --rdzv_backend=c10d \
   --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
   --master_addr=$MASTER_ADDR \
   --master_port=$MASTER_PORT \
