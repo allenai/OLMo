@@ -17,5 +17,7 @@ command: |-
   --nproc-per-node 8 \
   --rdzv_id=101 \
   --rdzv_backend=c10d \
-  --rdzv_endpoint=$MASTER_ADDR:29400 \
+  --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
+  --master_addr=$MASTER_ADDR \
+  --master_port=$MASTER_PORT \
   scripts/train.py scripts/ananya-1b.yaml --device_train_microbatch_size 4
