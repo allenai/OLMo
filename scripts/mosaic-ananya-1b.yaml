@@ -18,7 +18,7 @@ command: |-
   --nnodes $NUM_NODES \
   --node_rank $NODE_RANK \
   --nproc_per_node 8 \
-  scripts/train.py scripts/ananya-1b.yaml --device_train_microbatch_size 4
+  scripts/train.py scripts/ananya-1b.yaml
   # torchrun --nnodes $NUM_NODES:$NUM_NODES \
   # --nproc-per-node 8 \
   # --rdzv_id=101 \
