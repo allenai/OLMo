@@ -1,10 +1,10 @@
-run_name: olmo-1b-400b-high-lr-1e-3
+run_name: olmo-1b-adamw-mitch-init
 image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
-# cluster: r8z3
-cluster: r9z1
+cluster: r8z3
+# cluster: r9z1
 gpu_num: 32
-# gpu_type: a100_40gb
-gpu_type: h100_80gb
+gpu_type: a100_40gb
+# gpu_type: h100_80gb
 integrations:
   - integration_type: git_repo
     git_repo: allenai/LLM
@@ -18,4 +18,4 @@ command: |-
   --rdzv_id=101 \
   --rdzv_backend=c10d \
   --rdzv_endpoint=$MASTER_ADDR \
-  scripts/train.py scripts/ananya-1b.yaml
+  scripts/train.py scripts/ananya-1b.yaml --device_train_microbatch_size 4
