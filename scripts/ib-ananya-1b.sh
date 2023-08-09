@@ -47,8 +47,8 @@ gantry run \
   --host-networking \
   --nfs \
   ${WANDB_API_KEY_ARG} \
-  ${AWS_ACCESS_KEY_ID} \
-  ${AWS_SECRET_ACCESS_KEY} \
+  ${AWS_ACCESS_KEY_ID_ARG} \
+  ${AWS_SECRET_ACCESS_KEY_ARGG} \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --shared-memory 10GiB \
