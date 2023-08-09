@@ -61,7 +61,7 @@ tokenizer:
   identifier: allenai/eleuther-ai-gpt-neox-20b-pii-special
   truncate_direction: right
 
-save_folder: /workspace/${run_name}  # doesn't matter since we'll upload to S3
+save_folder: /data/ananyaj/${run_name}  # doesn't matter since we'll upload to S3
 save_overwrite: false
 save_interval: 5000
 save_num_checkpoints_to_keep: 9
