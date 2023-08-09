@@ -46,6 +46,7 @@ gantry run \
   --leader-selection  \
   --host-networking \
   --nfs \
+  --host_networking \
   ${WANDB_API_KEY_ARG} \
   ${AWS_ACCESS_KEY_ID_ARG} \
   ${AWS_SECRET_ACCESS_KEY_ARGG} \
