@@ -1,0 +1,19 @@
+run_name: olmo-1b-400b-high-lr-1e-3
+image: mosaicml/pytorch:1.12.1_cu116-python3.9-ubuntu20.04
+cluster: r8z3
+gpu_num: 8
+gpu_type: a100_40gb
+integrations:
+  - integration_type: git_repo
+    git_repo: allenai/LLM
+    git_branch: petew-train-updates
+    pip_install: -e .[all]
+    ssh_clone: true
+command: |-
+  cd LLM
+  torchrun --nnodes $NUM_NODES:$NUM_NODES \
+  --nproc-per-node 8 \
+  --rdzv_id=101 \
+  --rdzv_backend=c10d \
+  --rdzv_endpoint=$MASTER_ADDR \
+  scripts/train.py scripts/ananya-1b.yaml

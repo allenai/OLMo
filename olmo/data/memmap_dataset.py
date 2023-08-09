@@ -5,11 +5,10 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
-from cached_path import cached_path
 from torch.utils.data import Dataset
 
 from ..aliases import PathOrStr
-from ..util import file_size
+from ..util import file_size, get_bytes_range
 
 __all__ = ["MemMapDataset"]
 
@@ -78,11 +77,10 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         return self._mmap_offsets
 
     def _read_chunk_from_memmap(self, path: PathOrStr, index: int) -> torch.Tensor:
-        index_start = index * self._item_size * self._chunk_size
-        with open(cached_path(path), "rb") as f:
-            f.seek(index_start)
-            buffer = f.read(self._item_size * self._chunk_size)
-            array = np.frombuffer(buffer, dtype=self.dtype)
+        bytes_start = index * self._item_size * self._chunk_size
+        num_bytes = self._item_size * self._chunk_size
+        buffer = get_bytes_range(path, bytes_start, num_bytes)
+        array = np.frombuffer(buffer, dtype=self.dtype)
         return torch.tensor(array.astype(np.int_), dtype=torch.long)
 
     def __len__(self) -> int:

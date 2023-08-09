@@ -1,4 +1,6 @@
+import functools
 import logging
+import math
 import os
 import re
 import socket
@@ -7,15 +9,28 @@ import time
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Set,
+    TypeVar,
+    Union,
+)
 
 import rich
 import torch
 import torch.distributed as dist
+import torch.nn as nn
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.text import Text
 from rich.traceback import Traceback
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 from .aliases import PathOrStr
 from .config import LogFilterType
@@ -314,6 +329,13 @@ def barrier() -> None:
         dist.barrier()
 
 
+def get_default_device() -> torch.device:
+    if torch.cuda.is_available() and torch.cuda.is_initialized():
+        return torch.device("cuda")
+    else:
+        return torch.device("cpu")
+
+
 def peak_gpu_memory(reset: bool = False) -> Optional[float]:
     """
     Get the peak GPU memory usage in MB across all ranks.
@@ -376,9 +398,9 @@ def file_size(path: PathOrStr) -> int:
 
         parsed = urlparse(str(path))
         if parsed.scheme == "gs":
-            return _gcs_file_size(parsed.netloc, parsed.path)
+            return _gcs_file_size(parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "s3":
-            return _s3_file_size(parsed.netloc, parsed.path)
+            return _s3_file_size(parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return file_size(str(path).replace("file://", "", 1))
         else:
@@ -395,11 +417,33 @@ def upload(source: PathOrStr, target: str, save_overwrite: bool = False):
     assert source.is_file()
     parsed = urlparse(target)
     if parsed.scheme == "gs":
-        _gcs_upload(source, parsed.netloc, parsed.path, save_overwrite=save_overwrite)
+        _gcs_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
     elif parsed.scheme == "s3":
-        _s3_upload(source, parsed.netloc, parsed.path, save_overwrite=save_overwrite)
+        _s3_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
     else:
         raise NotImplementedError(f"Upload not implemented for '{parsed.scheme}' scheme")
+
+
+def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> bytes:
+    if is_url(source):
+        from urllib.parse import urlparse
+
+        parsed = urlparse(str(source))
+        if parsed.scheme == "gs":
+            from cached_path import cached_path
+
+            # TODO: directly request range from GCS.
+            return get_bytes_range(cached_path(source), bytes_start, num_bytes)
+        elif parsed.scheme == "s3":
+            return _s3_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
+        elif parsed.scheme == "file":
+            return get_bytes_range(str(source).replace("file://", "", 1), bytes_start, num_bytes)
+        else:
+            raise NotImplementedError(f"file size not implemented for '{parsed.scheme}' files")
+    else:
+        with open(source, "rb") as f:
+            f.seek(bytes_start)
+            return f.read(num_bytes)
 
 
 def _gcs_file_size(bucket_name: str, key: str) -> int:
@@ -412,7 +456,7 @@ def _gcs_file_size(bucket_name: str, key: str) -> int:
     try:
         blob.reload()
     except NotFound:
-        raise FileNotFoundError("gs://{bucket_name}/{key}")
+        raise FileNotFoundError(f"gs://{bucket_name}/{key}")
     assert blob.size is not None
     return blob.size
 
@@ -453,4 +497,220 @@ def _s3_file_size(bucket_name: str, key: str) -> int:
     except ClientError as e:
         if int(e.response["Error"]["Code"]) != 404:
             raise
-        raise FileNotFoundError("s3://{bucket_name}/{key}")
+        raise FileNotFoundError(f"s3://{bucket_name}/{key}")
+
+
+def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int) -> bytes:
+    import boto3
+    from botocore.exceptions import ClientError
+
+    s3_client = boto3.client("s3")
+    try:
+        return s3_client.get_object(
+            Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
+        )["Body"].read()
+    except ClientError as e:
+        if int(e.response["Error"]["Code"]) != 404:
+            raise
+        raise FileNotFoundError(f"s3://{bucket_name}/{key}")
+
+
+def is_weight_decay_module(module: nn.Module) -> bool:
+    """Returns true if the module should use weight decay."""
+    from .model import LayerNormBase
+
+    return not isinstance(module, (LayerNormBase, nn.LayerNorm, nn.Embedding))
+
+
+class GradParamNorms(NamedTuple):
+    grad_norm: torch.Tensor
+    param_norm: Optional[torch.Tensor]
+    #  grad_param_angle: torch.Tensor  # TODO
+
+
+def fsdp_clip_grads_and_get_norms(module: FSDP, max_norm: float, norm_type: float = 2.0) -> GradParamNorms:
+    """
+    Clip the gradient norms and parameter norms of all parameters in an FSDP module. The norm
+    is computed over all parameters' gradients or weights as viewed as a single vector,
+    and the gradients are modified in-place when clipping.
+
+    The parameter norm is only calculated when `use_orig_params=True`, and ignores any modules that
+    should not use weight decay, like embeddings or layer norms.
+
+    Adapted from PyTorch's `FullyShardedDataParallel.clip_grad_norm_()` method to also return
+    the parameter norm.
+
+    :param max_norm: max allowed norm of the gradients.
+    :param norm_type: type of the p-norm. Can be ``inf`` for infinity norm.
+
+    Returns the gradient norm and parameter norm.
+    """
+    import torch.distributed.fsdp._traversal_utils as traversal_utils
+    from torch.distributed.fsdp._common_utils import TrainingState
+
+    module._assert_state(TrainingState.IDLE)
+
+    # NOTE: Skipped check if every FSDP instance uses `NO_SHARD` since we don't use that.
+
+    # Collect parameters and gradients.
+    sharded_params: Set[nn.Parameter] = set()
+    sharded_wd_only: Set[nn.Parameter] = set()
+    nonsharded_params: Set[nn.Parameter] = set()  # `NO_SHARD` or not FSDP-managed
+    nonsharded_wd_only: Set[nn.Parameter] = set()
+    grads: List[torch.Tensor] = []
+    for handle in traversal_utils._get_fsdp_handles(module):
+        target_set = sharded_params if handle.uses_sharded_strategy else nonsharded_params
+        target_wd_only = sharded_wd_only if handle.uses_sharded_strategy else nonsharded_wd_only
+        if handle._use_orig_params:
+            for param, param_info in zip(handle.flat_param._params, handle.flat_param._param_infos):
+                if is_weight_decay_module(param_info.module):
+                    target_wd_only.add(param)
+                target_set.add(param)
+                if param.grad is not None:
+                    grads.append(param.grad)
+        else:
+            target_set.add(handle.flat_param)
+            if handle.flat_param.grad is not None:
+                grads.append(handle.flat_param.grad)
+
+    # NOTE: Skipped case for parameters that are not handled by FSDP.
+
+    # Compute total gradient norm.
+    total_grad_norm = _get_total_param_or_grad_norm(
+        module, sharded_params, nonsharded_params, norm_type, for_gradients=True
+    )
+    total_grad_norm_dtype = functools.reduce(
+        lambda dtype1, dtype2: torch.promote_types(dtype1, dtype2),
+        [grad.dtype for grad in grads],
+    )
+
+    # Compute total parameter norm over weight-decayed params.
+    total_param_norm: Optional[torch.Tensor] = None
+    if sharded_wd_only or nonsharded_wd_only:
+        total_param_norm = _get_total_param_or_grad_norm(
+            module, sharded_wd_only, nonsharded_wd_only, norm_type, for_gradients=False
+        )
+        total_param_norm_dtype = functools.reduce(
+            lambda dtype1, dtype2: torch.promote_types(dtype1, dtype2),
+            [param.dtype for param in sharded_wd_only] + [param.dtype for param in nonsharded_wd_only],
+        )
+        total_param_norm = total_param_norm.to(total_param_norm_dtype)
+
+    # Clip gradients.
+    clip_coef = max_norm / (total_grad_norm + 1e-6)
+    # Multiplying by the clamped coefficient is meaningless when it is
+    # equal to 1, but it avoids the host-device sync that would result from
+    # `if clip_coef < 1`
+    clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
+    for grad in grads:
+        grad.detach().mul_(clip_coef_clamped.to(grad.device, grad.dtype))
+
+    # NOTE: skipped case where `len(grads) == 0`
+    assert grads
+
+    return GradParamNorms(grad_norm=total_grad_norm.to(total_grad_norm_dtype), param_norm=total_param_norm)
+
+
+def get_norm(tensors: Iterable[torch.Tensor], norm_type: float) -> torch.Tensor:
+    """
+    Returns the norm of all tensors where the tensors are viewed as a single vector.
+    """
+    dtypes = {tensor.dtype for tensor in tensors}
+    if len(dtypes) != 1:
+        raise ValueError(f"Requires uniform dtype across all parameters but got {dtypes}")
+
+    # Compute the norm in FP32, where we treat the params as a single vector.
+    tensor_norm = torch.linalg.vector_norm(
+        torch.stack(
+            [torch.linalg.vector_norm(tensor.detach(), norm_type, dtype=torch.float32) for tensor in tensors],
+        ),
+        norm_type,
+        dtype=torch.float32,
+    )
+    return tensor_norm
+
+
+def get_total_norm(
+    tensors: Iterable[torch.Tensor], norm_type: float, device: torch.device, group: Optional[dist.group] = None
+) -> torch.Tensor:
+    """
+    Get the total norm of all tensors across all ranks, treated as a single flat tensor.
+    """
+    total_norm = get_norm(tensors, norm_type).to(device)
+    if not is_distributed():
+        return total_norm
+    if norm_type == math.inf:
+        dist.all_reduce(total_norm, op=dist.ReduceOp.MAX, group=group)
+    else:
+        total_norm = total_norm**norm_type
+        dist.all_reduce(total_norm, group=group)
+        total_norm = total_norm ** (1.0 / norm_type)
+    return total_norm
+
+
+def _get_grad_norm(
+    params: Iterable[nn.Parameter],
+    norm_type: float,
+) -> torch.Tensor:
+    """
+    Returns the gradient norm of parameters, where the gradients
+    are viewed as a single vector. The returned norm is in FP32 even if
+    parameters/gradients are in a low precision. This is because the downstream
+    use of this return value is a reduction across ranks.
+
+    Adapted from `torch.distributed.fsdp.fully_sharded_data_parallel._get_grad_norm()`.
+    """
+    grads = [param.grad for param in params if param.grad is not None]
+    if len(grads) == 0:
+        return torch.tensor(0.0)
+    return get_norm(grads, norm_type)
+
+
+def _get_param_norm(
+    params: Iterable[nn.Parameter],
+    norm_type: float,
+) -> torch.Tensor:
+    """
+    Returns the norm of all parameters that have gradients, where the params
+    are viewed as a single vector. The returned norm is in FP32 even if
+    parameters/gradients are in a low precision. This is because the downstream
+    use of this return value is a reduction across ranks.
+
+    Adapted from `torch.distributed.fsdp.fully_sharded_data_parallel._get_grad_norm()`.
+    """
+    params_with_grad = [param.data for param in params if param.grad is not None]
+    if len(params_with_grad) == 0:
+        return torch.tensor(0.0)
+    return get_norm(params_with_grad, norm_type)
+
+
+def _get_total_param_or_grad_norm(
+    module: FSDP,
+    sharded_params: Iterable[nn.Parameter],
+    nonsharded_params: Iterable[nn.Parameter],
+    norm_type: float,
+    for_gradients: bool = True,
+) -> torch.Tensor:
+    if for_gradients:
+        local_sharded_norm = _get_grad_norm(sharded_params, norm_type).to(module.compute_device)
+        local_nonsharded_norm = _get_grad_norm(nonsharded_params, norm_type).to(module.compute_device)
+    else:
+        local_sharded_norm = _get_param_norm(sharded_params, norm_type).to(module.compute_device)
+        local_nonsharded_norm = _get_param_norm(nonsharded_params, norm_type).to(module.compute_device)
+
+    # Reconstruct the total norm depending on the norm type.
+    if norm_type == math.inf:
+        total_norm = torch.maximum(local_sharded_norm, local_nonsharded_norm)
+        dist.all_reduce(total_norm, op=dist.ReduceOp.MAX, group=module.process_group)
+    else:
+        total_norm = local_sharded_norm**norm_type
+        dist.all_reduce(total_norm, group=module.process_group)
+        # All-reducing the local non-sharded norm would count it an extra
+        # world-size-many times
+        total_norm += local_nonsharded_norm**norm_type
+        total_norm = total_norm ** (1.0 / norm_type)
+
+    if module.cpu_offload.offload_params:
+        total_norm = total_norm.cpu()
+
+    return total_norm

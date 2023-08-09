@@ -34,9 +34,9 @@ model:
 compile: null  # causes instability on AMD GPUs
 
 optimizer:
-  name: lionw
-  learning_rate: 1.0e-4
-  weight_decay: 0.01
+  name: adamw
+  learning_rate: 3.0e-4
+  weight_decay: 0.1
   betas:
   - 0.9
   - 0.95
@@ -44,7 +44,7 @@ optimizer:
 scheduler:
   name: cosine_with_warmup
   t_warmup: 2000
-  # t_max: 47684  # 200B tokens, after which we decay linearly to 1/100th of initial LR
+  alpha_f: 0.1
 
 data:
   paths: ${path.glob:${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/books/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/c4/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/common-crawl/*/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/s2/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/stack/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/wiki/*.npy}
@@ -66,7 +66,7 @@ save_overwrite: false
 save_interval: 5000
 save_num_checkpoints_to_keep: -1
 # Unsharded checkpoints (for final storage)
-save_interval_unsharded: 1000000  # getting errors on LUMI right now
+save_interval_unsharded: null  # getting errors on LUMI right now
 save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null

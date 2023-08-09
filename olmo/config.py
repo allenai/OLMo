@@ -180,6 +180,25 @@ class BlockType(StrEnum):
     parallel = "parallel"
 
 
+class WeightsInitFnType(StrEnum):
+    mitchell = "mitchell"
+    """
+    The strategy suggested to us by Mitchell Wortsman from UW.
+    This uses a truncated normal distribution with an adaptive standard deviation that depends
+    on the size of the weights as well as the depth of the layer.
+    """
+
+    normal = "normal"
+    """
+    All weights are initialized from the same normal distribution.
+    """
+
+
+class WeightsInitConfig(BaseConfig):
+    name: WeightsInitFnType = WeightsInitFnType.mitchell
+    std: float = 0.02
+
+
 @dataclass
 class ModelConfig(BaseConfig):
     """
@@ -312,13 +331,18 @@ class ModelConfig(BaseConfig):
 
     init_std: float = 0.02
     """
-    Standard deviation used when initializing parameters.
+    Deprecated. See `weights_init_fn.std` instead.
     """
 
     precision: Optional[str] = None
     """
     Precision used to train/evaluate with. You shouldn't set this directly.
     See :data:`TrainConfig.precision` instead.
+    """
+
+    weights_init_fn: WeightsInitConfig = field(default_factory=WeightsInitConfig)
+    """
+    Weight initialization strategy.
     """
 
 
@@ -344,6 +368,7 @@ class OptimizerConfig(BaseConfig):
 class SchedulerType(StrEnum):
     cosine_with_warmup = "cosine_with_warmup"
     inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
+    max_scheduler = "max_scheduler"
 
 
 @dataclass
@@ -440,7 +465,7 @@ class CompilerConfig(BaseConfig):
 class FSDPConfig(BaseConfig):
     use_orig_params: bool = True
     """
-    This must be ``True`` if using ``compile``.
+    This must be ``True`` if using ``compile`` or you want to track the parameter norm during training.
     """
 
     sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD
@@ -487,11 +512,6 @@ class TrainConfig(BaseConfig):
     Learning rate scheduler configuration.
     """
 
-    restore_base_learning_rate: bool = True
-    """
-    Set to ``False`` if you want to restart with the base learning rate from the config, not the checkpoint.
-    """
-
     data: DataConfig = field(default_factory=DataConfig)
     """
     Training data configuration.
@@ -533,6 +553,11 @@ class TrainConfig(BaseConfig):
     remote_save_folder: Optional[str] = None
     """
     A folder in a cloud bucket to upload saved checkpoints to.
+    """
+
+    canceled_check_interval: int = 5
+    """
+    How often (in batches) to check if the run has been canceled or reached its time limit.
     """
 
     save_interval: int = 1000
