@@ -30,6 +30,10 @@ class OLMoConfig(PretrainedConfig):
     def num_hidden_layers(self):
         return self.n_layers
 
+    @property
+    def hidden_size(self):
+        return self.d_model
+
 
 
 # Register the config class so that it is available for transformer pipelines, auto-loading etc.

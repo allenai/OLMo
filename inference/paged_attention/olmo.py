@@ -66,7 +66,7 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
         # TODO: confirm
         slopes = _get_alibi_slopes(config.n_heads, config.alibi_bias_max)
         self.paged_attn = PagedAttentionWithALiBi(config.n_heads, config.d_model // config.n_heads, scale=1.0,
-                                                  slopes=slopes)
+                                                  slopes=slopes, num_kv_heads=1)
 
     def forward(
         self,
@@ -82,10 +82,22 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
         q, k, v = self.att_proj(self.attn_norm(x)).split(self.fused_dims, dim=-1)
+        k_cache, v_cache = kv_cache
+    
+        print("******************")
+        print(q.shape)
+        print(k.shape)
+        print(v.shape)
+        print(k_cache.shape if isinstance(k_cache, torch.Tensor) else None)
+        print(v_cache.shape if isinstance(v_cache, torch.Tensor) else None)
+        print(input_metadata)
+        print(cache_event)
+        print("******************")
 
         # Get attention scores.
-        att = self.paged_attn(q, k, v, kv_cache[0], kv_cache[1], input_metadata, cache_event)
+        att = self.paged_attn(q, k, v, k_cache, v_cache, input_metadata, cache_event)
 
+        # att, _ = self.attention(q, k, v, layer_past=kv_cache)
         # Add attention scores.
         # shape: (B, T, C)
         x = x + self.dropout(att)
@@ -102,23 +114,6 @@ class OlmoModel(nn.Module):
         super().__init__()
         self.config = config
 
-        # Validate config.
-        if self.config.alibi and self.config.flash_attention:
-            raise OlmoConfigurationError("ALiBi is currently not supported with FlashAttention")
-
-        if self.config.alibi and self.config.rope:
-            raise OlmoConfigurationError("ALiBi and RoPE are mutually exclusive")
-
-        if self.config.embedding_size is not None and self.config.embedding_size != self.config.vocab_size:
-            if self.config.embedding_size < self.config.vocab_size:
-                raise OlmoConfigurationError("embedding size should be at least as big as vocab size")
-            elif self.config.embedding_size % 128 != 0:
-                import warnings
-
-                warnings.warn(
-                    "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
-                )
-
         torch.backends.cuda.enable_flash_sdp(self.config.flash_attention)
         torch.backends.cuda.enable_mem_efficient_sdp(False)  # this is super slow so make sure torch won't use it
 
@@ -133,9 +128,8 @@ class OlmoModel(nn.Module):
             )
         )
 
-        if init_params and self.config.init_device != "meta":
-            self.apply(self.param_init_fn)
-        self.__num_fwd_flops: Optional[int] = None
+        #if init_params and self.config.init_device != "meta":
+        #    self.apply(self.param_init_fn)
 
     def param_init_fn(self, module):
         # TODO: minimize code repetition
@@ -212,11 +206,11 @@ class OlmoModel(nn.Module):
         cache_events: Optional[List[torch.cuda.Event]],
     ) -> torch.Tensor:
 
-        batch_size, seq_len = input_ids.size()
-        assert seq_len <= self.config.max_sequence_length, (
-            f"Cannot forward input with seq_len={seq_len}, "
-            f"this model only supports seq_len<={self.config.max_sequence_length}"
-        )
+        #batch_size, seq_len = input_ids.size()
+        #assert seq_len <= self.config.max_sequence_length, (
+        #    f"Cannot forward input with seq_len={seq_len}, "
+        #    f"this model only supports seq_len<={self.config.max_sequence_length}"
+        #)
 
         # Get embeddings of input.
         # shape: (batch_size, seq_len, d_model)
@@ -258,6 +252,7 @@ class OlmoModelForCausalLM(nn.Module):
 
     def __init__(self, config):
         super().__init__()
+        self.config = config
         device = config.init_device
         config.init_device = "cpu"
         self.model = OlmoModel(config)
