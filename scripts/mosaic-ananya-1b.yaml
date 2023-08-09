@@ -1,8 +1,10 @@
-run_name: olmo-1b-400b-high-lr-1e-3
-image: mosaicml/pytorch:1.12.1_cu116-python3.9-ubuntu20.04
+run_name: olmo-1b-adamw-mitch-init
+image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
 cluster: r8z3
-gpu_num: 8
+# cluster: r9z1
+gpu_num: 32
 gpu_type: a100_40gb
+# gpu_type: h100_80gb
 integrations:
   - integration_type: git_repo
     git_repo: allenai/LLM
@@ -11,9 +13,17 @@ integrations:
     ssh_clone: true
 command: |-
   cd LLM
-  torchrun --nnodes $NUM_NODES:$NUM_NODES \
-  --nproc-per-node 8 \
-  --rdzv_id=101 \
-  --rdzv_backend=c10d \
-  --rdzv_endpoint=$MASTER_ADDR \
+  torchrun --master_addr $MASTER_ADDR \
+  --master_port $MASTER_PORT \
+  --nnodes $NUM_NODES \
+  --node_rank $NODE_RANK \
+  --nproc_per_node 8 \
   scripts/train.py scripts/ananya-1b.yaml
+  # torchrun --nnodes $NUM_NODES:$NUM_NODES \
+  # --nproc-per-node 8 \
+  # --rdzv_id=101 \
+  # --rdzv_backend=c10d \
+  # --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
+  # --master_addr=$MASTER_ADDR \
+  # --master_port=$MASTER_PORT \
+  # scripts/train.py scripts/ananya-1b.yaml --device_train_microbatch_size 4

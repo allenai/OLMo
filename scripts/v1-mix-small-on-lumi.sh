@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=c4-small
+#SBATCH --job-name=v1-mix-small
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
 #SBATCH --nodes=32              # Total number of nodes 
@@ -7,6 +7,7 @@
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
 #SBATCH --time=48:00:00
+#SBATCH --time-min=24:00:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 

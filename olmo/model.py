@@ -6,7 +6,6 @@ Adapted from
 
 from __future__ import annotations
 
-import math
 import os
 from abc import abstractmethod
 from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
@@ -21,7 +20,7 @@ from .aliases import PathOrStr
 from .beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
 from .config import ActivationType, BlockType, LayerNormType, ModelConfig
 from .exceptions import OlmoConfigurationError
-from .initialization import linear_init_fn
+from .initialization import init_weights
 
 __all__ = [
     "LayerNormBase",
@@ -277,13 +276,17 @@ class OlmoBlock(nn.Module):
             self.k_norm.reset_parameters()
         if self.q_norm is not None:
             self.q_norm.reset_parameters()
-        linear_init_fn(
-            self.config, self.attn_out, std=1.0 / math.sqrt(self.config.d_model * 2 * (self.layer_id + 1))
+        init_weights(
+            self.config,
+            self.attn_out,
+            d=self.config.d_model,
+            layer_id=self.layer_id,
         )
-        linear_init_fn(
+        init_weights(
             self.config,
             self.ff_out,
-            std=1.0 / math.sqrt(self.ff_out.in_features * 2 * (self.layer_id + 1)),
+            d=self.ff_out.in_features,
+            layer_id=self.layer_id,
         )
 
     def get_rotary_embedding(self, seq_len: int, device: Optional[torch.device]) -> torch.Tensor:
@@ -409,8 +412,9 @@ class OlmoSequentialBlock(OlmoBlock):
         super().reset_parameters()
         self.attn_norm.reset_parameters()
         self.ff_norm.reset_parameters()
-        linear_init_fn(self.config, self.att_proj)
-        linear_init_fn(self.config, self.ff_proj)
+        # NOTE: the standard deviation for these weights does not depend on the layer.
+        init_weights(self.config, self.att_proj, d=self.config.d_model, layer_id=None)
+        init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None)
 
     def forward(
         self,
@@ -475,7 +479,8 @@ class OlmoParallelBlock(OlmoBlock):
     def reset_parameters(self):
         super().reset_parameters()
         self.norm.reset_parameters()
-        linear_init_fn(self.config, self.fused_attn_ff_proj)
+        # NOTE: the standard deviation for these weights does not depend on the layer.
+        init_weights(self.config, self.fused_attn_ff_proj, d=self.config.d_model, layer_id=None)
 
     def forward(
         self,
@@ -615,9 +620,9 @@ class Olmo(nn.Module):
 
     def reset_parameters(self):
         # Top-level embeddings / linear layers.
-        linear_init_fn(self.config, self.transformer.wte)  # type: ignore
+        init_weights(self.config, self.transformer.wte)  # type: ignore
         if hasattr(self.transformer, "wpe"):
-            linear_init_fn(self.config, self.transformer.wpe)  # type: ignore
+            init_weights(self.config, self.transformer.wpe)  # type: ignore
 
         # Top-level layer norm.
         self.transformer.ln_f.reset_parameters()  # type: ignore

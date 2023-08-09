@@ -4,7 +4,8 @@ dry_run: false
 
 wandb:
   name: ${run_name}
-  project: c4-small
+  project: olmo-small
+  group: v1-mix
 
 model:
   d_model: 2048
@@ -28,7 +29,7 @@ model:
   eos_token_id: 0
   pad_token_id: 1
   init_device: meta
-  init_std: 0.02
+  init_fn: mitchell
 
 compile: null  # causes instability on AMD GPUs
 
@@ -59,7 +60,7 @@ tokenizer:
   identifier: allenai/eleuther-ai-gpt-neox-20b-pii-special
   truncate_direction: right
 
-save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
+save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
 save_interval: 5000
