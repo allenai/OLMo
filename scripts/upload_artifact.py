@@ -61,6 +61,7 @@ def main(
                 blob = bucket.blob(key)
             elif blob.size == file_size:
                 # Blob exists and has the right size
+                log.info("%s already exists and has the right size, skipping.", key)
                 return
             with tqdm.wrapattr(
                 f,
