@@ -324,6 +324,14 @@ def get_local_rank() -> int:
     return int(os.environ.get("LOCAL_RANK") or 0)
 
 
+def get_fs_local_rank() -> int:
+    """Get the local rank per filesystem, meaning that, regardless of the number of nodes,
+    if all ranks share the same filesystem then `get_fs_local_rank()` will be equivalent to `get_global_rank()`,
+    but if nodes do not share the same filesystem then `get_fs_local_rank()` will be equivalent to `get_local_rank()`.
+    """
+    return int(os.environ.get("FS_LOCAL_RANK") or get_local_rank())
+
+
 def barrier() -> None:
     if dist.is_available() and dist.is_initialized():
         dist.barrier()
