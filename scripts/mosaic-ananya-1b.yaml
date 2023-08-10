@@ -1,10 +1,10 @@
-run_name: olmo-1b-adamw-standard-init
+run_name: olmo-1b-adamw-normal-init
 image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
-cluster: r8z3
-# cluster: r9z1
+# cluster: r8z3
+cluster: r9z1
 gpu_num: 32
-gpu_type: a100_40gb
-# gpu_type: h100_80gb
+# gpu_type: a100_40gb
+gpu_type: h100_80gb
 integrations:
   - integration_type: git_repo
     git_repo: allenai/LLM
