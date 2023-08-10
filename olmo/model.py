@@ -89,7 +89,10 @@ class LayerNorm(LayerNormBase):
         self.normalized_shape = (size or config.d_model,)
         self.eps = 1e-05
         self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
-        self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
+        if self.config.include_bias:
+            self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
+        else:
+            self.register_parameter("bias", None)
         self.low_precision = low_precision
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -101,9 +104,11 @@ class LayerNorm(LayerNormBase):
             )
             downcast_bias = self._cast_if_autocast_enabled(self.bias) if self.bias is not None else self.bias
             with torch.autocast(enabled=False, device_type=module_device.type):
-                return F.layer_norm(downcast_x, self.normalized_shape, downcast_weight, downcast_bias, self.eps)
+                return F.layer_norm(
+                    downcast_x, self.normalized_shape, weight=downcast_weight, bias=downcast_bias, eps=self.eps
+                )
         else:
-            return F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
+            return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
 
 
 class RMSLayerNorm(LayerNorm):
