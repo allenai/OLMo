@@ -213,6 +213,9 @@ class Trainer:
         torch.cuda.set_rng_state(rng_state["cuda"])
 
     def save_sharded_checkpoint(self) -> Path:
+        # Zero-gradients to avoid gathering them.
+        self.optim.zero_grad(set_to_none=True)
+
         checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}"
         checkpoint_dir_tmp = Path(self.cfg.save_folder) / f"step{self.global_step}-tmp"
 
