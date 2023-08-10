@@ -53,16 +53,23 @@ def main(
 
     # Upload files in parallel
     def upload(file, key):
-        blob = bucket.blob(key)
+        blob = bucket.get_blob(key)
         with file.open("rb") as f:
+            file_size = file.stat().st_size
+            if blob is None:
+                # Blob does not exist yet.
+                blob = bucket.blob(key)
+            elif blob.size == file_size:
+                # Blob exists and has the right size
+                return
             with tqdm.wrapattr(
                 f,
                 "read",
-                total=file.stat().st_size,
+                total=file_size,
                 miniters=1,
                 desc=f"Uploading {file} to gs://{bucket.name}/{key}",
             ) as f:
-                blob.upload_from_file(f)
+                blob.upload_from_file(f, checksum="md5")
 
     with ThreadPoolExecutor(max_workers=32) as executor:
         futures = [executor.submit(upload, *args) for args in files_to_upload]
