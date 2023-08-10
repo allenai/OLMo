@@ -1,4 +1,4 @@
-run_name: olmo-1b-adamw-mitch-init
+run_name: olmo-1b-adamw-standard-init
 image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
 cluster: r8z3
 # cluster: r9z1
