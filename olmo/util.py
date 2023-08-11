@@ -488,7 +488,7 @@ def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = 
     if not save_overwrite:
         try:
             s3_client.head_object(Bucket=bucket_name, Key=key)
-            raise FileExistsError(f"gs://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
+            raise FileExistsError(f"s3://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
         except ClientError as e:
             if int(e.response["Error"]["Code"]) != 404:
                 raise
