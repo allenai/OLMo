@@ -1,2 +1,3 @@
-auto-gptq
-efficiency-pentathlon @ git+https://github.com/allenai/efficiency-pentathlon@main
+#auto-gptq
+efficiency-pentathlon @ git+https://github.com/pranjali97/efficiency-pentathlon@main
+#efficiency-pentathlon @ git+https://github.com/allenai/efficiency-pentathlon@main
