@@ -157,6 +157,7 @@ data:
   pad_direction: right
   num_workers: 1
   drop_last: true
+  prefetch_factor: 8
   paths:
   - s3://ai2-llm/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/books/0_00000.npy
   - s3://ai2-llm/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/books/0_00001.npy
