@@ -82,7 +82,7 @@ evaluators:
     data:
       paths: null
       pad_direction: right
-      num_workers: 0
+      num_workers: 1
       drop_last: true
       datasets:
         4chan-validation:
@@ -155,7 +155,7 @@ evaluators:
 
 data:
   pad_direction: right
-  num_workers: 0
+  num_workers: 1
   drop_last: true
   paths:
   - s3://ai2-llm/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/books/0_00000.npy
