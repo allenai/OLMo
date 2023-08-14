@@ -13,14 +13,14 @@ Acknowledgement: This implementation is based on the official evaluation for `DR
 https://github.com/allenai/allennlp-reading-comprehension/blob/master/allennlp_rc/eval/drop_eval.py
 """
 import inspect
-import numpy as np
 import re
 import string
+
 import efficiency_benchmark.dependencies.lm_eval.datasets.drop.drop
-from scipy.optimize import linear_sum_assignment
+import numpy as np
 from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
 from efficiency_benchmark.dependencies.lm_eval.metrics import mean
-
+from scipy.optimize import linear_sum_assignment
 
 _CITATION = """
 @misc{dua2019drop,

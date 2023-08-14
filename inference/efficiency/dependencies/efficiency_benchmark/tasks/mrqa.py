@@ -1,7 +1,6 @@
 import functools
 
 from datasets import load_dataset
-
 from efficiency_benchmark.tasks import HFDatasetsTask
 
 

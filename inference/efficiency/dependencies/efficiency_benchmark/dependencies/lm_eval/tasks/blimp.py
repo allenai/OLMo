@@ -10,9 +10,8 @@ grammars.
 
 Homepage: https://github.com/alexwarstadt/blimp
 """
-from efficiency_benchmark.dependencies.lm_eval.base import rf, Task
+from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
 from efficiency_benchmark.dependencies.lm_eval.metrics import mean
-
 
 _CITATION = """
 @article{warstadt2019blimp,

@@ -15,9 +15,9 @@ not even bother with the train set.
 
 Homepage: https://ai.google.com/research/NaturalQuestions
 """
-from efficiency_benchmark.dependencies.lm_eval.base import Task
 from itertools import islice
 
+from efficiency_benchmark.dependencies.lm_eval.base import Task
 
 _CITATION = """
 @article{47761,

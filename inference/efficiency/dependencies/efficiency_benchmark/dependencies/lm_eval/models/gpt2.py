@@ -1,5 +1,5 @@
-import transformers
 import torch
+import transformers
 from efficiency_benchmark.dependencies.lm_eval.base import BaseLM
 
 

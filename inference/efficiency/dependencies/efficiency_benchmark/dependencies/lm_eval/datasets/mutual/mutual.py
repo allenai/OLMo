@@ -20,7 +20,6 @@ from pathlib import Path
 
 import datasets
 
-
 _CITATION = """\
 @inproceedings{mutual,
     title = "MuTual: A Dataset for Multi-Turn Dialogue Reasoning",

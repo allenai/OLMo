@@ -2,10 +2,8 @@ import functools
 from typing import Any, Dict, Iterable, Optional, Sequence, Union
 
 import datasets
-
 from efficiency_benchmark.tango_utils import MappedSequence, det_hash
-from efficiency_benchmark.task import (InstanceFormat,
-                                       RankClassificationInstance, Task)
+from efficiency_benchmark.task import InstanceFormat, RankClassificationInstance, Task
 
 
 class MetaICLTask(Task):

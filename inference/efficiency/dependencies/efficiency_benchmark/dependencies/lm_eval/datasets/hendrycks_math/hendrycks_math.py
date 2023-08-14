@@ -20,7 +20,6 @@ import pathlib
 
 import datasets
 
-
 _CITATION = """\
 @article{hendrycksmath2021,
   title={Measuring Mathematical Problem Solving With the Math Dataset},

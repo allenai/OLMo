@@ -1,10 +1,11 @@
 import os
+import time
+
 import numpy as np
 import transformers
-from efficiency_benchmark.dependencies.lm_eval.base import BaseLM
 from efficiency_benchmark.dependencies.lm_eval import utils
+from efficiency_benchmark.dependencies.lm_eval.base import BaseLM
 from tqdm import tqdm
-import time
 
 
 def get_result(response, ctxlen):

@@ -10,12 +10,12 @@ provide supporting evidence to answers.
 
 Homepage: https://allenai.org/data/qasper
 """
-from collections import Counter
 import re
 import string
-from efficiency_benchmark.dependencies.lm_eval.base import rf, Task
-from efficiency_benchmark.dependencies.lm_eval.metrics import f1_score, mean
+from collections import Counter
 
+from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
+from efficiency_benchmark.dependencies.lm_eval.metrics import f1_score, mean
 
 _CITATION = """
 @article{DBLP:journals/corr/abs-2105-03011,

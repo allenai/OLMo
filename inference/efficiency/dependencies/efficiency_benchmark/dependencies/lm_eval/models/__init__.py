@@ -1,7 +1,4 @@
-from . import gpt2
-from . import gpt3
-from . import textsynth
-from . import dummy
+from . import dummy, gpt2, gpt3, textsynth
 
 MODEL_REGISTRY = {
     "hf": gpt2.HFLM,

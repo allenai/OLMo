@@ -22,7 +22,6 @@ import os
 
 import datasets
 
-
 _CITATION = """\
 @misc{dua2019drop,
     title={DROP: A Reading Comprehension Benchmark Requiring Discrete Reasoning Over Paragraphs},

@@ -15,10 +15,10 @@ NOTE: We currently ignore formulas for answer generation.
 Homepage: https://github.com/chaochun/nlu-asdiv-dataset
 """
 import inspect
-import efficiency_benchmark.dependencies.lm_eval.datasets.asdiv.asdiv
-from efficiency_benchmark.dependencies.lm_eval.base import rf, Task
-from efficiency_benchmark.dependencies.lm_eval.metrics import mean
 
+import efficiency_benchmark.dependencies.lm_eval.datasets.asdiv.asdiv
+from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
+from efficiency_benchmark.dependencies.lm_eval.metrics import mean
 
 _CITATION = """
 @misc{miao2021diverse,

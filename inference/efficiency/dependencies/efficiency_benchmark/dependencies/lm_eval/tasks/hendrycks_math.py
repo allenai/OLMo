@@ -9,10 +9,10 @@ models to generate answer derivations and explanations.
 Homepage: https://github.com/hendrycks/math
 """
 import inspect
-import efficiency_benchmark.dependencies.lm_eval.datasets.hendrycks_math.hendrycks_math
-from efficiency_benchmark.dependencies.lm_eval.metrics import mean
-from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
 
+import efficiency_benchmark.dependencies.lm_eval.datasets.hendrycks_math.hendrycks_math
+from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
+from efficiency_benchmark.dependencies.lm_eval.metrics import mean
 
 _CITATION = """
 @article{hendrycksmath2021,

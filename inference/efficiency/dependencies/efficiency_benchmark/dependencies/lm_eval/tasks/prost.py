@@ -16,7 +16,6 @@ Homepage: https://github.com/nala-cub/prost
 """
 from efficiency_benchmark.dependencies.lm_eval.base import MultipleChoiceTask
 
-
 _CITATION = """
 @inproceedings{aroca-ouellette-etal-2021-prost,
     title = "{PROST}: {P}hysical Reasoning about Objects through Space and Time",

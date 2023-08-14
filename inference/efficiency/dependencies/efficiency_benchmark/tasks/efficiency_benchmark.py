@@ -7,12 +7,10 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 import datasets
 import numpy as np
 from datasets import Dataset
-
 from efficiency_benchmark.tango_utils import MappedSequence
 from efficiency_benchmark.task import InstanceConversion, Task
 from efficiency_benchmark.tasks import InstanceFormat
 from efficiency_benchmark.tasks.huggingface import get_from_dict
-
 
 NUM_SINGLE_STREAM_INSTANCES = 1000
 NUM_RANDOM_BATCH_INSTANCES = 4000

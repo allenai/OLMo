@@ -16,13 +16,13 @@ of the paper.
 Homepage: https://github.com/hendrycks/ethics
 """
 import abc
-import random
 import inspect
+import random
+
 import efficiency_benchmark.dependencies.lm_eval.datasets.hendrycks_ethics.hendrycks_ethics
 import numpy as np
 from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
 from efficiency_benchmark.dependencies.lm_eval.metrics import mean, yesno
-
 
 _CITATION = """
 @article{hendrycks2021ethics,

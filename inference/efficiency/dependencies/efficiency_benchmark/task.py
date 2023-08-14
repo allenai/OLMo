@@ -2,17 +2,26 @@ from abc import ABC
 from dataclasses import dataclass
 from enum import Enum
 from random import Random
-from typing import (Any, Callable, Dict, Iterable, List, Mapping, Optional,
-                    Sequence, Tuple, Union)
-
-import torchmetrics
-from mypy_extensions import KwArg
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import efficiency_benchmark.metrics
+import torchmetrics
 from efficiency_benchmark.metrics.bleu import BLEUMetric
 from efficiency_benchmark.metrics.entropy import EntropyMetric
 from efficiency_benchmark.metrics.perplexity import PerplexityMetric
 from efficiency_benchmark.tango_utils import det_hash
+from mypy_extensions import KwArg
 
 PERPLEXITY_METRICS = {
     "word_perplexity": PerplexityMetric,

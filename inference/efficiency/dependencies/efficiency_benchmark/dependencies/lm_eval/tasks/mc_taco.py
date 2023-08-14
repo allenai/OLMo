@@ -19,10 +19,10 @@ of a question's options. See section 4 of the paper for details.
 
 Homepage: https://leaderboard.allenai.org/mctaco/submissions/public
 """
-import numpy as np
 from collections import defaultdict
-from efficiency_benchmark.dependencies.lm_eval.base import rf, Task
 
+import numpy as np
+from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
 
 _CITATION = """
 @inproceedings{ZKNR19,

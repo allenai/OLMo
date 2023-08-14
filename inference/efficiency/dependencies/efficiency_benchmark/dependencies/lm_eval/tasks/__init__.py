@@ -1,55 +1,57 @@
 from pprint import pprint
 from typing import List, Union
 
-import sacrebleu
 import efficiency_benchmark.dependencies.lm_eval.base
+import sacrebleu
 
-from . import superglue
-from . import glue
-from . import arc
-from . import coqa
-from . import race
-from . import webqs
-from . import anli
-from . import wsc273
-from . import winogrande
-from . import quac
-from . import hellaswag
-from . import swag
-from . import openbookqa
-from . import squad
-from . import naturalqs
-from . import sat
-from . import arithmetic
-from . import lambada
-from . import piqa
-from . import prost
-from . import mc_taco
-from . import triviaqa
-from . import pubmedqa
-from . import sciq
-from . import qasper
-from . import qa4mre
-from . import translation
-from . import headqa
-from . import mathqa
-from . import hendrycks_ethics
-from . import drop
-from . import unscramble
-from . import logiqa
-from . import hendrycks_test
-from . import hendrycks_math
-from . import cbt
-from . import lambada_cloze
-from . import pile
-from . import wikitext
-from . import lambada_multilingual
-from . import mutual
-from . import truthfulqa
-from . import blimp
-from . import asdiv
-from . import gsm8k
-from . import storycloze
+from . import (
+    anli,
+    arc,
+    arithmetic,
+    asdiv,
+    blimp,
+    cbt,
+    coqa,
+    drop,
+    glue,
+    gsm8k,
+    headqa,
+    hellaswag,
+    hendrycks_ethics,
+    hendrycks_math,
+    hendrycks_test,
+    lambada,
+    lambada_cloze,
+    lambada_multilingual,
+    logiqa,
+    mathqa,
+    mc_taco,
+    mutual,
+    naturalqs,
+    openbookqa,
+    pile,
+    piqa,
+    prost,
+    pubmedqa,
+    qa4mre,
+    qasper,
+    quac,
+    race,
+    sat,
+    sciq,
+    squad,
+    storycloze,
+    superglue,
+    swag,
+    translation,
+    triviaqa,
+    truthfulqa,
+    unscramble,
+    webqs,
+    wikitext,
+    winogrande,
+    wsc273,
+)
 
 ########################################
 # Translation tasks

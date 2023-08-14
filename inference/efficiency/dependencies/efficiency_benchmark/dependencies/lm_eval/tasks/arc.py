@@ -14,7 +14,6 @@ Homepage: https://allenai.org/data/arc
 """
 from efficiency_benchmark.dependencies.lm_eval.base import MultipleChoiceTask
 
-
 _CITATION = """
 @article{Clark2018ThinkYH,
   title={Think you have Solved Question Answering? Try ARC, the AI2 Reasoning Challenge},

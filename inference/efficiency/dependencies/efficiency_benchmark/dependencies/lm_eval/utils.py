@@ -1,12 +1,13 @@
-import os
-import pathlib
-import re
 import collections
 import functools
 import inspect
+import os
+import pathlib
+import re
 import sys
-import pytest
 from typing import List
+
+import pytest
 
 
 class ExitCodeError(Exception):

@@ -9,9 +9,9 @@ even for highly specialized humans.
 Homepage: https://aghie.github.io/head-qa/
 """
 import inspect
+
 import efficiency_benchmark.dependencies.lm_eval.datasets.headqa.headqa
 from efficiency_benchmark.dependencies.lm_eval.base import MultipleChoiceTask
-
 
 _CITATION = """
 @misc{liu2020interpretable,

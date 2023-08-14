@@ -21,7 +21,6 @@ import os
 
 import datasets
 
-
 _CITATION = """\
 @misc{merity2016pointer,
       title={Pointer Sentinel Mixture Models},

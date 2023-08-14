@@ -23,7 +23,6 @@ import json
 
 import datasets
 
-
 _CITATION = """\
 @misc{reddy2018coqa,
     title={CoQA: A Conversational Question Answering Challenge},

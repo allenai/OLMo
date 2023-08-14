@@ -1,5 +1,5 @@
-import json
 import itertools
+import json
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
@@ -7,7 +7,6 @@ import more_itertools
 import numpy as np
 import torch
 from datasets import Dataset
-
 from efficiency_benchmark.efficiency.profiler import Profiler
 from efficiency_benchmark.stdio_wrapper import StdioWrapper
 from efficiency_benchmark.task import Task

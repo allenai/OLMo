@@ -4,11 +4,13 @@ from typing import Optional, Tuple
 
 import click
 from click_help_colors import HelpColorsCommand, HelpColorsGroup
-
-from efficiency_benchmark.steps import (CalculateMetricsStep, LogOutputStep,
-                                        PredictStep, TabulateMetricsStep)
+from efficiency_benchmark.steps import (
+    CalculateMetricsStep,
+    LogOutputStep,
+    PredictStep,
+    TabulateMetricsStep,
+)
 from gantry import run as gantry_run
-
 
 _CLICK_GROUP_DEFAULTS = {
     "cls": HelpColorsGroup,

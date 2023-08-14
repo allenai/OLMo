@@ -19,7 +19,6 @@ import json
 
 import datasets
 
-
 _CITATION = """\
 @misc{
     author={Paperno, Denis and Kruszewski, Germán and Lazaridou, Angeliki and Pham, Quan Ngoc and Bernardi, Raffaella and Pezzelle, Sandro and Baroni, Marco and Boleda, Gemma and Fernández, Raquel},

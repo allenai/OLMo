@@ -10,11 +10,11 @@ can be served as the training and test sets for machine comprehension.
 Homepage: https://www.cs.cmu.edu/~glai1/data/race/
 """
 import collections
+
 import datasets
 import numpy as np
-from efficiency_benchmark.dependencies.lm_eval.base import rf, Task
+from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
 from efficiency_benchmark.dependencies.lm_eval.metrics import mean
-
 
 _CITATION = """
 @article{lai2017large,

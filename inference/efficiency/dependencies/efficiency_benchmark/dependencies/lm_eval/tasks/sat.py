@@ -8,9 +8,9 @@ multiple-choice analogy questions; 5 choices per question.
 Homepage: https://aclweb.org/aclwiki/SAT_Analogy_Questions_(State_of_the_art)
 """
 import inspect
+
 import efficiency_benchmark.dependencies.lm_eval.datasets.sat_analogies.sat_analogies
 from efficiency_benchmark.dependencies.lm_eval.base import MultipleChoiceTask
-
 
 _CITATION = """
 @article{article,

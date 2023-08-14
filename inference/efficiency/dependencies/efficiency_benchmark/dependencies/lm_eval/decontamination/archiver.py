@@ -1,12 +1,13 @@
-import os
-import zstandard
-import json
-import jsonlines
-import io
 import datetime
+import io
+import json
 import mmap
-import tqdm
+import os
 from pathlib import Path
+
+import jsonlines
+import tqdm
+import zstandard
 
 
 def json_serial(obj):

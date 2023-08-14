@@ -19,7 +19,6 @@ import json
 
 import datasets
 
-
 _CITATION = """\
 @article{choi2018quac,
     title={Quac: Question answering in context},

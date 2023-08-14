@@ -11,12 +11,15 @@ import datasets
 import numpy as np
 import torch
 import torch.nn.functional as F
-from sqlitedict import SqliteDict
-from tqdm import tqdm
-
 from efficiency_benchmark.dependencies.lm_eval import utils
 from efficiency_benchmark.dependencies.lm_eval.metrics import (
-    bits_per_byte, mean, weighted_mean, weighted_perplexity)
+    bits_per_byte,
+    mean,
+    weighted_mean,
+    weighted_perplexity,
+)
+from sqlitedict import SqliteDict
+from tqdm import tqdm
 
 
 class LM(abc.ABC):

@@ -13,12 +13,12 @@ also determine when no answer is supported by the paragraph and abstain from ans
 
 Homepage: https://rajpurkar.github.io/SQuAD-explorer/
 """
-import datasets
-from math import exp
-from efficiency_benchmark.dependencies.lm_eval.base import rf, Task
 from functools import partial
-from packaging import version
+from math import exp
 
+import datasets
+from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
+from packaging import version
 
 _CITATION = """
 @misc{rajpurkar2018know,

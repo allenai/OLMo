@@ -1,9 +1,9 @@
+import json
 import threading
 import time
-from serial import Serial, SerialException
 from typing import Dict, List
-import json
 
+from serial import Serial, SerialException
 
 IDLE_POWER = 180.5  # Watts
 NUM_FIELDS = 18

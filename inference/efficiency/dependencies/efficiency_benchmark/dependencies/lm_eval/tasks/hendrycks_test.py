@@ -14,7 +14,6 @@ Homepage: https://github.com/hendrycks/test
 """
 from efficiency_benchmark.dependencies.lm_eval.base import MultipleChoiceTask
 
-
 _CITATION = """
 @article{hendryckstest2021,
     title={Measuring Massive Multitask Language Understanding},

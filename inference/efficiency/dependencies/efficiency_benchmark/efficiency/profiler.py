@@ -1,15 +1,13 @@
-import time
-import numpy as np
 import threading
+import time
 from typing import Any, Dict, List, Optional
 
-from efficiency_benchmark.efficiency.power_monitor import PowerMonitor
-from efficiency_benchmark.efficiency.power_monitor import POWER_FIELDS
+import numpy as np
 from codecarbon import EmissionsTracker
 from codecarbon.core.gpu import get_gpu_details, is_gpu_details_available
-from codecarbon.external.scheduler import PeriodicScheduler
 from codecarbon.core.units import Energy, Power, Time
-
+from codecarbon.external.scheduler import PeriodicScheduler
+from efficiency_benchmark.efficiency.power_monitor import POWER_FIELDS, PowerMonitor
 
 NUM_POWER_MONITOR_FIELDS = 18
 

@@ -2,14 +2,15 @@ import collections
 import itertools
 import random
 
-import numpy as np
-
 import efficiency_benchmark.dependencies.lm_eval.base
 import efficiency_benchmark.dependencies.lm_eval.metrics
 import efficiency_benchmark.dependencies.lm_eval.models
 import efficiency_benchmark.dependencies.lm_eval.tasks
+import numpy as np
 from efficiency_benchmark.dependencies.lm_eval.utils import (
-    positional_deprecated, run_task_tests)
+    positional_deprecated,
+    run_task_tests,
+)
 
 
 @positional_deprecated
@@ -229,8 +230,9 @@ def evaluate(
 
     # Compare all tasks/sets at once to ensure a single training set scan
     if decontaminate:
-        from efficiency_benchmark.dependencies.lm_eval.decontamination.decontaminate import \
-            get_train_overlap
+        from efficiency_benchmark.dependencies.lm_eval.decontamination.decontaminate import (
+            get_train_overlap,
+        )
 
         print("Finding train/test overlap, please wait...")
         overlaps = get_train_overlap(

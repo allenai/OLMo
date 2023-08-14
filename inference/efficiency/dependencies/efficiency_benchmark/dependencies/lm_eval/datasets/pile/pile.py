@@ -18,7 +18,6 @@ import json
 
 import datasets
 
-
 _CITATION = """\
 @article{pile,
   title={The {P}ile: An 800GB Dataset of Diverse Text for Language Modeling},

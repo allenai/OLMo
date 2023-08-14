@@ -1,16 +1,17 @@
 import os
 import random
-from typing import (Any, Callable, Dict, List, Optional, Sequence, TypeVar,
-                    Union)
+from typing import Any, Callable, Dict, List, Optional, Sequence, TypeVar, Union
 
 from efficiency_benchmark.dependencies.lm_eval.base import Task as EAITask
-from efficiency_benchmark.dependencies.lm_eval.tasks import \
-    get_task as get_eai_task
+from efficiency_benchmark.dependencies.lm_eval.tasks import get_task as get_eai_task
 from efficiency_benchmark.tango_utils import MappedSequence
-from efficiency_benchmark.task import (InstanceFormat,
-                                       RankClassificationInstance, Task,
-                                       WithAnswerOptionsMixin,
-                                       classification_metrics)
+from efficiency_benchmark.task import (
+    InstanceFormat,
+    RankClassificationInstance,
+    Task,
+    WithAnswerOptionsMixin,
+    classification_metrics,
+)
 
 T = TypeVar("T")
 

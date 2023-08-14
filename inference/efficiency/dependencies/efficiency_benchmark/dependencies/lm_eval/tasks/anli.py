@@ -10,9 +10,8 @@ provided explanations.
 Homepage: "https://github.com/facebookresearch/anli"
 """
 import numpy as np
-from efficiency_benchmark.dependencies.lm_eval.base import rf, Task
+from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
 from efficiency_benchmark.dependencies.lm_eval.metrics import mean
-
 
 _CITATION = """
 @inproceedings{nie-etal-2020-adversarial,

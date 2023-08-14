@@ -16,7 +16,6 @@
 
 import datasets
 
-
 _CITATION = """\
 @misc{liu2020logiqa,
     title={LogiQA: A Challenge Dataset for Machine Reading Comprehension with Logical Reasoning},

@@ -24,7 +24,6 @@ import os
 
 import datasets
 
-
 _CITATION = """\
 @inproceedings{vilares-gomez-rodriguez-2019-head,
     title = "{HEAD}-{QA}: A Healthcare Dataset for Complex Reasoning",

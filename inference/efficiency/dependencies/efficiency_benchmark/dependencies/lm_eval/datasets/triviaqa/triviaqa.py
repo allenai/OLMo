@@ -22,7 +22,6 @@ import os
 
 import datasets
 
-
 _CITATION = """\
 @InProceedings{JoshiTriviaQA2017,
     author = {Joshi, Mandar and Choi, Eunsol and Weld, Daniel S. and Zettlemoyer, Luke},

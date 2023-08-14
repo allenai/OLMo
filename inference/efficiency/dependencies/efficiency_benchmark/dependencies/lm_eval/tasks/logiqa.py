@@ -11,9 +11,9 @@ NLP setting.
 Homepage: https://github.com/lgw863/LogiQA-dataset
 """
 import inspect
+
 import efficiency_benchmark.dependencies.lm_eval.datasets.logiqa.logiqa
 from efficiency_benchmark.dependencies.lm_eval.base import MultipleChoiceTask
-
 
 _CITATION = """
 @misc{liu2020logiqa,

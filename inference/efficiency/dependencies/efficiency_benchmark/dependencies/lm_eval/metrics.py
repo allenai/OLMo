@@ -1,10 +1,10 @@
 import math
+import random
 from collections.abc import Iterable
 
 import numpy as np
 import sacrebleu
 import sklearn.metrics
-import random
 
 
 def mean(arr):

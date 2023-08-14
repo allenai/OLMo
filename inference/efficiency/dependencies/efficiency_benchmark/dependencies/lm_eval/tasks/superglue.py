@@ -12,10 +12,14 @@ TODO: WSC requires free-form generation.
 import numpy as np
 import sklearn
 import transformers.data.metrics.squad_metrics as squad_metrics
-from efficiency_benchmark.dependencies.lm_eval.base import rf, Task
-from efficiency_benchmark.dependencies.lm_eval.metrics import mean, acc_all, metric_max_over_ground_truths, yesno
+from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
+from efficiency_benchmark.dependencies.lm_eval.metrics import (
+    acc_all,
+    mean,
+    metric_max_over_ground_truths,
+    yesno,
+)
 from efficiency_benchmark.dependencies.lm_eval.utils import general_detokenize
-
 
 _CITATION = """
 @inproceedings{NEURIPS2019_4496bf24,

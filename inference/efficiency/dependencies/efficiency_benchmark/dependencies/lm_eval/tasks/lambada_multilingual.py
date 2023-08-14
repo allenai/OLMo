@@ -17,7 +17,6 @@ Reference (OpenAI): https://github.com/openai/gpt-2/issues/131#issuecomment-4971
 """
 from .lambada import LambadaOpenAI
 
-
 _CITATION = """
 @misc{
     author={Paperno, Denis and Kruszewski, Germán and Lazaridou, Angeliki and Pham, Quan Ngoc and Bernardi, Raffaella and Pezzelle, Sandro and Baroni, Marco and Boleda, Gemma and Fernández, Raquel},

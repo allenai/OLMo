@@ -6,10 +6,11 @@ import json
 import sys
 
 import torch
-from hf_olmo import OLMoTokenizerFast, OLMoForCausalLM, OLMoConfig
-from transformers import AutoTokenizer, AutoModelForCausalLM
-
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from vllm import LLM
+
+from hf_olmo import OLMoConfig, OLMoForCausalLM, OLMoTokenizerFast
+
 
 def stdio_predictor_wrapper(predictor):
     """

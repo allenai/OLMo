@@ -1,26 +1,39 @@
 from typing import Dict, Optional
 
 import datasets
-
-from efficiency_benchmark.task import (BINARY_CLASSIFICATION_METRICS,
-                                       ENTAILMENT_METRICS, MT_METRICS,
-                                       PERPLEXITY_METRICS, QA_METRICS,
-                                       InstanceFormat, Task,
-                                       classification_metrics, mc_metrics)
+from efficiency_benchmark.task import (
+    BINARY_CLASSIFICATION_METRICS,
+    ENTAILMENT_METRICS,
+    MT_METRICS,
+    PERPLEXITY_METRICS,
+    QA_METRICS,
+    InstanceFormat,
+    Task,
+    classification_metrics,
+    mc_metrics,
+)
 from efficiency_benchmark.tasks.efficiency_benchmark import (
-    EfficiencyBenchmarkTask,
-    EfficiencyBenchmarkRaftTask,
     EfficiencyBenchmarkPromptTask,
+    EfficiencyBenchmarkRaftTask,
+    EfficiencyBenchmarkTask,
     efficiency_benchmark_classification_conversion,
     efficiency_benchmark_mt_conversion,
+    efficiency_benchmark_prompt_conversion,
     efficiency_benchmark_raft_conversion,
-    efficiency_benchmark_prompt_conversion)
+)
 from efficiency_benchmark.tasks.eleuther import (
-    EleutherClassificationTask, EleutherClassificationTaskWithRenamedSplits,
-    EleutherTask, EleutherTaskWithRenamedSplits, RaceEleutherTask)
+    EleutherClassificationTask,
+    EleutherClassificationTaskWithRenamedSplits,
+    EleutherTask,
+    EleutherTaskWithRenamedSplits,
+    RaceEleutherTask,
+)
 from efficiency_benchmark.tasks.huggingface import (
-    HFDatasetsTask, hfclassification_conversion, hfmc_conversion,
-    hfqa_conversion)
+    HFDatasetsTask,
+    hfclassification_conversion,
+    hfmc_conversion,
+    hfqa_conversion,
+)
 from efficiency_benchmark.tasks.metaicl import MetaICLTask
 from efficiency_benchmark.tasks.mrqa import MrqaTask
 from efficiency_benchmark.tasks.p3 import P3Task

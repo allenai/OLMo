@@ -1,7 +1,7 @@
+import pickle
 import re
 import string
 import timeit
-import pickle
 import traceback
 from pprint import pprint
 
