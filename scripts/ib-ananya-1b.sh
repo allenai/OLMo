@@ -33,7 +33,7 @@ else
   AWS_SECRET_ACCESS_KEY_ARG="--env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}"
 fi
 
-NUM_NODES=4
+NUM_NODES=2
 
 gantry run \
   --workspace ai2/llm-testing \
