@@ -62,7 +62,7 @@ def main():
     args = get_args()
 
     print("Getting data.")
-    trainloader, testenc = get_wikitext2(args.n_samples, 0, 2048, args.pretrained_model_dir)
+    trainloader, testenc = get_wikitext2(args.n_samples, 0, 2048, args.pretrained_model)
     print("Done.")
 
     quantize_config = BaseQuantizeConfig(
@@ -72,7 +72,7 @@ def main():
 
     print("Loading unquantized model")
     # Load un-quantized model, the model will always be force loaded into cpu
-    model = AutoGPTQForCausalLM.from_pretrained(args.pretrained_model_dir, quantize_config)
+    model = AutoGPTQForCausalLM.from_pretrained(args.pretrained_model, quantize_config)
     print("Done")
 
     # Quantize model, the examples should be list of dict whose keys can only be
