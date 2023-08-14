@@ -49,9 +49,7 @@ class Mutual(datasets.GeneratorBasedBuilder):
     VERSION = datasets.Version("0.0.1")
 
     BUILDER_CONFIGS = [
-        datasets.BuilderConfig(
-            name="mutual", version=VERSION, description="The MuTual dataset."
-        ),
+        datasets.BuilderConfig(name="mutual", version=VERSION, description="The MuTual dataset."),
         datasets.BuilderConfig(
             name="mutual_plus",
             version=VERSION,
@@ -84,9 +82,7 @@ class Mutual(datasets.GeneratorBasedBuilder):
                 name=datasets.Split.TRAIN,
                 # These kwargs will be passed to _generate_examples
                 gen_kwargs={
-                    "basepath": os.path.join(
-                        data_dir, "MuTual-master", "data", self.config.name, "train"
-                    ),
+                    "basepath": os.path.join(data_dir, "MuTual-master", "data", self.config.name, "train"),
                     "split": "train",
                 },
             ),
@@ -94,9 +90,7 @@ class Mutual(datasets.GeneratorBasedBuilder):
                 name=datasets.Split.TEST,
                 # These kwargs will be passed to _generate_examples
                 gen_kwargs={
-                    "basepath": os.path.join(
-                        data_dir, "MuTual-master", "data", self.config.name, "test"
-                    ),
+                    "basepath": os.path.join(data_dir, "MuTual-master", "data", self.config.name, "test"),
                     "split": "test",
                 },
             ),
@@ -104,9 +98,7 @@ class Mutual(datasets.GeneratorBasedBuilder):
                 name=datasets.Split.VALIDATION,
                 # These kwargs will be passed to _generate_examples
                 gen_kwargs={
-                    "basepath": os.path.join(
-                        data_dir, "MuTual-master", "data", self.config.name, "dev"
-                    ),
+                    "basepath": os.path.join(data_dir, "MuTual-master", "data", self.config.name, "dev"),
                     "split": "dev",
                 },
             ),

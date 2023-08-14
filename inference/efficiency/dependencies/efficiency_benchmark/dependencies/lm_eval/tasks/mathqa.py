@@ -51,10 +51,7 @@ class MathQA(MultipleChoiceTask):
 
     def _process_doc(self, doc):
         answer_idx = ["a", "b", "c", "d", "e"].index(doc["correct"])
-        choices = [
-            c[4:].rstrip(" ,")
-            for c in re.findall(r"[abcd] \) .*?, |e \) .*?$", doc["options"])
-        ]
+        choices = [c[4:].rstrip(" ,") for c in re.findall(r"[abcd] \) .*?, |e \) .*?$", doc["options"])]
 
         out_doc = {
             "query": "Question: " + doc["Problem"] + "\nAnswer:",

@@ -89,15 +89,9 @@ class TruthfulQAMultipleChoice(Task):
     def doc_to_target(self, doc):
         return " "
 
-    def fewshot_context(
-        self, doc, num_fewshot, provide_description=None, rnd=None, description=None
-    ):
-        assert (
-            num_fewshot == 0
-        ), "TruthfulQA is intended only for the zero-shot setting."
-        return super().fewshot_context(
-            doc=doc, num_fewshot=num_fewshot, rnd=rnd, description=description
-        )
+    def fewshot_context(self, doc, num_fewshot, provide_description=None, rnd=None, description=None):
+        assert num_fewshot == 0, "TruthfulQA is intended only for the zero-shot setting."
+        return super().fewshot_context(doc=doc, num_fewshot=num_fewshot, rnd=rnd, description=description)
 
     def construct_requests(self, doc, ctx):
         """Uses RequestFactory to construct Requests and returns an iterable of
@@ -116,9 +110,7 @@ class TruthfulQAMultipleChoice(Task):
 
         # MC1 and MC2 targets are not always the same set of strings so we collect
         # likelihoods separately for simpler processing.
-        return get_lls(doc["mc1_targets"]["choices"]) + get_lls(
-            doc["mc2_targets"]["choices"]
-        )
+        return get_lls(doc["mc1_targets"]["choices"]) + get_lls(doc["mc2_targets"]["choices"])
 
     def process_results(self, doc, results):
         """Take a single document and the LM results and evaluates, returning a
@@ -162,7 +154,7 @@ class TruthfulQAGeneration(Task):
 
     def __init__(self):
         super().__init__()
-        #self.bleurt = datasets.load_metric("bleurt")
+        # self.bleurt = datasets.load_metric("bleurt")
 
     def has_training_docs(self):
         return False
@@ -209,15 +201,9 @@ class TruthfulQAGeneration(Task):
     def doc_to_target(self, doc):
         return " "
 
-    def fewshot_context(
-        self, doc, num_fewshot, provide_description=None, rnd=None, description=None
-    ):
-        assert (
-            num_fewshot == 0
-        ), "TruthfulQA is intended only for the zero-shot setting."
-        return super().fewshot_context(
-            doc=doc, num_fewshot=num_fewshot, rnd=rnd, description=description
-        )
+    def fewshot_context(self, doc, num_fewshot, provide_description=None, rnd=None, description=None):
+        assert num_fewshot == 0, "TruthfulQA is intended only for the zero-shot setting."
+        return super().fewshot_context(doc=doc, num_fewshot=num_fewshot, rnd=rnd, description=description)
 
     def construct_requests(self, doc, ctx):
         """Uses RequestFactory to construct Requests and returns an iterable of
@@ -255,17 +241,17 @@ class TruthfulQAGeneration(Task):
         # Catwalk note: BLEURT is disabled because we don't actually use it in Catwalk and this introduces a
         # difficult dependency.
 
-        #bleurt_scores_true = self.bleurt.compute(
+        # bleurt_scores_true = self.bleurt.compute(
         #    predictions=[completion] * len(true_refs), references=true_refs
-        #)["scores"]
-        #bleurt_scores_false = self.bleurt.compute(
+        # )["scores"]
+        # bleurt_scores_false = self.bleurt.compute(
         #    predictions=[completion] * len(false_refs), references=false_refs
-        #)["scores"]
-        #bleurt_correct = max(bleurt_scores_true)
-        #bleurt_incorrect = max(bleurt_scores_false)
-        #bleurt_max = bleurt_correct
-        #bleurt_diff = bleurt_correct - bleurt_incorrect
-        #bleurt_acc = int(bleurt_correct > bleurt_incorrect)
+        # )["scores"]
+        # bleurt_correct = max(bleurt_scores_true)
+        # bleurt_incorrect = max(bleurt_scores_false)
+        # bleurt_max = bleurt_correct
+        # bleurt_diff = bleurt_correct - bleurt_incorrect
+        # bleurt_acc = int(bleurt_correct > bleurt_incorrect)
 
         # BLEU
         bleu_scores = [self.bleu([[ref]], [completion]) for ref in all_refs]
@@ -300,9 +286,9 @@ class TruthfulQAGeneration(Task):
         rougeL_acc = int(rougeL_correct > rougeL_incorrect)
 
         return {
-            #"bleurt_max": bleurt_max,
-            #"bleurt_acc": bleurt_acc,
-            #"bleurt_diff": bleurt_diff,
+            # "bleurt_max": bleurt_max,
+            # "bleurt_acc": bleurt_acc,
+            # "bleurt_diff": bleurt_diff,
             "bleu_max": bleu_max,
             "bleu_acc": bleu_acc,
             "bleu_diff": bleu_diff,

@@ -92,19 +92,13 @@ def word_ngrams_indices(s, n):
     #   ([word, word, ...], [(start,end), (start,end), ...]),
     #   ...
     # )
-    ngram_indices_pairs = (
-        zip(*ngram_with_indices) for ngram_with_indices in ngram_seqs_with_indices
-    )
+    ngram_indices_pairs = (zip(*ngram_with_indices) for ngram_with_indices in ngram_seqs_with_indices)
 
     # Generator of ( (word_ngram, (start, end)), (word_ngram, start, end)), ...)
-    return (
-        (" ".join(ngram_seq), (indices[0][0], indices[-1][1]))
-        for ngram_seq, indices in ngram_indices_pairs
-    )
+    return ((" ".join(ngram_seq), (indices[0][0], indices[-1][1])) for ngram_seq, indices in ngram_indices_pairs)
 
 
 class Janitor:
-
     # FIXME delete_chars: Should anything else go here? Special chars?
     def __init__(
         self,
@@ -190,9 +184,7 @@ class Janitor:
     ##############
 
     def register_contaminant_cpp(self, dirt_string):
-        self.dirt_ngrams.update(
-            janitor_util.clean_ngram(dirt_string, self.delete_chars, self.ngram_n)
-        )
+        self.dirt_ngrams.update(janitor_util.clean_ngram(dirt_string, self.delete_chars, self.ngram_n))
 
     def clean_cpp(self, dirty_string):
         contamination_indices = janitor_util.clean_ngram_with_indices(
@@ -208,9 +200,7 @@ class Janitor:
         return s.translate(self.translation_table)
 
     def register_contaminant_python(self, dirt_string):
-        self.dirt_ngrams.update(
-            word_ngrams(self.normalize_string(dirt_string), self.ngram_n)
-        )
+        self.dirt_ngrams.update(word_ngrams(self.normalize_string(dirt_string), self.ngram_n))
 
     def clean_python(self, dirty_string):
         contamination_indices = (

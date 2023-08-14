@@ -98,7 +98,9 @@ class LambadaOpenAI(LambadaBase):
     """
 
     VERSION = 0
-    DATASET_PATH = inspect.getfile(efficiency_benchmark.dependencies.lm_eval.datasets.lambada_openai.lambada_openai)
+    DATASET_PATH = inspect.getfile(
+        efficiency_benchmark.dependencies.lm_eval.datasets.lambada_openai.lambada_openai
+    )
 
     def has_training_docs(self):
         return False

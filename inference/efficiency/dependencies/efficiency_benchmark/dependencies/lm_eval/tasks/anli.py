@@ -63,12 +63,7 @@ class ANLIBase(Task):
         # of the prompt (yes, repeating it!). also, " True, False, or Neither?" is directly
         # appended onto the question, with no "Answer:" or even a newline. Do we *really*
         # want to do it exactly as OA did?
-        return (
-            doc["premise"]
-            + "\nQuestion: "
-            + doc["hypothesis"]
-            + " True, False, or Neither?\nAnswer:"
-        )
+        return doc["premise"] + "\nQuestion: " + doc["hypothesis"] + " True, False, or Neither?\nAnswer:"
 
     def should_decontaminate(self):
         return True

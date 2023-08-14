@@ -27,11 +27,7 @@ class HFLM(BaseLM):
         else:
             print("Device not specified")
             print(f"Cuda Available? {torch.cuda.is_available()}")
-            self._device = (
-                torch.device("cuda")
-                if torch.cuda.is_available()
-                else torch.device("cpu")
-            )
+            self._device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
         # TODO: update this to be less of a hack once subfolder is fixed in HF
         revision = revision + ("/" + subfolder if subfolder is not None else "")
@@ -59,9 +55,7 @@ class HFLM(BaseLM):
 
         self.vocab_size = self.tokenizer.vocab_size
 
-        if isinstance(
-            self.tokenizer, (transformers.GPT2Tokenizer, transformers.GPT2TokenizerFast)
-        ):
+        if isinstance(self.tokenizer, (transformers.GPT2Tokenizer, transformers.GPT2TokenizerFast)):
             assert self.tokenizer.encode("hello\n\nhello") == [
                 31373,
                 198,
@@ -122,9 +116,7 @@ class HFLM(BaseLM):
             return self.gpt2(inps)[0][:, :, :50257]
 
     def _model_generate(self, context, max_length, eos_token_id):
-        return self.gpt2.generate(
-            context, max_length=max_length, eos_token_id=eos_token_id, do_sample=False
-        )
+        return self.gpt2.generate(context, max_length=max_length, eos_token_id=eos_token_id, do_sample=False)
 
 
 # for backwards compatibility

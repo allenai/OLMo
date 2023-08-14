@@ -55,10 +55,7 @@ class MCTACO(Task):
         return self.dataset["test"]
 
     def doc_to_text(self, doc):
-        return (
-            f"{doc['sentence']}\nQuestion: {doc['question']}\n"
-            f"Answer: {doc['answer']}\nPlausible:"
-        )
+        return f"{doc['sentence']}\nQuestion: {doc['question']}\n" f"Answer: {doc['answer']}\nPlausible:"
 
     def should_decontaminate(self):
         return True

@@ -61,9 +61,7 @@ class SATAnalogies(MultipleChoiceTask):
         return {
             "source": doc["source"],
             "query": doc["stem"].split(" ")[:2],
-            "choices": [
-                "{} is to {}".format(*c.split(" ")[:2]) for c in doc["choices"]
-            ],
+            "choices": ["{} is to {}".format(*c.split(" ")[:2]) for c in doc["choices"]],
             "gold": ["a", "b", "c", "d", "e"].index(doc["solution"].strip()),
         }
 

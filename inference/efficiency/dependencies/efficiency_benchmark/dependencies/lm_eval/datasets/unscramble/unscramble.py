@@ -63,9 +63,7 @@ class Unscramble(datasets.GeneratorBasedBuilder):
     VERSION = datasets.Version("0.0.1")
 
     BUILDER_CONFIGS = [
-        datasets.BuilderConfig(
-            name=name, version=version, description=_DESCRIPTIONS[name]
-        )
+        datasets.BuilderConfig(name=name, version=version, description=_DESCRIPTIONS[name])
         for name, version in zip(_NAMES, [VERSION] * len(_NAMES))
     ]
 

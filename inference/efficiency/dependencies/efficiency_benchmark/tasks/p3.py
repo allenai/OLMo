@@ -12,10 +12,7 @@ class P3Task(HFDatasetsTask):
         version_override: Optional[str] = None,
     ):
         super().__init__("bigscience/P3", dataset_name=dataset_name, version_override=version_override)
-        self.add_instance_conversion(
-            InstanceFormat.RANK_CLASSIFICATION,
-            self.instance_as_rank_classification
-        )
+        self.add_instance_conversion(InstanceFormat.RANK_CLASSIFICATION, self.instance_as_rank_classification)
 
     def instance_as_rank_classification(
         self,
@@ -34,15 +31,9 @@ class P3Task(HFDatasetsTask):
             prefix += f"{correct_choice[0].strip()} {correct_choice[1].strip()}\n\n"
 
         prefix += f" {instance['inputs_pretokenized'].strip()}"
-        correct_choice = instance['targets_pretokenized'].strip()
+        correct_choice = instance["targets_pretokenized"].strip()
         try:
-            choices = [
-                choice.strip()
-                for choice in instance["answer_choices"]
-            ]
+            choices = [choice.strip() for choice in instance["answer_choices"]]
         except KeyError:
             raise ValueError("This instance cannot be converted to rank classification format.")
-        return RankClassificationInstance(
-            [(prefix, choice) for choice in choices],
-            choices.index(correct_choice)
-        )
+        return RankClassificationInstance([(prefix, choice) for choice in choices], choices.index(correct_choice))

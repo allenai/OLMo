@@ -100,9 +100,7 @@ class TextSynthLM(BaseLM):
                 is_greedy = resp["is_greedy"]
                 res.append((logprob, is_greedy))
             else:
-                logger.error(
-                    f"The following response does not contain `logprobs`. Got:\n{resp}"
-                )
+                logger.error(f"The following response does not contain `logprobs`. Got:\n{resp}")
                 assert False
         return res
 
@@ -139,10 +137,7 @@ class TextSynthLM(BaseLM):
                 s = resp["text"]
                 res.append(s)
             else:
-                logger.error(
-                    f"The following response does not contain generated `text`. "
-                    "Got:\n{resp}"
-                )
+                logger.error(f"The following response does not contain generated `text`. " "Got:\n{resp}")
                 assert False
         return res
 

@@ -53,9 +53,7 @@ class Logiqa(datasets.GeneratorBasedBuilder):
     VERSION = datasets.Version("0.0.1")
 
     BUILDER_CONFIGS = [
-        datasets.BuilderConfig(
-            name="logiqa", version=VERSION, description="The LogiQA dataset."
-        ),
+        datasets.BuilderConfig(name="logiqa", version=VERSION, description="The LogiQA dataset."),
     ]
 
     def _info(self):

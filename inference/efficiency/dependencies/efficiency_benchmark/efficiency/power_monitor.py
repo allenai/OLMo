@@ -24,17 +24,14 @@ class PowerMonitor(threading.Thread):
     @property
     def stopped(self):
         return self._stop_event.is_set()
-    
+
     @staticmethod
-    def try_open_serial_port( 
-            serial_port: str = '/dev/ttyUSB0', 
-            baud_rate: int = 115200
-    ) -> bool:
+    def try_open_serial_port(serial_port: str = "/dev/ttyUSB0", baud_rate: int = 115200) -> bool:
         try:
             return Serial(serial_port, baud_rate)
         except:
             return None
-        
+
     @staticmethod
     def try_close_serial_port(ser: Serial):
         try:
@@ -43,10 +40,7 @@ class PowerMonitor(threading.Thread):
             pass
 
     @staticmethod
-    def read_power_monitor(
-        ser: Serial,
-        stop_event: threading.Event,
-        power_readings: List[Dict]):
+    def read_power_monitor(ser: Serial, stop_event: threading.Event, power_readings: List[Dict]):
         data_str = ""
 
         def _wrap_up():
@@ -65,10 +59,10 @@ class PowerMonitor(threading.Thread):
 
         while not stop_event.is_set():
             try:
-                # Check if incoming bytes are waiting to be read from the serial input 
+                # Check if incoming bytes are waiting to be read from the serial input
                 # buffer.
                 if ser.in_waiting > 0:
-                    data_str += ser.read(ser.in_waiting).decode("utf-8") 
+                    data_str += ser.read(ser.in_waiting).decode("utf-8")
             except UnicodeDecodeError as e:
                 print(e, "Decode error, skip")
                 continue
@@ -87,9 +81,7 @@ def main():
         results = []
         stop_event = threading.Event()
         power_monitor = PowerMonitor(
-            stop_event=stop_event,
-            target=PowerMonitor.read_power_monitor, 
-            args=(ser, stop_event, results)
+            stop_event=stop_event, target=PowerMonitor.read_power_monitor, args=(ser, stop_event, results)
         )
         power_monitor.start()
     else:

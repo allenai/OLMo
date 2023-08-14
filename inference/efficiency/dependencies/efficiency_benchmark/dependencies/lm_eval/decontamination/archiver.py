@@ -31,10 +31,7 @@ class Archive:
 
     def add_data(self, data, meta={}):
         self.compressor.write(
-            json.dumps({"text": data, "meta": meta}, default=json_serial).encode(
-                "UTF-8"
-            )
-            + b"\n"
+            json.dumps({"text": data, "meta": meta}, default=json_serial).encode("UTF-8") + b"\n"
         )
 
     def commit(self):

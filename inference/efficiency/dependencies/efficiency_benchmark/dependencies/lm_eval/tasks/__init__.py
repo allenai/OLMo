@@ -73,8 +73,7 @@ selected_translation_benchmarks = {
 
 # 319 total
 all_translation_benchmarks = {
-    ts: sacrebleu.get_langpairs_for_testset(ts)
-    for ts in sacrebleu.get_available_testsets()
+    ts: sacrebleu.get_langpairs_for_testset(ts) for ts in sacrebleu.get_available_testsets()
 }
 
 
@@ -309,17 +308,13 @@ def get_task_name_from_object(task_object):
 
     # this gives a mechanism for non-registered tasks to have a custom name anyways when reporting
     return (
-        task_object.EVAL_HARNESS_NAME
-        if hasattr(task_object, "EVAL_HARNESS_NAME")
-        else type(task_object).__name__
+        task_object.EVAL_HARNESS_NAME if hasattr(task_object, "EVAL_HARNESS_NAME") else type(task_object).__name__
     )
 
 
 def get_task_dict(task_name_list: List[Union[str, efficiency_benchmark.dependencies.lm_eval.base.Task]]):
     task_name_dict = {
-        task_name: get_task(task_name)()
-        for task_name in task_name_list
-        if isinstance(task_name, str)
+        task_name: get_task(task_name)() for task_name in task_name_list if isinstance(task_name, str)
     }
     task_name_from_object_dict = {
         get_task_name_from_object(task_object): task_object

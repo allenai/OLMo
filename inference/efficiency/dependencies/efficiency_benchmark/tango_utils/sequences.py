@@ -150,9 +150,7 @@ class ConcatenatedSequence(abc.Sequence):
         self.sequences = sequences
         self.cumulative_sequence_lengths = [0]
         for sequence in sequences:
-            self.cumulative_sequence_lengths.append(
-                self.cumulative_sequence_lengths[-1] + len(sequence)
-            )
+            self.cumulative_sequence_lengths.append(self.cumulative_sequence_lengths[-1] + len(sequence))
 
     def __len__(self):
         return self.cumulative_sequence_lengths[-1]

@@ -79,9 +79,7 @@ class GPT3LM(BaseLM):
         self.tokenizer.pad_token = "<|endoftext|>"
         assert self.tokenizer.encode("hello\n\nhello") == [31373, 198, 198, 31373]
         self.truncate = truncate
-        self.end_of_text_token_id = self.tokenizer.convert_tokens_to_ids(
-            ["<|endoftext|>"]
-        )[0]
+        self.end_of_text_token_id = self.tokenizer.convert_tokens_to_ids(["<|endoftext|>"])[0]
 
         # Read from environment variable OPENAI_API_SECRET_KEY
         openai.api_key = os.environ["OPENAI_API_SECRET_KEY"]
@@ -153,9 +151,7 @@ class GPT3LM(BaseLM):
                 logprobs=10,
             )
 
-            for resp, ctxlen, (cache_key, context_enc, continuation_enc) in zip(
-                response.choices, ctxlens, chunk
-            ):
+            for resp, ctxlen, (cache_key, context_enc, continuation_enc) in zip(response.choices, ctxlens, chunk):
                 answer = get_result(resp, ctxlen)
 
                 res.append(answer)
@@ -191,9 +187,7 @@ class GPT3LM(BaseLM):
                 yield ret, lastuntil
 
         # todo: more intelligent batching for heterogeneous `until`
-        for chunk, until in tqdm(
-            list(sameuntil_chunks(re_ord.get_reordered(), self.REQ_CHUNK_SIZE))
-        ):
+        for chunk, until in tqdm(list(sameuntil_chunks(re_ord.get_reordered(), self.REQ_CHUNK_SIZE))):
             inps = []
             for context, _ in chunk:
                 context_enc = self.tok_encode(context)

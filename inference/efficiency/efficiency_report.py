@@ -7,7 +7,7 @@ import sys
 
 import torch
 
-#from auto_gptq import AutoGPTQForCausalLM
+# from auto_gptq import AutoGPTQForCausalLM
 from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer, OPTForCausalLM
 
 
@@ -34,7 +34,7 @@ def stdio_predictor_wrapper(predictor):
 
 class ModelSetUp:
     def __init__(self, pretrained_model_dir, quantized_model_dir):
-        #device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+        # device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
         self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model_dir, use_fast=False)
         self.tokenizer.padding_size = "left"
@@ -68,7 +68,8 @@ def get_args():
 
     parser.add_argument(
         "--quantized-model-dir",
-        type=str, default=None,
+        type=str,
+        default=None,
         help="Path to the quantized model / Name of the quantized huggingface model.",
     )
 

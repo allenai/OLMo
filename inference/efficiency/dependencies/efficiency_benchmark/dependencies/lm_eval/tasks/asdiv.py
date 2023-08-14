@@ -54,13 +54,9 @@ class Asdiv(Task):
     def test_docs(self):
         raise NotImplementedError("This dataset has no test docs")
 
-    def fewshot_context(
-        self, doc, num_fewshot, provide_description=None, rnd=None, description=None
-    ):
+    def fewshot_context(self, doc, num_fewshot, provide_description=None, rnd=None, description=None):
         assert num_fewshot == 0, "ASDiv is intended only for the zero-shot setting."
-        return super().fewshot_context(
-            doc=doc, num_fewshot=num_fewshot, rnd=rnd, description=description
-        )
+        return super().fewshot_context(doc=doc, num_fewshot=num_fewshot, rnd=rnd, description=description)
 
     def doc_to_text(self, doc):
         # TODO: add solution-type

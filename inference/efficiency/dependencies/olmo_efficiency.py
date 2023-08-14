@@ -46,7 +46,9 @@ class PredictWrapper:
             self.tokenizer.pad_token = self.tokenizer.eos_token
             self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
 
-        self.model = AutoModelForCausalLM.from_pretrained(pretrained_model_dir) #, device=device, use_triton=False)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            pretrained_model_dir
+        )  # , device=device, use_triton=False)
         self.model = self.model.to(device)
 
     def predict(self, inputs):
@@ -65,7 +67,7 @@ class PredictWrapper:
 class VLLMPredictWrapper:
     def __init__(self, pretrained_model_dir):
         self.model = LLM(pretrained_model_dir, gpu_memory_utilization=0.9, tensor_parallel_size=2)
-    
+
     def predict(self, inputs):
         outputs = self.model.generate(inputs)
         for output in outputs:
@@ -89,4 +91,3 @@ if __name__ == "__main__":
     predictor = PredictWrapper(args.pretrained_model)
     # predictor = VLLMPredictWrapper(args.pretrained_model)
     stdio_predictor_wrapper(predictor)
-

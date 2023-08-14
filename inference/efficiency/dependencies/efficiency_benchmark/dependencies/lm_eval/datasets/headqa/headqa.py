@@ -63,12 +63,8 @@ class HeadQA(datasets.GeneratorBasedBuilder):
     VERSION = datasets.Version("1.1.0")
 
     BUILDER_CONFIGS = [
-        datasets.BuilderConfig(
-            name="es", version=VERSION, description="Spanish HEAD dataset"
-        ),
-        datasets.BuilderConfig(
-            name="en", version=VERSION, description="English HEAD dataset"
-        ),
+        datasets.BuilderConfig(name="es", version=VERSION, description="Spanish HEAD dataset"),
+        datasets.BuilderConfig(name="en", version=VERSION, description="English HEAD dataset"),
     ]
 
     DEFAULT_CONFIG_NAME = "es"
@@ -145,9 +141,7 @@ class HeadQA(datasets.GeneratorBasedBuilder):
 
                     aids = [answer["aid"] for answer in question["answers"]]
                     atexts = [answer["atext"].strip() for answer in question["answers"]]
-                    answers = [
-                        {"aid": aid, "atext": atext} for aid, atext in zip(aids, atexts)
-                    ]
+                    answers = [{"aid": aid, "atext": atext} for aid, atext in zip(aids, atexts)]
 
                     id_ = f"{exam_id}_{qid}"
                     yield id_, {

@@ -74,17 +74,9 @@ class NaturalQs(Task):
         # short_answer = doc["annotations"]["short_answers"][0]["text"]
         long_answer_start = doc["annotations"]["long_answer"][0]["start_token"]
         long_answer_end = doc["annotations"]["long_answer"][0]["end_token"]
-        long_answer_span = doc["document"]["tokens"]["token"][
-            long_answer_start:long_answer_end
-        ]
-        long_answer_is_html = doc["document"]["tokens"]["is_html"][
-            long_answer_start:long_answer_end
-        ]
-        long_answer_chars = [
-            tok
-            for (tok, is_html) in zip(long_answer_span, long_answer_is_html)
-            if not is_html
-        ]
+        long_answer_span = doc["document"]["tokens"]["token"][long_answer_start:long_answer_end]
+        long_answer_is_html = doc["document"]["tokens"]["is_html"][long_answer_start:long_answer_end]
+        long_answer_chars = [tok for (tok, is_html) in zip(long_answer_span, long_answer_is_html) if not is_html]
         long_answer = " ".join(long_answer_chars)
         return long_answer  # Replace with short_answer[0] for short answer
 

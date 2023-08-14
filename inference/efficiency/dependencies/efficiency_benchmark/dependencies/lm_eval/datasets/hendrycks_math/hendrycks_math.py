@@ -88,9 +88,7 @@ class HendrycksMath(datasets.GeneratorBasedBuilder):
                 name=datasets.Split.TRAIN,
                 # These kwargs will be passed to _generate_examples
                 gen_kwargs={
-                    "basepath": os.path.join(
-                        data_dir, "MATH", "train", self.config.name
-                    ),
+                    "basepath": os.path.join(data_dir, "MATH", "train", self.config.name),
                     "split": "train",
                 },
             ),
@@ -98,9 +96,7 @@ class HendrycksMath(datasets.GeneratorBasedBuilder):
                 name=datasets.Split.TEST,
                 # These kwargs will be passed to _generate_examples
                 gen_kwargs={
-                    "basepath": os.path.join(
-                        data_dir, "MATH", "test", self.config.name
-                    ),
+                    "basepath": os.path.join(data_dir, "MATH", "test", self.config.name),
                     "split": "test",
                 },
             ),

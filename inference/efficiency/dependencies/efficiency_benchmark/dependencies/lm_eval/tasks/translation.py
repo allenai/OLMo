@@ -108,8 +108,7 @@ class GeneralTranslationTask(Task):
             self.sacrebleu_dataset, self.sacrebleu_language_pair
         )
         self.src_data, self.ref_data = [
-            [line.rstrip() for line in sacrebleu.smart_open(file)]
-            for file in (self.src_file, self.ref_file)
+            [line.rstrip() for line in sacrebleu.smart_open(file)] for file in (self.src_file, self.ref_file)
         ]
 
     def has_training_docs(self):
@@ -130,9 +129,7 @@ class GeneralTranslationTask(Task):
         :return: Iterable[obj]
             A iterable of any object, that doc_to_text can handle
         """
-        return [
-            {"src": src, "ref": ref} for src, ref in zip(self.src_data, self.ref_data)
-        ]
+        return [{"src": src, "ref": ref} for src, ref in zip(self.src_data, self.ref_data)]
 
     def doc_to_text(self, doc):
         language_codes = self.sacrebleu_language_pair.split("-")

@@ -88,9 +88,7 @@ class ASDiv(datasets.GeneratorBasedBuilder):
                 name=datasets.Split.VALIDATION,
                 # These kwargs will be passed to _generate_examples
                 gen_kwargs={
-                    "filepath": os.path.join(
-                        data_dir, base_filepath, "dataset", "ASDiv.xml"
-                    ),
+                    "filepath": os.path.join(data_dir, base_filepath, "dataset", "ASDiv.xml"),
                     "split": datasets.Split.VALIDATION,
                 },
             ),
