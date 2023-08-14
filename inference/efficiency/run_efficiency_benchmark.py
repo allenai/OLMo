@@ -7,7 +7,7 @@ import sys
 
 import torch
 
-# from auto_gptq import AutoGPTQForCausalLM
+from auto_gptq import AutoGPTQForCausalLM
 from transformers import AutoTokenizer
 
 
@@ -79,5 +79,5 @@ def get_args():
 
 if __name__ == "__main__":
     args = get_args()
-    predictor = AutoGPTQAlpaca(args.pretrained_model_dir, args.quantized_model_dir)
+    predictor = AutoGPTQAlpaca(args.pretrained_model, args.quantized_model_dir)
     stdio_predictor_wrapper(predictor)
