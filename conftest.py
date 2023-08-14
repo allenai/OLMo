@@ -46,7 +46,7 @@ def model_config() -> ModelConfig:
         eos_token_id=50256,
         pad_token_id=50256,
         d_model=128,
-        n_heads=2,
+        n_heads=4,
         n_layers=3,
         max_sequence_length=512,
     )

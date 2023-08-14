@@ -16,6 +16,7 @@ from typing import (
     Union,
     cast,
 )
+import warnings
 
 import torch
 from omegaconf import OmegaConf as om
@@ -248,6 +249,31 @@ class ModelConfig(BaseConfig):
     Use the Multi-Query formulation of attention used in PaLM. This reduces the number of parameters
     and is more efficient during inference.
     """
+    _n_kv_heads: Optional[int] = None
+
+    @property
+    def n_kv_heads(self) -> Optional[int]:
+        return self._n_kv_heads
+    
+    @n_kv_heads.setter
+    def n_kv_heads(self, new_n_kv_heads: Optional[int]) -> None:
+        if new_n_kv_heads is None:
+            self._n_kv_heads = self.n_heads
+        elif new_n_kv_heads < 1 or new_n_kv_heads > self.n_heads:
+            raise OlmoConfigurationError(
+                f"Number of heads for grouped query attention must be between 1 and n_heads ({self.n_heads}). Value passed: {new_n_kv_heads}"
+            )
+        elif self.n_heads % new_n_kv_heads != 0:
+            raise OlmoConfigurationError(f"n_heads ({self.n_heads}) must be divisible by n_kv_heads ({new_n_kv_heads})")
+        else:
+            self._n_kv_heads = new_n_kv_heads
+        
+    """
+    Use grouped query attention, an interpolation between full multi-head attention and multi-query attention.
+    A value of 1 corresponds to multi-query attention, and ``n_heads`` corresponds to full multi-head attention.
+    Set ``n_jv_heads`` to the number of groups (heads) to use.  Must be >= 1 and <= ``n_heads``.
+    TODO: deprecate ``multi_query_attention`` in favor of this
+    """
 
     attention_layer_norm: bool = False
     """
@@ -320,6 +346,21 @@ class ModelConfig(BaseConfig):
     Precision used to train/evaluate with. You shouldn't set this directly.
     See :data:`TrainConfig.precision` instead.
     """
+
+    def __post_init__(self):
+        #TODO create a setter and move this there
+        if hasattr(self, "multi_query_attention") and self.multi_query_attention:
+            self.n_kv_heads = 1
+            warnings.warn(
+                "multi_query_attention is deprecated. Set n_kv_heads=1 instead.",
+                DeprecationWarning,
+            )
+
+        if self.n_kv_heads is None:
+            self.n_kv_heads = self.n_heads
+        
+        if self.d_model % self.n_heads != 0:
+            raise OlmoConfigurationError(f"d_model ({self.d_model}) must be divisible by n_heads ({self.n_heads})")
 
 
 class OptimizerType(StrEnum):

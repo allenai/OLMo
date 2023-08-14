@@ -236,8 +236,10 @@ class OlmoBlock(nn.Module):
         self.q_norm: Optional[LayerNormBase] = None
         if config.attention_layer_norm:
             self.k_norm = LayerNormBase.build(
-                config, size=config.d_model // config.n_heads if config.multi_query_attention else None
-            )
+                config,
+                size=(config.d_model * config.n_kv_heads)
+                // config.n_heads,  # = d_model for full attn, d_model // n_heads for multi-query attn
+            ) 
             self.q_norm = LayerNormBase.build(config)
 
         # Activation function.
@@ -293,16 +295,10 @@ class OlmoBlock(nn.Module):
         # Move head forward to be next to the batch dim.
         # shape: (B, nh, T, hs)
         q = q.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
-        if self.config.multi_query_attention:
-            # shape: (B, 1, T, hs)
-            k = k.view(B, T, 1, C // self.config.n_heads).transpose(1, 2)
-            # shape: (B, 1, T, hs)
-            v = v.view(B, T, 1, C // self.config.n_heads).transpose(1, 2)
-        else:
-            # shape: (B, nh, T, hs)
-            k = k.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
-            # shape: (B, nh, T, hs)
-            v = v.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
+        # shape: (B, n_kv_heads, T, hs)
+        k = k.view(B, T, self.config.n_kv_heads, C // self.config.n_heads).transpose(1, 2)
+        # shape: (B, n_kv_heads, T, hs)
+        v = v.view(B, T, self.config.n_kv_heads, C // self.config.n_heads).transpose(1, 2)
 
         if layer_past is not None:
             past_key, past_value = layer_past
@@ -327,6 +323,7 @@ class OlmoBlock(nn.Module):
 
         # Get the attention scores.
         # shape: (B, nh, T, hs)
+        print(q.shape, k.shape, v.shape)
         att = F.scaled_dot_product_attention(
             q,
             k,
@@ -372,10 +369,8 @@ class OlmoSequentialBlock(OlmoBlock):
         self.attn_norm = LayerNorm.build(config)
         self.ff_norm = LayerNorm.build(config)
         # Attention input projection. Projects x -> (q, k, v)
-        if config.multi_query_attention:
-            self.fused_dims = (config.d_model, config.d_model // config.n_heads, config.d_model // config.n_heads)
-        else:
-            self.fused_dims = (config.d_model, config.d_model, config.d_model)
+        d_per_head = (config.d_model * config.n_kv_heads) // config.n_heads
+        self.fused_dims = (config.d_model, d_per_head, d_per_head)
         self.att_proj = nn.Linear(
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
@@ -432,15 +427,9 @@ class OlmoParallelBlock(OlmoBlock):
         # but we found that didn't help, possibly because of the overhead of joining the `att`
         # and `ff` activations together.
         # See https://github.com/allenai/LLM/pull/79 for details.
-        if config.multi_query_attention:
-            self.fused_dims = (
-                config.d_model,
-                config.d_model // config.n_heads,
-                config.d_model // config.n_heads,
-                config.mlp_ratio * config.d_model,
-            )
-        else:
-            self.fused_dims = (config.d_model, config.d_model, config.d_model, config.mlp_ratio * config.d_model)
+        d_per_head = (config.d_model * config.n_kv_heads) // config.n_heads
+        self.fused_dims = (config.d_model, d_per_head, d_per_head, config.mlp_ratio * config.d_model)
+
         self.fused_attn_ff_proj = nn.Linear(
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
