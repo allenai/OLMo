@@ -20,7 +20,7 @@ else
 fi
 
 # get run name, we will use this as task name in gantry
-RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:\s*//')
+RUN_NAME=$(cat $CONFIG_PATH | grep -e '^run_name\:\s*\(.*\)$' | sed 's/run_name:\s*//')
 
 # get a hash of the load path and config path; take the first 8 characters
 RUN_HASH=$(echo "${LOAD_PATH_ARG}-${CONFIG_PATH}" | md5sum | cut -c 1-8)
