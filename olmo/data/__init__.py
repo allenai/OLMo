@@ -30,7 +30,12 @@ def build_memmap_dataset(train_config: TrainConfig, data_config: DataConfig) -> 
             metadata.extend([{"label": label}] * len(label_paths))
     else:
         raise OlmoConfigurationError("One of DataConfig.paths or DataConfig.datasets is required")
-    return MemMapDataset(*paths, chunk_size=train_config.model.max_sequence_length, metadata=metadata)
+    return MemMapDataset(
+        *paths,
+        chunk_size=train_config.model.max_sequence_length,
+        metadata=metadata,
+        include_instance_metadata=False,
+    )
 
 
 def build_eval_dataloader(
