@@ -31,6 +31,8 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
     :param memmap_dtype: The numpy datatype of the memory-mapped array.
     :param metadata: Metadata to add to each item. This should be a dictionary or a list of dictionaries
         with the same number of items as there are paths.
+    :param include_instance_metadata: If ``True`` (the default), each instance returned from `__getitem__` will
+        include the metadata from its source.
     """
 
     def __init__(
@@ -39,6 +41,7 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         chunk_size: int = 1024,
         memmap_dtype=np.uint16,
         metadata: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None,
+        include_instance_metadata: bool = True,
     ):
         if not paths:
             raise ValueError("At least one path is required")
@@ -54,6 +57,7 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         self._num_instances: Optional[int] = None
         self.dtype = memmap_dtype
         self._item_size = self.dtype(0).itemsize
+        self._include_instance_metadata = include_instance_metadata
 
     @property
     def chunk_size(self) -> int:
@@ -105,8 +109,11 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
 
         # Read the data from file.
         input_ids = self._read_chunk_from_memmap(self._memmap_paths[memmap_index], memmap_local_index)
-        metadata = self._metadata[memmap_index]
-        return {"input_ids": input_ids, "metadata": deepcopy(metadata)}
+        out: Dict[str, Any] = {"input_ids": input_ids}
+        if self._include_instance_metadata:
+            metadata = self._metadata[memmap_index]
+            out["metadata"] = deepcopy(metadata)
+        return out
 
     def __add__(self, other: MemMapDataset) -> MemMapDataset:
         """
