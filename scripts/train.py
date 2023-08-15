@@ -200,11 +200,13 @@ def main(cfg: TrainConfig) -> None:
             log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
         if cfg.compile is not None:
-            # NOTE: trying to compile the whole train step results in a compile-time error from within
+            # TODO (epwalsh): trying to compile the whole train step results in a compile-time error from within
             # the optimizer. We should investigate this further at some point.
             #  trainer.train_step = torch.compile(trainer.train_step, **cfg.compile.asdict())
             trainer.train_batch = torch.compile(trainer.train_batch, **cfg.compile.asdict())  # type: ignore
-            trainer.eval_batch = torch.compile(trainer.eval_batch, **cfg.compile.asdict())  # type: ignore
+            # TODO (epwalsh): compiling the `eval_batch()` method is a little sketchy since the inputs will look
+            # different for different eval tasks. That might be okay, but it might not be.
+            #  trainer.eval_batch = torch.compile(trainer.eval_batch, **cfg.compile.asdict())  # type: ignore
             # Alternatively, could just do this:
             #  trainer.fsdp_model = torch.compile(trainer.fsdp_model, **cfg.compile.asdict())
 
