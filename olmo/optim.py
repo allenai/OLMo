@@ -88,6 +88,7 @@ class LionW(Optimizer):
 
                 # Track dot product and norms of update vs signed update in order to calculate
                 # their cosine similarity.
+                update_total_dot_prod = update_total_dot_prod.to(update.device)
                 update_total_dot_prod += torch.tensordot(update, signed_update, dims=len(update.shape))
                 update_norms.append(torch.linalg.vector_norm(update, 2.0, dtype=torch.float32))
                 signed_update_norms.append(torch.linalg.vector_norm(signed_update, 2.0, dtype=torch.float32))
