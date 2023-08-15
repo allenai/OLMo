@@ -283,7 +283,7 @@ data:
     - s3://ai2-dirkg/2022-27/c5-en-2022-27.npy/00015_00003.npy
     - s3://ai2-dirkg/2022-27/c5-en-2022-27.npy/00015_00004.npy
   pad_direction: right
-  num_workers: 4
+  num_workers: 64
   drop_last: true
   pin_memory: true
   prefetch_factor: 4  # bump to 16 if on LUMI
