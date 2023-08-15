@@ -12,7 +12,7 @@ fi
 
 
 # check if CONFIG PATH is provided as an environment variable;
-# if so, use that instead of olmo-small-ablation.yaml
+# if so, use that instead of configs/bff-tiny.yaml
 if [ -z ${CONFIG_PATH+x} ]; then
   export CONFIG_PATH=configs/bff-tiny.yaml
 else
