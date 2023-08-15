@@ -39,6 +39,8 @@ fi
 # If you need to run on multiple nodes, use this.
 #NUM_NODES=1
 #--replicas ${NUM_NODES} \
+#--leader-selection  \
+#--host-networking \
 
 gantry run \
   --workspace ai2/llm-testing \
@@ -50,8 +52,6 @@ gantry run \
   --cluster ai2/allennlp-cirrascale \
   --cluster ai2/general-cirrascale \
   --gpus 8 \
-  --leader-selection  \
-  --host-networking \
   --nfs \
   ${WANDB_API_KEY_ARG} \
   --env LOG_FILTER_TYPE=local_rank0_only \
