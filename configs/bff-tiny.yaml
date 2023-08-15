@@ -24,10 +24,10 @@ model:
   embedding_dropout: 0.0
   max_sequence_length: 1024
   include_bias: true
-  vocab_size: 50257
+  vocab_size: 50277
   embedding_size: 50304
-  eos_token_id: 50256
-  pad_token_id: 50256
+  eos_token_id: 0
+  pad_token_id: 0
   init_device: meta
   init_std: 0.02
 
