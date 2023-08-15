@@ -104,13 +104,13 @@ evaluators:
   # lump all the small datasets together (we still get separate metrics).
   - label: all-small-ppl-validation
     data:
+      num_workers: 4
+      drop_last: true
+      pin_memory: true
+      prefetch_factor: 1
+      persistent_workers: false
+      timeout: 0
       datasets:
-        num_workers: 4
-        drop_last: true
-        pin_memory: true
-        prefetch_factor: 1
-        persistent_workers: false
-        timeout: 0
         4chan-validation:
         - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
         c4_100_domains-validation:
