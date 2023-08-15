@@ -1,4 +1,4 @@
-run_name: olmo-1b-adamw-normal-init
+run_name: olmo-medium-adamw-mitch-init
 image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
 cluster: r9z1
 gpu_num: 32
