@@ -25,6 +25,7 @@ def stdio_predictor_wrapper(predictor):
         outputs = predictor.predict(inputs=inputs)
         # Writes are \n deliminated, so adding \n is essential to separate this write from the next loop iteration.
         outputs = [o for o in outputs]
+        print('outputs', outputs)
         sys.stdout.write(f"{json.dumps(outputs)}\n")
         # Writes to stdout are buffered. The flush ensures the output is immediately sent through the pipe
         # instead of buffered.
@@ -41,7 +42,6 @@ class ModelSetUp:
             self.tokenizer.pad_token = self.tokenizer.unk_token
             self.tokenizer.pad_token_id = self.tokenizer.unk_token_id
         if quantized_model_dir:
-            print('Computing efficiency benchmark for the Quantized model')
             self.model = AutoGPTQForCausalLM.from_quantized(quantized_model_dir, device=device, use_triton=False)
         else:
             self.model = AutoModelForCausalLM.from_pretrained(pretrained_model_dir)
@@ -81,5 +81,5 @@ def get_args():
 
 if __name__ == "__main__":
     args = get_args()
-    predictor = ModelSetUp(args.pretrained_model, args.quantized_model_dir)
+    predictor = ModelSetUp(args.pretrained_model_dir, args.quantized_model_dir)
     stdio_predictor_wrapper(predictor)
