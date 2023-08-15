@@ -39,7 +39,7 @@ fi
 NUM_NODES=1
 
 gantry run \
-  --workspace ai2/dirkg \
+  --workspace ai2/llm-testing \
   --task-name "${FULL_RUN_NAME}" \
   --description "${FULL_RUN_NAME}" \
   --priority "normal" \
