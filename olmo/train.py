@@ -38,6 +38,7 @@ from .optim import Scheduler
 from .util import (
     barrier,
     fsdp_clip_grads_and_get_norms,
+    get_fs_local_rank,
     get_global_rank,
     get_world_size,
     move_to_device,
@@ -212,14 +213,17 @@ class Trainer:
         torch.cuda.set_rng_state(rng_state["cuda"])
 
     def save_sharded_checkpoint(self) -> Path:
+        # Zero-gradients to avoid gathering them.
+        self.optim.zero_grad(set_to_none=True)
+
         checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}"
         checkpoint_dir_tmp = Path(self.cfg.save_folder) / f"step{self.global_step}-tmp"
 
         try:
             next(checkpoint_dir.glob("*"))
             if self.cfg.save_overwrite:
-                if get_global_rank() == 0:
-                    shutil.rmtree(checkpoint_dir)
+                if get_fs_local_rank() == 0:
+                    shutil.rmtree(checkpoint_dir, ignore_errors=True)
             else:
                 raise OlmoConfigurationError(
                     f"Checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
@@ -227,7 +231,7 @@ class Trainer:
         except StopIteration:
             pass
 
-        if get_global_rank() == 0:
+        if get_fs_local_rank() == 0:
             checkpoint_dir_tmp.mkdir(parents=True, exist_ok=True)
 
         self.checkpoints.append(checkpoint_dir)
@@ -255,7 +259,7 @@ class Trainer:
                 self.cfg.save(checkpoint_dir_tmp / "config.yaml")
             barrier()
 
-        if get_global_rank() == 0:
+        if get_fs_local_rank() == 0:
             # Replace temp directory with target checkpoint directory.
             checkpoint_dir_tmp.replace(checkpoint_dir)
 
@@ -294,7 +298,7 @@ class Trainer:
     def remove_sharded_checkpoint(self, idx: int = 0):
         oldest_checkpoint = self.checkpoints.pop(idx)
         barrier()
-        if get_global_rank() == 0 and oldest_checkpoint.is_dir():
+        if get_fs_local_rank() == 0 and oldest_checkpoint.is_dir():
             shutil.rmtree(oldest_checkpoint, ignore_errors=True)
             latest_path = Path(self.cfg.save_folder) / "latest"
             if latest_path.resolve() == oldest_checkpoint.resolve():

@@ -8,7 +8,7 @@ import torch
 import torch.utils.data
 
 from ..aliases import PathOrStr
-from ..util import barrier, get_global_rank, get_world_size
+from ..util import barrier, get_fs_local_rank, get_global_rank, get_world_size
 
 __all__ = ["IterableDataset"]
 
@@ -35,6 +35,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         drop_last: bool = False,
         world_size: Optional[int] = None,
         rank: Optional[int] = None,
+        fs_local_rank: Optional[int] = None,
         work_dir: Optional[PathOrStr] = None,
     ):
         self.dataset = dataset
@@ -44,6 +45,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         self.shuffle = shuffle
         self.drop_last = drop_last
         self.rank = rank if rank is not None else get_global_rank()
+        self.fs_local_rank = fs_local_rank if fs_local_rank is not None else get_fs_local_rank()
         self.world_size = world_size if world_size is not None else get_world_size()
         # If the dataset length is evenly divisible by # of replicas, then there
         # is no need to drop any data, since the dataset will be split equally.
@@ -59,7 +61,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         self.global_indices_file: Optional[Path] = None
         if work_dir is not None:
             self.global_indices_file = Path(work_dir) / "global_indices.npy"
-            if self.rank == 0:
+            if self.fs_local_rank == 0:
                 log.info("Saving global data order indices...")
                 self.global_indices_file.parent.mkdir(parents=True, exist_ok=True)
                 global_indices = self._build_global_indices()

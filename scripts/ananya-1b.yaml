@@ -30,7 +30,7 @@ model:
   eos_token_id: 0
   pad_token_id: 1
   init_device: meta
-  init_fn: mitchell
+  init_fn: normal
 
 compile: null  # causes instability on AMD GPUs
 
@@ -63,7 +63,7 @@ load_path: null
 
 max_duration: 476837  # 2T tokens
 global_train_batch_size: 2048
-device_train_microbatch_size: 4
+device_train_microbatch_size: 8
 
 precision: amp_bf16
 
@@ -82,7 +82,7 @@ evaluators:
     data:
       paths: null
       pad_direction: right
-      num_workers: 0
+      num_workers: 1
       drop_last: true
       datasets:
         4chan-validation:
@@ -155,8 +155,9 @@ evaluators:
 
 data:
   pad_direction: right
-  num_workers: 0
+  num_workers: 1
   drop_last: true
+  prefetch_factor: 8
   paths:
   - s3://ai2-llm/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/books/0_00000.npy
   - s3://ai2-llm/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/books/0_00001.npy
