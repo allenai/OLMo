@@ -18,4 +18,4 @@ command: |-
   --nnodes $NUM_NODES \
   --node_rank $NODE_RANK \
   --nproc_per_node 8 \
-  scripts/train.py configs/v1-mix-medium-mcli.yaml
+  scripts/train.py configs/v1-mix-medium-mcli.yaml --load_path=s3://ai2-llm/checkpoints/7b/v1-mix-medium-run-001/step1000
