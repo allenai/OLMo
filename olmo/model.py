@@ -6,6 +6,7 @@ Adapted from
 
 from __future__ import annotations
 
+import logging
 import os
 from abc import abstractmethod
 from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
@@ -38,6 +39,9 @@ __all__ = [
     "OlmoOutput",
     "OlmoGenerateOutput",
 ]
+
+
+log = logging.getLogger(__name__)
 
 
 class LayerNormBase(nn.Module):
@@ -624,6 +628,7 @@ class Olmo(nn.Module):
             self.alibi_attention_bias
 
     def reset_parameters(self):
+        log.info("Initializing model parameters...")
         # Top-level embeddings / linear layers.
         init_weights(self.config, self.transformer.wte)  # type: ignore
         if hasattr(self.transformer, "wpe"):

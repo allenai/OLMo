@@ -99,13 +99,14 @@ def main(cfg: TrainConfig) -> None:
     barrier()
 
     # Initialize the model.
-    log.info("Initializing model...")
+    log.info("Building model...")
     olmo_model = Olmo(cfg.model)
     log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
-    log.info(f"Peak GPU Memory (MB) before FSDP: {peak_gpu_memory()}")
+    log.info(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
 
     # Wrap the model in FSDP.
+    log.info("Wrapping model with FDSP...")
     fsdp_model = FSDP(
         olmo_model,
         sharding_strategy=cfg.fsdp.sharding_strategy,
@@ -120,7 +121,7 @@ def main(cfg: TrainConfig) -> None:
         device_id=get_local_rank(),
     )
 
-    log.info(f"Peak GPU Memory (MB) after FSDP: {peak_gpu_memory()}")
+    log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory() or 0)}")
 
     if cfg.activation_checkpointing:
         # verify we have FSDP activation support ready by importing:
