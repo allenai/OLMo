@@ -29,6 +29,7 @@ from olmo.util import (
     get_local_rank,
     get_world_size,
     log_extra_field,
+    peak_gpu_memory,
     prepare_cli_environment,
     seed_all,
 )
@@ -102,6 +103,7 @@ def main(cfg: TrainConfig) -> None:
     olmo_model = Olmo(cfg.model)
     log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
+    log.info(f"Peak GPU Memory (MB) before FSDP: {peak_gpu_memory()}")
 
     # Wrap the model in FSDP.
     fsdp_model = FSDP(
@@ -117,6 +119,8 @@ def main(cfg: TrainConfig) -> None:
         limit_all_gathers=True,
         device_id=get_local_rank(),
     )
+
+    log.info(f"Peak GPU Memory (MB) after FSDP: {peak_gpu_memory()}")
 
     if cfg.activation_checkpointing:
         # verify we have FSDP activation support ready by importing:
