@@ -36,6 +36,23 @@ else
   WANDB_API_KEY_ARG="--env WANDB_API_KEY=${WANDB_API_KEY}"
 fi
 
+# check if there is an env var called 'AWS_ACCESS_KEY_ID' and if so, create a flag
+# to pass to gantry
+if [ -z ${AWS_ACCESS_KEY_ID+x} ]; then
+  AWS_ACCESS_KEY_ID_ARG="--env-secret AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID"
+else
+  AWS_ACCESS_KEY_ID_ARG="--env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}"
+fi
+
+# check if there is an env var called 'AWS_SECRET_ACCESS_KEY' and if so, create a flag
+# to pass to gantry
+if [ -z ${AWS_SECRET_ACCESS_KEY+x} ]; then
+  AWS_SECRET_ACCESS_KEY_ARG="--env-secret AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY"
+else
+  AWS_SECRET_ACCESS_KEY_ARG="--env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}"
+fi
+
+
 # If you need to run on multiple nodes, use this.
 #NUM_NODES=1
 #--replicas ${NUM_NODES} \
@@ -55,6 +72,8 @@ gantry run \
   --gpus 8 \
   --nfs \
   ${WANDB_API_KEY_ARG} \
+  ${AWS_ACCESS_KEY_ID_ARG} \
+  ${AWS_SECRET_ACCESS_KEY_ARG} \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --shared-memory 10GiB \
