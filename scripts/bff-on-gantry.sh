@@ -78,5 +78,6 @@ gantry run \
   --env OMP_NUM_THREADS=8 \
   --shared-memory 10GiB \
   --venv base \
+  --mount /data:/data \
   --yes \
   -- /bin/bash -c "torchrun --nproc-per-node 8 scripts/train.py ${CONFIG_PATH} --run_name=${FULL_RUN_NAME} ${LOAD_PATH_ARG} ${@}"
