@@ -807,7 +807,9 @@ class Olmo(nn.Module):
         return OlmoOutput(logits=logits, attn_key_values=attn_key_values)  # type: ignore[arg-type]
 
     def fsdp_wrap_fn(self, module, recurse: bool = True, nonwrapped_numel: int = 0):
-        del recurse, nonwrapped_numel
+        del nonwrapped_numel
+        if recurse:
+            return True  # always recurse
         return isinstance(module, OlmoBlock)
 
     def activation_checkpointing_fn(self, module):
