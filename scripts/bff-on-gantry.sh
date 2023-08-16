@@ -41,6 +41,7 @@ fi
 #--replicas ${NUM_NODES} \
 #--leader-selection  \
 #--host-networking \
+#-- /bin/bash -c "torchrun --nnodes ${NUM_NODES}:${NUM_NODES} --nproc-per-node 8 --rdzv_id=101 --rdzv_backend=c10d --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 scripts/train.py ${CONFIG_PATH} --run_name=${FULL_RUN_NAME} ${LOAD_PATH_ARG} ${@}"
 
 gantry run \
   --workspace ai2/llm-testing \
@@ -59,4 +60,4 @@ gantry run \
   --shared-memory 10GiB \
   --venv base \
   --yes \
-  -- /bin/bash -c "torchrun --nnodes ${NUM_NODES}:${NUM_NODES} --nproc-per-node 8 --rdzv_id=101 --rdzv_backend=c10d --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 scripts/train.py ${CONFIG_PATH} --run_name=${FULL_RUN_NAME} ${LOAD_PATH_ARG} ${@}"
+  -- /bin/bash -c "torchrun --nproc-per-node 8 scripts/train.py ${CONFIG_PATH} --run_name=${FULL_RUN_NAME} ${LOAD_PATH_ARG} ${@}"
