@@ -52,7 +52,7 @@ tokenizer:
 
 save_folder: runs/${run_name}
 remote_save_folder: s3://ai2-llm/checkpoints/7b/${run_name}
-save_overwrite: false
+save_overwrite: true
 # Sharded checkpoints (best for restarts)
 save_interval: 1000
 save_num_checkpoints_to_keep: -1
@@ -64,7 +64,7 @@ load_path: null
 
 max_duration: 476837  # 2T tokens
 global_train_batch_size: 2048
-device_train_microbatch_size: 4
+device_train_microbatch_size: 1
 
 precision: amp_bf16
 
@@ -104,13 +104,13 @@ evaluators:
   # lump all the small datasets together (we still get separate metrics).
   - label: all-small-ppl-validation
     data:
+      num_workers: 4
+      drop_last: true
+      pin_memory: true
+      prefetch_factor: 1
+      persistent_workers: false
+      timeout: 0
       datasets:
-        num_workers: 4
-        drop_last: true
-        pin_memory: true
-        prefetch_factor: 1
-        persistent_workers: false
-        timeout: 0
         4chan-validation:
         - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
         c4_100_domains-validation:
@@ -182,7 +182,7 @@ evaluators:
 
 data:
   pad_direction: right
-  num_workers: 12
+  num_workers: 16
   drop_last: true
   pin_memory: true
   prefetch_factor: 1

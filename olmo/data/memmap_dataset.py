@@ -71,10 +71,23 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
     @property
     def offsets(self) -> List[Tuple[int, int]]:
         if self._mmap_offsets is None:
-            start_offset = 0
+            import concurrent.futures
+
             self._mmap_offsets = []
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = []
+                for path in self._memmap_paths:
+                    future = executor.submit(self._get_file_length, path)
+                    futures.append(future)
+
+                path_to_length: Dict[PathOrStr, int] = {}
+                for future in concurrent.futures.as_completed(futures):
+                    path, length = future.result()
+                    path_to_length[path] = length
+
+            start_offset = 0
             for path in self._memmap_paths:
-                length = file_size(path) // (self._item_size * self._chunk_size)
+                length = path_to_length[path]
                 end_offset = start_offset + length
                 self._mmap_offsets.append((start_offset, end_offset))
                 start_offset += length
@@ -86,6 +99,9 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         buffer = get_bytes_range(path, bytes_start, num_bytes)
         array = np.frombuffer(buffer, dtype=self.dtype)
         return torch.tensor(array.astype(np.int_), dtype=torch.long)
+
+    def _get_file_length(self, path) -> Tuple[PathOrStr, int]:
+        return path, file_size(path) // (self._item_size * self._chunk_size)
 
     def __len__(self) -> int:
         if self._num_instances is None:
