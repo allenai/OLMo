@@ -194,6 +194,11 @@ class InitFnType(StrEnum):
     All weights are initialized from the same normal distribution.
     """
 
+    kaiming_normal = "kaiming_normal"
+    """
+    All weights are initialized with the Kaiming method from a normal distribution.
+    """
+
 
 @dataclass
 class ModelConfig(BaseConfig):

@@ -33,6 +33,8 @@ def init_weights(
         if layer_id is not None:
             std = std / math.sqrt(2 * (layer_id + 1))
         nn.init.trunc_normal_(module.weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
+    elif config.init_fn == InitFnType.kaiming_normal:
+        nn.init.kaiming_normal_(module.weight, nonlinearity="relu")
     else:
         raise NotImplementedError(config.init_fn)
 
