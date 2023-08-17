@@ -629,15 +629,14 @@ class Trainer:
 
         # Optimizer step.
         self.optim.step()
-        optim_metrics = self.optim.get_metrics()
+
+        metrics: Dict[str, float] = {}
 
         # Reduce loss metrics across ranks.
         self.ce_train_loss_metric.update(ce_batch_loss)
         ce_batch_loss = self.ce_train_loss_metric.compute()
-        metrics = {
-            "train/CrossEntropyLoss": ce_batch_loss.item(),
-            "train/Perplexity": torch.exp(ce_batch_loss).item(),
-        }
+        metrics["train/CrossEntropyLoss"] = ce_batch_loss.item()
+        metrics["train/Perplexity"] = torch.exp(ce_batch_loss).item()
         if z_batch_loss is not None and self.z_train_loss_metric is not None:
             self.z_train_loss_metric.update(z_batch_loss)
             z_batch_loss = self.z_train_loss_metric.compute()
@@ -647,7 +646,9 @@ class Trainer:
             metrics["optim/grad_norm"] = grad_norm
         if param_norm is not None:
             metrics["optim/param_norm"] = param_norm
-        if isinstance(optim_metrics, dict):
+        if self.should_log_this_step():
+            # Collect optimizer-specific metrics.
+            optim_metrics = self.optim.get_metrics()
             for key, value in optim_metrics.items():
                 metrics[f"optim/{key}"] = value.item()
 
