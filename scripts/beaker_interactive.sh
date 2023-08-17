@@ -17,6 +17,8 @@ beaker config set default_workspace ai2/llm-testing
 # Pull a GitHub token that can be used to clone private repos.
 export GITHUB_TOKEN=$(beaker secret read GITHUB_TOKEN)
 export WANDB_API_KEY=$(beaker secret read WANDB_API_KEY)
+export AWS_ACCESS_KEY_ID=$(beaker secret read AWS_ACCESS_KEY_ID)
+export AWS_SECRET_ACCESS_KEY=$(beaker secret read AWS_SECRET_ACCESS_KEY)
 
 # Create and activate environment.
 conda create -y -n LLM python=3.10

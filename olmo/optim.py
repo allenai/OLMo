@@ -1,3 +1,4 @@
+import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from math import cos, pi, sqrt
@@ -6,13 +7,15 @@ from typing import Any, Dict, List, Optional, Tuple
 import torch
 import torch.distributed as dist
 import torch.nn as nn
-from torch.optim.optimizer import Optimizer
+from torch.optim.optimizer import Optimizer as OptimizerBase
 
 from .config import OptimizerType, SchedulerType, TrainConfig
 from .util import get_default_device, is_distributed
 
 __all__ = [
+    "Optimizer",
     "LionW",
+    "AdamW",
     "Scheduler",
     "CosWithWarmup",
     "InvSqrtWithWarmup",
@@ -20,6 +23,14 @@ __all__ = [
     "build_optimizer",
     "build_scheduler",
 ]
+
+
+log = logging.getLogger(__name__)
+
+
+class Optimizer(OptimizerBase):
+    def get_metrics(self) -> Dict[str, torch.Tensor]:
+        return {}
 
 
 class LionW(Optimizer):
@@ -46,14 +57,19 @@ class LionW(Optimizer):
         for group in self.param_groups:
             group["initial_lr"] = group["lr"]
         self.fsdp = fsdp
+        self._update_cos_sim: Optional[torch.Tensor] = None
+
+    def get_metrics(self) -> Dict[str, torch.Tensor]:
+        if self._update_cos_sim is not None:
+            return {"update_cos_sim": self._update_cos_sim}
+        else:
+            return {}
 
     @torch.no_grad()
-    def step(self, closure=None) -> Dict[str, torch.Tensor]:
+    def step(self, closure=None) -> None:
         if closure is not None:
             with torch.enable_grad():
                 closure()
-
-        metrics = {}
 
         update_total_dot_prod = torch.tensor(0.0, dtype=torch.float32)
         update_norms = []
@@ -118,11 +134,14 @@ class LionW(Optimizer):
             update_total_norm = update_total_norm**0.5
             signed_update_total_norm = signed_update_total_norm**0.5
 
-        metrics["update_cos_sim"] = update_total_dot_prod / torch.max(
+        self._update_cos_sim = update_total_dot_prod / torch.max(
             update_total_norm * signed_update_total_norm, torch.tensor(1e-8, device=get_default_device())
         )
 
-        return metrics
+
+class AdamW(torch.optim.AdamW, Optimizer):
+    def get_metrics(self) -> Dict[str, torch.Tensor]:
+        return {}
 
 
 class Scheduler(metaclass=ABCMeta):
@@ -242,12 +261,16 @@ def fix_optim_state_dict(optimizer: Optimizer, state_dict: Dict[str, Any]) -> Di
     return state_dict
 
 
-def build_optimizer(cfg: TrainConfig, model: nn.Module) -> torch.optim.Optimizer:
+def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
     params = (
         get_param_groups(model)
         if (cfg.optimizer.no_decay_norm_and_bias and cfg.optimizer.weight_decay > 0.0)
         else model.parameters()
     )
+    if isinstance(params, list):
+        log.info(f"Constructing optimizer with {len(params)} param groups")
+    else:
+        log.info("Constructing optimizer with single param group")
     if cfg.optimizer.name == OptimizerType.lionw:
         return LionW(
             params,
@@ -255,15 +278,8 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> torch.optim.Optimizer
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,
         )
-    elif cfg.optimizer.name == OptimizerType.adam:
-        return torch.optim.Adam(
-            params,
-            lr=cfg.optimizer.learning_rate,
-            betas=cfg.optimizer.betas,
-            weight_decay=cfg.optimizer.weight_decay,
-        )
     elif cfg.optimizer.name == OptimizerType.adamw:
-        return torch.optim.AdamW(
+        return AdamW(
             params,
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,

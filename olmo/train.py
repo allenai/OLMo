@@ -34,7 +34,7 @@ from .data import IterableDataset
 from .eval import Evaluator
 from .exceptions import OlmoConfigurationError
 from .model import Olmo
-from .optim import Scheduler
+from .optim import Optimizer, Scheduler
 from .util import (
     barrier,
     fsdp_clip_grads_and_get_norms,
@@ -99,7 +99,7 @@ class Trainer:
     cfg: TrainConfig
     model: Olmo
     fsdp_model: FSDP
-    optim: torch.optim.Optimizer
+    optim: Optimizer
     scheduler: Scheduler
     train_loader: DataLoader
     device: torch.device
@@ -628,7 +628,8 @@ class Trainer:
             )
 
         # Optimizer step.
-        optim_metrics = self.optim.step()
+        self.optim.step()
+        optim_metrics = self.optim.get_metrics()
 
         # Reduce loss metrics across ranks.
         self.ce_train_loss_metric.update(ce_batch_loss)
