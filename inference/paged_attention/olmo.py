@@ -16,13 +16,14 @@ from vllm.model_executor.parallel_utils.parallel_state import (
 from vllm.model_executor.parallel_utils.tensor_parallel import (
     VocabParallelEmbedding, ColumnParallelLinear, RowParallelLinear)
 from vllm.sequence import SequenceOutputs
+from vllm.model_executor.layers.sampler import _get_output_tokens, _get_penalties, _get_temperatures, _apply_penalties, _get_top_p_top_k, _apply_top_p_top_k, _prune_hidden_states, _SAMPLING_EPS, _sample 
 
-from olmo.model import LayerNormBase, LayerNorm, RMSLayerNorm, RotaryEmbedding, OlmoBlock, OlmoParallelBlock, OlmoOutput, Activation, apply_rotary_pos_emb, causal_attention_bias
+from olmo.model import LayerNormBase, LayerNorm, RMSLayerNorm, RotaryEmbedding, OlmoBlock, OlmoParallelBlock, OlmoOutput, Activation, apply_rotary_pos_emb, causal_attention_bias, alibi_attention_bias
 from olmo.config import ActivationType, BlockType, LayerNormType, ModelConfig
 from olmo.exceptions import OlmoConfigurationError
 
 KVCache = Tuple[torch.Tensor, torch.Tensor]
-
+import pdb
 
 def _get_alibi_slopes(
     total_num_heads: int,
@@ -36,6 +37,76 @@ def _get_alibi_slopes(
         slopes = torch.concat([slopes[1::2], slopes[::2]])[:total_num_heads]
     return slopes
 
+class OlmoSampler(nn.Module):
+    """Samples the next tokens from the model's outputs.
+
+    This layer does the following:
+    3. Apply presence and frequency penalties.
+    4. Apply temperature scaling.
+    5. Apply top-p and top-k truncation.
+    6. Sample the next tokens.
+    Here, each sequence group within the batch can have different sampling
+    parameters (e.g., sampling method, temperature, top-p, top-k, etc.).
+    """
+
+    def __init__(self, vocab_size: int) -> None:
+        super().__init__()
+        self.vocab_size = vocab_size
+
+    def forward(
+        self,
+        logits: torch.Tensor,
+        input_metadata: InputMetadata,
+        embedding_bias: Optional[torch.Tensor] = None,
+    ) -> Dict[int, SequenceOutputs]:
+        # Get the hidden states that we use for sampling.
+        #hidden_states = _prune_hidden_states(hidden_states, input_metadata)
+        logits = _prune_hidden_states(logits, input_metadata)
+
+        # Get the logits for the next tokens.
+        #logits = torch.matmul(hidden_states, embedding.t())
+        #if embedding_bias is not None:
+        #    logits += embedding_bias
+        #logits = gather_from_tensor_model_parallel_region(logits)
+        # Remove paddings in vocab (if any).
+        logits = logits[:, :self.vocab_size]
+
+        # Apply presence and frequency penalties.
+        output_tokens = _get_output_tokens(input_metadata)
+        assert len(output_tokens) == logits.shape[0]
+        presence_penalties, frequency_penalties = _get_penalties(
+            input_metadata)
+        assert len(presence_penalties) == logits.shape[0]
+        assert len(frequency_penalties) == logits.shape[0]
+        logits = _apply_penalties(logits, output_tokens, presence_penalties,
+                                  frequency_penalties, self.vocab_size)
+
+        # Apply temperature scaling.
+        temperatures = _get_temperatures(input_metadata)
+        assert len(temperatures) == logits.shape[0]
+        if any(t != 1.0 for t in temperatures):
+            t = torch.tensor(temperatures,
+                             dtype=logits.dtype,
+                             device=logits.device)
+            # Use in-place division to avoid creating a new tensor.
+            logits.div_(t.unsqueeze(dim=1))
+
+        # We use float32 for probabilities and log probabilities.
+        # Compute the probabilities.
+        probs = torch.softmax(logits, dim=-1, dtype=torch.float)
+        # Compute the log probabilities (before applying top-p and top-k).
+        logprobs = torch.log(probs)
+
+        # Apply top-p and top-k truncation.
+        top_ps, top_ks = _get_top_p_top_k(input_metadata, self.vocab_size)
+        assert len(top_ps) == len(top_ks) == probs.shape[0]
+        do_top_p = any(p < 1.0 - _SAMPLING_EPS for p in top_ps)
+        do_top_k = any(k != self.vocab_size for k in top_ks)
+        if do_top_p or do_top_k:
+            probs = _apply_top_p_top_k(probs, top_ps, top_ks)
+
+        # Sample the next tokens.
+        return _sample(probs, logprobs, input_metadata)
 
 class PagedAttentionOlmoSequentialBlock(OlmoBlock):
     """
@@ -64,9 +135,12 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
         )
 
         # TODO: confirm
+        head_dim = config.d_model // config.n_heads
+        scaling = head_dim**-0.5
         slopes = _get_alibi_slopes(config.n_heads, config.alibi_bias_max)
-        self.paged_attn = PagedAttentionWithALiBi(config.n_heads, config.d_model // config.n_heads, scale=1.0,
+        self.paged_attn = PagedAttentionWithALiBi(config.n_heads, head_dim, scale=scaling,
                                                   slopes=slopes, num_kv_heads=1)
+
 
     def forward(
         self,
@@ -75,6 +149,7 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
         kv_cache: KVCache,
         input_metadata: InputMetadata,
         cache_event: Optional[torch.cuda.Event],
+        debug: bool = False,
     ) -> torch.Tensor:
         # Get query, key, value projections.
         # shape:
@@ -83,21 +158,18 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
         q, k, v = self.att_proj(self.attn_norm(x)).split(self.fused_dims, dim=-1)
         k_cache, v_cache = kv_cache
-    
-        print("******************")
-        print(q.shape)
-        print(k.shape)
-        print(v.shape)
-        print(k_cache.shape if isinstance(k_cache, torch.Tensor) else None)
-        print(v_cache.shape if isinstance(v_cache, torch.Tensor) else None)
-        print(input_metadata)
-        print(cache_event)
-        print("******************")
-
+  
+        if debug:
+            import pdb
+            pdb.set_trace()
+        dtype = k.dtype
+        if self.q_norm is not None and self.k_norm is not None:
+            q = self.q_norm(q).to(dtype=dtype)
+            k = self.k_norm(k).to(dtype=dtype)
         # Get attention scores.
-        att = self.paged_attn(q, k, v, k_cache, v_cache, input_metadata, cache_event)
+        att = self.paged_attn(q, k, v, k_cache, v_cache, input_metadata, cache_event, debug=debug)
+        att = self.attn_out(att)
 
-        # att, _ = self.attention(q, k, v, layer_past=kv_cache)
         # Add attention scores.
         # shape: (B, T, C)
         x = x + self.dropout(att)
@@ -128,59 +200,6 @@ class OlmoModel(nn.Module):
             )
         )
 
-        #if init_params and self.config.init_device != "meta":
-        #    self.apply(self.param_init_fn)
-
-    def param_init_fn(self, module):
-        # TODO: minimize code repetition
-        from functools import partial
-
-        init_fn = partial(nn.init.normal_, mean=0.0, std=self.config.init_std)
-
-        def fused_init_fn(module):
-            # Parameter initialization is often based on the parameters shape.
-            # If a layer is fused, initialization should be based on the shapes
-            # of the original tensor instead of the shape of the fused tensor.
-            # Layers which are fused should have the _fused attribute defined.
-            # The first element of _fused is the dimension along which the tensor is fused.
-            # This is followed by an iterable of split indices.
-            _fused = getattr(module, "_fused", None)
-            if _fused is None:
-                raise RuntimeError("Internal logic error")
-
-            dim, splits = _fused
-            splits = (0, *splits, module.weight.size(dim))
-            for s, e in zip(splits[:-1], splits[1:]):
-                slice_indices = [slice(None)] * module.weight.ndim
-                slice_indices[dim] = slice(s, e)
-                init_fn(module.weight[slice_indices])
-
-        # Linear
-        if isinstance(module, nn.Linear):
-            if hasattr(module, "_fused"):
-                fused_init_fn(module)
-            else:
-                init_fn(module.weight)
-
-            if module.bias is not None:
-                nn.init.zeros_(module.bias)
-
-            if getattr(module, "_is_residual", False):
-                with torch.no_grad():
-                    module.weight.div_(math.sqrt(2 * self.config.n_layers))
-
-            if module.bias is not None:
-                nn.init.zeros_(module.bias)
-
-        # Embedding
-        if isinstance(module, nn.Embedding):
-            init_fn(module.weight)
-
-        # LayerNorm
-        if isinstance(module, (nn.LayerNorm, LayerNorm, RMSLayerNorm)):
-            torch.nn.init.ones_(module.weight)
-            torch.nn.init.zeros_(module.bias)
-
     def _make_state_dict_compatible(self, state_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         # For backwards compatibility prior to fixing https://github.com/allenai/LLM/issues/222
         if self.config.block_type == BlockType.sequential:
@@ -206,12 +225,6 @@ class OlmoModel(nn.Module):
         cache_events: Optional[List[torch.cuda.Event]],
     ) -> torch.Tensor:
 
-        #batch_size, seq_len = input_ids.size()
-        #assert seq_len <= self.config.max_sequence_length, (
-        #    f"Cannot forward input with seq_len={seq_len}, "
-        #    f"this model only supports seq_len<={self.config.max_sequence_length}"
-        #)
-
         # Get embeddings of input.
         # shape: (batch_size, seq_len, d_model)
         x = self.transformer.wte(input_ids)  # type: ignore
@@ -229,21 +242,22 @@ class OlmoModel(nn.Module):
                 cache_event = cache_events[i]
 
             # shape: (batch_size, seq_len, d_model)
-            x = block(x, positions, kv_caches[i], input_metadata, cache_event)
+            x = block(x, positions, kv_caches[i], input_metadata, cache_event) #, debug=(i==0))
 
-        # if last_logits_only:
-        #     # shape: (batch_size, 1, d_model)
-        #     x = x[:, -1, :].unsqueeze(1)
+        #if last_logits_only:
+        #    # shape: (batch_size, 1, d_model)
+        #    x = x[:, -1, :].unsqueeze(1)
 
         # Apply final layer norm.
         # shape: (batch_size, seq_len or 1, d_model)
         x = self.transformer.ln_f(x)  # type: ignore
 
-        return x
+        #return x
 
         # # Get logits.
         # # shape: (batch_size, seq_len or 1, vocab_size)
-        # logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
+        logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
+        return logits
         #
         # return OlmoOutput(logits=logits, attn_key_values=attn_key_values)  # type: ignore[arg-type]
 
@@ -256,8 +270,9 @@ class OlmoModelForCausalLM(nn.Module):
         device = config.init_device
         config.init_device = "cpu"
         self.model = OlmoModel(config)
+        #self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
         config.init_device = device
-        self.sampler = Sampler(config.vocab_size)
+        self.sampler = OlmoSampler(config.vocab_size)
 
     def forward(
         self,
@@ -267,10 +282,13 @@ class OlmoModelForCausalLM(nn.Module):
         input_metadata: InputMetadata,
         cache_events: Optional[List[torch.cuda.Event]],
     ) -> Dict[int, SequenceOutputs]:
-        hidden_states = self.model(input_ids, positions, kv_caches,
-                                   input_metadata, cache_events)
-        next_tokens = self.sampler(self.model.transformer.wte.weight, hidden_states,
-                                   input_metadata)
+        #hidden_states = self.model(input_ids, positions, kv_caches,
+        #                           input_metadata, cache_events)
+        #next_tokens = self.sampler(self.model.transformer.wte.weight, hidden_states,
+        #                           input_metadata)
+        logits = self.model(input_ids, positions, kv_caches, input_metadata, cache_events)
+        next_tokens = self.sampler(logits, input_metadata)
+        #next_tokens = self.sampler(self.lm_head.weight, hidden_states, input_metadata)
         return next_tokens
 
     _column_parallel_weights = []
@@ -284,8 +302,8 @@ class OlmoModelForCausalLM(nn.Module):
         import os
 
         # Load config.
-        config_path = cached_path(os.path.join(model_name_or_path, "config.yaml"))
-        model_config = ModelConfig.load(config_path, key="model", validate_paths=False)
+        # config_path = cached_path(os.path.join(model_name_or_path, "config.yaml"))
+        # model_config = ModelConfig.load(config_path, key="model", validate_paths=False)
 
         # Initialize model (always on CPU to start with so we don't run out of GPU memory).
         # model_config.init_device = "cpu"
