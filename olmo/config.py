@@ -82,8 +82,10 @@ class BaseConfig:
 
         # Chooses the first path in the arguments that exists.
         def path_choose(*paths) -> str:
+            from .util import is_url
+
             for path in paths:
-                if Path(path).exists():
+                if is_url(path) or Path(path).exists():
                     return path
             if validate_paths:
                 raise FileNotFoundError(", ".join(paths))
@@ -526,6 +528,11 @@ class TrainConfig(BaseConfig):
     save_folder: str = "./"
     """
     The directory to save checkpoints to.
+    """
+
+    remote_save_folder: Optional[str] = None
+    """
+    A folder in a cloud bucket to upload saved checkpoints to.
     """
 
     save_interval: int = 1000
