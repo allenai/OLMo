@@ -1,10 +1,10 @@
-run_name: olmo-1b-adamw-mitch-init
+run_name: olmo-medium-adamw-normal-init
 image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
-cluster: r8z3
-# cluster: r9z1
-gpu_num: 16
-gpu_type: a100_40gb
-# gpu_type: h100_80gb
+# cluster: r8z3
+cluster: r9z1
+gpu_num: 32
+# gpu_type: a100_40gb
+gpu_type: h100_80gb
 integrations:
   - integration_type: git_repo
     git_repo: allenai/LLM
@@ -18,4 +18,4 @@ command: |-
   --nnodes $NUM_NODES \
   --node_rank $NODE_RANK \
   --nproc_per_node 8 \
-  scripts/train.py configs/v1-mix-small-mcli.yaml --device_train_microbatch_size=4
+  scripts/train.py configs/v1-mix-small-mcli.yaml --load_path=s3://ai2-llm/checkpoints/7b/v1-mix-medium-run-001/step1000

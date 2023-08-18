@@ -1,4 +1,4 @@
-run_name: v1-mix-medium-run-001
+run_name: olmo-medium-adamw-normal-init
 seed: 6198
 dry_run: false
 
@@ -29,7 +29,7 @@ model:
   eos_token_id: 0
   pad_token_id: 1
   init_device: meta
-  init_fn: mitchell
+  init_fn: normal
 
 compile: null  # causes instability on AMD GPUs
 
