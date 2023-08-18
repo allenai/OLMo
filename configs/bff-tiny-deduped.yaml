@@ -155,6 +155,7 @@ load_path: null
 max_duration: 953674  # 500B tokens
 global_train_batch_size: 512
 device_train_microbatch_size: 32
+time_limit: null
 
 precision: amp_bf16
 
