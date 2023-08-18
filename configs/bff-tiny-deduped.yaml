@@ -141,7 +141,7 @@ tokenizer:
   identifier: EleutherAI/gpt-neox-20b
   truncate_direction: right
 
-save_folder: ${oc.env:SCRATCH_DIR,/data/dirkg}/bff-tiny/
+save_folder: ${oc.env:SCRATCH_DIR,/data/dirkg}/bff-tiny-deduped/
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
 save_interval: 2000
