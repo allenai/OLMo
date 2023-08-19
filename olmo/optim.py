@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import torch
 import torch.distributed as dist
 import torch.nn as nn
+from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.optim.optimizer import Optimizer as OptimizerBase
 
 from .config import OptimizerType, SchedulerType, TrainConfig
@@ -29,17 +30,119 @@ log = logging.getLogger(__name__)
 
 
 class Optimizer(OptimizerBase):
-    def get_metrics(self) -> Dict[str, torch.Tensor]:
+    def get_pre_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
+        return self._collect_optim_param_metrics(module)
+
+    def get_post_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
+        del module
         return {}
+
+    def get_param_name(self, module: nn.Module, param: nn.Parameter) -> str:
+        if not hasattr(self, "_param_to_name"):
+            # NOTE (epwalsh): don't worry, this will not be included in `self.state_dict()`.
+            self._param_to_name: Dict[nn.Parameter, str] = {}
+            for name, param in module.named_parameters():
+                self._param_to_name[param] = name
+        return self._param_to_name[param]
+
+    def get_state_for_param(self, param: nn.Parameter) -> Dict[str, torch.Tensor]:
+        del param
+        return {}
+
+    @torch.no_grad()
+    def _collect_optim_param_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
+        """
+        A help method for collecting optimizer parameter metrics.
+        If distributed training with FDSP, this implementation assumes `use_orig_params=True`.
+        """
+        # NOTE (epwalsh): during distributed training we're making an assumption that the order of
+        # the param groups and the params within each group are the same across all ranks.
+        # This is justified since we initialize the parameter groups in every rank by iterating over
+        # `module.parameters()` or `module.named_modules()` / `module.named_parameters()`, each of which
+        # provides a consistent order.
+        #  For each parameter (with a gradient) we'll collect:
+        # - min, max, avg, norm of the param itself
+        # - min, max, avg, norm of the param's gradient
+        # - min, max, avg, norm of any additional per-parameter optimizer state metrics returned from
+        #   `self.get_state_for_param()`.
+        # Afterwards we'll reduce these all over all ranks.
+        per_param_min_metrics: List[torch.Tensor] = []
+        per_param_max_metrics: List[torch.Tensor] = []
+        per_param_sum_metrics: List[torch.Tensor] = []
+        per_param_norm_metrics: List[torch.Tensor] = []
+        per_param_numel_metrics: List[int] = []
+
+        per_param_min_metric_names: List[str] = []
+        per_param_max_metric_names: List[str] = []
+        per_param_avg_metric_names: List[str] = []
+        per_param_norm_metric_names: List[str] = []
+
+        for group in self.param_groups:
+            for p in group["params"]:
+                if p.grad is None:
+                    continue
+                name = self.get_param_name(module, p)
+                state = self.get_state_for_param(p)
+
+                tensors = [p, p.grad] + [state[key] for key in sorted(state.keys())]
+                prefixes = [f"param/{name}", f"grad/{name}"] + [f"{key}/{name}" for key in sorted(state.keys())]
+
+                # Get min, max, avg, and norm for all `tensors` associated with the parameter.
+                for x, prefix in zip(tensors, prefixes):
+                    per_param_min_metrics.append(x.min().to(dtype=torch.float32))
+                    per_param_max_metrics.append(x.max().to(dtype=torch.float32))
+                    per_param_sum_metrics.append(x.sum().to(dtype=torch.float32))
+                    per_param_norm_metrics.append(torch.linalg.vector_norm(x, 2.0, dtype=torch.float32))
+                    per_param_numel_metrics.append(x.numel())
+
+                    per_param_min_metric_names.append(f"{prefix}/min")
+                    per_param_max_metric_names.append(f"{prefix}/max")
+                    per_param_avg_metric_names.append(f"{prefix}/avg")
+                    per_param_norm_metric_names.append(f"{prefix}/norm")
+
+        per_param_avg_metrics: List[torch.Tensor]
+        if is_distributed() and isinstance(module, FullyShardedDataParallel):
+            # Reduce mins.
+            all_mins = torch.cat(per_param_min_metrics).to(get_default_device())
+            dist.reduce(all_mins, 0, op=dist.ReduceOp.MIN)
+            per_param_min_metrics = all_mins.split(1)
+            # Reduce maxs.
+            all_maxs = torch.cat(per_param_max_metrics).to(get_default_device())
+            dist.reduce(all_maxs, 0, op=dist.ReduceOp.MAX)
+            per_param_max_metrics = all_maxs.split(1)
+            # Reduce sums.
+            all_sums = torch.cat(per_param_sum_metrics).to(get_default_device())
+            dist.reduce(all_sums, 0, op=dist.ReduceOp.SUM)
+            # Reduce norms.
+            all_norms = torch.cat(per_param_norm_metrics).to(get_default_device()) ** 2.0
+            dist.reduce(all_norms, 0, op=dist.ReduceOp.SUM)
+            all_norms = all_norms ** (0.5)
+            per_param_norm_metrics = all_norms.split(1)
+            # Reduce num elements.
+            all_numels = torch.tensor(per_param_numel_metrics, device=get_default_device())
+            dist.reduce(all_numels, 0, op=dist.ReduceOp.SUM)
+            # Get averages.
+            all_avgs = all_sums / all_numels  # could get infs for non-rank0 processes but that's okay.
+            per_param_avg_metrics = all_avgs.split(1)
+        else:
+            per_param_avg_metrics = [x / n for x, n in zip(per_param_sum_metrics, per_param_numel_metrics)]
+
+        all_metrics: Dict[str, torch.Tensor] = {}
+        for metric_name, metric in zip(per_param_min_metric_names, per_param_min_metrics):
+            all_metrics[metric_name] = metric
+        for metric_name, metric in zip(per_param_max_metric_names, per_param_max_metrics):
+            all_metrics[metric_name] = metric
+        for metric_name, metric in zip(per_param_avg_metric_names, per_param_avg_metrics):
+            all_metrics[metric_name] = metric
+        for metric_name, metric in zip(per_param_norm_metric_names, per_param_norm_metrics):
+            all_metrics[metric_name] = metric
+
+        return all_metrics
 
 
 class LionW(Optimizer):
     """
     Adapted from https://github.com/google/automl/blob/master/lion/lion_pytorch.py
-
-    The `step()` method also returns some metrics which include the cosine similarity between
-    the update and the signed update. For distributed training the computation of this metric assumes
-    all parameters and gradients are fully sharded through FSDP, otherwise you should set ``fsdp=False``.
     """
 
     def __init__(
@@ -48,7 +151,6 @@ class LionW(Optimizer):
         lr: float = 1e-4,
         betas: Tuple[float, float] = (0.9, 0.99),
         weight_decay: float = 0.0,
-        fsdp: bool = True,
     ):
         assert lr > 0.0
         assert all([0.0 <= beta <= 1.0 for beta in betas])
@@ -56,14 +158,33 @@ class LionW(Optimizer):
         super().__init__(params, defaults)
         for group in self.param_groups:
             group["initial_lr"] = group["lr"]
-        self.fsdp = fsdp
-        self._update_cos_sim: Optional[torch.Tensor] = None
+        self._update_total_dot_prod: Optional[torch.Tensor] = None
+        self._update_total_norm: Optional[torch.Tensor] = None
+        self._signed_update_total_norm: Optional[torch.Tensor] = None
 
-    def get_metrics(self) -> Dict[str, torch.Tensor]:
-        if self._update_cos_sim is not None:
-            return {"update_cos_sim": self._update_cos_sim}
-        else:
+    def get_post_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
+        update_total_dot_prod = self._update_total_dot_prod
+        update_total_norm = self._update_total_norm
+        signed_update_total_norm = self._signed_update_total_norm
+        if update_total_dot_prod is None or update_total_norm is None or signed_update_total_norm is None:
             return {}
+
+        if is_distributed() and isinstance(module, FullyShardedDataParallel):
+            # Reduce total dot prod and norms across all ranks.
+            update_total_norm = update_total_norm**2.0
+            signed_update_total_norm = signed_update_total_norm**2.0
+            # Reduce all together to avoid multiple communication calls.
+            all_together = torch.stack([update_total_dot_prod, update_total_norm, signed_update_total_norm])
+            # Only need the final result on rank0, since that's where we log from.
+            dist.reduce(all_together, 0)
+            update_total_dot_prod, update_total_norm, signed_update_total_norm = all_together
+            update_total_norm = update_total_norm**0.5
+            signed_update_total_norm = signed_update_total_norm**0.5
+
+        update_cos_sim = update_total_dot_prod / torch.max(
+            update_total_norm * signed_update_total_norm, torch.tensor(1e-8, device=get_default_device())
+        )
+        return {"update_cos_sim": update_cos_sim}
 
     @torch.no_grad()
     def step(self, closure=None) -> None:
@@ -110,38 +231,22 @@ class LionW(Optimizer):
                 signed_update_norms.append(torch.linalg.vector_norm(signed_update, 2.0, dtype=torch.float32))
 
         # Compute cosine similarity between update and signed update.
-        update_total_dot_prod = update_total_dot_prod.to(get_default_device())
-        update_total_norm = torch.linalg.vector_norm(
+        self._update_total_dot_prod = update_total_dot_prod.to(get_default_device())
+        self._update_total_norm = torch.linalg.vector_norm(
             torch.stack(update_norms),
             2.0,
             dtype=torch.float32,
         ).to(get_default_device())
-        signed_update_total_norm = torch.linalg.vector_norm(
+        self._signed_update_total_norm = torch.linalg.vector_norm(
             torch.stack(signed_update_norms),
             2.0,
             dtype=torch.float32,
         ).to(get_default_device())
 
-        # Add up over all ranks.
-        if is_distributed() and self.fsdp:
-            # Reduce total dot prod and norms across all ranks.
-            update_total_norm = update_total_norm**2.0
-            signed_update_total_norm = signed_update_total_norm**2.0
-            # Reduce all together to avoid multiple communication calls.
-            all_together = torch.stack([update_total_dot_prod, update_total_norm, signed_update_total_norm])
-            dist.all_reduce(all_together)
-            update_total_dot_prod, update_total_norm, signed_update_total_norm = all_together
-            update_total_norm = update_total_norm**0.5
-            signed_update_total_norm = signed_update_total_norm**0.5
-
-        self._update_cos_sim = update_total_dot_prod / torch.max(
-            update_total_norm * signed_update_total_norm, torch.tensor(1e-8, device=get_default_device())
-        )
-
 
 class AdamW(torch.optim.AdamW, Optimizer):
-    def get_metrics(self) -> Dict[str, torch.Tensor]:
-        return {}
+    def get_state_for_param(self, param: nn.Parameter) -> Dict[str, torch.Tensor]:
+        return {key: self.state[param][key] for key in ("exp_avg", "exp_avg_sq")}  # type: ignore
 
 
 class Scheduler(metaclass=ABCMeta):

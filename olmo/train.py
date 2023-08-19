@@ -593,6 +593,8 @@ class Trainer:
         return ce_batch_loss, z_batch_loss
 
     def train_step(self, batch: Dict[str, Any]) -> Dict[str, float]:
+        metrics: Dict[str, float] = {}
+
         # Write data-indices to file.
         if self.indices_file is not None and "index" in batch:
             indices = "\t".join(str(int(i)) for i in batch["index"])
@@ -612,6 +614,12 @@ class Trainer:
         # Run forward-backward pass.
         ce_batch_loss, z_batch_loss = self.train_batch(batch)
 
+        # Maybe collect pre-step optimizer-specific metrics.
+        if self.should_log_optim_metrics_this_step():
+            optim_metrics = self.optim.get_pre_step_metrics(self.fsdp_model)
+            for key, value in optim_metrics.items():
+                metrics[f"optim/{key}"] = value.item()
+
         # Clip gradient norms.
         grad_norm: Optional[float] = None
         param_norm: Optional[float] = None
@@ -630,8 +638,6 @@ class Trainer:
         # Optimizer step.
         self.optim.step()
 
-        metrics: Dict[str, float] = {}
-
         # Reduce loss metrics across ranks.
         self.ce_train_loss_metric.update(ce_batch_loss)
         ce_batch_loss = self.ce_train_loss_metric.compute()
@@ -646,9 +652,10 @@ class Trainer:
             metrics["optim/grad_norm"] = grad_norm
         if param_norm is not None:
             metrics["optim/param_norm"] = param_norm
-        if self.should_log_this_step():
-            # Collect optimizer-specific metrics.
-            optim_metrics = self.optim.get_metrics()
+
+        # Maybe collect post-step optimizer-specific metrics.
+        if self.should_log_optim_metrics_this_step():
+            optim_metrics = self.optim.get_post_step_metrics(self.fsdp_model)
             for key, value in optim_metrics.items():
                 metrics[f"optim/{key}"] = value.item()
 
@@ -728,8 +735,27 @@ class Trainer:
                 return f"{value:.4f}"
 
         log.info(
-            f"{prefix}\n" + "\n".join([f"    {name}={format_float(value)}" for name, value in metrics.items()])
+            f"{prefix}\n"
+            + "\n".join(
+                [
+                    f"    {name}={format_float(value)}"
+                    for name, value in metrics.items()
+                    if not name.startswith("optim/")  # there's too many optimizer metrics
+                ]
+            )
         )
+
+    def should_log_optim_metrics_this_step(self) -> bool:
+        if self.cfg.wandb is None:
+            # We only log optimizer-specific metrics to W&B, since there are usually too many metrics
+            # to log to the console.
+            return False
+        optim_log_interval = self.cfg.optimizer.metrics_log_interval
+        if optim_log_interval is None:
+            optim_log_interval = self.cfg.wandb.log_interval
+        else:
+            optim_log_interval = max(optim_log_interval, self.cfg.wandb.log_interval)
+        return self.global_step % optim_log_interval == 0
 
     def should_log_this_step(self) -> bool:
         if self.global_step % self.cfg.console_log_interval == 0:

@@ -361,6 +361,12 @@ class OptimizerConfig(BaseConfig):
     betas: Tuple[float, float] = (0.9, 0.95)
     no_decay_norm_and_bias: bool = True
     """Do not apply weight decay to norms and biases."""
+    metrics_log_interval: Optional[int] = None
+    """
+    The interval with which to collect and log optimizer-specific metrics.
+    This only applies when logging to W&B, since these metrics won't be logged to the console.
+    If not set, defaults to the wandb `log_interval`.
+    """
 
     def __post_init__(self):
         self.betas = tuple(self.betas)  # type: ignore[assignment]
