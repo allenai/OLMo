@@ -79,8 +79,6 @@ class Optimizer(OptimizerBase):
 
         for group in self.param_groups:
             for p in group["params"]:
-                if p.grad is None:
-                    continue
                 name = self.get_param_name(module, p)
                 state = self.get_state_for_param(p)
                 sorted_state_keys = sorted(state.keys())
