@@ -83,27 +83,29 @@ class Optimizer(OptimizerBase):
                     continue
                 name = self.get_param_name(module, p)
                 state = self.get_state_for_param(p)
-
-                tensors = [p, p.grad] + [state[key] for key in sorted(state.keys())]
-                prefixes = [f"param/{name}", f"grad/{name}"] + [f"{key}/{name}" for key in sorted(state.keys())]
+                sorted_state_keys = sorted(state.keys())
+                tensors = [p, p.grad] + [state[key] for key in sorted_state_keys]
+                prefixes = [f"param/{name}", f"grad/{name}"] + [f"{key}/{name}" for key in sorted_state_keys]
 
                 # Get min, max, avg, and norm for all `tensors` associated with the parameter.
                 for x, prefix in zip(tensors, prefixes):
                     if x.numel() > 0:
-                        per_param_min_metrics.append(x.min().to(dtype=torch.float32))
-                        per_param_max_metrics.append(x.max().to(dtype=torch.float32))
-                        per_param_sum_metrics.append(x.sum().to(dtype=torch.float32))
-                        per_param_norm_metrics.append(torch.linalg.vector_norm(x, 2.0, dtype=torch.float32))
+                        per_param_min_metrics.append(x.min().unsqueeze(0).to(dtype=torch.float32))
+                        per_param_max_metrics.append(x.max().unsqueeze(0).to(dtype=torch.float32))
+                        per_param_sum_metrics.append(x.sum().unsqueeze(0).to(dtype=torch.float32))
+                        per_param_norm_metrics.append(
+                            torch.linalg.vector_norm(x, 2.0, dtype=torch.float32).unsqueeze(0)
+                        )
                         per_param_numel_metrics.append(x.numel())
                     else:
                         per_param_min_metrics.append(
-                            torch.tensor(float("inf"), device=x.device, dtype=torch.float32)
+                            torch.tensor([float("inf")], device=x.device, dtype=torch.float32)
                         )
                         per_param_max_metrics.append(
-                            torch.tensor(float("-inf"), device=x.device, dtype=torch.float32)
+                            torch.tensor([float("-inf")], device=x.device, dtype=torch.float32)
                         )
-                        per_param_sum_metrics.append(torch.tensor(0.0, device=x.device, dtype=torch.float32))
-                        per_param_norm_metrics.append(torch.tensor(0.0, device=x.device, dtype=torch.float32))
+                        per_param_sum_metrics.append(torch.tensor([0.0], device=x.device, dtype=torch.float32))
+                        per_param_norm_metrics.append(torch.tensor([0.0], device=x.device, dtype=torch.float32))
                         per_param_numel_metrics.append(0)
                     per_param_min_metric_names.append(f"{prefix}/min")
                     per_param_max_metric_names.append(f"{prefix}/max")
