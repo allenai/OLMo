@@ -53,7 +53,7 @@ class ModelSetUp:
             return_tensors="pt",
         ).input_ids
         inputs = inputs.to(self.model.device)
-        outputs = self.model.generate(inputs, max_new_tokens=256)
+        outputs = self.model.generate(inputs=inputs, max_new_tokens=256)
         outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
         for output in outputs:
             yield output.strip()
