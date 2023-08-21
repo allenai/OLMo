@@ -133,7 +133,7 @@ class Optimizer(OptimizerBase):
             all_norms = torch.cat(per_param_norm_metrics).to(get_default_device()) ** 2.0
             all_numels = torch.cat(per_param_numel_metrics).to(get_default_device())
             all_sums_norms_numels = torch.cat(
-                [all_sums.unsqueeze(-1), all_norms.unsqueeze(-1), all_numels.unsqueeze(-1)], dim=-1
+                [all_sums.unsqueeze(0), all_norms.unsqueeze(0), all_numels.unsqueeze(0)], dim=0
             )
             dist.reduce(all_sums_norms_numels, 0, op=dist.ReduceOp.SUM)
             all_sums, all_norms, all_numels = all_sums_norms_numels.split(1)
