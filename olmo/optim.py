@@ -89,12 +89,22 @@ class Optimizer(OptimizerBase):
 
                 # Get min, max, avg, and norm for all `tensors` associated with the parameter.
                 for x, prefix in zip(tensors, prefixes):
-                    per_param_min_metrics.append(x.min().to(dtype=torch.float32))
-                    per_param_max_metrics.append(x.max().to(dtype=torch.float32))
-                    per_param_sum_metrics.append(x.sum().to(dtype=torch.float32))
-                    per_param_norm_metrics.append(torch.linalg.vector_norm(x, 2.0, dtype=torch.float32))
-                    per_param_numel_metrics.append(x.numel())
-
+                    if x.numel() > 0:
+                        per_param_min_metrics.append(x.min().to(dtype=torch.float32))
+                        per_param_max_metrics.append(x.max().to(dtype=torch.float32))
+                        per_param_sum_metrics.append(x.sum().to(dtype=torch.float32))
+                        per_param_norm_metrics.append(torch.linalg.vector_norm(x, 2.0, dtype=torch.float32))
+                        per_param_numel_metrics.append(x.numel())
+                    else:
+                        per_param_min_metrics.append(
+                            torch.tensor(float("inf"), device=x.device, dtype=torch.float32)
+                        )
+                        per_param_max_metrics.append(
+                            torch.tensor(float("-inf"), device=x.device, dtype=torch.float32)
+                        )
+                        per_param_sum_metrics.append(torch.tensor(0.0, device=x.device, dtype=torch.float32))
+                        per_param_norm_metrics.append(torch.tensor(0.0, device=x.device, dtype=torch.float32))
+                        per_param_numel_metrics.append(0)
                     per_param_min_metric_names.append(f"{prefix}/min")
                     per_param_max_metric_names.append(f"{prefix}/max")
                     per_param_avg_metric_names.append(f"{prefix}/avg")
