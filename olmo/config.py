@@ -302,6 +302,11 @@ class ModelConfig(BaseConfig):
     models tend to have near 0 bias terms anyway.
     """
 
+    scale_logits: bool = False
+    """
+    If ``True``, scale the output logits by ``1 / sqrt(d_model)``.
+    """
+
     vocab_size: int = 50257
     """
     Vocabulary size of the model.

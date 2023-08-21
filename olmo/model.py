@@ -803,6 +803,8 @@ class Olmo(nn.Module):
         # Get logits.
         # shape: (batch_size, seq_len or 1, vocab_size)
         logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
+        if self.config.scale_logits:
+            logits.mul_(self.config.d_model ** (-0.5))
 
         return OlmoOutput(logits=logits, attn_key_values=attn_key_values)  # type: ignore[arg-type]
 
