@@ -45,7 +45,7 @@ class Optimizer(OptimizerBase):
                 self._param_to_name[param] = name
         return self._param_to_name[param]
 
-    def get_state_for_param(self, param: nn.Parameter) -> Dict[str, torch.Tensor]:
+    def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
         del param
         return {}
 
@@ -87,11 +87,17 @@ class Optimizer(OptimizerBase):
 
                 # Get min, max, avg, and norm for all `tensors` associated with the parameter.
                 for x, prefix in zip(tensors, prefixes):
-                    # grad could be none
+                    # grad or state tensors could be none for params that have their shards completely on
+                    # other ranks.
                     x = x if x is not None else torch.tensor([], device="cpu", dtype=torch.float32)
                     if x.numel() > 0:
-                        per_param_min_metrics.append(x.min().unsqueeze(0).to(device="cpu", dtype=torch.float32))
-                        per_param_max_metrics.append(x.max().unsqueeze(0).to(device="cpu", dtype=torch.float32))
+                        x_abs = x.abs()
+                        per_param_min_metrics.append(
+                            x_abs.min().unsqueeze(0).to(device="cpu", dtype=torch.float32)
+                        )
+                        per_param_max_metrics.append(
+                            x_abs.max().unsqueeze(0).to(device="cpu", dtype=torch.float32)
+                        )
                         per_param_sum_metrics.append(x.sum().unsqueeze(0).to(device="cpu", dtype=torch.float32))
                         per_param_norm_metrics.append(
                             torch.linalg.vector_norm(x, 2.0, dtype=torch.float32).unsqueeze(0).to(device="cpu")
@@ -101,16 +107,14 @@ class Optimizer(OptimizerBase):
                         per_param_min_metrics.append(
                             torch.tensor([float("inf")], device="cpu", dtype=torch.float32)
                         )
-                        per_param_max_metrics.append(
-                            torch.tensor([float("-inf")], device="cpu", dtype=torch.float32)
-                        )
+                        per_param_max_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
                         per_param_sum_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
                         per_param_norm_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
                         per_param_numel_metrics.append(0)
-                    per_param_min_metric_names.append(f"{prefix}/min")
-                    per_param_max_metric_names.append(f"{prefix}/max")
-                    per_param_avg_metric_names.append(f"{prefix}/avg")
-                    per_param_norm_metric_names.append(f"{prefix}/norm")
+                    per_param_min_metric_names.append(f"{prefix}.min")
+                    per_param_max_metric_names.append(f"{prefix}.max")
+                    per_param_avg_metric_names.append(f"{prefix}.avg")
+                    per_param_norm_metric_names.append(f"{prefix}.norm")
 
         per_param_avg_metrics: List[torch.Tensor]
         if is_distributed() and isinstance(module, FullyShardedDataParallel):
@@ -259,11 +263,8 @@ class LionW(Optimizer):
 
 
 class AdamW(torch.optim.AdamW, Optimizer):
-    def get_state_for_param(self, param: nn.Parameter) -> Dict[str, torch.Tensor]:
-        return {
-            key: self.state[param].get(key, torch.tensor([], device="cpu", dtype=torch.float32))  # type: ignore
-            for key in ("exp_avg", "exp_avg_sq")
-        }
+    def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
+        return {key: self.state[param].get(key) for key in ("exp_avg", "exp_avg_sq")}  # type: ignore
 
 
 class Scheduler(metaclass=ABCMeta):
