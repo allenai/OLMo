@@ -87,6 +87,7 @@ class Optimizer(OptimizerBase):
 
                 # Get min, max, avg, and norm for all `tensors` associated with the parameter.
                 for x, prefix in zip(tensors, prefixes):
+                    # grad could be none
                     x = x if x is not None else torch.tensor([], device="cpu", dtype=torch.float32)
                     if x.numel() > 0:
                         per_param_min_metrics.append(x.min().unsqueeze(0).to(device="cpu", dtype=torch.float32))
@@ -259,7 +260,10 @@ class LionW(Optimizer):
 
 class AdamW(torch.optim.AdamW, Optimizer):
     def get_state_for_param(self, param: nn.Parameter) -> Dict[str, torch.Tensor]:
-        return {key: self.state[param][key] for key in ("exp_avg", "exp_avg_sq") if key in self.state[param]}  # type: ignore
+        return {
+            key: self.state[param].get(key, torch.tensor([], device="cpu", dtype=torch.float32))  # type: ignore
+            for key in ("exp_avg", "exp_avg_sq")
+        }
 
 
 class Scheduler(metaclass=ABCMeta):
