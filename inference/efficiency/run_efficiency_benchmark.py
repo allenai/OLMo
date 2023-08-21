@@ -10,6 +10,7 @@ import torch
 from auto_gptq import AutoGPTQForCausalLM
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+
 def stdio_predictor_wrapper(predictor):
     """
     Wrap a predictor in a loop that reads from stdin and writes to stdout.
@@ -25,7 +26,6 @@ def stdio_predictor_wrapper(predictor):
         outputs = predictor.predict(inputs=inputs)
         # Writes are \n deliminated, so adding \n is essential to separate this write from the next loop iteration.
         outputs = [o for o in outputs]
-        print('outputs', outputs)
         sys.stdout.write(f"{json.dumps(outputs)}\n")
         # Writes to stdout are buffered. The flush ensures the output is immediately sent through the pipe
         # instead of buffered.
@@ -53,7 +53,7 @@ class ModelSetUp:
             return_tensors="pt",
         ).input_ids
         inputs = inputs.to(self.model.device)
-        outputs = self.model.model.generate(inputs, max_new_tokens=256)
+        outputs = self.model.generate(inputs=inputs, max_new_tokens=256)
         outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
         for output in outputs:
             yield output.strip()
