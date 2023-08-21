@@ -70,7 +70,7 @@ class Optimizer(OptimizerBase):
         per_param_max_metrics: List[torch.Tensor] = []
         per_param_sum_metrics: List[torch.Tensor] = []
         per_param_norm_metrics: List[torch.Tensor] = []
-        per_param_numel_metrics: List[int] = []
+        per_param_numel_metrics: List[torch.Tensor] = []
 
         per_param_min_metric_names: List[str] = []
         per_param_max_metric_names: List[str] = []
@@ -102,7 +102,9 @@ class Optimizer(OptimizerBase):
                         per_param_norm_metrics.append(
                             torch.linalg.vector_norm(x, 2.0, dtype=torch.float32).unsqueeze(0).to(device="cpu")
                         )
-                        per_param_numel_metrics.append(x.numel())
+                        per_param_numel_metrics.append(
+                            torch.tensor([x.numel()], device="cpu", dtype=torch.float32)
+                        )
                     else:
                         per_param_min_metrics.append(
                             torch.tensor([float("inf")], device="cpu", dtype=torch.float32)
@@ -110,7 +112,7 @@ class Optimizer(OptimizerBase):
                         per_param_max_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
                         per_param_sum_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
                         per_param_norm_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
-                        per_param_numel_metrics.append(0)
+                        per_param_numel_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
                     per_param_min_metric_names.append(f"{prefix}.min")
                     per_param_max_metric_names.append(f"{prefix}.max")
                     per_param_avg_metric_names.append(f"{prefix}.avg")
@@ -128,32 +130,29 @@ class Optimizer(OptimizerBase):
             per_param_max_metrics = all_maxs.to(device="cpu").split(1)
             # Reduce sums.
             all_sums = torch.cat(per_param_sum_metrics).to(get_default_device())
-            dist.reduce(all_sums, 0, op=dist.ReduceOp.SUM)
-            all_sums = all_sums.to(device="cpu")
-            # Reduce norms.
             all_norms = torch.cat(per_param_norm_metrics).to(get_default_device()) ** 2.0
-            dist.reduce(all_norms, 0, op=dist.ReduceOp.SUM)
-            all_norms = all_norms ** (0.5)
-            per_param_norm_metrics = all_norms.to(device="cpu").split(1)
-            # Reduce num elements.
-            all_numels = torch.tensor(per_param_numel_metrics, device=get_default_device())
-            dist.reduce(all_numels, 0, op=dist.ReduceOp.SUM)
-            all_numels = all_numels.to(device="cpu")
+            all_numels = torch.cat(per_param_numel_metrics).to(get_default_device())
+            all_sums_norms_numels = torch.cat(
+                [all_sums.unsqueeze(-1), all_norms.unsqueeze(-1), all_numels.unsqueeze(-1)], dim=-1
+            )
+            dist.reduce(all_sums_norms_numels, 0, op=dist.ReduceOp.SUM)
+            all_sums, all_norms, all_numels = all_sums_norms_numels.split(1)
+            per_param_norm_metrics = (all_norms ** (0.5)).squeeze(0).to(device="cpu").split(1)
             # Get averages.
-            all_avgs = all_sums / all_numels  # could get infs for non-rank0 processes but that's okay.
-            per_param_avg_metrics = all_avgs.split(1)
+            # NOTE: could get infs for non-rank0 processes but that's okay.
+            per_param_avg_metrics = (all_sums / all_numels).squeeze(0).to(device="cpu").split(1)
         else:
             per_param_avg_metrics = [x / n for x, n in zip(per_param_sum_metrics, per_param_numel_metrics)]
 
         all_metrics: Dict[str, torch.Tensor] = {}
         for metric_name, metric in zip(per_param_min_metric_names, per_param_min_metrics):
-            all_metrics[metric_name] = metric
+            all_metrics[metric_name] = metric.squeeze(0)
         for metric_name, metric in zip(per_param_max_metric_names, per_param_max_metrics):
-            all_metrics[metric_name] = metric
+            all_metrics[metric_name] = metric.squeeze(0)
         for metric_name, metric in zip(per_param_avg_metric_names, per_param_avg_metrics):
-            all_metrics[metric_name] = metric
+            all_metrics[metric_name] = metric.squeeze(0)
         for metric_name, metric in zip(per_param_norm_metric_names, per_param_norm_metrics):
-            all_metrics[metric_name] = metric
+            all_metrics[metric_name] = metric.squeeze(0)
 
         return all_metrics
 
