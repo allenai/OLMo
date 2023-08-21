@@ -14,6 +14,7 @@ def init_weights(
     module: Union[nn.Linear, nn.Embedding],
     d: Optional[int] = None,
     layer_id: Optional[int] = None,
+    std_factor: float = 1.0,
 ) -> None:
     """
     Initialize weights of a linear or embedding module.
@@ -27,9 +28,9 @@ def init_weights(
     """
     d = d if d is not None else config.d_model
     if config.init_fn == InitFnType.normal:
-        nn.init.normal_(module.weight, mean=0.0, std=config.init_std)
+        nn.init.normal_(module.weight, mean=0.0, std=config.init_std * std_factor)
     elif config.init_fn == InitFnType.mitchell:
-        std = 1.0 / math.sqrt(d)
+        std = std_factor / math.sqrt(d)
         if layer_id is not None:
             std = std / math.sqrt(2 * (layer_id + 1))
         nn.init.trunc_normal_(module.weight, mean=0.0, std=std, a=-3 * std, b=3 * std)

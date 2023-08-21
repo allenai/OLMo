@@ -7,6 +7,7 @@ Adapted from
 from __future__ import annotations
 
 import logging
+import math
 import os
 from abc import abstractmethod
 from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
@@ -630,7 +631,11 @@ class Olmo(nn.Module):
     def reset_parameters(self):
         log.info("Initializing model parameters...")
         # Top-level embeddings / linear layers.
-        init_weights(self.config, self.transformer.wte)  # type: ignore
+        init_weights(
+            self.config,
+            self.transformer.wte,  # type: ignore
+            std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,
+        )
         if hasattr(self.transformer, "wpe"):
             init_weights(self.config, self.transformer.wpe)  # type: ignore
 
@@ -804,7 +809,7 @@ class Olmo(nn.Module):
         # shape: (batch_size, seq_len or 1, vocab_size)
         logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
         if self.config.scale_logits:
-            logits.mul_(self.config.d_model ** (-0.5))
+            logits.mul_(1 / math.sqrt(self.config.d_model))
 
         return OlmoOutput(logits=logits, attn_key_values=attn_key_values)  # type: ignore[arg-type]
 
