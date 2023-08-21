@@ -89,23 +89,24 @@ class Optimizer(OptimizerBase):
 
                 # Get min, max, avg, and norm for all `tensors` associated with the parameter.
                 for x, prefix in zip(tensors, prefixes):
+                    x = x if x is not None else torch.tensor([], device="cpu", dtype=torch.float32)
                     if x.numel() > 0:
-                        per_param_min_metrics.append(x.min().unsqueeze(0).to(dtype=torch.float32))
-                        per_param_max_metrics.append(x.max().unsqueeze(0).to(dtype=torch.float32))
-                        per_param_sum_metrics.append(x.sum().unsqueeze(0).to(dtype=torch.float32))
+                        per_param_min_metrics.append(x.min().unsqueeze(0).to(device="cpu", dtype=torch.float32))
+                        per_param_max_metrics.append(x.max().unsqueeze(0).to(device="cpu", dtype=torch.float32))
+                        per_param_sum_metrics.append(x.sum().unsqueeze(0).to(device="cpu", dtype=torch.float32))
                         per_param_norm_metrics.append(
-                            torch.linalg.vector_norm(x, 2.0, dtype=torch.float32).unsqueeze(0)
+                            torch.linalg.vector_norm(x, 2.0, dtype=torch.float32).unsqueeze(0).to(device="cpu")
                         )
                         per_param_numel_metrics.append(x.numel())
                     else:
                         per_param_min_metrics.append(
-                            torch.tensor([float("inf")], device=x.device, dtype=torch.float32)
+                            torch.tensor([float("inf")], device="cpu", dtype=torch.float32)
                         )
                         per_param_max_metrics.append(
-                            torch.tensor([float("-inf")], device=x.device, dtype=torch.float32)
+                            torch.tensor([float("-inf")], device="cpu", dtype=torch.float32)
                         )
-                        per_param_sum_metrics.append(torch.tensor([0.0], device=x.device, dtype=torch.float32))
-                        per_param_norm_metrics.append(torch.tensor([0.0], device=x.device, dtype=torch.float32))
+                        per_param_sum_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
+                        per_param_norm_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
                         per_param_numel_metrics.append(0)
                     per_param_min_metric_names.append(f"{prefix}/min")
                     per_param_max_metric_names.append(f"{prefix}/max")
@@ -117,22 +118,24 @@ class Optimizer(OptimizerBase):
             # Reduce mins.
             all_mins = torch.cat(per_param_min_metrics).to(get_default_device())
             dist.reduce(all_mins, 0, op=dist.ReduceOp.MIN)
-            per_param_min_metrics = all_mins.split(1)
+            per_param_min_metrics = all_mins.to(device="cpu").split(1)
             # Reduce maxs.
             all_maxs = torch.cat(per_param_max_metrics).to(get_default_device())
             dist.reduce(all_maxs, 0, op=dist.ReduceOp.MAX)
-            per_param_max_metrics = all_maxs.split(1)
+            per_param_max_metrics = all_maxs.to(device="cpu").split(1)
             # Reduce sums.
             all_sums = torch.cat(per_param_sum_metrics).to(get_default_device())
             dist.reduce(all_sums, 0, op=dist.ReduceOp.SUM)
+            all_sums = all_sums.to(device="cpu")
             # Reduce norms.
             all_norms = torch.cat(per_param_norm_metrics).to(get_default_device()) ** 2.0
             dist.reduce(all_norms, 0, op=dist.ReduceOp.SUM)
             all_norms = all_norms ** (0.5)
-            per_param_norm_metrics = all_norms.split(1)
+            per_param_norm_metrics = all_norms.to(device="cpu").split(1)
             # Reduce num elements.
             all_numels = torch.tensor(per_param_numel_metrics, device=get_default_device())
             dist.reduce(all_numels, 0, op=dist.ReduceOp.SUM)
+            all_numels = all_numels.to(device="cpu")
             # Get averages.
             all_avgs = all_sums / all_numels  # could get infs for non-rank0 processes but that's okay.
             per_param_avg_metrics = all_avgs.split(1)
