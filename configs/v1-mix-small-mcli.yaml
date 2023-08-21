@@ -53,6 +53,7 @@ tokenizer:
 save_folder: runs/${run_name}
 remote_save_folder: s3://ai2-llm/checkpoints/1b/${run_name}
 save_overwrite: true
+time_limit: null
 # Sharded checkpoints (best for restarts)
 save_interval: 100
 save_num_checkpoints_to_keep: -1
