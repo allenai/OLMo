@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from vllm.model_executor.input_metadata import InputMetadata
 from vllm.model_executor.layers.activation import SiluAndMul
 from vllm.model_executor.layers.layernorm import RMSNorm
-from vllm.model_executor.layers.attention import PagedAttentionWithALiBi
+from vllm.model_executor.layers.attention import PagedAttentionWithALiBi, PagedAttention
 from vllm.model_executor.layers.sampler import Sampler
 from vllm.model_executor.weight_utils import (hf_model_weights_iterator,
                                               load_tensor_parallel_weights)
@@ -116,6 +116,8 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
 
     def __init__(self, config: ModelConfig):
         super().__init__(config)
+
+        # config.multi_query_attention = False
         # Layer norms.
         self.attn_norm = LayerNorm.build(config)
         self.ff_norm = LayerNorm.build(config)
@@ -134,12 +136,20 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
             config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
         )
 
-        # TODO: confirm
         head_dim = config.d_model // config.n_heads
         scaling = head_dim**-0.5
-        slopes = _get_alibi_slopes(config.n_heads, config.alibi_bias_max)
-        self.paged_attn = PagedAttentionWithALiBi(config.n_heads, head_dim, scale=scaling,
-                                                  slopes=slopes, num_kv_heads=1)
+
+        if config.multi_query_attention:
+            num_kv_heads = 1
+        else:
+            num_kv_heads = config.n_heads
+
+        if self.config.alibi:
+            slopes = _get_alibi_slopes(config.n_heads, config.alibi_bias_max)
+            self.paged_attn = PagedAttentionWithALiBi(config.n_heads, head_dim, scale=scaling,
+                                                      slopes=slopes, num_kv_heads=config.n_heads)
+        else:
+            self.paged_attn = PagedAttention(config.n_heads, head_dim, scale=scaling, num_kv_heads=num_kv_heads)
 
 
     def forward(
@@ -159,15 +169,19 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
         q, k, v = self.att_proj(self.attn_norm(x)).split(self.fused_dims, dim=-1)
         k_cache, v_cache = kv_cache
   
-        if debug:
-            import pdb
-            pdb.set_trace()
         dtype = k.dtype
+
         if self.q_norm is not None and self.k_norm is not None:
             q = self.q_norm(q).to(dtype=dtype)
             k = self.k_norm(k).to(dtype=dtype)
+
+        if self.config.multi_query_attention:
+            num_queries_per_kv = self.config.n_heads
+            k = k.repeat(1, self.config.n_heads)
+            v = v.repeat(1, self.config.n_heads)
+        
         # Get attention scores.
-        att = self.paged_attn(q, k, v, k_cache, v_cache, input_metadata, cache_event, debug=debug)
+        att = self.paged_attn(q, k, v, k_cache, v_cache, input_metadata, cache_event) #, debug=debug)
         att = self.attn_out(att)
 
         # Add attention scores.
@@ -200,6 +214,11 @@ class OlmoModel(nn.Module):
             )
         )
 
+        if not (self.config.alibi or self.config.rope):
+            self.transformer.update(
+                {"wpe": nn.Embedding(config.max_sequence_length, config.d_model, device=config.init_device)}
+            )
+
     def _make_state_dict_compatible(self, state_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         # For backwards compatibility prior to fixing https://github.com/allenai/LLM/issues/222
         if self.config.block_type == BlockType.sequential:
@@ -225,9 +244,24 @@ class OlmoModel(nn.Module):
         cache_events: Optional[List[torch.cuda.Event]],
     ) -> torch.Tensor:
 
+        seq_len = input_ids.shape[-1]
         # Get embeddings of input.
         # shape: (batch_size, seq_len, d_model)
         x = self.transformer.wte(input_ids)  # type: ignore
+
+        if not (self.config.alibi or self.config.rope):
+            # Get positional embeddings.
+            if kv_caches[0][0] is None:
+                past_length = 0
+            else:
+                past_length = kv_caches[0][0].size(-2)
+            # shape: (1, seq_len)
+            pos = torch.arange(
+                past_length, past_length + seq_len, dtype=torch.long, device=input_ids.device
+            ).unsqueeze(0)
+            # shape: (1, seq_len, d_model)
+            pos_emb = self.transformer.wpe(pos)  # type: ignore
+            x = pos_emb + x
 
         # Add input + positional embeddings and apply dropout.
         # shape: (batch_size, seq_len, d_model)
@@ -313,5 +347,22 @@ class OlmoModelForCausalLM(nn.Module):
         # Load state dict directly to target device.
         state_dict_path = cached_path(os.path.join(model_name_or_path, "model.pt"))
         state_dict = torch.load(state_dict_path, map_location="cpu")
+
+        #for i in range(model_config.n_layers):
+        #    state_dict[f"transformer.blocks.{i}.att_proj.weight"] = reshape_mqa_weight(
+        #        state_dict[f"transformer.blocks.{i}.att_proj.weight"], model_config.d_model, model_config.n_heads
+        #    )
+
         self.model.load_state_dict(self.model._make_state_dict_compatible(state_dict))
 
+
+def reshape_mqa_weight(tensor, d, n):
+    assert tensor.shape[0] == d + d//n + d//n
+    q_part = tensor[:d]
+    k_part = tensor[d:d+(d//n)]
+    v_part = tensor[d+(d//n):]
+    k_part = k_part.repeat(n, 1)
+    v_part = v_part.repeat(n, 1)
+    repeated_tensor = torch.cat((q_part, k_part, v_part), dim=0)  # Concatenate tensors
+
+    return repeated_tensor
