@@ -37,6 +37,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         rank: Optional[int] = None,
         fs_local_rank: Optional[int] = None,
         work_dir: Optional[PathOrStr] = None,
+        global_batch_size: Optional[int] = None,
     ):
         self.dataset = dataset
         self.seed = seed
@@ -58,6 +59,10 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         else:
             num_samples = math.ceil(len(self.dataset) / self.world_size)  # type: ignore[arg-type]
         self.total_size = num_samples * self.world_size
+        self.device_batch_size: Optional[int] = None
+        if global_batch_size is not None:
+            assert global_batch_size % self.world_size == 0
+            self.device_batch_size = global_batch_size // self.world_size
         self.global_indices_file: Optional[Path] = None
         if work_dir is not None:
             self.global_indices_file = Path(work_dir) / "global_indices.npy"
@@ -123,10 +128,28 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         # Lastly, slice the indices by data loader worker rank to avoid duplicates.
         worker_info = torch.utils.data.get_worker_info()
         if worker_info is not None:
-            indices = indices[worker_info.id :: worker_info.num_workers]
+            # Note that each data loading worker gathers a whole batch at a time, and the workers
+            # are called round-robin by rank. So to slice these up in a way that preserves order, regardless
+            # of the number of workers, we should give worker 0 the first chunk of `device_batch_size` indices,
+            # worker 1 the 2nd chunk of `device_train_batch_size` indices, etc...
+            if self.device_batch_size is not None:
+                if not isinstance(indices, (np.memmap, np.ndarray)):
+                    indices = np.array(indices, dtype=np.uint64)
+                truncated_size = self.device_batch_size * (len(indices) // self.device_batch_size)
+                left_overs = indices[
+                    truncated_size + worker_info.id : truncated_size + worker_info.id + worker_info.num_workers
+                ]
+                indices = (
+                    indices[:truncated_size]
+                    .reshape((-1, self.device_batch_size))[worker_info.id :: worker_info.num_workers]  # type: ignore
+                    .reshape((-1,))
+                )
+                indices = np.concatenate([indices, left_overs])
+            else:
+                indices = indices[worker_info.id :: worker_info.num_workers]
 
         # Convert to a list at this point so we don't have to rely on memory-mapping.
-        if isinstance(indices, np.memmap):
+        if isinstance(indices, (np.memmap, np.ndarray)):
             indices_list = indices.tolist()  # type: ignore
         else:
             indices_list = indices
