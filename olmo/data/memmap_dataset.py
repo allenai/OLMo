@@ -109,6 +109,7 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         return self._num_instances
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
+        index = int(index)  # in case this is a numpy int type.
         pos_index = index if index >= 0 else len(self) + index
 
         # The index of the memmap array within 'self.memmaps'
