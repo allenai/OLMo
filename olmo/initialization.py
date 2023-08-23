@@ -21,7 +21,7 @@ def init_weights(
 
     :param config: The model config.
     :param module: The linear or embedding submodule to initialize.
-    :param d: The effective dimensionality of the weights. This could be smaller than the actual dimensions
+    :param d: The effective input dimensionality of the weights. This could be smaller than the actual dimensions
         for fused layers.
     :param layer_id: When set, the standard deviation for the "mitchell" method will be adjusted by
         ``1 / sqrt(2 * (layer_id + 1))``.
@@ -36,6 +36,9 @@ def init_weights(
         nn.init.trunc_normal_(module.weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
     elif config.init_fn == InitFnType.kaiming_normal:
         nn.init.kaiming_normal_(module.weight, nonlinearity="relu")
+    elif config.init_fn == InitFnType.fan_in:
+        std = std_factor / math.sqrt(d)
+        nn.init.normal_(module.weight, mean=0.0, std=std)
     else:
         raise NotImplementedError(config.init_fn)
 

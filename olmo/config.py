@@ -197,6 +197,13 @@ class InitFnType(StrEnum):
     kaiming_normal = "kaiming_normal"
     """
     All weights are initialized with the Kaiming method from a normal distribution.
+    Note this currently won't work with FSDP.
+    """
+
+    fan_in = "fan_in"
+    """
+    "Fan-in variance scaling", i.e. normal with a standard deviation of ``1/sqrt(d_in)`` where ``d_in``
+    is the input dimensionality of the kernel.
     """
 
 
