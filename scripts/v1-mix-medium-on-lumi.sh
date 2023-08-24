@@ -45,7 +45,6 @@ srun \
     singularity exec \
     -B"$PROJECT_DIR:$PROJECT_DIR" \
     -B"$SCRATCH_DIR:$SCRATCH_DIR" \
-    -B"$FLASH_DIR:$FLASH_DIR" \
     -B /opt/cray:/opt/cray \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
@@ -55,3 +54,5 @@ srun \
       --run_name=$run_name \
       --model.init_fn=normal \
       --scheduler.t_warmup=5000 ${@}
+
+    # -B"$FLASH_DIR:$FLASH_DIR" \
