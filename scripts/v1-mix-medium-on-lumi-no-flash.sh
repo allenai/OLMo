@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=v1-mix-medium
 #SBATCH --account=project_462000229
-#SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
+#SBATCH --output=/scratch/project_462000229/logs/%j.log
 #SBATCH --nodes=128             # Total number of nodes 
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
@@ -44,13 +44,15 @@ srun \
   scripts/run_with_environment.sh \
     singularity exec \
     -B"$PROJECT_DIR:$PROJECT_DIR" \
-    -B"$FLASH_DIR:$FLASH_DIR" \
     -B"$SCRATCH_DIR:$SCRATCH_DIR" \
     -B /opt/cray:/opt/cray \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
-    python scripts/train.py configs/v1-mix-medium.yaml \
+    python scripts/train.py configs/v1-mix-medium-mcli.yaml \
+      --save_folder=$SCRATCH_DIR/checkpoints/$run_name
       --run_name=$run_name \
       --model.init_fn=normal \
       --scheduler.t_warmup=5000 ${@}
+
+    # -B"$FLASH_DIR:$FLASH_DIR" \
