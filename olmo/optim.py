@@ -11,7 +11,7 @@ from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.optim.optimizer import Optimizer as OptimizerBase
 
 from .config import OptimizerType, SchedulerType, TrainConfig
-from .util import get_default_device, is_distributed
+from .util import get_default_device, is_distributed, is_weight_decay_module
 
 __all__ = [
     "Optimizer",
@@ -30,30 +30,11 @@ log = logging.getLogger(__name__)
 
 
 class Optimizer(OptimizerBase):
-    def get_pre_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
-        return self._collect_optim_param_metrics(module)
-
-    def get_post_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
-        del module
-        return {}
-
-    def get_param_name(self, module: nn.Module, param: nn.Parameter) -> str:
-        if not hasattr(self, "_param_to_name"):
-            # NOTE (epwalsh): don't worry, this will not be included in `self.state_dict()`.
-            self._param_to_name: Dict[nn.Parameter, str] = {}
-            for name, param in module.named_parameters():
-                self._param_to_name[param] = name
-        return self._param_to_name[param]
-
-    def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
-        del param
-        return {}
-
     @torch.no_grad()
-    def _collect_optim_param_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
+    def clip_grads_and_collect_metrics(self) -> Dict[str, torch.Tensor]:
         """
-        A help method for collecting optimizer parameter metrics.
-        If distributed training with FDSP, this implementation assumes `use_orig_params=True`.
+        Clips gradients for every group that has the field `max_grad_norm`.
+        At the same time collect metrics for each parameter and its gradient.
         """
         # NOTE (epwalsh): during distributed training we're making an assumption that the order of
         # the param groups and the params within each group are the same across all ranks.
@@ -78,8 +59,9 @@ class Optimizer(OptimizerBase):
         per_param_norm_metric_names: List[str] = []
 
         for group in self.param_groups:
-            for p in group["params"]:
-                name = self.get_param_name(module, p)
+            if is_distributed():
+                assert group.get("sharded") is True  # TODO (epwalsh): handle non-sharded params
+            for name, p in zip(group["param_names"], group["params"]):
                 state = self.get_state_for_param(p)
                 sorted_state_keys = sorted(state.keys())
                 tensors = [p, p.grad] + [state[key] for key in sorted_state_keys]
@@ -119,7 +101,7 @@ class Optimizer(OptimizerBase):
                     per_param_norm_metric_names.append(f"{prefix}.norm")
 
         per_param_avg_metrics: List[torch.Tensor]
-        if is_distributed() and isinstance(module, FullyShardedDataParallel):
+        if is_distributed():  # TODO (epwalsh): skip for non-sharded params
             # Reduce mins.
             all_mins = torch.cat(per_param_min_metrics).to(get_default_device())
             dist.reduce(all_mins, 0, op=dist.ReduceOp.MIN)
@@ -144,6 +126,7 @@ class Optimizer(OptimizerBase):
         else:
             per_param_avg_metrics = [x / n for x, n in zip(per_param_sum_metrics, per_param_numel_metrics)]
 
+        # Collect all metrics into a single dict.
         all_metrics: Dict[str, torch.Tensor] = {}
         for metric_name, metric in zip(per_param_min_metric_names, per_param_min_metrics):
             all_metrics[metric_name] = metric.squeeze(0)
@@ -154,7 +137,30 @@ class Optimizer(OptimizerBase):
         for metric_name, metric in zip(per_param_norm_metric_names, per_param_norm_metrics):
             all_metrics[metric_name] = metric.squeeze(0)
 
+        # Clip gradients.
+        for group in self.param_groups:
+            if (max_norm := group["max_grad_norm"]) is None:
+                continue
+            for name, p in zip(group["param_names"], group["params"]):
+                if p.grad is None:
+                    continue
+                grad_norm = all_metrics[f"grad/{name}.norm"]
+                clip_coef = max_norm / (grad_norm + 1e-6)
+                # Multiplying by the clamped coefficient is meaningless when it is
+                # equal to 1, but it avoids the host-device sync that would result from
+                # `if clip_coef < 1`
+                clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
+                p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
+
         return all_metrics
+
+    def get_post_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
+        del module
+        return {}
+
+    def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
+        del param
+        return {}
 
 
 class LionW(Optimizer):
@@ -316,50 +322,73 @@ class MaxScheduler(Scheduler):
         )
 
 
-def get_param_groups(model: nn.Module) -> List[Dict[str, Any]]:
+def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]:
     """
     Separate parameters into weight decay and non weight decay groups.
     """
-    from .util import is_weight_decay_module
+    param_group_defaults = {
+        "sharded": isinstance(model, FullyShardedDataParallel),
+        "max_grad_norm": cfg.max_grad_norm,
+    }
+    if cfg.optimizer.no_decay_norm_and_bias and cfg.optimizer.weight_decay > 0.0:
+        # Separate out parameters that we don't want to apply weight decay to, like norms and biases.
+        decay = set()
+        no_decay = set()
+        all_params = {}
+        for mn, m in model.named_modules():
+            for pn, p in m.named_parameters():
+                # NOTE: because named_modules and named_parameters are recursive
+                # we will see the same tensors p many many times, but doing it this way
+                # allows us to know which parent module any tensor p belongs to...
+                if not p.requires_grad:
+                    continue
 
-    # Separate out parameters that we don't want to apply weight decay to, like norms and biases.
-    decay = set()
-    no_decay = set()
-    all_params = {}
-    for mn, m in model.named_modules():
-        for pn, p in m.named_parameters():
-            # NOTE: because named_modules and named_parameters are recursive
-            # we will see the same tensors p many many times, but doing it this way
-            # allows us to know which parent module any tensor p belongs to...
-            if not p.requires_grad:
-                continue
+                fpn = f"{mn}.{pn}" if mn else pn
+                all_params[fpn] = p
 
-            fpn = f"{mn}.{pn}" if mn else pn
-            all_params[fpn] = p
+                if pn.endswith("bias"):
+                    # all biases will not be decayed
+                    no_decay.add(fpn)
+                elif pn.endswith("weight") and isinstance(m, nn.Linear):
+                    decay.add(fpn)
+                elif pn.endswith("weight") and not is_weight_decay_module(m):
+                    no_decay.add(fpn)
 
-            if pn.endswith("bias"):
-                # all biases will not be decayed
-                no_decay.add(fpn)
-            elif pn.endswith("weight") and isinstance(m, nn.Linear):
-                decay.add(fpn)
-            elif pn.endswith("weight") and not is_weight_decay_module(m):
-                no_decay.add(fpn)
+        # Validate that we've considered every parameter
+        inter_params = decay & no_decay
+        union_params = decay | no_decay
+        assert decay
+        assert no_decay
+        assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
+        assert (
+            len(all_params.keys() - union_params) == 0
+        ), f"parameters {all_params.keys() - union_params} were not separated into either decay/no_decay set!"
 
-    # Validate that we've considered every parameter
-    inter_params = decay & no_decay
-    union_params = decay | no_decay
-    assert decay
-    assert no_decay
-    assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
-    assert (
-        len(all_params.keys() - union_params) == 0
-    ), f"parameters {all_params.keys() - union_params} were not separated into either decay/no_decay set!"
-
-    # Create the pytorch optimizer groups.
-    return [
-        {"params": [all_params[pn] for pn in sorted(list(decay))]},
-        {"params": [all_params[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
-    ]
+        # Create the pytorch optimizer groups.
+        decay_sorted = sorted(list(decay))
+        no_decay_sorted = sorted(list(no_decay))
+        return [
+            {
+                "params": [all_params[pn] for pn in decay_sorted],
+                "param_names": decay_sorted,
+                **param_group_defaults,
+            },
+            {
+                "params": [all_params[pn] for pn in no_decay_sorted],
+                "param_names": no_decay_sorted,
+                "weight_decay": 0.0,
+                **param_group_defaults,
+            },
+        ]
+    else:
+        param_names, params = zip(*list(model.named_parameters()))
+        return [
+            {
+                "params": list(params),
+                "param_names": list(param_names),
+                **param_group_defaults,
+            }
+        ]
 
 
 def fix_optim_state_dict(optimizer: Optimizer, state_dict: Dict[str, Any]) -> Dict[str, Any]:
@@ -384,25 +413,18 @@ def fix_optim_state_dict(optimizer: Optimizer, state_dict: Dict[str, Any]) -> Di
 
 
 def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
-    params = (
-        get_param_groups(model)
-        if (cfg.optimizer.no_decay_norm_and_bias and cfg.optimizer.weight_decay > 0.0)
-        else model.parameters()
-    )
-    if isinstance(params, list):
-        log.info(f"Constructing optimizer with {len(params)} param groups")
-    else:
-        log.info("Constructing optimizer with single param group")
+    param_groups = get_param_groups(cfg, model)
+    log.info(f"Constructing optimizer with {len(param_groups)} param groups")
     if cfg.optimizer.name == OptimizerType.lionw:
         return LionW(
-            params,
+            param_groups,
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,
         )
     elif cfg.optimizer.name == OptimizerType.adamw:
         return AdamW(
-            params,
+            param_groups,
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,

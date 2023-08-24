@@ -37,7 +37,6 @@ from .model import Olmo
 from .optim import Optimizer, Scheduler
 from .util import (
     barrier,
-    fsdp_clip_grads_and_get_norms,
     get_fs_local_rank,
     get_global_rank,
     get_world_size,
@@ -614,20 +613,11 @@ class Trainer:
         # Run forward-backward pass.
         ce_batch_loss, z_batch_loss = self.train_batch(batch)
 
-        # Maybe collect pre-step optimizer-specific metrics.
+        # Clip gradient norms and collect param/gradient/optim metrics.
+        optim_metrics = self.optim.clip_grads_and_collect_metrics()
         if self.should_log_optim_metrics_this_step():
-            optim_metrics = self.optim.get_pre_step_metrics(self.fsdp_model)
             for key, value in optim_metrics.items():
                 metrics[f"optim/{key}"] = value.item()
-
-        # Clip gradient norms.
-        grad_norm: Optional[float] = None
-        param_norm: Optional[float] = None
-        if self.cfg.max_grad_norm is not None:
-            norms = fsdp_clip_grads_and_get_norms(self.fsdp_model, self.cfg.max_grad_norm)
-            grad_norm = norms.grad_norm.item()
-            if norms.param_norm is not None:
-                param_norm = norms.param_norm.item()
 
         # Adjust the learning rate.
         for group in self.optim.param_groups:
@@ -647,11 +637,6 @@ class Trainer:
             self.z_train_loss_metric.update(z_batch_loss)
             z_batch_loss = self.z_train_loss_metric.compute()
             metrics["train/ZLoss"] = z_batch_loss.item()
-
-        if grad_norm is not None:
-            metrics["optim/grad_norm"] = grad_norm
-        if param_norm is not None:
-            metrics["optim/param_norm"] = param_norm
 
         # Maybe collect post-step optimizer-specific metrics.
         if self.should_log_optim_metrics_this_step():
