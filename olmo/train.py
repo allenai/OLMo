@@ -971,7 +971,7 @@ class Trainer:
             self.indices_file.flush()
             self.indices_file.close()
         if wandb.run is not None:
-            wandb.finish(exit_code=exit_code)
+            wandb.finish(exit_code=exit_code, quiet=True)
 
     def __enter__(self) -> Trainer:
         return self
