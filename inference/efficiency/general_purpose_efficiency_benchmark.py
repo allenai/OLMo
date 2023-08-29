@@ -35,7 +35,6 @@ def stdio_predictor_wrapper(predictor):
 class ModelSetUp:
     def __init__(self, pretrained_model_dir, quantized_model_dir):
         device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-
         self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model_dir, use_fast=False)
         self.tokenizer.padding_size = "left"
         if self.tokenizer.pad_token is None:
