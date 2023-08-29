@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import List, Optional, Union
 
 from tokenizers import Tokenizer as BaseTokenizer
@@ -45,11 +46,19 @@ class Tokenizer:
 
     @classmethod
     def from_train_config(cls, config: TrainConfig) -> Tokenizer:
-        tokenizer = cls.from_pretrained(
-            config.tokenizer.identifier,
-            eos_token_id=config.model.eos_token_id,
-            pad_token_id=config.model.pad_token_id,
-        )
+        tokenizer_identifier = config.tokenizer.identifier
+        if Path(tokenizer_identifier).is_file():
+            tokenizer = cls.from_file(
+                tokenizer_identifier,
+                eos_token_id=config.model.eos_token_id,
+                pad_token_id=config.model.pad_token_id,
+            )
+        else:
+            tokenizer = cls.from_pretrained(
+                tokenizer_identifier,
+                eos_token_id=config.model.eos_token_id,
+                pad_token_id=config.model.pad_token_id,
+            )
         if config.model.vocab_size != tokenizer.vocab_size:
             raise OlmoConfigurationError("vocab size mismatch between config and tokenizer")
         return tokenizer
@@ -64,6 +73,20 @@ class Tokenizer:
         :param kwargs: Other key word arguments passed to :class:`Tokenizer`.
         """
         base_tokenizer = BaseTokenizer.from_pretrained(identifier)
+        eos_token_id = kwargs.pop("eos_token_id", base_tokenizer.get_vocab_size() - 1)
+        return cls(base_tokenizer, eos_token_id, **kwargs)
+
+    @classmethod
+    def from_file(cls, filename: PathOrStr, **kwargs) -> Tokenizer:
+        """
+        Initialize a tokenizer from a file.
+
+        You can create those files with ``BaseTokenizer.save()``.
+
+        :param filename: The name of a file containing a tokenizer specification.
+        :param kwargs: Other key word arguments passed to :class:`Tokenizer`.
+        """
+        base_tokenizer = BaseTokenizer.from_file(filename)
         eos_token_id = kwargs.pop("eos_token_id", base_tokenizer.get_vocab_size() - 1)
         return cls(base_tokenizer, eos_token_id, **kwargs)
 
