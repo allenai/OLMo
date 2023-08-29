@@ -167,5 +167,5 @@ data:
   prefetch_factor: 16
   persistent_workers: true
   timeout: 0
-  paths: ${path.glob:${oc.env:SCRATCH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/\{books.npy\,c4_*.npy\,cc_en_*.npy\,s2.npy\,stack_*.npy\,wiki.npy\}}
-
+  paths:
+    ${path.glob:${oc.env:SCRATCH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/books.npy,${oc.env:SCRATCH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/c4_*.npy,${oc.env:SCRATCH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/cc_en_*.npy,${oc.env:SCRATCH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/s2.npy,${oc.env:SCRATCH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/stack_*.npy,${oc.env:SCRATCH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/wiki.npy}
