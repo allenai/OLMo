@@ -14,6 +14,9 @@ import time
 
 import numpy as np
 import torch
+import sys
+sys.path.append("/home/pranjalib/LLM")
+from hf_olmo import *
 from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
 from datasets import load_dataset
 from transformers import AutoTokenizer
@@ -23,7 +26,7 @@ def get_wikitext2(nsamples, seed, seqlen, model):
     traindata = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
     testdata = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
 
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+    tokenizer = OLMoTokenizerFast.from_pretrained(model, use_fast=False)
     trainenc = tokenizer("\n\n".join(traindata["text"]), return_tensors="pt")
     testenc = tokenizer("\n\n".join(testdata["text"]), return_tensors="pt")
 
@@ -60,7 +63,6 @@ def get_args():
 def main():
     "Run quantization."
     args = get_args()
-
     print("Getting data.")
     trainloader, testenc = get_wikitext2(args.n_samples, 0, 2048, args.pretrained_model)
     print("Done.")
