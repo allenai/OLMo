@@ -29,7 +29,7 @@ model:
   eos_token_id: 0
   pad_token_id: 1
   init_device: meta
-  init_fn: mitchell
+  init_fn: normal
 
 compile: null  # causes instability on AMD GPUs
 
@@ -46,16 +46,6 @@ scheduler:
   t_warmup: 2000
   alpha_f: 0.1
 
-data:
-  paths: ${path.glob:${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/books/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/c4/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/common-crawl/*/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/s2/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/stack/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/wiki/*.npy}
-  pad_direction: right
-  num_workers: 1
-  drop_last: true
-  pin_memory: true
-  prefetch_factor: 16
-  persistent_workers: true
-  timeout: 0
-
 tokenizer:
   identifier: allenai/eleuther-ai-gpt-neox-20b-pii-special
   truncate_direction: right
@@ -63,7 +53,7 @@ tokenizer:
 save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
-save_interval: 5000
+save_interval: 1000
 save_num_checkpoints_to_keep: -1
 # Unsharded checkpoints (for final storage)
 save_interval_unsharded: null  # getting errors on LUMI right now
@@ -113,6 +103,12 @@ evaluators:
   # lump all the small datasets together (we still get separate metrics).
   - label: all-small-ppl-validation
     data:
+      num_workers: 0
+      drop_last: true
+      # pin_memory: true
+      # prefetch_factor: 1
+      # persistent_workers: false
+      # timeout: 0
       datasets:
         4chan-validation:
           - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
@@ -140,7 +136,6 @@ evaluators:
           - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
         wikitext_103-validation:
           - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/wikitext_103/val.npy
-      drop_last: true
 
   ##########################
   # Downstream evaluations #
@@ -183,3 +178,14 @@ evaluators:
 
   - label: sst2
     type: downstream
+
+data:
+  pad_direction: right
+  num_workers: 0
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 16
+  persistent_workers: true
+  timeout: 0
+  paths: ${path.glob:${oc.env:SCRATCH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/{books.npy,c4_*.npy,cc_en_*.npy,s2.npy,stack_*.npy,wiki.npy}}
+
