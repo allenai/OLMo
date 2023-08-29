@@ -6,8 +6,13 @@ import json
 import sys
 
 import torch
+
+sys.path.append("/home/pranjalib/LLM")
 from auto_gptq import AutoGPTQForCausalLM
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+# from hf_olmo import OLMoTokenizerFast
+from hf_olmo import *
 
 
 def stdio_predictor_wrapper(predictor):
@@ -34,11 +39,14 @@ def stdio_predictor_wrapper(predictor):
 class ModelSetUp:
     def __init__(self, pretrained_model_dir, quantized_model_dir):
         device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model_dir, use_fast=False)
+
+        self.tokenizer = OLMoTokenizerFast.from_pretrained(pretrained_model_dir, use_fast=False)
         self.tokenizer.padding_size = "left"
         if self.tokenizer.pad_token is None:
-            self.tokenizer.pad_token = self.tokenizer.unk_token
-            self.tokenizer.pad_token_id = self.tokenizer.unk_token_id
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+            self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+            # self.tokenizer.pad_token = self.tokenizer.unk_token
+        #     self.tokenizer.pad_token_id = self.tokenizer.unk_token_id
         if quantized_model_dir:
             self.model = AutoGPTQForCausalLM.from_quantized(quantized_model_dir, device=device, use_triton=False)
         else:
