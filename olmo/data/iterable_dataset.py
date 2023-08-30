@@ -64,20 +64,22 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             assert global_batch_size % self.world_size == 0
             self.device_batch_size = global_batch_size // self.world_size
         self.global_indices_file: Optional[Path] = None
-        if work_dir is not None:
-            self.global_indices_file = Path(work_dir) / "global_indices.npy"
-            if self.fs_local_rank == 0:
-                log.info("Saving global data order indices...")
-                self.global_indices_file.parent.mkdir(parents=True, exist_ok=True)
-                global_indices = self._build_global_indices()
-                global_indices_mmap = np.memmap(
-                    self.global_indices_file, dtype=np.uint64, mode="w+", shape=(len(global_indices),)
-                )
-                global_indices_mmap[:] = global_indices
-                global_indices_mmap.flush()
-                del global_indices_mmap
-                log.info("Global data order indices saved to '%s'", self.global_indices_file)
-            barrier()
+
+        log.warning("Saving global indices is disabled because we're debugging something right now.")
+        #if work_dir is not None:
+        #    self.global_indices_file = Path(work_dir) / "global_indices.npy"
+        #    if self.fs_local_rank == 0:
+        #        log.info("Saving global data order indices...")
+        #        self.global_indices_file.parent.mkdir(parents=True, exist_ok=True)
+        #        global_indices = self._build_global_indices()
+        #        global_indices_mmap = np.memmap(
+        #            self.global_indices_file, dtype=np.uint64, mode="w+", shape=(len(global_indices),)
+        #        )
+        #        global_indices_mmap[:] = global_indices
+        #        global_indices_mmap.flush()
+        #        del global_indices_mmap
+        #        log.info("Global data order indices saved to '%s'", self.global_indices_file)
+        #    barrier()
 
     def _build_global_indices(self) -> List[int]:
         if self.shuffle:
