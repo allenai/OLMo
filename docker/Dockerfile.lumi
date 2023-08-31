@@ -24,6 +24,6 @@ RUN zypper --non-interactive install \
 COPY requirements.txt requirements.txt
 RUN source ~/.bashrc; \
     conda activate pytorch; \
-    sed -e "s/torch.*/torch/" requirements.txt > requirements-lumi.txt; \
+    sed -e "s/torch[^a-zA-Z].*/torch/" requirements.txt > requirements-lumi.txt; \
     pip install --no-cache-dir -r requirements-lumi.txt py-spy torch; \
     pip install --no-cache-dir wandb --upgrade;
