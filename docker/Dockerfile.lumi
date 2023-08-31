@@ -17,7 +17,8 @@ RUN zypper --non-interactive install \
   wget \
   jq \
   tmux \
-  gdb
+  gdb \
+  which
 
 # Install more dependencies
 COPY requirements.txt requirements.txt
