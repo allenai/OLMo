@@ -97,7 +97,7 @@ class Olmo(nn.Module):
                     50304, 4096, device="meta"
                 ),
                 emb_drop=nn.Dropout(0.0),
-                ln_f=LayerNorm(low_precision=True),
+                ln_f=LayerNorm(low_precision=False),
             )
         )
         # FSDP will call `reset_parameters()` to initialize weights.
