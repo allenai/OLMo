@@ -241,9 +241,6 @@ class Olmo(nn.Module):
                 ln_f=LayerNorm.build(config),
             )
         )
-        self.transformer.update(
-            {"wpe": nn.Embedding(config.max_sequence_length, config.d_model, device=config.init_device)}
-        )
         # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
         if init_params and self.config.init_device != "meta":
             self.reset_parameters()
@@ -334,8 +331,6 @@ class Olmo(nn.Module):
             past_length, past_length + seq_len, dtype=torch.long, device=input_ids.device
         ).unsqueeze(0)
         # shape: (1, seq_len, d_model)
-        pos_emb = self.transformer.wpe(pos)  # type: ignore
-        x = pos_emb + x
 
         # Add input + positional embeddings and apply dropout.
         # shape: (batch_size, seq_len, d_model)
