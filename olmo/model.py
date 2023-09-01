@@ -32,6 +32,7 @@ class LayerNorm(nn.Module):
     """
 
     def __init__(self, low_precision: bool = False):
+        super().__init__()
         self.normalized_shape = (4096,)
         self.eps = 1e-05
         self.weight = nn.Parameter(torch.ones(self.normalized_shape, device="meta"))
