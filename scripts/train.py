@@ -176,30 +176,9 @@ def main(cfg: TrainConfig) -> None:
 
     optim.zero_grad(set_to_none=True)
     batch = move_to_device(batch, device)
-
-    def split_batch(batch: Dict[str, Any]) -> List[Dict[str, Any]]:
-        microbatch_size = cfg.device_train_microbatch_size
-        batch_size = batch["input_ids"].shape[0]
-        if batch_size <= microbatch_size:
-            return [batch]
-        else:
-            micro_batches = {}
-            for key, value in batch.items():
-                if isinstance(value, torch.Tensor):
-                    micro_batches[key] = value.split(microbatch_size, dim=0)
-                elif isinstance(value, list):
-                    micro_batches[key] = [
-                        value[microbatch_size * i : microbatch_size * i + microbatch_size]
-                        for i in range(math.ceil(batch_size / microbatch_size))
-                    ]
-                else:
-                    raise ValueError(f"unexpected item in batch: '{key}={value}'")
-            return [
-                {key: value[i] for key, value in micro_batches.items()}  # type: ignore
-                for i in range(len(micro_batches["input_ids"]))
-            ]
-    micro_batches = split_batch(batch)
-    micro_batch = micro_batches[0]
+    micro_batch = {
+        key: value[:2] for key, value in batch
+    }
 
     ce_batch_loss = torch.tensor(0.0, device=device)
     with torch.autocast("cuda", enabled=True, dtype=cfg.autocast_precision):
