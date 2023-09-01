@@ -5,7 +5,11 @@ UNLOAD (
             source,
             added,
             created,
-            metadata,
+            metadata.title AS metadata_title,
+            metadata.abstract AS metadata_abstract,
+            metadata.year AS metadata_year,
+            metadata.count AS metadata_count,
+            metadata.sha1 AS metadata_sha1,
             FILTER(
                 metadata.paragraphs,
                 x -> x.perplexity >= -20
@@ -48,7 +52,7 @@ UNLOAD (
                     x -> CAST(x AS ROW(lang varchar, cnt int))
                 ),
                 (x, y) -> IF(x.cnt < y.cnt, 1, IF(x.cnt = y.cnt, 0, -1))
-            )[1].lang AS language
+            )[1].lang AS metadata_language
         FROM "temp_lucas"."llm_s2orc_v0"
     ),
     filtered_corpus AS (
@@ -57,17 +61,18 @@ UNLOAD (
             source,
             added,
             created,
-            metadata,
             cast(id AS INT) as corpusid,
+            metadata_year,
+            metadata_sha1,
             (
-                metadata.title || CHR(10) || CHR(10) ||
-                metadata.abstract || CHR(10) || CHR(10) ||
+                metadata_title || CHR(10) || CHR(10) ||
+                metadata_abstract || CHR(10) || CHR(10) ||
                 ARRAY_JOIN(TRANSFORM(valid_paragraphs, x -> x.text), CHR(10))
             ) as text,
             IF(
-                metadata.year < 2022
+                metadata_year < 2022
                 OR (
-                    metadata.year = 2022 AND
+                    metadata_year = 2022 AND
                     date(from_iso8601_timestamp(created)) < date('2022-12-01')
                 ),
                 'train',
@@ -75,57 +80,36 @@ UNLOAD (
             ) AS split
         FROM s2orc_stats
         WHERE
-            language = 'en'
-            AND metadata.count < 50000
-            AND metadata.count > 500
+            metadata_language = 'en'
+            AND metadata_count < 50000
+            AND metadata_count > 500
             AND valid_top_word
             AND cardinality(valid_paragraphs) >= 5
-            AND metadata.title IS NOT NULL
-            AND metadata.abstract is not NULL
-            AND metadata.year >= 1970
+            AND metadata_title IS NOT NULL
+            AND metadata_abstract is not NULL
+            AND metadata_year >= 1970
     ),
     filtered_espresso AS (
-        SELECT
+        SELECT DISTINCT
             pq.corpusid,
             COALESCE(pq.s2FieldsOfStudy, ARRAY[]) as s2FieldsOfStudy,
             COALESCE(pq.fieldsOfStudy, ARRAY[]) as fieldsOfStudy
         from espresso.pq_paper as pq
-        INNER JOIN filtered_corpus as cr
+        RIGHT JOIN filtered_corpus as cr
             ON pq.corpusid = cr.corpusid
     ),
     filtered_corpus_with_fos AS (
         SELECT
-            cr.id,
-            cr.source,
-            cr.added,
-            cr.created,
-            cr.text,
-            cr.split,
-            CAST(
-                ROW(
-                    cr.metadata.year,
-                    cr.metadata.title,
-                    cr.metadata.abstract,
-                    cr.metadata.sha1,
-                    -- cr.metadata.paragraphs,
-                    cr.metadata.count,
-                    cr.metadata.top_frequencies,
-                    pq.s2FieldsOfStudy,
-                    pq.fieldsOfStudy
-                )
-                AS
-                ROW(
-                    year BIGINT,
-                    title VARCHAR,
-                    abstract VARCHAR,
-                    sha1 VARCHAR,
-                    -- paragraphs ARRAY<ROW(language VARCHAR, perplexity DOUBLE, text VARCHAR)>,
-                    count BIGINT,
-                    top_frequencies ARRAY<ROW(token VARCHAR, count BIGINT)>,
-                    s2FieldsOfStudy ARRAY<VARCHAR>,
-                    extFieldsOfStudy ARRAY<VARCHAR>
-                )
-            ) AS metadata
+            cr.id AS id,
+            cr.source AS source,
+            cr.added AS added,
+            cr.created AS created,
+            cr.text AS text,
+            cr.split AS split,
+            cr.metadata_year AS metadata_year,
+            cr.metadata_sha1 AS metadata_sha1,
+            pq.s2FieldsOfStudy AS metadata_s2FieldsOfStudy,
+            pq.fieldsOfStudy AS metadata_fieldsOfStudy
         from filtered_espresso as pq
         INNER JOIN filtered_corpus as cr
             ON pq.corpusid = cr.corpusid
@@ -133,15 +117,29 @@ UNLOAD (
     SELECT
         id,
         ARRAY_AGG(source)[1] AS source,
-        'v3-fos' AS version,
+        ARRAY_AGG(version)[1] AS version,
+        ARRAY_AGG(text)[1] AS text,
         ARRAY_AGG(added)[1] AS added,
         ARRAY_AGG(created)[1] AS created,
-        ARRAY_AGG(text)[1] AS text,
         ARRAY_AGG(metadata)[1] AS metadata,
         ARRAY_AGG(split)[1] AS split,
         CAST(id AS INT) % 10 AS part_id
-    FROM filtered_corpus_with_fos
-    GROUP BY id
+        FROM (
+            SELECT
+                id,
+                source,
+                'v3-fos' as version,
+                added,
+                created,
+                text,
+                CAST(
+                    ROW(metadata_year, metadata_sha1, metadata_s2FieldsOfStudy, metadata_fieldsOfStudy) AS
+                    ROW(year BIGINT, sha1 VARCHAR, s2FieldsOfStudy ARRAY<VARCHAR>, extFieldsOfStudy ARRAY<VARCHAR>)
+                ) AS metadata,
+                split
+            FROM filtered_corpus_with_fos
+        )
+        GROUP BY id
 )
 TO 's3://ai2-llm/pretraining-data/sources/s2/v3-fos/documents/dataset=s2orc'
 WITH (
