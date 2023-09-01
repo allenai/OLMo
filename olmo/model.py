@@ -602,7 +602,6 @@ class Olmo(nn.Module):
                     config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
                 ),
                 emb_drop=nn.Dropout(config.embedding_dropout),
-                blocks=nn.ModuleList([OlmoBlock.build(i, config) for i in range(config.n_layers)]),
                 ln_f=LayerNorm.build(config),
             )
         )
@@ -643,10 +642,6 @@ class Olmo(nn.Module):
 
         # Top-level layer norm.
         self.transformer.ln_f.reset_parameters()  # type: ignore
-
-        # Let the blocks handle themselves.
-        for block in self.transformer.blocks:  # type: ignore
-            block.reset_parameters()  # type: ignore
 
     @property
     def device(self) -> torch.device:
@@ -787,17 +782,6 @@ class Olmo(nn.Module):
                 attention_bias = attention_bias + attention_mask
 
         attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
-
-        # Apply blocks one-by-one.
-        for block, layer_past in zip(
-            self.transformer.blocks,  # type: ignore
-            past_key_values or [None] * self.config.n_layers,  # type: ignore
-        ):
-            # shape: (batch_size, seq_len, d_model)
-            x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
-            if attn_key_values is not None:
-                assert cache is not None
-                attn_key_values.append(cache)
 
         if last_logits_only:
             # shape: (batch_size, 1, d_model)
@@ -1008,16 +992,4 @@ class Olmo(nn.Module):
         prefix = ""
         if next(iter(state_dict.keys())).startswith((fsdp_prefix := "_fsdp_wrapped_module.")):
             prefix = fsdp_prefix
-        if self.config.block_type == BlockType.sequential:
-            for block_idx in range(self.config.n_layers):
-                norm_w_key = f"{prefix}transformer.blocks.{block_idx}.norm.weight"
-                norm_b_key = f"{prefix}transformer.blocks.{block_idx}.norm.bias"
-                if norm_w_key in state_dict:
-                    norm_w = state_dict.pop(norm_w_key)
-                    state_dict[f"{prefix}transformer.blocks.{block_idx}.attn_norm.weight"] = norm_w
-                    state_dict[f"{prefix}transformer.blocks.{block_idx}.ff_norm.weight"] = norm_w.clone()
-                if norm_b_key in state_dict:
-                    norm_b = state_dict.pop(norm_b_key)
-                    state_dict[f"{prefix}transformer.blocks.{block_idx}.attn_norm.bias"] = norm_b
-                    state_dict[f"{prefix}transformer.blocks.{block_idx}.ff_norm.bias"] = norm_b.clone()
         return state_dict
