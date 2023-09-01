@@ -204,7 +204,7 @@ def main(cfg: TrainConfig) -> None:
     ce_batch_loss = torch.tensor(0.0, device=device)
     with torch.autocast("cuda", enabled=True, dtype=cfg.autocast_precision):
         # Run forward pass.
-        logits = self.fsdp_model(
+        logits = fsdp_model(
             input_ids=micro_batch["input_ids"],
             attention_mask=micro_batch.get("attention_mask"),
             attention_bias=micro_batch.get("attention_bias"),
