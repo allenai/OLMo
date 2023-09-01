@@ -297,6 +297,11 @@ class ModelConfig(BaseConfig):
     The layernorm implementation to use.
     """
 
+    layer_norm_with_affine: bool = True
+    """
+    Whether to include bias and weight parameters for the layer norms.
+    """
+
     max_sequence_length: int = 1024
     """
     The maximum input sequence length supported by the model.
