@@ -54,21 +54,6 @@ def main(cfg: TrainConfig) -> None:
     assert cfg.device_train_batch_size is not None  # for mypy
     cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
 
-    # Display and save configuration.
-    if get_global_rank() == 0:
-        log.info("Configuration:")
-        log.info(cfg)
-        if not cfg.dry_run and (cfg.load_path is None or Path(cfg.load_path).parent != Path(cfg.save_folder)):
-            # Save config.
-            save_path = Path(cfg.save_folder) / "config.yaml"
-            if save_path.is_file() and not cfg.save_overwrite:
-                raise OlmoConfigurationError(f"{save_path} already exists, use --save_overwrite to overwrite")
-            else:
-                log.info(f"Saving config to {save_path}")
-                save_path.parent.mkdir(exist_ok=True, parents=True)
-                cfg.save(save_path)
-            del save_path
-
     barrier()
 
     # Set seed.
@@ -101,24 +86,7 @@ def main(cfg: TrainConfig) -> None:
 
     log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory() or 0)}")
 
-    if cfg.activation_checkpointing:
-        # verify we have FSDP activation support ready by importing:
-        from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
-            CheckpointImpl,
-            apply_activation_checkpointing,
-            checkpoint_wrapper,
-        )
-
-        non_reentrant_wrapper = partial(
-            checkpoint_wrapper,
-            offload_to_cpu=False,
-            checkpoint_impl=CheckpointImpl.NO_REENTRANT,
-        )
-        apply_activation_checkpointing(
-            fsdp_model,
-            checkpoint_wrapper_fn=non_reentrant_wrapper,  # type: ignore
-            check_fn=olmo_model.activation_checkpointing_fn,  # type: ignore
-        )
+    assert not cfg.activation_checkpointing
 
     log.info("Model:")
     log.info(fsdp_model)
@@ -126,15 +94,6 @@ def main(cfg: TrainConfig) -> None:
     # Construct optimizer and learning rate scheduler.
     optim = build_optimizer(cfg, fsdp_model)
     scheduler = build_scheduler(cfg)
-
-    # Data indices file.
-    indices_file: Optional[TextIO] = None
-    if cfg.save_data_indices:
-        indices_file_path = Path(cfg.save_folder) / f"data-indices/rank{get_global_rank()}.tsv.gz"
-        if indices_file_path.exists() and not cfg.save_overwrite:
-            raise OlmoConfigurationError(f"{indices_file_path} already exists, use --save_overwrite to overwrite")
-        indices_file_path.parent.mkdir(exist_ok=True, parents=True)
-        indices_file = gzip.open(indices_file_path, "wt")
 
     # Consolidate components into `Trainer` object.
     with Trainer(
@@ -148,55 +107,11 @@ def main(cfg: TrainConfig) -> None:
         z_train_loss_metric=None
         if not cfg.softmax_auxiliary_loss
         else MeanMetric(nan_strategy="error").to(device),
-        indices_file=indices_file,
+        indices_file=None,
     ) as trainer:
-        if not cfg.dry_run and cfg.load_path is None:
-            checkpoint_type = (
-                CheckpointType.sharded if cfg.save_num_checkpoints_to_keep != 0 else CheckpointType.unsharded
-            )
-
-            # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever).
-            #log.info("Saving pre-train checkpoint...")
-            #checkpoint_path = trainer.save_checkpoint(checkpoint_type=checkpoint_type)
-            #log.info(f"Checkpoint saved to {checkpoint_path}")
-
-            # And they we verify that we can load it.
-            #log.info("Attempting to load pre-train checkpoint...")
-            #trainer.restore_checkpoint(checkpoint_path, checkpoint_type=checkpoint_type)
-            #log.info("Checkpoint successfully loaded")
-
-            # NOTE: https://github.com/allenai/LLM/issues/233
-            #  log.info("Removing pre-train checkpoint...")
-            #  trainer.remove_checkpoint(checkpoint_type=checkpoint_type)
-            #  log.info("Successfully removed checkpoint")
-
-        if cfg.load_path is not None:
-            log.info(f"Loading checkpoint from {cfg.load_path}...")
-            trainer.restore_checkpoint(cfg.load_path)
-            log.info("Checkpoint successfully loaded")
-
-        if cfg.force_save_unsharded:
-            log.info("Saving unsharded checkpoint...")
-            checkpoint_path = trainer.save_unsharded_checkpoint()
-            log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
-
-        if cfg.compile is not None:
-            # TODO (epwalsh): trying to compile the whole train step results in a compile-time error from within
-            # the optimizer. We should investigate this further at some point.
-            #  trainer.train_step = torch.compile(trainer.train_step, **cfg.compile.asdict())
-            trainer.train_batch = torch.compile(trainer.train_batch, **cfg.compile.asdict())  # type: ignore
-            # TODO (epwalsh): compiling the `eval_batch()` method is a little sketchy since the inputs will look
-            # different for different eval tasks. That might be okay, but it might not be.
-            #  trainer.eval_batch = torch.compile(trainer.eval_batch, **cfg.compile.asdict())  # type: ignore
-            # Alternatively, could just do this:
-            #  trainer.fsdp_model = torch.compile(trainer.fsdp_model, **cfg.compile.asdict())
-
-        if not cfg.dry_run:
-            log.info("Starting training...")
-            trainer.fit()
-            log.info("Training complete")
-        else:
-            log.info("Dry run complete")
+        log.info("Starting training...")
+        trainer.fit()
+        log.info("Training complete")
 
 
 if __name__ == "__main__":
