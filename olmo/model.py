@@ -93,11 +93,15 @@ class LayerNorm(LayerNormBase):
         super().__init__(config)
         self.normalized_shape = (size or config.d_model,)
         self.eps = 1e-05
-        self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
-        if self.config.include_bias:
-            self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
+        if self.config.layer_norm_with_affine:
+            self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
+            if self.config.include_bias:
+                self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
+            else:
+                self.register_parameter("bias", None)
         else:
             self.register_parameter("bias", None)
+            self.register_parameter("weight", None)
         self.low_precision = low_precision
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -126,10 +130,14 @@ class RMSLayerNorm(LayerNorm):
         super().__init__(config)
         self.eps = 1e-08
         self.size = size or config.d_model
-        self.weight = nn.Parameter(torch.ones(self.config.d_model))
-        if self.config.include_bias:
-            self.bias = nn.Parameter(torch.zeros(self.config.d_model))
+        if self.config.layer_norm_with_affine:
+            self.weight = nn.Parameter(torch.ones(self.config.d_model))
+            if self.config.include_bias:
+                self.bias = nn.Parameter(torch.zeros(self.config.d_model))
+            else:
+                self.register_parameter("bias", None)
         else:
+            self.register_parameter("weight", None)
             self.register_parameter("bias", None)
         self.low_precision = low_precision
 
@@ -144,16 +152,17 @@ class RMSLayerNorm(LayerNorm):
         else:
             return self.rms_norm(x, self.weight, self.bias if self.config.include_bias else None)
 
-    def rms_norm(self, x: torch.Tensor, weight: torch.Tensor, bias: Optional[torch.Tensor]) -> torch.Tensor:
+    def rms_norm(self, x: torch.Tensor, weight: Optional[torch.Tensor], bias: Optional[torch.Tensor]) -> torch.Tensor:
         norm_x = x.norm(2, dim=-1, keepdim=True)
 
         rms_x = norm_x * self.size ** (-1.0 / 2)
         x_normed = x / (rms_x + self.eps)
 
-        if bias is not None:
-            return weight * x_normed + self.bias
-        else:
-            return weight * x_normed
+        if weight is not None:
+            if bias is not None:
+                return weight * x_normed + self.bias
+            else:
+                return weight * x_normed
 
 
 class RotaryEmbedding(nn.Module):
