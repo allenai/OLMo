@@ -15,12 +15,10 @@ import torch
 import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
-from .config import LayerNormType, ModelConfig
-from .exceptions import OlmoConfigurationError
+from .config import ModelConfig
 from .initialization import init_weights
 
 __all__ = [
-    "LayerNormBase",
     "LayerNorm",
     "Olmo",
     "OlmoOutput",
@@ -30,53 +28,17 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 
-class LayerNormBase(nn.Module):
-    def __init__(self, config: ModelConfig):
-        super().__init__()
-        self.config = config
-
-    @abstractmethod
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError
-
-    @classmethod
-    def build(cls, config: ModelConfig, size: Optional[int] = None) -> LayerNormBase:
-        if config.layer_norm_type == LayerNormType.default:
-            return LayerNorm(config, size=size, low_precision=False)
-        elif config.layer_norm_type == LayerNormType.low_precision:
-            return LayerNorm(config, size=size, low_precision=True)
-        else:
-            raise NotImplementedError(f"Not sure how to handle '{config.layer_norm_type}' LayerNorm type")
-
-    def _cast_if_autocast_enabled(self, tensor: torch.Tensor) -> torch.Tensor:
-        if torch.is_autocast_enabled():
-            if tensor.device.type == "cuda":
-                dtype = torch.get_autocast_gpu_dtype()
-            elif tensor.device.type == "cpu":
-                dtype = torch.get_autocast_cpu_dtype()
-            else:
-                raise NotImplementedError()
-            return tensor.to(dtype=dtype)
-        return tensor
-
-    def reset_parameters(self):
-        torch.nn.init.ones_(self.weight)  # type: ignore
-        if self.bias is not None:
-            torch.nn.init.zeros_(self.bias)  # type: ignore
-
-
-class LayerNorm(LayerNormBase):
+class LayerNorm(nn.Module):
     """
     The default :class:`LayerNorm` implementation which can optionally run in low precision.
     """
 
-    def __init__(self, config: ModelConfig, size: Optional[int] = None, low_precision: bool = False):
-        super().__init__(config)
-        self.normalized_shape = (size or config.d_model,)
+    def __init__(self, low_precision: bool = False):
+        self.normalized_shape = (4096,)
         self.eps = 1e-05
-        self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
+        self.weight = nn.Parameter(torch.ones(self.normalized_shape, device="meta"))
         if self.config.include_bias:
-            self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
+            self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device="meta"))
         else:
             self.register_parameter("bias", None)
         self.low_precision = low_precision
@@ -96,6 +58,22 @@ class LayerNorm(LayerNormBase):
         else:
             return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
 
+    def _cast_if_autocast_enabled(self, tensor: torch.Tensor) -> torch.Tensor:
+        if torch.is_autocast_enabled():
+            if tensor.device.type == "cuda":
+                dtype = torch.get_autocast_gpu_dtype()
+            elif tensor.device.type == "cpu":
+                dtype = torch.get_autocast_cpu_dtype()
+            else:
+                raise NotImplementedError()
+            return tensor.to(dtype=dtype)
+        return tensor
+
+    def reset_parameters(self):
+        torch.nn.init.ones_(self.weight)  # type: ignore
+        if self.bias is not None:
+            torch.nn.init.zeros_(self.bias)  # type: ignore
+
 
 class OlmoOutput(NamedTuple):
     logits: torch.FloatTensor
@@ -111,26 +89,8 @@ class OlmoOutput(NamedTuple):
 
 
 class Olmo(nn.Module):
-    def __init__(self, config: ModelConfig, init_params: bool = True):
+    def __init__(self):
         super().__init__()
-        self.config = config
-
-        # Validate config.
-        if self.config.alibi and self.config.flash_attention:
-            raise OlmoConfigurationError("ALiBi is currently not supported with FlashAttention")
-
-        if self.config.alibi and self.config.rope:
-            raise OlmoConfigurationError("ALiBi and RoPE are mutually exclusive")
-
-        if self.config.embedding_size is not None and self.config.embedding_size != self.config.vocab_size:
-            if self.config.embedding_size < self.config.vocab_size:
-                raise OlmoConfigurationError("embedding size should be at least as big as vocab size")
-            elif self.config.embedding_size % 128 != 0:
-                import warnings
-
-                warnings.warn(
-                    "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
-                )
 
         torch.backends.cuda.enable_flash_sdp(self.config.flash_attention)
         torch.backends.cuda.enable_mem_efficient_sdp(False)  # this is super slow so make sure torch won't use it
@@ -138,15 +98,14 @@ class Olmo(nn.Module):
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(
-                    config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
+                    50304, 4096, device="meta"
                 ),
-                emb_drop=nn.Dropout(config.embedding_dropout),
-                ln_f=LayerNorm.build(config),
+                emb_drop=nn.Dropout(0.0),
+                ln_f=LayerNorm(low_precision=True),
             )
         )
-        # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
-        if init_params and self.config.init_device != "meta":
-            self.reset_parameters()
+        # FSDP will call `reset_parameters()` to initialize weights.
+        #self.reset_parameters()
         self.__num_fwd_flops: Optional[int] = None
 
     def reset_parameters(self):

@@ -1,18 +1,15 @@
 """Run this script with 'torchrun'."""
 
 import logging
-import sys
 
 import torch
 import torch.distributed as dist
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP, ShardingStrategy
 from torch.distributed.fsdp import MixedPrecision
 
-from olmo.config import TrainConfig
 from olmo.model import Olmo
 from olmo.util import (
     barrier,
-    clean_opt,
     get_local_rank,
     peak_gpu_memory,
     prepare_cli_environment,
@@ -22,7 +19,7 @@ from olmo.util import (
 log = logging.getLogger("train")
 
 
-def main(cfg: TrainConfig) -> None:
+def main() -> None:
     # Initialize process group and set device.
     dist.init_process_group(backend="nccl")
     barrier()
@@ -34,7 +31,7 @@ def main(cfg: TrainConfig) -> None:
 
     # Initialize the model.
     log.info("Building model...")
-    olmo_model = Olmo(cfg.model)
+    olmo_model = Olmo()
     log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
     log.info(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
@@ -191,11 +188,4 @@ def main(cfg: TrainConfig) -> None:
 
 if __name__ == "__main__":
     prepare_cli_environment()
-
-    try:
-        yaml_path, args_list = sys.argv[1], sys.argv[2:]
-    except IndexError:
-        raise RuntimeError(f"Usage: {sys.argv[0]} [CONFIG_PATH] [OPTIONS]")
-
-    cfg = TrainConfig.load(yaml_path, [clean_opt(s) for s in args_list])
-    main(cfg)
+    main()
