@@ -152,7 +152,9 @@ class RMSLayerNorm(LayerNorm):
         else:
             return self.rms_norm(x, self.weight, self.bias if self.config.include_bias else None)
 
-    def rms_norm(self, x: torch.Tensor, weight: Optional[torch.Tensor], bias: Optional[torch.Tensor]) -> torch.Tensor:
+    def rms_norm(
+        self, x: torch.Tensor, weight: Optional[torch.Tensor], bias: Optional[torch.Tensor]
+    ) -> torch.Tensor:
         norm_x = x.norm(2, dim=-1, keepdim=True)
 
         rms_x = norm_x * self.size ** (-1.0 / 2)
