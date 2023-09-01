@@ -177,7 +177,7 @@ def main(cfg: TrainConfig) -> None:
     optim.zero_grad(set_to_none=True)
     batch = move_to_device(batch, device)
     micro_batch = {
-        key: value[:2] for key, value in batch
+        key: value[:2] for key, value in batch.items()
     }
 
     ce_batch_loss = torch.tensor(0.0, device=device)
@@ -198,7 +198,6 @@ def main(cfg: TrainConfig) -> None:
         labels = labels.view(-1)
         import torch.nn.functional as F
         ce_loss = F.cross_entropy(logits_for_loss, labels, ignore_index=-100, reduction="mean")
-        ce_loss = ce_loss / len(micro_batches)
 
         # In case this helps with memory utilization.
         del micro_batch
