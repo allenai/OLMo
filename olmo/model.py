@@ -9,24 +9,19 @@ from __future__ import annotations
 import logging
 import math
 from abc import abstractmethod
-from typing import List, NamedTuple, Optional, Sequence, Tuple, cast
+from typing import List, NamedTuple, Optional, Sequence, Tuple
 
 import torch
 import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
-from .config import ActivationType, LayerNormType, ModelConfig
+from .config import LayerNormType, ModelConfig
 from .exceptions import OlmoConfigurationError
 from .initialization import init_weights
 
 __all__ = [
     "LayerNormBase",
     "LayerNorm",
-    "RMSLayerNorm",
-    "Activation",
-    "GELU",
-    "ReLU",
-    "SwiGLU",
     "Olmo",
     "OlmoOutput",
 ]
@@ -50,10 +45,6 @@ class LayerNormBase(nn.Module):
             return LayerNorm(config, size=size, low_precision=False)
         elif config.layer_norm_type == LayerNormType.low_precision:
             return LayerNorm(config, size=size, low_precision=True)
-        elif config.layer_norm_type == LayerNormType.rms:
-            return RMSLayerNorm(config, size=size, low_precision=False)
-        elif config.layer_norm_type == LayerNormType.low_precision_rms:
-            return RMSLayerNorm(config, size=size, low_precision=True)
         else:
             raise NotImplementedError(f"Not sure how to handle '{config.layer_norm_type}' LayerNorm type")
 
@@ -104,94 +95,6 @@ class LayerNorm(LayerNormBase):
                 )
         else:
             return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
-
-
-class RMSLayerNorm(LayerNorm):
-    """
-    RMS layer norm, a simplified :class:`LayerNorm` implementation that can optionally run
-    in low-precision.
-    """
-
-    def __init__(self, config: ModelConfig, size: Optional[int] = None, low_precision: bool = False):
-        super().__init__(config)
-        self.eps = 1e-08
-        self.size = size or config.d_model
-        self.weight = nn.Parameter(torch.ones(self.config.d_model))
-        if self.config.include_bias:
-            self.bias = nn.Parameter(torch.zeros(self.config.d_model))
-        else:
-            self.register_parameter("bias", None)
-        self.low_precision = low_precision
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.low_precision:
-            module_device = x.device
-            downcast_x = self._cast_if_autocast_enabled(x)
-            downcast_weight = self._cast_if_autocast_enabled(self.weight)
-            downcast_bias = self._cast_if_autocast_enabled(self.bias) if self.config.include_bias else None
-            with torch.autocast(enabled=False, device_type=module_device.type):
-                return self.rms_norm(downcast_x, downcast_weight, downcast_bias)
-        else:
-            return self.rms_norm(x, self.weight, self.bias if self.config.include_bias else None)
-
-    def rms_norm(self, x: torch.Tensor, weight: torch.Tensor, bias: Optional[torch.Tensor]) -> torch.Tensor:
-        norm_x = x.norm(2, dim=-1, keepdim=True)
-
-        rms_x = norm_x * self.size ** (-1.0 / 2)
-        x_normed = x / (rms_x + self.eps)
-
-        if bias is not None:
-            return weight * x_normed + self.bias
-        else:
-            return weight * x_normed
-
-
-class Activation(nn.Module):
-    def __init__(self, config: ModelConfig):
-        super().__init__()
-        self.config = config
-
-    @abstractmethod
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def output_multiplier(self) -> float:
-        raise NotImplementedError
-
-    @classmethod
-    def build(cls, config: ModelConfig) -> Activation:
-        if config.activation_type == ActivationType.gelu:
-            return cast(Activation, GELU(approximate="none"))
-        elif config.activation_type == ActivationType.relu:
-            return cast(Activation, ReLU(inplace=False))
-        elif config.activation_type == ActivationType.swiglu:
-            return SwiGLU(config)
-        else:
-            raise NotImplementedError(f"not sure how to handle activation type '{config.activation_type}'")
-
-
-class GELU(nn.GELU):
-    @property
-    def output_multiplier(self) -> float:
-        return 1.0
-
-
-class ReLU(nn.ReLU):
-    @property
-    def output_multiplier(self) -> float:
-        return 1.0
-
-
-class SwiGLU(Activation):
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x, gate = x.chunk(2, dim=-1)
-        return F.silu(gate) * x
-
-    @property
-    def output_multiplier(self) -> float:
-        return 0.5
 
 
 class OlmoOutput(NamedTuple):
