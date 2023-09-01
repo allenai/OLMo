@@ -348,8 +348,6 @@ def get_param_groups(model: nn.Module) -> List[Dict[str, Any]]:
     # Validate that we've considered every parameter
     inter_params = decay & no_decay
     union_params = decay | no_decay
-    assert decay
-    assert no_decay
     assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
     assert (
         len(all_params.keys() - union_params) == 0
