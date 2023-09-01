@@ -10,7 +10,6 @@ from typing import Optional, TextIO
 
 import torch
 import torch.distributed as dist
-import wandb
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision
 from torchmetrics import MeanMetric
@@ -74,27 +73,6 @@ def main(cfg: TrainConfig) -> None:
 
     # Set seed.
     seed_all(cfg.seed)
-
-    # Construct data loader.
-    train_loader = build_train_dataloader(cfg)
-
-    # Construct evaluators.
-    evaluators = build_evaluators(cfg, device)
-    barrier()
-
-    # Maybe start W&B run.
-    if cfg.wandb is not None and (get_global_rank() == 0 or not cfg.wandb.rank_zero_only):
-        wandb_dir = Path(cfg.save_folder) / "wandb"
-        wandb_dir.mkdir(parents=True, exist_ok=True)
-        wandb.init(
-            dir=wandb_dir,
-            project=cfg.wandb.project,
-            entity=cfg.wandb.entity,
-            group=cfg.wandb.group,
-            name=cfg.wandb.name,
-            tags=cfg.wandb.tags,
-            config=cfg.asdict(exclude=["wandb"]),
-        )
 
     barrier()
 
@@ -165,13 +143,11 @@ def main(cfg: TrainConfig) -> None:
         fsdp_model=fsdp_model,
         optim=optim,
         scheduler=scheduler,
-        train_loader=train_loader,
         device=device,
         ce_train_loss_metric=MeanMetric(nan_strategy="error").to(device),
         z_train_loss_metric=None
         if not cfg.softmax_auxiliary_loss
         else MeanMetric(nan_strategy="error").to(device),
-        evaluators=evaluators,
         indices_file=indices_file,
     ) as trainer:
         if not cfg.dry_run and cfg.load_path is None:
@@ -180,14 +156,14 @@ def main(cfg: TrainConfig) -> None:
             )
 
             # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever).
-            log.info("Saving pre-train checkpoint...")
-            checkpoint_path = trainer.save_checkpoint(checkpoint_type=checkpoint_type)
-            log.info(f"Checkpoint saved to {checkpoint_path}")
+            #log.info("Saving pre-train checkpoint...")
+            #checkpoint_path = trainer.save_checkpoint(checkpoint_type=checkpoint_type)
+            #log.info(f"Checkpoint saved to {checkpoint_path}")
 
             # And they we verify that we can load it.
-            log.info("Attempting to load pre-train checkpoint...")
-            trainer.restore_checkpoint(checkpoint_path, checkpoint_type=checkpoint_type)
-            log.info("Checkpoint successfully loaded")
+            #log.info("Attempting to load pre-train checkpoint...")
+            #trainer.restore_checkpoint(checkpoint_path, checkpoint_type=checkpoint_type)
+            #log.info("Checkpoint successfully loaded")
 
             # NOTE: https://github.com/allenai/LLM/issues/233
             #  log.info("Removing pre-train checkpoint...")

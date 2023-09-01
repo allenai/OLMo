@@ -10,9 +10,10 @@ wandb:
 model:
   d_model: 4096
   n_heads: 16
-  n_layers: 30
+  n_layers: 1 #30
   mlp_ratio: 8
-  alibi: true
+  alibi: false
+  rope: false
   alibi_bias_max: 8.0
   attention_dropout: 0.0
   attention_layer_norm: true
@@ -23,7 +24,7 @@ model:
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
-  max_sequence_length: 2048
+  max_sequence_length: 100
   vocab_size: 50280
   embedding_size: 50304
   eos_token_id: 0
@@ -50,7 +51,7 @@ tokenizer:
   identifier: allenai/eleuther-ai-gpt-neox-20b-pii-special
   truncate_direction: right
 
-save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
+save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
 save_interval: 1000
@@ -62,7 +63,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 load_path: null
 
 max_duration: 476837  # 2T tokens
-global_train_batch_size: 2048
+global_train_batch_size: 64 #2048
 device_train_microbatch_size: 2
 
 precision: amp_bf16
@@ -85,8 +86,8 @@ evaluators:
     data:
       num_workers: 0
       drop_last: true
-      # pin_memory: true
-      # prefetch_factor: 1
+      pin_memory: true
+      prefetch_factor: 1
       # persistent_workers: false
       # timeout: 0
       datasets:
@@ -164,8 +165,9 @@ data:
   num_workers: 0
   drop_last: true
   pin_memory: true
-  prefetch_factor: 16
+  prefetch_factor: 1
   persistent_workers: true
   timeout: 0
   paths:
-    ${path.glob:${oc.env:SCRATCH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/books.npy,${oc.env:SCRATCH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/c4_*.npy,${oc.env:SCRATCH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/cc_en_*.npy,${oc.env:SCRATCH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/s2.npy,${oc.env:SCRATCH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/stack_*.npy,${oc.env:SCRATCH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/wiki.npy}
+    #${path.glob:${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/books.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/c4_*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/cc_en_*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/s2.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/stack_*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/wiki.npy}
+    ${path.glob:${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special-bigfiles/books.npy}

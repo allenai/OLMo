@@ -15,7 +15,6 @@ from typing import Any, Deque, Dict, List, Optional, TextIO, Tuple
 import numpy as np
 import torch
 import torch.nn.functional as F
-import wandb
 from packaging import version
 from torch.distributed.fsdp import FullStateDictConfig
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -101,9 +100,7 @@ class Trainer:
     fsdp_model: FSDP
     optim: Optimizer
     scheduler: Scheduler
-    train_loader: DataLoader
     device: torch.device
-    evaluators: List[Evaluator]
     ce_train_loss_metric: MeanMetric
     z_train_loss_metric: Optional[MeanMetric] = None
     global_step: int = 0
@@ -176,20 +173,6 @@ class Trainer:
             self.global_train_examples_seen += self.cfg.fast_forward_batches * self.cfg.global_train_batch_size
             # NOTE: on the other hand we don't add anything to 'self.global_train_tokens_seen' here because
             # that variable is meant to track the actual number of tokens trained on.
-
-        if self.global_data_step > 0:
-            if self.global_data_step > self.global_step:
-                log.info(
-                    f"Fast-forwarding data loader to step {self.global_step:,d}+{self.global_data_step-self.global_step:,d} "
-                    f"({self.global_train_examples_seen:,d} examples)"
-                )
-            else:
-                log.info(
-                    f"Fast-forwarding data loader to step {self.global_data_step:,d} "
-                    f"({self.global_train_examples_seen:,d} examples)"
-                )
-            assert isinstance(self.train_loader.dataset, IterableDataset)
-            self.train_loader.dataset.start_index = self.global_train_examples_seen
 
         # Reset learning rate and weight decay to the values from the config, not the checkpoint.
         new_learning_rate = self.scheduler.get_lr(
@@ -588,7 +571,9 @@ class Trainer:
                 raise ValueError("nan loss encountered")
 
             # Run backward pass.
+            log.info("Before backward")
             loss.backward()
+            log.info("After backward")
 
         return ce_batch_loss, z_batch_loss
 
@@ -596,22 +581,27 @@ class Trainer:
         metrics: Dict[str, float] = {}
 
         # Write data-indices to file.
+        log.info("Writing indices to file")
         if self.indices_file is not None and "index" in batch:
             indices = "\t".join(str(int(i)) for i in batch["index"])
             self.indices_file.write(f"{self.global_step}\t{indices}\n")
 
         # Zero-gradients.
+        log.info("Zeroing gradients")
         self.optim.zero_grad(set_to_none=True)
 
         # Reset metrics.
+        log.info("Resetting metrics")
         self.ce_train_loss_metric.reset()
         if self.z_train_loss_metric is not None:
             self.z_train_loss_metric.reset()
 
         # Move tensors to the right device.
+        log.info("Moving tensors to device")
         batch = move_to_device(batch, self.device)
 
         # Run forward-backward pass.
+        log.info("Running forward-backward pass.")
         ce_batch_loss, z_batch_loss = self.train_batch(batch)
 
         # Maybe collect pre-step optimizer-specific metrics.
@@ -746,21 +736,10 @@ class Trainer:
         )
 
     def should_log_optim_metrics_this_step(self) -> bool:
-        if self.cfg.wandb is None:
-            # We only log optimizer-specific metrics to W&B, since there are usually too many metrics
-            # to log to the console.
-            return False
-        optim_log_interval = self.cfg.optimizer.metrics_log_interval
-        if optim_log_interval is None:
-            optim_log_interval = self.cfg.wandb.log_interval
-        else:
-            optim_log_interval = max(optim_log_interval, self.cfg.wandb.log_interval)
-        return self.global_step % optim_log_interval == 0
+        return False
 
     def should_log_this_step(self) -> bool:
         if self.global_step % self.cfg.console_log_interval == 0:
-            return True
-        elif self.cfg.wandb is not None and self.global_step % self.cfg.wandb.log_interval == 0:
             return True
         else:
             return False
@@ -771,40 +750,6 @@ class Trainer:
         self.fsdp_model.eval()
 
         eval_metrics = {}
-        for evaluator in self.evaluators:
-            log.info(f"Running evaluation for '{evaluator.label}'...")
-
-            # Reset metrics.
-            evaluator.reset_metrics()
-
-            # Initialize data loader iterator.
-            eval_batches = iter(evaluator.eval_loader)
-
-            # Adjust how many batches to evaluate on.
-            num_eval_batches = (
-                evaluator.subset_num_batches
-                if evaluator.subset_num_batches is not None
-                else self.cfg.eval_subset_num_batches
-            )
-            if num_eval_batches > 0:
-                num_eval_batches = min(num_eval_batches, len(evaluator.eval_loader))
-                eval_batches = islice(eval_batches, num_eval_batches)
-
-            # Run model over batches.
-            for eval_step, eval_batch in enumerate(eval_batches):
-                self.eval_step(eval_batch, evaluator)
-
-                # Log to console.
-                if eval_step + 1 == num_eval_batches or (eval_step + 1) % self.cfg.console_log_interval == 0:
-                    log.info(f"[eval_step={eval_step + 1}/{num_eval_batches}]")
-
-            # Get final metrics.
-            metrics = evaluator.compute_metrics()
-            eval_metrics.update(metrics)
-            self.log_metrics_to_console(f"{evaluator.label}", metrics)
-
-            del eval_batches
-
         return eval_metrics
 
     def check_if_cancelled(self) -> bool:
@@ -817,22 +762,7 @@ class Trainer:
             log.warning("Run canceled due to time limit")
             return run_canceled
 
-        # Now check if someone canceled this run by adding a tag in W&B.
-        api_key = os.environ.get("WANDB_API_KEY")
-        if get_global_rank() == 0 and wandb.run is not None and api_key is not None:
-            # If someone added the 'cancel' / 'canceled' tag on the web dashboard, we won't
-            # see it in the run object. So we have to use the import/export API to check.
-            api = wandb.Api(api_key=api_key)
-            run = api.run(wandb.run.path)
-            for tag in run.tags or []:
-                if tag.lower() in {"cancel", "canceled", "cancelled"}:
-                    log.warning("Run has been canceled via Weights & Biases tag.")
-                    run_canceled = syncronize_flag(True, self.device)
-                    break
-            else:
-                run_canceled = syncronize_flag(False, self.device)
-        else:
-            run_canceled = syncronize_flag(False, self.device)
+        run_canceled = syncronize_flag(False, self.device)
 
         return run_canceled
 
@@ -841,8 +771,6 @@ class Trainer:
 
         if self.cfg.load_path is not None and self.global_step > 0 and self.cfg.eval_on_load:
             eval_metrics = self.eval()
-            if wandb.run is not None:
-                wandb.log(eval_metrics, step=self.global_step)
 
         # Set model to 'train' mode.
         self.fsdp_model.train()
@@ -856,13 +784,103 @@ class Trainer:
         sys_metrics = self.system_metrics()
         if sys_metrics:
             self.log_metrics_to_console("Pre-train system metrics", sys_metrics)
-            if wandb.run is not None:
-                wandb.log(sys_metrics, step=0)
 
         # Train.
         first_batch: bool = True
         canceled: bool = False
-        for batch in self.train_loader:
+
+        batches = [
+            {
+                "input_ids": torch.tensor([[  570, 12287,    13,  3395,   625,  2590,    15,   329, 30942,   273,
+                                              5448, 22007,   949,   253,  7423,    13,   285,   187,  6972, 20625,
+                                             32372,   949,   253,  9129,  2419,    15,   380, 36555,   327,   253,
+                                              2829,   187,    71,   663, 40617,    15,  1244,  1335,   253,   767,
+                                              2206, 15368,    14,  9458,    13, 39712,   272,  5412,  3564,    13,
+                                               347,   187,   783, 39709, 44210,  4817,   689,   253,  7887,    13,
+                                               285,   323,   253,  1390,   673,   187,  8732, 12469,  2205,  2210,
+                                              1728,   281,  4600, 17421,   521,  5098,  1128, 45217,  1417,  1024,
+                                               273,   987,   390,   187,  7041,    13,   390,  5958,   390,  2614,
+                                                15,   187,   187,    11,   475,   475,   475,   475,   187,   187],
+                                            [ 1439,  1469,   281,  1390,   562,   436,  2137,  2391,   309,  1849,
+                                               644,  2820,   281,  2028,   368,   849,  1199,   187,  2520,   294,
+                                              1763,  1596,   318,   273,  4266,   275,   368,   556,  5486,   275,
+                                               253,  1390,  1643,  1107,  1051,   187,  1915,  8140, 19605,   359,
+                                               403,  1051,  1095,  8140, 12401,    15,  7088,    14,  1615,    13,
+                                             11761,  5006,    13,   285,  2656,   187,  1257,   342,   368,    15,
+                                              4392,  8506,   947,   399, 28077,    58,    15,   535, 50268, 46928,
+                                               187,   187,  3172,    35, 18004,  2637,  4915,   427,  9981,   187,
+                                               187,  8096,   590,  4395,  3579,   327,   253, 12595,  1919,   344,
+                                              1119,   247, 32217,   762,   271,  5637,   187,  3243,    15,   754],
+                                            [  352,  4895,   281,   697, 15178,    13,   533,  3517,  2210,   896,
+                                               187,  3113,  2067,  2571,    15,  2053,    13,  7824,  3790,   253,
+                                             28335,    81, 33787,    13,  6730,   352,   187,  6672,  2920,    13,
+                                               347,   858,   253,   806,    15,  9067,   597,   512,  2427,    28,
+                                              3517,   597,  4895,   342,   187, 23350,   625,   273,   616, 24835,
+                                                13,   840,   597,  4447,   247,  1048,  5084,    13,  1077,   187,
+                                              3022,   247, 20762,    13,   285, 22944,   779,   281,   253,  5024,
+                                               273,   253,  1854,    15,   380, 15178,  1146,   275,   187,   783,
+                                             17514,    14,  3026,    84,   597,   574,   281,  3785,   779,   689,
+                                               253, 28390,  8704,   253,   187,    72,  6702,    13,   533,  2378],
+                                            [ 1659,   835,   352,   369,   187,  7053,  2326,    15,   380,  3884,
+                                               273,   253,  1854,   369,  3164,   432,   411,    15,   407,   322,
+                                                15,   281,   187,    38,    15,   407,   427,    15,   380, 31710,
+                                               369,  9090,  1469,   432,   253, 19969,    13,   697,  1854,   187,
+                                             11849,   271,  6907,   342,   253, 26961,  7844,   273,   670,  3925,
+                                              3272,    15,   187,   187,    89, 12211,    15, 17842,  4314,   285,
+                                              3578,  2909,   846,   253, 31852,   273,   253,   187,  3899, 22683,
+                                                13,   627,   369,   247, 11216,   285,  5536,  1304,    13, 11704,
+                                               407,   247,  1077,   187,  6209,   917, 21152,    28,   352,   858,
+                                               417,  1199, 28788,  2057, 24511,   390,   253,  1304,   187,  1171],
+                                            [ 1608,   482,   327,   368,  1476,   187,   187,    52,   798,   272,
+                                             11306,   347,   344, 16535,  1066,   344, 19336,   521,  2159, 14228,
+                                              1411,   247,   187, 10228,    13,   285,  2206,  1066,   327,   521,
+                                             25296,  2822,   281, 10867, 11304,    15,   187,   187,     3,  4497,
+                                               937,   344, 30807,   275, 13775,    13,   346, 30875,   352,   310,
+                                               417,  7154,   449,   187,   187,     3,  3650,  7154,     2,  6049,
+                                             48570,   369,  4704,   281,  2740,   619,  3802,   483,   323,   479,
+                                                15,  2652,  1137,  1476,   187,   187,     3,  1989,   752,   858,
+                                               368,   439,   710,   323,  1476,   187,   187,     3,  1276,   323,
+                                               315,     3, 13892, 14050, 10867, 11304,    15,   346,    42,   369],
+                                            [ 5313,   326,  2168,   187, 20774,   447,   352,    15,  1916,   346,
+                                             12467,     3,   253,  4450,   310,   281,   452,   253,  7437,   594,
+                                              4845,   187,  3529,   247,  1270,  1142,   273,   253, 19325,   403,
+                                             26814,    15,   187,   187,    36, 32671,  4827,   443,  2300, 14609,
+                                             18295,  5035,   346, 18237,     3,  1996,   327,    15,   187,   187,
+                                                36, 32671,  4827, 35645,  8100, 18295,  5035,   346, 18237,     3,
+                                              1996,   327,    15,   187,   187,  2573, 30741, 18295,    34,  5112,
+                                              3159,    13,  4495,   346, 33729,   937,  4536,   908,   407,  4383,
+                                               187, 34782,   327, 29992,    15,   187,   187,  2573,  6766, 18295,
+                                                34,  5112,  3159,  4495,   346, 48781,   937,   285,  4536,   908],
+                                            [  187,  2773,   253, 28245,   373,   285, 29555,   262, 22348,   373,
+                                               497,   767,  1027, 16308,   273,   187,   264,   692,   265,    13,
+                                               369,  1620, 17801,    13,   253,  3438,  1146,  4270,   275,   253,
+                                              5281,   273,   247,   187,  6017,   280,  1426,   282,    28,   253,
+                                               643,  3839, 32679,    13,   594,   347,   281,  1056,   253,  1072,
+                                              4677,   347,   187,   338,   767, 28245,   373,   943,   320,  7416,
+                                              2366,    15,  9110,   253,  1072,  1659,   310,  2223,   187,  8890,
+                                               407,   841,  4454,   275,  2067,  4477,    15,  1583,  1646,    13,
+                                              1512,    13,   281,   452,   644,   187, 38061,   323,  3240,  1027,
+                                              7637,    27,   253, 28245,   373,   323,  3924,  7120,    13,   253],
+                                            [   13,  1014,  2167,   344,  6057,   326,   253, 43412,   556,   816,
+                                             35517,   521,   187, 13875,    27,   187,   187,     3,   688,   253,
+                                              1083,  1411,   368,    13,  2305,    15,  3619, 20111,    13,   275,
+                                               634,  5928,   309,   452,  6507,   314,   187,  3354,   728,   253,
+                                              4179,    15,   496,   253,  1083,  1411, 18682,   659,  7352,  1634,
+                                               386,   309, 13292,   512,   187, 36871,   273,    13,   285, 10343,
+                                               281,  3890,   271,  4743,  1919,   309,   452,   574,   271,   187,
+                                             10468, 32268,   273,  2819,   715,    13,   253,  5989,   273,   253,
+                                              5575, 34306,   449,   187,   187,  3996, 20111,   665,   574,  6225,
+                                              1309,   436,  2427,   689,   285,  2335,   247,  7319,   387,   253]], dtype=torch.int64, device="cpu"),
+                "index": torch.tensor([24604650, 44278198, 10199766, 29398698, 30323890, 26381103,  6706633, 44120804], dtype=torch.int64, device="cpu")
+            }
+        ]
+
+        for batch in batches:  #self.train_loader:
+            log.info("Got a batch")
+            torch.set_printoptions(profile="full")
+            for key, value in batch.items():
+                log.info(f"{key}: dtype: {repr(value.dtype)} device: {repr(value.device)}")
+
             # Bookkeeping.
             # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
             # batches see the same number of tokens, which should be the case for language model pre-training
@@ -886,7 +904,9 @@ class Trainer:
             )
 
             # Run train step on batch.
+            log.info("About to start training one step")
             metrics = self.train_step(batch)
+            log.info("Trained one step")
 
             # Maybe collect other metrics.
             if self.should_log_this_step():
@@ -900,14 +920,6 @@ class Trainer:
             # Log metrics to console.
             if self.global_step % self.cfg.console_log_interval == 0:
                 self.log_metrics_to_console(f"[step={self.global_step}/{self.cfg.max_duration}]", metrics)
-
-            # Log metrics to W&B.
-            if (
-                wandb.run is not None
-                and self.cfg.wandb is not None
-                and self.global_step % self.cfg.wandb.log_interval == 0
-            ):
-                wandb.log(metrics, step=self.global_step)
 
             # Check if run should be canceled.
             if self.global_step % self.cfg.canceled_check_interval == 0:
@@ -942,10 +954,6 @@ class Trainer:
             if not canceled and self.global_step % self.cfg.eval_interval == 0:
                 eval_metrics = self.eval()
 
-                # Log metrics to W&B.
-                if wandb.run is not None:
-                    wandb.log(eval_metrics, step=self.global_step)
-
                 # Reset speed monitor so that we don't count the time taken to run evaluations.
                 speed_monitor.reset()
 
@@ -970,8 +978,6 @@ class Trainer:
         if self.indices_file is not None:
             self.indices_file.flush()
             self.indices_file.close()
-        if wandb.run is not None:
-            wandb.finish(exit_code=exit_code)
 
     def __enter__(self) -> Trainer:
         return self

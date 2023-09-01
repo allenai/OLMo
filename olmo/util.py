@@ -113,8 +113,8 @@ def setup_logging(log_filter_type: LogFilterType = LogFilterType.rank0_only) -> 
     else:
         raise ValueError(log_filter_type)
 
-    if filter is not None:
-        handler.addFilter(filter)  # type: ignore
+    #if filter is not None:
+    #    handler.addFilter(filter)  # type: ignore
     logging.basicConfig(handlers=[handler], level=logging.INFO)
 
     logzio_token = os.environ.get("LOGZIO_TOKEN", None)
