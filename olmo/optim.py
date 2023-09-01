@@ -266,6 +266,102 @@ class AdamW(torch.optim.AdamW, Optimizer):
         return {key: self.state[param].get(key) for key in ("exp_avg", "exp_avg_sq")}  # type: ignore
 
 
+class StableAdamW(Optimizer):
+    """
+    Adapted from https://github.com/google/automl/blob/master/lion/lion_pytorch.py
+    """
+
+    def __init__(
+        self,
+        params,
+        lr: float = 0.001,
+        betas: Tuple[float, float] = (0.9, 0.999),
+        eps: float = 1e-8,
+        weight_decay: float = 0.01,
+        update_clip: float = 1.0,
+    ):
+        assert lr > 0.0
+        assert all([0.0 <= beta <= 1.0 for beta in betas])
+        defaults = dict(lr=lr, weight_decay=weight_decay, betas=betas, eps=eps, update_clip=update_clip)
+        super().__init__(params, defaults)
+
+        for group in self.param_groups:
+            group["step"] = 1
+
+        self._rmss: List[float] = []
+
+    def get_post_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
+        if len(self._rmss) <= 0:
+            return {}
+        rmss = torch.tensor(self._rmss).to(torch.float32)
+
+        if is_distributed() and isinstance(module, FullyShardedDataParallel):
+            rms_sum = rmss.sum()
+            rms_count = torch.tensor(len(rmss), dtype=torch.float32)
+            # Reduce all together to avoid multiple communication calls.
+            rms_all = torch.stack([rms_sum, rms_count])
+            # Only need the final result on rank0, since that's where we log from.
+            dist.reduce(rms_all, 0)
+            rms_sum, rms_count = rms_all
+            return {"rms_avg": rms_sum / rms_count}
+
+        return {}
+
+    @torch.no_grad()
+    def step(self, closure=None):
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
+        self._rmss.clear()
+
+        for group in self.param_groups:
+            lr = group["lr"]
+            weight_decay = group["weight_decay"]
+            beta1 = group["beta1"]
+            beta2 = group["beta2"]
+            eps = group["eps"]
+            update_clip = group["update_clip"]
+            step = group["step"]
+
+            for p in group["params"]:
+                if p.grad is None:
+                    continue
+
+                theta = p.data
+                theta.mul_(1.0 - lr * weight_decay)
+
+                param_state = self.state[p]
+                g = p.grad.data
+
+                if "exp_avg" not in param_state:
+                    v = param_state["exp_avg"] = torch.zeros_like(theta, memory_format=torch.preserve_format)
+                    u = param_state["exp_avg_sq"] = torch.zeros_like(theta, memory_format=torch.preserve_format)
+                else:
+                    v = param_state["exp_avg"]
+                    u = param_state["exp_avg_sq"]
+
+                beta1hat = beta1 * (1 - beta1 ** (step - 1)) / (1 - beta1**step)
+                beta2hat = beta2 * (1 - beta2 ** (step - 1)) / (1 - beta2**step)
+                v = v.mul_(beta1hat).add_(g, alpha=1.0 - beta1hat)
+                u = u.mul_(beta2hat).addcmul_(g, g, value=1.0 - beta2hat)
+
+                denominator = u.sqrt().add_(eps)
+
+                rms = torch.div(g.pow(2), torch.maximum(u, (eps**2) * torch.ones_like(u))).mean().sqrt().item()
+                self._rmss.append(rms)
+
+                theta.addcdiv_(v, denominator, value=-lr * (1.0 / max(1.0, rms / update_clip)))
+
+                param_state["exp_avg"] = v
+                param_state["exp_avg_sq"] = u
+
+            group["step"] = step + 1
+
+        return loss
+
+
 class Scheduler(metaclass=ABCMeta):
     @abstractmethod
     def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
@@ -402,6 +498,14 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
         )
     elif cfg.optimizer.name == OptimizerType.adamw:
         return AdamW(
+            params,
+            lr=cfg.optimizer.learning_rate,
+            betas=cfg.optimizer.betas,
+            weight_decay=cfg.optimizer.weight_decay,
+            eps=1e-5,
+        )
+    elif cfg.optimizer.name == OptimizerType.stableadamw:
+        return StableAdamW(
             params,
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,
