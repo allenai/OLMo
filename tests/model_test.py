@@ -131,6 +131,16 @@ from olmo.data import DataCollator
             torch.float32,
             id="abs-emb-parallel-block-mqattn-cpu-f32",
         ),
+        pytest.param(
+            True,
+            False,
+            False,
+            BlockType.sequential,
+            True,
+            False,
+            torch.float32,
+            id="alibi-emb-mqattn-cpu-f32",
+        ),
     ],
 )
 def test_forward(

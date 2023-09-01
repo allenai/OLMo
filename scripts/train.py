@@ -29,6 +29,7 @@ from olmo.util import (
     get_local_rank,
     get_world_size,
     log_extra_field,
+    peak_gpu_memory,
     prepare_cli_environment,
     seed_all,
 )
@@ -98,12 +99,14 @@ def main(cfg: TrainConfig) -> None:
     barrier()
 
     # Initialize the model.
-    log.info("Initializing model...")
+    log.info("Building model...")
     olmo_model = Olmo(cfg.model)
     log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
+    log.info(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
 
     # Wrap the model in FSDP.
+    log.info("Wrapping model with FDSP...")
     fsdp_model = FSDP(
         olmo_model,
         sharding_strategy=cfg.fsdp.sharding_strategy,
@@ -113,10 +116,12 @@ def main(cfg: TrainConfig) -> None:
             buffer_dtype=cfg.autocast_precision,
         ),
         auto_wrap_policy=olmo_model.fsdp_wrap_fn,
-        use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile
+        use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
         limit_all_gathers=True,
         device_id=get_local_rank(),
     )
+
+    log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory() or 0)}")
 
     if cfg.activation_checkpointing:
         # verify we have FSDP activation support ready by importing:
@@ -142,7 +147,7 @@ def main(cfg: TrainConfig) -> None:
 
     # Construct optimizer and learning rate scheduler.
     optim = build_optimizer(cfg, fsdp_model)
-    scheduler = build_scheduler(cfg, optim)
+    scheduler = build_scheduler(cfg)
 
     # Data indices file.
     indices_file: Optional[TextIO] = None
@@ -191,7 +196,7 @@ def main(cfg: TrainConfig) -> None:
 
         if cfg.load_path is not None:
             log.info(f"Loading checkpoint from {cfg.load_path}...")
-            trainer.restore_checkpoint(Path(cfg.load_path))
+            trainer.restore_checkpoint(cfg.load_path)
             log.info("Checkpoint successfully loaded")
 
         if cfg.force_save_unsharded:
@@ -200,11 +205,13 @@ def main(cfg: TrainConfig) -> None:
             log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
         if cfg.compile is not None:
-            # NOTE: trying to compile the whole train step results in a compile-time error from within
+            # TODO (epwalsh): trying to compile the whole train step results in a compile-time error from within
             # the optimizer. We should investigate this further at some point.
             #  trainer.train_step = torch.compile(trainer.train_step, **cfg.compile.asdict())
             trainer.train_batch = torch.compile(trainer.train_batch, **cfg.compile.asdict())  # type: ignore
-            trainer.eval_batch = torch.compile(trainer.eval_batch, **cfg.compile.asdict())  # type: ignore
+            # TODO (epwalsh): compiling the `eval_batch()` method is a little sketchy since the inputs will look
+            # different for different eval tasks. That might be okay, but it might not be.
+            #  trainer.eval_batch = torch.compile(trainer.eval_batch, **cfg.compile.asdict())  # type: ignore
             # Alternatively, could just do this:
             #  trainer.fsdp_model = torch.compile(trainer.fsdp_model, **cfg.compile.asdict())
 
