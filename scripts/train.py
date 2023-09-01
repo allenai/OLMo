@@ -10,7 +10,6 @@ from torch.distributed.fsdp import MixedPrecision
 
 from olmo.config import TrainConfig
 from olmo.model import Olmo
-from olmo.optim import build_optimizer
 from olmo.util import (
     barrier,
     clean_opt,
@@ -58,9 +57,6 @@ def main(cfg: TrainConfig) -> None:
 
     log.info("Model:")
     log.info(fsdp_model)
-
-    # Construct optimizer and learning rate scheduler.
-    optim = build_optimizer(cfg, fsdp_model)
 
     fsdp_model.train()
 
@@ -148,7 +144,6 @@ def main(cfg: TrainConfig) -> None:
             "index": torch.tensor([24604650, 44278198, 10199766, 29398698, 30323890, 26381103,  6706633, 44120804], dtype=torch.int64, device="cpu")
         }
 
-    optim.zero_grad(set_to_none=True)
     batch = move_to_device(batch, device)
     micro_batch = {
         key: value[:2] for key, value in batch.items()
