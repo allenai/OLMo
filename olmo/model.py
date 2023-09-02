@@ -79,7 +79,8 @@ class LayerNormBase(nn.Module):
         return tensor
 
     def reset_parameters(self):
-        torch.nn.init.ones_(self.weight)  # type: ignore
+        if self.weight is not None:
+            torch.nn.init.ones_(self.weight)  # type: ignore
         if self.bias is not None:
             torch.nn.init.zeros_(self.bias)  # type: ignore
 
