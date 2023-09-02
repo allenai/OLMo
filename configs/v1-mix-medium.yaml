@@ -58,7 +58,7 @@ data:
   timeout: 0
 
 tokenizer:
-  identifier: allenai/eleuther-ai-gpt-neox-20b-pii-special
+  identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
   truncate_direction: right
 
 save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
