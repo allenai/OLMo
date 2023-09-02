@@ -1,4 +1,4 @@
-run_name: olmo-small-ablation
+run_name: stack-v4
 seed: 6198
 dry_run: false
 
