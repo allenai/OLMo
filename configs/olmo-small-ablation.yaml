@@ -45,7 +45,7 @@ scheduler:
   t_max: null
 
 data:
-  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4_en/gpt-neox-20b/c4-train.*.npy}
+  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/preprocessed,/net/nfs.cirrascale/s2-research/llm-data}/stack-dedup/v4-train-no-hierarchy/v4-train/allenai/eleuther-ai-gpt-neox-20b-pii-special/*.npy}
   pad_direction: right
   num_workers: 4
   drop_last: true
