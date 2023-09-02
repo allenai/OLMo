@@ -66,6 +66,15 @@ UNLOAD (
             )
         )
     ),
+    filtered_espresso AS (
+        SELECT DISTINCT
+            pq.corpusid,
+            COALESCE(pq.s2FieldsOfStudy, ARRAY[]) as s2FieldsOfStudy,
+            COALESCE(pq.fieldsOfStudy, ARRAY[]) as fieldsOfStudy
+        from espresso.pq_paper as pq
+        RIGHT JOIN filtered_corpus as cr
+            ON pq.corpusid = cr.corpusid
+    ),
     filtered_corpus_with_fos AS (
         SELECT
             cr.id,
@@ -88,8 +97,8 @@ UNLOAD (
                     cr.metadata.title_count,
                     cr.metadata.abstract_count,
                     cr.metadata.top_frequencies,
-                    COALESCE(pq.s2FieldsOfStudy, ARRAY[]),
-                    COALESCE(pq.fieldsOfStudy, ARRAY[])
+                    pq.s2FieldsOfStudy,
+                    pq.fieldsOfStudy
                 )
                 AS
                 ROW(
@@ -109,8 +118,8 @@ UNLOAD (
                     extFieldsOfStudy ARRAY<VARCHAR>
                 )
             ) AS metadata
-        from espresso.pq_paper  as pq
-        INNER JOIN filtered_corpus as cr
+        FROM filtered_corpus as cr
+        INNER JOIN filtered_espresso as pq
             ON pq.corpusid = cr.corpusid
     )
     SELECT
@@ -126,7 +135,7 @@ UNLOAD (
     FROM filtered_corpus_with_fos
     GROUP BY id
 )
-TO 's3://ai2-llm/pretraining-data/sources/s2/v3-fos/documents/dataset=s2ag'
+TO 's3://ai2-llm/pretraining-data/sources/s2/v3-fos/documents/dataset=s2ag-uniq'
 WITH (
     format='JSON',
     compression='GZIP',
