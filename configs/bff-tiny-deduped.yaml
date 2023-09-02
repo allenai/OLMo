@@ -138,7 +138,7 @@ data:
   timeout: 0
 
 tokenizer:
-  identifier: EleutherAI/gpt-neox-20b
+  identifier: allenai/eleuther-ai-gpt-neox-20b-pii-special
   truncate_direction: right
 
 save_folder: ${oc.env:SCRATCH_DIR,/data/dirkg}/bff-tiny-deduped/
