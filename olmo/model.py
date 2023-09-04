@@ -64,6 +64,8 @@ class LayerNormBase(nn.Module):
             return RMSLayerNorm(config, size=size, low_precision=False)
         elif config.layer_norm_type == LayerNormType.low_precision_rms:
             return RMSLayerNorm(config, size=size, low_precision=True)
+        elif config.layer_norm_type == LayerNormType.amd_compatible:
+            return AMDLayerNorm(config, size=size)
         else:
             raise NotImplementedError(f"Not sure how to handle '{config.layer_norm_type}' LayerNorm type")
 
@@ -119,6 +121,47 @@ class LayerNorm(LayerNormBase):
                 )
         else:
             return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
+
+
+class AMDLayerNorm(LayerNormBase):
+    """
+    LayerNorm implemented using PyTorch primitives.
+
+    We do this to work around a bug in the PyTorch/ROCm implementation of layer norm that fails with a
+    segfault when the bias is not present.
+
+    This version of layer norm is always "low precision" for performance.
+    """
+
+    def __init__(self, config: ModelConfig, size: Optional[int] = None):
+        super().__init__(config)
+        self.normalized_shape = (size or config.d_model,)
+        self.eps = 1e-05
+        if self.config.layer_norm_with_affine:
+            self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
+            if self.config.include_bias:
+                self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
+            else:
+                self.register_parameter("bias", None)
+        else:
+            self.register_parameter("bias", None)
+            self.register_parameter("weight", None)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        module_device = x.device
+        downcast_x = self._cast_if_autocast_enabled(x)
+        downcast_weight = self._cast_if_autocast_enabled(self.weight) if self.weight is not None else self.weight
+        downcast_bias = self._cast_if_autocast_enabled(self.bias) if self.bias is not None else self.bias
+        with torch.autocast(enabled=False, device_type=module_device.type):
+            var, mean = torch.var_mean(downcast_x, dim=-1, correction=0, keepdim=True)
+            var.add_(self.eps)
+            var.sqrt_()
+            x = (x - mean) / var
+            if downcast_weight is not None:
+                x.mul_(downcast_weight)
+            if downcast_bias is not None:
+                x.add_(downcast_bias)
+            return x
 
 
 class RMSLayerNorm(LayerNorm):
