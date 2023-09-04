@@ -47,7 +47,7 @@ scheduler:
 data:
   paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/preprocessed,/net/nfs.cirrascale/s2-research/olmo/data}/stack-dedup/v4-train-no-hierarchy/v4-train/allenai/eleuther-ai-gpt-neox-20b-pii-special/*.npy}
   pad_direction: right
-  num_workers: 4
+  num_workers: 1
   drop_last: true
   pin_memory: true
   prefetch_factor: 16
@@ -55,7 +55,7 @@ data:
   timeout: 0
 
 tokenizer:
-  identifier: EleutherAI/gpt-neox-20b
+  identifier: allenai/eleuther-ai-gpt-neox-20b-pii-special
   truncate_direction: right
 
 save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/net/nfs.cirrascale/s2-research/olmo/checkpoints}/${oc.env:SLURM_JOB_ID,${run_name}}
