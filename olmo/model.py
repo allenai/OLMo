@@ -123,6 +123,24 @@ class LayerNorm(LayerNormBase):
             return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
 
 
+@torch.jit.script
+def _layer_norm(
+    x: torch.Tensor,
+    weight: Optional[torch.Tensor] = None,
+    bias: Optional[torch.Tensor] = None,
+    eps: float = 1e-5
+):
+    var, mean = torch.var_mean(x, dim=-1, correction=0, keepdim=True)
+    var.add_(eps)
+    var.sqrt_()
+    x = (x - mean) / var
+    if weight is not None:
+        x.mul_(weight)
+    if bias is not None:
+        x.add_(bias)
+    return x
+
+
 class AMDLayerNorm(LayerNormBase):
     """
     LayerNorm implemented using PyTorch primitives.
@@ -150,18 +168,14 @@ class AMDLayerNorm(LayerNormBase):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         module_device = x.device
         downcast_x = self._cast_if_autocast_enabled(x)
-        downcast_weight = self._cast_if_autocast_enabled(self.weight) if self.weight is not None else self.weight
+        downcast_weight = (
+            self._cast_if_autocast_enabled(self.weight) if self.weight is not None else self.weight
+        )
         downcast_bias = self._cast_if_autocast_enabled(self.bias) if self.bias is not None else self.bias
         with torch.autocast(enabled=False, device_type=module_device.type):
-            var, mean = torch.var_mean(downcast_x, dim=-1, correction=0, keepdim=True)
-            var.add_(self.eps)
-            var.sqrt_()
-            downcast_x = (downcast_x - mean) / var
-            if downcast_weight is not None:
-                downcast_x.mul_(downcast_weight)
-            if downcast_bias is not None:
-                downcast_x.add_(downcast_bias)
-            return downcast_x
+            return _layer_norm(
+                downcast_x, weight=downcast_weight, bias=downcast_bias, eps=self.eps
+            )
 
 
 class RMSLayerNorm(LayerNorm):
