@@ -137,31 +137,24 @@ class AMDLayerNorm(LayerNormBase):
         super().__init__(config)
         self.normalized_shape = (size or config.d_model,)
         self.eps = 1e-05
-        if self.config.layer_norm_with_affine:
-            self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
-            if self.config.include_bias:
-                self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
-            else:
-                self.register_parameter("bias", None)
-        else:
-            self.register_parameter("bias", None)
-            self.register_parameter("weight", None)
+        self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
+        self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
+
+        if not self.config.layer_norm_with_affine:
+            self.weight.requires_grad = False
+            self.bias.requires_grad = False
+        elif not self.config.include_bias:
+            self.bias.requires_grad = False
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         module_device = x.device
         downcast_x = self._cast_if_autocast_enabled(x)
-        downcast_weight = self._cast_if_autocast_enabled(self.weight) if self.weight is not None else self.weight
-        downcast_bias = self._cast_if_autocast_enabled(self.bias) if self.bias is not None else self.bias
+        downcast_weight = self._cast_if_autocast_enabled(self.weight)
+        downcast_bias = self._cast_if_autocast_enabled(self.bias)
         with torch.autocast(enabled=False, device_type=module_device.type):
-            var, mean = torch.var_mean(downcast_x, dim=-1, correction=0, keepdim=True)
-            var.add_(self.eps)
-            var.sqrt_()
-            downcast_x = (downcast_x - mean) / var
-            if downcast_weight is not None:
-                downcast_x.mul_(downcast_weight)
-            if downcast_bias is not None:
-                downcast_x.add_(downcast_bias)
-            return downcast_x
+            return F.layer_norm(
+                downcast_x, self.normalized_shape, weight=downcast_weight, bias=downcast_bias, eps=self.eps
+            )
 
 
 class RMSLayerNorm(LayerNorm):
