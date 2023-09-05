@@ -75,8 +75,8 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 400000  # 200B tokens
-global_train_batch_size: 256
+max_duration: 400000  # 100B tokens
+global_train_batch_size: 128
 device_train_microbatch_size: 16
 
 precision: amp_bf16
