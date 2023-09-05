@@ -14,7 +14,7 @@ fi
 # check if CONFIG PATH is provided as an environment variable;
 # if so, use that instead of olmo-small-ablation.yaml
 if [ -z ${CONFIG_PATH+x} ]; then
-  export CONFIG_PATH=configs/olmo-small-ablation.yaml
+  export CONFIG_PATH=configs/c4-extra-tiny-debug.yaml
 else
   export CONFIG_PATH="${CONFIG_PATH}"
 fi
@@ -36,7 +36,7 @@ else
   WANDB_API_KEY_ARG="--env WANDB_API_KEY=${WANDB_API_KEY}"
 fi
 
-NUM_NODES=4
+NUM_NODES=1
 
 gantry run \
   --workspace ai2/llm-testing \
@@ -44,7 +44,7 @@ gantry run \
   --description "${FULL_RUN_NAME}" \
   --priority "normal" \
   --beaker-image olmo-torch2-gantry \
-  --cluster ai2/general-cirrascale-a100-80g-ib \
+  --cluster ai2/s2-cirrascale \
   --gpus 8 \
   --replicas ${NUM_NODES} \
   --leader-selection  \
