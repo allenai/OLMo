@@ -65,7 +65,8 @@ tokenizer:
   truncate_direction: right
 
 save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
-save_overwrite: false
+remote_save_folder: s3://ai2-llm/checkpoints/lucas/${oc.env:SLURM_JOB_ID,${run_name}}
+save_overwrite: true
 # Sharded checkpoints (best for restarts)
 save_interval: 1000
 save_num_checkpoints_to_keep: 2
