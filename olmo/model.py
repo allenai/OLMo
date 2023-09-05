@@ -94,17 +94,28 @@ class LayerNorm(LayerNormBase):
         super().__init__(config)
         self.normalized_shape = (size or config.d_model,)
         self.eps = 1e-05
-        self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
-        self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
+        self.low_precision = low_precision
 
         # We always have weight and bias even if they are turned off/set to 1 and 0, because ROCm has a
         # bug where F.layer_norm() crashes during the backwards pass when no bias was given.
-        if not self.config.layer_norm_with_affine:
+        # When they are turned off, they need to be buffers, because FSDP can't handle the situation
+        # where some parameters don't require gradients.
+
+        needs_weight = self.config.layer_norm_with_affine
+        weight = torch.ones(self.normalized_shape, device=config.init_device)
+        if needs_weight:
+            self.register_parameter("weight", nn.Parameter(weight))
+        else:
+            self.register_buffer("weight", weight, persistent=False)
             self.weight.requires_grad = False
+
+        needs_bias = self.config.layer_norm_with_affine and self.config.include_bias
+        bias = torch.zeros(self.normalized_shape, device=config.init_device)
+        if needs_bias:
+            self.register_parameter("bias", nn.Parameter(bias))
+        else:
+            self.register_buffer("bias", bias, persistent=False)
             self.bias.requires_grad = False
-        elif not self.config.include_bias:
-            self.bias.requires_grad = False
-        self.low_precision = low_precision
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.low_precision:
