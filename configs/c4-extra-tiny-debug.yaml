@@ -105,6 +105,8 @@ precision: fp32
 
 wandb:
   name: ${run_name}
+  project: science-olmo
+  group: s2-debugging
 
 speed_monitor:
   window_size: 20
