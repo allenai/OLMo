@@ -10,11 +10,11 @@ from typing import Optional, TextIO
 
 import torch
 import torch.distributed as dist
-import wandb
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision
 from torchmetrics import MeanMetric
 
+import wandb
 from olmo.config import CheckpointType, TrainConfig
 from olmo.data import build_train_dataloader
 from olmo.eval import build_evaluators
