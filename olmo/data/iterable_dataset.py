@@ -80,7 +80,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
                 log.info("Global data order indices saved to '%s'", self.global_indices_file)
             barrier()
 
-    def _build_global_indices(self) -> Sequence[int]:
+    def _build_global_indices(self) -> np.ndarray:
         assert len(self.dataset) < np.iinfo(np.uint32).max
         indices = np.arange(len(self.dataset), dtype=np.uint32)
         if self.shuffle:
@@ -105,7 +105,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         assert len(indices) == self.total_size
         return indices
 
-    def get_global_indices(self) -> Sequence[int]:
+    def get_global_indices(self) -> np.ndarray:
         if self.global_indices_file is not None:
             return np.memmap(self.global_indices_file, mode="r", dtype=np.uint32)  # type: ignore
         else:
@@ -135,8 +135,6 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             # of the number of workers, we should give worker 0 the first chunk of `device_batch_size` indices,
             # worker 1 the 2nd chunk of `device_train_batch_size` indices, etc...
             if self.device_batch_size is not None:
-                if not isinstance(indices, (np.memmap, np.ndarray)):
-                    indices = np.array(indices, dtype=np.uint64)
                 truncated_size = self.device_batch_size * (len(indices) // self.device_batch_size)
                 left_overs = indices[
                     truncated_size + worker_info.id : truncated_size + worker_info.id + worker_info.num_workers
