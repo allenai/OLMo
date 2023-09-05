@@ -1,5 +1,5 @@
 PRETRAINED_MODEL='/net/nfs.cirrascale/allennlp/akshitab/olmo-models/olmo-1b'
-QUANTIZED_MODEL='/home/pranjalib/LLM/inference/compression/olmo_compression_files/quantized_olmo-1b'
+QUANTIZED_MODEL='/home/pranjalib/LLM/inference/compression/quantized_olmo-1b'
 
 efficiency-pentathlon run \
 	--task wikitext-prompt \
