@@ -15,6 +15,7 @@ from typing import Any, Deque, Dict, List, Optional, TextIO, Tuple
 import numpy as np
 import torch
 import torch.nn.functional as F
+import wandb
 from packaging import version
 from torch.distributed.fsdp import FullStateDictConfig
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -26,8 +27,6 @@ from torch.distributed.fsdp.api import (
 )
 from torch.utils.data import DataLoader
 from torchmetrics import MeanMetric
-
-import wandb
 
 from .aliases import PathOrStr
 from .config import CheckpointType, SpeedMonitorConfig, TrainConfig
