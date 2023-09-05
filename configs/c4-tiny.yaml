@@ -60,7 +60,7 @@ data:
   persistent_workers: true
   timeout: 0
 
-eval_interval: 50
+eval_interval: ${save_interval}
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
