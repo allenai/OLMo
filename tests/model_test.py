@@ -2,7 +2,6 @@ import pytest
 import torch
 from torch.nn import CrossEntropyLoss
 
-import olmo.model
 from olmo import BlockType, Olmo, Tokenizer, TrainConfig
 from olmo.config import PaddingDirection
 from olmo.data import DataCollator
@@ -387,12 +386,3 @@ def test_generate(
             batch_output = model.generate(**{**batch_inputs, **beam_search_kwargs})
 
     torch.testing.assert_close(output1.scores[0], batch_output.scores[0])
-
-
-def test_amd_layer_norm(train_config: TrainConfig):
-    input = torch.randn(16, train_config.model.d_model, dtype=torch.float32)
-    torch_ln = olmo.model.LayerNorm(train_config.model, low_precision=True)
-    amd_ln = olmo.model.AMDLayerNorm(train_config.model)
-    torch_result = torch_ln(input)
-    amd_result = amd_ln(input)
-    torch.testing.assert_close(amd_result, torch_result)

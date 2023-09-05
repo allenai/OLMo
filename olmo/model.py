@@ -64,8 +64,6 @@ class LayerNormBase(nn.Module):
             return RMSLayerNorm(config, size=size, low_precision=False)
         elif config.layer_norm_type == LayerNormType.low_precision_rms:
             return RMSLayerNorm(config, size=size, low_precision=True)
-        elif config.layer_norm_type == LayerNormType.amd_compatible:
-            return AMDLayerNorm(config, size=size)
         else:
             raise NotImplementedError(f"Not sure how to handle '{config.layer_norm_type}' LayerNorm type")
 
@@ -96,15 +94,16 @@ class LayerNorm(LayerNormBase):
         super().__init__(config)
         self.normalized_shape = (size or config.d_model,)
         self.eps = 1e-05
-        if self.config.layer_norm_with_affine:
-            self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
-            if self.config.include_bias:
-                self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
-            else:
-                self.register_parameter("bias", None)
-        else:
-            self.register_parameter("bias", None)
-            self.register_parameter("weight", None)
+        self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
+        self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
+
+        # We always have weight and bias even if they are turned off/set to 1 and 0, because ROCm has a
+        # bug where F.layer_norm() crashes during the backwards pass when no bias was given.
+        if not self.config.layer_norm_with_affine:
+            self.weight.requires_grad = False
+            self.bias.requires_grad = False
+        elif not self.config.include_bias:
+            self.bias.requires_grad = False
         self.low_precision = low_precision
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -121,31 +120,6 @@ class LayerNorm(LayerNormBase):
                 )
         else:
             return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
-
-
-class AMDLayerNorm(LayerNormBase):
-    """
-    LayerNorm implemented using PyTorch primitives.
-
-    We do this to work around a bug in the PyTorch/ROCm implementation of layer norm that fails with a
-    segfault when the bias is not present.
-    """
-
-    def __init__(self, config: ModelConfig, size: Optional[int] = None):
-        super().__init__(config)
-        self.normalized_shape = (size or config.d_model,)
-        self.eps = 1e-05
-        self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
-        self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
-
-        if not self.config.layer_norm_with_affine:
-            self.weight.requires_grad = False
-            self.bias.requires_grad = False
-        elif not self.config.include_bias:
-            self.bias.requires_grad = False
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
 
 
 class RMSLayerNorm(LayerNorm):
