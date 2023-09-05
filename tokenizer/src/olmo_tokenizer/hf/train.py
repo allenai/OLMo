@@ -13,6 +13,7 @@ from smashed.utils.io_utils import (
     open_file_for_write,
     recursively_list_files,
 )
+
 from tokenizers import (
     Regex,
     Tokenizer,
