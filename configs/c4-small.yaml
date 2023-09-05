@@ -4,7 +4,9 @@ dry_run: false
 
 wandb:
   name: ${run_name}
-  project: c4-small
+  project: science-olmo
+  group: s2-debugging
+  log_interval: ${console_log_interval}
 
 model:
   d_model: 2048
