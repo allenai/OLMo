@@ -129,8 +129,6 @@ class AMDLayerNorm(LayerNormBase):
 
     We do this to work around a bug in the PyTorch/ROCm implementation of layer norm that fails with a
     segfault when the bias is not present.
-
-    This version of layer norm is always "low precision" for performance.
     """
 
     def __init__(self, config: ModelConfig, size: Optional[int] = None):
@@ -148,20 +146,15 @@ class AMDLayerNorm(LayerNormBase):
             self.register_parameter("weight", None)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        module_device = x.device
-        downcast_x = self._cast_if_autocast_enabled(x)
-        downcast_weight = self._cast_if_autocast_enabled(self.weight) if self.weight is not None else self.weight
-        downcast_bias = self._cast_if_autocast_enabled(self.bias) if self.bias is not None else self.bias
-        with torch.autocast(enabled=False, device_type=module_device.type):
-            var, mean = torch.var_mean(downcast_x, dim=-1, correction=0, keepdim=True)
-            var.add_(self.eps)
-            var.sqrt_()
-            downcast_x = (downcast_x - mean) / var
-            if downcast_weight is not None:
-                downcast_x.mul_(downcast_weight)
-            if downcast_bias is not None:
-                downcast_x.add_(downcast_bias)
-            return downcast_x
+        var, mean = torch.var_mean(x, dim=-1, correction=0, keepdim=True)
+        var.add_(self.eps)
+        var.sqrt_()
+        x = (x - mean) / var
+        if self.weight is not None:
+            x.mul_(self.weight)
+        if self.bias is not None:
+            x.add_(self.bias)
+        return x
 
 
 class RMSLayerNorm(LayerNorm):
