@@ -156,12 +156,12 @@ class AMDLayerNorm(LayerNormBase):
             var, mean = torch.var_mean(downcast_x, dim=-1, correction=0, keepdim=True)
             var.add_(self.eps)
             var.sqrt_()
-            x = (x - mean) / var
+            downcast_x = (downcast_x - mean) / var
             if downcast_weight is not None:
-                x.mul_(downcast_weight)
+                downcast_x.mul_(downcast_weight)
             if downcast_bias is not None:
-                x.add_(downcast_bias)
-            return x
+                downcast_x.add_(downcast_bias)
+            return downcast_x
 
 
 class RMSLayerNorm(LayerNorm):
