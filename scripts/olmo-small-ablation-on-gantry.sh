@@ -45,6 +45,8 @@ gantry run \
   --priority "normal" \
   --beaker-image olmo-torch2-gantry \
   --cluster ai2/s2-cirrascale \
+  --env-secret AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID \
+  --env-secret AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY \
   --gpus 8 \
   --host-networking \
   --nfs \
