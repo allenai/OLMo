@@ -36,7 +36,7 @@ else
   WANDB_API_KEY_ARG="--env WANDB_API_KEY=${WANDB_API_KEY}"
 fi
 
-NUM_NODES=1
+NUM_NODES=0
 
 gantry run \
   --workspace ai2/llm-testing \
