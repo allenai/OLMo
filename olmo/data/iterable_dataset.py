@@ -94,7 +94,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             padding_size = self.total_size - len(indices)
             arrays_to_concatenate = [indices]
             while padding_size > 0:
-                array_to_concatenate = indices[:min(padding_size, len(indices))]
+                array_to_concatenate = indices[: min(padding_size, len(indices))]
                 arrays_to_concatenate.append(array_to_concatenate)
                 padding_size -= len(array_to_concatenate)
                 del array_to_concatenate
