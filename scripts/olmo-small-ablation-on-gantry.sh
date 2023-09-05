@@ -14,7 +14,7 @@ fi
 # check if CONFIG PATH is provided as an environment variable;
 # if so, use that instead of olmo-small-ablation.yaml
 if [ -z ${CONFIG_PATH+x} ]; then
-  export CONFIG_PATH=configs/c4-tiny-run-001.yaml
+  export CONFIG_PATH=configs/c4-tiny.yaml
 else
   export CONFIG_PATH="${CONFIG_PATH}"
 fi
