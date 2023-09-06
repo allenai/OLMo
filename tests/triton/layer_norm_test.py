@@ -6,7 +6,9 @@ from olmo.triton.layer_norm import layer_norm
 
 @pytest.mark.gpu
 @pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device")
-@pytest.mark.parametrize("M, N, dtype", [(1151, 8192, torch.float16), (1151, 8192, torch.bfloat16)])
+@pytest.mark.parametrize(
+    "M, N, dtype", [(1151, 8192, torch.float16), (1151, 8192, torch.bfloat16), (1151, 8192, torch.float32)]
+)
 def test_layer_norm_with_affine(M, N, dtype, eps=1e-5, device="cuda"):
     # create data
     x_shape = (M, N)
@@ -35,7 +37,9 @@ def test_layer_norm_with_affine(M, N, dtype, eps=1e-5, device="cuda"):
 
 @pytest.mark.gpu
 @pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device")
-@pytest.mark.parametrize("M, N, dtype", [(1151, 8192, torch.float16), (1151, 8192, torch.bfloat16)])
+@pytest.mark.parametrize(
+    "M, N, dtype", [(1151, 8192, torch.float16), (1151, 8192, torch.bfloat16), (1151, 8192, torch.float32)]
+)
 def test_layer_norm_no_affine(M, N, dtype, eps=1e-5, device="cuda"):
     # create data
     x_shape = (M, N)
