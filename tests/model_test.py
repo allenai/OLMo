@@ -396,20 +396,23 @@ def test_layer_norm(train_config: TrainConfig, elementwise_affine: bool, include
     train_config.model.include_bias = include_bias
     ln = LayerNorm.build(train_config.model)
 
+    needs_weight = elementwise_affine
+    needs_bias = elementwise_affine and include_bias
     with torch.no_grad():
-        needs_weight = elementwise_affine
         if needs_weight:
             weight = torch.randn(train_config.model.d_model)
             ln.weight.copy_(weight)
         else:
             weight = None
 
-        needs_bias = elementwise_affine and include_bias
         if needs_bias:
             bias = torch.randn(train_config.model.d_model)
             ln.bias.copy_(bias)
         else:
             bias = None
+
+    assert ln.bias is None or ln.bias.requires_grad == needs_bias
+    assert ln.weight is None or ln.weight.requires_grad == needs_weight
 
     x = torch.randn(16, 1024, train_config.model.d_model)
     x.requires_grad = False

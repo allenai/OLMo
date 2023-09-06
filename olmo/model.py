@@ -114,7 +114,6 @@ class LayerNorm(LayerNormBase):
             self.register_parameter("weight", nn.Parameter(weight))
         else:
             self.register_buffer("weight", weight, persistent=False)
-            self.weight.requires_grad = False
 
         needs_bias = elementwise_affine and self.config.include_bias
         bias = torch.zeros(self.normalized_shape, device=config.init_device)
@@ -122,7 +121,6 @@ class LayerNorm(LayerNormBase):
             self.register_parameter("bias", nn.Parameter(bias))
         else:
             self.register_buffer("bias", bias, persistent=False)
-            self.bias.requires_grad = False
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.low_precision:
