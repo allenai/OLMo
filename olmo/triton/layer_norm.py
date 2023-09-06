@@ -1,3 +1,7 @@
+"""
+Adapted from https://triton-lang.org/main/getting-started/tutorials/05-layer-norm.html.
+"""
+
 from typing import Optional, Tuple
 
 import torch
