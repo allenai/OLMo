@@ -1,9 +1,9 @@
 import pytest
 import torch
-from torch.nn import CrossEntropyLoss
 import torch.nn.functional as F
+from torch.nn import CrossEntropyLoss
 
-from olmo import BlockType, Olmo, Tokenizer, TrainConfig, LayerNorm
+from olmo import BlockType, LayerNorm, Olmo, Tokenizer, TrainConfig
 from olmo.config import PaddingDirection
 from olmo.data import DataCollator
 
