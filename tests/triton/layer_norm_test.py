@@ -1,8 +1,11 @@
+import pytest
 import torch
 
 from olmo.triton.layer_norm import layer_norm
 
 
+@pytest.mark.gpu
+@pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device")
 def test_layer_norm_with_affine(M, N, dtype, eps=1e-5, device="cuda"):
     # create data
     x_shape = (M, N)
@@ -29,6 +32,8 @@ def test_layer_norm_with_affine(M, N, dtype, eps=1e-5, device="cuda"):
     assert torch.allclose(dw_tri, dw_ref, atol=1e-2, rtol=0)
 
 
+@pytest.mark.gpu
+@pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device")
 def test_layer_norm_no_affine(M, N, dtype, eps=1e-5, device="cuda"):
     # create data
     x_shape = (M, N)
