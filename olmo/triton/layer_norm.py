@@ -8,6 +8,185 @@ import torch
 import triton
 import triton.language as tl
 
+__all__ = ["layer_norm"]
+
+
+def layer_norm(
+    x: torch.Tensor,
+    normalized_shape: Tuple[int, ...],
+    weight: Optional[torch.Tensor] = None,
+    bias: Optional[torch.Tensor] = None,
+    eps: float = 1e-5,
+) -> torch.Tensor:
+    if weight is not None:
+        return _LayerNormWithAffine.apply(x, normalized_shape, weight, bias, eps)  # type: ignore[return-type]
+    else:
+        return _LayerNormNoAffine.apply(x, normalized_shape, eps)  # type: ignore[return-type]
+
+
+class _LayerNormWithAffine(torch.autograd.Function):
+    @staticmethod
+    def forward(
+        ctx,
+        x: torch.Tensor,
+        normalized_shape: Tuple[int, ...],
+        weight: Optional[torch.Tensor],
+        bias: Optional[torch.Tensor],
+        eps: float,
+    ):
+        assert len(normalized_shape) == 1  # TODO: handle general case
+        # allocate output
+        y = torch.empty_like(x)
+        # reshape input data into 2D tensor
+        x_arg = x.reshape(-1, x.shape[-1])
+        M, N = x_arg.shape
+        mean = torch.empty((M,), dtype=torch.float32, device="cuda")
+        rstd = torch.empty((M,), dtype=torch.float32, device="cuda")
+        # Less than 64KB per feature: enqueue fused kernel
+        MAX_FUSED_SIZE = 65536 // x.element_size()
+        BLOCK_SIZE = min(MAX_FUSED_SIZE, triton.next_power_of_2(N))
+        if N > BLOCK_SIZE:
+            raise RuntimeError("This layer norm doesn't support feature dim >= 64KB.")
+        # heuristics for number of warps
+        num_warps = min(max(BLOCK_SIZE // 256, 1), 8)
+        # enqueue kernel
+        _layer_norm_affine_fwd_fused[(M,)](  # type: ignore
+            x_arg,
+            y,
+            weight,
+            bias,
+            mean,
+            rstd,
+            x_arg.stride(0),
+            N,
+            eps,
+            BLOCK_SIZE=BLOCK_SIZE,
+            num_warps=num_warps,
+        )
+        ctx.save_for_backward(x, weight, bias, mean, rstd)
+        ctx.BLOCK_SIZE = BLOCK_SIZE
+        ctx.num_warps = num_warps
+        ctx.eps = eps
+        return y
+
+    @staticmethod
+    def backward(ctx, dy):
+        x, w, b, m, v = ctx.saved_tensors
+        # heuristics for amount of parallel reduction stream for DW/DB
+        N = w.shape[0]
+        GROUP_SIZE_M = 64
+        if N <= 8192:
+            GROUP_SIZE_M = 96
+        if N <= 4096:
+            GROUP_SIZE_M = 128
+        if N <= 1024:
+            GROUP_SIZE_M = 256
+        # allocate output
+        locks = torch.zeros(2 * GROUP_SIZE_M, dtype=torch.int32, device="cuda")
+        _dw = torch.empty((GROUP_SIZE_M, w.shape[0]), dtype=x.dtype, device=w.device)
+        _db = torch.empty((GROUP_SIZE_M, w.shape[0]), dtype=x.dtype, device=w.device)
+        dw = torch.empty((w.shape[0],), dtype=w.dtype, device=w.device)
+        db = torch.empty((w.shape[0],), dtype=w.dtype, device=w.device)
+        dx = torch.empty_like(dy)
+        # enqueue kernel using forward pass heuristics
+        # also compute partial sums for DW and DB
+        x_arg = x.reshape(-1, x.shape[-1])
+        M, N = x_arg.shape
+        _layer_norm_affine_bwd_dx_fused[(M,)](  # type: ignore
+            dx,
+            dy,
+            _dw,
+            _db,
+            x,
+            w,
+            b,
+            m,
+            v,
+            locks,
+            x_arg.stride(0),
+            N,
+            BLOCK_SIZE_N=ctx.BLOCK_SIZE,
+            GROUP_SIZE_M=GROUP_SIZE_M,
+            num_warps=ctx.num_warps,
+        )
+        grid = lambda meta: [triton.cdiv(N, meta["BLOCK_SIZE_N"])]
+        # accumulate partial sums in separate kernel
+        _layer_norm_affine_bwd_dwdb[grid](  # type: ignore
+            _dw,
+            _db,
+            dw,
+            db,
+            GROUP_SIZE_M,
+            N,
+            BLOCK_SIZE_M=32,
+            BLOCK_SIZE_N=128,
+        )
+        return dx, None, dw, db, None
+
+
+class _LayerNormNoAffine(torch.autograd.Function):
+    @staticmethod
+    def forward(
+        ctx,
+        x: torch.Tensor,
+        normalized_shape: Tuple[int, ...],
+        eps: float,
+    ):
+        assert len(normalized_shape) == 1  # TODO: handle general case
+        # allocate output
+        y = torch.empty_like(x)
+        # reshape input data into 2D tensor
+        x_arg = x.reshape(-1, x.shape[-1])
+        M, N = x_arg.shape
+        mean = torch.empty((M,), dtype=torch.float32, device="cuda")
+        rstd = torch.empty((M,), dtype=torch.float32, device="cuda")
+        # Less than 64KB per feature: enqueue fused kernel
+        MAX_FUSED_SIZE = 65536 // x.element_size()
+        BLOCK_SIZE = min(MAX_FUSED_SIZE, triton.next_power_of_2(N))
+        if N > BLOCK_SIZE:
+            raise RuntimeError("This layer norm doesn't support feature dim >= 64KB.")
+        # heuristics for number of warps
+        num_warps = min(max(BLOCK_SIZE // 256, 1), 8)
+        # enqueue kernel
+        _layer_norm_no_affine_fwd_fused[(M,)](  # type: ignore
+            x_arg,
+            y,
+            mean,
+            rstd,
+            x_arg.stride(0),
+            N,
+            eps,
+            BLOCK_SIZE=BLOCK_SIZE,
+            num_warps=num_warps,
+        )
+        ctx.save_for_backward(x, mean, rstd)
+        ctx.BLOCK_SIZE = BLOCK_SIZE
+        ctx.num_warps = num_warps
+        ctx.eps = eps
+        return y
+
+    @staticmethod
+    def backward(ctx, dy):
+        x, m, v = ctx.saved_tensors
+        # allocate output
+        dx = torch.empty_like(dy)
+        # enqueue kernel using forward pass heuristics
+        # also compute partial sums for DW and DB
+        x_arg = x.reshape(-1, x.shape[-1])
+        M, N = x_arg.shape
+        _layer_norm_no_affine_bwd_dx_fused[(M,)](  # type: ignore
+            dx,
+            dy,
+            x,
+            m,
+            v,
+            x_arg.stride(0),
+            N,
+            BLOCK_SIZE_N=ctx.BLOCK_SIZE,
+            num_warps=ctx.num_warps,
+        )
+        return dx, None, None
+
 
 @triton.jit
 def _layer_norm_affine_fwd_fused(
@@ -230,180 +409,3 @@ def _layer_norm_affine_bwd_dwdb(
     sum_db = tl.sum(db, axis=0)
     tl.store(FINAL_DW + cols, sum_dw, mask=cols < N)
     tl.store(FINAL_DB + cols, sum_db, mask=cols < N)
-
-
-class _LayerNormAffineF(torch.autograd.Function):
-    @staticmethod
-    def forward(
-        ctx,
-        x: torch.Tensor,
-        normalized_shape: Tuple[int, ...],
-        weight: Optional[torch.Tensor],
-        bias: Optional[torch.Tensor],
-        eps: float,
-    ):
-        assert len(normalized_shape) == 1  # TODO: handle general case
-        # allocate output
-        y = torch.empty_like(x)
-        # reshape input data into 2D tensor
-        x_arg = x.reshape(-1, x.shape[-1])
-        M, N = x_arg.shape
-        mean = torch.empty((M,), dtype=torch.float32, device="cuda")
-        rstd = torch.empty((M,), dtype=torch.float32, device="cuda")
-        # Less than 64KB per feature: enqueue fused kernel
-        MAX_FUSED_SIZE = 65536 // x.element_size()
-        BLOCK_SIZE = min(MAX_FUSED_SIZE, triton.next_power_of_2(N))
-        if N > BLOCK_SIZE:
-            raise RuntimeError("This layer norm doesn't support feature dim >= 64KB.")
-        # heuristics for number of warps
-        num_warps = min(max(BLOCK_SIZE // 256, 1), 8)
-        # enqueue kernel
-        _layer_norm_affine_fwd_fused[(M,)](  # type: ignore
-            x_arg,
-            y,
-            weight,
-            bias,
-            mean,
-            rstd,
-            x_arg.stride(0),
-            N,
-            eps,
-            BLOCK_SIZE=BLOCK_SIZE,
-            num_warps=num_warps,
-        )
-        ctx.save_for_backward(x, weight, bias, mean, rstd)
-        ctx.BLOCK_SIZE = BLOCK_SIZE
-        ctx.num_warps = num_warps
-        ctx.eps = eps
-        return y
-
-    @staticmethod
-    def backward(ctx, dy):
-        x, w, b, m, v = ctx.saved_tensors
-        # heuristics for amount of parallel reduction stream for DW/DB
-        N = w.shape[0]
-        GROUP_SIZE_M = 64
-        if N <= 8192:
-            GROUP_SIZE_M = 96
-        if N <= 4096:
-            GROUP_SIZE_M = 128
-        if N <= 1024:
-            GROUP_SIZE_M = 256
-        # allocate output
-        locks = torch.zeros(2 * GROUP_SIZE_M, dtype=torch.int32, device="cuda")
-        _dw = torch.empty((GROUP_SIZE_M, w.shape[0]), dtype=x.dtype, device=w.device)
-        _db = torch.empty((GROUP_SIZE_M, w.shape[0]), dtype=x.dtype, device=w.device)
-        dw = torch.empty((w.shape[0],), dtype=w.dtype, device=w.device)
-        db = torch.empty((w.shape[0],), dtype=w.dtype, device=w.device)
-        dx = torch.empty_like(dy)
-        # enqueue kernel using forward pass heuristics
-        # also compute partial sums for DW and DB
-        x_arg = x.reshape(-1, x.shape[-1])
-        M, N = x_arg.shape
-        _layer_norm_affine_bwd_dx_fused[(M,)](  # type: ignore
-            dx,
-            dy,
-            _dw,
-            _db,
-            x,
-            w,
-            b,
-            m,
-            v,
-            locks,
-            x_arg.stride(0),
-            N,
-            BLOCK_SIZE_N=ctx.BLOCK_SIZE,
-            GROUP_SIZE_M=GROUP_SIZE_M,
-            num_warps=ctx.num_warps,
-        )
-        grid = lambda meta: [triton.cdiv(N, meta["BLOCK_SIZE_N"])]
-        # accumulate partial sums in separate kernel
-        _layer_norm_affine_bwd_dwdb[grid](  # type: ignore
-            _dw,
-            _db,
-            dw,
-            db,
-            GROUP_SIZE_M,
-            N,
-            BLOCK_SIZE_M=32,
-            BLOCK_SIZE_N=128,
-        )
-        return dx, None, dw, db, None
-
-
-class _LayerNormNoAffineF(torch.autograd.Function):
-    @staticmethod
-    def forward(
-        ctx,
-        x: torch.Tensor,
-        normalized_shape: Tuple[int, ...],
-        eps: float,
-    ):
-        assert len(normalized_shape) == 1  # TODO: handle general case
-        # allocate output
-        y = torch.empty_like(x)
-        # reshape input data into 2D tensor
-        x_arg = x.reshape(-1, x.shape[-1])
-        M, N = x_arg.shape
-        mean = torch.empty((M,), dtype=torch.float32, device="cuda")
-        rstd = torch.empty((M,), dtype=torch.float32, device="cuda")
-        # Less than 64KB per feature: enqueue fused kernel
-        MAX_FUSED_SIZE = 65536 // x.element_size()
-        BLOCK_SIZE = min(MAX_FUSED_SIZE, triton.next_power_of_2(N))
-        if N > BLOCK_SIZE:
-            raise RuntimeError("This layer norm doesn't support feature dim >= 64KB.")
-        # heuristics for number of warps
-        num_warps = min(max(BLOCK_SIZE // 256, 1), 8)
-        # enqueue kernel
-        _layer_norm_no_affine_fwd_fused[(M,)](
-            x_arg,
-            y,
-            mean,
-            rstd,
-            x_arg.stride(0),
-            N,
-            eps,
-            BLOCK_SIZE=BLOCK_SIZE,
-            num_warps=num_warps,
-        )
-        ctx.save_for_backward(x, mean, rstd)
-        ctx.BLOCK_SIZE = BLOCK_SIZE
-        ctx.num_warps = num_warps
-        ctx.eps = eps
-        return y
-
-    @staticmethod
-    def backward(ctx, dy):
-        x, m, v = ctx.saved_tensors
-        # allocate output
-        dx = torch.empty_like(dy)
-        # enqueue kernel using forward pass heuristics
-        # also compute partial sums for DW and DB
-        x_arg = x.reshape(-1, x.shape[-1])
-        M, N = x_arg.shape
-        _layer_norm_no_affine_bwd_dx_fused[(M,)](
-            dx,
-            dy,
-            x,
-            m,
-            v,
-            x_arg.stride(0),
-            N,
-            BLOCK_SIZE_N=ctx.BLOCK_SIZE,
-            num_warps=ctx.num_warps,
-        )
-        return dx, None, None
-
-
-def layer_norm(
-    x: torch.Tensor,
-    normalized_shape: Tuple[int, ...],
-    weight: Optional[torch.Tensor] = None,
-    bias: Optional[torch.Tensor] = None,
-    eps: float = 1e-5,
-) -> torch.Tensor:
-    if weight is not None:
-        return _LayerNormAffineF.apply(x, normalized_shape, weight, bias, eps)  # type: ignore[return-type]
-    else:
-        return _LayerNormNoAffineF.apply(x, normalized_shape, eps)  # type: ignore[return-type]
