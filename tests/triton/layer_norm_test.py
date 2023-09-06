@@ -27,10 +27,10 @@ def test_layer_norm_with_affine(M, N, dtype, eps=1e-5, device="cuda"):
     y_ref.backward(dy, retain_graph=True)
     dx_ref, dw_ref, db_ref = [t.grad.clone() for t in [x, weight, bias]]  # type: ignore
     # compare
-    assert torch.allclose(y_tri, y_ref, atol=1e-2, rtol=0)
-    assert torch.allclose(dx_tri, dx_ref, atol=1e-2, rtol=0)
-    assert torch.allclose(db_tri, db_ref, atol=1e-2, rtol=0)
-    assert torch.allclose(dw_tri, dw_ref, atol=1e-2, rtol=0)
+    torch.testing.assert_close(y_tri, y_ref, atol=1e-2, rtol=0)
+    torch.testing.assert_close(dx_tri, dx_ref, atol=1e-2, rtol=0)
+    torch.testing.assert_close(db_tri, db_ref, atol=1e-2, rtol=0)
+    torch.testing.assert_close(dw_tri, dw_ref, atol=1e-2, rtol=0)
 
 
 @pytest.mark.gpu
@@ -55,5 +55,5 @@ def test_layer_norm_no_affine(M, N, dtype, eps=1e-5, device="cuda"):
     assert x.grad is not None
     dx_ref = x.grad.clone()
     # compare
-    assert torch.allclose(y_tri, y_ref, atol=1e-2, rtol=0)
-    assert torch.allclose(dx_tri, dx_ref, atol=1e-2, rtol=0)
+    torch.testing.assert_close(y_tri, y_ref, atol=1e-2, rtol=0)
+    torch.testing.assert_close(dx_tri, dx_ref, atol=1e-2, rtol=0)
