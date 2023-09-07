@@ -169,11 +169,6 @@ class LayerNormType(StrEnum):
     A low-precision version of RMSNorm.
     """
 
-    amd_compatible = "amd_compatible"
-    """
-    LayerNorm implemented manually to work around an issue with ROCm.
-    """
-
 
 class ActivationType(StrEnum):
     gelu = "gelu"
@@ -305,6 +300,8 @@ class ModelConfig(BaseConfig):
     layer_norm_with_affine: bool = True
     """
     Whether to include bias and weight parameters for the layer norms.
+    This only affects layer norms that are immediately followed by a linear layer in the forward pass.
+    Other layer norms, such as those applied to attention keys and queries, will always include an elementwise affine transform.
     """
 
     max_sequence_length: int = 1024

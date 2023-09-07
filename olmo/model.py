@@ -55,17 +55,15 @@ class LayerNormBase(nn.Module):
         raise NotImplementedError
 
     @classmethod
-    def build(cls, config: ModelConfig, size: Optional[int] = None) -> LayerNormBase:
+    def build(cls, config: ModelConfig, size: Optional[int] = None, **kwargs) -> LayerNormBase:
         if config.layer_norm_type == LayerNormType.default:
-            return LayerNorm(config, size=size, low_precision=False)
+            return LayerNorm(config, size=size, low_precision=False, **kwargs)
         elif config.layer_norm_type == LayerNormType.low_precision:
-            return LayerNorm(config, size=size, low_precision=True)
+            return LayerNorm(config, size=size, low_precision=True, **kwargs)
         elif config.layer_norm_type == LayerNormType.rms:
-            return RMSLayerNorm(config, size=size, low_precision=False)
+            return RMSLayerNorm(config, size=size, low_precision=False, **kwargs)
         elif config.layer_norm_type == LayerNormType.low_precision_rms:
-            return RMSLayerNorm(config, size=size, low_precision=True)
-        elif config.layer_norm_type == LayerNormType.amd_compatible:
-            return AMDLayerNorm(config, size=size)
+            return RMSLayerNorm(config, size=size, low_precision=True, **kwargs)
         else:
             raise NotImplementedError(f"Not sure how to handle '{config.layer_norm_type}' LayerNorm type")
 
@@ -92,11 +90,20 @@ class LayerNorm(LayerNormBase):
     The default :class:`LayerNorm` implementation which can optionally run in low precision.
     """
 
-    def __init__(self, config: ModelConfig, size: Optional[int] = None, low_precision: bool = False):
+    def __init__(
+        self,
+        config: ModelConfig,
+        size: Optional[int] = None,
+        low_precision: bool = False,
+        elementwise_affine: Optional[bool] = None
+    ):
         super().__init__(config)
         self.normalized_shape = (size or config.d_model,)
         self.eps = 1e-05
-        if self.config.layer_norm_with_affine:
+
+        if elementwise_affine is None:
+            elementwise_affine = self.config.layer_norm_with_affine
+        if elementwise_affine:
             self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
             if self.config.include_bias:
                 self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
@@ -131,11 +138,19 @@ class AMDLayerNorm(LayerNormBase):
     segfault when the bias is not present.
     """
 
-    def __init__(self, config: ModelConfig, size: Optional[int] = None):
+    def __init__(
+        self,
+        config: ModelConfig,
+        size: Optional[int] = None,
+        elementwise_affine: Optional[bool] = None
+    ):
         super().__init__(config)
         self.normalized_shape = (size or config.d_model,)
         self.eps = 1e-05
-        if self.config.layer_norm_with_affine:
+
+        if elementwise_affine is None:
+            elementwise_affine = self.config.layer_norm_with_affine
+        if elementwise_affine:
             self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
             if self.config.include_bias:
                 self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
@@ -163,11 +178,20 @@ class RMSLayerNorm(LayerNorm):
     in low-precision.
     """
 
-    def __init__(self, config: ModelConfig, size: Optional[int] = None, low_precision: bool = False):
+    def __init__(
+        self,
+        config: ModelConfig,
+        size: Optional[int] = None,
+        low_precision: bool = False,
+        elementwise_affine: Optional[bool] = None,
+    ):
         super().__init__(config)
         self.eps = 1e-08
         self.size = size or config.d_model
-        if self.config.layer_norm_with_affine:
+
+        if elementwise_affine is None:
+            elementwise_affine = self.config.layer_norm_with_affine
+        if elementwise_affine:
             self.weight = nn.Parameter(torch.ones(self.config.d_model))
             if self.config.include_bias:
                 self.bias = nn.Parameter(torch.zeros(self.config.d_model))
@@ -300,9 +324,11 @@ class OlmoBlock(nn.Module):
         self.q_norm: Optional[LayerNormBase] = None
         if config.attention_layer_norm:
             self.k_norm = LayerNormBase.build(
-                config, size=config.d_model // config.n_heads if config.multi_query_attention else None
+                config,
+                size=config.d_model // config.n_heads if config.multi_query_attention else None,
+                elementwise_affine=True,
             )
-            self.q_norm = LayerNormBase.build(config)
+            self.q_norm = LayerNormBase.build(config, elementwise_affine=True)
 
         # Activation function.
         self.act = Activation.build(config)

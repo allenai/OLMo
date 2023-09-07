@@ -19,7 +19,7 @@ model:
   multi_query_attention: true
   include_bias: false
   block_type: sequential
-  layer_norm_type: low_precision  # if not compiling, use 'low_precision'
+  layer_norm_type: low_precision
   layer_norm_with_affine: false
   activation_type: swiglu
   residual_dropout: 0.0
