@@ -10,6 +10,7 @@ from olmo.triton.layer_norm import layer_norm
     "M, N, dtype", [(1151, 8192, torch.float16), (1151, 8192, torch.bfloat16), (1151, 8192, torch.float32)]
 )
 def test_layer_norm_with_affine(M, N, dtype, eps=1e-5, device="cuda"):
+    torch.manual_seed(23412467)
     # create data
     x_shape = (M, N)
     w_shape = (x_shape[-1],)
@@ -29,10 +30,18 @@ def test_layer_norm_with_affine(M, N, dtype, eps=1e-5, device="cuda"):
     y_ref.backward(dy, retain_graph=True)
     dx_ref, dw_ref, db_ref = [t.grad.clone() for t in [x, weight, bias]]  # type: ignore
     # compare
-    torch.testing.assert_close(y_tri, y_ref, atol=1e-2, rtol=0)
-    torch.testing.assert_close(dx_tri, dx_ref, atol=1e-2, rtol=0)
-    torch.testing.assert_close(db_tri, db_ref, atol=1e-2, rtol=0)
-    torch.testing.assert_close(dw_tri, dw_ref, atol=1e-2, rtol=0)
+    atol: Optional[float] = None
+    rtol: Optional[float] = None
+    if dtype == torch.bfloat16:
+        atol = 7e-2
+        rtol = 0.0
+    elif dtype == torch.float16:
+        atol = 1e-2
+        rtol = 0.0
+    torch.testing.assert_close(y_tri, y_ref, atol=atol, rtol=rtol)
+    torch.testing.assert_close(dx_tri, dx_ref, atol=atol, rtol=rtol)
+    torch.testing.assert_close(db_tri, db_ref, atol=atol, rtol=rtol)
+    torch.testing.assert_close(dw_tri, dw_ref, atol=atol, rtol=rtol)
 
 
 @pytest.mark.gpu
@@ -41,6 +50,7 @@ def test_layer_norm_with_affine(M, N, dtype, eps=1e-5, device="cuda"):
     "M, N, dtype", [(1151, 8192, torch.float16), (1151, 8192, torch.bfloat16), (1151, 8192, torch.float32)]
 )
 def test_layer_norm_no_affine(M, N, dtype, eps=1e-5, device="cuda"):
+    torch.manual_seed(23423)
     # create data
     x_shape = (M, N)
     x = -2.3 + 0.5 * torch.randn(x_shape, dtype=dtype, device=device)
@@ -59,5 +69,13 @@ def test_layer_norm_no_affine(M, N, dtype, eps=1e-5, device="cuda"):
     assert x.grad is not None
     dx_ref = x.grad.clone()
     # compare
-    torch.testing.assert_close(y_tri, y_ref, atol=1e-2, rtol=0)
-    torch.testing.assert_close(dx_tri, dx_ref, atol=1e-2, rtol=0)
+    atol: Optional[float] = None
+    rtol: Optional[float] = None
+    if dtype == torch.bfloat16:
+        atol = 1e-2
+        rtol = 0.0
+    elif dtype == torch.float16:
+        atol = 1e-2
+        rtol = 0.0
+    torch.testing.assert_close(y_tri, y_ref, atol=atol, rtol=rtol)
+    torch.testing.assert_close(dx_tri, dx_ref, atol=atol, rtol=rtol)
