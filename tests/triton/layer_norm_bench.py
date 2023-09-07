@@ -66,7 +66,7 @@ def bench_layer_norm(
 
     # forward pass
     if mode == "forward":
-        gbps = lambda ms: 2 * x.numel() * x.element_size() / ms * 1e-6
+        gbps = lambda ms: 2 * x.numel() * x.element_size() / ms * 1e-6  # type: ignore
         ms, min_ms, max_ms = triton.testing.do_bench(y_fwd, quantiles=quantiles, rep=500)
     # backward pass
     elif mode == "backward":
