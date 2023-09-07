@@ -8,8 +8,14 @@ from olmo.triton.layer_norm import layer_norm
 
 @pytest.mark.gpu
 @pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device")
+@pytest.mark.parametrize("M, N", [(1151, 8192)])
 @pytest.mark.parametrize(
-    "M, N, dtype", [(1151, 8192, torch.float16), (1151, 8192, torch.bfloat16), (1151, 8192, torch.float32)]
+    "dtype",
+    [
+        pytest.param(torch.float16, id="f16"),
+        pytest.param(torch.bfloat16, id="bf16"),
+        pytest.param(torch.float32, id="f32"),
+    ],
 )
 def test_layer_norm_with_affine(M, N, dtype, eps=1e-5, device="cuda"):
     torch.manual_seed(23412467)
@@ -48,8 +54,14 @@ def test_layer_norm_with_affine(M, N, dtype, eps=1e-5, device="cuda"):
 
 @pytest.mark.gpu
 @pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device")
+@pytest.mark.parametrize("M, N", [(1151, 8192)])
 @pytest.mark.parametrize(
-    "M, N, dtype", [(1151, 8192, torch.float16), (1151, 8192, torch.bfloat16), (1151, 8192, torch.float32)]
+    "dtype",
+    [
+        pytest.param(torch.float16, id="f16"),
+        pytest.param(torch.bfloat16, id="bf16"),
+        pytest.param(torch.float32, id="f32"),
+    ],
 )
 def test_layer_norm_no_affine(M, N, dtype, eps=1e-5, device="cuda"):
     torch.manual_seed(23423)
