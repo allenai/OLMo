@@ -12,9 +12,9 @@ from olmo.triton.layer_norm import layer_norm
 @pytest.mark.parametrize(
     "dtype",
     [
-        pytest.param(torch.float16, id="f16"),
+        pytest.param(torch.float16, id="fp16"),
         pytest.param(torch.bfloat16, id="bf16"),
-        pytest.param(torch.float32, id="f32"),
+        pytest.param(torch.float32, id="fp32"),
     ],
 )
 def test_layer_norm_with_affine(M, N, dtype, eps=1e-5, device="cuda"):
@@ -58,9 +58,9 @@ def test_layer_norm_with_affine(M, N, dtype, eps=1e-5, device="cuda"):
 @pytest.mark.parametrize(
     "dtype",
     [
-        pytest.param(torch.float16, id="f16"),
+        pytest.param(torch.float16, id="fp16"),
         pytest.param(torch.bfloat16, id="bf16"),
-        pytest.param(torch.float32, id="f32"),
+        pytest.param(torch.float32, id="fp32"),
     ],
 )
 def test_layer_norm_no_affine(M, N, dtype, eps=1e-5, device="cuda"):
