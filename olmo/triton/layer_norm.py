@@ -50,7 +50,7 @@ class _LayerNormWithAffine(torch.autograd.Function):
         # heuristics for number of warps
         num_warps = min(max(BLOCK_SIZE // 256, 1), 8)
         # enqueue kernel
-        _layer_norm_affine_fwd_fused[(M,)](  # type: ignore
+        _ln_affine_fwd_fused[(M,)](  # type: ignore
             x_arg,
             y,
             weight,
@@ -92,7 +92,7 @@ class _LayerNormWithAffine(torch.autograd.Function):
         # also compute partial sums for DW and DB
         x_arg = x.reshape(-1, x.shape[-1])
         M, N = x_arg.shape
-        _layer_norm_affine_bwd_dx_fused[(M,)](  # type: ignore
+        _ln_affine_bwd_dx_fused[(M,)](  # type: ignore
             dx,
             dy,
             _dw,
@@ -111,7 +111,7 @@ class _LayerNormWithAffine(torch.autograd.Function):
         )
         grid = lambda meta: [triton.cdiv(N, meta["BLOCK_SIZE_N"])]  # type: ignore
         # accumulate partial sums in separate kernel
-        _layer_norm_affine_bwd_dwdb[grid](  # type: ignore
+        _ln_affine_bwd_dwdb[grid](  # type: ignore
             _dw,
             _db,
             dw,
@@ -148,7 +148,7 @@ class _LayerNormNoAffine(torch.autograd.Function):
         # heuristics for number of warps
         num_warps = min(max(BLOCK_SIZE // 256, 1), 8)
         # enqueue kernel
-        _layer_norm_no_affine_fwd_fused[(M,)](  # type: ignore
+        _ln_no_affine_fwd_fused[(M,)](  # type: ignore
             x_arg,
             y,
             mean,
@@ -174,7 +174,7 @@ class _LayerNormNoAffine(torch.autograd.Function):
         # also compute partial sums for DW and DB
         x_arg = x.reshape(-1, x.shape[-1])
         M, N = x_arg.shape
-        _layer_norm_no_affine_bwd_dx_fused[(M,)](  # type: ignore
+        _ln_no_affine_bwd_dx_fused[(M,)](  # type: ignore
             dx,
             dy,
             x,
@@ -189,7 +189,7 @@ class _LayerNormNoAffine(torch.autograd.Function):
 
 
 @triton.jit
-def _layer_norm_affine_fwd_fused(
+def _ln_affine_fwd_fused(
     X,  # pointer to the input
     Y,  # pointer to the output
     W,  # pointer to the weights
@@ -239,7 +239,7 @@ def _layer_norm_affine_fwd_fused(
 
 
 @triton.jit
-def _layer_norm_no_affine_fwd_fused(
+def _ln_no_affine_fwd_fused(
     X,  # pointer to the input
     Y,  # pointer to the output
     Mean,  # pointer to the mean
@@ -284,7 +284,7 @@ def _layer_norm_no_affine_fwd_fused(
 
 
 @triton.jit
-def _layer_norm_affine_bwd_dx_fused(
+def _ln_affine_bwd_dx_fused(
     DX,  # pointer to the input gradient
     DY,  # pointer to the output gradient
     DW,  # pointer to the partial sum of weights gradient
@@ -348,7 +348,7 @@ def _layer_norm_affine_bwd_dx_fused(
 
 
 @triton.jit
-def _layer_norm_no_affine_bwd_dx_fused(
+def _ln_no_affine_bwd_dx_fused(
     DX,  # pointer to the input gradient
     DY,  # pointer to the output gradient
     X,  # pointer to the input
@@ -382,7 +382,7 @@ def _layer_norm_no_affine_bwd_dx_fused(
 
 
 @triton.jit
-def _layer_norm_affine_bwd_dwdb(
+def _ln_affine_bwd_dwdb(
     DW,  # pointer to the partial sum of weights gradient
     DB,  # pointer to the partial sum of biases gradient
     FINAL_DW,  # pointer to the weights gradient
