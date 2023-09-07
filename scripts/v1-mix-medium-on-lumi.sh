@@ -36,7 +36,6 @@ export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.
 # Try playing with max_split_size_mb if you run into OOM errors.
 export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:128
 
-run_name=adamw-normal-init-long-warmup
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
   --distribution=block:block \
@@ -50,7 +49,4 @@ srun \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
-    python scripts/train.py configs/v1-mix-medium.yaml \
-      --run_name=$run_name \
-      --model.init_fn=normal \
-      --scheduler.t_warmup=5000 ${@}
+    python scripts/train.py configs/v1-mix-medium.yaml ${@}
