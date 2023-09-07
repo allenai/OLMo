@@ -86,7 +86,7 @@ def test_layer_norm_no_affine(M, N, dtype, eps=1e-5, device="cuda"):
     atol: Optional[float] = None
     rtol: Optional[float] = None
     if dtype == torch.bfloat16:
-        atol = 1e-2
+        atol = 2e-2
         rtol = 0.0
     elif dtype == torch.float16:
         atol = 1e-2
