@@ -64,6 +64,8 @@ class LayerNormBase(nn.Module):
             return RMSLayerNorm(config, size=size, low_precision=False, **kwargs)
         elif config.layer_norm_type == LayerNormType.low_precision_rms:
             return RMSLayerNorm(config, size=size, low_precision=True, **kwargs)
+        elif config.layer_norm_type == LayerNormType.amd_compatible:
+            return AMDLayerNorm(config, size=size, **kwargs)
         else:
             raise NotImplementedError(f"Not sure how to handle '{config.layer_norm_type}' LayerNorm type")
 

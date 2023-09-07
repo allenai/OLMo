@@ -169,6 +169,10 @@ class LayerNormType(StrEnum):
     A low-precision version of RMSNorm.
     """
 
+    amd_compatible = "amd_compatible"
+    """
+    LayerNorm implemented manually to work around an issue with ROCm.
+    """
 
 class ActivationType(StrEnum):
     gelu = "gelu"
