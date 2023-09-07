@@ -1,0 +1,552 @@
+run_name: c4_p85-stack_v4_p15
+seed: 6198
+dry_run: false
+
+wandb:
+  name: ${run_name}
+  project: c4-small
+
+model:
+  d_model: 2048
+  n_heads: 16
+  n_layers: 16
+  mlp_ratio: 8
+  alibi: true
+  alibi_bias_max: 8.0
+  attention_dropout: 0.0
+  attention_layer_norm: true
+  multi_query_attention: true
+  block_type: sequential
+  layer_norm_type: low_precision  # if not compiling, use 'low_precision'
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 2048
+  vocab_size: 50280
+  embedding_size: 50304
+  eos_token_id: 0
+  pad_token_id: 1
+  init_device: meta
+  init_std: 0.02
+
+compile: null  # causes instability on AMD GPUs
+
+optimizer:
+  name: lionw
+  learning_rate: 1.0e-4
+  weight_decay: 0.01
+  betas:
+  - 0.9
+  - 0.95
+
+scheduler:
+  name: cosine_with_warmup
+  t_warmup: 2000
+  t_max: null
+
+data:
+  paths:
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/000_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/000_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/000_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/001_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/001_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/001_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/002_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/002_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/002_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/003_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/003_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/003_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/004_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/004_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/004_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/005_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/005_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/005_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/006_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/006_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/006_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/007_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/007_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/007_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/008_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/008_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/008_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/009_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/009_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/009_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/010_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/010_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/010_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/011_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/011_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/011_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/012_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/012_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/012_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/013_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/013_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/013_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/014_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/014_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/014_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/015_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/015_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/015_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/016_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/016_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/016_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/017_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/017_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/017_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/018_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/018_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/018_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/019_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/019_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/019_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/020_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/020_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/020_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/021_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/021_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/021_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/022_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/022_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/022_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/023_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/023_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/023_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/024_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/024_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/024_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/025_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/025_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/025_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/026_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/026_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/026_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/027_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/027_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/027_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/028_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/028_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/028_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/029_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/029_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/029_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/030_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/030_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/030_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/031_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/031_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/031_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/032_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/032_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/032_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/033_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/033_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/033_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/034_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/034_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/034_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/035_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/035_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/035_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/036_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/036_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/036_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/037_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/037_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/037_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/038_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/038_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/038_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/039_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/039_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/039_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/040_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/040_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/040_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/041_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/041_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/041_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/042_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/042_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/042_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/043_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/043_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/043_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/044_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/044_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/044_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/045_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/045_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/045_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/046_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/046_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/046_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/047_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/047_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/047_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/048_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/048_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/048_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/049_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/049_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/049_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/050_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/050_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/050_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/051_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/051_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/051_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/052_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/052_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/052_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/053_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/053_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/053_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/054_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/054_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/054_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/055_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/055_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/055_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/056_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/056_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/056_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/057_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/057_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/057_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/058_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/058_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/058_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/059_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/059_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/059_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/060_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/060_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/060_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/061_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/061_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/061_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/062_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/062_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/062_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/063_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/063_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/063_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/064_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/064_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/064_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/065_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/065_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/065_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/066_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/066_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/066_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/067_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/067_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/067_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/068_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/068_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/068_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/069_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/069_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/069_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/070_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/070_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/070_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/071_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/071_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/071_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/072_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/072_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/072_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/073_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/073_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/073_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/074_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/074_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/074_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/075_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/075_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/075_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/076_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/076_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/076_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/077_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/077_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/077_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/078_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/078_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/078_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/079_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/079_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/079_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/080_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/080_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/080_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/081_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/081_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/081_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/082_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/082_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/082_00002.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/083_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/c85/train/083_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/000_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/000_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/001_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/001_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/002_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/002_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/003_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/003_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/004_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/004_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/005_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/005_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/006_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/006_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/007_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/007_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/008_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/008_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/009_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/009_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/010_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/010_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/011_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/011_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/012_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/012_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/013_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/013_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/014_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/014_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/015_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/015_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/016_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/016_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/017_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/017_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/018_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/018_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/019_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/019_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/020_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/020_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/021_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/021_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/022_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/022_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/023_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/023_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/024_00000.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/024_00001.npy
+    - /net/nfs.cirrascale/s2-research/olmo/data/c4_p85-stack_v4_p15/allenai/eleuther-ai-gpt-neox-20b-pii-special/s15/025_00000.npy
+  pad_direction: right
+  num_workers: 1
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 16
+  persistent_workers: true
+  timeout: 0
+
+tokenizer:
+  identifier: allenai/eleuther-ai-gpt-neox-20b-pii-special
+  truncate_direction: right
+
+save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/data/lucas/olmo/checkpoints}/${oc.env:SLURM_JOB_ID,${run_name}}
+remote_save_folder: s3://ai2-llm/checkpoints/lucas/${oc.env:SLURM_JOB_ID,${run_name}}
+save_overwrite: true
+# Sharded checkpoints (best for restarts)
+save_interval: 1000
+save_num_checkpoints_to_keep: 9
+# Unsharded checkpoints (for final storage)
+save_interval_unsharded: 10000
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: null
+
+# max_duration: 953674  # 2T tokens
+max_duration: 95367  # 200B tokens
+global_train_batch_size: 1024
+device_train_microbatch_size: 8
+
+precision: amp_bf16
+
+max_grad_norm: 1.0
+
+speed_monitor:
+  window_size: 20
+
+eval_interval: ${save_interval}
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators:
+  ##########################
+  # Perplexity evaluations #
+  ##########################
+  #- label: c4-validation
+  #  subset_num_batches: 10
+  #  data:
+  #    paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
+  #    num_workers: 2
+  #    drop_last: true
+  #    pin_memory: true
+  #    persistent_workers: true
+  #    prefetch_factor: 4
+
+  #- label: rp-validation
+  #  subset_num_batches: 10
+  #  data:
+  #    paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
+  #    num_workers: 2
+  #    drop_last: true
+  #    pin_memory: true
+  #    persistent_workers: true
+  #    prefetch_factor: 4
+
+  - label: 4chan-validation
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
+      drop_last: true
+
+  - label: c4_100_domains-validation
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/c4_100_domains/val.npy
+      drop_last: true
+
+  - label: c4_en-validation
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/c4_en/val.npy
+      drop_last: true
+
+  - label: gab-validation
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/gab/val.npy
+      drop_last: true
+
+  - label: ice-validation
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/ice/val.npy
+      drop_last: true
+
+  - label: m2d2_s2orc-validation
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/m2d2_s2orc/val.npy
+      drop_last: true
+
+  - label: m2d2_wiki-validation
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/m2d2_wiki/val.npy
+      drop_last: true
+
+  - label: manosphere-validation
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/manosphere/val.npy
+      drop_last: true
+
+  - label: mc4_en-validation
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/mc4_en/val.npy
+      drop_last: true
+
+  - label: pile-validation
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/pile/val.npy
+      drop_last: true
+
+  - label: stack_v2_held_out
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/stack_v2_held_out/000_00000.npy
+      drop_last: true
+
+  - label: openai_humaneval_test
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/openai_humaneval_test/0_00000.npy
+      drop_last: true
+
+  - label: mbpp_valid
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/mbpp_valid/0_00000.npy
+      drop_last: true
+
+  # Too small (not enough tokens for a single batch)
+  # - label: ptb-validation
+  #   data:
+  #     paths:
+  #       - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/ptb/val.npy
+  #     drop_last: true
+
+  - label: twitterAEE-validation
+    data:
+      paths:
+        - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
+      drop_last: true
+
+  # Too small (not enough tokens for a single batch)
+  # - label: wikitext_103-validation
+  #   data:
+  #     paths:
+  #       - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/wikitext_103/val.npy
+  #     drop_last: true
+
+  ##########################
+  # Downstream evaluations #
+  ##########################
+  - label: piqa
+    type: downstream
+
+  - label: hellaswag
+    type: downstream
+
+  - label: winogrande
+    type: downstream
+
+  - label: openbook_qa
+    type: downstream
+
+  # - label: boolq  # requires implemention of the pmi_dc matrix
+    # type: downstream
+    #
+  - label: sciq
+    type: downstream
+
+  - label: arc_easy
+    type: downstream
+
+  # - label: arc_challenge  # requires implemention of the pmi_dc matrix
+    # type: downstream
+    #
+  - label: copa
+    type: downstream
+
+  - label: rte
+    type: downstream
+
+  - label: commitment_bank
+    type: downstream
+
+  - label: mrpc
+    type: downstream
+
+  - label: sst2
+    type: downstream
