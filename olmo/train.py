@@ -34,7 +34,7 @@ from .data import IterableDataset
 from .eval import Evaluator
 from .exceptions import OlmoConfigurationError
 from .model import Olmo
-from .optim import Optimizer, Scheduler
+from .optim import Optimizer, Scheduler, fix_optim_state_dict
 from .util import (
     barrier,
     get_fs_local_rank,
@@ -346,7 +346,7 @@ class Trainer:
             #      storage_reader=checkpoint.FileSystemReader(load_path),
             #  )
             #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)
-            #  self.optim.load_state_dict(flattened_osd)
+            #  self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
 
             # Deserialize state dictionary.
             state_dict = torch.load(resource_path(load_path, f"rank{get_global_rank()}.pt"))
@@ -362,7 +362,7 @@ class Trainer:
             else:
                 #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
                 flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, state_dict["optim"])  # type: ignore
-            self.optim.load_state_dict(flattened_osd)
+            self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
 
             # Load non-tensor state.
             self.load_non_tensor_state_dict(state_dict)
@@ -492,7 +492,7 @@ class Trainer:
                 #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
                 flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state_dict)  # type: ignore
             del optim_state_dict
-            self.optim.load_state_dict(flattened_osd)
+            self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
             del flattened_osd
 
             # Load other state.

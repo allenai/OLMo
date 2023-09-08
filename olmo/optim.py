@@ -60,7 +60,9 @@ class Optimizer(OptimizerBase):
 
         for group in self.param_groups:
             if is_distributed():
-                assert group.get("sharded") is True  # TODO (epwalsh): handle non-sharded params
+                # TODO (epwalsh): handle non-sharded params
+                assert group.get("sharded", True) is True
+
             for name, p in zip(group["param_names"], group["params"]):
                 state = self.get_state_for_param(p)
                 sorted_state_keys = sorted(state.keys())
@@ -139,7 +141,7 @@ class Optimizer(OptimizerBase):
 
         # Clip gradients.
         for group in self.param_groups:
-            if (max_norm := group["max_grad_norm"]) is None:
+            if (max_norm := group.get("max_grad_norm")) is None:
                 continue
             for name, p in zip(group["param_names"], group["params"]):
                 if p.grad is None:
@@ -322,10 +324,14 @@ class MaxScheduler(Scheduler):
         )
 
 
+PARAM_GROUP_FIELDS = ("sharded", "max_grad_norm", "param_names")
+
+
 def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]:
     """
     Separate parameters into weight decay and non weight decay groups.
     """
+    param_groups: List[Dict[sttr, Any]]
     param_group_defaults = {
         "sharded": isinstance(model, FullyShardedDataParallel),
         "max_grad_norm": cfg.max_grad_norm,
@@ -367,7 +373,7 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
         # Create the pytorch optimizer groups.
         decay_sorted = sorted(list(decay))
         no_decay_sorted = sorted(list(no_decay))
-        return [
+        param_groups = [
             {
                 "params": [all_params[pn] for pn in decay_sorted],
                 "param_names": decay_sorted,
@@ -382,19 +388,24 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
         ]
     else:
         param_names, params = zip(*list(model.named_parameters()))
-        return [
+        param_groups = [
             {
                 "params": list(params),
                 "param_names": list(param_names),
                 **param_group_defaults,
             }
         ]
+    # Validate fields.
+    for group in param_groups:
+        for key in PARAM_GROUP_FIELDS:
+            assert key in group
+
+    return param_groups
 
 
 def fix_optim_state_dict(optimizer: Optimizer, state_dict: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Make sure `state_dict`, which only have 1 param group, is compatible with the optimizer
-    which may have two param groups (one for params with weight decay, the other for those without).
+    Make sure old optim state dicts are compatible with new versions.
     """
     if len(state_dict["param_groups"]) == 1 and len(optimizer.param_groups) == 2:
         assert optimizer.param_groups[1]["weight_decay"] == 0.0
@@ -409,6 +420,14 @@ def fix_optim_state_dict(optimizer: Optimizer, state_dict: Dict[str, Any]) -> Di
         no_decay_param_group["params"] = optimizer.state_dict()["param_groups"][1]["params"]
 
         state_dict["param_groups"] = [decay_param_group, no_decay_param_group]
+
+    assert len(optimizer.param_groups) == len(state_dict["param_groups"])
+
+    for group, sd_group in zip(optimizer.param_groups, state_dict["param_groups"]):
+        for key in PARAM_GROUP_FIELDS:
+            if key in group and key not in sd_group:
+                sd_group[key] = group[key]
+
     return state_dict
 
 
