@@ -297,6 +297,13 @@ class ModelConfig(BaseConfig):
     The layernorm implementation to use.
     """
 
+    layer_norm_with_affine: bool = True
+    """
+    Whether to include bias and weight parameters for the layer norms.
+    This only affects layer norms that are immediately followed by a linear layer in the forward pass.
+    Other layer norms, such as those applied to attention keys and queries, will always include an elementwise affine transform.
+    """
+
     max_sequence_length: int = 1024
     """
     The maximum input sequence length supported by the model.
