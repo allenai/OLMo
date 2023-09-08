@@ -331,7 +331,7 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
     """
     Separate parameters into weight decay and non weight decay groups.
     """
-    param_groups: List[Dict[sttr, Any]]
+    param_groups: List[Dict[str, Any]]
     param_group_defaults = {
         "sharded": isinstance(model, FullyShardedDataParallel),
         "max_grad_norm": cfg.max_grad_norm,
