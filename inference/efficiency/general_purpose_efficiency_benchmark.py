@@ -43,6 +43,7 @@ class ModelSetUp:
             self.model = AutoGPTQForCausalLM.from_quantized(quantized_model_dir, device=device, use_triton=False)
         else:
             self.model = AutoModelForCausalLM.from_pretrained(pretrained_model_dir)
+            self.model = self.model.to(device)
 
     def predict(self, inputs):
         inputs = self.tokenizer.batch_encode_plus(
@@ -70,6 +71,7 @@ def get_args():
         "--quantized-model-dir",
         type=str,
         default=None,
+        nargs="?",
         help="Path to the quantized model / Name of the quantized huggingface model.",
     )
 
