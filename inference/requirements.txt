@@ -1,3 +1,2 @@
 auto-gptq @ git+https://github.com/pranjali97/AutoGPTQ@main
-efficiency-pentathlon @ git+https://github.com/pranjali97/efficiency-pentathlon@main
-#efficiency-pentathlon @ git+https://github.com/allenai/efficiency-pentathlon@main
+efficiency/dependencies/efficiency-pentathlon/
