@@ -891,8 +891,9 @@ class Trainer:
                 # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
                 # batches see the same number of tokens, which should be the case for language model pre-training
                 # (at least when drop_last=True).
-                # Alternatively we'd have to use a distributed all reduce over seq_len here, but I don't want that overhead.
-                # So for now I'm putting these assertions here so if the assumption is violated it will fail loudly.
+                # Alternatively we'd have to use a distributed all reduce over seq_len here, but I don't want that
+                # overhead. So for now I'm putting these assertions here so if the assumption is violated it will
+                # fail loudly.
                 batch_size, seq_len = batch["input_ids"].shape
                 assert seq_len == self.cfg.model.max_sequence_length
                 assert batch_size == self.cfg.device_train_batch_size
