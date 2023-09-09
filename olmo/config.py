@@ -174,6 +174,7 @@ class LayerNormType(StrEnum):
     LayerNorm implemented manually to work around an issue with ROCm.
     """
 
+
 class ActivationType(StrEnum):
     gelu = "gelu"
     relu = "relu"
