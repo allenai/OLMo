@@ -731,6 +731,11 @@ class TrainConfig(BaseConfig):
     Save training data indices from each batch for each worker.
     """
 
+    profiling: bool = False
+    """
+    Whether to run the profiler or not.
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":
