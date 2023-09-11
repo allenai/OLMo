@@ -31,6 +31,7 @@ __all__ = [
     "BlockType",
     "CompilerConfig",
     "LayerNormType",
+    "InitFnType",
     "ModelConfig",
     "OptimizerType",
     "OptimizerConfig",
@@ -180,6 +181,32 @@ class BlockType(StrEnum):
     parallel = "parallel"
 
 
+class InitFnType(StrEnum):
+    mitchell = "mitchell"
+    """
+    The strategy suggested to us by Mitchell Wortsman from UW.
+    This uses a truncated normal distribution with an adaptive standard deviation that depends
+    on the size of the weights as well as the depth of the layer.
+    """
+
+    normal = "normal"
+    """
+    All weights are initialized from the same normal distribution.
+    """
+
+    kaiming_normal = "kaiming_normal"
+    """
+    All weights are initialized with the Kaiming method from a normal distribution.
+    Note this currently won't work with FSDP.
+    """
+
+    fan_in = "fan_in"
+    """
+    "Fan-in variance scaling", i.e. normal with a standard deviation of ``1/sqrt(d_in)`` where ``d_in``
+    is the input dimensionality of the kernel.
+    """
+
+
 @dataclass
 class ModelConfig(BaseConfig):
     """
@@ -270,6 +297,13 @@ class ModelConfig(BaseConfig):
     The layernorm implementation to use.
     """
 
+    layer_norm_with_affine: bool = True
+    """
+    Whether to include bias and weight parameters for the layer norms.
+    This only affects layer norms that are immediately followed by a linear layer in the forward pass.
+    Other layer norms, such as those applied to attention keys and queries, will always include an elementwise affine transform.
+    """
+
     max_sequence_length: int = 1024
     """
     The maximum input sequence length supported by the model.
@@ -280,6 +314,11 @@ class ModelConfig(BaseConfig):
     Whether or not to include bias parameters in linear layers.
     In PaLM, they got rid of all bias terms because they found that large
     models tend to have near 0 bias terms anyway.
+    """
+
+    scale_logits: bool = False
+    """
+    If ``True``, scale the output logits by ``1 / sqrt(d_model)``.
     """
 
     vocab_size: int = 50257
@@ -310,9 +349,15 @@ class ModelConfig(BaseConfig):
     The torch device to use when initializing the model parameters, e.g. "cpu", "cuda:0", "meta".
     """
 
+    init_fn: InitFnType = InitFnType.normal
+    """
+    The weight initialization strategy.
+    """
+
     init_std: float = 0.02
     """
-    Standard deviation used when initializing parameters.
+    The standard deviation to use when initializing weights with a "fixed distribution" ``init_fn``, such
+    as "normal".
     """
 
     precision: Optional[str] = None
@@ -324,7 +369,6 @@ class ModelConfig(BaseConfig):
 
 class OptimizerType(StrEnum):
     lionw = "lionw"
-    adam = "adam"
     adamw = "adamw"
 
 
@@ -336,6 +380,12 @@ class OptimizerConfig(BaseConfig):
     betas: Tuple[float, float] = (0.9, 0.95)
     no_decay_norm_and_bias: bool = True
     """Do not apply weight decay to norms and biases."""
+    metrics_log_interval: Optional[int] = None
+    """
+    The interval with which to collect and log optimizer-specific metrics.
+    This only applies when logging to W&B, since these metrics won't be logged to the console.
+    If not set, defaults to the wandb `log_interval`.
+    """
 
     def __post_init__(self):
         self.betas = tuple(self.betas)  # type: ignore[assignment]
@@ -344,6 +394,7 @@ class OptimizerConfig(BaseConfig):
 class SchedulerType(StrEnum):
     cosine_with_warmup = "cosine_with_warmup"
     inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
+    max_scheduler = "max_scheduler"
 
 
 @dataclass
@@ -440,7 +491,7 @@ class CompilerConfig(BaseConfig):
 class FSDPConfig(BaseConfig):
     use_orig_params: bool = True
     """
-    This must be ``True`` if using ``compile``.
+    This must be ``True`` if using ``compile`` or you want to track the parameter norm during training.
     """
 
     sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD
@@ -487,11 +538,6 @@ class TrainConfig(BaseConfig):
     Learning rate scheduler configuration.
     """
 
-    restore_base_learning_rate: bool = True
-    """
-    Set to ``False`` if you want to restart with the base learning rate from the config, not the checkpoint.
-    """
-
     data: DataConfig = field(default_factory=DataConfig)
     """
     Training data configuration.
@@ -533,6 +579,11 @@ class TrainConfig(BaseConfig):
     remote_save_folder: Optional[str] = None
     """
     A folder in a cloud bucket to upload saved checkpoints to.
+    """
+
+    canceled_check_interval: int = 5
+    """
+    How often (in batches) to check if the run has been canceled or reached its time limit.
     """
 
     save_interval: int = 1000
