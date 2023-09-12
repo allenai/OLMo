@@ -1,8 +1,7 @@
 from typing import Tuple
 
-from tango import Step
-
 import wandb
+from tango import Step
 
 
 @Step.register("log-metrics")

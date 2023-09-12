@@ -8,7 +8,6 @@ Filters.
 
 import regex
 import uniseg.wordbreak
-
 from tokenizers import Regex, pre_tokenizers
 
 from ..core_tools.data_types import DocResult, Document, Span
