@@ -107,7 +107,10 @@ class LayerNorm(LayerNormBase):
             elementwise_affine = self.config.layer_norm_with_affine
         if elementwise_affine:
             self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
-            if self.config.include_bias:
+            use_bias = self.config.bias_for_layer_norm
+            if use_bias is None:
+                use_bias = self.config.include_bias
+            if use_bias:
                 self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
             else:
                 self.register_parameter("bias", None)
@@ -154,7 +157,10 @@ class AMDLayerNorm(LayerNormBase):
             elementwise_affine = self.config.layer_norm_with_affine
         if elementwise_affine:
             self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
-            if self.config.include_bias:
+            use_bias = self.config.bias_for_layer_norm
+            if use_bias is None:
+                use_bias = self.config.include_bias
+            if use_bias:
                 self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
             else:
                 self.register_parameter("bias", None)
@@ -195,7 +201,10 @@ class RMSLayerNorm(LayerNorm):
             elementwise_affine = self.config.layer_norm_with_affine
         if elementwise_affine:
             self.weight = nn.Parameter(torch.ones(self.config.d_model))
-            if self.config.include_bias:
+            use_bias = self.config.bias_for_layer_norm
+            if use_bias is None:
+                use_bias = self.config.include_bias
+            if use_bias:
                 self.bias = nn.Parameter(torch.zeros(self.config.d_model))
             else:
                 self.register_parameter("bias", None)

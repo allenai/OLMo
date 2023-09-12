@@ -320,6 +320,14 @@ class ModelConfig(BaseConfig):
     models tend to have near 0 bias terms anyway.
     """
 
+    bias_for_layer_norm: Optional[bool] = None
+    """
+    Whether or not to include bias parameters in layer norm.
+    This is separate from the include_bias parameter, because of a ROCm crash when biases are disabled in
+    layer norm.
+    When this is None (the default), it inherits the setting from include_bias.
+    """
+
     scale_logits: bool = False
     """
     If ``True``, scale the output logits by ``1 / sqrt(d_model)``.
