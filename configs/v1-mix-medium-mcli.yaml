@@ -10,7 +10,7 @@ wandb:
 model:
   d_model: 4096
   n_heads: 16
-  n_layers: 30
+  n_layers: 29
   mlp_ratio: 8
   alibi: true
   alibi_bias_max: 8.0
@@ -20,7 +20,8 @@ model:
   include_bias: false
   block_type: sequential
   layer_norm_type: low_precision
-  layer_norm_with_affine: false
+  layer_norm_with_affine: true  # workaround for the layer norm bug
+  bias_for_layer_norm: true  # workaround for the layer norm bug
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
@@ -30,7 +31,7 @@ model:
   eos_token_id: 0
   pad_token_id: 1
   init_device: meta
-  init_fn: mitchell
+  init_fn: normal
 
 compile: null  # causes instability on AMD GPUs
 
