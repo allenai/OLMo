@@ -45,6 +45,14 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 
+class Dropout(nn.Dropout):
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        if self.p == 0.0:
+            return input
+        else:
+            return F.dropout(input, self.p, self.training, self.inplace)
+
+
 class LayerNormBase(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
@@ -107,7 +115,10 @@ class LayerNorm(LayerNormBase):
             elementwise_affine = self.config.layer_norm_with_affine
         if elementwise_affine:
             self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
-            if self.config.include_bias:
+            use_bias = self.config.bias_for_layer_norm
+            if use_bias is None:
+                use_bias = self.config.include_bias
+            if use_bias:
                 self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
             else:
                 self.register_parameter("bias", None)
@@ -149,7 +160,10 @@ class AMDLayerNorm(LayerNormBase):
             elementwise_affine = self.config.layer_norm_with_affine
         if elementwise_affine:
             self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
-            if self.config.include_bias:
+            use_bias = self.config.bias_for_layer_norm
+            if use_bias is None:
+                use_bias = self.config.include_bias
+            if use_bias:
                 self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
             else:
                 self.register_parameter("bias", None)
@@ -190,7 +204,10 @@ class RMSLayerNorm(LayerNorm):
             elementwise_affine = self.config.layer_norm_with_affine
         if elementwise_affine:
             self.weight = nn.Parameter(torch.ones(self.config.d_model))
-            if self.config.include_bias:
+            use_bias = self.config.bias_for_layer_norm
+            if use_bias is None:
+                use_bias = self.config.include_bias
+            if use_bias:
                 self.bias = nn.Parameter(torch.zeros(self.config.d_model))
             else:
                 self.register_parameter("bias", None)
@@ -314,7 +331,7 @@ class OlmoBlock(nn.Module):
         assert config.d_model % config.n_heads == 0
 
         # Dropout.
-        self.dropout = nn.Dropout(config.residual_dropout)
+        self.dropout = Dropout(config.residual_dropout)
 
         # Layer norms.
         self.k_norm: Optional[LayerNormBase] = None
@@ -670,7 +687,7 @@ class Olmo(nn.Module):
                 wte=nn.Embedding(
                     config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
                 ),
-                emb_drop=nn.Dropout(config.embedding_dropout),
+                emb_drop=Dropout(config.embedding_dropout),
                 blocks=nn.ModuleList([OlmoBlock.build(i, config) for i in range(config.n_layers)]),
                 ln_f=LayerNorm.build(config),
             )

@@ -306,7 +306,8 @@ class ModelConfig(BaseConfig):
     """
     Whether to include bias and weight parameters for the layer norms.
     This only affects layer norms that are immediately followed by a linear layer in the forward pass.
-    Other layer norms, such as those applied to attention keys and queries, will always include an elementwise affine transform.
+    Other layer norms, such as those applied to attention keys and queries, will always include an elementwise
+    affine transform.
     """
 
     max_sequence_length: int = 1024
@@ -319,6 +320,14 @@ class ModelConfig(BaseConfig):
     Whether or not to include bias parameters in linear layers.
     In PaLM, they got rid of all bias terms because they found that large
     models tend to have near 0 bias terms anyway.
+    """
+
+    bias_for_layer_norm: Optional[bool] = None
+    """
+    Whether or not to include bias parameters in layer norm.
+    This is separate from the include_bias parameter, because of a ROCm crash when biases are disabled in
+    layer norm.
+    When this is None (the default), it inherits the setting from include_bias.
     """
 
     scale_logits: bool = False
