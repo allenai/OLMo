@@ -19,8 +19,9 @@ model:
   multi_query_attention: true
   include_bias: false
   block_type: sequential
-  layer_norm_type: amd_compatible
-  layer_norm_with_affine: false
+  layer_norm_type: low_precision
+  layer_norm_with_affine: true  # workaround for the layer norm bug
+  bias_for_layer_norm: true  # workaround for the layer norm bug
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
@@ -48,7 +49,7 @@ scheduler:
   alpha_f: 0.1
 
 tokenizer:
-  identifier: allenai/eleuther-ai-gpt-neox-20b-pii-special
+  identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
   truncate_direction: right
 
 save_folder: runs/${run_name}

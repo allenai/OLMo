@@ -263,12 +263,26 @@ class Trainer:
 
         if get_fs_local_rank() == 0:
             # Replace temp directory with target checkpoint directory.
-            checkpoint_dir_tmp.replace(checkpoint_dir)
+            try:
+                checkpoint_dir_tmp.replace(checkpoint_dir)
+            except FileNotFoundError:
+                # Caught when another (file-system) local rank 0 has already replaced the tmp directory.
+                # This can happen when nodes are saving to a common NFS drive but otherwise have distinct
+                # file-systems.
+                if not checkpoint_dir.exists():
+                    raise
 
             # Link to 'latest'.
             latest_path = Path(self.cfg.save_folder) / "latest"
             latest_path.unlink(missing_ok=True)
-            latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
+            try:
+                latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
+            except FileExistsError:
+                # Same as above, caught when another (file-system) local rank 0 has already made the 'latest' symlink.
+                # This can happen when nodes are saving to a common NFS drive but otherwise have distinct
+                # file-systems.
+                if latest_path.resolve().name != checkpoint_dir.name:
+                    raise
 
         # In the cases where we're using a shared NFS drive between ranks to save checkpoints,
         # replacing the temp directory with the final directory from rank 0 might not be immediately
