@@ -17,7 +17,6 @@ import torch
 import torch.nn.functional as F
 import wandb
 from packaging import version
-from torch._C._profiler import ProfilerActivity
 from torch.distributed.fsdp import FullStateDictConfig
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import StateDictType
@@ -26,7 +25,6 @@ from torch.distributed.fsdp.api import (
     ShardedOptimStateDictConfig,
     ShardedStateDictConfig,
 )
-from torch.profiler import ProfilerAction
 from torch.utils.data import DataLoader
 from torchmetrics import MeanMetric
 
@@ -876,30 +874,36 @@ class Trainer:
         # Profiling stuff
         if self.cfg.profiling and get_global_rank() == 0:
             profiling_schedule = torch.profiler.schedule(skip_first=5, wait=5, warmup=5, active=10, repeat=1)
+
+            def on_trace_ready(p):
+                profiler_output_dir = Path(self.cfg.save_folder) / "profiler"
+                profiler_output_dir.mkdir(exist_ok=True)
+
+                p.export_chrome_trace(profiler_output_dir / f"{p.step_num}.chrome_trace.json")
+                p.export_stacks(profiler_output_dir / f"{p.step_num}.gpu.stacks", "self_cuda_time_total")
+                p.export_stacks(profiler_output_dir / f"{p.step_num}.cpu.stacks", "self_cpu_time_total")
+
+                output = p.key_averages().table(sort_by="self_cuda_time_total", row_limit=20)
+                log.info(f"Profile by total GPU time at step {p.step_num}:\n{output}")
+                output = p.key_averages().table(sort_by="self_cpu_time_total", row_limit=20)
+                log.info(f"Profile by total CPU time at step {p.step_num}:\n{output}")
+
+            from torch._C._profiler import ProfilerActivity
+
+            profiler = torch.profiler.profile(
+                activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                record_shapes=False,
+                profile_memory=True,
+                with_stack=True,
+                schedule=profiling_schedule,
+                on_trace_ready=on_trace_ready,
+            )
         else:
-            profiling_schedule = lambda step: ProfilerAction.NONE
+            import contextlib
 
-        def on_trace_ready(p):
-            profiler_output_dir = Path(self.cfg.save_folder) / "profiler"
-            profiler_output_dir.mkdir(exist_ok=True)
+            profiler = contextlib.nullcontext()
 
-            p.export_chrome_trace(profiler_output_dir / f"{p.step_num}.chrome_trace.json")
-            p.export_stacks(profiler_output_dir / f"{p.step_num}.gpu.stacks", "self_cuda_time_total")
-            p.export_stacks(profiler_output_dir / f"{p.step_num}.cpu.stacks", "self_cpu_time_total")
-
-            output = p.key_averages().table(sort_by="self_cuda_time_total", row_limit=20)
-            log.info(f"Profile by total GPU time at step {p.step_num}:\n{output}")
-            output = p.key_averages().table(sort_by="self_cpu_time_total", row_limit=20)
-            log.info(f"Profile by total CPU time at step {p.step_num}:\n{output}")
-
-        with torch.profiler.profile(
-            activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-            record_shapes=False,
-            profile_memory=True,
-            with_stack=True,
-            schedule=profiling_schedule,
-            on_trace_ready=on_trace_ready,
-        ) as p:
+        with profiler as p:
             for batch in self.train_loader:
                 # Bookkeeping.
                 # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
@@ -993,7 +997,8 @@ class Trainer:
 
                 # End of batch.
                 first_batch = False
-                p.step()
+                if p is not None:
+                    p.step()
 
                 if canceled:
                     break
