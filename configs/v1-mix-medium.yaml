@@ -20,8 +20,8 @@ model:
   include_bias: false
   block_type: sequential
   layer_norm_type: low_precision
-  #layer_norm_with_affine: false
-  bias_for_layer_norm: true
+  layer_norm_with_affine: true  # workaround for the layer norm bug
+  bias_for_layer_norm: true  # workaround for the layer norm bug
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
