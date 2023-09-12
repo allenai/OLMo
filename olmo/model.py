@@ -97,7 +97,7 @@ class LayerNorm(LayerNormBase):
         config: ModelConfig,
         size: Optional[int] = None,
         low_precision: bool = False,
-        elementwise_affine: Optional[bool] = None
+        elementwise_affine: Optional[bool] = None,
     ):
         super().__init__(config)
         self.normalized_shape = (size or config.d_model,)
@@ -143,12 +143,7 @@ class AMDLayerNorm(LayerNormBase):
     segfault when the bias is not present.
     """
 
-    def __init__(
-        self,
-        config: ModelConfig,
-        size: Optional[int] = None,
-        elementwise_affine: Optional[bool] = None
-    ):
+    def __init__(self, config: ModelConfig, size: Optional[int] = None, elementwise_affine: Optional[bool] = None):
         super().__init__(config)
         self.normalized_shape = (size or config.d_model,)
         self.eps = 1e-05
