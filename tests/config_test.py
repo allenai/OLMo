@@ -1,6 +1,23 @@
+import os
+from dataclasses import dataclass
 from pathlib import Path
+from typing import List
 
-from olmo.config import StrEnum, TrainConfig
+from olmo.config import BaseConfig, StrEnum, TrainConfig
+
+
+@dataclass
+class FakeConfig(BaseConfig):
+    paths: List[str]
+    env_var: str
+
+
+def test_resolvers(tmp_path: Path):
+    os.environ["FOO"] = "bar"
+    with open(tmp_path / "config.yaml", "w") as f:
+        f.writelines(["paths: ${path.glob:*.md}\n", "env_var: ${oc.env:FOO}\n"])
+    config = FakeConfig.load(tmp_path / "config.yaml")
+    assert config.env_var == "bar"
 
 
 def test_str_enum():

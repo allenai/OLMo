@@ -31,6 +31,7 @@ __all__ = [
     "BlockType",
     "CompilerConfig",
     "LayerNormType",
+    "InitFnType",
     "ModelConfig",
     "OptimizerType",
     "OptimizerConfig",
@@ -69,23 +70,28 @@ class StrEnum(str, Enum):
 
 class BaseConfig:
     @classmethod
-    def _register_resolvers(cls):
+    def _register_resolvers(cls, validate_paths: bool = True):
         # Expands path globs into a list.
         def path_glob(*paths) -> List[str]:
             out = []
             for path in paths:
                 matches = sorted(glob(path))
-                if not matches:
+                if not matches and validate_paths:
                     raise FileNotFoundError(f"{path} does not match any files or dirs")
                 out.extend(matches)
             return out
 
         # Chooses the first path in the arguments that exists.
         def path_choose(*paths) -> str:
+            from .util import is_url
+
             for path in paths:
-                if Path(path).exists():
+                if is_url(path) or Path(path).exists():
                     return path
-            raise FileNotFoundError(", ".join(paths))
+            if validate_paths:
+                raise FileNotFoundError(", ".join(paths))
+            else:
+                return ""
 
         om.register_new_resolver("path.glob", path_glob, replace=True)
         om.register_new_resolver("path.choose", path_choose, replace=True)
@@ -102,9 +108,15 @@ class BaseConfig:
             raise OlmoConfigurationError(str(e))
 
     @classmethod
-    def load(cls: Type[C], path: PathOrStr, overrides: Optional[List[str]] = None, key: Optional[str] = None) -> C:
+    def load(
+        cls: Type[C],
+        path: PathOrStr,
+        overrides: Optional[List[str]] = None,
+        key: Optional[str] = None,
+        validate_paths: bool = True,
+    ) -> C:
         """Load from a YAML file."""
-        cls._register_resolvers()
+        cls._register_resolvers(validate_paths=validate_paths)
         schema = om.structured(cls)
         try:
             raw = om.load(str(path))
@@ -157,6 +169,11 @@ class LayerNormType(StrEnum):
     A low-precision version of RMSNorm.
     """
 
+    amd_compatible = "amd_compatible"
+    """
+    LayerNorm implemented manually to work around an issue with ROCm.
+    """
+
 
 class ActivationType(StrEnum):
     gelu = "gelu"
@@ -167,6 +184,32 @@ class ActivationType(StrEnum):
 class BlockType(StrEnum):
     sequential = "sequential"
     parallel = "parallel"
+
+
+class InitFnType(StrEnum):
+    mitchell = "mitchell"
+    """
+    The strategy suggested to us by Mitchell Wortsman from UW.
+    This uses a truncated normal distribution with an adaptive standard deviation that depends
+    on the size of the weights as well as the depth of the layer.
+    """
+
+    normal = "normal"
+    """
+    All weights are initialized from the same normal distribution.
+    """
+
+    kaiming_normal = "kaiming_normal"
+    """
+    All weights are initialized with the Kaiming method from a normal distribution.
+    Note this currently won't work with FSDP.
+    """
+
+    fan_in = "fan_in"
+    """
+    "Fan-in variance scaling", i.e. normal with a standard deviation of ``1/sqrt(d_in)`` where ``d_in``
+    is the input dimensionality of the kernel.
+    """
 
 
 @dataclass
@@ -259,6 +302,14 @@ class ModelConfig(BaseConfig):
     The layernorm implementation to use.
     """
 
+    layer_norm_with_affine: bool = True
+    """
+    Whether to include bias and weight parameters for the layer norms.
+    This only affects layer norms that are immediately followed by a linear layer in the forward pass.
+    Other layer norms, such as those applied to attention keys and queries, will always include an elementwise
+    affine transform.
+    """
+
     max_sequence_length: int = 1024
     """
     The maximum input sequence length supported by the model.
@@ -269,6 +320,19 @@ class ModelConfig(BaseConfig):
     Whether or not to include bias parameters in linear layers.
     In PaLM, they got rid of all bias terms because they found that large
     models tend to have near 0 bias terms anyway.
+    """
+
+    bias_for_layer_norm: Optional[bool] = None
+    """
+    Whether or not to include bias parameters in layer norm.
+    This is separate from the include_bias parameter, because of a ROCm crash when biases are disabled in
+    layer norm.
+    When this is None (the default), it inherits the setting from include_bias.
+    """
+
+    scale_logits: bool = False
+    """
+    If ``True``, scale the output logits by ``1 / sqrt(d_model)``.
     """
 
     vocab_size: int = 50257
@@ -299,9 +363,15 @@ class ModelConfig(BaseConfig):
     The torch device to use when initializing the model parameters, e.g. "cpu", "cuda:0", "meta".
     """
 
+    init_fn: InitFnType = InitFnType.normal
+    """
+    The weight initialization strategy.
+    """
+
     init_std: float = 0.02
     """
-    Standard deviation used when initializing parameters.
+    The standard deviation to use when initializing weights with a "fixed distribution" ``init_fn``, such
+    as "normal".
     """
 
     precision: Optional[str] = None
@@ -313,7 +383,6 @@ class ModelConfig(BaseConfig):
 
 class OptimizerType(StrEnum):
     lionw = "lionw"
-    adam = "adam"
     adamw = "adamw"
 
 
@@ -325,6 +394,12 @@ class OptimizerConfig(BaseConfig):
     betas: Tuple[float, float] = (0.9, 0.95)
     no_decay_norm_and_bias: bool = True
     """Do not apply weight decay to norms and biases."""
+    metrics_log_interval: Optional[int] = None
+    """
+    The interval with which to collect and log optimizer-specific metrics.
+    This only applies when logging to W&B, since these metrics won't be logged to the console.
+    If not set, defaults to the wandb `log_interval`.
+    """
 
     def __post_init__(self):
         self.betas = tuple(self.betas)  # type: ignore[assignment]
@@ -333,6 +408,7 @@ class OptimizerConfig(BaseConfig):
 class SchedulerType(StrEnum):
     cosine_with_warmup = "cosine_with_warmup"
     inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
+    max_scheduler = "max_scheduler"
 
 
 @dataclass
@@ -429,7 +505,7 @@ class CompilerConfig(BaseConfig):
 class FSDPConfig(BaseConfig):
     use_orig_params: bool = True
     """
-    This must be ``True`` if using ``compile``.
+    This must be ``True`` if using ``compile`` or you want to track the parameter norm during training.
     """
 
     sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD
@@ -512,6 +588,16 @@ class TrainConfig(BaseConfig):
     save_folder: str = "./"
     """
     The directory to save checkpoints to.
+    """
+
+    remote_save_folder: Optional[str] = None
+    """
+    A folder in a cloud bucket to upload saved checkpoints to.
+    """
+
+    canceled_check_interval: int = 5
+    """
+    How often (in batches) to check if the run has been canceled or reached its time limit.
     """
 
     save_interval: int = 1000
@@ -646,6 +732,8 @@ class TrainConfig(BaseConfig):
     On LUMI we have 48 hours max per job, so we default to just under 48 hours to give us time
     to write out a final checkpoint.
     """
+
+    early_stopping_factor: Optional[float] = None
 
     save_data_indices: bool = True
     """

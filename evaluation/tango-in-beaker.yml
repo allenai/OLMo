@@ -1,0 +1,64 @@
+# Tango settings file
+#
+# See https://ai2-tango.readthedocs.io/en/latest/api/settings.html
+# for a list and description of all available fields.
+
+# ❗Fields that should be updated are marked with 👇
+
+# ❗This config uses a non-default beaker image `akshitab/olmo-eval-image-2`. 
+# ❗This image was created by installing all requirements for the evaluation module, so it can be used as it is.
+# ❗`eval-env` (`venv_name`) is the name of the conda environment on that image, which contains all required packages.
+# ❗If any packages need to be updated, the image will be updated. If you prefer to use your own beaker image, you can
+# ❗update it with fields `beaker_image` and `venv_name`. 
+
+# ❗If you require any additional packages, you can uncomment the
+# ❗`install_cmd` field below and add your installation. Note that this will be run for every single step, so if it takes
+# ❗a long time to install, the default beaker image can be updated.
+
+workspace:
+  type: "gs"
+  # ❗Change this to the workspace you want to use 👇
+  workspace: "akshitab-eval-test"
+  project: "ai2-allennlp"
+
+# Define the executor to use (how steps will be run).
+executor:
+  type: beaker
+  # ❗Change this to the Beaker workspace you want to use 👇
+  beaker_workspace: ai2/akshitab_llm
+  # ❗Change this to the Beaker image (and conda environment) you want to use (not required to change)👇
+  beaker_image: akshitab/olmo-eval-image-2
+  venv_name: eval-env
+  scheduler:
+    type: simple
+    priority: preemptible
+    clusters:
+      # ❗Add your own team's clusters here 👇
+      - ai2/general-cirrascale
+      - ai2/allennlp-cirrascale
+  allow_dirty: true
+  # ❗Uncomment and install any additional requirements if you need to (will be run for every step)👇
+  # install_cmd: "pip install --upgrade pip; pip install -e .; pip install -r evaluation/requirements.txt;"
+  datasets:
+    - source:
+        host_path: /net/nfs.cirrascale
+      mount_path: /net/nfs.cirrascale
+  env_vars:
+    - name: HF_DATASETS_CACHE
+      value: /net/nfs.cirrascale/aristo/oyvindt/hf_datasets_cache
+    # ❗This is the location for downloading models and making them HF-compatible (nfs for accessibility across steps).
+    - name: GLOBAL_MODEL_DIR
+    # ❗Change this to the common location 👇
+      value: /net/nfs.cirrascale/allennlp/akshitab/eval_models
+    # This is the location for our perplexity-based eval datasets. In the future, they can be uploaded to huggingface.
+    - name: EVAL_DATA_PATH
+    # ❗Change this to the common location 👇
+      value: /net/nfs.cirrascale/allennlp/akshitab/eval_data
+    - name: GDRIVE_SERVICE_ACCOUNT_JSON
+      secret: GDRIVE_SERVICE_ACCOUNT_JSON
+
+
+include_package:
+  - evaluation.steps
+
+log_level: info

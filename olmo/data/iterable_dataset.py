@@ -1,3 +1,4 @@
+import logging
 import math
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Union
@@ -7,9 +8,12 @@ import torch
 import torch.utils.data
 
 from ..aliases import PathOrStr
-from ..util import barrier, get_global_rank, get_world_size
+from ..util import barrier, get_fs_local_rank, get_global_rank, get_world_size
 
 __all__ = ["IterableDataset"]
+
+
+log = logging.getLogger(__name__)
 
 
 class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
@@ -31,7 +35,9 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         drop_last: bool = False,
         world_size: Optional[int] = None,
         rank: Optional[int] = None,
+        fs_local_rank: Optional[int] = None,
         work_dir: Optional[PathOrStr] = None,
+        global_batch_size: Optional[int] = None,
     ):
         self.dataset = dataset
         self.seed = seed
@@ -40,6 +46,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         self.shuffle = shuffle
         self.drop_last = drop_last
         self.rank = rank if rank is not None else get_global_rank()
+        self.fs_local_rank = fs_local_rank if fs_local_rank is not None else get_fs_local_rank()
         self.world_size = world_size if world_size is not None else get_world_size()
         # If the dataset length is evenly divisible by # of replicas, then there
         # is no need to drop any data, since the dataset will be split equally.
@@ -52,47 +59,55 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         else:
             num_samples = math.ceil(len(self.dataset) / self.world_size)  # type: ignore[arg-type]
         self.total_size = num_samples * self.world_size
+        self.device_batch_size: Optional[int] = None
+        if global_batch_size is not None:
+            assert global_batch_size % self.world_size == 0
+            self.device_batch_size = global_batch_size // self.world_size
         self.global_indices_file: Optional[Path] = None
+
         if work_dir is not None:
             self.global_indices_file = Path(work_dir) / "global_indices.npy"
-            if self.rank == 0:
+            if self.fs_local_rank == 0:
+                log.info("Saving global data order indices...")
                 self.global_indices_file.parent.mkdir(parents=True, exist_ok=True)
                 global_indices = self._build_global_indices()
                 global_indices_mmap = np.memmap(
-                    self.global_indices_file, dtype=np.uint64, mode="w+", shape=(len(global_indices),)
+                    self.global_indices_file, dtype=np.uint32, mode="w+", shape=(len(global_indices),)
                 )
                 global_indices_mmap[:] = global_indices
                 global_indices_mmap.flush()
                 del global_indices_mmap
+                log.info("Global data order indices saved to '%s'", self.global_indices_file)
             barrier()
 
-    def _build_global_indices(self) -> List[int]:
+    def _build_global_indices(self) -> np.ndarray:
+        assert len(self.dataset) < np.iinfo(np.uint32).max
+        indices = np.arange(len(self.dataset), dtype=np.uint32)
         if self.shuffle:
             # Deterministically shuffle based on epoch and seed
             # Torch built-in randomness is not very random, so we use numpy.
             rng = np.random.Generator(np.random.PCG64(seed=self.seed))
-            indices = np.arange(len(self.dataset))
             rng.shuffle(indices)
-            indices = list(indices)
-        else:
-            indices = list(range(len(self.dataset)))  # type: ignore[arg-type]
 
         if not self.drop_last:
             # Add extra samples to make it evenly divisible
             padding_size = self.total_size - len(indices)
-            if padding_size <= len(indices):
-                indices += indices[:padding_size]
-            else:
-                indices += (indices * math.ceil(padding_size / len(indices)))[:padding_size]
+            arrays_to_concatenate = [indices]
+            while padding_size > 0:
+                array_to_concatenate = indices[: min(padding_size, len(indices))]
+                arrays_to_concatenate.append(array_to_concatenate)
+                padding_size -= len(array_to_concatenate)
+                del array_to_concatenate
+            indices = np.concatenate(arrays_to_concatenate)
         else:
             # Remove tail of data to make it evenly divisible.
             indices = indices[: self.total_size]
         assert len(indices) == self.total_size
         return indices
 
-    def get_global_indices(self) -> Sequence[int]:
+    def get_global_indices(self) -> np.ndarray:
         if self.global_indices_file is not None:
-            return np.memmap(self.global_indices_file, mode="r", dtype=np.uint64)  # type: ignore
+            return np.memmap(self.global_indices_file, mode="r", dtype=np.uint32)  # type: ignore
         else:
             return self._build_global_indices()
 
@@ -115,7 +130,23 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         # Lastly, slice the indices by data loader worker rank to avoid duplicates.
         worker_info = torch.utils.data.get_worker_info()
         if worker_info is not None:
-            indices = indices[worker_info.id :: worker_info.num_workers]
+            # Note that each data loading worker gathers a whole batch at a time, and the workers
+            # are called round-robin by rank. So to slice these up in a way that preserves order, regardless
+            # of the number of workers, we should give worker 0 the first chunk of `device_batch_size` indices,
+            # worker 1 the 2nd chunk of `device_train_batch_size` indices, etc...
+            if self.device_batch_size is not None:
+                truncated_size = self.device_batch_size * (len(indices) // self.device_batch_size)
+                left_overs = indices[
+                    truncated_size + worker_info.id : truncated_size + worker_info.id + worker_info.num_workers
+                ]
+                indices = (
+                    indices[:truncated_size]
+                    .reshape((-1, self.device_batch_size))[worker_info.id :: worker_info.num_workers]  # type: ignore
+                    .reshape((-1,))
+                )
+                indices = np.concatenate([indices, left_overs])
+            else:
+                indices = indices[worker_info.id :: worker_info.num_workers]
 
         return (self._get_dataset_item(int(idx)) for idx in indices)
 

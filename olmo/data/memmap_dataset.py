@@ -8,6 +8,7 @@ import torch
 from torch.utils.data import Dataset
 
 from ..aliases import PathOrStr
+from ..util import file_size, get_bytes_range
 
 __all__ = ["MemMapDataset"]
 
@@ -30,6 +31,8 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
     :param memmap_dtype: The numpy datatype of the memory-mapped array.
     :param metadata: Metadata to add to each item. This should be a dictionary or a list of dictionaries
         with the same number of items as there are paths.
+    :param include_instance_metadata: If ``True`` (the default), each instance returned from `__getitem__` will
+        include the metadata from its source.
     """
 
     def __init__(
@@ -38,6 +41,7 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         chunk_size: int = 1024,
         memmap_dtype=np.uint16,
         metadata: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None,
+        include_instance_metadata: bool = True,
     ):
         if not paths:
             raise ValueError("At least one path is required")
@@ -49,10 +53,11 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         self._memmap_paths = paths
         self._metadata = metadata
         self._chunk_size = chunk_size
-        self._mmaps: Optional[List[np.memmap]] = None
         self._mmap_offsets: Optional[List[Tuple[int, int]]] = None
         self._num_instances: Optional[int] = None
         self.dtype = memmap_dtype
+        self._item_size = self.dtype(0).itemsize
+        self._include_instance_metadata = include_instance_metadata
 
     @property
     def chunk_size(self) -> int:
@@ -64,25 +69,39 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         return self.chunk_size
 
     @property
-    def memmaps(self) -> List[np.memmap]:
-        if self._mmaps is None:
-            self._mmaps = []
-            for path in self._memmap_paths:
-                mmap = np.memmap(path, mode="r", dtype=self.dtype)
-                self._mmaps.append(mmap)
-        return self._mmaps
-
-    @property
     def offsets(self) -> List[Tuple[int, int]]:
         if self._mmap_offsets is None:
-            start_offset = 0
+            import concurrent.futures
+
             self._mmap_offsets = []
-            for mmap in self.memmaps:
-                length = mmap.shape[0] // self._chunk_size
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = []
+                for path in self._memmap_paths:
+                    future = executor.submit(self._get_file_length, path)
+                    futures.append(future)
+
+                path_to_length: Dict[PathOrStr, int] = {}
+                for future in concurrent.futures.as_completed(futures):
+                    path, length = future.result()
+                    path_to_length[path] = length
+
+            start_offset = 0
+            for path in self._memmap_paths:
+                length = path_to_length[path]
                 end_offset = start_offset + length
                 self._mmap_offsets.append((start_offset, end_offset))
                 start_offset += length
         return self._mmap_offsets
+
+    def _read_chunk_from_memmap(self, path: PathOrStr, index: int) -> torch.Tensor:
+        bytes_start = index * self._item_size * self._chunk_size
+        num_bytes = self._item_size * self._chunk_size
+        buffer = get_bytes_range(path, bytes_start, num_bytes)
+        array = np.frombuffer(buffer, dtype=self.dtype)
+        return torch.tensor(array.astype(np.int_), dtype=torch.long)
+
+    def _get_file_length(self, path) -> Tuple[PathOrStr, int]:
+        return path, file_size(path) // (self._item_size * self._chunk_size)
 
     def __len__(self) -> int:
         if self._num_instances is None:
@@ -90,6 +109,7 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         return self._num_instances
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
+        index = int(index)  # in case this is a numpy int type.
         pos_index = index if index >= 0 else len(self) + index
 
         # The index of the memmap array within 'self.memmaps'
@@ -104,12 +124,13 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         if memmap_index is None or memmap_local_index is None:
             raise IndexError(f"{index} is out of bounds for dataset of size {len(self)}")
 
-        memmap = self.memmaps[memmap_index]
-        metadata = self._metadata[memmap_index]
-        index_start = memmap_local_index * self._chunk_size
-        index_stop = (memmap_local_index + 1) * self._chunk_size
-        data = memmap[index_start:index_stop].astype(np.int_)
-        return {"input_ids": torch.tensor(data, dtype=torch.long), "metadata": deepcopy(metadata)}
+        # Read the data from file.
+        input_ids = self._read_chunk_from_memmap(self._memmap_paths[memmap_index], memmap_local_index)
+        out: Dict[str, Any] = {"input_ids": input_ids}
+        if self._include_instance_metadata:
+            metadata = self._metadata[memmap_index]
+            out["metadata"] = deepcopy(metadata)
+        return out
 
     def __add__(self, other: MemMapDataset) -> MemMapDataset:
         """

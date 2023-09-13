@@ -4,6 +4,7 @@ import pytest
 
 from olmo.config import (
     DataConfig,
+    InitFnType,
     ModelConfig,
     OptimizerConfig,
     PaddingDirection,
@@ -49,6 +50,7 @@ def model_config() -> ModelConfig:
         n_heads=2,
         n_layers=3,
         max_sequence_length=512,
+        init_fn=InitFnType.normal,
     )
 
 
