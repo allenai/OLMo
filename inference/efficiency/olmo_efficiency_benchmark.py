@@ -3,14 +3,10 @@
 
 import argparse
 import json
-import sys
-
-sys.path.append("/home/pranjalib/LLM")
-
+from hf_olmo import *
 import torch
 from auto_gptq import AutoGPTQForCausalLM
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from hf_olmo import *
 
 
 def stdio_predictor_wrapper(predictor):
