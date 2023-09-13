@@ -1,10 +1,12 @@
 import pytest
 import torch
+import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss
 
-from olmo import BlockType, Olmo, Tokenizer, TrainConfig
+from olmo import BlockType, LayerNorm, Olmo, Tokenizer, TrainConfig
 from olmo.config import PaddingDirection
 from olmo.data import DataCollator
+from olmo.model import AMDLayerNorm
 
 
 @pytest.mark.parametrize(
@@ -386,3 +388,44 @@ def test_generate(
             batch_output = model.generate(**{**batch_inputs, **beam_search_kwargs})
 
     torch.testing.assert_close(output1.scores[0], batch_output.scores[0])
+
+
+@pytest.mark.parametrize("elementwise_affine", (True, False))
+@pytest.mark.parametrize("include_bias", (True, False))
+def test_layer_norm(train_config: TrainConfig, elementwise_affine: bool, include_bias: bool):
+    train_config.model.layer_norm_with_affine = elementwise_affine
+    train_config.model.include_bias = include_bias
+    ln = LayerNorm.build(train_config.model)
+    amd_ln = AMDLayerNorm(train_config.model)
+
+    needs_weight = elementwise_affine
+    needs_bias = elementwise_affine and include_bias
+    with torch.no_grad():
+        if needs_weight:
+            weight = torch.randn(train_config.model.d_model)
+            ln.weight.copy_(weight)
+            amd_ln.weight.copy_(weight)
+        else:
+            weight = None
+
+        if needs_bias:
+            bias = torch.randn(train_config.model.d_model)
+            ln.bias.copy_(bias)
+            amd_ln.bias.copy_(bias)
+        else:
+            bias = None
+
+    assert ln.bias is None or ln.bias.requires_grad == needs_bias
+    assert ln.weight is None or ln.weight.requires_grad == needs_weight
+    assert amd_ln.bias is None or amd_ln.bias.requires_grad == needs_bias
+    assert amd_ln.weight is None or amd_ln.weight.requires_grad == needs_weight
+
+    x = torch.randn(16, 1024, train_config.model.d_model)
+    x.requires_grad = False
+    y_expected = F.layer_norm(x, [train_config.model.d_model], weight, bias)
+
+    y_actual = ln(x)
+    torch.testing.assert_close(y_actual, y_expected)
+
+    y_actual = amd_ln(x)
+    torch.testing.assert_close(y_actual, y_expected)

@@ -64,6 +64,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             assert global_batch_size % self.world_size == 0
             self.device_batch_size = global_batch_size // self.world_size
         self.global_indices_file: Optional[Path] = None
+
         if work_dir is not None:
             self.global_indices_file = Path(work_dir) / "global_indices.npy"
             if self.fs_local_rank == 0:
@@ -71,7 +72,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
                 self.global_indices_file.parent.mkdir(parents=True, exist_ok=True)
                 global_indices = self._build_global_indices()
                 global_indices_mmap = np.memmap(
-                    self.global_indices_file, dtype=np.uint64, mode="w+", shape=(len(global_indices),)
+                    self.global_indices_file, dtype=np.uint32, mode="w+", shape=(len(global_indices),)
                 )
                 global_indices_mmap[:] = global_indices
                 global_indices_mmap.flush()
@@ -79,33 +80,34 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
                 log.info("Global data order indices saved to '%s'", self.global_indices_file)
             barrier()
 
-    def _build_global_indices(self) -> List[int]:
+    def _build_global_indices(self) -> np.ndarray:
+        assert len(self.dataset) < np.iinfo(np.uint32).max
+        indices = np.arange(len(self.dataset), dtype=np.uint32)
         if self.shuffle:
             # Deterministically shuffle based on epoch and seed
             # Torch built-in randomness is not very random, so we use numpy.
             rng = np.random.Generator(np.random.PCG64(seed=self.seed))
-            indices = np.arange(len(self.dataset))
             rng.shuffle(indices)
-            indices = list(indices)
-        else:
-            indices = list(range(len(self.dataset)))  # type: ignore[arg-type]
 
         if not self.drop_last:
             # Add extra samples to make it evenly divisible
             padding_size = self.total_size - len(indices)
-            if padding_size <= len(indices):
-                indices += indices[:padding_size]
-            else:
-                indices += (indices * math.ceil(padding_size / len(indices)))[:padding_size]
+            arrays_to_concatenate = [indices]
+            while padding_size > 0:
+                array_to_concatenate = indices[: min(padding_size, len(indices))]
+                arrays_to_concatenate.append(array_to_concatenate)
+                padding_size -= len(array_to_concatenate)
+                del array_to_concatenate
+            indices = np.concatenate(arrays_to_concatenate)
         else:
             # Remove tail of data to make it evenly divisible.
             indices = indices[: self.total_size]
         assert len(indices) == self.total_size
         return indices
 
-    def get_global_indices(self) -> Sequence[int]:
+    def get_global_indices(self) -> np.ndarray:
         if self.global_indices_file is not None:
-            return np.memmap(self.global_indices_file, mode="r", dtype=np.uint64)  # type: ignore
+            return np.memmap(self.global_indices_file, mode="r", dtype=np.uint32)  # type: ignore
         else:
             return self._build_global_indices()
 
@@ -133,8 +135,6 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             # of the number of workers, we should give worker 0 the first chunk of `device_batch_size` indices,
             # worker 1 the 2nd chunk of `device_train_batch_size` indices, etc...
             if self.device_batch_size is not None:
-                if not isinstance(indices, (np.memmap, np.ndarray)):
-                    indices = np.array(indices, dtype=np.uint64)
                 truncated_size = self.device_batch_size * (len(indices) // self.device_batch_size)
                 left_overs = indices[
                     truncated_size + worker_info.id : truncated_size + worker_info.id + worker_info.num_workers
@@ -148,14 +148,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             else:
                 indices = indices[worker_info.id :: worker_info.num_workers]
 
-        # Convert to a list at this point so we don't have to rely on memory-mapping.
-        if isinstance(indices, (np.memmap, np.ndarray)):
-            indices_list = indices.tolist()  # type: ignore
-        else:
-            indices_list = indices
-        del indices
-
-        return (self._get_dataset_item(int(idx)) for idx in indices_list)
+        return (self._get_dataset_item(int(idx)) for idx in indices)
 
     def _get_dataset_item(self, idx: int) -> Dict[str, Any]:
         item = self.dataset[idx]
