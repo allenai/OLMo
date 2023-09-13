@@ -501,6 +501,18 @@ class CompilerConfig(BaseConfig):
     """
 
 
+class FSDPWrapStrategy(StrEnum):
+    by_block = "by_block"
+    """
+    Wrap each OLMo block with its own FSDP instance.
+    """
+
+    size_based = "size_based"
+    """
+    Used PyTorch's default size-based auto wrap policy.
+    """
+
+
 @dataclass
 class FSDPConfig(BaseConfig):
     use_orig_params: bool = True
@@ -509,6 +521,12 @@ class FSDPConfig(BaseConfig):
     """
 
     sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD
+
+    wrapping_strategy: Optional[FSDPWrapStrategy] = None
+    """
+    The wrapping strategy to use. If ``None``, the default, the model is wrapped with a single top-level
+    FSDP instance.
+    """
 
 
 class CheckpointType(StrEnum):
