@@ -1,5 +1,5 @@
 """
-Multiple streams is not working. So we do this ridiculousness.
+Multiple streams is not working. So we create multiple configs instead.
 """
 import os
 import json
