@@ -8,8 +8,6 @@ import numpy as np
 import torch
 from datasets import Dataset
 
-import sys
-sys.path.append("/home/pranjalib/LLM")
 from hf_olmo import *
 from efficiency_benchmark.efficiency.profiler import Profiler
 from efficiency_benchmark.stdio_wrapper import StdioWrapper
