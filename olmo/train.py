@@ -622,8 +622,11 @@ class Trainer:
         ce_batch_loss, z_batch_loss = self.train_batch(batch)
 
         # Clip gradient norms and collect param/gradient/optim metrics.
-        optim_metrics = self.optim.clip_grads_and_collect_metrics()
-        if self.should_log_optim_metrics_this_step():
+        should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
+        optim_metrics = self.optim.clip_grads_and_collect_metrics(
+            collect_metrics=should_log_optim_metrics_this_step
+        )
+        if should_log_optim_metrics_this_step:
             for key, value in optim_metrics.items():
                 metrics[f"optim/{key}"] = value.item()
 
@@ -647,7 +650,7 @@ class Trainer:
             metrics["train/ZLoss"] = z_batch_loss.item()
 
         # Maybe collect post-step optimizer-specific metrics.
-        if self.should_log_optim_metrics_this_step():
+        if should_log_optim_metrics_this_step:
             optim_metrics = self.optim.get_post_step_metrics(self.fsdp_model)
             for key, value in optim_metrics.items():
                 metrics[f"optim/{key}"] = value.item()
