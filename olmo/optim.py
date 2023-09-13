@@ -66,12 +66,8 @@ class Optimizer(OptimizerBase):
             for name, p in zip(group["param_names"], group["params"]):
                 # Always need to collect the norm of gradients for clipping, even if we're not collecting
                 # other metrics.
-                tensors: List[torch.Tensor] = [p.grad]
-                prefixes: List[str] = [f"grad/{name}"]
-                exp_avg = self.get_exp_avg(p)
-                if exp_avg is not None:
-                    tensors.append(exp_avg)
-                    prefixes.append(f"exp_avg/{name}")
+                tensors: List[Optional[torch.Tensor]] = [p.grad, self.get_exp_avg(p)]
+                prefixes: List[str] = [f"grad/{name}", f"exp_avg/{name}"]
                 if collect_metrics:
                     state = self.get_state_for_param(p)
                     sorted_state_keys = sorted([k for k in state.keys() if k != "exp_avg"])
@@ -159,6 +155,7 @@ class Optimizer(OptimizerBase):
             all_metrics[metric_name] = metric.squeeze(0)
 
         # Clip gradients.
+        num_grads_clipped = 0
         for group in self.param_groups:
             max_norm = group.get("max_grad_norm")
             max_norm_ratio = group.get("max_grad_norm_ratio")
@@ -173,12 +170,11 @@ class Optimizer(OptimizerBase):
                     clip_coef = (max_norm_ratio * exp_avg_norm) / (grad_norm + 1e-6)
                 else:
                     clip_coef = max_norm / (grad_norm + 1e-6)
-                # Multiplying by the clamped coefficient is meaningless when it is
-                # equal to 1, but it avoids the host-device sync that would result from
-                # `if clip_coef < 1`
                 clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
-                p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
-
+                if clip_coef_clamped < 1.0:
+                    num_grads_clipped += 1
+                    p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
+        all_metrics["num_grads_clipped"] = torch.tensor(num_grads_clipped, device="cpu")
         return all_metrics
 
     def get_exp_avg(self, param: nn.Parameter) -> Optional[torch.Tensor]:
