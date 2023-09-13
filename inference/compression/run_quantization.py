@@ -14,8 +14,6 @@ import time
 
 import numpy as np
 import torch
-import sys
-sys.path.append("/home/pranjalib/LLM")
 from hf_olmo import *
 from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
 from datasets import load_dataset
