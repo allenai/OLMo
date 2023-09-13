@@ -83,9 +83,10 @@ def reproduce_train_order(global_indices: np.memmap,
                 i += len(per_worker_slice)
     pbar.close()
 
+
 @click.command()
 @click.argument(
-    "config",
+    "config_file",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
 )
 @click.argument(
@@ -101,12 +102,12 @@ def reproduce_train_order(global_indices: np.memmap,
     type=click.Path(exists=True, dir_okay=False, path_type=Path)
 )
 def main(
-        config: Path,
+        config_file: Path,
         output: Path,
         world_size: int,
         global_indices: Path):
 
-    config = TrainConfig.load(config, validate_paths=False)
+    config = TrainConfig.load(config_file, validate_paths=False)
 
     if global_indices:
         global_indices_arr = np.memmap(global_indices, mode="r", dtype=np.uint64)
