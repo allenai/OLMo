@@ -68,9 +68,13 @@ class Optimizer(OptimizerBase):
                 # other metrics.
                 tensors: List[torch.Tensor] = [p.grad]
                 prefixes: List[str] = [f"grad/{name}"]
+                exp_avg = self.get_exp_avg(p)
+                if exp_avg is not None:
+                    tensors.append(exp_avg)
+                    prefixes.append(f"exp_avg/{name}")
                 if collect_metrics:
                     state = self.get_state_for_param(p)
-                    sorted_state_keys = sorted(state.keys())
+                    sorted_state_keys = sorted([k for k in state.keys() if k != "exp_avg"])
                     tensors.extend([p] + [state[key] for key in sorted_state_keys])
                     prefixes.extend([f"param/{name}"] + [f"{key}/{name}" for key in sorted_state_keys])
 
@@ -156,13 +160,19 @@ class Optimizer(OptimizerBase):
 
         # Clip gradients.
         for group in self.param_groups:
-            if (max_norm := group.get("max_grad_norm")) is None:
+            max_norm = group.get("max_grad_norm")
+            max_norm_ratio = group.get("max_grad_norm_ratio")
+            if max_norm is None:
                 continue
             for name, p in zip(group["param_names"], group["params"]):
                 if p.grad is None:
                     continue
                 grad_norm = all_metrics[f"grad/{name}.norm"]
-                clip_coef = max_norm / (grad_norm + 1e-6)
+                exp_avg_norm = all_metrics.get(f"exp_avg/{name}.norm")
+                if max_norm_ratio is not None and exp_avg_norm is not None:
+                    clip_coef = (max_norm_ratio * exp_avg_norm) / (grad_norm + 1e-6)
+                else:
+                    clip_coef = max_norm / (grad_norm + 1e-6)
                 # Multiplying by the clamped coefficient is meaningless when it is
                 # equal to 1, but it avoids the host-device sync that would result from
                 # `if clip_coef < 1`
@@ -170,6 +180,13 @@ class Optimizer(OptimizerBase):
                 p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
 
         return all_metrics
+
+    def get_exp_avg(self, param: nn.Parameter) -> Optional[torch.Tensor]:
+        """
+        Get the exponential average of the gradient for a parameter. This is used for gradient clipping.
+        """
+        del param
+        return None
 
     def get_post_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
         del module
@@ -225,6 +242,9 @@ class LionW(Optimizer):
             update_total_norm * signed_update_total_norm, torch.tensor(1e-8, device=get_default_device())
         )
         return {"update_cos_sim": update_cos_sim}
+
+    def get_exp_avg(self, param: nn.Parameter) -> Optional[torch.Tensor]:
+        return self.state[param].get("exp_avg")  # type: ignore
 
     @torch.no_grad()
     def step(self, closure=None) -> None:
@@ -285,6 +305,9 @@ class LionW(Optimizer):
 
 
 class AdamW(torch.optim.AdamW, Optimizer):
+    def get_exp_avg(self, param: nn.Parameter) -> Optional[torch.Tensor]:
+        return self.state[param].get("exp_avg")  # type: ignore
+
     def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
         return {key: self.state[param].get(key) for key in ("exp_avg", "exp_avg_sq")}  # type: ignore
 
@@ -339,7 +362,7 @@ class MaxScheduler(Scheduler):
         )
 
 
-PARAM_GROUP_FIELDS = ("sharded", "max_grad_norm", "param_names")
+PARAM_GROUP_FIELDS = ("sharded", "max_grad_norm", "max_grad_norm_ratio", "param_names")
 
 
 def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]:
@@ -350,6 +373,7 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
     param_group_defaults = {
         "sharded": isinstance(model, FullyShardedDataParallel),
         "max_grad_norm": cfg.max_grad_norm,
+        "max_grad_norm_ratio": cfg.max_grad_norm_ratio,
     }
     if cfg.optimizer.no_decay_norm_and_bias and cfg.optimizer.weight_decay > 0.0:
         # Separate out parameters that we don't want to apply weight decay to, like norms and biases.
