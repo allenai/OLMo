@@ -879,9 +879,9 @@ class Trainer:
                 profiler_output_dir = Path(self.cfg.save_folder) / "profiler"
                 profiler_output_dir.mkdir(exist_ok=True)
 
-                p.export_chrome_trace(profiler_output_dir / f"{p.step_num}.chrome_trace.json")
-                p.export_stacks(profiler_output_dir / f"{p.step_num}.gpu.stacks", "self_cuda_time_total")
-                p.export_stacks(profiler_output_dir / f"{p.step_num}.cpu.stacks", "self_cpu_time_total")
+                p.export_chrome_trace(str(profiler_output_dir / f"{p.step_num}.chrome_trace.json.gz"))
+                p.export_stacks(str(profiler_output_dir / f"{p.step_num}.gpu.stacks"), "self_cuda_time_total")
+                p.export_stacks(str(profiler_output_dir / f"{p.step_num}.cpu.stacks"), "self_cpu_time_total")
 
                 output = p.key_averages().table(sort_by="self_cuda_time_total", row_limit=20)
                 log.info(f"Profile by total GPU time at step {p.step_num}:\n{output}")
