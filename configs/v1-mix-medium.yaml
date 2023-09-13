@@ -35,6 +35,8 @@ model:
 
 compile: null  # causes instability on AMD GPUs
 
+python_profiling: true
+
 optimizer:
   name: adamw
   learning_rate: 3.0e-4
