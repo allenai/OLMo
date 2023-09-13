@@ -7,6 +7,8 @@ Author: Akshita Bhagia @akshitab
         * Contains XML template code
         * HTML code-to-text ratio <= 0.2
         * Java, Python, JavaScript code-to-comment ratio <= 0.01 and > 0.8
+* Number of documents: 211,731,489
+* Number of tokens (GPT-NeoX tokenizer): 334.2 B
 
 
 ## Steps to reproduce

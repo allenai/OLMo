@@ -4,6 +4,8 @@ Author: Akshita Bhagia @akshitab
 
 * Removed the following language files: `assembly`, `csv`, `json`, `json5`, `jsonld`, `jsoniq`, `svg`
 * Removed copyright statements in code files.
+* Number of documents: 272,455,312
+* Number of tokens (GPT-NeoX tokenizer): 696.7 B
 
 
 ## Steps to reproduce

@@ -7,6 +7,7 @@ Author: Akshita Bhagia @akshitab
         * EMAIL_ADDRESS
         * PHONE_NUMBER
         * IP_ADDRESS
+* Number of documents: 255,064,041 (same as v2)
 
 
 ## Steps to reproduce

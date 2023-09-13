@@ -8,6 +8,8 @@ Author: Akshita Bhagia @akshitab
         * Average line length > 100 characters
         * Proportion of alphanumeric characters < 0.25
         * Ratio of alphabetical characters to number of tokens < 1.5
+* Number of documents: 255,064,041
+* Number of tokens (GPT-NeoX tokenizer): 368.9 B
 
 
 ## Steps to reproduce
