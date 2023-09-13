@@ -510,6 +510,12 @@ class FSDPConfig(BaseConfig):
 
     sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD
 
+    nested_wrapping: bool = False
+    """
+    If True, the model is wrapped with a nested strategy according to the model's `fsdp_wrap_fn`.
+    If False (the default), the model is wrapped as a single top-level FSDP instance.
+    """
+
 
 class CheckpointType(StrEnum):
     sharded = "sharded"

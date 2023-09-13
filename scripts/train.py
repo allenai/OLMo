@@ -115,7 +115,7 @@ def main(cfg: TrainConfig) -> None:
             reduce_dtype=cfg.autocast_precision,
             buffer_dtype=cfg.autocast_precision,
         ),
-        auto_wrap_policy=olmo_model.fsdp_wrap_fn,
+        auto_wrap_policy=olmo_model.fsdp_wrap_fn if cfg.fsdp.nested_wrapping else None,
         use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
         limit_all_gathers=True,
         device_id=get_local_rank(),
