@@ -57,29 +57,24 @@ def build_global_indices(world_size: int, config: TrainConfig) -> np.memmap:
     return global_indices
 
 
-def reproduce_train_order(global_indices: np.memmap,
-                          world_size: int,
-                          output_filename,
-                          config: TrainConfig):
-
+def reproduce_train_order(global_indices: np.memmap, world_size: int, output_filename, config: TrainConfig):
     global_batch_size = config.global_train_batch_size
     n_workers = config.data.num_workers
     loader_chunk_size = global_batch_size * n_workers
 
-    train_order = np.memmap(output_filename, dtype='uint64',
-                            mode='w+', shape=(len(global_indices),))
+    train_order = np.memmap(output_filename, dtype="uint64", mode="w+", shape=(len(global_indices),))
 
     pbar = tqdm(total=len(global_indices))
     i = 0
     while i < len(global_indices):
         if i % (loader_chunk_size * 10) == 0:
             pbar.update(loader_chunk_size * 10)
-        loader_chunk = global_indices[i: i + loader_chunk_size]
+        loader_chunk = global_indices[i : i + loader_chunk_size]
         for j in range(n_workers):
             for k in range(world_size):
                 per_device_slice = loader_chunk[k::world_size]
                 per_worker_slice = per_device_slice[j::n_workers]
-                train_order[i: i + len(per_worker_slice)] = per_worker_slice
+                train_order[i : i + len(per_worker_slice)] = per_worker_slice
                 i += len(per_worker_slice)
     pbar.close()
 
@@ -97,16 +92,8 @@ def reproduce_train_order(global_indices: np.memmap,
     "world_size",
     type=click.INT,
 )
-@click.option(
-    '-g', '--global_indices',
-    type=click.Path(exists=True, dir_okay=False, path_type=Path)
-)
-def main(
-        config_file: Path,
-        output: Path,
-        world_size: int,
-        global_indices: Path):
-
+@click.option("-g", "--global_indices", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+def main(config_file: Path, output: Path, world_size: int, global_indices: Path):
     config = TrainConfig.load(config_file, validate_paths=False)
 
     if global_indices:
