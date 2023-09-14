@@ -34,7 +34,9 @@ class Optimizer(OptimizerBase):
         return name.replace("_fsdp_wrapped_module.", "")
 
     @torch.no_grad()
-    def clip_grads_and_collect_metrics(self, collect_param_metrics: bool = True) -> Dict[str, torch.Tensor]:
+    def clip_grads_and_collect_metrics(
+        self, global_step: int, collect_param_metrics: bool = True
+    ) -> Dict[str, torch.Tensor]:
         """
         Clips gradients for every group that has the field `max_grad_norm`.
         At the same time collect metrics for each parameter and its gradient.
@@ -184,7 +186,7 @@ class Optimizer(OptimizerBase):
                     # We don't want to add anything to `state` until `state` has been initialized, otherwise
                     # this will crash some optimizers which rely on checking `len(state)`. The downside here
                     # is that we won't start tracking `grad_norm_exp_avg` until the 2nd training step.
-                    if self._state_is_initialized:
+                    if global_step > 1:
                         state["grad_norm_exp_avg"] = grad_norm_exp_avg
                 if max_norm_ratio is not None:
                     # Adaptive clipping.
@@ -215,17 +217,6 @@ class Optimizer(OptimizerBase):
     def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
         del param
         return {}
-
-    @property
-    def _state_is_initialized(self) -> bool:
-        if not hasattr(self, "_state_initialized"):
-            self._state_initialized = False
-        if not self._state_initialized:
-            for state in self.state.values():
-                if len(state) > 0:
-                    self._state_initialized = True
-                    break
-        return self._state_initialized
 
 
 class LionW(Optimizer):
