@@ -73,6 +73,16 @@ def main(cfg: TrainConfig) -> None:
 
     barrier()
 
+    # Set seed.
+    seed_all(cfg.seed)
+
+    # Construct data loader.
+    train_loader = build_train_dataloader(cfg)
+
+    # Construct evaluators.
+    evaluators = build_evaluators(cfg, device)
+    barrier()
+
     # Maybe start W&B run.
     if cfg.wandb is not None and (get_global_rank() == 0 or not cfg.wandb.rank_zero_only):
         wandb_dir = Path(cfg.save_folder) / "wandb"
@@ -87,16 +97,6 @@ def main(cfg: TrainConfig) -> None:
             config=cfg.asdict(exclude=["wandb"]),
         )
 
-    barrier()
-
-    # Set seed.
-    seed_all(cfg.seed)
-
-    # Construct data loader.
-    train_loader = build_train_dataloader(cfg)
-
-    # Construct evaluators.
-    evaluators = build_evaluators(cfg, device)
     barrier()
 
     # Initialize the model.
