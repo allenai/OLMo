@@ -63,18 +63,19 @@ class Optimizer(OptimizerBase):
 
         for group in self.param_groups:
             if is_distributed():
-                # TODO (epwalsh): handle non-sharded params
+                # TODO (epwalsh): handle non-sharded params. We don't have any right now but we would
+                # with ReLoRa, for example.
                 assert group.get("sharded", True) is True
 
             for name, p in zip(group["param_names"], group["params"]):
                 name = self._clean_param_name(name)
                 # Always need to collect the norm of gradients for clipping, even if we're not collecting
                 # other metrics.
-                tensors: List[Optional[torch.Tensor]] = [p.grad, self.get_exp_avg(p)]
-                prefixes: List[str] = [f"grad/{name}", f"exp_avg/{name}"]
+                tensors: List[Optional[torch.Tensor]] = [p.grad]
+                prefixes: List[str] = [f"grad/{name}"]
                 if collect_param_metrics:
                     state = self.get_state_for_param(p)
-                    sorted_state_keys = sorted([k for k in state.keys() if k != "exp_avg"])
+                    sorted_state_keys = sorted([k for k in state.keys()])
                     tensors.extend([p] + [state[key] for key in sorted_state_keys])
                     prefixes.extend([f"param/{name}"] + [f"{key}/{name}" for key in sorted_state_keys])
 
@@ -162,6 +163,10 @@ class Optimizer(OptimizerBase):
         num_grads_clipped = 0
         num_eligible_grads = 0
         for group in self.param_groups:
+            # We'll use beta1 to update the exponential average of the norm of the gradient (a scalar),
+            # not to be confused with the exponential average of the gradient.
+            # TODO (epwalsh): handle optimizers that don't have betas.
+            beta1, _ = group["betas"]
             max_norm = group.get("max_grad_norm")
             max_norm_ratio = group.get("max_grad_norm_ratio")
             if max_norm is None and max_norm_ratio is None:
@@ -172,34 +177,32 @@ class Optimizer(OptimizerBase):
                 if grad_norm is None:
                     continue
                 num_eligible_grads += 1
-                exp_avg_norm = all_metrics.get(f"exp_avg/{name}.norm")
-                # NOTE: exp_avg_norm will be 0.0 on first step, in which case we fall back to regular
-                # clipping.
-                if max_norm_ratio is not None and exp_avg_norm is not None and exp_avg_norm.item() > 0.0:
-                    clip_coef = (max_norm_ratio * exp_avg_norm) / (grad_norm + 1e-6)
-                elif max_norm is not None:
-                    clip_coef = max_norm / (grad_norm + 1e-6)
+                state = self.state[p]
+                grad_norm_exp_avg = state.get("grad_norm_exp_avg")
+                if grad_norm_exp_avg is None:
+                    grad_norm_exp_avg = grad_norm.clone()
+                    state["grad_norm_exp_avg"] = grad_norm_exp_avg
+                if max_norm_ratio is not None:
+                    # Adaptive clipping.
+                    clip_coef = (max_norm_ratio * grad_norm_exp_avg) / (grad_norm + 1e-6)
                 else:
-                    continue
+                    # Fixed clipping.
+                    clip_coef = max_norm / (grad_norm + 1e-6)
                 clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
                 if clip_coef_clamped < 1.0:
                     num_grads_clipped += 1
                     if p.grad is not None:
                         # p.grad could be none for some ranks when using FSDP.
                         p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
+                all_metrics[f"grad_norm_exp_avg/{name}"] = grad_norm_exp_avg.clone().to(device="cpu")
+                # Update exponential average of gradient norm.
+                grad_norm_exp_avg.lerp_(grad_norm, 1 - beta1)
         clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
         if collect_param_metrics:
             all_metrics["clipping_rate"] = clipping_rate
             return all_metrics
         else:
             return {"clipping_rate": clipping_rate}
-
-    def get_exp_avg(self, param: nn.Parameter) -> Optional[torch.Tensor]:
-        """
-        Get the exponential average of the gradient for a parameter. This is used for gradient clipping.
-        """
-        del param
-        return None
 
     def get_post_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
         del module
@@ -255,9 +258,6 @@ class LionW(Optimizer):
             update_total_norm * signed_update_total_norm, torch.tensor(1e-8, device=get_default_device())
         )
         return {"update_cos_sim": update_cos_sim}
-
-    def get_exp_avg(self, param: nn.Parameter) -> Optional[torch.Tensor]:
-        return self.state[param].get("exp_avg")  # type: ignore
 
     @torch.no_grad()
     def step(self, closure=None) -> None:
@@ -318,9 +318,6 @@ class LionW(Optimizer):
 
 
 class AdamW(torch.optim.AdamW, Optimizer):
-    def get_exp_avg(self, param: nn.Parameter) -> Optional[torch.Tensor]:
-        return self.state[param].get("exp_avg")  # type: ignore
-
     def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
         return {key: self.state[param].get(key) for key in ("exp_avg", "exp_avg_sq")}  # type: ignore
 
