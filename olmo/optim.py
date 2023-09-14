@@ -182,8 +182,9 @@ class Optimizer(OptimizerBase):
                 if grad_norm_exp_avg is None:
                     grad_norm_exp_avg = grad_norm.clone()
                     # We don't want to add anything to `state` until `state` has been initialized, otherwise
-                    # this will crash some optimizers which rely on checking `len(state)`.
-                    if len(state) > 0:
+                    # this will crash some optimizers which rely on checking `len(state)`. The downside here
+                    # is that we won't start tracking `grad_norm_exp_avg` until the 2nd training step.
+                    if p.grad is None or len(state) > 0:
                         state["grad_norm_exp_avg"] = grad_norm_exp_avg
                 if max_norm_ratio is not None:
                     # Adaptive clipping.

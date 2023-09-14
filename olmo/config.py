@@ -705,8 +705,7 @@ class TrainConfig(BaseConfig):
 
     max_grad_norm_ratio: Optional[float] = None
     """
-    For optimizers that provide an exponential average for each parameter, gradient norms will be clipped
-    to `max_grad_norm_ratio * exp_avg`.
+    If set, gradient norms will be clipped to `max_grad_norm_ratio * exp_avg(norm(grad))`.
     This takes priority over `max_grad_norm` when set.
     """
 
