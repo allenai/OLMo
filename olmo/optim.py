@@ -184,7 +184,7 @@ class Optimizer(OptimizerBase):
                     # We don't want to add anything to `state` until `state` has been initialized, otherwise
                     # this will crash some optimizers which rely on checking `len(state)`. The downside here
                     # is that we won't start tracking `grad_norm_exp_avg` until the 2nd training step.
-                    if p.grad is None or len(state) > 0:
+                    if self._state_is_initialized:
                         state["grad_norm_exp_avg"] = grad_norm_exp_avg
                 if max_norm_ratio is not None:
                     # Adaptive clipping.
@@ -215,6 +215,17 @@ class Optimizer(OptimizerBase):
     def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
         del param
         return {}
+
+    @property
+    def _state_is_initialized(self) -> bool:
+        if not hasattr(self, "_state_initialized"):
+            self._state_initialized = False
+        if not self._state_initialized:
+            for state in self.state.values():
+                if len(state) > 0:
+                    self._state_initialized = True
+                    break
+        return self._state_initialized
 
 
 class LionW(Optimizer):
