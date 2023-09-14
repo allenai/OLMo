@@ -162,9 +162,9 @@ class Optimizer(OptimizerBase):
             if max_norm is None:
                 continue
             for name, p in zip(group["param_names"], group["params"]):
-                if p.grad is None:
+                grad_norm = all_metrics.get(f"grad/{name}.norm")
+                if grad_norm is None:
                     continue
-                grad_norm = all_metrics[f"grad/{name}.norm"]
                 exp_avg_norm = all_metrics.get(f"exp_avg/{name}.norm")
                 # NOTE: exp_avg_norm will be 0.0 on first step.
                 if max_norm_ratio is not None and exp_avg_norm is not None and exp_avg_norm.item() > 0.0:
@@ -174,7 +174,9 @@ class Optimizer(OptimizerBase):
                 clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
                 if clip_coef_clamped < 1.0:
                     num_grads_clipped += 1
-                    p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
+                    if p.grad is not None:
+                        # p.grad could be none for some ranks when using FSDP.
+                        p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
         all_metrics["num_grads_clipped"] = torch.tensor(num_grads_clipped, device="cpu")
         return all_metrics
 
