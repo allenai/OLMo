@@ -121,6 +121,9 @@ class Optimizer(OptimizerBase):
 
         per_param_avg_metrics: List[torch.Tensor] = []
         if is_distributed():  # TODO (epwalsh): skip for non-sharded params
+            # Reduce metrics across all ranks. Note that we can use a `reduce` for most cases
+            # instead of an `all_reduce`, but we need `all_reduce` for norms so that all ranks
+            # get the right value for gradient norms so they can clip correctly.
             # Reduce mins.
             if per_param_min_metrics:
                 all_mins = torch.cat(per_param_min_metrics).to(get_default_device())
@@ -139,13 +142,13 @@ class Optimizer(OptimizerBase):
                 all_sums_norms_numels = torch.cat(
                     [all_sums.unsqueeze(0), all_norms.unsqueeze(0), all_numels.unsqueeze(0)], dim=0
                 )
-                dist.reduce(all_sums_norms_numels, 0, op=dist.ReduceOp.SUM)
+                dist.all_reduce(all_sums_norms_numels, op=dist.ReduceOp.SUM)
                 all_sums, all_norms, all_numels = all_sums_norms_numels.split(1)
                 # Get averages.
                 # NOTE: could get infs for non-rank0 processes but that's okay.
                 per_param_avg_metrics = (all_sums / all_numels).squeeze(0).to(device="cpu").split(1)
             else:
-                dist.reduce(all_norms, 0, op=dist.ReduceOp.SUM)
+                dist.all_reduce(all_norms, op=dist.ReduceOp.SUM)
             per_param_norm_metrics = (all_norms ** (0.5)).squeeze(0).to(device="cpu").split(1)
         else:
             per_param_avg_metrics = [x / n for x, n in zip(per_param_sum_metrics, per_param_numel_metrics)]
