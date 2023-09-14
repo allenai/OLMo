@@ -13,11 +13,11 @@ Homepage: https://textsynth.com/index.html
 """
 import logging
 import os
-import requests as _requests
 import time
-from tqdm import tqdm
-from efficiency_benchmark.dependencies.lm_eval.base import BaseLM
 
+import requests as _requests
+from efficiency_benchmark.dependencies.lm_eval.base import BaseLM
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -100,9 +100,7 @@ class TextSynthLM(BaseLM):
                 is_greedy = resp["is_greedy"]
                 res.append((logprob, is_greedy))
             else:
-                logger.error(
-                    f"The following response does not contain `logprobs`. Got:\n{resp}"
-                )
+                logger.error(f"The following response does not contain `logprobs`. Got:\n{resp}")
                 assert False
         return res
 
@@ -139,10 +137,7 @@ class TextSynthLM(BaseLM):
                 s = resp["text"]
                 res.append(s)
             else:
-                logger.error(
-                    f"The following response does not contain generated `text`. "
-                    "Got:\n{resp}"
-                )
+                logger.error(f"The following response does not contain generated `text`. " "Got:\n{resp}")
                 assert False
         return res
 

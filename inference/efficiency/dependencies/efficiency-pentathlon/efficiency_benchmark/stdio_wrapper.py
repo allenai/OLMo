@@ -79,10 +79,7 @@ class StdioWrapper(ABC):
         return line
 
     def predict(  # type: ignore
-        self,
-        *,
-        input_batches: List[List[Dict[str, Any]]],
-        max_batch_size: int
+        self, *, input_batches: List[List[Dict[str, Any]]], max_batch_size: int
     ) -> Iterator[str]:
         for input_batch in tqdm.tqdm(input_batches, desc="Making predictions", miniters=10):
             # Make sure the batch size does not exceed a user defined maximum.
@@ -109,16 +106,11 @@ class StdioWrapper(ABC):
                         num_outputs_yielded += 1
             assert num_outputs_yielded == len(input_batch), "Number of outputs does not match number of inputs."
 
-    def provide_offline_configs(
-            self,
-            offline_data_path: str,
-            offline_output_file: str,
-            limit: int = -1
-    ) -> bool:
+    def provide_offline_configs(self, offline_data_path: str, offline_output_file: str, limit: int = -1) -> bool:
         configs = {
             "offline_data_path": offline_data_path,
             "offline_output_path": offline_output_file,
-            "limit": limit
+            "limit": limit,
         }
         os.set_blocking(self._process.stdout.fileno(), True)
         self._process.stdin.write(f"{json.dumps(configs)}\n".encode("utf-8"))
@@ -129,19 +121,15 @@ class StdioWrapper(ABC):
             if line.decode("utf-8").strip() == "Model and data loaded. Start the timer.":
                 break
 
-    def block_for_prediction(
-            self
-    ) -> bool:
+    def block_for_prediction(self) -> bool:
         os.set_blocking(self._process.stdout.fileno(), True)
 
         while True:
             line = self._process.stdout.readline()
             if line.decode("utf-8").strip() == "Offiline prediction done. Stop the timer.":
                 break
-    
-    def block_for_outputs(
-            self
-    ) -> bool:
+
+    def block_for_outputs(self) -> bool:
         os.set_blocking(self._process.stdout.fileno(), True)
 
         while True:
@@ -152,14 +140,10 @@ class StdioWrapper(ABC):
     def start(self):
         self._process = subprocess.Popen(self._cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
-    def dummy_predict(
-            self, 
-            dummy_inputs: List[Dict[str, Any]],
-            max_batch_size: int
-        ) -> List[str]:
+    def dummy_predict(self, dummy_inputs: List[Dict[str, Any]], max_batch_size: int) -> List[str]:
         dummy_outputs = self.predict(input_batches=[dummy_inputs], max_batch_size=max_batch_size)
         return list(dummy_outputs)
-    
+
     def stop(self):
         try:
             self._process.kill()

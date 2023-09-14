@@ -9,7 +9,7 @@ class GPTNeoXGPTQForCausalLM(BaseGPTQForCausalLM):
         ["attention.query_key_value"],
         ["attention.dense"],
         ["mlp.dense_h_to_4h"],
-        ["mlp.dense_4h_to_h"]
+        ["mlp.dense_4h_to_h"],
     ]
     lm_head_name = "embed_out"
 

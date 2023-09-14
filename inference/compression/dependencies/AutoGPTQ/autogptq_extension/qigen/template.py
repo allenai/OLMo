@@ -1,4 +1,3 @@
-
 def includes():
     out = " \
 #include <torch/all.h>\n \
@@ -14,16 +13,16 @@ def includes():
 
 
 def module(bits_list=[4, 2]):
-    out = 'PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {\n'
+    out = "PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {\n"
     for bits in bits_list:
         out += '  m.def("forward{}", &forward{}_cpu);\n'.format(bits, bits)
 
     for bits in bits_list:
         out += '  m.def("unpack_zeros{}", &unpack_zeros{});\n'.format(bits, bits)
-    
+
     for bits in bits_list:
         out += '  m.def("forward_gs{}", &forward{}_gs_cpu);\n'.format(bits, bits)
-    
+
     for bits in bits_list:
         out += '  m.def("pack{}", &pack{}_w_cpu);\n'.format(bits, bits)
 
@@ -31,13 +30,13 @@ def module(bits_list=[4, 2]):
     out += 'm.def("unquantize_sim", &unquantize_sim);\n'
 
     # if oracle:
-        # out += '  m.def("forward4_oracle", &forward4_oracle_cpu);\n'
-
+    # out += '  m.def("forward4_oracle", &forward4_oracle_cpu);\n'
 
     out += 'm.def("quant_scalar_scaled", &quant_scalar_cpu);\n'
 
-    out += '}\n'
+    out += "}\n"
     return out
+
 
 def quant_scalar():
     out = " \
@@ -77,9 +76,3 @@ void quant_scalar_cpu(\n \
 }\n"
 
     return out
-
-
-
-
-
-

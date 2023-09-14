@@ -9,7 +9,6 @@ import transformers
 
 from .quantizer import Quantizer
 
-
 logger = getLogger(__name__)
 
 torch.backends.cuda.matmul.allow_tf32 = False
@@ -47,7 +46,7 @@ class GPTQ:
                 self.layer.kernel_size,
                 dilation=self.layer.dilation,
                 padding=self.layer.padding,
-                stride=self.layer.stride
+                stride=self.layer.stride,
             )
             inp = unfold(inp)
             inp = inp.permute([1, 0, 2])
@@ -59,9 +58,7 @@ class GPTQ:
         # self.H += 2 / self.nsamples * inp.matmul(inp.t())
         self.H += inp.matmul(inp.t())
 
-    def fasterquant(
-        self, blocksize=128, percdamp=.01, group_size=-1, actorder=False, static_groups=False
-    ):
+    def fasterquant(self, blocksize=128, percdamp=0.01, group_size=-1, actorder=False, static_groups=False):
         W = self.layer.weight.data.clone()
         if isinstance(self.layer, nn.Conv2d):
             W = W.flatten(1)
@@ -87,10 +84,11 @@ class GPTQ:
 
         if static_groups:
             import copy
+
             groups = []
             for i in range(0, self.columns, group_size):
                 quantizer = copy.deepcopy(self.quantizer)
-                quantizer.find_params(W[:, i:(i + group_size)], weight=True)
+                quantizer.find_params(W[:, i : (i + group_size)], weight=True)
                 scale.append(quantizer.scale)
                 zero.append(quantizer.zero)
                 groups.append(quantizer)
@@ -129,8 +127,8 @@ class GPTQ:
                 if group_size != -1:
                     if not static_groups:
                         if (i1 + i) % group_size == 0:
-                            self.quantizer.find_params(W[:, (i1 + i):(i1 + i + group_size)], weight=True)
-                            
+                            self.quantizer.find_params(W[:, (i1 + i) : (i1 + i + group_size)], weight=True)
+
                         if ((i1 + i) // group_size) - now_idx == -1:
                             scale.append(self.quantizer.scale)
                             zero.append(self.quantizer.zero)
@@ -140,10 +138,10 @@ class GPTQ:
                         if actorder:
                             idx = perm[idx]
                         self.quantizer = groups[idx // group_size]
-                        
+
                 q = self.quantizer.quantize(w.unsqueeze(1)).flatten()
                 Q1[:, i] = q
-                Losses1[:, i] = (w - q) ** 2 / d ** 2
+                Losses1[:, i] = (w - q) ** 2 / d**2
 
                 err1 = (w - q) / d
                 W1[:, i:] -= err1.unsqueeze(1).matmul(Hinv1[i, i:].unsqueeze(0))
@@ -161,8 +159,8 @@ class GPTQ:
                 logger.debug(torch.sum(Losses))
 
         torch.cuda.synchronize()
-        logger.info(f'duration: {(time.time() - tick)}')
-        logger.info(f'avg loss: {torch.sum(Losses).item() / self.nsamples}')
+        logger.info(f"duration: {(time.time() - tick)}")
+        logger.info(f"avg loss: {torch.sum(Losses).item() / self.nsamples}")
 
         group_size = group_size if group_size != -1 else self.columns
         if static_groups and actorder:

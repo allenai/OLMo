@@ -13,8 +13,10 @@ in the broader discourse.
 
 Homepage: https://zenodo.org/record/2630551#.X4Xzn5NKjUI
 """
-from efficiency_benchmark.dependencies.lm_eval.tasks.lambada import LambadaOpenAI, LambadaStandard
-
+from efficiency_benchmark.dependencies.lm_eval.tasks.lambada import (
+    LambadaOpenAI,
+    LambadaStandard,
+)
 
 _CITATION = """
 @misc{

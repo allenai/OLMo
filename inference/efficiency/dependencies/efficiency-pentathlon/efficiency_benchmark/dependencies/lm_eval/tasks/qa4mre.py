@@ -15,7 +15,6 @@ Homepage: http://nlp.uned.es/clef-qa/repository/qa4mre.php
 """
 from efficiency_benchmark.dependencies.lm_eval.base import MultipleChoiceTask
 
-
 _CITATION = """
 @inproceedings{Peas2013QA4MRE2O,
     title={QA4MRE 2011-2013: Overview of Question Answering for Machine Reading Evaluation},

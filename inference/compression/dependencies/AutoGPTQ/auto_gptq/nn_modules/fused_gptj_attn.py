@@ -5,8 +5,8 @@ import torch.nn as nn
 from torch.nn import functional as F
 from transformers.models.gptj.modeling_gptj import GPTJAttention
 
-from ._fused_base import FusedBaseAttentionModule
 from ..utils.import_utils import compare_pytorch_version, dynamically_import_QuantLinear
+from ._fused_base import FusedBaseAttentionModule
 
 
 def fixed_pos_embedding(x, seq_dim=1, seq_len=None):
@@ -69,7 +69,9 @@ class FusedGPTJAttentionForQuantizedModel(FusedBaseAttentionModule):
                 f"embed_dim must be divisible by num_attention_heads (got `embed_dim`: {self.embed_dim} and"
                 f" `num_attention_heads`: {self.num_attention_heads})."
             )
-        self.scale_attn = torch.sqrt(torch.tensor(self.head_dim, dtype=torch.float32)).to(torch.get_default_dtype())
+        self.scale_attn = torch.sqrt(torch.tensor(self.head_dim, dtype=torch.float32)).to(
+            torch.get_default_dtype()
+        )
 
         self.qkv_proj = nn.Linear(self.embed_dim, self.embed_dim * 3, bias=False)
         self.out_proj = nn.Linear(self.embed_dim, self.embed_dim, bias=False)
@@ -110,7 +112,7 @@ class FusedGPTJAttentionForQuantizedModel(FusedBaseAttentionModule):
     ):
         # compute causal mask from causal mask buffer
         query_length, key_length = query.size(-2), key.size(-2)
-        causal_mask = self.bias[:, :, key_length - query_length: key_length, :key_length]
+        causal_mask = self.bias[:, :, key_length - query_length : key_length, :key_length]
 
         # Keep the attention weights computation in fp32 to avoid overflow issues
         query = query.to(torch.float32)
@@ -166,10 +168,10 @@ class FusedGPTJAttentionForQuantizedModel(FusedBaseAttentionModule):
 
         if self.rotary_dim is not None:
             k_rot = key[:, :, :, : self.rotary_dim]
-            k_pass = key[:, :, :, self.rotary_dim:]
+            k_pass = key[:, :, :, self.rotary_dim :]
 
             q_rot = query[:, :, :, : self.rotary_dim]
-            q_pass = query[:, :, :, self.rotary_dim:]
+            q_pass = query[:, :, :, self.rotary_dim :]
 
             sincos = fixed_pos_embedding(k_rot, 1, seq_len=seq_len)
             k_rot = apply_rotary_pos_emb(k_rot, sincos, offset=offset)
@@ -209,7 +211,7 @@ class FusedGPTJAttentionForQuantizedModel(FusedBaseAttentionModule):
                 value,
                 attn_mask=None if is_causal else attention_mask,
                 dropout_p=self.attn_dropout_p,
-                is_causal=is_causal
+                is_causal=is_causal,
             )
             attn_weights = None
         else:
@@ -236,10 +238,16 @@ class FusedGPTJAttentionForQuantizedModel(FusedBaseAttentionModule):
         trainable=False,
         bits: int = 4,
         disable_exllama=False,
-        **kwargs
+        **kwargs,
     ):
         config = model.config
-        QuantLinear = dynamically_import_QuantLinear(use_triton=use_triton, desc_act=desc_act, group_size=group_size, bits=bits, disable_exllama=disable_exllama)
+        QuantLinear = dynamically_import_QuantLinear(
+            use_triton=use_triton,
+            desc_act=desc_act,
+            group_size=group_size,
+            bits=bits,
+            disable_exllama=disable_exllama,
+        )
 
         for name, m in model.named_modules():
             if not isinstance(m, GPTJAttention):
@@ -258,7 +266,9 @@ class FusedGPTJAttentionForQuantizedModel(FusedBaseAttentionModule):
             if QuantLinear.QUANT_TYPE == "exllama":
                 if desc_act:
                     # See fused_llama_attn.py comment
-                    raise ValueError("Exllama kernel does not support query/key/value fusion with act-order. Please either use inject_fused_attention=False or disable_exllama=True.")
+                    raise ValueError(
+                        "Exllama kernel does not support query/key/value fusion with act-order. Please either use inject_fused_attention=False or disable_exllama=True."
+                    )
                 else:
                     g_idx = None
             else:
@@ -283,12 +293,12 @@ class FusedGPTJAttentionForQuantizedModel(FusedBaseAttentionModule):
             qkv_proj.g_idx = g_idx
             qkv_proj.bias = bias
 
-            if '.' in name:
-                parent_name = name.rsplit('.', 1)[0]
-                child_name = name[len(parent_name) + 1:]
+            if "." in name:
+                parent_name = name.rsplit(".", 1)[0]
+                child_name = name[len(parent_name) + 1 :]
                 parent = model.get_submodule(parent_name)
             else:
-                parent_name = ''
+                parent_name = ""
                 parent = model
                 child_name = name
 

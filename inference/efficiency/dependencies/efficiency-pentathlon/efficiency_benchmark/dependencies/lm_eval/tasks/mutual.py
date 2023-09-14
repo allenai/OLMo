@@ -7,12 +7,12 @@ modified from Chinese high school English listening comprehension test data.
 
 Homepage: https://github.com/Nealcly/MuTual
 """
-import numpy as np
 import inspect
+
 import efficiency_benchmark.dependencies.lm_eval.datasets.mutual.mutual
+import numpy as np
 from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
 from efficiency_benchmark.dependencies.lm_eval.metrics import mean
-
 
 _CITATION = """
 @inproceedings{mutual,

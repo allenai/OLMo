@@ -14,10 +14,11 @@ import time
 
 import numpy as np
 import torch
-from hf_olmo import *
 from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
 from datasets import load_dataset
 from transformers import AutoTokenizer
+
+from hf_olmo import *
 
 
 def get_wikitext2(nsamples, seed, seqlen, model):

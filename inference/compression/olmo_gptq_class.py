@@ -1,5 +1,6 @@
 from auto_gptq.modeling._base import BaseGPTQForCausalLM
 
+
 class OlmoGPTQForCausalLM(BaseGPTQForCausalLM):
     # Attribute name of Transformer layer block.
     layers_block_name = "model.transformer.blocks"
@@ -13,12 +14,8 @@ class OlmoGPTQForCausalLM(BaseGPTQForCausalLM):
     # - MLP projection
     # - MLP output
 
-    inside_layer_modules = [
-        ["att_proj"],
-        ["attn_out"],
-        ["ff_proj"],
-        ["ff_out"]
-    ]
+    inside_layer_modules = [["att_proj"], ["attn_out"], ["ff_proj"], ["ff_out"]]
+
 
 __all__ = ["OlmoGPTQForCausalLM"]
 

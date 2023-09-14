@@ -1,12 +1,13 @@
-import os
-import pathlib
-import re
 import collections
 import functools
 import inspect
+import os
+import pathlib
+import re
 import sys
-import pytest
 from typing import List
+
+import pytest
 
 
 class ExitCodeError(Exception):
@@ -177,9 +178,7 @@ def find_test_root(start_path: pathlib.Path) -> pathlib.Path:
             return cur_path
         else:
             cur_path = cur_path.parent.resolve()
-    raise FileNotFoundError(
-        f"Unable to find package root within {max_layers} upwards" + f"of {start_path}"
-    )
+    raise FileNotFoundError(f"Unable to find package root within {max_layers} upwards" + f"of {start_path}")
 
 
 @positional_deprecated

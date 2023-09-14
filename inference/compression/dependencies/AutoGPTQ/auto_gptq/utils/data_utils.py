@@ -4,7 +4,7 @@ from functools import partial
 from typing import Callable, Dict, List, Optional
 
 import torch
-from datasets import load_dataset, DatasetDict, IterableDatasetDict
+from datasets import DatasetDict, IterableDatasetDict, load_dataset
 from torch import LongTensor
 from torch.utils.data import DataLoader
 from transformers import PreTrainedTokenizer
@@ -20,7 +20,7 @@ def make_data_block(
     block_max_len: int = 2048,
     add_eos_token: bool = False,
     truncate_prompt: bool = True,
-    merge_prompt_label: bool = False
+    merge_prompt_label: bool = False,
 ) -> Dict[str, List[LongTensor]]:
     """A simple implementation of text generation oriented smart batching to maximize VRAM usage when evaluation
 
@@ -64,7 +64,7 @@ def make_data_block(
             if truncate_prompt:
                 tokenized_prompt = tokenized_prompt[exceed_len:]
             else:
-                tokenized_label = tokenized_label[: -exceed_len]
+                tokenized_label = tokenized_label[:-exceed_len]
         tokenized_prompts[idx] = tokenized_prompt
         tokenized_labels[idx] = tokenized_label
         if not tokenized_label:
@@ -73,10 +73,11 @@ def make_data_block(
     # make data blocks of samples
     tokenized_samples = sorted(
         [
-            (p, l) for idx, (p, l) in enumerate(zip(tokenized_prompts, tokenized_labels))
+            (p, l)
+            for idx, (p, l) in enumerate(zip(tokenized_prompts, tokenized_labels))
             if idx not in dropped_indices
         ],
-        key=lambda x: (len(x[0]) + len(x[1])) if merge_prompt_label else len(x[0])
+        key=lambda x: (len(x[0]) + len(x[1])) if merge_prompt_label else len(x[0]),
     )
     sample_blocks = []
     sample_block = []
@@ -112,11 +113,7 @@ def make_data_block(
     del blk_max_len
     del blk_total_len
 
-    new_samples = {
-        "input_ids": [],
-        "attention_mask": [],
-        "labels": []
-    }
+    new_samples = {"input_ids": [], "attention_mask": [], "labels": []}
     # padding each data block internally
     for block, blk_max_len in sample_blocks:
         input_ids = []
@@ -171,7 +168,7 @@ def collate_data(blocks: List[Dict[str, List[List[int]]]], pad_token_id: int) ->
     return {
         "input_ids": torch.cat(input_ids_blocks, dim=0).long(),
         "attention_mask": torch.cat(attention_mask_blocks, dim=0).long(),
-        "labels": torch.cat(label_blocks, dim=0).long()
+        "labels": torch.cat(label_blocks, dim=0).long(),
     }
 
 
@@ -251,8 +248,8 @@ def get_dataloader(
             "block_max_len": block_max_len,
             "add_eos_token": add_eos_token,
             "truncate_prompt": truncate_prompt,
-            "merge_prompt_label": merge_prompt_label
-        }
+            "merge_prompt_label": merge_prompt_label,
+        },
     )
 
     # override some arguments' values in kwargs despite user specified

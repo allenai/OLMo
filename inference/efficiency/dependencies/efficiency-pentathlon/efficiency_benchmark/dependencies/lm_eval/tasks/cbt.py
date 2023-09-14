@@ -13,9 +13,8 @@ used by the Recurrent Language Models described in the paper. See section 4.4.
 Homepage: https://github.com/facebookresearch/ParlAI/tree/main/parlai/tasks/cbt
 """
 import numpy as np
-from efficiency_benchmark.dependencies.lm_eval.base import rf, Task
+from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
 from efficiency_benchmark.dependencies.lm_eval.metrics import mean
-
 
 _CITATION = """
 @misc{hill2016goldilocks,
@@ -86,9 +85,7 @@ class CBTBase(Task):
         return ""
 
     def fewshot_examples(self, k, rnd):
-        assert (
-            k == 0
-        ), f"CBT is only implemented for the zero-shot setting. Given k={k}."
+        assert k == 0, f"CBT is only implemented for the zero-shot setting. Given k={k}."
         return super().fewshot_examples(k, rnd)
 
     def construct_requests(self, doc, ctx):

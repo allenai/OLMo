@@ -21,7 +21,6 @@ import os
 
 import datasets
 
-
 _CITATION = """\
 @misc{merity2016pointer,
       title={Pointer Sentinel Mixture Models},
@@ -199,35 +198,27 @@ class Wikitext(datasets.GeneratorBasedBuilder):
                     ]
                 else:
                     if self.config.name == "wikitext-2-v1":
-                        data_file = dl_manager.download_and_extract(
-                            self.config.data_url
-                        )
+                        data_file = dl_manager.download_and_extract(self.config.data_url)
                         data_dir = os.path.join(data_file, "wikitext-2")
                         return [
                             datasets.SplitGenerator(
                                 name=datasets.Split.TEST,
                                 gen_kwargs={
-                                    "data_file": os.path.join(
-                                        data_dir, "wiki.test.tokens"
-                                    ),
+                                    "data_file": os.path.join(data_dir, "wiki.test.tokens"),
                                     "split": "test",
                                 },
                             ),
                             datasets.SplitGenerator(
                                 name=datasets.Split.TRAIN,
                                 gen_kwargs={
-                                    "data_file": os.path.join(
-                                        data_dir, "wiki.train.tokens"
-                                    ),
+                                    "data_file": os.path.join(data_dir, "wiki.train.tokens"),
                                     "split": "train",
                                 },
                             ),
                             datasets.SplitGenerator(
                                 name=datasets.Split.VALIDATION,
                                 gen_kwargs={
-                                    "data_file": os.path.join(
-                                        data_dir, "wiki.valid.tokens"
-                                    ),
+                                    "data_file": os.path.join(data_dir, "wiki.valid.tokens"),
                                     "split": "valid",
                                 },
                             ),

@@ -1,29 +1,31 @@
-import intrin
 import argparse
+import math
 import subprocess
 import time
-import template
-import math
+
+import intrin
 import numpy as np
-from gekko import GEKKO
 import pandas as pd
+import template
+from gekko import GEKKO
+
 
 def mem_model(N, M, T, mu, tu, bits, l1, p, gs, verbose=False):
-    m = GEKKO() # create GEKKO model
-    #cinfergen if bits==3:
-        # tu = tu*3
+    m = GEKKO()  # create GEKKO model
+    # cinfergen if bits==3:
+    # tu = tu*3
     B = m.Const(value=bits)
-    TP = m.Const(value=T//p)
-    k = m.Var(1,integer=True,lb=1)
-    z = m.Var(1,integer=True,lb=1)
-    w = m.Var(1,integer=True,lb=1)
-    y = m.Var(1,integer=True,lb=1)
-    v = m.Var(1,integer=True,lb=1)
-    mb = m.Var(mu,integer=True,lb=1)
+    TP = m.Const(value=T // p)
+    k = m.Var(1, integer=True, lb=1)
+    z = m.Var(1, integer=True, lb=1)
+    w = m.Var(1, integer=True, lb=1)
+    y = m.Var(1, integer=True, lb=1)
+    v = m.Var(1, integer=True, lb=1)
+    mb = m.Var(mu, integer=True, lb=1)
     if gs != -1:
-        gg = m.Var(1,integer=True,lb=1)
-    tb = m.Var(tu,integer=True,lb=1,ub=int(T/p))
-    L = m.Var(integer=True,lb=0,ub=l1)
+        gg = m.Var(1, integer=True, lb=1)
+    tb = m.Var(tu, integer=True, lb=1, ub=int(T / p))
+    L = m.Var(integer=True, lb=0, ub=l1)
     m.Equation(L == 32 * mb * N + B * mb * tb + 32 * tb * N)
     m.Equation(mb * k == M)
     if gs != -1:
@@ -35,36 +37,28 @@ def mem_model(N, M, T, mu, tu, bits, l1, p, gs, verbose=False):
     # m.Equation(tb * v == tt)
     m.Maximize(L)
     m.options.SOLVER = 1
-    m.solver_options = ['minlp_maximum_iterations 1000', \
-                # minlp iterations with integer solution
-                'minlp_max_iter_with_int_sol 10', \
-                # treat minlp as nlp
-                'minlp_as_nlp 0', \
-                # nlp sub-problem max iterations
-                'nlp_maximum_iterations 100', \
-                # 1 = depth first, 2 = breadth first
-                'minlp_branch_method 2', \
-                # maximum deviation from whole number
-                'minlp_integer_tol 0.00', \
-                # covergence tolerance
-                'minlp_gap_tol 0.01']
+    m.solver_options = [
+        "minlp_maximum_iterations 1000",  # minlp iterations with integer solution
+        "minlp_max_iter_with_int_sol 10",  # treat minlp as nlp
+        "minlp_as_nlp 0",  # nlp sub-problem max iterations
+        "nlp_maximum_iterations 100",  # 1 = depth first, 2 = breadth first
+        "minlp_branch_method 2",  # maximum deviation from whole number
+        "minlp_integer_tol 0.00",  # covergence tolerance
+        "minlp_gap_tol 0.01",
+    ]
     try:
         m.solve(disp=False)
     except:
         try:
-            m.solver_options = ['minlp_maximum_iterations 1000', \
-                            # minlp iterations with integer solution
-                            'minlp_max_iter_with_int_sol 10', \
-                            # treat minlp as nlp
-                            'minlp_as_nlp 0', \
-                            # nlp sub-problem max iterations
-                            'nlp_maximum_iterations 100', \
-                            # 1 = depth first, 2 = breadth first
-                            'minlp_branch_method 1', \
-                            # maximum deviation from whole number
-                            'minlp_integer_tol 0.00', \
-                            # covergence tolerance
-                            'minlp_gap_tol 0.01']
+            m.solver_options = [
+                "minlp_maximum_iterations 1000",  # minlp iterations with integer solution
+                "minlp_max_iter_with_int_sol 10",  # treat minlp as nlp
+                "minlp_as_nlp 0",  # nlp sub-problem max iterations
+                "nlp_maximum_iterations 100",  # 1 = depth first, 2 = breadth first
+                "minlp_branch_method 1",  # maximum deviation from whole number
+                "minlp_integer_tol 0.00",  # covergence tolerance
+                "minlp_gap_tol 0.01",
+            ]
             m.solve(disp=False)
         except:
             # mytb = T//p
@@ -96,21 +90,24 @@ def mem_model(N, M, T, mu, tu, bits, l1, p, gs, verbose=False):
 def macros():
     return "#include<omp.h>\n#include<immintrin.h>\n#include<fstream>\n\n#define mymin(a,b) ((a)<(b)?(a):(b))\n#define mymax(a,b) ((a)>(b)?(a):(b))\n"
 
+
 def print_parameters(bits, n, m, t, nb, mb, tb, mu, nu, tu, unroll, p, gs=-1):
     res = ""
     res += "void print_parameters(){\n"
-    res += f"  std::cout << {bits} << \"bits,\" << {n} << \",\" << {m} << \",\" << {t} << \",\" << {nb} << \",\" << {mb} << \",\" << {tb} << \",\" << {nu} << \",\" << {mu} << \",\" << {tu} << \",\" << {unroll} << \",\" << {p}  << \",\" << {gs} << \",\";\n"
+    res += f'  std::cout << {bits} << "bits," << {n} << "," << {m} << "," << {t} << "," << {nb} << "," << {mb} << "," << {tb} << "," << {nu} << "," << {mu} << "," << {tu} << "," << {unroll} << "," << {p}  << "," << {gs} << ",";\n'
     res += "}\n"
     return res
+
 
 def print_parameters_module(bits, mu, nu, tu, unroll, p, gs=-1):
     res = ""
     res += "void print_parameters(){\n"
     res += "std::ofstream outfile;\n"
-    res += "outfile.open(\"./autogptq_extension/qigen/tmp.csv\", std::ios_base::app);\n"
-    res += f"outfile << {bits} << \",\" << {nu} << \",\" << {mu} << \",\" << {tu} << \",\" << {unroll} << \",\" << {p}  << \",\" << {gs} << \",\";\n"
+    res += 'outfile.open("./autogptq_extension/qigen/tmp.csv", std::ios_base::app);\n'
+    res += f'outfile << {bits} << "," << {nu} << "," << {mu} << "," << {tu} << "," << {unroll} << "," << {p}  << "," << {gs} << ",";\n'
     res += "}\n"
     return res
+
 
 def pack_in(n, m, nb, mb):
     res = ""
@@ -134,6 +131,7 @@ def pack_in(n, m, nb, mb):
     }\n"
     return res
 
+
 def pack_out(n, t, nb, tb):
     res = ""
     res += "inline void pack_output(float* A, float* B){\n"
@@ -155,6 +153,7 @@ def pack_out(n, t, nb, tb):
         }\n \
     }\n"
     return res
+
 
 def pack_qw(m, t, mb, tb, tb1, bits=4, cutoff=-1):
     packed = 32 // bits
@@ -197,7 +196,7 @@ def pack_qw(m, t, mb, tb, tb1, bits=4, cutoff=-1):
         res += "  // copy the full matrix A in blocked format into B\n"
         res += "  uint64_t idx = 0;\n"
         res += f"  const int N = {m // packed};\n"
-        res += f"  const int M = {t};\n"  
+        res += f"  const int M = {t};\n"
         res += f"  const int nb = {mb // packed};\n"
         res += f"int mb = {int(tb)};\n"
         res += "    for(int j = 0, tid = 0; j < M; j+=mb, tid++){\n"
@@ -219,28 +218,27 @@ def pack_qw(m, t, mb, tb, tb1, bits=4, cutoff=-1):
         res += "}\n"
         return res
 
+
 def block_gs(nu_iter, mu, tu, rho, packed, unroll, bits):
     res = ""
     i = 0
     # unroll = 4 # number of bcasts and unpacks
     if bits == 3:
-        for j in range(0,tu,8):
+        for j in range(0, tu, 8):
             res += f"__m256i w0_{j} = _mm256_loadu_si256((__m256i*)&W[base_W + j*m/{packed}*3 + k*mb*tb/{packed}*3 + k3*tb/{packed}*3 + jw+{j*3}]);\n"
             res += f"__m256i w1_{j} = _mm256_loadu_si256((__m256i*)&W[base_W + j*m/{packed}*3 + k*mb*tb/{packed}*3 + k3*tb/{packed}*3 + jw+{j*3}+8]);\n"
             res += f"__m256i w2_{j} = _mm256_loadu_si256((__m256i*)&W[base_W + j*m/{packed}*3 + k*mb*tb/{packed}*3 + k3*tb/{packed}*3 + jw+{j*3}+16]);\n"
-        
+
         u = 0
         first_off = 3
         second_off = 2
         wid = 0
         shift = 0
         while u < 32:
-
             if u == 10:
-
                 res += f"__m256 v{i}_{u} = _mm256_set1_ps(input[(i*om+k)*mb*nb + (k3+{u})*nb + i1+{i}]);\n"
 
-                for j in range(0,tu,8):
+                for j in range(0, tu, 8):
                     res += f"__m256i ws{j}_10 = _mm256_srli_epi32(w0_{j}, {bits*10});\n"
                     res += f"__m256i temp0_{j} = _mm256_slli_epi32(w1_{j}, 2);\n"
                     res += f"temp0_{j} = _mm256_and_si256(temp0_{j}, mask);\n"
@@ -258,7 +256,7 @@ def block_gs(nu_iter, mu, tu, rho, packed, unroll, bits):
             elif u == 21:
                 res += f"__m256 v{i}_{u} = _mm256_set1_ps(input[(i*om+k)*mb*nb + (k3+{u})*nb + i1+{i}]);\n"
 
-                for j in range(0,tu,8):
+                for j in range(0, tu, 8):
                     res += f"__m256i ws{j}_{u} = _mm256_srli_epi32(w1_{j}, 31);\n"
                     res += f"__m256i temp1_{j} = _mm256_slli_epi32(w2_{j}, 1);\n"
                     res += f"temp1_{j} = _mm256_and_si256(temp1_{j}, mask);\n"
@@ -273,72 +271,70 @@ def block_gs(nu_iter, mu, tu, rho, packed, unroll, bits):
                 wid = wid + 1
                 u = u + 1
 
-            for k in range(u,u + second_off):
+            for k in range(u, u + second_off):
                 res += f"__m256 v{i}_{k} = _mm256_set1_ps(input[(i*om+k)*mb*nb + (k3+{k})*nb + i1+{i}]);\n"
 
-            for k in range(u,u + second_off):
-                for j in range(0,tu,8):
+            for k in range(u, u + second_off):
+                for j in range(0, tu, 8):
                     res += f"__m256i ws{j}_{k} = _mm256_srli_epi32(w{wid}_{j}, {bits*k-wid*32-shift});\n"
 
-                for j in range(0,tu,8):
+                for j in range(0, tu, 8):
                     res += f"__m256i wsa{j}_{k} = _mm256_and_si256(ws{j}_{k}, mask);\n"
 
-                for j in range(0,tu,8):
+                for j in range(0, tu, 8):
                     res += f"__m256 l{j}_{k} = _mm256_cvtepi32_ps(wsa{j}_{k});\n"
 
-                for j in range(0,tu,8):
+                for j in range(0, tu, 8):
                     res += f"acc{i}_{j} = _mm256_fmadd_ps(v{i}_{k}, l{j}_{k}, acc{i}_{j});\n"
 
             u = u + 2
 
-
         return res
 
     else:
-        for j in range(0,tu,8):
+        for j in range(0, tu, 8):
             res += f"__m256i w{j} = _mm256_loadu_si256((__m256i*)&W[base_W + j*m/{packed} + k*mb*tb/{packed} + k3*tb/{packed} + j1+{j}]);\n"
 
-        for u in range(packed-unroll, -1, -unroll):
-            for k in range(u+unroll-1,u-1,-1):
+        for u in range(packed - unroll, -1, -unroll):
+            for k in range(u + unroll - 1, u - 1, -1):
                 res += f"__m256 v{i}_{k} = _mm256_set1_ps(input[(i*om+k)*mb*nb + (k3+{k})*nb + i1+{i}]);\n"
 
-            for k in range(u,u+unroll):
-                for j in range(0,tu,8):
+            for k in range(u, u + unroll):
+                for j in range(0, tu, 8):
                     res += f"__m256i ws{j}_{k} = _mm256_srli_epi32(w{j}, {bits*k});\n"
 
-                for j in range(0,tu,8):
+                for j in range(0, tu, 8):
                     res += f"__m256i wsa{j}_{k}= _mm256_and_si256(ws{j}_{k}, mask);\n"
 
-                for j in range(0,tu,8):
+                for j in range(0, tu, 8):
                     res += f"__m256 l{j}_{k} = _mm256_cvtepi32_ps(wsa{j}_{k});\n"
 
-                for j in range(0,tu,8):
+                for j in range(0, tu, 8):
                     res += f"acc{i}_{j} = _mm256_fmadd_ps(v{i}_{k}, l{j}_{k}, acc{i}_{j});\n"
 
         return res
+
 
 def block(nu_iter, mu, tu, rho, packed, unroll, bits):
     res = ""
     i = 0
     # unroll = 4 # number of bcasts and unpacks
     if bits == 3:
-        for j in range(0,tu,8):
+        for j in range(0, tu, 8):
             res += f"__m256i w0_{j} = _mm256_loadu_si256((__m256i*)&W[base_W + j*m/{packed}*3 + k*mb*tb/{packed}*3 + k2*tb/{packed}*3 + jw+{j*3}]);\n"
             res += f"__m256i w1_{j} = _mm256_loadu_si256((__m256i*)&W[base_W + j*m/{packed}*3 + k*mb*tb/{packed}*3 + k2*tb/{packed}*3 + jw+{j*3}+8]);\n"
             res += f"__m256i w2_{j} = _mm256_loadu_si256((__m256i*)&W[base_W + j*m/{packed}*3 + k*mb*tb/{packed}*3 + k2*tb/{packed}*3 + jw+{j*3}+16]);\n"
-        
+
         u = 0
         first_off = 3
         second_off = 2
         wid = 0
         shift = 0
         while u < 32:
-
             if u == 10:
-
                 res += f"__m256 v{i}_{u} = _mm256_set1_ps(input[(i*om+k)*mb*nb + (k2+{u})*nb + i1+{i}]);\n"
 
-                for j in range(0,tu,8):
+                for j in range(0, tu, 8):
                     res += f"__m256i ws{j}_10 = _mm256_srli_epi32(w0_{j}, {bits*10});\n"
                     res += f"__m256i temp0_{j} = _mm256_slli_epi32(w1_{j}, 2);\n"
                     res += f"temp0_{j} = _mm256_and_si256(temp0_{j}, mask);\n"
@@ -356,7 +352,7 @@ def block(nu_iter, mu, tu, rho, packed, unroll, bits):
             elif u == 21:
                 res += f"__m256 v{i}_{u} = _mm256_set1_ps(input[(i*om+k)*mb*nb + (k2+{u})*nb + i1+{i}]);\n"
 
-                for j in range(0,tu,8):
+                for j in range(0, tu, 8):
                     res += f"__m256i ws{j}_{u} = _mm256_srli_epi32(w1_{j}, 31);\n"
                     res += f"__m256i temp1_{j} = _mm256_slli_epi32(w2_{j}, 1);\n"
                     res += f"temp1_{j} = _mm256_and_si256(temp1_{j}, mask);\n"
@@ -371,46 +367,45 @@ def block(nu_iter, mu, tu, rho, packed, unroll, bits):
                 wid = wid + 1
                 u = u + 1
 
-            for k in range(u,u + second_off):
+            for k in range(u, u + second_off):
                 res += f"__m256 v{i}_{k} = _mm256_set1_ps(input[(i*om+k)*mb*nb + (k2+{k})*nb + i1+{i}]);\n"
 
-            for k in range(u,u + second_off):
-                for j in range(0,tu,8):
+            for k in range(u, u + second_off):
+                for j in range(0, tu, 8):
                     res += f"__m256i ws{j}_{k} = _mm256_srli_epi32(w{wid}_{j}, {bits*k-wid*32-shift});\n"
 
-                for j in range(0,tu,8):
+                for j in range(0, tu, 8):
                     res += f"__m256i wsa{j}_{k} = _mm256_and_si256(ws{j}_{k}, mask);\n"
 
-                for j in range(0,tu,8):
+                for j in range(0, tu, 8):
                     res += f"__m256 l{j}_{k} = _mm256_cvtepi32_ps(wsa{j}_{k});\n"
 
-                for j in range(0,tu,8):
+                for j in range(0, tu, 8):
                     res += f"acc{i}_{j} = _mm256_fmadd_ps(v{i}_{k}, l{j}_{k}, acc{i}_{j});\n"
 
             u = u + 2
 
-
         return res
 
     else:
-        for j in range(0,tu,8):
+        for j in range(0, tu, 8):
             res += f"__m256i w{j} = _mm256_loadu_si256((__m256i*)&W[base_W + j*m/{packed} + k*mb*tb/{packed} + k2*tb/{packed} + j1+{j}]);\n"
 
-        for u in range(packed-unroll, -1, -unroll):
-            for k in range(u+unroll-1,u-1,-1):
+        for u in range(packed - unroll, -1, -unroll):
+            for k in range(u + unroll - 1, u - 1, -1):
                 res += f"__m256 v{i}_{k} = _mm256_set1_ps(input[(i*om+k)*mb*nb + (k2+{k})*nb + i1+{i}]);\n"
 
-            for k in range(u,u+unroll):
-                for j in range(0,tu,8):
+            for k in range(u, u + unroll):
+                for j in range(0, tu, 8):
                     res += f"__m256i ws{j}_{k} = _mm256_srli_epi32(w{j}, {bits*k});\n"
 
-                for j in range(0,tu,8):
+                for j in range(0, tu, 8):
                     res += f"__m256i wsa{j}_{k}= _mm256_and_si256(ws{j}_{k}, mask);\n"
 
-                for j in range(0,tu,8):
+                for j in range(0, tu, 8):
                     res += f"__m256 l{j}_{k} = _mm256_cvtepi32_ps(wsa{j}_{k});\n"
 
-                for j in range(0,tu,8):
+                for j in range(0, tu, 8):
                     res += f"acc{i}_{j} = _mm256_fmadd_ps(v{i}_{k}, l{j}_{k}, acc{i}_{j});\n"
 
         return res
@@ -419,41 +414,49 @@ def block(nu_iter, mu, tu, rho, packed, unroll, bits):
 def accumulators_f(nu, tu, gs=False):
     accumulators = ""
     for i in range(nu):
-        for j in range(0,tu,8):
+        for j in range(0, tu, 8):
             if gs:
                 accumulators += f"__m256 acc{i}_{j} = _mm256_setzero_ps();\n"
             else:
-                accumulators += f"__m256 acc{i}_{j} = _mm256_loadu_ps(&output[base_output + j + (i1+{i})*t + j1+{j}]);\n"
+                accumulators += (
+                    f"__m256 acc{i}_{j} = _mm256_loadu_ps(&output[base_output + j + (i1+{i})*t + j1+{j}]);\n"
+                )
     return accumulators
+
 
 def stores_f(nu, tu, gs=False):
     store = ""
     if gs:
         for i in range(nu):
-            for j in range(0,tu,8):
+            for j in range(0, tu, 8):
                 store += f"__m256 o{i}_{j} = _mm256_loadu_ps(&output[base_output + j + (i1+{i})*t + j1+{j}]);\n"
 
         for i in range(nu):
-            for j in range(0,tu,8):
-                store += f"__m256 s{i}_{j} = _mm256_loadu_ps(&scales[(k*mb+k1)/gs * t + base_output + j + j1+{j}]);\n"
+            for j in range(0, tu, 8):
+                store += (
+                    f"__m256 s{i}_{j} = _mm256_loadu_ps(&scales[(k*mb+k1)/gs * t + base_output + j + j1+{j}]);\n"
+                )
 
         for i in range(nu):
-            for j in range(0,tu,8):
+            for j in range(0, tu, 8):
                 store += f"__m256 f{i}_{j} = _mm256_fmadd_ps(acc{i}_{j}, s{i}_{j}, o{i}_{j});\n"
 
         for i in range(nu):
-            for j in range(0,tu,8):
+            for j in range(0, tu, 8):
                 store += f"_mm256_storeu_ps(&output[base_output + j + (i1+{i})*t + j1+{j}], f{i}_{j});\n"
     else:
         for i in range(nu):
-            for j in range(0,tu,8):
+            for j in range(0, tu, 8):
                 store += f"_mm256_storeu_ps(&output[base_output + j + (i1+{i})*t + j1+{j}], acc{i}_{j});\n"
     return store
 
-def qforward(nu, mu, tu, p, unroll, bits, n=0, m=0, t =0, nb=0, mb=0, tb=0, tt=0, cutoff=-1, gs=False, gs_val=-1, module=True):
-    assert(module or (gs and gs_val != -1) or (not gs and gs_val == -1))
+
+def qforward(
+    nu, mu, tu, p, unroll, bits, n=0, m=0, t=0, nb=0, mb=0, tb=0, tt=0, cutoff=-1, gs=False, gs_val=-1, module=True
+):
+    assert module or (gs and gs_val != -1) or (not gs and gs_val == -1)
     if cutoff == -1:
-        cutoff = p+1
+        cutoff = p + 1
     # packed = 32 // bits
     if bits == 3:
         packed = 32
@@ -461,7 +464,7 @@ def qforward(nu, mu, tu, p, unroll, bits, n=0, m=0, t =0, nb=0, mb=0, tb=0, tt=0
     else:
         packed = 32 // bits
         loopguard = packed
-    #compute the parameters from the model
+    # compute the parameters from the model
 
     accumulators = accumulators_f(nu, tu, gs)
     store = stores_f(nu, tu, gs)
@@ -502,7 +505,6 @@ def qforward(nu, mu, tu, p, unroll, bits, n=0, m=0, t =0, nb=0, mb=0, tb=0, tt=0
         ugemm += store
         ugemm += "}\n"
 
-
     res = ""
     res += "inline\n"
     if gs:
@@ -512,9 +514,9 @@ def qforward(nu, mu, tu, p, unroll, bits, n=0, m=0, t =0, nb=0, mb=0, tb=0, tt=0
     res += "const int* __restrict__ W, \n"
     res += "const float* __restrict__ scales, \n"
     res += "const float* __restrict__ zeros, \n"
-    res +="const float* __restrict__ bias, \n "
-    res +="const float* __restrict__ sums, \n "
-    res +="float* __restrict__ output,\n\
+    res += "const float* __restrict__ bias, \n "
+    res += "const float* __restrict__ sums, \n "
+    res += "float* __restrict__ output,\n\
 const int n,\n\
 const int m,\n\
 const int t,\n\
@@ -525,30 +527,30 @@ int ogtt,\n"
     if gs:
         res += "const int gs,\n"
     res += "const int cutoff){\n"
-    
+
     res += f"#pragma omp parallel num_threads({p})\n"
-    res +=  "{\n"
-    res +=  "int tid;\n"
+    res += "{\n"
+    res += "int tid;\n"
     res += f"const int mu = {mu};\n"
     res += f"const int nu = {nu};\n"
     res += f"const int tu = {tu};\n"
     res += f"const int on = n / nb;\n"
     res += f"const int om = m / mb;\n"
 
-    mask = (2**bits)-1
+    mask = (2**bits) - 1
     res += f"const __m256i mask = _mm256_set1_epi32({mask});\n"
     if bits == 3:
         res += f"const __m256i mask4 = _mm256_set1_epi32(4);\n"
         res += f"const __m256i mask6 = _mm256_set1_epi32(6);\n"
-    res +=  "tid = omp_get_thread_num();\n"
+    res += "tid = omp_get_thread_num();\n"
 
-    res +=  "int tt = ogtt;\n"
-    res +=  "if(tid >= cutoff){\n"
+    res += "int tt = ogtt;\n"
+    res += "if(tid >= cutoff){\n"
     res += f"tt -= tb;\n"
-    res +=  "}\n"
+    res += "}\n"
     res += f"const int base_output = tid >= cutoff ?\n \
 (tid-cutoff)*tt + (tt+tb)*cutoff: \n \
-tid*tt;\n" #is this >= cutoff or > cutoff?
+tid*tt;\n"  # is this >= cutoff or > cutoff?
     if bits != 3:
         res += f"const int base_W = tid >= cutoff ?\n \
 ((tid-cutoff)*tt + (tt+tb)*cutoff)*m/{packed}: \n \
@@ -557,7 +559,7 @@ tid*tt*m/{packed};\n"
         res += f"const int base_W = tid >= cutoff ?\n \
 ((tid-cutoff)*tt + (tt+tb)*cutoff)*m/{packed}*3: \n \
 tid*tt*m/{packed}*3;\n"
-    
+
     res += "for(int j = 0; j < tt; j+=tb){\n"
     res += "for(int i = 0; i < on; i++) {\n"
     res += "for(int k = 0; k < om; k++) {\n"
@@ -574,37 +576,37 @@ tid*tt*m/{packed}*3;\n"
         res += "for (int i = 0; i < n; i++) {\n"
         res += f"for (int j = 0; j < tt; j+={tu})"
         res += "{\n"
-        for i in range(0,tu,8):
+        for i in range(0, tu, 8):
             res += f"__m256 acc{i} = _mm256_setzero_ps();\n"
         res += "for (int i1 = 0; i1 < ngs; i1++){\n"
         res += "__m256 r = _mm256_set1_ps(sums[i*ngs + i1]);\n"
-        for i in range(0,tu,8):
+        for i in range(0, tu, 8):
             res += f"__m256 z{i} = _mm256_loadu_ps(&zeros[base_output + i1* t + j + {i}]);\n"
         # if not module:
         if bits != 3 or not module:
-            for i in range(0,tu,8):
+            for i in range(0, tu, 8):
                 res += f"__m256 s{i} = _mm256_loadu_ps(&scales[base_output + i1 * t + j + {i}]);\n"
-            for i in range(0,tu,8):
+            for i in range(0, tu, 8):
                 res += f"__m256 zs{i} = _mm256_mul_ps(z{i}, s{i});\n"
-        for i in range(0,tu,8):
+        for i in range(0, tu, 8):
             # if module:
             if bits == 3 and module:
                 res += f"acc{i} = _mm256_fmadd_ps(z{i}, r, acc{i});\n"
             else:
                 res += f"acc{i} = _mm256_fmadd_ps(zs{i}, r, acc{i});\n"
         res += "}\n"
-        for i in range(0,tu,8):
+        for i in range(0, tu, 8):
             res += f"__m256 o{i} = _mm256_loadu_ps(&output[i*t + base_output + j + {i}]);\n"
-        for i in range(0,tu,8):
+        for i in range(0, tu, 8):
             res += f"__m256 b{i} = _mm256_loadu_ps(&bias[base_output + j + {i}]);\n"
-        for i in range(0,tu,8):
+        for i in range(0, tu, 8):
             if module:
                 res += f"__m256 o1{i} = _mm256_sub_ps(o{i}, acc{i});\n"
             else:
                 res += f"__m256 o1{i} = _mm256_add_ps(o{i}, acc{i});\n"
-        for i in range(0,tu,8):
+        for i in range(0, tu, 8):
             res += f"__m256 o2{i} = _mm256_add_ps(o1{i}, b{i});\n"
-        for i in range(0,tu,8):
+        for i in range(0, tu, 8):
             res += f"_mm256_storeu_ps(&output[i*t + base_output + j + {i}], o2{i});\n"
         res += "}\n"
         res += "}\n"
@@ -615,18 +617,18 @@ tid*tt*m/{packed}*3;\n"
         res += "__m256 r = _mm256_set1_ps(sums[i]);\n"
         res += f"for (int j = 0; j < tt; j+={tu})"
         res += "{\n"
-        for i in range(0,tu,8):
+        for i in range(0, tu, 8):
             res += f"__m256 o{i} = _mm256_loadu_ps(&output[i*t + base_output + j + {i}]);\n"
-        for i in range(0,tu,8):
+        for i in range(0, tu, 8):
             res += f"__m256 z{i} = _mm256_loadu_ps(&zeros[base_output + j + {i}]);\n"
-        for i in range(0,tu,8):
+        for i in range(0, tu, 8):
             res += f"__m256 b{i} = _mm256_loadu_ps(&bias[base_output + j + {i}]);\n"
-        for i in range(0,tu,8):
+        for i in range(0, tu, 8):
             res += f"__m256 s{i} = _mm256_loadu_ps(&scales[base_output + j + {i}]);\n"
         if bits == 3 and module:
-            for i in range(0,tu,8):
+            for i in range(0, tu, 8):
                 res += f"__m256 os{i} = _mm256_mul_ps(o{i}, s{i});\n"
-        for i in range(0,tu,8):
+        for i in range(0, tu, 8):
             if module:
                 if bits == 3:
                     res += f"__m256 zr{i} = _mm256_fnmadd_ps(z{i}, r, os{i});\n"
@@ -634,13 +636,13 @@ tid*tt*m/{packed}*3;\n"
                     res += f"__m256 zr{i} = _mm256_fnmadd_ps(z{i}, r, o{i});\n"
             else:
                 res += f"__m256 zr{i} = _mm256_fmadd_ps(z{i}, r, o{i});\n"
-        for i in range(0,tu,8):
-# j           res += f"__m256 o2{i} = _mm256_mul_ps(zr{i}, s{i});\n"
+        for i in range(0, tu, 8):
+            # j           res += f"__m256 o2{i} = _mm256_mul_ps(zr{i}, s{i});\n"
             if bits == 3 and module:
                 res += f"__m256 o2{i} = _mm256_add_ps(zr{i}, b{i});\n"
             else:
                 res += f"__m256 o2{i} = _mm256_fmadd_ps(zr{i}, s{i}, b{i});\n"
-        for i in range(0,tu,8):
+        for i in range(0, tu, 8):
             res += f"_mm256_storeu_ps(&output[i*t + base_output + j + {i}], o2{i});\n"
         res += "}\n"
         res += "}\n"
@@ -653,27 +655,27 @@ tid*tt*m/{packed}*3;\n"
             res += f"inline void forward{bits}_gs_cpu(\n"
         else:
             res += f"inline void forward{bits}_cpu(\n"
-        res +=  "torch::Tensor in, torch::Tensor weight, torch::Tensor out,\n"
-        res +=  "torch::Tensor bias, torch::Tensor scales, torch::Tensor zeros, torch::Tensor sums,\n"
+        res += "torch::Tensor in, torch::Tensor weight, torch::Tensor out,\n"
+        res += "torch::Tensor bias, torch::Tensor scales, torch::Tensor zeros, torch::Tensor sums,\n"
         if gs:
-            res +=  "int N, int M, int T, int nb, int mb, int tb, int tt, int groupsize, int cutoff){\n"
+            res += "int N, int M, int T, int nb, int mb, int tb, int tt, int groupsize, int cutoff){\n"
         else:
-            res +=  "int N, int M, int T, int nb, int mb, int tb, int tt, int cutoff){\n"
-        res +=  "int*   W = weight.data_ptr<int>();\n"
-        res +=  "float* input = in.data_ptr<float>();\n"
-        res +=  "float* b   = bias.data_ptr<float>();\n"
-        res +=  "float* s   = scales.data_ptr<float>();\n"
-        res +=  "float* z   = zeros.data_ptr<float>();\n"
-        res +=  "float* r   = sums.data_ptr<float>();\n"
-        res +=  "float* O   = out.data_ptr<float>();\n"
-        res +=  "\n"
+            res += "int N, int M, int T, int nb, int mb, int tb, int tt, int cutoff){\n"
+        res += "int*   W = weight.data_ptr<int>();\n"
+        res += "float* input = in.data_ptr<float>();\n"
+        res += "float* b   = bias.data_ptr<float>();\n"
+        res += "float* s   = scales.data_ptr<float>();\n"
+        res += "float* z   = zeros.data_ptr<float>();\n"
+        res += "float* r   = sums.data_ptr<float>();\n"
+        res += "float* O   = out.data_ptr<float>();\n"
+        res += "\n"
         if gs:
-            res += f"q{bits}gemm_gs(input, W, s, z, b, r, O, N, M, T, nb, mb, tb, tt, groupsize, cutoff);\n" 
+            res += f"q{bits}gemm_gs(input, W, s, z, b, r, O, N, M, T, nb, mb, tb, tt, groupsize, cutoff);\n"
         else:
-            res += f"q{bits}gemm(input, W, s, z, b, r, O, N, M, T, nb, mb, tb, tt, cutoff);\n" 
+            res += f"q{bits}gemm(input, W, s, z, b, r, O, N, M, T, nb, mb, tb, tt, cutoff);\n"
         res += "}\n"
     else:
-        res +=  "inline void qforward(const float* __restrict__ input, \n \
+        res += "inline void qforward(const float* __restrict__ input, \n \
 const int* __restrict__ W, \n\
 const float* __restrict__ scales, \n\
 const float* __restrict__ zeros, \n\
@@ -684,33 +686,31 @@ int n, \n \
 int m, \n \
 int t) {\n"
         if gs:
-            res += f"q{bits}gemm_gs(input, W, scales, zeros, bias, sums, output, n, m, t, {nb}, {mb}, {tb}, {tt}, {gs_val}, {cutoff});\n" 
+            res += f"q{bits}gemm_gs(input, W, scales, zeros, bias, sums, output, n, m, t, {nb}, {mb}, {tb}, {tt}, {gs_val}, {cutoff});\n"
         else:
-            res += f"q{bits}gemm(input, W, scales, zeros, bias, sums, output, n, m, t, {nb}, {mb}, {tb}, {tt}, {cutoff});\n" 
+            res += f"q{bits}gemm(input, W, scales, zeros, bias, sums, output, n, m, t, {nb}, {mb}, {tb}, {tt}, {cutoff});\n"
         res += "}\n"
     return res
 
 
 def gen_model(n, m, t, bits, p, gs):
-
     # get parameters
     if bits == 3:
         packed = 32
         unroll = 3
-        nu = 1 #args.n
+        nu = 1  # args.n
         mu = 32
         tu = 32
     else:
         packed = 32 // bits
         unroll = 2
-        nu = 1 #args.n
+        nu = 1  # args.n
         mu = 16
         tu = 32
 
-    #compute the parameters from the model
+    # compute the parameters from the model
 
-    nb = n # it's always small for transformers
-
+    nb = n  # it's always small for transformers
 
     mb, tb = mem_model(n, m, t, mu, tu, bits, l1, p, gs)
 
@@ -724,34 +724,66 @@ def gen_model(n, m, t, bits, p, gs):
         split[idx] = split[idx] - tb
         idx = idx - 1
 
-    assert(np.sum(split) == t)
+    assert np.sum(split) == t
 
     split = split.astype(int)
     tt = int(split[0])
 
     if split[0] == split[-1]:
-        cutoff = int(p+1)
+        cutoff = int(p + 1)
     else:
         cutoff = int(idx + 1)
 
-
     if gs == -1:
-        code = qforward(nu, mu, tu, p, unroll, n=n, m=m, t=t, nb=nb, mb=mb, tb=tb, tt=tt, bits=bits, cutoff=cutoff, module=False)
+        code = qforward(
+            nu,
+            mu,
+            tu,
+            p,
+            unroll,
+            n=n,
+            m=m,
+            t=t,
+            nb=nb,
+            mb=mb,
+            tb=tb,
+            tt=tt,
+            bits=bits,
+            cutoff=cutoff,
+            module=False,
+        )
     else:
-        code = qforward(nu, mu, tu, p, unroll, n=n, m=m, t=t, nb=nb, mb=mb, tb=tb, tt=tt, bits=bits, cutoff=cutoff, gs=True, gs_val=gs, module=False)
+        code = qforward(
+            nu,
+            mu,
+            tu,
+            p,
+            unroll,
+            n=n,
+            m=m,
+            t=t,
+            nb=nb,
+            mb=mb,
+            tb=tb,
+            tt=tt,
+            bits=bits,
+            cutoff=cutoff,
+            gs=True,
+            gs_val=gs,
+            module=False,
+        )
     code += pack_in(n, m, nb, mb)
     # code += pack_qw(m, t, mb, tb, tb, bits=bits)#, cutoff=cutoff)
-    code += pack_qw(m, t, mb, tb, tu,bits=bits)
+    code += pack_qw(m, t, mb, tb, tu, bits=bits)
     code += pack_out(n, t, nb, tb)
     code += print_parameters(bits, n, m, t, nb, mb, tb, mu, nu, tu, unroll, p)
 
-    
     with open("./autogptq_extension/qigen/forward.h", "w") as f:
         f.write(macros())
         f.write(code)
 
-def gen_and_compile(n, m, t, nb, mb, tb, nu, mu, tu, p, unroll, bits=4, gs=-1, module=False):
 
+def gen_and_compile(n, m, t, nb, mb, tb, nu, mu, tu, p, unroll, bits=4, gs=-1, module=False):
     split = np.ones(p)
     split = split * tb
     while np.sum(split) < t:
@@ -762,45 +794,111 @@ def gen_and_compile(n, m, t, nb, mb, tb, nu, mu, tu, p, unroll, bits=4, gs=-1, m
         split[idx] = split[idx] - tb
         idx = idx - 1
 
-    assert(np.sum(split) == t)
+    assert np.sum(split) == t
 
     split = split.astype(int)
     tt = int(split[0])
 
     if split[0] == split[-1]:
-        cutoff = int(p+1)
+        cutoff = int(p + 1)
     else:
         cutoff = int(idx + 1)
 
     if gs == -1:
-        code = qforward(nu, mu, tu, p, unroll, n=n, m=m, t=t, nb=nb, mb=mb, tb=tb, tt=tt, bits=bits, cutoff=cutoff, module=False)
+        code = qforward(
+            nu,
+            mu,
+            tu,
+            p,
+            unroll,
+            n=n,
+            m=m,
+            t=t,
+            nb=nb,
+            mb=mb,
+            tb=tb,
+            tt=tt,
+            bits=bits,
+            cutoff=cutoff,
+            module=False,
+        )
     else:
-        code = qforward(nu, mu, tu, p, unroll, n=n, m=m, t=t, nb=nb, mb=mb, tb=tb, tt=tt, bits=bits, cutoff=cutoff, gs=True, gs_val=gs, module=False)
+        code = qforward(
+            nu,
+            mu,
+            tu,
+            p,
+            unroll,
+            n=n,
+            m=m,
+            t=t,
+            nb=nb,
+            mb=mb,
+            tb=tb,
+            tt=tt,
+            bits=bits,
+            cutoff=cutoff,
+            gs=True,
+            gs_val=gs,
+            module=False,
+        )
     code += pack_in(n, m, nb, mb)
-    code += pack_qw(m, t, mb, tb, tu,bits=bits)
+    code += pack_qw(m, t, mb, tb, tu, bits=bits)
     code += pack_out(n, t, nb, tb)
     if module:
         code += print_parameters_module(bits, mu, nu, tu, unroll, p, gs=gs)
     else:
         code += print_parameters(bits, n, m, t, nb, mb, tb, mu, nu, tu, unroll, p, gs=gs)
-    
+
     # write the code to a file called forward.h
     with open("./autogptq_extension/qigen/forward.h", "w") as f:
         f.write(macros())
         f.write(code)
 
-
-# g++ mmm_test.cpp -O3 -ftree-vectorize -mfma -mavx -mavx2 -fno-signaling-nans -fno-trapping-math -fopenmp -o mmm_test
+    # g++ mmm_test.cpp -O3 -ftree-vectorize -mfma -mavx -mavx2 -fno-signaling-nans -fno-trapping-math -fopenmp -o mmm_test
     start = time.time()
     if not module:
-        subprocess.call(["g++", "-O3", "-o", "./autogptq_extension/qigen/mmm_test", "./autogptq_extension/qigen/mmm_test.cpp", "-mavx", "-mfma", "-mavx2", "-ftree-vectorize", "-fno-signaling-nans", "-fno-trapping-math", "-march=native", "-fopenmp"])
+        subprocess.call(
+            [
+                "g++",
+                "-O3",
+                "-o",
+                "./autogptq_extension/qigen/mmm_test",
+                "./autogptq_extension/qigen/mmm_test.cpp",
+                "-mavx",
+                "-mfma",
+                "-mavx2",
+                "-ftree-vectorize",
+                "-fno-signaling-nans",
+                "-fno-trapping-math",
+                "-march=native",
+                "-fopenmp",
+            ]
+        )
         subprocess.call(["./autogptq_extension/qigen/mmm_test", f"{n}", f"{m}", f"{t}", f"{bits}", f"{gs}"])
     else:
-        subprocess.call(["g++", "-O3", "-o", "./autogptq_extension/qigen/mmm", "./autogptq_extension/qigen/mmm.cpp", "-mavx", "-mfma", "-mavx2", "-ftree-vectorize", "-fno-signaling-nans", "-fno-trapping-math", "-march=native", "-fopenmp"])
+        subprocess.call(
+            [
+                "g++",
+                "-O3",
+                "-o",
+                "./autogptq_extension/qigen/mmm",
+                "./autogptq_extension/qigen/mmm.cpp",
+                "-mavx",
+                "-mfma",
+                "-mavx2",
+                "-ftree-vectorize",
+                "-fno-signaling-nans",
+                "-fno-trapping-math",
+                "-march=native",
+                "-fopenmp",
+            ]
+        )
         subprocess.call(["./autogptq_extension/qigen/mmm", f"{n}", f"{m}", f"{t}", f"{bits}", f"{gs}"])
         # subprocess.call(["./autogptq_extension/qigen/mmm", f"{n}", f"{m}", f"{t}", f"{bits}", f"{gs}", ">>", "./autogptq_extension/qigen/tmp.csv"])
     end = time.time() - start
     return end
+
 
 def grid():
     tt = 64
@@ -820,10 +918,10 @@ def grid():
                             # for tb in [32]:#, 128, 192, 256]:
                             for tb in [128, 256]:
                                 if t % tb == 0:
-                                    # for mu in range(32,mb,32): 
+                                    # for mu in range(32,mb,32):
                                     for mu in [16, 32]:
-                                         if mb % mu == 0:
-                                            # for tu in range(8,tb,8): 
+                                        if mb % mu == 0:
+                                            # for tu in range(8,tb,8):
                                             # for tu in [16, 32]:
                                             for tu in [16, 32, 64, 128]:
                                                 if tb % tu == 0:
@@ -832,10 +930,38 @@ def grid():
                                                         for bits in [4, 3, 2]:
                                                             if bits == 3:
                                                                 for u in [5]:
-                                                                    gen_and_compile(n,m,t,n,mb,tb,1,mu,tu,p,u,bits=bits, gs=gs)
+                                                                    gen_and_compile(
+                                                                        n,
+                                                                        m,
+                                                                        t,
+                                                                        n,
+                                                                        mb,
+                                                                        tb,
+                                                                        1,
+                                                                        mu,
+                                                                        tu,
+                                                                        p,
+                                                                        u,
+                                                                        bits=bits,
+                                                                        gs=gs,
+                                                                    )
                                                             else:
                                                                 for u in [1, 2, 4, 8]:
-                                                                    gen_and_compile(n,m,t,n,mb,tb,1,mu,tu,p,u,bits=bits, gs=gs)
+                                                                    gen_and_compile(
+                                                                        n,
+                                                                        m,
+                                                                        t,
+                                                                        n,
+                                                                        mb,
+                                                                        tb,
+                                                                        1,
+                                                                        mu,
+                                                                        tu,
+                                                                        p,
+                                                                        u,
+                                                                        bits=bits,
+                                                                        gs=gs,
+                                                                    )
 
 
 def forward_module_gs(nu, mu, tu, p, unroll, bits):
@@ -846,28 +972,28 @@ def forward_module_gs(nu, mu, tu, p, unroll, bits):
     else:
         packed = 32 // bits
         loopguard = packed
-    #compute the parameters from the model
+    # compute the parameters from the model
 
     accumulators = ""
     for i in range(nu):
-        for j in range(0,tu,8):
+        for j in range(0, tu, 8):
             accumulators += f"__m256 acc{i}_{j} = _mm256_setzero_ps();\n"
 
     store = ""
     for i in range(nu):
-        for j in range(0,tu,8):
+        for j in range(0, tu, 8):
             store += f"__m256 o{i}_{j} = _mm256_loadu_ps(&output[base_output + j + (i1+{i})*t + j1+{j}]);\n"
 
     for i in range(nu):
-        for j in range(0,tu,8):
+        for j in range(0, tu, 8):
             store += f"__m256 s{i}_{j} = _mm256_loadu_ps(&scales[(k*mb+k1)/gs * t + base_output + j + j1+{j}]);\n"
 
     for i in range(nu):
-        for j in range(0,tu,8):
+        for j in range(0, tu, 8):
             store += f"__m256 f{i}_{j} = _mm256_fmadd_ps(acc{i}_{j}, s{i}_{j}, o{i}_{j});\n"
 
     for i in range(nu):
-        for j in range(0,tu,8):
+        for j in range(0, tu, 8):
             store += f"_mm256_storeu_ps(&output[base_output + j + (i1+{i})*t + j1+{j}], f{i}_{j});\n"
 
     ugemm = ""
@@ -889,16 +1015,15 @@ def forward_module_gs(nu, mu, tu, p, unroll, bits):
     ugemm += "}\n"
     ugemm += "}\n"
 
-
     res = ""
     res += "inline\n"
     res += f"void q{bits}gemm_gs(const float* __restrict__ input, \n"
     res += "        const int* __restrict__ W, \n \
             const float* __restrict__ scales, \n"
     res += "const float* __restrict__ zeros, \n"
-    res +="        const float* __restrict__ bias, \n "
-    res +="        const float* __restrict__ sums,\n"
-    res +="        float* __restrict__ output,\n \
+    res += "        const float* __restrict__ bias, \n "
+    res += "        const float* __restrict__ sums,\n"
+    res += "        float* __restrict__ output,\n \
             const int n,\n \
             const int m,\n \
             const int t,\n \
@@ -908,30 +1033,30 @@ def forward_module_gs(nu, mu, tu, p, unroll, bits):
             int ogtt,\n \
             const int gs,\n\
             const int cutoff){\n"
-    
+
     res += f"#pragma omp parallel num_threads({p})\n"
-    res +=  "{\n"
-    res +=  "  int tid;\n"
+    res += "{\n"
+    res += "  int tid;\n"
     res += f"  const int mu = {mu};\n"
     res += f"  const int nu = {nu};\n"
     res += f"  const int tu = {tu};\n"
     res += f"  const int on = n / nb;\n"
     res += f"  const int om = m / mb;\n"
 
-    mask = (2**bits)-1
+    mask = (2**bits) - 1
     res += f"const __m256i mask = _mm256_set1_epi32({mask});\n"
     if bits == 3:
         res += f"const __m256i mask4 = _mm256_set1_epi32(4);\n"
         res += f"const __m256i mask6 = _mm256_set1_epi32(6);\n"
-    res +=  "tid = omp_get_thread_num();\n"
+    res += "tid = omp_get_thread_num();\n"
 
-    res +=  "int tt = ogtt;\n"
-    res +=  "if(tid >= cutoff){\n"
+    res += "int tt = ogtt;\n"
+    res += "if(tid >= cutoff){\n"
     res += f"tt -= tb;\n"
-    res +=  "}\n"
+    res += "}\n"
     res += f"const int base_output = tid >= cutoff ?\n \
 (tid-cutoff)*tt + (tt+tb)*cutoff: \n \
-tid*tt;\n" #is this >= cutoff or > cutoff?
+tid*tt;\n"  # is this >= cutoff or > cutoff?
     if bits != 3:
         res += f"const int base_W = tid >= cutoff ?\n \
 ((tid-cutoff)*tt + (tt+tb)*cutoff)*m/{packed}: \n \
@@ -940,7 +1065,7 @@ tid*tt*m/{packed};\n"
         res += f"const int base_W = tid >= cutoff ?\n \
 ((tid-cutoff)*tt + (tt+tb)*cutoff)*m/{packed}*3: \n \
 tid*tt*m/{packed}*3;\n"
-    
+
     res += "for(int j = 0; j < tt; j+=tb){\n"
     res += "for(int i = 0; i < on; i++) {\n"
     res += "for(int k = 0; k < om; k++) {\n"
@@ -958,33 +1083,33 @@ tid*tt*m/{packed}*3;\n"
     res += f"for (int j = 0; j < tt; j+={tu})"
     res += "{\n"
     # for i in range(0,tu,8):
-        # res += f"__m256 o{i} = _mm256_loadu_ps(&output[i*t + j + {i}]);\n"
-    for i in range(0,tu,8):
+    # res += f"__m256 o{i} = _mm256_loadu_ps(&output[i*t + j + {i}]);\n"
+    for i in range(0, tu, 8):
         res += f"__m256 acc{i} = _mm256_setzero_ps();\n"
     res += "for (int i1 = 0; i1 < ngs; i1++){\n"
     res += "__m256 r = _mm256_set1_ps(sums[i*ngs + i1]);\n"
-    for i in range(0,tu,8):
+    for i in range(0, tu, 8):
         # res += f"__m256 z{i} = _mm256_loadu_ps(&zeros[i1 * t + j + {i}]);\n"
         res += f"__m256 z{i} = _mm256_loadu_ps(&zeros[base_output + i1* t + j + {i}]);\n"
     # for i in range(0,tu,8):
-        # res += f"__m256 s{i} = _mm256_loadu_ps(&scales[i1 * t + j + {i}]);\n"
+    # res += f"__m256 s{i} = _mm256_loadu_ps(&scales[i1 * t + j + {i}]);\n"
     # for i in range(0,tu,8):
-        # res += f"__m256 zr{i} = _mm256_mul_ps(z{i}, r);\n"
+    # res += f"__m256 zr{i} = _mm256_mul_ps(z{i}, r);\n"
     # for i in range(0,tu,8):
-        # res += f"acc{i} = _mm256_fmadd_ps(zr{i}, s{i}, acc{i});\n"
-    for i in range(0,tu,8):
+    # res += f"acc{i} = _mm256_fmadd_ps(zr{i}, s{i}, acc{i});\n"
+    for i in range(0, tu, 8):
         res += f"acc{i} = _mm256_fmadd_ps(z{i}, r, acc{i});\n"
     # for i in range(0,tu,8):
-        # res += f"__m256 zr{i} = _mm256_mul_ps(z{i}, r);\n"
+    # res += f"__m256 zr{i} = _mm256_mul_ps(z{i}, r);\n"
     # for i in range(0,tu,8):
-        # res += f"o{i} = _mm256_fnmadd_ps(zr{i}, s{i}, o{i});\n"
+    # res += f"o{i} = _mm256_fnmadd_ps(zr{i}, s{i}, o{i});\n"
     res += "}\n"
-    for i in range(0,tu,8):
+    for i in range(0, tu, 8):
         # res += f"__m256 o{i} = _mm256_loadu_ps(&output[i*t + j + {i}]);\n"
         res += f"__m256 o{i} = _mm256_loadu_ps(&output[i*t + base_output + j + {i}]);\n"
-    for i in range(0,tu,8):
+    for i in range(0, tu, 8):
         res += f"__m256 o1{i} = _mm256_sub_ps(o{i}, acc{i});\n"
-    for i in range(0,tu,8):
+    for i in range(0, tu, 8):
         # res += f"_mm256_storeu_ps(&output[i*t + j + {i}], o1{i});\n"
         res += f"_mm256_storeu_ps(&output[i*t + base_output + j + {i}], o1{i});\n"
     res += "  }\n"
@@ -992,24 +1117,24 @@ tid*tt*m/{packed}*3;\n"
     res += "}\n"
     res += "}\n"
 
-
     # wrapper for qgemm if we call from cpp
     res += f"inline void forward{bits}_gs_cpu(\n"
-    res +=  "torch::Tensor in, torch::Tensor weight, torch::Tensor out,\n"
-    res +=  "torch::Tensor bias, torch::Tensor scales, torch::Tensor zeros, torch::Tensor sums,\n"
-    res +=  "int N, int M, int T, int nb, int mb, int tb, int tt, int groupsize, int cutoff){\n"
-    res +=  "int*   W = weight.data_ptr<int>();\n"
-    res +=  "float* input = in.data_ptr<float>();\n"
-    res +=  "float* b   = bias.data_ptr<float>();\n"
-    res +=  "float* s   = scales.data_ptr<float>();\n"
+    res += "torch::Tensor in, torch::Tensor weight, torch::Tensor out,\n"
+    res += "torch::Tensor bias, torch::Tensor scales, torch::Tensor zeros, torch::Tensor sums,\n"
+    res += "int N, int M, int T, int nb, int mb, int tb, int tt, int groupsize, int cutoff){\n"
+    res += "int*   W = weight.data_ptr<int>();\n"
+    res += "float* input = in.data_ptr<float>();\n"
+    res += "float* b   = bias.data_ptr<float>();\n"
+    res += "float* s   = scales.data_ptr<float>();\n"
     # res +=  "int* z   = zeros.data_ptr<int>();\n"
-    res +=  "float* z   = zeros.data_ptr<float>();\n"
-    res +=  "float* r   = sums.data_ptr<float>();\n"
-    res +=  "float* O   = out.data_ptr<float>();\n"
-    res +=  "\n"
-    res += f"q{bits}gemm_gs(input, W, s, z, b, r, O, N, M, T, nb, mb, tb, tt, groupsize, cutoff);\n" 
+    res += "float* z   = zeros.data_ptr<float>();\n"
+    res += "float* r   = sums.data_ptr<float>();\n"
+    res += "float* O   = out.data_ptr<float>();\n"
+    res += "\n"
+    res += f"q{bits}gemm_gs(input, W, s, z, b, r, O, N, M, T, nb, mb, tb, tt, groupsize, cutoff);\n"
     res += "}\n"
     return res
+
 
 def forward_module(nu, mu, tu, p, unroll, bits):
     # packed = 32 // bits
@@ -1019,17 +1144,18 @@ def forward_module(nu, mu, tu, p, unroll, bits):
     else:
         packed = 32 // bits
         loopguard = packed
-    #compute the parameters from the model
+    # compute the parameters from the model
 
     accumulators = ""
     for i in range(nu):
-        for j in range(0,tu,8):
-            accumulators += f"__m256 acc{i}_{j} = _mm256_loadu_ps(&output[base_output + j + (i1+{i})*t + j1+{j}]);\n"
-
+        for j in range(0, tu, 8):
+            accumulators += (
+                f"__m256 acc{i}_{j} = _mm256_loadu_ps(&output[base_output + j + (i1+{i})*t + j1+{j}]);\n"
+            )
 
     store = ""
     for i in range(nu):
-        for j in range(0,tu,8):
+        for j in range(0, tu, 8):
             store += f"_mm256_storeu_ps(&output[base_output + j + (i1+{i})*t + j1+{j}], acc{i}_{j});\n"
 
     ugemm = ""
@@ -1056,9 +1182,9 @@ def forward_module(nu, mu, tu, p, unroll, bits):
     res += "const float* __restrict__ scales, \n"
     # res += "const int* __restrict__ zeros, \n"
     res += "const float* __restrict__ zeros, \n"
-    res +="const float* __restrict__ bias, \n "
-    res +="const float* __restrict__ sums,"
-    res +="float* __restrict__ output,\n \
+    res += "const float* __restrict__ bias, \n "
+    res += "const float* __restrict__ sums,"
+    res += "float* __restrict__ output,\n \
 const int n,\n \
 const int m,\n \
 const int t,\n \
@@ -1067,32 +1193,32 @@ const int mb,\n \
 const int tb,\n \
 int ogtt,\n \
 const int cutoff){\n"
-    
+
     res += f"#pragma omp parallel num_threads({p})\n"
-    res +=  "{\n"
-    res +=  "int tid, nthreads;\n"
+    res += "{\n"
+    res += "int tid, nthreads;\n"
     res += f"const int mu = {mu};\n"
     res += f"const int nu = {nu};\n"
     res += f"const int tu = {tu};\n"
     res += f"const int on = n / nb;\n"
     res += f"const int om = m / mb;\n"
 
-    mask = (2**bits)-1
+    mask = (2**bits) - 1
     res += f"const __m256i mask = _mm256_set1_epi32({mask});\n"
     if bits == 3:
         res += f"const __m256i mask4 = _mm256_set1_epi32(4);\n"
         res += f"const __m256i mask6 = _mm256_set1_epi32(6);\n"
-    res +=  "tid = omp_get_thread_num();\n"
+    res += "tid = omp_get_thread_num();\n"
     # res +=  "  std::cout << \"thread \" << tid << \" started\" << std::endl;\n"
-    res +=  "nthreads = omp_get_num_threads();\n"
+    res += "nthreads = omp_get_num_threads();\n"
 
-    res +=  "int tt = ogtt;\n"
-    res +=  "if(tid >= cutoff){\n"
+    res += "int tt = ogtt;\n"
+    res += "if(tid >= cutoff){\n"
     res += f"tt -= tb;\n"
-    res +=  "}\n"
+    res += "}\n"
     res += f"const int base_output = tid >= cutoff ?\n \
 (tid-cutoff)*tt + (tt+tb)*cutoff: \n \
-tid*tt;\n" #is this >= cutoff or > cutoff?
+tid*tt;\n"  # is this >= cutoff or > cutoff?
     if bits != 3:
         res += f"const int base_W = tid >= cutoff ?\n \
 ((tid-cutoff)*tt + (tt+tb)*cutoff)*m/{packed}: \n \
@@ -1101,7 +1227,6 @@ tid*tt*m/{packed};\n"
         res += f"const int base_W = tid >= cutoff ?\n \
 ((tid-cutoff)*tt + (tt+tb)*cutoff)*m/{packed}*3: \n \
 tid*tt*m/{packed}*3;\n"
-    
 
     res += "for(int j = 0; j < tt; j+=tb){\n"
     res += "for(int i = 0; i < on; i++) {\n"
@@ -1120,48 +1245,48 @@ tid*tt*m/{packed}*3;\n"
     # res += f"for (int j = 0; j < t; j+={tu})"
     res += f"for (int j = 0; j < tt; j+={tu})"
     res += "{\n"
-    for i in range(0,tu,8):
+    for i in range(0, tu, 8):
         # res += f"__m256 o{i} = _mm256_loadu_ps(&output[i*t + j + {i}]);\n"
         res += f"__m256 o{i} = _mm256_loadu_ps(&output[i*t + base_output + j + {i}]);\n"
-    for i in range(0,tu,8):
+    for i in range(0, tu, 8):
         res += f"__m256 z{i} = _mm256_loadu_ps(&zeros[base_output + j + {i}]);\n"
-    for i in range(0,tu,8):
+    for i in range(0, tu, 8):
         res += f"__m256 s{i} = _mm256_loadu_ps(&scales[base_output + j + {i}]);\n"
-    for i in range(0,tu,8):
+    for i in range(0, tu, 8):
         res += f"__m256 zr{i} = _mm256_fnmadd_ps(z{i}, r, o{i});\n"
-    for i in range(0,tu,8):
+    for i in range(0, tu, 8):
         res += f"__m256 o2{i} = _mm256_mul_ps(zr{i}, s{i});\n"
-    for i in range(0,tu,8):
+    for i in range(0, tu, 8):
         res += f"_mm256_storeu_ps(&output[i*t + base_output + j + {i}], o2{i});\n"
     res += "}\n"
     res += "}\n"
     res += "}\n"
     res += "}\n"
 
-
     # wrapper for qgemm if we call from cpp
     res += f"inline void forward{bits}_cpu(\n"
-    res +=  "torch::Tensor in, torch::Tensor weight, torch::Tensor out,\n"
-    res +=  "torch::Tensor bias, torch::Tensor scales, torch::Tensor zeros, torch::Tensor sums,\n"
-    res +=  "int N, int M, int T, int nb, int mb, int tb, int tt, int cutoff){\n"
-    res +=  "int*   W = weight.data_ptr<int>();\n"
-    res +=  "float* input = in.data_ptr<float>();\n"
-    res +=  "float* b   = bias.data_ptr<float>();\n"
-    res +=  "float* s   = scales.data_ptr<float>();\n"
+    res += "torch::Tensor in, torch::Tensor weight, torch::Tensor out,\n"
+    res += "torch::Tensor bias, torch::Tensor scales, torch::Tensor zeros, torch::Tensor sums,\n"
+    res += "int N, int M, int T, int nb, int mb, int tb, int tt, int cutoff){\n"
+    res += "int*   W = weight.data_ptr<int>();\n"
+    res += "float* input = in.data_ptr<float>();\n"
+    res += "float* b   = bias.data_ptr<float>();\n"
+    res += "float* s   = scales.data_ptr<float>();\n"
     # res +=  "int* z   = zeros.data_ptr<int>();\n"
-    res +=  "float* z   = zeros.data_ptr<float>();\n"
-    res +=  "float* r   = sums.data_ptr<float>();\n"
-    res +=  "float* O   = out.data_ptr<float>();\n"
-    res +=  "\n"
-    res += f"q{bits}gemm(input, W, s, z, b, r, O, N, M, T, nb, mb, tb, tt, cutoff);\n" 
+    res += "float* z   = zeros.data_ptr<float>();\n"
+    res += "float* r   = sums.data_ptr<float>();\n"
+    res += "float* O   = out.data_ptr<float>();\n"
+    res += "\n"
+    res += f"q{bits}gemm(input, W, s, z, b, r, O, N, M, T, nb, mb, tb, tt, cutoff);\n"
     res += "}\n"
     return res
+
 
 def unpack_zeros(bits):
     res = ""
     res += f"void unpack_zeros{bits}_cpu(const int* zv, float* ov, int n, int m)"
-    packed = 32//bits
-    mask = (2**bits)-1
+    packed = 32 // bits
+    mask = (2**bits) - 1
     res += "{\nconst __m256i ones = _mm256_set1_epi32(1);\n"
     res += f"const __m256i mask = _mm256_set1_epi32({mask});\n"
     if bits == 4:
@@ -1204,26 +1329,26 @@ def unpack_zeros(bits):
     elif bits == 3:
         # pass
         res += "for(int j = 0; j < m; j+=32){\n"
-        res += "std::cout<<\"not yet implemented\"<<std::endl;\n"
+        res += 'std::cout<<"not yet implemented"<<std::endl;\n'
         # res += "unsigned int z0 = zv[i*m+j/32*3];\n"
         # res += "unsigned int z1 = zv[i*m+j/32*3+1];\n"
         # res += "unsigned int z2 = zv[i*m+j/32*3+2];\n"
         # for i in range(10):
-            # res += f"unsigned int z0{i} = ((z0 >> {29 - i*3}) & 7) + 1;\n"
+        # res += f"unsigned int z0{i} = ((z0 >> {29 - i*3}) & 7) + 1;\n"
         # for i in range(10):
-            # res += f"ov[i*m + j + {i}] = z0{i} * sv[i*m + j + {i}];\n" 
+        # res += f"ov[i*m + j + {i}] = z0{i} * sv[i*m + j + {i}];\n"
         # res += "unsigned int t0 = ((z0<<1 & 6) | (z1>>31)) + 1;\n"
-        # res += "ov[i*m + j + 10] = t0 * sv[i*m + j + 10];\n" 
+        # res += "ov[i*m + j + 10] = t0 * sv[i*m + j + 10];\n"
         # for i in range(10):
-            # res += f"unsigned int z1{i} = ((z1 >> {28 - i*3}) & 7) + 1;\n"
+        # res += f"unsigned int z1{i} = ((z1 >> {28 - i*3}) & 7) + 1;\n"
         # for i in range(10):
-            # res += f"ov[i*m + j + {11 + i}] = z1{i} * sv[i*m + j + {11 + i}];\n" 
+        # res += f"ov[i*m + j + {11 + i}] = z1{i} * sv[i*m + j + {11 + i}];\n"
         # res += "unsigned int t1 = ((z1<<2 & 6) | (z2>>30)) + 1;\n"
-        # res += "ov[i*m + j + 21] = t1 * sv[i*m + j + 21];\n" 
+        # res += "ov[i*m + j + 21] = t1 * sv[i*m + j + 21];\n"
         # for i in range(10):
-            # res += f"unsigned int z2{i} = ((z2 >> {27 - i*3}) & 7) + 1;\n"
+        # res += f"unsigned int z2{i} = ((z2 >> {27 - i*3}) & 7) + 1;\n"
         # for i in range(10):
-            # res += f"ov[i*m + j + {22 + i}] = z2{i} * sv[i*m + j + {22 + i}];\n" 
+        # res += f"ov[i*m + j + {22 + i}] = z2{i} * sv[i*m + j + {22 + i}];\n"
 
     res += "}\n"
     res += "}\n"
@@ -1238,17 +1363,18 @@ def unpack_zeros(bits):
 
     return res
 
-def gen_module(r, p, bits_list=[2,3,4]):
+
+def gen_module(r, p, bits_list=[2, 3, 4]):
     code = ""
     for bits in bits_list:
         if bits == 3:
             unroll = 3
-            nu = 1 #args.n
+            nu = 1  # args.n
             mu = 32
             tu = 32
         else:
             unroll = 2
-            nu = 1 #args.n
+            nu = 1  # args.n
             mu = 16
             # mu = 32
             tu = 32
@@ -1266,6 +1392,7 @@ def gen_module(r, p, bits_list=[2,3,4]):
         f.write(code)
         f.write(template.module(bits_list))
 
+
 def compute_reduction(p):
     res = ""
     res += "void compute_reduction_cpu(const float* in, float* out, int n, int m, int gs){\n"
@@ -1279,7 +1406,7 @@ def compute_reduction(p):
     res += "__m256 x = _mm256_loadu_ps(&in[i*m  + j1]);\n"
     res += "acc = _mm256_add_ps(acc, x);\n"
     res += "}\n"
-    #compute simd add reduction
+    # compute simd add reduction
     res += "const __m128 hiQuad = _mm256_extractf128_ps(acc, 1);\n"
     res += "const __m128 loQuad = _mm256_castps256_ps128(acc);\n"
     res += "const __m128 sumQuad = _mm_add_ps(loQuad, hiQuad);\n"
@@ -1302,9 +1429,12 @@ def compute_reduction(p):
 
     return res
 
+
 def unquantize_sim(p):
     res = ""
-    res += "void unquantize_sim_cpu(const int* in, float* out, float* s, float* z, int n, int m, int bits, int gs){\n"
+    res += (
+        "void unquantize_sim_cpu(const int* in, float* out, float* s, float* z, int n, int m, int bits, int gs){\n"
+    )
     res += f"#pragma omp parallel num_threads({p})\n"
     res += "{\n"
     res += "int packed = 32/bits;\n"
@@ -1334,6 +1464,7 @@ def unquantize_sim(p):
 
     return res
 
+
 def pack_qw_module(bits):
     packed = 32 // bits
     res = ""
@@ -1360,7 +1491,7 @@ idx++;\n \
 }\n"
         res += f"inline void pack{bits}_w_cpu(\n"
         res += "torch::Tensor in, torch::Tensor out,\n"
-        res += "int N, int M, int nb, int mb, int cutoff){\n" 
+        res += "int N, int M, int nb, int mb, int cutoff){\n"
         res += "int* input = in.data_ptr<int>();\n"
         res += "int* O = out.data_ptr<int>();\n"
         res += f"pack{bits}_qw_inner(input, O, N, M, nb, mb, cutoff);\n"
@@ -1385,60 +1516,59 @@ idx++;\n \
         res += "}\n"
         res += f"inline void pack{bits}_w_cpu(\n"
         res += "torch::Tensor in, torch::Tensor out,\n"
-        res += "int N, int M, int nb, int mb, int cutoff){\n" 
+        res += "int N, int M, int nb, int mb, int cutoff){\n"
         res += "int* input = in.data_ptr<int>();\n"
         res += "int* O = out.data_ptr<int>();\n"
         res += f"  pack{bits}_qw_inner(input, O, N, M, nb, mb, cutoff);\n"
         res += "}\n"
         return res
 
-def gen_module_search(r, p, bits_list=[2,3,4]):
-    #print measurements to a tmp file and read back best micro parameters
+
+def gen_module_search(r, p, bits_list=[2, 3, 4]):
+    # print measurements to a tmp file and read back best micro parameters
     code = ""
 
     subprocess.call(["rm", "./autogptq_extension/qigen/tmp.csv"])
     subprocess.call(["touch", "./autogptq_extension/qigen/tmp.csv"])
     with open("./autogptq_extension/qigen/tmp.csv", "w") as f:
-        f.write("bits,nu,mu,tu,unroll,p,gs,time\n") 
+        f.write("bits,nu,mu,tu,unroll,p,gs,time\n")
 
     n, m, t, nb, mb, tb = 1, 4096, 4096, 1, 1024, 32
 
-
     for mu in [16]:
-            for tu in [16, 32, 64]:
-                if tb % tu == 0:
-                    for gs in [-1, 64]:
-                        for bits in [4, 3, 2]:
-                            if bits == 3:
-                                for u in [5]:
-                                    print(n,m,t,n,mb,tb,1,mu,tu,p,u,bits, gs, end='\r', flush=True)
-                                    gen_and_compile(n,m,t,n,mb,tb,1,mu,tu,p,u,bits=bits, gs=gs, module=True)
-                            else:
-                                for u in [1, 2, 4, 8]:
-                                    print(n,m,t,n,mb,tb,1,mu,tu,p,u,bits, gs, end='\r', flush=True)
-                                    gen_and_compile(n,m,t,n,mb,tb,1,mu,tu,p,u,bits=bits, gs=gs, module=True)
+        for tu in [16, 32, 64]:
+            if tb % tu == 0:
+                for gs in [-1, 64]:
+                    for bits in [4, 3, 2]:
+                        if bits == 3:
+                            for u in [5]:
+                                print(n, m, t, n, mb, tb, 1, mu, tu, p, u, bits, gs, end="\r", flush=True)
+                                gen_and_compile(n, m, t, n, mb, tb, 1, mu, tu, p, u, bits=bits, gs=gs, module=True)
+                        else:
+                            for u in [1, 2, 4, 8]:
+                                print(n, m, t, n, mb, tb, 1, mu, tu, p, u, bits, gs, end="\r", flush=True)
+                                gen_and_compile(n, m, t, n, mb, tb, 1, mu, tu, p, u, bits=bits, gs=gs, module=True)
 
     df = pd.read_csv("./autogptq_extension/qigen/tmp.csv")
 
     for bits in bits_list:
-        bits_df = df[df['bits'] == bits]
+        bits_df = df[df["bits"] == bits]
 
-        bits_nogs = bits_df[bits_df['gs'] == -1]
-        best = bits_nogs[bits_nogs['time'] == bits_nogs['time'].min()]
-        nu = int(best['nu'].values[0])
-        mu = int(best['mu'].values[0])
-        tu = int(best['tu'].values[0])
-        unroll = int(best['unroll'].values[0])
-
+        bits_nogs = bits_df[bits_df["gs"] == -1]
+        best = bits_nogs[bits_nogs["time"] == bits_nogs["time"].min()]
+        nu = int(best["nu"].values[0])
+        mu = int(best["mu"].values[0])
+        tu = int(best["tu"].values[0])
+        unroll = int(best["unroll"].values[0])
 
         code += qforward(nu, mu, tu, p, unroll, bits=bits, module=True, gs=False)
 
-        bits_gs = bits_df[bits_df['gs'] != -1]
-        best = bits_gs[bits_gs['time'] == bits_gs['time'].min()]
-        nu_gs = int(best['nu'].values[0])
-        mu_gs = int(best['mu'].values[0])
-        tu_gs = int(best['tu'].values[0])
-        unroll_gs = int(best['unroll'].values[0])
+        bits_gs = bits_df[bits_df["gs"] != -1]
+        best = bits_gs[bits_gs["time"] == bits_gs["time"].min()]
+        nu_gs = int(best["nu"].values[0])
+        mu_gs = int(best["mu"].values[0])
+        tu_gs = int(best["tu"].values[0])
+        unroll_gs = int(best["unroll"].values[0])
         code += qforward(nu_gs, mu_gs, tu_gs, p, unroll_gs, bits=bits, module=True, gs=True)
 
         code += pack_qw_module(bits)
@@ -1475,10 +1605,10 @@ if __name__ == "__main__":
     parser.add_argument("--gs", type=int, default=-1)
     args = parser.parse_args()
     if args.module and args.search:
-        gen_module_search(args.r, args.p, [2,3,4])
+        gen_module_search(args.r, args.p, [2, 3, 4])
     if args.module and not args.search:
-        gen_module(args.r, args.p, [2,3,4])
+        gen_module(args.r, args.p, [2, 3, 4])
     if args.search and not args.module:
         grid()
     if args.model:
-        gen_model(args.n, args.m, args.t, args.bits, args.p,args.gs)
+        gen_model(args.n, args.m, args.t, args.bits, args.p, args.gs)

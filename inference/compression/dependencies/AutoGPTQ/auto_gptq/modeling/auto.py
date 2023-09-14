@@ -1,23 +1,22 @@
 from inspect import signature
 from typing import Dict, Optional, Union
 
-from ._base import BaseQuantizeConfig, BaseGPTQForCausalLM
+from ._base import BaseGPTQForCausalLM, BaseQuantizeConfig
 from ._utils import check_and_get_model_type
+from .baichuan import BaiChuanGPTQForCausalLM
 from .bloom import BloomGPTQForCausalLM
 from .codegen import CodeGenGPTQForCausalLM
+from .gpt2 import GPT2GPTQForCausalLM
+from .gpt_bigcode import GPTBigCodeGPTQForCausalLM
 from .gpt_neox import GPTNeoXGPTQForCausalLM
 from .gptj import GPTJGPTQForCausalLM
-from .gpt2 import GPT2GPTQForCausalLM
+from .internlm import InternLMGPTQForCausalLM
 from .llama import LlamaGPTQForCausalLM
 from .moss import MOSSGPTQForCausalLM
 from .olmo import OlmoGPTQForCausalLM
 from .opt import OPTGPTQForCausalLM
-from .rw import RWGPTQForCausalLM
-from .gpt_bigcode import GPTBigCodeGPTQForCausalLM
-from .baichuan import BaiChuanGPTQForCausalLM
-from .internlm import InternLMGPTQForCausalLM
 from .qwen import QwenGPTQForCausalLM
-
+from .rw import RWGPTQForCausalLM
 
 GPTQ_CAUSAL_LM_MODEL_MAP = {
     "bloom": BloomGPTQForCausalLM,
@@ -25,7 +24,7 @@ GPTQ_CAUSAL_LM_MODEL_MAP = {
     "gptj": GPTJGPTQForCausalLM,
     "gpt2": GPT2GPTQForCausalLM,
     "llama": LlamaGPTQForCausalLM,
-    "olmo" : OlmoGPTQForCausalLM,
+    "olmo": OlmoGPTQForCausalLM,
     "opt": OPTGPTQForCausalLM,
     "moss": MOSSGPTQForCausalLM,
     "gpt_bigcode": GPTBigCodeGPTQForCausalLM,
@@ -55,9 +54,7 @@ class AutoGPTQForCausalLM:
         trust_remote_code: bool = False,
         **model_init_kwargs
     ) -> BaseGPTQForCausalLM:
-        model_type = check_and_get_model_type(
-            pretrained_model_name_or_path, trust_remote_code
-        )
+        model_type = check_and_get_model_type(pretrained_model_name_or_path, trust_remote_code)
         return GPTQ_CAUSAL_LM_MODEL_MAP[model_type].from_pretrained(
             pretrained_model_name_or_path=pretrained_model_name_or_path,
             quantize_config=quantize_config,
@@ -100,7 +97,7 @@ class AutoGPTQForCausalLM:
             "revision",
             "subfolder",
             "_raise_exceptions_for_missing_entries",
-            "_commit_hash"
+            "_commit_hash",
         ]
         # TODO: do we need this filtering of kwargs? @PanQiWei is there a reason we can't just pass all kwargs?
         keywords = {

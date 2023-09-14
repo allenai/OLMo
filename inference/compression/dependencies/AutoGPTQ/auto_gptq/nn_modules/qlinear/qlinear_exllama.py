@@ -1,11 +1,11 @@
 # Adapted from turboderp exllama: https://github.com/turboderp/exllama
 
+import math
 from logging import getLogger
 
+import numpy as np
 import torch
 import torch.nn as nn
-import math
-import numpy as np
 import transformers
 
 logger = getLogger(__name__)
@@ -13,7 +13,7 @@ logger = getLogger(__name__)
 try:
     from exllama_kernels import make_q4, q4_matmul
 except ImportError:
-    logger.error('exllama_kernels not installed.')
+    logger.error("exllama_kernels not installed.")
     raise
 
 # Dummy tensor to pass instead of g_idx since there is no way to pass "None" to a C++ extension
@@ -22,11 +22,7 @@ none_tensor = torch.empty((1, 1), device="meta")
 
 def ext_make_q4(qweight, qzeros, scales, g_idx, device):
     """Construct Q4Matrix, return handle"""
-    return make_q4(qweight,
-                   qzeros,
-                   scales,
-                   g_idx if g_idx is not None else none_tensor,
-                   device)
+    return make_q4(qweight, qzeros, scales, g_idx if g_idx is not None else none_tensor, device)
 
 
 def ext_q4_matmul(x, q4, q4_width):
@@ -49,7 +45,8 @@ class QuantLinear(nn.Module):
         super().__init__()
         if bits != 4:
             raise ValueError(
-                f"Exllama kernel supports only bits=4, requested bits={bits}. Something is wrong in the model initialization.")
+                f"Exllama kernel supports only bits=4, requested bits={bits}. Something is wrong in the model initialization."
+            )
         if trainable:
             raise NotImplementedError("Exllama kernel does not support training.")
 
@@ -58,31 +55,30 @@ class QuantLinear(nn.Module):
         self.bits = bits
         self.group_size = group_size if group_size != -1 else infeatures
         self.trainable = trainable
-        self.maxq = 2 ** self.bits - 1
+        self.maxq = 2**self.bits - 1
 
         assert infeatures % 32 == 0
         assert infeatures % self.group_size == 0
         assert outfeatures % 32 == 0
 
         self.register_buffer(
-            'qweight',
-            torch.zeros((infeatures // 32 * self.bits, outfeatures), dtype=torch.int32)
+            "qweight", torch.zeros((infeatures // 32 * self.bits, outfeatures), dtype=torch.int32)
         )
         self.register_buffer(
-            'qzeros',
-            torch.zeros((math.ceil(infeatures / self.group_size), outfeatures // 32 * self.bits), dtype=torch.int32)
+            "qzeros",
+            torch.zeros(
+                (math.ceil(infeatures / self.group_size), outfeatures // 32 * self.bits), dtype=torch.int32
+            ),
         )
         self.register_buffer(
-            'scales',
-            torch.zeros((math.ceil(infeatures / self.group_size), outfeatures), dtype=torch.float16)
+            "scales", torch.zeros((math.ceil(infeatures / self.group_size), outfeatures), dtype=torch.float16)
         )
         self.register_buffer(
-            'g_idx',
-            torch.tensor([i // self.group_size for i in range(infeatures)], dtype=torch.int32)
+            "g_idx", torch.tensor([i // self.group_size for i in range(infeatures)], dtype=torch.int32)
         )
 
         if bias:
-            self.register_buffer('bias', torch.zeros((outfeatures), dtype=torch.float16))
+            self.register_buffer("bias", torch.zeros((outfeatures), dtype=torch.float16))
         else:
             self.bias = None
 
@@ -98,7 +94,7 @@ class QuantLinear(nn.Module):
             self.qzeros,
             self.scales,
             self.g_idx.to("cpu") if self._use_act_order else None,
-            self.qweight.device.index
+            self.qweight.device.index,
         )
 
     def pack(self, linear, scales, zeros, g_idx=None):
@@ -120,10 +116,9 @@ class QuantLinear(nn.Module):
         intweight = []
         for idx in range(self.infeatures):
             intweight.append(
-                torch.round(
-                    (
-                        W[:, idx] + scale_zeros[self.g_idx[idx]]) / self.scales[self.g_idx[idx]]
-                ).to(torch.int)[:, None]
+                torch.round((W[:, idx] + scale_zeros[self.g_idx[idx]]) / self.scales[self.g_idx[idx]]).to(
+                    torch.int
+                )[:, None]
             )
         intweight = torch.cat(intweight, dim=1)
         intweight = intweight.t().contiguous()
@@ -131,9 +126,7 @@ class QuantLinear(nn.Module):
 
         i = 0
         row = 0
-        qweight = np.zeros(
-            (intweight.shape[0] // 32 * self.bits, intweight.shape[1]), dtype=np.uint32
-        )
+        qweight = np.zeros((intweight.shape[0] // 32 * self.bits, intweight.shape[1]), dtype=np.uint32)
         while row < qweight.shape[0]:
             if self.bits in [4]:
                 for j in range(i, i + (32 // self.bits)):

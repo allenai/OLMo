@@ -5,7 +5,6 @@ from typing import Dict
 
 import triton
 
-
 #  code based https://github.com/fpgaminer/GPTQ-triton
 """
 Mostly the same as the autotuner in Triton, but with a few changes like using 40 runs instead of 100.
@@ -21,7 +20,7 @@ class CustomizedTritonAutoTuner(triton.KernelInterface):
         key,
         reset_to_zero,
         prune_configs_by: Dict = None,
-        nearest_power_of_two: bool = False
+        nearest_power_of_two: bool = False,
     ):
         if not configs:
             self.configs = [triton.Config({}, num_warps=4, num_stages=2)]
@@ -43,9 +42,9 @@ class CustomizedTritonAutoTuner(triton.KernelInterface):
         self.arg_names = arg_names
         # prune configs
         if prune_configs_by:
-            perf_model, top_k = prune_configs_by['perf_model'], prune_configs_by['top_k']
-            if 'early_config_prune' in prune_configs_by:
-                early_config_prune = prune_configs_by['early_config_prune']
+            perf_model, top_k = prune_configs_by["perf_model"], prune_configs_by["top_k"]
+            if "early_config_prune" in prune_configs_by:
+                early_config_prune = prune_configs_by["early_config_prune"]
         else:
             perf_model, top_k, early_config_prune = None, None, None
         self.perf_model, self.configs_top_k = perf_model, top_k
@@ -57,8 +56,10 @@ class CustomizedTritonAutoTuner(triton.KernelInterface):
         # as kwargs and by the autotuner
         conflicts = meta.keys() & config.kwargs.keys()
         if conflicts:
-            raise ValueError(f"Conflicting meta-parameters: {', '.join(conflicts)}."
-                             " Make sure that you don't re-define auto-tuned symbols.")
+            raise ValueError(
+                f"Conflicting meta-parameters: {', '.join(conflicts)}."
+                " Make sure that you don't re-define auto-tuned symbols."
+            )
         # augment meta-parameters with tunable ones
         current = dict(meta, **config.kwargs)
 
@@ -73,7 +74,7 @@ class CustomizedTritonAutoTuner(triton.KernelInterface):
             # PyTorch also sets fast_flush to True, but I didn't see any speedup so I'll leave the default
             return triton.testing.do_bench(kernel_call, percentiles=(0.5, 0.2, 0.8), rep=40)
         except triton.compiler.OutOfResources:
-            return (float('inf'), float('inf'), float('inf'))
+            return (float("inf"), float("inf"), float("inf"))
 
     def run(self, *args, **kwargs):
         self.nargs = dict(zip(self.arg_names, args))
@@ -101,7 +102,9 @@ class CustomizedTritonAutoTuner(triton.KernelInterface):
         self.best_config = config
         if config.pre_hook is not None:
             config.pre_hook(self.nargs)
-        return self.fn.run(*args, num_warps=config.num_warps, num_stages=config.num_stages, **kwargs, **config.kwargs)
+        return self.fn.run(
+            *args, num_warps=config.num_warps, num_stages=config.num_stages, **kwargs, **config.kwargs
+        )
 
     def prune_configs(self, kwargs):
         pruned_configs = self.configs
@@ -113,8 +116,15 @@ class CustomizedTritonAutoTuner(triton.KernelInterface):
                 top_k = int(len(self.configs) * top_k)
             if len(pruned_configs) > top_k:
                 est_timing = {
-                    config: self.perf_model(**self.nargs, **kwargs, **config.kwargs, num_stages=config.num_stages,
-                                            num_warps=config.num_warps) for config in pruned_configs}
+                    config: self.perf_model(
+                        **self.nargs,
+                        **kwargs,
+                        **config.kwargs,
+                        num_stages=config.num_stages,
+                        num_warps=config.num_warps,
+                    )
+                    for config in pruned_configs
+                }
                 pruned_configs = sorted(est_timing.keys(), key=lambda x: est_timing[x])[:top_k]
         return pruned_configs
 
@@ -144,16 +154,16 @@ def matmul248_kernel_config_pruner(configs, nargs):
     """
     The main purpose of this function is to shrink BLOCK_SIZE_* when the corresponding dimension is smaller.
     """
-    m = max(2 ** int(math.ceil(math.log2(nargs['M']))), 16)
-    n = max(2 ** int(math.ceil(math.log2(nargs['N']))), 16)
-    k = max(2 ** int(math.ceil(math.log2(nargs['K']))), 16)
+    m = max(2 ** int(math.ceil(math.log2(nargs["M"]))), 16)
+    n = max(2 ** int(math.ceil(math.log2(nargs["N"]))), 16)
+    k = max(2 ** int(math.ceil(math.log2(nargs["K"]))), 16)
 
     used = set()
     for config in configs:
-        block_size_m = min(m, config.kwargs['BLOCK_SIZE_M'])
-        block_size_n = min(n, config.kwargs['BLOCK_SIZE_N'])
-        block_size_k = min(k, config.kwargs['BLOCK_SIZE_K'])
-        group_size_m = config.kwargs['GROUP_SIZE_M']
+        block_size_m = min(m, config.kwargs["BLOCK_SIZE_M"])
+        block_size_n = min(n, config.kwargs["BLOCK_SIZE_N"])
+        block_size_k = min(k, config.kwargs["BLOCK_SIZE_K"])
+        group_size_m = config.kwargs["GROUP_SIZE_M"]
 
         if (block_size_m, block_size_n, block_size_k, group_size_m, config.num_stages, config.num_warps) in used:
             continue
@@ -161,13 +171,13 @@ def matmul248_kernel_config_pruner(configs, nargs):
         used.add((block_size_m, block_size_n, block_size_k, group_size_m, config.num_stages, config.num_warps))
         yield triton.Config(
             {
-                'BLOCK_SIZE_M': block_size_m,
-                'BLOCK_SIZE_N': block_size_n,
-                'BLOCK_SIZE_K': block_size_k,
-                'GROUP_SIZE_M': group_size_m
+                "BLOCK_SIZE_M": block_size_m,
+                "BLOCK_SIZE_N": block_size_n,
+                "BLOCK_SIZE_K": block_size_k,
+                "GROUP_SIZE_M": group_size_m,
             },
             num_stages=config.num_stages,
-            num_warps=config.num_warps
+            num_warps=config.num_warps,
         )
 
 

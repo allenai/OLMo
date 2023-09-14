@@ -1,16 +1,16 @@
-import warnings
 import re
+import warnings
 from contextlib import contextmanager
 from dataclasses import asdict
 from enum import Enum
 from typing import List, Optional
 
 import torch
-from peft import get_peft_model, PeftConfig, PeftModel, PeftType
-from peft.peft_model import PEFT_TYPE_TO_MODEL_MAPPING
-from peft.tuners.lora import LoraConfig, LoraLayer, LoraModel, Embedding
-from peft.tuners.adalora import AdaLoraConfig, AdaLoraLayer, AdaLoraModel
+from peft import PeftConfig, PeftModel, PeftType, get_peft_model
 from peft.mapping import PEFT_TYPE_TO_CONFIG_MAPPING
+from peft.peft_model import PEFT_TYPE_TO_MODEL_MAPPING
+from peft.tuners.adalora import AdaLoraConfig, AdaLoraLayer, AdaLoraModel
+from peft.tuners.lora import Embedding, LoraConfig, LoraLayer, LoraModel
 from peft.utils.other import _get_submodules
 
 from ..modeling._base import BaseGPTQForCausalLM
@@ -308,7 +308,9 @@ class GPTQAdaLoraModel(AdaLoraModel):
         raise NotImplementedError("gptq model not support merge and unload")
 
 
-def find_all_linear_names(model: BaseGPTQForCausalLM, ignore: Optional[List[str]] = None, ignore_lm_head: bool = True):
+def find_all_linear_names(
+    model: BaseGPTQForCausalLM, ignore: Optional[List[str]] = None, ignore_lm_head: bool = True
+):
     if not ignore:
         ignore = []
     lm_head_name = model.lm_head_name
@@ -317,7 +319,7 @@ def find_all_linear_names(model: BaseGPTQForCausalLM, ignore: Optional[List[str]
     results = set()
     for n, m in model.named_modules():
         if isinstance(m, torch.nn.Linear):
-            res = n.split('.')[-1]
+            res = n.split(".")[-1]
             if res not in ignore:
                 results.add(res)
     return list(results)
@@ -351,7 +353,7 @@ def get_gptq_peft_model(
     model_id: str = None,
     adapter_name: str = "default",
     auto_find_all_linears: bool = True,
-    train_mode: bool = False
+    train_mode: bool = False,
 ):
     if train_mode and not model.trainable:
         model.enable_trainable_mode()
@@ -371,7 +373,9 @@ def get_gptq_peft_model(
             "whether the adapters are trained using base model that not enable fused attention injection."
         )
     if model.injected_fused_mlp:
-        raise NotImplementedError("GPTQ model that enables fused mlp injection is not supported to integrate with peft.")
+        raise NotImplementedError(
+            "GPTQ model that enables fused mlp injection is not supported to integrate with peft."
+        )
 
     if train_mode:
         peft_type = peft_config.peft_type
@@ -419,5 +423,5 @@ __all__ = [
     "GPTQAdaLoraConfig",
     "GPTQAdaLoraModel",
     "find_all_linear_names",
-    "get_gptq_peft_model"
+    "get_gptq_peft_model",
 ]

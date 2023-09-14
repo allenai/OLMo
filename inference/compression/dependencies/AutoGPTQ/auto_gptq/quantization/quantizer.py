@@ -3,7 +3,6 @@ from logging import getLogger
 import torch
 import torch.nn as nn
 
-
 logger = getLogger(__name__)
 
 
@@ -15,21 +14,16 @@ def quantize(x, scale, zero, maxq):
 
 
 class Quantizer(nn.Module):
-
     def __init__(self, shape=1):
         super(Quantizer, self).__init__()
-        self.register_buffer('maxq', torch.tensor(0))
-        self.register_buffer('scale', torch.zeros(shape))
-        self.register_buffer('zero', torch.zeros(shape))
+        self.register_buffer("maxq", torch.tensor(0))
+        self.register_buffer("scale", torch.zeros(shape))
+        self.register_buffer("zero", torch.zeros(shape))
 
     def configure(
-        self,
-        bits, perchannel=False, sym=True,
-        mse=False, norm=2.4, grid=100, maxshrink=.8,
-        trits=False
+        self, bits, perchannel=False, sym=True, mse=False, norm=2.4, grid=100, maxshrink=0.8, trits=False
     ):
-
-        self.maxq = torch.tensor(2 ** bits - 1)
+        self.maxq = torch.tensor(2**bits - 1)
         self.perchannel = perchannel
         self.sym = sym
         self.mse = mse
@@ -82,7 +76,7 @@ class Quantizer(nn.Module):
                 self.zero = torch.round(-xmin / self.scale)
 
         if self.mse:
-            best = torch.full([x.shape[0]], float('inf'), device=dev)
+            best = torch.full([x.shape[0]], float("inf"), device=dev)
             for i in range(int(self.maxshrink * self.grid)):
                 p = 1 - i / self.grid
                 xmin1 = p * xmin

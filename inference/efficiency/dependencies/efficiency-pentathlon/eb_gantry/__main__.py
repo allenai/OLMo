@@ -18,10 +18,10 @@ from beaker import (
 )
 from click_help_colors import HelpColorsCommand, HelpColorsGroup
 from rich import pretty, print, prompt, traceback
-from .constants import TIMEOUT
 
 from . import constants, util
 from .aliases import PathOrStr
+from .constants import TIMEOUT
 from .exceptions import *
 from .util import print_stderr
 from .version import VERSION
@@ -320,13 +320,9 @@ def run(
         )
 
     if (beaker_image is None) == (docker_image is None):
-        raise ConfigurationError(
-            "Either --beaker-image or --docker-image must be specified, but not both."
-        )
+        raise ConfigurationError("Either --beaker-image or --docker-image must be specified, but not both.")
 
-    task_resources = TaskResources(
-        cpu_count=cpus, gpu_count=gpus, memory=memory, shared_memory=shared_memory
-    )
+    task_resources = TaskResources(cpu_count=cpus, gpu_count=gpus, memory=memory, shared_memory=shared_memory)
 
     # Get repository account, name, and current ref.
     github_account, github_repo, git_ref, is_public = util.ensure_repo(allow_dirty)
@@ -374,10 +370,11 @@ def run(
     datasets_to_use = util.ensure_datasets(beaker, *dataset) if dataset else []
 
     env_vars = [
-        ("TASK", task), ("LIMIT", limit),
+        ("TASK", task),
+        ("LIMIT", limit),
         ("MAX_BATCH_SIZE", max_batch_size),
         ("SPLIT", split),
-        ("HF_DATASET_ARGS", hf_dataset_args)
+        ("HF_DATASET_ARGS", hf_dataset_args),
     ]
     for e in env or []:
         try:
@@ -443,7 +440,7 @@ def run(
         replicas=replicas,
         leader_selection=leader_selection,
         host_networking=host_networking or (bool(replicas) and leader_selection),
-        mounts=mounts
+        mounts=mounts,
     )
 
     if save_spec:
@@ -515,9 +512,7 @@ def run(
             rich.get_console().rule("End logs")
             print()
         else:
-            experiment = beaker.experiment.wait_for(
-                experiment, timeout=TIMEOUT if TIMEOUT > 0 else None
-            )[0]
+            experiment = beaker.experiment.wait_for(experiment, timeout=TIMEOUT if TIMEOUT > 0 else None)[0]
             job = beaker.experiment.tasks(experiment)[0].latest_job  # type: ignore
             assert job is not None
             exit_code = job.status.exit_code

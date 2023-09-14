@@ -22,7 +22,6 @@ import os
 
 import datasets
 
-
 _CITATION = """\
 @misc{dua2019drop,
     title={DROP: A Reading Comprehension Benchmark Requiring Discrete Reasoning Over Paragraphs},
@@ -71,9 +70,7 @@ class Drop(datasets.GeneratorBasedBuilder):
     VERSION = datasets.Version("0.0.1")
 
     BUILDER_CONFIGS = [
-        datasets.BuilderConfig(
-            name="drop", version=VERSION, description="The DROP dataset."
-        ),
+        datasets.BuilderConfig(name="drop", version=VERSION, description="The DROP dataset."),
     ]
 
     def _info(self):
@@ -125,9 +122,7 @@ class Drop(datasets.GeneratorBasedBuilder):
                 name=datasets.Split.TRAIN,
                 # These kwargs will be passed to _generate_examples
                 gen_kwargs={
-                    "filepath": os.path.join(
-                        data_dir, "drop_dataset", "drop_dataset_train.json"
-                    ),
+                    "filepath": os.path.join(data_dir, "drop_dataset", "drop_dataset_train.json"),
                     "split": "train",
                 },
             ),
@@ -135,9 +130,7 @@ class Drop(datasets.GeneratorBasedBuilder):
                 name=datasets.Split.VALIDATION,
                 # These kwargs will be passed to _generate_examples
                 gen_kwargs={
-                    "filepath": os.path.join(
-                        data_dir, "drop_dataset", "drop_dataset_dev.json"
-                    ),
+                    "filepath": os.path.join(data_dir, "drop_dataset", "drop_dataset_dev.json"),
                     "split": "validation",
                 },
             ),

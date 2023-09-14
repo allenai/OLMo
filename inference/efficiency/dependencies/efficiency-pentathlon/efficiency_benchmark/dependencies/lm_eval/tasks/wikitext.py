@@ -9,11 +9,11 @@ NOTE: This `Task` is based on WikiText-2.
 
 Homepage: https://www.salesforce.com/products/einstein/ai-research/the-wikitext-dependency-language-modeling-dataset/
 """
-import re
 import inspect
+import re
+
 import efficiency_benchmark.dependencies.lm_eval.datasets.wikitext.wikitext
 from efficiency_benchmark.dependencies.lm_eval.base import PerplexityTask
-
 
 _CITATION = """
 @misc{merity2016pointer,

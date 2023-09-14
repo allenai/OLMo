@@ -13,12 +13,12 @@ also determine when no answer is supported by the paragraph and abstain from ans
 
 Homepage: https://rajpurkar.github.io/SQuAD-explorer/
 """
-import datasets
-from math import exp
-from efficiency_benchmark.dependencies.lm_eval.base import rf, Task
 from functools import partial
-from packaging import version
+from math import exp
 
+import datasets
+from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
+from packaging import version
 
 _CITATION = """
 @misc{rajpurkar2018know,
@@ -178,9 +178,7 @@ class SQuAD2(Task):
             "exact": partial(
                 _squad_agg, "exact"
             ),  # Exact match (the normalized answer exactly match the gold answer)
-            "f1": partial(
-                _squad_agg, "f1"
-            ),  # The F-score of predicted tokens versus the gold answer
+            "f1": partial(_squad_agg, "f1"),  # The F-score of predicted tokens versus the gold answer
             "HasAns_exact": partial(
                 _squad_agg, "HasAns_exact"
             ),  # Exact match (the normalized answer exactly match the gold answer)
@@ -190,15 +188,9 @@ class SQuAD2(Task):
             "NoAns_exact": partial(
                 _squad_agg, "NoAns_exact"
             ),  # Exact match (the normalized answer exactly match the gold answer)
-            "NoAns_f1": partial(
-                _squad_agg, "NoAns_f1"
-            ),  # The F-score of predicted tokens versus the gold answer
-            "best_exact": partial(
-                _squad_agg, "best_exact"
-            ),  # Best exact match (with varying threshold)
-            "best_f1": partial(
-                _squad_agg, "best_f1"
-            ),  # Best F1 (with varying threshold)
+            "NoAns_f1": partial(_squad_agg, "NoAns_f1"),  # The F-score of predicted tokens versus the gold answer
+            "best_exact": partial(_squad_agg, "best_exact"),  # Best exact match (with varying threshold)
+            "best_f1": partial(_squad_agg, "best_f1"),  # Best F1 (with varying threshold)
         }
 
     def higher_is_better(self):

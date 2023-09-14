@@ -1,4 +1,5 @@
 import random
+
 from efficiency_benchmark.dependencies.lm_eval.base import LM
 
 

@@ -15,9 +15,7 @@ class PerplexityMetric(BaseAggregator):
         self.add_state("num_tokens", default=torch.tensor(0, dtype=torch.int), dist_reduce_fx="sum")
 
     def update(
-        self,
-        loglikelihood: Union[float, torch.Tensor],
-        num_tokens: Union[int, torch.Tensor]
+        self, loglikelihood: Union[float, torch.Tensor], num_tokens: Union[int, torch.Tensor]
     ) -> None:  # type: ignore
         loglikelihood = self._cast_and_nan_check_input(loglikelihood)
         if not isinstance(num_tokens, torch.Tensor):
@@ -27,4 +25,3 @@ class PerplexityMetric(BaseAggregator):
 
     def compute(self) -> torch.Tensor:
         return torch.exp(-self.loglikelihood / self.num_tokens)
-

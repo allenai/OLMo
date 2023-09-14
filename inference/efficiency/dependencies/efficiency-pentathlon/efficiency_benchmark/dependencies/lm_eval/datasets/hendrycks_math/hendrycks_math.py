@@ -20,7 +20,6 @@ import pathlib
 
 import datasets
 
-
 _CITATION = """\
 @article{hendrycksmath2021,
   title={Measuring Mathematical Problem Solving With the Math Dataset},
@@ -89,9 +88,7 @@ class HendrycksMath(datasets.GeneratorBasedBuilder):
                 name=datasets.Split.TRAIN,
                 # These kwargs will be passed to _generate_examples
                 gen_kwargs={
-                    "basepath": os.path.join(
-                        data_dir, "MATH", "train", self.config.name
-                    ),
+                    "basepath": os.path.join(data_dir, "MATH", "train", self.config.name),
                     "split": "train",
                 },
             ),
@@ -99,9 +96,7 @@ class HendrycksMath(datasets.GeneratorBasedBuilder):
                 name=datasets.Split.TEST,
                 # These kwargs will be passed to _generate_examples
                 gen_kwargs={
-                    "basepath": os.path.join(
-                        data_dir, "MATH", "test", self.config.name
-                    ),
+                    "basepath": os.path.join(data_dir, "MATH", "test", self.config.name),
                     "split": "test",
                 },
             ),

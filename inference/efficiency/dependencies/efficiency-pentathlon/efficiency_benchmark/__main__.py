@@ -4,11 +4,13 @@ from typing import Optional, Tuple
 
 import click
 from click_help_colors import HelpColorsCommand, HelpColorsGroup
-
-from efficiency_benchmark.steps import (CalculateMetricsStep, LogOutputStep,
-                                        PredictStep, TabulateMetricsStep)
+from efficiency_benchmark.steps import (
+    CalculateMetricsStep,
+    LogOutputStep,
+    PredictStep,
+    TabulateMetricsStep,
+)
 from gantry.__main__ import run as gantry_run
-
 
 _CLICK_GROUP_DEFAULTS = {
     "cls": HelpColorsGroup,
@@ -89,7 +91,6 @@ def run(
     limit: Optional[int] = -1,
     output_dir: Optional[str] = None,
 ):
-    
     if scenario == "offline":
         try:
             os.makedirs(offline_dir, exist_ok=True)
@@ -121,7 +122,9 @@ def run(
         metric_task_dict[task] = acc_metrics
         if len(acc_metrics.keys()) > 0:
             metrics["accuracy"] = acc_metrics
-        output_step = LogOutputStep(task=task, output_file=f"{output_dir}/{scenario}/outputs.json" if output_dir else None)
+        output_step = LogOutputStep(
+            task=task, output_file=f"{output_dir}/{scenario}/outputs.json" if output_dir else None
+        )
         output_step.run(predictions=predictions)
 
     table_step = TabulateMetricsStep()
@@ -129,8 +132,7 @@ def run(
 
     print("\n".join(table_step_result))
     prediction_step.tabulate_efficiency_metrics(
-        metrics,
-        output_file=f"{output_dir}/{scenario}/metrics.json" if output_dir else None
+        metrics, output_file=f"{output_dir}/{scenario}/metrics.json" if output_dir else None
     )
 
 
@@ -189,13 +191,13 @@ def submit(
         split=split,
         limit=limit,
         max_batch_size=max_batch_size,
-        cluster=["efficiency-benchmark/elanding-rtx-8000"], # TODO
+        cluster=["efficiency-benchmark/elanding-rtx-8000"],  # TODO
         beaker_image="haop/efficiency-benchmark",  # TODO
         workspace="efficiency-benchmark/efficiency-benchmark",
         cpus=cpus,
         gpus=2,  # hard code to 2 to make sure only one job runs at a time.
         allow_dirty=True,
-        dataset=dataset
+        dataset=dataset,
     )
 
 

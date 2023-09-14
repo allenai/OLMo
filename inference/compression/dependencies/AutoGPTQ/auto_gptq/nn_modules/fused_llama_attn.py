@@ -1,11 +1,15 @@
 import math
+
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from transformers.models.llama.modeling_llama import LlamaAttention, apply_rotary_pos_emb
+from transformers.models.llama.modeling_llama import (
+    LlamaAttention,
+    apply_rotary_pos_emb,
+)
 
-from ._fused_base import FusedBaseAttentionModule
 from ..utils.import_utils import compare_pytorch_version, dynamically_import_QuantLinear
+from ._fused_base import FusedBaseAttentionModule
 
 
 class FusedLlamaAttentionForQuantizedModel(FusedBaseAttentionModule):
@@ -44,7 +48,7 @@ class FusedLlamaAttentionForQuantizedModel(FusedBaseAttentionModule):
         position_ids=None,
         output_attentions=False,
         use_cache=False,
-        **kwargs
+        **kwargs,
     ):
         """Input shape: Batch x Time x Channel"""
 
@@ -85,7 +89,7 @@ class FusedLlamaAttentionForQuantizedModel(FusedBaseAttentionModule):
                 key_states,
                 value_states,
                 attn_mask=None if is_causal else attention_mask,
-                is_causal=is_causal
+                is_causal=is_causal,
             )
             attn_weights = None
         else:
@@ -136,12 +140,18 @@ class FusedLlamaAttentionForQuantizedModel(FusedBaseAttentionModule):
         trainable=False,
         bits: int = 4,
         disable_exllama=False,
-        **kwargs
+        **kwargs,
     ):
         """
         Replace all LlamaAttention modules with QuantLlamaAttention modules, fusing the q, k, v projections.
         """
-        QuantLinear = dynamically_import_QuantLinear(use_triton=use_triton, desc_act=desc_act, group_size=group_size, bits=bits, disable_exllama=disable_exllama)
+        QuantLinear = dynamically_import_QuantLinear(
+            use_triton=use_triton,
+            desc_act=desc_act,
+            group_size=group_size,
+            bits=bits,
+            disable_exllama=disable_exllama,
+        )
 
         for name, m in model.named_modules():
             if not isinstance(m, LlamaAttention):
@@ -160,12 +170,14 @@ class FusedLlamaAttentionForQuantizedModel(FusedBaseAttentionModule):
                     # TODO: support it. The issue lies maybe in the line:
                     # int groups = qzeros.size(0);
                     # in exllama_ext.cpp
-                    raise ValueError("Exllama kernel does not support query/key/value fusion with act-order. Please either use inject_fused_attention=False or disable_exllama=True.")
+                    raise ValueError(
+                        "Exllama kernel does not support query/key/value fusion with act-order. Please either use inject_fused_attention=False or disable_exllama=True."
+                    )
                 else:
                     g_idx = None
             else:
                 g_idx = torch.cat([q_proj.g_idx, k_proj.g_idx, v_proj.g_idx], dim=0)
-            
+
             bias = torch.cat([q_proj.bias, k_proj.bias, v_proj.bias], dim=0) if q_proj.bias is not None else None
 
             qlinear_args = (
@@ -187,12 +199,12 @@ class FusedLlamaAttentionForQuantizedModel(FusedBaseAttentionModule):
 
             attn = cls(m.hidden_size, m.num_heads, qkv_layer, m.o_proj, m.rotary_emb)
 
-            if '.' in name:
-                parent_name = name.rsplit('.', 1)[0]
-                child_name = name[len(parent_name) + 1:]
+            if "." in name:
+                parent_name = name.rsplit(".", 1)[0]
+                child_name = name[len(parent_name) + 1 :]
                 parent = model.get_submodule(parent_name)
             else:
-                parent_name = ''
+                parent_name = ""
                 parent = model
                 child_name = name
 

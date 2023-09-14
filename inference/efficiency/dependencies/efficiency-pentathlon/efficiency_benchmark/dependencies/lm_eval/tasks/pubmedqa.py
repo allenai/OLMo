@@ -16,9 +16,8 @@ and (4) a yes/no/maybe answer which summarizes the conclusion.
 Homepage: https://pubmedqa.github.io/
 """
 import numpy as np
-from efficiency_benchmark.dependencies.lm_eval.base import rf, Task
+from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
 from efficiency_benchmark.dependencies.lm_eval.metrics import mean
-
 
 _CITATION = """
 @inproceedings{jin2019pubmedqa,
@@ -52,9 +51,7 @@ class Pubmed_QA(Task):
 
     def doc_to_text(self, doc):
         ctxs = "\n".join(doc["context"]["contexts"])
-        return "Abstract: {}\nQuestion: {}\nAnswer:".format(
-            ctxs, doc["question"], doc["final_decision"]
-        )
+        return "Abstract: {}\nQuestion: {}\nAnswer:".format(ctxs, doc["question"], doc["final_decision"])
 
     def should_decontaminate(self):
         return True

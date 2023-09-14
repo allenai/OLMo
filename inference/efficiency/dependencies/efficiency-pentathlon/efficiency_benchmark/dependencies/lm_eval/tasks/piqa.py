@@ -11,7 +11,6 @@ Homepage: https://yonatanbisk.com/piqa/
 """
 from efficiency_benchmark.dependencies.lm_eval.base import MultipleChoiceTask
 
-
 _CITATION = """
 @inproceedings{Bisk2020,
     author = {Yonatan Bisk and Rowan Zellers and

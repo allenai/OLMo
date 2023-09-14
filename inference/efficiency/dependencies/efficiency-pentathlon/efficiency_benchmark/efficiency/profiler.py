@@ -1,27 +1,27 @@
-import time
-import numpy as np
 import threading
+import time
 from typing import Any, Dict, List, Optional
 
-from efficiency_benchmark.efficiency.power_monitor import PowerMonitor
-from efficiency_benchmark.efficiency.power_monitor import POWER_FIELDS
+import numpy as np
 from codecarbon import EmissionsTracker
 from codecarbon.core.gpu import get_gpu_details, is_gpu_details_available
-from codecarbon.external.scheduler import PeriodicScheduler
 from codecarbon.core.units import Energy, Power, Time
-
+from codecarbon.external.scheduler import PeriodicScheduler
+from efficiency_benchmark.efficiency.power_monitor import POWER_FIELDS, PowerMonitor
 
 NUM_POWER_MONITOR_FIELDS = 18
 
 
 """A wrapper of codecarbon EmissionsTracker aiming to provide GPU memory and untilization data."""
-class Profiler():
 
+
+class Profiler:
     def __init__(
-            self,
-            interval: float = 0.1,
-            # gpu_ids: Optional[Iterable[int]] = None,
-            **kwargs):
+        self,
+        interval: float = 0.1,
+        # gpu_ids: Optional[Iterable[int]] = None,
+        **kwargs
+    ):
         # self.gpu_ids = gpu_ids
         self._start_time: Optional[float] = None
         self._emission_tracker = EmissionsTracker(
@@ -55,8 +55,8 @@ class Profiler():
             stop_event = threading.Event()
             self._power_monitor = PowerMonitor(
                 stop_event=stop_event,
-                target=PowerMonitor.read_power_monitor, 
-                args=(self._power_monitor_ser, stop_event, self._power_monitor_reads)
+                target=PowerMonitor.read_power_monitor,
+                args=(self._power_monitor_ser, stop_event, self._power_monitor_reads),
             )
             self._use_power_monitor = True
             print("Power monitor is available.")
@@ -71,21 +71,21 @@ class Profiler():
                 gpu_details["used_memory"]
                 for _, gpu_details in enumerate(all_gpu_details)
                 # if idx in self.gpu_ids
-             ]
+            ]
         )
         gpu_utilization = sum(
             [
                 gpu_details["gpu_utilization"]
                 for _, gpu_details in enumerate(all_gpu_details)
                 # if idx in self.gpu_ids
-             ]
+            ]
         )
         gpu_power = sum(
             [
                 gpu_details["power_usage"] * 1e-3
                 for _, gpu_details in enumerate(all_gpu_details)
                 # if idx in self.gpu_ids
-             ]
+            ]
         )
         self._max_used_gpu_memory = max(self._max_used_gpu_memory, used_memory)
         self._gpu_utilization += gpu_utilization
@@ -106,19 +106,19 @@ class Profiler():
     def stop(self) -> Dict[str, Any]:
         time_elapsed = Time.from_seconds(time.time() - self._start_time)
         self._emission_tracker.stop()
-        
+
         if self._use_power_monitor:
             self._power_monitor.stop()
             self._power_monitor.join()
             PowerMonitor.try_close_serial_port(self._power_monitor_ser)
             powers = []
             for r in self._power_monitor_reads:
-                powers.append(np.array([ float(r[f]) for f in POWER_FIELDS ]).sum())
+                powers.append(np.array([float(r[f]) for f in POWER_FIELDS]).sum())
             avg_power: Power = Power.from_watts(np.array(powers).mean())
             total_energy: Energy = Energy.from_power_and_time(power=avg_power, time=time_elapsed)
             self._emission_tracker.final_emissions_data.energy_consumed = total_energy
             self._emission_tracker.final_emissions_data = self._emission_tracker._prepare_emissions_data()
-                
+
         if self._gpu_details_available:
             try:
                 self._gpu_scheduler.stop()
@@ -126,7 +126,7 @@ class Profiler():
                 pass
                 # raise RuntimeError("Failed to stop gpu scheduler.")
             self._profile_gpu()
-            self._max_used_gpu_memory = self._max_used_gpu_memory / 2 ** 30
+            self._max_used_gpu_memory = self._max_used_gpu_memory / 2**30
             self._gpu_utilization /= self._gpu_reads
             self._gpu_power = Power.from_watts(self._gpu_power / self._gpu_reads)
         codecarbon_data = self._emission_tracker.final_emissions_data
@@ -138,8 +138,10 @@ class Profiler():
             "cpu_energy": codecarbon_data.cpu_energy,  # kWh
             "dram_energy": codecarbon_data.ram_energy,  # kWh
             "avg_gpu_power": self._gpu_power.W,  # W
-            "avg_power": avg_power.W if self._use_power_monitor else codecarbon_data.cpu_power + codecarbon_data.gpu_power,  # W
+            "avg_power": avg_power.W
+            if self._use_power_monitor
+            else codecarbon_data.cpu_power + codecarbon_data.gpu_power,  # W
             "total_energy": codecarbon_data.energy_consumed,  # kWh
-            "carbon": codecarbon_data.emissions  # kg
+            "carbon": codecarbon_data.emissions,  # kg
         }
         return self.efficiency_metrics

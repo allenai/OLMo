@@ -10,11 +10,11 @@ can be served as the training and test sets for machine comprehension.
 Homepage: https://www.cs.cmu.edu/~glai1/data/race/
 """
 import collections
+
 import datasets
 import numpy as np
-from efficiency_benchmark.dependencies.lm_eval.base import rf, Task
+from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
 from efficiency_benchmark.dependencies.lm_eval.metrics import mean
-
 
 _CITATION = """
 @article{lai2017large,
@@ -59,9 +59,7 @@ class RACE(Task):
         # is shown that one document is made per passage.
 
         r = collections.defaultdict(list)
-        for item in datasets.load_dataset(
-            path=self.DATASET_PATH, name=self.DATASET_NAME
-        )[set]:
+        for item in datasets.load_dataset(path=self.DATASET_PATH, name=self.DATASET_NAME)[set]:
             r[item["article"]].append(item)
 
         res = list(
@@ -106,9 +104,7 @@ class RACE(Task):
         text = "Article: " + doc["article"] + "\n\n"
         for problem in doc["problems"][:-1]:
             if problem["question"][-6:] == "  _  .":
-                text += (
-                    problem["question"][-5:] + self.get_answer_option(problem) + "\n"
-                )
+                text += problem["question"][-5:] + self.get_answer_option(problem) + "\n"
             else:
                 question = "Question: " + problem["question"] + "\n"
                 answer = "Answer: " + self.get_answer_option(problem) + "\n"
@@ -137,9 +133,7 @@ class RACE(Task):
             part of the document for `doc`.
         """
         problem = self.last_problem(doc)
-        ll_choices = [
-            rf.loglikelihood(ctx, " " + problem["options"][i])[0] for i in range(4)
-        ]
+        ll_choices = [rf.loglikelihood(ctx, " " + problem["options"][i])[0] for i in range(4)]
         return ll_choices
 
     def process_results(self, doc, results):

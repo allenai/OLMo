@@ -12,10 +12,14 @@ TODO: WSC requires free-form generation.
 import numpy as np
 import sklearn
 import transformers.data.metrics.squad_metrics as squad_metrics
-from efficiency_benchmark.dependencies.lm_eval.base import rf, Task
-from efficiency_benchmark.dependencies.lm_eval.metrics import mean, acc_all, metric_max_over_ground_truths, yesno
+from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
+from efficiency_benchmark.dependencies.lm_eval.metrics import (
+    acc_all,
+    mean,
+    metric_max_over_ground_truths,
+    yesno,
+)
 from efficiency_benchmark.dependencies.lm_eval.utils import general_detokenize
-
 
 _CITATION = """
 @inproceedings{NEURIPS2019_4496bf24,
@@ -67,7 +71,6 @@ class BoolQ(Task):
         return " " + yesno(doc["label"])
 
     def construct_requests(self, doc, ctx):
-
         ll_yes, _ = rf.loglikelihood(ctx, " yes")
         ll_no, _ = rf.loglikelihood(ctx, " no")
 
@@ -341,12 +344,8 @@ class ReCoRD(Task):
 
         prediction = doc["entities"][max_idx]
         gold_label_set = doc["answers"]
-        f1 = metric_max_over_ground_truths(
-            squad_metrics.compute_f1, prediction, gold_label_set
-        )
-        em = metric_max_over_ground_truths(
-            squad_metrics.compute_exact, prediction, gold_label_set
-        )
+        f1 = metric_max_over_ground_truths(squad_metrics.compute_f1, prediction, gold_label_set)
+        em = metric_max_over_ground_truths(squad_metrics.compute_exact, prediction, gold_label_set)
 
         return {
             "f1": f1,
@@ -442,9 +441,7 @@ class SGWinogradSchemaChallenge(Task):
         if self.has_training_docs():
             if self._training_docs is None:
                 # GPT-3 Paper's format only uses positive examples for fewshot "training"
-                self._training_docs = [
-                    doc for doc in self.dataset["train"] if doc["label"]
-                ]
+                self._training_docs = [doc for doc in self.dataset["train"] if doc["label"]]
             return self._training_docs
 
     def validation_docs(self):
@@ -469,7 +466,6 @@ class SGWinogradSchemaChallenge(Task):
         return " " + yesno(doc["label"])
 
     def construct_requests(self, doc, ctx):
-
         ll_yes, _ = rf.loglikelihood(ctx, " yes")
         ll_no, _ = rf.loglikelihood(ctx, " no")
 

@@ -1,7 +1,7 @@
 from logging import getLogger
 
-from ._base import *
 from ..utils.import_utils import compare_transformers_version
+from ._base import *
 
 if compare_transformers_version("v4.28.0", op="ge"):
     from ..nn_modules.fused_llama_attn import FusedLlamaAttentionForQuantizedModel
@@ -21,7 +21,7 @@ class LlamaGPTQForCausalLM(BaseGPTQForCausalLM):
         ["self_attn.k_proj", "self_attn.v_proj", "self_attn.q_proj"],
         ["self_attn.o_proj"],
         ["mlp.up_proj", "mlp.gate_proj"],
-        ["mlp.down_proj"]
+        ["mlp.down_proj"],
     ]
 
     fused_attn_module_type = FusedLlamaAttentionForQuantizedModel

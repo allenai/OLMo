@@ -11,9 +11,9 @@ a teacher who answers the questions by providing short excerpts (spans) from the
 Homepage: https://quac.ai/
 """
 import inspect
+
 import efficiency_benchmark.dependencies.lm_eval.datasets.quac.quac
 from efficiency_benchmark.dependencies.lm_eval.base import Task
-
 
 _CITATION = """
 @article{choi2018quac,

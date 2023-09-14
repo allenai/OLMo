@@ -16,7 +16,6 @@
 
 import datasets
 
-
 _CITATION = """\
 @misc{liu2020logiqa,
     title={LogiQA: A Challenge Dataset for Machine Reading Comprehension with Logical Reasoning},
@@ -54,9 +53,7 @@ class Logiqa(datasets.GeneratorBasedBuilder):
     VERSION = datasets.Version("0.0.1")
 
     BUILDER_CONFIGS = [
-        datasets.BuilderConfig(
-            name="logiqa", version=VERSION, description="The LogiQA dataset."
-        ),
+        datasets.BuilderConfig(name="logiqa", version=VERSION, description="The LogiQA dataset."),
     ]
 
     def _info(self):

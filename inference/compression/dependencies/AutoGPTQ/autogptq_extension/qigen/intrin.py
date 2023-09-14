@@ -1,9 +1,9 @@
-
 def load_int(to, address, const=True):
     if const:
         return f"const __m256i {to} = _mm256_loadu_si256({address});"
     else:
         return f"__m256i {to} = _mm256_loadu_si256({address});"
+
 
 def load_fp(to, address, const=True):
     if const:
@@ -11,45 +11,59 @@ def load_fp(to, address, const=True):
     else:
         return f"__m256 {to} = _mm256_loadu_ps({address});"
 
+
 # to = a * b + c
 def vfma(to, a, b, c):
     return f"__m256 {to} = _mm256_fmadd_ps({a}, {b}, {c});"
 
+
 def vsrli(to, a, b):
     return f"const __m256i {to} = _mm256_srli_epi32({a}, {b});"
+
 
 def vand(to, a, b):
     return f"const __m256i {to} = _mm256_and_si256({a}, {b});"
 
+
 def vbroadcast_fp(to, a):
     return f"const __m256 {to} = _mm256_set1_ps({a});"
+
 
 def vbroadcast_int32(to, a):
     return f"__m256i {to} = _mm256_set1_epi32({a});"
 
+
 def vsetzero(to):
     return f"__m256 {to} = _mm256_setzero_ps();"
+
 
 def vcvtepi32_ps(to, a):
     return f"const __m256 {to} = _mm256_cvtepi32_ps({a});"
 
+
 def _256extractf128_ps(to, a, imm):
     return f"const __m128 {to} = _mm256_extractf128_ps({a}, {imm});"
+
 
 def _256castps256_ps128(to, a):
     return f"const __m128 {to} = _mm256_castps256_ps128({a});"
 
+
 def _add_ps(to, a, b):
     return f"const __m128 {to} = _mm_add_ps({a}, {b});"
+
 
 def _movehl_ps(to, a, b):
     return f"const __m128 {to} = _mm_movehl_ps({a}, {b});"
 
+
 def _shuffle_ps(to, a, b, imm):
     return f"const __m128 {to} = _mm_shuffle_ps({a}, {b}, {imm});"
 
+
 def _cvtss_f32(to, a):
     return f"const float {to} = _mm_cvtss_f32({a});"
+
 
 def _reduce8_acc(a, b, c, d, e, f, g, h):
     res = ""
@@ -106,7 +120,7 @@ def _reduce8_acc(a, b, c, d, e, f, g, h):
     res += _shuffle_ps("hi5", "sum_dual5", "sum_dual5", 0x1)
     res += _shuffle_ps("hi6", "sum_dual6", "sum_dual6", 0x1)
     res += _shuffle_ps("hi7", "sum_dual7", "sum_dual7", 0x1)
-    
+
     res += _add_ps("sum0", "sum_dual0", "hi0")
     res += _add_ps("sum1", "sum_dual1", "hi1")
     res += _add_ps("sum2", "sum_dual2", "hi2")
@@ -127,7 +141,10 @@ def _reduce8_acc(a, b, c, d, e, f, g, h):
 
     return res
 
+
 acc_idx = 0
+
+
 def _reduce_add(a):
     global acc_idx
     res = ""
@@ -141,9 +158,3 @@ def _reduce_add(a):
     res += _cvtss_f32(f"f{a}", f"sum{acc_idx}")
     acc_idx += 1
     return res
-
-
-
-
-
-

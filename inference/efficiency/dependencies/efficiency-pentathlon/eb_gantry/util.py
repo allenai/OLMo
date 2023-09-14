@@ -60,10 +60,7 @@ def parse_git_remote_url(url: str) -> Tuple[str, str]:
     """
     try:
         account, repo = (
-            url.split("https://github.com/")[-1]
-            .split("git@github.com:")[-1]
-            .split(".git")[0]
-            .split("/")
+            url.split("https://github.com/")[-1].split("git@github.com:")[-1].split(".git")[0].split("/")
         )
     except ValueError:
         raise InvalidRemoteError(f"Failed to parse GitHub repo path from remote '{url}'")
@@ -156,9 +153,7 @@ def ensure_entrypoint_dataset(beaker: Beaker) -> Dataset:
                 entrypoint_path = tmpdir / constants.ENTRYPOINT
                 with open(entrypoint_path, "wb") as entrypoint_file:
                     entrypoint_file.write(contents)
-                gantry_entrypoint_dataset = beaker.dataset.create(
-                    entrypoint_dataset_name, entrypoint_path
-                )
+                gantry_entrypoint_dataset = beaker.dataset.create(entrypoint_dataset_name, entrypoint_path)
         except DatasetConflict:  # could be in a race with another `gantry` process.
             time.sleep(1.0)
             gantry_entrypoint_dataset = beaker.dataset.get(entrypoint_dataset_name)
@@ -179,9 +174,7 @@ def ensure_entrypoint_dataset(beaker: Beaker) -> Dataset:
     return gantry_entrypoint_dataset
 
 
-def ensure_github_token_secret(
-    beaker: Beaker, secret_name: str = constants.GITHUB_TOKEN_SECRET
-) -> str:
+def ensure_github_token_secret(beaker: Beaker, secret_name: str = constants.GITHUB_TOKEN_SECRET) -> str:
     try:
         beaker.secret.get(secret_name)
     except SecretNotFound:
@@ -345,9 +338,7 @@ def check_for_upgrades():
     import requests
 
     try:
-        response = requests.get(
-            "https://api.github.com/repos/allenai/beaker-gantry/releases/latest", timeout=1
-        )
+        response = requests.get("https://api.github.com/repos/allenai/beaker-gantry/releases/latest", timeout=1)
         if response.ok:
             latest_version = packaging.version.parse(response.json()["tag_name"])
             if latest_version > packaging.version.parse(VERSION):
@@ -379,9 +370,7 @@ def ensure_workspace(
                 f"[yellow]Your workspace [b]{beaker.workspace.url()}[/] has multiple contributors! "
                 f"Every contributor can view your GitHub personal access token secret ('{gh_token_secret}').[/]"
             )
-            if not yes and not prompt.Confirm.ask(
-                "[yellow][i]Are you sure you want to use this workspace?[/][/]"
-            ):
+            if not yes and not prompt.Confirm.ask("[yellow][i]Are you sure you want to use this workspace?[/][/]"):
                 raise KeyboardInterrupt
         elif workspace is None:
             default_workspace = beaker.workspace.get()
@@ -390,7 +379,5 @@ def ensure_workspace(
             ):
                 raise KeyboardInterrupt
     except WorkspaceNotSet:
-        raise ConfigurationError(
-            "'--workspace' option is required since you don't have a default workspace set"
-        )
+        raise ConfigurationError("'--workspace' option is required since you don't have a default workspace set")
     return beaker

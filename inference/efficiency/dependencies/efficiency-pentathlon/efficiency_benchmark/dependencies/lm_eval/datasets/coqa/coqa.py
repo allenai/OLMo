@@ -23,7 +23,6 @@ import json
 
 import datasets
 
-
 _CITATION = """\
 @misc{reddy2018coqa,
     title={CoQA: A Conversational Question Answering Challenge},
@@ -91,9 +90,7 @@ class Coqa(datasets.GeneratorBasedBuilder):
     VERSION = datasets.Version("0.0.1")
 
     BUILDER_CONFIGS = [
-        datasets.BuilderConfig(
-            name="coqa", version=VERSION, description="The CoQA dataset."
-        ),
+        datasets.BuilderConfig(name="coqa", version=VERSION, description="The CoQA dataset."),
     ]
 
     def _info(self):
@@ -186,10 +183,7 @@ class Coqa(datasets.GeneratorBasedBuilder):
                 id = row["id"]
                 source = row["source"]
                 story = row["story"]
-                questions = [
-                    {"input_text": q["input_text"], "turn_id": q["turn_id"]}
-                    for q in row["questions"]
-                ]
+                questions = [{"input_text": q["input_text"], "turn_id": q["turn_id"]} for q in row["questions"]]
                 answers = [
                     {
                         "span_start": a["span_start"],

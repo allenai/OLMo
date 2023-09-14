@@ -22,7 +22,6 @@ import os
 
 import datasets
 
-
 _CITATION = """\
 @InProceedings{JoshiTriviaQA2017,
     author = {Joshi, Mandar and Choi, Eunsol and Weld, Daniel S. and Zettlemoyer, Luke},
@@ -55,9 +54,7 @@ class Triviaqa(datasets.GeneratorBasedBuilder):
     VERSION = datasets.Version("0.0.1")
 
     BUILDER_CONFIGS = [
-        datasets.BuilderConfig(
-            name="triviaqa", version=VERSION, description="The TriviaQA dataset"
-        ),
+        datasets.BuilderConfig(name="triviaqa", version=VERSION, description="The TriviaQA dataset"),
     ]
 
     def _info(self):
@@ -121,21 +118,11 @@ class Triviaqa(datasets.GeneratorBasedBuilder):
                 for search_result in data["SearchResults"]:
                     search_results.append(
                         {
-                            "description": search_result["Description"]
-                            if "Description" in search_result
-                            else "",
-                            "filename": search_result["Filename"]
-                            if "Filename" in search_result
-                            else "",
-                            "rank": search_result["Rank"]
-                            if "Rank" in search_result
-                            else -1,
-                            "title": search_result["Title"]
-                            if "Title" in search_result
-                            else "",
-                            "url": search_result["Url"]
-                            if "Url" in search_result
-                            else "",
+                            "description": search_result["Description"] if "Description" in search_result else "",
+                            "filename": search_result["Filename"] if "Filename" in search_result else "",
+                            "rank": search_result["Rank"] if "Rank" in search_result else -1,
+                            "title": search_result["Title"] if "Title" in search_result else "",
+                            "url": search_result["Url"] if "Url" in search_result else "",
                             "search_context": search_result["SearchContext"]
                             if "SearchContext" in search_result
                             else "",

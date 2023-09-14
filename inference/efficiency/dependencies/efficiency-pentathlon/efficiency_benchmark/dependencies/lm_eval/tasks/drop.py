@@ -13,14 +13,14 @@ Acknowledgement: This implementation is based on the official evaluation for `DR
 https://github.com/allenai/allennlp-reading-comprehension/blob/master/allennlp_rc/eval/drop_eval.py
 """
 import inspect
-import numpy as np
 import re
 import string
+
 import efficiency_benchmark.dependencies.lm_eval.datasets.drop.drop
-from scipy.optimize import linear_sum_assignment
+import numpy as np
 from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
 from efficiency_benchmark.dependencies.lm_eval.metrics import mean
-
+from scipy.optimize import linear_sum_assignment
 
 _CITATION = """
 @misc{dua2019drop,
@@ -87,9 +87,7 @@ class DROP(Task):
 
         answers = []
         answers_set = set()
-        candidates = [qa["answer"]] + _flatten_validated_answers(
-            qa["validated_answers"]
-        )
+        candidates = [qa["answer"]] + _flatten_validated_answers(qa["validated_answers"])
         for candidate in candidates:
             answer = cls.parse_answer(candidate)
             if answer in answers_set:
@@ -105,11 +103,7 @@ class DROP(Task):
             return (str(answer["number"]),)
         if answer["spans"] != []:
             return tuple(answer["spans"])
-        return (
-            " ".join(
-                [answer["date"]["day"], answer["date"]["month"], answer["date"]["year"]]
-            ).strip(),
-        )
+        return (" ".join([answer["date"]["day"], answer["date"]["month"], answer["date"]["year"]]).strip(),)
 
     def doc_to_text(self, doc):
         return f"Passage: {doc['passage']}\nQuestion: {doc['question']}\nAnswer:"
@@ -168,9 +162,7 @@ class DROP(Task):
         predicted_bags = self._answer_to_bags(predicted)
         gold_bags = self._answer_to_bags(gold)
 
-        if set(predicted_bags[0]) == set(gold_bags[0]) and len(
-            predicted_bags[0]
-        ) == len(gold_bags[0]):
+        if set(predicted_bags[0]) == set(gold_bags[0]) and len(predicted_bags[0]) == len(gold_bags[0]):
             exact_match = 1.0
         else:
             exact_match = 0.0
@@ -202,9 +194,7 @@ class DROP(Task):
         for gold_index, gold_item in enumerate(gold):
             for pred_index, pred_item in enumerate(predicted):
                 if self._match_numbers_if_present(gold_item, pred_item):
-                    scores[gold_index, pred_index] = self._compute_f1(
-                        pred_item, gold_item
-                    )
+                    scores[gold_index, pred_index] = self._compute_f1(pred_item, gold_item)
         row_ind, col_ind = linear_sum_assignment(-scores)
 
         max_scores = np.zeros([max(len(gold), len(predicted))])
@@ -222,11 +212,7 @@ class DROP(Task):
             recall = 1.0
         else:
             recall = intersection / float(len(gold_bag))
-        f1 = (
-            (2 * precision * recall) / (precision + recall)
-            if not (precision == 0.0 and recall == 0.0)
-            else 0.0
-        )
+        f1 = (2 * precision * recall) / (precision + recall) if not (precision == 0.0 and recall == 0.0) else 0.0
         return f1
 
     def _match_numbers_if_present(self, gold_bag, predicted_bag):
@@ -270,11 +256,7 @@ class DROP(Task):
 
     def _normalize(self, answer):
         tokens = [
-            self._white_space_fix(
-                self._remove_articles(
-                    self._fix_number(self._remove_punc(token.lower()))
-                )
-            )
+            self._white_space_fix(self._remove_articles(self._fix_number(self._remove_punc(token.lower()))))
             for token in self._tokenize(answer)
         ]
         tokens = [token for token in tokens if token.strip()]

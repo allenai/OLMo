@@ -2,27 +2,34 @@ from abc import ABC
 from dataclasses import dataclass
 from enum import Enum
 from random import Random
-from typing import (Any, Callable, Dict, Iterable, List, Mapping, Optional,
-                    Sequence, Tuple, Union)
-
-import torchmetrics
-from mypy_extensions import KwArg
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import efficiency_benchmark.metrics
+import torchmetrics
 from efficiency_benchmark.metrics.bleu import BLEUMetric
 from efficiency_benchmark.metrics.entropy import EntropyMetric
 from efficiency_benchmark.metrics.perplexity import PerplexityMetric
 from efficiency_benchmark.tango_utils import det_hash
+from mypy_extensions import KwArg
 
 PERPLEXITY_METRICS = {
     "word_perplexity": PerplexityMetric,
     "byte_perplexity": PerplexityMetric,
-    "bits_per_byte": EntropyMetric
+    "bits_per_byte": EntropyMetric,
 }
 
-MT_METRICS = {
-    "bleu": BLEUMetric
-}
+MT_METRICS = {"bleu": BLEUMetric}
 
 QA_METRICS = {
     "squad_metrics": torchmetrics.SQuAD,
@@ -32,8 +39,10 @@ QA_METRICS = {
 try:
     from functools import cache as memoize
 except ImportError:
-    def memoize(user_function, /):      # type: ignore
+
+    def memoize(user_function, /):  # type: ignore
         import functools
+
         return functools.lru_cache(maxsize=None)(user_function)
 
 
@@ -119,10 +128,7 @@ class Task(ABC):
         raise ValueError("This task has no split to take fewshot instances from.")
 
     def make_metrics(self) -> Dict[str, torchmetrics.Metric]:
-        return {
-            name: metric_fn()
-            for name, metric_fn in self.metrics.items()
-        }
+        return {name: metric_fn() for name, metric_fn in self.metrics.items()}
 
     def has_instance_conversion(self, format: InstanceFormat) -> bool:
         return format in self.instance_conversions
@@ -135,7 +141,7 @@ class Task(ABC):
         num_shots: int,
         *,
         exceptions: Union[None, Dict[str, Any], Iterable[Dict[str, Any]]] = None,
-        random_seed: int = 18830087
+        random_seed: int = 18830087,
     ) -> Sequence[Dict[str, Any]]:
         if num_shots <= 0:
             return []
@@ -175,7 +181,7 @@ class Task(ABC):
         return self
 
     def add_instance_conversion(self, format: InstanceFormat, conversion: InstanceConversion):
-        self.instance_conversions[format] =  conversion
+        self.instance_conversions[format] = conversion
         return self
 
 

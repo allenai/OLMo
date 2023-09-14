@@ -18,11 +18,7 @@ class BLEUMetric(BaseAggregator):
         self._targets: List[str] = []
         self._bleu_metric = BLEU()
 
-    def update(
-        self,
-        output: str,
-        target: str
-    ) -> None:  # type: ignore
+    def update(self, output: str, target: str) -> None:  # type: ignore
         self._outputs.append(output)
         self._targets.append(target)
 

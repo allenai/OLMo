@@ -3,10 +3,12 @@
 
 import argparse
 import json
-from hf_olmo import *
+
 import torch
 from auto_gptq import AutoGPTQForCausalLM
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+from hf_olmo import *
 
 
 def stdio_predictor_wrapper(predictor):

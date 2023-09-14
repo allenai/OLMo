@@ -4,14 +4,13 @@ from argparse import ArgumentParser
 from functools import partial
 
 import torch
+from auto_gptq import AutoGPTQForCausalLM, get_gptq_peft_model
+from auto_gptq.utils.data_utils import collate_data, make_data_block
 from datasets import Dataset
+from peft import AdaptionPromptConfig, TaskType
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import AutoTokenizer, get_linear_schedule_with_warmup
-
-from auto_gptq import AutoGPTQForCausalLM, get_gptq_peft_model
-from auto_gptq.utils.data_utils import make_data_block, collate_data
-from peft import TaskType, AdaptionPromptConfig
 
 parser = ArgumentParser()
 parser.add_argument("--model_name_or_path", type=str)
@@ -20,7 +19,9 @@ parser.add_argument("--adapter_layers", type=int, default=30)
 parser.add_argument("--lr", type=float, default=3e-3)
 parser.add_argument("--num_epochs", type=int, default=1)
 parser.add_argument("--sample_max_length", type=int, default=1024, help="max length of sample")
-parser.add_argument("--block_max_length", type=int, default=1024, help="max length of data block(bunch of samples)")
+parser.add_argument(
+    "--block_max_length", type=int, default=1024, help="max length of data block(bunch of samples)"
+)
 parser.add_argument("--tokenizer_name_or_path", type=str, default=None)
 parser.add_argument("--use_fast_tokenizer", action="store_true")
 args = parser.parse_args()
@@ -51,7 +52,7 @@ model = AutoGPTQForCausalLM.from_quantized(
     warmup_triton=False,
     trainable=True,
     inject_fused_attention=False,
-    inject_fused_mlp=False
+    inject_fused_mlp=False,
 )
 model.warmup_triton()
 device = model.device
@@ -100,8 +101,8 @@ ds = ds.map(
         "block_max_len": args.block_max_length,
         "add_eos_token": True,
         "truncate_prompt": False,
-        "merge_prompt_label": True
-    }
+        "merge_prompt_label": True,
+    },
 )
 ds = ds.train_test_split(test_size=len(ds) // 10)
 train_ds, eval_ds = ds["train"], ds["test"]
@@ -146,7 +147,9 @@ with torch.cuda.amp.autocast():
             loss = outputs.loss
             eval_loss += loss.detach().float()
             eval_preds.extend(
-                tokenizer.batch_decode(torch.argmax(outputs.logits, -1).detach().cpu().numpy(), skip_special_tokens=True)
+                tokenizer.batch_decode(
+                    torch.argmax(outputs.logits, -1).detach().cpu().numpy(), skip_special_tokens=True
+                )
             )
 
         eval_epoch_loss = eval_loss / len(eval_dataloader)

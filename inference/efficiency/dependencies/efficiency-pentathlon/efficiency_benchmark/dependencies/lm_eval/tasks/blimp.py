@@ -10,9 +10,8 @@ grammars.
 
 Homepage: https://github.com/alexwarstadt/blimp
 """
-from efficiency_benchmark.dependencies.lm_eval.base import rf, Task
+from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
 from efficiency_benchmark.dependencies.lm_eval.metrics import mean
-
 
 _CITATION = """
 @article{warstadt2019blimp,
@@ -50,13 +49,9 @@ class BlimpTask(Task):
         # trained on this data.
         return self.dataset["train"]
 
-    def fewshot_context(
-        self, doc, num_fewshot, provide_description=None, rnd=None, description=None
-    ):
+    def fewshot_context(self, doc, num_fewshot, provide_description=None, rnd=None, description=None):
         assert num_fewshot == 0
-        assert (
-            rnd is not None
-        ), "A `random.Random` generator argument must be provided to `rnd`"
+        assert rnd is not None, "A `random.Random` generator argument must be provided to `rnd`"
         assert not provide_description, (
             "The `provide_description` arg will be removed in future versions. To prepend "
             "a custom description to the context, supply the corresponding string via the  "

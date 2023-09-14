@@ -13,10 +13,10 @@ in the broader discourse.
 Homepage: https://zenodo.org/record/2630551#.X4Xzn5NKjUI
 """
 import inspect
+
 import efficiency_benchmark.dependencies.lm_eval.datasets.lambada_openai.lambada_openai
 from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
 from efficiency_benchmark.dependencies.lm_eval.metrics import mean, perplexity
-
 
 _CITATION = """
 @misc{
@@ -98,7 +98,9 @@ class LambadaOpenAI(LambadaBase):
     """
 
     VERSION = 0
-    DATASET_PATH = inspect.getfile(efficiency_benchmark.dependencies.lm_eval.datasets.lambada_openai.lambada_openai)
+    DATASET_PATH = inspect.getfile(
+        efficiency_benchmark.dependencies.lm_eval.datasets.lambada_openai.lambada_openai
+    )
 
     def has_training_docs(self):
         return False

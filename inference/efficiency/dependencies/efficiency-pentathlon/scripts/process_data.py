@@ -1,11 +1,11 @@
 """Preprocess data for efficiency benchmark."""
 
-import numpy as np
-import datasets
 import argparse
+
+import datasets
+import numpy as np
 import pandas as pd
 from datasets import Dataset
-
 
 MINIMUM_SINGLE_STREAM_INSTANCES = 1000
 NUM_OFFLINE_BATCHES = 10000
@@ -49,24 +49,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    dataset = datasets.load_dataset(
-        args.dataset_path, 
-        args.dataset_name,
-        split=args.split
-    )
+    dataset = datasets.load_dataset(args.dataset_path, args.dataset_name, split=args.split)
 
-    write_accuracy_data(
-        dataset, 
-        output_folder=f"{args.output_folder}/{args.dataset_path}/{args.dataset_name}"
-    )
+    write_accuracy_data(dataset, output_folder=f"{args.output_folder}/{args.dataset_path}/{args.dataset_name}")
 
     write_single_stream_data(
-        dataset, 
-        output_folder=f"{args.output_folder}/{args.dataset_path}/{args.dataset_name}"
+        dataset, output_folder=f"{args.output_folder}/{args.dataset_path}/{args.dataset_name}"
     )
 
-    write_offline_data(
-        dataset, 
-        output_folder=f"{args.output_folder}/{args.dataset_path}/{args.dataset_name}"
-    )
-
+    write_offline_data(dataset, output_folder=f"{args.output_folder}/{args.dataset_path}/{args.dataset_name}")

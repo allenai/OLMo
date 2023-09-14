@@ -10,9 +10,8 @@ provided explanations.
 Homepage: "https://github.com/facebookresearch/anli"
 """
 import numpy as np
-from efficiency_benchmark.dependencies.lm_eval.base import rf, Task
+from efficiency_benchmark.dependencies.lm_eval.base import Task, rf
 from efficiency_benchmark.dependencies.lm_eval.metrics import mean
-
 
 _CITATION = """
 @inproceedings{nie-etal-2020-adversarial,
@@ -64,12 +63,7 @@ class ANLIBase(Task):
         # of the prompt (yes, repeating it!). also, " True, False, or Neither?" is directly
         # appended onto the question, with no "Answer:" or even a newline. Do we *really*
         # want to do it exactly as OA did?
-        return (
-            doc["premise"]
-            + "\nQuestion: "
-            + doc["hypothesis"]
-            + " True, False, or Neither?\nAnswer:"
-        )
+        return doc["premise"] + "\nQuestion: " + doc["hypothesis"] + " True, False, or Neither?\nAnswer:"
 
     def should_decontaminate(self):
         return True

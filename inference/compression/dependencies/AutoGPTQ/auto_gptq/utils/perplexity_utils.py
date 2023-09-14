@@ -1,9 +1,10 @@
 import sys
-import torch
+
 import numpy as np
-from tqdm import tqdm
+import torch
 from datasets import load_dataset
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from tqdm import tqdm
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 class Perplexity:
@@ -11,7 +12,9 @@ class Perplexity:
     A class for calculating the perplexity of a language model.
     """
 
-    def __init__(self, model, tokenizer, dataset_path='wikitext', dataset_name=None, split='test', text_column='text'):
+    def __init__(
+        self, model, tokenizer, dataset_path="wikitext", dataset_name=None, split="test", text_column="text"
+    ):
         """
         Calculate perplexity using the same method as seen in llama.cpp.
 
@@ -40,15 +43,15 @@ class Perplexity:
         self._split = split
         self._text_column = text_column
         self._text = self._prepare_data()
-    
+
     def _get_device(self):
         if torch.backends.mps.is_available():
-            return 'mps'
+            return "mps"
         elif torch.cuda.is_available():
-            return 'cuda:0'
+            return "cuda:0"
         else:
-            return 'cpu'
-    
+            return "cpu"
+
     def _prepare_data(self):
         """
         Prepares the dataset by loading and formatting.
@@ -58,14 +61,14 @@ class Perplexity:
         str
             The formatted dataset as a single string.
         """
-        if self._dataset_path == 'wikitext':
-            self._dataset_name = 'wikitext-2-raw-v1'
-        
+        if self._dataset_path == "wikitext":
+            self._dataset_name = "wikitext-2-raw-v1"
+
         # Load the dataset
         data = load_dataset(self._dataset_path, self._dataset_name, split=self._split)
         # Format the text column of the dataset
-        text_list = [' \n' if s == '' else s for s in data[self._text_column]]
-        return ''.join(text_list)
+        text_list = [" \n" if s == "" else s for s in data[self._text_column]]
+        return "".join(text_list)
 
     @staticmethod
     def softmax(logits):
@@ -95,7 +98,7 @@ class Perplexity:
             The context size.
         n_batch : int
             The batch size.
-        
+
         Returns
         -------
         list
@@ -103,7 +106,9 @@ class Perplexity:
         """
         # Tokenize the text
         self._tokenizer.model_max_length = sys.maxsize
-        tokens = self._tokenizer(self._text, truncation=False, return_tensors='pt').input_ids.to(self._model.device)
+        tokens = self._tokenizer(self._text, truncation=False, return_tensors="pt").input_ids.to(
+            self._model.device
+        )
 
         nll = 0.0  # Negative log likelihood
         count = 0  # Counter for processed tokens
@@ -171,11 +176,11 @@ class Perplexity:
             tokens[0][batch_start] = token_org
 
             logits.append(batch_logits)
-        
+
         # We rely on the fact that attention in the forward pass only looks at previous
         # tokens here, so the logits returned for each token are an accurate representation
         # of what the model would have predicted at that point.
-        # 
+        #
         # Example, we have a context window of 512, we will compute perplexity for each of the
         # last 256 tokens.  Then, we split the input up into context window size chunks to
         # process the entire prompt.
@@ -186,7 +191,7 @@ class Perplexity:
             prob = self.softmax(tok_logits)[tokens[0][start + j + 1]]
 
             # Update the negative log likelihood and the count of processed tokens
-            nll += -np.log(prob, where=prob>0)
+            nll += -np.log(prob, where=prob > 0)
             count += 1
 
         return nll, count
@@ -211,5 +216,5 @@ class Perplexity:
         """
         # Compute the logits without keeping track of gradients
         with torch.no_grad():
-            outputs = self._model(tokens[:, batch_start:batch_start+batch_size])
+            outputs = self._model(tokens[:, batch_start : batch_start + batch_size])
         return outputs.logits.detach()

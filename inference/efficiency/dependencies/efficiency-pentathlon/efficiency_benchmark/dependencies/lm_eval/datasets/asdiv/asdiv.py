@@ -19,7 +19,6 @@ import xml.etree.ElementTree as ET
 
 import datasets
 
-
 _CITATION = """\
 @misc{miao2021diverse,
     title={A Diverse Corpus for Evaluating and Developing English Math Word Problem Solvers},
@@ -89,9 +88,7 @@ class ASDiv(datasets.GeneratorBasedBuilder):
                 name=datasets.Split.VALIDATION,
                 # These kwargs will be passed to _generate_examples
                 gen_kwargs={
-                    "filepath": os.path.join(
-                        data_dir, base_filepath, "dataset", "ASDiv.xml"
-                    ),
+                    "filepath": os.path.join(data_dir, base_filepath, "dataset", "ASDiv.xml"),
                     "split": datasets.Split.VALIDATION,
                 },
             ),

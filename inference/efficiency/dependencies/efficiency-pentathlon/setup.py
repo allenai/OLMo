@@ -66,15 +66,15 @@ setup(
             "conftest",
         ],
     ),
-    package_data={
-        "efficiency-benchmark": ["py.typed"]
+    package_data={"efficiency-benchmark": ["py.typed"]},
+    entry_points={
+        "console_scripts": [
+            # "efficiency-benchmark=efficiency_benchmark.__main__:main",
+            # "eb=efficiency_benchmark.__main__:main",
+            "efficiency-pentathlon=efficiency_benchmark.__main__:main",
+            "ep=efficiency_benchmark.__main__:main",
+        ]
     },
-    entry_points={"console_scripts": [
-        # "efficiency-benchmark=efficiency_benchmark.__main__:main",
-        # "eb=efficiency_benchmark.__main__:main",
-        "efficiency-pentathlon=efficiency_benchmark.__main__:main",
-        "ep=efficiency_benchmark.__main__:main"
-    ]},
     install_requires=parse_requirements_file("requirements.txt"),
     include_package_data=True,
     python_requires=">=3.8.0",

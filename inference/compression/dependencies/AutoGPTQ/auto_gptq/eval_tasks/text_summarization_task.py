@@ -35,21 +35,22 @@ class TextSummarizationTask(BaseTask):
         output_ids = self.model.generate(
             input_ids=batch_data["input_ids"],
             attention_mask=batch_data["attention_mask"],
-            generation_config=generation_config
+            generation_config=generation_config,
         )
         return [
-            each[0].lower().strip() for each in postprocess_generation_ids(
+            each[0].lower().strip()
+            for each in postprocess_generation_ids(
                 input_ids=batch_data["input_ids"],
                 output_ids=output_ids,
                 num_return_sequences=generation_config.num_return_sequences,
-                tokenizer=self.tokenizer
+                tokenizer=self.tokenizer,
             )
         ]
 
     def _parse_labels(self, label_ids: LongTensor) -> List[str]:
         labels = []
         for one_label_ids in label_ids:
-            one_label_ids = one_label_ids[(one_label_ids == -100).sum():]
+            one_label_ids = one_label_ids[(one_label_ids == -100).sum() :]
             label = self.tokenizer.decode(one_label_ids).lower().strip()
             labels.append(label)
 
@@ -61,11 +62,7 @@ class TextSummarizationTask(BaseTask):
 
     def run(self, generation_config: Optional[GenerationConfig] = None) -> Dict[str, float]:
         if not generation_config:
-            generation_config = GenerationConfig(
-                num_beams=1,
-                do_sample=False,
-                max_new_tokens=128
-            )
+            generation_config = GenerationConfig(num_beams=1, do_sample=False, max_new_tokens=128)
         generation_config.num_return_sequences = 1
         generation_config.eos_token_id = self.tokenizer.eos_token_id
         generation_config.pad_token_id = self.tokenizer.pad_token_id

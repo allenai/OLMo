@@ -1,16 +1,17 @@
 import os
 import random
-from typing import (Any, Callable, Dict, List, Optional, Sequence, TypeVar,
-                    Union)
+from typing import Any, Callable, Dict, List, Optional, Sequence, TypeVar, Union
 
 from efficiency_benchmark.dependencies.lm_eval.base import Task as EAITask
-from efficiency_benchmark.dependencies.lm_eval.tasks import \
-    get_task as get_eai_task
+from efficiency_benchmark.dependencies.lm_eval.tasks import get_task as get_eai_task
 from efficiency_benchmark.tango_utils import MappedSequence
-from efficiency_benchmark.task import (InstanceFormat,
-                                       RankClassificationInstance, Task,
-                                       WithAnswerOptionsMixin,
-                                       classification_metrics)
+from efficiency_benchmark.task import (
+    InstanceFormat,
+    RankClassificationInstance,
+    Task,
+    WithAnswerOptionsMixin,
+    classification_metrics,
+)
 
 T = TypeVar("T")
 
@@ -25,7 +26,7 @@ class EleutherTask(Task):
         eleuther_task: Union[str, Callable[[], EAITask]],
         *,
         version_override: Optional[str] = None,
-        ranked_classification: bool = False
+        ranked_classification: bool = False,
     ):
         Task.__init__(self, version_override=version_override)
         self.eleuther_task: Optional[EAITask] = None
@@ -115,7 +116,7 @@ class EleutherTask(Task):
             try:
                 label = int(label) - 1
             except ValueError:
-                label = ord(label) - ord('a')
+                label = ord(label) - ord("a")
 
         if not isinstance(label, int):
             raise ValueError("Could not find label for instance.")
@@ -123,11 +124,7 @@ class EleutherTask(Task):
         return label
 
     def instance_as_rank_classification(
-        self,
-        instance: Dict[str, Any],
-        *,
-        fewshot_instances: Optional[List[Dict[str, Any]]] = None,
-        **kwargs
+        self, instance: Dict[str, Any], *, fewshot_instances: Optional[List[Dict[str, Any]]] = None, **kwargs
     ) -> RankClassificationInstance:
         if fewshot_instances is None:
             fewshot_instances = []
@@ -140,10 +137,7 @@ class EleutherTask(Task):
             prefix += f"{correct_choice[0].strip()} {correct_choice[1].strip()}\n\n"
 
         requests = self.instance_as_eleuther_requests(instance, **kwargs)
-        choices = [
-            (prefix + r.args[0], r.args[1])
-            for r in requests
-        ]
+        choices = [(prefix + r.args[0], r.args[1]) for r in requests]
 
         label = self._guess_label(instance)
         assert label < len(choices)
@@ -164,11 +158,7 @@ class EleutherClassificationTask(EleutherTask, WithAnswerOptionsMixin):
         self.add_metrics(classification_metrics(len(answer_options)))
 
     def instance_as_rank_classification(
-        self,
-        instance: Dict[str, Any],
-        *,
-        fewshot_instances: Optional[List[Dict[str, Any]]] = None,
-        **kwargs
+        self, instance: Dict[str, Any], *, fewshot_instances: Optional[List[Dict[str, Any]]] = None, **kwargs
     ) -> RankClassificationInstance:
         if fewshot_instances is None:
             fewshot_instances = []
@@ -181,21 +171,16 @@ class EleutherClassificationTask(EleutherTask, WithAnswerOptionsMixin):
             prefix += f"{correct_choice[0].strip()} {correct_choice[1].strip()}\n\n"
 
         requests = self.instance_as_eleuther_requests(instance, **kwargs)
-        choices = [
-            (prefix + r.args[0], r.args[1])
-            for r in requests
-        ]
+        choices = [(prefix + r.args[0], r.args[1]) for r in requests]
         assert len(choices) == len(self.answer_options)
 
         # Reorder the choices so they correspond to self.answer_options.
         # This is important because otherwise doc.label does not match.
         normalized_answer_to_choice = {
-            continuation.strip().lower(): (context, continuation)
-            for context, continuation in choices
+            continuation.strip().lower(): (context, continuation) for context, continuation in choices
         }
         choices = [
-            normalized_answer_to_choice[answer_option.strip().lower()]
-            for answer_option in self.answer_options
+            normalized_answer_to_choice[answer_option.strip().lower()] for answer_option in self.answer_options
         ]
 
         label = self._guess_label(instance)
@@ -206,6 +191,7 @@ class EleutherClassificationTask(EleutherTask, WithAnswerOptionsMixin):
 class RaceEleutherTask(EleutherTask):
     """The EAI Race task is different because there is no 1:1 correspondence between HF instances and EAI
     instances. EAI chose to follow the GPT3 evaluation approach, which combines multiple questions into one."""
+
     def __init__(self, *, version_override: Optional[str] = None):
         super().__init__("race", version_override=version_override)
         del self.instance_conversions[InstanceFormat.HF_DICT]
@@ -232,17 +218,17 @@ class RaceEleutherTask(EleutherTask):
 
 class EleutherTaskWithRenamedSplits(EleutherTask):
     """This task is different because EAI relabels the datasets."""
+
     def __init__(
         self,
         eleuther_task: Union[str, Callable[[], EAITask]],
         *,
         version_override: Optional[str] = None,
-        ranked_classification: bool = False
+        ranked_classification: bool = False,
     ):
         super().__init__(
-            eleuther_task,
-            version_override=version_override,
-            ranked_classification=ranked_classification)
+            eleuther_task, version_override=version_override, ranked_classification=ranked_classification
+        )
 
     def has_split(self, split: str) -> bool:
         if split == "train":
@@ -276,10 +262,8 @@ class EleutherClassificationTaskWithRenamedSplits(EleutherTaskWithRenamedSplits,
         version_override: Optional[str] = None,
     ):
         EleutherTaskWithRenamedSplits.__init__(
-            self,
-            eleuther_task,
-            version_override=version_override,
-            ranked_classification=True)
+            self, eleuther_task, version_override=version_override, ranked_classification=True
+        )
         WithAnswerOptionsMixin.__init__(self, answer_options)
         self.add_instance_conversion(InstanceFormat.RANK_CLASSIFICATION, self.instance_as_rank_classification)
         self.add_metrics(classification_metrics(len(answer_options)))

@@ -1,45 +1,50 @@
 import os
 
-from transformers import AutoTokenizer, TextGenerationPipeline
-from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
 import numpy as np
 import torch
 import torch.nn as nn
+from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
+from transformers import AutoTokenizer, TextGenerationPipeline
 
 pretrained_model_dir = "facebook/opt-125m"
 quantized_model_dir = "opt-125m-4bit-128g"
 
+
 # os.makedirs(quantized_model_dir, exist_ok=True)
 def get_wikitext2(nsamples, seed, seqlen, model):
     from datasets import load_dataset
-    traindata = load_dataset('wikitext', 'wikitext-2-raw-v1', split='train')
-    testdata = load_dataset('wikitext', 'wikitext-2-raw-v1', split='test')
+
+    traindata = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
+    testdata = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
 
     from transformers import AutoTokenizer
+
     try:
         tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
     except:
         tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
-    trainenc = tokenizer("\n\n".join(traindata['text']), return_tensors='pt')
-    testenc = tokenizer("\n\n".join(testdata['text']), return_tensors='pt')
+    trainenc = tokenizer("\n\n".join(traindata["text"]), return_tensors="pt")
+    testenc = tokenizer("\n\n".join(testdata["text"]), return_tensors="pt")
 
     import random
+
     random.seed(seed)
     np.random.seed(0)
     torch.random.manual_seed(0)
-    
+
     traindataset = []
     for _ in range(nsamples):
         i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
         j = i + seqlen
         inp = trainenc.input_ids[:, i:j]
         attention_mask = torch.ones_like(inp)
-        traindataset.append({'input_ids':inp,'attention_mask': attention_mask})
+        traindataset.append({"input_ids": inp, "attention_mask": attention_mask})
     return traindataset, testenc
 
+
 @torch.no_grad()
-def opt_eval(model, testenc, dev, seqlen = 2048):
-    print('Evaluating ...')
+def opt_eval(model, testenc, dev, seqlen=2048):
+    print("Evaluating ...")
 
     testenc = testenc.input_ids
     nsamples = testenc.numel() // seqlen
@@ -50,31 +55,30 @@ def opt_eval(model, testenc, dev, seqlen = 2048):
 
     model.model.decoder.embed_tokens = model.model.decoder.embed_tokens.to(dev)
     model.model.decoder.embed_positions = model.model.decoder.embed_positions.to(dev)
-    if hasattr(model.model.decoder, 'project_out') and model.model.decoder.project_out:
+    if hasattr(model.model.decoder, "project_out") and model.model.decoder.project_out:
         model.model.decoder.project_out = model.model.decoder.project_out.to(dev)
-    if hasattr(model.model.decoder, 'project_in') and model.model.decoder.project_in:
+    if hasattr(model.model.decoder, "project_in") and model.model.decoder.project_in:
         model.model.decoder.project_in = model.model.decoder.project_in.to(dev)
     layers[0] = layers[0].to(dev)
 
     dtype = next(iter(model.parameters())).dtype
     inps = torch.zeros((nsamples, seqlen, model.config.hidden_size), dtype=dtype, device=dev)
-    cache = {'i': 0, 'attention_mask': None}
+    cache = {"i": 0, "attention_mask": None}
 
     class Catcher(nn.Module):
-
         def __init__(self, module):
             super().__init__()
             self.module = module
 
         def forward(self, inp, **kwargs):
-            inps[cache['i']] = inp
-            cache['i'] += 1
-            cache['attention_mask'] = kwargs['attention_mask']
+            inps[cache["i"]] = inp
+            cache["i"] += 1
+            cache["attention_mask"] = kwargs["attention_mask"]
             raise ValueError
 
     layers[0] = Catcher(layers[0])
     for i in range(nsamples):
-        batch = testenc[:, (i * seqlen):((i + 1) * seqlen)].to(dev)
+        batch = testenc[:, (i * seqlen) : ((i + 1) * seqlen)].to(dev)
         try:
             model(batch)
         except ValueError:
@@ -84,14 +88,14 @@ def opt_eval(model, testenc, dev, seqlen = 2048):
     layers[0] = layers[0].cpu()
     model.model.decoder.embed_tokens = model.model.decoder.embed_tokens.cpu()
     model.model.decoder.embed_positions = model.model.decoder.embed_positions.cpu()
-    if hasattr(model.model.decoder, 'project_out') and model.model.decoder.project_out:
+    if hasattr(model.model.decoder, "project_out") and model.model.decoder.project_out:
         model.model.decoder.project_out = model.model.decoder.project_out.cpu()
-    if hasattr(model.model.decoder, 'project_in') and model.model.decoder.project_in:
+    if hasattr(model.model.decoder, "project_in") and model.model.decoder.project_in:
         model.model.decoder.project_in = model.model.decoder.project_in.cpu()
     torch.cuda.empty_cache()
 
     outs = torch.zeros_like(inps)
-    attention_mask = cache['attention_mask']
+    attention_mask = cache["attention_mask"]
 
     for i in range(len(layers)):
         print(i)
@@ -120,7 +124,7 @@ def opt_eval(model, testenc, dev, seqlen = 2048):
             hidden_states = model.model.decoder.project_out(hidden_states)
         lm_logits = model.lm_head(hidden_states)
         shift_logits = lm_logits[:, :-1, :].contiguous()
-        shift_labels = testenc[:, (i * seqlen):((i + 1) * seqlen)][:, 1:]
+        shift_labels = testenc[:, (i * seqlen) : ((i + 1) * seqlen)][:, 1:]
         loss_fct = nn.CrossEntropyLoss()
         loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
         neg_log_likelihood = loss.float() * seqlen
@@ -130,9 +134,10 @@ def opt_eval(model, testenc, dev, seqlen = 2048):
 
     model.config.use_cache = use_cache
 
+
 def main():
     tokenizer = AutoTokenizer.from_pretrained(pretrained_model_dir, use_fast=True)
-    traindataset,testenc = get_wikitext2(128, 0, 2048, pretrained_model_dir)
+    traindataset, testenc = get_wikitext2(128, 0, 2048, pretrained_model_dir)
 
     quantize_config = BaseQuantizeConfig(
         bits=4,  # quantize model to 4-bit
@@ -143,7 +148,7 @@ def main():
     # load un-quantized model, the model will always be force loaded into cpu
     model = AutoGPTQForCausalLM.from_pretrained(pretrained_model_dir, quantize_config)
 
-    # quantize model, the examples should be list of dict whose keys can only be "input_ids" and "attention_mask" 
+    # quantize model, the examples should be list of dict whose keys can only be "input_ids" and "attention_mask"
     # with value under torch.LongTensor type.
     model.quantize(traindataset, use_triton=False)
 
@@ -157,6 +162,7 @@ def main():
     model = AutoGPTQForCausalLM.from_quantized(quantized_model_dir, device="cuda:0", use_triton=False)
 
     opt_eval(model.model, testenc, "cuda:0")
+
 
 if __name__ == "__main__":
     import logging

@@ -16,7 +16,6 @@ Homepage: https://github.com/nala-cub/prost
 """
 from efficiency_benchmark.dependencies.lm_eval.base import MultipleChoiceTask
 
-
 _CITATION = """
 @inproceedings{aroca-ouellette-etal-2021-prost,
     title = "{PROST}: {P}hysical Reasoning about Objects through Space and Time",
@@ -52,15 +51,9 @@ class PROST(MultipleChoiceTask):
     def test_docs(self):
         return map(self._process_doc, self.dataset["test"])
 
-    def fewshot_context(
-        self, doc, num_fewshot, provide_description=None, rnd=None, description=None
-    ):
-        assert (
-            num_fewshot == 0
-        ), "PROST is designed to probe models in a zero-shot fashion only."
-        return super().fewshot_context(
-            doc=doc, num_fewshot=num_fewshot, rnd=rnd, description=description
-        )
+    def fewshot_context(self, doc, num_fewshot, provide_description=None, rnd=None, description=None):
+        assert num_fewshot == 0, "PROST is designed to probe models in a zero-shot fashion only."
+        return super().fewshot_context(doc=doc, num_fewshot=num_fewshot, rnd=rnd, description=description)
 
     def _process_doc(self, doc):
         out_doc = {
