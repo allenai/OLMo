@@ -166,7 +166,8 @@ class Optimizer(OptimizerBase):
                     continue
                 grad_norm = all_metrics[f"grad/{name}.norm"]
                 exp_avg_norm = all_metrics.get(f"exp_avg/{name}.norm")
-                if max_norm_ratio is not None and exp_avg_norm is not None:
+                # NOTE: exp_avg_norm will be 0.0 on first step.
+                if max_norm_ratio is not None and exp_avg_norm is not None and exp_avg_norm.item() > 0.0:
                     clip_coef = (max_norm_ratio * exp_avg_norm) / (grad_norm + 1e-6)
                 else:
                     clip_coef = max_norm / (grad_norm + 1e-6)
