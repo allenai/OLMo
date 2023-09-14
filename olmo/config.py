@@ -169,6 +169,11 @@ class LayerNormType(StrEnum):
     A low-precision version of RMSNorm.
     """
 
+    amd_compatible = "amd_compatible"
+    """
+    LayerNorm implemented manually to work around an issue with ROCm.
+    """
+
 
 class ActivationType(StrEnum):
     gelu = "gelu"
@@ -301,7 +306,8 @@ class ModelConfig(BaseConfig):
     """
     Whether to include bias and weight parameters for the layer norms.
     This only affects layer norms that are immediately followed by a linear layer in the forward pass.
-    Other layer norms, such as those applied to attention keys and queries, will always include an elementwise affine transform.
+    Other layer norms, such as those applied to attention keys and queries, will always include an elementwise
+    affine transform.
     """
 
     max_sequence_length: int = 1024
@@ -314,6 +320,14 @@ class ModelConfig(BaseConfig):
     Whether or not to include bias parameters in linear layers.
     In PaLM, they got rid of all bias terms because they found that large
     models tend to have near 0 bias terms anyway.
+    """
+
+    bias_for_layer_norm: Optional[bool] = None
+    """
+    Whether or not to include bias parameters in layer norm.
+    This is separate from the include_bias parameter, because of a ROCm crash when biases are disabled in
+    layer norm.
+    When this is None (the default), it inherits the setting from include_bias.
     """
 
     scale_logits: bool = False
@@ -487,6 +501,18 @@ class CompilerConfig(BaseConfig):
     """
 
 
+class FSDPWrapStrategy(StrEnum):
+    by_block = "by_block"
+    """
+    Wrap each OLMo block with its own FSDP instance.
+    """
+
+    size_based = "size_based"
+    """
+    Used PyTorch's default size-based auto wrap policy.
+    """
+
+
 @dataclass
 class FSDPConfig(BaseConfig):
     use_orig_params: bool = True
@@ -495,6 +521,12 @@ class FSDPConfig(BaseConfig):
     """
 
     sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD
+
+    wrapping_strategy: Optional[FSDPWrapStrategy] = None
+    """
+    The wrapping strategy to use. If ``None``, the default, the model is wrapped with a single top-level
+    FSDP instance.
+    """
 
 
 class CheckpointType(StrEnum):
@@ -724,6 +756,11 @@ class TrainConfig(BaseConfig):
     save_data_indices: bool = True
     """
     Save training data indices from each batch for each worker.
+    """
+
+    python_profiling: bool = False
+    """
+    Whether to run the Python profiler on batches 6, 7, and 8.
     """
 
     @property
