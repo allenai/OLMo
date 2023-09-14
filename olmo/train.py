@@ -624,11 +624,10 @@ class Trainer:
         # Clip gradient norms and collect param/gradient/optim metrics.
         should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
         optim_metrics = self.optim.clip_grads_and_collect_metrics(
-            collect_metrics=should_log_optim_metrics_this_step
+            collect_param_metrics=should_log_optim_metrics_this_step
         )
-        if should_log_optim_metrics_this_step:
-            for key, value in optim_metrics.items():
-                metrics[f"optim/{key}"] = value.item()
+        for key, value in optim_metrics.items():
+            metrics[f"optim/{key}"] = value.item()
 
         # Adjust the learning rate.
         for group in self.optim.param_groups:

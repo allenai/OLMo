@@ -396,7 +396,7 @@ class OptimizerConfig(BaseConfig):
     """Do not apply weight decay to norms and biases."""
     metrics_log_interval: Optional[int] = None
     """
-    The interval with which to collect and log optimizer-specific metrics.
+    The interval with which to collect and log detailed parameter-specific metrics.
     This only applies when logging to W&B, since these metrics won't be logged to the console.
     If not set, defaults to the wandb `log_interval`.
     """

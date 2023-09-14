@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 
 class Optimizer(OptimizerBase):
     @torch.no_grad()
-    def clip_grads_and_collect_metrics(self, collect_metrics: bool = True) -> Dict[str, torch.Tensor]:
+    def clip_grads_and_collect_metrics(self, collect_param_metrics: bool = True) -> Dict[str, torch.Tensor]:
         """
         Clips gradients for every group that has the field `max_grad_norm`.
         At the same time collect metrics for each parameter and its gradient.
@@ -68,7 +68,7 @@ class Optimizer(OptimizerBase):
                 # other metrics.
                 tensors: List[Optional[torch.Tensor]] = [p.grad, self.get_exp_avg(p)]
                 prefixes: List[str] = [f"grad/{name}", f"exp_avg/{name}"]
-                if collect_metrics:
+                if collect_param_metrics:
                     state = self.get_state_for_param(p)
                     sorted_state_keys = sorted([k for k in state.keys() if k != "exp_avg"])
                     tensors.extend([p] + [state[key] for key in sorted_state_keys])
@@ -80,7 +80,7 @@ class Optimizer(OptimizerBase):
                     # other ranks.
                     x = x if x is not None else torch.tensor([], device="cpu", dtype=torch.float32)
                     if x.numel() > 0:
-                        if collect_metrics:
+                        if collect_param_metrics:
                             x_abs = x.abs()
                             per_param_min_metrics.append(
                                 x_abs.min().unsqueeze(0).to(device="cpu", dtype=torch.float32)
@@ -98,7 +98,7 @@ class Optimizer(OptimizerBase):
                             torch.linalg.vector_norm(x, 2.0, dtype=torch.float32).unsqueeze(0).to(device="cpu")
                         )
                     else:
-                        if collect_metrics:
+                        if collect_param_metrics:
                             per_param_min_metrics.append(
                                 torch.tensor([float("inf")], device="cpu", dtype=torch.float32)
                             )
@@ -106,7 +106,7 @@ class Optimizer(OptimizerBase):
                             per_param_sum_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
                             per_param_numel_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
                         per_param_norm_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
-                    if collect_metrics:
+                    if collect_param_metrics:
                         per_param_min_metric_names.append(f"{prefix}.min")
                         per_param_max_metric_names.append(f"{prefix}.max")
                         per_param_avg_metric_names.append(f"{prefix}.avg")
@@ -156,29 +156,38 @@ class Optimizer(OptimizerBase):
 
         # Clip gradients.
         num_grads_clipped = 0
+        num_eligible_grads = 0
         for group in self.param_groups:
             max_norm = group.get("max_grad_norm")
             max_norm_ratio = group.get("max_grad_norm_ratio")
-            if max_norm is None:
+            if max_norm is None and max_norm_ratio is None:
                 continue
             for name, p in zip(group["param_names"], group["params"]):
                 grad_norm = all_metrics.get(f"grad/{name}.norm")
                 if grad_norm is None:
                     continue
+                num_eligible_grads += 1
                 exp_avg_norm = all_metrics.get(f"exp_avg/{name}.norm")
-                # NOTE: exp_avg_norm will be 0.0 on first step.
+                # NOTE: exp_avg_norm will be 0.0 on first step, in which case we fall back to regular
+                # clipping.
                 if max_norm_ratio is not None and exp_avg_norm is not None and exp_avg_norm.item() > 0.0:
                     clip_coef = (max_norm_ratio * exp_avg_norm) / (grad_norm + 1e-6)
-                else:
+                elif max_norm is not None:
                     clip_coef = max_norm / (grad_norm + 1e-6)
+                else:
+                    continue
                 clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
                 if clip_coef_clamped < 1.0:
                     num_grads_clipped += 1
                     if p.grad is not None:
                         # p.grad could be none for some ranks when using FSDP.
                         p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
-        all_metrics["num_grads_clipped"] = torch.tensor(num_grads_clipped, device="cpu")
-        return all_metrics
+        clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
+        if collect_param_metrics:
+            all_metrics["clipping_rate"] = clipping_rate
+            return all_metrics
+        else:
+            return {"clipping_rate": clipping_rate}
 
     def get_exp_avg(self, param: nn.Parameter) -> Optional[torch.Tensor]:
         """
