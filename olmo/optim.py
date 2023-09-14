@@ -30,6 +30,9 @@ log = logging.getLogger(__name__)
 
 
 class Optimizer(OptimizerBase):
+    def _clean_param_name(self, name: str) -> str:
+        return name.replace("_fsdp_wrapped_module.", "")
+
     @torch.no_grad()
     def clip_grads_and_collect_metrics(self, collect_param_metrics: bool = True) -> Dict[str, torch.Tensor]:
         """
@@ -64,6 +67,7 @@ class Optimizer(OptimizerBase):
                 assert group.get("sharded", True) is True
 
             for name, p in zip(group["param_names"], group["params"]):
+                name = self._clean_param_name(name)
                 # Always need to collect the norm of gradients for clipping, even if we're not collecting
                 # other metrics.
                 tensors: List[Optional[torch.Tensor]] = [p.grad, self.get_exp_avg(p)]
@@ -163,6 +167,7 @@ class Optimizer(OptimizerBase):
             if max_norm is None and max_norm_ratio is None:
                 continue
             for name, p in zip(group["param_names"], group["params"]):
+                name = self._clean_param_name(name)
                 grad_norm = all_metrics.get(f"grad/{name}.norm")
                 if grad_norm is None:
                     continue
@@ -470,10 +475,13 @@ def fix_optim_state_dict(optimizer: Optimizer, state_dict: Dict[str, Any]) -> Di
 
     assert len(optimizer.param_groups) == len(state_dict["param_groups"])
 
+    # Make sure:
+    #  - All required fields are included in the state dict,
+    #  - And that the values of those fields doesn't change from what's currently set in the optimizer,
+    #    since we might have changed those fields on purpose after a restart.
     for group, sd_group in zip(optimizer.param_groups, state_dict["param_groups"]):
         for key in PARAM_GROUP_FIELDS:
-            if key in group and key not in sd_group:
-                sd_group[key] = group[key]
+            sd_group[key] = group[key]
 
     return state_dict
 
