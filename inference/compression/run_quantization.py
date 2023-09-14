@@ -16,7 +16,6 @@ import numpy as np
 import torch
 from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
 from datasets import load_dataset
-from transformers import AutoTokenizer
 
 from hf_olmo import *
 

@@ -3,10 +3,11 @@
 
 import argparse
 import json
+import sys
 
 import torch
 from auto_gptq import AutoGPTQForCausalLM
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM
 
 from hf_olmo import *
 
