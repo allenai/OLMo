@@ -16,9 +16,9 @@ import numpy as np
 import torch
 from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
 from datasets import load_dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoTokenizer
 
-from hf_olmo import *  # noqa: F403
+from hf_olmo import *  # noqa: F403,F401
 
 
 def get_wikitext2(nsamples, seed, seqlen, model):
