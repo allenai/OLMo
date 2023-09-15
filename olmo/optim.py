@@ -185,7 +185,8 @@ class Optimizer(OptimizerBase):
             # We'll use beta1 to update the exponential average of the norm of the gradient (a scalar),
             # not to be confused with the exponential average of the gradient.
             # TODO (epwalsh): handle optimizers that don't have betas.
-            beta1, _ = group["betas"]
+            beta1, beta2 = group["betas"]
+            beta = max(beta1, beta2)
             max_norm = group.get("max_grad_norm")
             max_norm_ratio = group.get("max_grad_norm_ratio")
             if max_norm is None and max_norm_ratio is None:
@@ -219,9 +220,9 @@ class Optimizer(OptimizerBase):
                     if p.grad is not None:
                         # p.grad could be none for some ranks when using FSDP.
                         p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
-                    grad_norm_exp_avg.lerp_(clipped_norm, 1 - beta1)
+                    grad_norm_exp_avg.lerp_(clipped_norm, 1 - beta)
                 else:
-                    grad_norm_exp_avg.lerp_(grad_norm, 1 - beta1)
+                    grad_norm_exp_avg.lerp_(grad_norm, 1 - beta)
                 all_metrics[f"grad_norm_exp_avg/{name}"] = grad_norm_exp_avg.to(device="cpu")
         clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
         if collect_param_metrics:
