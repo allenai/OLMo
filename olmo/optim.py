@@ -207,18 +207,21 @@ class Optimizer(OptimizerBase):
                         state["grad_norm_exp_avg"] = grad_norm_exp_avg
                 if max_norm_ratio is not None:
                     # Adaptive clipping.
-                    clip_coef = (max_norm_ratio * grad_norm_exp_avg) / (grad_norm + 1e-6)
+                    new_norm = max_norm_ratio * grad_norm_exp_avg
+                    clip_coef = new_norm / (grad_norm + 1e-6)
                 else:
                     # Fixed clipping.
-                    clip_coef = max_norm / (grad_norm + 1e-6)
+                    new_norm = torch.tensor(max_norm)
+                    clip_coef = new_norm / (grad_norm + 1e-6)
                 clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
                 if clip_coef_clamped < 1.0:
                     num_grads_clipped += 1
                     if p.grad is not None:
                         # p.grad could be none for some ranks when using FSDP.
                         p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
-                # Update exponential average of gradient norm.
-                grad_norm_exp_avg.lerp_(grad_norm, 1 - beta1)
+                    grad_norm_exp_avg.lerp_(new_norm, 1 - beta1)
+                else:
+                    grad_norm_exp_avg.lerp_(grad_norm, 1 - beta1)
                 all_metrics[f"grad_norm_exp_avg/{name}"] = grad_norm_exp_avg.to(device="cpu")
         clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
         if collect_param_metrics:
