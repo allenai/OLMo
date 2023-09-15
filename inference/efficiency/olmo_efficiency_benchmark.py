@@ -7,9 +7,9 @@ import sys
 
 import torch
 from auto_gptq import AutoGPTQForCausalLM
-from transformers import AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from hf_olmo import *
+from hf_olmo import * # noqa: F403
 
 
 def stdio_predictor_wrapper(predictor):
@@ -36,7 +36,7 @@ def stdio_predictor_wrapper(predictor):
 class ModelSetUp:
     def __init__(self, pretrained_model_dir, quantized_model_dir):
         device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-        self.tokenizer = OLMoTokenizerFast.from_pretrained(pretrained_model_dir, use_fast=False)
+        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model_dir, use_fast=True)
         self.tokenizer.padding_size = "left"
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token

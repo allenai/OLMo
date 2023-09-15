@@ -16,15 +16,15 @@ import numpy as np
 import torch
 from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
 from datasets import load_dataset
-
-from hf_olmo import *
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from hf_olmo import * # noqa: F403
 
 
 def get_wikitext2(nsamples, seed, seqlen, model):
     traindata = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
     testdata = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
 
-    tokenizer = OLMoTokenizerFast.from_pretrained(model, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
     trainenc = tokenizer("\n\n".join(traindata["text"]), return_tensors="pt")
     testenc = tokenizer("\n\n".join(testdata["text"]), return_tensors="pt")
 
