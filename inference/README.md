@@ -5,7 +5,7 @@
 Run the following:
 
 ```
-bash compression/run_olmo_quantization.sh /net/nfs.cirrascale/allennlp/akshitab/olmo-models/olmo-1b /net/nfs.cirrascale/allennlp/pranjalib/quantized_models/quantized_olmo-1b
+bash compression/run_olmo_quantization.sh /net/nfs.cirrascale/allennlp/akshitab/olmo-models/olmo-1b quantized_olmo-1b
 ```
 
 ## Run accuracy benchmark
@@ -13,7 +13,7 @@ bash compression/run_olmo_quantization.sh /net/nfs.cirrascale/allennlp/akshitab/
 Run the following:
 
 ```
-bash eval/mmlu/eval_on_mmlu.sh /net/nfs.cirrascale/allennlp/pranjalib/quantized_models/quantized_olmo-1b /net/nfs.cirrascale/allennlp/akshitab/olmo-models/olmo-1b /net/nfs.cirrascale/allennlp/akshitab/data/mmlu eval_results
+bash eval/mmlu/eval_on_mmlu.sh quantized_olmo-1b /net/nfs.cirrascale/allennlp/akshitab/olmo-models/olmo-1b /net/nfs.cirrascale/allennlp/akshitab/data/mmlu eval_results
 ```
 
 Output format:
@@ -50,7 +50,7 @@ Run the following:
 
 ```
 cd efficiency
-bash run_olmo_efficiency_benchmark.sh /net/nfs.cirrascale/allennlp/pranjalib/quantized_models/quantized_olmo-1b /net/nfs.cirrascale/allennlp/pranjalib/quantized_models/quantized_olmo-1b
+bash run_olmo_efficiency_benchmark.sh /net/nfs.cirrascale/allennlp/akshitab/olmo-models/olmo-1b quantized_olmo-1b
 ```
 
 Output format:
