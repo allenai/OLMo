@@ -868,49 +868,51 @@ class Trainer:
             if wandb.run is not None:
                 wandb.log(sys_metrics, step=0)
 
-        # Profiler
+        # Python Profiler stuff
         if self.cfg.python_profiling:
-            profiler = cProfile.Profile()
+            python_profiler = cProfile.Profile()
         else:
-            profiler = None
+            python_profiler = None
 
-        # Train.
-        first_batch: bool = True
-        canceled: bool = False
-
-        # Profiling stuff
-        if self.cfg.profiling and get_global_rank() == 0:
-            profiling_schedule = torch.profiler.schedule(skip_first=5, wait=5, warmup=5, active=10, repeat=1)
+        # PyTorch Profiler stuff
+        if self.cfg.torch_profiling and get_global_rank() == 0:
+            from torch.profiler import schedule
+            profiling_schedule = schedule(wait=1, warmup=5, active=3)
 
             def on_trace_ready(p):
                 profiler_output_dir = Path(self.cfg.save_folder) / "profiler"
                 profiler_output_dir.mkdir(exist_ok=True)
 
+                output = p.key_averages().table(sort_by="self_cuda_time_total", row_limit=100)
+                log.info(f"Profile by total GPU time at step {p.step_num}:\n{output}")
+                output = p.key_averages().table(sort_by="self_cpu_time_total", row_limit=100)
+                log.info(f"Profile by total CPU time at step {p.step_num}:\n{output}")
+
                 p.export_chrome_trace(str(profiler_output_dir / f"{p.step_num}.chrome_trace.json.gz"))
                 p.export_stacks(str(profiler_output_dir / f"{p.step_num}.gpu.stacks"), "self_cuda_time_total")
                 p.export_stacks(str(profiler_output_dir / f"{p.step_num}.cpu.stacks"), "self_cpu_time_total")
 
-                output = p.key_averages().table(sort_by="self_cuda_time_total", row_limit=20)
-                log.info(f"Profile by total GPU time at step {p.step_num}:\n{output}")
-                output = p.key_averages().table(sort_by="self_cpu_time_total", row_limit=20)
-                log.info(f"Profile by total CPU time at step {p.step_num}:\n{output}")
+            from torch.profiler import ProfilerActivity
 
-            from torch._C._profiler import ProfilerActivity
-
-            profiler = torch.profiler.profile(
+            torch_profiler = torch.profiler.profile(
                 activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
                 record_shapes=False,
-                profile_memory=True,
+                profile_memory=False,
                 with_stack=True,
                 schedule=profiling_schedule,
                 on_trace_ready=on_trace_ready,
             )
+            del profiling_schedule
         else:
             import contextlib
 
-            profiler = contextlib.nullcontext()
+            torch_profiler = contextlib.nullcontext()
 
-        with profiler as p:
+        # Train.
+        first_batch: bool = True
+        canceled: bool = False
+
+        with torch_profiler as p:
             for batch in self.train_loader:
                 # Bookkeeping.
                 # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
@@ -1009,15 +1011,17 @@ class Trainer:
 
                 if canceled:
                     break
-    # Profiler stuff
-            # We do this now, at the bottom of this loop, so we capture the work of getting the next batch.
-            if profiler is not None:
-                if self.global_step == 5:
-                    profiler.enable()
-                elif self.global_step == 8:
-                    profiler.disable()
-                    profiler.print_stats()
-                    profiler = None        else:
+
+                # Python Profiler stuff
+                # We do this now, at the bottom of this loop, so we capture the work of getting the next batch.
+                if python_profiler is not None:
+                    if self.global_step == 5:
+                        python_profiler.enable()
+                    elif self.global_step == 8:
+                        python_profiler.disable()
+                        python_profiler.print_stats()
+                        python_profiler = None
+            else:
                 log.info("Training loop complete")
 
         # Save final unsharded model-only checkpoint.
