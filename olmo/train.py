@@ -11,6 +11,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
+from pstats import SortKey
 from typing import Any, Deque, Dict, List, Optional, TextIO, Tuple
 
 import numpy as np
@@ -1019,7 +1020,7 @@ class Trainer:
                         python_profiler.enable()
                     elif self.global_step == 8:
                         python_profiler.disable()
-                        python_profiler.print_stats()
+                        python_profiler.print_stats(sort=SortKey.CUMULATIVE)
                         python_profiler = None
             else:
                 log.info("Training loop complete")
