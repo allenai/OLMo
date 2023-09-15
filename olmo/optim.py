@@ -80,6 +80,7 @@ class Optimizer(OptimizerBase):
                     sorted_state_keys = sorted([k for k in state.keys()])
                     tensors.extend([p] + [state[key] for key in sorted_state_keys])
                     prefixes.extend([f"param/{name}"] + [f"{key}/{name}" for key in sorted_state_keys])
+                assert len(tensors) == len(prefixes)
 
                 # Get min, max, avg, and norm for all `tensors` associated with the parameter.
                 for x, prefix in zip(tensors, prefixes):
@@ -119,6 +120,17 @@ class Optimizer(OptimizerBase):
                         per_param_avg_metric_names.append(f"{prefix}.avg")
                     per_param_norm_metric_names.append(f"{prefix}.norm")
 
+        assert (
+            len(per_param_min_metrics)
+            == len(per_param_min_metric_names)
+            == len(per_param_max_metrics)
+            == len(per_param_max_metric_names)
+            == len(per_param_sum_metrics)
+            == len(per_param_numel_metrics)
+            == len(per_param_avg_metric_names)
+        )
+        assert len(per_param_norm_metrics) == len(per_param_norm_metric_names)
+
         per_param_avg_metrics: List[torch.Tensor] = []
         if is_distributed():  # TODO (epwalsh): skip for non-sharded params
             # Reduce metrics across all ranks. Note that we can use a `reduce` for most cases
@@ -152,6 +164,8 @@ class Optimizer(OptimizerBase):
             per_param_norm_metrics = (all_norms ** (0.5)).squeeze(0).to(device="cpu").split(1)
         else:
             per_param_avg_metrics = [x / n for x, n in zip(per_param_sum_metrics, per_param_numel_metrics)]
+
+        assert len(per_param_avg_metrics) == len(per_param_avg_metric_names)
 
         # Collect all metrics into a single dict.
         all_metrics: Dict[str, torch.Tensor] = {}
