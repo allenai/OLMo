@@ -10,7 +10,7 @@ wandb:
 model:
   d_model: 4096
   n_heads: 16
-  n_layers: 29
+  n_layers: 30
   mlp_ratio: 8
   alibi: true
   alibi_bias_max: 8.0

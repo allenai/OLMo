@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import cProfile
 import logging
 import math
 import os
@@ -10,6 +11,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
+from pstats import SortKey
 from typing import Any, Deque, Dict, List, Optional, TextIO, Tuple
 
 import numpy as np
@@ -854,6 +856,12 @@ class Trainer:
             if wandb.run is not None:
                 wandb.log(sys_metrics, step=0)
 
+        # Profiler
+        if self.cfg.python_profiling:
+            profiler = cProfile.Profile()
+        else:
+            profiler = None
+
         # Train.
         first_batch: bool = True
         canceled: bool = False
@@ -952,6 +960,16 @@ class Trainer:
 
             if canceled:
                 break
+
+            # Profiler stuff
+            # We do this now, at the bottom of this loop, so we capture the work of getting the next batch.
+            if profiler is not None:
+                if self.global_step == 5:
+                    profiler.enable()
+                elif self.global_step == 8:
+                    profiler.disable()
+                    profiler.print_stats(sort=SortKey.CUMULATIVE)
+                    profiler = None
         else:
             log.info("Training loop complete")
 
