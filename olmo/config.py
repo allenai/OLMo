@@ -396,7 +396,7 @@ class OptimizerConfig(BaseConfig):
     """Do not apply weight decay to norms and biases."""
     metrics_log_interval: Optional[int] = None
     """
-    The interval with which to collect and log optimizer-specific metrics.
+    The interval with which to collect and log detailed parameter-specific metrics.
     This only applies when logging to W&B, since these metrics won't be logged to the console.
     If not set, defaults to the wandb `log_interval`.
     """
@@ -700,7 +700,13 @@ class TrainConfig(BaseConfig):
 
     max_grad_norm: Optional[float] = None
     """
-    Clip gradients to this value if set.
+    Clip gradient norms to this value if set.
+    """
+
+    max_grad_norm_ratio: Optional[float] = None
+    """
+    If set, gradient norms will be clipped to `max_grad_norm_ratio * exp_avg(norm(grad))`.
+    This takes priority over `max_grad_norm` when set.
     """
 
     precision: Optional[str] = None
