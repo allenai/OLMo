@@ -212,7 +212,7 @@ class Optimizer(OptimizerBase):
                     clip_coef = clipped_norm / (grad_norm + 1e-6)
                 else:
                     # Fixed clipping.
-                    clipped_norm = torch.tensor(max_norm)
+                    clipped_norm = torch.tensor(max_norm, device=grad_norm_exp_avg.device)
                     clip_coef = clipped_norm / (grad_norm + 1e-6)
                 clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
                 if clip_coef_clamped < 1.0:
@@ -222,7 +222,7 @@ class Optimizer(OptimizerBase):
                         p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
                     grad_norm_exp_avg.lerp_(clipped_norm, 1 - beta)
                 else:
-                    grad_norm_exp_avg.lerp_(grad_norm, 1 - beta)
+                    grad_norm_exp_avg.lerp_(grad_norm.to(grad_norm_exp_avg.device), 1 - beta)
                 all_metrics[f"grad_norm_exp_avg/{name}"] = grad_norm_exp_avg.to(device="cpu")
         clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
         if collect_param_metrics:
