@@ -8,33 +8,12 @@ import sys
 import torch
 from auto_gptq import AutoGPTQForCausalLM
 from transformers import AutoModelForCausalLM, AutoTokenizer
-
-from vllm import SamplingParams, LLM
+from vllm import LLM, SamplingParams
 
 from hf_olmo import *  # noqa: F403,F401
 
-def stdio_predictor_wrapper(predictor):
-    """
-    Wrap a predictor in a loop that reads from stdin and writes to stdout.
-    The predictor implements `predict` function that takes a single string and returns the label.
 
-    Assumes each input instance ends with "\n".
-    """
-    for line in sys.stdin:
-        line = line.rstrip()
-        inputs = json.loads(line)
-        assert isinstance(inputs, list)
-        # Participants need to connect their inference code to our wrapper through the following line.
-        outputs = predictor.predict(inputs=inputs)
-        # Writes are \n deliminated, so adding \n is essential to separate this write from the next loop iteration.
-        outputs = [o for o in outputs]
-        sys.stdout.write(f"{json.dumps(outputs)}\n")
-        # Writes to stdout are buffered. The flush ensures the output is immediately sent through the pipe
-        # instead of buffered.
-        sys.stdout.flush()
-
-
-class ModelSetUp:
+class ModelWrapper:
     def __init__(self, pretrained_model_dir, quantized_model_dir):
         device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -62,16 +41,39 @@ class ModelSetUp:
         for output in outputs:
             yield output.strip()
 
-class VLLMModel:
 
+class VLLMModel(ModelWrapper):
     def __init__(self, pretrained_model_dir: str):
-        self.model = LLM(pretrained_model_dir, trust_remote_code=True, tensor_parallel_size=1) #torch.cuda.device_count())
+        self.model = LLM(
+            pretrained_model_dir, trust_remote_code=True, tensor_parallel_size=1
+        )  # torch.cuda.device_count())
 
     def predict(self, inputs):
         sampling_params = SamplingParams(temperature=0.0, max_tokens=256)
         outputs = self.model.generate(inputs, sampling_params=sampling_params)
         for output in outputs:
             yield output.outputs[0].text.strip()
+
+
+def stdio_predictor_wrapper(predictor: ModelWrapper):
+    """
+    Wrap a predictor in a loop that reads from stdin and writes to stdout.
+    The predictor implements `predict` function that takes a single string and returns the label.
+
+    Assumes each input instance ends with "\n".
+    """
+    for line in sys.stdin:
+        line = line.rstrip()
+        inputs = json.loads(line)
+        assert isinstance(inputs, list)
+        # Participants need to connect their inference code to our wrapper through the following line.
+        outputs = predictor.predict(inputs=inputs)
+        # Writes are \n deliminated, so adding \n is essential to separate this write from the next loop iteration.
+        outputs = [o for o in outputs]
+        sys.stdout.write(f"{json.dumps(outputs)}\n")
+        # Writes to stdout are buffered. The flush ensures the output is immediately sent through the pipe
+        # instead of buffered.
+        sys.stdout.flush()
 
 
 def get_args():
@@ -104,8 +106,9 @@ def get_args():
 
 if __name__ == "__main__":
     args = get_args()
+    predictor: ModelWrapper
     if args.vllm:
         predictor = VLLMModel(args.pretrained_model_dir)
     else:
-        predictor = ModelSetUp(args.pretrained_model_dir, args.quantized_model_dir)
+        predictor = ModelWrapper(args.pretrained_model_dir, args.quantized_model_dir)
     stdio_predictor_wrapper(predictor)
