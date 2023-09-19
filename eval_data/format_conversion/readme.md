@@ -25,4 +25,4 @@ Please store the results in `$llm-bucket/eval-data/perplexity/` or `$llm-bucket/
 
 ## perplexity eval suite Raw to v0
 
-Going from `$llm-bucket/eval-data/perplexity/raw/` to `$llm-bucket/eval-data/perplexity/v0` unpacks the data and standardizes to our format and adds some additional fields such as IDs where they are not already present. Use `eval_data_converter.py` with the appropreate `--in_format`, except for ICE which must be preprocessed following the steps in `LLM/eval_data/format_conversion/get_ice/readme.md`
+Going from `$llm-bucket/eval-data/perplexity/raw/` to `$llm-bucket/eval-data/perplexity/v0` unpacks the data and standardizes to our format and adds some additional fields such as IDs where they are not already present. Use `eval_data_converter.py` with the appropreate `--in_format`, except for ICE which must be preprocessed following the steps in `LLM/eval_data/format_conversion/get_ice/readme.md` and also excepting twitterAAE_HELM_fixed which is processed from the raw data by [this repo](https://github.com/allenai/fixing_twitterAAE_HELM).
