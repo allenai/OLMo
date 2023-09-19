@@ -82,38 +82,34 @@ class Optimizer(OptimizerBase):
                     prefixes.extend([f"param/{name}"] + [f"{key}/{name}" for key in sorted_state_keys])
                 assert len(tensors) == len(prefixes)
 
+                device = p.device if p is not None else get_default_device()
+
                 # Get min, max, avg, and norm for all `tensors` associated with the parameter.
                 for x, prefix in zip(tensors, prefixes):
-                    # grad or state tensors could be none for params that have their shards completely on
+                    # grad or state tensors could be None for params that have their shards completely on
                     # other ranks.
-                    x = x if x is not None else torch.tensor([], device="cpu", dtype=torch.float32)
+                    x = x if x is not None else torch.tensor([], device=device, dtype=torch.float32)
                     if x.numel() > 0:
                         if collect_param_metrics:
                             x_abs = x.abs()
-                            per_param_min_metrics.append(
-                                x_abs.min().unsqueeze(0).to(device="cpu", dtype=torch.float32)
-                            )
-                            per_param_max_metrics.append(
-                                x_abs.max().unsqueeze(0).to(device="cpu", dtype=torch.float32)
-                            )
-                            per_param_sum_metrics.append(
-                                x.sum().unsqueeze(0).to(device="cpu", dtype=torch.float32)
-                            )
+                            per_param_min_metrics.append(x_abs.min().unsqueeze(0).to(dtype=torch.float32))
+                            per_param_max_metrics.append(x_abs.max().unsqueeze(0).to(dtype=torch.float32))
+                            per_param_sum_metrics.append(x.sum().unsqueeze(0).to(dtype=torch.float32))
                             per_param_numel_metrics.append(
-                                torch.tensor([x.numel()], device="cpu", dtype=torch.float32)
+                                torch.tensor([x.numel()], device=device, dtype=torch.float32)
                             )
                         per_param_norm_metrics.append(
-                            torch.linalg.vector_norm(x, 2.0, dtype=torch.float32).unsqueeze(0).to(device="cpu")
+                            torch.linalg.vector_norm(x, 2.0, dtype=torch.float32).unsqueeze(0)
                         )
                     else:
                         if collect_param_metrics:
                             per_param_min_metrics.append(
-                                torch.tensor([float("inf")], device="cpu", dtype=torch.float32)
+                                torch.tensor([float("inf")], device=device, dtype=torch.float32)
                             )
-                            per_param_max_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
-                            per_param_sum_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
-                            per_param_numel_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
-                        per_param_norm_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
+                            per_param_max_metrics.append(torch.tensor([0.0], device=device, dtype=torch.float32))
+                            per_param_sum_metrics.append(torch.tensor([0.0], device=device, dtype=torch.float32))
+                            per_param_numel_metrics.append(torch.tensor([0.0], device=device, dtype=torch.float32))
+                        per_param_norm_metrics.append(torch.tensor([0.0], device=device, dtype=torch.float32))
                     if collect_param_metrics:
                         per_param_min_metric_names.append(f"{prefix}.min")
                         per_param_max_metric_names.append(f"{prefix}.max")
@@ -138,19 +134,19 @@ class Optimizer(OptimizerBase):
             # get the right value for gradient norms so they can clip correctly.
             # Reduce mins.
             if per_param_min_metrics:
-                all_mins = torch.cat(per_param_min_metrics).to(get_default_device())
+                all_mins = torch.cat(per_param_min_metrics)
                 dist.reduce(all_mins, 0, op=dist.ReduceOp.MIN)
-                per_param_min_metrics = all_mins.to(device="cpu").split(1)
+                per_param_min_metrics = all_mins.split(1)
             # Reduce maxs.
             if per_param_max_metrics:
-                all_maxs = torch.cat(per_param_max_metrics).to(get_default_device())
+                all_maxs = torch.cat(per_param_max_metrics)
                 dist.reduce(all_maxs, 0, op=dist.ReduceOp.MAX)
-                per_param_max_metrics = all_maxs.to(device="cpu").split(1)
+                per_param_max_metrics = all_maxs.split(1)
             # Reduce sums or just norms.
-            all_norms = torch.cat(per_param_norm_metrics).to(get_default_device()) ** 2.0
+            all_norms = torch.cat(per_param_norm_metrics) ** 2.0
             if per_param_sum_metrics and per_param_numel_metrics:
-                all_sums = torch.cat(per_param_sum_metrics).to(get_default_device())
-                all_numels = torch.cat(per_param_numel_metrics).to(get_default_device())
+                all_sums = torch.cat(per_param_sum_metrics)
+                all_numels = torch.cat(per_param_numel_metrics)
                 all_sums_norms_numels = torch.cat(
                     [all_sums.unsqueeze(0), all_norms.unsqueeze(0), all_numels.unsqueeze(0)], dim=0
                 )
@@ -158,10 +154,10 @@ class Optimizer(OptimizerBase):
                 all_sums, all_norms, all_numels = all_sums_norms_numels.split(1)
                 # Get averages.
                 # NOTE: could get infs for non-rank0 processes but that's okay.
-                per_param_avg_metrics = (all_sums / all_numels).squeeze(0).to(device="cpu").split(1)
+                per_param_avg_metrics = (all_sums / all_numels).squeeze(0).split(1)
             else:
                 dist.all_reduce(all_norms, op=dist.ReduceOp.SUM)
-            per_param_norm_metrics = (all_norms ** (0.5)).squeeze(0).to(device="cpu").split(1)
+            per_param_norm_metrics = (all_norms**0.5).squeeze(0).split(1)
         else:
             per_param_avg_metrics = [x / n for x, n in zip(per_param_sum_metrics, per_param_numel_metrics)]
 
@@ -170,13 +166,13 @@ class Optimizer(OptimizerBase):
         # Collect all metrics into a single dict.
         all_metrics: Dict[str, torch.Tensor] = {}
         for metric_name, metric in zip(per_param_min_metric_names, per_param_min_metrics):
-            all_metrics[metric_name] = metric.squeeze(0)
+            all_metrics[metric_name] = metric.squeeze(0).to(device="cpu")
         for metric_name, metric in zip(per_param_max_metric_names, per_param_max_metrics):
-            all_metrics[metric_name] = metric.squeeze(0)
+            all_metrics[metric_name] = metric.squeeze(0).to(device="cpu")
         for metric_name, metric in zip(per_param_avg_metric_names, per_param_avg_metrics):
-            all_metrics[metric_name] = metric.squeeze(0)
+            all_metrics[metric_name] = metric.squeeze(0).to(device="cpu")
         for metric_name, metric in zip(per_param_norm_metric_names, per_param_norm_metrics):
-            all_metrics[metric_name] = metric.squeeze(0)
+            all_metrics[metric_name] = metric.squeeze(0).to(device="cpu")
 
         # Clip gradients.
         num_grads_clipped = 0
