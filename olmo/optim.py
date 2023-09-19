@@ -210,6 +210,9 @@ class Optimizer(OptimizerBase):
                     # is that we won't start tracking `grad_norm_exp_avg` until the 2nd training step.
                     if global_step > 1:
                         state["grad_norm_exp_avg"] = grad_norm_exp_avg
+                elif grad_norm_exp_avg.device != torch.device("cpu"):
+                    grad_norm_exp_avg = grad_norm_exp_avg.to(device="cpu")
+                    state["grad_norm_exp_avg"] = grad_norm_exp_avg
                 if max_norm_ratio is not None:
                     # Adaptive clipping.
                     clipped_norm = max_norm_ratio * grad_norm_exp_avg.to(device="cpu")
