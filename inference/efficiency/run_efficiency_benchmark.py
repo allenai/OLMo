@@ -9,8 +9,9 @@ import torch
 from auto_gptq import AutoGPTQForCausalLM
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from hf_olmo import *  # noqa: F403,F401
+from vllm import SamplingParams, LLM
 
+from hf_olmo import *  # noqa: F403,F401
 
 def stdio_predictor_wrapper(predictor):
     """
@@ -36,17 +37,18 @@ def stdio_predictor_wrapper(predictor):
 class ModelSetUp:
     def __init__(self, pretrained_model_dir, quantized_model_dir):
         device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model_dir, use_fast=True)
+
+        use_fast = "olmo" in pretrained_model_dir
+        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model_dir, use_fast=use_fast)
         self.tokenizer.padding_size = "left"
         if self.tokenizer.pad_token is None:
-            self.tokenizer.pad_token = self.tokenizer.eos_token
-            self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
-
+            self.tokenizer.pad_token = self.tokenizer.unk_token or self.tokenizer.eos_token
+            self.tokenizer.pad_token_id = self.tokenizer.unk_token_id or self.tokenizer.eos_token_id
         if quantized_model_dir:
             self.model = AutoGPTQForCausalLM.from_quantized(quantized_model_dir, device=device, use_triton=False)
         else:
-            self.model = AutoModelForCausalLM.from_pretrained(pretrained_model_dir)
-            self.model = self.model.to(device)
+            self.model = AutoModelForCausalLM.from_pretrained(pretrained_model_dir, device_map="auto")
+            # self.model.to(device)
 
     def predict(self, inputs):
         inputs = self.tokenizer.batch_encode_plus(
@@ -59,6 +61,17 @@ class ModelSetUp:
         outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
         for output in outputs:
             yield output.strip()
+
+class VLLMModel:
+
+    def __init__(self, pretrained_model_dir: str):
+        self.model = LLM(pretrained_model_dir, trust_remote_code=True, tensor_parallel_size=1) #torch.cuda.device_count())
+
+    def predict(self, inputs):
+        sampling_params = SamplingParams(temperature=0.0, max_tokens=256)
+        outputs = self.model.generate(inputs, sampling_params=sampling_params)
+        for output in outputs:
+            yield output.outputs[0].text.strip()
 
 
 def get_args():
@@ -78,11 +91,21 @@ def get_args():
         help="Path to the quantized model / Name of the quantized huggingface model.",
     )
 
+    parser.add_argument(
+        "--vllm",
+        action="store_true",
+        default=False,
+        help="Load model with vllm",
+    )
+
     args = parser.parse_args()
     return args
 
 
 if __name__ == "__main__":
     args = get_args()
-    predictor = ModelSetUp(args.pretrained_model_dir, args.quantized_model_dir)
+    if args.vllm:
+        predictor = VLLMModel(args.pretrained_model_dir)
+    else:
+        predictor = ModelSetUp(args.pretrained_model_dir, args.quantized_model_dir)
     stdio_predictor_wrapper(predictor)
