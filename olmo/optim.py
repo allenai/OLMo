@@ -86,7 +86,11 @@ class Optimizer(OptimizerBase):
                 for x, prefix in zip(tensors, prefixes):
                     # grad or state tensors could be none for params that have their shards completely on
                     # other ranks.
-                    x = x if x is not None else torch.tensor([], device="cpu", dtype=torch.float32)
+                    x = (
+                        x.to(device="cpu")
+                        if x is not None
+                        else torch.tensor([], device="cpu", dtype=torch.float32)
+                    )
                     if x.numel() > 0:
                         if collect_param_metrics:
                             x_abs = x.abs()
