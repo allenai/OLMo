@@ -41,6 +41,8 @@ class Optimizer(OptimizerBase):
         Clips gradients for every group that has the field `max_grad_norm`.
         At the same time collect metrics for each parameter and its gradient.
         """
+        device = get_default_device()
+
         # NOTE (epwalsh): during distributed training we're making an assumption that the order of
         # the param groups and the params within each group are the same across all ranks.
         # This is justified since we initialize the parameter groups in every rank by iterating over
@@ -86,7 +88,11 @@ class Optimizer(OptimizerBase):
                 for x, prefix in zip(tensors, prefixes):
                     # grad or state tensors could be none for params that have their shards completely on
                     # other ranks.
-                    x = x if x is not None else torch.tensor([], device="cpu", dtype=torch.float32)
+                    x = (
+                        x.to(device="cpu")
+                        if x is not None
+                        else torch.tensor([], device="cpu", dtype=torch.float32)
+                    )
                     if x.numel() > 0:
                         if collect_param_metrics:
                             x_abs = x.abs()
@@ -138,30 +144,30 @@ class Optimizer(OptimizerBase):
             # get the right value for gradient norms so they can clip correctly.
             # Reduce mins.
             if per_param_min_metrics:
-                all_mins = torch.cat(per_param_min_metrics).to(get_default_device())
+                all_mins = torch.cat(per_param_min_metrics).to(device)
                 dist.reduce(all_mins, 0, op=dist.ReduceOp.MIN)
                 per_param_min_metrics = all_mins.to(device="cpu").split(1)
             # Reduce maxs.
             if per_param_max_metrics:
-                all_maxs = torch.cat(per_param_max_metrics).to(get_default_device())
+                all_maxs = torch.cat(per_param_max_metrics).to(device)
                 dist.reduce(all_maxs, 0, op=dist.ReduceOp.MAX)
                 per_param_max_metrics = all_maxs.to(device="cpu").split(1)
             # Reduce sums or just norms.
-            all_norms = torch.cat(per_param_norm_metrics).to(get_default_device()) ** 2.0
+            all_norms = torch.cat(per_param_norm_metrics).to(device) ** 2.0
             if per_param_sum_metrics and per_param_numel_metrics:
-                all_sums = torch.cat(per_param_sum_metrics).to(get_default_device())
-                all_numels = torch.cat(per_param_numel_metrics).to(get_default_device())
+                all_sums = torch.cat(per_param_sum_metrics).to(device)
+                all_numels = torch.cat(per_param_numel_metrics).to(device)
                 all_sums_norms_numels = torch.cat(
                     [all_sums.unsqueeze(0), all_norms.unsqueeze(0), all_numels.unsqueeze(0)], dim=0
                 )
                 dist.all_reduce(all_sums_norms_numels, op=dist.ReduceOp.SUM)
-                all_sums, all_norms, all_numels = all_sums_norms_numels.split(1)
+                all_sums, all_norms, all_numels = all_sums_norms_numels.to(device="cpu").split(1)
                 # Get averages.
                 # NOTE: could get infs for non-rank0 processes but that's okay.
-                per_param_avg_metrics = (all_sums / all_numels).squeeze(0).to(device="cpu").split(1)
+                per_param_avg_metrics = (all_sums / all_numels).squeeze(0).split(1)
             else:
                 dist.all_reduce(all_norms, op=dist.ReduceOp.SUM)
-            per_param_norm_metrics = (all_norms ** (0.5)).squeeze(0).to(device="cpu").split(1)
+            per_param_norm_metrics = (all_norms ** (0.5)).squeeze(0).split(1)
         else:
             per_param_avg_metrics = [x / n for x, n in zip(per_param_sum_metrics, per_param_numel_metrics)]
 
@@ -182,48 +188,58 @@ class Optimizer(OptimizerBase):
         num_grads_clipped = 0
         num_eligible_grads = 0
         for group in self.param_groups:
-            # We'll use beta1 to update the exponential average of the norm of the gradient (a scalar),
-            # not to be confused with the exponential average of the gradient.
+            # We'll use the bigger of beta1 and beta2 to update the exponential average of the norm of
+            # the gradient (a scalar), not to be confused with the exponential average of the gradient.
             # TODO (epwalsh): handle optimizers that don't have betas.
             beta1, beta2 = group["betas"]
             beta = max(beta1, beta2)
             max_norm = group.get("max_grad_norm")
             max_norm_ratio = group.get("max_grad_norm_ratio")
             if max_norm is None and max_norm_ratio is None:
+                # No clipping needed.
                 continue
+
             for name, p in zip(group["param_names"], group["params"]):
                 name = self._clean_param_name(name)
                 grad_norm = all_metrics.get(f"grad/{name}.norm")
                 if grad_norm is None:
                     continue
+
                 num_eligible_grads += 1
+
+                # Get or initialize the exponential average of grad norm.
                 state = self.state[p]
                 grad_norm_exp_avg = state.get("grad_norm_exp_avg")
                 if grad_norm_exp_avg is None:
-                    grad_norm_exp_avg = grad_norm.clone()
+                    grad_norm_exp_avg = grad_norm.clone().to(device)
                     # We don't want to add anything to `state` until `state` has been initialized, otherwise
                     # this will crash some optimizers which rely on checking `len(state)`. The downside here
                     # is that we won't start tracking `grad_norm_exp_avg` until the 2nd training step.
                     if global_step > 1:
                         state["grad_norm_exp_avg"] = grad_norm_exp_avg
+
+                # Determine the clipping coefficient based on the clipping strategy.
                 if max_norm_ratio is not None:
                     # Adaptive clipping.
                     clipped_norm = max_norm_ratio * grad_norm_exp_avg
                     clip_coef = clipped_norm / (grad_norm + 1e-6)
                 else:
                     # Fixed clipping.
-                    clipped_norm = torch.tensor(max_norm, device=grad_norm_exp_avg.device)
+                    clipped_norm = torch.tensor(max_norm, device=device)
                     clip_coef = clipped_norm / (grad_norm + 1e-6)
+
+                # Clip the gradients and update the exponential average.
                 clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
                 if clip_coef_clamped < 1.0:
                     num_grads_clipped += 1
                     if p.grad is not None:
                         # p.grad could be none for some ranks when using FSDP.
                         p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
-                    grad_norm_exp_avg.lerp_(clipped_norm, 1 - beta)
+                    grad_norm_exp_avg.lerp_(clipped_norm.to(grad_norm_exp_avg.device), 1 - beta)
                 else:
                     grad_norm_exp_avg.lerp_(grad_norm.to(grad_norm_exp_avg.device), 1 - beta)
                 all_metrics[f"grad_norm_exp_avg/{name}"] = grad_norm_exp_avg.to(device="cpu")
+
         clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
         if collect_param_metrics:
             all_metrics["clipping_rate"] = clipping_rate
