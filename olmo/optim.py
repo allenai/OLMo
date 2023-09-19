@@ -204,6 +204,7 @@ class Optimizer(OptimizerBase):
                 grad_norm = all_metrics.get(f"grad/{name}.norm")
                 if grad_norm is None:
                     continue
+
                 num_eligible_grads += 1
 
                 # Get or initialize the exponential average of grad norm.
@@ -216,10 +217,8 @@ class Optimizer(OptimizerBase):
                     # is that we won't start tracking `grad_norm_exp_avg` until the 2nd training step.
                     if global_step > 1:
                         state["grad_norm_exp_avg"] = grad_norm_exp_avg
-                elif grad_norm_exp_avg.device != device:
-                    grad_norm_exp_avg = grad_norm_exp_avg.to(device)
-                    state["grad_norm_exp_avg"] = grad_norm_exp_avg
 
+                # Determine the clipping coefficient based on the clipping strategy.
                 if max_norm_ratio is not None:
                     # Adaptive clipping.
                     clipped_norm = max_norm_ratio * grad_norm_exp_avg
@@ -229,6 +228,7 @@ class Optimizer(OptimizerBase):
                     clipped_norm = torch.tensor(max_norm, device=device)
                     clip_coef = clipped_norm / (grad_norm + 1e-6)
 
+                # Clip the gradients and update the exponential average.
                 clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
                 if clip_coef_clamped < 1.0:
                     num_grads_clipped += 1
@@ -238,7 +238,6 @@ class Optimizer(OptimizerBase):
                     grad_norm_exp_avg.lerp_(clipped_norm.to(grad_norm_exp_avg.device), 1 - beta)
                 else:
                     grad_norm_exp_avg.lerp_(grad_norm.to(grad_norm_exp_avg.device), 1 - beta)
-
                 all_metrics[f"grad_norm_exp_avg/{name}"] = grad_norm_exp_avg.to(device="cpu")
 
         clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
