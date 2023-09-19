@@ -28,6 +28,7 @@ __all__ = [
     "LayerNormBase",
     "LayerNorm",
     "RMSLayerNorm",
+    "AMDLayerNorm",
     "RotaryEmbedding",
     "Activation",
     "GELU",
@@ -77,14 +78,15 @@ class LayerNormBase(nn.Module):
         else:
             raise NotImplementedError(f"Not sure how to handle '{config.layer_norm_type}' LayerNorm type")
 
-    def _cast_if_autocast_enabled(self, tensor: torch.Tensor) -> torch.Tensor:
+    def _cast_if_autocast_enabled(self, tensor: torch.Tensor, dtype: Optional[torch.dtype] = None) -> torch.Tensor:
         if torch.is_autocast_enabled():
-            if tensor.device.type == "cuda":
-                dtype = torch.get_autocast_gpu_dtype()
-            elif tensor.device.type == "cpu":
-                dtype = torch.get_autocast_cpu_dtype()
-            else:
-                raise NotImplementedError()
+            if dtype is None:
+                if tensor.device.type == "cuda":
+                    dtype = torch.get_autocast_gpu_dtype()
+                elif tensor.device.type == "cpu":
+                    dtype = torch.get_autocast_cpu_dtype()
+                else:
+                    raise NotImplementedError()
             return tensor.to(dtype=dtype)
         return tensor
 
@@ -172,15 +174,19 @@ class AMDLayerNorm(LayerNormBase):
             self.register_parameter("weight", None)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        var, mean = torch.var_mean(x, dim=-1, correction=0, keepdim=True)
-        var.add_(self.eps)
-        var.sqrt_()
-        x = (x - mean) / var
-        if self.weight is not None:
-            x.mul_(self.weight)
-        if self.bias is not None:
-            x.add_(self.bias)
-        return x
+        with torch.autocast(enabled=False, device_type=x.device.type):
+            og_dtype = x.dtype
+            var, mean = torch.var_mean(
+                self._cast_if_autocast_enabled(x, dtype=torch.float32), dim=-1, correction=0, keepdim=True
+            )
+            var.add_(self.eps)
+            var.sqrt_()
+            x = (x - mean) / var
+            if self.weight is not None:
+                x.mul_(self.weight)
+            if self.bias is not None:
+                x.add_(self.bias)
+            return x.to(og_dtype)
 
 
 class RMSLayerNorm(LayerNorm):
