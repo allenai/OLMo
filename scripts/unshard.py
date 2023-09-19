@@ -80,7 +80,7 @@ def gather(shards: List[ShardedTensor]) -> Tensor:
 
 
 def objects_are_equal(a: Any, b: Any) -> bool:
-    if type(a) != type(b):
+    if type(a) is not type(b):
         return False
     if isinstance(a, ndarray):
         return np.array_equal(a, b)
@@ -139,7 +139,7 @@ def unshard(input_dir: Union[str, Path], output_dir: Union[str, Path]) -> None:
 
     def unshard_object(os: List[Any]) -> Any:
         rank0_item = os[0]
-        assert all(type(o) == type(rank0_item) for o in os)
+        assert all(type(o) is type(rank0_item) for o in os)
         if isinstance(rank0_item, str):
             assert all(o == rank0_item for o in os)
             return rank0_item

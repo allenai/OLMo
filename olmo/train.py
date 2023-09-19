@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import cProfile
 import logging
 import math
+import os
 import random
 import shutil
 import time
@@ -9,6 +11,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
+from pstats import SortKey
 from typing import Any, Deque, Dict, List, Optional, TextIO, Tuple
 
 import numpy as np
@@ -33,9 +36,10 @@ from .data import IterableDataset
 from .eval import Evaluator
 from .exceptions import OlmoConfigurationError
 from .model import Olmo
-from .optim import set_new_base_lr
+from .optim import Optimizer, Scheduler, fix_optim_state_dict
 from .util import (
     barrier,
+    get_fs_local_rank,
     get_global_rank,
     get_world_size,
     move_to_device,
@@ -96,8 +100,8 @@ class Trainer:
     cfg: TrainConfig
     model: Olmo
     fsdp_model: FSDP
-    optim: torch.optim.Optimizer
-    scheduler: torch.optim.lr_scheduler.LRScheduler
+    optim: Optimizer
+    scheduler: Scheduler
     train_loader: DataLoader
     device: torch.device
     evaluators: List[Evaluator]
@@ -115,6 +119,7 @@ class Trainer:
     unsharded_checkpoints: List[Path] = field(default_factory=list)
     min_train_loss: float = float("inf")
     indices_file: Optional[TextIO] = None
+    _start_time: float = 0.0
 
     def state_dict(self) -> Dict[str, Any]:
         state_dict = self.non_tensor_state_dict()
@@ -124,7 +129,6 @@ class Trainer:
 
     def non_tensor_state_dict(self) -> Dict[str, Any]:
         return {
-            "scheduler": self.scheduler.state_dict(),
             "global_step": self.global_step,
             "global_data_step": self.global_data_step,
             "global_train_examples_seen": self.global_train_examples_seen,
@@ -151,9 +155,6 @@ class Trainer:
             for path in state_dict["unsharded_checkpoints"]
             if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
         ]
-
-        # Learning rate scheduler.
-        self.scheduler.load_state_dict(state_dict["scheduler"])
 
         # Dataset / dataloader position.
         self.global_step = state_dict["global_step"]
@@ -191,9 +192,15 @@ class Trainer:
             assert isinstance(self.train_loader.dataset, IterableDataset)
             self.train_loader.dataset.start_index = self.global_train_examples_seen
 
-        if not self.cfg.restore_base_learning_rate:
-            # Reset base learning rate to the value in the config, not the checkpoint.
-            set_new_base_lr(self.optim, self.scheduler, self.cfg.optimizer.learning_rate)
+        # Reset learning rate and weight decay to the values from the config, not the checkpoint.
+        new_learning_rate = self.scheduler.get_lr(
+            self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
+        )
+        for group in self.optim.param_groups:
+            group["lr"] = new_learning_rate
+            group["initial_lr"] = self.cfg.optimizer.learning_rate
+            if "weight_decay" in group and group["weight_decay"] > 0.0:
+                group["weight_decay"] = self.cfg.optimizer.weight_decay
 
         # RNG states.
         if "rng" in state_dict:
@@ -207,14 +214,17 @@ class Trainer:
         torch.cuda.set_rng_state(rng_state["cuda"])
 
     def save_sharded_checkpoint(self) -> Path:
+        # Zero-gradients to avoid gathering them.
+        self.optim.zero_grad(set_to_none=True)
+
         checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}"
         checkpoint_dir_tmp = Path(self.cfg.save_folder) / f"step{self.global_step}-tmp"
 
         try:
             next(checkpoint_dir.glob("*"))
             if self.cfg.save_overwrite:
-                if get_global_rank() == 0:
-                    shutil.rmtree(checkpoint_dir)
+                if get_fs_local_rank() == 0:
+                    shutil.rmtree(checkpoint_dir, ignore_errors=True)
             else:
                 raise OlmoConfigurationError(
                     f"Checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
@@ -222,7 +232,7 @@ class Trainer:
         except StopIteration:
             pass
 
-        if get_global_rank() == 0:
+        if get_fs_local_rank() == 0:
             checkpoint_dir_tmp.mkdir(parents=True, exist_ok=True)
 
         self.checkpoints.append(checkpoint_dir)
@@ -250,14 +260,28 @@ class Trainer:
                 self.cfg.save(checkpoint_dir_tmp / "config.yaml")
             barrier()
 
-        if get_global_rank() == 0:
+        if get_fs_local_rank() == 0:
             # Replace temp directory with target checkpoint directory.
-            checkpoint_dir_tmp.replace(checkpoint_dir)
+            try:
+                checkpoint_dir_tmp.replace(checkpoint_dir)
+            except FileNotFoundError:
+                # Caught when another (file-system) local rank 0 has already replaced the tmp directory.
+                # This can happen when nodes are saving to a common NFS drive but otherwise have distinct
+                # file-systems.
+                if not checkpoint_dir.exists():
+                    raise
 
             # Link to 'latest'.
             latest_path = Path(self.cfg.save_folder) / "latest"
             latest_path.unlink(missing_ok=True)
-            latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
+            try:
+                latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
+            except FileExistsError:
+                # Same as above, caught when another (file-system) local rank 0 has already made the 'latest' symlink.
+                # This can happen when nodes are saving to a common NFS drive but otherwise have distinct
+                # file-systems.
+                if latest_path.resolve().name != checkpoint_dir.name:
+                    raise
 
         # In the cases where we're using a shared NFS drive between ranks to save checkpoints,
         # replacing the temp directory with the final directory from rank 0 might not be immediately
@@ -289,7 +313,7 @@ class Trainer:
     def remove_sharded_checkpoint(self, idx: int = 0):
         oldest_checkpoint = self.checkpoints.pop(idx)
         barrier()
-        if get_global_rank() == 0 and oldest_checkpoint.is_dir():
+        if get_fs_local_rank() == 0 and oldest_checkpoint.is_dir():
             shutil.rmtree(oldest_checkpoint, ignore_errors=True)
             latest_path = Path(self.cfg.save_folder) / "latest"
             if latest_path.resolve() == oldest_checkpoint.resolve():
@@ -324,7 +348,7 @@ class Trainer:
             #      storage_reader=checkpoint.FileSystemReader(load_path),
             #  )
             #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)
-            #  self.optim.load_state_dict(flattened_osd)
+            #  self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
 
             # Deserialize state dictionary.
             state_dict = torch.load(resource_path(load_path, f"rank{get_global_rank()}.pt"))
@@ -340,7 +364,7 @@ class Trainer:
             else:
                 #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
                 flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, state_dict["optim"])  # type: ignore
-            self.optim.load_state_dict(flattened_osd)
+            self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
 
             # Load non-tensor state.
             self.load_non_tensor_state_dict(state_dict)
@@ -414,12 +438,6 @@ class Trainer:
             latest_path.unlink(missing_ok=True)
             latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
 
-        # In the cases where we're using a shared NFS drive between ranks to save checkpoints,
-        # replacing the temp directory with the final directory from rank 0 might not be immediately
-        # realized in the file systems of the other ranks.
-        # So we wait here across all ranks until that final checkpoint directory is visible.
-        wait_on(lambda: checkpoint_dir.exists(), "Waiting for checkpoint directory", timeout=10.0)
-
         # Remove old checkpoints.
         if self.cfg.save_num_unsharded_checkpoints_to_keep > 0:
             while len(self.unsharded_checkpoints) > self.cfg.save_num_unsharded_checkpoints_to_keep:
@@ -461,7 +479,9 @@ class Trainer:
         ):
             # Load model state.
             log.info("Loading model state...")
-            self.fsdp_model.load_state_dict(torch.load(resource_path(load_path, "model.pt")))
+            self.fsdp_model.load_state_dict(
+                self.model._make_state_dict_compatible(torch.load(resource_path(load_path, "model.pt")))
+            )
 
             # Load optimizer state.
             log.info("Loading optimizer state...")
@@ -474,7 +494,7 @@ class Trainer:
                 #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
                 flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state_dict)  # type: ignore
             del optim_state_dict
-            self.optim.load_state_dict(flattened_osd)
+            self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
             del flattened_osd
 
             # Load other state.
@@ -582,6 +602,8 @@ class Trainer:
         return ce_batch_loss, z_batch_loss
 
     def train_step(self, batch: Dict[str, Any]) -> Dict[str, float]:
+        metrics: Dict[str, float] = {}
+
         # Write data-indices to file.
         if self.indices_file is not None and "index" in batch:
             indices = "\t".join(str(int(i)) for i in batch["index"])
@@ -601,29 +623,38 @@ class Trainer:
         # Run forward-backward pass.
         ce_batch_loss, z_batch_loss = self.train_batch(batch)
 
-        # Clip gradient norms.
-        grad_norm: Optional[float] = None
-        if self.cfg.max_grad_norm is not None:
-            grad_norm = self.fsdp_model.clip_grad_norm_(self.cfg.max_grad_norm).item()
+        # Clip gradient norms and collect param/gradient/optim metrics.
+        should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
+        optim_metrics = self.optim.clip_grads_and_collect_metrics(
+            self.global_step, collect_param_metrics=should_log_optim_metrics_this_step
+        )
+        for key, value in optim_metrics.items():
+            metrics[f"optim/{key}"] = value.item()
+
+        # Adjust the learning rate.
+        for group in self.optim.param_groups:
+            group["lr"] = self.scheduler.get_lr(
+                self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
+            )
 
         # Optimizer step.
         self.optim.step()
-        self.scheduler.step()
 
         # Reduce loss metrics across ranks.
         self.ce_train_loss_metric.update(ce_batch_loss)
         ce_batch_loss = self.ce_train_loss_metric.compute()
-        metrics = {
-            "train/CrossEntropyLoss": ce_batch_loss.item(),
-            "train/Perplexity": torch.exp(ce_batch_loss).item(),
-        }
+        metrics["train/CrossEntropyLoss"] = ce_batch_loss.item()
+        metrics["train/Perplexity"] = torch.exp(ce_batch_loss).item()
         if z_batch_loss is not None and self.z_train_loss_metric is not None:
             self.z_train_loss_metric.update(z_batch_loss)
             z_batch_loss = self.z_train_loss_metric.compute()
             metrics["train/ZLoss"] = z_batch_loss.item()
 
-        if grad_norm is not None:
-            metrics["optim/grad_norm"] = grad_norm
+        # Maybe collect post-step optimizer-specific metrics.
+        if should_log_optim_metrics_this_step:
+            optim_metrics = self.optim.get_post_step_metrics(self.fsdp_model)
+            for key, value in optim_metrics.items():
+                metrics[f"optim/{key}"] = value.item()
 
         # Update min train loss and see if we should stop early.
         self.min_train_loss = min(self.min_train_loss, ce_batch_loss.item())  # type: ignore
@@ -701,8 +732,27 @@ class Trainer:
                 return f"{value:.4f}"
 
         log.info(
-            f"{prefix}\n" + "\n".join([f"    {name}={format_float(value)}" for name, value in metrics.items()])
+            f"{prefix}\n"
+            + "\n".join(
+                [
+                    f"    {name}={format_float(value)}"
+                    for name, value in metrics.items()
+                    if not name.startswith("optim/")  # there's too many optimizer metrics
+                ]
+            )
         )
+
+    def should_log_optim_metrics_this_step(self) -> bool:
+        if self.cfg.wandb is None:
+            # We only log optimizer-specific metrics to W&B, since there are usually too many metrics
+            # to log to the console.
+            return False
+        optim_log_interval = self.cfg.optimizer.metrics_log_interval
+        if optim_log_interval is None:
+            optim_log_interval = self.cfg.wandb.log_interval
+        else:
+            optim_log_interval = max(optim_log_interval, self.cfg.wandb.log_interval)
+        return self.global_step % optim_log_interval == 0
 
     def should_log_this_step(self) -> bool:
         if self.global_step % self.cfg.console_log_interval == 0:
@@ -754,8 +804,37 @@ class Trainer:
 
         return eval_metrics
 
+    def check_if_cancelled(self) -> bool:
+        # First check if we've reached the training time limit.
+        run_canceled = syncronize_flag(
+            self.cfg.time_limit is not None and time.time() - self._start_time >= self.cfg.time_limit,
+            self.device,
+        )
+        if run_canceled:
+            log.warning("Run canceled due to time limit")
+            return run_canceled
+
+        # Now check if someone canceled this run by adding a tag in W&B.
+        api_key = os.environ.get("WANDB_API_KEY")
+        if get_global_rank() == 0 and wandb.run is not None and api_key is not None:
+            # If someone added the 'cancel' / 'canceled' tag on the web dashboard, we won't
+            # see it in the run object. So we have to use the import/export API to check.
+            api = wandb.Api(api_key=api_key)
+            run = api.run(wandb.run.path)
+            for tag in run.tags or []:
+                if tag.lower() in {"cancel", "canceled", "cancelled"}:
+                    log.warning("Run has been canceled via Weights & Biases tag.")
+                    run_canceled = syncronize_flag(True, self.device)
+                    break
+            else:
+                run_canceled = syncronize_flag(False, self.device)
+        else:
+            run_canceled = syncronize_flag(False, self.device)
+
+        return run_canceled
+
     def fit(self):
-        start_time = time.time()
+        self._start_time = time.time()
 
         if self.cfg.load_path is not None and self.global_step > 0 and self.cfg.eval_on_load:
             eval_metrics = self.eval()
@@ -777,8 +856,15 @@ class Trainer:
             if wandb.run is not None:
                 wandb.log(sys_metrics, step=0)
 
+        # Profiler
+        if self.cfg.python_profiling:
+            profiler = cProfile.Profile()
+        else:
+            profiler = None
+
         # Train.
         first_batch: bool = True
+        canceled: bool = False
         for batch in self.train_loader:
             # Bookkeeping.
             # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
@@ -826,8 +912,14 @@ class Trainer:
             ):
                 wandb.log(metrics, step=self.global_step)
 
+            # Check if run should be canceled.
+            if self.global_step % self.cfg.canceled_check_interval == 0:
+                canceled = self.check_if_cancelled()
+
             # Maybe save sharded checkpoint.
-            if self.global_step % self.cfg.save_interval == 0 and self.cfg.save_num_checkpoints_to_keep != 0:
+            if canceled or (
+                self.global_step % self.cfg.save_interval == 0 and self.cfg.save_num_checkpoints_to_keep != 0
+            ):
                 log.info("Saving checkpoint...")
                 checkpoint_path = self.save_sharded_checkpoint()
                 log.info(f"Checkpoint saved to {checkpoint_path}")
@@ -835,16 +927,12 @@ class Trainer:
                 # Reset speed monitor so that we don't count the time taken to save checkpoints.
                 speed_monitor.reset()
 
-            time_limit_reached = syncronize_flag(
-                self.cfg.time_limit is not None and time.time() - start_time >= self.cfg.time_limit, self.device
-            )
-
             # Maybe save unsharded checkpoint.
             if (
-                self.cfg.save_interval_unsharded is not None
+                not canceled  # we already save a sharded checkpoint when canceled
+                and self.cfg.save_interval_unsharded is not None
                 and self.global_step % self.cfg.save_interval_unsharded == 0
                 and self.cfg.save_num_unsharded_checkpoints_to_keep != 0
-                and not time_limit_reached  # we save an unsharded checkpoint below
             ):
                 log.info("Saving unsharded checkpoint...")
                 checkpoint_path = self.save_unsharded_checkpoint()
@@ -854,7 +942,7 @@ class Trainer:
                 speed_monitor.reset()
 
             # Maybe run evaluations.
-            if self.global_step % self.cfg.eval_interval == 0:
+            if not canceled and self.global_step % self.cfg.eval_interval == 0:
                 eval_metrics = self.eval()
 
                 # Log metrics to W&B.
@@ -870,23 +958,33 @@ class Trainer:
             # End of batch.
             first_batch = False
 
-            if time_limit_reached:
-                log.info("Training time limit reached, ending early")
+            if canceled:
                 break
+
+            # Profiler stuff
+            # We do this now, at the bottom of this loop, so we capture the work of getting the next batch.
+            if profiler is not None:
+                if self.global_step == 5:
+                    profiler.enable()
+                elif self.global_step == 8:
+                    profiler.disable()
+                    profiler.print_stats(sort=SortKey.CUMULATIVE)
+                    profiler = None
         else:
             log.info("Training loop complete")
 
         # Save final unsharded model-only checkpoint.
-        log.info("Saving final unsharded model checkpoint...")
-        checkpoint_path = self.save_unsharded_checkpoint()
-        log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
+        if not canceled and self.cfg.save_interval_unsharded is not None:
+            log.info("Saving final unsharded model checkpoint...")
+            checkpoint_path = self.save_unsharded_checkpoint()
+            log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
     def close(self, exit_code: int = 0) -> None:
         if self.indices_file is not None:
             self.indices_file.flush()
             self.indices_file.close()
         if wandb.run is not None:
-            wandb.finish(exit_code=exit_code)
+            wandb.finish(exit_code=exit_code, quiet=True)
 
     def __enter__(self) -> Trainer:
         return self

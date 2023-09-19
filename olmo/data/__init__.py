@@ -13,7 +13,9 @@ from .memmap_dataset import MemMapDataset
 __all__ = ["MemMapDataset", "DataCollator", "IterableDataset", "build_eval_dataloader", "build_train_dataloader"]
 
 
-def build_memmap_dataset(train_config: TrainConfig, data_config: DataConfig) -> MemMapDataset:
+def build_memmap_dataset(
+    train_config: TrainConfig, data_config: DataConfig, include_instance_metadata: bool = True
+) -> MemMapDataset:
     paths: List[str]
     metadata: List[Dict[str, Any]] = []
     if data_config.paths:
@@ -30,7 +32,12 @@ def build_memmap_dataset(train_config: TrainConfig, data_config: DataConfig) -> 
             metadata.extend([{"label": label}] * len(label_paths))
     else:
         raise OlmoConfigurationError("One of DataConfig.paths or DataConfig.datasets is required")
-    return MemMapDataset(*paths, chunk_size=train_config.model.max_sequence_length, metadata=metadata)
+    return MemMapDataset(
+        *paths,
+        chunk_size=train_config.model.max_sequence_length,
+        metadata=metadata,
+        include_instance_metadata=include_instance_metadata,
+    )
 
 
 def build_eval_dataloader(
@@ -39,7 +46,7 @@ def build_eval_dataloader(
     batch_size: int,
     shuffle: bool = True,
 ) -> DataLoader:
-    dataset = build_memmap_dataset(train_config, data_config)
+    dataset = build_memmap_dataset(train_config, data_config, include_instance_metadata=True)
     collator = DataCollator(pad_direction=data_config.pad_direction, pad_token_id=train_config.model.pad_token_id)
     if data_config.drop_last:
         # Make sure batch size is small enough.
@@ -72,7 +79,7 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
     collator = DataCollator(
         pad_direction=train_config.data.pad_direction, pad_token_id=train_config.model.pad_token_id
     )
-    dataset = build_memmap_dataset(train_config, train_config.data)
+    dataset = build_memmap_dataset(train_config, train_config.data, include_instance_metadata=False)
     work_dir = Path(train_config.save_folder) / "train_data"
     if get_global_rank() == 0:
         if work_dir.is_dir() and not train_config.save_overwrite:
@@ -90,6 +97,7 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
             drop_last=train_config.data.drop_last,
             max_examples=train_config.global_train_batch_size * train_config.max_duration,
             work_dir=work_dir,
+            global_batch_size=train_config.global_train_batch_size,
         ),
         batch_size=train_config.device_train_batch_size,
         drop_last=train_config.data.drop_last,

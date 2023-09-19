@@ -26,7 +26,7 @@ class BaseTagger:
 
     def tag(self, row: InputSpec) -> Dict[str, List[List[Union[int, float]]]]:
         """Internal function that is used by the tagger to get data"""
-        doc = Document(source=row.source, version=row.version, id=row.id, text=row.text)
+        doc = Document(source=row.source, version=row.version, id=row.id, text=row.text, metadata=row.metadata)
         doc_result = self.predict(doc)
 
         tagger_output: Dict[str, list] = {}

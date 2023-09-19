@@ -9,9 +9,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
+import boto3
 import rich
 import torch
 import torch.distributed as dist
+import torch.nn as nn
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.text import Text
@@ -309,9 +311,24 @@ def get_local_rank() -> int:
     return int(os.environ.get("LOCAL_RANK") or 0)
 
 
+def get_fs_local_rank() -> int:
+    """Get the local rank per filesystem, meaning that, regardless of the number of nodes,
+    if all ranks share the same filesystem then `get_fs_local_rank()` will be equivalent to `get_global_rank()`,
+    but if nodes do not share the same filesystem then `get_fs_local_rank()` will be equivalent to `get_local_rank()`.
+    """
+    return int(os.environ.get("FS_LOCAL_RANK") or get_local_rank())
+
+
 def barrier() -> None:
     if dist.is_available() and dist.is_initialized():
         dist.barrier()
+
+
+def get_default_device() -> torch.device:
+    if torch.cuda.is_available() and torch.cuda.is_initialized():
+        return torch.device("cuda")
+    else:
+        return torch.device("cpu")
 
 
 def peak_gpu_memory(reset: bool = False) -> Optional[float]:
@@ -376,9 +393,9 @@ def file_size(path: PathOrStr) -> int:
 
         parsed = urlparse(str(path))
         if parsed.scheme == "gs":
-            return _gcs_file_size(parsed.netloc, parsed.path)
+            return _gcs_file_size(parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "s3":
-            return _s3_file_size(parsed.netloc, parsed.path)
+            return _s3_file_size(parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return file_size(str(path).replace("file://", "", 1))
         else:
@@ -395,11 +412,33 @@ def upload(source: PathOrStr, target: str, save_overwrite: bool = False):
     assert source.is_file()
     parsed = urlparse(target)
     if parsed.scheme == "gs":
-        _gcs_upload(source, parsed.netloc, parsed.path, save_overwrite=save_overwrite)
+        _gcs_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
     elif parsed.scheme == "s3":
-        _s3_upload(source, parsed.netloc, parsed.path, save_overwrite=save_overwrite)
+        _s3_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
     else:
         raise NotImplementedError(f"Upload not implemented for '{parsed.scheme}' scheme")
+
+
+def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> bytes:
+    if is_url(source):
+        from urllib.parse import urlparse
+
+        parsed = urlparse(str(source))
+        if parsed.scheme == "gs":
+            from cached_path import cached_path
+
+            # TODO: directly request range from GCS.
+            return get_bytes_range(cached_path(source), bytes_start, num_bytes)
+        elif parsed.scheme == "s3":
+            return _s3_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
+        elif parsed.scheme == "file":
+            return get_bytes_range(str(source).replace("file://", "", 1), bytes_start, num_bytes)
+        else:
+            raise NotImplementedError(f"file size not implemented for '{parsed.scheme}' files")
+    else:
+        with open(source, "rb") as f:
+            f.seek(bytes_start)
+            return f.read(num_bytes)
 
 
 def _gcs_file_size(bucket_name: str, key: str) -> int:
@@ -412,7 +451,7 @@ def _gcs_file_size(bucket_name: str, key: str) -> int:
     try:
         blob.reload()
     except NotFound:
-        raise FileNotFoundError("gs://{bucket_name}/{key}")
+        raise FileNotFoundError(f"gs://{bucket_name}/{key}")
     assert blob.size is not None
     return blob.size
 
@@ -428,15 +467,16 @@ def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool =
     blob.upload_from_filename(source)
 
 
+s3_client = boto3.client("s3")
+
+
 def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
-    import boto3
     from botocore.exceptions import ClientError
 
-    s3_client = boto3.client("s3")
     if not save_overwrite:
         try:
             s3_client.head_object(Bucket=bucket_name, Key=key)
-            raise FileExistsError(f"gs://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
+            raise FileExistsError(f"s3://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
         except ClientError as e:
             if int(e.response["Error"]["Code"]) != 404:
                 raise
@@ -444,13 +484,31 @@ def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = 
 
 
 def _s3_file_size(bucket_name: str, key: str) -> int:
-    import boto3
     from botocore.exceptions import ClientError
 
-    s3_client = boto3.client("s3")
     try:
         return s3_client.head_object(Bucket=bucket_name, Key=key)["ContentLength"]
     except ClientError as e:
         if int(e.response["Error"]["Code"]) != 404:
             raise
-        raise FileNotFoundError("s3://{bucket_name}/{key}")
+        raise FileNotFoundError(f"s3://{bucket_name}/{key}")
+
+
+def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int) -> bytes:
+    from botocore.exceptions import ClientError
+
+    try:
+        return s3_client.get_object(
+            Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
+        )["Body"].read()
+    except ClientError as e:
+        if int(e.response["Error"]["Code"]) != 404:
+            raise
+        raise FileNotFoundError(f"s3://{bucket_name}/{key}")
+
+
+def is_weight_decay_module(module: nn.Module) -> bool:
+    """Returns true if the module should use weight decay."""
+    from .model import LayerNormBase
+
+    return not isinstance(module, (LayerNormBase, nn.LayerNorm, nn.Embedding))
