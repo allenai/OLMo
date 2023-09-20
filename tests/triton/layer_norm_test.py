@@ -3,11 +3,17 @@ from typing import Optional
 import pytest
 import torch
 
-from olmo.triton.layer_norm import layer_norm
+try:
+    import triton as _  # noqa: F401
+
+    has_triton = True
+except ModuleNotFoundError:
+    has_triton = False
 
 
 @pytest.mark.gpu
 @pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device")
+@pytest.mark.skipif(not has_triton, reason="Requires triton")
 @pytest.mark.parametrize("M, N", [(1151, 8192)])
 @pytest.mark.parametrize(
     "dtype",
@@ -18,6 +24,8 @@ from olmo.triton.layer_norm import layer_norm
     ],
 )
 def test_layer_norm_with_affine(M, N, dtype, eps=1e-5, device="cuda"):
+    from olmo.triton.layer_norm import layer_norm  # type: ignore
+
     torch.manual_seed(23412467)
     # create data
     x_shape = (M, N)
@@ -54,6 +62,7 @@ def test_layer_norm_with_affine(M, N, dtype, eps=1e-5, device="cuda"):
 
 @pytest.mark.gpu
 @pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device")
+@pytest.mark.skipif(not has_triton, reason="Requires triton")
 @pytest.mark.parametrize("M, N", [(1151, 8192)])
 @pytest.mark.parametrize(
     "dtype",
@@ -64,6 +73,8 @@ def test_layer_norm_with_affine(M, N, dtype, eps=1e-5, device="cuda"):
     ],
 )
 def test_layer_norm_no_affine(M, N, dtype, eps=1e-5, device="cuda"):
+    from olmo.triton.layer_norm import layer_norm  # type: ignore
+
     torch.manual_seed(23423)
     # create data
     x_shape = (M, N)
