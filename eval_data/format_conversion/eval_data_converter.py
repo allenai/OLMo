@@ -85,7 +85,7 @@ class Formatter():
                     continue
                 author = doc['author']
                 text_post = doc["text_post"]
-                thread2number_post2text[doc['thread']][doc["number_post"]] = author +': ' + text_post +'\n\n\n'
+                thread2number_post2text[doc['thread']][doc["number_post"]] = author + (':\n' if args.metadata_header_seperate_line else ': ') + text_post +'\n\n\n'
 
         for thread, number_post2text in thread2number_post2text.items():
             # posts = [number_post2text[i+1] for i in range(len(number_post2text))]
@@ -106,6 +106,7 @@ class Formatter():
                     "created_at":doc["post"]["created_at"]
                 }
                 yield {"text":doc["post"]["body"], "metadata":metadata}
+
     @staticmethod
     def four_chan(args):
         def html2text(data):
@@ -114,7 +115,7 @@ class Formatter():
         
         def post_header(doc):
             user = (doc['name'] if 'name' in doc else 'Anonymous')
-            return ' '.join([user, doc['now'], 'no.' + str(doc['no'])]) +': '
+            return ' '.join([user, doc['now'], 'no.' + str(doc['no'])]) + (':\n' if args.metadata_header_seperate_line else ': ')
         
         with open(os.path.join(args.in_dir, args.filename), "rt", encoding="UTF8") as f:
             for line in tqdm(f):
@@ -142,6 +143,7 @@ def main():
     parse.add_argument("--out_dir", type=str)
     parse.add_argument("--filename", type=str)
     parse.add_argument("--in_format", type=str)
+    parse.add_argument("--metadata_header_seperate_line", action="store_true")
 
     args = parse.parse_args()
 

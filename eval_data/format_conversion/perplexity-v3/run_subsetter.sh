@@ -21,3 +21,10 @@ python $SCRIPT_DIR/m2d2_subsetter.py \
     --output_dir $perplexity_dir/v3/m2d2/s2orc/test \
     --tokenizer "EleutherAI/gpt-neox-20b" \
     --tokens_per_subdomain 100000
+
+python $SCRIPT_DIR/subsetter.py \
+    --input_files $perplexity_dir/v0/4chan_meta_sep/*.jsonl.gz \
+    --output_dir $perplexity_dir/v3/4chan_meta_sep \
+    --seed 42 \
+    --tokenizer "EleutherAI/gpt-neox-20b" \
+    --split_token_count_target 1000000
