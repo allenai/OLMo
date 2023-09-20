@@ -711,9 +711,10 @@ class Trainer:
 
     def system_metrics(self) -> Dict[str, float]:
         metrics = {}
-        peak_gpu_mb = peak_gpu_memory()
-        if peak_gpu_mb is not None:
-            metrics["System/Peak GPU Memory (MB)"] = peak_gpu_mb
+        if self.global_step < 3 or self.global_step % 10 == 0:
+            peak_gpu_mb = peak_gpu_memory()
+            if peak_gpu_mb is not None:
+                metrics["System/Peak GPU Memory (MB)"] = peak_gpu_mb
         return metrics
 
     def log_metrics_to_console(self, prefix: str, metrics: Dict[str, float]):

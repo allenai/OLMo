@@ -18,6 +18,8 @@ exclude =
     dist
     .mypy_cache
     pretrain_data
+    inference/efficiency/dependencies
+    inference/compression/dependencies
 
 per-file-ignores =
     # __init__.py files are allowed to have unused imports and lines-too-long
