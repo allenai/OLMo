@@ -174,11 +174,10 @@ class AMDLayerNorm(LayerNormBase):
             self.register_parameter("weight", None)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        og_dtype = x.dtype
+        x = self._cast_if_autocast_enabled(x, dtype=torch.float32)
         with torch.autocast(enabled=False, device_type=x.device.type):
-            og_dtype = x.dtype
-            var, mean = torch.var_mean(
-                self._cast_if_autocast_enabled(x, dtype=torch.float32), dim=-1, correction=0, keepdim=True
-            )
+            var, mean = torch.var_mean(x, dim=-1, correction=0, keepdim=True)
             var.add_(self.eps)
             var.sqrt_()
             x = (x - mean) / var
