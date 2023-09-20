@@ -174,6 +174,11 @@ class LayerNormType(StrEnum):
     LayerNorm implemented manually to work around an issue with ROCm.
     """
 
+    triton = "triton"
+    """
+    A triton implementation of layer norm.
+    """
+
 
 class ActivationType(StrEnum):
     gelu = "gelu"
