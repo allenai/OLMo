@@ -30,7 +30,7 @@ git checkout ${triton_ref}
 # Build it.
 echo "Building wheels..."
 cd python
-pip install cmake wheel
+pip install ninja cmake wheel
 python setup.py bdist_wheel
 
 echo "✔️ Build finished"
