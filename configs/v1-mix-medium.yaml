@@ -20,7 +20,8 @@ model:
   include_bias: false
   block_type: sequential
   layer_norm_type: low_precision
-  layer_norm_with_affine: false
+  layer_norm_with_affine: true  # workaround for the layer norm bug
+  bias_for_layer_norm: true  # workaround for the layer norm bug
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
@@ -51,7 +52,7 @@ scheduler:
 data:
   paths: ${path.glob:${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/books/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/c4/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/common-crawl/*/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/s2/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/stack/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/wiki/*.npy}
   pad_direction: right
-  num_workers: 1
+  num_workers: 0
   drop_last: true
   pin_memory: true
   prefetch_factor: 16
@@ -59,13 +60,13 @@ data:
   timeout: 0
 
 tokenizer:
-  identifier: allenai/eleuther-ai-gpt-neox-20b-pii-special
+  identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
   truncate_direction: right
 
 save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
-save_interval: 5000
+save_interval: 1000
 save_num_checkpoints_to_keep: -1
 # Unsharded checkpoints (for final storage)
 save_interval_unsharded: null  # getting errors on LUMI right now
@@ -80,6 +81,7 @@ device_train_microbatch_size: 2
 precision: amp_bf16
 
 max_grad_norm: 1.0
+max_grad_norm_ratio: 1.5
 
 speed_monitor:
   window_size: 20
@@ -88,30 +90,6 @@ eval_interval: ${save_interval}
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
-  ##########################
-  # Perplexity evaluations #
-  ##########################
-  # TODO: do we care about c4 and RP validation? We don't have these tokenized at the moment.
-  # - label: c4-validation
-  #   subset_num_batches: 10
-  #   data:
-  #     paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
-  #     num_workers: 2
-  #     drop_last: true
-  #     pin_memory: true
-  #     persistent_workers: true
-  #     prefetch_factor: 4
-
-  # - label: rp-validation
-  #   subset_num_batches: 10
-  #   data:
-  #     paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
-  #     num_workers: 2
-  #     drop_last: true
-  #     pin_memory: true
-  #     persistent_workers: true
-  #     prefetch_factor: 4
-
   # lump all the small datasets together (we still get separate metrics).
   - label: all-small-ppl-validation
     data:

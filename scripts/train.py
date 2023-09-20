@@ -13,9 +13,10 @@ import torch.distributed as dist
 import wandb
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision
+from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 from torchmetrics import MeanMetric
 
-from olmo.config import CheckpointType, TrainConfig
+from olmo.config import CheckpointType, FSDPWrapStrategy, TrainConfig
 from olmo.data import build_train_dataloader
 from olmo.eval import build_evaluators
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
@@ -72,16 +73,6 @@ def main(cfg: TrainConfig) -> None:
 
     barrier()
 
-    # Set seed.
-    seed_all(cfg.seed)
-
-    # Construct data loader.
-    train_loader = build_train_dataloader(cfg)
-
-    # Construct evaluators.
-    evaluators = build_evaluators(cfg, device)
-    barrier()
-
     # Maybe start W&B run.
     if cfg.wandb is not None and (get_global_rank() == 0 or not cfg.wandb.rank_zero_only):
         wandb_dir = Path(cfg.save_folder) / "wandb"
@@ -98,6 +89,16 @@ def main(cfg: TrainConfig) -> None:
 
     barrier()
 
+    # Set seed.
+    seed_all(cfg.seed)
+
+    # Construct data loader.
+    train_loader = build_train_dataloader(cfg)
+
+    # Construct evaluators.
+    evaluators = build_evaluators(cfg, device)
+    barrier()
+
     # Initialize the model.
     log.info("Building model...")
     olmo_model = Olmo(cfg.model)
@@ -107,6 +108,11 @@ def main(cfg: TrainConfig) -> None:
 
     # Wrap the model in FSDP.
     log.info("Wrapping model with FDSP...")
+    wrap_policy = None
+    if cfg.fsdp.wrapping_strategy == FSDPWrapStrategy.by_block:
+        wrap_policy = olmo_model.fsdp_wrap_fn
+    elif cfg.fsdp.wrapping_strategy == FSDPWrapStrategy.size_based:
+        wrap_policy = size_based_auto_wrap_policy
     fsdp_model = FSDP(
         olmo_model,
         sharding_strategy=cfg.fsdp.sharding_strategy,
@@ -115,7 +121,7 @@ def main(cfg: TrainConfig) -> None:
             reduce_dtype=cfg.autocast_precision,
             buffer_dtype=cfg.autocast_precision,
         ),
-        auto_wrap_policy=olmo_model.fsdp_wrap_fn,
+        auto_wrap_policy=wrap_policy,
         use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
         limit_all_gathers=True,
         device_id=get_local_rank(),

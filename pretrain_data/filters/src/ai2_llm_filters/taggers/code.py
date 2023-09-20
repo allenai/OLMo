@@ -5,8 +5,11 @@ Code-related taggers.
 @akshitab
 
 """
+import os
+from bs4 import BeautifulSoup
 import logging
 import re
+import json
 from typing import Generator, List
 
 import numpy as np
@@ -22,6 +25,11 @@ from detect_secrets.settings import default_settings
 from ..core_tools.data_types import DocResult, Document, Span
 from ..core_tools.registry import TaggerRegistry
 from ..core_tools.taggers import BaseTagger
+
+from .utils import get_nl_ratio
+
+with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "ext_to_lang_mapping.json")) as f:
+    ext_to_lang_mapping = json.load(f)
 
 logger = logging.getLogger(__name__)
 
@@ -197,3 +205,97 @@ class CodeRedPajamaTaggers(BaseTagger):
         spans.append(Span(start=0, end=doc_length, type="alpha_token_prop_doc", score=alpha_token_prop))
 
         return DocResult(doc=doc, spans=spans)
+
+
+def filter_html(html):
+    """Filter HTML files based on displayed text VS code ratio"""
+    try:
+        soup = BeautifulSoup(html, features="html.parser")
+    except (TypeError, UnboundLocalError):
+        return False
+
+    # kill all script and style elements
+    for script in soup(["script", "style"]):
+        script.extract()    # rip it out
+
+    # get text
+    text = soup.get_text()
+    ratio = len(text)/len(html)
+
+    return (ratio) * (len(text) > 100)
+
+
+@TaggerRegistry.add("code_starcoder_taggers_v1")
+class CodeStarCoderTaggers(BaseTagger):
+    """
+    Based on StarCoder filtering.
+    """
+    def predict(self, doc: Document) -> DocResult:
+        spans: List[Span] = []
+        doc_length = len(doc.text)
+
+        has_xml_template = 1.0 if "<?xml version=" in doc.text[:100] else 0.0
+        num_github_stars = doc.metadata["max_stars_count"] or 0.0
+
+        try:
+            lang = ext_to_lang_mapping[doc.metadata["ext"]]
+            nl_ratio = get_nl_ratio(doc.text, lang)
+
+            if lang == "html":
+                code_to_text_ratio = filter_html(doc.text)
+            else:
+                # Not relevant for non-html code
+                code_to_text_ratio = 1.0
+        except:
+            nl_ratio = -1.0
+            code_to_text_ratio = -1.0
+
+
+        # document-level scores
+        spans.append(Span(start=0, end=doc_length, type="has_xml_template_doc", score=has_xml_template))
+        spans.append(Span(start=0, end=doc_length, type="num_github_stars_doc", score=num_github_stars))
+        spans.append(Span(start=0, end=doc_length, type="nl_ratio_doc", score=nl_ratio))
+        spans.append(Span(start=0, end=doc_length, type="code_to_text_ratio_html_doc", score=code_to_text_ratio))
+
+        return DocResult(doc=doc, spans=spans)
+
+
+@TaggerRegistry.add("code_starcoder_taggers_v2")
+class CodeStarCoderTaggers2(BaseTagger):
+    """
+    Based on StarCoder filtering.
+    """
+    def predict(self, doc: Document) -> DocResult:
+        spans: List[Span] = []
+        doc_length = len(doc.text)
+
+        has_xml_template = 1.0 if "<?xml version=" in doc.text[:100] else 0.0
+        num_github_stars = doc.metadata["max_stars_count"] or 0.0
+
+        try:
+            lang = ext_to_lang_mapping[doc.metadata["ext"]]
+        except KeyError:
+            lang = "-no-lang"
+
+        if lang in ["python", "java", "javascript"]:
+            code_to_comment_ratio = get_nl_ratio(doc.text, lang)
+        else:
+            code_to_comment_ratio = 0.5  # We use an upper and lower bound of filters; this is in the middle.
+
+        if lang == "html":
+            try:
+                code_to_text_ratio = filter_html(doc.text)
+            except:
+                code_to_text_ratio = -1.0
+        else:
+            code_to_text_ratio = 1.0
+
+
+        # document-level scores
+        spans.append(Span(start=0, end=doc_length, type="has_xml_template_doc", score=has_xml_template))
+        spans.append(Span(start=0, end=doc_length, type="num_github_stars_doc", score=num_github_stars))
+        spans.append(Span(start=0, end=doc_length, type="code_to_comment_ratio_doc", score=code_to_comment_ratio))
+        spans.append(Span(start=0, end=doc_length, type="code_to_text_ratio_html_doc", score=code_to_text_ratio))
+
+        return DocResult(doc=doc, spans=spans)
+

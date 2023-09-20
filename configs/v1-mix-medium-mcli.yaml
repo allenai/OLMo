@@ -10,7 +10,7 @@ wandb:
 model:
   d_model: 4096
   n_heads: 16
-  n_layers: 30
+  n_layers: 29
   mlp_ratio: 8
   alibi: true
   alibi_bias_max: 8.0
@@ -20,7 +20,8 @@ model:
   include_bias: false
   block_type: sequential
   layer_norm_type: low_precision
-  layer_norm_with_affine: false
+  layer_norm_with_affine: true  # workaround for the layer norm bug
+  bias_for_layer_norm: true  # workaround for the layer norm bug
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
@@ -30,7 +31,7 @@ model:
   eos_token_id: 0
   pad_token_id: 1
   init_device: meta
-  init_fn: mitchell
+  init_fn: normal
 
 compile: null  # causes instability on AMD GPUs
 
@@ -49,7 +50,7 @@ scheduler:
   alpha_f: 0.1
 
 tokenizer:
-  identifier: allenai/eleuther-ai-gpt-neox-20b-pii-special
+  identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
   truncate_direction: right
 
 save_folder: runs/${run_name}
@@ -72,6 +73,7 @@ device_train_microbatch_size: 2
 precision: amp_bf16
 
 max_grad_norm: 1.0
+max_grad_norm_ratio: 1.5
 
 speed_monitor:
   window_size: 20

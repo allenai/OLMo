@@ -1,0 +1,46 @@
+# For efficiency benchmark
+codecarbon==2.2.3
+beaker-gantry==0.14.1
+sacrebleu>=1.5.0
+sentencepiece
+pyyaml>=5.4.1
+torch
+torchmetrics==0.11.0
+transformers
+more_itertools
+spacy>=3.0.0
+wget
+datasets>=2.1.0
+accelerate
+bettermap
+base58==2.1.1
+click
+petname>=2.6,<3.0
+click_help_colors==0.9.1
+sqlitedict==2.1.0
+pyserial==3.5
+pytest
+# For the P3 datasets, which we get from huggingface datasets
+protobuf<=3.20
+
+# For lm-eval
+scikit-learn>=0.24.1   # Eleuther uses this for metrics. Can we replace it with torchmetrics?
+pycountry>=20.7.3
+rouge-score>=0.0.4  # Can we replace this with torchmetrics?
+# The Eleuther test harness depends on these even at runtime, but does not declare them.
+mypy_extensions
+prometheus_client
+
+# gantry dependencies
+beaker-py>=1.14.0,<2.0
+GitPython>=3.0,<4.0
+rich
+requests
+packaging
+
+mypy
+
+# Needed for packaging and uploading to PyPi
+twine>=1.11.0
+setuptools
+wheel
