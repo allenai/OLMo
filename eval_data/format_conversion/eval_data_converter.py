@@ -91,7 +91,8 @@ class Formatter():
             # posts = [number_post2text[i+1] for i in range(len(number_post2text))]
             posts = [number_post2text[i] for i in sorted(number_post2text)]
             text = ''.join(posts)
-            yield {"text":text, "metadata":{"thread":thread}}
+            subdomain = os.path.basename(args.filename).split('.')[0]
+            yield {"text":text, "subdomain":subdomain, "metadata":{"thread":thread}}
 
     @staticmethod
     def gab(args):

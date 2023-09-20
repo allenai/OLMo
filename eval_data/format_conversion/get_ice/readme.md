@@ -5,7 +5,7 @@ In order to make our use of the ICE dataset comprable to HELMs, we use their cod
 ## setup
 
 ```
-conda create -n crfm-helm
+conda create -n crfm-helm python=3.10
 conda activate crfm-helm
 pip install -r requirements.txt
 ```
@@ -20,8 +20,3 @@ python dump_ice.py --out_dir <out_dir>
 ```
 
 The files in the out_dir will now be ready for processing by `LLM/eval_data/format_conversion/eval_data_converter.py`
-
-
-## limitations
-
-There is an [unreleased commit](https://github.com/stanford-crfm/helm/pull/1464) that fixes a bug in the HELM data order. Unfortunately using commits after that one presently introduces a crash in their code. We should rerun this when they make a new release.
