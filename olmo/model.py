@@ -188,6 +188,13 @@ class AMDLayerNorm(LayerNormBase):
             return x.to(og_dtype)
 
 
+class TritonLayerNorm(LayerNormBase):
+    def __init__(self, config: ModelConfig, size: Optional[int] = None, elementwise_affine: Optional[bool] = None):
+        super().__init__(config)
+        self.normalized_shape = (size or config.d_model,)
+        self.eps = 1e-05
+
+
 class RMSLayerNorm(LayerNorm):
     """
     RMS layer norm, a simplified :class:`LayerNorm` implementation that can optionally run
