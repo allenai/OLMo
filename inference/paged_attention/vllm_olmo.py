@@ -23,7 +23,6 @@ from olmo.config import ActivationType, BlockType, LayerNormType, ModelConfig
 from olmo.exceptions import OlmoConfigurationError
 
 KVCache = Tuple[torch.Tensor, torch.Tensor]
-import pdb
 
 def _get_alibi_slopes(
     total_num_heads: int,
@@ -37,6 +36,76 @@ def _get_alibi_slopes(
         slopes = torch.concat([slopes[1::2], slopes[::2]])[:total_num_heads]
     return slopes
 
+class OlmoSampler(nn.Module):
+    """Samples the next tokens from the model's outputs.
+
+    This layer does the following:
+    3. Apply presence and frequency penalties.
+    4. Apply temperature scaling.
+    5. Apply top-p and top-k truncation.
+    6. Sample the next tokens.
+    Here, each sequence group within the batch can have different sampling
+    parameters (e.g., sampling method, temperature, top-p, top-k, etc.).
+    """
+
+    def __init__(self, vocab_size: int) -> None:
+        super().__init__()
+        self.vocab_size = vocab_size
+
+    def forward(
+        self,
+        logits: torch.Tensor,
+        input_metadata: InputMetadata,
+        embedding_bias: Optional[torch.Tensor] = None,
+    ) -> Dict[int, SequenceOutputs]:
+        # Get the hidden states that we use for sampling.
+        #hidden_states = _prune_hidden_states(hidden_states, input_metadata)
+        logits = _prune_hidden_states(logits, input_metadata)
+
+        # Get the logits for the next tokens.
+        #logits = torch.matmul(hidden_states, embedding.t())
+        #if embedding_bias is not None:
+        #    logits += embedding_bias
+        #logits = gather_from_tensor_model_parallel_region(logits)
+        # Remove paddings in vocab (if any).
+        logits = logits[:, :self.vocab_size]
+
+        # Apply presence and frequency penalties.
+        output_tokens = _get_output_tokens(input_metadata)
+        assert len(output_tokens) == logits.shape[0]
+        presence_penalties, frequency_penalties = _get_penalties(
+            input_metadata)
+        assert len(presence_penalties) == logits.shape[0]
+        assert len(frequency_penalties) == logits.shape[0]
+        logits = _apply_penalties(logits, output_tokens, presence_penalties,
+                                  frequency_penalties, self.vocab_size)
+
+        # Apply temperature scaling.
+        temperatures = _get_temperatures(input_metadata)
+        assert len(temperatures) == logits.shape[0]
+        if any(t != 1.0 for t in temperatures):
+            t = torch.tensor(temperatures,
+                             dtype=logits.dtype,
+                             device=logits.device)
+            # Use in-place division to avoid creating a new tensor.
+            logits.div_(t.unsqueeze(dim=1))
+
+        # We use float32 for probabilities and log probabilities.
+        # Compute the probabilities.
+        probs = torch.softmax(logits, dim=-1, dtype=torch.float)
+        # Compute the log probabilities (before applying top-p and top-k).
+        logprobs = torch.log(probs)
+
+        # Apply top-p and top-k truncation.
+        top_ps, top_ks = _get_top_p_top_k(input_metadata, self.vocab_size)
+        assert len(top_ps) == len(top_ks) == probs.shape[0]
+        do_top_p = any(p < 1.0 - _SAMPLING_EPS for p in top_ps)
+        do_top_k = any(k != self.vocab_size for k in top_ks)
+        if do_top_p or do_top_k:
+            probs = _apply_top_p_top_k(probs, top_ps, top_ks)
+
+        # Sample the next tokens.
+        return _sample(probs, logprobs, input_metadata)
 
 class PagedAttentionOlmoSequentialBlock(OlmoBlock):
     """
@@ -47,6 +116,7 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
     def __init__(self, layer_id: int, config: ModelConfig):
         super().__init__(layer_id, config)
 
+        # config.multi_query_attention = False
         # Layer norms.
         self.attn_norm = LayerNorm.build(config)
         self.ff_norm = LayerNorm.build(config)
@@ -56,37 +126,32 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
         else:
             self.fused_dims = (config.d_model, config.d_model, config.d_model)
 
-        self.att_proj = nn.Linear(
-            config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
-        )
-        self.att_proj._fused = (0, self.fused_dims)  # type: ignore
+        #self.att_proj = nn.Linear(
+        #    config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
+        #)
 
-        """
         self.att_proj = ColumnParallelLinear(
             config.d_model,
             sum(self.fused_dims),
             bias=config.include_bias,
-            gather_output=False,
+            gather_output=True,
             perform_initialization=False,
-            skip_bias_add=True,
         )
-        """
 
+
+        self.att_proj._fused = (0, self.fused_dims)  # type: ignore
         # Feed-forward input projection.
-        self.ff_proj = nn.Linear(
-           config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
-        )
+        #self.ff_proj = nn.Linear(
+        #    config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
+        #)
 
-        """
         self.ff_proj = ColumnParallelLinear(
             config.d_model,
             config.mlp_ratio * config.d_model,
             bias=config.include_bias,
-            gather_output=False,
+            gather_output=True,
             perform_initialization=False,
-            skip_bias_add=False,
         )
-        """
 
         head_dim = config.d_model // config.n_heads
         scaling = head_dim**-0.5
@@ -104,42 +169,37 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
             self.paged_attn = PagedAttention(config.n_heads, head_dim, scale=scaling, num_kv_heads=num_kv_heads)
 
         # Attention output projection.
-        self.attn_out = nn.Linear(
-             config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
-        )
-
-        """
+        #self.attn_out = nn.Linear(
+        #    config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
+        #)
         self.attn_out = RowParallelLinear(
             config.d_model,
             config.d_model,
             bias=config.include_bias,
-            input_is_parallel=True,
+            input_is_parallel=False,
             perform_initialization=False,
-            skip_bias_add=False,
-            reduce_results=True) #self.reduce_row_parallel_results)
-        """
-    
-        # Feed-forward output projection.
-
-        #"""
-        self.ff_out = nn.Linear(
-             int(self.act.output_multiplier * config.mlp_ratio * config.d_model),
-             config.d_model,
-             bias=config.include_bias,
-             device=config.init_device,
+            reduce_results=True,
         )
-        self.ff_out._is_residual = True  # type: ignore
 
-        """
+        # Feed-forward output projection.
+        #self.ff_out = nn.Linear(
+        #    int(self.act.output_multiplier * config.mlp_ratio * config.d_model),
+        #    config.d_model,
+        #    bias=config.include_bias,
+        #    device=config.init_device,
+        #)
+        #self.ff_out._is_residual = True  # type: ignore
+
         self.ff_out = RowParallelLinear(
             int(self.act.output_multiplier * config.mlp_ratio * config.d_model),
             config.d_model,
             bias=config.include_bias,
+            input_is_parallel=False,
             perform_initialization=False,
-            skip_bias_add=False,
-            reduce_results=True
+            reduce_results=True,
         )
-        #"""
+
+        self.ff_out._is_residual = True  # type: ignore
 
 
     def forward(
@@ -156,9 +216,9 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
         #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
-        q, k, v = self.att_proj(self.attn_norm(x)).split(self.fused_dims, dim=-1)
+        q, k, v = self.att_proj(self.attn_norm(x))[0].split(self.fused_dims, dim=-1)
         k_cache, v_cache = kv_cache
- 
+  
         dtype = k.dtype
 
         if self.q_norm is not None and self.k_norm is not None:
@@ -169,7 +229,7 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
             num_queries_per_kv = self.config.n_heads
             k = k.repeat(1, self.config.n_heads)
             v = v.repeat(1, self.config.n_heads)
-       
+        
         # Get attention scores.
         att = self.paged_attn(q, k, v, k_cache, v_cache, input_metadata, cache_event) #, debug=debug)
         att = self.attn_out(att)[0]
@@ -195,10 +255,12 @@ class OlmoModel(nn.Module):
 
         self.transformer = nn.ModuleDict(
             dict(
+                wte=nn.Embedding(
+                    config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
+                ),
                 #wte=VocabParallelEmbedding(
-                #    config.embedding_size or config.vocab_size, config.d_model, perform_initialization=False, #device=config.init_device
+                #    config.embedding_size or config.vocab_size, config.d_model, perform_initialization=False
                 #),
-                wte=nn.Embedding(config.embedding_size or config.vocab_size, config.d_model, device=config.init_device),
                 emb_drop=nn.Dropout(config.embedding_dropout),
                 blocks=nn.ModuleList([PagedAttentionOlmoSequentialBlock(i, config) for i in range(config.n_layers)]),
                 ln_f=LayerNorm.build(config),
@@ -207,23 +269,26 @@ class OlmoModel(nn.Module):
 
         if not (self.config.alibi or self.config.rope):
             self.transformer.update(
-                {"wpe": nn.Embedding(config.max_sequence_length, config.d_model, perform_initialization=False)} #, device=config.init_device)}
+                {"wpe": nn.Embedding(config.max_sequence_length, config.d_model, device=config.init_device)}
             )
 
     def _make_state_dict_compatible(self, state_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         # For backwards compatibility prior to fixing https://github.com/allenai/LLM/issues/222
+        prefix = ""
+        if next(iter(state_dict.keys())).startswith((fsdp_prefix := "_fsdp_wrapped_module.")):
+            prefix = fsdp_prefix
         if self.config.block_type == BlockType.sequential:
             for block_idx in range(self.config.n_layers):
-                norm_w_key = f"transformer.blocks.{block_idx}.norm.weight"
-                norm_b_key = f"transformer.blocks.{block_idx}.norm.bias"
+                norm_w_key = f"{prefix}transformer.blocks.{block_idx}.norm.weight"
+                norm_b_key = f"{prefix}transformer.blocks.{block_idx}.norm.bias"
                 if norm_w_key in state_dict:
                     norm_w = state_dict.pop(norm_w_key)
-                    state_dict[f"transformer.blocks.{block_idx}.attn_norm.weight"] = norm_w
-                    state_dict[f"transformer.blocks.{block_idx}.ff_norm.weight"] = norm_w.clone()
+                    state_dict[f"{prefix}transformer.blocks.{block_idx}.attn_norm.weight"] = norm_w
+                    state_dict[f"{prefix}transformer.blocks.{block_idx}.ff_norm.weight"] = norm_w.clone()
                 if norm_b_key in state_dict:
                     norm_b = state_dict.pop(norm_b_key)
-                    state_dict[f"transformer.blocks.{block_idx}.attn_norm.bias"] = norm_b
-                    state_dict[f"transformer.blocks.{block_idx}.ff_norm.bias"] = norm_b.clone()
+                    state_dict[f"{prefix}transformer.blocks.{block_idx}.attn_norm.bias"] = norm_b
+                    state_dict[f"{prefix}transformer.blocks.{block_idx}.ff_norm.bias"] = norm_b.clone()
         return state_dict
 
     def forward(
@@ -267,18 +332,24 @@ class OlmoModel(nn.Module):
                 cache_event = cache_events[i]
 
             # shape: (batch_size, seq_len, d_model)
-            x = block(x, positions, kv_caches[i], input_metadata, cache_event)
+            x = block(x, positions, kv_caches[i], input_metadata, cache_event) #, debug=(i==0))
+
+        #if last_logits_only:
+        #    # shape: (batch_size, 1, d_model)
+        #    x = x[:, -1, :].unsqueeze(1)
 
         # Apply final layer norm.
         # shape: (batch_size, seq_len or 1, d_model)
         x = self.transformer.ln_f(x)  # type: ignore
 
-        return x
+        #return x
 
         # # Get logits.
         # # shape: (batch_size, seq_len or 1, vocab_size)
-        # logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
-        # return logits
+        logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
+        return logits
+        #
+        # return OlmoOutput(logits=logits, attn_key_values=attn_key_values)  # type: ignore[arg-type]
 
 
 class OlmoModelForCausalLM(nn.Module):
@@ -289,8 +360,9 @@ class OlmoModelForCausalLM(nn.Module):
         device = config.init_device
         config.init_device = "cpu"
         self.model = OlmoModel(config)
+        #self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
         config.init_device = device
-        self.sampler = Sampler(config.vocab_size)
+        self.sampler = OlmoSampler(config.vocab_size)
 
     def forward(
         self,
@@ -300,60 +372,119 @@ class OlmoModelForCausalLM(nn.Module):
         input_metadata: InputMetadata,
         cache_events: Optional[List[torch.cuda.Event]],
     ) -> Dict[int, SequenceOutputs]:
-        hidden_states = self.model(input_ids, positions, kv_caches,
-                                   input_metadata, cache_events)
-
-        next_tokens = self.sampler(self.model.transformer.wte.weight, hidden_states,
-                                   input_metadata)
-        # logits = self.model(input_ids, positions, kv_caches, input_metadata, cache_events)
-        # next_tokens = self.sampler(logits, input_metadata)
-        # next_tokens = self.sampler(self.lm_head.weight, hidden_states, input_metadata)
+        #hidden_states = self.model(input_ids, positions, kv_caches,
+        #                           input_metadata, cache_events)
+        #next_tokens = self.sampler(self.model.transformer.wte.weight, hidden_states,
+        #                           input_metadata)
+        logits = self.model(input_ids, positions, kv_caches, input_metadata, cache_events)
+        next_tokens = self.sampler(logits, input_metadata)
+        #next_tokens = self.sampler(self.lm_head.weight, hidden_states, input_metadata)
         return next_tokens
 
-    _column_parallel_weights = []
-    #_column_parallel_weights = ["transformer.wte.weight"]
-    #_row_parallel_weights = ["attn_out.weight", "ff_out.weight"]
-    #_row_parallel_weights = ["ff_out.weight"]
-    _row_parallel_weights = []
+    _column_parallel_weights = ["ff_proj.weight", "ff_proj.bias", "att_proj.weight", "att_proj.bias"] #["wte.weight"]
+    _row_parallel_weights = ["ff_out.weight", "ff_out.bias", "attn_out.weight", "attn_out.bias"]
 
     def load_weights(self, model_name_or_path: str, cache_dir: Optional[str] = None, use_np_cache: bool = False):
-
-
-        tp_size = get_tensor_model_parallel_world_size()
-        tp_rank = get_tensor_model_parallel_rank()
 
         # Reference: Olmo.from_checkpoint()
 
         from cached_path import cached_path
         import os
 
+        # Load config.
+        # config_path = cached_path(os.path.join(model_name_or_path, "config.yaml"))
+        # model_config = ModelConfig.load(config_path, key="model", validate_paths=False)
+
+        # Initialize model (always on CPU to start with so we don't run out of GPU memory).
+        # model_config.init_device = "cpu"
+        # model = Olmo(model_config)
+        # model.config.init_device = device
+
         # Load state dict directly to target device.
         state_dict_path = cached_path(os.path.join(model_name_or_path, "model.pt"))
         state_dict = torch.load(state_dict_path, map_location="cpu")
         state_dict = self.model._make_state_dict_compatible(state_dict)
 
-        """
+        #for i in range(model_config.n_layers):
+        #    state_dict[f"transformer.blocks.{i}.att_proj.weight"] = reshape_mqa_weight(
+        #        state_dict[f"transformer.blocks.{i}.att_proj.weight"], model_config.d_model, model_config.n_heads
+        #    )
+
+        tp_size = get_tensor_model_parallel_world_size()
+        tp_rank = get_tensor_model_parallel_rank()
+
+        #empty_state_dict = self.model.state_dict()
         for name, param in self.model.state_dict().items():
             loaded_weight = state_dict[name]
 
-            total_num_heads = self.config.n_heads
-            hidden_size = self.config.d_model
-            head_size = hidden_size // total_num_heads
-            num_heads = total_num_heads // tp_size
-            head_start = tp_rank * num_heads
-            head_end = (tp_rank + 1) * num_heads
+            if "att_proj" in name:
+                total_num_heads = self.config.n_heads
+                hidden_size = self.config.d_model
+                head_size = hidden_size // total_num_heads
+                num_heads = total_num_heads // tp_size
+                head_start = tp_rank * num_heads
+                head_end = (tp_rank + 1) * num_heads
+                #kv_head_start = 0
+                #kv_head_end = 1
 
-            #if name.endswith(".weight"):
-            #    loaded_weight = loaded_weight.view(3, total_num_heads,
-            #                                       head_size, hidden_size)
-            #    loaded_weight = loaded_weight[:, head_start:head_end, :, :]
-            #    loaded_weight = loaded_weight.reshape(-1, hidden_size)
+                if self.config.multi_query_attention:
+                    num_kv_heads = 1
+                else:
+                    num_kv_heads = config.n_heads
+
+                kv_head_start = tp_rank * num_kv_heads
+                kv_head_end = (tp_rank + 1) * num_kv_heads
+
+                num_query_heads_per_kv_head = total_num_heads // num_kv_heads
+                """
+                if name.endswith(".weight"):
+                    import pdb
+                    pdb.set_trace()
+                    loaded_weight = loaded_weight.view(3, total_num_heads,
+                                                       head_size, hidden_size)
+                    loaded_weight = loaded_weight[:, head_start:head_end, :, :]
+                    loaded_weight = loaded_weight.reshape(-1, hidden_size)
+
+                elif name.endswith(".bias"):
+                    loaded_weight = loaded_weight.view(3, total_num_heads,
+                                                       head_size)
+                    loaded_weight = loaded_weight[:, head_start:head_end, :]
+                    loaded_weight = loaded_weight.reshape(-1)
+                else:
+                    raise ValueError(f"Unexpected parameter name {name}")
+                """
+                #import pdb
+                #pdb.set_trace()
+                loaded_weight_size = loaded_weight.size()
+                loaded_weight = loaded_weight.view(
+                    num_kv_heads, num_query_heads_per_kv_head + 2,
+                    head_size, *loaded_weight_size[1:])
+
+                wq = loaded_weight[:, :-2].reshape(-1, *loaded_weight_size[1:])
+                wk = loaded_weight[:, [-2]].reshape(-1,
+                                                    *loaded_weight_size[1:])
+                wv = loaded_weight[:, [-1]].reshape(-1,
+                                                    *loaded_weight_size[1:])
+
+                wq = wq[head_size * head_start:head_size * head_end]
+                wk = wk[head_size * kv_head_start:head_size * kv_head_end]
+                wv = wv[head_size * kv_head_start:head_size * kv_head_end]
+                loaded_weight = torch.cat([wq, wk, wv], dim=0)
 
             load_tensor_parallel_weights(param, loaded_weight, name,
                                          self._column_parallel_weights,
                                          self._row_parallel_weights, tp_rank)
 
-        #"""
-        self.model.load_state_dict(state_dict)
+        #self.model.load_state_dict(state_dict)
 
 
+def reshape_mqa_weight(tensor, d, n):
+    assert tensor.shape[0] == d + d//n + d//n
+    q_part = tensor[:d]
+    k_part = tensor[d:d+(d//n)]
+    v_part = tensor[d+(d//n):]
+    k_part = k_part.repeat(n, 1)
+    v_part = v_part.repeat(n, 1)
+    repeated_tensor = torch.cat((q_part, k_part, v_part), dim=0)  # Concatenate tensors
+
+    return repeated_tensor
