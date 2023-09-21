@@ -638,8 +638,10 @@ class Trainer:
         if reduce_global_loss:
             dist.reduce(ce_batch_loss, 0)
             ce_batch_loss.div_(get_world_size())
-            self.cur_train_loss = ce_batch_loss.item()
-            self.min_train_loss = min(self.min_train_loss, self.cur_train_loss)
+        # TODO (dirkgr): If we did this much earlier, like, right after the forwards step, but then didn't
+        # call `.item()` for a long time, would it use laziness to interleave this reduce call with the backward step?
+        self.cur_train_loss = ce_batch_loss.item()
+        self.min_train_loss = min(self.min_train_loss, self.cur_train_loss)
         metrics["train/CrossEntropyLoss"] = self.cur_train_loss
         metrics["train/Perplexity"] = math.exp(self.cur_train_loss)
         if z_batch_loss is not None:
