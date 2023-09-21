@@ -28,6 +28,7 @@ __all__ = [
     "LayerNormBase",
     "LayerNorm",
     "RMSLayerNorm",
+    "AMDLayerNorm",
     "RotaryEmbedding",
     "Activation",
     "GELU",
@@ -54,9 +55,32 @@ class Dropout(nn.Dropout):
 
 
 class LayerNormBase(nn.Module):
-    def __init__(self, config: ModelConfig):
+    def __init__(
+        self,
+        config: ModelConfig,
+        *,
+        size: Optional[int] = None,
+        elementwise_affine: Optional[bool] = True,
+        eps: float = 1e-05,
+    ):
         super().__init__()
         self.config = config
+        self.eps = eps
+        self.normalized_shape = (size or config.d_model,)
+        if elementwise_affine is None:
+            elementwise_affine = self.config.layer_norm_with_affine
+        if elementwise_affine:
+            self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
+            use_bias = self.config.bias_for_layer_norm
+            if use_bias is None:
+                use_bias = self.config.include_bias
+            if use_bias:
+                self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
+            else:
+                self.register_parameter("bias", None)
+        else:
+            self.register_parameter("bias", None)
+            self.register_parameter("weight", None)
 
     @abstractmethod
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -77,14 +101,15 @@ class LayerNormBase(nn.Module):
         else:
             raise NotImplementedError(f"Not sure how to handle '{config.layer_norm_type}' LayerNorm type")
 
-    def _cast_if_autocast_enabled(self, tensor: torch.Tensor) -> torch.Tensor:
+    def _cast_if_autocast_enabled(self, tensor: torch.Tensor, dtype: Optional[torch.dtype] = None) -> torch.Tensor:
         if torch.is_autocast_enabled():
-            if tensor.device.type == "cuda":
-                dtype = torch.get_autocast_gpu_dtype()
-            elif tensor.device.type == "cpu":
-                dtype = torch.get_autocast_cpu_dtype()
-            else:
-                raise NotImplementedError()
+            if dtype is None:
+                if tensor.device.type == "cuda":
+                    dtype = torch.get_autocast_gpu_dtype()
+                elif tensor.device.type == "cpu":
+                    dtype = torch.get_autocast_cpu_dtype()
+                else:
+                    raise NotImplementedError()
             return tensor.to(dtype=dtype)
         return tensor
 
@@ -106,25 +131,9 @@ class LayerNorm(LayerNormBase):
         size: Optional[int] = None,
         low_precision: bool = False,
         elementwise_affine: Optional[bool] = None,
+        eps: float = 1e-05,
     ):
-        super().__init__(config)
-        self.normalized_shape = (size or config.d_model,)
-        self.eps = 1e-05
-
-        if elementwise_affine is None:
-            elementwise_affine = self.config.layer_norm_with_affine
-        if elementwise_affine:
-            self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
-            use_bias = self.config.bias_for_layer_norm
-            if use_bias is None:
-                use_bias = self.config.include_bias
-            if use_bias:
-                self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
-            else:
-                self.register_parameter("bias", None)
-        else:
-            self.register_parameter("bias", None)
-            self.register_parameter("weight", None)
+        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
         self.low_precision = low_precision
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -151,39 +160,31 @@ class AMDLayerNorm(LayerNormBase):
     segfault when the bias is not present.
     """
 
-    def __init__(self, config: ModelConfig, size: Optional[int] = None, elementwise_affine: Optional[bool] = None):
-        super().__init__(config)
-        self.normalized_shape = (size or config.d_model,)
-        self.eps = 1e-05
-
-        if elementwise_affine is None:
-            elementwise_affine = self.config.layer_norm_with_affine
-        if elementwise_affine:
-            self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
-            use_bias = self.config.bias_for_layer_norm
-            if use_bias is None:
-                use_bias = self.config.include_bias
-            if use_bias:
-                self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
-            else:
-                self.register_parameter("bias", None)
-        else:
-            self.register_parameter("bias", None)
-            self.register_parameter("weight", None)
+    def __init__(
+        self,
+        config: ModelConfig,
+        size: Optional[int] = None,
+        elementwise_affine: Optional[bool] = None,
+        eps: float = 1e-05,
+    ):
+        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        var, mean = torch.var_mean(x, dim=-1, correction=0, keepdim=True)
-        var.add_(self.eps)
-        var.sqrt_()
-        x = (x - mean) / var
-        if self.weight is not None:
-            x.mul_(self.weight)
-        if self.bias is not None:
-            x.add_(self.bias)
-        return x
+        og_dtype = x.dtype
+        x = self._cast_if_autocast_enabled(x, dtype=torch.float32)
+        with torch.autocast(enabled=False, device_type=x.device.type):
+            var, mean = torch.var_mean(x, dim=-1, correction=0, keepdim=True)
+            var.add_(self.eps)
+            var.sqrt_()
+            x = (x - mean) / var
+            if self.weight is not None:
+                x.mul_(self.weight)
+            if self.bias is not None:
+                x.add_(self.bias)
+            return x.to(og_dtype)
 
 
-class RMSLayerNorm(LayerNorm):
+class RMSLayerNorm(LayerNormBase):
     """
     RMS layer norm, a simplified :class:`LayerNorm` implementation that can optionally run
     in low-precision.
@@ -195,33 +196,23 @@ class RMSLayerNorm(LayerNorm):
         size: Optional[int] = None,
         low_precision: bool = False,
         elementwise_affine: Optional[bool] = None,
+        eps: float = 1e-08,
     ):
-        super().__init__(config)
-        self.eps = 1e-08
-        self.size = size or config.d_model
-
-        if elementwise_affine is None:
-            elementwise_affine = self.config.layer_norm_with_affine
-        if elementwise_affine:
-            self.weight = nn.Parameter(torch.ones(self.config.d_model))
-            use_bias = self.config.bias_for_layer_norm
-            if use_bias is None:
-                use_bias = self.config.include_bias
-            if use_bias:
-                self.bias = nn.Parameter(torch.zeros(self.config.d_model))
-            else:
-                self.register_parameter("bias", None)
-        else:
-            self.register_parameter("weight", None)
-            self.register_parameter("bias", None)
+        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
         self.low_precision = low_precision
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.low_precision:
             module_device = x.device
             downcast_x = self._cast_if_autocast_enabled(x)
-            downcast_weight = self._cast_if_autocast_enabled(self.weight)
-            downcast_bias = self._cast_if_autocast_enabled(self.bias) if self.config.include_bias else None
+            downcast_weight = None if self.weight is None else self._cast_if_autocast_enabled(self.weight)
+            downcast_bias = (
+                None
+                if self.bias is None
+                else self._cast_if_autocast_enabled(self.bias)
+                if self.config.include_bias
+                else None
+            )
             with torch.autocast(enabled=False, device_type=module_device.type):
                 return self.rms_norm(downcast_x, downcast_weight, downcast_bias)
         else:
@@ -232,7 +223,7 @@ class RMSLayerNorm(LayerNorm):
     ) -> torch.Tensor:
         norm_x = x.norm(2, dim=-1, keepdim=True)
 
-        rms_x = norm_x * self.size ** (-1.0 / 2)
+        rms_x = norm_x * self.normalized_shape[0] ** (-1.0 / 2)
         x_normed = x / (rms_x + self.eps)
 
         if weight is not None:
