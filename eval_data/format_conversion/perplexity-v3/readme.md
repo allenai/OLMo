@@ -9,6 +9,8 @@ for m2d2
 cd $DATA_DIR/raw/m2s2/
 mkdir s2orc
 parallel --eta --bar "tar -xzf {} -C s2orc" ::: s2orc_zips/*.gz
+mkdir wikipedia
+parallel --eta --bar "tar -xzf {} -C wikipedia" ::: wikipedia_zips/*.gz
 ```
 
 rebuilding 4chan from raw with meta sep
@@ -21,6 +23,11 @@ rebuilding manosphere from raw with meta sep
 ```
 cd $DATA_DIR/raw/manosphere
 parallel --eta --bar "python LLM/eval_data/format_conversion/eval_data_converter.py --in_dir ./ --out_dir $DATA_DIR/v0/manosphere_meta_sep --filename {} --in_format manosphere --metadata_header_seperate_line" ::: *
+```
+
+make heldout set of Falcon-refinedweb
+```
+python <path/to/dolma>/scripts/hash_sample.py -s s3://ai2-llm/pretraining-data/sources/falcon-refinedweb/v0/documents/*.jsonl.gz  -p 0.05 -d s3://ai2-llm/pretraining-data/sources/falcon-refinedweb/v0-0.05-heldout/documents/ -n 224
 ```
 
 ```
