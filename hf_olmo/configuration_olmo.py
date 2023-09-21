@@ -19,7 +19,25 @@ class OLMoConfig(PretrainedConfig):
         all_kwargs = model_config.asdict()
         all_kwargs.update(kwargs)
         all_kwargs.update({"use_cache": use_cache})
+        all_kwargs.update(
+            {
+                "architectures": all_kwargs.get("architectures", ["OlmoModelForCausalLM"])
+                or ["OlmoModelForCausalLM"]
+            }
+        )
         super().__init__(**all_kwargs)
+
+    @property
+    def num_attention_heads(self):
+        return self.n_heads
+
+    @property
+    def num_hidden_layers(self):
+        return self.n_layers
+
+    @property
+    def hidden_size(self):
+        return self.d_model
 
 
 # Register the config class so that it is available for transformer pipelines, auto-loading etc.
