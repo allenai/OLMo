@@ -101,7 +101,8 @@ class LayerNormBase(nn.Module):
         else:
             raise NotImplementedError(f"Not sure how to handle '{config.layer_norm_type}' LayerNorm type")
 
-    def _cast_if_autocast_enabled(self, tensor: torch.Tensor, dtype: Optional[torch.dtype] = None) -> torch.Tensor:
+    @classmethod
+    def _cast_if_autocast_enabled(cls, tensor: torch.Tensor, dtype: Optional[torch.dtype] = None) -> torch.Tensor:
         if torch.is_autocast_enabled():
             if dtype is None:
                 if tensor.device.type == "cuda":
@@ -152,6 +153,18 @@ class LayerNorm(LayerNormBase):
             return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
 
 
+@torch.compile
+def _non_affine_ln(x: torch.Tensor) -> torch.Tensor:
+    og_dtype = x.dtype
+    x = LayerNormBase._cast_if_autocast_enabled(x, dtype=torch.float32)
+    with torch.autocast(enabled=False, device_type=x.device.type):
+        var, mean = torch.var_mean(x, dim=-1, correction=0, keepdim=True)
+        var.add_(self.eps)
+        var.sqrt_()
+        x = (x - mean) / var
+        return x.to(og_dtype)
+
+
 class AMDLayerNorm(LayerNormBase):
     """
     LayerNorm implemented using PyTorch primitives.
@@ -170,18 +183,12 @@ class AMDLayerNorm(LayerNormBase):
         super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        og_dtype = x.dtype
-        x = self._cast_if_autocast_enabled(x, dtype=torch.float32)
-        with torch.autocast(enabled=False, device_type=x.device.type):
-            var, mean = torch.var_mean(x, dim=-1, correction=0, keepdim=True)
-            var.add_(self.eps)
-            var.sqrt_()
-            x = (x - mean) / var
-            if self.weight is not None:
-                x.mul_(self.weight)
-            if self.bias is not None:
-                x.add_(self.bias)
-            return x.to(og_dtype)
+        x = _non_affine_ln(x)
+        if self.weight is not None:
+            x.mul_(self.weight)
+        if self.bias is not None:
+            x.add_(self.bias)
+        return x
 
 
 class RMSLayerNorm(LayerNormBase):
