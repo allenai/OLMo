@@ -20,7 +20,7 @@ from typing import (
 import torch
 from omegaconf import OmegaConf as om
 from omegaconf.errors import OmegaConfBaseException
-from torch.distributed.fsdp import ShardingStrategy
+from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
 
 from .aliases import PathOrStr
 from .exceptions import OlmoConfigurationError
@@ -397,7 +397,7 @@ class OptimizerConfig(BaseConfig):
     """Do not apply weight decay to norms and biases."""
     metrics_log_interval: Optional[int] = None
     """
-    The interval with which to collect and log optimizer-specific metrics.
+    The interval with which to collect and log detailed parameter-specific metrics.
     This only applies when logging to W&B, since these metrics won't be logged to the console.
     If not set, defaults to the wandb `log_interval`.
     """
@@ -502,6 +502,32 @@ class CompilerConfig(BaseConfig):
     """
 
 
+class FSDPWrapStrategy(StrEnum):
+    by_block = "by_block"
+    """
+    Wrap each OLMo block with its own FSDP instance.
+    """
+
+    size_based = "size_based"
+    """
+    Used PyTorch's default size-based auto wrap policy.
+    """
+
+
+class FSDPPrecision(StrEnum):
+    pure = "pure"
+    """
+    Equivalent to :class:`torch.distributed.fsdp.MixedPrecision` with ``param_dtype``, ``reduce_dtype``,
+    and ``buffer_dtype`` all set to the autocast precision data type.
+    """
+
+    mixed = "mixed"
+    """
+    Equivalent to :class:`torch.distributed.fsdp.MixedPrecision` with ``param_dtype``, and ``buffer_dtype``
+    set to the autocast precision data type, while ``reduce_dtype`` is set to fp32.
+    """
+
+
 @dataclass
 class FSDPConfig(BaseConfig):
     use_orig_params: bool = True
@@ -510,6 +536,14 @@ class FSDPConfig(BaseConfig):
     """
 
     sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD
+
+    wrapping_strategy: Optional[FSDPWrapStrategy] = None
+    """
+    The wrapping strategy to use. If ``None``, the default, the model is wrapped with a single top-level
+    FSDP instance.
+    """
+
+    precision: FSDPPrecision = FSDPPrecision.pure
 
 
 class CheckpointType(StrEnum):
@@ -683,7 +717,13 @@ class TrainConfig(BaseConfig):
 
     max_grad_norm: Optional[float] = None
     """
-    Clip gradients to this value if set.
+    Clip gradient norms to this value if set.
+    """
+
+    max_grad_norm_ratio: Optional[float] = None
+    """
+    If set, gradient norms will be clipped to `max_grad_norm_ratio * exp_avg(norm(grad))`.
+    This takes priority over `max_grad_norm` when set.
     """
 
     precision: Optional[str] = None
@@ -741,6 +781,16 @@ class TrainConfig(BaseConfig):
     Save training data indices from each batch for each worker.
     """
 
+    python_profiling: bool = False
+    """
+    Whether to run the Python profiler on batches 6, 7, and 8.
+    """
+
+    torch_profiling: bool = False
+    """
+    Whether to run the PyTorch profiler on batches 6, 7, and 8.
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":
@@ -751,3 +801,20 @@ class TrainConfig(BaseConfig):
             return torch.float32
         else:
             raise ValueError(f"Unexpected precision type '{self.precision}'")
+
+    @property
+    def fsdp_precision(self) -> MixedPrecision:
+        if self.fsdp.precision == FSDPPrecision.pure:
+            return MixedPrecision(
+                param_dtype=self.autocast_precision,
+                reduce_dtype=self.autocast_precision,
+                buffer_dtype=self.autocast_precision,
+            )
+        elif self.fsdp.precision == FSDPPrecision.mixed:
+            return MixedPrecision(
+                param_dtype=self.autocast_precision,
+                reduce_dtype=torch.float32,
+                buffer_dtype=self.autocast_precision,
+            )
+        else:
+            raise NotImplementedError(f"{self.fsdp.precision}")

@@ -240,6 +240,8 @@ class RMSLayerNorm(LayerNorm):
                 return weight * x_normed + self.bias
             else:
                 return weight * x_normed
+        else:
+            return x_normed
 
 
 class RotaryEmbedding(nn.Module):

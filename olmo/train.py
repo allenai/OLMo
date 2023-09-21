@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import cProfile
 import logging
 import math
 import os
@@ -10,6 +11,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
+from pstats import SortKey
 from typing import Any, Deque, Dict, List, Optional, TextIO, Tuple
 
 import numpy as np
@@ -34,10 +36,9 @@ from .data import IterableDataset
 from .eval import Evaluator
 from .exceptions import OlmoConfigurationError
 from .model import Olmo
-from .optim import Optimizer, Scheduler
+from .optim import Optimizer, Scheduler, fix_optim_state_dict
 from .util import (
     barrier,
-    fsdp_clip_grads_and_get_norms,
     get_fs_local_rank,
     get_global_rank,
     get_world_size,
@@ -347,7 +348,7 @@ class Trainer:
             #      storage_reader=checkpoint.FileSystemReader(load_path),
             #  )
             #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)
-            #  self.optim.load_state_dict(flattened_osd)
+            #  self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
 
             # Deserialize state dictionary.
             state_dict = torch.load(resource_path(load_path, f"rank{get_global_rank()}.pt"))
@@ -363,7 +364,7 @@ class Trainer:
             else:
                 #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
                 flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, state_dict["optim"])  # type: ignore
-            self.optim.load_state_dict(flattened_osd)
+            self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
 
             # Load non-tensor state.
             self.load_non_tensor_state_dict(state_dict)
@@ -493,7 +494,7 @@ class Trainer:
                 #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
                 flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state_dict)  # type: ignore
             del optim_state_dict
-            self.optim.load_state_dict(flattened_osd)
+            self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
             del flattened_osd
 
             # Load other state.
@@ -622,20 +623,13 @@ class Trainer:
         # Run forward-backward pass.
         ce_batch_loss, z_batch_loss = self.train_batch(batch)
 
-        # Maybe collect pre-step optimizer-specific metrics.
-        if self.should_log_optim_metrics_this_step():
-            optim_metrics = self.optim.get_pre_step_metrics(self.fsdp_model)
-            for key, value in optim_metrics.items():
-                metrics[f"optim/{key}"] = value.item()
-
-        # Clip gradient norms.
-        grad_norm: Optional[float] = None
-        param_norm: Optional[float] = None
-        if self.cfg.max_grad_norm is not None:
-            norms = fsdp_clip_grads_and_get_norms(self.fsdp_model, self.cfg.max_grad_norm)
-            grad_norm = norms.grad_norm.item()
-            if norms.param_norm is not None:
-                param_norm = norms.param_norm.item()
+        # Clip gradient norms and collect param/gradient/optim metrics.
+        should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
+        optim_metrics = self.optim.clip_grads_and_collect_metrics(
+            self.global_step, collect_param_metrics=should_log_optim_metrics_this_step
+        )
+        for key, value in optim_metrics.items():
+            metrics[f"optim/{key}"] = value.item()
 
         # Adjust the learning rate.
         for group in self.optim.param_groups:
@@ -656,13 +650,8 @@ class Trainer:
             z_batch_loss = self.z_train_loss_metric.compute()
             metrics["train/ZLoss"] = z_batch_loss.item()
 
-        if grad_norm is not None:
-            metrics["optim/grad_norm"] = grad_norm
-        if param_norm is not None:
-            metrics["optim/param_norm"] = param_norm
-
         # Maybe collect post-step optimizer-specific metrics.
-        if self.should_log_optim_metrics_this_step():
+        if should_log_optim_metrics_this_step:
             optim_metrics = self.optim.get_post_step_metrics(self.fsdp_model)
             for key, value in optim_metrics.items():
                 metrics[f"optim/{key}"] = value.item()
@@ -722,9 +711,10 @@ class Trainer:
 
     def system_metrics(self) -> Dict[str, float]:
         metrics = {}
-        peak_gpu_mb = peak_gpu_memory()
-        if peak_gpu_mb is not None:
-            metrics["System/Peak GPU Memory (MB)"] = peak_gpu_mb
+        if self.global_step < 3 or self.global_step % 10 == 0:
+            peak_gpu_mb = peak_gpu_memory()
+            if peak_gpu_mb is not None:
+                metrics["System/Peak GPU Memory (MB)"] = peak_gpu_mb
         return metrics
 
     def log_metrics_to_console(self, prefix: str, metrics: Dict[str, float]):
@@ -867,106 +857,162 @@ class Trainer:
             if wandb.run is not None:
                 wandb.log(sys_metrics, step=0)
 
+        # Python Profiler stuff
+        if self.cfg.python_profiling:
+            python_profiler = cProfile.Profile()
+        else:
+            python_profiler = None
+
+        # PyTorch Profiler stuff
+        if self.cfg.torch_profiling and get_global_rank() == 0:
+            from torch.profiler import schedule
+
+            profiling_schedule = schedule(wait=1, warmup=5, active=3)
+
+            def on_trace_ready(p):
+                profiler_output_dir = Path(self.cfg.save_folder) / "profiler"
+                profiler_output_dir.mkdir(exist_ok=True)
+
+                output = p.key_averages().table(sort_by="self_cuda_time_total", row_limit=32)
+                log.info(f"Profile by total GPU time at step {p.step_num}:\n{output}")
+                output = p.key_averages().table(sort_by="self_cpu_time_total", row_limit=32)
+                log.info(f"Profile by total CPU time at step {p.step_num}:\n{output}")
+
+                p.export_chrome_trace(str(profiler_output_dir / f"{p.step_num}.chrome_trace.json.gz"))
+                p.export_stacks(str(profiler_output_dir / f"{p.step_num}.gpu.stacks"), "self_cuda_time_total")
+                p.export_stacks(str(profiler_output_dir / f"{p.step_num}.cpu.stacks"), "self_cpu_time_total")
+
+            from torch.profiler import ProfilerActivity
+
+            torch_profiler = torch.profiler.profile(
+                activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                record_shapes=False,
+                profile_memory=False,
+                with_stack=True,
+                schedule=profiling_schedule,
+                on_trace_ready=on_trace_ready,
+            )
+            del profiling_schedule
+        else:
+            import contextlib
+
+            torch_profiler = contextlib.nullcontext()
+
         # Train.
         first_batch: bool = True
         canceled: bool = False
-        for batch in self.train_loader:
-            # Bookkeeping.
-            # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
-            # batches see the same number of tokens, which should be the case for language model pre-training
-            # (at least when drop_last=True).
-            # Alternatively we'd have to use a distributed all reduce over seq_len here, but I don't want that overhead.
-            # So for now I'm putting these assertions here so if the assumption is violated it will fail loudly.
-            batch_size, seq_len = batch["input_ids"].shape
-            assert seq_len == self.cfg.model.max_sequence_length
-            assert batch_size == self.cfg.device_train_batch_size
-            global_batch_size = batch_size * get_world_size()  # assumes batch size equal across ranks
-            self.global_step += 1
-            self.global_data_step += 1
-            self.global_train_examples_seen += global_batch_size
-            self.global_train_tokens_seen += global_batch_size * seq_len
-            speed_monitor.batch_start(
-                self.global_train_tokens_seen,
-                batch_size * seq_len,  # num tokens in batch for this device
-                # We start monitoring speed after the first batch since the first
-                # batch might be an outlier due to compiling and other initialization overhead.
-                record=not first_batch,
-            )
 
-            # Run train step on batch.
-            metrics = self.train_step(batch)
+        with torch_profiler as p:
+            for batch in self.train_loader:
+                # Bookkeeping.
+                # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
+                # batches see the same number of tokens, which should be the case for language model pre-training
+                # (at least when drop_last=True).
+                # Alternatively we'd have to use a distributed all reduce over seq_len here, but I don't want that
+                # overhead. So for now I'm putting these assertions here so if the assumption is violated it will
+                # fail loudly.
+                batch_size, seq_len = batch["input_ids"].shape
+                assert seq_len == self.cfg.model.max_sequence_length
+                assert batch_size == self.cfg.device_train_batch_size
+                global_batch_size = batch_size * get_world_size()  # assumes batch size equal across ranks
+                self.global_step += 1
+                self.global_data_step += 1
+                self.global_train_examples_seen += global_batch_size
+                self.global_train_tokens_seen += global_batch_size * seq_len
+                speed_monitor.batch_start(
+                    self.global_train_tokens_seen,
+                    batch_size * seq_len,  # num tokens in batch for this device
+                    # We start monitoring speed after the first batch since the first
+                    # batch might be an outlier due to compiling and other initialization overhead.
+                    record=not first_batch,
+                )
 
-            # Maybe collect other metrics.
-            if self.should_log_this_step():
-                # Speed metrics.
-                metrics.update(speed_monitor.check())
-                # System metrics.
-                metrics.update(self.system_metrics())
-                # Learning rate metrics.
-                metrics.update(lr_monitor.check())
+                # Run train step on batch.
+                metrics = self.train_step(batch)
 
-            # Log metrics to console.
-            if self.global_step % self.cfg.console_log_interval == 0:
-                self.log_metrics_to_console(f"[step={self.global_step}/{self.cfg.max_duration}]", metrics)
+                # Maybe collect other metrics.
+                if self.should_log_this_step():
+                    # Speed metrics.
+                    metrics.update(speed_monitor.check())
+                    # System metrics.
+                    metrics.update(self.system_metrics())
+                    # Learning rate metrics.
+                    metrics.update(lr_monitor.check())
 
-            # Log metrics to W&B.
-            if (
-                wandb.run is not None
-                and self.cfg.wandb is not None
-                and self.global_step % self.cfg.wandb.log_interval == 0
-            ):
-                wandb.log(metrics, step=self.global_step)
-
-            # Check if run should be canceled.
-            if self.global_step % self.cfg.canceled_check_interval == 0:
-                canceled = self.check_if_cancelled()
-
-            # Maybe save sharded checkpoint.
-            if canceled or (
-                self.global_step % self.cfg.save_interval == 0 and self.cfg.save_num_checkpoints_to_keep != 0
-            ):
-                log.info("Saving checkpoint...")
-                checkpoint_path = self.save_sharded_checkpoint()
-                log.info(f"Checkpoint saved to {checkpoint_path}")
-
-                # Reset speed monitor so that we don't count the time taken to save checkpoints.
-                speed_monitor.reset()
-
-            # Maybe save unsharded checkpoint.
-            if (
-                not canceled  # we already save a sharded checkpoint when canceled
-                and self.cfg.save_interval_unsharded is not None
-                and self.global_step % self.cfg.save_interval_unsharded == 0
-                and self.cfg.save_num_unsharded_checkpoints_to_keep != 0
-            ):
-                log.info("Saving unsharded checkpoint...")
-                checkpoint_path = self.save_unsharded_checkpoint()
-                log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
-
-                # Reset speed monitor so that we don't count the time taken to save checkpoints.
-                speed_monitor.reset()
-
-            # Maybe run evaluations.
-            if not canceled and self.global_step % self.cfg.eval_interval == 0:
-                eval_metrics = self.eval()
+                # Log metrics to console.
+                if self.global_step % self.cfg.console_log_interval == 0:
+                    self.log_metrics_to_console(f"[step={self.global_step}/{self.cfg.max_duration}]", metrics)
 
                 # Log metrics to W&B.
-                if wandb.run is not None:
-                    wandb.log(eval_metrics, step=self.global_step)
+                if (
+                    wandb.run is not None
+                    and self.cfg.wandb is not None
+                    and self.global_step % self.cfg.wandb.log_interval == 0
+                ):
+                    wandb.log(metrics, step=self.global_step)
 
-                # Reset speed monitor so that we don't count the time taken to run evaluations.
-                speed_monitor.reset()
+                # Check if run should be canceled.
+                if self.global_step % self.cfg.canceled_check_interval == 0:
+                    canceled = self.check_if_cancelled()
 
-                # Reset model to 'train' mode.
-                self.fsdp_model.train()
+                # Maybe save sharded checkpoint.
+                if canceled or (
+                    self.global_step % self.cfg.save_interval == 0 and self.cfg.save_num_checkpoints_to_keep != 0
+                ):
+                    log.info("Saving checkpoint...")
+                    checkpoint_path = self.save_sharded_checkpoint()
+                    log.info(f"Checkpoint saved to {checkpoint_path}")
 
-            # End of batch.
-            first_batch = False
+                    # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                    speed_monitor.reset()
 
-            if canceled:
-                break
-        else:
-            log.info("Training loop complete")
+                # Maybe save unsharded checkpoint.
+                if (
+                    not canceled  # we already save a sharded checkpoint when canceled
+                    and self.cfg.save_interval_unsharded is not None
+                    and self.global_step % self.cfg.save_interval_unsharded == 0
+                    and self.cfg.save_num_unsharded_checkpoints_to_keep != 0
+                ):
+                    log.info("Saving unsharded checkpoint...")
+                    checkpoint_path = self.save_unsharded_checkpoint()
+                    log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
+
+                    # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                    speed_monitor.reset()
+
+                # Maybe run evaluations.
+                if not canceled and self.global_step % self.cfg.eval_interval == 0:
+                    eval_metrics = self.eval()
+
+                    # Log metrics to W&B.
+                    if wandb.run is not None:
+                        wandb.log(eval_metrics, step=self.global_step)
+
+                    # Reset speed monitor so that we don't count the time taken to run evaluations.
+                    speed_monitor.reset()
+
+                    # Reset model to 'train' mode.
+                    self.fsdp_model.train()
+
+                # End of batch.
+                first_batch = False
+                if p is not None:
+                    p.step()
+
+                if canceled:
+                    break
+
+                # Python Profiler stuff
+                # We do this now, at the bottom of this loop, so we capture the work of getting the next batch.
+                if python_profiler is not None:
+                    if self.global_step == 5:
+                        python_profiler.enable()
+                    elif self.global_step == 8:
+                        python_profiler.disable()
+                        python_profiler.print_stats(sort=SortKey.CUMULATIVE)
+                        python_profiler = None
+            else:
+                log.info("Training loop complete")
 
         # Save final unsharded model-only checkpoint.
         if not canceled and self.cfg.save_interval_unsharded is not None:

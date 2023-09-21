@@ -10,7 +10,7 @@ wandb:
 model:
   d_model: 4096
   n_heads: 16
-  n_layers: 29
+  n_layers: 30
   mlp_ratio: 8
   alibi: true
   alibi_bias_max: 8.0
@@ -81,6 +81,7 @@ device_train_microbatch_size: 2
 precision: amp_bf16
 
 max_grad_norm: 1.0
+max_grad_norm_ratio: 1.5
 
 speed_monitor:
   window_size: 20
