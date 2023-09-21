@@ -374,6 +374,12 @@ class ModelConfig(BaseConfig):
     as "normal".
     """
 
+    init_cutoff_factor: Optional[float] = None
+    """
+    A positive factor used to scale the cutoff values when initializing weights with a "fixed distribution" ``init_fn``, such
+    as "normal". Setting this to None means values are not cutoff.
+    """
+
     precision: Optional[str] = None
     """
     Precision used to train/evaluate with. You shouldn't set this directly.
