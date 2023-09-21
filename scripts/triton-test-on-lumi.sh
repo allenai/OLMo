@@ -32,6 +32,11 @@ export PYTHONPATH=.:${PYTHONPATH}
 export ROCM_PATH=/opt/rocm
 export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64
 
+# NOTE: if the tests fail with
+# 'SystemError: <built-in function load_binary> returned NULL without setting an exception'
+# then clear out the triton cache:
+#rm -rf ~/.triton/cache
+
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
   --distribution=block:block \
