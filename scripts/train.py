@@ -12,7 +12,6 @@ import torch
 import torch.distributed as dist
 import wandb
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import MixedPrecision
 from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 from torchmetrics import MeanMetric
 
