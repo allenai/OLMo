@@ -154,12 +154,12 @@ class LayerNorm(LayerNormBase):
 
 
 @torch.compile
-def _non_affine_ln(x: torch.Tensor) -> torch.Tensor:
-    og_dtype = x.dtype
-    x = LayerNormBase._cast_if_autocast_enabled(x, dtype=torch.float32)
+def _non_affine_ln(x: torch.Tensor, eps: float) -> torch.Tensor:
     with torch.autocast(enabled=False, device_type=x.device.type):
+        og_dtype = x.dtype
+        x = x.to(torch.float32)
         var, mean = torch.var_mean(x, dim=-1, correction=0, keepdim=True)
-        var.add_(self.eps)
+        var.add_(eps)
         var.sqrt_()
         x = (x - mean) / var
         return x.to(og_dtype)
@@ -183,7 +183,7 @@ class AMDLayerNorm(LayerNormBase):
         super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = _non_affine_ln(x)
+        x = _non_affine_ln(x, self.eps)
         if self.weight is not None:
             x.mul_(self.weight)
         if self.bias is not None:
