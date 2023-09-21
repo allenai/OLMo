@@ -1,4 +1,4 @@
-run_name: olmo-small-trunc-normal-init
+run_name: olmo-small-notrunc-normal-init
 seed: 6198
 dry_run: false
 
@@ -32,8 +32,6 @@ model:
   pad_token_id: 1
   init_device: meta
   init_fn: normal
-  init_std: 0.006
-  init_cutoff_factor: 3.0
 
 compile: null  # causes instability on AMD GPUs
 
