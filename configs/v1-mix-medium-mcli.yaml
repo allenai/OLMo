@@ -1,4 +1,4 @@
-run_name: olmo-medium-adamw-mitch-init-long-warmup
+run_name: olmo-medium-default-ln
 seed: 6198
 dry_run: false
 
@@ -10,7 +10,7 @@ wandb:
 model:
   d_model: 4096
   n_heads: 16
-  n_layers: 29
+  n_layers: 30
   mlp_ratio: 8
   alibi: true
   alibi_bias_max: 8.0
@@ -19,9 +19,9 @@ model:
   multi_query_attention: true
   include_bias: false
   block_type: sequential
-  layer_norm_type: low_precision
-  layer_norm_with_affine: true  # workaround for the layer norm bug
-  bias_for_layer_norm: true  # workaround for the layer norm bug
+  layer_norm_type: default
+  layer_norm_with_affine: false
+  bias_for_layer_norm: false
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
@@ -82,30 +82,6 @@ eval_interval: ${save_interval}
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
-  ##########################
-  # Perplexity evaluations #
-  ##########################
-  # TODO: do we care about c4 and RP validation? We don't have these tokenized at the moment.
-  # - label: c4-validation
-  #   subset_num_batches: 10
-  #   data:
-  #     paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
-  #     num_workers: 2
-  #     drop_last: true
-  #     pin_memory: true
-  #     persistent_workers: true
-  #     prefetch_factor: 4
-
-  # - label: rp-validation
-  #   subset_num_batches: 10
-  #   data:
-  #     paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
-  #     num_workers: 2
-  #     drop_last: true
-  #     pin_memory: true
-  #     persistent_workers: true
-  #     prefetch_factor: 4
-
   # lump all the small datasets together (we still get separate metrics).
   - label: all-small-ppl-validation
     data:
