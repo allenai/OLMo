@@ -116,11 +116,7 @@ def main(cfg: TrainConfig) -> None:
     fsdp_model = FSDP(
         olmo_model,
         sharding_strategy=cfg.fsdp.sharding_strategy,
-        mixed_precision=MixedPrecision(  # equivalent to MosaicML's "PURE"
-            param_dtype=cfg.autocast_precision,
-            reduce_dtype=cfg.autocast_precision,
-            buffer_dtype=cfg.autocast_precision,
-        ),
+        mixed_precision=cfg.fsdp_precision,
         auto_wrap_policy=wrap_policy,
         use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
         limit_all_gathers=True,

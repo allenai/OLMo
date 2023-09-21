@@ -20,7 +20,7 @@ from typing import (
 import torch
 from omegaconf import OmegaConf as om
 from omegaconf.errors import OmegaConfBaseException
-from torch.distributed.fsdp import ShardingStrategy
+from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
 
 from .aliases import PathOrStr
 from .exceptions import OlmoConfigurationError
@@ -513,6 +513,20 @@ class FSDPWrapStrategy(StrEnum):
     """
 
 
+class FSDPPrecision(StrEnum):
+    pure = "pure"
+    """
+    Equivalent to :class:`torch.distributed.fsdp.MixedPrecision` with ``param_dtype``, ``reduce_dtype``,
+    and ``buffer_dtype`` all set to the autocast precision data type.
+    """
+
+    mixed = "mixed"
+    """
+    Equivalent to :class:`torch.distributed.fsdp.MixedPrecision` with ``param_dtype``, and ``buffer_dtype``
+    set to the autocast precision data type, while ``reduce_dtype`` is set to fp32.
+    """
+
+
 @dataclass
 class FSDPConfig(BaseConfig):
     use_orig_params: bool = True
@@ -527,6 +541,8 @@ class FSDPConfig(BaseConfig):
     The wrapping strategy to use. If ``None``, the default, the model is wrapped with a single top-level
     FSDP instance.
     """
+
+    precision: FSDPPrecision = FSDPPrecision.pure
 
 
 class CheckpointType(StrEnum):
@@ -784,3 +800,20 @@ class TrainConfig(BaseConfig):
             return torch.float32
         else:
             raise ValueError(f"Unexpected precision type '{self.precision}'")
+
+    @property
+    def fsdp_precision(self) -> MixedPrecision:
+        if self.fsdp.precision == FSDPPrecision.pure:
+            return MixedPrecision(
+                param_dtype=self.autocast_precision,
+                reduce_dtype=self.autocast_precision,
+                buffer_dtype=self.autocast_precision,
+            )
+        elif self.fsdp.precision == FSDPPrecision.mixed:
+            return MixedPrecision(
+                param_dtype=self.autocast_precision,
+                reduce_dtype=torch.float32,
+                buffer_dtype=self.autocast_precision,
+            )
+        else:
+            raise NotImplementedError(f"{self.fsdp.precision}")
