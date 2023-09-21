@@ -77,7 +77,7 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # Install torch
 RUN pip install --upgrade pip
-RUN pip install --no-cache-dir torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/rocm5.4.2
+RUN pip install --no-cache-dir torch==2.1.0 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/test/rocm5.5
 
 # Install DeepSpeed
 RUN pip install --no-cache-dir mpi4py
