@@ -174,9 +174,7 @@ class AMDLayerNorm(LayerNormBase):
         x = self._cast_if_autocast_enabled(x, dtype=torch.float32)
         with torch.autocast(enabled=False, device_type=x.device.type):
             var, mean = torch.var_mean(x, dim=-1, correction=0, keepdim=True)
-            var.add_(self.eps)
-            var.sqrt_()
-            x = (x - mean) / var
+            x = (var + self.eps).rsqrt() * (x - mean)  # rsqrt should be more stable than 1/sqrt
             if self.weight is not None:
                 x.mul_(self.weight)
             if self.bias is not None:
