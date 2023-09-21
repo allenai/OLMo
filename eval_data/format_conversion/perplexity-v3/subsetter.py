@@ -47,6 +47,8 @@ def read_input_file(input_file):
         data = []
         for line in f:
             doc = json.loads(line.strip())
+            if doc['text'] == "":
+                continue
             if args.subdomain_from_file_name_minus_extension:
                 doc['subdomain'] = os.path.basename(input_file)[:-len(args.subdomain_from_file_name_minus_extension)]
             data.append(doc)
