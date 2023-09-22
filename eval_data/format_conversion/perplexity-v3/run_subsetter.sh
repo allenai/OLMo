@@ -155,11 +155,10 @@ python $SCRIPT_DIR/subsetter.py \
 
 
 python $SCRIPT_DIR/subsetter.py \
-    --input_files $(find $perplexity_dir/v0/olmo-mix-v1_5-eval/documents/ -name *.gz) \
+    --input_files v0/dolma-v1_5/val/*.gz \
     --output_dir $perplexity_dir/v3/dolma-v1_5 \
     --seed 42 \
-    --sample_evenly_by_file \
-    --dolma_subdomain_format
+    --sample_evenly_by_file 
 
 python $SCRIPT_DIR/subsetter.py \
     --split_names val \

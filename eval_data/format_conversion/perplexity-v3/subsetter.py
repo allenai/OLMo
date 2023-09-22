@@ -44,6 +44,8 @@ def split_by_tokens(data_sources, args):
                     tokens_remaining = target_tokens_per_source - token_count
                     old_text = doc['text']
                     doc['text'] = tokenizer.decode(tokenizer.encode(doc['text'])[:tokens_remaining])
+                    if 'metadata' not in doc:
+                        doc['metadata'] = {}
                     doc['metadata']['truncated_portion'] = tokenizer.decode(tokenizer.encode(old_text)[tokens_remaining:])
                     new_tokens = tokens_remaining
                 token_count += new_tokens
