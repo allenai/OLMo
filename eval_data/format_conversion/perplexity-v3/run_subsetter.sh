@@ -158,6 +158,8 @@ python $SCRIPT_DIR/subsetter.py \
     --input_files v0/dolma-v1_5/val/*.gz \
     --output_dir $perplexity_dir/v3/dolma-v1_5 \
     --seed 42 \
+    --tokenizer "EleutherAI/gpt-neox-20b" \
+    --split_token_count_target 2000000 \
     --sample_evenly_by_file 
 
 python $SCRIPT_DIR/subsetter.py \
