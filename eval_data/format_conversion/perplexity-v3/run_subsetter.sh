@@ -59,8 +59,9 @@ python $SCRIPT_DIR/subsetter.py \
     --output_dir $perplexity_dir/v3/redpajama \
     --seed 42 \
     --tokenizer "EleutherAI/gpt-neox-20b" \
-    --split_token_count_target 1000000 \
-    --source_has_subdomain
+    --split_token_count_target 700000 \
+    --source_has_subdomain \
+    --sample_evenly_by_subdomain
 
 python $SCRIPT_DIR/subsetter.py \
     --split_names test \
@@ -68,8 +69,9 @@ python $SCRIPT_DIR/subsetter.py \
     --output_dir $perplexity_dir/v3/redpajama \
     --seed 42 \
     --tokenizer "EleutherAI/gpt-neox-20b" \
-    --split_token_count_target 1000000 \
-    --source_has_subdomain
+    --split_token_count_target 700000 \
+    --source_has_subdomain \
+    --sample_evenly_by_subdomain
 
 python $SCRIPT_DIR/subsetter.py \
     --input_files $perplexity_dir/raw/falcon-refinedweb/v0-0.05-heldout/documents/*.gz \
@@ -81,13 +83,13 @@ python $SCRIPT_DIR/subsetter.py \
 
 mkdir -p $perplexity_dir/v3/wikitext_103/val
 mkdir -p $perplexity_dir/v3/wikitext_103/test
-cp $perplexity_dir/v0/wikitext_103/wiki.valid.jsonl.gz $perplexity_dir/v3/wikitext_103/val/
-cp $perplexity_dir/v0/wikitext_103/wiki.test.jsonl.gz $perplexity_dir/v3/wikitext_103/test/
+cp $perplexity_dir/v0/wikitext_103/wiki.valid.jsonl.gz $perplexity_dir/v3/wikitext_103/val/val.jsonl.gz
+cp $perplexity_dir/v0/wikitext_103/wiki.test.jsonl.gz $perplexity_dir/v3/wikitext_103/test/test.jsonl.gz
 
 mkdir -p $perplexity_dir/v3/ptb/val
 mkdir -p $perplexity_dir/v3/ptb/test
-cp $perplexity_dir/v0/ptb/ptb.valid.jsonl.gz $perplexity_dir/v3/ptb/val/
-cp $perplexity_dir/v0/ptb/ptb.test.jsonl.gz $perplexity_dir/v3/ptb/test/
+cp $perplexity_dir/v0/ptb/ptb.valid.jsonl.gz $perplexity_dir/v3/ptb/val/val.jsonl.gz
+cp $perplexity_dir/v0/ptb/ptb.test.jsonl.gz $perplexity_dir/v3/ptb/test/test.jsonl.gz
 
 python $SCRIPT_DIR/subsetter.py \
     --input_files $perplexity_dir/v0/c4_en/val/*.gz \
@@ -150,3 +152,25 @@ python $SCRIPT_DIR/subsetter.py \
     --split_token_count_target 10000000 \
     --tokenizer "EleutherAI/gpt-neox-20b" \
     --subdomain_from_file_name_minus_extension .json.gz.test.json.gz
+
+
+python $SCRIPT_DIR/subsetter.py \
+    --input_files $(find $perplexity_dir/v0/olmo-mix-v1_5-eval/documents/ -name *.gz) \
+    --output_dir $perplexity_dir/v3/dolma-v1_5 \
+    --seed 42 \
+    --sample_evenly_by_file \
+    --dolma_subdomain_format
+
+python $SCRIPT_DIR/subsetter.py \
+    --split_names val \
+    --input_files $perplexity_dir/v0/reddit/val_reddit.jsonl.gz \
+    --output_dir $perplexity_dir/v3/reddit \
+    --seed 42 \
+    --sample_evenly_by_file
+
+python $SCRIPT_DIR/subsetter.py \
+    --split_names test \
+    --input_files $perplexity_dir/v0/reddit/test_reddit.jsonl.gz \
+    --output_dir $perplexity_dir/v3/reddit \
+    --seed 42 \
+    --sample_evenly_by_file

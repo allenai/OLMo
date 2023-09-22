@@ -13,6 +13,10 @@ import datetime
 def process_subdomain(subdomain_file, args):
     subdomain = subdomain_file.split('/')[-2]
     domain = subdomain_file.split('/')[-3]
+    split_name = subdomain_file.split('/')[-1].split('.')[0]
+    assert split_name in ['valid', 'test']
+    if split_name == 'valid':
+        split_name = 'val'
 
     # load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
@@ -39,7 +43,7 @@ def process_subdomain(subdomain_file, args):
     }
 
     # ouput to args.output_dir/subdomain_file_name.jsonl.gz
-    output_file = os.path.join(args.output_dir, f"{subdomain}.jsonl.gz")
+    output_file = os.path.join(args.output_dir, f"{split_name}_{subdomain}.jsonl.gz")
     with gzip.open(output_file, 'wt') as f:
         f.write(json.dumps(output_data) + '\n')
     

@@ -9,6 +9,7 @@ from collections import Counter
 from transformers import AutoTokenizer
 from tqdm import tqdm
 import multiprocessing as mp
+import datetime
 
 def split_by_total_docs(data_sources, args):
     docs_per_split_per_file = [len(d) // len(args.split_names) for d in data_sources]
@@ -35,9 +36,19 @@ def split_by_tokens(data_sources, args):
             token_count = 0
             while len(data) > 0:
                 doc = data.pop()
-                token_count += len(tokenizer.tokenize(doc['text']))
+                new_tokens = len(tokenizer.tokenize(doc['text']))
+                if args.dont_overflow_token_count and token_count > target_tokens_per_source:
+                    break
+                if not args.dont_truncate_overflowing_docs and token_count + new_tokens > target_tokens_per_source:
+                    print(f"truncating overflowing last doc")
+                    tokens_remaining = target_tokens_per_source - token_count
+                    old_text = doc['text']
+                    doc['text'] = tokenizer.decode(tokenizer.encode(doc['text'])[:tokens_remaining])
+                    doc['metadata']['truncated_portion'] = tokenizer.decode(tokenizer.encode(old_text)[tokens_remaining:])
+                    new_tokens = tokens_remaining
+                token_count += new_tokens
                 splits[split_name].append(doc)
-                if token_count > target_tokens_per_source:
+                if token_count >= target_tokens_per_source:
                     break
             print(f"{split_name} source {i} token count: {token_count}")
     return splits
@@ -47,14 +58,21 @@ def read_input_file(input_file):
         data = []
         for line in f:
             doc = json.loads(line.strip())
-            if doc['text'] == "":
+            if doc['text'].strip() == "":
                 continue
             if args.subdomain_from_file_name_minus_extension:
                 doc['subdomain'] = os.path.basename(input_file)[:-len(args.subdomain_from_file_name_minus_extension)]
+            if args.dolma_subdomain_format:
+                doc['subdomain'] = input_file.split('olmo-mix-v1_5-eval/documents/')[1].split('/')[0]
+                doc['source'] = 'Dolma-v1_5'
+
+
             data.append(doc)
         return data
 
 def main(args):
+
+    print(f"processing data to {args.output_dir}")
 
     # set the random seed
     random.seed(args.seed)
@@ -114,22 +132,44 @@ def main(args):
     os.makedirs(args.output_dir, exist_ok=True)
     for split_name, split_data in splits.items():
         os.makedirs(os.path.join(args.output_dir, split_name), exist_ok=True)
-        shard_num = 0
-        shard_size = 0
-        with gzip.open(os.path.join(args.output_dir, split_name, f"{split_name}-{shard_num:08}.jsonl.gz"), 'wt') as f:
+        if 'subdomain' in split_data[0]:
+            # make a separate file for each subdomain
             for doc in split_data:
+                if 'subdomain' in doc:
+                    doc['subdomain'] = doc['subdomain'].replace(' ', '_').replace('(', '').replace(')', '')
+                assert 'id' in doc, 'doc must have a id field'
+                assert 'text' in doc, 'doc must have a text field'
+                assert 'source' in doc, 'doc must have a source field'
+                if 'added' not in doc:
+                        doc['added'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
                 doc_str = json.dumps(doc)
-                doc_size = len(doc_str.encode('utf-8'))
-                if shard_size + doc_size > args.shard_size_target:
-                    # print(f"shard {shard_num} size: {shard_size}")
-                    shard_num += 1
-                    shard_size = 0
-                    f.close()
-                    # pad the shard number with zeros so that the files sort nicely
-                    f = gzip.open(os.path.join(args.output_dir, split_name, f"{split_name}-{shard_num:08}.jsonl.gz"), 'wt')
-                f.write(doc_str + "\n")
-                shard_size += doc_size
-        f.close()
+                with gzip.open(os.path.join(args.output_dir, split_name, f"{split_name}_{doc['subdomain']}.jsonl.gz"), 'at') as f:
+                    f.write(doc_str + "\n")
+
+        else:
+            shard_num = 0
+            shard_size = 0
+            with gzip.open(os.path.join(args.output_dir, split_name, f"{split_name}-{shard_num:08}.jsonl.gz"), 'wt') as f:
+                for doc in split_data:
+                    if 'subdomain' in doc:
+                        doc['subdomain'] = doc['subdomain'].replace(' ', '_').replace('(', '').replace(')', '')
+                    assert 'id' in doc, 'doc must have a id field'
+                    assert 'text' in doc, 'doc must have a text field'
+                    assert 'source' in doc, 'doc must have a source field'
+                    if 'added' not in doc:
+                        doc['added'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    doc_str = json.dumps(doc)
+                    doc_size = len(doc_str.encode('utf-8'))
+                    if shard_size + doc_size > args.shard_size_target:
+                        # print(f"shard {shard_num} size: {shard_size}")
+                        shard_num += 1
+                        shard_size = 0
+                        f.close()
+                        # pad the shard number with zeros so that the files sort nicely
+                        f = gzip.open(os.path.join(args.output_dir, split_name, f"{split_name}-{shard_num:08}.jsonl.gz"), 'wt')
+                    f.write(doc_str + "\n")
+                    shard_size += doc_size
+            f.close()
 
 
 
@@ -149,6 +189,9 @@ if __name__ == "__main__":
     parser.add_argument("--sample_evenly_by_subdomain", action="store_true", help="sample evenly from each subdomain")
     parser.add_argument("--pile_subdomain_format", action="store_true", help="looks for subdomain at ['metadata']['pile_set_name'] and moves this to ['subdomain']")
     parser.add_argument("--subdomain_from_file_name_minus_extension", type=str, help="looks for subdomain at the end of the file name, e.g. 'subdomain.jsonl.gz', removes the extension as included in this flag, and moves this to ['subdomain']")
+    parser.add_argument("--dolma_subdomain_format", action="store_true", help="looks for subdomain at olmo-mix-v1_5-eval/documents/<subdomain> in file path")
+    parser.add_argument("--dont_overflow_token_count", action="store_true", help="don't overflow the token count target")
+    parser.add_argument("--dont_truncate_overflowing_docs", action="store_true", help="do not truncate overflowing docs")
     args = parser.parse_args()
 
     assert not args.sample_evenly_by_subdomain or not args.sample_evenly_by_file, "can't sample evenly by file and subdomain"

@@ -5,6 +5,8 @@ import os
 import json
 from tqdm import tqdm
 import gzip
+from uuid import uuid4
+import datetime
 
 def main(args):
     for i, subset in enumerate(ice_scenario.ICESubset):
@@ -15,6 +17,9 @@ def main(args):
                     json_instance = {
                         'text':instance.input.text,
                         'subdomain':f'{subset.name}_{category.name}',
+                        'source':'ice_HELM',
+                        "id": str(uuid4()),
+                        "added": datetime.datetime.now(datetime.timezone.utc).isoformat()
                     }
                     f.write(json.dumps(json_instance) + '\n')
 
