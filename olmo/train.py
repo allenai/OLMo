@@ -815,13 +815,18 @@ class Trainer:
             elif wandb.run is not None and (api_key := os.environ.get("WANDB_API_KEY")) is not None:
                 # Finally, check if someone canceled the run from W&B by adding the 'cancel' / 'canceled' tag..
                 # We won't see it in the run object. So we have to use the import/export API to check.
-                api = wandb.Api(api_key=api_key)
-                run = api.run(wandb.run.path)
-                for tag in run.tags or []:
-                    if tag.lower() in {"cancel", "canceled", "cancelled"}:
-                        should_cancel = True
-                        cancel_reason = "Weights & Biases tag"
-                        break
+                from requests.exceptions import RequestException
+
+                try:
+                    api = wandb.Api(api_key=api_key)
+                    run = api.run(wandb.run.path)
+                    for tag in run.tags or []:
+                        if tag.lower() in {"cancel", "canceled", "cancelled"}:
+                            should_cancel = True
+                            cancel_reason = "Weights & Biases tag"
+                            break
+                except RequestException:
+                    pass
 
         run_canceled = syncronize_flag(should_cancel, self.device)
         if run_canceled and cancel_reason is not None:
