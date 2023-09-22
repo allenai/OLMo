@@ -20,6 +20,7 @@ exec 2> >(trap "" INT TERM; sed -u "s/^/$NODENAME:$LOCAL_RANK err: /" >&2)
 
 if [ $SLURM_LOCALID -eq 0 ] ; then
   rm -rf /dev/shm/* || true
+  rm -rf ~/.triton/cache || true
   rocm-smi || true	# rocm-smi returns exit code 2 even when it succeeds
 else
   sleep 2
