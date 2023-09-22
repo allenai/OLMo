@@ -127,10 +127,18 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
         else:
             self.fused_dims = (config.d_model, config.d_model, config.d_model)
 
-        self.att_proj = nn.Linear(
-            config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
+        #self.att_proj = nn.Linear(
+        #    config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
+        #)
+        self.q_att_proj = nn.Linear(
+            config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
         )
-        self.att_proj._fused = (0, self.fused_dims)  # type: ignore
+
+        self.kv_att_proj = nn.Linear(
+            config.d_model, sum(self.fused_dims) - config.d_model, bias=config.include_bias, device=config.init_device
+        )
+
+        #self.att_proj._fused = (0, self.fused_dims)  # type: ignore
         # Feed-forward input projection.
         self.ff_proj = nn.Linear(
             config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
@@ -166,7 +174,11 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
         #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
-        q, k, v = self.att_proj(self.attn_norm(x)).split(self.fused_dims, dim=-1)
+        #q, k, v = self.att_proj(self.attn_norm(x)).split(self.fused_dims, dim=-1)
+
+        t = self.attn_norm(x)
+        q = self.q_att_proj(t)
+        k, v = self.kv_att_proj(t).split(self.fused_dims[1:], dim=-1)
         k_cache, v_cache = kv_cache
   
         dtype = k.dtype
@@ -208,6 +220,9 @@ class OlmoModel(nn.Module):
                 wte=nn.Embedding(
                     config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
                 ),
+                #wte=VocabParallelEmbedding(
+                #    config.embedding_size or config.vocab_size, config.d_model, perform_initialization=False
+                #),
                 emb_drop=nn.Dropout(config.embedding_dropout),
                 blocks=nn.ModuleList([PagedAttentionOlmoSequentialBlock(i, config) for i in range(config.n_layers)]),
                 ln_f=LayerNorm.build(config),
@@ -325,7 +340,7 @@ class OlmoModelForCausalLM(nn.Module):
         #next_tokens = self.sampler(self.lm_head.weight, hidden_states, input_metadata)
         return next_tokens
 
-    _column_parallel_weights = []
+    _column_parallel_weights = [] #["wte.weight"]
     _row_parallel_weights = []
 
     def load_weights(self, model_name_or_path: str, cache_dir: Optional[str] = None, use_np_cache: bool = False):
@@ -347,13 +362,43 @@ class OlmoModelForCausalLM(nn.Module):
         # Load state dict directly to target device.
         state_dict_path = cached_path(os.path.join(model_name_or_path, "model.pt"))
         state_dict = torch.load(state_dict_path, map_location="cpu")
+        state_dict = self.model._make_state_dict_compatible(state_dict)
 
         #for i in range(model_config.n_layers):
         #    state_dict[f"transformer.blocks.{i}.att_proj.weight"] = reshape_mqa_weight(
         #        state_dict[f"transformer.blocks.{i}.att_proj.weight"], model_config.d_model, model_config.n_heads
         #    )
 
-        self.model.load_state_dict(self.model._make_state_dict_compatible(state_dict))
+        tp_size = get_tensor_model_parallel_world_size()
+        tp_rank = get_tensor_model_parallel_rank()
+
+        #empty_state_dict = self.model.state_dict()
+        for name, param in self.model.state_dict().items():
+
+            if "att_proj" in name:
+                config = self.model.config
+                if config.multi_query_attention:
+                    fused_dims = (config.d_model, (config.d_model // config.n_heads) + (config.d_model // config.n_heads))
+                else:
+                    fused_dims = (config.d_model, config.d_model + config.d_model)
+
+                if "q_att_proj" in name:
+                    state_dict_param_name = name.replace("q_att_proj", "att_proj")
+                    loaded_weight = state_dict[state_dict_param_name]
+                    loaded_weight, _ = loaded_weight.split(fused_dims, dim=0)
+
+                elif "kv_att_proj" in name:
+                    state_dict_param_name = name.replace("kv_att_proj", "att_proj")
+                    loaded_weight = state_dict[state_dict_param_name]
+                    _, loaded_weight = loaded_weight.split(fused_dims, dim=0)       
+
+            else:
+                loaded_weight = state_dict[name]
+
+            load_tensor_parallel_weights(param, loaded_weight, name,
+                                         self._column_parallel_weights,
+                                         self._row_parallel_weights, tp_rank)
+        # self.model.load_state_dict(state_dict)
 
 
 def reshape_mqa_weight(tensor, d, n):
