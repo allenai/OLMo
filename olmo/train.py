@@ -16,6 +16,7 @@ from typing import Any, Deque, Dict, List, Optional, TextIO, Tuple
 
 import numpy as np
 import torch
+import torch.distributed as dist
 import torch.nn.functional as F
 import wandb
 from packaging import version
@@ -28,7 +29,6 @@ from torch.distributed.fsdp.api import (
     ShardedStateDictConfig,
 )
 from torch.utils.data import DataLoader
-from torchmetrics import MeanMetric
 
 from .aliases import PathOrStr
 from .config import CheckpointType, SpeedMonitorConfig, TrainConfig
@@ -105,8 +105,6 @@ class Trainer:
     train_loader: DataLoader
     device: torch.device
     evaluators: List[Evaluator]
-    ce_train_loss_metric: MeanMetric
-    z_train_loss_metric: Optional[MeanMetric] = None
     global_step: int = 0
     global_data_step: int = 0
     """This is now redundant since adding 'global_train_examples_seen'."""
@@ -118,6 +116,7 @@ class Trainer:
     checkpoints: List[Path] = field(default_factory=list)
     unsharded_checkpoints: List[Path] = field(default_factory=list)
     min_train_loss: float = float("inf")
+    cur_train_loss: float = float("inf")
     indices_file: Optional[TextIO] = None
     _start_time: float = 0.0
 
@@ -601,7 +600,7 @@ class Trainer:
 
         return ce_batch_loss, z_batch_loss
 
-    def train_step(self, batch: Dict[str, Any]) -> Dict[str, float]:
+    def train_step(self, batch: Dict[str, Any], reduce_global_loss: bool = True) -> Dict[str, float]:
         metrics: Dict[str, float] = {}
 
         # Write data-indices to file.
@@ -611,11 +610,6 @@ class Trainer:
 
         # Zero-gradients.
         self.optim.zero_grad(set_to_none=True)
-
-        # Reset metrics.
-        self.ce_train_loss_metric.reset()
-        if self.z_train_loss_metric is not None:
-            self.z_train_loss_metric.reset()
 
         # Move tensors to the right device.
         batch = move_to_device(batch, self.device)
@@ -640,14 +634,20 @@ class Trainer:
         # Optimizer step.
         self.optim.step()
 
-        # Reduce loss metrics across ranks.
-        self.ce_train_loss_metric.update(ce_batch_loss)
-        ce_batch_loss = self.ce_train_loss_metric.compute()
-        metrics["train/CrossEntropyLoss"] = ce_batch_loss.item()
-        metrics["train/Perplexity"] = torch.exp(ce_batch_loss).item()
-        if z_batch_loss is not None and self.z_train_loss_metric is not None:
-            self.z_train_loss_metric.update(z_batch_loss)
-            z_batch_loss = self.z_train_loss_metric.compute()
+        # Collect loss, potentially reducing over all ranks.
+        if reduce_global_loss:
+            dist.reduce(ce_batch_loss, 0)
+            ce_batch_loss.div_(get_world_size())
+        # TODO (dirkgr): If we did this much earlier, like, right after the forwards step, but then didn't
+        # call `.item()` for a long time, would it use laziness to interleave this reduce call with the backward step?
+        self.cur_train_loss = ce_batch_loss.item()
+        self.min_train_loss = min(self.min_train_loss, self.cur_train_loss)
+        metrics["train/CrossEntropyLoss"] = self.cur_train_loss
+        metrics["train/Perplexity"] = math.exp(self.cur_train_loss)
+        if z_batch_loss is not None:
+            if reduce_global_loss:
+                dist.reduce(z_batch_loss, 0)
+                z_batch_loss.div_(get_world_size())
             metrics["train/ZLoss"] = z_batch_loss.item()
 
         # Maybe collect post-step optimizer-specific metrics.
@@ -655,15 +655,6 @@ class Trainer:
             optim_metrics = self.optim.get_post_step_metrics(self.fsdp_model)
             for key, value in optim_metrics.items():
                 metrics[f"optim/{key}"] = value.item()
-
-        # Update min train loss and see if we should stop early.
-        self.min_train_loss = min(self.min_train_loss, ce_batch_loss.item())  # type: ignore
-        if (
-            self.cfg.early_stopping_factor is not None
-            and self.global_step > self.cfg.scheduler.t_warmup
-            and ce_batch_loss.item() > self.cfg.early_stopping_factor * self.min_train_loss
-        ):
-            raise ValueError("Stopping early because train loss has increased substantially")
 
         return metrics
 
@@ -806,32 +797,35 @@ class Trainer:
         return eval_metrics
 
     def check_if_cancelled(self) -> bool:
-        # First check if we've reached the training time limit.
-        run_canceled = syncronize_flag(
-            self.cfg.time_limit is not None and time.time() - self._start_time >= self.cfg.time_limit,
-            self.device,
-        )
-        if run_canceled:
-            log.warning("Run canceled due to time limit")
-            return run_canceled
+        should_cancel = False
+        cancel_reason: Optional[str] = None
+        if get_global_rank() == 0:
+            if self.cfg.time_limit is not None and time.time() - self._start_time >= self.cfg.time_limit:
+                # First check if we've reached the training time limit.
+                should_cancel = True
+                cancel_reason = "time limit reached"
+            elif (
+                self.cfg.early_stopping_factor is not None
+                and self.global_step > self.cfg.scheduler.t_warmup
+                and self.cur_train_loss > self.cfg.early_stopping_factor * self.min_train_loss
+            ):
+                # Next check if early stopping loss criteria is met.
+                should_cancel = True
+                cancel_reason = "early stopping from loss increase"
+            elif wandb.run is not None and (api_key := os.environ.get("WANDB_API_KEY")) is not None:
+                # Finally, check if someone canceled the run from W&B by adding the 'cancel' / 'canceled' tag..
+                # We won't see it in the run object. So we have to use the import/export API to check.
+                api = wandb.Api(api_key=api_key)
+                run = api.run(wandb.run.path)
+                for tag in run.tags or []:
+                    if tag.lower() in {"cancel", "canceled", "cancelled"}:
+                        should_cancel = True
+                        cancel_reason = "Weights & Biases tag"
+                        break
 
-        # Now check if someone canceled this run by adding a tag in W&B.
-        api_key = os.environ.get("WANDB_API_KEY")
-        if get_global_rank() == 0 and wandb.run is not None and api_key is not None:
-            # If someone added the 'cancel' / 'canceled' tag on the web dashboard, we won't
-            # see it in the run object. So we have to use the import/export API to check.
-            api = wandb.Api(api_key=api_key)
-            run = api.run(wandb.run.path)
-            for tag in run.tags or []:
-                if tag.lower() in {"cancel", "canceled", "cancelled"}:
-                    log.warning("Run has been canceled via Weights & Biases tag.")
-                    run_canceled = syncronize_flag(True, self.device)
-                    break
-            else:
-                run_canceled = syncronize_flag(False, self.device)
-        else:
-            run_canceled = syncronize_flag(False, self.device)
-
+        run_canceled = syncronize_flag(should_cancel, self.device)
+        if run_canceled and cancel_reason is not None:
+            log.warning(f"Run canceled due to {cancel_reason}")
         return run_canceled
 
     def fit(self):
@@ -927,11 +921,13 @@ class Trainer:
                     record=not first_batch,
                 )
 
+                should_log_this_step = self.should_log_this_step()
+
                 # Run train step on batch.
-                metrics = self.train_step(batch)
+                metrics = self.train_step(batch, reduce_global_loss=should_log_this_step)
 
                 # Maybe collect other metrics.
-                if self.should_log_this_step():
+                if should_log_this_step:
                     # Speed metrics.
                     metrics.update(speed_monitor.check())
                     # System metrics.
