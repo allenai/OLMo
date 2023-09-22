@@ -137,19 +137,28 @@ class LayerNorm(LayerNormBase):
         self.low_precision = low_precision
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.weight is None:
+            weight = torch.ones(self.normalized_shape, dtype=x.dtype, device=x.device)
+        else:
+            weight = self.weight
+        if self.bias is None
+            bias = torch.zeros(self.normalized_shape, dtype=x.dtype, device=x.device)
+        else:
+            bias = self.bias
+
         if self.low_precision:
             module_device = x.device
             downcast_x = self._cast_if_autocast_enabled(x)
             downcast_weight = (
-                self._cast_if_autocast_enabled(self.weight) if self.weight is not None else self.weight
+                self._cast_if_autocast_enabled(self.weight) if self.weight is not None else weight
             )
-            downcast_bias = self._cast_if_autocast_enabled(self.bias) if self.bias is not None else self.bias
+            downcast_bias = self._cast_if_autocast_enabled(self.bias) if self.bias is not None else bias
             with torch.autocast(enabled=False, device_type=module_device.type):
                 return F.layer_norm(
                     downcast_x, self.normalized_shape, weight=downcast_weight, bias=downcast_bias, eps=self.eps
                 )
         else:
-            return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
+            return F.layer_norm(x, self.normalized_shape, weight=weight, bias=bias, eps=self.eps)
 
 
 class AMDLayerNorm(LayerNormBase):
