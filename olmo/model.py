@@ -141,7 +141,7 @@ class LayerNorm(LayerNormBase):
             weight = torch.ones(self.normalized_shape, dtype=x.dtype, device=x.device)
         else:
             weight = self.weight
-        if self.bias is None
+        if self.bias is None:
             bias = torch.zeros(self.normalized_shape, dtype=x.dtype, device=x.device)
         else:
             bias = self.bias
