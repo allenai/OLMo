@@ -18,9 +18,12 @@ export NODE_RANK=$((($RANK - $LOCAL_RANK) / $LOCAL_WORLD_SIZE))
 exec > >(trap "" INT TERM; sed -u "s/^/$NODENAME:$LOCAL_RANK out: /")
 exec 2> >(trap "" INT TERM; sed -u "s/^/$NODENAME:$LOCAL_RANK err: /" >&2)
 
+export TRITON_CACHE_DIR=/tmp/triton_${SLURM_JOB_ID}_${RANK}
+rm -rf $TRITON_CACHE_DIR || true
+mkdir -p $TRITON_CACHE_DIR
+
 if [ $SLURM_LOCALID -eq 0 ] ; then
   rm -rf /dev/shm/* || true
-  rm -rf ~/.triton/cache || true
   rocm-smi || true	# rocm-smi returns exit code 2 even when it succeeds
 else
   sleep 2
