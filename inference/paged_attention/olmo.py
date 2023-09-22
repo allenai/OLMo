@@ -114,8 +114,8 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
     (plus another skip connection).
     """
 
-    def __init__(self, config: ModelConfig):
-        super().__init__(config)
+    def __init__(self, layer_id: int, config: ModelConfig):
+        super().__init__(layer_id, config)
 
         # config.multi_query_attention = False
         # Layer norms.
@@ -209,7 +209,7 @@ class OlmoModel(nn.Module):
                     config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
                 ),
                 emb_drop=nn.Dropout(config.embedding_dropout),
-                blocks=nn.ModuleList([PagedAttentionOlmoSequentialBlock(config) for _ in range(config.n_layers)]),
+                blocks=nn.ModuleList([PagedAttentionOlmoSequentialBlock(i, config) for i in range(config.n_layers)]),
                 ln_f=LayerNorm.build(config),
             )
         )
