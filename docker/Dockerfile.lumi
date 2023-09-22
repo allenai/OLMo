@@ -45,18 +45,18 @@ RUN apt-get update
 RUN apt-get install google-cloud-cli
 
 # Install ROCm
-RUN wget http://repo.radeon.com/amdgpu-install/latest/ubuntu/jammy/amdgpu-install_5.5.50500-1_all.deb && \
-    apt-get install -y ./amdgpu-install_5.5.50500-1_all.deb && \
-    sed -i 's/@AMDGPUVER@/5.5/g' /etc/apt/sources.list.d/amdgpu-proprietary.list && \
-    amdgpu-install -y --accept-eula --usecase=rocm --no-dkms && \
-    rm ./amdgpu-install_5.5.50500-1_all.deb && \
-    apt-get install -y rccl rocm-libs
-# RUN wget https://repo.radeon.com/amdgpu-install/5.7/ubuntu/jammy/amdgpu-install_5.7.50700-1_all.deb && \
-#     sudo apt install ./amdgpu-install_5.7.50700-1_all.deb && \
-#     sed -i 's/@AMDGPUVER@/5.7/g' /etc/apt/sources.list.d/amdgpu-proprietary.list && \
+# RUN wget http://repo.radeon.com/amdgpu-install/latest/ubuntu/jammy/amdgpu-install_5.5.50500-1_all.deb && \
+#     apt-get install -y ./amdgpu-install_5.5.50500-1_all.deb && \
+#     sed -i 's/@AMDGPUVER@/5.5/g' /etc/apt/sources.list.d/amdgpu-proprietary.list && \
 #     amdgpu-install -y --accept-eula --usecase=rocm --no-dkms && \
-#     rm ./amdgpu-install_5.7.50700-1_all.deb && \
+#     rm ./amdgpu-install_5.5.50500-1_all.deb && \
 #     apt-get install -y rccl rocm-libs
+RUN wget https://repo.radeon.com/amdgpu-install/5.7/ubuntu/jammy/amdgpu-install_5.7.50700-1_all.deb && \
+    apt-get install -y ./amdgpu-install_5.7.50700-1_all.deb && \
+    sed -i 's/@AMDGPUVER@/5.7/g' /etc/apt/sources.list.d/amdgpu-proprietary.list && \
+    amdgpu-install -y --accept-eula --usecase=rocm --no-dkms && \
+    rm ./amdgpu-install_5.7.50700-1_all.deb && \
+    apt-get install -y rccl rocm-libs
 ENV ROCM_HOME=/opt/rocm
 
 # Install MPICH
