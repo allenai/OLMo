@@ -18,8 +18,10 @@ def layer_norm(
     bias: Optional[torch.Tensor] = None,
     eps: float = 1e-5,
 ) -> torch.Tensor:
-    if weight is not None:
+    if weight is not None and bias is not None:
         return _LayerNormWithAffine.apply(x, normalized_shape, weight, bias, eps)  # type: ignore[return-type]
+    elif weight is not None:
+        raise NotImplementedError("triton layer norm kernel with affine currently requires bias")
     else:
         return _LayerNormNoAffine.apply(x, normalized_shape, eps)  # type: ignore[return-type]
 
