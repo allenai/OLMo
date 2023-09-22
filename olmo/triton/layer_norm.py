@@ -21,7 +21,7 @@ def layer_norm(
     if weight is not None and bias is not None:
         return _LayerNormWithAffine.apply(x, normalized_shape, weight, bias, eps)  # type: ignore[return-type]
     elif weight is not None:
-        return _LayerNormWithLinear(x, normalized_shape, weight, eps)  # type: ignore[return-type]
+        return _LayerNormWithLinear.apply(x, normalized_shape, weight, eps)  # type: ignore[return-type]
     else:
         return _LayerNorm.apply(x, normalized_shape, eps)  # type: ignore[return-type]
 
