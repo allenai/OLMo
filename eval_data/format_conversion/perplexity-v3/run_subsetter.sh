@@ -159,19 +159,23 @@ python $SCRIPT_DIR/subsetter.py \
     --output_dir $perplexity_dir/v3/dolma-v1_5 \
     --seed 42 \
     --tokenizer "EleutherAI/gpt-neox-20b" \
-    --split_token_count_target 2000000 \
+    --split_token_count_target 2500000 \
     --sample_evenly_by_file 
 
 python $SCRIPT_DIR/subsetter.py \
     --split_names val \
-    --input_files $perplexity_dir/v0/reddit/val_reddit.jsonl.gz \
+    --input_files $perplexity_dir/raw/reddit_top_100_subreddits/val_reddit.jsonl.gz \
     --output_dir $perplexity_dir/v3/reddit \
     --seed 42 \
-    --sample_evenly_by_file
+    --tokenizer "EleutherAI/gpt-neox-20b" \
+    --split_token_count_target 10000000 \
+    --sample_evenly_by_subdomain
 
 python $SCRIPT_DIR/subsetter.py \
     --split_names test \
-    --input_files $perplexity_dir/v0/reddit/test_reddit.jsonl.gz \
-    --output_dir $perplexity_dir/v3/reddit \
+    --input_files $perplexity_dir/raw/reddit_top_100_subreddits/test_reddit.jsonl.gz \
+    --output_dir $perplexity_dir/v3/dolma_100_subreddits \
     --seed 42 \
-    --sample_evenly_by_file
+    --tokenizer "EleutherAI/gpt-neox-20b" \
+    --split_token_count_target 10000000 \
+    --sample_evenly_by_subdomain
