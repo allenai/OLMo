@@ -33,7 +33,7 @@ model:
   init_device: meta
   init_fn: normal
   init_cutoff_factor: 3.0
-  init_std: 0.006
+  init_std: 0.02
 
 compile: null  # causes instability on AMD GPUs
 
