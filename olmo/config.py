@@ -642,7 +642,7 @@ class TrainConfig(BaseConfig):
     A folder in a cloud bucket to upload saved checkpoints to.
     """
 
-    canceled_check_interval: int = 5
+    canceled_check_interval: int = 50
     """
     How often (in batches) to check if the run has been canceled or reached its time limit.
     """
