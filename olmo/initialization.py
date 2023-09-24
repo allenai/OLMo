@@ -1,4 +1,5 @@
 import math
+import logging
 from typing import Optional, Union
 
 import torch
@@ -8,6 +9,7 @@ from .config import InitFnType, ModelConfig
 
 __all__ = ["init_weights"]
 
+log = logging.getLogger(__name__)
 
 def init_weights(
     config: ModelConfig,
@@ -27,8 +29,15 @@ def init_weights(
         ``1 / sqrt(2 * (layer_id + 1))``.
     """
     d = d if d is not None else config.d_model
-    if config.init_fn == InitFnType.normal:
-        std = config.init_std * std_factor
+    if config.init_fn in [InitFnType.normal, InitFnType.bloom]:
+        if config.init_fn == InitFnType.bloom:
+            assert config.init_std == -1.0
+            std = math.sqrt(2 / (3 * d))
+            log.info(f"init_std = {std} with d = {d}")
+        else:
+            std = config.init_std
+
+        std = std * std_factor
         if config.init_cutoff_factor is not None:
             cutoff_value = config.init_cutoff_factor * std
             nn.init.trunc_normal_(module.weight, mean=0.0, std=std, a=-cutoff_value, b=cutoff_value)

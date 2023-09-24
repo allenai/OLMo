@@ -31,9 +31,9 @@ model:
   eos_token_id: 0
   pad_token_id: 1
   init_device: meta
-  init_fn: normal
+  init_fn: bloom
   init_cutoff_factor: 3.0
-  init_std: 0.02
+  init_std: -1.0
 
 compile: null  # causes instability on AMD GPUs
 
