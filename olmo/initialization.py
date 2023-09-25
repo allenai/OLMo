@@ -32,8 +32,8 @@ def init_weights(
     if config.init_fn in [InitFnType.normal, InitFnType.bloom]:
         if config.init_fn == InitFnType.bloom:
             assert config.init_std == -1.0
-            std = math.sqrt(2 / (3 * d))
-            log.info(f"init_std = {std} with d = {d}")
+            std = math.sqrt(2 / (3 * config.d_model))  # always use `config.d_model`. Don't use `d`
+            log.info(f"init_std = {std} with d = {config.d_model}")
         else:
             std = config.init_std
 
