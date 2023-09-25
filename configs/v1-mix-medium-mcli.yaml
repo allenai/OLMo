@@ -1,4 +1,4 @@
-run_name: olmo-medium-adamw-mitch-init-long-warmup
+run_name: v1-mix-medium-run-001
 seed: 6198
 dry_run: false
 
@@ -17,6 +17,7 @@ model:
   attention_dropout: 0.0
   attention_layer_norm: true
   multi_query_attention: true
+  flash_attention: false  # can't be used with ALiBi
   include_bias: false
   block_type: sequential
   layer_norm_type: default
@@ -33,7 +34,8 @@ model:
   init_device: meta
   init_fn: normal
 
-compile: null  # causes instability on AMD GPUs
+compile:
+  fullgraph: false
 
 optimizer:
   name: adamw
@@ -61,7 +63,7 @@ time_limit: null
 save_interval: 1000
 save_num_checkpoints_to_keep: -1
 # Unsharded checkpoints (for final storage)
-save_interval_unsharded: null  # getting errors on LUMI right now
+save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
@@ -71,6 +73,10 @@ global_train_batch_size: 2048
 device_train_microbatch_size: 2
 
 precision: amp_bf16
+
+fsdp:
+  wrapping_strategy: by_block
+  precision: pure
 
 max_grad_norm: 1.0
 max_grad_norm_ratio: 1.5
