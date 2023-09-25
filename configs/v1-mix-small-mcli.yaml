@@ -32,7 +32,7 @@ model:
   pad_token_id: 1
   init_device: meta
   init_fn: normal
-  init_sd: 0.006
+  init_std: 0.006
   init_cutoff_factor: 3.0
 
 compile: null  # causes instability on AMD GPUs
