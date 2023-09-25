@@ -1,0 +1,24 @@
+run_name: v1-mix-medium
+image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
+gpu_num: 128
+cluster: r12z3
+gpu_type: a100_40gb
+integrations:
+  - integration_type: git_repo
+    git_repo: allenai/LLM
+    git_branch: main
+    pip_install: -e .[all]
+    ssh_clone: true
+command: |-
+  cd LLM
+  torchrun \
+  --master_addr $MASTER_ADDR \
+  --master_port $MASTER_PORT \
+  --nnodes $NUM_NODES \
+  --node_rank $NODE_RANK \
+  --nproc_per_node 8 \
+  scripts/train.py configs/v1-mix-medium-mcli.yaml \
+    --run_name=truncate_init3_std_0.006 \
+    --model.init_fn=normal \
+    --model.init_cutoff_factor=3 \
+    --model.init_std=0.006

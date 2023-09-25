@@ -1,4 +1,4 @@
-run_name: olmo-medium-adamw-mitch-init-long-warmup
+run_name: v1-mix-medium-run-001
 seed: 6198
 dry_run: false
 
@@ -61,7 +61,7 @@ time_limit: null
 save_interval: 1000
 save_num_checkpoints_to_keep: -1
 # Unsharded checkpoints (for final storage)
-save_interval_unsharded: null  # getting errors on LUMI right now
+save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
