@@ -6,7 +6,7 @@ gpu_type: a100_40gb
 integrations:
   - integration_type: git_repo
     git_repo: allenai/LLM
-    git_branch: main
+    git_branch: petew/mcli-run  # make sure to update this!
     pip_install: -e .[all]
     ssh_clone: true
 command: |-
