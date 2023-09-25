@@ -10,6 +10,8 @@ integrations:
     pip_install: -e .[all]
     ssh_clone: true
 command: |-
+  export OMP_NUM_THREADS=8
+  export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
   cd LLM
   torchrun \
   --master_addr $MASTER_ADDR \
@@ -19,11 +21,3 @@ command: |-
   --nproc_per_node 8 \
   scripts/train.py configs/v1-mix-medium-mcli.yaml \
     --run_name=v1-mix-medium
-env_variables:
-  - name: omp_num_threads
-    key: OMP_NUM_THREADS 
-    value: '8'
-env_variables:
-  - name: pytorch_cuda_alloc_conf
-    key: PYTORCH_CUDA_ALLOC_CONF
-    value: max_split_size_mb:128
