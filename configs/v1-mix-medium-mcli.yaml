@@ -72,6 +72,10 @@ device_train_microbatch_size: 2
 
 precision: amp_bf16
 
+fsdp:
+  wrapping_strategy: by_block
+  precision: pure
+
 max_grad_norm: 1.0
 max_grad_norm_ratio: 1.5
 
