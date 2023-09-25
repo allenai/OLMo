@@ -1,4 +1,4 @@
-run_name: v1-mix-medium-compile
+run_name: v1-mix-medium
 image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
 gpu_num: 128
 cluster: r12z3
@@ -6,7 +6,7 @@ gpu_type: a100_40gb
 integrations:
   - integration_type: git_repo
     git_repo: allenai/LLM
-    git_branch: petew/mcli-run  # make sure to update this!
+    git_branch: main  # make sure to update this!
     pip_install: -e .[all]
     ssh_clone: true
 command: |-
@@ -18,11 +18,7 @@ command: |-
   --node_rank $NODE_RANK \
   --nproc_per_node 8 \
   scripts/train.py configs/v1-mix-medium-mcli.yaml \
-    --run_name=v1-mix-medium \
-    --device_train_microbatch_size=2 \
-    --evaluators=[] \
-    --wandb=null \
-    --remote_save_folder=null
+    --run_name=v1-mix-medium
 env_variables:
   - name: omp_num_threads
     key: OMP_NUM_THREADS 
