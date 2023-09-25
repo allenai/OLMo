@@ -22,7 +22,10 @@ command: |-
     --model.init_fn=normal \
     --model.init_cutoff_factor=3 \
     --model.init_std=0.006 \
-    --evaluators=[]
+    --device_train_microbatch_size=2 \
+    --evaluators=[] \
+    --wandb=null \
+    --remote_save_folder=null
 env_variables:
   - name: omp_num_threads
     key: OMP_NUM_THREADS 
