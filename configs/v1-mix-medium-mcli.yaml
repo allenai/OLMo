@@ -34,7 +34,8 @@ model:
   init_device: meta
   init_fn: normal
 
-compile: null  # causes instability on AMD GPUs
+compile:
+  fullgraph: true
 
 optimizer:
   name: adamw
