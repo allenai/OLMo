@@ -35,7 +35,7 @@ model:
   init_fn: normal
 
 compile:
-  fullgraph: true
+  fullgraph: false
 
 optimizer:
   name: adamw
