@@ -112,32 +112,28 @@ def main(cfg: TrainConfig) -> None:
         wrap_policy = olmo_model.fsdp_wrap_fn
     elif cfg.fsdp.wrapping_strategy == FSDPWrapStrategy.size_based:
         wrap_policy = size_based_auto_wrap_policy
+
     if version.parse(torch.__version__) >= version.parse("2.1.0"):
         # This prevents any parameters from being initialized twice
         def dummy_init_fn(module: torch.nn.Module) -> None:
             module.to_empty(device=get_local_rank())
 
-        fsdp_model = FSDP(
-            olmo_model,
-            sharding_strategy=cfg.fsdp.sharding_strategy,
-            mixed_precision=cfg.fsdp_precision,
-            auto_wrap_policy=wrap_policy,
-            use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
-            limit_all_gathers=True,
-            device_id=get_local_rank(),
-            param_init_fn=dummy_init_fn,
-        )
-        olmo_model.reset_parameters()
+        param_init_fn = dummy_init_fn
     else:
-        fsdp_model = FSDP(
-            olmo_model,
-            sharding_strategy=cfg.fsdp.sharding_strategy,
-            mixed_precision=cfg.fsdp_precision,
-            auto_wrap_policy=wrap_policy,
-            use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
-            limit_all_gathers=True,
-            device_id=get_local_rank(),
-        )
+        param_init_fn = None
+
+    fsdp_model = FSDP(
+        olmo_model,
+        sharding_strategy=cfg.fsdp.sharding_strategy,
+        mixed_precision=cfg.fsdp_precision,
+        auto_wrap_policy=wrap_policy,
+        use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
+        limit_all_gathers=True,
+        device_id=get_local_rank(),
+        param_init_fn=param_init_fn,
+    )
+    if param_init_fn is not None:
+        olmo_model.reset_parameters()
 
     log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory() or 0)}")
 
