@@ -57,8 +57,9 @@ def main(cfg: TrainConfig) -> None:
 
     # Display and save configuration.
     if get_global_rank() == 0:
-        log.info("Configuration:")
-        log.info(cfg)
+        if cfg.data.paths is not None and len(cfg.data.paths) < 50:
+            log.info("Configuration:")
+            log.info(cfg)
         if not cfg.dry_run and (cfg.load_path is None or Path(cfg.load_path).parent != Path(cfg.save_folder)):
             # Save config.
             save_path = Path(cfg.save_folder) / "config.yaml"

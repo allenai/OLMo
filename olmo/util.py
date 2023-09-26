@@ -113,6 +113,7 @@ def setup_logging(log_filter_type: LogFilterType = LogFilterType.rank0_only) -> 
         logging.getLogger().addHandler(logzio_handler)
 
     logging.captureWarnings(True)
+    logging.getLogger("urllib3").setLevel(logging.ERROR)
 
 
 def excepthook(exctype, value, traceback):
