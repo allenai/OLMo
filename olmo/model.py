@@ -138,11 +138,11 @@ class LayerNorm(LayerNormBase):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.weight is None:
-            weight = torch.ones(self.normalized_shape, dtype=x.dtype, device=x.device)
+            weight = torch.ones(self.normalized_shape, dtype=x.dtype, device=x.device, requires_grad=True)
         else:
             weight = self.weight
         if self.bias is None:
-            bias = torch.zeros(self.normalized_shape, dtype=x.dtype, device=x.device)
+            bias = torch.zeros(self.normalized_shape, dtype=x.dtype, device=x.device, requires_grad=True)
         else:
             bias = self.bias
 
