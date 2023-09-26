@@ -466,7 +466,7 @@ def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool =
         raise FileExistsError(f"gs://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
     blob.upload_from_filename(source)
 
-
+logging.getLogger().info('Setting up s3 client')
 s3_client = boto3.client("s3")
 
 
