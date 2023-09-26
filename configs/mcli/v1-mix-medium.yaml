@@ -11,7 +11,7 @@ integrations:
     ssh_clone: true
 command: |-
   export OMP_NUM_THREADS=8
-  export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
+  #export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
   cd LLM
   torchrun \
   --master_addr $MASTER_ADDR \
