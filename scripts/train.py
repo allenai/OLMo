@@ -5,9 +5,9 @@ import logging
 import os
 import sys
 from functools import partial
+from packaging import version
 from pathlib import Path
 from typing import Optional, TextIO
-from packaging import version
 
 import torch
 import torch.distributed as dist
@@ -116,6 +116,7 @@ def main(cfg: TrainConfig) -> None:
         # This prevents any parameters from being initialized twice
         def dummy_init_fn(module: torch.nn.Module) -> None:
             module.to_empty(device=get_local_rank())
+
         fsdp_model = FSDP(
             olmo_model,
             sharding_strategy=cfg.fsdp.sharding_strategy,
@@ -124,7 +125,7 @@ def main(cfg: TrainConfig) -> None:
             use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
             limit_all_gathers=True,
             device_id=get_local_rank(),
-            param_init_fn=dummy_init_fn
+            param_init_fn=dummy_init_fn,
         )
         olmo_model.reset_parameters()
     else:
@@ -135,7 +136,7 @@ def main(cfg: TrainConfig) -> None:
             auto_wrap_policy=wrap_policy,
             use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
             limit_all_gathers=True,
-            device_id=get_local_rank()
+            device_id=get_local_rank(),
         )
 
     log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory() or 0)}")
