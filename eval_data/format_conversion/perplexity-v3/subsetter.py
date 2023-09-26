@@ -65,8 +65,12 @@ def read_input_file(input_file):
             if args.subdomain_from_file_name_minus_extension:
                 doc['subdomain'] = os.path.basename(input_file)[:-len(args.subdomain_from_file_name_minus_extension)]
             if args.dolma_subdomain_format:
+                if 'subdomain' in doc:
+                    doc['subsubdomain'] = doc['subdomain']
                 doc['subdomain'] = input_file.split('olmo-mix-v1_5-eval/documents/')[1].split('/')[0]
                 doc['source'] = 'Dolma-v1_5'
+            if args.field_has_subdomain:
+                doc['subdomain'] = doc[args.field_has_subdomain]
 
 
             data.append(doc)
@@ -194,8 +198,9 @@ if __name__ == "__main__":
     parser.add_argument("--dolma_subdomain_format", action="store_true", help="looks for subdomain at olmo-mix-v1_5-eval/documents/<subdomain> in file path")
     parser.add_argument("--dont_overflow_token_count", action="store_true", help="don't overflow the token count target")
     parser.add_argument("--dont_truncate_overflowing_docs", action="store_true", help="do not truncate overflowing docs")
+    parser.add_argument("--field_has_subdomain", type=str, help="Extracts subdomain from specified field name")
     args = parser.parse_args()
 
     assert not args.sample_evenly_by_subdomain or not args.sample_evenly_by_file, "can't sample evenly by file and subdomain"
-    assert not args.pile_subdomain_format or not args.source_has_subdomain, "can't have both pile subdomain format and source has subdomain"
+    assert not args.pile_subdomain_format or not args.source_has_subdomain or not args.field_has_subdomain or not args.dolma_subdomain_format or not args.subdomain_from_file_name_minus_extension, "can only specify one way to retrieve subdomain"
     main(args)

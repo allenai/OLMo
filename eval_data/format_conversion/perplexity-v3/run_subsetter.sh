@@ -179,3 +179,21 @@ python $SCRIPT_DIR/subsetter.py \
     --tokenizer "EleutherAI/gpt-neox-20b" \
     --split_token_count_target 10000000 \
     --sample_evenly_by_subdomain
+
+# NOT DEDUPLICATED SOURCES
+
+python $SCRIPT_DIR/subsetter.py \
+    --split_names val \
+    --input_files $(find raw/stack-olmo-mix-v1_5-eval/ -name *.gz) \
+    --output_dir $perplexity_dir/v0/dolma-v1_5_stack \
+    --seed 42 \
+    --dolma_subdomain_format \
+    --sample_evenly_by_file
+
+python $SCRIPT_DIR/subsetter.py \
+    --input_files v0/dolma-v1_5_stack/val/*.gz \
+    --output_dir $perplexity_dir/v3_not_deconned/dolma-v1_5 \
+    --seed 42 \
+    --tokenizer "EleutherAI/gpt-neox-20b" \
+    --split_token_count_target 500000 \
+    --sample_evenly_by_file 
