@@ -5,13 +5,13 @@ import logging
 import os
 import sys
 from functools import partial
-from packaging import version
 from pathlib import Path
 from typing import Optional, TextIO
 
 import torch
 import torch.distributed as dist
 import wandb
+from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 
