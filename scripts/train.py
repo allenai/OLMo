@@ -120,8 +120,9 @@ def main(cfg: TrainConfig) -> None:
         limit_all_gathers=True,
         device_id=get_local_rank(),
     )
-    # necessary for torch2.1.0 and beyond! Leads to double-init on earlier versions, but that's okay.
-    olmo_model.reset_parameters()
+    # necessary for torch 2.1.0 and beyond!
+    if torch.__version__ >= "2.1.0":
+        olmo_model.reset_parameters()
 
     log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory() or 0)}")
 
