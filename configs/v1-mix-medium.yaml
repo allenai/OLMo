@@ -35,6 +35,8 @@ model:
 
 compile: null  # causes instability on AMD GPUs
 
+time_limit: 10000  # just under 3h
+
 optimizer:
   name: adamw
   learning_rate: 3.0e-4
