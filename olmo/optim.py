@@ -19,6 +19,7 @@ __all__ = [
     "AdamW",
     "Scheduler",
     "CosWithWarmup",
+    "LinearWithWarmup",
     "InvSqrtWithWarmup",
     "MaxScheduler",
     "build_optimizer",
@@ -394,6 +395,25 @@ class CosWithWarmup(Scheduler):
 
 
 @dataclass
+class LinearWithWarmup(Scheduler):
+    warmup_steps: int
+    alpha_f: float = 0.1
+    t_max: Optional[int] = None
+
+    def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
+        max_steps = max_steps if self.t_max is None else self.t_max
+        eta_min = initial_lr * self.alpha_f
+        if step < self.warmup_steps:
+            return self._linear_warmup(initial_lr, step, self.warmup_steps)
+        elif step >= max_steps:
+            return eta_min
+        else:
+            step = step - self.warmup_steps
+            max_steps = max_steps - self.warmup_steps
+            return initial_lr - (initial_lr - eta_min) * (step / max_steps)
+
+
+@dataclass
 class InvSqrtWithWarmup(Scheduler):
     warmup_steps: int
 
@@ -552,6 +572,8 @@ def build_scheduler(cfg: TrainConfig) -> Scheduler:
     sched_cfg = cfg.scheduler
     if cfg.scheduler.name == SchedulerType.cosine_with_warmup:
         return CosWithWarmup(warmup_steps=sched_cfg.t_warmup, alpha_f=sched_cfg.alpha_f, t_max=sched_cfg.t_max)
+    elif cfg.scheduler.name == SchedulerType.linear_with_warmup:
+        return LinearWithWarmup(warmup_steps=sched_cfg.t_warmup, alpha_f=sched_cfg.alpha_f, t_max=sched_cfg.t_max)
     elif cfg.scheduler.name == SchedulerType.inverse_sqrt_with_warmup:
         return InvSqrtWithWarmup(warmup_steps=sched_cfg.t_warmup)
     elif cfg.scheduler.name == SchedulerType.max_scheduler:
