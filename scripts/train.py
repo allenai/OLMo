@@ -13,7 +13,6 @@ import torch.distributed as dist
 import wandb
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
-from torchmetrics import MeanMetric
 
 from olmo.config import CheckpointType, FSDPWrapStrategy, TrainConfig
 from olmo.data import build_train_dataloader
@@ -168,10 +167,6 @@ def main(cfg: TrainConfig) -> None:
         scheduler=scheduler,
         train_loader=train_loader,
         device=device,
-        ce_train_loss_metric=MeanMetric(nan_strategy="error").to(device),
-        z_train_loss_metric=None
-        if not cfg.softmax_auxiliary_loss
-        else MeanMetric(nan_strategy="error").to(device),
         evaluators=evaluators,
         indices_file=indices_file,
     ) as trainer:
