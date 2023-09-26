@@ -1,6 +1,6 @@
 run_name: v1-mix-medium
 image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
-gpu_num: 128
+gpu_num: 216
 cluster: r12z3
 gpu_type: a100_40gb
 integrations:
@@ -11,7 +11,7 @@ integrations:
     ssh_clone: true
 command: |-
   export OMP_NUM_THREADS=8
-  export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
+  #export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
   cd LLM
   torchrun \
   --master_addr $MASTER_ADDR \
@@ -20,4 +20,6 @@ command: |-
   --node_rank $NODE_RANK \
   --nproc_per_node 8 \
   scripts/train.py configs/v1-mix-medium-mcli.yaml \
-    --run_name=v1-mix-medium
+    --run_name=v1-mix-medium \
+    --scheduler.name=linear_with_warmup \
+    --global_train_batch_size=2160
