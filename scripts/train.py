@@ -132,6 +132,7 @@ def main(cfg: TrainConfig) -> None:
         device_id=get_local_rank(),
         param_init_fn=param_init_fn,
     )
+    # when param_init_fn is None, FSDP will call reset_parameters() automatically
     if param_init_fn is not None:
         olmo_model.reset_parameters()
 
