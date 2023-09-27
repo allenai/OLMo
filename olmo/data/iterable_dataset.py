@@ -134,7 +134,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
 
         # Lastly, slice the indices by data loader worker rank to avoid duplicates.
         worker_info = torch.utils.data.get_worker_info()
-        log.info('Worker id %d', worker_info.id if worker_info is not None else worker_info)
+        log.info('Worker id %d', worker_info.id if worker_info is not None else None)
         if worker_info is not None:
             # Note that each data loading worker gathers a whole batch at a time, and the workers
             # are called round-robin by rank. So to slice these up in a way that preserves order, regardless
@@ -159,7 +159,10 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         return (self._get_dataset_item(int(idx)) for idx in indices)
 
     def _get_dataset_item(self, idx: int) -> Dict[str, Any]:
+        worker_info = torch.utils.data.get_worker_info()
+        log.info('Worker id %d started retrieving at idx %d', worker_info.id if worker_info is not None else None, idx)
         item = self.dataset[idx]
+        log.info('Worker id %d finished retrieving at idx %d', worker_info.id if worker_info is not None else None, idx)
         if isinstance(item, dict):
             return dict(**item, index=idx)
         else:
