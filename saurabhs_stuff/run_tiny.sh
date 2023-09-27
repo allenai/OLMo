@@ -6,4 +6,5 @@ rm -rf "runs/${run_name}"
 torchrun --nproc-per-node 2 scripts/train.py saurabhs_stuff/c4-tiny.yaml \
   --run_name="${run_name}" \
   --save_folder="runs/${run_name}" \
-  --console_log_interval=1 
+  --console_log_interval=1 \
+  --wandb=null 
