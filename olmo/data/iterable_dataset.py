@@ -144,6 +144,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
                 left_overs = indices[
                     truncated_size + worker_info.id : truncated_size + worker_info.id + worker_info.num_workers
                 ]
+                log.info('left_overs', exc_info=left_overs)
                 indices = (
                     indices[:truncated_size]
                     .reshape((-1, self.device_batch_size))[worker_info.id :: worker_info.num_workers]  # type: ignore
