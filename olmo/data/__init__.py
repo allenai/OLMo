@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -13,9 +14,13 @@ from .memmap_dataset import MemMapDataset
 __all__ = ["MemMapDataset", "DataCollator", "IterableDataset", "build_eval_dataloader", "build_train_dataloader"]
 
 
+log = logging.getLogger(__name__)
+
+
 def build_memmap_dataset(
     train_config: TrainConfig, data_config: DataConfig, include_instance_metadata: bool = True
 ) -> MemMapDataset:
+    log.info('Building memmap dataset')
     paths: List[str]
     metadata: List[Dict[str, Any]] = []
     if data_config.paths:
@@ -89,6 +94,7 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
         else:
             work_dir.mkdir(exist_ok=True, parents=True)
     barrier()
+    log.info('Returning train dataloader...')
     return DataLoader(
         IterableDataset(
             dataset,  # type: ignore
