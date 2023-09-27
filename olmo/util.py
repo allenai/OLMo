@@ -380,7 +380,7 @@ def resource_path(folder: PathOrStr, fname: str) -> PathOrStr:
     if is_url(folder):
         from cached_path import cached_path
 
-        return cached_path(f"{folder}/{fname}")
+        return cached_path(f"{str(folder).rstrip('/')}/{fname}")
     else:
         return Path(folder) / fname
 
