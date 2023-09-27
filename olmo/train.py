@@ -902,6 +902,7 @@ class Trainer:
         canceled: bool = False
 
         with torch_profiler as p:
+            log.info("About to run first iteration of training")
             for batch in self.train_loader:
                 # Bookkeeping.
                 # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all

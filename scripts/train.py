@@ -91,9 +91,11 @@ def main(cfg: TrainConfig) -> None:
     seed_all(cfg.seed)
 
     # Construct data loader.
+    log.info('Building train data loader...')
     train_loader = build_train_dataloader(cfg)
 
     # Construct evaluators.
+    log.info('Building evalutators...')
     evaluators = build_evaluators(cfg, device)
     barrier()
 
