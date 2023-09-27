@@ -39,14 +39,18 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         work_dir: Optional[PathOrStr] = None,
         global_batch_size: Optional[int] = None,
     ):
+        log.info('Creating iterable dataset')
         self.dataset = dataset
         self.seed = seed
         self.start_index = start_index
         self.max_examples = max_examples
         self.shuffle = shuffle
         self.drop_last = drop_last
+        log.info('Getting global rank')
         self.rank = rank if rank is not None else get_global_rank()
+        log.info('Getting fs local rank')
         self.fs_local_rank = fs_local_rank if fs_local_rank is not None else get_fs_local_rank()
+        log.info('Getting world size')
         self.world_size = world_size if world_size is not None else get_world_size()
         # If the dataset length is evenly divisible by # of replicas, then there
         # is no need to drop any data, since the dataset will be split equally.
@@ -66,6 +70,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         self.global_indices_file: Optional[Path] = None
 
         if work_dir is not None:
+            log.info('Working on global data order indices')
             self.global_indices_file = Path(work_dir) / "global_indices.npy"
             if self.fs_local_rank == 0:
                 log.info("Saving global data order indices...")
