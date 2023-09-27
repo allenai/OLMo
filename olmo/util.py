@@ -76,7 +76,7 @@ def setup_logging(log_filter_type: LogFilterType = LogFilterType.rank0_only) -> 
         handler = RichHandler()
 
     def rank0_filter(record: logging.LogRecord) -> int:
-        if record.levelno > logging.INFO:
+        if record.levelno >= logging.INFO:
             return 1
         if getattr(record, "global_rank", 0) == 0:
             return 1
