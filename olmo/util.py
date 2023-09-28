@@ -14,6 +14,7 @@ import rich
 import torch
 import torch.distributed as dist
 import torch.nn as nn
+from botocore.config import Config
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.text import Text
@@ -469,7 +470,7 @@ def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool =
 logging.getLogger().info('Setting up s3 client')
 s3_client = None
 try:
-    s3_client = boto3.client("s3")
+    s3_client = boto3.client("s3", config=Config(max_pool_connections=1000))
 except ClientError as e:
     logging.getLogger().warning('s3 client setup')
     if int(e.response["Error"]["Code"]) != 404:
@@ -481,6 +482,7 @@ except RuntimeError as e:
 
 def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
     from botocore.exceptions import ClientError
+
     # logging.getLogger().warning('_s3_upload start')
     if not save_overwrite:
         try:
@@ -506,6 +508,7 @@ def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = 
 
 def _s3_file_size(bucket_name: str, key: str) -> int:
     from botocore.exceptions import ClientError
+
     # logging.getLogger().warning('_s3_file_size start')
 
     try:
@@ -522,6 +525,7 @@ def _s3_file_size(bucket_name: str, key: str) -> int:
 
 def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int) -> bytes:
     from botocore.exceptions import ClientError
+
     # logging.getLogger().warning('_s3_get_bytes_range start')
 
     try:
