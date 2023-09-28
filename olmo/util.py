@@ -86,7 +86,7 @@ def setup_logging(log_filter_type: LogFilterType = LogFilterType.rank0_only) -> 
     def local_rank0_filter(record: logging.LogRecord) -> int:
         if record.levelno > logging.INFO:
             return 1
-        if getattr(record, "local_rank", 0) != 0:
+        if getattr(record, "local_rank", 0) != 10000:
             return 1
         else:
             return 0
@@ -127,7 +127,7 @@ def excepthook(exctype, value, traceback):
         rich.get_console().print(Text(f"{exctype.__name__}:", style="red"), value, highlight=False)
     else:
         logging.getLogger().critical(
-            "Uncaught %s: %s", exctype.__name__, value, exc_info=(exctype, value, traceback)
+            "Uncaught %s: %s", exctype.__name__, value, exc_info=(exctype, value, traceback), stack_info=True, stacklevel=5
         )
 
 
@@ -467,61 +467,74 @@ def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool =
     blob.upload_from_filename(source)
 
 logging.getLogger().info('Setting up s3 client')
-s3_client = boto3.client("s3")
+s3_client = None
+try:
+    s3_client = boto3.client("s3")
+except ClientError as e:
+    logging.getLogger().warning('s3 client setup')
+    if int(e.response["Error"]["Code"]) != 404:
+        raise
+except RuntimeError as e:
+    logging.getLogger().warning('s3 client setup')
+    raise
 
 
 def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
     from botocore.exceptions import ClientError
-
+    logging.getLogger().warning('_s3_upload start')
     if not save_overwrite:
         try:
             s3_client.head_object(Bucket=bucket_name, Key=key)
             raise FileExistsError(f"s3://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
         except ClientError as e:
+            logging.getLogger().warning('_s3_upload head_object')
             if int(e.response["Error"]["Code"]) != 404:
                 raise
         except RuntimeError as e:
-            logging.warning('_s3_upload head_object')
+            logging.getLogger().warning('_s3_upload head_object')
             raise
     try:
         s3_client.upload_file(source, bucket_name, key)
     except ClientError as e:
+        logging.getLogger().warning('_s3_upload upload_file')
         if int(e.response["Error"]["Code"]) != 404:
             raise
     except RuntimeError as e:
-        logging.warning('_s3_upload upload_file')
+        logging.getLogger().warning('_s3_upload upload_file')
         raise
 
 
 def _s3_file_size(bucket_name: str, key: str) -> int:
     from botocore.exceptions import ClientError
+    logging.getLogger().warning('_s3_file_size start')
 
     try:
         return s3_client.head_object(Bucket=bucket_name, Key=key)["ContentLength"]
     except ClientError as e:
-        logging.warning('_s3_file_size')
+        logging.getLogger().warning('_s3_file_size')
         if int(e.response["Error"]["Code"]) != 404:
             raise
         raise FileNotFoundError(f"s3://{bucket_name}/{key}")
     except RuntimeError as e:
-        logging.warning('_s3_file_size')
+        logging.getLogger().warning('_s3_file_size')
         raise
 
 
 def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int) -> bytes:
     from botocore.exceptions import ClientError
+    logging.getLogger().warning('_s3_get_bytes_range start')
 
     try:
         return s3_client.get_object(
             Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
         )["Body"].read()
     except ClientError as e:
-        logging.warning('_s3_get_bytes_range')
+        logging.getLogger().warning('_s3_get_bytes_range')
         if int(e.response["Error"]["Code"]) != 404:
             raise
         raise FileNotFoundError(f"s3://{bucket_name}/{key}")
     except RuntimeError as e:
-        logging.warning('_s3_get_bytes_range')
+        logging.getLogger().warning('_s3_get_bytes_range')
         raise
 
 
