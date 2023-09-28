@@ -496,7 +496,7 @@ def _s3_file_size(bucket_name: str, key: str) -> int:
         raise FileNotFoundError(f"s3://{bucket_name}/{key}")
 
 
-def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int, max_attempts: int = 2) -> bytes:
+def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int, max_attempts: int = 3) -> bytes:
     from botocore.exceptions import ClientError
 
     err = None
