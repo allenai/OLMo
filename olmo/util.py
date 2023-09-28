@@ -481,13 +481,13 @@ except RuntimeError as e:
 
 def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
     from botocore.exceptions import ClientError
-    logging.getLogger().warning('_s3_upload start')
+    # logging.getLogger().warning('_s3_upload start')
     if not save_overwrite:
         try:
             s3_client.head_object(Bucket=bucket_name, Key=key)
             raise FileExistsError(f"s3://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
         except ClientError as e:
-            logging.getLogger().warning('_s3_upload head_object')
+            # logging.getLogger().warning('_s3_upload head_object')
             if int(e.response["Error"]["Code"]) != 404:
                 raise
         except RuntimeError as e:
@@ -496,7 +496,7 @@ def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = 
     try:
         s3_client.upload_file(source, bucket_name, key)
     except ClientError as e:
-        logging.getLogger().warning('_s3_upload upload_file')
+        # logging.getLogger().warning('_s3_upload upload_file')
         if int(e.response["Error"]["Code"]) != 404:
             raise
     except RuntimeError as e:
@@ -506,12 +506,12 @@ def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = 
 
 def _s3_file_size(bucket_name: str, key: str) -> int:
     from botocore.exceptions import ClientError
-    logging.getLogger().warning('_s3_file_size start')
+    # logging.getLogger().warning('_s3_file_size start')
 
     try:
         return s3_client.head_object(Bucket=bucket_name, Key=key)["ContentLength"]
     except ClientError as e:
-        logging.getLogger().warning('_s3_file_size')
+        # logging.getLogger().warning('_s3_file_size')
         if int(e.response["Error"]["Code"]) != 404:
             raise
         raise FileNotFoundError(f"s3://{bucket_name}/{key}")
@@ -522,14 +522,14 @@ def _s3_file_size(bucket_name: str, key: str) -> int:
 
 def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int) -> bytes:
     from botocore.exceptions import ClientError
-    logging.getLogger().warning('_s3_get_bytes_range start')
+    # logging.getLogger().warning('_s3_get_bytes_range start')
 
     try:
         return s3_client.get_object(
             Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
         )["Body"].read()
     except ClientError as e:
-        logging.getLogger().warning('_s3_get_bytes_range')
+        # logging.getLogger().warning('_s3_get_bytes_range')
         if int(e.response["Error"]["Code"]) != 404:
             raise
         raise FileNotFoundError(f"s3://{bucket_name}/{key}")
