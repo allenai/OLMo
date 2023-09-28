@@ -14,6 +14,7 @@ import rich
 import torch
 import torch.distributed as dist
 import torch.nn as nn
+from botocore.exceptions import ResponseStreamingError
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.text import Text
@@ -21,7 +22,7 @@ from rich.traceback import Traceback
 
 from .aliases import PathOrStr
 from .config import LogFilterType
-from .exceptions import OlmoCliError, OlmoError
+from .exceptions import OlmoCliError, OlmoError, OlmoNetworkError
 
 _log_extra_fields: Dict[str, Any] = {}
 
@@ -495,17 +496,32 @@ def _s3_file_size(bucket_name: str, key: str) -> int:
         raise FileNotFoundError(f"s3://{bucket_name}/{key}")
 
 
-def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int) -> bytes:
+def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int, max_attempts: int = 2) -> bytes:
     from botocore.exceptions import ClientError
 
-    try:
-        return s3_client.get_object(
-            Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
-        )["Body"].read()
-    except ClientError as e:
-        if int(e.response["Error"]["Code"]) != 404:
-            raise
-        raise FileNotFoundError(f"s3://{bucket_name}/{key}")
+    err = None
+    for _ in range(max_attempts):
+        try:
+            return s3_client.get_object(
+                Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
+            )["Body"].read()
+        except ClientError as e:
+            if int(e.response["Error"]["Code"]) == 404:
+                raise FileNotFoundError(f"s3://{bucket_name}/{key}")
+            err = e
+        except ResponseStreamingError as e:
+            # ResponseStreamingError can happen as a result of a failed read from
+            # the stream (http.client.IncompleteRead) Retrying can help in this case.
+            err = e
+
+    # When torch's DataLoader intercepts exceptions, it may try to re-raise them
+    # by recalling their constructor with a single message arg. Torch has some
+    # logic to deal with the absence of a single-parameter constructor, but it
+    # doesn't gracefully handle other possible failures in calling such a constructor
+    # This can cause an irrelevant exception (e.e. KeyError: 'error'), resulting
+    # in us losing the true exception info. To avoid this, we change the exception
+    # to a type that has a single-parameter constructor.
+    raise OlmoNetworkError('Failed to get bytes range from s3') from err
 
 
 def is_weight_decay_module(module: nn.Module) -> bool:
