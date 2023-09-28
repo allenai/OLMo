@@ -693,7 +693,10 @@ class Olmo(nn.Module):
             self.transformer.update(
                 {
                     "ff_out": nn.Linear(
-                        config.d_model, config.embedding_size or config.vocab_size, bias=config.include_bias
+                        config.d_model,
+                        config.embedding_size or config.vocab_size,
+                        bias=config.include_bias,
+                        device=config.init_device,
                     )
                 }
             )
