@@ -478,10 +478,19 @@ def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = 
             s3_client.head_object(Bucket=bucket_name, Key=key)
             raise FileExistsError(f"s3://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
         except ClientError as e:
-            logging.warning('_s3_upload')
             if int(e.response["Error"]["Code"]) != 404:
                 raise
-    s3_client.upload_file(source, bucket_name, key)
+        except RuntimeError as e:
+            logging.warning('_s3_upload head_object')
+            raise
+    try:
+        s3_client.upload_file(source, bucket_name, key)
+    except ClientError as e:
+        if int(e.response["Error"]["Code"]) != 404:
+            raise
+    except RuntimeError as e:
+        logging.warning('_s3_upload upload_file')
+        raise
 
 
 def _s3_file_size(bucket_name: str, key: str) -> int:
@@ -494,6 +503,9 @@ def _s3_file_size(bucket_name: str, key: str) -> int:
         if int(e.response["Error"]["Code"]) != 404:
             raise
         raise FileNotFoundError(f"s3://{bucket_name}/{key}")
+    except RuntimeError as e:
+        logging.warning('_s3_file_size')
+        raise
 
 
 def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int) -> bytes:
@@ -508,6 +520,9 @@ def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes:
         if int(e.response["Error"]["Code"]) != 404:
             raise
         raise FileNotFoundError(f"s3://{bucket_name}/{key}")
+    except RuntimeError as e:
+        logging.warning('_s3_get_bytes_range')
+        raise
 
 
 def is_weight_decay_module(module: nn.Module) -> bool:
