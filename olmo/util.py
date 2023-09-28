@@ -502,6 +502,7 @@ def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes:
             Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
         )["Body"].read()
     except ClientError as e:
+        logging.warning('S3 get bytes range failure')
         if int(e.response["Error"]["Code"]) != 404:
             raise
         raise FileNotFoundError(f"s3://{bucket_name}/{key}")
