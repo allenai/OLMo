@@ -127,7 +127,7 @@ def excepthook(exctype, value, traceback):
         rich.get_console().print(Text(f"{exctype.__name__}:", style="red"), value, highlight=False)
     else:
         logging.getLogger().critical(
-            "Uncaught %s: %s", exctype.__name__, value, exc_info=(exctype, value, traceback), stack_info=True, stacklevel=5
+            "Uncaught %s: %s", exctype.__name__, value, exc_info=(exctype, value, traceback), stack_info=True
         )
 
 
@@ -475,7 +475,7 @@ except ClientError as e:
     if int(e.response["Error"]["Code"]) != 404:
         raise
 except RuntimeError as e:
-    logging.getLogger().warning('s3 client setup')
+    logging.getLogger().warning('s3 client setup failure')
     raise
 
 
@@ -491,7 +491,7 @@ def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = 
             if int(e.response["Error"]["Code"]) != 404:
                 raise
         except RuntimeError as e:
-            logging.getLogger().warning('_s3_upload head_object')
+            logging.getLogger().warning('_s3_upload head_object failure')
             raise
     try:
         s3_client.upload_file(source, bucket_name, key)
@@ -500,7 +500,7 @@ def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = 
         if int(e.response["Error"]["Code"]) != 404:
             raise
     except RuntimeError as e:
-        logging.getLogger().warning('_s3_upload upload_file')
+        logging.getLogger().warning('_s3_upload upload_file failure')
         raise
 
 
@@ -516,7 +516,7 @@ def _s3_file_size(bucket_name: str, key: str) -> int:
             raise
         raise FileNotFoundError(f"s3://{bucket_name}/{key}")
     except RuntimeError as e:
-        logging.getLogger().warning('_s3_file_size')
+        logging.getLogger().warning('_s3_file_size failure')
         raise
 
 
@@ -534,7 +534,7 @@ def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes:
             raise
         raise FileNotFoundError(f"s3://{bucket_name}/{key}")
     except RuntimeError as e:
-        logging.getLogger().warning('_s3_get_bytes_range')
+        logging.getLogger().warning('_s3_get_bytes_range failure')
         raise
 
 
