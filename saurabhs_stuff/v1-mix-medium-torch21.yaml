@@ -1,0 +1,25 @@
+run_name: v1-mix-medium-torch21
+image: allenai/pytorch:2.1.0-cuda11.8-python3.10
+gpu_num: 128
+cluster: r12z3
+gpu_type: a100_40gb
+integrations:
+  - integration_type: git_repo
+    git_repo: allenai/LLM
+    git_branch: saurabhs/torch2.1test
+    pip_install: -e .[all]
+    ssh_clone: true
+command: |-
+  export OMP_NUM_THREADS=8
+  #export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
+  cd LLM
+  torchrun \
+  --master_addr $MASTER_ADDR \
+  --master_port $MASTER_PORT \
+  --nnodes $NUM_NODES \
+  --node_rank $NODE_RANK \
+  --nproc_per_node 8 \
+  scripts/train.py configs/v1-mix-medium-mcli.yaml \
+    --run_name=v1-mix-medium-torch21 \
+    --scheduler.name=linear_with_warmup \
+    --global_train_batch_size=2160
