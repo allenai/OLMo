@@ -689,6 +689,14 @@ class Olmo(nn.Module):
             self.transformer.update(
                 {"wpe": nn.Embedding(config.max_sequence_length, config.d_model, device=config.init_device)}
             )
+        if not config.weight_tying:
+            self.transformer.update(
+                {
+                    "ff_out": nn.Linear(
+                        config.d_model, config.embedding_size or config.vocab_size, bias=config.include_bias
+                    )
+                }
+            )
         # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
         if init_params and self.config.init_device != "meta":
             self.reset_parameters()
@@ -888,7 +896,10 @@ class Olmo(nn.Module):
 
         # Get logits.
         # shape: (batch_size, seq_len or 1, vocab_size)
-        logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
+        if self.config.weight_tying:
+            logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
+        else:
+            logits = self.transformer.ff_out(x)  # type: ignore
         if self.config.scale_logits:
             logits.mul_(1 / math.sqrt(self.config.d_model))
 
