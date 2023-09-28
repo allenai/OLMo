@@ -20,6 +20,8 @@ import torch.distributed as dist
 import torch.nn.functional as F
 import wandb
 from packaging import version
+from torch.distributed.checkpoint import save_state_dict, FileSystemWriter, load_state_dict, FileSystemReader
+from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.fsdp import FullStateDictConfig
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import StateDictType
@@ -248,11 +250,7 @@ class Trainer:
             state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
             optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
         ):
-            # NOTE: Alternatively we could use the checkpointing method in this test
-            # https://github.com/pytorch/pytorch/blob/main/test/distributed/checkpoint/test_fsdp_optim_state.py
-            # but we've had issues with that on AMD GPUs. See
-            # https://github.com/pytorch/pytorch/issues/100041
-            #  checkpoint.save_state_dict(self.state_dict(), checkpoint.FileSystemWriter(checkpoint_dir))
+            save_state_dict(self.state_dict(), FileSystemWriter(checkpoint_dir))
             torch.save(self.state_dict(), checkpoint_dir_tmp / f"rank{get_global_rank()}.pt")
             # Save config too.
             if get_global_rank() == 0:
@@ -334,39 +332,21 @@ class Trainer:
             # but we've had issues with that on AMD GPUs. See
             # https://github.com/pytorch/pytorch/issues/100041
             # But basically it would look like this.
+
             # Load the serialized state dict in place.
-            #  state_dict = self.state_dict()
-            #  del state_dict["optim"]  # Can't load optimizer together with the model
-            #  checkpoint.load_state_dict(state_dict, checkpoint.FileSystemReader(load_path))
-            #  self.fsdp_model.load_state_dict(state_dict["model"])
-            # Load other state...
-            # Load optim state.
-            #  optim_state = load_sharded_optimizer_state_dict(
-            #      model_state_dict=state_dict["model"],
-            #      optimizer_key="optim",
-            #      storage_reader=checkpoint.FileSystemReader(load_path),
-            #  )
-            #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)
-            #  self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
-
-            # Deserialize state dictionary.
-            state_dict = torch.load(resource_path(load_path, f"rank{get_global_rank()}.pt"))
-
-            # Load model and optimizer state.
-            log.info("Loading model state...")
+            state_dict = self.state_dict()
+            del state_dict["optim"]  # Can't load optimizer together with the model
+            load_state_dict(state_dict, FileSystemReader(load_path))
             self.fsdp_model.load_state_dict(state_dict["model"])
-            log.info("Loading optimizer state...")
-            # NOTE: careful, the order of these arguments has changed since the 2.0 release.
-            if version.parse(torch.__version__) < version.parse("2.1.0"):
-                #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
-                flattened_osd = FSDP.optim_state_dict_to_load(state_dict["optim"], self.fsdp_model, self.optim)  # type: ignore
-            else:
-                #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
-                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, state_dict["optim"])  # type: ignore
-            self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
 
-            # Load non-tensor state.
-            self.load_non_tensor_state_dict(state_dict)
+            # Load optim state.
+            optim_state = load_sharded_optimizer_state_dict(
+                model_state_dict=state_dict["model"],
+                optimizer_key="optim",
+                storage_reader=FileSystemReader(load_path),
+            )
+            flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)
+            self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
 
             del state_dict, flattened_osd
 
