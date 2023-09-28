@@ -731,6 +731,10 @@ class Olmo(nn.Module):
         # Top-level layer norm.
         self.transformer.ln_f.reset_parameters()  # type: ignore
 
+        # Output weights.
+        if hasattr(self.transformer, "ff_out"):
+            init_weights(self.config, self.transformer.ff_out)  # type: ignore
+
         # Let the blocks handle themselves.
         for block in self.transformer.blocks:  # type: ignore
             block.reset_parameters()  # type: ignore
