@@ -1,4 +1,4 @@
-run_name: v1_5-mix-medium
+run_name: v1-5-mix-medium  # can't use underscores or "."
 image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
 gpu_num: 216
 cluster: r12z3
