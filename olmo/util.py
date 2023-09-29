@@ -10,13 +10,12 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
 import boto3
+import botocore.exceptions as boto_exceptions
 import rich
 import torch
 import torch.distributed as dist
 import torch.nn as nn
-from botocore import exceptions
 from botocore.config import Config
-from botocore.exceptions import HTTPClientError
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.text import Text
@@ -478,8 +477,6 @@ def _wait_before_retry(attempt: int):
 
 
 def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False, max_attempts: int = 3):
-    from botocore.exceptions import ClientError
-
     err: Optional[Exception] = None
     if not save_overwrite:
         for attempt in range(1, max_attempts + 1):
@@ -488,7 +485,7 @@ def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = 
                 raise FileExistsError(
                     f"s3://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it."
                 )
-            except ClientError as e:
+            except boto_exceptions.ClientError as e:
                 if int(e.response["Error"]["Code"]) == 404:
                     err = None
                     break
@@ -508,13 +505,11 @@ def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = 
 
 
 def _s3_file_size(bucket_name: str, key: str, max_attempts: int = 3) -> int:
-    from botocore.exceptions import ClientError
-
     err: Optional[Exception] = None
     for attempt in range(1, max_attempts + 1):
         try:
             return s3_client.head_object(Bucket=bucket_name, Key=key)["ContentLength"]
-        except ClientError as e:
+        except boto_exceptions.ClientError as e:
             if int(e.response["Error"]["Code"]) == 404:
                 raise FileNotFoundError(f"s3://{bucket_name}/{key}") from e
             err = e
@@ -529,19 +524,17 @@ def _s3_file_size(bucket_name: str, key: str, max_attempts: int = 3) -> int:
 def _s3_get_bytes_range(
     bucket_name: str, key: str, bytes_start: int, num_bytes: int, max_attempts: int = 3
 ) -> bytes:
-    from botocore.exceptions import ClientError
-
     err: Optional[Exception] = None
     for attempt in range(1, max_attempts + 1):
         try:
             return s3_client.get_object(
                 Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
             )["Body"].read()
-        except ClientError as e:
+        except boto_exceptions.ClientError as e:
             if int(e.response["Error"]["Code"]) == 404:
                 raise FileNotFoundError(f"s3://{bucket_name}/{key}") from e
             err = e
-        except (HTTPClientError, exceptions.ConnectionError) as e:
+        except (boto_exceptions.HTTPClientError, boto_exceptions.ConnectionError) as e:
             # ResponseStreamingError (subclass of HTTPClientError) can happen as
             # a result of a failed read from the stream (http.client.IncompleteRead).
             # Retrying can help in this case.
