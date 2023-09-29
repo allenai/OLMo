@@ -249,14 +249,15 @@ class RotaryEmbedding(nn.Module):
 
     def __init__(self, config: ModelConfig):
         super().__init__()
-        dim = config.d_model // config.n_heads
-        inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2, device=config.init_device).float() / dim))
-        self.register_buffer("inv_freq", inv_freq)
+        self.config = config
 
-    def forward(self, max_seq_len, *, device: Union[str, torch.device]):
-        seq = torch.arange(max_seq_len, device=device, dtype=self.inv_freq.dtype)  # type: ignore
-        freqs = einsum("i , j -> i j", seq, self.inv_freq)
-        return torch.cat((freqs, freqs), dim=-1)
+    def forward(self, max_seq_len, *, device: Union[str, torch.device]) -> Tuple[torch.Tensor, torch.Tensor]:
+        dim = self.config.d_model // self.config.n_heads
+        inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2, device=device, dtype=torch.float) / dim))
+        seq = torch.arange(max_seq_len, device=device, dtype=torch.float)
+        freqs = einsum("i , j -> i j", seq, inv_freq)
+        positions = torch.cat((freqs, freqs), dim=-1)
+        return positions.sin()[None, None, :, :], positions.cos()[None, None, :, :]
 
 
 def rotate_half(x: torch.Tensor) -> torch.Tensor:
@@ -266,8 +267,8 @@ def rotate_half(x: torch.Tensor) -> torch.Tensor:
     return torch.cat((-x2, x1), dim=-1)
 
 
-def apply_rotary_pos_emb(pos: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-    out = (t * pos.cos()) + (rotate_half(t) * pos.sin())
+def apply_rotary_pos_emb(pos_sin: torch.Tensor, pos_cos: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+    out = (t * pos_cos) + (rotate_half(t) * pos_sin)
     return out.to(t.dtype)
 
 
@@ -387,15 +388,24 @@ class OlmoBlock(nn.Module):
             layer_id=self.layer_id,
         )
 
-    def get_rotary_embedding(self, seq_len: int, device: torch.device) -> torch.Tensor:
-        if (pos_emb := self.__cache.get("rope_pos_emb")) is not None and pos_emb.shape[-2] >= seq_len:
-            if pos_emb.device != device:
-                pos_emb = pos_emb.to(device)
-                self.__cache["rope_pos_emb"] = pos_emb
-            return pos_emb[:seq_len]
-        pos_emb = self.rotary_emb(seq_len, device=device)
-        self.__cache["rope_pos_emb"] = pos_emb
-        return pos_emb
+    def get_rotary_embedding(self, seq_len: int, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
+        if (
+            (pos_sin := self.__cache.get("rope_pos_sin")) is not None
+            and (pos_cos := self.__cache.get("rope_pos_cos")) is not None
+            and pos_sin.shape[-2] >= seq_len
+            and pos_cos.shape[-2] >= seq_len
+        ):
+            if pos_sin.device != device:
+                pos_sin = pos_sin.to(device)
+                self.__cache["rope_pos_sin"] = pos_sin
+            if pos_cos.device != device:
+                pos_cos = pos_cos.to(device)
+                self.__cache["rope_pos_cos"] = pos_cos
+            return pos_sin[:, :, :seq_len, :], pos_cos[:, :, :seq_len, :]
+        pos_sin, pos_cos = self.rotary_emb(seq_len, device=device)
+        self.__cache["rope_pos_sin"] = pos_sin
+        self.__cache["rope_pos_cos"] = pos_cos
+        return pos_sin, pos_cos
 
     def attention(
         self,
@@ -442,9 +452,11 @@ class OlmoBlock(nn.Module):
 
         if self.config.rope:
             # Apply rotary embeddings.
-            positions = self.get_rotary_embedding(key_len, q.device)
-            q = apply_rotary_pos_emb(positions[key_len - query_len : key_len], q)
-            k = apply_rotary_pos_emb(positions, k)
+            pos_sin, pos_cos = self.get_rotary_embedding(key_len, q.device)
+            q = apply_rotary_pos_emb(
+                pos_sin[:, :, key_len - query_len : key_len, :], pos_cos[:, :, key_len - query_len : key_len, :], q
+            )
+            k = apply_rotary_pos_emb(pos_sin, pos_cos, k)
 
         if attention_bias is not None:
             attention_bias = attention_bias[:, :, key_len - query_len : key_len, :key_len]
