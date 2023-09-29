@@ -10,7 +10,7 @@ import logging
 import math
 import os
 from abc import abstractmethod
-from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, Union, cast
+from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
 
 import torch
 import torch.backends.cuda
