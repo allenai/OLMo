@@ -10,7 +10,7 @@ import logging
 import math
 import os
 from abc import abstractmethod
-from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
+from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, Union, cast
 
 import torch
 import torch.backends.cuda
@@ -44,6 +44,13 @@ __all__ = [
 
 
 log = logging.getLogger(__name__)
+
+
+def _non_meta_init_device(config: ModelConfig) -> torch.device:
+    if config.init_device is not None and config.init_device != "meta":
+        return torch.device(config.init_device)
+    else:
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class Dropout(nn.Dropout):
@@ -246,7 +253,7 @@ class RotaryEmbedding(nn.Module):
         inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2, device=config.init_device).float() / dim))
         self.register_buffer("inv_freq", inv_freq)
 
-    def forward(self, max_seq_len, *, device):
+    def forward(self, max_seq_len, *, device: Union[str, torch.device]):
         seq = torch.arange(max_seq_len, device=device, dtype=self.inv_freq.dtype)  # type: ignore
         freqs = einsum("i , j -> i j", seq, self.inv_freq)
         return torch.cat((freqs, freqs), dim=-1)
@@ -317,10 +324,11 @@ class OlmoBlock(nn.Module):
     A base class for transformer block implementations.
     """
 
-    def __init__(self, layer_id: int, config: ModelConfig):
+    def __init__(self, layer_id: int, config: ModelConfig, cache: Optional[Dict[str, torch.Tensor]] = None):
         super().__init__()
         self.layer_id = layer_id
         self.config = config
+        self.__cache = cache or {}
         assert config.d_model % config.n_heads == 0
 
         # Dropout.
@@ -358,9 +366,8 @@ class OlmoBlock(nn.Module):
         # Rotary embeddings.
         if self.config.rope:
             self.rotary_emb = RotaryEmbedding(config)
-            self.register_buffer(
-                "pos_emb", self.rotary_emb(config.max_sequence_length, device=config.init_device), persistent=False
-            )
+            # Warm up cache.
+            self.get_rotary_embedding(config.max_sequence_length, _non_meta_init_device(config))
 
     def reset_parameters(self):
         if self.k_norm is not None:
@@ -380,12 +387,14 @@ class OlmoBlock(nn.Module):
             layer_id=self.layer_id,
         )
 
-    def get_rotary_embedding(self, seq_len: int, device: Optional[torch.device]) -> torch.Tensor:
-        if self.pos_emb is not None and self.pos_emb.shape[-2] >= seq_len:  # type: ignore
-            return self.pos_emb[:seq_len]  # type: ignore
-
+    def get_rotary_embedding(self, seq_len: int, device: torch.device) -> torch.Tensor:
+        if (pos_emb := self.__cache.get("rope_pos_emb")) is not None and pos_emb.shape[-2] >= seq_len:
+            if pos_emb.device != device:
+                pos_emb = pos_emb.to(device)
+                self.__cache["rope_pos_emb"] = pos_emb
+            return pos_emb[:seq_len]
         pos_emb = self.rotary_emb(seq_len, device=device)
-        self.register_buffer("pos_emb", pos_emb, persistent=False)
+        self.__cache["rope_pos_emb"] = pos_emb
         return pos_emb
 
     def attention(
@@ -466,11 +475,13 @@ class OlmoBlock(nn.Module):
         raise NotImplementedError
 
     @classmethod
-    def build(cls, layer_id: int, config: ModelConfig) -> OlmoBlock:
+    def build(
+        cls, layer_id: int, config: ModelConfig, cache: Optional[Dict[str, torch.Tensor]] = None
+    ) -> OlmoBlock:
         if config.block_type == BlockType.sequential:
-            return OlmoSequentialBlock(layer_id, config)
+            return OlmoSequentialBlock(layer_id, config, cache=cache)
         elif config.block_type == BlockType.parallel:
-            return OlmoParallelBlock(layer_id, config)
+            return OlmoParallelBlock(layer_id, config, cache=cache)
         else:
             raise NotImplementedError(f"not sure how to handle block type '{config.block_type}'")
 
@@ -481,8 +492,8 @@ class OlmoSequentialBlock(OlmoBlock):
     (plus another skip connection).
     """
 
-    def __init__(self, layer_id: int, config: ModelConfig):
-        super().__init__(layer_id, config)
+    def __init__(self, layer_id: int, config: ModelConfig, cache: Optional[Dict[str, torch.Tensor]] = None):
+        super().__init__(layer_id, config, cache=cache)
         # Layer norms.
         self.attn_norm = LayerNorm.build(config)
         self.ff_norm = LayerNorm.build(config)
@@ -546,8 +557,8 @@ class OlmoParallelBlock(OlmoBlock):
     to fuse the output projections, but we found that didn't help.
     """
 
-    def __init__(self, layer_id: int, config: ModelConfig):
-        super().__init__(layer_id, config)
+    def __init__(self, layer_id: int, config: ModelConfig, cache: Optional[Dict[str, torch.Tensor]] = None):
+        super().__init__(layer_id, config, cache=cache)
         self.norm = LayerNorm.build(config)
         # Fused attention and feed-forward projection.
         # NOTE: we could also fuse the attention and feed-forward output projections
@@ -624,22 +635,20 @@ class OlmoGenerateOutput(NamedTuple):
     """
 
 
-def causal_attention_bias(config: ModelConfig, device: torch.device) -> torch.FloatTensor:
-    size = config.max_sequence_length
+def causal_attention_bias(seq_len: int, device: torch.device) -> torch.FloatTensor:
     att_bias = torch.triu(
-        torch.ones(size, size, device=device, dtype=torch.float),
+        torch.ones(seq_len, seq_len, device=device, dtype=torch.float),
         diagonal=1,
     )
     att_bias.masked_fill_(att_bias == 1, float("-inf"))
-    return att_bias.view(1, 1, size, size)  # type: ignore
+    return att_bias.view(1, 1, seq_len, seq_len)  # type: ignore
 
 
-def alibi_attention_bias(config: ModelConfig, device: torch.device) -> torch.FloatTensor:
-    size = config.max_sequence_length
-    alibi_bias = torch.arange(1 - size, 1, dtype=torch.float, device=device).view(1, 1, 1, size)
+def alibi_attention_bias(seq_len: int, config: ModelConfig, device: torch.device) -> torch.FloatTensor:
+    alibi_bias = torch.arange(1 - seq_len, 1, dtype=torch.float, device=device).view(1, 1, 1, seq_len)
 
     # shape: (1, 1, seq_len, seq_len)
-    alibi_bias = alibi_bias - torch.arange(1 - size, 1, dtype=torch.float, device=device).view(1, 1, size, 1)
+    alibi_bias = alibi_bias - torch.arange(1 - seq_len, 1, dtype=torch.float, device=device).view(1, 1, seq_len, 1)
     alibi_bias.abs_().mul_(-1)
 
     # shape: (n_heads,)
@@ -654,6 +663,14 @@ class Olmo(nn.Module):
     def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
         self.config = config
+
+        # Cache for attention bias and other things that would normally be stored as buffers.
+        # We avoid using buffers because we've run into various issues doing so with FSDP.
+        # In general it appears the way FSDP handles buffers is not well-defined.
+        # It doesn't shard them but apparently it does synchronize them across processes, which we want to avoid
+        # since (A) it isn't necessary, and (B) we have `-inf` in these biases which might get turned into
+        # NaNs when they're synchronized due to casting or some other issue.
+        self.__cache: Dict[str, torch.Tensor] = {}
 
         # Validate config.
         if self.config.alibi and self.config.flash_attention:
@@ -681,7 +698,9 @@ class Olmo(nn.Module):
                     config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
                 ),
                 emb_drop=Dropout(config.embedding_dropout),
-                blocks=nn.ModuleList([OlmoBlock.build(i, config) for i in range(config.n_layers)]),
+                blocks=nn.ModuleList(
+                    [OlmoBlock.build(i, config, cache=self.__cache) for i in range(config.n_layers)]
+                ),
                 ln_f=LayerNorm.build(config),
             )
         )
@@ -705,20 +724,10 @@ class Olmo(nn.Module):
             self.reset_parameters()
         self.__num_fwd_flops: Optional[int] = None
 
-        # Attention bias cache.
-        # We could cache these as buffers, but we've run into various issues doing that with FSDP.
-        # In general it appears the way FSDP handles buffers is not well-defined.
-        # It doesn't shard them but apparently it does synchronize them across processes, which we want to avoid
-        # since (A) it isn't necessary, and (B) we have `-inf` in these biases which might get turned into
-        # NaNs when they're synchronized due to casting or some other issue.
-        self.__bias_cache: Dict[str, Optional[torch.FloatTensor]] = {
-            "causal_attention_bias": None,
-            "alibi_attention_bias": None,
-        }
+        # Warm up cache.
         if self.config.alibi:
-            # Warm up cache.
-            self.causal_attention_bias
-            self.alibi_attention_bias
+            self.get_causal_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
+            self.get_alibi_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
 
     def reset_parameters(self):
         log.info("Initializing model parameters...")
@@ -742,38 +751,29 @@ class Olmo(nn.Module):
         for block in self.transformer.blocks:  # type: ignore
             block.reset_parameters()  # type: ignore
 
-    @property
-    def device(self) -> torch.device:
-        device: torch.device = self.transformer.wte.weight.device  # type: ignore
-        if device.type == "meta":
-            if self.config.init_device is not None and self.config.init_device != "meta":
-                return torch.device(self.config.init_device)
-            else:
-                return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        else:
-            return device
+    def get_causal_attention_bias(self, seq_len: int, device: torch.device) -> torch.Tensor:
+        if (causal_bias := self.__cache.get("causal_attention_bias")) is not None and causal_bias.shape[
+            -1
+        ] >= seq_len:
+            if causal_bias.device != device:
+                causal_bias = causal_bias.to(device)
+                self.__cache["causal_attention_bias"] = causal_bias
+            return causal_bias
+        causal_bias = causal_attention_bias(seq_len, device)
+        self.__cache["causal_attention_bias"] = causal_bias
+        return causal_bias
 
-    @property
-    def causal_attention_bias(self) -> torch.FloatTensor:
-        causal_bias = self.__bias_cache["causal_attention_bias"]
-        if causal_bias is None:
-            causal_bias = causal_attention_bias(self.config, self.device)
-            self.__bias_cache["causal_attention_bias"] = causal_bias
-        elif causal_bias.device != self.device:  # in case model was moved to different device
-            causal_bias = causal_bias.to(device=self.device)
-            self.__bias_cache["causal_attention_bias"] = causal_bias  # type: ignore
-        return causal_bias  # type: ignore
-
-    @property
-    def alibi_attention_bias(self) -> torch.FloatTensor:
-        alibi_bias = self.__bias_cache["alibi_attention_bias"]
-        if alibi_bias is None:
-            alibi_bias = alibi_attention_bias(self.config, self.device)
-            self.__bias_cache["alibi_attention_bias"] = alibi_bias
-        elif alibi_bias.device != self.device:  # in case model was moved to different device
-            alibi_bias = alibi_bias.to(device=self.device)
-            self.__bias_cache["alibi_attention_bias"] = alibi_bias  # type: ignore
-        return alibi_bias  # type: ignore
+    def get_alibi_attention_bias(self, seq_len: int, device: torch.device) -> torch.Tensor:
+        if (alibi_bias := self.__cache.get("alibi_attention_bias")) is not None and alibi_bias.shape[
+            -1
+        ] >= seq_len:
+            if alibi_bias.device != device:
+                alibi_bias = alibi_bias.to(device)
+                self.__cache["alibi_attention_bias"] = alibi_bias
+            return alibi_bias
+        alibi_bias = alibi_attention_bias(seq_len, self.config, device)
+        self.__cache["alibi_attention_bias"] = alibi_bias
+        return alibi_bias
 
     def forward(
         self,
@@ -816,10 +816,10 @@ class Olmo(nn.Module):
             assert len(past_key_values) == self.config.n_layers
 
         batch_size, seq_len = input_ids.size()
-        assert seq_len <= self.config.max_sequence_length, (
-            f"Cannot forward input with seq_len={seq_len}, "
-            f"this model only supports seq_len<={self.config.max_sequence_length}"
-        )
+        if past_key_values is None:
+            past_length = 0
+        else:
+            past_length = past_key_values[0][0].size(-2)
 
         # Get embeddings of input.
         # shape: (batch_size, seq_len, d_model)
@@ -827,10 +827,6 @@ class Olmo(nn.Module):
 
         if not (self.config.alibi or self.config.rope):
             # Get positional embeddings.
-            if past_key_values is None:
-                past_length = 0
-            else:
-                past_length = past_key_values[0][0].size(-2)
             # shape: (1, seq_len)
             pos = torch.arange(
                 past_length, past_length + seq_len, dtype=torch.long, device=input_ids.device
@@ -861,9 +857,11 @@ class Olmo(nn.Module):
             or past_key_values is not None
         ):
             if attention_bias is None and self.config.alibi:
-                attention_bias = self.causal_attention_bias + self.alibi_attention_bias
+                attention_bias = self.get_causal_attention_bias(
+                    past_length + seq_len, x.device
+                ) + self.get_alibi_attention_bias(past_length + seq_len, x.device)
             elif attention_bias is None:
-                attention_bias = self.causal_attention_bias
+                attention_bias = self.get_causal_attention_bias(past_length + seq_len, x.device)
             elif attention_bias.dtype in (torch.int8, torch.bool):
                 attention_bias = attention_bias.to(dtype=x.dtype)
                 attention_bias.masked_fill_(attention_bias == 0.0, float("-inf"))
