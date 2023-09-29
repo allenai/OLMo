@@ -745,6 +745,14 @@ class Olmo(nn.Module):
             self.get_causal_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
             self.get_alibi_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
 
+    @property
+    def device(self) -> torch.device:
+        device: torch.device = self.transformer.wte.weight.device  # type: ignore
+        if device.type == "meta":
+            return _non_meta_init_device(self.config)
+        else:
+            return device
+
     def reset_parameters(self):
         log.info("Initializing model parameters...")
         # Top-level embeddings / linear layers.
