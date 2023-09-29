@@ -521,7 +521,6 @@ def _s3_file_size(bucket_name: str, key: str, max_attempts: int = 3) -> int:
     raise OlmoNetworkError('Failed to get s3 file size') from err
 
 
-
 def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int, max_attempts: int = 3) -> bytes:
     from botocore.exceptions import ClientError
 
