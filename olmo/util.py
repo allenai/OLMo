@@ -472,35 +472,61 @@ def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool =
 s3_client = boto3.client("s3")
 
 
-def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
+def _wait_before_retry(attempt: int):
+    time.sleep(min(0.5 * 2**attempt, 3.0))
+
+
+def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False, max_attempts: int = 3):
     from botocore.exceptions import ClientError
 
+    err: Optional[Exception] = None
     if not save_overwrite:
-        try:
-            s3_client.head_object(Bucket=bucket_name, Key=key)
-            raise FileExistsError(f"s3://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
-        except ClientError as e:
-            if int(e.response["Error"]["Code"]) != 404:
-                raise
-    s3_client.upload_file(source, bucket_name, key)
+        for attempt in range(1, max_attempts + 1):
+            try:
+                s3_client.head_object(Bucket=bucket_name, Key=key)
+                raise FileExistsError(f"s3://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
+            except ClientError as e:
+                if int(e.response["Error"]["Code"]) == 404:
+                    err = None
+                    break
+                err = e
 
+            if attempt < max_attempts:
+                _wait_before_retry(attempt)
 
-def _s3_file_size(bucket_name: str, key: str) -> int:
-    from botocore.exceptions import ClientError
+        if err is not None:
+            raise OlmoNetworkError('Failed to check object existence during s3 upload') from err
 
     try:
-        return s3_client.head_object(Bucket=bucket_name, Key=key)["ContentLength"]
+        s3_client.upload_file(source, bucket_name, key)
     except ClientError as e:
-        if int(e.response["Error"]["Code"]) != 404:
-            raise
-        raise FileNotFoundError(f"s3://{bucket_name}/{key}")
+        raise OlmoNetworkError('Failed to upload to s3') from e
+
+
+def _s3_file_size(bucket_name: str, key: str, max_attempts: int = 3) -> int:
+    from botocore.exceptions import ClientError
+
+    err: Optional[Exception] = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return s3_client.head_object(Bucket=bucket_name, Key=key)["ContentLength"]
+        except ClientError as e:
+            if int(e.response["Error"]["Code"]) == 404:
+                raise FileNotFoundError(f"s3://{bucket_name}/{key}")
+            err = e
+
+        if attempt < max_attempts:
+            _wait_before_retry(attempt)
+
+    raise OlmoNetworkError('Failed to get s3 file size') from err
+
 
 
 def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int, max_attempts: int = 3) -> bytes:
     from botocore.exceptions import ClientError
 
-    err = None
-    for _ in range(max_attempts):
+    err: Optional[Exception] = None
+    for attempt in range(1, max_attempts + 1):
         try:
             return s3_client.get_object(
                 Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
@@ -514,11 +540,14 @@ def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes:
             # the stream (http.client.IncompleteRead) Retrying can help in this case.
             err = e
 
+        if attempt < max_attempts:
+            _wait_before_retry(attempt)
+
     # When torch's DataLoader intercepts exceptions, it may try to re-raise them
     # by recalling their constructor with a single message arg. Torch has some
     # logic to deal with the absence of a single-parameter constructor, but it
     # doesn't gracefully handle other possible failures in calling such a constructor
-    # This can cause an irrelevant exception (e.e. KeyError: 'error'), resulting
+    # This can cause an irrelevant exception (e.g. KeyError: 'error'), resulting
     # in us losing the true exception info. To avoid this, we change the exception
     # to a type that has a single-parameter constructor.
     raise OlmoNetworkError('Failed to get bytes range from s3') from err

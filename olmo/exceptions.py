@@ -18,6 +18,7 @@ class OlmoCliError(OlmoError):
     An error from incorrect CLI usage.
     """
 
+
 class OlmoNetworkError(OlmoError):
     """
     An error with a network request.
