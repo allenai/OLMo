@@ -500,7 +500,7 @@ def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = 
 
     try:
         s3_client.upload_file(source, bucket_name, key)
-    except ClientError as e:
+    except boto_exceptions.ClientError as e:
         raise OlmoNetworkError("Failed to upload to s3") from e
 
 
