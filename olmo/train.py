@@ -20,6 +20,8 @@ import torch.distributed as dist
 import torch.nn.functional as F
 import wandb
 from packaging import version
+from torch.distributed.checkpoint import load_state_dict, save_state_dict
+from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.fsdp import FullStateDictConfig
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import StateDictType
@@ -31,6 +33,7 @@ from torch.distributed.fsdp.api import (
 from torch.utils.data import DataLoader
 
 from .aliases import PathOrStr
+from .checkpoint import RemoteFileSystemReader, RemoteFileSystemWriter
 from .config import CheckpointType, SpeedMonitorConfig, TrainConfig
 from .data import IterableDataset
 from .eval import Evaluator
@@ -121,12 +124,12 @@ class Trainer:
     _start_time: float = 0.0
 
     def state_dict(self) -> Dict[str, Any]:
-        state_dict = self.non_tensor_state_dict()
+        state_dict = self.trainer_state_dict()
         state_dict["model"] = self.fsdp_model.state_dict()
         state_dict["optim"] = FSDP.optim_state_dict(self.fsdp_model, self.optim)
         return state_dict
 
-    def non_tensor_state_dict(self) -> Dict[str, Any]:
+    def trainer_state_dict(self) -> Dict[str, Any]:
         return {
             "global_step": self.global_step,
             "global_data_step": self.global_data_step,
@@ -142,7 +145,7 @@ class Trainer:
             },
         }
 
-    def load_non_tensor_state_dict(self, state_dict: Dict[str, Any]) -> None:
+    def load_trainer_state_dict(self, state_dict: Dict[str, Any]) -> None:
         # Checkpoint paths.
         self.checkpoints = [
             path
@@ -231,15 +234,19 @@ class Trainer:
         except StopIteration:
             pass
 
+        # Prepare tmp checkpoint directory.
         if get_fs_local_rank() == 0:
-            checkpoint_dir_tmp.mkdir(parents=True, exist_ok=True)
-
-        self.checkpoints.append(checkpoint_dir)
+            shutil.rmtree(checkpoint_dir_tmp, ignore_errors=True)
         barrier()
+        checkpoint_dir_tmp.mkdir(parents=True)
+        (checkpoint_dir_tmp / "model_and_optim").mkdir(exist_ok=True)
+        (checkpoint_dir_tmp / "train").mkdir(exist_ok=True)
 
         # Flush data indices file.
         if self.indices_file is not None:
             self.indices_file.flush()
+
+        self.checkpoints.append(checkpoint_dir)
 
         # Write the checkpoint.
         with FSDP.state_dict_type(
@@ -248,12 +255,23 @@ class Trainer:
             state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
             optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
         ):
-            # NOTE: Alternatively we could use the checkpointing method in this test
-            # https://github.com/pytorch/pytorch/blob/main/test/distributed/checkpoint/test_fsdp_optim_state.py
-            # but we've had issues with that on AMD GPUs. See
-            # https://github.com/pytorch/pytorch/issues/100041
-            #  checkpoint.save_state_dict(self.state_dict(), checkpoint.FileSystemWriter(checkpoint_dir))
-            torch.save(self.state_dict(), checkpoint_dir_tmp / f"rank{get_global_rank()}.pt")
+            # Save model and optimizer state.
+            model_and_optim_state = {
+                "model": self.fsdp_model.state_dict(),
+                "optim": FSDP.optim_state_dict(self.fsdp_model, self.optim),
+            }
+            save_state_dict(
+                model_and_optim_state,
+                RemoteFileSystemWriter(
+                    checkpoint_dir_tmp / "model_and_optim",
+                    upload_to=None
+                    if self.cfg.remote_save_folder is None
+                    else f"{self.cfg.remote_save_folder}/{checkpoint_dir.name}/model_and_optim",
+                    save_overwrite=self.cfg.save_overwrite,
+                ),
+            )
+            # Trainer state.
+            torch.save(self.trainer_state_dict(), checkpoint_dir_tmp / "train" / f"rank{get_global_rank()}.pt")
             # Save config too.
             if get_global_rank() == 0:
                 self.cfg.save(checkpoint_dir_tmp / "config.yaml")
@@ -297,7 +315,7 @@ class Trainer:
 
         # Upload checkpoint to bucket.
         if self.cfg.remote_save_folder is not None:
-            files_to_upload = [f"rank{get_global_rank()}.pt"]
+            files_to_upload = [f"train/rank{get_global_rank()}.pt"]
             if get_global_rank() == 0:
                 files_to_upload.append("config.yaml")
             for fname in files_to_upload:
@@ -323,52 +341,47 @@ class Trainer:
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
 
+        load_path = str(load_path).rstrip("/")
+
         with FSDP.state_dict_type(
             self.fsdp_model,
             state_dict_type=StateDictType.SHARDED_STATE_DICT,
             state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
             optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
         ):
-            # NOTE: Alternatively we could use the checkpointing method in this test
-            # https://github.com/pytorch/pytorch/blob/main/test/distributed/checkpoint/test_fsdp_optim_state.py
-            # but we've had issues with that on AMD GPUs. See
-            # https://github.com/pytorch/pytorch/issues/100041
-            # But basically it would look like this.
-            # Load the serialized state dict in place.
-            #  state_dict = self.state_dict()
-            #  del state_dict["optim"]  # Can't load optimizer together with the model
-            #  checkpoint.load_state_dict(state_dict, checkpoint.FileSystemReader(load_path))
-            #  self.fsdp_model.load_state_dict(state_dict["model"])
-            # Load other state...
-            # Load optim state.
-            #  optim_state = load_sharded_optimizer_state_dict(
-            #      model_state_dict=state_dict["model"],
-            #      optimizer_key="optim",
-            #      storage_reader=checkpoint.FileSystemReader(load_path),
-            #  )
-            #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)
-            #  self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
-
-            # Deserialize state dictionary.
-            state_dict = torch.load(resource_path(load_path, f"rank{get_global_rank()}.pt"))
-
-            # Load model and optimizer state.
+            # Load the model state dict in place.
             log.info("Loading model state...")
-            self.fsdp_model.load_state_dict(state_dict["model"])
+            model_state = {"model": self.fsdp_model.state_dict()}
+            load_state_dict(model_state, RemoteFileSystemReader(f"{load_path}/model_and_optim"))
+            self.fsdp_model.load_state_dict(model_state["model"])
+
+            # Load optim state dict in place.
             log.info("Loading optimizer state...")
-            # NOTE: careful, the order of these arguments has changed since the 2.0 release.
+            optim_state = load_sharded_optimizer_state_dict(
+                model_state_dict=model_state["model"],
+                optimizer_key="optim",
+                storage_reader=RemoteFileSystemReader(f"{load_path}/model_and_optim"),
+            )
+            flattened_osd = FSDP.optim_state_dict_to_load(optim_state, self.fsdp_model, self.optim)
             if version.parse(torch.__version__) < version.parse("2.1.0"):
-                #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
-                flattened_osd = FSDP.optim_state_dict_to_load(state_dict["optim"], self.fsdp_model, self.optim)  # type: ignore
+                flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
             else:
-                #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
-                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, state_dict["optim"])  # type: ignore
+                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
             self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
+            del model_state, optim_state, flattened_osd
 
-            # Load non-tensor state.
-            self.load_non_tensor_state_dict(state_dict)
-
-            del state_dict, flattened_osd
+            # Load trainer state dict.
+            log.info("Loading trainer state...")
+            try:
+                trainer_state = torch.load(resource_path(load_path, f"train/rank{get_global_rank()}.pt"))
+            except FileNotFoundError:
+                # Fall back to rank 0 train state.
+                # This can happen when we're restoring a checkpoint with a different world size.
+                trainer_state = torch.load(resource_path(load_path, "train/rank0.pt"))
+                # Restoring RNG state isn't necessary and in the case of going from world size 1 to world size N
+                # we probably don't want every rank to have the exact same RNG state.
+                del trainer_state["rng"]
+            self.load_trainer_state_dict(trainer_state)
 
         barrier()
 
@@ -422,9 +435,9 @@ class Trainer:
             del optim_state_dict
 
             # Then everything else.
-            other_state_dict = self.non_tensor_state_dict()
+            train_state_dict = self.trainer_state_dict()
             if get_global_rank() == 0:
-                torch.save(other_state_dict, checkpoint_dir_tmp / "other.pt")
+                torch.save(train_state_dict, checkpoint_dir_tmp / "train.pt")
                 self.cfg.save(checkpoint_dir_tmp / "config.yaml")
             barrier()
 
@@ -447,7 +460,7 @@ class Trainer:
         # Upload checkpoint to bucket.
         if self.cfg.remote_save_folder is not None:
             if get_global_rank() == 0:
-                for fname in ["config.yaml", "model.pt", "optim.pt", "other.pt"]:
+                for fname in ["config.yaml", "model.pt", "optim.pt", "train.pt"]:
                     source = checkpoint_dir / fname
                     target = f"{self.cfg.remote_save_folder}/{checkpoint_dir.name}/{fname}"
                     log.info(f"Uploading {source} to {target}...")
@@ -497,8 +510,11 @@ class Trainer:
             del flattened_osd
 
             # Load other state.
-            other_state_dict = torch.load(resource_path(load_path, "other.pt"))
-            self.load_non_tensor_state_dict(other_state_dict)
+            try:
+                train_state_dict = torch.load(resource_path(load_path, "other.pt"))  # for backwards compatibility
+            except FileNotFoundError:
+                train_state_dict = torch.load(resource_path(load_path, "train.pt"))
+            self.load_trainer_state_dict(train_state_dict)
 
         barrier()
 

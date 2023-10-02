@@ -377,7 +377,7 @@ def is_url(path: PathOrStr) -> bool:
     return re.match(r"[a-z0-9]+://.*", str(path)) is not None
 
 
-def resource_path(folder: PathOrStr, fname: str) -> PathOrStr:
+def resource_path(folder: PathOrStr, fname: str) -> Path:
     if is_url(folder):
         from cached_path import cached_path
 
