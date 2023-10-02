@@ -136,9 +136,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             # worker 1 the 2nd chunk of `device_train_batch_size` indices, etc...
             if self.device_batch_size is not None:
                 truncated_size = self.device_batch_size * (len(indices) // self.device_batch_size)
-                left_overs = indices[
-                    truncated_size + worker_info.id :: worker_info.num_workers
-                ]
+                left_overs = indices[truncated_size + worker_info.id :: worker_info.num_workers]
                 indices = (
                     indices[:truncated_size]
                     .reshape((-1, self.device_batch_size))[worker_info.id :: worker_info.num_workers]  # type: ignore
