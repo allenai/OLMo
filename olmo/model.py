@@ -10,6 +10,7 @@ import logging
 import math
 import os
 from abc import abstractmethod
+from collections.abc import MutableMapping
 from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
 
 import torch
@@ -44,6 +45,17 @@ __all__ = [
 
 
 log = logging.getLogger(__name__)
+
+
+class BufferCache(dict, MutableMapping[str, torch.Tensor]):
+    """
+    Cache for attention biases and other things that would normally be stored as buffers.
+    We avoid using buffers because we've run into various issues doing so with FSDP.
+    In general it appears the way FSDP handles buffers is not well-defined.
+    It doesn't shard them but apparently it does synchronize them across processes, which we want to avoid
+    since (A) it isn't necessary, and (B) we sometimes have `-inf` in these biases which might get turned into
+    NaNs when they're synchronized due to casting or some other issue.
+    """
 
 
 def _non_meta_init_device(config: ModelConfig) -> torch.device:
@@ -259,10 +271,10 @@ class RotaryEmbedding(nn.Module):
     [Rotary positional embeddings (RoPE)](https://arxiv.org/abs/2104.09864).
     """
 
-    def __init__(self, config: ModelConfig, cache: Optional[Dict[str, torch.Tensor]] = None):
+    def __init__(self, config: ModelConfig, cache: BufferCache):
         super().__init__()
         self.config = config
-        self.__cache = cache or {}
+        self.__cache = cache
         # Warm up cache.
         self.get_rotary_embedding(config.max_sequence_length, _non_meta_init_device(config))
 
@@ -354,11 +366,11 @@ class OlmoBlock(nn.Module):
     A base class for transformer block implementations.
     """
 
-    def __init__(self, layer_id: int, config: ModelConfig, cache: Optional[Dict[str, torch.Tensor]] = None):
+    def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
         super().__init__()
         self.layer_id = layer_id
         self.config = config
-        self.__cache = cache or {}
+        self.__cache = cache
         assert config.d_model % config.n_heads == 0
 
         # Dropout.
@@ -395,7 +407,7 @@ class OlmoBlock(nn.Module):
 
         # Rotary embeddings.
         if self.config.rope:
-            self.rotary_emb = RotaryEmbedding(config, cache=self.__cache)
+            self.rotary_emb = RotaryEmbedding(config, self.__cache)
 
     def reset_parameters(self):
         if self.k_norm is not None:
@@ -491,13 +503,11 @@ class OlmoBlock(nn.Module):
         raise NotImplementedError
 
     @classmethod
-    def build(
-        cls, layer_id: int, config: ModelConfig, cache: Optional[Dict[str, torch.Tensor]] = None
-    ) -> OlmoBlock:
+    def build(cls, layer_id: int, config: ModelConfig, cache: BufferCache) -> OlmoBlock:
         if config.block_type == BlockType.sequential:
-            return OlmoSequentialBlock(layer_id, config, cache=cache)
+            return OlmoSequentialBlock(layer_id, config, cache)
         elif config.block_type == BlockType.parallel:
-            return OlmoParallelBlock(layer_id, config, cache=cache)
+            return OlmoParallelBlock(layer_id, config, cache)
         else:
             raise NotImplementedError(f"not sure how to handle block type '{config.block_type}'")
 
@@ -508,8 +518,8 @@ class OlmoSequentialBlock(OlmoBlock):
     (plus another skip connection).
     """
 
-    def __init__(self, layer_id: int, config: ModelConfig, cache: Optional[Dict[str, torch.Tensor]] = None):
-        super().__init__(layer_id, config, cache=cache)
+    def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
+        super().__init__(layer_id, config, cache)
         # Layer norms.
         self.attn_norm = LayerNorm.build(config)
         self.ff_norm = LayerNorm.build(config)
@@ -573,8 +583,8 @@ class OlmoParallelBlock(OlmoBlock):
     to fuse the output projections, but we found that didn't help.
     """
 
-    def __init__(self, layer_id: int, config: ModelConfig, cache: Optional[Dict[str, torch.Tensor]] = None):
-        super().__init__(layer_id, config, cache=cache)
+    def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
+        super().__init__(layer_id, config, cache)
         self.norm = LayerNorm.build(config)
         # Fused attention and feed-forward projection.
         # NOTE: we could also fuse the attention and feed-forward output projections
@@ -679,14 +689,7 @@ class Olmo(nn.Module):
     def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
         self.config = config
-
-        # Cache for attention bias and other things that would normally be stored as buffers.
-        # We avoid using buffers because we've run into various issues doing so with FSDP.
-        # In general it appears the way FSDP handles buffers is not well-defined.
-        # It doesn't shard them but apparently it does synchronize them across processes, which we want to avoid
-        # since (A) it isn't necessary, and (B) we have `-inf` in these biases which might get turned into
-        # NaNs when they're synchronized due to casting or some other issue.
-        self.__cache: Dict[str, torch.Tensor] = {}
+        self.__cache = BufferCache()
 
         # Validate config.
         if self.config.alibi and self.config.flash_attention:
@@ -714,9 +717,7 @@ class Olmo(nn.Module):
                     config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
                 ),
                 emb_drop=Dropout(config.embedding_dropout),
-                blocks=nn.ModuleList(
-                    [OlmoBlock.build(i, config, cache=self.__cache) for i in range(config.n_layers)]
-                ),
+                blocks=nn.ModuleList([OlmoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]),
                 ln_f=LayerNorm.build(config),
             )
         )
