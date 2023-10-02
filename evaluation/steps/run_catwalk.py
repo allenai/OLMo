@@ -168,7 +168,10 @@ class PredictAndCalculateMetricsStep(Step):
         end_time = time.time()
 
         instance_predictions = self._instance_predictions_map_list(
-            instances, predictions, task_dict.get("keep_instance_fields", None), task_dict.get("keep_all_instance_fields_except", None)
+            instances,
+            predictions,
+            task_dict.get("keep_instance_fields", None),
+            task_dict.get("keep_all_instance_fields_except", None),
         )
 
         if instance_predictions:
@@ -188,7 +191,11 @@ class PredictAndCalculateMetricsStep(Step):
 
     @classmethod
     def _instance_predictions_map_list(
-        cls, instances, predictions, keep_instance_fields: Optional[List] = None, keep_all_instance_fields_except: Optional[List] = None
+        cls,
+        instances,
+        predictions,
+        keep_instance_fields: Optional[List] = None,
+        keep_all_instance_fields_except: Optional[List] = None,
     ) -> List:
         instance_predictions = []
 
