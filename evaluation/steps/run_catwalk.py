@@ -195,10 +195,16 @@ class PredictAndCalculateMetricsStep(Step):
         for idx, (instance, pred) in enumerate(zip(instances, predictions)):
             instance_id = guess_instance_id(instance, idx=idx)  # dict
 
-            if keep_instance_fields:
-                for field in (instance if keep_instance_fields == "all" else keep_instance_fields):
-                    if field in instance:
-                        instance_id[field] = instance[field]
+            if keep_instance_fields or keep_all_instance_fields_except:
+                assert (
+                    keep_instance_fields is None or keep_all_instance_fields_except is None
+                ), "Can't use both keep_instance_fields and keep_all_instance_fields_except"
+                for field in instance:
+                    if keep_instance_fields and field not in keep_instance_fields:
+                        continue
+                    if keep_all_instance_fields_except and field in keep_all_instance_fields_except:
+                        continue
+                    instance_id[field] = instance[field]
 
             prediction = pred.get("prediction", pred)
 
