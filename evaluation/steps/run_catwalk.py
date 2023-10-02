@@ -196,7 +196,7 @@ class PredictAndCalculateMetricsStep(Step):
             instance_id = guess_instance_id(instance, idx=idx)  # dict
 
             if keep_instance_fields:
-                for field in keep_instance_fields:
+                for field in (instance if keep_instance_fields == "all" else keep_instance_fields):
                     if field in instance:
                         instance_id[field] = instance[field]
 
