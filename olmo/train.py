@@ -362,7 +362,6 @@ class Trainer:
                 optimizer_key="optim",
                 storage_reader=RemoteFileSystemReader(f"{load_path}/model_and_optim"),
             )
-            flattened_osd = FSDP.optim_state_dict_to_load(optim_state, self.fsdp_model, self.optim)
             if version.parse(torch.__version__) < version.parse("2.1.0"):
                 flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
             else:
@@ -382,6 +381,37 @@ class Trainer:
                 # we probably don't want every rank to have the exact same RNG state.
                 del trainer_state["rng"]
             self.load_trainer_state_dict(trainer_state)
+
+        barrier()
+
+    def restore_legacy_sharded_checkpoint(self, load_path: PathOrStr):
+        # Zero-gradients to avoid gathering them.
+        self.optim.zero_grad(set_to_none=True)
+
+        with FSDP.state_dict_type(
+            self.fsdp_model,
+            state_dict_type=StateDictType.SHARDED_STATE_DICT,
+            state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
+            optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
+        ):
+            # Deserialize state dict.
+            state_dict = torch.load(resource_path(load_path, f"rank{get_global_rank()}.pt"))
+
+            # Load model and optimizer state.
+            log.info("Loading model state...")
+            self.fsdp_model.load_state_dict(state_dict["model"])
+            log.info("Loading optimizer state...")
+            if version.parse(torch.__version__) < version.parse("2.1.0"):
+                flattened_osd = FSDP.optim_state_dict_to_load(state_dict["optim"], self.fsdp_model, self.optim)  # type: ignore
+            else:
+                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, state_dict["optim"])  # type: ignore
+            self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
+
+            # Load trainer state dict.
+            log.info("Loading trainer state...")
+            self.load_trainer_state_dict(state_dict)
+
+            del state_dict, flattened_osd
 
         barrier()
 
@@ -526,13 +556,23 @@ class Trainer:
         else:
             raise NotImplementedError(checkpoint_type)
 
-    def restore_checkpoint(self, load_path: PathOrStr, checkpoint_type: Optional[CheckpointType] = None):
+    def restore_checkpoint(
+        self, load_path: PathOrStr, checkpoint_type: Optional[CheckpointType] = None, legacy_mode: bool = False
+    ):
         if checkpoint_type == CheckpointType.unsharded or (
             checkpoint_type is None and str(load_path).endswith("-unsharded")
         ):
             self.restore_unsharded_checkpoint(load_path)
         elif checkpoint_type == CheckpointType.sharded or checkpoint_type is None:
-            self.restore_sharded_checkpoint(load_path)
+            try:
+                resource_path(load_path, f"rank{get_global_rank()}.pt")
+                legacy_mode = True
+            except FileNotFoundError:
+                legacy_mode = False
+            if legacy_mode:
+                self.restore_legacy_sharded_checkpoint(load_path)
+            else:
+                self.restore_sharded_checkpoint(load_path)
         elif checkpoint_type is not None:
             raise NotImplementedError(checkpoint_type)
 
