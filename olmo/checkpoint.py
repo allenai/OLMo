@@ -1,3 +1,7 @@
+"""
+Custom distributed checkpointing.
+"""
+
 import io
 import logging
 import pickle
@@ -22,6 +26,11 @@ log = logging.getLogger(__name__)
 
 
 class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
+    """
+    A subclass of :class:`~torch.distributed.checkpoint.FileSystemWriter` that can upload files
+    directly to a cloud bucket when ``upload_to`` is specified.
+    """
+
     def __init__(
         self,
         path: PathOrStr,
@@ -74,12 +83,18 @@ class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
 
 
 class RemoteFileSystemReader(dist_cp.StorageReader):
+    """
+    A :class:`~torch.distributed.checkpoint.StorageReader` based on :class:`~torch.distributed.checkpoint.FileSystemReader`
+    that can read data directly from cloud storage as well as a local directory.
+    """
+
     def __init__(self, path: PathOrStr):
         super().__init__()
         self.path = str(path).rstrip("/")
         self.storage_data: Dict[MetadataIndex, _StorageInfo] = dict()
 
     def read_data(self, plan: dist_cp.LoadPlan, planner: dist_cp.LoadPlanner) -> Future[None]:
+        # Modified from `FileSystemReader.read_data()`
         for read_item in plan.items:
             sinfo = self.storage_data[read_item.storage_index]
             content = get_bytes_range(f"{self.path}/{sinfo.relative_path}", sinfo.offset, sinfo.length)
