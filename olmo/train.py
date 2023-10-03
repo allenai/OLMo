@@ -344,6 +344,7 @@ class Trainer:
         self.optim.zero_grad(set_to_none=True)
 
         load_path = str(load_path).rstrip("/")
+        local_cache = None if local_cache is None else Path(local_cache)
 
         with FSDP.state_dict_type(
             self.fsdp_model,
@@ -355,7 +356,11 @@ class Trainer:
             log.info("Loading model state...")
             model_state = {"model": self.fsdp_model.state_dict()}
             load_state_dict(
-                model_state, RemoteFileSystemReader(f"{load_path}/model_and_optim", local_cache=local_cache)
+                model_state,
+                RemoteFileSystemReader(
+                    f"{load_path}/model_and_optim",
+                    local_cache=None if local_cache is None else local_cache / "model_and_optim",
+                ),
             )
             self.fsdp_model.load_state_dict(model_state["model"])
 
@@ -364,7 +369,10 @@ class Trainer:
             optim_state = load_sharded_optimizer_state_dict(
                 model_state_dict=model_state["model"],
                 optimizer_key="optim",
-                storage_reader=RemoteFileSystemReader(f"{load_path}/model_and_optim", local_cache=local_cache),
+                storage_reader=RemoteFileSystemReader(
+                    f"{load_path}/model_and_optim",
+                    local_cache=None if local_cache is None else local_cache / "model_and_optim",
+                ),
             )
             if version.parse(torch.__version__) < version.parse("2.1.0"):
                 flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
@@ -377,12 +385,22 @@ class Trainer:
             log.info("Loading trainer state...")
             try:
                 trainer_state = torch.load(
-                    resource_path(load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache)
+                    resource_path(
+                        load_path,
+                        f"train/rank{get_global_rank()}.pt",
+                        local_cache=None if local_cache is None else local_cache / "train",
+                    )
                 )
             except FileNotFoundError:
                 # Fall back to rank 0 train state.
                 # This can happen when we're restoring a checkpoint with a different world size.
-                trainer_state = torch.load(resource_path(load_path, "train/rank0.pt", local_cache=local_cache))
+                trainer_state = torch.load(
+                    resource_path(
+                        load_path,
+                        "train/rank0.pt",
+                        local_cache=None if local_cache is None else local_cache / "train",
+                    )
+                )
                 # Restoring RNG state isn't necessary and in the case of going from world size 1 to world size N
                 # we probably don't want every rank to have the exact same RNG state.
                 del trainer_state["rng"]
