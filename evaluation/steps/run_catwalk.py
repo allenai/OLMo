@@ -139,7 +139,7 @@ class ProcessOutputs(Step):
         **kwargs,
     ) -> Dict:
         task_name = outputs["task"]
-        new_metrics: Dict[str, float] = {}
+        new_metrics: Dict[str, Dict] = {}
         if "subdomain" in outputs["instance_predictions"][0]["instance"]:
             new_metrics[f"ppl_token_{task_name}_subdomains"] = {}
             sum_logits: Dict[str, float] = {}
