@@ -1036,7 +1036,7 @@ class Trainer:
                     self.global_step % self.cfg.save_interval == 0 and self.cfg.save_num_checkpoints_to_keep != 0
                 ):
                     log.info("Saving checkpoint...")
-                    checkpoint_path = self.save_sharded_checkpoint()
+                    checkpoint_path, _ = self.save_sharded_checkpoint()
                     log.info(f"Checkpoint saved to {checkpoint_path}")
 
                     # Reset speed monitor so that we don't count the time taken to save checkpoints.
@@ -1050,7 +1050,7 @@ class Trainer:
                     and self.cfg.save_num_unsharded_checkpoints_to_keep != 0
                 ):
                     log.info("Saving unsharded checkpoint...")
-                    checkpoint_path = self.save_unsharded_checkpoint()
+                    checkpoint_path, _ = self.save_unsharded_checkpoint()
                     log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
                     # Reset speed monitor so that we don't count the time taken to save checkpoints.
@@ -1093,7 +1093,7 @@ class Trainer:
         # Save final unsharded model-only checkpoint.
         if not canceled and self.cfg.save_interval_unsharded is not None:
             log.info("Saving final unsharded model checkpoint...")
-            checkpoint_path = self.save_unsharded_checkpoint()
+            checkpoint_path, _ = self.save_unsharded_checkpoint()
             log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
     def close(self, exit_code: int = 0) -> None:
