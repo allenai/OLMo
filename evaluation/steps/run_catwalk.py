@@ -6,6 +6,7 @@ from datetime import datetime
 from pydoc import locate
 from typing import Any, Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 import pytz
 from catwalk.dependencies.lm_eval.utils import simple_parse_args_string
@@ -126,6 +127,40 @@ DEFAULT_PREDICTION_KWARGS: Dict[str, Any] = {
     "split": "validation",
     "random_subsample_seed": 1234,
 }
+
+
+@Step.register("process-outputs")
+class ProcessOutputs(Step):
+    VERSION = "002"
+
+    def run(
+        self,
+        outputs: Dict,
+        **kwargs,
+    ) -> Dict:
+        task_name = outputs["task"]
+        new_metrics = {}
+        if "subdomain" in outputs["instance_predictions"][0]["instance"]:
+            new_metrics[f"ppl_token_{task_name}_subdomains"] = {}
+            sum_logits = {}
+            num_tokens = {}
+            for instance_prediction in outputs["instance_predictions"]:
+                subdomain = instance_prediction["instance"]["subdomain"]
+                sum_logits[subdomain] = (
+                    sum_logits.get(subdomain, 0) + instance_prediction["prediction"]["model_output"]["sum_logits"]
+                )
+                num_tokens[subdomain] = (
+                    num_tokens.get(subdomain, 0) + instance_prediction["prediction"]["model_output"]["num_tokens"]
+                )
+
+            for subdomain in sum_logits:
+                new_metrics[f"ppl_token_{task_name}_subdomains"][subdomain] = np.exp(
+                    -sum_logits[subdomain] / num_tokens[subdomain]
+                )
+
+        outputs["metrics"].update(new_metrics)
+
+        return outputs
 
 
 @Step.register("predict-and-calculate-metrics")
@@ -277,6 +312,7 @@ class WriteOutputsAsRows(Step):
         new_df = pd.concat([current_df, new_df])
         worksheet.set_dataframe(new_df, (1, 1), nan="")
 
+
 @Step.register("write-outputs-as-rows-multiple-metrics")
 class WriteOutputsAsRows(WriteOutputsAsRows):
     VERSION = "001"
@@ -304,7 +340,9 @@ class WriteOutputsAsRows(WriteOutputsAsRows):
                     row[metric_name] = metrics_dict[metric_name]
 
                 row.update(pred_kwargs)
-                per_metric_type_tsv_outputs[metric_type_name] = per_metric_type_tsv_outputs.get(metric_type_name, []) + [row]
+                per_metric_type_tsv_outputs[metric_type_name] = per_metric_type_tsv_outputs.get(
+                    metric_type_name, []
+                ) + [row]
 
         if gsheet:
             for metric_type_name, tsv_outputs in per_metric_type_tsv_outputs.items():
