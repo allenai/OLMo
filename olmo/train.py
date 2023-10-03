@@ -238,7 +238,7 @@ class Trainer:
         if get_fs_local_rank() == 0:
             shutil.rmtree(checkpoint_dir_tmp, ignore_errors=True)
         barrier()
-        checkpoint_dir_tmp.mkdir(parents=True)
+        checkpoint_dir_tmp.mkdir(parents=True, exist_ok=True)
         (checkpoint_dir_tmp / "model_and_optim").mkdir(exist_ok=True)
         (checkpoint_dir_tmp / "train").mkdir(exist_ok=True)
 
