@@ -388,7 +388,7 @@ class Trainer:
                     resource_path(
                         load_path,
                         f"train/rank{get_global_rank()}.pt",
-                        local_cache=None if local_cache is None else local_cache / "train",
+                        local_cache=local_cache,
                     )
                 )
             except FileNotFoundError:
@@ -398,7 +398,7 @@ class Trainer:
                     resource_path(
                         load_path,
                         "train/rank0.pt",
-                        local_cache=None if local_cache is None else local_cache / "train",
+                        local_cache=local_cache,
                     )
                 )
                 # Restoring RNG state isn't necessary and in the case of going from world size 1 to world size N
