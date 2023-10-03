@@ -378,15 +378,12 @@ def is_url(path: PathOrStr) -> bool:
 
 
 def resource_path(folder: PathOrStr, fname: str, local_cache: Optional[PathOrStr] = None) -> Path:
-    if is_url(folder):
-        if local_cache is not None and (local_path := Path(local_cache) / fname).is_file():
-            return local_path
-        else:
-            from cached_path import cached_path
-
-            return cached_path(f"{str(folder).rstrip('/')}/{fname}")
+    if local_cache is not None and (local_path := Path(local_cache) / fname).is_file():
+        return local_path
     else:
-        return Path(folder) / fname
+        from cached_path import cached_path
+
+        return cached_path(f"{str(folder).rstrip('/')}/{fname}")
 
 
 def file_size(path: PathOrStr) -> int:
