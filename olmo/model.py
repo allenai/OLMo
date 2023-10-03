@@ -149,22 +149,10 @@ class LayerNorm(LayerNormBase):
                     downcast_x, self.normalized_shape, weight=downcast_weight, bias=downcast_bias, eps=self.eps
                 )
         else:
-            # workaround for bug in ROCm
-            if self.weight is not None and self.bias is None:
-                bias = torch.zeros_like(self.weight)
-            else:
-                bias = None
-            return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=bias, eps=self.eps)
+            return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
 
 
 class AMDLayerNorm(LayerNormBase):
-    """
-    LayerNorm implemented using PyTorch primitives.
-
-    We do this to work around a bug in the PyTorch/ROCm implementation of layer norm that fails with a
-    segfault when the bias is not present.
-    """
-
     def __init__(
         self,
         config: ModelConfig,
@@ -175,18 +163,11 @@ class AMDLayerNorm(LayerNormBase):
         super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        og_dtype = x.dtype
-        x = self._cast_if_autocast_enabled(x, dtype=torch.float32)
-        with torch.autocast(enabled=False, device_type=x.device.type):
-            var, mean = torch.var_mean(x, dim=-1, correction=0, keepdim=True)
-            var.add_(self.eps)
-            var.rsqrt_()  # rsqrt should be more stable than 1/sqrt
-            x = var * (x - mean)
-            if self.weight is not None:
-                x.mul_(self.weight)
-            if self.bias is not None:
-                x.add_(self.bias)
-            return x.to(og_dtype)
+        # workaround for bug in ROCm
+        bias = self.bias
+        if self.weight is not None and bias is None:
+            bias = torch.zeros_like(self.weight)
+        return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=bias, eps=self.eps)
 
 
 class RMSLayerNorm(LayerNormBase):
