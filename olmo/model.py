@@ -20,7 +20,13 @@ from torch import einsum
 
 from .aliases import PathOrStr
 from .beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
-from .config import ActivationType, BlockType, LayerNormType, ModelConfig
+from .config import (
+    ActivationType,
+    BlockType,
+    CheckpointType,
+    LayerNormType,
+    ModelConfig,
+)
 from .exceptions import OlmoConfigurationError
 from .initialization import init_weights
 
@@ -1060,27 +1066,58 @@ class Olmo(nn.Module):
         )
 
     @classmethod
-    def from_checkpoint(cls, checkpoint_dir: PathOrStr, device: str = "cpu") -> Olmo:
+    def from_checkpoint(
+        cls, checkpoint_dir: PathOrStr, device: str = "cpu", checkpoint_type: Optional[CheckpointType] = None
+    ) -> Olmo:
         """
         Load an OLMo model from a checkpoint.
         """
-        from cached_path import cached_path
+        from .util import resource_path
+
+        # Guess checkpoint type.
+        if checkpoint_type is None:
+            try:
+                if resource_path(checkpoint_dir, "model.pt").is_file():
+                    checkpoint_type = CheckpointType.unsharded
+                else:
+                    checkpoint_type = CheckpointType.sharded
+            except FileNotFoundError:
+                checkpoint_type = CheckpointType.sharded
 
         # Load config.
-        config_path = cached_path(os.path.join(checkpoint_dir, "config.yaml"))
+        config_path = resource_path(checkpoint_dir, "config.yaml")
         model_config = ModelConfig.load(config_path, key="model", validate_paths=False)
 
-        # Initialize model (always on CPU to start with so we don't run out of GPU memory).
-        model_config.init_device = "cpu"
-        model = Olmo(model_config)
-        model.config.init_device = device
+        if checkpoint_type == CheckpointType.unsharded:
+            # Initialize model (always on CPU to start with so we don't run out of GPU memory).
+            model_config.init_device = "cpu"
+            model = Olmo(model_config)
 
-        # Load state dict directly to target device.
-        state_dict_path = cached_path(os.path.join(checkpoint_dir, "model.pt"))
-        state_dict = torch.load(state_dict_path, map_location="cpu")
-        model.load_state_dict(model._make_state_dict_compatible(state_dict))
+            # Load state dict directly to target device.
+            state_dict_path = resource_path(checkpoint_dir, "model.pt")
+            state_dict = torch.load(state_dict_path, map_location="cpu")
+            model.load_state_dict(model._make_state_dict_compatible(state_dict))
+            model = model.to(torch.device(device))
+        else:
+            from torch.distributed.checkpoint import load_state_dict
 
-        return model.to(torch.device(device)).eval()
+            from .checkpoint import RemoteFileSystemReader
+
+            # Initialize model on target device. In this case the state dict is loaded in-place
+            # so it's not necessary to start on CPU if the target device is a GPU.
+            model_config.init_device = device
+            model = Olmo(model_config)
+
+            # Load state dict in place.
+            state_dict = {"model": model.state_dict()}
+            load_state_dict(
+                state_dict,
+                RemoteFileSystemReader(f"{str(checkpoint_dir).rstrip('/')}/model_and_optim"),
+                no_dist=True,
+            )
+            model.load_state_dict(state_dict["model"])
+
+        return model.eval()
 
     def _make_state_dict_compatible(self, state_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         # For backwards compatibility prior to fixing https://github.com/allenai/LLM/issues/222
