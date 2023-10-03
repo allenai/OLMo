@@ -541,9 +541,9 @@ class Trainer:
 
             # Load other state.
             try:
-                train_state_dict = torch.load(resource_path(load_path, "other.pt"))  # for backwards compatibility
-            except FileNotFoundError:
                 train_state_dict = torch.load(resource_path(load_path, "train.pt"))
+            except FileNotFoundError:
+                train_state_dict = torch.load(resource_path(load_path, "other.pt"))  # for backwards compatibility
             self.load_trainer_state_dict(train_state_dict)
 
         barrier()
