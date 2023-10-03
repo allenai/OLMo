@@ -149,7 +149,12 @@ class LayerNorm(LayerNormBase):
                     downcast_x, self.normalized_shape, weight=downcast_weight, bias=downcast_bias, eps=self.eps
                 )
         else:
-            return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
+            # workaround for bug in ROCm
+            if self.weight is not None and self.bias is None:
+                bias = torch.zeros_like(self.weight)
+            else:
+                bias = None
+            return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=bias, eps=self.eps)
 
 
 class AMDLayerNorm(LayerNormBase):
