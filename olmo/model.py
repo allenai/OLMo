@@ -167,6 +167,7 @@ class AMDLayerNorm(LayerNormBase):
         bias = self.bias
         if self.weight is not None and bias is None:
             bias = torch.zeros_like(self.weight)
+            bias.requires_grad = True
         return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=bias, eps=self.eps)
 
 
