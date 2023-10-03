@@ -59,7 +59,7 @@ class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
         fut = super().write_data(plan, planner)
         if self.upload_to is not None:
             files_to_upload = set()
-            for write_result in fut.value():
+            for write_result in fut.wait():
                 files_to_upload.add(write_result.storage_data.relative_path)
 
             with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
