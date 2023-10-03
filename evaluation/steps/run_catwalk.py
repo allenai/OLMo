@@ -139,9 +139,9 @@ class ProcessOutputs(Step):
         **kwargs,
     ) -> Dict:
         task_name = outputs["task"]
-        new_metrics = {}
+        new_metrics: Dict[str, float] = {}
         if "subdomain" in outputs["instance_predictions"][0]["instance"]:
-            new_metrics[f"ppl_token_{task_name}_subdomains"]: Dict[str, float] = {}
+            new_metrics[f"ppl_token_{task_name}_subdomains"] = {}
             sum_logits: Dict[str, float] = {}
             num_tokens: Dict[str, int] = {}
             for instance_prediction in outputs["instance_predictions"]:
@@ -319,7 +319,7 @@ class WriteOutputsAsRowsMultipleMetrics(WriteOutputsAsRows):
 
     def run(
         self, models: List[str], outputs: List[Dict], prediction_kwargs: List[Dict], gsheet: Optional[str] = None
-    ) -> Dict[str, List[Dict]]:
+    ) -> Dict[str, List[Dict]]:  # type: ignore
         per_metric_type_tsv_outputs: Dict[str, List[Dict]] = {}
         for idx, d in enumerate(outputs):
             model = models[idx]
