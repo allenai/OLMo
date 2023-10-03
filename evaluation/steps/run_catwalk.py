@@ -257,12 +257,57 @@ class WriteOutputsAsRows(Step):
 
         return tsv_outputs
 
-    def _write_to_gsheet(self, gsheet: str, rows: List[Dict]):
+    def _write_to_gsheet(self, gsheet: str, rows: List[Dict], sheet_title: str = "Sheet1"):
         import pygsheets
+
+        # make rows into dataframe
+        new_df = pd.DataFrame(rows)
 
         client = pygsheets.authorize(service_account_json=os.environ["GDRIVE_SERVICE_ACCOUNT_JSON"])
         sheet = client.open(gsheet)
-        worksheet = sheet[0]  # TODO: pass in sheet title, etc.
+
+        # make sheet if doesn't exist
+        if sheet_title in [s.title for s in sheet.worksheets()]:
+            worksheet = sheet.worksheet_by_title(sheet_title)
+        else:
+            sheet.add_worksheet(rows=new_df.shape[0], cols=new_df.shape[1], title=sheet_title)
+            worksheet = sheet.worksheet_by_title(sheet_title)
         current_df = worksheet.get_as_df()
-        new_df = pd.concat([current_df, pd.DataFrame(rows)])
+        current_df = worksheet.get_as_df()
+        new_df = pd.concat([current_df, new_df])
         worksheet.set_dataframe(new_df, (1, 1), nan="")
+
+@Step.register("write-outputs-as-rows-multiple-metrics")
+class WriteOutputsAsRows(WriteOutputsAsRows):
+    VERSION = "001"
+
+    def run(
+        self, models: List[str], outputs: List[Dict], prediction_kwargs: List[Dict], gsheet: Optional[str] = None
+    ) -> List:
+        per_metric_type_tsv_outputs = {}
+        for idx, d in enumerate(outputs):
+            model = models[idx]
+            pred_kwargs = copy.deepcopy(DEFAULT_PREDICTION_KWARGS)
+            pred_kwargs.update(prediction_kwargs[idx])
+            tsv_outputs = []
+            for metric_type_name, metrics_dict in d["metrics"].items():
+                row = {}
+                row["date"] = datetime.now(tz=pytz.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                row["model"] = model
+                row["full_model"] = f"lm::pretrained={model}"
+                row["task"] = d["task"]
+                row["processing_time"] = d["processing_time"]
+                row["num_instances"] = d["num_instances"]
+                row["tango_workspace"] = self.workspace.url
+                row["tango_step"] = self.unique_id
+                for metric_name in metrics_dict:
+                    row[metric_name] = metrics_dict[metric_name]
+
+                row.update(pred_kwargs)
+                per_metric_type_tsv_outputs[metric_type_name] = per_metric_type_tsv_outputs.get(metric_type_name, []) + [row]
+
+        if gsheet:
+            for metric_type_name, tsv_outputs in per_metric_type_tsv_outputs.items():
+                self._write_to_gsheet(gsheet, tsv_outputs, sheet_title=metric_type_name)
+
+        return per_metric_type_tsv_outputs
