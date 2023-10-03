@@ -565,8 +565,7 @@ class Trainer:
             self.restore_unsharded_checkpoint(load_path)
         elif checkpoint_type == CheckpointType.sharded or checkpoint_type is None:
             try:
-                resource_path(load_path, f"rank{get_global_rank()}.pt")
-                legacy_mode = True
+                legacy_mode = resource_path(load_path, f"rank{get_global_rank()}.pt").is_file()
             except FileNotFoundError:
                 legacy_mode = False
             if legacy_mode:
