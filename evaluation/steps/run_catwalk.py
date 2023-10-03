@@ -141,9 +141,9 @@ class ProcessOutputs(Step):
         task_name = outputs["task"]
         new_metrics = {}
         if "subdomain" in outputs["instance_predictions"][0]["instance"]:
-            new_metrics[f"ppl_token_{task_name}_subdomains"] = {}
-            sum_logits = {}
-            num_tokens = {}
+            new_metrics[f"ppl_token_{task_name}_subdomains"]: Dict[str, float] = {}
+            sum_logits: Dict[str, float] = {}
+            num_tokens: Dict[str, int] = {}
             for instance_prediction in outputs["instance_predictions"]:
                 subdomain = instance_prediction["instance"]["subdomain"]
                 sum_logits[subdomain] = (
@@ -314,18 +314,18 @@ class WriteOutputsAsRows(Step):
 
 
 @Step.register("write-outputs-as-rows-multiple-metrics")
-class WriteOutputsAsRows(WriteOutputsAsRows):
+class WriteOutputsAsRowsMultipleMetrics(WriteOutputsAsRows):
     VERSION = "001"
 
     def run(
         self, models: List[str], outputs: List[Dict], prediction_kwargs: List[Dict], gsheet: Optional[str] = None
-    ) -> List:
-        per_metric_type_tsv_outputs = {}
+    ) -> Dict[str, List[Dict]]:
+        per_metric_type_tsv_outputs: Dict[str, List[Dict]] = {}
         for idx, d in enumerate(outputs):
             model = models[idx]
             pred_kwargs = copy.deepcopy(DEFAULT_PREDICTION_KWARGS)
             pred_kwargs.update(prediction_kwargs[idx])
-            tsv_outputs = []
+            tsv_outputs: List[Dict] = []
             for metric_type_name, metrics_dict in d["metrics"].items():
                 row = {}
                 row["date"] = datetime.now(tz=pytz.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
