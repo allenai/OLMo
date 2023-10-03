@@ -6,6 +6,7 @@ import io
 import logging
 import pickle
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 from typing import Dict, List, Optional, cast
 
 import torch
@@ -88,16 +89,23 @@ class RemoteFileSystemReader(dist_cp.StorageReader):
     that can read data directly from cloud storage as well as a local directory.
     """
 
-    def __init__(self, path: PathOrStr):
+    def __init__(self, path: PathOrStr, local_cache: Optional[PathOrStr] = None):
         super().__init__()
         self.path = str(path).rstrip("/")
+        self.cache = None if local_cache is None else Path(local_cache)
         self.storage_data: Dict[MetadataIndex, _StorageInfo] = dict()
+
+    def _get_bytes(self, relative_path: str, offset: int, length: int) -> bytes:
+        if self.cache is not None and (path := self.cache / relative_path).is_file():
+            return get_bytes_range(path, offset, length)
+        else:
+            return get_bytes_range(f"{self.path}/{relative_path}", offset, length)
 
     def read_data(self, plan: dist_cp.LoadPlan, planner: dist_cp.LoadPlanner) -> Future[None]:
         # Modified from `FileSystemReader.read_data()`
         for read_item in plan.items:
             sinfo = self.storage_data[read_item.storage_index]
-            content = get_bytes_range(f"{self.path}/{sinfo.relative_path}", sinfo.offset, sinfo.length)
+            content = self._get_bytes(sinfo.relative_path, sinfo.offset, sinfo.length)
             bytes = io.BytesIO(content)
             bytes.seek(0)
             if read_item.type == LoadItemType.BYTE_IO:
@@ -118,7 +126,7 @@ class RemoteFileSystemReader(dist_cp.StorageReader):
         return fut
 
     def read_metadata(self) -> Metadata:
-        with resource_path(self.path, ".metadata").open("rb") as metadata_file:
+        with resource_path(self.path, ".metadata", local_cache=self.cache).open("rb") as metadata_file:
             return pickle.load(metadata_file)
 
     def set_up_storage_reader(self, metadata: Metadata, is_coordinator: bool) -> None:
