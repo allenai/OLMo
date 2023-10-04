@@ -296,6 +296,7 @@ class RemoteFileSystemReader(dist_cp.StorageReader):
         self.cache = None if local_cache is None else Path(local_cache)
         self.thread_count = thread_count or _default_thread_count()
         self.storage_data: Dict[MetadataIndex, _StorageInfo] = dict()
+        self._metadata: Optional[Metadata] = None
 
     def _get_bytes(self, relative_path: str, offset: int, length: int) -> bytes:
         if self.cache is not None and (path := self.cache / relative_path).is_file():
@@ -339,8 +340,10 @@ class RemoteFileSystemReader(dist_cp.StorageReader):
         return fut
 
     def read_metadata(self) -> Metadata:
-        with resource_path(self.path, ".metadata", local_cache=self.cache).open("rb") as metadata_file:
-            return pickle.load(metadata_file)
+        if self._metadata is None:
+            with resource_path(self.path, ".metadata", local_cache=self.cache).open("rb") as metadata_file:
+                self._metadata = pickle.load(metadata_file)
+        return self._metadata
 
     def set_up_storage_reader(self, metadata: Metadata, is_coordinator: bool) -> None:
         del is_coordinator
