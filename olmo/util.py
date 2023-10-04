@@ -390,7 +390,7 @@ def dir_is_empty(dir: PathOrStr) -> bool:
 
 def resource_path(folder: PathOrStr, fname: str, local_cache: Optional[PathOrStr] = None) -> Path:
     if local_cache is not None and (local_path := Path(local_cache) / fname).is_file():
-        log.info(f"Found local cache of {fname} in {folder}")
+        log.info(f"Found local cache of {fname} at {local_path}")
         return local_path
     else:
         from cached_path import cached_path
