@@ -45,6 +45,7 @@ from .model import Olmo
 from .optim import Optimizer, Scheduler, fix_optim_state_dict
 from .util import (
     barrier,
+    dir_is_empty,
     get_fs_local_rank,
     get_global_rank,
     get_world_size,
@@ -225,8 +226,8 @@ class Trainer:
         checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}"
         checkpoint_dir_tmp = Path(self.cfg.save_folder) / f"step{self.global_step}-tmp"
 
-        try:
-            next(checkpoint_dir.glob("*"))
+        # Prepare checkpoint directory.
+        if not dir_is_empty(checkpoint_dir):
             if self.cfg.save_overwrite:
                 if get_fs_local_rank() == 0:
                     shutil.rmtree(checkpoint_dir, ignore_errors=True)
@@ -234,16 +235,12 @@ class Trainer:
                 raise OlmoConfigurationError(
                     f"Checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
                 )
-        except StopIteration:
-            pass
 
         # Prepare tmp checkpoint directory.
         if get_fs_local_rank() == 0:
             shutil.rmtree(checkpoint_dir_tmp, ignore_errors=True)
         barrier()
         checkpoint_dir_tmp.mkdir(parents=True, exist_ok=True)
-        (checkpoint_dir_tmp / "model_and_optim").mkdir(exist_ok=True)
-        (checkpoint_dir_tmp / "train").mkdir(exist_ok=True)
 
         remote_checkpoint_dir: Optional[str] = None
         if self.cfg.remote_save_folder is not None:
@@ -281,7 +278,9 @@ class Trainer:
             log.info("Saving config...")
             self.cfg.save(config_path := checkpoint_dir_tmp / "config.yaml")
             if remote_checkpoint_dir is not None:
-                upload(config_path, f"{remote_checkpoint_dir}/config.yaml", save_overwrite=self.cfg.save_overwrite)
+                upload_target = f"{remote_checkpoint_dir}/config.yaml"
+                log.info(f"Uploading {config_path} to {upload_target}")
+                upload(config_path, upload_target, save_overwrite=self.cfg.save_overwrite)
 
         barrier()
 

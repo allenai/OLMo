@@ -183,6 +183,7 @@ def save_state_dict(
     torch.save(state_dict, target_path)
     if upload_to is not None:
         upload_target = f"{upload_to.rstrip('/')}/{fname}"
+        log.info(f"Uploading {target_path} to {upload_target}...")
         upload(target_path, upload_target, save_overwrite=save_overwrite)
 
 
