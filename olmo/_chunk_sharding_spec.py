@@ -106,7 +106,7 @@ class ChunkShardingSpec(ShardingSpec):
 
         return sharded_tensor_meta.ShardedTensorMetadata(shards_metadata, tensor_sizes, tensor_properties)
 
-    def shard(self, tensor: torch.Tensor, src_rank: int = 0, process_group=None) -> "ShardedTensor":
+    def shard(self, tensor: torch.Tensor, src_rank: int = 0, process_group=None) -> Optional["ShardedTensor"]:
         """
         Args:
             src_rank: group rank relative to ``process_group``
@@ -158,10 +158,19 @@ class ChunkShardingSpec(ShardingSpec):
                 local_tensor = torch.empty(scatter_shape, dtype=tensor.dtype, layout=tensor.layout, device=device)
                 local_metadata = shard_meta
 
-        # each rank should have local_tensor and local_metadata initialized if we build
-        # the metadata list in a correct way.
+        # Some ranks might not have a shard of this tensor. In that case we just fill in an empty tensor.
+        for rank in range(dist.get_world_size(process_group)):
+            tensor_to_scatter = tensors_to_scatter[rank]
+            if tensor_to_scatter is None:
+                tensor_to_scatter = torch.empty(
+                    scatter_shape, dtype=tensor.dtype, layout=tensor.layout, device=device
+                )
+                if current_rank == rank:
+                    local_tensor = tensor_to_scatter
+
+        # each rank should have local_tensor.
         assert local_tensor is not None
-        assert local_metadata is not None
+        #  assert local_metadata is not None
 
         # Scatter the shards to all ranks in the pg
         # scatter takes the global rank as ``src``
@@ -175,6 +184,10 @@ class ChunkShardingSpec(ShardingSpec):
             src=src_for_scatter,
             group=process_group,
         )
+
+        if local_metadata is None:
+            # This rank didn't have a shard.
+            return None
 
         if list(local_tensor.size()) != local_metadata.shard_sizes:
             # detach again after receiving to ensure local shards remain a leaf node

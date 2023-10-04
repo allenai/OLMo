@@ -244,10 +244,9 @@ def load_sharded_optimizer_state_dict(
         if value.size.numel() == 1:
             state_dict[key] = _alloc_tensor(value.properties, value.size)
         elif dp_pg is None:
-            try:
-                state_dict[key] = _shard_tensor(_alloc_tensor(value.properties, value.size), sharding_spec)
-            except RuntimeError:
-                raise
+            sharded_tensor = _shard_tensor(_alloc_tensor(value.properties, value.size), sharding_spec)
+            if sharded_tensor is not None:
+                state_dict[key] = sharded_tensor
         else:
             spec_key = key_path[2]
             alloc_size = layout_specs.get(spec_key, (None, value.size))[1]
