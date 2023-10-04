@@ -269,5 +269,14 @@ class WriteOutputsAsRows(Step):
         sheet = client.open(gsheet)
         worksheet = sheet[0]  # TODO: pass in sheet title, etc.
         current_df = worksheet.get_as_df()
-        new_df = pd.concat([current_df, pd.DataFrame(rows)])
+        # handle the case where the columns are different by adding empty values for the missing columns
+        new_df = pd.DataFrame(rows)
+        for col in current_df.columns:
+            if col not in new_df.columns:
+                new_df[col] = ""
+        for col in new_df.columns:
+            if col not in current_df.columns:
+                current_df[col] = ""
+        new_df = new_df[current_df.columns]
+        new_df = pd.concat([current_df, new_df])
         worksheet.set_dataframe(new_df, (1, 1), nan="")
