@@ -377,8 +377,20 @@ def is_url(path: PathOrStr) -> bool:
     return re.match(r"[a-z0-9]+://.*", str(path)) is not None
 
 
+def dir_is_empty(dir: PathOrStr) -> bool:
+    dir = Path(dir)
+    if not dir.is_dir():
+        return True
+    try:
+        next(dir.glob("*"))
+        return False
+    except StopIteration:
+        return True
+
+
 def resource_path(folder: PathOrStr, fname: str, local_cache: Optional[PathOrStr] = None) -> Path:
     if local_cache is not None and (local_path := Path(local_cache) / fname).is_file():
+        log.info(f"Found local cache of {fname} in {folder}")
         return local_path
     else:
         from cached_path import cached_path

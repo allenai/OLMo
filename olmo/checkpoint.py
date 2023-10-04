@@ -1,29 +1,218 @@
-"""
-Custom distributed checkpointing.
-"""
-
 import io
 import logging
 import pickle
+import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 
 import torch
 import torch.distributed.checkpoint as dist_cp
+from packaging import version
 from torch.distributed._shard._utils import narrow_tensor_by_index
 from torch.distributed.checkpoint.filesystem import WriteResult, _StorageInfo
 from torch.distributed.checkpoint.metadata import Metadata, MetadataIndex
+from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.checkpoint.planner import LoadItemType
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp import StateDictType
+from torch.distributed.fsdp.api import (
+    ShardedOptimStateDictConfig,
+    ShardedStateDictConfig,
+)
 from torch.futures import Future
 
 from .aliases import PathOrStr
-from .util import get_bytes_range, resource_path, upload
+from .optim import Optimizer, fix_optim_state_dict
+from .util import (
+    barrier,
+    dir_is_empty,
+    get_bytes_range,
+    get_fs_local_rank,
+    resource_path,
+    upload,
+)
 
-__all__ = ["RemoteFileSystemWriter", "RemoteFileSystemReader"]
+__all__ = [
+    "save_fsdp_model_and_optim_state",
+    "load_fsdp_model_and_optim_state",
+    "save_state_dict",
+    "load_state_dict",
+    "load_model_state",
+    "RemoteFileSystemWriter",
+    "RemoteFileSystemReader",
+]
 
 
 log = logging.getLogger(__name__)
+
+MODEL_AND_OPTIM_FOLDER = "model_and_optim"
+
+
+def save_fsdp_model_and_optim_state(
+    checkpoint_dir: PathOrStr,
+    fsdp_model: FSDP,
+    optim: Optimizer,
+    *,
+    upload_to: Optional[str] = None,
+    save_overwrite: bool = False,
+):
+    """
+    Use this to save a state dict for an FSDP model and its optimizer via :module:`torch.distributed.checkpoint`
+    functions. This should be used during distributed training and should be called by all ranks.
+
+    :param checkpoint_dir: The directory to save to.
+    :param fsdp_model: The FSDP model.
+    :param optim: The FSDP model's optimizer.
+    :param upload_to: Optional, a remote "directory" to upload the checkpoint files to.
+    :param save_overwrite: Overwrite existing files.
+
+    :raises FileExistsError: If a model and optim checkpoint already exists in ``checkpoint_dir`` and ``save_overwrite=False``.
+    """
+    checkpoint_dir = Path(checkpoint_dir)
+    target_dir = checkpoint_dir / MODEL_AND_OPTIM_FOLDER
+    if save_overwrite:
+        if get_fs_local_rank() == 0:
+            shutil.rmtree(target_dir, ignore_errors=True)
+    elif not dir_is_empty(target_dir):
+        raise FileExistsError(target_dir)
+    target_dir.mkdir(exist_ok=True, parents=True)
+    barrier()
+    with FSDP.state_dict_type(
+        fsdp_model,
+        state_dict_type=StateDictType.SHARDED_STATE_DICT,
+        state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
+        optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
+    ):
+        model_and_optim_state = {
+            "model": fsdp_model.state_dict(),
+            "optim": FSDP.optim_state_dict(fsdp_model, optim),
+        }
+        dist_cp.save_state_dict(
+            model_and_optim_state,
+            RemoteFileSystemWriter(
+                target_dir,
+                upload_to=None if upload_to is None else f"{upload_to.rstrip('/')}/{MODEL_AND_OPTIM_FOLDER}",
+                save_overwrite=save_overwrite,
+            ),
+        )
+
+
+def load_fsdp_model_and_optim_state(
+    checkpoint_dir: PathOrStr, fsdp_model: FSDP, optim: Optimizer, *, local_cache: Optional[PathOrStr] = None
+):
+    """
+    Use this to load a state dict for an FSDP model and its optimizer via :module:`torch.distributed.checkpoint`
+    functions. This should be used during distributed training and should be called by all ranks.
+
+    :param checkpoint_dir: The checkpoint directory to load from. This can be a local or remote directory.
+    :param fsdp_model: The FSDP model.
+    :param optim: The FSDP model's optimizer.
+    :param local_cache: A local cache of the checkpoint directory. Use this when the ``checkpoint_dir`` is a
+        remote "directory" but there might be a cached version of the same artifacts.
+
+    :raises FileNotFoundError: If the ``checkpoint_dir`` doesn't contain a model and optimizer checkpoint.
+    """
+    load_path = str(checkpoint_dir).rstrip("/")
+    local_cache = None if local_cache is None else Path(local_cache)
+    with FSDP.state_dict_type(
+        fsdp_model,
+        state_dict_type=StateDictType.SHARDED_STATE_DICT,
+        state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
+        optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
+    ):
+        # Load the model state dict in place.
+        log.info("Loading model state...")
+        model_state = {"model": fsdp_model.state_dict()}
+        dist_cp.load_state_dict(
+            model_state,
+            RemoteFileSystemReader(
+                f"{load_path}/{MODEL_AND_OPTIM_FOLDER}",
+                local_cache=None if local_cache is None else local_cache / MODEL_AND_OPTIM_FOLDER,
+            ),
+        )
+        fsdp_model.load_state_dict(model_state["model"])
+
+        # Load optim state dict in place.
+        log.info("Loading optimizer state...")
+        optim_state = load_sharded_optimizer_state_dict(
+            model_state_dict=model_state["model"],
+            optimizer_key="optim",
+            storage_reader=RemoteFileSystemReader(
+                f"{load_path}/{MODEL_AND_OPTIM_FOLDER}",
+                local_cache=None if local_cache is None else local_cache / MODEL_AND_OPTIM_FOLDER,
+            ),
+        )
+        # NOTE: Careful! The order of the these arguments has changed from 2.0 to 2.1... ¯\_(ツ)_/¯
+        if version.parse(torch.__version__) < version.parse("2.1.0"):
+            flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], fsdp_model, optim)  # type: ignore
+        else:
+            flattened_osd = FSDP.optim_state_dict_to_load(fsdp_model, optim, optim_state["optim"])  # type: ignore
+        optim.load_state_dict(fix_optim_state_dict(optim, flattened_osd))
+
+
+def save_state_dict(
+    checkpoint_dir: PathOrStr,
+    fname: str,
+    state_dict: Dict[str, Any],
+    *,
+    upload_to: Optional[str] = None,
+    save_overwrite: bool = False,
+):
+    """
+    Save a regular state dict to the file ``fname`` within ``checkpoint_dir`` using :func:`torch.save()`.
+    This can be used during distributed training or not. If during distributed training the ``fname`` should be unique
+    for each rank.
+
+    :param checkpoint_dir: The directory to save to.
+    :param fname: The target file within ``checkpoint_dir`` to save to. This should be a path relative to the ``checkpoint_dir``.
+    :param state_dict: The state dict to save.
+    :param upload_to: Optional, a remote "directory" to upload the file to.
+    :param save_overwrite: Overwrite existing files.
+
+    :raises FileExistsError: If the ``fname`` already exists within ``checkpoint_dir`` and ``save_overwrite=False``.
+    """
+    checkpoint_dir = Path(checkpoint_dir)
+    target_path = checkpoint_dir / fname
+    if save_overwrite:
+        target_path.unlink(missing_ok=True)
+    elif target_path.is_file():
+        raise FileExistsError(target_path)
+    target_path.parent.mkdir(exist_ok=True, parents=True)
+    barrier()
+    torch.save(state_dict, target_path)
+    if upload_to is not None:
+        upload_target = f"{upload_to.rstrip('/')}/{fname}"
+        upload(target_path, upload_target, save_overwrite=save_overwrite)
+
+
+def load_state_dict(checkpoint_dir: PathOrStr, fname: str, *, local_cache: Optional[PathOrStr] = None):
+    """
+    Load a regular state dict from the file ``fname`` within ``checkpoint_dir`` using :func:`torch.load()`.
+    This can be used during distributed training or not.
+
+    :param checkpoint_dir: A local or remote checkpoint directory.
+    :param fname: The target file within the ``checkpoint_dir``. This should be a path relative to the ``checkpoint_dir``.
+    :param local_cache: A local cache of the checkpoint directory. Use this when the ``checkpoint_dir`` is a
+        remote "directory" but there might be a cached version of the same artifacts.
+
+    :raises FileNotFoundError: If ``fname`` doesn't exist in the ``checkpoint_dir`` or the local cache.
+    """
+    return torch.load(resource_path(str(checkpoint_dir).rstrip("/"), fname, local_cache=local_cache))
+
+
+def load_model_state(checkpoint_dir: PathOrStr, model: torch.nn.Module):
+    """
+    Load model state from a distributed FSDP model checkpoint created from :func:`save_fsdp_model_and_optim_state()`.
+    Note that ``model`` should not be wrapped with FSDP.
+    """
+    state_dict = {"model": model.state_dict()}
+    dist_cp.load_state_dict(
+        state_dict,
+        RemoteFileSystemReader(f"{str(checkpoint_dir).rstrip('/')}/{MODEL_AND_OPTIM_FOLDER}"),
+        no_dist=True,
+    )
+    model.load_state_dict(state_dict["model"])
 
 
 class RemoteFileSystemWriter(dist_cp.FileSystemWriter):

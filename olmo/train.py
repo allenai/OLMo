@@ -20,8 +20,6 @@ import torch.distributed as dist
 import torch.nn.functional as F
 import wandb
 from packaging import version
-from torch.distributed.checkpoint import load_state_dict, save_state_dict
-from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.fsdp import FullStateDictConfig
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import StateDictType
@@ -33,7 +31,12 @@ from torch.distributed.fsdp.api import (
 from torch.utils.data import DataLoader
 
 from .aliases import PathOrStr
-from .checkpoint import RemoteFileSystemReader, RemoteFileSystemWriter
+from .checkpoint import (
+    load_fsdp_model_and_optim_state,
+    load_state_dict,
+    save_fsdp_model_and_optim_state,
+    save_state_dict,
+)
 from .config import CheckpointType, SpeedMonitorConfig, TrainConfig
 from .data import IterableDataset
 from .eval import Evaluator
@@ -242,40 +245,45 @@ class Trainer:
         (checkpoint_dir_tmp / "model_and_optim").mkdir(exist_ok=True)
         (checkpoint_dir_tmp / "train").mkdir(exist_ok=True)
 
+        remote_checkpoint_dir: Optional[str] = None
+        if self.cfg.remote_save_folder is not None:
+            remote_checkpoint_dir = f"{self.cfg.remote_save_folder.rstrip('/')}/{checkpoint_dir.name}"
+
         # Flush data indices file.
+        # TODO: upload the indices files?
         if self.indices_file is not None:
             self.indices_file.flush()
 
         self.checkpoints.append(checkpoint_dir)
 
-        # Write the checkpoint.
-        with FSDP.state_dict_type(
+        # Save model and optimizer state.
+        log.info("Saving model and optim state...")
+        save_fsdp_model_and_optim_state(
+            checkpoint_dir_tmp,
             self.fsdp_model,
-            state_dict_type=StateDictType.SHARDED_STATE_DICT,
-            state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
-            optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
-        ):
-            # Save model and optimizer state.
-            model_and_optim_state = {
-                "model": self.fsdp_model.state_dict(),
-                "optim": FSDP.optim_state_dict(self.fsdp_model, self.optim),
-            }
-            save_state_dict(
-                model_and_optim_state,
-                RemoteFileSystemWriter(
-                    checkpoint_dir_tmp / "model_and_optim",
-                    upload_to=None
-                    if self.cfg.remote_save_folder is None
-                    else f"{self.cfg.remote_save_folder}/{checkpoint_dir.name}/model_and_optim",
-                    save_overwrite=self.cfg.save_overwrite,
-                ),
-            )
-            # Trainer state.
-            torch.save(self.trainer_state_dict(), checkpoint_dir_tmp / "train" / f"rank{get_global_rank()}.pt")
-            # Save config too.
-            if get_global_rank() == 0:
-                self.cfg.save(checkpoint_dir_tmp / "config.yaml")
-            barrier()
+            self.optim,
+            upload_to=remote_checkpoint_dir,
+            save_overwrite=self.cfg.save_overwrite,
+        )
+
+        # Save trainer state.
+        log.info("Saving trainer state...")
+        save_state_dict(
+            checkpoint_dir_tmp,
+            f"train/rank{get_global_rank()}.pt",
+            self.trainer_state_dict(),
+            upload_to=remote_checkpoint_dir,
+            save_overwrite=self.cfg.save_overwrite,
+        )
+
+        # Save config.
+        if get_global_rank() == 0:
+            log.info("Saving config...")
+            self.cfg.save(config_path := checkpoint_dir_tmp / "config.yaml")
+            if remote_checkpoint_dir is not None:
+                upload(config_path, f"{remote_checkpoint_dir}/config.yaml", save_overwrite=self.cfg.save_overwrite)
+
+        barrier()
 
         if get_fs_local_rank() == 0:
             # Replace temp directory with target checkpoint directory.
@@ -314,17 +322,7 @@ class Trainer:
         barrier()
 
         # Upload checkpoint to bucket.
-        if self.cfg.remote_save_folder is not None:
-            remote_checkpoint_dir = f"{self.cfg.remote_save_folder.rstrip('/')}/{checkpoint_dir.name}"
-            files_to_upload = [f"train/rank{get_global_rank()}.pt"]
-            if get_global_rank() == 0:
-                files_to_upload.append("config.yaml")
-            for fname in files_to_upload:
-                source = checkpoint_dir / fname
-                target = f"{remote_checkpoint_dir}/{fname}"
-                log.info(f"Uploading {source} to {target}...")
-                upload(source, target, save_overwrite=self.cfg.save_overwrite)
-            barrier()
+        if remote_checkpoint_dir is not None:
             return remote_checkpoint_dir, checkpoint_dir
         else:
             return checkpoint_dir, None
@@ -343,68 +341,24 @@ class Trainer:
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
 
-        load_path = str(load_path).rstrip("/")
-        local_cache = None if local_cache is None else Path(local_cache)
+        # Load model and optimizer state in place.
+        log.info("Loading model and optimizer state...")
+        load_fsdp_model_and_optim_state(load_path, self.fsdp_model, self.optim, local_cache=local_cache)
 
-        with FSDP.state_dict_type(
-            self.fsdp_model,
-            state_dict_type=StateDictType.SHARDED_STATE_DICT,
-            state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
-            optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
-        ):
-            # Load the model state dict in place.
-            log.info("Loading model state...")
-            model_state = {"model": self.fsdp_model.state_dict()}
-            load_state_dict(
-                model_state,
-                RemoteFileSystemReader(
-                    f"{load_path}/model_and_optim",
-                    local_cache=None if local_cache is None else local_cache / "model_and_optim",
-                ),
+        # Load trainer state dict.
+        log.info("Loading trainer state...")
+        try:
+            trainer_state = load_state_dict(
+                load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache
             )
-            self.fsdp_model.load_state_dict(model_state["model"])
-
-            # Load optim state dict in place.
-            log.info("Loading optimizer state...")
-            optim_state = load_sharded_optimizer_state_dict(
-                model_state_dict=model_state["model"],
-                optimizer_key="optim",
-                storage_reader=RemoteFileSystemReader(
-                    f"{load_path}/model_and_optim",
-                    local_cache=None if local_cache is None else local_cache / "model_and_optim",
-                ),
-            )
-            if version.parse(torch.__version__) < version.parse("2.1.0"):
-                flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
-            else:
-                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
-            self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
-            del model_state, optim_state, flattened_osd
-
-            # Load trainer state dict.
-            log.info("Loading trainer state...")
-            try:
-                trainer_state = torch.load(
-                    resource_path(
-                        load_path,
-                        f"train/rank{get_global_rank()}.pt",
-                        local_cache=local_cache,
-                    )
-                )
-            except FileNotFoundError:
-                # Fall back to rank 0 train state.
-                # This can happen when we're restoring a checkpoint with a different world size.
-                trainer_state = torch.load(
-                    resource_path(
-                        load_path,
-                        "train/rank0.pt",
-                        local_cache=local_cache,
-                    )
-                )
-                # Restoring RNG state isn't necessary and in the case of going from world size 1 to world size N
-                # we probably don't want every rank to have the exact same RNG state.
-                del trainer_state["rng"]
-            self.load_trainer_state_dict(trainer_state)
+        except FileNotFoundError:
+            # Fall back to rank 0 train state.
+            # This can happen when we're restoring a checkpoint with a different world size.
+            trainer_state = load_state_dict(load_path, "train/rank0.pt", local_cache=local_cache)
+            # Restoring RNG state isn't necessary and in the case of going from world size 1 to world size N
+            # we probably don't want every rank to have the exact same RNG state.
+            del trainer_state["rng"]
+        self.load_trainer_state_dict(trainer_state)
 
         barrier()
 

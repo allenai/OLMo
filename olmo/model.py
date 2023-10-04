@@ -1098,9 +1098,7 @@ class Olmo(nn.Module):
             model.load_state_dict(model._make_state_dict_compatible(state_dict))
             model = model.to(torch.device(device))
         else:
-            from torch.distributed.checkpoint import load_state_dict
-
-            from .checkpoint import RemoteFileSystemReader
+            from .checkpoint import load_model_state
 
             # Initialize model on target device. In this case the state dict is loaded in-place
             # so it's not necessary to start on CPU if the target device is a GPU.
@@ -1108,13 +1106,7 @@ class Olmo(nn.Module):
             model = Olmo(model_config)
 
             # Load state dict in place.
-            state_dict = {"model": model.state_dict()}
-            load_state_dict(
-                state_dict,
-                RemoteFileSystemReader(f"{str(checkpoint_dir).rstrip('/')}/model_and_optim"),
-                no_dist=True,
-            )
-            model.load_state_dict(state_dict["model"])
+            load_model_state(checkpoint_dir, model)
 
         return model.eval()
 
