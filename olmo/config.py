@@ -677,7 +677,7 @@ class TrainConfig(BaseConfig):
 
     load_path: Optional[str] = None
     """
-    The path to a (sharded) training checkpoint to restore/resume from.
+    The path to a training checkpoint to restore/resume from.
     """
 
     max_duration: int = 10000

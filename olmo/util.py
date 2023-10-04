@@ -10,10 +10,12 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
 import boto3
+import botocore.exceptions as boto_exceptions
 import rich
 import torch
 import torch.distributed as dist
 import torch.nn as nn
+from botocore.config import Config
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.text import Text
@@ -21,9 +23,10 @@ from rich.traceback import Traceback
 
 from .aliases import PathOrStr
 from .config import LogFilterType
-from .exceptions import OlmoCliError, OlmoError
+from .exceptions import OlmoCliError, OlmoError, OlmoNetworkError
 
 _log_extra_fields: Dict[str, Any] = {}
+log = logging.getLogger(__name__)
 
 
 def log_extra_field(field_name: str, field_value: Any) -> None:
@@ -127,9 +130,7 @@ def excepthook(exctype, value, traceback):
     elif issubclass(exctype, OlmoError):
         rich.get_console().print(Text(f"{exctype.__name__}:", style="red"), value, highlight=False)
     else:
-        logging.getLogger().critical(
-            "Uncaught %s: %s", exctype.__name__, value, exc_info=(exctype, value, traceback)
-        )
+        log.critical("Uncaught %s: %s", exctype.__name__, value, exc_info=(exctype, value, traceback))
 
 
 def install_excepthook():
@@ -376,13 +377,13 @@ def is_url(path: PathOrStr) -> bool:
     return re.match(r"[a-z0-9]+://.*", str(path)) is not None
 
 
-def resource_path(folder: PathOrStr, fname: str) -> PathOrStr:
-    if is_url(folder):
+def resource_path(folder: PathOrStr, fname: str, local_cache: Optional[PathOrStr] = None) -> Path:
+    if local_cache is not None and (local_path := Path(local_cache) / fname).is_file():
+        return local_path
+    else:
         from cached_path import cached_path
 
         return cached_path(f"{str(folder).rstrip('/')}/{fname}")
-    else:
-        return Path(folder) / fname
 
 
 def file_size(path: PathOrStr) -> int:
@@ -426,10 +427,7 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
 
         parsed = urlparse(str(source))
         if parsed.scheme == "gs":
-            from cached_path import cached_path
-
-            # TODO: directly request range from GCS.
-            return get_bytes_range(cached_path(source), bytes_start, num_bytes)
+            return _gcs_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
         elif parsed.scheme == "s3":
             return _s3_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
         elif parsed.scheme == "file":
@@ -440,6 +438,17 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
         with open(source, "rb") as f:
             f.seek(bytes_start)
             return f.read(num_bytes)
+
+
+def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
+    from google.cloud import storage as gcs
+
+    storage_client = gcs.Client()
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(key)
+    if not save_overwrite and blob.exists():
+        raise FileExistsError(f"gs://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
+    blob.upload_from_filename(source)
 
 
 def _gcs_file_size(bucket_name: str, key: str) -> int:
@@ -457,55 +466,105 @@ def _gcs_file_size(bucket_name: str, key: str) -> int:
     return blob.size
 
 
-def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
+def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int) -> bytes:
+    from google.api_core.exceptions import NotFound
     from google.cloud import storage as gcs
 
     storage_client = gcs.Client()
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(key)
-    if not save_overwrite and blob.exists():
-        raise FileExistsError(f"gs://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
-    blob.upload_from_filename(source)
+    try:
+        blob.reload()
+    except NotFound:
+        raise FileNotFoundError(f"gs://{bucket_name}/{key}")
+    return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1)
 
 
-s3_client = boto3.client("s3")
+s3_client = boto3.client("s3", config=Config(retries={"max_attempts": 10, "mode": "standard"}))
 
 
-def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
-    from botocore.exceptions import ClientError
+def _wait_before_retry(attempt: int):
+    time.sleep(min(0.5 * 2**attempt, 3.0))
 
+
+def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False, max_attempts: int = 3):
+    err: Optional[Exception] = None
     if not save_overwrite:
+        for attempt in range(1, max_attempts + 1):
+            try:
+                s3_client.head_object(Bucket=bucket_name, Key=key)
+                raise FileExistsError(
+                    f"s3://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it."
+                )
+            except boto_exceptions.ClientError as e:
+                if int(e.response["Error"]["Code"]) == 404:
+                    err = None
+                    break
+                err = e
+
+            if attempt < max_attempts:
+                log.warning("%s failed attempt %d with retriable error: %s", _s3_upload.__name__, attempt, err)
+                _wait_before_retry(attempt)
+
+        if err is not None:
+            raise OlmoNetworkError("Failed to check object existence during s3 upload") from err
+
+    try:
+        s3_client.upload_file(source, bucket_name, key)
+    except boto_exceptions.ClientError as e:
+        raise OlmoNetworkError("Failed to upload to s3") from e
+
+
+def _s3_file_size(bucket_name: str, key: str, max_attempts: int = 3) -> int:
+    err: Optional[Exception] = None
+    for attempt in range(1, max_attempts + 1):
         try:
-            s3_client.head_object(Bucket=bucket_name, Key=key)
-            raise FileExistsError(f"s3://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
-        except ClientError as e:
-            if int(e.response["Error"]["Code"]) != 404:
-                raise
-    s3_client.upload_file(source, bucket_name, key)
+            return s3_client.head_object(Bucket=bucket_name, Key=key)["ContentLength"]
+        except boto_exceptions.ClientError as e:
+            if int(e.response["Error"]["Code"]) == 404:
+                raise FileNotFoundError(f"s3://{bucket_name}/{key}") from e
+            err = e
+
+        if attempt < max_attempts:
+            log.warning("%s failed attempt %d with retriable error: %s", _s3_file_size.__name__, attempt, err)
+            _wait_before_retry(attempt)
+
+    raise OlmoNetworkError("Failed to get s3 file size") from err
 
 
-def _s3_file_size(bucket_name: str, key: str) -> int:
-    from botocore.exceptions import ClientError
+def _s3_get_bytes_range(
+    bucket_name: str, key: str, bytes_start: int, num_bytes: int, max_attempts: int = 3
+) -> bytes:
+    err: Optional[Exception] = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return s3_client.get_object(
+                Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
+            )["Body"].read()
+        except boto_exceptions.ClientError as e:
+            if int(e.response["Error"]["Code"]) == 404:
+                raise FileNotFoundError(f"s3://{bucket_name}/{key}") from e
+            err = e
+        except (boto_exceptions.HTTPClientError, boto_exceptions.ConnectionError) as e:
+            # ResponseStreamingError (subclass of HTTPClientError) can happen as
+            # a result of a failed read from the stream (http.client.IncompleteRead).
+            # Retrying can help in this case.
+            err = e
 
-    try:
-        return s3_client.head_object(Bucket=bucket_name, Key=key)["ContentLength"]
-    except ClientError as e:
-        if int(e.response["Error"]["Code"]) != 404:
-            raise
-        raise FileNotFoundError(f"s3://{bucket_name}/{key}")
+        if attempt < max_attempts:
+            log.warning(
+                "%s failed attempt %d with retriable error: %s", _s3_get_bytes_range.__name__, attempt, err
+            )
+            _wait_before_retry(attempt)
 
-
-def _s3_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int) -> bytes:
-    from botocore.exceptions import ClientError
-
-    try:
-        return s3_client.get_object(
-            Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
-        )["Body"].read()
-    except ClientError as e:
-        if int(e.response["Error"]["Code"]) != 404:
-            raise
-        raise FileNotFoundError(f"s3://{bucket_name}/{key}")
+    # When torch's DataLoader intercepts exceptions, it may try to re-raise them
+    # by recalling their constructor with a single message arg. Torch has some
+    # logic to deal with the absence of a single-parameter constructor, but it
+    # doesn't gracefully handle other possible failures in calling such a constructor
+    # This can cause an irrelevant exception (e.g. KeyError: 'error'), resulting
+    # in us losing the true exception info. To avoid this, we change the exception
+    # to a type that has a single-parameter constructor.
+    raise OlmoNetworkError("Failed to get bytes range from s3") from err
 
 
 def is_weight_decay_module(module: nn.Module) -> bool:
