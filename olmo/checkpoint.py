@@ -4,7 +4,7 @@ import pickle
 import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import torch
 import torch.distributed.checkpoint as dist_cp
@@ -13,7 +13,7 @@ from torch.distributed._shard._utils import narrow_tensor_by_index
 from torch.distributed.checkpoint.filesystem import WriteResult, _StorageInfo
 from torch.distributed.checkpoint.metadata import Metadata, MetadataIndex
 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
-from torch.distributed.checkpoint.planner import LoadItemType
+from torch.distributed.checkpoint.planner import LoadItemType, ReadItem
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import StateDictType
 from torch.distributed.fsdp.api import (
@@ -279,10 +279,11 @@ class RemoteFileSystemReader(dist_cp.StorageReader):
     that can read data directly from cloud storage as well as a local directory.
     """
 
-    def __init__(self, path: PathOrStr, local_cache: Optional[PathOrStr] = None):
+    def __init__(self, path: PathOrStr, *, local_cache: Optional[PathOrStr] = None, thread_count: int = 1):
         super().__init__()
         self.path = str(path).rstrip("/")
         self.cache = None if local_cache is None else Path(local_cache)
+        self.thread_count = thread_count
         self.storage_data: Dict[MetadataIndex, _StorageInfo] = dict()
 
     def _get_bytes(self, relative_path: str, offset: int, length: int) -> bytes:
@@ -291,11 +292,22 @@ class RemoteFileSystemReader(dist_cp.StorageReader):
         else:
             return get_bytes_range(f"{self.path}/{relative_path}", offset, length)
 
+    def _get_content_for_read(self, read_item: ReadItem) -> Tuple[ReadItem, bytes]:
+        sinfo = self.storage_data[read_item.storage_index]
+        content = self._get_bytes(sinfo.relative_path, sinfo.offset, sinfo.length)
+        return (read_item, content)
+
     def read_data(self, plan: dist_cp.LoadPlan, planner: dist_cp.LoadPlanner) -> Future[None]:
         # Modified from `FileSystemReader.read_data()`
-        for read_item in plan.items:
-            sinfo = self.storage_data[read_item.storage_index]
-            content = self._get_bytes(sinfo.relative_path, sinfo.offset, sinfo.length)
+        with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
+            read_item_content_futures = []
+            for read_item in plan.items:
+                read_item_content_futures.append(executor.submit(self._get_content_for_read, read_item))
+            read_item_content_results = []
+            for f in as_completed(read_item_content_futures):
+                read_item_content_results.append(f.result())
+
+        for read_item, content in read_item_content_results:
             bytes = io.BytesIO(content)
             bytes.seek(0)
             if read_item.type == LoadItemType.BYTE_IO:
