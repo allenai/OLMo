@@ -1,5 +1,6 @@
 import io
 import logging
+import os
 import pickle
 import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -216,6 +217,10 @@ def load_model_state(checkpoint_dir: PathOrStr, model: torch.nn.Module):
     model.load_state_dict(state_dict["model"])
 
 
+def _default_thread_count() -> int:
+    return min(8, (os.cpu_count() or 1) + 4)
+
+
 class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
     """
     A subclass of :class:`~torch.distributed.checkpoint.FileSystemWriter` that can upload files
@@ -227,16 +232,18 @@ class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
         path: PathOrStr,
         single_file_per_rank: bool = True,
         sync_files: bool = True,
-        thread_count: int = 1,
+        thread_count: Optional[int] = None,
         per_thread_copy_ahead: int = 10_000_000,
         upload_to: Optional[str] = None,
         save_overwrite: bool = False,
     ) -> None:
+        if thread_count is not None and thread_count <= 0:
+            raise ValueError("thread count must be at least 1")
         super().__init__(
             path,
             single_file_per_rank=single_file_per_rank,
             sync_files=sync_files,
-            thread_count=thread_count,
+            thread_count=thread_count or _default_thread_count(),
             per_thread_copy_ahead=per_thread_copy_ahead,
         )
         self.upload_to = None if upload_to is None else upload_to.rstrip("/")
@@ -279,11 +286,15 @@ class RemoteFileSystemReader(dist_cp.StorageReader):
     that can read data directly from cloud storage as well as a local directory.
     """
 
-    def __init__(self, path: PathOrStr, *, local_cache: Optional[PathOrStr] = None, thread_count: int = 1):
+    def __init__(
+        self, path: PathOrStr, *, local_cache: Optional[PathOrStr] = None, thread_count: Optional[int] = None
+    ):
         super().__init__()
+        if thread_count is not None and thread_count <= 0:
+            raise ValueError("thread count must be at least 1")
         self.path = str(path).rstrip("/")
         self.cache = None if local_cache is None else Path(local_cache)
-        self.thread_count = thread_count
+        self.thread_count = thread_count or _default_thread_count()
         self.storage_data: Dict[MetadataIndex, _StorageInfo] = dict()
 
     def _get_bytes(self, relative_path: str, offset: int, length: int) -> bytes:
@@ -298,7 +309,6 @@ class RemoteFileSystemReader(dist_cp.StorageReader):
         return (read_item, content)
 
     def read_data(self, plan: dist_cp.LoadPlan, planner: dist_cp.LoadPlanner) -> Future[None]:
-        # Modified from `FileSystemReader.read_data()`
         with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
             read_item_content_futures = []
             for read_item in plan.items:
@@ -307,6 +317,7 @@ class RemoteFileSystemReader(dist_cp.StorageReader):
             for f in as_completed(read_item_content_futures):
                 read_item_content_results.append(f.result())
 
+        # Modified from `FileSystemReader.read_data()`
         for read_item, content in read_item_content_results:
             bytes = io.BytesIO(content)
             bytes.seek(0)
