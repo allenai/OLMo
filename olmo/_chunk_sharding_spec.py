@@ -165,6 +165,7 @@ class ChunkShardingSpec(ShardingSpec):
                 tensor_to_scatter = torch.empty(
                     scatter_shape, dtype=tensor.dtype, layout=tensor.layout, device=device
                 )
+                tensors_to_scatter[rank] = tensor_to_scatter
                 if current_rank == rank:
                     local_tensor = tensor_to_scatter
 
