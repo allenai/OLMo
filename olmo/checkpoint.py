@@ -77,7 +77,9 @@ def save_fsdp_model_and_optim_state(
             shutil.rmtree(target_dir, ignore_errors=True)
     elif not dir_is_empty(target_dir):
         raise FileExistsError(target_dir)
-    target_dir.mkdir(exist_ok=True, parents=True)
+    barrier()
+    if get_fs_local_rank() == 0:
+        target_dir.mkdir(exist_ok=True, parents=True)
     barrier()
     with FSDP.state_dict_type(
         fsdp_model,
@@ -179,6 +181,7 @@ def save_state_dict(
         target_path.unlink(missing_ok=True)
     elif target_path.is_file():
         raise FileExistsError(target_path)
+    barrier()
     target_path.parent.mkdir(exist_ok=True, parents=True)
     barrier()
     torch.save(state_dict, target_path)
