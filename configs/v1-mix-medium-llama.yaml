@@ -32,6 +32,7 @@ model:
   pad_token_id: 1
   init_device: meta
   init_fn: normal
+  weight_tying: false
 
 fsdp:
   precision: mixed
