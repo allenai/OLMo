@@ -703,12 +703,14 @@ class Trainer:
 
                 del logits
 
-            # Check for nan.
-            if torch.isnan(loss):
-                raise ValueError("nan loss encountered")
-
             # Run backward pass.
             loss.backward()
+
+        # Check for nan.
+        if torch.isnan(ce_batch_loss):
+            raise ValueError("nan loss encountered")
+        if z_batch_loss is not None and torch.isnan(z_batch_loss):
+            raise ValueError("nan loss encountered")
 
         return ce_batch_loss, z_batch_loss
 
