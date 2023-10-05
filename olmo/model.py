@@ -201,7 +201,7 @@ class RMSLayerNorm(LayerNormBase):
         size: Optional[int] = None,
         low_precision: bool = False,
         elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-08,
+        eps: float = 1e-6,     # default form Llama
     ):
         super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
         self.low_precision = low_precision
@@ -227,9 +227,7 @@ class RMSLayerNorm(LayerNormBase):
         self, x: torch.Tensor, weight: Optional[torch.Tensor], bias: Optional[torch.Tensor]
     ) -> torch.Tensor:
         norm_x = x.norm(2, dim=-1, keepdim=True)
-
-        rms_x = norm_x * self.normalized_shape[0] ** (-1.0 / 2)
-        x_normed = x / (rms_x + self.eps)
+        x_normed = torch.rsqrt(norm_x + self.eps)
 
         if weight is not None:
             if bias is not None:
