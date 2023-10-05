@@ -162,11 +162,11 @@ class ChunkShardingSpec(ShardingSpec):
         for rank in range(dist.get_world_size(process_group)):
             tensor_to_scatter = tensors_to_scatter[rank]
             if tensor_to_scatter is None:
-                tensor_to_scatter = torch.empty(scatter_shape, dtype=tensor.dtype, device=device)
+                tensor_to_scatter = torch.empty(scatter_shape, dtype=tensor.dtype, device="cuda")
                 tensors_to_scatter[rank] = tensor_to_scatter
                 if current_rank == rank:
                     local_tensor = torch.empty(
-                        scatter_shape, dtype=tensor.dtype, layout=tensor.layout, device=device
+                        scatter_shape, dtype=tensor.dtype, layout=tensor.layout, device="cuda"
                     )
 
         # each rank should have local_tensor.
