@@ -1,6 +1,5 @@
 import io
 import logging
-import os
 import pickle
 import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -27,6 +26,7 @@ from .aliases import PathOrStr
 from .optim import Optimizer, fix_optim_state_dict
 from .util import (
     barrier,
+    default_thread_count,
     dir_is_empty,
     get_bytes_range,
     get_fs_local_rank,
@@ -240,10 +240,6 @@ def load_model_state(checkpoint_dir: PathOrStr, model: torch.nn.Module):
     model.load_state_dict(state_dict["model"])
 
 
-def _default_thread_count() -> int:
-    return min(8, (os.cpu_count() or 1) + 4)
-
-
 class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
     """
     A subclass of :class:`~torch.distributed.checkpoint.FileSystemWriter` that can upload files
@@ -266,7 +262,7 @@ class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
             path,
             single_file_per_rank=single_file_per_rank,
             sync_files=sync_files,
-            thread_count=thread_count or _default_thread_count(),
+            thread_count=thread_count or default_thread_count(),
             per_thread_copy_ahead=per_thread_copy_ahead,
         )
         self.upload_to = None if upload_to is None else upload_to.rstrip("/")
@@ -317,7 +313,7 @@ class RemoteFileSystemReader(dist_cp.StorageReader):
             raise ValueError("thread count must be at least 1")
         self.path = str(path).rstrip("/")
         self.cache = None if local_cache is None else Path(local_cache)
-        self.thread_count = thread_count or _default_thread_count()
+        self.thread_count = thread_count or default_thread_count()
         self.storage_data: Dict[MetadataIndex, _StorageInfo] = dict()
         self._metadata: Optional[Metadata] = None
 
