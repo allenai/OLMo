@@ -146,7 +146,7 @@ def load_fsdp_model_and_optim_state(
             return
 
         # Load optim state dict in place.
-        log.info("Loading optimizer state...")
+        log.info("Loading sharded optimizer state...")
         optim_state = load_sharded_optimizer_state_dict(
             model_state_dict=model_state["model"],
             optimizer_key="optim",
@@ -157,12 +157,14 @@ def load_fsdp_model_and_optim_state(
         )
         del model_state
         torch.cuda.empty_cache()
+        log.info("Flattening sharded optimizer state...")
         # NOTE: Careful! The order of the these arguments has changed from 2.0 to 2.1... ¯\_(ツ)_/¯
         if version.parse(torch.__version__) < version.parse("2.1.0"):
             flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], fsdp_model, optim)  # type: ignore
         else:
             flattened_osd = FSDP.optim_state_dict_to_load(fsdp_model, optim, optim_state["optim"])  # type: ignore
         del optim_state
+        log.info("Loading flattened optimizer state...")
         # Put optim state on CPU since `Optimizer.load_state_dict()` will create a deepcopy of the whole state dict,
         # which takes up unnecessary GPU memory.
         for state in flattened_osd["state"].values():
