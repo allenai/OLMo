@@ -146,11 +146,13 @@ def load_fsdp_model_and_optim_state(
                 local_cache=None if local_cache is None else local_cache / MODEL_AND_OPTIM_FOLDER,
             ),
         )
+        del model_state
         # NOTE: Careful! The order of the these arguments has changed from 2.0 to 2.1... ¯\_(ツ)_/¯
         if version.parse(torch.__version__) < version.parse("2.1.0"):
             flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], fsdp_model, optim)  # type: ignore
         else:
             flattened_osd = FSDP.optim_state_dict_to_load(fsdp_model, optim, optim_state["optim"])  # type: ignore
+        del optim_state
         optim.load_state_dict(fix_optim_state_dict(optim, flattened_osd))
 
 
