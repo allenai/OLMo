@@ -250,6 +250,7 @@ def load_sharded_optimizer_state_dict(
             if sharded_tensor is not None:
                 state_dict[key] = sharded_tensor
             else:
+                print(key)
                 state_dict[key] = torch.empty(0)
         else:
             spec_key = key_path[2]
