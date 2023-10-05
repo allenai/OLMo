@@ -353,6 +353,11 @@ class ModelConfig(BaseConfig):
     substantially.
     """
 
+    weight_tying: bool = True
+    """
+    Whether to tie output linear weights to the input embedding.
+    """
+
     eos_token_id: int = 50256
     """
     The ID of the end-of-sentence special token.

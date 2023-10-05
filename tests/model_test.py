@@ -158,6 +158,7 @@ def test_forward(
 ):
     torch.manual_seed(0)
     torch.use_deterministic_algorithms(True)
+    device = torch.device("cuda" if cuda else "cpu")
 
     train_config.model.alibi = alibi
     train_config.model.rope = rope
@@ -184,7 +185,7 @@ def test_forward(
         ]
     )
     batch_inputs = {  # type: ignore
-        k: v.to(device=model.device) if isinstance(v, torch.Tensor) else v for k, v in batch_inputs.items()
+        k: v.to(device=device) if isinstance(v, torch.Tensor) else v for k, v in batch_inputs.items()
     }
 
     # Run forward pass.
@@ -192,14 +193,14 @@ def test_forward(
         with torch.autocast(
             device_type="cuda" if cuda else "cpu", enabled=use_amp, dtype=None if not use_amp else dtype
         ):
-            output1 = model(torch.tensor(input1, device=model.device).unsqueeze(0))
+            output1 = model(torch.tensor(input1, device=device).unsqueeze(0))
             key_value_cache1 = model(
-                torch.tensor(input1[:-1], device=model.device).unsqueeze(0), use_cache=True
+                torch.tensor(input1[:-1], device=device).unsqueeze(0), use_cache=True
             ).attn_key_values
             output1_from_cached = model(
-                torch.tensor(input1[-1:], device=model.device).unsqueeze(0), past_key_values=key_value_cache1
+                torch.tensor(input1[-1:], device=device).unsqueeze(0), past_key_values=key_value_cache1
             )
-            output2 = model(torch.tensor(input2, device=model.device).unsqueeze(0))
+            output2 = model(torch.tensor(input2, device=device).unsqueeze(0))
             batch_output = model(**batch_inputs)
             batch_key_value_cache = model(
                 batch_inputs["input_ids"][:, :-1],
@@ -279,6 +280,7 @@ def test_backward(
     train_config: TrainConfig, tokenizer: Tokenizer, alibi: bool, flash_attn: bool, cuda: bool, dtype
 ):
     torch.manual_seed(0)
+    device = torch.device("cuda" if cuda else "cpu")
 
     use_amp = dtype in {torch.float16, torch.bfloat16}
     scaler = None if not (cuda and use_amp) else torch.cuda.amp.GradScaler()
@@ -298,7 +300,7 @@ def test_backward(
         device_type="cuda" if cuda else "cpu", enabled=use_amp, dtype=None if not use_amp else dtype
     ):
         # Forward pass to get logits.
-        input_ids = torch.tensor(tokenizer.encode("My name is OLMo!"), device=model.device).unsqueeze(0)
+        input_ids = torch.tensor(tokenizer.encode("My name is OLMo!"), device=device).unsqueeze(0)
         logits = model(input_ids).logits
 
         # Compute loss.
@@ -316,7 +318,7 @@ def test_backward(
     for name, parameter in model.named_parameters():
         if parameter.requires_grad:
             assert parameter.grad is not None
-            zeros = torch.zeros(parameter.size(), device=model.device)
+            zeros = torch.zeros(parameter.size(), device=device)
             if (parameter.grad == zeros).all():
                 raise RuntimeError(f"{name} has zero a gradient!")
         else:
@@ -349,6 +351,7 @@ def test_generate(
 ):
     torch.manual_seed(0)
     torch.use_deterministic_algorithms(True)
+    device = torch.device("cuda" if cuda else "cpu")
 
     # Should always pad left when generating.
     train_config.data.pad_direction = PaddingDirection.left
@@ -373,7 +376,7 @@ def test_generate(
         ]
     )
     batch_inputs = {  # type: ignore
-        k: v.to(device=model.device) if isinstance(v, torch.Tensor) else v for k, v in batch_inputs.items()
+        k: v.to(device=device) if isinstance(v, torch.Tensor) else v for k, v in batch_inputs.items()
     }
     beam_search_kwargs = dict(beam_size=3, max_steps=5)
 
@@ -382,7 +385,7 @@ def test_generate(
             device_type="cuda" if cuda else "cpu", enabled=use_amp, dtype=None if not use_amp else dtype
         ):
             output1 = model.generate(
-                torch.tensor(input1, device=model.device).unsqueeze(0),  # type: ignore
+                torch.tensor(input1, device=device).unsqueeze(0),  # type: ignore
                 **beam_search_kwargs,
             )
             batch_output = model.generate(**{**batch_inputs, **beam_search_kwargs})
