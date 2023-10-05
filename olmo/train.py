@@ -139,6 +139,7 @@ class Trainer:
             "global_data_step": self.global_data_step,
             "global_train_examples_seen": self.global_train_examples_seen,
             "global_train_tokens_seen": self.global_train_tokens_seen,
+            "world_size": get_world_size(),
             "checkpoints": self.checkpoints,
             "unsharded_checkpoints": self.unsharded_checkpoints,
             "rng": {
@@ -348,16 +349,17 @@ class Trainer:
 
         # Load trainer state dict.
         log.info("Loading trainer state...")
+        # Note that if the world size has changed we don't restore RNG states.
         try:
             trainer_state = load_state_dict(
                 load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache
             )
+            if trainer_state.get("world_size") != get_world_size():
+                del trainer_state["rng"]
         except FileNotFoundError:
             # Fall back to rank 0 train state.
             # This can happen when we're restoring a checkpoint with a different world size.
             trainer_state = load_state_dict(load_path, "train/rank0.pt", local_cache=local_cache)
-            # Restoring RNG state isn't necessary and in the case of going from world size 1 to world size N
-            # we probably don't want every rank to have the exact same RNG state.
             del trainer_state["rng"]
         self.load_trainer_state_dict(trainer_state)
 
