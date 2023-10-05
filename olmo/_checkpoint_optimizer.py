@@ -240,6 +240,7 @@ def load_sharded_optimizer_state_dict(
             state_dict[key] = "<bytes_io>"
             continue
 
+        torch.cuda.empty_cache()  # desperate
         # value: TensorStorageMetadata
         if value.size.numel() == 1:
             state_dict[key] = _alloc_tensor(value.properties, value.size)
