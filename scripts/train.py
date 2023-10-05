@@ -20,7 +20,7 @@ from olmo.data import build_train_dataloader
 from olmo.eval import build_evaluators
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
 from olmo.model import Olmo
-from olmo.optim import build_optimizer, build_scheduler
+from olmo.optim import build_optimizer, build_scheduler, BoltOnWarmupScheduler
 from olmo.train import Trainer
 from olmo.util import (
     barrier,
@@ -219,6 +219,12 @@ def main(cfg: TrainConfig) -> None:
             log.info(f"Loading checkpoint from {cfg.load_path}...")
             trainer.restore_checkpoint(cfg.load_path, load_optimizer_state=not cfg.reset_optimizer_state)
             log.info("Checkpoint successfully loaded")
+
+            # If we have to, set a new scheduler:
+            if cfg.reset_optimizer_state:
+                trainer.scheduler = BoltOnWarmupScheduler(
+                    trainer.scheduler, trainer.global_step, trainer.global_step + cfg.scheduler.t_warmup
+                )
 
         if cfg.force_save_unsharded:
             log.info("Saving unsharded checkpoint...")
