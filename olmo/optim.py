@@ -22,6 +22,7 @@ __all__ = [
     "LinearWithWarmup",
     "InvSqrtWithWarmup",
     "MaxScheduler",
+    "BoltOnWarmupScheduler",
     "build_optimizer",
     "build_scheduler",
 ]
@@ -442,11 +443,13 @@ class BoltOnWarmupScheduler(Scheduler):
     warmup_end: int
 
     def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
+        if step < self.warmup_start:
+            return 0.0
         if step < self.warmup_end:
             lr_at_intercept = self.inner.get_lr(initial_lr, self.warmup_end, max_steps)
             return lr_at_intercept * (step - self.warmup_start) / (self.warmup_end - self.warmup_start)
         else:
-            self.inner.get_lr(initial_lr, step, max_steps)
+            return self.inner.get_lr(initial_lr, step, max_steps)
 
 
 PARAM_GROUP_FIELDS = ("sharded", "max_grad_norm", "max_grad_norm_ratio", "param_names")
