@@ -14,6 +14,7 @@ model:
   mlp_ratio: 8 llama2 uses an intermediate_size set to 11008 # TODO
 
   rope: true
+  flash_attention: true
   attention_dropout: 0.0
   attention_layer_norm: false
   multi_query_attention: true   # We don't have GQA, so we use MQA instead.
