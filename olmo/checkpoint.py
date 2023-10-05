@@ -12,6 +12,7 @@ from packaging import version
 from torch.distributed._shard._utils import narrow_tensor_by_index
 from torch.distributed.checkpoint.filesystem import WriteResult, _StorageInfo
 from torch.distributed.checkpoint.metadata import Metadata, MetadataIndex
+from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.checkpoint.planner import LoadItemType, ReadItem
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import StateDictType
@@ -21,7 +22,6 @@ from torch.distributed.fsdp.api import (
 )
 from torch.futures import Future
 
-from ._torch.checkpoint_optimizer import load_sharded_optimizer_state_dict
 from .aliases import PathOrStr
 from .optim import Optimizer, fix_optim_state_dict
 from .util import (
