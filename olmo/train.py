@@ -319,7 +319,7 @@ class Trainer:
                 latest_path.unlink()
         barrier()
 
-    def restore_sharded_checkpoint(self, load_path: PathOrStr):
+    def restore_sharded_checkpoint(self, load_path: PathOrStr, *, load_optimizer_state: bool = True):
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
 
@@ -355,15 +355,16 @@ class Trainer:
             # Load model and optimizer state.
             log.info("Loading model state...")
             self.fsdp_model.load_state_dict(state_dict["model"])
-            log.info("Loading optimizer state...")
-            # NOTE: careful, the order of these arguments has changed since the 2.0 release.
-            if version.parse(torch.__version__) < version.parse("2.1.0"):
-                #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
-                flattened_osd = FSDP.optim_state_dict_to_load(state_dict["optim"], self.fsdp_model, self.optim)  # type: ignore
-            else:
-                #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
-                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, state_dict["optim"])  # type: ignore
-            self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
+            if load_optimizer_state:
+                log.info("Loading optimizer state...")
+                # NOTE: careful, the order of these arguments has changed since the 2.0 release.
+                if version.parse(torch.__version__) < version.parse("2.1.0"):
+                    #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
+                    flattened_osd = FSDP.optim_state_dict_to_load(state_dict["optim"], self.fsdp_model, self.optim)  # type: ignore
+                else:
+                    #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
+                    flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, state_dict["optim"])  # type: ignore
+                self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
 
             # Load non-tensor state.
             self.load_non_tensor_state_dict(state_dict)
@@ -466,7 +467,7 @@ class Trainer:
                 latest_path.unlink()
         barrier()
 
-    def restore_unsharded_checkpoint(self, load_path: PathOrStr):
+    def restore_unsharded_checkpoint(self, load_path: PathOrStr, *, load_optimizer_state: bool = True):
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
 
@@ -483,18 +484,19 @@ class Trainer:
             )
 
             # Load optimizer state.
-            log.info("Loading optimizer state...")
-            optim_state_dict = torch.load(resource_path(load_path, "optim.pt"))
-            # NOTE: careful, the order of these arguments has changed since the 2.0 release.
-            if version.parse(torch.__version__) < version.parse("2.1.0"):
-                #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
-                flattened_osd = FSDP.optim_state_dict_to_load(optim_state_dict, self.fsdp_model, self.optim)  # type: ignore
-            else:
-                #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
-                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state_dict)  # type: ignore
-            del optim_state_dict
-            self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
-            del flattened_osd
+            if load_optimizer_state:
+                log.info("Loading optimizer state...")
+                optim_state_dict = torch.load(resource_path(load_path, "optim.pt"))
+                # NOTE: careful, the order of these arguments has changed since the 2.0 release.
+                if version.parse(torch.__version__) < version.parse("2.1.0"):
+                    #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
+                    flattened_osd = FSDP.optim_state_dict_to_load(optim_state_dict, self.fsdp_model, self.optim)  # type: ignore
+                else:
+                    #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
+                    flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state_dict)  # type: ignore
+                del optim_state_dict
+                self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
+                del flattened_osd
 
             # Load other state.
             other_state_dict = torch.load(resource_path(load_path, "other.pt"))
@@ -510,13 +512,19 @@ class Trainer:
         else:
             raise NotImplementedError(checkpoint_type)
 
-    def restore_checkpoint(self, load_path: PathOrStr, checkpoint_type: Optional[CheckpointType] = None):
+    def restore_checkpoint(
+        self,
+        load_path: PathOrStr,
+        checkpoint_type: Optional[CheckpointType] = None,
+        *,
+        load_optimizer_state: bool = True,
+    ):
         if checkpoint_type == CheckpointType.unsharded or (
             checkpoint_type is None and str(load_path).endswith("-unsharded")
         ):
-            self.restore_unsharded_checkpoint(load_path)
+            self.restore_unsharded_checkpoint(load_path, load_optimizer_state=load_optimizer_state)
         elif checkpoint_type == CheckpointType.sharded or checkpoint_type is None:
-            self.restore_sharded_checkpoint(load_path)
+            self.restore_sharded_checkpoint(load_path, load_optimizer_state=load_optimizer_state)
         elif checkpoint_type is not None:
             raise NotImplementedError(checkpoint_type)
 
