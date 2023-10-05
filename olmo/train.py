@@ -339,13 +339,21 @@ class Trainer:
                 latest_path.unlink()
         barrier()
 
-    def restore_sharded_checkpoint(self, load_path: PathOrStr, local_cache: Optional[PathOrStr] = None):
+    def restore_sharded_checkpoint(
+        self, load_path: PathOrStr, local_cache: Optional[PathOrStr] = None, *, load_optimizer_state: bool = True
+    ):
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
 
         # Load model and optimizer state in place.
         log.info("Loading model and optimizer state...")
-        load_fsdp_model_and_optim_state(load_path, self.fsdp_model, self.optim, local_cache=local_cache)
+        load_fsdp_model_and_optim_state(
+            load_path,
+            self.fsdp_model,
+            self.optim,
+            local_cache=local_cache,
+            load_optimizer_state=load_optimizer_state,
+        )
 
         # Load trainer state dict.
         log.info("Loading trainer state...")
@@ -367,7 +375,9 @@ class Trainer:
 
         barrier()
 
-    def restore_legacy_sharded_checkpoint(self, load_path: PathOrStr, local_cache: Optional[PathOrStr] = None):
+    def restore_legacy_sharded_checkpoint(
+        self, load_path: PathOrStr, local_cache: Optional[PathOrStr] = None, *, load_optimizer_state: bool = True
+    ):
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
 
@@ -385,18 +395,20 @@ class Trainer:
             # Load model and optimizer state.
             log.info("Loading model state...")
             self.fsdp_model.load_state_dict(state_dict["model"])
-            log.info("Loading optimizer state...")
-            if version.parse(torch.__version__) < version.parse("2.1.0"):
-                flattened_osd = FSDP.optim_state_dict_to_load(state_dict["optim"], self.fsdp_model, self.optim)  # type: ignore
-            else:
-                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, state_dict["optim"])  # type: ignore
-            self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
+            if load_optimizer_state:
+                log.info("Loading optimizer state...")
+                if version.parse(torch.__version__) < version.parse("2.1.0"):
+                    flattened_osd = FSDP.optim_state_dict_to_load(state_dict["optim"], self.fsdp_model, self.optim)  # type: ignore
+                else:
+                    flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, state_dict["optim"])  # type: ignore
+                self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
+                del flattened_osd
 
             # Load trainer state dict.
             log.info("Loading trainer state...")
             self.load_trainer_state_dict(state_dict)
 
-            del state_dict, flattened_osd
+            del state_dict
 
         barrier()
 
@@ -496,7 +508,9 @@ class Trainer:
                 latest_path.unlink()
         barrier()
 
-    def restore_unsharded_checkpoint(self, load_path: PathOrStr, local_cache: Optional[PathOrStr] = None):
+    def restore_unsharded_checkpoint(
+        self, load_path: PathOrStr, local_cache: Optional[PathOrStr] = None, *, load_optimizer_state: bool = True
+    ):
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
 
@@ -515,18 +529,19 @@ class Trainer:
             )
 
             # Load optimizer state.
-            log.info("Loading optimizer state...")
-            optim_state_dict = torch.load(resource_path(load_path, "optim.pt", local_cache=local_cache))
-            # NOTE: careful, the order of these arguments has changed since the 2.0 release.
-            if version.parse(torch.__version__) < version.parse("2.1.0"):
-                #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
-                flattened_osd = FSDP.optim_state_dict_to_load(optim_state_dict, self.fsdp_model, self.optim)  # type: ignore
-            else:
-                #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
-                flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state_dict)  # type: ignore
-            del optim_state_dict
-            self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
-            del flattened_osd
+            if load_optimizer_state:
+                log.info("Loading optimizer state...")
+                optim_state_dict = torch.load(resource_path(load_path, "optim.pt", local_cache=local_cache))
+                # NOTE: careful, the order of these arguments has changed since the 2.0 release.
+                if version.parse(torch.__version__) < version.parse("2.1.0"):
+                    #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
+                    flattened_osd = FSDP.optim_state_dict_to_load(optim_state_dict, self.fsdp_model, self.optim)  # type: ignore
+                else:
+                    #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
+                    flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state_dict)  # type: ignore
+                del optim_state_dict
+                self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
+                del flattened_osd
 
             # Load other state.
             try:
@@ -555,20 +570,28 @@ class Trainer:
         checkpoint_type: Optional[CheckpointType] = None,
         local_cache: Optional[PathOrStr] = None,
         legacy_mode: bool = False,
+        *,
+        load_optimizer_state: bool = True,
     ):
         if checkpoint_type == CheckpointType.unsharded or (
             checkpoint_type is None and str(load_path).endswith("-unsharded")
         ):
-            self.restore_unsharded_checkpoint(load_path, local_cache=local_cache)
+            self.restore_unsharded_checkpoint(
+                load_path, local_cache=local_cache, load_optimizer_state=load_optimizer_state
+            )
         elif checkpoint_type == CheckpointType.sharded or checkpoint_type is None:
             try:
                 legacy_mode = resource_path(load_path, f"rank{get_global_rank()}.pt").is_file()
             except FileNotFoundError:
                 legacy_mode = False
             if legacy_mode:
-                self.restore_legacy_sharded_checkpoint(load_path, local_cache=local_cache)
+                self.restore_legacy_sharded_checkpoint(
+                    load_path, local_cache=local_cache, load_optimizer_state=load_optimizer_state
+                )
             else:
-                self.restore_sharded_checkpoint(load_path, local_cache=local_cache)
+                self.restore_sharded_checkpoint(
+                    load_path, local_cache=local_cache, load_optimizer_state=load_optimizer_state
+                )
         elif checkpoint_type is not None:
             raise NotImplementedError(checkpoint_type)
 

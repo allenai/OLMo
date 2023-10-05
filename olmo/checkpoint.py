@@ -102,7 +102,12 @@ def save_fsdp_model_and_optim_state(
 
 
 def load_fsdp_model_and_optim_state(
-    checkpoint_dir: PathOrStr, fsdp_model: FSDP, optim: Optimizer, *, local_cache: Optional[PathOrStr] = None
+    checkpoint_dir: PathOrStr,
+    fsdp_model: FSDP,
+    optim: Optimizer,
+    *,
+    local_cache: Optional[PathOrStr] = None,
+    load_optimizer_state: bool = True,
 ):
     """
     Use this to load a state dict for an FSDP model and its optimizer via :module:`torch.distributed.checkpoint`
@@ -113,6 +118,7 @@ def load_fsdp_model_and_optim_state(
     :param optim: The FSDP model's optimizer.
     :param local_cache: A local cache of the checkpoint directory. Use this when the ``checkpoint_dir`` is a
         remote "directory" but there might be a cached version of the same artifacts.
+    :param load_optimizer_state: Set to ``False`` to skip loading the optimizer state.
 
     :raises FileNotFoundError: If the ``checkpoint_dir`` doesn't contain a model and optimizer checkpoint.
     """
@@ -135,6 +141,9 @@ def load_fsdp_model_and_optim_state(
             ),
         )
         fsdp_model.load_state_dict(model_state["model"])
+
+        if not load_optimizer_state:
+            return
 
         # Load optim state dict in place.
         log.info("Loading optimizer state...")
