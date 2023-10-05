@@ -199,6 +199,7 @@ class Trainer:
             self.train_loader.dataset.start_index = self.global_train_examples_seen
 
         # Reset learning rate and weight decay to the values from the config, not the checkpoint.
+        log.info("Resetting learning rate...")
         new_learning_rate = self.scheduler.get_lr(
             self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
         )
@@ -210,6 +211,7 @@ class Trainer:
 
         # RNG states.
         if "rng" in state_dict:
+            log.info("Restoring RNG states...")
             rng_state = state_dict["rng"]
             self.restore_rng_state(rng_state)
 
