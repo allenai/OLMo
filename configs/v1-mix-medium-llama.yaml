@@ -11,8 +11,7 @@ model:
   d_model: 4096
   n_heads: 32
   n_layers: 32
-  mlp_ratio: 8 llama2 uses an intermediate_size set to 11008 # TODO
-
+  intermediate_size: 11008
   rope: true
   flash_attention: true
   attention_dropout: 0.0
