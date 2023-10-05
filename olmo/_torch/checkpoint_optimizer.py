@@ -233,7 +233,7 @@ def load_sharded_optimizer_state_dict(
     state_dict: STATE_DICT_TYPE = {}
 
     fqn_to_offset: Dict[str, Sequence[int]] = {}
-    for key, value in metadata.state_dict_metadata.items():
+    for key, value in sorted(metadata.state_dict_metadata.items(), key=lambda x: x[0]):
         key_path = metadata.planner_data[key]
         if key_path[0] != optimizer_key:
             continue
