@@ -220,7 +220,7 @@ class RMSLayerNorm(LayerNormBase):
         size: Optional[int] = None,
         low_precision: bool = False,
         elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-6,     # default form Llama
+        eps: float = 1e-6,  # default from Llama
     ):
         super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
         self.low_precision = low_precision
