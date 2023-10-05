@@ -1,5 +1,5 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates
-# Adapted from torch.distributed.checkpoint.optimizer to a fix this bug
+# Adapted from torch.distributed.checkpoint.optimizer to fix this bug
 # https://github.com/pytorch/pytorch/issues/102821
 
 import copy
