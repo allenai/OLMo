@@ -243,7 +243,8 @@ class Trainer:
         if get_fs_local_rank() == 0:
             shutil.rmtree(checkpoint_dir_tmp, ignore_errors=True)
         barrier()
-        checkpoint_dir_tmp.mkdir(parents=True, exist_ok=True)
+        if get_fs_local_rank() == 0:
+            checkpoint_dir_tmp.mkdir(parents=True, exist_ok=True)
 
         remote_checkpoint_dir: Optional[str] = None
         if self.cfg.remote_save_folder is not None:
@@ -374,6 +375,107 @@ class Trainer:
         self.load_trainer_state_dict(trainer_state)
 
         barrier()
+
+    def save_legacy_sharded_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
+        # Zero-gradients to avoid gathering them.
+        self.optim.zero_grad(set_to_none=True)
+
+        checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}"
+        checkpoint_dir_tmp = Path(self.cfg.save_folder) / f"step{self.global_step}-tmp"
+
+        # Prepare checkpoint directory.
+        if not dir_is_empty(checkpoint_dir):
+            if self.cfg.save_overwrite:
+                if get_fs_local_rank() == 0:
+                    shutil.rmtree(checkpoint_dir, ignore_errors=True)
+            else:
+                raise OlmoConfigurationError(
+                    f"Checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
+                )
+
+        if get_fs_local_rank() == 0:
+            shutil.rmtree(checkpoint_dir_tmp, ignore_errors=True)
+        barrier()
+        if get_fs_local_rank() == 0:
+            checkpoint_dir_tmp.mkdir(parents=True, exist_ok=True)
+
+        remote_checkpoint_dir: Optional[str] = None
+        if self.cfg.remote_save_folder is not None:
+            remote_checkpoint_dir = f"{self.cfg.remote_save_folder.rstrip('/')}/{checkpoint_dir.name}"
+
+        # Flush data indices file.
+        if self.indices_file is not None:
+            self.indices_file.flush()
+
+        self.checkpoints.append(checkpoint_dir)
+
+        # Write the checkpoint.
+        with FSDP.state_dict_type(
+            self.fsdp_model,
+            state_dict_type=StateDictType.SHARDED_STATE_DICT,
+            state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
+            optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
+        ):
+            # Save trainer state.
+            save_state_dict(
+                checkpoint_dir_tmp,
+                f"rank{get_global_rank()}.pt",
+                self.state_dict(),
+                upload_to=remote_checkpoint_dir,
+                save_overwrite=self.cfg.save_overwrite,
+            )
+
+        # Save config too.
+        if get_global_rank() == 0:
+            self.cfg.save(config_path := checkpoint_dir_tmp / "config.yaml")
+            if remote_checkpoint_dir is not None:
+                upload_target = f"{remote_checkpoint_dir}/config.yaml"
+                log.info(f"Uploading {config_path} to {upload_target}")
+                upload(config_path, upload_target, save_overwrite=self.cfg.save_overwrite)
+
+        barrier()
+
+        if get_fs_local_rank() == 0:
+            # Replace temp directory with target checkpoint directory.
+            try:
+                checkpoint_dir_tmp.replace(checkpoint_dir)
+            except FileNotFoundError:
+                # Caught when another (file-system) local rank 0 has already replaced the tmp directory.
+                # This can happen when nodes are saving to a common NFS drive but otherwise have distinct
+                # file-systems.
+                if not checkpoint_dir.exists():
+                    raise
+
+            # Link to 'latest'.
+            latest_path = Path(self.cfg.save_folder) / "latest"
+            latest_path.unlink(missing_ok=True)
+            try:
+                latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
+            except FileExistsError:
+                # Same as above, caught when another (file-system) local rank 0 has already made the 'latest' symlink.
+                # This can happen when nodes are saving to a common NFS drive but otherwise have distinct
+                # file-systems.
+                if latest_path.resolve().name != checkpoint_dir.name:
+                    raise
+
+        # In the cases where we're using a shared NFS drive between ranks to save checkpoints,
+        # replacing the temp directory with the final directory from rank 0 might not be immediately
+        # realized in the file systems of the other ranks.
+        # So we wait here across all ranks until that final checkpoint directory is visible.
+        wait_on(lambda: checkpoint_dir.exists(), "Waiting for checkpoint directory", timeout=10.0)
+
+        # Remove old checkpoints.
+        if self.cfg.save_num_checkpoints_to_keep > 0:
+            while len(self.checkpoints) > self.cfg.save_num_checkpoints_to_keep:
+                self.remove_sharded_checkpoint(0)
+
+        barrier()
+
+        # Upload checkpoint to bucket.
+        if remote_checkpoint_dir is not None:
+            return remote_checkpoint_dir, checkpoint_dir
+        else:
+            return checkpoint_dir, None
 
     def restore_legacy_sharded_checkpoint(
         self, load_path: PathOrStr, local_cache: Optional[PathOrStr] = None, *, load_optimizer_state: bool = True
@@ -558,7 +660,10 @@ class Trainer:
         self, checkpoint_type: CheckpointType = CheckpointType.sharded
     ) -> Tuple[PathOrStr, Optional[PathOrStr]]:
         if checkpoint_type == CheckpointType.sharded:
-            return self.save_sharded_checkpoint()
+            if self.cfg.new_style_checkpoints:
+                return self.save_sharded_checkpoint()
+            else:
+                return self.save_legacy_sharded_checkpoint()
         elif checkpoint_type == CheckpointType.unsharded:
             return self.save_unsharded_checkpoint()
         else:

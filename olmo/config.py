@@ -804,6 +804,11 @@ class TrainConfig(BaseConfig):
     curve (according to the current learning rate schedule settings), and continues from there.
     """
 
+    new_style_checkpoints: bool = False
+    """
+    Whether to use new-style sharded checkpointing or not.
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":
