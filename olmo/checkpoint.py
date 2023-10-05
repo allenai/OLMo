@@ -22,7 +22,7 @@ from torch.distributed.fsdp.api import (
 )
 from torch.futures import Future
 
-from ._checkpoint_optimizer import load_sharded_optimizer_state_dict
+from ._torch.checkpoint_optimizer import load_sharded_optimizer_state_dict
 from .aliases import PathOrStr
 from .optim import Optimizer, fix_optim_state_dict
 from .util import (

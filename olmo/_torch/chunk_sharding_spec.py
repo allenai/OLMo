@@ -1,3 +1,6 @@
+# Adapted from torch.distributed._shard.sharding_spec.chunk_sharding_spec.py to fix this bug
+# https://github.com/pytorch/pytorch/issues/102821
+
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional, Union
 

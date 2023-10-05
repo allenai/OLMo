@@ -1,4 +1,6 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates
+# Adapted from torch.distributed.checkpoint.optimizer to a fix this bug
+# https://github.com/pytorch/pytorch/issues/102821
 
 import copy
 import dataclasses
@@ -29,7 +31,7 @@ from torch.distributed.checkpoint.planner_helpers import (
 from torch.distributed.checkpoint.utils import _element_wise_add, _element_wise_sub
 from torch.distributed.remote_device import _remote_device
 
-from ._chunk_sharding_spec import ChunkShardingSpec
+from .chunk_sharding_spec import ChunkShardingSpec
 
 STATE_DICT_2D_LAYOUT = Dict[str, Tuple[Optional[Sequence[int]], Sequence[int]]]
 
