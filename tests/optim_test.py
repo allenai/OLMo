@@ -1,6 +1,6 @@
 import pytest
 
-from olmo.optim import LinearWithWarmup, BoltOnWarmupScheduler
+from olmo.optim import BoltOnWarmupScheduler, LinearWithWarmup
 
 
 def test_linear_with_warmup_scheduler():
