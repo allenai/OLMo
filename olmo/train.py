@@ -354,7 +354,9 @@ class Trainer:
             trainer_state = load_state_dict(
                 load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache
             )
-            if trainer_state.get("world_size") != get_world_size():
+            if (
+                last_world_size := trainer_state.get("world_size")
+            ) is not None and last_world_size != get_world_size():
                 del trainer_state["rng"]
         except FileNotFoundError:
             # Fall back to rank 0 train state.
