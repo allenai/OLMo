@@ -338,7 +338,7 @@ class OlmoBlock(nn.Module):
             self.k_norm = LayerNormBase.build(
                 config,
                 size=config.d_model // config.n_heads if config.multi_query_attention else None,
-                elementwise_affine=True,
+                elementwise_affine=config.attention_layer_norm_with_affine,
             )
             self.q_norm = LayerNormBase.build(config, elementwise_affine=True)
 
