@@ -249,6 +249,8 @@ def load_sharded_optimizer_state_dict(
             sharded_tensor = _shard_tensor(_alloc_tensor(value.properties, value.size), sharding_spec)
             if sharded_tensor is not None:
                 state_dict[key] = sharded_tensor
+            else:
+                state_dict[key] = torch.empty(0)
         else:
             spec_key = key_path[2]
             alloc_size = layout_specs.get(spec_key, (None, value.size))[1]
