@@ -240,6 +240,11 @@ class ModelConfig(BaseConfig):
     The ratio of the inner MLP dimensionality to ``d_model``.
     """
 
+    intermediate_size: Optional[int] = None
+    """
+    The intermediate size of the model. This setting overrides ``mlp_ratio``. Default is ``mlp_ratio`` * ``d_model``.
+    """
+
     activation_type: ActivationType = ActivationType.swiglu
     """
     The activation function to use within the MLP layers.

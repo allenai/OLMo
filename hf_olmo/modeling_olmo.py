@@ -31,6 +31,7 @@ def create_model_config_from_pretrained_config(config: OLMoConfig):
         n_heads=config.n_heads,
         n_layers=config.n_layers,
         mlp_ratio=config.mlp_ratio,
+        intermediate_size=config.intermediate_size,
         activation_type=config.activation_type,
         block_type=config.block_type,
         alibi=config.alibi,

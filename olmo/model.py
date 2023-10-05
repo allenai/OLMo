@@ -344,7 +344,7 @@ class OlmoBlock(nn.Module):
 
         # Activation function.
         self.act = Activation.build(config)
-        assert (self.act.output_multiplier * config.mlp_ratio * config.d_model) % 1 == 0
+        assert (self.act.output_multiplier * config.intermediate_size) % 1 == 0
 
         # Attention output projection.
         self.attn_out = nn.Linear(
@@ -353,7 +353,7 @@ class OlmoBlock(nn.Module):
 
         # Feed-forward output projection.
         self.ff_out = nn.Linear(
-            int(self.act.output_multiplier * config.mlp_ratio * config.d_model),
+            int(self.act.output_multiplier * config.intermediate_size),
             config.d_model,
             bias=config.include_bias,
             device=config.init_device,
@@ -501,7 +501,7 @@ class OlmoSequentialBlock(OlmoBlock):
         )
         # Feed-forward input projection.
         self.ff_proj = nn.Linear(
-            config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
+            config.d_model, config.intermediate_size, bias=config.include_bias, device=config.init_device
         )
 
     def reset_parameters(self):
@@ -564,10 +564,10 @@ class OlmoParallelBlock(OlmoBlock):
                 config.d_model,
                 config.d_model // config.n_heads,
                 config.d_model // config.n_heads,
-                config.mlp_ratio * config.d_model,
+                config.intermediate_size,
             )
         else:
-            self.fused_dims = (config.d_model, config.d_model, config.d_model, config.mlp_ratio * config.d_model)
+            self.fused_dims = (config.d_model, config.d_model, config.d_model, config.intermediate_size)
         self.fused_attn_ff_proj = nn.Linear(
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
@@ -590,7 +590,7 @@ class OlmoParallelBlock(OlmoBlock):
         #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
-        # shape of ff:      (batch_size, seq_len, mlp_ratio x d_model)
+        # shape of ff:      (batch_size, seq_len, intermediate_size)
         q, k, v, ff = self.fused_attn_ff_proj(self.norm(x)).split(self.fused_dims, dim=-1)
 
         # Get attention scores.
