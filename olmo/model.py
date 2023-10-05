@@ -392,6 +392,7 @@ class OlmoBlock(nn.Module):
 
         # Activation function.
         self.act = Activation.build(config)
+        assert config.intermediate_size is not None
         assert (self.act.output_multiplier * config.intermediate_size) % 1 == 0
 
         # Attention output projection.
@@ -594,6 +595,7 @@ class OlmoParallelBlock(OlmoBlock):
         # but we found that didn't help, possibly because of the overhead of joining the `att`
         # and `ff` activations together.
         # See https://github.com/allenai/LLM/pull/79 for details.
+        assert config.intermediate_size is not None
         if config.multi_query_attention:
             self.fused_dims = (
                 config.d_model,
