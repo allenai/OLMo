@@ -480,7 +480,11 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
     return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1)
 
 
-s3_client = boto3.client("s3", config=Config(retries={"max_attempts": 10, "mode": "standard"}))
+s3_client = boto3.client(
+    "s3",
+    config=Config(retries={"max_attempts": 10, "mode": "standard"}),
+    use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
+)
 
 
 def _wait_before_retry(attempt: int):
