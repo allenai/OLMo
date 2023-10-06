@@ -301,38 +301,18 @@ class WriteOutputsAsRows(Step):
             tsv_outputs.append(row)
 
         if gsheet:
-            self._write_to_gsheet(gsheet, tsv_outputs)
+            write_to_gsheet(gsheet, tsv_outputs)
 
         return tsv_outputs
 
-    def _write_to_gsheet(self, gsheet: str, rows: List[Dict], sheet_title: str = "Sheet1"):
-        import pygsheets
-
-        # make rows into dataframe
-        new_df = pd.DataFrame(rows)
-
-        client = pygsheets.authorize(service_account_json=os.environ["GDRIVE_SERVICE_ACCOUNT_JSON"])
-        sheet = client.open(gsheet)
-
-        # make sheet if doesn't exist
-        if sheet_title in [s.title for s in sheet.worksheets()]:
-            worksheet = sheet.worksheet_by_title(sheet_title)
-        else:
-            sheet.add_worksheet(rows=new_df.shape[0], cols=new_df.shape[1], title=sheet_title)
-            worksheet = sheet.worksheet_by_title(sheet_title)
-        current_df = worksheet.get_as_df()
-        current_df = worksheet.get_as_df()
-        new_df = pd.concat([current_df, new_df])
-        worksheet.set_dataframe(new_df, (1, 1), nan="")
-
 
 @Step.register("write-outputs-as-rows-multiple-metrics")
-class WriteOutputsAsRowsMultipleMetrics(WriteOutputsAsRows):
+class WriteOutputsAsRowsMultipleMetrics(Step):
     VERSION = "001"
 
     def run(
         self, models: List[str], outputs: List[Dict], prediction_kwargs: List[Dict], gsheet: Optional[str] = None
-    ) -> Dict[str, List[Dict]]:  # type: ignore
+    ) -> Dict[str, List[Dict]]:
         per_metric_type_tsv_outputs: Dict[str, List[Dict]] = {}
         for idx, d in enumerate(outputs):
             model = models[idx]
@@ -359,6 +339,25 @@ class WriteOutputsAsRowsMultipleMetrics(WriteOutputsAsRows):
 
         if gsheet:
             for metric_type_name, tsv_outputs in per_metric_type_tsv_outputs.items():
-                self._write_to_gsheet(gsheet, tsv_outputs, sheet_title=metric_type_name)
+                write_to_gsheet(gsheet, tsv_outputs, sheet_title=metric_type_name)
 
         return per_metric_type_tsv_outputs
+
+def write_to_gsheet(gsheet: str, rows: List[Dict], sheet_title: str = "Sheet1"):
+    import pygsheets
+
+    # make rows into dataframe
+    new_df = pd.DataFrame(rows)
+
+    client = pygsheets.authorize(service_account_json=os.environ["GDRIVE_SERVICE_ACCOUNT_JSON"])
+    sheet = client.open(gsheet)
+
+    # make sheet if doesn't exist
+    if sheet_title in [s.title for s in sheet.worksheets()]:
+        worksheet = sheet.worksheet_by_title(sheet_title)
+    else:
+        sheet.add_worksheet(rows=new_df.shape[0], cols=new_df.shape[1], title=sheet_title)
+        worksheet = sheet.worksheet_by_title(sheet_title)
+    current_df = worksheet.get_as_df()
+    new_df = pd.concat([current_df, new_df])
+    worksheet.set_dataframe(new_df, (1, 1), nan="")
