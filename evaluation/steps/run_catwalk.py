@@ -168,7 +168,10 @@ class PredictAndCalculateMetricsStep(Step):
         end_time = time.time()
 
         instance_predictions = self._instance_predictions_map_list(
-            instances, predictions, task_dict.get("keep_instance_fields", None)
+            instances,
+            predictions,
+            task_dict.get("keep_instance_fields", None),
+            task_dict.get("keep_all_instance_fields_except", None),
         )
 
         if instance_predictions:
@@ -188,17 +191,27 @@ class PredictAndCalculateMetricsStep(Step):
 
     @classmethod
     def _instance_predictions_map_list(
-        cls, instances, predictions, keep_instance_fields: Optional[List] = None
+        cls,
+        instances,
+        predictions,
+        keep_instance_fields: Optional[List] = None,
+        keep_all_instance_fields_except: Optional[List] = None,
     ) -> List:
         instance_predictions = []
 
         for idx, (instance, pred) in enumerate(zip(instances, predictions)):
             instance_id = guess_instance_id(instance, idx=idx)  # dict
 
-            if keep_instance_fields:
-                for field in keep_instance_fields:
-                    if field in instance:
-                        instance_id[field] = instance[field]
+            if keep_instance_fields or keep_all_instance_fields_except:
+                assert (
+                    keep_instance_fields is None or keep_all_instance_fields_except is None
+                ), "Can't use both keep_instance_fields and keep_all_instance_fields_except"
+                for field in instance:
+                    if keep_instance_fields and field not in keep_instance_fields:
+                        continue
+                    if keep_all_instance_fields_except and field in keep_all_instance_fields_except:
+                        continue
+                    instance_id[field] = instance[field]
 
             prediction = pred.get("prediction", pred)
 
