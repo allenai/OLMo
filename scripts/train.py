@@ -62,8 +62,6 @@ def main(cfg: TrainConfig) -> None:
     cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
     assert cfg.device_train_batch_size is not None  # for mypy
     cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
-    if cfg.model.intermediate_size is None:
-        cfg.model.intermediate_size = cfg.model.d_model * cfg.model.mlp_ratio
 
     # Display and save configuration.
     if get_global_rank() == 0:
