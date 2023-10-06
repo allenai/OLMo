@@ -1,1 +1,2 @@
-vllm
+vllm==0.1.3
+xformers==0.0.20
