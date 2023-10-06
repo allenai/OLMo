@@ -6,23 +6,29 @@ import shutil
 import tarfile
 import tempfile
 from abc import ABC, abstractmethod
+from argparse import ArgumentParser, _SubParsersAction
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 import google.cloud.storage as gcs
+import wandb
 from google.api_core.exceptions import NotFound
+
+from olmo import TrainConfig
 
 log = logging.getLogger(__name__)
 
 
 CONFIG_YAML: str = "config.yaml"
+WANDB_ENTITY: str = "ai2-llm"
 DEFAULT_MAX_ARCHIVE_SIZE: float = 5_000_000_000  # 5GB
 
 
 class CleaningOperations(Enum):
     DELETE_BAD_RUNS = auto()
+    RENAME_RUNS_TO_WANDB_ID = auto()
 
 
 class StorageType(Enum):
@@ -34,16 +40,26 @@ class StorageType(Enum):
 
 class StorageAdapter(ABC):
     @abstractmethod
-    def list_entries(self, path: str, max_archive_size: Optional[float] = None) -> List[str]:
+    def list_entries(self, path: str, max_file_size: Optional[float] = None) -> List[str]:
         """List all the entries within the directory or compressed file at the given path.
         Returns only top-level entries (i.e. not entries in subdirectories).
 
-        max_archive_size sets a threshold for the largest size archive file to retain within entries.
-        Any archive file of larger size is not included in the returned results.
+        max_file_size sets a threshold for the largest size file to retain within entries.
+        Any file of larger size is not included in the returned results.
+        """
+
+    @abstractmethod
+    def list_dirs(self, path: str) -> List[str]:
+        """List all the directories within the directory or compressed file at the given path.
+        Returns only top-level entries (i.e. not entries in subdirectories).
         """
 
     @abstractmethod
     def delete_path(self, path: str):
+        pass
+
+    @abstractmethod
+    def is_file(self, path: str):
         pass
 
 
@@ -70,38 +86,32 @@ class LocalFileSystemAdapter(StorageAdapter):
 
         return any(path.lower().endswith(extension) for extension in self._archive_extensions)
 
-    def list_entries(self, path: str, max_archive_size: Optional[float] = None) -> List[str]:
+    def _list_entries(self, path: str, no_files: bool = False, max_file_size: Optional[float] = None) -> List[str]:
         if os.path.isdir(path):
             return [
                 entry
                 for entry in os.listdir(path)
-                if max_archive_size is None or os.path.getsize(entry) <= max_archive_size
+                if ((max_file_size is None or os.path.getsize(entry) <= max_file_size)
+                    and (not no_files or not os.path.isfile(os.path.join(path, entry))))
             ]
 
         if self.has_supported_archive_extension(path):
-            if max_archive_size is not None:
-                raise NotImplementedError("Filtering out entries from a tar file is not supported")
+            if no_files or max_file_size is not None:
+                raise NotImplementedError("Filtering out entries from a tar file is not yet supported")
 
             with tarfile.open(path) as tar:
                 tar_subpaths = [os.path.normpath(name) for name in tar.getnames()]
                 return [
                     os.path.basename(tar_subpath) for tar_subpath in tar_subpaths if tar_subpath.count(os.sep) == 1
                 ]
-            # temp_dir = tempfile.TemporaryDirectory()
-            # shutil.unpack_archive(path, temp_dir.name)
-            # dir_files = [
-            #     os.path.join(temp_dir.name, filename)
-            #     for filename in os.listdir(temp_dir.name)
-            # ]
-
-            # if len(dir_files) == 1 and os.path.isdir(path):
-            #     return [
-            #         os.path.join(dir_files[0], filename)
-            #         for filename in os.listdir(dir_files[0])
-            #     ]
-            # return dir_files
 
         raise ValueError(f"Path does not correspond to directory or supported archive file: {path}")
+
+    def list_entries(self, path: str, max_file_size: Optional[float] = None) -> List[str]:
+        return self._list_entries(path, max_file_size=max_file_size)
+
+    def list_dirs(self, path: str) -> List[str]:
+        return self._list_entries(path, no_files=True)
 
     def delete_path(self, path: str):
         path_obj = Path(path)
@@ -112,6 +122,13 @@ class LocalFileSystemAdapter(StorageAdapter):
             path_obj.unlink()
         else:
             shutil.rmtree(path)
+
+    def is_file(self, path: str):
+        path_obj = Path(path)
+        if not path_obj.exists():
+            return
+
+        return path_obj.is_file()
 
 
 class GoogleCloudStorageAdapter(StorageAdapter):
@@ -134,6 +151,13 @@ class GoogleCloudStorageAdapter(StorageAdapter):
             self._gcs_client = gcs.Client()
 
         return self._gcs_client
+    
+    @staticmethod
+    def _get_bucket_name_and_key(path: str) -> Tuple[str, str]:
+        parsed_path = urlparse(path)
+        bucket_name = parsed_path.netloc
+        key = parsed_path.path.lstrip("/")
+        return bucket_name, key
 
     def _get_blob_size(self, blob: gcs.Blob) -> int:
         blob.reload()
@@ -171,7 +195,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         blob.download_to_filename(temp_file)
         return temp_file
 
-    def _get_directory_entries(self, bucket_name: str, key: str, max_archive_size: Optional[float]) -> List[str]:
+    def _get_directory_entries(self, bucket_name: str, key: str, no_files: bool = False, max_file_size: Optional[float] = None) -> List[str]:
         bucket = self.gcs_client.bucket(bucket_name)
         # Setting max_results to 10,000 as a reasonable caution that a directory should not have
         # more than 10,000 entries.
@@ -181,13 +205,19 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         entries: List[str] = []
         for blob in blobs:
             blob: gcs.Blob
+
+            if no_files:
+                # Note: We need to iterate through (or otherwise act on?) the blobs to populate blob.prefixes
+                # Thus we no-op here rather than skipping the loop
+                continue
+
             size: int = self._get_blob_size(blob)
-            if max_archive_size is not None and size > max_archive_size:
+            if max_file_size is not None and size > max_file_size:
                 log.info(
-                    "Blob %s has size %.2fGb exceeding max archive size %.2fGb, skipping.",
+                    "Blob %s has size %.2fGb exceeding max file size %.2fGb, skipping.",
                     blob.name,
                     size / 1e9,
-                    max_archive_size / 1e9,
+                    max_file_size / 1e9,
                 )
                 continue
 
@@ -198,27 +228,32 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         return [entry.removeprefix(key) for entry in entries]
 
-    def list_entries(self, path: str, max_archive_size: Optional[float] = None) -> List[str]:
-        parsed_path = urlparse(path)
-        bucket_name = parsed_path.netloc
-        key = parsed_path.path.lstrip("/")
+    def _list_entries(self, path: str, no_files: bool = False, max_file_size: Optional[float] = None) -> List[str]:
+        bucket_name, key = self._get_bucket_name_and_key(path)
 
         if self.local_fs_adapter.has_supported_archive_extension(path):
             file_path = self._download_file(bucket_name, key)
-            return self.local_fs_adapter.list_entries(file_path, max_archive_size)
+
+            if no_files:
+                return self.local_fs_adapter.list_dirs(file_path)
+            return self.local_fs_adapter.list_entries(file_path, max_file_size)
 
         if self._is_file(bucket_name, key):
             # print(bucket_name, key)
             raise ValueError(f"Path corresponds to a file without a supported archive extension {path}")
 
-        res = self._get_directory_entries(bucket_name, key, max_archive_size)
+        res = self._get_directory_entries(bucket_name, key, no_files=no_files, max_file_size=max_file_size)
         # print('Result', res)
         return res
 
+    def list_entries(self, path: str, max_file_size: Optional[float] = None) -> List[str]:
+        return self._list_entries(path, max_file_size=max_file_size)
+
+    def list_dirs(self, path: str) -> List[str]:
+        return self._list_entries(path, no_files=True)
+
     def delete_path(self, path: str):
-        parsed_path = urlparse(path)
-        bucket_name = parsed_path.netloc
-        key = parsed_path.path.lstrip("/")
+        bucket_name, key = self._get_bucket_name_and_key(path)
 
         bucket = self.gcs_client.bucket(bucket_name)
         # Not using delimiter causes result to not have directory-like structure (all blobs returned)
@@ -231,6 +266,11 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         # print(len(blob_names))
         raise NotImplementedError()
+    
+    def is_file(self, path: str):
+        bucket_name, key = self._get_bucket_name_and_key(path)
+
+        return self._is_file(bucket_name, key)
 
 
 class StorageCleaner:
@@ -240,12 +280,16 @@ class StorageCleaner:
         ignore_prompts: bool = False,
         runs_require_config_yaml: bool = True,
         max_archive_size: Optional[float] = None,
+        default_wandb_entity: Optional[str] = None,
+        default_wandb_project: Optional[str] = None,
     ) -> None:
         self._dry_run: bool = dry_run
         self._storage_adapters: Dict[StorageType, StorageAdapter] = {}
         self._runs_require_config_yaml = runs_require_config_yaml
         self._ignore_prompts: bool = ignore_prompts
         self._max_archive_size: Optional[float] = max_archive_size
+        self._default_wandb_entity: Optional[str] = default_wandb_entity
+        self._default_wandb_project: Optional[str] = default_wandb_project
 
     @staticmethod
     def _is_url(path: str) -> bool:
@@ -335,28 +379,134 @@ class StorageCleaner:
         storage: StorageAdapter = self._get_storage_adapter(runs_path)
         run_dir_entries = [
             os.path.join(runs_path, entry)
-            for entry in storage.list_entries(runs_path, max_archive_size=self._max_archive_size)
+            for entry in storage.list_entries(runs_path, max_file_size=self._max_archive_size)
         ]
         for run_dir_entry in run_dir_entries:
             self._delete_if_bad_run(storage, run_dir_entry)
+
+    def _get_wandb_id(self, storage: StorageAdapter, run_dir_entry: str) -> str:
+        dir_entries = storage.list_entries(run_dir_entry)
+        if CONFIG_YAML not in dir_entries:
+            raise FileNotFoundError(f'{CONFIG_YAML} not found in dir {run_dir_entry}, cannot get wandb id')
+
+        config_yaml_path = os.path.join(run_dir_entry, CONFIG_YAML)
+        train_config = TrainConfig.load(config_yaml_path)
+        if train_config.wandb is None:
+            raise ValueError(f'No wandb settings in config file {config_yaml_path}')
+
+        entity_name = train_config.wandb.entity or self._default_wandb_entity
+        project_name = train_config.wandb.project or self._default_wandb_project
+        run_name = train_config.wandb.name
+
+        if entity_name is None:
+            raise ValueError(f'No wandb entity set in cli or in config file {config_yaml_path}')
+        if project_name is None:
+            raise ValueError(f'No wandb project name set in cli or in config file {config_yaml_path}')
+        if run_name is None:
+            raise ValueError(f'No wandb name set in config file {config_yaml_path}')
+
+        wandb_api = wandb.Api()
+        runs = list(wandb_api.runs(path=f'{entity_name}/{project_name}', filters={"display_name": {"$regex": run_name}}))
+        if len(runs) == 0:
+            raise ValueError(f'No wandb runs found for {run_dir_entry}')
+        if len(runs) > 1:
+            raise ValueError(f'{len(runs)} runs found for {run_dir_entry}')
+
+        run = runs[0]
+        print('id', run.id)
+        return run.id
+
+    def rename_runs_to_wandb_ids(self, runs_path: str):
+        log.info("Starting renaming runs to their wandb ids")
+
+        if not runs_path.endswith("/"):
+            raise ValueError(
+                "Runs path does not end with '/'. Please verify that path is a directory and re-run with trailing '/'."
+            )
+
+        storage: StorageAdapter = self._get_storage_adapter(runs_path)
+        run_dir_entries = [
+            os.path.join(runs_path, entry)
+            for entry in storage.list_dirs(runs_path)
+        ]
+
+        print(run_dir_entries)
+        run_wandb_ids = {
+            run_dir_entry: self._get_wandb_id(storage, run_dir_entry)
+            for run_dir_entry in run_dir_entries
+        }
+        print(run_wandb_ids)
+
+        raise NotImplementedError
 
 
 def perform_operation(args: argparse.Namespace):
     if args.dry_run:
         log.info("Dry run, no actions will be taken")
 
-    storage_manager = StorageCleaner(
-        dry_run=args.dry_run,
-        ignore_prompts=args.yes,
-        runs_require_config_yaml=args.runs_require_config_yaml,
-        max_archive_size=args.max_archive_size,
-    )
     if args.op == CleaningOperations.DELETE_BAD_RUNS:
+        storage_manager = StorageCleaner(
+            dry_run=args.dry_run,
+            ignore_prompts=args.yes,
+            runs_require_config_yaml=args.runs_require_config_yaml,
+            max_archive_size=args.max_archive_size,
+        )
         storage_manager.delete_bad_runs(args.runs_path)
+    if args.op == CleaningOperations.RENAME_RUNS_TO_WANDB_ID:
+        storage_manager = StorageCleaner(
+            dry_run=args.dry_run,
+            ignore_prompts=args.yes,
+            default_wandb_entity=args.entity,
+            default_wandb_project=args.project,
+        )
+        storage_manager.rename_runs_to_wandb_ids(args.runs_path)
 
 
-def get_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser()
+def _add_delete_subparser(subparsers: _SubParsersAction):
+    delete_runs_parser = subparsers.add_parser(
+        "clean", help="Delete bad runs (example no non-trivial checkpoints)"
+    )
+    delete_runs_parser.set_defaults(op=CleaningOperations.DELETE_BAD_RUNS)
+    delete_runs_parser.add_argument(
+        "runs_path",
+        help="Path to directory containing one or more run directories",
+    )
+    delete_runs_parser.add_argument(
+        "--require_config_yaml",
+        action="store_true",
+        dest="runs_require_config_yaml",
+        help=f"Enforces without prompt the sanity check that an entry being deleted has a {CONFIG_YAML} file (and so is a run)",
+    )
+    delete_runs_parser.add_argument(
+        "--max_archive_size",
+        default=DEFAULT_MAX_ARCHIVE_SIZE,
+        help="Max size archive files to consider for deletion (in bytes). Any archive larger than this is ignored/not deleted.",
+    )
+
+
+def _add_wandb_subparser(subparsers: _SubParsersAction):
+    wandb_runs_parser = subparsers.add_parser(
+        "rename_to_wandb", help="renames runs to their wandb ids"
+    )
+    wandb_runs_parser.set_defaults(op=CleaningOperations.RENAME_RUNS_TO_WANDB_ID)
+    wandb_runs_parser.add_argument(
+        "runs_path",
+        help="Path to directory containing one or more run directories",
+    )
+    wandb_runs_parser.add_argument(
+        "--entity",
+        default=WANDB_ENTITY,
+        help="Wandb entity to use for runs without a specified entity.",
+    )
+    wandb_runs_parser.add_argument(
+        "--project",
+        default=None,
+        help="Wandb project to use for runs without a specified project. If unset, runs without a specified project will be skipped.",
+    )
+
+
+def get_parser() -> ArgumentParser:
+    parser = ArgumentParser()
     parser.add_argument(
         "-n",
         "--dry_run",
@@ -377,26 +527,8 @@ def get_parser() -> argparse.ArgumentParser:
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Cleaning commands")
-
-    delete_runs_parser = subparsers.add_parser(
-        "clean", help="Delete bad runs (example no non-trivial checkpoints)"
-    )
-    delete_runs_parser.set_defaults(op=CleaningOperations.DELETE_BAD_RUNS)
-    delete_runs_parser.add_argument(
-        "runs_path",
-        help="Path to directory containing one or more run directories",
-    )
-    delete_runs_parser.add_argument(
-        "--require_config_yaml",
-        action="store_true",
-        dest="runs_require_config_yaml",
-        help=f"Enforces without prompt the sanity check that an entry being deleted has a {CONFIG_YAML} file (and so is a run)",
-    )
-    delete_runs_parser.add_argument(
-        "--max_archive_size",
-        default=DEFAULT_MAX_ARCHIVE_SIZE,
-        help="Max size archive files to consider for deletion (in bytes). Any archive larger than this is ignored/not deleted.",
-    )
+    _add_delete_subparser(subparsers)
+    _add_wandb_subparser(subparsers)
 
     # gs://ai2-olmo/ai2-llm/olmo-medium/njmmt4v8/config.yaml
     # temp
