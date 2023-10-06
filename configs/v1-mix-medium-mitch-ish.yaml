@@ -75,7 +75,7 @@ fsdp:
   precision: mixed
 
 max_grad_norm: 1.0
-max_grad_norm_ratio: 1.5
+max_grad_norm_ratio: null
 
 speed_monitor:
   window_size: 20
