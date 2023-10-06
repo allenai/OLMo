@@ -802,6 +802,13 @@ class TrainConfig(BaseConfig):
     Whether to run the PyTorch profiler on batches 6, 7, and 8.
     """
 
+    reset_optimizer_state: bool = False
+    """
+    When this is set, we restore the model from a checkpoint (if given), but we leave the optimizer uninitialized.
+    We also set a new learning rate schedule that does a new warmup, such that it intercepts the original learning
+    curve (according to the current learning rate schedule settings), and continues from there.
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":

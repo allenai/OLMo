@@ -20,7 +20,7 @@ from olmo.data import build_train_dataloader
 from olmo.eval import build_evaluators
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
 from olmo.model import Olmo
-from olmo.optim import build_optimizer, build_scheduler
+from olmo.optim import BoltOnWarmupScheduler, build_optimizer, build_scheduler
 from olmo.train import Trainer
 from olmo.util import (
     barrier,
@@ -43,6 +43,13 @@ def main(cfg: TrainConfig) -> None:
     if cfg.run_name is None:
         cfg.run_name = os.environ.get("COMPOSER_RUN_NAME", "train-llm")
     log_extra_field("run_name", cfg.run_name)
+
+    # Sanity check
+    if cfg.reset_optimizer_state and cfg.load_path is None:
+        log.warning(
+            "You want to reset the optimizer state, but we're not loading from the checkpoint. The"
+            "setting has no effect."
+        )
 
     # Initialize process group and set device.
     dist.init_process_group(backend="nccl")
@@ -211,8 +218,14 @@ def main(cfg: TrainConfig) -> None:
 
         if cfg.load_path is not None:
             log.info(f"Loading checkpoint from {cfg.load_path}...")
-            trainer.restore_checkpoint(cfg.load_path)
+            trainer.restore_checkpoint(cfg.load_path, load_optimizer_state=not cfg.reset_optimizer_state)
             log.info("Checkpoint successfully loaded")
+
+            # If we have to, set a new scheduler:
+            if cfg.reset_optimizer_state:
+                trainer.scheduler = BoltOnWarmupScheduler(
+                    trainer.scheduler, trainer.global_step, trainer.global_step + cfg.scheduler.t_warmup
+                )
 
         if cfg.force_save_unsharded:
             log.info("Saving unsharded checkpoint...")
