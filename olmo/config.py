@@ -686,6 +686,11 @@ class TrainConfig(BaseConfig):
     checkpoint into an unsharded checkpoint.
     """
 
+    no_pre_train_checkpoint: bool = False
+    """
+    Skip saving pre-train checkpoint.
+    """
+
     load_path: Optional[str] = None
     """
     The path to a training checkpoint to restore/resume from.
