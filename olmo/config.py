@@ -238,6 +238,12 @@ class ModelConfig(BaseConfig):
     mlp_ratio: int = 4
     """
     The ratio of the inner MLP dimensionality to ``d_model``.
+    This is only used when ``hidden_size`` is not set.
+    """
+
+    hidden_size: Optional[int] = None
+    """
+    Set the exact hidden size. Otherwise the inner MLP hidden size will be set to `mlp_ratio * d_model`.
     """
 
     activation_type: ActivationType = ActivationType.swiglu
