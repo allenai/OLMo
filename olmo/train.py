@@ -19,7 +19,6 @@ import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 import wandb
-from packaging import version
 from torch.distributed.fsdp import FullStateDictConfig
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import StateDictType
@@ -33,6 +32,7 @@ from torch.utils.data import DataLoader
 from .aliases import PathOrStr
 from .checkpoint import (
     load_fsdp_model_and_optim_state,
+    load_fsdp_optim_state,
     load_state_dict,
     save_fsdp_model_and_optim_state,
     save_state_dict,
@@ -42,7 +42,7 @@ from .data import IterableDataset
 from .eval import Evaluator
 from .exceptions import OlmoConfigurationError
 from .model import Olmo
-from .optim import Optimizer, Scheduler, fix_optim_state_dict
+from .optim import Optimizer, Scheduler
 from .util import (
     barrier,
     dir_is_empty,
@@ -499,12 +499,7 @@ class Trainer:
             self.fsdp_model.load_state_dict(state_dict["model"])
             if load_optimizer_state:
                 log.info("Loading optimizer state...")
-                if version.parse(torch.__version__) < version.parse("2.1.0"):
-                    flattened_osd = FSDP.optim_state_dict_to_load(state_dict["optim"], self.fsdp_model, self.optim)  # type: ignore
-                else:
-                    flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, state_dict["optim"])  # type: ignore
-                self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
-                del flattened_osd
+                load_fsdp_optim_state(self.fsdp_model, self.optim, state_dict["optim"])
 
             # Load trainer state dict.
             log.info("Loading trainer state...")
@@ -634,16 +629,7 @@ class Trainer:
             if load_optimizer_state:
                 log.info("Loading optimizer state...")
                 optim_state_dict = torch.load(resource_path(load_path, "optim.pt", local_cache=local_cache))
-                # NOTE: careful, the order of these arguments has changed since the 2.0 release.
-                if version.parse(torch.__version__) < version.parse("2.1.0"):
-                    #  flattened_osd = FSDP.optim_state_dict_to_load(optim_state["optim"], self.fsdp_model, self.optim)  # type: ignore
-                    flattened_osd = FSDP.optim_state_dict_to_load(optim_state_dict, self.fsdp_model, self.optim)  # type: ignore
-                else:
-                    #  flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state["optim"])  # type: ignore
-                    flattened_osd = FSDP.optim_state_dict_to_load(self.fsdp_model, self.optim, optim_state_dict)  # type: ignore
-                del optim_state_dict
-                self.optim.load_state_dict(fix_optim_state_dict(self.optim, flattened_osd))
-                del flattened_osd
+                load_fsdp_optim_state(self.fsdp_model, self.optim, optim_state_dict)
 
             # Load other state.
             try:
