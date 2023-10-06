@@ -15,7 +15,7 @@ command: |-
 
   export OMP_NUM_THREADS=8
   export LOG_FILTER_TYPE=local_rank0_only
-  export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
+  #export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
 
   cd LLM
 
