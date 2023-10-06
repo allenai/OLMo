@@ -4,6 +4,12 @@
 We use tango and catwalk to build the pipeline.
 The catwalk code exists [here](https://github.com/allenai/catwalk/tree/olmo-eval).
 
+### Setup
+Make sure you've already `pip install -r LLM/requirements.txt` then
+```
+pip install -r LLM/evaluation/requirements.txt
+```
+
 ### Creating an evaluation config
 
 The evaluation pipeline is run as a cross product of models that need to be evaluated, and task sets.
@@ -16,8 +22,14 @@ The evaluation pipeline is run as a cross product of models that need to be eval
 
 #### Basic setup
 
+Obtain a GITHUB_TOKEN from [here](https://github.com/settings/tokens/new) with “repo” scope access and nothing else and don't forget to configure SSO on last page.
+
 ```commandline 
-export GITHUB_TOKEN="<your token>"  # Needed for beaker to clone the repo.
+export GITHUB_TOKEN="<your token>"  # Needed for beaker to clone the repo. 
+```
+
+Also configure google.
+```
 export GOOGLE_TOKEN="<google credentials>"  (or simply gcloud auth login) # If you are using a GS workspace.
 ```
 
@@ -33,10 +45,6 @@ beaker = get_client("<beaker_workspace>")
 
 with open("credentials_file.json") as f:
     beaker.secret.write("GDRIVE_SERVICE_ACCOUNT_JSON", f.read())
-```
-
-```commandline
-export GDRIVE_SERVICE_ACCOUNT_JSON=$(cat credentials_file.json)
 ```
 
 #### Run locally
