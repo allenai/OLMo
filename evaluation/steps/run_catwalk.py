@@ -178,9 +178,13 @@ class PredictAndCalculateMetricsStep(Step):
             self.logger.info(f"First instance details for task {task_name}: {instance_predictions[0]}")
 
         task_options = {key: val for key, val in task_dict.items() if key not in ["name", "task_obj"]}
+        model_kwargs = {}
+        if hasattr(model, "model_kwargs"):
+            model_kwargs.update(model.model_kwargs)
         output = {
             "task": task_dict["name"],
-            "task_options": task_options,  # model prediction kwargs
+            "task_options": task_options,  # model prediction kwargs,
+            "model_kwargs": model_kwargs,
             "metrics": metrics,
             "num_instances": len(instances),
             "processing_time": end_time - start_time,
@@ -245,6 +249,7 @@ class WriteOutputsAsRows(Step):
             row = {}
             row["date"] = datetime.now(tz=pytz.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
             row["model"] = model
+            row["model_kwargs"] = d["model_kwargs"]
             row["full_model"] = f"lm::pretrained={model}"
             metrics_dict = list(d["metrics"].values())[0]
 
