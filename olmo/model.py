@@ -309,13 +309,14 @@ class RotaryEmbedding(nn.Module):
         return pos_sin, pos_cos
 
     def forward(self, q: torch.Tensor, k: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        query_len, key_len = q.shape[-2], k.shape[-2]  # could be different if layer_past not None
-        pos_sin, pos_cos = self.get_rotary_embedding(key_len, q.device)
-        q = apply_rotary_pos_emb(
-            pos_sin[:, :, key_len - query_len : key_len, :], pos_cos[:, :, key_len - query_len : key_len, :], q
+        q_, k_ = q.float(), k.float()
+        query_len, key_len = q_.shape[-2], k_.shape[-2]  # could be different if layer_past not None
+        pos_sin, pos_cos = self.get_rotary_embedding(key_len, q_.device)
+        q_ = apply_rotary_pos_emb(
+            pos_sin[:, :, key_len - query_len : key_len, :], pos_cos[:, :, key_len - query_len : key_len, :], q_
         )
-        k = apply_rotary_pos_emb(pos_sin, pos_cos, k)
-        return q, k
+        k_ = apply_rotary_pos_emb(pos_sin, pos_cos, k_)
+        return q_.type_as(q), k_.type_as(k)
 
 
 class Activation(nn.Module):
