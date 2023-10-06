@@ -7,7 +7,6 @@ import time
 import warnings
 from datetime import datetime
 from pathlib import Path
-from ssl import SSLError
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
 import boto3
@@ -558,7 +557,7 @@ def _s3_get_bytes_range(
             if int(e.response["Error"]["Code"]) == 404:
                 raise FileNotFoundError(f"s3://{bucket_name}/{key}") from e
             err = e
-        except (SSLError, boto_exceptions.HTTPClientError, boto_exceptions.ConnectionError) as e:
+        except (boto_exceptions.HTTPClientError, boto_exceptions.ConnectionError) as e:
             # ResponseStreamingError (subclass of HTTPClientError) can happen as
             # a result of a failed read from the stream (http.client.IncompleteRead).
             # Retrying can help in this case.
