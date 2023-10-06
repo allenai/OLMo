@@ -12,7 +12,7 @@ model:
   n_heads: 32
   n_layers: 32
   # mlp_ratio: 6
-  hidden_size: 22016
+  mlp_hidden_size: 22016
   weight_tying: false
   alibi: false
   rope: true
