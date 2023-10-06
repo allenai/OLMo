@@ -343,6 +343,7 @@ class WriteOutputsAsRowsMultipleMetrics(Step):
 
         return per_metric_type_tsv_outputs
 
+
 def write_to_gsheet(gsheet: str, rows: List[Dict], sheet_title: str = "Sheet1"):
     import pygsheets
 
