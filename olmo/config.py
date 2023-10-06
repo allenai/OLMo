@@ -238,6 +238,12 @@ class ModelConfig(BaseConfig):
     mlp_ratio: int = 4
     """
     The ratio of the inner MLP dimensionality to ``d_model``.
+    This is only used when ``mlp_hidden_size`` is not set.
+    """
+
+    mlp_hidden_size: Optional[int] = None
+    """
+    Set the exact hidden size for the MLP. Otherwise the inner MLP hidden size will be set to `mlp_ratio * d_model`.
     """
 
     intermediate_size: Optional[int] = None
@@ -313,6 +319,11 @@ class ModelConfig(BaseConfig):
     This only affects layer norms that are immediately followed by a linear layer in the forward pass.
     Other layer norms, such as those applied to attention keys and queries, will always include an elementwise
     affine transform.
+    """
+
+    attention_layer_norm_with_affine: bool = True
+    """
+    Toggle affine transform for the QK norms.
     """
 
     max_sequence_length: int = 1024
@@ -683,6 +694,11 @@ class TrainConfig(BaseConfig):
     Save an unsharded checkpoint before training (even during a dry run).
     Use this option with `--load-path={PATH}` and `--dry_run` to convert a sharded
     checkpoint into an unsharded checkpoint.
+    """
+
+    no_pre_train_checkpoint: bool = False
+    """
+    Skip saving pre-train checkpoint.
     """
 
     load_path: Optional[str] = None

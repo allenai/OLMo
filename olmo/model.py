@@ -307,13 +307,14 @@ class RotaryEmbedding(nn.Module):
         return pos_sin, pos_cos
 
     def forward(self, q: torch.Tensor, k: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        query_len, key_len = q.shape[-2], k.shape[-2]  # could be different if layer_past not None
-        pos_sin, pos_cos = self.get_rotary_embedding(key_len, q.device)
-        q = apply_rotary_pos_emb(
-            pos_sin[:, :, key_len - query_len : key_len, :], pos_cos[:, :, key_len - query_len : key_len, :], q
+        q_, k_ = q.float(), k.float()
+        query_len, key_len = q_.shape[-2], k_.shape[-2]  # could be different if layer_past not None
+        pos_sin, pos_cos = self.get_rotary_embedding(key_len, q_.device)
+        q_ = apply_rotary_pos_emb(
+            pos_sin[:, :, key_len - query_len : key_len, :], pos_cos[:, :, key_len - query_len : key_len, :], q_
         )
-        k = apply_rotary_pos_emb(pos_sin, pos_cos, k)
-        return q, k
+        k_ = apply_rotary_pos_emb(pos_sin, pos_cos, k_)
+        return q_.type_as(q), k_.type_as(k)
 
 
 class Activation(nn.Module):
@@ -373,6 +374,9 @@ class OlmoBlock(nn.Module):
         super().__init__()
         self.layer_id = layer_id
         self.config = config
+        self.hidden_size = (
+            config.mlp_hidden_size if config.mlp_hidden_size is not None else config.mlp_ratio * config.d_model
+        )
         self.__cache = cache
         assert config.d_model % config.n_heads == 0
 
@@ -386,14 +390,13 @@ class OlmoBlock(nn.Module):
             self.k_norm = LayerNormBase.build(
                 config,
                 size=config.d_model // config.n_heads if config.multi_query_attention else None,
-                elementwise_affine=True,
+                elementwise_affine=config.attention_layer_norm_with_affine,
             )
             self.q_norm = LayerNormBase.build(config, elementwise_affine=True)
 
         # Activation function.
         self.act = Activation.build(config)
-        assert config.intermediate_size is not None
-        assert (self.act.output_multiplier * config.intermediate_size) % 1 == 0
+        assert (self.act.output_multiplier * self.hidden_size) % 1 == 0
 
         # Attention output projection.
         self.attn_out = nn.Linear(
@@ -402,7 +405,7 @@ class OlmoBlock(nn.Module):
 
         # Feed-forward output projection.
         self.ff_out = nn.Linear(
-            int(self.act.output_multiplier * config.intermediate_size),
+            int(self.act.output_multiplier * self.hidden_size),
             config.d_model,
             bias=config.include_bias,
             device=config.init_device,
@@ -537,7 +540,7 @@ class OlmoSequentialBlock(OlmoBlock):
         )
         # Feed-forward input projection.
         self.ff_proj = nn.Linear(
-            config.d_model, config.intermediate_size, bias=config.include_bias, device=config.init_device
+            config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device
         )
 
     def reset_parameters(self):
@@ -601,10 +604,10 @@ class OlmoParallelBlock(OlmoBlock):
                 config.d_model,
                 config.d_model // config.n_heads,
                 config.d_model // config.n_heads,
-                config.intermediate_size,
+                self.hidden_size,
             )
         else:
-            self.fused_dims = (config.d_model, config.d_model, config.d_model, config.intermediate_size)
+            self.fused_dims = (config.d_model, config.d_model, config.d_model, self.hidden_size)
         self.fused_attn_ff_proj = nn.Linear(
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
@@ -627,7 +630,7 @@ class OlmoParallelBlock(OlmoBlock):
         #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
-        # shape of ff:      (batch_size, seq_len, intermediate_size)
+        # shape of ff:      (batch_size, seq_len, hidden_size)
         q, k, v, ff = self.fused_attn_ff_proj(self.norm(x)).split(self.fused_dims, dim=-1)
 
         # Get attention scores.
