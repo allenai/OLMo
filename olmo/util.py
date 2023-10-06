@@ -377,13 +377,13 @@ def is_url(path: PathOrStr) -> bool:
     return re.match(r"[a-z0-9]+://.*", str(path)) is not None
 
 
-def resource_path(folder: PathOrStr, fname: str) -> PathOrStr:
-    if is_url(folder):
+def resource_path(folder: PathOrStr, fname: str, local_cache: Optional[PathOrStr] = None) -> Path:
+    if local_cache is not None and (local_path := Path(local_cache) / fname).is_file():
+        return local_path
+    else:
         from cached_path import cached_path
 
         return cached_path(f"{str(folder).rstrip('/')}/{fname}")
-    else:
-        return Path(folder) / fname
 
 
 def file_size(path: PathOrStr) -> int:
@@ -427,10 +427,7 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
 
         parsed = urlparse(str(source))
         if parsed.scheme == "gs":
-            from cached_path import cached_path
-
-            # TODO: directly request range from GCS.
-            return get_bytes_range(cached_path(source), bytes_start, num_bytes)
+            return _gcs_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
         elif parsed.scheme == "s3":
             return _s3_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
         elif parsed.scheme == "file":
@@ -441,6 +438,17 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
         with open(source, "rb") as f:
             f.seek(bytes_start)
             return f.read(num_bytes)
+
+
+def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
+    from google.cloud import storage as gcs
+
+    storage_client = gcs.Client()
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(key)
+    if not save_overwrite and blob.exists():
+        raise FileExistsError(f"gs://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
+    blob.upload_from_filename(source)
 
 
 def _gcs_file_size(bucket_name: str, key: str) -> int:
@@ -458,15 +466,18 @@ def _gcs_file_size(bucket_name: str, key: str) -> int:
     return blob.size
 
 
-def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
+def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int) -> bytes:
+    from google.api_core.exceptions import NotFound
     from google.cloud import storage as gcs
 
     storage_client = gcs.Client()
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(key)
-    if not save_overwrite and blob.exists():
-        raise FileExistsError(f"gs://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
-    blob.upload_from_filename(source)
+    try:
+        blob.reload()
+    except NotFound:
+        raise FileNotFoundError(f"gs://{bucket_name}/{key}")
+    return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1)
 
 
 s3_client = boto3.client("s3", config=Config(retries={"max_attempts": 10, "mode": "standard"}))
