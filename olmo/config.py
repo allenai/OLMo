@@ -316,6 +316,11 @@ class ModelConfig(BaseConfig):
     affine transform.
     """
 
+    attention_layer_norm_with_affine: bool = True
+    """
+    Toggle affine transform for the QK norms.
+    """
+
     max_sequence_length: int = 1024
     """
     The maximum input sequence length supported by the model.
