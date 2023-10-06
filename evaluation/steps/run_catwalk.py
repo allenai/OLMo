@@ -328,6 +328,7 @@ class WriteOutputsAsRowsMultipleMetrics(Step):
                 row = {}
                 row["date"] = datetime.now(tz=pytz.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
                 row["model"] = model
+                row["model_kwargs"] = d["model_kwargs"]
                 row["full_model"] = f"lm::pretrained={model}"
                 row["task"] = d["task"]
                 row["processing_time"] = d["processing_time"]
