@@ -677,7 +677,7 @@ class TrainConfig(BaseConfig):
 
     load_path: Optional[str] = None
     """
-    The path to a (sharded) training checkpoint to restore/resume from.
+    The path to a training checkpoint to restore/resume from.
     """
 
     max_duration: int = 10000
@@ -795,6 +795,13 @@ class TrainConfig(BaseConfig):
     torch_profiling: bool = False
     """
     Whether to run the PyTorch profiler on batches 6, 7, and 8.
+    """
+
+    reset_optimizer_state: bool = False
+    """
+    When this is set, we restore the model from a checkpoint (if given), but we leave the optimizer uninitialized.
+    We also set a new learning rate schedule that does a new warmup, such that it intercepts the original learning
+    curve (according to the current learning rate schedule settings), and continues from there.
     """
 
     @property
