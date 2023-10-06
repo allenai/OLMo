@@ -5,7 +5,7 @@ We use tango and catwalk to build the pipeline.
 The catwalk code exists [here](https://github.com/allenai/catwalk/tree/olmo-eval).
 
 ### Setup
-Make sure you've already `pip install -r LLM/requirements.txt` then
+Make sure you've already `pip install -e "LLM[dev]"` then
 ```
 pip install -r LLM/evaluation/requirements.txt
 ```
