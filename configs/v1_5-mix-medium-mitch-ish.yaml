@@ -16,7 +16,7 @@ model:
   weight_tying: false
   alibi: false
   rope: true
-  flash_attention: true
+  flash_attention: false  # not available on AMD
   attention_dropout: 0.0
   attention_layer_norm: false
   multi_query_attention: false
@@ -37,8 +37,7 @@ model:
   init_device: meta
   init_fn: mitchell
 
-compile:
-  fullgraph: false
+compile: null
 
 optimizer:
   name: adamw
@@ -58,8 +57,7 @@ tokenizer:
   identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
   truncate_direction: right
 
-save_folder: runs/${run_name}
-remote_save_folder: s3://ai2-llm/checkpoints/7b/${run_name}
+save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_overwrite: true
 # Sharded checkpoints (best for restarts)
 save_interval: 1000
@@ -77,7 +75,7 @@ device_train_microbatch_size: 2
 precision: amp_bf16
 
 fsdp:
-  wrapping_strategy: by_block
+  wrapping_strategy: null
   precision: mixed
 
 max_grad_norm: 1.0
