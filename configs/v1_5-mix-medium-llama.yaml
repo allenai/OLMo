@@ -36,6 +36,7 @@ model:
 
 fsdp:
   precision: mixed
+  wrapping_strategy: by_block
 
 compile: null  # causes instability on AMD GPUs
 
