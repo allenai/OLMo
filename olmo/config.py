@@ -164,11 +164,6 @@ class LayerNormType(StrEnum):
     probably the fastest implementation.
     """
 
-    low_precision_rms = "low_precision_rms"
-    """
-    A low-precision version of RMSNorm.
-    """
-
     amd_compatible = "amd_compatible"
     """
     LayerNorm implemented manually to work around an issue with ROCm.

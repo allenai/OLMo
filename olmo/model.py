@@ -117,9 +117,7 @@ class LayerNormBase(nn.Module):
         elif config.layer_norm_type == LayerNormType.low_precision:
             return LayerNorm(config, size=size, low_precision=True, **kwargs)
         elif config.layer_norm_type == LayerNormType.rms:
-            return RMSLayerNorm(config, size=size, low_precision=False, **kwargs)
-        elif config.layer_norm_type == LayerNormType.low_precision_rms:
-            return RMSLayerNorm(config, size=size, low_precision=True, **kwargs)
+            return RMSLayerNorm(config, size=size, **kwargs)
         elif config.layer_norm_type == LayerNormType.amd_compatible:
             return AMDLayerNorm(config, size=size, **kwargs)
         else:
@@ -218,43 +216,25 @@ class RMSLayerNorm(LayerNormBase):
         self,
         config: ModelConfig,
         size: Optional[int] = None,
-        low_precision: bool = False,
         elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-6,  # default from Llama
+        eps: float = 1e-5,
     ):
         super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
-        self.low_precision = low_precision
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.low_precision:
-            module_device = x.device
-            downcast_x = self._cast_if_autocast_enabled(x)
-            downcast_weight = None if self.weight is None else self._cast_if_autocast_enabled(self.weight)
-            downcast_bias = (
-                None
-                if self.bias is None
-                else self._cast_if_autocast_enabled(self.bias)
-                if self.config.include_bias
-                else None
-            )
-            with torch.autocast(enabled=False, device_type=module_device.type):
-                return self.rms_norm(downcast_x, downcast_weight, downcast_bias)
-        else:
-            return self.rms_norm(x, self.weight, self.bias if self.config.include_bias else None)
+        og_dtype = x.dtype
+        x = x.to(torch.float32)
+        variance = x.pow(2).mean(-1, keepdim=True)
+        x = x * torch.rsqrt(variance + self.eps)
+        x = x.to(og_dtype)
 
-    def rms_norm(
-        self, x: torch.Tensor, weight: Optional[torch.Tensor], bias: Optional[torch.Tensor]
-    ) -> torch.Tensor:
-        norm_x = x.norm(2, dim=-1, keepdim=True)
-        x_normed = torch.rsqrt(norm_x + self.eps)
-
-        if weight is not None:
-            if bias is not None:
-                return weight * x_normed + self.bias
+        if self.weight is not None:
+            if self.bias is not None:
+                return self.weight * x + self.bias
             else:
-                return weight * x_normed
+                return self.weight * x
         else:
-            return x_normed
+            return x
 
 
 def rotate_half(x: torch.Tensor) -> torch.Tensor:
