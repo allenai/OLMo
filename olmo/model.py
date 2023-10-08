@@ -340,7 +340,7 @@ class OlmoBlock(nn.Module):
                 size=config.d_model // config.n_heads if config.multi_query_attention else None,
                 elementwise_affine=config.attention_layer_norm_with_affine,
             )
-            self.q_norm = LayerNormBase.build(config, elementwise_affine=True)
+            self.q_norm = LayerNormBase.build(config, elementwise_affine=config.attention_layer_norm_with_affine)
 
         # Activation function.
         self.act = Activation.build(config)
