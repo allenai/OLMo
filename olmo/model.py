@@ -394,7 +394,7 @@ class OlmoBlock(nn.Module):
                 size=config.d_model // config.n_heads if config.multi_query_attention else None,
                 elementwise_affine=config.attention_layer_norm_with_affine,
             )
-            self.q_norm = LayerNormBase.build(config, elementwise_affine=True)
+            self.q_norm = LayerNormBase.build(config, elementwise_affine=config.attention_layer_norm_with_affine)
 
         # Activation function.
         self.act = Activation.build(config)
@@ -1181,3 +1181,23 @@ class Olmo(nn.Module):
                     state_dict[f"{prefix}transformer.blocks.{block_idx}.attn_norm.bias"] = norm_b
                     state_dict[f"{prefix}transformer.blocks.{block_idx}.ff_norm.bias"] = norm_b.clone()
         return state_dict
+
+
+d_model = 64
+n_heads = 8
+seq_len = 24
+bsz = 2
+cache = BufferCache()
+rope = RotaryEmbedding(ModelConfig(d_model=d_model, n_heads=8, max_sequence_length=seq_len), cache)
+pos_sin, pos_cos = rope.get_rotary_embedding(seq_len, torch.device("cpu"))
+
+torch.manual_seed(3421312)
+q = torch.rand(bsz, seq_len, n_heads, d_model // n_heads)
+k = torch.rand(bsz, seq_len, n_heads, d_model // n_heads)
+q = q.view(bsz, seq_len, n_heads, d_model // n_heads).transpose(1, 2)
+k = k.view(bsz, seq_len, n_heads, d_model // n_heads).transpose(1, 2)
+
+qr, kr = rope(q, k)
+
+q.transpose(1, 2)[0, :, 0, 0]
+qr.transpose(1, 2)[0, :, 0, 0]
