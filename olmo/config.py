@@ -211,6 +211,13 @@ class InitFnType(StrEnum):
     is the input dimensionality of the kernel.
     """
 
+    bloom = "bloom"
+    """
+    Same as "normal" but `init_std` is automatically set as a function of the hidden dimentions such that:
+        `init_std = math.sqrt(2 / (3 * hidden_dimension))`
+    Reference: https://github.com/bigscience-workshop/bigscience/blob/58d99c67f643d27b5765a73a2ee2d1ce0a4b2c6b/train/lessons-learned.md#using-a-formulaic-std-init
+    """
+
 
 @dataclass
 class ModelConfig(BaseConfig):
@@ -376,7 +383,7 @@ class ModelConfig(BaseConfig):
     init_std: float = 0.02
     """
     The standard deviation to use when initializing weights with a "fixed distribution" ``init_fn``, such
-    as "normal".
+    as "normal". If `InitFnType.bloom`, then `init_std == -1.0`.
     """
 
     init_cutoff_factor: Optional[float] = None
