@@ -229,7 +229,7 @@ def main(cfg: TrainConfig) -> None:
 
         if cfg.force_save_unsharded:
             log.info("Saving unsharded checkpoint...")
-            checkpoint_path, _ = trainer.save_unsharded_checkpoint()
+            checkpoint_path, _ = trainer.save_checkpoint(checkpoint_type=CheckpointType.unsharded)
             log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
         if cfg.compile is not None:
