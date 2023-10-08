@@ -17,6 +17,7 @@ pip-wheel-metadata/
 .vscode/
 /*.iml
 pyrightconfig.json
+.ruff.toml
 
 
 # jupyter notebooks
