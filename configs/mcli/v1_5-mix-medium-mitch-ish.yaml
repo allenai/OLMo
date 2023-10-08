@@ -12,6 +12,7 @@ integrations:
 command: |-
   pip install urllib3==1.26.17
   pip freeze
+  mkdir -p /root/.cache/torch/
 
   export OMP_NUM_THREADS=8
   export LOG_FILTER_TYPE=local_rank0_only
