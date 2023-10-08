@@ -134,5 +134,12 @@ batch = batch.reshape(2048, -1)
 batch = batch % 32000  # Llama vocab size is 32k
 batch = batch[:2, :50]  # don't run all 4M tokens
 
-output = olmo_model(batch)
-logits = output.logits
+# run on olmo
+olmo_output = olmo_model(batch)
+olmo_logits = olmo_output.logits
+
+# run on hf
+hf_output = hf_model(batch)
+hf_logits = hf_output.logits
+
+assert torch.allclose(olmo_logits, hf_logits)
