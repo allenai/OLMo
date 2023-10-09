@@ -10,7 +10,6 @@ integrations:
     pip_install: -e .
     ssh_clone: true
 command: |-
-  pip install urllib3==1.26.17
   pip freeze
   mkdir -p /root/.cache/torch/
 
