@@ -37,79 +37,6 @@ def _get_alibi_slopes(
         slopes = torch.concat([slopes[1::2], slopes[::2]])[:total_num_heads]
     return slopes
 
-class OlmoSampler(nn.Module):
-    """Samples the next tokens from the model's outputs.
-
-    This layer does the following:
-    3. Apply presence and frequency penalties.
-    4. Apply temperature scaling.
-    5. Apply top-p and top-k truncation.
-    6. Sample the next tokens.
-    Here, each sequence group within the batch can have different sampling
-    parameters (e.g., sampling method, temperature, top-p, top-k, etc.).
-    """
-
-    def __init__(self, vocab_size: int) -> None:
-        super().__init__()
-        self.vocab_size = vocab_size
-
-    def forward(
-        self,
-        logits: torch.Tensor,
-        input_metadata: InputMetadata,
-        embedding_bias: Optional[torch.Tensor] = None,
-    ) -> Dict[int, SequenceOutputs]:
-        # Get the hidden states that we use for sampling.
-        #hidden_states = _prune_hidden_states(hidden_states, input_metadata)
-        logits = _prune_hidden_states(logits, input_metadata)
-
-        # Get the logits for the next tokens.
-        #logits = torch.matmul(hidden_states, embedding.t())
-        if embedding_bias is not None:
-            logits += embedding_bias
-        logits = gather_from_tensor_model_parallel_region(logits)
-        # Remove paddings in vocab (if any).
-        logits = logits[:, :self.vocab_size]
-        tp_rank = get_tensor_model_parallel_rank()
-        print(tp_rank, "logits", logits.shape, logits[0])
-
-        # Apply presence and frequency penalties.
-        output_tokens = _get_output_tokens(input_metadata)
-        assert len(output_tokens) == logits.shape[0]
-        presence_penalties, frequency_penalties = _get_penalties(
-            input_metadata)
-        assert len(presence_penalties) == logits.shape[0]
-        assert len(frequency_penalties) == logits.shape[0]
-        logits = _apply_penalties(logits, output_tokens, presence_penalties,
-                                  frequency_penalties, self.vocab_size)
-
-        # Apply temperature scaling.
-        temperatures = _get_temperatures(input_metadata)
-        assert len(temperatures) == logits.shape[0]
-        if any(t != 1.0 for t in temperatures):
-            t = torch.tensor(temperatures,
-                             dtype=logits.dtype,
-                             device=logits.device)
-            # Use in-place division to avoid creating a new tensor.
-            logits.div_(t.unsqueeze(dim=1))
-
-        # We use float32 for probabilities and log probabilities.
-        # Compute the probabilities.
-        probs = torch.softmax(logits, dim=-1, dtype=torch.float)
-        # Compute the log probabilities (before applying top-p and top-k).
-        logprobs = torch.log(probs)
-
-        # Apply top-p and top-k truncation.
-        top_ps, top_ks = _get_top_p_top_k(input_metadata, self.vocab_size)
-        assert len(top_ps) == len(top_ks) == probs.shape[0]
-        do_top_p = any(p < 1.0 - _SAMPLING_EPS for p in top_ps)
-        do_top_k = any(k != self.vocab_size for k in top_ks)
-        if do_top_p or do_top_k:
-            probs = _apply_top_p_top_k(probs, top_ps, top_ks)
-
-        # Sample the next tokens.
-        return _sample(probs, logprobs, input_metadata)
-
 
 class PagedAttentionOlmoSequentialBlock(OlmoBlock):
     """
@@ -136,10 +63,10 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
                 size=self.head_dim if config.multi_query_attention else None,
                 elementwise_affine=True,
             )
-            self.q_norm = LayerNormBase.build(config, size=config.d_model, elementwise_affine=True)
+            self.q_norm = LayerNormBase.build(config, size=config.d_model // tp_size, elementwise_affine=True)
 
-        self.q_norm = None
-        self.k_norm = None
+        #self.q_norm = None
+        #self.k_norm = None
 
         self.attn_norm = LayerNorm.build(config)
         self.ff_norm = LayerNorm.build(config)
@@ -159,6 +86,7 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
                 bias=config.include_bias,
                 perform_initialization=False,
                 gather_output=False,
+                skip_bias_add=True,
             )
 
             self.kv_att_proj = nn.Linear(
@@ -207,7 +135,8 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
             bias=config.include_bias,
             input_is_parallel=True,
             perform_initialization=False,
-            #reduce_results=True,
+            reduce_results=True,
+            skip_bias_add=True,
         )
 
         # Feed-forward input projection.
@@ -222,6 +151,7 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
             bias=config.include_bias,
             gather_output=True,
             perform_initialization=False,
+            skip_bias_add=True,
         )
 
         # Feed-forward output projection.
@@ -239,7 +169,8 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
             bias=config.include_bias,
             input_is_parallel=False,
             perform_initialization=False,
-            #reduce_results=True,
+            reduce_results=True,
+            skip_bias_add=True,
         )
 
         self.ff_out._is_residual = True  # type: ignore
@@ -263,7 +194,9 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
 
         tp_rank = get_tensor_model_parallel_rank()
         t = self.attn_norm(x)
-        q = self.q_att_proj(t)[0]
+        q, bias = self.q_att_proj(t)
+        if bias is not None:
+            q += bias
         #print(tp_rank, "q", q.shape, q[0])
         k, v = self.kv_att_proj(t).split((self.head_dim, self.head_dim), dim=-1)
         k_cache, v_cache = kv_cache
@@ -273,6 +206,9 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
         if self.q_norm is not None and self.k_norm is not None:
             q = self.q_norm(q).to(dtype=dtype)
             k = self.k_norm(k).to(dtype=dtype)
+
+        #print(tp_rank, "qnorm", q.shape, q[0])
+        #print(tp_rank, "knorm", k.shape, k[0])
 
         if self.config.multi_query_attention:
             num_queries_per_kv = self.config.n_heads
@@ -285,7 +221,9 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
         att = self.paged_attn(q, k, v, k_cache, v_cache, input_metadata, cache_event) #, debug=debug)
         #print(tp_rank, "att", att.shape, att[0])
 
-        att = self.attn_out(att)[0]
+        att, bias = self.attn_out(att)
+        if bias is not None:
+            att += bias
         #print(tp_rank, "att", att.shape, att[0])
 
         # Add attention scores.
@@ -293,22 +231,26 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
 
         x = x + self.dropout(att)
 
-        print(tp_rank, "drop x", x.shape, x[0])
+        #print(tp_rank, "drop x", x.shape, x[0])
         # Add feed-forward projection.
         # shape: (batch_size, seq_len, d_model)
         ff_norm_out = self.ff_norm(x)
-        print(tp_rank, "ffnorm", ff_norm_out.shape, ff_norm_out[0])
-        ff_proj_out = self.ff_proj(ff_norm_out)[0]
-        print(tp_rank, "ffproj", ff_proj_out.shape, ff_proj_out[0])
+        #print(tp_rank, "ffnorm", ff_norm_out.shape, ff_norm_out[0])
+        ff_proj_out, bias = self.ff_proj(ff_norm_out)
+        if bias is not None:
+            ff_proj += bias
+        #print(tp_rank, "ffproj", ff_proj_out.shape, ff_proj_out[0])
         act_out = self.act(ff_proj_out)
-        print(tp_rank, "actout", act_out.shape, act_out[0])
-        ff_out_x = self.ff_out(act_out)[0]
-        print(tp_rank, "ffout", ff_out_x.shape, ff_out_x[0])
+        #print(tp_rank, "actout", act_out.shape, act_out[0])
+        ff_out_x, bias = self.ff_out(act_out)
+        if bias is not None:
+            ff_out_x += bias
+        #print(tp_rank, "ffout", ff_out_x.shape, ff_out_x[0])
         y = self.dropout(ff_out_x)
         x = x + y
         #x = x + self.dropout(self.ff_out(self.act(self.ff_proj(self.ff_norm(x))[0]))[0])
 
-        print(tp_rank, "final x", x.shape, x[0])
+        #print(tp_rank, "final x", x.shape, x[0])
         # x = x + self.dropout(self.ff_out(self.act(self.ff_proj(self.ff_norm(x)))))
         return x
 
@@ -410,7 +352,7 @@ class OlmoModel(nn.Module):
 
         # print(tp_rank, "actual final x", x.shape, x[0])        
         x = self.transformer.ln_f(x)  # type: ignore
-        print(tp_rank, "xln", x.shape, x[0])
+        #print(tp_rank, "xln", x.shape, x[0])
 
         return x
 
@@ -509,7 +451,12 @@ class OlmoModelForCausalLM(nn.Module):
                 elif "kv_att_proj" in name:
                     state_dict_param_name = name.replace("kv_att_proj", "att_proj")
                     loaded_weight = state_dict[state_dict_param_name]
-                    _, loaded_weight = loaded_weight.split(fused_dims, dim=0)       
+                    _, loaded_weight = loaded_weight.split(fused_dims, dim=0)
+
+            
+            elif "q_norm" in name:
+                loaded_weight = state_dict[name]
+                loaded_weight = loaded_weight[head_size*head_start:head_size*head_end]
 
             else:
                 loaded_weight = state_dict[name]
@@ -519,14 +466,3 @@ class OlmoModelForCausalLM(nn.Module):
                                          self._row_parallel_weights, tp_rank)
         # self.model.load_state_dict(state_dict)
 
-
-def reshape_mqa_weight(tensor, d, n):
-    assert tensor.shape[0] == d + d//n + d//n
-    q_part = tensor[:d]
-    k_part = tensor[d:d+(d//n)]
-    v_part = tensor[d+(d//n):]
-    k_part = k_part.repeat(n, 1)
-    v_part = v_part.repeat(n, 1)
-    repeated_tensor = torch.cat((q_part, k_part, v_part), dim=0)  # Concatenate tensors
-
-    return repeated_tensor
