@@ -298,24 +298,28 @@ class RotaryEmbedding(nn.Module):
                 self.__cache["rope_pos_cos"] = pos_cos
             return pos_sin[:, :, :seq_len, :], pos_cos[:, :, :seq_len, :]
 
-        dim = self.config.d_model // self.config.n_heads
-        inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2, device=device, dtype=torch.float) / dim))
-        seq = torch.arange(seq_len, device=device, dtype=torch.float)
-        freqs = einsum("i , j -> i j", seq, inv_freq)
-        positions = torch.cat((freqs, freqs), dim=-1)
-        pos_sin, pos_cos = positions.sin()[None, None, :, :], positions.cos()[None, None, :, :]
+        with torch.autocast(device.type, enabled=False):
+            dim = self.config.d_model // self.config.n_heads
+            inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2, device=device, dtype=torch.float) / dim))
+            seq = torch.arange(seq_len, device=device, dtype=torch.float)
+            freqs = einsum("i , j -> i j", seq, inv_freq)
+            positions = torch.cat((freqs, freqs), dim=-1)
+            pos_sin, pos_cos = positions.sin()[None, None, :, :], positions.cos()[None, None, :, :]
         self.__cache["rope_pos_sin"] = pos_sin
         self.__cache["rope_pos_cos"] = pos_cos
         return pos_sin, pos_cos
 
     def forward(self, q: torch.Tensor, k: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         q_, k_ = q.float(), k.float()
-        query_len, key_len = q_.shape[-2], k_.shape[-2]  # could be different if layer_past not None
-        pos_sin, pos_cos = self.get_rotary_embedding(key_len, q_.device)
-        q_ = apply_rotary_pos_emb(
-            pos_sin[:, :, key_len - query_len : key_len, :], pos_cos[:, :, key_len - query_len : key_len, :], q_
-        )
-        k_ = apply_rotary_pos_emb(pos_sin, pos_cos, k_)
+        with torch.autocast(q.device.type, enabled=False):
+            query_len, key_len = q_.shape[-2], k_.shape[-2]  # could be different if layer_past not None
+            pos_sin, pos_cos = self.get_rotary_embedding(key_len, q_.device)
+            q_ = apply_rotary_pos_emb(
+                pos_sin[:, :, key_len - query_len : key_len, :],
+                pos_cos[:, :, key_len - query_len : key_len, :],
+                q_,
+            )
+            k_ = apply_rotary_pos_emb(pos_sin, pos_cos, k_)
         return q_.type_as(q), k_.type_as(k)
 
 
@@ -793,7 +797,8 @@ class Olmo(nn.Module):
                 causal_bias = causal_bias.to(device)
                 self.__cache["causal_attention_bias"] = causal_bias
             return causal_bias
-        causal_bias = causal_attention_bias(seq_len, device)
+        with torch.autocast(device.type, enabled=False):
+            causal_bias = causal_attention_bias(seq_len, device)
         self.__cache["causal_attention_bias"] = causal_bias
         return causal_bias
 
@@ -805,7 +810,8 @@ class Olmo(nn.Module):
                 alibi_bias = alibi_bias.to(device)
                 self.__cache["alibi_attention_bias"] = alibi_bias
             return alibi_bias
-        alibi_bias = alibi_attention_bias(seq_len, self.config, device)
+        with torch.autocast(device.type, enabled=False):
+            alibi_bias = alibi_attention_bias(seq_len, self.config, device)
         self.__cache["alibi_attention_bias"] = alibi_bias
         return alibi_bias
 
