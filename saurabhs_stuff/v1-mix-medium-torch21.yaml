@@ -1,6 +1,6 @@
 run_name: v1-mix-medium-torch21
 image: ghcr.io/allenai/pytorch:2.0.0-cuda11.8-python3.10
-gpu_num: 40
+gpu_num: 128
 cluster: r12z3
 gpu_type: a100_40gb
 # integrations:
