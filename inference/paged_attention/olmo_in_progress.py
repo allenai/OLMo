@@ -86,7 +86,7 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
                 bias=config.include_bias,
                 perform_initialization=False,
                 gather_output=False,
-                skip_bias_add=True,
+                skip_bias_add=False,
             )
 
             self.kv_att_proj = nn.Linear(
@@ -136,7 +136,7 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
             input_is_parallel=True,
             perform_initialization=False,
             reduce_results=True,
-            skip_bias_add=True,
+            skip_bias_add=False,
         )
 
         # Feed-forward input projection.
@@ -151,7 +151,7 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
             bias=config.include_bias,
             gather_output=True,
             perform_initialization=False,
-            skip_bias_add=True,
+            skip_bias_add=False,
         )
 
         # Feed-forward output projection.
@@ -170,7 +170,7 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
             input_is_parallel=False,
             perform_initialization=False,
             reduce_results=True,
-            skip_bias_add=True,
+            skip_bias_add=False,
         )
 
         self.ff_out._is_residual = True  # type: ignore
@@ -238,7 +238,7 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
         #print(tp_rank, "ffnorm", ff_norm_out.shape, ff_norm_out[0])
         ff_proj_out, bias = self.ff_proj(ff_norm_out)
         if bias is not None:
-            ff_proj += bias
+            ff_proj_out += bias
         #print(tp_rank, "ffproj", ff_proj_out.shape, ff_proj_out[0])
         act_out = self.act(ff_proj_out)
         #print(tp_rank, "actout", act_out.shape, act_out[0])
