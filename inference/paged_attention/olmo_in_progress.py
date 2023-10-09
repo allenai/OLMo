@@ -14,7 +14,7 @@ from vllm.model_executor.weight_utils import (hf_model_weights_iterator,
 from vllm.model_executor.parallel_utils.parallel_state import (
     get_tensor_model_parallel_rank, get_tensor_model_parallel_world_size)
 from vllm.model_executor.parallel_utils.tensor_parallel import (
-    VocabParallelEmbedding, ColumnParallelLinear, RowParallelLinear)
+    VocabParallelEmbedding, ColumnParallelLinear, RowParallelLinear, gather_from_tensor_model_parallel_region)
 from vllm.sequence import SequenceOutputs
 from vllm.model_executor.layers.sampler import _get_output_tokens, _get_penalties, _get_temperatures, _apply_penalties, _get_top_p_top_k, _apply_top_p_top_k, _prune_hidden_states, _SAMPLING_EPS, _sample 
 
@@ -65,11 +65,13 @@ class OlmoSampler(nn.Module):
 
         # Get the logits for the next tokens.
         #logits = torch.matmul(hidden_states, embedding.t())
-        #if embedding_bias is not None:
-        #    logits += embedding_bias
-        #logits = gather_from_tensor_model_parallel_region(logits)
+        if embedding_bias is not None:
+            logits += embedding_bias
+        logits = gather_from_tensor_model_parallel_region(logits)
         # Remove paddings in vocab (if any).
         logits = logits[:, :self.vocab_size]
+        tp_rank = get_tensor_model_parallel_rank()
+        print(tp_rank, "logits", logits.shape, logits[0])
 
         # Apply presence and frequency penalties.
         output_tokens = _get_output_tokens(input_metadata)
@@ -108,7 +110,6 @@ class OlmoSampler(nn.Module):
         # Sample the next tokens.
         return _sample(probs, logprobs, input_metadata)
 
-use_parallel = True
 
 class PagedAttentionOlmoSequentialBlock(OlmoBlock):
     """
@@ -148,23 +149,17 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
         else:
             self.fused_dims = (config.d_model, config.d_model, config.d_model)
 
-        #self.att_proj = nn.Linear(
-        #    config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
-        #)
-
         if config.multi_query_attention:
-            if not use_parallel:
-                self.q_att_proj = nn.Linear(
-                    config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
-                )
-            else:
-                self.q_att_proj = ColumnParallelLinear(
-                    config.d_model,
-                    config.d_model,
-                    bias=config.include_bias,
-                    perform_initialization=False,
-                    gather_output=True,
-                )
+            # self.q_att_proj = nn.Linear(
+            #     config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
+            # )
+            self.q_att_proj = ColumnParallelLinear(
+                config.d_model,
+                config.d_model,
+                bias=config.include_bias,
+                perform_initialization=False,
+                gather_output=False,
+            )
 
             self.kv_att_proj = nn.Linear(
                 config.d_model, 2 * self.head_dim, bias=config.include_bias, device=config.init_device
@@ -175,28 +170,11 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
                 config.d_model,
                 sum(self.fused_dims),
                 bias=config.include_bias,
-                gather_output=True,
+                gather_output=False,
                 perform_initialization=False,
             )
 
             self.att_proj._fused = (0, self.fused_dims)  # type: ignore
-
-        
-        # Feed-forward input projection.
-
-        if not use_parallel:
-            self.ff_proj = nn.Linear(
-                config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
-            )
-
-        else:
-            self.ff_proj = ColumnParallelLinear(
-                config.d_model,
-                config.mlp_ratio * config.d_model,
-                bias=config.include_bias,
-                gather_output=False,
-                perform_initialization=False,
-            )
 
         head_dim = config.d_model // config.n_heads
         scaling = head_dim**-0.5
@@ -220,42 +198,51 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
             self.paged_attn = PagedAttention(self.num_heads, self.head_dim, scale=scaling, num_kv_heads=num_kv_heads)
 
         # Attention output projection.
-        if not use_parallel:
-            self.attn_out = nn.Linear(
-                config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
-            )
-        else:
-            self.attn_out = RowParallelLinear(
-                config.d_model,
-                config.d_model,
-                bias=config.include_bias,
-                input_is_parallel=True,
-                perform_initialization=False,
-                reduce_results=True,
-                skip_bias_add=True,
-            )
+        # self.attn_out = nn.Linear(
+        #     config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
+        # )
+        self.attn_out = RowParallelLinear(
+            config.d_model,
+            config.d_model,
+            bias=config.include_bias,
+            input_is_parallel=True,
+            perform_initialization=False,
+            #reduce_results=True,
+        )
+
+        # Feed-forward input projection.
+
+        # self.ff_proj = nn.Linear(
+        #     config.d_model, config.mlp_ratio * config.d_model, bias=config.include_bias, device=config.init_device
+        # )
+ 
+        self.ff_proj = ColumnParallelLinear(
+            config.d_model,
+            config.mlp_ratio * config.d_model,
+            bias=config.include_bias,
+            gather_output=True,
+            perform_initialization=False,
+        )
 
         # Feed-forward output projection.
-        if not use_parallel:
-            self.ff_out = nn.Linear(
-                int(self.act.output_multiplier * config.mlp_ratio * config.d_model),
-                config.d_model,
-                bias=config.include_bias,
-                device=config.init_device,
-            )
-            self.ff_out._is_residual = True  # type: ignore
+        # self.ff_out = nn.Linear(
+        #     int(self.act.output_multiplier * config.mlp_ratio * config.d_model),
+        #     config.d_model,
+        #     bias=config.include_bias,
+        #     device=config.init_device,
+        # )
+        # self.ff_out._is_residual = True  # type: ignore
 
-        else:
-            self.ff_out = RowParallelLinear(
-                int(self.act.output_multiplier * config.mlp_ratio * config.d_model),
-                config.d_model,
-                bias=config.include_bias,
-                input_is_parallel=True,
-                perform_initialization=False,
-                #reduce_results=True,
-            )
+        self.ff_out = RowParallelLinear(
+            int(self.act.output_multiplier * config.mlp_ratio * config.d_model),
+            config.d_model,
+            bias=config.include_bias,
+            input_is_parallel=False,
+            perform_initialization=False,
+            #reduce_results=True,
+        )
 
-            self.ff_out._is_residual = True  # type: ignore
+        self.ff_out._is_residual = True  # type: ignore
 
 
     def forward(
@@ -274,11 +261,10 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
         #q, k, v = self.att_proj(self.attn_norm(x)).split(self.fused_dims, dim=-1)
 
+        tp_rank = get_tensor_model_parallel_rank()
         t = self.attn_norm(x)
-        if not use_parallel:
-            q = self.q_att_proj(t)
-        else:
-            q = self.q_att_proj(t)[0]
+        q = self.q_att_proj(t)[0]
+        #print(tp_rank, "q", q.shape, q[0])
         k, v = self.kv_att_proj(t).split((self.head_dim, self.head_dim), dim=-1)
         k_cache, v_cache = kv_cache
   
@@ -294,25 +280,36 @@ class PagedAttentionOlmoSequentialBlock(OlmoBlock):
             v = v.repeat(1, self.config.n_heads)
         
         # Get attention scores.
+
+        #print(tp_rank, "k", k.shape, k[0])
         att = self.paged_attn(q, k, v, k_cache, v_cache, input_metadata, cache_event) #, debug=debug)
-        if use_parallel:
-            att = self.attn_out(att)[0]
-        else:
-            att = self.attn_out(att)
+        #print(tp_rank, "att", att.shape, att[0])
+
+        att = self.attn_out(att)[0]
+        #print(tp_rank, "att", att.shape, att[0])
 
         # Add attention scores.
         # shape: (B, T, C)
 
-        tp_rank = get_tensor_model_parallel_rank()
-        print(tp_rank, x.shape, att.shape)
         x = x + self.dropout(att)
 
+        print(tp_rank, "drop x", x.shape, x[0])
         # Add feed-forward projection.
         # shape: (batch_size, seq_len, d_model)
-        if use_parallel:
-            x = x + self.dropout(self.ff_out(self.act(self.ff_proj(self.ff_norm(x))[0]))[0])
-        else:
-            x = x + self.dropout(self.ff_out(self.act(self.ff_proj(self.ff_norm(x)))))
+        ff_norm_out = self.ff_norm(x)
+        print(tp_rank, "ffnorm", ff_norm_out.shape, ff_norm_out[0])
+        ff_proj_out = self.ff_proj(ff_norm_out)[0]
+        print(tp_rank, "ffproj", ff_proj_out.shape, ff_proj_out[0])
+        act_out = self.act(ff_proj_out)
+        print(tp_rank, "actout", act_out.shape, act_out[0])
+        ff_out_x = self.ff_out(act_out)[0]
+        print(tp_rank, "ffout", ff_out_x.shape, ff_out_x[0])
+        y = self.dropout(ff_out_x)
+        x = x + y
+        #x = x + self.dropout(self.ff_out(self.act(self.ff_proj(self.ff_norm(x))[0]))[0])
+
+        print(tp_rank, "final x", x.shape, x[0])
+        # x = x + self.dropout(self.ff_out(self.act(self.ff_proj(self.ff_norm(x)))))
         return x
 
 
@@ -367,7 +364,8 @@ class OlmoModel(nn.Module):
         input_metadata: InputMetadata,
         cache_events: Optional[List[torch.cuda.Event]],
     ) -> torch.Tensor:
-
+        
+        tp_rank = get_tensor_model_parallel_rank()
         seq_len = input_ids.shape[-1]
         # Get embeddings of input.
         # shape: (batch_size, seq_len, d_model)
@@ -401,6 +399,7 @@ class OlmoModel(nn.Module):
 
             # shape: (batch_size, seq_len, d_model)
             x = block(x, positions, kv_caches[i], input_metadata, cache_event) #, debug=(i==0))
+            #print(tp_rank, f"i={i}", x.shape, x[0])
 
         #if last_logits_only:
         #    # shape: (batch_size, 1, d_model)
@@ -408,9 +407,12 @@ class OlmoModel(nn.Module):
 
         # Apply final layer norm.
         # shape: (batch_size, seq_len or 1, d_model)
-        x = self.transformer.ln_f(x)  # type: ignore
 
-        #return x
+        # print(tp_rank, "actual final x", x.shape, x[0])        
+        x = self.transformer.ln_f(x)  # type: ignore
+        print(tp_rank, "xln", x.shape, x[0])
+
+        return x
 
         # # Get logits.
         # # shape: (batch_size, seq_len or 1, vocab_size)
@@ -428,9 +430,9 @@ class OlmoModelForCausalLM(nn.Module):
         device = config.init_device
         config.init_device = "cpu"
         self.model = OlmoModel(config)
-        #self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
         config.init_device = device
-        self.sampler = OlmoSampler(config.vocab_size)
+        self.sampler = Sampler(config.vocab_size)
+        self.lm_head_weight = self.model.transformer.wte.weight
 
     def forward(
         self,
@@ -440,17 +442,12 @@ class OlmoModelForCausalLM(nn.Module):
         input_metadata: InputMetadata,
         cache_events: Optional[List[torch.cuda.Event]],
     ) -> Dict[int, SequenceOutputs]:
-        #hidden_states = self.model(input_ids, positions, kv_caches,
-        #                           input_metadata, cache_events)
-        #next_tokens = self.sampler(self.model.transformer.wte.weight, hidden_states,
-        #                           input_metadata)
-        logits = self.model(input_ids, positions, kv_caches, input_metadata, cache_events)
-        next_tokens = self.sampler(logits, input_metadata)
-        #next_tokens = self.sampler(self.lm_head.weight, hidden_states, input_metadata)
+        hidden_states = self.model(input_ids, positions, kv_caches,
+                                   input_metadata, cache_events)
+        next_tokens = self.sampler(self.lm_head_weight, hidden_states,
+                                   input_metadata)
         return next_tokens
 
-    #_column_parallel_weights = [] #["wte.weight"]
-    #_row_parallel_weights = []
 
     _column_parallel_weights = ["wte.weight", "ff_proj.weight", "ff_proj.bias"] #, "att_proj.weight", "att_proj.bias"] #["wte.weight"]
     _row_parallel_weights = ["ff_out.weight", "attn_out.weight"] #, "ff_out.bias", "attn_out.bias"]
@@ -517,8 +514,6 @@ class OlmoModelForCausalLM(nn.Module):
             else:
                 loaded_weight = state_dict[name]
 
-            if "attn_out" in name:
-                print(tp_rank, "attn_out", param.shape, loaded_weight.shape)
             load_tensor_parallel_weights(param, loaded_weight, name,
                                          self._column_parallel_weights,
                                          self._row_parallel_weights, tp_rank)
