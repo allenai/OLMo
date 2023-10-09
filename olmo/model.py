@@ -259,18 +259,6 @@ class RMSLayerNorm(LayerNormBase):
             return x_normed
 
 
-def rotate_half(x: torch.Tensor) -> torch.Tensor:
-    B, nh, T, hs = x.size()
-    x = x.view(B, nh, T, 2, hs // 2)
-    x1, x2 = x.unbind(dim=-2)
-    return torch.cat((-x2, x1), dim=-1)
-
-
-def apply_rotary_pos_emb(pos_sin: torch.Tensor, pos_cos: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-    out = (t * pos_cos) + (rotate_half(t) * pos_sin)
-    return out.to(t.dtype)
-
-
 class RotaryEmbedding(nn.Module):
     """
     [Rotary positional embeddings (RoPE)](https://arxiv.org/abs/2104.09864).
@@ -309,17 +297,27 @@ class RotaryEmbedding(nn.Module):
         self.__cache["rope_pos_cos"] = pos_cos
         return pos_sin, pos_cos
 
+    def rotate_half(self, x: torch.Tensor) -> torch.Tensor:
+        B, nh, T, hs = x.size()
+        x = x.view(B, nh, T, 2, hs // 2)
+        x1, x2 = x.unbind(dim=-2)
+        return torch.cat((-x2, x1), dim=-1)
+
+    def apply_rotary_pos_emb(self, pos_sin: torch.Tensor, pos_cos: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+        out = (t * pos_cos) + (self.rotate_half(t) * pos_sin)
+        return out.to(t.dtype)
+
     def forward(self, q: torch.Tensor, k: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         q_, k_ = q.float(), k.float()
         with torch.autocast(q.device.type, enabled=False):
             query_len, key_len = q_.shape[-2], k_.shape[-2]  # could be different if layer_past not None
             pos_sin, pos_cos = self.get_rotary_embedding(key_len, q_.device)
-            q_ = apply_rotary_pos_emb(
+            q_ = self.apply_rotary_pos_emb(
                 pos_sin[:, :, key_len - query_len : key_len, :],
                 pos_cos[:, :, key_len - query_len : key_len, :],
                 q_,
             )
-            k_ = apply_rotary_pos_emb(pos_sin, pos_cos, k_)
+            k_ = self.apply_rotary_pos_emb(pos_sin, pos_cos, k_)
         return q_.type_as(q), k_.type_as(k)
 
 
