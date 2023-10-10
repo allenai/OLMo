@@ -950,6 +950,106 @@ class Olmo(nn.Module):
 
         return OlmoOutput(logits=logits, attn_key_values=attn_key_values)  # type: ignore[arg-type]
 
+    def forward_right_up_to_rope(
+        self,
+        input_ids: torch.LongTensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        attention_bias: Optional[torch.Tensor] = None,
+        past_key_values: Optional[Sequence[Tuple[torch.Tensor, torch.Tensor]]] = None,
+        use_cache: bool = False,
+        complex=False,
+    ):
+        if past_key_values:
+            assert len(past_key_values) == self.config.n_layers
+
+        batch_size, seq_len = input_ids.size()
+        if past_key_values is None:
+            past_length = 0
+        else:
+            past_length = past_key_values[0][0].size(-2)
+
+        # Get embeddings of input.
+        # shape: (batch_size, seq_len, d_model)
+        x = self.transformer.wte(input_ids)  # type: ignore
+
+        if not (self.config.alibi or self.config.rope):
+            # Get positional embeddings.
+            # shape: (1, seq_len)
+            pos = torch.arange(
+                past_length, past_length + seq_len, dtype=torch.long, device=input_ids.device
+            ).unsqueeze(0)
+            # shape: (1, seq_len, d_model)
+            pos_emb = self.transformer.wpe(pos)  # type: ignore
+            x = pos_emb + x
+
+        # Add input + positional embeddings and apply dropout.
+        # shape: (batch_size, seq_len, d_model)
+        x = self.transformer.emb_drop(x)  # type: ignore
+
+        # Transform the attention mask into what the blocks expect.
+        if attention_mask is not None:
+            # shape: (batch_size, 1, 1, seq_len)
+            attention_mask = attention_mask.to(dtype=x.dtype).view(batch_size, -1)[:, None, None, :]
+            attention_mask = (1.0 - attention_mask) * torch.finfo(attention_mask.dtype).min
+            # TODO: fill w/ -inf instead?
+            #  attention_mask = 1.0 - attention_mask
+            #  attention_mask.masked_fill_(attention_mask == 1.0, float("-inf"))
+
+        # Merge attention mask with attention bias.
+        if (
+            attention_bias is not None
+            or attention_mask is not None
+            or self.config.alibi
+            # NOTE (epwalsh): we need to initialize the attn bias in order for attn to work properly
+            # with key+value cache. Otherwise `F.scaled_dot_product_attention()` doesn't seem to compute
+            # scores correctly.
+            or past_key_values is not None
+        ):
+            if attention_bias is None and self.config.alibi:
+                attention_bias = self.get_causal_attention_bias(
+                    past_length + seq_len, x.device
+                ) + self.get_alibi_attention_bias(past_length + seq_len, x.device)
+            elif attention_bias is None:
+                attention_bias = self.get_causal_attention_bias(past_length + seq_len, x.device)
+            elif attention_bias.dtype in (torch.int8, torch.bool):
+                attention_bias = attention_bias.to(dtype=x.dtype)
+                attention_bias.masked_fill_(attention_bias == 0.0, torch.finfo(attention_bias.dtype).min)
+
+            # Transform to the right shape and data type.
+            mask_len = seq_len
+            if attention_mask is not None:
+                mask_len = attention_mask.shape[-1]
+            elif past_key_values is not None:
+                mask_len = past_key_values[0][0].shape[-2] + input_ids.shape[-1]
+            attention_bias = attention_bias[:, :, :mask_len, :mask_len].to(x.dtype)
+
+            # Add in the masking bias.
+            if attention_mask is not None:
+                attention_bias = attention_bias + attention_mask
+
+        block: OlmoBlock = self.transformer.blocks[0]
+
+        q, k, v = block.att_proj(block.attn_norm(x)).split(block.fused_dims, dim=-1)
+        B, T, C = q.size()  # batch size, sequence length, d_model
+        dtype = k.dtype
+        if block.q_norm is not None and block.k_norm is not None:
+            q = block.q_norm(q).to(dtype=dtype)
+            k = block.k_norm(k).to(dtype=dtype)
+
+        q = q.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
+        if self.config.multi_query_attention:
+            # shape: (B, 1, T, hs)
+            k = k.view(B, T, 1, C // self.config.n_heads).transpose(1, 2)
+            # shape: (B, 1, T, hs)
+            v = v.view(B, T, 1, C // self.config.n_heads).transpose(1, 2)
+        else:
+            # shape: (B, nh, T, hs)
+            k = k.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
+            # shape: (B, nh, T, hs)
+            v = v.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
+
+        return q, k
+
     def fsdp_wrap_fn(self, module, recurse: bool = True, nonwrapped_numel: int = 0):
         del nonwrapped_numel
         if recurse:

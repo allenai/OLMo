@@ -25,6 +25,8 @@ from .model import (
 __all__ = [
     "OlmoTorchScriptRope",
     "OlmoComplexRope",
+    "RotaryEmbeddingTorchScripted",
+    "ComplexRotaryEmbedding",
 ]
 
 log = logging.getLogger(__name__)
@@ -253,7 +255,7 @@ class ComplexRotaryEmbedding(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         # xq,xk should be shape (bsz, seq_len, n_heads, head_dim)
         if freqs_cis is None:
-            freqs_cis = self.precompute_freqs_cis(self.d_model // self.n_heads, self.seq_len)
+            freqs_cis = self.precompute_freqs_cis(self.d_model // self.n_heads, self.seq_len).to(xq.device)
         return self.apply_rotary_emb(xq, xk, freqs_cis)
 
 
