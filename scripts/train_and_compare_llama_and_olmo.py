@@ -36,119 +36,140 @@ def get_world_size():
     return 1
 
 
-# load Llama weights into HF model
-hf_model = transformers.AutoModelForCausalLM.from_pretrained(model_path, device_map=hf_device)
+# tokenizer is in the same directory as the HF model
 tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
 
+
+# load Llama weights into HF model
+def build_hf_model(device=hf_device):
+    hf_model = transformers.AutoModelForCausalLM.from_pretrained(model_path, device_map=hf_device)
+    return hf_model
+
+
 # create a similar sized OLMo model
-cfg = TrainConfig.load("configs/v1_5-mix-medium-llama-local.yaml")
-cfg.model.precision = cfg.precision
-cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
-assert cfg.device_train_batch_size is not None  # for mypy
-cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
-cfg.model.init_device = olmo_device
+def build_olmo_model(hf_model, device=olmo_device):
+    cfg = TrainConfig.load("configs/v1_5-mix-medium-llama-local.yaml")
+    cfg.model.precision = cfg.precision
+    cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
+    assert cfg.device_train_batch_size is not None  # for mypy
+    cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
+    cfg.model.init_device = olmo_device
 
-cfg.model.n_layers = hf_model.config.num_hidden_layers
-cfg.model.n_heads = hf_model.config.num_attention_heads
-cfg.model.d_model = hf_model.config.hidden_size
-cfg.model.mlp_hidden_size = hf_model.config.intermediate_size * 2
+    cfg.model.n_layers = hf_model.config.num_hidden_layers
+    cfg.model.n_heads = hf_model.config.num_attention_heads
+    cfg.model.d_model = hf_model.config.hidden_size
+    cfg.model.mlp_hidden_size = hf_model.config.intermediate_size * 2
 
-# Make model
-log.info("Building model...")
-olmo_model = Olmo(cfg.model)
-log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
-log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
+    # Make model
+    log.info("Building model...")
+    olmo_model = Olmo(cfg.model)
+    log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
+    log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
 
-parameters_to_set = {name for name, _ in olmo_model.named_parameters()}
-parameters_to_read = {name for name, _ in hf_model.named_parameters()}
+    parameters_to_set = {name for name, _ in olmo_model.named_parameters()}
+    parameters_to_read = {name for name, _ in hf_model.named_parameters()}
 
-with torch.no_grad():
-    # embeddings
-    assert olmo_model.transformer.wte.weight.dtype == hf_model.model.embed_tokens.weight.dtype
-    assert olmo_model.transformer.wte.weight.shape == hf_model.model.embed_tokens.weight.shape
-    olmo_model.transformer.wte.weight.copy_(hf_model.model.embed_tokens.weight)
-    parameters_to_set.remove("transformer.wte.weight")
-    parameters_to_read.remove("model.embed_tokens.weight")
+    with torch.no_grad():
+        # embeddings
+        assert olmo_model.transformer.wte.weight.dtype == hf_model.model.embed_tokens.weight.dtype
+        assert olmo_model.transformer.wte.weight.shape == hf_model.model.embed_tokens.weight.shape
+        olmo_model.transformer.wte.weight.copy_(hf_model.model.embed_tokens.weight)
+        parameters_to_set.remove("transformer.wte.weight")
+        parameters_to_read.remove("model.embed_tokens.weight")
 
-    # output projection
-    assert hf_model.lm_head.weight.shape == olmo_model.transformer.ff_out.weight.shape
-    assert hf_model.lm_head.weight.dtype == olmo_model.transformer.ff_out.weight.dtype
-    olmo_model.transformer.ff_out.weight.copy_(hf_model.lm_head.weight)
-    parameters_to_set.remove("transformer.ff_out.weight")
-    parameters_to_read.remove("lm_head.weight")
+        # output projection
+        assert hf_model.lm_head.weight.shape == olmo_model.transformer.ff_out.weight.shape
+        assert hf_model.lm_head.weight.dtype == olmo_model.transformer.ff_out.weight.dtype
+        olmo_model.transformer.ff_out.weight.copy_(hf_model.lm_head.weight)
+        parameters_to_set.remove("transformer.ff_out.weight")
+        parameters_to_read.remove("lm_head.weight")
 
-    # final layer norm
-    assert hf_model.model.norm.weight.shape == olmo_model.transformer.ln_f.weight.shape
-    assert hf_model.model.norm.weight.dtype == olmo_model.transformer.ln_f.weight.dtype
-    olmo_model.transformer.ln_f.weight.copy_(hf_model.model.norm.weight)
-    parameters_to_set.remove("transformer.ln_f.weight")
-    parameters_to_read.remove("model.norm.weight")
+        # final layer norm
+        assert hf_model.model.norm.weight.shape == olmo_model.transformer.ln_f.weight.shape
+        assert hf_model.model.norm.weight.dtype == olmo_model.transformer.ln_f.weight.dtype
+        olmo_model.transformer.ln_f.weight.copy_(hf_model.model.norm.weight)
+        parameters_to_set.remove("transformer.ln_f.weight")
+        parameters_to_read.remove("model.norm.weight")
 
-    # layers
-    assert len(hf_model.model.layers) == len(olmo_model.transformer.blocks)
-    for i, (hf_layer, olmo_layer) in enumerate(zip(hf_model.model.layers, olmo_model.transformer.blocks)):
-        # input norm
-        assert hf_layer.input_layernorm.weight.shape == olmo_layer.attn_norm.weight.shape
-        assert hf_layer.input_layernorm.weight.dtype == olmo_layer.attn_norm.weight.dtype
-        olmo_layer.attn_norm.weight.copy_(hf_layer.input_layernorm.weight)
-        parameters_to_set.remove(f"transformer.blocks.{i}.attn_norm.weight")
-        parameters_to_read.remove(f"model.layers.{i}.input_layernorm.weight")
+        # layers
+        assert len(hf_model.model.layers) == len(olmo_model.transformer.blocks)
+        for i, (hf_layer, olmo_layer) in enumerate(zip(hf_model.model.layers, olmo_model.transformer.blocks)):
+            # input norm
+            assert hf_layer.input_layernorm.weight.shape == olmo_layer.attn_norm.weight.shape
+            assert hf_layer.input_layernorm.weight.dtype == olmo_layer.attn_norm.weight.dtype
+            olmo_layer.attn_norm.weight.copy_(hf_layer.input_layernorm.weight)
+            parameters_to_set.remove(f"transformer.blocks.{i}.attn_norm.weight")
+            parameters_to_read.remove(f"model.layers.{i}.input_layernorm.weight")
 
-        # post attention layernorm
-        assert hf_layer.post_attention_layernorm.weight.shape == olmo_layer.ff_norm.weight.shape
-        assert hf_layer.post_attention_layernorm.weight.dtype == olmo_layer.ff_norm.weight.dtype
-        olmo_layer.ff_norm.weight.copy_(hf_layer.post_attention_layernorm.weight)
-        parameters_to_set.remove(f"transformer.blocks.{i}.ff_norm.weight")
-        parameters_to_read.remove(f"model.layers.{i}.post_attention_layernorm.weight")
+            # post attention layernorm
+            assert hf_layer.post_attention_layernorm.weight.shape == olmo_layer.ff_norm.weight.shape
+            assert hf_layer.post_attention_layernorm.weight.dtype == olmo_layer.ff_norm.weight.dtype
+            olmo_layer.ff_norm.weight.copy_(hf_layer.post_attention_layernorm.weight)
+            parameters_to_set.remove(f"transformer.blocks.{i}.ff_norm.weight")
+            parameters_to_read.remove(f"model.layers.{i}.post_attention_layernorm.weight")
 
-        # q, k, v projections
-        # TODO: We already know this does not produce the same result. It's close, but not close enough for
-        # torch.allclose().
-        assert hf_layer.self_attn.q_proj.weight.dtype == olmo_layer.att_proj.weight.dtype
-        assert hf_layer.self_attn.k_proj.weight.dtype == olmo_layer.att_proj.weight.dtype
-        assert hf_layer.self_attn.v_proj.weight.dtype == olmo_layer.att_proj.weight.dtype
-        new_att_proj = torch.cat(
-            [hf_layer.self_attn.q_proj.weight, hf_layer.self_attn.k_proj.weight, hf_layer.self_attn.v_proj.weight],
-            dim=0)
-        parameters_to_read.remove(f"model.layers.{i}.self_attn.q_proj.weight")
-        parameters_to_read.remove(f"model.layers.{i}.self_attn.k_proj.weight")
-        parameters_to_read.remove(f"model.layers.{i}.self_attn.v_proj.weight")
-        assert new_att_proj.shape == olmo_layer.att_proj.weight.shape
-        assert new_att_proj.dtype == olmo_layer.att_proj.weight.dtype
-        olmo_layer.att_proj.weight.copy_(new_att_proj)
-        parameters_to_set.remove(f"transformer.blocks.{i}.att_proj.weight")
+            # q, k, v projections
+            # TODO: We already know this does not produce the same result. It's close, but not close enough for
+            # torch.allclose().
+            assert hf_layer.self_attn.q_proj.weight.dtype == olmo_layer.att_proj.weight.dtype
+            assert hf_layer.self_attn.k_proj.weight.dtype == olmo_layer.att_proj.weight.dtype
+            assert hf_layer.self_attn.v_proj.weight.dtype == olmo_layer.att_proj.weight.dtype
+            new_att_proj = torch.cat(
+                [hf_layer.self_attn.q_proj.weight, hf_layer.self_attn.k_proj.weight, hf_layer.self_attn.v_proj.weight],
+                dim=0)
+            parameters_to_read.remove(f"model.layers.{i}.self_attn.q_proj.weight")
+            parameters_to_read.remove(f"model.layers.{i}.self_attn.k_proj.weight")
+            parameters_to_read.remove(f"model.layers.{i}.self_attn.v_proj.weight")
+            assert new_att_proj.shape == olmo_layer.att_proj.weight.shape
+            assert new_att_proj.dtype == olmo_layer.att_proj.weight.dtype
+            olmo_layer.att_proj.weight.copy_(new_att_proj)
+            parameters_to_set.remove(f"transformer.blocks.{i}.att_proj.weight")
 
-        # attention out
-        assert hf_layer.self_attn.o_proj.weight.shape == olmo_layer.attn_out.weight.shape
-        assert hf_layer.self_attn.o_proj.weight.dtype == olmo_layer.attn_out.weight.dtype
-        olmo_layer.attn_out.weight.copy_(hf_layer.self_attn.o_proj.weight)
-        parameters_to_set.remove(f"transformer.blocks.{i}.attn_out.weight")
-        parameters_to_read.remove(f"model.layers.{i}.self_attn.o_proj.weight")
+            # attention out
+            assert hf_layer.self_attn.o_proj.weight.shape == olmo_layer.attn_out.weight.shape
+            assert hf_layer.self_attn.o_proj.weight.dtype == olmo_layer.attn_out.weight.dtype
+            olmo_layer.attn_out.weight.copy_(hf_layer.self_attn.o_proj.weight)
+            parameters_to_set.remove(f"transformer.blocks.{i}.attn_out.weight")
+            parameters_to_read.remove(f"model.layers.{i}.self_attn.o_proj.weight")
 
-        # swiglu output projection
-        assert hf_layer.mlp.down_proj.weight.shape == olmo_layer.ff_out.weight.shape
-        assert hf_layer.mlp.down_proj.weight.dtype == olmo_layer.ff_out.weight.dtype
-        olmo_layer.ff_out.weight.copy_(hf_layer.mlp.down_proj.weight)
-        parameters_to_set.remove(f"transformer.blocks.{i}.ff_out.weight")
-        parameters_to_read.remove(f"model.layers.{i}.mlp.down_proj.weight")
+            # swiglu output projection
+            assert hf_layer.mlp.down_proj.weight.shape == olmo_layer.ff_out.weight.shape
+            assert hf_layer.mlp.down_proj.weight.dtype == olmo_layer.ff_out.weight.dtype
+            olmo_layer.ff_out.weight.copy_(hf_layer.mlp.down_proj.weight)
+            parameters_to_set.remove(f"transformer.blocks.{i}.ff_out.weight")
+            parameters_to_read.remove(f"model.layers.{i}.mlp.down_proj.weight")
 
-        # swiglu input projections
-        # TODO: If fused q, k, v above doesn't produce the same result, then this probably also doesn't.
-        assert hf_layer.mlp.up_proj.weight.dtype == olmo_layer.ff_proj.weight.dtype
-        assert hf_layer.mlp.gate_proj.weight.dtype == olmo_layer.ff_proj.weight.dtype
-        new_ff_proj = torch.cat(
-            [hf_layer.mlp.up_proj.weight, hf_layer.mlp.gate_proj.weight],
-            dim=0)
-        parameters_to_read.remove(f"model.layers.{i}.mlp.up_proj.weight")
-        parameters_to_read.remove(f"model.layers.{i}.mlp.gate_proj.weight")
-        assert new_ff_proj.shape == olmo_layer.ff_proj.weight.shape
-        assert new_ff_proj.dtype == olmo_layer.ff_proj.weight.dtype
-        olmo_layer.ff_proj.weight.copy_(new_ff_proj)
-        parameters_to_set.remove(f"transformer.blocks.{i}.ff_proj.weight")
+            # swiglu input projections
+            # TODO: If fused q, k, v above doesn't produce the same result, then this probably also doesn't.
+            assert hf_layer.mlp.up_proj.weight.dtype == olmo_layer.ff_proj.weight.dtype
+            assert hf_layer.mlp.gate_proj.weight.dtype == olmo_layer.ff_proj.weight.dtype
+            new_ff_proj = torch.cat(
+                [hf_layer.mlp.up_proj.weight, hf_layer.mlp.gate_proj.weight],
+                dim=0)
+            parameters_to_read.remove(f"model.layers.{i}.mlp.up_proj.weight")
+            parameters_to_read.remove(f"model.layers.{i}.mlp.gate_proj.weight")
+            assert new_ff_proj.shape == olmo_layer.ff_proj.weight.shape
+            assert new_ff_proj.dtype == olmo_layer.ff_proj.weight.dtype
+            olmo_layer.ff_proj.weight.copy_(new_ff_proj)
+            parameters_to_set.remove(f"transformer.blocks.{i}.ff_proj.weight")
 
-# all done?
-assert len(parameters_to_set) == 0
-assert len(parameters_to_read) == 0
+    # all done?
+    assert len(parameters_to_set) == 0
+    assert len(parameters_to_read) == 0
+    return olmo_model
+
+
+hf_model = build_hf_model(device=hf_device)
+olmo_model = build_olmo_model(hf_model, device=olmo_device)
+
+# ## ========== uncomment one of the following to test if both models are the same type ==========
+
+# # Test if both are OLMo models
+# hf_model = build_olmo_model(hf_model, device=hf_device)
+
+# # Test if both are HF models
+# olmo_model = build_hf_model(device=olmo_device)
+
 
 # run one batch
 with open("scripts/spiky_batch.npy", "rb") as f:
@@ -157,7 +178,7 @@ array = np.frombuffer(buffer, dtype=np.uint64)
 batch = torch.tensor(array.astype(np.int_), dtype=torch.long)
 batch = batch.reshape(2048, -1)
 batch = batch % 32000  # Llama vocab size is 32k
-train_batch = batch[2:4, :50]  
+train_batch = batch[2:4, :50]
 test_batch = batch[:2, :50]  # don't run all 4M tokens
 test_string = 'The sky\'s color is'
 
@@ -173,7 +194,7 @@ def generate(model, tokenizer, input_str):
     else:
         token_ids = torch.flatten(generated_ids)
         log.info(f"Generated token ids: {token_ids}")
-        return tokenizer.decode(generated_ids)
+        return tokenizer.decode(token_ids)
 
 
 # run on olmo
@@ -204,8 +225,9 @@ def reformat_labels_to_look_like_logits(labels):
             one_hot_labels[i, j, labels[i, j]] = 1
     return one_hot_labels
 
-# log.info(f"OLMo generation: {generate(olmo_model, tokenizer, test_string)}")
-# log.info(f"HF generation: {generate(hf_model, tokenizer, test_string)}")
+
+log.info(f"OLMo generation: {generate(olmo_model, tokenizer, test_string)}")
+log.info(f"HF generation: {generate(hf_model, tokenizer, test_string)}")
 
 
 def print_metrics(olmo_tensor, hf_tensor, tensor_name):
@@ -227,8 +249,8 @@ olmo_optimzer = torch.optim.AdamW(olmo_model.parameters(), lr=1, betas=(0.9, 0.9
 hf_optimizer = torch.optim.AdamW(hf_model.parameters(), lr=1, betas=(0.9, 0.95))
 for i in range(10):
     idx = 2 * (i + 1)
-    train_batch = batch[idx:idx+2, :50]
-    labels = batch[idx+1:idx+3, :50]
+    train_batch = batch[idx:idx + 2, :50]
+    labels = batch[idx + 1:idx + 3, :50]
     labels = reformat_labels_to_look_like_logits(labels)
 
     olmo_optimzer.zero_grad()
@@ -259,9 +281,12 @@ for i in range(10):
     log.info(f"HF logits: {hf_logits}")
 
     print_metrics(olmo_logits, hf_logits, "logits")
-    olmo_input_embeddings = olmo_model.transformer.wte(test_batch.to(device=olmo_device))
-    hf_input_embeddings = hf_model.model.embed_tokens(test_batch.to(device=hf_device))
-    print_metrics(olmo_input_embeddings, hf_input_embeddings, "input embeddings")
-    olmo_input_embedding_gradients = olmo_model.transformer.wte.weight.grad
-    hf_input_embedding_gradients = hf_model.model.embed_tokens.weight.grad
-    print_metrics(olmo_input_embedding_gradients, hf_input_embedding_gradients, "input embedding gradients")
+    try:
+        olmo_input_embeddings = olmo_model.transformer.wte(test_batch.to(device=olmo_device))
+        hf_input_embeddings = hf_model.model.embed_tokens(test_batch.to(device=hf_device))
+        print_metrics(olmo_input_embeddings, hf_input_embeddings, "input embeddings")
+        olmo_input_embedding_gradients = olmo_model.transformer.wte.weight.grad
+        hf_input_embedding_gradients = hf_model.model.embed_tokens.weight.grad
+        print_metrics(olmo_input_embedding_gradients, hf_input_embedding_gradients, "input embedding gradients")
+    except Exception:
+        pass
