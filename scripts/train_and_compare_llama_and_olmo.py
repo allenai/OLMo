@@ -42,7 +42,7 @@ tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
 
 # load Llama weights into HF model
 def build_hf_model(device=hf_device):
-    hf_model = transformers.AutoModelForCausalLM.from_pretrained(model_path, device_map=device)
+    hf_model = transformers.AutoModelForCausalLM.from_pretrained(model_path, device_map=device, rms_norm_eps=1e-5)
     return hf_model
 
 
