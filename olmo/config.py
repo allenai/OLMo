@@ -238,6 +238,12 @@ class ModelConfig(BaseConfig):
     mlp_ratio: int = 4
     """
     The ratio of the inner MLP dimensionality to ``d_model``.
+    This is only used when ``mlp_hidden_size`` is not set.
+    """
+
+    mlp_hidden_size: Optional[int] = None
+    """
+    Set the exact hidden size for the MLP. Otherwise the inner MLP hidden size will be set to `mlp_ratio * d_model`.
     """
 
     activation_type: ActivationType = ActivationType.swiglu
@@ -351,6 +357,11 @@ class ModelConfig(BaseConfig):
     to ``vocab_size``. If ``vocab_size`` is not a multiple of 128, setting this to the
     next multiple of 128 that's greater than ``vocab_size`` can improve throughput
     substantially.
+    """
+
+    weight_tying: bool = True
+    """
+    Whether to tie output linear weights to the input embedding.
     """
 
     eos_token_id: int = 50256
@@ -678,6 +689,11 @@ class TrainConfig(BaseConfig):
     Save an unsharded checkpoint before training (even during a dry run).
     Use this option with `--load-path={PATH}` and `--dry_run` to convert a sharded
     checkpoint into an unsharded checkpoint.
+    """
+
+    no_pre_train_checkpoint: bool = False
+    """
+    Skip saving pre-train checkpoint.
     """
 
     load_path: Optional[str] = None

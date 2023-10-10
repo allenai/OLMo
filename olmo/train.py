@@ -672,7 +672,9 @@ class Trainer:
             )
         elif checkpoint_type == CheckpointType.sharded or checkpoint_type is None:
             try:
-                legacy_mode = resource_path(load_path, f"rank{get_global_rank()}.pt").is_file()
+                legacy_mode = resource_path(
+                    load_path, f"rank{get_global_rank()}.pt", local_cache=local_cache
+                ).is_file()
             except FileNotFoundError:
                 legacy_mode = False
             if legacy_mode:
