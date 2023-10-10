@@ -881,10 +881,10 @@ class Olmo(nn.Module):
         if attention_mask is not None:
             # shape: (batch_size, 1, 1, seq_len)
             attention_mask = attention_mask.to(dtype=x.dtype).view(batch_size, -1)[:, None, None, :]
-            # TODO: fill w/ large negative value instead of inf?
-            #  attention_mask = (1.0 - attention_mask) * torch.finfo(attention_mask.dtype).min
-            attention_mask = 1.0 - attention_mask
-            attention_mask.masked_fill_(attention_mask == 1.0, float("-inf"))
+            attention_mask = (1.0 - attention_mask) * torch.finfo(attention_mask.dtype).min
+            # TODO: fill w/ -inf instead?
+            #  attention_mask = 1.0 - attention_mask
+            #  attention_mask.masked_fill_(attention_mask == 1.0, float("-inf"))
 
         # Merge attention mask with attention bias.
         if (
@@ -904,7 +904,7 @@ class Olmo(nn.Module):
                 attention_bias = self.get_causal_attention_bias(past_length + seq_len, x.device)
             elif attention_bias.dtype in (torch.int8, torch.bool):
                 attention_bias = attention_bias.to(dtype=x.dtype)
-                attention_bias.masked_fill_(attention_bias == 0.0, float("-inf"))
+                attention_bias.masked_fill_(attention_bias == 0.0, torch.finfo(attention_bias.dtype).min)
 
             # Transform to the right shape and data type.
             mask_len = seq_len
