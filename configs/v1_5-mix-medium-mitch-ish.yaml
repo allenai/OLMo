@@ -57,7 +57,7 @@ tokenizer:
   identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
   truncate_direction: right
 
-save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
+save_folder: goob
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
 save_interval: 1000
@@ -166,12 +166,3 @@ evaluators:
   - label: sst2
     type: downstream
 
-data:
-  paths: ${path.glob:${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5/gpt-neox-20b-pii-special/*.npy}
-  pad_direction: right
-  num_workers: 0
-  drop_last: true
-  pin_memory: true
-  prefetch_factor: 16
-  persistent_workers: true
-  timeout: 0
