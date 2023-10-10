@@ -881,7 +881,9 @@ class Olmo(nn.Module):
         if attention_mask is not None:
             # shape: (batch_size, 1, 1, seq_len)
             attention_mask = attention_mask.to(dtype=x.dtype).view(batch_size, -1)[:, None, None, :]
-            attention_mask = (1.0 - attention_mask) * torch.finfo(attention_mask.dtype).min
+            # TODO: fill w/ large negative value instead of inf?
+            #  attention_mask = (1.0 - attention_mask) * torch.finfo(attention_mask.dtype).min
+            attention_mask = 1.0 - attention_mask
             attention_mask.masked_fill_(attention_mask == 1.0, float("-inf"))
 
         # Merge attention mask with attention bias.
