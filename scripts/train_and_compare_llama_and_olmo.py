@@ -42,7 +42,7 @@ tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
 
 # load Llama weights into HF model
 def build_hf_model(device=hf_device):
-    hf_model = transformers.AutoModelForCausalLM.from_pretrained(model_path, device_map=hf_device)
+    hf_model = transformers.AutoModelForCausalLM.from_pretrained(model_path, device_map=device)
     return hf_model
 
 
@@ -53,7 +53,7 @@ def build_olmo_model(hf_model, device=olmo_device):
     cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
     assert cfg.device_train_batch_size is not None  # for mypy
     cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
-    cfg.model.init_device = olmo_device
+    cfg.model.init_device = device
 
     cfg.model.n_layers = hf_model.config.num_hidden_layers
     cfg.model.n_heads = hf_model.config.num_attention_heads
