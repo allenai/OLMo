@@ -208,8 +208,7 @@ class AMDLayerNorm(LayerNormBase):
 
 class RMSLayerNorm(LayerNormBase):
     """
-    RMS layer norm, a simplified :class:`LayerNorm` implementation that can optionally run
-    in low-precision.
+    RMS layer norm, a simplified :class:`LayerNorm` implementation
     """
 
     def __init__(
