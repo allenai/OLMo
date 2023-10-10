@@ -25,6 +25,7 @@ from olmo.train import Trainer
 from olmo.util import (
     barrier,
     clean_opt,
+    get_default_device,
     get_global_rank,
     get_local_rank,
     get_world_size,
@@ -124,7 +125,7 @@ def main(cfg: TrainConfig) -> None:
     if version.parse(torch.__version__) >= version.parse("2.1.0"):
         # This prevents any parameters from being initialized twice
         def dummy_init_fn(module: torch.nn.Module) -> None:
-            module.to_empty(device=get_local_rank())
+            module.to_empty(device=get_default_device())
 
         param_init_fn = dummy_init_fn
     else:
@@ -193,7 +194,7 @@ def main(cfg: TrainConfig) -> None:
         evaluators=evaluators,
         indices_file=indices_file,
     ) as trainer:
-        if not cfg.dry_run and cfg.load_path is None:
+        if not cfg.dry_run and not cfg.no_pre_train_checkpoint and cfg.load_path is None:
             checkpoint_type = (
                 CheckpointType.sharded if cfg.save_num_checkpoints_to_keep != 0 else CheckpointType.unsharded
             )
