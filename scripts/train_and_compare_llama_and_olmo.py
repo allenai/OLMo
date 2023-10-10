@@ -185,7 +185,7 @@ test_string = 'The sky\'s color is'
 
 def generate(model, tokenizer, input_str):
     log.info(f"Generating from: {input_str}")
-    tokens = tokenizer.encode(input_str, return_tensors="pt")
+    tokens = tokenizer.encode(input_str, return_tensors="pt").to(device=model.device)
     generated_ids = model.generate(tokens)
     if isinstance(model, Olmo):
         token_ids = torch.flatten(generated_ids.token_ids)
