@@ -6,25 +6,45 @@ import torch
 from olmo import TrainConfig, Olmo
 from olmo.util import prepare_cli_environment
 import torch.nn.functional as F
+import transformers
+import os
 
 prepare_cli_environment()
 log = logging.getLogger(__name__)
+
+os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':16:8'  # needed for running in the deterministic mode
+
+# for development
+hf_device = 'cpu'
+olmo_device = 'cpu'
+model_path = 'test_fixtures/tiny_llama/'
+
+# # for running the real 7B model on GPU
+# hf_device = 'cuda:0'
+# olmo_device = 'cuda:1'
+# model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
 
 
 def get_world_size():
     return 1
 
 
-# Load and fix config
+# load Llama weights into HF model
+hf_model = transformers.AutoModelForCausalLM.from_pretrained(model_path, device_map=hf_device)
+tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
+
+# create a similar sized OLMo model
 cfg = TrainConfig.load("configs/v1_5-mix-medium-llama-local.yaml")
 cfg.model.precision = cfg.precision
 cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
 assert cfg.device_train_batch_size is not None  # for mypy
 cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
-cfg.model.init_device = "cpu"
+cfg.model.init_device = olmo_device
 
-
-#cfg.model.n_layers = 2      # for debugging
+cfg.model.n_layers = hf_model.config.num_hidden_layers
+cfg.model.n_heads = hf_model.config.num_attention_heads
+cfg.model.d_model = hf_model.config.hidden_size
+cfg.model.mlp_hidden_size = hf_model.config.intermediate_size * 2
 
 # Make model
 log.info("Building model...")
@@ -32,11 +52,6 @@ olmo_model = Olmo(cfg.model)
 log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
 log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
 
-# load Llama weights into Olmo
-import transformers
-hf_model = transformers.AutoModelForCausalLM.from_pretrained("/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B")
-tokenizer = transformers.AutoTokenizer.from_pretrained("/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B")
-#del hf_model.model.layers[2:]  # Ananya's trick
 parameters_to_set = {name for name, _ in olmo_model.named_parameters()}
 parameters_to_read = {name for name, _ in hf_model.named_parameters()}
 
@@ -139,6 +154,7 @@ train_batch = batch[2:4, :50]
 test_batch = batch[:2, :50]  # don't run all 4M tokens
 test_string = 'The sky\'s color is'
 
+
 def generate(model, tokenizer, input_str):
     log.info(f"Generating from: {input_str}")
     tokens = tokenizer.encode(input_str, return_tensors="pt")
@@ -148,24 +164,26 @@ def generate(model, tokenizer, input_str):
         log.info(f"Generated token ids: {token_ids}")
         return tokenizer.decode(token_ids)
     else:
-     token_ids = torch.flatten(generated_ids)
-     log.info(f"Generated token ids: {token_ids}")
-     return tokenizer.decode(generated_ids)
+        token_ids = torch.flatten(generated_ids)
+        log.info(f"Generated token ids: {token_ids}")
+        return tokenizer.decode(generated_ids)
+
 
 # run on olmo
 torch.manual_seed(42)
-olmo_output = olmo_model(test_batch)
+olmo_output = olmo_model(test_batch.to(device=olmo_device))
 olmo_logits = olmo_output.logits
 log.info(f"OLmo logits: {olmo_logits}")
 
 # run on hf
 torch.manual_seed(42)
-hf_output = hf_model(test_batch)
+hf_output = hf_model(test_batch.to(device=hf_device))
 hf_logits = hf_output.logits
 log.info(f"HF logits: {hf_logits}")
 torch.manual_seed(42)
-if not torch.allclose(olmo_logits, hf_logits, atol=1e-4, rtol=1e-3):
+if not torch.allclose(olmo_logits.cpu(), hf_logits.cpu(), atol=1e-4, rtol=1e-3):
     log.error("Olmo and HF logits fail torch.allclose()")
+
 
 def reformat_labels_to_look_like_logits(labels):
     # the labels are of size [batch_size, sequence_length] and contain values in [0, ..., config.vocab_size]
@@ -178,8 +196,9 @@ def reformat_labels_to_look_like_logits(labels):
             one_hot_labels[i, j, labels[i, j]] = 1
     return one_hot_labels
 
-#log.info(f"OLMo generation: {generate(olmo_model, tokenizer, test_string)}")
-#log.info(f"HF generation: {generate(hf_model, tokenizer, test_string)}")
+# log.info(f"OLMo generation: {generate(olmo_model, tokenizer, test_string)}")
+# log.info(f"HF generation: {generate(hf_model, tokenizer, test_string)}")
+
 
 def print_metrics(olmo_tensor, hf_tensor, tensor_name):
     log.info(f"OLMo {tensor_name} norm: {torch.norm(olmo_tensor)}")
@@ -190,6 +209,7 @@ def print_metrics(olmo_tensor, hf_tensor, tensor_name):
     log.info(f"HF {tensor_name} min: {torch.min(hf_tensor)}")
     log.info(f"OLMo {tensor_name} max: {torch.max(olmo_tensor)}")
     log.info(f"HF {tensor_name} max: {torch.max(hf_tensor)}")
+
 
 # train on batch
 torch.use_deterministic_algorithms(True)
@@ -205,15 +225,15 @@ for i in range(10):
 
     olmo_optimzer.zero_grad()
     hf_optimizer.zero_grad()
-    
+
     torch.manual_seed(42)
-    olmo_logits = olmo_model(train_batch).logits
+    olmo_logits = olmo_model(train_batch.to(device=olmo_device)).logits
     torch.manual_seed(42)
-    hf_logits = hf_model(train_batch).logits
+    hf_logits = hf_model(train_batch.to(device=hf_device)).logits
     torch.manual_seed(42)
 
-    olmo_loss = F.cross_entropy(olmo_logits, labels)
-    hf_loss = F.cross_entropy(hf_logits, labels)
+    olmo_loss = F.cross_entropy(olmo_logits, labels.to(device=olmo_device))
+    hf_loss = F.cross_entropy(hf_logits, labels.to(device=hf_device))
 
     torch.manual_seed(42)
     olmo_loss.backward()
@@ -225,17 +245,15 @@ for i in range(10):
     hf_optimizer.step()
 
     # run on olmo
-    olmo_logits = olmo_model(test_batch).logits
+    olmo_logits = olmo_model(test_batch.to(device=olmo_device)).logits
     log.info(f"OLMo logits: {olmo_logits}")
-    hf_logits = hf_model(test_batch).logits
+    hf_logits = hf_model(test_batch.to(device=hf_device)).logits
     log.info(f"HF logits: {hf_logits}")
 
     print_metrics(olmo_logits, hf_logits, "logits")
-    olmo_input_embeddings = olmo_model.transformer.wte(test_batch)
-    hf_input_embeddings = hf_model.model.embed_tokens(test_batch)
+    olmo_input_embeddings = olmo_model.transformer.wte(test_batch.to(device=olmo_device))
+    hf_input_embeddings = hf_model.model.embed_tokens(test_batch.to(device=hf_device))
     print_metrics(olmo_input_embeddings, hf_input_embeddings, "input embeddings")
     olmo_input_embedding_gradients = olmo_model.transformer.wte.weight.grad
     hf_input_embedding_gradients = hf_model.model.embed_tokens.weight.grad
     print_metrics(olmo_input_embedding_gradients, hf_input_embedding_gradients, "input embedding gradients")
-
-    
