@@ -25,6 +25,13 @@ model_path = 'test_fixtures/tiny_llama/'
 # model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
 
 
+def test_all_approx_close(a, b, rtol, atol, count):
+    idx = torch.isclose(a, b, rtol, atol)
+    sumval = (idx == 0).sum().item()
+    if sumval > count:
+        log.error(f"Too many values ({sumval}/{a.numel()})=({100 * sumval // a.numel()}%) not close: test {sumval} < {count}")
+
+
 def get_world_size():
     return 1
 
@@ -181,6 +188,7 @@ hf_output = hf_model(test_batch.to(device=hf_device))
 hf_logits = hf_output.logits
 log.info(f"HF logits: {hf_logits}")
 torch.manual_seed(42)
+test_all_approx_close(olmo_logits.cpu().float(), hf_logits.cpu().float(), atol=1e-4, rtol=1e-3, count=10)
 if not torch.allclose(olmo_logits.cpu(), hf_logits.cpu(), atol=1e-4, rtol=1e-3):
     log.error("Olmo and HF logits fail torch.allclose()")
 
