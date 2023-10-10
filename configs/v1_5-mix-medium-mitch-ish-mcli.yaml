@@ -50,8 +50,8 @@ optimizer:
   metrics_log_interval: 10
 
 scheduler:
-  name: cosine_with_warmup
-  t_warmup: 2000
+  name: linear_with_warmup
+  t_warmup: 5000
   alpha_f: 0.1
 
 tokenizer:

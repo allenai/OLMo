@@ -306,9 +306,14 @@ class ModelConfig(BaseConfig):
     layer_norm_with_affine: bool = True
     """
     Whether to include bias and weight parameters for the layer norms.
-    This only affects layer norms that are immediately followed by a linear layer in the forward pass.
-    Other layer norms, such as those applied to attention keys and queries, will always include an elementwise
-    affine transform.
+    This only affects layer norms that are immediately followed by a linear layer in the forward pass,
+    so everything except QK-norms. To turn off affines for QK norms as well, set :attr:`attention_layer_norm_with_affine`
+    to ``False``.
+    """
+
+    attention_layer_norm_with_affine: bool = True
+    """
+    Toggle affine transform for the QK norms.
     """
 
     attention_layer_norm_with_affine: bool = True
@@ -818,6 +823,11 @@ class TrainConfig(BaseConfig):
     When this is set, we restore the model from a checkpoint (if given), but we leave the optimizer uninitialized.
     We also set a new learning rate schedule that does a new warmup, such that it intercepts the original learning
     curve (according to the current learning rate schedule settings), and continues from there.
+    """
+
+    new_style_checkpoints: bool = False
+    """
+    Whether to use new-style sharded checkpointing or not.
     """
 
     @property
