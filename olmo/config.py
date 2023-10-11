@@ -830,6 +830,11 @@ class TrainConfig(BaseConfig):
     Whether to use new-style sharded checkpointing or not.
     """
 
+    log_activations: bool = False
+    """
+    Whether to log activations to W&B. This can be useful for debugging, but it can also be very slow.
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":

@@ -1003,8 +1003,62 @@ class Trainer:
             log.warning(f"Run canceled due to {cancel_reason}")
         return run_canceled
 
+    def get_activation_hook(self, module_name: str, global_step: int, log_interval:int):
+        def activation_hook(model, input, output):
+            if wandb.run is None or global_step % log_interval != 0:
+                return
+            activation = (
+                output.to(device="cpu")
+                if output is not None
+                else torch.tensor([], device="cpu", dtype=torch.float32)
+            )
+            metric_prefix = f"activation/{module_name}"
+            metrics = {}
+            numel = activation.numel()
+            if numel > 0:
+                norm = activation.norm().squeeze()
+                avg = activation.mean().squeeze()
+                mini = activation.min().squeeze()
+                maxi = activation.max().squeeze()
+            else:
+                norm = torch.tensor([0.0], device="cpu", dtype=torch.float32)
+                avg = torch.tensor([0.0], device="cpu", dtype=torch.float32)
+                mini = torch.tensor([float("inf")], device="cpu", dtype=torch.float32)
+                maxi = torch.tensor([float("-inf")], device="cpu", dtype=torch.float32)
+            
+            # reduce accross GPUs
+            dist.reduce(mini, 0, op=dist.ReduceOp.MIN)
+            dist.reduce(maxi, 0, op=dist.ReduceOp.MAX)
+            # reduce norm w Sum 
+            norm = norm**2
+            dist.reduce(norm, 0, op=dist.ReduceOp.SUM)
+            norm = norm**0.5
+            # reduce avg w Sum
+            avg *= numel
+            dist.reduce(avg, 0, op=dist.ReduceOp.SUM)
+            dist.reduce(numel, 0, op=dist.ReduceOp.SUM)
+            avg /= numel
+
+            metrics[f"{metric_prefix}.norm"] = norm.item()
+            metrics[f"{metric_prefix}.avg"] = avg.item()
+            metrics[f"{metric_prefix}.min"] = mini.item()
+            metrics[f"{metric_prefix}.max"] = maxi.item()
+
+            # log to WandB
+            wandb.log({metrics}, step=global_step)
+
+        return activation_hook
+
     def fit(self):
         self._start_time = time.time()
+        if self.cfg.log_activations:
+            #Add the hook at every named module
+            registered = set()
+            for name, module in self.model.named_modules():
+                if name not in registered:
+                    module.register_forward_hook(self.get_activation_hook(name, self.global_step, self.cfg.wandb.log_interval))
+                    registered.add(name)
+
 
         if self.cfg.load_path is not None and self.global_step > 0 and self.cfg.eval_on_load:
             eval_metrics = self.eval()
