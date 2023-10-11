@@ -139,6 +139,10 @@ class Optimizer(OptimizerBase):
         )
         assert len(per_param_norm_metrics) == len(per_param_norm_metric_names)
 
+        def is_grad_norm_metric(metric_name: str) -> bool:
+            return metric_name.startswith("grad/") and metric_name.endswith(".norm")
+
+        total_grad_norm: torch.Tensor
         per_param_avg_metrics: List[torch.Tensor] = []
         if is_distributed():  # TODO (epwalsh): skip for non-sharded params
             # Reduce metrics across all ranks. Note that we can use a `reduce` for most cases
@@ -169,8 +173,22 @@ class Optimizer(OptimizerBase):
                 per_param_avg_metrics = (all_sums / all_numels).squeeze(0).split(1)
             else:
                 dist.all_reduce(all_norms, op=dist.ReduceOp.SUM)
+            grad_norm_metric_mask = torch.tensor(
+                [float(is_grad_norm_metric(n)) for n in per_param_norm_metric_names]
+            )
+            total_grad_norm = (all_norms * grad_norm_metric_mask).sum() ** 0.5
             per_param_norm_metrics = (all_norms ** (0.5)).squeeze(0).split(1)
         else:
+            total_grad_norm = (
+                torch.cat(
+                    [
+                        m
+                        for m, n in zip(per_param_norm_metrics, per_param_norm_metric_names)
+                        if is_grad_norm_metric(n)
+                    ]
+                )
+                ** 2.0
+            ).sum() ** 0.5
             per_param_avg_metrics = [x / n for x, n in zip(per_param_sum_metrics, per_param_numel_metrics)]
 
         assert len(per_param_avg_metrics) == len(per_param_avg_metric_names)
@@ -228,26 +246,28 @@ class Optimizer(OptimizerBase):
                 else:
                     # Fixed clipping.
                     clipped_norm = torch.tensor(max_norm, device=device)
-                    clip_coef = clipped_norm / (grad_norm + 1e-6)
+                    clip_coef = clipped_norm / (total_grad_norm.to(device) + 1e-6)
 
                 # Clip the gradients and update the exponential average.
+                # Note that multiplying by the clamped coefficient is meaningless when it is
+                # equal to 1, but it avoids the host-device sync that would result from `if clip_coef_clamped < 1`.
                 clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
-                if clip_coef_clamped < 1.0:
+                if p.grad is not None:
+                    # p.grad could be none for some ranks when using FSDP.
+                    p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
+                grad_norm_exp_avg.lerp_(clipped_norm.to(grad_norm_exp_avg.device), 1 - beta)
+                # But if we have to collect the clipping rate metric we can't avoid a host-device sync.
+                if collect_param_metrics and clip_coef_clamped < 1.0:
                     num_grads_clipped += 1
-                    if p.grad is not None:
-                        # p.grad could be none for some ranks when using FSDP.
-                        p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
-                    grad_norm_exp_avg.lerp_(clipped_norm.to(grad_norm_exp_avg.device), 1 - beta)
-                else:
-                    grad_norm_exp_avg.lerp_(grad_norm.to(grad_norm_exp_avg.device), 1 - beta)
-                all_metrics[f"grad_norm_exp_avg/{name}"] = grad_norm_exp_avg.to(device="cpu")
+                    all_metrics[f"grad_norm_exp_avg/{name}"] = grad_norm_exp_avg.to(device="cpu")
+                    all_metrics["total_grad_norm"] = total_grad_norm.to(device="cpu")
 
-        clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
         if collect_param_metrics:
+            clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
             all_metrics["clipping_rate"] = clipping_rate
             return all_metrics
         else:
-            return {"clipping_rate": clipping_rate}
+            return {}
 
     def get_post_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
         del module
