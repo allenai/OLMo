@@ -4,10 +4,17 @@ import numpy as np
 import torch
 
 from olmo import TrainConfig, Olmo
+from olmo.config import FSDPWrapStrategy
+from olmo.model import OlmoGenerateOutput
 from olmo.util import prepare_cli_environment
-import torch.nn.functional as F
 import transformers
 import os
+from packaging import version
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
+import torch.distributed as dist
+import torch.nn.functional as F
+
 
 prepare_cli_environment()
 log = logging.getLogger(__name__)
@@ -15,14 +22,22 @@ log = logging.getLogger(__name__)
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':16:8'  # needed for running in the deterministic mode
 
 # for development
-hf_device = 'cpu'
-olmo_device = 'cpu'
-model_path = 'test_fixtures/tiny_llama/'
+# hf_device = 'cpu'
+# olmo_device = 'cpu'
+# use_fsdp = False
+# model_path = 'test_fixtures/tiny_llama/'
 
 # # for running the real 7B model on GPU
 # hf_device = 'cuda:0'
 # olmo_device = 'cuda:1'
+# use_fsdp = False
 # model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
+
+# # for FSDP
+hf_device = 'cpu'
+olmo_device = 'cuda'
+use_fsdp = True
+model_path = 'test_fixtures/tiny_llama/'
 
 
 def test_all_approx_close(a, b, rtol, atol, count):
@@ -33,7 +48,7 @@ def test_all_approx_close(a, b, rtol, atol, count):
 
 
 def get_world_size():
-    return 1
+    return int(os.environ.get("WORLD_SIZE") or 1)
 
 
 # tokenizer is in the same directory as the HF model
@@ -46,8 +61,63 @@ def build_hf_model(device=hf_device):
     return hf_model
 
 
+def non_meta_device(device_str):
+    if device_str == 'meta':
+        return torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
+    return torch.device(device_str)
+
+
+def barrier() -> None:
+    if dist.is_available() and dist.is_initialized():
+        dist.barrier()
+
+
+def get_local_rank():
+    return int(os.environ.get("LOCAL_RANK") or 0)
+
+
+# enrich an olmo model with FSDP functionality
+def apply_fsdp(olmo_model: Olmo, cfg: TrainConfig):
+    # Wrap the model in FSDP.
+    log.info("Wrapping model with FDSP...")
+    wrap_policy = None
+    if cfg.fsdp.wrapping_strategy == FSDPWrapStrategy.by_block:
+        wrap_policy = olmo_model.fsdp_wrap_fn
+    elif cfg.fsdp.wrapping_strategy == FSDPWrapStrategy.size_based:
+        wrap_policy = size_based_auto_wrap_policy
+
+    if version.parse(torch.__version__) >= version.parse("2.1.0"):
+        # This prevents any parameters from being initialized twice
+        def dummy_init_fn(module: torch.nn.Module) -> None:
+            module.to_empty(device=non_meta_device(cfg.model.init_device))
+
+        param_init_fn = dummy_init_fn
+    else:
+        param_init_fn = None
+
+    cfg.fsdp.use_orig_params = True
+
+    torch.manual_seed(42)
+    fsdp_model = FSDP(
+        olmo_model,
+        sharding_strategy=cfg.fsdp.sharding_strategy,
+        mixed_precision=cfg.fsdp_precision,
+        auto_wrap_policy=wrap_policy,
+        use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
+        limit_all_gathers=True,
+        device_id=get_local_rank(),
+        param_init_fn=param_init_fn,
+    )
+    # when param_init_fn is None, FSDP will call reset_parameters() automatically
+    if param_init_fn is not None:
+        olmo_model.reset_parameters()
+
+    return fsdp_model
+
+
 # create a similar sized OLMo model
-def build_olmo_model(hf_model, device=olmo_device):
+def build_olmo_model(hf_model, device=olmo_device, use_fsdp=False):
     cfg = TrainConfig.load("configs/v1_5-mix-medium-llama-local.yaml")
     cfg.model.precision = cfg.precision
     cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
@@ -156,11 +226,21 @@ def build_olmo_model(hf_model, device=olmo_device):
     # all done?
     assert len(parameters_to_set) == 0
     assert len(parameters_to_read) == 0
+
+    if use_fsdp:
+        olmo_model = apply_fsdp(olmo_model, cfg)
+
     return olmo_model
 
 
+# Initialize process group and set device.
+if use_fsdp:
+    dist.init_process_group(backend="nccl", rank=get_local_rank(), world_size=get_world_size())
+    barrier()
+    torch.cuda.set_device(f"cuda:{get_local_rank()}")
+
 hf_model = build_hf_model(device=hf_device)
-olmo_model = build_olmo_model(hf_model, device=olmo_device)
+olmo_model = build_olmo_model(hf_model, device=olmo_device, use_fsdp=use_fsdp)
 
 # ## ========== uncomment one of the following to test if both models are the same type ==========
 
@@ -185,21 +265,20 @@ test_string = 'The sky\'s color is'
 
 def generate(model, tokenizer, input_str):
     log.info(f"Generating from: {input_str}")
-    tokens = tokenizer.encode(input_str, return_tensors="pt").to(device=model.device)
+    tokens = tokenizer.encode(input_str, return_tensors="pt").to(device=non_meta_device(model.device))
     generated_ids = model.generate(tokens)
-    if isinstance(model, Olmo):
-        token_ids = torch.flatten(generated_ids.token_ids)
-        log.info(f"Generated token ids: {token_ids}")
-        return tokenizer.decode(token_ids)
-    else:
-        token_ids = torch.flatten(generated_ids)
-        log.info(f"Generated token ids: {token_ids}")
-        return tokenizer.decode(token_ids)
+
+    if isinstance(generated_ids, OlmoGenerateOutput):
+        generated_ids = generated_ids.token_ids
+
+    token_ids = torch.flatten(generated_ids)
+    log.info(f"Generated token ids: {token_ids}")
+    return tokenizer.decode(token_ids)
 
 
 # run on olmo
 torch.manual_seed(42)
-olmo_output = olmo_model(test_batch.to(device=olmo_device))
+olmo_output = olmo_model(test_batch.to(device=non_meta_device(olmo_device)))
 olmo_logits = olmo_output.logits
 log.info(f"OLmo logits: {olmo_logits}")
 
@@ -210,7 +289,7 @@ hf_logits = hf_output.logits
 log.info(f"HF logits: {hf_logits}")
 torch.manual_seed(42)
 test_all_approx_close(olmo_logits.cpu().float(), hf_logits.cpu().float(), atol=1e-4, rtol=1e-3, count=10)
-if not torch.allclose(olmo_logits.cpu(), hf_logits.cpu(), atol=1e-4, rtol=1e-3):
+if not torch.allclose(olmo_logits.cpu().float(), hf_logits.cpu().float(), atol=1e-4, rtol=1e-3):
     log.error("Olmo and HF logits fail torch.allclose()")
 
 
@@ -226,7 +305,12 @@ def reformat_labels_to_look_like_logits(labels):
     return one_hot_labels
 
 
-log.info(f"OLMo generation: {generate(olmo_model, tokenizer, test_string)}")
+olmo_generation_model = olmo_model
+if use_fsdp:
+    log.warning("Generate bypasses FSDP's forward implementation, which causes generation to fail. Using a CPU model instead.")
+    olmo_generation_model = build_olmo_model(hf_model, device='cpu', use_fsdp=False)
+
+log.info(f"OLMo generation: {generate(olmo_generation_model, tokenizer, test_string)}")
 log.info(f"HF generation: {generate(hf_model, tokenizer, test_string)}")
 
 
