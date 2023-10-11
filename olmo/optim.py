@@ -2,7 +2,7 @@ import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from math import cos, pi, sqrt
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import torch
 import torch.distributed as dist
@@ -192,64 +192,29 @@ class Optimizer(OptimizerBase):
             all_metrics[metric_name] = metric.squeeze(0)
         for metric_name, metric in zip(per_param_norm_metric_names, per_param_norm_metrics):
             all_metrics[metric_name] = metric.squeeze(0)
+        all_metrics["total_grad_norm"] = total_grad_norm
 
         # Clip gradients.
         num_grads_clipped = 0
         num_eligible_grads = 0
         for group in self.param_groups:
-            # We'll use the bigger of beta1 and beta2 to update the exponential average of the norm of
-            # the gradient (a scalar), not to be confused with the exponential average of the gradient.
-            # TODO (epwalsh): handle optimizers that don't have betas.
-            beta1, beta2 = group["betas"]
-            beta = max(beta1, beta2)
-            max_norm = group.get("max_grad_norm")
-            max_norm_ratio = group.get("max_grad_norm_ratio")
-            if max_norm is None and max_norm_ratio is None:
+            if (max_norm_ratio := group.get("max_grad_norm_ratio")) is not None:
+                clipping_iter = self._do_adaptive_clipping(
+                    group, max_norm_ratio, global_step, all_metrics, collect_param_metrics=collect_param_metrics
+                )
+            elif (max_norm := group.get("max_grad_norm")) is not None:
+                clipping_iter = self._do_global_fixed_clipping(
+                    group, max_norm, all_metrics, collect_param_metrics=collect_param_metrics
+                )
+            else:
                 # No clipping needed.
                 continue
 
-            for name, p in zip(group["param_names"], group["params"]):
-                name = self._clean_param_name(name)
-                grad_norm = all_metrics.get(f"grad/{name}.norm")
-                if grad_norm is None:
-                    continue
-
-                num_eligible_grads += 1
-
-                # Get or initialize the exponential average of grad norm.
-                state = self.state[p]
-                grad_norm_exp_avg = state.get("grad_norm_exp_avg")
-                if grad_norm_exp_avg is None:
-                    grad_norm_exp_avg = grad_norm.clone().to(device)
-                    # We don't want to add anything to `state` until `state` has been initialized, otherwise
-                    # this will crash some optimizers which rely on checking `len(state)`. The downside here
-                    # is that we won't start tracking `grad_norm_exp_avg` until the 2nd training step.
-                    if global_step > 1:
-                        state["grad_norm_exp_avg"] = grad_norm_exp_avg
-
-                # Determine the clipping coefficient based on the clipping strategy.
-                if max_norm_ratio is not None:
-                    # Adaptive clipping.
-                    clipped_norm = max_norm_ratio * grad_norm_exp_avg
-                    clip_coef = clipped_norm / (grad_norm + 1e-6)
-                else:
-                    # Fixed clipping.
-                    clipped_norm = torch.tensor(max_norm, device=device)
-                    clip_coef = clipped_norm / (total_grad_norm.to(device) + 1e-6)
-
-                # Clip the gradients and update the exponential average.
-                # Note that multiplying by the clamped coefficient is meaningless when it is
-                # equal to 1, but it avoids the host-device sync that would result from `if clip_coef_clamped < 1`.
-                clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
-                if p.grad is not None:
-                    # p.grad could be none for some ranks when using FSDP.
-                    p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
-                grad_norm_exp_avg.lerp_(clipped_norm.to(grad_norm_exp_avg.device), 1 - beta)
-                # But if we have to collect the clipping rate metric we can't avoid a host-device sync.
-                if collect_param_metrics and clip_coef_clamped < 1.0:
+            for param_was_clipped in clipping_iter:
+                if param_was_clipped is not None:
+                    num_eligible_grads += 1
+                if param_was_clipped:
                     num_grads_clipped += 1
-                    all_metrics[f"grad_norm_exp_avg/{name}"] = grad_norm_exp_avg
-                    all_metrics["total_grad_norm"] = total_grad_norm
 
         if collect_param_metrics:
             clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
@@ -257,6 +222,98 @@ class Optimizer(OptimizerBase):
             return all_metrics
         else:
             return {}
+
+    def _do_adaptive_clipping(
+        self,
+        group: Dict[str, Any],
+        max_norm_ratio: float,
+        global_step: int,
+        all_metrics: Dict[str, torch.Tensor],
+        collect_param_metrics: bool = True,
+    ) -> Generator[Optional[bool], None, None]:
+        """
+        Do adaptive gradient clipping on a param group. Returns an iterator over clipping results.
+        The results will all be ``None`` if ``collect_param_metrics`` is ``False`` to avoid a host-device
+        sync, other ``True``  if the gradient for the parameter was clipped, ``False`` if not.
+        """
+        device = get_default_device()
+
+        # We'll use the bigger of beta1 and beta2 to update the exponential average of the norm of
+        # the gradient (a scalar), not to be confused with the exponential average of the gradient.
+        # TODO (epwalsh): handle optimizers that don't have betas.
+        beta1, beta2 = group["betas"]
+        beta = max(beta1, beta2)
+
+        for name, p in zip(group["param_names"], group["params"]):
+            name = self._clean_param_name(name)
+            grad_norm = all_metrics.get(f"grad/{name}.norm")
+            if grad_norm is None:
+                continue
+
+            # Get or initialize the exponential average of grad norm.
+            state = self.state[p]
+            grad_norm_exp_avg = state.get("grad_norm_exp_avg")
+            if grad_norm_exp_avg is None:
+                grad_norm_exp_avg = grad_norm.clone().to(device)
+                # We don't want to add anything to `state` until `state` has been initialized, otherwise
+                # this will crash some optimizers which rely on checking `len(state)`. The downside here
+                # is that we won't start tracking `grad_norm_exp_avg` until the 2nd training step.
+                if global_step > 1:
+                    state["grad_norm_exp_avg"] = grad_norm_exp_avg
+
+            clipped_norm = max_norm_ratio * grad_norm_exp_avg
+            clip_coef = clipped_norm / (grad_norm + 1e-6)
+
+            # Clip the gradients and update the exponential average.
+            # Note that multiplying by the clamped coefficient is meaningless when it is
+            # equal to 1, but it avoids the host-device sync that would result from `if clip_coef_clamped < 1`.
+            clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
+            if p.grad is not None:
+                # p.grad could be none for some ranks when using FSDP.
+                p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
+            grad_norm_exp_avg.lerp_(clipped_norm.to(grad_norm_exp_avg.device), 1 - beta)
+
+            if collect_param_metrics:
+                # Can't avoid the host-device sync here.
+                if clip_coef_clamped < 1.0:
+                    yield True
+                else:
+                    yield False
+                all_metrics[f"grad_norm_exp_avg/{name}"] = grad_norm_exp_avg
+            else:
+                yield None
+
+    def _do_global_fixed_clipping(
+        self,
+        group: Dict[str, Any],
+        max_norm: float,
+        all_metrics: Dict[str, torch.Tensor],
+        collect_param_metrics: bool = True,
+    ) -> Generator[Optional[bool], None, None]:
+        """
+        Do global fixed gradient clipping on a param group. Returns an iterator over clipping results.
+        The results will all be ``None`` if ``collect_param_metrics`` is ``False`` to avoid a host-device
+        sync, other ``True``  if the gradient for the parameter was clipped, ``False`` if not.
+        """
+        device = get_default_device()
+        total_grad_norm = all_metrics["total_grad_norm"]
+        clip_coef = max_norm / (total_grad_norm.to(device) + 1e-6)
+        clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
+        clipping_result: Optional[bool] = None
+        if collect_param_metrics:
+            # Can't avoid host-device sync here.
+            if clip_coef_clamped < 1.0:
+                clipping_result = True
+            else:
+                clipping_result = False
+        for p in group["params"]:
+            # Clip the gradients.
+            # Note that multiplying by the clamped coefficient is meaningless when it is
+            # equal to 1, but it avoids the host-device sync that would result from `if clip_coef_clamped < 1`.
+            if p.grad is not None:
+                # p.grad could be none for some ranks when using FSDP.
+                p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
+            yield clipping_result
 
     def get_post_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
         del module
