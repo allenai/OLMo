@@ -25,7 +25,7 @@ model:
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
-  max_sequence_length: 4096
+  max_sequence_length: 3584
   vocab_size: 50280
   embedding_size: 50304
   eos_token_id: 0
@@ -57,7 +57,7 @@ scheduler:
   alpha_f: 0.1
 
 data:
-  paths: ${path.glob:${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5-sample/gpt-neox-20b-pii-special/books/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5-sample/gpt-neox-20b-pii-special/c4/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5-sample/gpt-neox-20b-pii-special/common-crawl/*/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5-sample/gpt-neox-20b-pii-special/s2/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5-sample/gpt-neox-20b-pii-special/stack/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5-sample/gpt-neox-20b-pii-special/wiki/*.npy}
+  paths: ${path.glob:${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5-sample/gpt-neox-20b-pii-special/*.npy}
   pad_direction: right
   num_workers: 0
   drop_last: true
@@ -81,7 +81,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 476837  # 2T tokens
+max_duration: 544956  # 2T tokens
 global_train_batch_size: 1024
 device_train_microbatch_size: 1
 
