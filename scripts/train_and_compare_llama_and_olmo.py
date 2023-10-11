@@ -19,7 +19,7 @@ import torch.nn.functional as F
 prepare_cli_environment()
 log = logging.getLogger(__name__)
 
-os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':16:8'  # needed for running in the deterministic mode
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"  # needed for running in the deterministic mode
 
 # for development
 # hf_device = 'cpu'
@@ -34,17 +34,19 @@ os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':16:8'  # needed for running in the det
 # model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
 
 # # for FSDP
-hf_device = 'cpu'
-olmo_device = 'cuda'
+hf_device = "cpu"
+olmo_device = "cuda"
 use_fsdp = True
-model_path = 'test_fixtures/tiny_llama/'
+model_path = "test_fixtures/tiny_llama/"
 
 
 def test_all_approx_close(a, b, rtol, atol, count):
     idx = torch.isclose(a, b, rtol, atol)
     sumval = (idx == 0).sum().item()
     if sumval > count:
-        log.error(f"Too many values ({sumval}/{a.numel()})=({100 * sumval // a.numel()}%) not close: test {sumval} < {count}")
+        log.error(
+            f"Too many values ({sumval}/{a.numel()})=({100 * sumval // a.numel()}%) not close: test {sumval} < {count}"
+        )
 
 
 def get_world_size():
@@ -62,8 +64,8 @@ def build_hf_model(device=hf_device):
 
 
 def non_meta_device(device_str):
-    if device_str == 'meta':
-        return torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    if device_str == "meta":
+        return torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     return torch.device(device_str)
 
@@ -185,8 +187,13 @@ def build_olmo_model(hf_model, device=olmo_device, use_fsdp=False):
             assert hf_layer.self_attn.k_proj.weight.dtype == olmo_layer.att_proj.weight.dtype
             assert hf_layer.self_attn.v_proj.weight.dtype == olmo_layer.att_proj.weight.dtype
             new_att_proj = torch.cat(
-                [hf_layer.self_attn.q_proj.weight, hf_layer.self_attn.k_proj.weight, hf_layer.self_attn.v_proj.weight],
-                dim=0)
+                [
+                    hf_layer.self_attn.q_proj.weight,
+                    hf_layer.self_attn.k_proj.weight,
+                    hf_layer.self_attn.v_proj.weight,
+                ],
+                dim=0,
+            )
             parameters_to_read.remove(f"model.layers.{i}.self_attn.q_proj.weight")
             parameters_to_read.remove(f"model.layers.{i}.self_attn.k_proj.weight")
             parameters_to_read.remove(f"model.layers.{i}.self_attn.v_proj.weight")
@@ -213,9 +220,7 @@ def build_olmo_model(hf_model, device=olmo_device, use_fsdp=False):
             # TODO: If fused q, k, v above doesn't produce the same result, then this probably also doesn't.
             assert hf_layer.mlp.up_proj.weight.dtype == olmo_layer.ff_proj.weight.dtype
             assert hf_layer.mlp.gate_proj.weight.dtype == olmo_layer.ff_proj.weight.dtype
-            new_ff_proj = torch.cat(
-                [hf_layer.mlp.up_proj.weight, hf_layer.mlp.gate_proj.weight],
-                dim=0)
+            new_ff_proj = torch.cat([hf_layer.mlp.up_proj.weight, hf_layer.mlp.gate_proj.weight], dim=0)
             parameters_to_read.remove(f"model.layers.{i}.mlp.up_proj.weight")
             parameters_to_read.remove(f"model.layers.{i}.mlp.gate_proj.weight")
             assert new_ff_proj.shape == olmo_layer.ff_proj.weight.shape
@@ -260,7 +265,7 @@ batch = batch.reshape(2048, -1)
 batch = batch % 32000  # Llama vocab size is 32k
 train_batch = batch[2:4, :50]
 test_batch = batch[:2, :50]  # don't run all 4M tokens
-test_string = 'The sky\'s color is'
+test_string = "The sky's color is"
 
 
 def generate(model, tokenizer, input_str):
@@ -307,8 +312,10 @@ def reformat_labels_to_look_like_logits(labels):
 
 olmo_generation_model = olmo_model
 if use_fsdp:
-    log.warning("Generate bypasses FSDP's forward implementation, which causes generation to fail. Using a CPU model instead.")
-    olmo_generation_model = build_olmo_model(hf_model, device='cpu', use_fsdp=False)
+    log.warning(
+        "Generate bypasses FSDP's forward implementation, which causes generation to fail. Using a CPU model instead."
+    )
+    olmo_generation_model = build_olmo_model(hf_model, device="cpu", use_fsdp=False)
 
 log.info(f"OLMo generation: {generate(olmo_generation_model, tokenizer, test_string)}")
 log.info(f"HF generation: {generate(hf_model, tokenizer, test_string)}")
@@ -333,8 +340,8 @@ olmo_optimzer = torch.optim.AdamW(olmo_model.parameters(), lr=1, betas=(0.9, 0.9
 hf_optimizer = torch.optim.AdamW(hf_model.parameters(), lr=1, betas=(0.9, 0.95))
 for i in range(10):
     idx = 2 * (i + 1)
-    train_batch = batch[idx:idx + 2, :50]
-    labels = batch[idx + 1:idx + 3, :50]
+    train_batch = batch[idx : idx + 2, :50]
+    labels = batch[idx + 1 : idx + 3, :50]
     labels = reformat_labels_to_look_like_logits(labels)
 
     olmo_optimzer.zero_grad()

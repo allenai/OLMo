@@ -22,7 +22,7 @@ assert cfg.device_train_batch_size is not None  # for mypy
 cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
 cfg.model.init_device = "cpu"
 
-cfg.model.n_layers = 2      # for debugging
+cfg.model.n_layers = 2  # for debugging
 
 # Make model
 log.info("Building model...")
@@ -32,6 +32,7 @@ log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_em
 
 # load Llama weights into Olmo
 import transformers
+
 hf_model = transformers.AutoModelForCausalLM.from_pretrained("/Users/dirkg/Documents/hf_llama2_models/7B")
 del hf_model.model.layers[2:]  # Ananya's trick
 parameters_to_set = {name for name, _ in olmo_model.named_parameters()}
@@ -84,7 +85,8 @@ with torch.no_grad():
         assert hf_layer.self_attn.v_proj.weight.dtype == olmo_layer.att_proj.weight.dtype
         new_att_proj = torch.cat(
             [hf_layer.self_attn.q_proj.weight, hf_layer.self_attn.k_proj.weight, hf_layer.self_attn.v_proj.weight],
-            dim=0)
+            dim=0,
+        )
         parameters_to_read.remove(f"model.layers.{i}.self_attn.q_proj.weight")
         parameters_to_read.remove(f"model.layers.{i}.self_attn.k_proj.weight")
         parameters_to_read.remove(f"model.layers.{i}.self_attn.v_proj.weight")
@@ -111,9 +113,7 @@ with torch.no_grad():
         # TODO: If fused q, k, v above doesn't produce the same result, then this probably also doesn't.
         assert hf_layer.mlp.up_proj.weight.dtype == olmo_layer.ff_proj.weight.dtype
         assert hf_layer.mlp.gate_proj.weight.dtype == olmo_layer.ff_proj.weight.dtype
-        new_ff_proj = torch.cat(
-            [hf_layer.mlp.up_proj.weight, hf_layer.mlp.gate_proj.weight],
-            dim=0)
+        new_ff_proj = torch.cat([hf_layer.mlp.up_proj.weight, hf_layer.mlp.gate_proj.weight], dim=0)
         parameters_to_read.remove(f"model.layers.{i}.mlp.up_proj.weight")
         parameters_to_read.remove(f"model.layers.{i}.mlp.gate_proj.weight")
         assert new_ff_proj.shape == olmo_layer.ff_proj.weight.shape
