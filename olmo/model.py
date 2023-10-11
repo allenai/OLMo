@@ -299,54 +299,6 @@ class RotaryEmbedding(nn.Module):
         return q_.type_as(q), k_.type_as(k)
 
 
-class RotaryEmbedding(nn.Module):
-    """
-    [Rotary positional embeddings (RoPE)](https://arxiv.org/abs/2104.09864).
-    """
-
-    def __init__(self, config: ModelConfig, cache: BufferCache):
-        super().__init__()
-        self.config = config
-        self.__cache = cache
-        # Warm up cache.
-        self.get_rotary_embedding(config.max_sequence_length, _non_meta_init_device(config))
-
-    def get_rotary_embedding(self, seq_len: int, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
-        if (
-            (pos_sin := self.__cache.get("rope_pos_sin")) is not None
-            and (pos_cos := self.__cache.get("rope_pos_cos")) is not None
-            and pos_sin.shape[-2] >= seq_len
-            and pos_cos.shape[-2] >= seq_len
-        ):
-            if pos_sin.device != device:
-                pos_sin = pos_sin.to(device)
-                self.__cache["rope_pos_sin"] = pos_sin
-            if pos_cos.device != device:
-                pos_cos = pos_cos.to(device)
-                self.__cache["rope_pos_cos"] = pos_cos
-            return pos_sin[:, :, :seq_len, :], pos_cos[:, :, :seq_len, :]
-
-        dim = self.config.d_model // self.config.n_heads
-        inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2, device=device, dtype=torch.float) / dim))
-        seq = torch.arange(seq_len, device=device, dtype=torch.float)
-        freqs = einsum("i , j -> i j", seq, inv_freq)
-        positions = torch.cat((freqs, freqs), dim=-1)
-        pos_sin, pos_cos = positions.sin()[None, None, :, :], positions.cos()[None, None, :, :]
-        self.__cache["rope_pos_sin"] = pos_sin
-        self.__cache["rope_pos_cos"] = pos_cos
-        return pos_sin, pos_cos
-
-    def forward(self, q: torch.Tensor, k: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        q_, k_ = q.float(), k.float()
-        query_len, key_len = q_.shape[-2], k_.shape[-2]  # could be different if layer_past not None
-        pos_sin, pos_cos = self.get_rotary_embedding(key_len, q_.device)
-        q_ = apply_rotary_pos_emb(
-            pos_sin[:, :, key_len - query_len : key_len, :], pos_cos[:, :, key_len - query_len : key_len, :], q_
-        )
-        k_ = apply_rotary_pos_emb(pos_sin, pos_cos, k_)
-        return q_.type_as(q), k_.type_as(k)
-
-
 class Activation(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
