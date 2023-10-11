@@ -167,7 +167,7 @@ evaluators:
     type: downstream
 
 data:
-  paths: ${path.glob:${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5/gpt-neox-20b-pii-special/*.npy}
+  paths: ${path.glob:${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5-sample/gpt-neox-20b-pii-special/*.npy}
   pad_direction: right
   num_workers: 0
   drop_last: true
