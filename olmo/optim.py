@@ -173,6 +173,7 @@ class Optimizer(OptimizerBase):
                 per_param_avg_metrics = (all_sums / all_numels).squeeze(0).split(1)
             else:
                 dist.all_reduce(all_norms, op=dist.ReduceOp.SUM)
+                all_norms = all_norms.to(device="cpu")
             grad_norm_metric_mask = torch.tensor(
                 [float(is_grad_norm_metric(n)) for n in per_param_norm_metric_names]
             )
