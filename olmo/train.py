@@ -785,6 +785,9 @@ class Trainer:
         if reduce_global_loss:
             dist.reduce(ce_batch_loss, 0)
             ce_batch_loss.div_(get_world_size())
+            if z_batch_loss is not None:
+                dist.reduce(z_batch_loss, 0)
+                z_batch_loss.div_(get_world_size())
 
         # Clip gradient norms and collect param/gradient/optim metrics.
         should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
@@ -814,9 +817,6 @@ class Trainer:
         metrics["train/CrossEntropyLoss"] = self.cur_train_loss
         metrics["train/Perplexity"] = math.exp(self.cur_train_loss)
         if z_batch_loss is not None:
-            if reduce_global_loss:
-                dist.reduce(z_batch_loss, 0)
-                z_batch_loss.div_(get_world_size())
             metrics["train/ZLoss"] = z_batch_loss.item()
 
         # Maybe collect post-step optimizer-specific metrics.
