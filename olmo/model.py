@@ -29,6 +29,7 @@ from .config import (
 )
 from .exceptions import OlmoConfigurationError
 from .initialization import init_weights
+from .util import ensure_finite_
 
 __all__ = [
     "LayerNormBase",
@@ -450,7 +451,7 @@ class OlmoBlock(nn.Module):
                 raise NotImplementedError()
         if bias.dtype != target_dtype:
             bias = bias.to(target_dtype)
-            bias.masked_fill_(bias == float("-inf"), torch.finfo(target_dtype).min)
+            ensure_finite_(bias, check_neg_inf=True, check_pos_inf=False)
         return bias
 
     def attention(
@@ -902,7 +903,7 @@ class Olmo(nn.Module):
         # Transform the attention mask into what the blocks expect.
         if attention_mask is not None:
             # shape: (batch_size, 1, 1, seq_len)
-            attention_mask = attention_mask.to(dtype=x.dtype).view(batch_size, -1)[:, None, None, :]
+            attention_mask = attention_mask.to(dtype=torch.float).view(batch_size, -1)[:, None, None, :]
             attention_mask = (1.0 - attention_mask) * torch.finfo(attention_mask.dtype).min
 
         # Merge attention mask with attention bias.
@@ -922,7 +923,7 @@ class Olmo(nn.Module):
             elif attention_bias is None:
                 attention_bias = self.get_causal_attention_bias(past_length + seq_len, x.device)
             elif attention_bias.dtype in (torch.int8, torch.bool):
-                attention_bias = attention_bias.to(dtype=x.dtype)
+                attention_bias = attention_bias.to(dtype=torch.float)
                 attention_bias.masked_fill_(attention_bias == 0.0, torch.finfo(attention_bias.dtype).min)
 
             # Transform to the right shape and data type.
@@ -931,7 +932,7 @@ class Olmo(nn.Module):
                 mask_len = attention_mask.shape[-1]
             elif past_key_values is not None:
                 mask_len = past_key_values[0][0].shape[-2] + input_ids.shape[-1]
-            attention_bias = attention_bias[:, :, :mask_len, :mask_len].to(x.dtype)
+            attention_bias = attention_bias[:, :, :mask_len, :mask_len].to(dtype=torch.float)
 
             # Add in the masking bias.
             if attention_mask is not None:
@@ -939,7 +940,7 @@ class Olmo(nn.Module):
                 # Might get -infs after adding attention mask, since dtype.min + dtype.min = -inf.
                 # `F.scaled_dot_product_attention()` doesn't handle -inf like you'd expect, instead
                 # it can produce NaNs.
-                attention_bias.masked_fill_(attention_bias == float("-inf"), torch.finfo(attention_bias.dtype).min)
+                ensure_finite_(attention_bias, check_neg_inf=True, check_pos_inf=False)
 
         attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
 
