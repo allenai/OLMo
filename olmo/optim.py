@@ -67,6 +67,7 @@ class Optimizer(OptimizerBase):
         per_param_avg_metric_names: List[str] = []
         per_param_norm_metric_names: List[str] = []
 
+        # Collect metrics locally.
         for group in self.param_groups:
             if is_distributed():
                 # TODO (epwalsh): handle non-sharded params. We don't have any right now but we would
@@ -131,6 +132,7 @@ class Optimizer(OptimizerBase):
         def is_grad_norm_metric(metric_name: str) -> bool:
             return metric_name.startswith("grad/") and metric_name.endswith(".norm")
 
+        # Now reduce metrics over all ranks.
         total_grad_norm: torch.Tensor
         per_param_avg_metrics: List[torch.Tensor] = []
         if is_distributed():  # TODO (epwalsh): skip for non-sharded params
