@@ -88,7 +88,6 @@ device_train_microbatch_size: 1
 precision: amp_bf16
 
 max_grad_norm: 1.0
-max_grad_norm_ratio: 1.5
 
 speed_monitor:
   window_size: 20
