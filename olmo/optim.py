@@ -225,6 +225,7 @@ class Optimizer(OptimizerBase):
         else:
             return {}
 
+    @torch.no_grad()
     def _do_adaptive_clipping(
         self,
         group: Dict[str, Any],
@@ -285,6 +286,7 @@ class Optimizer(OptimizerBase):
             else:
                 yield None
 
+    @torch.no_grad()
     def _do_global_fixed_clipping(
         self,
         group: Dict[str, Any],
