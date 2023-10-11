@@ -19,7 +19,7 @@ model:
   # flash_attention: false  # can't be used with ALiBi
   include_bias: false
   block_type: sequential
-  layer_norm_type: low_precision # use `amd_compatible` if compiling
+  layer_norm_type: amd_compatible
   layer_norm_with_affine: false
   bias_for_layer_norm: false
   activation_type: swiglu
@@ -180,7 +180,7 @@ evaluators:
 
 data:
   pad_direction: right
-  num_workers: 0
+  num_workers: 1
   drop_last: true
   pin_memory: true
   prefetch_factor: 16
