@@ -1125,6 +1125,8 @@ class Trainer:
                 # Check if run should be canceled.
                 if self.global_step % self.cfg.canceled_check_interval == 0:
                     canceled = self.check_if_cancelled()
+                elif self.cfg.stop_at is not None and self.global_step >= self.cfg.stop_at:
+                    canceled = True
 
                 # Maybe save sharded checkpoint.
                 if canceled or (
