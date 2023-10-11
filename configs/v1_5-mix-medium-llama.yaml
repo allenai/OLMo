@@ -31,7 +31,9 @@ model:
   eos_token_id: 0
   pad_token_id: 1
   init_device: meta
-  init_fn: normal
+  init_fn: full_megatron
+  init_std: 0.006
+  init_cutoff_factor: 3
   weight_tying: false
 
 fsdp:

@@ -206,6 +206,11 @@ class InitFnType(StrEnum):
     is the input dimensionality of the kernel.
     """
 
+    full_megatron = "full_megatron"
+    """
+    This is what metaseq calls "full megatron init". It is the init used for Llama 2.
+    """
+
 
 @dataclass
 class ModelConfig(BaseConfig):

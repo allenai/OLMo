@@ -404,16 +404,10 @@ class OlmoBlock(nn.Module):
         if self.q_norm is not None:
             self.q_norm.reset_parameters()
         init_weights(
-            self.config,
-            self.attn_out,
-            d=self.config.d_model,
-            layer_id=self.layer_id,
+            self.config, self.attn_out, d=self.config.d_model, layer_id=self.layer_id, type_of_module="out"
         )
         init_weights(
-            self.config,
-            self.ff_out,
-            d=self.ff_out.in_features,
-            layer_id=self.layer_id,
+            self.config, self.ff_out, d=self.ff_out.in_features, layer_id=self.layer_id, type_of_module="out"
         )
 
     def attention(
@@ -530,8 +524,8 @@ class OlmoSequentialBlock(OlmoBlock):
         self.attn_norm.reset_parameters()
         self.ff_norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
-        init_weights(self.config, self.att_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None)
+        init_weights(self.config, self.att_proj, d=self.config.d_model, layer_id=None, type_of_module="in")
+        init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None, type_of_module="in")
 
     def forward(
         self,
@@ -597,7 +591,9 @@ class OlmoParallelBlock(OlmoBlock):
         super().reset_parameters()
         self.norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
-        init_weights(self.config, self.fused_attn_ff_proj, d=self.config.d_model, layer_id=None)
+        init_weights(
+            self.config, self.fused_attn_ff_proj, d=self.config.d_model, layer_id=None, type_of_module="in"
+        )
 
     def forward(
         self,
@@ -750,16 +746,17 @@ class Olmo(nn.Module):
             self.config,
             self.transformer.wte,  # type: ignore
             std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,
+            type_of_module="emb",
         )
         if hasattr(self.transformer, "wpe"):
-            init_weights(self.config, self.transformer.wpe)  # type: ignore
+            init_weights(self.config, self.transformer.wpe, type_of_module="emb")  # type: ignore
 
         # Top-level layer norm.
         self.transformer.ln_f.reset_parameters()  # type: ignore
 
         # Output weights.
         if hasattr(self.transformer, "ff_out"):
-            init_weights(self.config, self.transformer.ff_out)  # type: ignore
+            init_weights(self.config, self.transformer.ff_out, type_of_module="final_out")  # type: ignore
 
         # Let the blocks handle themselves.
         for block in self.transformer.blocks:  # type: ignore
