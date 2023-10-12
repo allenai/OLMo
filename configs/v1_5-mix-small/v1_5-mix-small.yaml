@@ -11,17 +11,19 @@ model:
   n_heads: 16
   n_layers: 16
   mlp_ratio: 8
-  alibi: true
-  alibi_bias_max: 8.0
+  weight_tying: false
+  alibi: false
+  rope: true
+  flash_attention: false  # not available on AMD
   attention_dropout: 0.0
-  attention_layer_norm: true
-  multi_query_attention: true
-  # flash_attention: false  # can't be used with ALiBi
+  attention_layer_norm: false
+  multi_query_attention: false
   include_bias: false
   block_type: sequential
-  layer_norm_type: low_precision  # use `amd_compatible` if compiling
+  layer_norm_type: default
   layer_norm_with_affine: false
   bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
@@ -31,13 +33,13 @@ model:
   eos_token_id: 0
   pad_token_id: 1
   init_device: meta
-  init_fn: normal
+  init_fn: mitchell
 
 compile: null  # causes instability on AMD GPUs
 
 optimizer:
   name: adamw
-  learning_rate: 1.0e-4   # medium has 3e-4, should I increase?
+  learning_rate: 1.0e-3   # recommended by PeteW
   weight_decay: 0.1
   betas:
   - 0.9
@@ -46,7 +48,7 @@ optimizer:
 
 scheduler:
   name: cosine_with_warmup
-  t_warmup: 2000    # medium has 5k, should I increase?
+  t_warmup: 5000
   alpha_f: 0.1
 
 tokenizer:
@@ -70,8 +72,12 @@ device_train_microbatch_size: 8
 
 precision: amp_bf16
 
+fsdp:
+  wrapping_strategy: null
+  precision: mixed
+
 max_grad_norm: 1.0
-max_grad_norm_ratio: 1.5
+max_grad_norm_ratio: null
 
 speed_monitor:
   window_size: 20
