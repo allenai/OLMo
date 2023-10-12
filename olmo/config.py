@@ -47,6 +47,8 @@ __all__ = [
     "WandbConfig",
     "CompilerConfig",
     "WandbConfig",
+    "FSDPPrecision",
+    "FSDPWrapStrategy",
     "FSDPConfig",
     "CheckpointType",
 ]
@@ -573,6 +575,11 @@ class CheckpointType(StrEnum):
     unsharded = "unsharded"
 
 
+class ShardedCheckpointerType(StrEnum):
+    new_style = "new_style"
+    legacy = "legacy"
+
+
 @dataclass
 class TrainConfig(BaseConfig):
     """
@@ -825,9 +832,14 @@ class TrainConfig(BaseConfig):
     curve (according to the current learning rate schedule settings), and continues from there.
     """
 
-    new_style_checkpoints: bool = False
+    sharded_checkpointer: ShardedCheckpointerType = ShardedCheckpointerType.legacy
     """
-    Whether to use new-style sharded checkpointing or not.
+    The name of the sharded checkpointer to use.
+    """
+
+    new_style_checkpoints: Optional[bool] = False
+    """
+    Deprecated. Use ``sharded_checkpointer`` instead.
     """
 
     stop_at: Optional[int] = None
