@@ -206,6 +206,11 @@ class InitFnType(StrEnum):
     is the input dimensionality of the kernel.
     """
 
+    full_megatron = "full_megatron"
+    """
+    This is what metaseq calls "full megatron init". It is the init used for Llama 2.
+    """
+
 
 @dataclass
 class ModelConfig(BaseConfig):
@@ -309,11 +314,6 @@ class ModelConfig(BaseConfig):
     This only affects layer norms that are immediately followed by a linear layer in the forward pass,
     so everything except QK-norms. To turn off affines for QK norms as well, set :attr:`attention_layer_norm_with_affine`
     to ``False``.
-    """
-
-    attention_layer_norm_with_affine: bool = True
-    """
-    Toggle affine transform for the QK norms.
     """
 
     attention_layer_norm_with_affine: bool = True

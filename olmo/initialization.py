@@ -15,6 +15,7 @@ def init_weights(
     d: Optional[int] = None,
     layer_id: Optional[int] = None,
     std_factor: float = 1.0,
+    type_of_module: str = "",
 ) -> None:
     """
     Initialize weights of a linear or embedding module.
@@ -44,6 +45,33 @@ def init_weights(
     elif config.init_fn == InitFnType.fan_in:
         std = std_factor / math.sqrt(d)
         nn.init.normal_(module.weight, mean=0.0, std=std)
+    elif config.init_fn == InitFnType.full_megatron:
+        cutoff_factor = config.init_cutoff_factor
+        if cutoff_factor is None:
+            cutoff_factor = 3
+
+        if type_of_module == "in":
+            # for att_proj (same as QKV), ff_proj
+            std = config.init_std
+        elif type_of_module == "out":
+            # for attn_out, ff_out
+            std = config.init_std / math.sqrt(2.0 * config.n_layers)
+        elif type_of_module == "emb":
+            # positional embeddings (wpe)
+            # token embeddings (wte)
+            std = config.init_std
+        elif type_of_module == "final_out":
+            # final output (ff_out)
+            std = config.d_model**-0.5
+        else:
+            raise RuntimeError(f"Unknown module type '{type_of_module}'")
+        nn.init.trunc_normal_(
+            module.weight,
+            mean=0.0,
+            std=std,
+            a=-cutoff_factor * std,
+            b=cutoff_factor * std,
+        )
     else:
         raise NotImplementedError(config.init_fn)
 

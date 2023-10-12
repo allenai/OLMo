@@ -25,13 +25,15 @@ model:
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
-  max_sequence_length: 4096
+  max_sequence_length: 3584
   vocab_size: 50280
   embedding_size: 50304
   eos_token_id: 0
   pad_token_id: 1
   init_device: meta
-  init_fn: normal
+  init_fn: full_megatron
+  init_std: 0.006
+  init_cutoff_factor: 3
   weight_tying: false
 
 fsdp:
@@ -55,7 +57,7 @@ scheduler:
   alpha_f: 0.1
 
 data:
-  paths: ${path.glob:${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5-sample/gpt-neox-20b-pii-special/books/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5-sample/gpt-neox-20b-pii-special/c4/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5-sample/gpt-neox-20b-pii-special/common-crawl/*/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5-sample/gpt-neox-20b-pii-special/s2/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5-sample/gpt-neox-20b-pii-special/stack/*.npy,${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5-sample/gpt-neox-20b-pii-special/wiki/*.npy}
+  paths: ${path.glob:${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5-sample/gpt-neox-20b-pii-special/*.npy}
   pad_direction: right
   num_workers: 0
   drop_last: true
@@ -79,14 +81,13 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 476837  # 2T tokens
+max_duration: 544956  # 2T tokens
 global_train_batch_size: 1024
 device_train_microbatch_size: 1
 
 precision: amp_bf16
 
 max_grad_norm: 1.0
-max_grad_norm_ratio: 1.5
 
 speed_monitor:
   window_size: 20
@@ -142,7 +143,7 @@ evaluators:
   - label: openbook_qa
     type: downstream
 
-  # - label: boolq  # requires implemention of the pmi_dc matrix
+  # - label: boolq  # requires implementation of the pmi_dc matrix
     # type: downstream
  
   - label: sciq
@@ -151,7 +152,7 @@ evaluators:
   - label: arc_easy
     type: downstream
 
-  # - label: arc_challenge  # requires implemention of the pmi_dc matrix
+  # - label: arc_challenge  # requires implementation of the pmi_dc matrix
   #   type: downstream
 
   - label: copa
