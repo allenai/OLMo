@@ -745,12 +745,43 @@ class LocalShardedCheckpointer(Checkpointer):
         *,
         upload_to: Optional[str] = None,
     ) -> None:
-        if get_global_rank() == 0:
+        with self._temporary_wd(dir) as checkpoint_dir:
+            # Gather local FSDP flat param data save.
+            log.info("Saving local FSDP flat params data...")
+            flat_param_data: List[torch.Tensor] = []
             for handle in fsdp_model._handles:
                 flat_param = handle.flat_param
-                print(flat_param)
-        barrier()
-        raise NotImplementedError
+                flat_param_data.append(flat_param.detach())
+            save_state_dict(
+                checkpoint_dir,
+                f"model/rank{get_global_rank()}.pt",
+                {"flat_params": flat_param_data},
+                upload_to=upload_to,
+                save_overwrite=self.cfg.save_overwrite,
+            )
+
+            # Save optimizer state.
+            log.info("Saving local optimizer state...")
+            save_state_dict(
+                checkpoint_dir,
+                f"optim/rank{get_global_rank()}.pt",
+                optim.state_dict(),
+                upload_to=upload_to,
+                save_overwrite=self.cfg.save_overwrite,
+            )
+
+            # Save trainer state.
+            log.info("Saving trainer state...")
+            save_state_dict(
+                checkpoint_dir,
+                f"train/rank{get_global_rank()}.pt",
+                trainer_state,
+                upload_to=upload_to,
+                save_overwrite=self.cfg.save_overwrite,
+            )
+
+            # Save config.
+            self._save_config(checkpoint_dir, upload_to=upload_to)
 
     def restore_checkpoint(
         self,
@@ -761,7 +792,30 @@ class LocalShardedCheckpointer(Checkpointer):
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
     ) -> Dict[str, Any]:
-        raise NotImplementedError
+        # Load local FSDP flat param data.
+        log.info("Loading local FSDP flat params data...")
+        flat_param_data = load_state_dict(
+            load_path, f"model/rank{get_global_rank()}.pt", local_cache=local_cache, map_location="cpu"
+        )["flat_params"]
+        assert len(flat_param_data) == len(fsdp_model._handles)
+        for handle, data in zip(fsdp_model._handles, flat_param_data):
+            handle.flat_param.detach().copy_(data)
+        del flat_param_data
+
+        # Load local optim state.
+        if load_optimizer_state:
+            log.info("Loading local optimizer state...")
+            optim_state = load_state_dict(
+                load_path, f"optim/rank{get_global_rank()}.pt", local_cache=local_cache, map_location="cpu"
+            )
+            optim.load_state_dict(optim_state)
+            del optim_state
+
+        # Load local trainer state.
+        log.info("Loading local trainer state...")
+        trainer_state = load_state_dict(load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache)
+        barrier()
+        return trainer_state
 
 
 def build_sharded_checkpointer(cfg: TrainConfig, *, name: Optional[str] = None) -> Checkpointer:
