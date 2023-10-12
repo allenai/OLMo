@@ -414,8 +414,8 @@ class OptimizerConfig(BaseConfig):
     learning_rate: float = 1.0e-4
     weight_decay: float = 0.01
     betas: Tuple[float, float] = (0.9, 0.95)
-    no_decay_norm_and_bias: bool = True
-    """Do not apply weight decay to norms and biases."""
+    decay_norm_and_bias: bool = False
+    decay_embeddings: bool = False
     metrics_log_interval: Optional[int] = None
     """
     The interval with which to collect and log detailed parameter-specific metrics.
@@ -828,6 +828,11 @@ class TrainConfig(BaseConfig):
     new_style_checkpoints: bool = False
     """
     Whether to use new-style sharded checkpointing or not.
+    """
+
+    stop_at: Optional[int] = None
+    """
+    Stop at a specific step.
     """
 
     @property

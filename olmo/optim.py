@@ -2,7 +2,7 @@ import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from math import cos, pi, sqrt
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 import torch.distributed as dist
@@ -10,8 +10,9 @@ import torch.nn as nn
 from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.optim.optimizer import Optimizer as OptimizerBase
 
+from . import LayerNormBase
 from .config import OptimizerType, SchedulerType, TrainConfig
-from .util import get_default_device, is_distributed, is_weight_decay_module
+from .util import get_default_device, is_distributed
 
 __all__ = [
     "Optimizer",
@@ -201,22 +202,19 @@ class Optimizer(OptimizerBase):
         num_eligible_grads = 0
         for group in self.param_groups:
             if (max_norm_ratio := group.get("max_grad_norm_ratio")) is not None:
-                clipping_iter = self._do_adaptive_clipping(
+                num_clipped = self._do_adaptive_clipping(
                     group, max_norm_ratio, global_step, all_metrics, collect_param_metrics=collect_param_metrics
                 )
             elif (max_norm := group.get("max_grad_norm")) is not None:
-                clipping_iter = self._do_global_fixed_clipping(
+                num_clipped = self._do_global_fixed_clipping(
                     group, max_norm, all_metrics, collect_param_metrics=collect_param_metrics
                 )
             else:
                 # No clipping needed.
                 continue
-
-            for param_was_clipped in clipping_iter:
-                if param_was_clipped is not None:
-                    num_eligible_grads += 1
-                if param_was_clipped:
-                    num_grads_clipped += 1
+            num_eligible_grads += len(group["params"])
+            if num_clipped is not None:
+                num_grads_clipped += num_clipped
 
         if collect_param_metrics:
             clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
@@ -233,20 +231,19 @@ class Optimizer(OptimizerBase):
         global_step: int,
         all_metrics: Dict[str, torch.Tensor],
         collect_param_metrics: bool = True,
-    ) -> Generator[Optional[bool], None, None]:
+    ) -> Optional[int]:
         """
-        Do adaptive gradient clipping on a param group. Returns an iterator over clipping results.
-        The results will all be ``None`` if ``collect_param_metrics`` is ``False`` to avoid a host-device
-        sync, other ``True``  if the gradient for the parameter was clipped, ``False`` if not.
+        Do adaptive gradient clipping on a param group.
+
+        If ``collect_param_metrics`` is ``True`` this will return the total number of gradients clipped.
         """
         device = get_default_device()
-
+        num_grads_clipped = 0
         # We'll use the bigger of beta1 and beta2 to update the exponential average of the norm of
         # the gradient (a scalar), not to be confused with the exponential average of the gradient.
         # TODO (epwalsh): handle optimizers that don't have betas.
         beta1, beta2 = group["betas"]
         beta = max(beta1, beta2)
-
         for name, p in zip(group["param_names"], group["params"]):
             name = self._clean_param_name(name)
             grad_norm = all_metrics.get(f"grad/{name}.norm")
@@ -277,14 +274,11 @@ class Optimizer(OptimizerBase):
             grad_norm_exp_avg.lerp_(clipped_norm.to(grad_norm_exp_avg.device), 1 - beta)
 
             if collect_param_metrics:
-                # Can't avoid the host-device sync here.
+                # Can't avoid host-device sync here.
                 if clip_coef_clamped < 1.0:
-                    yield True
-                else:
-                    yield False
+                    num_grads_clipped += 1
                 all_metrics[f"grad_norm_exp_avg/{name}"] = grad_norm_exp_avg
-            else:
-                yield None
+        return num_grads_clipped if collect_param_metrics else None
 
     @torch.no_grad()
     def _do_global_fixed_clipping(
@@ -293,23 +287,21 @@ class Optimizer(OptimizerBase):
         max_norm: float,
         all_metrics: Dict[str, torch.Tensor],
         collect_param_metrics: bool = True,
-    ) -> Generator[Optional[bool], None, None]:
+    ) -> Optional[int]:
         """
-        Do global fixed gradient clipping on a param group. Returns an iterator over clipping results.
-        The results will all be ``None`` if ``collect_param_metrics`` is ``False`` to avoid a host-device
-        sync, other ``True``  if the gradient for the parameter was clipped, ``False`` if not.
+        Do global fixed gradient clipping on a param group.
+
+        If ``collect_param_metrics`` is ``True`` this will return the total number of gradients clipped.
         """
         device = get_default_device()
         total_grad_norm = all_metrics["total_grad_norm"]
         clip_coef = max_norm / (total_grad_norm.to(device) + 1e-6)
         clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
-        clipping_result: Optional[bool] = None
+        num_grads_clipped: Optional[int] = None
         if collect_param_metrics:
             # Can't avoid host-device sync here.
             if clip_coef_clamped < 1.0:
-                clipping_result = True
-            else:
-                clipping_result = False
+                num_grads_clipped = len(group["params"])
         for p in group["params"]:
             # Clip the gradients.
             # Note that multiplying by the clamped coefficient is meaningless when it is
@@ -317,7 +309,7 @@ class Optimizer(OptimizerBase):
             if p.grad is not None:
                 # p.grad could be none for some ranks when using FSDP.
                 p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
-            yield clipping_result
+        return num_grads_clipped
 
     def get_post_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
         del module
@@ -535,65 +527,70 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
         "max_grad_norm": cfg.max_grad_norm,
         "max_grad_norm_ratio": cfg.max_grad_norm_ratio,
     }
-    if cfg.optimizer.no_decay_norm_and_bias and cfg.optimizer.weight_decay > 0.0:
-        # Separate out parameters that we don't want to apply weight decay to, like norms and biases.
-        decay = set()
-        no_decay = set()
-        all_params = {}
-        for mn, m in model.named_modules():
-            for pn, p in m.named_parameters():
-                # NOTE: because named_modules and named_parameters are recursive
-                # we will see the same tensors p many many times, but doing it this way
-                # allows us to know which parent module any tensor p belongs to...
-                if not p.requires_grad:
-                    continue
 
-                fpn = f"{mn}.{pn}" if mn else pn
-                all_params[fpn] = p
+    # Separate out parameters that we don't want to apply weight decay to, like norms and biases.
+    decay = set()
+    no_decay = set()
+    all_params = {}
+    for mn, m in model.named_modules():
+        for pn, p in m.named_parameters():
+            # NOTE: because named_modules and named_parameters are recursive
+            # we will see the same tensors p many many times, but doing it this way
+            # allows us to know which parent module any tensor p belongs to...
+            if not p.requires_grad:
+                continue
 
-                if pn.endswith("bias"):
-                    # all biases will not be decayed
-                    no_decay.add(fpn)
-                elif pn.endswith("weight") and isinstance(m, nn.Linear):
+            fpn = f"{mn}.{pn}" if mn else pn
+            all_params[fpn] = p
+
+            if pn.endswith("bias"):
+                if cfg.optimizer.decay_norm_and_bias:
                     decay.add(fpn)
-                elif pn.endswith("weight") and not is_weight_decay_module(m):
+                else:
+                    no_decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, nn.Linear):
+                decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, (LayerNormBase, nn.LayerNorm)):
+                if cfg.optimizer.decay_norm_and_bias:
+                    decay.add(fpn)
+                else:
+                    no_decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, nn.Embedding):
+                if cfg.optimizer.decay_embeddings:
+                    decay.add(fpn)
+                else:
                     no_decay.add(fpn)
 
-        # Validate that we've considered every parameter
-        inter_params = decay & no_decay
-        union_params = decay | no_decay
-        assert decay
-        assert no_decay
-        assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
-        assert (
-            len(all_params.keys() - union_params) == 0
-        ), f"parameters {all_params.keys() - union_params} were not separated into either decay/no_decay set!"
+    # Validate that we've considered every parameter
+    inter_params = decay & no_decay
+    union_params = decay | no_decay
+    assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
+    assert (
+        len(all_params.keys() - union_params) == 0
+    ), f"parameters {all_params.keys() - union_params} were not separated into either decay/no_decay set!"
 
-        # Create the pytorch optimizer groups.
-        decay_sorted = sorted(list(decay))
-        no_decay_sorted = sorted(list(no_decay))
-        param_groups = [
+    # Create the pytorch optimizer groups.
+    decay_sorted = sorted(list(decay))
+    no_decay_sorted = sorted(list(no_decay))
+    param_groups = []
+    if len(decay_sorted) > 0:
+        param_groups.append(
             {
                 "params": [all_params[pn] for pn in decay_sorted],
                 "param_names": decay_sorted,
                 **param_group_defaults,
-            },
+            }
+        )
+    if len(no_decay_sorted) > 0:
+        param_groups.append(
             {
                 "params": [all_params[pn] for pn in no_decay_sorted],
                 "param_names": no_decay_sorted,
                 "weight_decay": 0.0,
                 **param_group_defaults,
-            },
-        ]
-    else:
-        param_names, params = zip(*list(model.named_parameters()))
-        param_groups = [
-            {
-                "params": list(params),
-                "param_names": list(param_names),
-                **param_group_defaults,
             }
-        ]
+        )
+
     # Validate fields.
     for group in param_groups:
         for key in PARAM_GROUP_FIELDS:

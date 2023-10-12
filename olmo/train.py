@@ -490,8 +490,8 @@ class Trainer:
             optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
         ):
             # Deserialize state dict.
-            state_dict = torch.load(
-                resource_path(load_path, f"rank{get_global_rank()}.pt", local_cache=local_cache)
+            state_dict = load_state_dict(
+                load_path, f"rank{get_global_rank()}.pt", local_cache=local_cache, map_location="cpu"
             )
 
             # Load model and optimizer state.
@@ -621,23 +621,24 @@ class Trainer:
             log.info("Loading model state...")
             self.fsdp_model.load_state_dict(
                 self.model._make_state_dict_compatible(
-                    torch.load(resource_path(load_path, "model.pt", local_cache=local_cache))
+                    load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location="cpu")
                 )
             )
 
             # Load optimizer state.
             if load_optimizer_state:
                 log.info("Loading optimizer state...")
-                optim_state_dict = torch.load(resource_path(load_path, "optim.pt", local_cache=local_cache))
+                optim_state_dict = load_state_dict(
+                    load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
+                )
                 load_fsdp_optim_state(self.fsdp_model, self.optim, optim_state_dict)
 
             # Load other state.
             try:
-                train_state_dict = torch.load(resource_path(load_path, "train.pt", local_cache=local_cache))
+                train_state_dict = load_state_dict(load_path, "train.pt", local_cache=local_cache)
             except FileNotFoundError:
-                train_state_dict = torch.load(
-                    resource_path(load_path, "other.pt", local_cache=local_cache)
-                )  # for backwards compatibility
+                # for backwards compatibility
+                train_state_dict = load_state_dict(load_path, "other.pt", local_cache=local_cache)
             self.load_trainer_state_dict(train_state_dict)
 
         barrier()
@@ -1124,6 +1125,8 @@ class Trainer:
                 # Check if run should be canceled.
                 if self.global_step % self.cfg.canceled_check_interval == 0:
                     canceled = self.check_if_cancelled()
+                elif self.cfg.stop_at is not None and self.global_step >= self.cfg.stop_at:
+                    canceled = True
 
                 # Maybe save sharded checkpoint.
                 if canceled or (

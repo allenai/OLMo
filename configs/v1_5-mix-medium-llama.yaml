@@ -1,4 +1,4 @@
-run_name: v1_5-mix-medium-run-001
+run_name: v1_5-mix-medium-llama-run-001
 seed: 6198
 dry_run: false
 
@@ -46,6 +46,8 @@ optimizer:
   name: adamw
   learning_rate: 3.0e-4
   weight_decay: 0.1
+  decay_norm_and_bias: true
+  decay_embeddings: false
   betas:
   - 0.9
   - 0.95
