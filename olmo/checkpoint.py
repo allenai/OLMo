@@ -746,7 +746,15 @@ class LocalShardedCheckpointer(Checkpointer):
         upload_to: Optional[str] = None,
     ) -> None:
         for n, p in fsdp_model.named_parameters():
-            print(f"{n}\n - {type(p)}\n - {p.shape}")
+            # fmt: off
+            print(
+                f"{n}\n"
+                f" - {type(p)}\n"
+                f" - {p.shape}\n"
+                f" - {type(p.detach())}\n"
+                f" - {p.detach().shape}\n"
+            )
+            # fmt: on
         raise NotImplementedError
 
     def restore_checkpoint(
