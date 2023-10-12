@@ -490,8 +490,8 @@ class Trainer:
             optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
         ):
             # Deserialize state dict.
-            state_dict = torch.load(
-                resource_path(load_path, f"rank{get_global_rank()}.pt", local_cache=local_cache)
+            state_dict = load_state_dict(
+                load_path, f"rank{get_global_rank()}.pt", local_cache=local_cache, map_location="cpu"
             )
 
             # Load model and optimizer state.
