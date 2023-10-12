@@ -2,7 +2,7 @@ import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from math import cos, pi, sqrt
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 import torch.distributed as dist
@@ -201,22 +201,19 @@ class Optimizer(OptimizerBase):
         num_eligible_grads = 0
         for group in self.param_groups:
             if (max_norm_ratio := group.get("max_grad_norm_ratio")) is not None:
-                clipping_iter = self._do_adaptive_clipping(
+                num_clipped = self._do_adaptive_clipping(
                     group, max_norm_ratio, global_step, all_metrics, collect_param_metrics=collect_param_metrics
                 )
             elif (max_norm := group.get("max_grad_norm")) is not None:
-                clipping_iter = self._do_global_fixed_clipping(
+                num_clipped = self._do_global_fixed_clipping(
                     group, max_norm, all_metrics, collect_param_metrics=collect_param_metrics
                 )
             else:
                 # No clipping needed.
                 continue
-
-            for param_was_clipped in clipping_iter:
-                if param_was_clipped is not None:
-                    num_eligible_grads += 1
-                if param_was_clipped:
-                    num_grads_clipped += 1
+            num_eligible_grads += len(group["params"])
+            if num_clipped is not None:
+                num_grads_clipped += num_clipped
 
         if collect_param_metrics:
             clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
@@ -233,20 +230,19 @@ class Optimizer(OptimizerBase):
         global_step: int,
         all_metrics: Dict[str, torch.Tensor],
         collect_param_metrics: bool = True,
-    ) -> Generator[Optional[bool], None, None]:
+    ) -> Optional[int]:
         """
-        Do adaptive gradient clipping on a param group. Returns an iterator over clipping results.
-        The results will all be ``None`` if ``collect_param_metrics`` is ``False`` to avoid a host-device
-        sync, other ``True``  if the gradient for the parameter was clipped, ``False`` if not.
+        Do adaptive gradient clipping on a param group.
+
+        If ``collect_param_metrics`` is ``True`` this will return the total number of gradients clipped.
         """
         device = get_default_device()
-
+        num_grads_clipped = 0
         # We'll use the bigger of beta1 and beta2 to update the exponential average of the norm of
         # the gradient (a scalar), not to be confused with the exponential average of the gradient.
         # TODO (epwalsh): handle optimizers that don't have betas.
         beta1, beta2 = group["betas"]
         beta = max(beta1, beta2)
-
         for name, p in zip(group["param_names"], group["params"]):
             name = self._clean_param_name(name)
             grad_norm = all_metrics.get(f"grad/{name}.norm")
@@ -277,14 +273,11 @@ class Optimizer(OptimizerBase):
             grad_norm_exp_avg.lerp_(clipped_norm.to(grad_norm_exp_avg.device), 1 - beta)
 
             if collect_param_metrics:
-                # Can't avoid the host-device sync here.
+                # Can't avoid host-device sync here.
                 if clip_coef_clamped < 1.0:
-                    yield True
-                else:
-                    yield False
+                    num_grads_clipped += 1
                 all_metrics[f"grad_norm_exp_avg/{name}"] = grad_norm_exp_avg
-            else:
-                yield None
+        return num_grads_clipped if collect_param_metrics else None
 
     @torch.no_grad()
     def _do_global_fixed_clipping(
@@ -293,23 +286,21 @@ class Optimizer(OptimizerBase):
         max_norm: float,
         all_metrics: Dict[str, torch.Tensor],
         collect_param_metrics: bool = True,
-    ) -> Generator[Optional[bool], None, None]:
+    ) -> Optional[int]:
         """
-        Do global fixed gradient clipping on a param group. Returns an iterator over clipping results.
-        The results will all be ``None`` if ``collect_param_metrics`` is ``False`` to avoid a host-device
-        sync, other ``True``  if the gradient for the parameter was clipped, ``False`` if not.
+        Do global fixed gradient clipping on a param group.
+
+        If ``collect_param_metrics`` is ``True`` this will return the total number of gradients clipped.
         """
         device = get_default_device()
         total_grad_norm = all_metrics["total_grad_norm"]
         clip_coef = max_norm / (total_grad_norm.to(device) + 1e-6)
         clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
-        clipping_result: Optional[bool] = None
+        num_grads_clipped: Optional[int] = None
         if collect_param_metrics:
             # Can't avoid host-device sync here.
             if clip_coef_clamped < 1.0:
-                clipping_result = True
-            else:
-                clipping_result = False
+                num_grads_clipped = len(group["params"])
         for p in group["params"]:
             # Clip the gradients.
             # Note that multiplying by the clamped coefficient is meaningless when it is
@@ -317,7 +308,7 @@ class Optimizer(OptimizerBase):
             if p.grad is not None:
                 # p.grad could be none for some ranks when using FSDP.
                 p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
-            yield clipping_result
+        return num_grads_clipped
 
     def get_post_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
         del module
