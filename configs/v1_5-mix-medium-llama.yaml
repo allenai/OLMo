@@ -46,7 +46,8 @@ optimizer:
   name: adamw
   learning_rate: 3.0e-4
   weight_decay: 0.1
-  no_decay_norm_and_bias: false
+  decay_norm_and_bias: true
+  decay_embeddings: false
   betas:
   - 0.9
   - 0.95

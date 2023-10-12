@@ -414,8 +414,8 @@ class OptimizerConfig(BaseConfig):
     learning_rate: float = 1.0e-4
     weight_decay: float = 0.01
     betas: Tuple[float, float] = (0.9, 0.95)
-    no_decay_norm_and_bias: bool = True
-    """Do not apply weight decay to norms and biases."""
+    decay_norm_and_bias: bool = False
+    decay_embeddings: bool = False
     metrics_log_interval: Optional[int] = None
     """
     The interval with which to collect and log detailed parameter-specific metrics.
