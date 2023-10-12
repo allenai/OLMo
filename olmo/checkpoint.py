@@ -736,6 +736,11 @@ class LegacyShardedCheckpointer(Checkpointer):
 
 
 class LocalShardedCheckpointer(Checkpointer):
+    """
+    A sharded :class:`Checkpointer` that directly saves the local FSDP flat params data.
+    The optimizer state is saved directly with `torch.save()` without reformatting via FSDP methods.
+    """
+
     def save_checkpoint(
         self,
         dir: PathOrStr,
