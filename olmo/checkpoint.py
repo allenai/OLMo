@@ -218,7 +218,13 @@ def save_state_dict(
         upload(target_path, upload_target, save_overwrite=save_overwrite)
 
 
-def load_state_dict(checkpoint_dir: PathOrStr, fname: str, *, local_cache: Optional[PathOrStr] = None):
+def load_state_dict(
+    checkpoint_dir: PathOrStr,
+    fname: str,
+    *,
+    local_cache: Optional[PathOrStr] = None,
+    map_location: Optional[str] = None,
+):
     """
     Load a regular state dict from the file ``fname`` within ``checkpoint_dir`` using :func:`torch.load()`.
     This can be used during distributed training or not.
@@ -230,7 +236,9 @@ def load_state_dict(checkpoint_dir: PathOrStr, fname: str, *, local_cache: Optio
 
     :raises FileNotFoundError: If ``fname`` doesn't exist in the ``checkpoint_dir`` or the local cache.
     """
-    return torch.load(resource_path(str(checkpoint_dir).rstrip("/"), fname, local_cache=local_cache))
+    return torch.load(
+        resource_path(str(checkpoint_dir).rstrip("/"), fname, local_cache=local_cache), map_location=map_location
+    )
 
 
 def load_model_state(checkpoint_dir: PathOrStr, model: torch.nn.Module):
