@@ -54,6 +54,7 @@ __all__ = [
     "FullCheckpointer",
     "NewStyleShardedCheckpointer",
     "LegacyShardedCheckpointer",
+    "LocalShardedCheckpointer",
     "build_sharded_checkpointer",
 ]
 
@@ -734,11 +735,39 @@ class LegacyShardedCheckpointer(Checkpointer):
         return state_dict
 
 
+class LocalShardedCheckpointer(Checkpointer):
+    def save_checkpoint(
+        self,
+        dir: PathOrStr,
+        fsdp_model: FSDP,
+        optim: Optimizer,
+        trainer_state: Dict[str, Any],
+        *,
+        upload_to: Optional[str] = None,
+    ) -> None:
+        for n, p in fsdp_model.named_parameters():
+            print(f"{n}\n - {type(p)}\n - {p.shape}")
+        raise NotImplementedError
+
+    def restore_checkpoint(
+        self,
+        load_path: PathOrStr,
+        fsdp_model: FSDP,
+        optim: Optimizer,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+        load_optimizer_state: bool = True,
+    ) -> Dict[str, Any]:
+        raise NotImplementedError
+
+
 def build_sharded_checkpointer(cfg: TrainConfig, *, name: Optional[str] = None) -> Checkpointer:
     name = name or cfg.sharded_checkpointer
     if name == ShardedCheckpointerType.new_style:
         return NewStyleShardedCheckpointer(cfg)
     elif name == ShardedCheckpointerType.legacy:
         return LegacyShardedCheckpointer(cfg)
+    elif name == ShardedCheckpointerType.local:
+        return LocalShardedCheckpointer(cfg)
     else:
         raise NotImplementedError(name)
