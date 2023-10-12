@@ -621,23 +621,24 @@ class Trainer:
             log.info("Loading model state...")
             self.fsdp_model.load_state_dict(
                 self.model._make_state_dict_compatible(
-                    torch.load(resource_path(load_path, "model.pt", local_cache=local_cache))
+                    load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location="cpu")
                 )
             )
 
             # Load optimizer state.
             if load_optimizer_state:
                 log.info("Loading optimizer state...")
-                optim_state_dict = torch.load(resource_path(load_path, "optim.pt", local_cache=local_cache))
+                optim_state_dict = load_state_dict(
+                    load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
+                )
                 load_fsdp_optim_state(self.fsdp_model, self.optim, optim_state_dict)
 
             # Load other state.
             try:
-                train_state_dict = torch.load(resource_path(load_path, "train.pt", local_cache=local_cache))
+                train_state_dict = load_state_dict(load_path, "train.pt", local_cache=local_cache)
             except FileNotFoundError:
-                train_state_dict = torch.load(
-                    resource_path(load_path, "other.pt", local_cache=local_cache)
-                )  # for backwards compatibility
+                # for backwards compatibility
+                train_state_dict = load_state_dict(load_path, "other.pt", local_cache=local_cache)
             self.load_trainer_state_dict(train_state_dict)
 
         barrier()
