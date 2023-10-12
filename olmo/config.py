@@ -833,6 +833,12 @@ class TrainConfig(BaseConfig):
     log_activations: bool = False
     """
     Whether to log activations to W&B. This can be useful for debugging, but it can also be very slow.
+    Note: If WandB is not configured, this activations will not be logged.
+    """
+
+    activation_log_interval: Optional[int] = None
+    """
+    How often to log activations to W&B. If not set, defaults to ``wandb.log_interval``.
     """
 
     @property

@@ -41,7 +41,7 @@ from .config import CheckpointType, SpeedMonitorConfig, TrainConfig
 from .data import IterableDataset
 from .eval import Evaluator
 from .exceptions import OlmoConfigurationError
-from .model import Olmo
+from .model import Olmo, OlmoBlock
 from .optim import Optimizer, Scheduler
 from .util import (
     barrier,
@@ -1002,72 +1002,85 @@ class Trainer:
         if run_canceled and cancel_reason is not None:
             log.warning(f"Run canceled due to {cancel_reason}")
         return run_canceled
+    
+    def should_log_activations_this_step(self) -> bool:
+        if self.cfg.wandb is None:
+            return False
+        activation_log_interval = self.cfg.activation_log_interval
+        if activation_log_interval is None:
+            activation_log_interval = self.cfg.wandb.log_interval
+        else:
+            activation_log_interval = max(activation_log_interval, self.cfg.wandb.log_interval)
+        return self.global_step % activation_log_interval == 0
 
     @torch.no_grad()
-    def get_activation_hook(self, module_name: str, global_step: int, log_interval:int):
-        def activation_hook(model:torch.nn.Module, input, output):
-            if wandb.run is None or global_step % log_interval != 0:
+    def get_activation_hook(self, module_name: str, log_interval: int, device: str):
+        def activation_hook(model: torch.nn.Module, input, output):
+            if not self.should_log_activations_this_step():
                 return
+            if isinstance(model, OlmoBlock):
+                output = output[0]
+            elif isinstance(model, Olmo):
+                output = output.logits
             activation = (
-                output.to(device="cpu")
+                output.to(device=device)
                 if output is not None
-                else torch.tensor([], device="cpu", dtype=torch.float32)
+                else torch.tensor([], device=device, dtype=torch.float32)
             )
             metric_prefix = f"activation/{module_name}"
             metrics = {}
-            numel = torch.tensor([activation.numel()], device="cuda", dtype=torch.float32)
-            if numel.item() > 0:
-                norm = activation.norm().squeeze().to(device="cuda")
-                avg = activation.mean().squeeze().to(device="cuda")
-                mini = activation.min().squeeze().to(device="cuda")
-                maxi = activation.max().squeeze().to(device="cuda")
+            numel_int = activation.numel()
+            numel = torch.tensor(activation.numel(), device=device, dtype=torch.float32)
+            if numel_int > 0:
+                norm = activation.norm().to(device=device)
+                avg = activation.norm().to(device=device)
+                mini = activation.min().to(device=device)
+                maxi = activation.max().to(device=device)
             else:
-                norm = torch.tensor([0.0], device="cuda", dtype=torch.float32)
-                avg = torch.tensor([0.0], device="cuda", dtype=torch.float32)
-                mini = torch.tensor([float("inf")], device="cuda", dtype=torch.float32)
-                maxi = torch.tensor([float("-inf")], device="cuda", dtype=torch.float32)
-            
-            # reduce accross GPUs
-            dist.reduce(mini, 0, op=dist.ReduceOp.MIN)
-            #mini.to(device="cpu")
-            dist.reduce(maxi, 0, op=dist.ReduceOp.MAX)
-            #maxi.to(device="cpu")
+                norm = torch.tensor(0.0, device=device, dtype=torch.float32)
+                avg = torch.tensor(0.0, device=device, dtype=torch.float32)
+                mini = torch.tensor(float("inf"), device=device, dtype=torch.float32)
+                maxi = torch.tensor(float("-inf"), device=device, dtype=torch.float32)
 
-            # reduce norm w Sum 
-            norm = norm**2
-            dist.reduce(norm, 0, op=dist.ReduceOp.SUM)
-            #norm.to(device="cpu")
-            norm = norm**0.5
-            
-            # reduce avg w Sum
-            avg *= numel.item()
-            dist.reduce(avg, 0, op=dist.ReduceOp.SUM)
-            #avg.to(device="cpu")
-            dist.reduce(numel, 0, op=dist.ReduceOp.SUM)
-            #numel.to(device="cpu")
-            avg /= numel.item()
+            # reduce accross GPUs, if we're using multiple them
+            if device == "cuda":
+                dist.reduce(mini, 0, op=dist.ReduceOp.MIN)
+                dist.reduce(maxi, 0, op=dist.ReduceOp.MAX)
 
+                # reduce norm w Sum
+                norm = norm**2
+                dist.reduce(norm, 0, op=dist.ReduceOp.SUM)
+                norm = norm**0.5
 
-            metrics[f"{metric_prefix}.norm"] = norm.item()
-            metrics[f"{metric_prefix}.avg"] = avg.item()
-            metrics[f"{metric_prefix}.min"] = mini.item()
-            metrics[f"{metric_prefix}.max"] = maxi.item()
+                # reduce avg w Sum
+                avg *= numel
+                dist.reduce(avg, 0, op=dist.ReduceOp.SUM)
+                dist.reduce(numel, 0, op=dist.ReduceOp.SUM)
+                avg /= numel
 
-            # log to WandB
-            wandb.log({metrics}, step=global_step)
+            metrics[f"{metric_prefix}.norm"] = norm
+            metrics[f"{metric_prefix}.avg"] = avg
+            metrics[f"{metric_prefix}.min"] = mini
+            metrics[f"{metric_prefix}.max"] = maxi
+
+            # save to the modules internals
+            model.activation_metrics = metrics
 
         return activation_hook
 
     def fit(self):
         self._start_time = time.time()
-        if self.cfg.log_activations:
-            #Add the hook at every named module
+        if self.cfg.wandb is not None and self.cfg.log_activations:
+            # Add the hook at every named module
             registered = set()
             for name, module in self.model.named_modules():
                 if name not in registered:
-                    module.register_forward_hook(self.get_activation_hook(name, self.global_step, self.cfg.wandb.log_interval))
+                    module.register_forward_hook(
+                        self.get_activation_hook(
+                            name, self.cfg.wandb.log_interval, device=self.device.type
+                        )
+                    )
                     registered.add(name)
-
 
         if self.cfg.load_path is not None and self.global_step > 0 and self.cfg.eval_on_load:
             eval_metrics = self.eval()
@@ -1176,6 +1189,13 @@ class Trainer:
                 # Log metrics to console.
                 if self.global_step % self.cfg.console_log_interval == 0:
                     self.log_metrics_to_console(f"[step={self.global_step}/{self.cfg.max_duration}]", metrics)
+                
+                if self.cfg.log_activations and self.should_log_activations_this_step():
+                    for name, module in self.model.named_modules():
+                        if hasattr(module, "activation_metrics"):
+                            for metric_name, metric_value in module.activation_metrics.items():
+                                metrics[metric_name] = metric_value.item()
+                            del module.activation_metrics
 
                 # Log metrics to W&B.
                 if (
@@ -1184,6 +1204,8 @@ class Trainer:
                     and self.global_step % self.cfg.wandb.log_interval == 0
                 ):
                     wandb.log(metrics, step=self.global_step)
+
+                
 
                 # Check if run should be canceled.
                 if self.global_step % self.cfg.canceled_check_interval == 0:
