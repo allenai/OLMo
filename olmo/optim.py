@@ -483,8 +483,6 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
     # Validate that we've considered every parameter
     inter_params = decay & no_decay
     union_params = decay | no_decay
-    assert decay
-    assert no_decay
     assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
     assert (
         len(all_params.keys() - union_params) == 0
@@ -493,19 +491,24 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
     # Create the pytorch optimizer groups.
     decay_sorted = sorted(list(decay))
     no_decay_sorted = sorted(list(no_decay))
-    param_groups = [
-        {
-            "params": [all_params[pn] for pn in decay_sorted],
-            "param_names": decay_sorted,
-            **param_group_defaults,
-        },
-        {
-            "params": [all_params[pn] for pn in no_decay_sorted],
-            "param_names": no_decay_sorted,
-            "weight_decay": 0.0,
-            **param_group_defaults,
-        },
-    ]
+    param_groups = []
+    if len(decay_sorted) > 0:
+        param_groups.append(
+            {
+                "params": [all_params[pn] for pn in decay_sorted],
+                "param_names": decay_sorted,
+                **param_group_defaults,
+            }
+        )
+    if len(no_decay_sorted) > 0:
+        param_groups.append(
+            {
+                "params": [all_params[pn] for pn in no_decay_sorted],
+                "param_names": no_decay_sorted,
+                "weight_decay": 0.0,
+                **param_group_defaults,
+            }
+        )
 
     # Validate fields.
     for group in param_groups:
