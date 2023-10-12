@@ -1003,8 +1003,9 @@ class Trainer:
             log.warning(f"Run canceled due to {cancel_reason}")
         return run_canceled
 
+    @torch.no_grad()
     def get_activation_hook(self, module_name: str, global_step: int, log_interval:int):
-        def activation_hook(model, input, output):
+        def activation_hook(model:torch.nn.Module, input, output):
             if wandb.run is None or global_step % log_interval != 0:
                 return
             activation = (
@@ -1014,30 +1015,38 @@ class Trainer:
             )
             metric_prefix = f"activation/{module_name}"
             metrics = {}
-            numel = activation.numel()
-            if numel > 0:
-                norm = activation.norm().squeeze()
-                avg = activation.mean().squeeze()
-                mini = activation.min().squeeze()
-                maxi = activation.max().squeeze()
+            numel = torch.tensor([activation.numel()], device="cuda", dtype=torch.float32)
+            if numel.item() > 0:
+                norm = activation.norm().squeeze().to(device="cuda")
+                avg = activation.mean().squeeze().to(device="cuda")
+                mini = activation.min().squeeze().to(device="cuda")
+                maxi = activation.max().squeeze().to(device="cuda")
             else:
-                norm = torch.tensor([0.0], device="cpu", dtype=torch.float32)
-                avg = torch.tensor([0.0], device="cpu", dtype=torch.float32)
-                mini = torch.tensor([float("inf")], device="cpu", dtype=torch.float32)
-                maxi = torch.tensor([float("-inf")], device="cpu", dtype=torch.float32)
+                norm = torch.tensor([0.0], device="cuda", dtype=torch.float32)
+                avg = torch.tensor([0.0], device="cuda", dtype=torch.float32)
+                mini = torch.tensor([float("inf")], device="cuda", dtype=torch.float32)
+                maxi = torch.tensor([float("-inf")], device="cuda", dtype=torch.float32)
             
             # reduce accross GPUs
             dist.reduce(mini, 0, op=dist.ReduceOp.MIN)
+            #mini.to(device="cpu")
             dist.reduce(maxi, 0, op=dist.ReduceOp.MAX)
+            #maxi.to(device="cpu")
+
             # reduce norm w Sum 
             norm = norm**2
             dist.reduce(norm, 0, op=dist.ReduceOp.SUM)
+            #norm.to(device="cpu")
             norm = norm**0.5
+            
             # reduce avg w Sum
-            avg *= numel
+            avg *= numel.item()
             dist.reduce(avg, 0, op=dist.ReduceOp.SUM)
+            #avg.to(device="cpu")
             dist.reduce(numel, 0, op=dist.ReduceOp.SUM)
-            avg /= numel
+            #numel.to(device="cpu")
+            avg /= numel.item()
+
 
             metrics[f"{metric_prefix}.norm"] = norm.item()
             metrics[f"{metric_prefix}.avg"] = avg.item()
