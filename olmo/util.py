@@ -512,3 +512,7 @@ def is_weight_decay_module(module: nn.Module) -> bool:
     from .model import LayerNormBase
 
     return not isinstance(module, (LayerNormBase, nn.LayerNorm, nn.Embedding))
+
+
+def default_thread_count() -> int:
+    return int(os.environ.get("OLMO_NUM_THREADS") or min(32, (os.cpu_count() or 1) + 4))

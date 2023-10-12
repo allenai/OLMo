@@ -34,7 +34,8 @@ optimizer:
   betas:
   - 0.9
   - 0.95
-  no_decay_norm_and_bias: true
+  decay_norm_and_bias: false
+  decay_embeddings: false
 scheduler:
   name: cosine_with_warmup
   t_warmup: 100
