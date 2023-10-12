@@ -240,7 +240,7 @@ def build_olmo_model(hf_model, device=olmo_device, use_fsdp=False):
 
 # Initialize process group and set device.
 if use_fsdp:
-    dist.init_process_group(backend="nccl", rank=get_local_rank(), world_size=get_world_size())
+    dist.init_process_group(backend="nccl")
     barrier()
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
 
