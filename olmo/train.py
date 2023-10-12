@@ -762,12 +762,6 @@ class Trainer:
             # Run backward pass.
             loss.backward()
 
-        # Check for nan.
-        if torch.isnan(ce_batch_loss):
-            raise ValueError("nan loss encountered")
-        if z_batch_loss is not None and torch.isnan(z_batch_loss):
-            raise ValueError("nan loss encountered")
-
         return ce_batch_loss, z_batch_loss
 
     def train_step(self, batch: Dict[str, Any], reduce_global_loss: bool = True) -> Dict[str, float]:
@@ -787,13 +781,19 @@ class Trainer:
         # Run forward-backward pass.
         ce_batch_loss, z_batch_loss = self.train_batch(batch)
 
+        # Collect loss, potentially reducing over all ranks.
+        if reduce_global_loss:
+            dist.reduce(ce_batch_loss, 0)
+            ce_batch_loss.div_(get_world_size())
+            if z_batch_loss is not None:
+                dist.reduce(z_batch_loss, 0)
+                z_batch_loss.div_(get_world_size())
+
         # Clip gradient norms and collect param/gradient/optim metrics.
         should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
         optim_metrics = self.optim.clip_grads_and_collect_metrics(
             self.global_step, collect_param_metrics=should_log_optim_metrics_this_step
         )
-        for key, value in optim_metrics.items():
-            metrics[f"optim/{key}"] = value.item()
 
         # Adjust the learning rate.
         for group in self.optim.param_groups:
@@ -804,20 +804,19 @@ class Trainer:
         # Optimizer step.
         self.optim.step()
 
-        # Collect loss, potentially reducing over all ranks.
-        if reduce_global_loss:
-            dist.reduce(ce_batch_loss, 0)
-            ce_batch_loss.div_(get_world_size())
-        # TODO (dirkgr): If we did this much earlier, like, right after the forwards step, but then didn't
-        # call `.item()` for a long time, would it use laziness to interleave this reduce call with the backward step?
+        # Collect metrics and check for NaN loss.
+        # NOTE: this involves a bunch of host-device syncs so we wait until the last moment to do this.
+        if torch.isnan(ce_batch_loss):
+            raise ValueError("nan loss encountered")
+        if z_batch_loss is not None and torch.isnan(z_batch_loss):
+            raise ValueError("nan loss encountered")
+        for key, value in optim_metrics.items():
+            metrics[f"optim/{key}"] = value.item()
         self.cur_train_loss = ce_batch_loss.item()
         self.min_train_loss = min(self.min_train_loss, self.cur_train_loss)
         metrics["train/CrossEntropyLoss"] = self.cur_train_loss
         metrics["train/Perplexity"] = math.exp(self.cur_train_loss)
         if z_batch_loss is not None:
-            if reduce_global_loss:
-                dist.reduce(z_batch_loss, 0)
-                z_batch_loss.div_(get_world_size())
             metrics["train/ZLoss"] = z_batch_loss.item()
 
         # Maybe collect post-step optimizer-specific metrics.
@@ -1125,6 +1124,8 @@ class Trainer:
                 # Check if run should be canceled.
                 if self.global_step % self.cfg.canceled_check_interval == 0:
                     canceled = self.check_if_cancelled()
+                elif self.cfg.stop_at is not None and self.global_step >= self.cfg.stop_at:
+                    canceled = True
 
                 # Maybe save sharded checkpoint.
                 if canceled or (

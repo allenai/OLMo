@@ -830,6 +830,11 @@ class TrainConfig(BaseConfig):
     Whether to use new-style sharded checkpointing or not.
     """
 
+    stop_at: Optional[int] = None
+    """
+    Stop at a specific step.
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":
