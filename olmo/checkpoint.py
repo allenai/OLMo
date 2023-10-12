@@ -746,16 +746,9 @@ class LocalShardedCheckpointer(Checkpointer):
         upload_to: Optional[str] = None,
     ) -> None:
         if get_global_rank() == 0:
-            for n, p in fsdp_model.named_parameters():
-                # fmt: off
-                print(
-                    f"{n}\n"
-                    f" - {type(p)}\n"
-                    f" - {p.shape}\n"
-                    f" - {type(p.detach())}\n"
-                    f" - {p.detach().shape}\n"
-                )
-                # fmt: on
+            for handle in fsdp_model._handles:
+                flat_param = handle.flat_param
+                print(flat_param)
         barrier()
         raise NotImplementedError
 
