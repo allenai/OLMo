@@ -748,6 +748,7 @@ class LocalShardedCheckpointer(Checkpointer):
     # These correspond to metadata attributes on `torch.distributed.fsdp.flat_param.FlatParameter`.
     _FLAT_PARAM_METADATA_TO_SAVE = ("_fqns", "_shard_param_offsets", "_shard_indices", "_numels", "_shapes")
 
+    @torch.no_grad()
     def _get_flat_param_state_to_save(self, fsdp_model: FSDP) -> Dict[str, Any]:
         module_data = []
         for fsdp_module in FSDP.fsdp_modules(fsdp_model):
@@ -757,13 +758,14 @@ class LocalShardedCheckpointer(Checkpointer):
                 # This is a `FlatParameter` instance.
                 # See `torch.distributed.fsdp.flat_param` for the API.
                 flat_param = handle.flat_param
-                data["flat_param.data"] = flat_param.data.detach()
+                data["flat_param.data"] = flat_param.detach()
                 for key in self._FLAT_PARAM_METADATA_TO_SAVE:
                     data[f"flat_param.{key}"] = getattr(flat_param, key)
                 handle_data.append(data)
             module_data.append({"handles": handle_data})
         return {"modules": module_data}
 
+    @torch.no_grad()
     def _load_flat_param_state(self, fsdp_model: FSDP, model_state: Dict[str, Any]):
         """Load the state produced from `self._get_flat_param_state_to_save()`."""
         fsdp_modules = list(FSDP.fsdp_modules(fsdp_model))
@@ -776,7 +778,7 @@ class LocalShardedCheckpointer(Checkpointer):
                 for key in self._FLAT_PARAM_METADATA_TO_SAVE:
                     assert getattr(flat_param, key) == data[f"flat_param.{key}"]
                 # Load the flat sharded data.
-                flat_param.data.detach().copy_(data["flat_param.data"])
+                flat_param.copy_(data["flat_param.data"])
 
     def save_checkpoint(
         self,
