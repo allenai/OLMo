@@ -3,6 +3,7 @@ import logging
 import pickle
 import shutil
 from abc import ABCMeta, abstractmethod
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
@@ -745,6 +746,32 @@ class LocalShardedCheckpointer(Checkpointer):
     The world size must be kept consistent when using this checkpointer.
     """
 
+    _FLAT_PARAM_METADATA_TO_SAVE = ("_fqns", "_shard_param_offsets")
+
+    def _get_flat_param_state_to_save(self, fsdp_model: FSDP) -> Dict[str, Any]:
+        handle_data = []
+        for handle in fsdp_model._handles:
+            data: Dict[str, List[Any]] = defaultdict(list)
+            # This is a `FlatParameter` instance.
+            # See `torch.distributed.fsdp.flat_param` for the API.
+            flat_param = handle.flat_param
+            data["flat_param.data"].append(flat_param.data.detach())
+            for key in self._FLAT_PARAM_METADATA_TO_SAVE:
+                data[f"flat_param.{key}"] = getattr(flat_param, key)
+            handle_data.append(data)
+        return {"handles": handle_data}
+
+    def _load_flat_param_state(self, fsdp_model: FSDP, model_state: Dict[str, Any]):
+        """Load the state produced from `self._get_flat_param_state_to_save()`."""
+        assert len(model_state["handles"]) == len(fsdp_model._handles)
+        for handle, data in zip(fsdp_model._handles, model_state["handles"]):
+            flat_param = handle.flat_param
+            # Make sure metadata matches.
+            for key in self._FLAT_PARAM_METADATA_TO_SAVE:
+                assert getattr(flat_param, key) == data[f"flat_param.{key}"]
+            # Load the flat sharded data.
+            flat_param.data.detach().copy_(data["flat_param.data"])
+
     def save_checkpoint(
         self,
         dir: PathOrStr,
@@ -760,18 +787,10 @@ class LocalShardedCheckpointer(Checkpointer):
             # of each original parameter so we can validate that the sharding is the same when loading
             # one of these checkpoints.
             log.info("Saving local FSDP flat params data...")
-            flat_param_data: List[torch.Tensor] = []
-            flat_param_fqns: List[Tuple[str, ...]] = []
-            for handle in fsdp_model._handles:
-                # This is a `FlatParameter` instance.
-                # See `torch.distributed.fsdp.flat_param` for the API.
-                flat_param = handle.flat_param
-                flat_param_data.append(flat_param.data.detach())
-                flat_param_fqns.append(flat_param._fqns)
             save_state_dict(
                 checkpoint_dir,
                 f"model/rank{get_global_rank()}.pt",
-                {"flat_param_data": flat_param_data, "flat_param_fqns": flat_param_fqns},
+                self._get_flat_param_state_to_save(fsdp_model),
                 upload_to=upload_to,
                 save_overwrite=self.cfg.save_overwrite,
             )
@@ -813,12 +832,7 @@ class LocalShardedCheckpointer(Checkpointer):
         model_state = load_state_dict(
             load_path, f"model/rank{get_global_rank()}.pt", local_cache=local_cache, map_location="cpu"
         )
-        assert len(model_state["flat_param_data"]) == len(fsdp_model._handles)
-        for handle, data, fqns in zip(
-            fsdp_model._handles, model_state["flat_param_data"], model_state["flat_param_fqns"]
-        ):
-            assert handle.flat_param._fqns == fqns
-            handle.flat_param.data.detach().copy_(data)
+        self._load_flat_param_state(fsdp_model, model_state)
         del model_state
 
         # Load local optim state.
