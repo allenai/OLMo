@@ -3,7 +3,6 @@ import logging
 import pickle
 import shutil
 from abc import ABCMeta, abstractmethod
-from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
@@ -751,11 +750,11 @@ class LocalShardedCheckpointer(Checkpointer):
     def _get_flat_param_state_to_save(self, fsdp_model: FSDP) -> Dict[str, Any]:
         handle_data = []
         for handle in fsdp_model._handles:
-            data: Dict[str, List[Any]] = defaultdict(list)
+            data: Dict[str, Any] = {}
             # This is a `FlatParameter` instance.
             # See `torch.distributed.fsdp.flat_param` for the API.
             flat_param = handle.flat_param
-            data["flat_param.data"].append(flat_param.data.detach())
+            data["flat_param.data"] = flat_param.data.detach()
             for key in self._FLAT_PARAM_METADATA_TO_SAVE:
                 data[f"flat_param.{key}"] = getattr(flat_param, key)
             handle_data.append(data)
