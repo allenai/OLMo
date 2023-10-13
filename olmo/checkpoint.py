@@ -952,28 +952,36 @@ class LocalShardedCheckpointer(Checkpointer):
             log.info(f"Loading shards from rank {rank}...")
             model_state = torch.load(path, map_location="cpu")
             for module_data in model_state["modules"]:
-                module_prefix = model_state["name"]
+                module_prefix = module_data["name"].replace("_fsdp_wrapped_module.", "")
                 for handle in module_data["handles"]:
+                    assert handle["flat_param._shard_numel_padded"] == 0  # TODO: will this ever be non-zero?
                     flat_data = handle["flat_param.data"]
+                    param_start = handle["flat_param._shard_indices"][0]
                     current_flat_index = 0
                     for og_fqn, og_shape, (offset_start, offset_end) in zip(
-                        handle["flat_param._fqns"],
-                        handle["flat_param._shapes"],
+                        handle["flat_param._fqns"][param_start:],
+                        handle["flat_param._shapes"][param_start:],
                         handle["flat_param._shard_param_offsets"],
                     ):
                         # If the full parameter hasn't been materialized yet, do so now.
                         root_fqn = og_fqn if not module_prefix else f"{module_prefix}.{og_fqn}"
-                        if og_fqn not in full_model_state:
+                        if root_fqn not in full_model_state:
+                            log.info(f"Materializing full parameter '{root_fqn}' with shape {og_shape}...")
                             full_model_state[root_fqn] = torch.empty(
                                 og_shape, dtype=flat_data.dtype, device=device
                             )
-                        log.info(f"Loading rank {rank} shard for {root_fqn}...")
                         full_param = full_model_state[root_fqn]
+
                         # Copy over the local shard to the relevant part of the full parameter.
                         numel_shard = offset_end - offset_start
-                        full_param.view(-1)[offset_start:offset_end].copy_(
-                            flat_data[current_flat_index : current_flat_index + numel_shard]
-                        )
+                        shard_flat_param = full_param.view(-1)[offset_start:offset_end]
+                        shard_flat_data = flat_data[current_flat_index : current_flat_index + numel_shard]
+                        log.info(f"Loading rank {rank} shard for '{root_fqn}'...")
+                        assert (
+                            shard_flat_param.shape == shard_flat_data.shape
+                        ), f"{shard_flat_param.shape} != {shard_flat_data.shape}"
+                        shard_flat_param.copy_(shard_flat_data)
+
                         current_flat_index += numel_shard
 
         if load_optimizer_state:
