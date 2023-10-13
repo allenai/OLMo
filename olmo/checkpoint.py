@@ -756,7 +756,7 @@ class LocalShardedCheckpointer(Checkpointer):
             flat_param_data: List[torch.Tensor] = []
             for handle in fsdp_model._handles:
                 flat_param = handle.flat_param
-                flat_param_data.append(flat_param.detach())
+                flat_param_data.append(flat_param.data.detach())
             save_state_dict(
                 checkpoint_dir,
                 f"model/rank{get_global_rank()}.pt",
@@ -804,7 +804,7 @@ class LocalShardedCheckpointer(Checkpointer):
         )["flat_params"]
         assert len(flat_param_data) == len(fsdp_model._handles)
         for handle, data in zip(fsdp_model._handles, flat_param_data):
-            handle.flat_param.detach().copy_(data)
+            handle.flat_param.data.detach().copy_(data)
         del flat_param_data
 
         # Load local optim state.
