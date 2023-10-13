@@ -23,8 +23,13 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DataLoader
 
 from .aliases import PathOrStr
-from .checkpoint import FullCheckpointer, build_sharded_checkpointer
-from .config import CheckpointType, SpeedMonitorConfig, TrainConfig
+from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
+from .config import (
+    CheckpointType,
+    ShardedCheckpointerType,
+    SpeedMonitorConfig,
+    TrainConfig,
+)
 from .data import IterableDataset
 from .eval import Evaluator
 from .exceptions import OlmoConfigurationError
@@ -199,7 +204,22 @@ class Trainer:
         torch.set_rng_state(rng_state["torch"])
         torch.cuda.set_rng_state(rng_state["cuda"])
 
-    def save_sharded_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
+    def _save_checkpoint(
+        self, checkpointer: Checkpointer, checkpoint_type: CheckpointType
+    ) -> Tuple[PathOrStr, Optional[PathOrStr]]:
+        if checkpoint_type == CheckpointType.sharded:
+            suffix = ""
+            current_checkpoints = self.checkpoints
+            link_latest = get_fs_local_rank() == 0
+            num_checkpoints_to_keep = self.cfg.save_num_checkpoints_to_keep
+        elif checkpoint_type == CheckpointType.unsharded:
+            suffix = "-unsharded"
+            current_checkpoints = self.unsharded_checkpoints
+            link_latest = get_global_rank() == 0
+            num_checkpoints_to_keep = self.cfg.save_num_unsharded_checkpoints_to_keep
+        else:
+            raise NotImplementedError(checkpoint_type)
+
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
 
@@ -208,13 +228,13 @@ class Trainer:
         if self.indices_file is not None:
             self.indices_file.flush()
 
-        checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}"
+        checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}{suffix}"
         remote_checkpoint_dir: Optional[str] = None
         if self.cfg.remote_save_folder is not None:
             remote_checkpoint_dir = f"{self.cfg.remote_save_folder.rstrip('/')}/{checkpoint_dir.name}"
-        self.checkpoints.append(checkpoint_dir)
+        current_checkpoints.append(checkpoint_dir)
 
-        checkpointer = build_sharded_checkpointer(self.cfg)
+        # Save the checkpoint.
         try:
             checkpointer.save_checkpoint(
                 checkpoint_dir,
@@ -228,9 +248,9 @@ class Trainer:
                 f"Checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
             )
 
-        if get_fs_local_rank() == 0:
+        if link_latest == 0:
             # Link to 'latest'.
-            latest_path = Path(self.cfg.save_folder) / "latest"
+            latest_path = Path(self.cfg.save_folder) / f"latest{suffix}"
             latest_path.unlink(missing_ok=True)
             try:
                 latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
@@ -242,9 +262,9 @@ class Trainer:
                     raise
 
         # Remove old checkpoints.
-        if self.cfg.save_num_checkpoints_to_keep > 0:
-            while len(self.checkpoints) > self.cfg.save_num_checkpoints_to_keep:
-                self.remove_sharded_checkpoint(0)
+        if num_checkpoints_to_keep > 0:
+            while len(current_checkpoints) > num_checkpoints_to_keep:
+                self.remove_checkpoint(0, checkpoint_type)
 
         barrier()
 
@@ -252,6 +272,10 @@ class Trainer:
             return remote_checkpoint_dir, checkpoint_dir
         else:
             return checkpoint_dir, None
+
+    def save_sharded_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
+        checkpointer = build_sharded_checkpointer(self.cfg)
+        return self._save_checkpoint(checkpointer, CheckpointType.sharded)
 
     def remove_sharded_checkpoint(self, idx: int = 0):
         oldest_checkpoint = self.checkpoints.pop(idx)
@@ -269,10 +293,11 @@ class Trainer:
         local_cache: Optional[PathOrStr] = None,
         *,
         load_optimizer_state: bool = True,
+        sharded_checkpointer: Optional[ShardedCheckpointerType] = None,
     ):
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
-        checkpointer = build_sharded_checkpointer(self.cfg)
+        checkpointer = build_sharded_checkpointer(self.cfg, name=sharded_checkpointer)
         trainer_state = checkpointer.restore_checkpoint(
             load_path,
             self.fsdp_model,
@@ -284,50 +309,8 @@ class Trainer:
         barrier()
 
     def save_unsharded_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
-        # Zero-gradients to avoid gathering them.
-        self.optim.zero_grad(set_to_none=True)
-
-        # Flush data indices file.
-        if self.indices_file is not None:
-            self.indices_file.flush()
-
-        checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}-unsharded"
-        remote_checkpoint_dir: Optional[str] = None
-        if self.cfg.remote_save_folder is not None:
-            remote_checkpoint_dir = f"{self.cfg.remote_save_folder.rstrip('/')}/{checkpoint_dir.name}"
-        self.unsharded_checkpoints.append(checkpoint_dir)
-
         checkpointer = FullCheckpointer(self.cfg)
-        try:
-            checkpointer.save_checkpoint(
-                checkpoint_dir,
-                self.fsdp_model,
-                self.optim,
-                self.trainer_state_dict(),
-                upload_to=remote_checkpoint_dir,
-            )
-        except FileExistsError:
-            raise OlmoConfigurationError(
-                f"Checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
-            )
-
-        if get_global_rank() == 0:
-            # Link to 'latest'.
-            latest_path = Path(self.cfg.save_folder) / "latest-unsharded"
-            latest_path.unlink(missing_ok=True)
-            latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
-
-        # Remove old checkpoints.
-        if self.cfg.save_num_unsharded_checkpoints_to_keep > 0:
-            while len(self.unsharded_checkpoints) > self.cfg.save_num_unsharded_checkpoints_to_keep:
-                self.remove_unsharded_checkpoint(0)
-
-        barrier()
-
-        if remote_checkpoint_dir is not None:
-            return remote_checkpoint_dir, checkpoint_dir
-        else:
-            return checkpoint_dir, None
+        return self._save_checkpoint(checkpointer, CheckpointType.unsharded)
 
     def remove_unsharded_checkpoint(self, idx: int = 0):
         barrier()
@@ -372,16 +355,20 @@ class Trainer:
         checkpoint_type: Optional[CheckpointType] = None,
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
+        sharded_checkpointer: Optional[ShardedCheckpointerType] = None,
     ):
         if checkpoint_type == CheckpointType.unsharded or (
-            checkpoint_type is None and str(load_path).endswith("-unsharded")
+            checkpoint_type is None and str(load_path).rstrip("/").endswith("-unsharded")
         ):
             self.restore_unsharded_checkpoint(
                 load_path, local_cache=local_cache, load_optimizer_state=load_optimizer_state
             )
         elif checkpoint_type == CheckpointType.sharded or checkpoint_type is None:
             self.restore_sharded_checkpoint(
-                load_path, local_cache=local_cache, load_optimizer_state=load_optimizer_state
+                load_path,
+                local_cache=local_cache,
+                load_optimizer_state=load_optimizer_state,
+                sharded_checkpointer=sharded_checkpointer,
             )
         elif checkpoint_type is not None:
             raise NotImplementedError(checkpoint_type)

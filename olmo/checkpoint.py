@@ -851,7 +851,9 @@ class LocalShardedCheckpointer(Checkpointer):
         return trainer_state
 
 
-def build_sharded_checkpointer(cfg: TrainConfig, *, name: Optional[str] = None) -> Checkpointer:
+def build_sharded_checkpointer(
+    cfg: TrainConfig, *, name: Optional[ShardedCheckpointerType] = None
+) -> Checkpointer:
     name = name or cfg.sharded_checkpointer
     if name == ShardedCheckpointerType.new_style:
         return NewStyleShardedCheckpointer(cfg)
