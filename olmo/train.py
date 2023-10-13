@@ -807,10 +807,10 @@ class Trainer:
                     wandb.log(metrics, step=self.global_step)
 
                 # Check if run should be canceled.
-                if self.global_step % self.cfg.canceled_check_interval == 0:
-                    canceled = self.check_if_cancelled()
-                elif self.cfg.stop_at is not None and self.global_step >= self.cfg.stop_at:
+                if self.cfg.stop_at is not None and self.global_step >= self.cfg.stop_at:
                     canceled = True
+                elif self.global_step % self.cfg.canceled_check_interval == 0:
+                    canceled = self.check_if_cancelled()
 
                 # Maybe save sharded checkpoint.
                 if canceled or (
