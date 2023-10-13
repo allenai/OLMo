@@ -758,6 +758,8 @@ class LocalShardedCheckpointer(Checkpointer):
     def _prepare_fsdp_model(self, fsdp_model: FSDP) -> None:
         from torch.distributed.fsdp._runtime_utils import _lazy_init
 
+        # TODO (epwalsh): I'm sure if this is necessary, but this is what PyTorch does before saving/loading
+        # an FSDP state dict through the built-in methods.
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         _lazy_init(fsdp_model, fsdp_model)
