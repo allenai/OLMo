@@ -283,6 +283,17 @@ def move_to_device(o: T, device: torch.device) -> T:
         return o
 
 
+def ensure_finite_(x: torch.Tensor, check_neg_inf: bool = True, check_pos_inf: bool = False):
+    """
+    Modify ``x`` in place to replace ``float("-inf")`` with the minimum value of the dtype when ``check_neg_inf``
+    is ``True`` and to replace ``float("inf")`` with the maximum value of the dtype when ``check_pos_inf`` is ``True``.
+    """
+    if check_neg_inf:
+        x.masked_fill_(x == float("-inf"), torch.finfo(x.dtype).min)
+    if check_pos_inf:
+        x.masked_fill_(x == float("inf"), torch.finfo(x.dtype).max)
+
+
 def is_distributed() -> bool:
     if "LOCAL_RANK" in os.environ:
         return True
@@ -377,8 +388,20 @@ def is_url(path: PathOrStr) -> bool:
     return re.match(r"[a-z0-9]+://.*", str(path)) is not None
 
 
+def dir_is_empty(dir: PathOrStr) -> bool:
+    dir = Path(dir)
+    if not dir.is_dir():
+        return True
+    try:
+        next(dir.glob("*"))
+        return False
+    except StopIteration:
+        return True
+
+
 def resource_path(folder: PathOrStr, fname: str, local_cache: Optional[PathOrStr] = None) -> Path:
     if local_cache is not None and (local_path := Path(local_cache) / fname).is_file():
+        log.info(f"Found local cache of {fname} at {local_path}")
         return local_path
     else:
         from cached_path import cached_path
@@ -480,7 +503,11 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
     return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1)
 
 
-s3_client = boto3.client("s3", config=Config(retries={"max_attempts": 10, "mode": "standard"}))
+s3_client = boto3.client(
+    "s3",
+    config=Config(retries={"max_attempts": 10, "mode": "standard"}),
+    use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
+)
 
 
 def _wait_before_retry(attempt: int):
@@ -572,3 +599,7 @@ def is_weight_decay_module(module: nn.Module) -> bool:
     from .model import LayerNormBase
 
     return not isinstance(module, (LayerNormBase, nn.LayerNorm, nn.Embedding))
+
+
+def default_thread_count() -> int:
+    return int(os.environ.get("OLMO_NUM_THREADS") or min(32, (os.cpu_count() or 1) + 4))
