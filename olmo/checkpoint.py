@@ -668,6 +668,8 @@ class LegacyShardedCheckpointer(Checkpointer):
     """
     A sharded :class:`Checkpointer` that just uses `torch.save()` with extra logic for handling FSDP model
     and optim state.
+
+    The world size must be kept consistent when using this checkpointer.
     """
 
     def save_checkpoint(
@@ -739,6 +741,8 @@ class LocalShardedCheckpointer(Checkpointer):
     """
     A sharded :class:`Checkpointer` that directly saves the local FSDP flat params data.
     The optimizer state is saved directly with `torch.save()` without reformatting via FSDP methods.
+
+    The world size must be kept consistent when using this checkpointer.
     """
 
     def save_checkpoint(
@@ -751,11 +755,16 @@ class LocalShardedCheckpointer(Checkpointer):
         upload_to: Optional[str] = None,
     ) -> None:
         with self._temporary_wd(dir) as checkpoint_dir:
-            # Gather local FSDP flat param data save.
+            # Gather local FSDP flat params data to save.
+            # We also save some flat param metadata like the corresponding fully qualified names (fqns)
+            # of each original parameter so we can validate that the sharding is the same when loading
+            # one of these checkpoints.
             log.info("Saving local FSDP flat params data...")
             flat_param_data: List[torch.Tensor] = []
             flat_param_fqns: List[Tuple[str, ...]] = []
             for handle in fsdp_model._handles:
+                # This is a `FlatParameter` instance.
+                # See `torch.distributed.fsdp.flat_param` for the API.
                 flat_param = handle.flat_param
                 flat_param_data.append(flat_param.data.detach())
                 flat_param_fqns.append(flat_param._fqns)
