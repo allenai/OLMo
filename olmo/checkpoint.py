@@ -811,24 +811,13 @@ class LocalShardedCheckpointer(Checkpointer):
             # of each original parameter so we can validate that the sharding is the same when loading
             # one of these checkpoints.
             log.info("Saving local FSDP flat params data...")
-            with FSDP.state_dict_type(
-                fsdp_model,
-                state_dict_type=StateDictType.LOCAL_STATE_DICT,
-            ):
-                save_state_dict(
-                    checkpoint_dir,
-                    f"model/rank{get_global_rank()}.pt",
-                    fsdp_model.state_dict(),
-                    upload_to=upload_to,
-                    save_overwrite=self.cfg.save_overwrite,
-                )
-            #  save_state_dict(
-            #      checkpoint_dir,
-            #      f"model/rank{get_global_rank()}.pt",
-            #      self._get_flat_param_state_to_save(fsdp_model),
-            #      upload_to=upload_to,
-            #      save_overwrite=self.cfg.save_overwrite,
-            #  )
+            save_state_dict(
+                checkpoint_dir,
+                f"model/rank{get_global_rank()}.pt",
+                self._get_flat_param_state_to_save(fsdp_model),
+                upload_to=upload_to,
+                save_overwrite=self.cfg.save_overwrite,
+            )
 
             # Save optimizer state.
             log.info("Saving local optimizer state...")
@@ -867,13 +856,7 @@ class LocalShardedCheckpointer(Checkpointer):
         model_state = load_state_dict(
             load_path, f"model/rank{get_global_rank()}.pt", local_cache=local_cache, map_location="cpu"
         )
-        with FSDP.state_dict_type(
-            fsdp_model,
-            state_dict_type=StateDictType.LOCAL_STATE_DICT,
-        ):
-            fsdp_model.load_state_dict(model_state)
-
-        #  self._load_flat_param_state(fsdp_model, model_state)
+        self._load_flat_param_state(fsdp_model, model_state)
         del model_state
 
         # Load local optim state.
