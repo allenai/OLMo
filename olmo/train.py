@@ -971,17 +971,17 @@ class Trainer:
                 log.info(f"Profile by total GPU time at step {p.step_num}:\n{output}")
                 output = p.key_averages().table(sort_by="self_cpu_time_total", row_limit=32)
                 log.info(f"Profile by total CPU time at step {p.step_num}:\n{output}")
+                output = p.key_averages().table(sort_by="cuda_memory_usage", row_limit=32)
+                log.info(f"Profile by total GPU memory at step {p.step_num}:\n{output}")
 
                 p.export_chrome_trace(str(profiler_output_dir / f"{p.step_num}.chrome_trace.json.gz"))
-                p.export_stacks(str(profiler_output_dir / f"{p.step_num}.gpu.stacks"), "self_cuda_time_total")
-                p.export_stacks(str(profiler_output_dir / f"{p.step_num}.cpu.stacks"), "self_cpu_time_total")
 
             from torch.profiler import ProfilerActivity
 
             torch_profiler = torch.profiler.profile(
                 activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-                record_shapes=False,
-                profile_memory=False,
+                record_shapes=True,
+                profile_memory=True,
                 with_stack=True,
                 schedule=profiling_schedule,
                 on_trace_ready=on_trace_ready,
