@@ -200,6 +200,7 @@ def save_state_dict(
     *,
     upload_to: Optional[str] = None,
     save_overwrite: bool = False,
+    no_dist: bool = False,
 ):
     """
     Save a regular state dict to the file ``fname`` within ``checkpoint_dir`` using :func:`torch.save()`.
@@ -211,6 +212,8 @@ def save_state_dict(
     :param state_dict: The state dict to save.
     :param upload_to: Optional, a remote "directory" to upload the file to.
     :param save_overwrite: Overwrite existing files.
+    :param no_dist: If ``True``, don't do any distributed synchronization. Use this when only calling
+        this function from a single rank.
 
     :raises FileExistsError: If the ``fname`` already exists within ``checkpoint_dir`` and ``save_overwrite=False``.
     """
@@ -220,9 +223,11 @@ def save_state_dict(
         target_path.unlink(missing_ok=True)
     elif target_path.is_file():
         raise FileExistsError(target_path)
-    barrier()
+    if not no_dist:
+        barrier()
     target_path.parent.mkdir(exist_ok=True, parents=True)
-    barrier()
+    if not no_dist:
+        barrier()
     torch.save(state_dict, target_path)
     if upload_to is not None:
         upload_target = f"{upload_to.rstrip('/')}/{fname}"
@@ -523,8 +528,10 @@ class FullCheckpointer(Checkpointer):
                         model_state_dict,
                         upload_to=upload_to,
                         save_overwrite=self.cfg.save_overwrite,
+                        no_dist=True,
                     )
                 del model_state_dict
+                barrier()
 
                 # Then the optimizer state.
                 optim_state_dict = FSDP.optim_state_dict(fsdp_model, optim)
@@ -536,8 +543,10 @@ class FullCheckpointer(Checkpointer):
                         optim_state_dict,
                         upload_to=upload_to,
                         save_overwrite=self.cfg.save_overwrite,
+                        no_dist=True,
                     )
                 del optim_state_dict
+                barrier()
 
             # Save trainer state.
             if get_global_rank() == 0:
@@ -548,6 +557,7 @@ class FullCheckpointer(Checkpointer):
                     trainer_state,
                     upload_to=upload_to,
                     save_overwrite=self.cfg.save_overwrite,
+                    no_dist=True,
                 )
             # Save config.
             self._save_config(checkpoint_dir, upload_to=upload_to)
