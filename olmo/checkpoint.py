@@ -758,9 +758,9 @@ class LocalShardedCheckpointer(Checkpointer):
     def _prepare_fsdp_model(self, fsdp_model: FSDP) -> None:
         from torch.distributed.fsdp._runtime_utils import _lazy_init
 
+        _lazy_init(fsdp_model, fsdp_model)
         if torch.cuda.is_available():
             torch.cuda.synchronize()
-        _lazy_init(fsdp_model, fsdp_model)
 
     @torch.no_grad()
     def _get_flat_param_state_to_save(self, fsdp_model: FSDP) -> Dict[str, Any]:
