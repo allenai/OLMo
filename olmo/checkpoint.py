@@ -754,13 +754,15 @@ class LocalShardedCheckpointer(Checkpointer):
             # Gather local FSDP flat param data save.
             log.info("Saving local FSDP flat params data...")
             flat_param_data: List[torch.Tensor] = []
+            flat_param_fqns: List[Tuple[str, ...]] = []
             for handle in fsdp_model._handles:
                 flat_param = handle.flat_param
                 flat_param_data.append(flat_param.data.detach())
+                flat_param_fqns.append(flat_param._fqns)
             save_state_dict(
                 checkpoint_dir,
                 f"model/rank{get_global_rank()}.pt",
-                {"flat_params": flat_param_data},
+                {"flat_param_data": flat_param_data, "flat_param_fqns": flat_param_fqns},
                 upload_to=upload_to,
                 save_overwrite=self.cfg.save_overwrite,
             )
@@ -799,13 +801,16 @@ class LocalShardedCheckpointer(Checkpointer):
     ) -> Dict[str, Any]:
         # Load local FSDP flat param data.
         log.info("Loading local FSDP flat params data...")
-        flat_param_data = load_state_dict(
+        model_state = load_state_dict(
             load_path, f"model/rank{get_global_rank()}.pt", local_cache=local_cache, map_location="cpu"
-        )["flat_params"]
-        assert len(flat_param_data) == len(fsdp_model._handles)
-        for handle, data in zip(fsdp_model._handles, flat_param_data):
+        )
+        assert len(model_state["flat_param_data"]) == len(fsdp_model._handles)
+        for handle, data, fqns in zip(
+            fsdp_model._handles, model_state["flat_param_data"], model_state["flat_param_fqns"]
+        ):
+            assert handle.flat_param._fqns == fqns
             handle.flat_param.data.detach().copy_(data)
-        del flat_param_data
+        del model_state
 
         # Load local optim state.
         if load_optimizer_state:
