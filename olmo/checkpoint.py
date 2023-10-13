@@ -755,12 +755,16 @@ class LocalShardedCheckpointer(Checkpointer):
         "_shard_numel_padded",
     )
 
-    @torch.no_grad()
-    def _get_flat_param_state_to_save(self, fsdp_model: FSDP) -> Dict[str, Any]:
+    def _prepare_fsdp_model(self, fsdp_model: FSDP) -> None:
         from torch.distributed.fsdp._runtime_utils import _lazy_init
 
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
         _lazy_init(fsdp_model, fsdp_model)
 
+    @torch.no_grad()
+    def _get_flat_param_state_to_save(self, fsdp_model: FSDP) -> Dict[str, Any]:
+        self._prepare_fsdp_model(fsdp_model)
         module_data = []
         for fsdp_module in FSDP.fsdp_modules(fsdp_model):
             handle_data = []
@@ -779,10 +783,7 @@ class LocalShardedCheckpointer(Checkpointer):
     @torch.no_grad()
     def _load_flat_param_state(self, fsdp_model: FSDP, model_state: Dict[str, Any]):
         """Load the state produced from `self._get_flat_param_state_to_save()`."""
-        from torch.distributed.fsdp._runtime_utils import _lazy_init
-
-        _lazy_init(fsdp_model, fsdp_model)
-
+        self._prepare_fsdp_model(fsdp_model)
         fsdp_modules = list(FSDP.fsdp_modules(fsdp_model))
         assert len(model_state["modules"]) == len(fsdp_modules)
         for fsdp_module, module_data in zip(fsdp_modules, model_state["modules"]):
