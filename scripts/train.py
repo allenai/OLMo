@@ -192,16 +192,16 @@ def main(cfg: TrainConfig) -> None:
             )
 
             # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever).
-            log.info("Saving pre-train checkpoint...")
-            checkpoint_path, local_checkpoint_cache = trainer.save_checkpoint(checkpoint_type=checkpoint_type)
-            log.info(f"Checkpoint saved to {checkpoint_path}")
+            #log.info("Saving pre-train checkpoint...")
+            #checkpoint_path, local_checkpoint_cache = trainer.save_checkpoint(checkpoint_type=checkpoint_type)
+            #log.info(f"Checkpoint saved to {checkpoint_path}")
 
             # And they we verify that we can load it.
-            log.info("Attempting to load pre-train checkpoint...")
-            trainer.restore_checkpoint(
-                checkpoint_path, checkpoint_type=checkpoint_type, local_cache=local_checkpoint_cache
-            )
-            log.info("Checkpoint successfully loaded")
+            #log.info("Attempting to load pre-train checkpoint...")
+            #trainer.restore_checkpoint(
+            #    checkpoint_path, checkpoint_type=checkpoint_type, local_cache=local_checkpoint_cache
+            #)
+            #log.info("Checkpoint successfully loaded")
 
             # NOTE: https://github.com/allenai/LLM/issues/233
             #  log.info("Removing pre-train checkpoint...")
