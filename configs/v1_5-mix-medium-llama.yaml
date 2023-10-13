@@ -75,10 +75,10 @@ tokenizer:
 save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
-save_interval: 1000
+save_interval: 1000000
 save_num_checkpoints_to_keep: -1
 # Unsharded checkpoints (for final storage)
-save_interval_unsharded: null  # getting errors on LUMI right now
+save_interval_unsharded: 1000
 save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null

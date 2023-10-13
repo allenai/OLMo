@@ -195,9 +195,7 @@ def main(cfg: TrainConfig) -> None:
         indices_file=indices_file,
     ) as trainer:
         if not cfg.dry_run and not cfg.no_pre_train_checkpoint and cfg.load_path is None:
-            checkpoint_type = (
-                CheckpointType.sharded if cfg.save_num_checkpoints_to_keep != 0 else CheckpointType.unsharded
-            )
+            checkpoint_type = CheckpointType.unsharded
 
             # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever).
             log.info("Saving pre-train checkpoint...")
