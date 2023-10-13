@@ -25,7 +25,7 @@ model:
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
-  max_sequence_length: 3584
+  max_sequence_length: 3072
   vocab_size: 50280
   embedding_size: 50304
   eos_token_id: 0
@@ -38,7 +38,7 @@ model:
 
 fsdp:
   precision: mixed
-  wrapping_strategy: by_block
+  #wrapping_strategy: by_block
 
 compile: null  # causes instability on AMD GPUs
 
@@ -84,7 +84,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 load_path: null
 
 max_duration: 544956  # 2T tokens
-global_train_batch_size: 1024
+global_train_batch_size: 1536
 device_train_microbatch_size: 1
 
 precision: amp_bf16
