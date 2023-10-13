@@ -83,7 +83,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 544956  # 2T tokens
+max_duration: 423855  # 2T tokens
 global_train_batch_size: 1536
 device_train_microbatch_size: 1
 
