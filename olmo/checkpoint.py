@@ -745,7 +745,8 @@ class LocalShardedCheckpointer(Checkpointer):
     The world size must be kept consistent when using this checkpointer.
     """
 
-    _FLAT_PARAM_METADATA_TO_SAVE = ("_fqns", "_shard_param_offsets")
+    # These correspond to metadata attributes on `torch.distributed.fsdp.flat_param.FlatParameter`.
+    _FLAT_PARAM_METADATA_TO_SAVE = ("_fqns", "_shard_param_offsets", "_shard_indices", "_numels", "_shapes")
 
     def _get_flat_param_state_to_save(self, fsdp_model: FSDP) -> Dict[str, Any]:
         handle_data = []
