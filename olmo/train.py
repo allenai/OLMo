@@ -248,7 +248,7 @@ class Trainer:
                 f"Checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
             )
 
-        if link_latest == 0:
+        if link_latest:
             # Link to 'latest'.
             latest_path = Path(self.cfg.save_folder) / f"latest{suffix}"
             latest_path.unlink(missing_ok=True)
