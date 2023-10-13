@@ -749,28 +749,34 @@ class LocalShardedCheckpointer(Checkpointer):
     _FLAT_PARAM_METADATA_TO_SAVE = ("_fqns", "_shard_param_offsets", "_shard_indices", "_numels", "_shapes")
 
     def _get_flat_param_state_to_save(self, fsdp_model: FSDP) -> Dict[str, Any]:
-        handle_data = []
-        for handle in fsdp_model._handles:
-            data: Dict[str, Any] = {}
-            # This is a `FlatParameter` instance.
-            # See `torch.distributed.fsdp.flat_param` for the API.
-            flat_param = handle.flat_param
-            data["flat_param.data"] = flat_param.data.detach()
-            for key in self._FLAT_PARAM_METADATA_TO_SAVE:
-                data[f"flat_param.{key}"] = getattr(flat_param, key)
-            handle_data.append(data)
-        return {"handles": handle_data}
+        module_data = []
+        for fsdp_module in FSDP.fsdp_modules(fsdp_model):
+            handle_data = []
+            for handle in fsdp_module._handles:
+                data: Dict[str, Any] = {}
+                # This is a `FlatParameter` instance.
+                # See `torch.distributed.fsdp.flat_param` for the API.
+                flat_param = handle.flat_param
+                data["flat_param.data"] = flat_param.data.detach()
+                for key in self._FLAT_PARAM_METADATA_TO_SAVE:
+                    data[f"flat_param.{key}"] = getattr(flat_param, key)
+                handle_data.append(data)
+            module_data.append({"handles": handle_data})
+        return {"modules": module_data}
 
     def _load_flat_param_state(self, fsdp_model: FSDP, model_state: Dict[str, Any]):
         """Load the state produced from `self._get_flat_param_state_to_save()`."""
-        assert len(model_state["handles"]) == len(fsdp_model._handles)
-        for handle, data in zip(fsdp_model._handles, model_state["handles"]):
-            flat_param = handle.flat_param
-            # Make sure metadata matches.
-            for key in self._FLAT_PARAM_METADATA_TO_SAVE:
-                assert getattr(flat_param, key) == data[f"flat_param.{key}"]
-            # Load the flat sharded data.
-            flat_param.data.detach().copy_(data["flat_param.data"])
+        fsdp_modules = list(FSDP.fsdp_modules(fsdp_model))
+        assert len(model_state["modules"]) == len(fsdp_modules)
+        for fsdp_module, module_data in zip(fsdp_modules, model_state["modules"]):
+            assert len(module_data["handles"]) == len(fsdp_module._handles)
+            for handle, data in zip(fsdp_module._handles, module_data["handles"]):
+                flat_param = handle.flat_param
+                # Make sure metadata matches.
+                for key in self._FLAT_PARAM_METADATA_TO_SAVE:
+                    assert getattr(flat_param, key) == data[f"flat_param.{key}"]
+                # Load the flat sharded data.
+                flat_param.data.detach().copy_(data["flat_param.data"])
 
     def save_checkpoint(
         self,
