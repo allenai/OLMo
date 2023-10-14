@@ -973,8 +973,8 @@ class LocalShardedCheckpointer(Checkpointer):
                         full_param = full_model_state[root_fqn]
 
                         # Copy over the local shard to the relevant part of the full parameter.
-                        numel_shard = offset_end - offset_start
-                        shard_flat_param = full_param.view(-1)[offset_start:offset_end]
+                        numel_shard = offset_end - offset_start + 1
+                        shard_flat_param = full_param.view(-1)[offset_start : offset_end + 1]
                         shard_flat_data = flat_data[current_flat_index : current_flat_index + numel_shard]
                         log.info(f"Loading rank {rank} shard for '{root_fqn}'...")
                         assert (
