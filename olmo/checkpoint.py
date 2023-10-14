@@ -1021,7 +1021,7 @@ class LocalShardedCheckpointer(Checkpointer):
 
             # Initialize param groups.
             # We assume parameter groups are the same across all ranks.
-            # The only that differs across ranks is the state for each local sharded param.
+            # The only thing that differs across ranks is the state for each local sharded param.
             if "param_groups" not in full_optim_state:
                 full_optim_state["param_groups"] = optim_state["param_groups"]
             else:
