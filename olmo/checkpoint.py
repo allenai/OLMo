@@ -3,9 +3,10 @@ import logging
 import pickle
 import shutil
 from abc import ABCMeta, abstractmethod
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Tuple, cast
 
@@ -756,6 +757,19 @@ class _LocalShardedCheckpointerMetadata(BaseConfig):
     world_size: int = field(default_factory=get_world_size)
 
 
+@dataclass
+class _FlatParamShard:
+    full_shape: torch.Size
+    shard_offsets: Tuple[int, int]
+    shard_data: Optional[torch.Tensor]
+
+    def copy_into(self, full_tensor: torch.Tensor) -> None:
+        assert self.shard_data is not None
+        full_tensor_shard_view = full_tensor.view(-1)[self.shard_offsets[0] : self.shard_offsets[1] + 1]
+        assert self.shard_data.shape == full_tensor_shard_view.shape
+        full_tensor_shard_view.copy_(self.shard_data)
+
+
 class LocalShardedCheckpointer(Checkpointer):
     """
     A sharded :class:`Checkpointer` that directly saves the local FSDP flat params data.
@@ -935,7 +949,7 @@ class LocalShardedCheckpointer(Checkpointer):
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
         device: Optional[torch.device] = None,
-    ) -> Tuple[Dict[str, torch.Tensor], Optional[Dict[str, torch.Tensor]]]:
+    ) -> Tuple[Dict[str, torch.Tensor], Optional[Dict[str, Any]]]:
         device = device or torch.device("cpu")
         metadata = self._load_metadata(load_path, local_cache=local_cache)
 
@@ -948,6 +962,9 @@ class LocalShardedCheckpointer(Checkpointer):
         # Load model state dicts one-by-one, materializing and populating the full parameters as we go.
         log.info("Materializing full parameters...")
         full_model_state: Dict[str, torch.Tensor] = {}
+        # We keep a copy of the flat param metadata minus the actual tensors so we can reconstruct
+        # the full optimizer state below without having to reload the model state dicts.
+        flat_params_data: Dict[int, Dict[str, _FlatParamShard]] = defaultdict(dict)
         for rank, path in enumerate(model_state_paths):
             log.info(f"Loading shards from rank {rank}...")
             model_state = torch.load(path, map_location="cpu")
@@ -958,36 +975,102 @@ class LocalShardedCheckpointer(Checkpointer):
                     flat_data = handle["flat_param.data"]
                     param_start = handle["flat_param._shard_indices"][0]
                     current_flat_index = 0
-                    for og_fqn, og_shape, (offset_start, offset_end) in zip(
+                    for relative_fqn, full_shape, (offset_start, offset_end) in zip(
                         handle["flat_param._fqns"][param_start:],
                         handle["flat_param._shapes"][param_start:],
                         handle["flat_param._shard_param_offsets"],
                     ):
                         # If the full parameter hasn't been materialized yet, do so now.
-                        root_fqn = og_fqn if not module_prefix else f"{module_prefix}.{og_fqn}"
+                        root_fqn = relative_fqn if not module_prefix else f"{module_prefix}.{relative_fqn}"
                         if root_fqn not in full_model_state:
-                            log.info(f"Materializing full parameter '{root_fqn}' with shape {og_shape}...")
+                            log.info(f"Materializing full parameter '{root_fqn}' with shape {full_shape}...")
                             full_model_state[root_fqn] = torch.empty(
-                                og_shape, dtype=flat_data.dtype, device=device
+                                full_shape, dtype=flat_data.dtype, device=device
                             )
                         full_param = full_model_state[root_fqn]
 
                         # Copy over the local shard to the relevant part of the full parameter.
-                        numel_shard = offset_end - offset_start + 1
-                        shard_flat_param = full_param.view(-1)[offset_start : offset_end + 1]
-                        shard_flat_data = flat_data[current_flat_index : current_flat_index + numel_shard]
                         log.info(f"Loading rank {rank} shard for '{root_fqn}'...")
-                        assert (
-                            shard_flat_param.shape == shard_flat_data.shape
-                        ), f"{shard_flat_param.shape} != {shard_flat_data.shape}"
-                        shard_flat_param.copy_(shard_flat_data)
+                        numel_shard = offset_end - offset_start + 1
+                        flat_param_shard = _FlatParamShard(
+                            full_shape=full_shape,
+                            shard_offsets=(offset_start, offset_end),
+                            shard_data=flat_data[current_flat_index : current_flat_index + numel_shard],
+                        )
+                        flat_param_shard.copy_into(full_param)
 
+                        # Bookkeeping.
                         current_flat_index += numel_shard
+                        flat_params_data[rank][root_fqn] = replace(flat_param_shard, shard_data=None)
 
-        if load_optimizer_state:
-            raise NotImplementedError
+        if not load_optimizer_state:
+            return full_model_state, None
 
-        return full_model_state, None
+        log.info("Gathering optim state dicts...")
+        optim_state_paths = self._gather_state_dict_paths(
+            load_path, "optim", metadata.world_size, local_cache=local_cache
+        )
+
+        log.info("Materializing full optim state...")
+        full_optim_state: Dict[str, Any] = {"state": defaultdict(dict)}
+        fqn_to_id: Dict[str, int] = {}
+        id_to_fqn: Dict[int, str] = {}
+        for rank, path in enumerate(optim_state_paths):
+            log.info(f"Loading sharded optim state from rank {rank}...")
+            optim_state = torch.load(path, map_location="cpu")
+
+            # Initialize param groups.
+            # We assume parameter groups are the same across all ranks.
+            # The only that differs across ranks is the state for each local sharded param.
+            if "param_groups" not in full_optim_state:
+                full_optim_state["param_groups"] = optim_state["param_groups"]
+            else:
+                assert full_optim_state["param_groups"] == optim_state["param_groups"]
+
+            # Generate mapping of parameter FQNs to optimizer param IDs and vice-versa.
+            if not fqn_to_id or not id_to_fqn:
+                for group in full_optim_state["param_groups"]:
+                    for fqn, id in zip(group["param_names"], group["params"]):
+                        fqn = fqn.replace("_fsdp_wrapped_module.", "")
+                        fqn_to_id[fqn] = id
+                        id_to_fqn[id] = fqn
+
+            # Iterate over local shard state and copy into the full state.
+            for id, shard_state in optim_state["state"].items():
+                fqn = id_to_fqn[id]
+                flat_param_shard = flat_params_data[rank][fqn]
+                full_state = full_optim_state["state"][id]
+                for key, shard_value in shard_state.items():
+                    assert isinstance(shard_value, torch.Tensor)
+                    if shard_value.shape == torch.Size([]):
+                        # Add singleton tensors directly to full state. These should be the same across
+                        # all ranks.
+                        assert key in ("step", "grad_norm_exp_avg")  # sanity check
+                        if key not in full_state:
+                            full_state[key] = shard_value.to(device)
+                        else:
+                            assert full_state[key] == shard_value
+                    else:
+                        # Otherwise we have a sharded param state.
+                        # If the corresponding full param state hasn't been materialized yet, do so now.
+                        if key not in full_state:
+                            log.info(
+                                f"Materializing full state '{key}' for '{fqn}' with shape {flat_param_shard.full_shape}..."
+                            )
+                            full_state[key] = torch.empty(
+                                flat_param_shard.full_shape, dtype=shard_value.dtype, device=device
+                            )
+                        full_state_value = full_state[key]
+
+                        # Copy over the local shard state to the relevant part of the full parameter state.
+                        log.info(f"Loading rank {rank} shard state of '{key}' for '{fqn}'...")
+                        replace(flat_param_shard, shard_data=shard_value).copy_into(full_state_value)
+
+        # Lastly, clean up the parameter names in param groups.
+        for group in full_optim_state["param_groups"]:
+            group["param_names"] = [n.replace("_fsdp_wrapped_module.", "") for n in group["param_names"]]
+
+        return full_model_state, full_optim_state
 
     def _get_state_dict_path(
         self,
