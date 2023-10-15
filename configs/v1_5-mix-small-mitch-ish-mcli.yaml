@@ -12,7 +12,7 @@ model:
   n_heads: 16
   n_layers: 16
   mlp_ratio: 8
-  weight_tying: false
+  weight_tying: true
   alibi: false
   rope: true
   flash_attention: true
