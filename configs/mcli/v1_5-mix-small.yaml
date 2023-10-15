@@ -12,11 +12,12 @@ integrations:
 command: |-
   pip freeze
   mkdir -p /root/.cache/torch/
+  pip install --upgrade torch==2.0.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
   export OMP_NUM_THREADS=8
   export LOG_FILTER_TYPE=local_rank0_only
   export OLMO_NO_SSL=1
-  #export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
+  export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
 
   cd LLM
 

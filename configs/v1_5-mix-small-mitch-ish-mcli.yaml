@@ -19,11 +19,11 @@ model:
   attention_dropout: 0.0
   attention_layer_norm: false
   multi_query_attention: false
-  include_bias: false
+  include_bias: true
   block_type: sequential
   layer_norm_type: default
-  layer_norm_with_affine: false
-  bias_for_layer_norm: false
+  layer_norm_with_affine: true
+  bias_for_layer_norm: true
   attention_layer_norm_with_affine: false
   activation_type: swiglu
   residual_dropout: 0.0
