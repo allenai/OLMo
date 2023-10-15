@@ -26,4 +26,4 @@ command: |-
   --nnodes $NUM_NODES \
   --node_rank $NODE_RANK \
   --nproc_per_node 8 \
-  scripts/train.py configs/v1_5-mix-small-mitch-ish-mcli.yaml --max_duration=35763 --scheduler.t_max=71526
+  scripts/train.py configs/v1_5-mix-small-mitch-ish-mcli.yaml --max_duration=36000 --scheduler.t_max=72000
