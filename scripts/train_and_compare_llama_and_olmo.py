@@ -24,14 +24,15 @@ os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"  # needed for running in the det
 
 # torch.set_printoptions(precision=10)
 SEED: int = 42
+SEQ_LEN: int = 3
 
-model_path = 'test_fixtures/tiny_llama/'
+model_path = "test_fixtures/tiny_llama/"
 # model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
 
 # for development
-hf_device = 'cpu'
-olmo_device = 'cpu'
-use_fsdp = False
+# hf_device = 'cpu'
+# olmo_device = 'cpu'
+# use_fsdp = False
 
 # # for running the real 7B model on GPU
 # hf_device = 'cuda:0'
@@ -39,9 +40,9 @@ use_fsdp = False
 # use_fsdp = False
 
 # # for FSDP
-# hf_device = "cpu"
-# olmo_device = "cuda"
-# use_fsdp = True
+hf_device = "cpu"
+olmo_device = "cuda"
+use_fsdp = True
 
 
 def test_all_approx_close(a, b, rtol, atol, count):
@@ -63,7 +64,9 @@ tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
 
 # load Llama weights into HF model
 def build_hf_model(device: str, dtype: torch.dtype):
-    hf_model = transformers.AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=dtype, device_map=device, rms_norm_eps=1e-5)
+    hf_model = transformers.AutoModelForCausalLM.from_pretrained(
+        model_path, torch_dtype=dtype, device_map=device, rms_norm_eps=1e-5
+    )
     return hf_model
 
 
@@ -138,6 +141,7 @@ def update_config_with_hf_settings(cfg, hf_model):
     cfg.model.n_heads = hf_model.config.num_attention_heads
     cfg.model.d_model = hf_model.config.hidden_size
     cfg.model.mlp_hidden_size = hf_model.config.intermediate_size * 2
+    cfg.model.max_sequence_length = hf_model.config.max_position_embeddings
 
 
 # create a similar sized OLMo model
@@ -249,8 +253,10 @@ def build_olmo_model(hf_model, cfg, use_fsdp=False):
 
 
 def print_metrics(olmo_tensor, hf_tensor, tensor_name):
-    log.info(f"{tensor_name} max absolute diff: {torch.max(torch.abs(olmo_tensor - hf_tensor))}")
-    log.info(f"{tensor_name} max relative diff: {torch.max(torch.abs(olmo_tensor - hf_tensor) / torch.abs(olmo_tensor))}")
+    log.info(f"{tensor_name} max absolute diff: {torch.max(torch.abs(olmo_tensor.cpu() - hf_tensor.cpu()))}")
+    log.info(
+        f"{tensor_name} max relative diff: {torch.max(torch.abs(olmo_tensor.cpu() - hf_tensor.cpu()) / torch.abs(olmo_tensor.cpu()))}"
+    )
     log.info(f"OLMo {tensor_name} norm: {torch.norm(olmo_tensor)}")
     log.info(f"HF {tensor_name} norm: {torch.norm(hf_tensor)}")
     log.info(f"OLMo {tensor_name} mean: {torch.mean(olmo_tensor)}")
@@ -274,22 +280,38 @@ def check_model_equality(hf_model, olmo_model):
     are_equal = True
 
     # embeddings
-    are_equal = check_weight_equality(olmo_model.transformer.wte.weight, hf_model.model.embed_tokens.weight, "wte") and are_equal
+    are_equal = (
+        check_weight_equality(olmo_model.transformer.wte.weight, hf_model.model.embed_tokens.weight, "wte")
+        and are_equal
+    )
 
     # output projection
-    are_equal = check_weight_equality(olmo_model.transformer.ff_out.weight, hf_model.lm_head.weight, "ff_out") and are_equal
+    are_equal = (
+        check_weight_equality(olmo_model.transformer.ff_out.weight, hf_model.lm_head.weight, "ff_out")
+        and are_equal
+    )
 
     # final layer norm
-    are_equal = check_weight_equality(olmo_model.transformer.ln_f.weight, hf_model.model.norm.weight, "ln_f") and are_equal
+    are_equal = (
+        check_weight_equality(olmo_model.transformer.ln_f.weight, hf_model.model.norm.weight, "ln_f") and are_equal
+    )
 
     # layers
     assert len(hf_model.model.layers) == len(olmo_model.transformer.blocks)
     for i, (hf_layer, olmo_layer) in enumerate(zip(hf_model.model.layers, olmo_model.transformer.blocks)):
         # input norm
-        are_equal = check_weight_equality(olmo_layer.attn_norm.weight, hf_layer.input_layernorm.weight, f"attn_norm_{i}") and are_equal
+        are_equal = (
+            check_weight_equality(olmo_layer.attn_norm.weight, hf_layer.input_layernorm.weight, f"attn_norm_{i}")
+            and are_equal
+        )
 
         # post attention layernorm
-        are_equal = check_weight_equality(olmo_layer.ff_norm.weight, hf_layer.post_attention_layernorm.weight, f"attn_norm_{i}") and are_equal
+        are_equal = (
+            check_weight_equality(
+                olmo_layer.ff_norm.weight, hf_layer.post_attention_layernorm.weight, f"attn_norm_{i}"
+            )
+            and are_equal
+        )
 
         # q, k, v projections
         # TODO: We already know this does not produce the same result. It's close, but not close enough for
@@ -303,10 +325,16 @@ def check_model_equality(hf_model, olmo_model):
         # print_metrics(v_proj, hf_layer.self_attn.v_proj.weight, f"v_proj_{i}")
 
         # attention out
-        are_equal = check_weight_equality(olmo_layer.attn_out.weight, hf_layer.self_attn.o_proj.weight, f"attn_out_{i}") and are_equal
+        are_equal = (
+            check_weight_equality(olmo_layer.attn_out.weight, hf_layer.self_attn.o_proj.weight, f"attn_out_{i}")
+            and are_equal
+        )
 
         # swiglu output projection
-        are_equal = check_weight_equality(olmo_layer.ff_out.weight, hf_layer.mlp.down_proj.weight, f"ff_out_{i}") and are_equal
+        are_equal = (
+            check_weight_equality(olmo_layer.ff_out.weight, hf_layer.mlp.down_proj.weight, f"ff_out_{i}")
+            and are_equal
+        )
 
         # swiglu input projections
         # TODO: If fused q, k, v above doesn't produce the same result, then this probably also doesn't.
@@ -324,47 +352,97 @@ def check_grad_equality(hf_model, olmo_model):
     # Check in reverse order
 
     # output projection
-    are_equal = check_weight_equality(olmo_model.transformer.ff_out.weight.grad, hf_model.lm_head.weight.grad, "ff_out_grad") and are_equal
+    are_equal = (
+        check_weight_equality(
+            olmo_model.transformer.ff_out.weight.grad, hf_model.lm_head.weight.grad, "ff_out_grad"
+        )
+        and are_equal
+    )
 
     # final layer norm
-    are_equal = check_weight_equality(olmo_model.transformer.ln_f.weight.grad, hf_model.model.norm.weight.grad, "ln_f_grad") and are_equal
+    are_equal = (
+        check_weight_equality(
+            olmo_model.transformer.ln_f.weight.grad, hf_model.model.norm.weight.grad, "ln_f_grad"
+        )
+        and are_equal
+    )
 
     # layers
     assert len(hf_model.model.layers) == len(olmo_model.transformer.blocks)
-    for i, (hf_layer, olmo_layer) in reversed(list(enumerate(zip(hf_model.model.layers, olmo_model.transformer.blocks)))):
+    for i, (hf_layer, olmo_layer) in reversed(
+        list(enumerate(zip(hf_model.model.layers, olmo_model.transformer.blocks)))
+    ):
         # swiglu output projection
-        are_equal = check_weight_equality(olmo_layer.ff_out.weight.grad, hf_layer.mlp.down_proj.weight.grad, "ff_out_grad") and are_equal
+        are_equal = (
+            check_weight_equality(olmo_layer.ff_out.weight.grad, hf_layer.mlp.down_proj.weight.grad, "ff_out_grad")
+            and are_equal
+        )
 
         # swiglu input projections
         # TODO: If fused q, k, v above doesn't produce the same result, then this probably also doesn't.
         up_proj_grad, gate_proj_grad = olmo_layer.ff_proj.weight.grad.chunk(2, dim=0)
-        are_equal = check_weight_equality(up_proj_grad, hf_layer.mlp.up_proj.weight.grad, f"up_proj_grad_{i}") and are_equal
-        are_equal = check_weight_equality(gate_proj_grad, hf_layer.mlp.gate_proj.weight.grad, f"gate_proj_grad_{i}") and are_equal
+        are_equal = (
+            check_weight_equality(up_proj_grad, hf_layer.mlp.up_proj.weight.grad, f"up_proj_grad_{i}")
+            and are_equal
+        )
+        are_equal = (
+            check_weight_equality(gate_proj_grad, hf_layer.mlp.gate_proj.weight.grad, f"gate_proj_grad_{i}")
+            and are_equal
+        )
         # print_metrics(up_proj_grad, hf_layer.mlp.up_proj.weight.grad, f"up_proj_grad_{i}")
         # print_metrics(gate_proj_grad, hf_layer.mlp.gate_proj.weight.grad, f"gate_proj_grad_{i}")
 
         # attention out
-        are_equal = check_weight_equality(olmo_layer.attn_out.weight.grad, hf_layer.self_attn.o_proj.weight.grad, f"attn_out_grad_{i}") and are_equal
+        are_equal = (
+            check_weight_equality(
+                olmo_layer.attn_out.weight.grad, hf_layer.self_attn.o_proj.weight.grad, f"attn_out_grad_{i}"
+            )
+            and are_equal
+        )
 
         # post attention layernorm
-        are_equal = check_weight_equality(olmo_layer.ff_norm.weight.grad, hf_layer.post_attention_layernorm.weight.grad, f"ff_norm_grad_{i}") and are_equal
+        are_equal = (
+            check_weight_equality(
+                olmo_layer.ff_norm.weight.grad, hf_layer.post_attention_layernorm.weight.grad, f"ff_norm_grad_{i}"
+            )
+            and are_equal
+        )
 
         # q, k, v projections
         # TODO: We already know this does not produce the same result. It's close, but not close enough for
         # torch.allclose().
         q_proj_grad, k_proj_grad, v_proj_grad = olmo_layer.att_proj.weight.grad.chunk(3, dim=0)
-        are_equal = check_weight_equality(q_proj_grad, hf_layer.self_attn.q_proj.weight.grad, f"q_proj_grad_{i}") and are_equal
-        are_equal = check_weight_equality(k_proj_grad, hf_layer.self_attn.k_proj.weight.grad, f"k_proj_grad_{i}") and are_equal
-        are_equal = check_weight_equality(v_proj_grad, hf_layer.self_attn.v_proj.weight.grad, f"v_proj_grad_{i}") and are_equal
+        are_equal = (
+            check_weight_equality(q_proj_grad, hf_layer.self_attn.q_proj.weight.grad, f"q_proj_grad_{i}")
+            and are_equal
+        )
+        are_equal = (
+            check_weight_equality(k_proj_grad, hf_layer.self_attn.k_proj.weight.grad, f"k_proj_grad_{i}")
+            and are_equal
+        )
+        are_equal = (
+            check_weight_equality(v_proj_grad, hf_layer.self_attn.v_proj.weight.grad, f"v_proj_grad_{i}")
+            and are_equal
+        )
         # print_metrics(q_proj_grad, hf_layer.self_attn.q_proj.weight.grad, f"q_proj_grad_{i}")
         # print_metrics(k_proj_grad, hf_layer.self_attn.k_proj.weight.grad, f"k_proj_grad_{i}")
         # print_metrics(v_proj_grad, hf_layer.self_attn.v_proj.weight.grad, f"v_proj_grad_{i}")
 
         # input norm
-        are_equal = check_weight_equality(olmo_layer.attn_norm.weight.grad, hf_layer.input_layernorm.weight.grad, f"attn_norm_grad_{i}") and are_equal
+        are_equal = (
+            check_weight_equality(
+                olmo_layer.attn_norm.weight.grad, hf_layer.input_layernorm.weight.grad, f"attn_norm_grad_{i}"
+            )
+            and are_equal
+        )
 
     # embeddings
-    are_equal = check_weight_equality(olmo_model.transformer.wte.weight.grad, hf_model.model.embed_tokens.weight.grad, "wte_grad") and are_equal
+    are_equal = (
+        check_weight_equality(
+            olmo_model.transformer.wte.weight.grad, hf_model.model.embed_tokens.weight.grad, "wte_grad"
+        )
+        and are_equal
+    )
 
     assert are_equal, "Grad equality check failed"
 
@@ -397,8 +475,8 @@ array = np.frombuffer(buffer, dtype=np.uint64)
 batch = torch.tensor(array.astype(np.int_), dtype=torch.long)
 batch = batch.reshape(2048, -1)
 batch = batch % 32000  # Llama vocab size is 32k
-train_batch = batch[2:4, :50]
-test_batch = batch[:2, :50]  # don't run all 4M tokens
+train_batch = batch[2:4, :SEQ_LEN]
+test_batch = batch[:2, :SEQ_LEN]  # don't run all 4M tokens
 test_string = "The sky's color is"
 
 
@@ -438,7 +516,8 @@ hf_logits = hf_output.logits
 log.info(f"HF logits: {hf_logits}")
 
 print_metrics(olmo_logits, hf_logits, "logits")
-check_model_equality(hf_model, olmo_model)
+if not use_fsdp:
+    check_model_equality(hf_model, olmo_model)
 
 torch.manual_seed(SEED)
 test_all_approx_close(olmo_logits.cpu().float(), hf_logits.cpu().float(), atol=1e-4, rtol=1e-3, count=10)
@@ -463,7 +542,9 @@ if use_fsdp:
     log.warning(
         "Generate bypasses FSDP's forward implementation, which causes generation to fail. Using a CPU model instead."
     )
-    olmo_generation_model = build_olmo_model(hf_model, device="cpu", use_fsdp=False)
+    config.model.init_device = "cpu"
+    olmo_generation_model = build_olmo_model(hf_model, config, use_fsdp=False)
+    config.model.init_device = olmo_device
 
 log.info(f"OLMo generation: {generate(olmo_generation_model, tokenizer, test_string)}")
 log.info(f"HF generation: {generate(hf_model, tokenizer, test_string)}")
@@ -490,12 +571,12 @@ hf_optimizer = build_optimizer(config, hf_model)
 
 # olmo_optimizer = torch.optim.SGD(olmo_model.parameters(), lr=0.1)
 # hf_optimizer = torch.optim.SGD(hf_model.parameters(), lr=0.1)
-for i in range(1000):
-    log.info('Training iteration %d', i + 1)
+for i in range(10):
+    log.info("Training iteration %d", i + 1)
 
     idx = 2 * (i + 1)
-    train_batch = batch[idx : idx + 2, :50]
-    labels = batch[idx + 1 : idx + 3, :50]
+    train_batch = batch[idx : idx + 2, :SEQ_LEN]
+    labels = batch[idx + 1 : idx + 3, :SEQ_LEN]
     labels = reformat_labels_to_look_like_logits(labels)
 
     olmo_optimizer.zero_grad()
@@ -507,7 +588,8 @@ for i in range(1000):
     torch.manual_seed(SEED)
     hf_logits = hf_model(train_batch.to(device=hf_device)).logits
 
-    # check_model_equality(hf_model, olmo_model)
+    if not use_fsdp:
+        check_model_equality(hf_model, olmo_model)
     print_metrics(olmo_logits, hf_logits, "logits")
 
     torch.manual_seed(SEED)
@@ -521,7 +603,8 @@ for i in range(1000):
     hf_loss.backward()
     torch.manual_seed(SEED)
 
-    check_grad_equality(hf_model, olmo_model)
+    if not use_fsdp:
+        check_grad_equality(hf_model, olmo_model)
 
     log.info(f"OLMo loss: {olmo_loss}")
     log.info(f"HF loss: {hf_loss}")
@@ -531,7 +614,8 @@ for i in range(1000):
     torch.manual_seed(SEED)
     hf_optimizer.step()
 
-    check_model_equality(hf_model, olmo_model)
+    if not use_fsdp:
+        check_model_equality(hf_model, olmo_model)
 
     # run on olmo
     olmo_logits = olmo_forward(olmo_model, test_batch, config.autocast_precision).logits

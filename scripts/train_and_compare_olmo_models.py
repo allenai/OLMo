@@ -156,7 +156,9 @@ def build_olmo_model(base_olmo_model: Optional[Any], device, use_fsdp=False):
 
             # layers
             assert len(base_olmo_model.model.layers) == len(olmo_model.transformer.blocks)
-            for i, (base_olmo_layer, olmo_layer) in enumerate(zip(base_olmo_model.model.layers, olmo_model.transformer.blocks)):
+            for i, (base_olmo_layer, olmo_layer) in enumerate(
+                zip(base_olmo_model.model.layers, olmo_model.transformer.blocks)
+            ):
                 # input norm
                 assert base_olmo_layer.input_layernorm.weight.shape == olmo_layer.attn_norm.weight.shape
                 assert base_olmo_layer.input_layernorm.weight.dtype == olmo_layer.attn_norm.weight.dtype
@@ -211,7 +213,9 @@ def build_olmo_model(base_olmo_model: Optional[Any], device, use_fsdp=False):
                 # TODO: If fused q, k, v above doesn't produce the same result, then this probably also doesn't.
                 assert base_olmo_layer.mlp.up_proj.weight.dtype == olmo_layer.ff_proj.weight.dtype
                 assert base_olmo_layer.mlp.gate_proj.weight.dtype == olmo_layer.ff_proj.weight.dtype
-                new_ff_proj = torch.cat([base_olmo_layer.mlp.up_proj.weight, base_olmo_layer.mlp.gate_proj.weight], dim=0)
+                new_ff_proj = torch.cat(
+                    [base_olmo_layer.mlp.up_proj.weight, base_olmo_layer.mlp.gate_proj.weight], dim=0
+                )
                 parameters_to_read.remove(f"model.layers.{i}.mlp.up_proj.weight")
                 parameters_to_read.remove(f"model.layers.{i}.mlp.gate_proj.weight")
                 assert new_ff_proj.shape == olmo_layer.ff_proj.weight.shape
