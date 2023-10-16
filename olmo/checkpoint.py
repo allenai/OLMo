@@ -988,8 +988,10 @@ class LocalShardedCheckpointer(Checkpointer):
             for module_data in model_state["modules"]:
                 module_prefix = module_data["name"].replace("_fsdp_wrapped_module.", "")
                 for handle in module_data["handles"]:
-                    assert handle["flat_param._shard_numel_padded"] == 0  # TODO: will this ever be non-zero?
                     flat_data = handle["flat_param.data"]
+                    if (num_padding := handle["flat_param._shard_numel_padded"]) > 0:
+                        # If there's padding in the flat param it should be on the right.
+                        assert (flat_data[-num_padding:] == 0).all()
                     param_start = handle["flat_param._shard_indices"][0]
                     current_flat_index = 0
                     for relative_fqn, full_shape, (offset_start, offset_end) in zip(
