@@ -503,10 +503,10 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
     return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1)
 
 
-_s3_client: Optional[boto3.client.S3] = None
+_s3_client = None
 
 
-def _get_s3_client() -> boto3.client.S3:
+def _get_s3_client():
     global _s3_client
     if _s3_client is None:
         _s3_client = boto3.client(
