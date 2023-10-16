@@ -33,7 +33,7 @@ def _run_local_sharded_checkpointer_test(rank: int, world_size: int, tmp_path: P
     os.environ["LOCAL_RANK"] = str(rank)
 
     # Initialize the process group
-    dist.init_process_group("cuda:nccl", rank=rank, world_size=world_size)
+    dist.init_process_group("cpu:gloo,cuda:nccl", rank=rank, world_size=world_size)
     torch.cuda.set_device(rank)
 
     # Initialize model, optimizer, and checkpointer.
@@ -65,7 +65,9 @@ def _run_local_sharded_checkpointer_test(rank: int, world_size: int, tmp_path: P
     full_model_state_dict, full_optim_state_dict = full_checkpointer.load_checkpoint(
         checkpoint_dir_full, device=torch.device("cuda")
     )
-    unsharded_model_state_dict, unsharded_optim_state_dict = checkpointer.unshard_checkpoint(checkpoint_dir)
+    unsharded_model_state_dict, unsharded_optim_state_dict = checkpointer.unshard_checkpoint(
+        checkpoint_dir, device=torch.device("cuda")
+    )
     assert full_optim_state_dict is not None
     assert unsharded_optim_state_dict is not None
 
