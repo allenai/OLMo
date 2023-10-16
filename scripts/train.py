@@ -231,6 +231,11 @@ def main(cfg: TrainConfig) -> None:
                     trainer.scheduler, trainer.global_step, trainer.global_step + cfg.scheduler.t_warmup
                 )
 
+        if cfg.force_save_sharded:
+            log.info("Saving sharded checkpoint...")
+            checkpoint_path, _ = trainer.save_checkpoint(checkpoint_type=CheckpointType.sharded)
+            log.info(f"Sharded checkpoint saved to {checkpoint_path}")
+
         if cfg.force_save_unsharded:
             log.info("Saving unsharded checkpoint...")
             checkpoint_path, _ = trainer.save_checkpoint(checkpoint_type=CheckpointType.unsharded)

@@ -699,6 +699,13 @@ class TrainConfig(BaseConfig):
     checkpoint into an unsharded checkpoint.
     """
 
+    force_save_sharded: bool = False
+    """
+    Save an sharded checkpoint before training (even during a dry run).
+    Use this option with `--load-path={PATH}` and `--dry_run` to convert a sharded
+    checkpoint of one format into an sharded checkpoint in a different format.
+    """
+
     no_pre_train_checkpoint: bool = False
     """
     Skip saving pre-train checkpoint.
