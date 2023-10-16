@@ -26,6 +26,7 @@ from torch.distributed.fsdp.api import (
     ShardedOptimStateDictConfig,
     ShardedStateDictConfig,
 )
+from torch.distributed.fsdp.flat_param import FlatParamHandle
 from torch.futures import Future
 
 from .aliases import PathOrStr
@@ -825,13 +826,21 @@ class LocalShardedCheckpointer(Checkpointer):
             torch.cuda.synchronize()
         _lazy_init(fsdp_model, fsdp_model)
 
+    def _fsdp_handles(self, fsdp_model: FSDP) -> List[FlatParamHandle]:
+        if hasattr(fsdp_model, "_handles"):
+            # torch <=2.0.1
+            return fsdp_model._handles  # type: ignore
+        else:
+            # torch >=2.1.0
+            return [fsdp_model._handle]  # type: ignore
+
     @torch.no_grad()
     def _get_flat_param_state_to_save(self, fsdp_model: FSDP) -> Dict[str, Any]:
         self._prepare_fsdp_model(fsdp_model)
         module_data = []
         for module_fqn, fsdp_module in self._fsdp_modules(fsdp_model):
             handle_data = []
-            for handle in fsdp_module._handles:
+            for handle in self._fsdp_handles(fsdp_module):
                 data: Dict[str, Any] = {}
                 # This is a `FlatParameter` instance.
                 # See `torch.distributed.fsdp.flat_param` for the API.
@@ -851,8 +860,9 @@ class LocalShardedCheckpointer(Checkpointer):
         fsdp_modules = self._fsdp_modules(fsdp_model)
         assert len(model_state["modules"]) == len(fsdp_modules)
         for (_, fsdp_module), module_data in zip(fsdp_modules, model_state["modules"]):
-            assert len(module_data["handles"]) == len(fsdp_module._handles)
-            for handle, data in zip(fsdp_module._handles, module_data["handles"]):
+            handles = self._fsdp_handles(fsdp_module)
+            assert len(handles) == len(module_data["handles"])
+            for handle, data in zip(handles, module_data["handles"]):
                 flat_param = handle.flat_param
                 # Make sure metadata matches.
                 for key in self._FLAT_PARAM_METADATA_TO_SAVE:
