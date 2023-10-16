@@ -44,6 +44,8 @@ optimizer:
   name: adamw
   learning_rate: 3.0e-4
   weight_decay: 0.1
+  decay_norm_and_bias: false
+  decay_embeddings: false
   betas:
   - 0.9
   - 0.95
@@ -85,9 +87,12 @@ global_train_batch_size: 1024
 device_train_microbatch_size: 1
 
 precision: fp32
+# precision: amp_bf16
 
 max_grad_norm: 1.0
 max_grad_norm_ratio: 1.5
+# max_grad_norm: null
+# max_grad_norm_ratio: null
 
 speed_monitor:
   window_size: 20
