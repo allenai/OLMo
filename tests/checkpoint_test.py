@@ -37,7 +37,9 @@ def _run_local_sharded_checkpointer_test(rank: int, world_size: int, tmp_path: P
     torch.cuda.set_device(rank)
 
     # Initialize model, optimizer, and checkpointer.
-    train_config = TrainConfig(optimizer=OptimizerConfig(name=OptimizerType.adamw, learning_rate=0.1))
+    train_config = TrainConfig(
+        optimizer=OptimizerConfig(name=OptimizerType.adamw, learning_rate=0.1, weight_decay=0.1)
+    )
     fsdp_model1, optim1 = _init_model_and_optim(train_config)
     checkpointer = LocalShardedCheckpointer(train_config)
     checkpoint_dir = tmp_path / "checkpoint"
