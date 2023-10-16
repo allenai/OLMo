@@ -805,6 +805,7 @@ class LocalShardedCheckpointer(Checkpointer):
         "_numels_with_padding",
         "_shapes",
         "_shard_numel_padded",
+        "_shard_param_infos",
     )
 
     def _fsdp_modules(self, fsdp_model: FSDP) -> List[Tuple[str, FSDP]]:
@@ -972,6 +973,38 @@ class LocalShardedCheckpointer(Checkpointer):
         barrier()
         return trainer_state
 
+    def _iter_flat_param_shards(
+        self, model_state: Dict[str, Any]
+    ) -> Generator[Tuple[str, _FlatParamShard], None, None]:
+        for module_data in model_state["modules"]:
+            module_prefix = module_data["name"].replace("_fsdp_wrapped_module.", "")
+            for handle in module_data["handles"]:
+                flat_data = handle["flat_param.data"]
+                if (num_padding := handle["flat_param._shard_numel_padded"]) > 0:
+                    # If there's padding in the flat param it should be on the right.
+                    assert (flat_data[-num_padding:] == 0).all()
+                if "flat_param._shard_indices" in handle:
+                    # torch <=2.0.1
+                    param_start = handle["flat_param._shard_indices"][0]
+                    current_flat_index = 0
+                    for relative_fqn, full_shape, (offset_start, offset_end) in zip(
+                        handle["flat_param._fqns"][param_start:],
+                        handle["flat_param._shapes"][param_start:],
+                        handle["flat_param._shard_param_offsets"],
+                    ):
+                        root_fqn = relative_fqn if not module_prefix else f"{module_prefix}.{relative_fqn}"
+                        numel_shard = offset_end - offset_start + 1
+                        flat_param_shard = _FlatParamShard(
+                            full_shape=full_shape,
+                            shard_offsets=(offset_start, offset_end),
+                            shard_data=flat_data[current_flat_index : current_flat_index + numel_shard],
+                        )
+                        current_flat_index += numel_shard
+                        yield root_fqn, flat_param_shard
+                else:
+                    # torch >=2.1.0
+                    pass
+
     def unshard_checkpoint(
         self,
         load_path: PathOrStr,
@@ -998,42 +1031,20 @@ class LocalShardedCheckpointer(Checkpointer):
         for rank, path in enumerate(model_state_paths):
             log.info(f"Loading shards from rank {rank}...")
             model_state = torch.load(path, map_location="cpu")
-            for module_data in model_state["modules"]:
-                module_prefix = module_data["name"].replace("_fsdp_wrapped_module.", "")
-                for handle in module_data["handles"]:
-                    flat_data = handle["flat_param.data"]
-                    if (num_padding := handle["flat_param._shard_numel_padded"]) > 0:
-                        # If there's padding in the flat param it should be on the right.
-                        assert (flat_data[-num_padding:] == 0).all()
-                    param_start = handle["flat_param._shard_indices"][0]
-                    current_flat_index = 0
-                    for relative_fqn, full_shape, (offset_start, offset_end) in zip(
-                        handle["flat_param._fqns"][param_start:],
-                        handle["flat_param._shapes"][param_start:],
-                        handle["flat_param._shard_param_offsets"],
-                    ):
-                        # If the full parameter hasn't been materialized yet, do so now.
-                        root_fqn = relative_fqn if not module_prefix else f"{module_prefix}.{relative_fqn}"
-                        if root_fqn not in full_model_state:
-                            log.info(f"Materializing full parameter '{root_fqn}' with shape {full_shape}...")
-                            full_model_state[root_fqn] = torch.empty(
-                                full_shape, dtype=flat_data.dtype, device=device
-                            )
-                        full_param = full_model_state[root_fqn]
-
-                        # Copy over the local shard to the relevant part of the full parameter.
-                        log.info(f"Loading rank {rank} shard for '{root_fqn}'...")
-                        numel_shard = offset_end - offset_start + 1
-                        flat_param_shard = _FlatParamShard(
-                            full_shape=full_shape,
-                            shard_offsets=(offset_start, offset_end),
-                            shard_data=flat_data[current_flat_index : current_flat_index + numel_shard],
-                        )
-                        flat_param_shard.copy_into(full_param)
-
-                        # Bookkeeping.
-                        current_flat_index += numel_shard
-                        flat_params_data[rank][root_fqn] = replace(flat_param_shard, shard_data=None)
+            for root_fqn, flat_param_shard in self._iter_flat_param_shards(model_state):
+                if root_fqn not in full_model_state:
+                    log.info(
+                        f"Materializing full parameter '{root_fqn}' with shape {flat_param_shard.full_shape}..."
+                    )
+                    assert flat_param_shard.shard_data is not None
+                    full_model_state[root_fqn] = torch.empty(
+                        flat_param_shard.full_shape, dtype=flat_param_shard.shard_data.dtype, device=device
+                    )
+                # Copy over the local shard to the relevant part of the full parameter.
+                full_param = full_model_state[root_fqn]
+                log.info(f"Loading rank {rank} shard for '{root_fqn}'...")
+                flat_param_shard.copy_into(full_param)
+                flat_params_data[rank][root_fqn] = replace(flat_param_shard, shard_data=None)
 
         if not load_optimizer_state:
             return full_model_state, None
