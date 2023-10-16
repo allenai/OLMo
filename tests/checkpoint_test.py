@@ -9,17 +9,17 @@ import torch.multiprocessing as mp
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 from olmo.checkpoint import FullCheckpointer, LocalShardedCheckpointer
-from olmo.config import TrainConfig
-from olmo.optim import AdamW, Optimizer
+from olmo.config import OptimizerConfig, OptimizerType, TrainConfig
+from olmo.optim import Optimizer, build_optimizer
 
 
 def opt_at(opt, idx, key):
     return list(opt.state.values())[idx][key]
 
 
-def _init_model_and_optim() -> Tuple[FSDP, Optimizer]:
+def _init_model_and_optim(config: TrainConfig) -> Tuple[FSDP, Optimizer]:
     model = FSDP(torch.nn.Linear(4, 4).cuda(dist.get_rank()))
-    optim = AdamW(model.parameters(), lr=0.1)
+    optim = build_optimizer(config, model)
     model(torch.rand(4, 4)).sum().backward()
     optim.step()
     return model, optim
@@ -37,8 +37,8 @@ def _run_local_sharded_checkpointer_test(rank: int, world_size: int, tmp_path: P
     torch.cuda.set_device(rank)
 
     # Initialize model, optimizer, and checkpointer.
-    train_config = TrainConfig()
-    fsdp_model1, optim1 = _init_model_and_optim()
+    train_config = TrainConfig(optimizer=OptimizerConfig(name=OptimizerType.adamw, learning_rate=0.1))
+    fsdp_model1, optim1 = _init_model_and_optim(train_config)
     checkpointer = LocalShardedCheckpointer(train_config)
     checkpoint_dir = tmp_path / "checkpoint"
 
@@ -46,7 +46,7 @@ def _run_local_sharded_checkpointer_test(rank: int, world_size: int, tmp_path: P
     checkpointer.save_checkpoint(checkpoint_dir, fsdp_model1, optim1, {})
 
     # Create a 2nd model and optimizer and load the checkpoint.
-    fsdp_model2, optim2 = _init_model_and_optim()
+    fsdp_model2, optim2 = _init_model_and_optim(train_config)
     checkpointer.restore_checkpoint(checkpoint_dir, fsdp_model2, optim2)
 
     # Validate parameters and optimizer state are the same now.
