@@ -15,7 +15,7 @@ from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 
-from olmo.config import CheckpointType, FSDPWrapStrategy, TrainConfig
+from olmo.config import CheckpointType, FSDPWrapStrategy, TrainConfig, ShardedCheckpointerType
 from olmo.data import build_train_dataloader
 from olmo.eval import build_evaluators
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
@@ -233,6 +233,9 @@ def main(cfg: TrainConfig) -> None:
 
         if cfg.force_save_sharded:
             log.info("Saving sharded checkpoint...")
+            # DEBUG start
+            cfg.sharded_checkpointer = ShardedCheckpointerType.local
+            # DEBUG end
             checkpoint_path, _ = trainer.save_checkpoint(checkpoint_type=CheckpointType.sharded)
             log.info(f"Sharded checkpoint saved to {checkpoint_path}")
 
