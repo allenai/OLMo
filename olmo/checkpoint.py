@@ -608,6 +608,21 @@ class FullCheckpointer(Checkpointer):
         barrier()
         return trainer_state
 
+    def load_checkpoint(
+        self,
+        load_path: PathOrStr,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+        load_optimizer_state: bool = True,
+        device: Optional[torch.device] = None,
+    ) -> Tuple[Dict[str, torch.Tensor], Optional[Dict[str, Any]]]:
+        device = device if device is not None else torch.device("cpu")
+        model_state = load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location=device)  # type: ignore
+        optim_state = None
+        if load_optimizer_state:
+            optim_state = load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location=device)  # type: ignore
+        return model_state, optim_state
+
 
 class NewStyleShardedCheckpointer(Checkpointer):
     """
