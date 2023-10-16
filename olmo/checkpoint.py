@@ -801,6 +801,7 @@ class LocalShardedCheckpointer(Checkpointer):
         "_shard_param_offsets",
         "_shard_indices",
         "_numels",
+        "_numels_with_padding",
         "_shapes",
         "_shard_numel_padded",
     )
@@ -837,7 +838,8 @@ class LocalShardedCheckpointer(Checkpointer):
                 flat_param = handle.flat_param
                 data["flat_param.data"] = flat_param.detach()
                 for key in self._FLAT_PARAM_METADATA_TO_SAVE:
-                    data[f"flat_param.{key}"] = getattr(flat_param, key)
+                    if hasattr(flat_param, key):
+                        data[f"flat_param.{key}"] = getattr(flat_param, key)
                 handle_data.append(data)
             module_data.append({"handles": handle_data, "name": module_fqn})
         return {"modules": module_data}
@@ -854,7 +856,8 @@ class LocalShardedCheckpointer(Checkpointer):
                 flat_param = handle.flat_param
                 # Make sure metadata matches.
                 for key in self._FLAT_PARAM_METADATA_TO_SAVE:
-                    assert getattr(flat_param, key) == data[f"flat_param.{key}"]
+                    if hasattr(flat_param, key):
+                        assert getattr(flat_param, key) == data[f"flat_param.{key}"]
                 # Load the flat sharded data.
                 flat_param.copy_(data["flat_param.data"])
 
