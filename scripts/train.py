@@ -20,7 +20,7 @@ from olmo.data import build_train_dataloader
 from olmo.eval import build_evaluators
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
 from olmo.model import Olmo
-from olmo.optim import BoltOnWarmupScheduler, build_optimizer, build_scheduler, BoltOnWarmupScheduler
+from olmo.optim import build_optimizer, build_scheduler, BoltOnWarmupScheduler
 from olmo.train import Trainer
 from olmo.util import (
     barrier,
