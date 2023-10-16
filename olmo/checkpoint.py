@@ -828,12 +828,13 @@ class LocalShardedCheckpointer(Checkpointer):
         _lazy_init(fsdp_model, fsdp_model)
 
     def _fsdp_handles(self, fsdp_model: FSDP) -> List[FlatParamHandle]:
-        if hasattr(fsdp_model, "_handles"):
-            # torch <=2.0.1
+        if version.parse(torch.__version__) < version.parse("2.1.0"):
             return fsdp_model._handles  # type: ignore
-        else:
-            # torch >=2.1.0
+        elif version.parse(torch.__version__) < version.parse("2.2.0"):
             return [fsdp_model._handle]  # type: ignore
+        else:
+            # Need to verify FSDP internals with newer versions.
+            raise NotImplementedError
 
     @torch.no_grad()
     def _get_flat_param_state_to_save(self, fsdp_model: FSDP) -> Dict[str, Any]:
@@ -983,6 +984,9 @@ class LocalShardedCheckpointer(Checkpointer):
                 if (num_padding := handle["flat_param._shard_numel_padded"]) > 0:
                     # If there's padding in the flat param it should be on the right.
                     assert (flat_data[-num_padding:] == 0).all()
+                # NOTE: this changes depending on the torch version, but we don't do a version
+                # check since we might be trying to unshard an old checkpoint that was stored
+                # with a different torch version than we're currently running with.
                 if "flat_param._shard_indices" in handle:
                     # torch <=2.0.1
                     param_start = handle["flat_param._shard_indices"][0]
@@ -1003,7 +1007,26 @@ class LocalShardedCheckpointer(Checkpointer):
                         yield root_fqn, flat_param_shard
                 else:
                     # torch >=2.1.0
-                    pass
+                    for relative_fqn, full_shape, shard_param_info in zip(
+                        handle["flat_param._fqns"],
+                        handle["flat_param._shapes"],
+                        handle["flat_param._shard_param_infos"],
+                    ):
+                        if not shard_param_info.in_shard:
+                            continue
+                        root_fqn = relative_fqn if not module_prefix else f"{module_prefix}.{relative_fqn}"
+                        flat_param_shard = _FlatParamShard(
+                            full_shape=full_shape,
+                            shard_offsets=(
+                                shard_param_info.intra_param_start_idx,
+                                shard_param_info.intra_param_end_idx,
+                            ),
+                            shard_data=flat_data[
+                                shard_param_info.offset_in_shard : shard_param_info.offset_in_shard
+                                + shard_param_info.numel_in_shard
+                            ],
+                        )
+                        yield root_fqn, flat_param_shard
 
     def unshard_checkpoint(
         self,
