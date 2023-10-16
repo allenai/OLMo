@@ -25,23 +25,23 @@ os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"  # needed for running in the det
 # torch.set_printoptions(precision=10)
 SEED: int = 42
 
+model_path = 'test_fixtures/tiny_llama/'
+# model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
+
 # for development
 hf_device = 'cpu'
 olmo_device = 'cpu'
 use_fsdp = False
-model_path = 'test_fixtures/tiny_llama/'
 
 # # for running the real 7B model on GPU
 # hf_device = 'cuda:0'
 # olmo_device = 'cuda:1'
 # use_fsdp = False
-# model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
 
 # # for FSDP
 # hf_device = "cpu"
 # olmo_device = "cuda"
 # use_fsdp = True
-# model_path = "test_fixtures/tiny_llama/"
 
 
 def test_all_approx_close(a, b, rtol, atol, count):
