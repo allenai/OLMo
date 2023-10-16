@@ -775,7 +775,9 @@ class LocalShardedCheckpointer(Checkpointer):
     A sharded :class:`Checkpointer` that directly saves the local FSDP flat params data.
     The optimizer state is saved directly with `torch.save()` without reformatting via FSDP methods.
 
-    The world size must be kept consistent when using this checkpointer.
+    The world size must be kept consistent when using this checkpointer. However, you can easily
+    reconstruct a full unsharded model and/or optimizer state dictionary from a single Python process
+    using :meth:`unshard_checkpoint()` (no distributed initialization required).
     """
 
     # These correspond to metadata attributes on `torch.distributed.fsdp.flat_param.FlatParameter`.
