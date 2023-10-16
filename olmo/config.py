@@ -47,6 +47,8 @@ __all__ = [
     "WandbConfig",
     "CompilerConfig",
     "WandbConfig",
+    "FSDPPrecision",
+    "FSDPWrapStrategy",
     "FSDPConfig",
     "CheckpointType",
 ]
@@ -238,6 +240,12 @@ class ModelConfig(BaseConfig):
     mlp_ratio: int = 4
     """
     The ratio of the inner MLP dimensionality to ``d_model``.
+    This is only used when ``mlp_hidden_size`` is not set.
+    """
+
+    mlp_hidden_size: Optional[int] = None
+    """
+    Set the exact hidden size for the MLP. Otherwise the inner MLP hidden size will be set to `mlp_ratio * d_model`.
     """
 
     activation_type: ActivationType = ActivationType.swiglu
@@ -305,9 +313,14 @@ class ModelConfig(BaseConfig):
     layer_norm_with_affine: bool = True
     """
     Whether to include bias and weight parameters for the layer norms.
-    This only affects layer norms that are immediately followed by a linear layer in the forward pass.
-    Other layer norms, such as those applied to attention keys and queries, will always include an elementwise
-    affine transform.
+    This only affects layer norms that are immediately followed by a linear layer in the forward pass,
+    so everything except QK-norms. To turn off affines for QK norms as well, set :attr:`attention_layer_norm_with_affine`
+    to ``False``.
+    """
+
+    attention_layer_norm_with_affine: bool = True
+    """
+    Toggle affine transform for the QK norms.
     """
 
     max_sequence_length: int = 1024
@@ -346,6 +359,11 @@ class ModelConfig(BaseConfig):
     to ``vocab_size``. If ``vocab_size`` is not a multiple of 128, setting this to the
     next multiple of 128 that's greater than ``vocab_size`` can improve throughput
     substantially.
+    """
+
+    weight_tying: bool = True
+    """
+    Whether to tie output linear weights to the input embedding.
     """
 
     eos_token_id: int = 50256
@@ -413,6 +431,7 @@ class OptimizerConfig(BaseConfig):
 
 class SchedulerType(StrEnum):
     cosine_with_warmup = "cosine_with_warmup"
+    linear_with_warmup = "linear_with_warmup"
     inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
     max_scheduler = "max_scheduler"
 
@@ -556,6 +575,12 @@ class CheckpointType(StrEnum):
     unsharded = "unsharded"
 
 
+class ShardedCheckpointerType(StrEnum):
+    new_style = "new_style"
+    legacy = "legacy"
+    local = "local"
+
+
 @dataclass
 class TrainConfig(BaseConfig):
     """
@@ -674,9 +699,36 @@ class TrainConfig(BaseConfig):
     checkpoint into an unsharded checkpoint.
     """
 
+    no_pre_train_checkpoint: bool = False
+    """
+    Skip saving pre-train checkpoint.
+    """
+
     load_path: Optional[str] = None
     """
-    The path to a (sharded) training checkpoint to restore/resume from.
+    The path to a training checkpoint to restore/resume from.
+    """
+
+    load_path_sharded_checkpointer: Optional[ShardedCheckpointerType] = None
+    """
+    The sharded checkpointer type to use to load the initial checkpoint from ``load_path``.
+    """
+
+    reset_optimizer_state: bool = False
+    """
+    When this is set, we restore the model from a checkpoint (if given), but we leave the optimizer uninitialized.
+    We also set a new learning rate schedule that does a new warmup, such that it intercepts the original learning
+    curve (according to the current learning rate schedule settings), and continues from there.
+    """
+
+    sharded_checkpointer: ShardedCheckpointerType = ShardedCheckpointerType.legacy
+    """
+    The name of the sharded checkpointer to use to save (sharded) checkpoints throughout training.
+    """
+
+    new_style_checkpoints: Optional[bool] = None
+    """
+    Deprecated. Use ``sharded_checkpointer`` instead.
     """
 
     max_duration: int = 10000
@@ -801,6 +853,11 @@ class TrainConfig(BaseConfig):
     When this is set, we restore the model from a checkpoint (if given), but we leave the optimizer uninitialized.
     We also set a new learning rate schedule that does a new warmup, such that it intercepts the original learning
     curve (according to the current learning rate schedule settings), and continues from there.
+    """
+
+    stop_at: Optional[int] = None
+    """
+    Stop at a specific step.
     """
 
     @property

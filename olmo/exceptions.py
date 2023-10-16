@@ -1,4 +1,4 @@
-__all__ = ["OlmoError", "OlmoConfigurationError", "OlmoCliError"]
+__all__ = ["OlmoError", "OlmoConfigurationError", "OlmoCliError", "OlmoNetworkError"]
 
 
 class OlmoError(Exception):
@@ -16,4 +16,10 @@ class OlmoConfigurationError(OlmoError):
 class OlmoCliError(OlmoError):
     """
     An error from incorrect CLI usage.
+    """
+
+
+class OlmoNetworkError(OlmoError):
+    """
+    An error with a network request.
     """

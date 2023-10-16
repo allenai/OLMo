@@ -1,4 +1,4 @@
-run_name: v1-mix-medium-run-001
+run_name: v1-mix-medium-mitch-ish
 seed: 6198
 dry_run: false
 
@@ -9,20 +9,23 @@ wandb:
 
 model:
   d_model: 4096
-  n_heads: 16
-  n_layers: 29
-  mlp_ratio: 8
-  alibi: true
-  alibi_bias_max: 8.0
+  n_heads: 32
+  n_layers: 32
+  # mlp_ratio: 6
+  mlp_hidden_size: 22016
+  weight_tying: false
+  alibi: false
+  rope: true
+  flash_attention: true
   attention_dropout: 0.0
-  attention_layer_norm: true
-  multi_query_attention: true
-  flash_attention: false  # can't be used with ALiBi
+  attention_layer_norm: false
+  multi_query_attention: false
   include_bias: false
   block_type: sequential
   layer_norm_type: default
   layer_norm_with_affine: false
   bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
@@ -32,7 +35,7 @@ model:
   eos_token_id: 0
   pad_token_id: 1
   init_device: meta
-  init_fn: normal
+  init_fn: mitchell
 
 compile:
   fullgraph: false
@@ -48,7 +51,7 @@ optimizer:
 
 scheduler:
   name: cosine_with_warmup
-  t_warmup: 5000
+  t_warmup: 2000
   alpha_f: 0.1
 
 tokenizer:
@@ -58,12 +61,11 @@ tokenizer:
 save_folder: runs/${run_name}
 remote_save_folder: s3://ai2-llm/checkpoints/7b/${run_name}
 save_overwrite: true
-time_limit: null
 # Sharded checkpoints (best for restarts)
 save_interval: 1000
 save_num_checkpoints_to_keep: -1
 # Unsharded checkpoints (for final storage)
-save_interval_unsharded: null
+save_interval_unsharded: null  # getting errors on LUMI right now
 save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
@@ -76,10 +78,10 @@ precision: amp_bf16
 
 fsdp:
   wrapping_strategy: by_block
-  precision: pure
+  precision: mixed
 
 max_grad_norm: 1.0
-max_grad_norm_ratio: 1.5
+max_grad_norm_ratio: null
 
 speed_monitor:
   window_size: 20
@@ -88,31 +90,6 @@ eval_interval: ${save_interval}
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
-  ##########################
-  # Perplexity evaluations #
-  ##########################
-  # TODO: do we care about c4 and RP validation? We don't have these tokenized at the moment.
-  # - label: c4-validation
-  #   subset_num_batches: 10
-  #   data:
-  #     paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4/en/c4-validation.*.npy}
-  #     num_workers: 2
-  #     drop_last: true
-  #     pin_memory: true
-  #     persistent_workers: true
-  #     prefetch_factor: 4
-
-  # - label: rp-validation
-  #   subset_num_batches: 10
-  #   data:
-  #     paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/pretraining_data/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/redpajama/redpajama-validation.npy}
-  #     num_workers: 2
-  #     drop_last: true
-  #     pin_memory: true
-  #     persistent_workers: true
-  #     prefetch_factor: 4
-
-  # lump all the small datasets together (we still get separate metrics).
   - label: all-small-ppl-validation
     data:
       num_workers: 0

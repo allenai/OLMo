@@ -11,6 +11,7 @@ from typing import Optional, TextIO
 import torch
 import torch.distributed as dist
 import wandb
+from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 
@@ -19,11 +20,12 @@ from olmo.data import build_train_dataloader
 from olmo.eval import build_evaluators
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
 from olmo.model import Olmo
-from olmo.optim import build_optimizer, build_scheduler, BoltOnWarmupScheduler
+from olmo.optim import BoltOnWarmupScheduler, build_optimizer, build_scheduler, BoltOnWarmupScheduler
 from olmo.train import Trainer
 from olmo.util import (
     barrier,
     clean_opt,
+    get_default_device,
     get_global_rank,
     get_local_rank,
     get_world_size,
@@ -63,8 +65,9 @@ def main(cfg: TrainConfig) -> None:
 
     # Display and save configuration.
     if get_global_rank() == 0:
-        log.info("Configuration:")
-        log.info(cfg)
+        if cfg.data.paths is not None and len(cfg.data.paths) < 50:
+            log.info("Configuration:")
+            log.info(cfg)
         if not cfg.dry_run and (cfg.load_path is None or Path(cfg.load_path).parent != Path(cfg.save_folder)):
             # Save config.
             save_path = Path(cfg.save_folder) / "config.yaml"
@@ -118,6 +121,16 @@ def main(cfg: TrainConfig) -> None:
         wrap_policy = olmo_model.fsdp_wrap_fn
     elif cfg.fsdp.wrapping_strategy == FSDPWrapStrategy.size_based:
         wrap_policy = size_based_auto_wrap_policy
+
+    if version.parse(torch.__version__) >= version.parse("2.1.0"):
+        # This prevents any parameters from being initialized twice
+        def dummy_init_fn(module: torch.nn.Module) -> None:
+            module.to_empty(device=get_default_device())
+
+        param_init_fn = dummy_init_fn
+    else:
+        param_init_fn = None
+
     fsdp_model = FSDP(
         olmo_model,
         sharding_strategy=cfg.fsdp.sharding_strategy,
@@ -126,7 +139,11 @@ def main(cfg: TrainConfig) -> None:
         use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
         limit_all_gathers=True,
         device_id=get_local_rank(),
+        param_init_fn=param_init_fn,
     )
+    # when param_init_fn is None, FSDP will call reset_parameters() automatically
+    if param_init_fn is not None:
+        olmo_model.reset_parameters()
 
     log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory() or 0)}")
 
@@ -177,19 +194,21 @@ def main(cfg: TrainConfig) -> None:
         evaluators=evaluators,
         indices_file=indices_file,
     ) as trainer:
-        if not cfg.dry_run and cfg.load_path is None:
+        if not cfg.dry_run and not cfg.no_pre_train_checkpoint and cfg.load_path is None:
             checkpoint_type = (
                 CheckpointType.sharded if cfg.save_num_checkpoints_to_keep != 0 else CheckpointType.unsharded
             )
 
             # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever).
             log.info("Saving pre-train checkpoint...")
-            checkpoint_path = trainer.save_checkpoint(checkpoint_type=checkpoint_type)
+            checkpoint_path, local_checkpoint_cache = trainer.save_checkpoint(checkpoint_type=checkpoint_type)
             log.info(f"Checkpoint saved to {checkpoint_path}")
 
             # And they we verify that we can load it.
             log.info("Attempting to load pre-train checkpoint...")
-            trainer.restore_checkpoint(checkpoint_path, checkpoint_type=checkpoint_type)
+            trainer.restore_checkpoint(
+                checkpoint_path, checkpoint_type=checkpoint_type, local_cache=local_checkpoint_cache
+            )
             log.info("Checkpoint successfully loaded")
 
             # NOTE: https://github.com/allenai/LLM/issues/233
@@ -200,6 +219,11 @@ def main(cfg: TrainConfig) -> None:
         if cfg.load_path is not None:
             log.info(f"Loading checkpoint from {cfg.load_path}...")
             trainer.restore_checkpoint(cfg.load_path, load_optimizer_state=not cfg.reset_optimizer_state)
+            trainer.restore_checkpoint(
+                cfg.load_path,
+                load_optimizer_state=not cfg.reset_optimizer_state,
+                sharded_checkpointer=cfg.load_path_sharded_checkpointer,
+            )
             log.info("Checkpoint successfully loaded")
 
             # If we have to, set a new scheduler:
@@ -210,7 +234,7 @@ def main(cfg: TrainConfig) -> None:
 
         if cfg.force_save_unsharded:
             log.info("Saving unsharded checkpoint...")
-            checkpoint_path = trainer.save_unsharded_checkpoint()
+            checkpoint_path, _ = trainer.save_checkpoint(checkpoint_type=CheckpointType.unsharded)
             log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
         if cfg.compile is not None:
