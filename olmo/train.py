@@ -1044,12 +1044,13 @@ class Trainer:
             assert isinstance(
                 activation, torch.Tensor
             ), f"Not sure how to deal with {module} output of type {type(output)}"
+            activation_abs = activation.abs()
             self._activation_metrics.update(
                 {
                     f"{prefix}.norm": torch.linalg.vector_norm(activation, 2.0, dtype=torch.float),
                     f"{prefix}.avg": activation.sum() / activation.numel(),
-                    f"{prefix}.min": activation.min(),
-                    f"{prefix}.max": activation.max(),
+                    f"{prefix}.min": activation_abs.min(),
+                    f"{prefix}.max": activation_abs.max(),
                 }
             )
 
