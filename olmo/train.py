@@ -1022,17 +1022,23 @@ class Trainer:
         return self.global_step % activation_log_interval == 0
 
     def get_activation_hook(self, module_name: str):
+        module_name = module_name.replace("_fsdp_wrapped_module.", "")
+
         @torch.no_grad()
         def activation_hook(module: torch.nn.Module, _, output):
+            prefix = module_name
             if not self.should_log_activations_this_step():
                 return
             if self._activation_metrics is None:
                 self._activation_metrics = {}
-
             if isinstance(module, OlmoBlock):
                 activation = output[0]
             elif isinstance(module, Olmo):
                 activation = output.logits
+                if prefix:
+                    prefix += ".logits"
+                else:
+                    prefix = "logits"
             else:
                 activation = output
             assert isinstance(
@@ -1040,10 +1046,10 @@ class Trainer:
             ), f"Not sure how to deal with {module} output of type {type(output)}"
             self._activation_metrics.update(
                 {
-                    f"{module_name}.norm": torch.linalg.vector_norm(activation, 2.0, dtype=torch.float),
-                    f"{module_name}.avg": activation.sum() / activation.numel(),
-                    f"{module_name}.min": activation.min(),
-                    f"{module_name}.max": activation.max(),
+                    f"{prefix}.norm": torch.linalg.vector_norm(activation, 2.0, dtype=torch.float),
+                    f"{prefix}.avg": activation.sum() / activation.numel(),
+                    f"{prefix}.min": activation.min(),
+                    f"{prefix}.max": activation.max(),
                 }
             )
 
