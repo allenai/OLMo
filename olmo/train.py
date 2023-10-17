@@ -49,6 +49,7 @@ from .util import (
     get_fs_local_rank,
     get_global_rank,
     get_world_size,
+    is_distributed,
     move_to_device,
     peak_gpu_memory,
     resource_path,
@@ -126,6 +127,7 @@ class Trainer:
     cur_train_loss: float = float("inf")
     indices_file: Optional[TextIO] = None
     _start_time: float = 0.0
+    _activation_metrics: Optional[Dict[str, torch.Tensor]] = None
 
     def state_dict(self) -> Dict[str, Any]:
         state_dict = self.trainer_state_dict()
@@ -490,8 +492,8 @@ class Trainer:
             optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
         ):
             # Deserialize state dict.
-            state_dict = torch.load(
-                resource_path(load_path, f"rank{get_global_rank()}.pt", local_cache=local_cache)
+            state_dict = load_state_dict(
+                load_path, f"rank{get_global_rank()}.pt", local_cache=local_cache, map_location="cpu"
             )
 
             # Load model and optimizer state.
@@ -621,23 +623,24 @@ class Trainer:
             log.info("Loading model state...")
             self.fsdp_model.load_state_dict(
                 self.model._make_state_dict_compatible(
-                    torch.load(resource_path(load_path, "model.pt", local_cache=local_cache))
+                    load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location="cpu")
                 )
             )
 
             # Load optimizer state.
             if load_optimizer_state:
                 log.info("Loading optimizer state...")
-                optim_state_dict = torch.load(resource_path(load_path, "optim.pt", local_cache=local_cache))
+                optim_state_dict = load_state_dict(
+                    load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
+                )
                 load_fsdp_optim_state(self.fsdp_model, self.optim, optim_state_dict)
 
             # Load other state.
             try:
-                train_state_dict = torch.load(resource_path(load_path, "train.pt", local_cache=local_cache))
+                train_state_dict = load_state_dict(load_path, "train.pt", local_cache=local_cache)
             except FileNotFoundError:
-                train_state_dict = torch.load(
-                    resource_path(load_path, "other.pt", local_cache=local_cache)
-                )  # for backwards compatibility
+                # for backwards compatibility
+                train_state_dict = load_state_dict(load_path, "other.pt", local_cache=local_cache)
             self.load_trainer_state_dict(train_state_dict)
 
         barrier()
@@ -762,12 +765,6 @@ class Trainer:
             # Run backward pass.
             loss.backward()
 
-        # Check for nan.
-        if torch.isnan(ce_batch_loss):
-            raise ValueError("nan loss encountered")
-        if z_batch_loss is not None and torch.isnan(z_batch_loss):
-            raise ValueError("nan loss encountered")
-
         return ce_batch_loss, z_batch_loss
 
     def train_step(self, batch: Dict[str, Any], reduce_global_loss: bool = True) -> Dict[str, float]:
@@ -787,13 +784,22 @@ class Trainer:
         # Run forward-backward pass.
         ce_batch_loss, z_batch_loss = self.train_batch(batch)
 
+        # Collect loss, potentially reducing over all ranks.
+        if reduce_global_loss:
+            dist.reduce(ce_batch_loss, 0)
+            ce_batch_loss.div_(get_world_size())
+            if z_batch_loss is not None:
+                dist.reduce(z_batch_loss, 0)
+                z_batch_loss.div_(get_world_size())
+
         # Clip gradient norms and collect param/gradient/optim metrics.
         should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
         optim_metrics = self.optim.clip_grads_and_collect_metrics(
             self.global_step, collect_param_metrics=should_log_optim_metrics_this_step
         )
-        for key, value in optim_metrics.items():
-            metrics[f"optim/{key}"] = value.item()
+
+        # Maybe collect activation metrics.
+        activation_metrics = self._collect_activation_metrics()
 
         # Adjust the learning rate.
         for group in self.optim.param_groups:
@@ -804,20 +810,21 @@ class Trainer:
         # Optimizer step.
         self.optim.step()
 
-        # Collect loss, potentially reducing over all ranks.
-        if reduce_global_loss:
-            dist.reduce(ce_batch_loss, 0)
-            ce_batch_loss.div_(get_world_size())
-        # TODO (dirkgr): If we did this much earlier, like, right after the forwards step, but then didn't
-        # call `.item()` for a long time, would it use laziness to interleave this reduce call with the backward step?
+        # Collect metrics and check for NaN loss.
+        # NOTE: this involves a bunch of host-device syncs so we wait until the last moment to do this.
+        if torch.isnan(ce_batch_loss):
+            raise ValueError("nan loss encountered")
+        if z_batch_loss is not None and torch.isnan(z_batch_loss):
+            raise ValueError("nan loss encountered")
+        for key, value in optim_metrics.items():
+            metrics[f"optim/{key}"] = value.item()
+        for key, value in activation_metrics.items():
+            metrics[f"activation/{key}"] = value.item()
         self.cur_train_loss = ce_batch_loss.item()
         self.min_train_loss = min(self.min_train_loss, self.cur_train_loss)
         metrics["train/CrossEntropyLoss"] = self.cur_train_loss
         metrics["train/Perplexity"] = math.exp(self.cur_train_loss)
         if z_batch_loss is not None:
-            if reduce_global_loss:
-                dist.reduce(z_batch_loss, 0)
-                z_batch_loss.div_(get_world_size())
             metrics["train/ZLoss"] = z_batch_loss.item()
 
         # Maybe collect post-step optimizer-specific metrics.
@@ -1002,7 +1009,7 @@ class Trainer:
         if run_canceled and cancel_reason is not None:
             log.warning(f"Run canceled due to {cancel_reason}")
         return run_canceled
-    
+
     def should_log_activations_this_step(self) -> bool:
         if self.cfg.wandb is None:
             return False
@@ -1014,59 +1021,91 @@ class Trainer:
         return self.global_step % activation_log_interval == 0
 
     @torch.no_grad()
-    def get_activation_hook(self, module_name: str, log_interval: int, device: str):
-        def activation_hook(model: torch.nn.Module, input, output):
+    def get_activation_hook(self, module_name: str):
+        def activation_hook(model: torch.nn.Module, _, output):
             if not self.should_log_activations_this_step():
                 return
+            if self._activation_metrics is None:
+                self._activation_metrics = {}
+
             if isinstance(model, OlmoBlock):
-                output = output[0]
+                activation = output[0]
             elif isinstance(model, Olmo):
-                output = output.logits
-            activation = (
-                output.to(device=device)
-                if output is not None
-                else torch.tensor([], device=device, dtype=torch.float32)
-            )
-            metric_prefix = f"activation/{module_name}"
-            metrics = {}
-            numel_int = activation.numel()
-            numel = torch.tensor(activation.numel(), device=device, dtype=torch.float32)
-            if numel_int > 0:
-                norm = activation.norm().to(device=device)
-                avg = activation.norm().to(device=device)
-                mini = activation.min().to(device=device)
-                maxi = activation.max().to(device=device)
+                activation = output.logits
             else:
-                norm = torch.tensor(0.0, device=device, dtype=torch.float32)
-                avg = torch.tensor(0.0, device=device, dtype=torch.float32)
-                mini = torch.tensor(float("inf"), device=device, dtype=torch.float32)
-                maxi = torch.tensor(float("-inf"), device=device, dtype=torch.float32)
-
-            # reduce accross GPUs, if we're using multiple them
-            if device == "cuda":
-                dist.reduce(mini, 0, op=dist.ReduceOp.MIN)
-                dist.reduce(maxi, 0, op=dist.ReduceOp.MAX)
-
-                # reduce norm w Sum
-                norm = norm**2
-                dist.reduce(norm, 0, op=dist.ReduceOp.SUM)
-                norm = norm**0.5
-
-                # reduce avg w Sum
-                avg *= numel
-                dist.reduce(avg, 0, op=dist.ReduceOp.SUM)
-                dist.reduce(numel, 0, op=dist.ReduceOp.SUM)
-                avg /= numel
-
-            metrics[f"{metric_prefix}.norm"] = norm
-            metrics[f"{metric_prefix}.avg"] = avg
-            metrics[f"{metric_prefix}.min"] = mini
-            metrics[f"{metric_prefix}.max"] = maxi
-
-            # save to the modules internals
-            model.activation_metrics = metrics
+                activation = output
+            assert isinstance(activation, torch.Tensor)
+            self._activation_metrics.update(
+                {
+                    f"{module_name}.norm": torch.linalg.vector_norm(activation, 2.0, dtype=torch.float),
+                    f"{module_name}.avg": activation.sum() / activation.numel(),
+                    f"{module_name}.min": activation.min(),
+                    f"{module_name}.max": activation.max(),
+                }
+            )
 
         return activation_hook
+
+    def _collect_activation_metrics(self) -> Dict[str, torch.Tensor]:
+        if not self._activation_metrics:
+            return {}
+        if not is_distributed():
+            metrics = {k: v for k, v in self._activation_metrics.items()}
+        else:
+            # Reduce metrics over rank.
+            # NOTE: norm is reduce by averaging instead of taking the total norm across all ranks.
+            # NOTE: We make the assumption that per-device batch size is the same across all ranks
+            # to avoid extra distributed reductions.
+            # NOTE: Order needs to be exactly the same across all ranks which we guarantee by collecting
+            # metrics in alphabetical order.
+            sorted_metric_names = sorted(self._activation_metrics.keys())
+            sum_reduce_metrics = []
+            min_reduce_metrics = []
+            max_reduce_metrics = []
+            for key in sorted_metric_names:
+                value = self._activation_metrics.pop(key).unsqueeze(0).to(device=self.device, dtype=torch.float)
+                if key.endswith(".norm") or key.endswith(".avg"):
+                    sum_reduce_metrics.append(value)
+                elif key.endswith(".min"):
+                    min_reduce_metrics.append(value)
+                elif key.endswith(".max"):
+                    max_reduce_metrics.append(value)
+                else:
+                    raise NotImplementedError(key)
+
+            # Reduce sums.
+            sum_reduce_metrics_tensor = torch.cat(sum_reduce_metrics)
+            dist.reduce(sum_reduce_metrics_tensor, 0, op=dist.ReduceOp.SUM)
+            sum_reduce_metrics_tensor.div_(get_world_size())
+            sum_reduce_metrics = list(reversed(sum_reduce_metrics_tensor.split(1)))
+            del sum_reduce_metrics_tensor
+
+            # Reduce mins.
+            min_reduce_metrics_tensor = torch.cat(min_reduce_metrics)
+            dist.reduce(min_reduce_metrics_tensor, 0, op=dist.ReduceOp.MIN)
+            min_reduce_metrics = list(reversed(min_reduce_metrics_tensor.split(1)))
+            del min_reduce_metrics_tensor
+
+            # Reduce maxs.
+            max_reduce_metrics_tensor = torch.cat(max_reduce_metrics)
+            dist.reduce(max_reduce_metrics_tensor, 0, op=dist.ReduceOp.MAX)
+            max_reduce_metrics = list(reversed(max_reduce_metrics_tensor.split(1)))
+            del max_reduce_metrics_tensor
+
+            # Collect everything together.
+            metrics = {}
+            for key in sorted_metric_names:
+                if key.endswith(".norm") or key.endswith(".avg"):
+                    metrics[key] = sum_reduce_metrics.pop()
+                elif key.endswith(".min"):
+                    metrics[key] = min_reduce_metrics.pop()
+                elif key.endswith(".max"):
+                    metrics[key] = max_reduce_metrics.pop()
+                else:
+                    raise NotImplementedError(key)
+
+        self._activation_metrics.clear()
+        return metrics
 
     def fit(self):
         self._start_time = time.time()
@@ -1075,11 +1114,7 @@ class Trainer:
             registered = set()
             for name, module in self.model.named_modules():
                 if name not in registered:
-                    module.register_forward_hook(
-                        self.get_activation_hook(
-                            name, self.cfg.wandb.log_interval, device=self.device.type
-                        )
-                    )
+                    module.register_forward_hook(self.get_activation_hook(name))
                     registered.add(name)
 
         if self.cfg.load_path is not None and self.global_step > 0 and self.cfg.eval_on_load:
@@ -1156,6 +1191,8 @@ class Trainer:
                 # Alternatively we'd have to use a distributed all reduce over seq_len here, but I don't want that
                 # overhead. So for now I'm putting these assertions here so if the assumption is violated it will
                 # fail loudly.
+                # If this ever changes we also need to update `self.get_activation_hook()` and
+                # `self._collect_activation_metrics()` which also currently assume per-device batch size is the same.
                 batch_size, seq_len = batch["input_ids"].shape
                 assert seq_len == self.cfg.model.max_sequence_length
                 assert batch_size == self.cfg.device_train_batch_size
@@ -1189,13 +1226,6 @@ class Trainer:
                 # Log metrics to console.
                 if self.global_step % self.cfg.console_log_interval == 0:
                     self.log_metrics_to_console(f"[step={self.global_step}/{self.cfg.max_duration}]", metrics)
-                
-                if self.cfg.log_activations and self.should_log_activations_this_step():
-                    for name, module in self.model.named_modules():
-                        if hasattr(module, "activation_metrics"):
-                            for metric_name, metric_value in module.activation_metrics.items():
-                                metrics[metric_name] = metric_value.item()
-                            del module.activation_metrics
 
                 # Log metrics to W&B.
                 if (
@@ -1205,11 +1235,11 @@ class Trainer:
                 ):
                     wandb.log(metrics, step=self.global_step)
 
-                
-
                 # Check if run should be canceled.
                 if self.global_step % self.cfg.canceled_check_interval == 0:
                     canceled = self.check_if_cancelled()
+                elif self.cfg.stop_at is not None and self.global_step >= self.cfg.stop_at:
+                    canceled = True
 
                 # Maybe save sharded checkpoint.
                 if canceled or (

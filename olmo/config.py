@@ -841,6 +841,11 @@ class TrainConfig(BaseConfig):
     How often to log activations to W&B. If not set, defaults to ``wandb.log_interval``.
     """
 
+    stop_at: Optional[int] = None
+    """
+    Stop at a specific step.
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":
