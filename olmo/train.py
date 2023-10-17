@@ -1022,19 +1022,21 @@ class Trainer:
 
     def get_activation_hook(self, module_name: str):
         @torch.no_grad()
-        def activation_hook(model: torch.nn.Module, _, output):
+        def activation_hook(module: torch.nn.Module, _, output):
             if not self.should_log_activations_this_step():
                 return
             if self._activation_metrics is None:
                 self._activation_metrics = {}
 
-            if isinstance(model, OlmoBlock):
+            if isinstance(module, OlmoBlock):
                 activation = output[0]
-            elif isinstance(model, Olmo):
+            elif isinstance(module, Olmo):
                 activation = output.logits
             else:
                 activation = output
-            assert isinstance(activation, torch.Tensor)
+            assert isinstance(
+                activation, torch.Tensor
+            ), f"Not sure how to deal with {module} output of type {type(output)}"
             self._activation_metrics.update(
                 {
                     f"{module_name}.norm": torch.linalg.vector_norm(activation, 2.0, dtype=torch.float),
@@ -1107,8 +1109,7 @@ class Trainer:
         self._activation_metrics.clear()
         return metrics
 
-    def fit(self):
-        self._start_time = time.time()
+    def _register_forward_hooks(self):
         if self.cfg.wandb is not None and self.cfg.log_activations:
             # Add the hook at every named module
             registered = set()
@@ -1116,6 +1117,10 @@ class Trainer:
                 if name not in registered:
                     module.register_forward_hook(self.get_activation_hook(name))
                     registered.add(name)
+
+    def fit(self):
+        self._start_time = time.time()
+        self._register_forward_hooks()
 
         if self.cfg.load_path is not None and self.global_step > 0 and self.cfg.eval_on_load:
             eval_metrics = self.eval()
