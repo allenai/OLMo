@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 import numpy as np
 import torch
@@ -24,15 +25,18 @@ os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"  # needed for running in the det
 
 # torch.set_printoptions(precision=10)
 SEED: int = 42
-SEQ_LEN: int = 3
+SEQ_LEN: int = 50
+TRAINING_ITERATIONS: int = 0
+OLMO_USE_AUTOCAST: bool = True
+HF_USE_AUTOCAST: bool = True
 
 model_path = "test_fixtures/tiny_llama/"
 # model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
 
 # for development
-# hf_device = 'cpu'
-# olmo_device = 'cpu'
-# use_fsdp = False
+hf_device = 'cpu'
+olmo_device = 'cpu'
+use_fsdp = False
 
 # # for running the real 7B model on GPU
 # hf_device = 'cuda:0'
@@ -40,9 +44,9 @@ model_path = "test_fixtures/tiny_llama/"
 # use_fsdp = False
 
 # # for FSDP
-hf_device = "cpu"
-olmo_device = "cuda"
-use_fsdp = True
+# hf_device = "cpu"
+# olmo_device = "cuda"
+# use_fsdp = True
 
 
 def test_all_approx_close(a, b, rtol, atol, count):
@@ -63,9 +67,9 @@ tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
 
 
 # load Llama weights into HF model
-def build_hf_model(device: str, dtype: torch.dtype):
+def build_hf_model(device: str):
     hf_model = transformers.AutoModelForCausalLM.from_pretrained(
-        model_path, torch_dtype=dtype, device_map=device, rms_norm_eps=1e-5
+        model_path, torch_dtype='auto', device_map=device, rms_norm_eps=1e-5
     )
     return hf_model
 
@@ -252,10 +256,27 @@ def build_olmo_model(hf_model, cfg, use_fsdp=False):
     return olmo_model
 
 
+def get_max_relative_diff(tensor1: torch.Tensor, tensor2: torch.Tensor) -> torch.Tensor:
+    tensor1 = tensor1.cpu()
+    tensor2 = tensor2.cpu()
+    absolute_diff = torch.abs(tensor1 - tensor2)
+
+    diff_relative_to_tensor1 = absolute_diff / (torch.abs(tensor1) + 1e-8)
+    diff_relative_to_tensor2 = absolute_diff / (torch.abs(tensor2) + 1e-8)
+
+    # relative_diffs = torch.min(diff_relative_to_tensor1, diff_relative_to_tensor2)
+    relative_diffs = torch.max(diff_relative_to_tensor1, diff_relative_to_tensor2)
+
+    # index = torch.argmax(relative_diffs)
+    # print(index)
+    # print(tensor1.flatten()[index], tensor2.flatten()[index])
+    return torch.max(relative_diffs)
+
+
 def print_metrics(olmo_tensor, hf_tensor, tensor_name):
     log.info(f"{tensor_name} max absolute diff: {torch.max(torch.abs(olmo_tensor.cpu() - hf_tensor.cpu()))}")
     log.info(
-        f"{tensor_name} max relative diff: {torch.max(torch.abs(olmo_tensor.cpu() - hf_tensor.cpu()) / torch.abs(olmo_tensor.cpu()))}"
+        f"{tensor_name} max relative diff: {get_max_relative_diff(olmo_tensor, hf_tensor)}"
     )
     log.info(f"OLMo {tensor_name} norm: {torch.norm(olmo_tensor)}")
     log.info(f"HF {tensor_name} norm: {torch.norm(hf_tensor)}")
@@ -455,7 +476,7 @@ if use_fsdp:
     barrier()
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
 
-hf_model = build_hf_model(hf_device, config.autocast_precision)
+hf_model = build_hf_model(hf_device)
 update_config_with_hf_settings(config, hf_model)
 olmo_model = build_olmo_model(hf_model, config, use_fsdp=use_fsdp)
 
@@ -493,25 +514,42 @@ def generate(model, tokenizer, input_str):
     return tokenizer.decode(token_ids)
 
 
-def olmo_forward(olmo_model: torch.nn.Module, batch: torch.Tensor, autocast_dtype: torch.dtype) -> OlmoOutput:
-    device_type = non_meta_device(olmo_device)
+def model_autocast_forward(model: torch.nn.Module, batch: torch.Tensor, device: torch.device, autocast_dtype: torch.dtype) -> Any:
     if autocast_dtype != torch.float32:
-        with torch.autocast(device_type.type, dtype=autocast_dtype):
-            return olmo_model(batch.to(device_type))
+        with torch.autocast(device.type, dtype=autocast_dtype):
+            # print('autocast_dtype', autocast_dtype)
+            return model(batch.to(device))
 
     else:
-        return olmo_model(batch.to(device_type))
+        return model(batch.to(device))
+
+
+def hf_forward(hf_model: torch.nn.Module, batch: torch.Tensor, device_str: str, autocast_dtype: torch.dtype) -> Any:
+    device = torch.device(device_str)
+    if HF_USE_AUTOCAST:
+        return model_autocast_forward(hf_model, batch, device, autocast_dtype)
+
+    return hf_model(batch.to(device))
+
+
+def olmo_forward(olmo_model: torch.nn.Module, batch: torch.Tensor, device_str: str, autocast_dtype: torch.dtype) -> OlmoOutput:
+    device = non_meta_device(device_str)
+    if OLMO_USE_AUTOCAST:
+        return model_autocast_forward(olmo_model, batch, device, autocast_dtype)
+
+    return olmo_model(batch.to(device))
 
 
 # run on olmo
 torch.manual_seed(SEED)
-olmo_output = olmo_forward(olmo_model, test_batch, config.autocast_precision)
+olmo_output = olmo_forward(olmo_model, test_batch, olmo_device, config.autocast_precision)
 olmo_logits = olmo_output.logits
 log.info(f"OLmo logits: {olmo_logits}")
 
 # run on hf
 torch.manual_seed(SEED)
-hf_output = hf_model(test_batch.to(device=hf_device))
+hf_output = hf_forward(hf_model, test_batch, hf_device, config.autocast_precision)
+# hf_output = hf_model(test_batch.to(device=hf_device))
 hf_logits = hf_output.logits
 log.info(f"HF logits: {hf_logits}")
 
@@ -571,7 +609,7 @@ hf_optimizer = build_optimizer(config, hf_model)
 
 # olmo_optimizer = torch.optim.SGD(olmo_model.parameters(), lr=0.1)
 # hf_optimizer = torch.optim.SGD(hf_model.parameters(), lr=0.1)
-for i in range(10):
+for i in range(TRAINING_ITERATIONS):
     log.info("Training iteration %d", i + 1)
 
     idx = 2 * (i + 1)
