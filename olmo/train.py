@@ -41,7 +41,7 @@ from .config import CheckpointType, SpeedMonitorConfig, TrainConfig
 from .data import IterableDataset
 from .eval import Evaluator
 from .exceptions import OlmoConfigurationError
-from .model import Olmo, OlmoBlock
+from .model import Olmo, OlmoBlock, RotaryEmbedding
 from .optim import Optimizer, Scheduler
 from .util import (
     barrier,
@@ -1114,6 +1114,8 @@ class Trainer:
             # Add the hook at every named module
             registered = set()
             for name, module in self.model.named_modules():
+                if isinstance(module, (FSDP, RotaryEmbedding)):
+                    continue
                 if name not in registered:
                     module.register_forward_hook(self.get_activation_hook(name))
                     registered.add(name)
