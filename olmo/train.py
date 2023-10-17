@@ -1020,8 +1020,8 @@ class Trainer:
             activation_log_interval = max(activation_log_interval, self.cfg.wandb.log_interval)
         return self.global_step % activation_log_interval == 0
 
-    @torch.no_grad()
     def get_activation_hook(self, module_name: str):
+        @torch.no_grad()
         def activation_hook(model: torch.nn.Module, _, output):
             if not self.should_log_activations_this_step():
                 return
