@@ -1063,11 +1063,19 @@ class LocalShardedCheckpointer(Checkpointer):
                     full_model_state[root_fqn] = torch.empty(
                         flat_param_shard.full_shape, dtype=flat_param_shard.shard_data.dtype, device=device
                     )
+                    # Fill with NaNs so we can validate that the whole parameter has been populated
+                    # afterwards.
+                    full_model_state[root_fqn].fill_(torch.nan)
                 # Copy over the local shard to the relevant part of the full parameter.
                 full_param = full_model_state[root_fqn]
                 log.info(f"Loading rank {rank} shard for '{root_fqn}'...")
                 flat_param_shard.copy_into(full_param)
                 flat_params_data[rank][root_fqn] = replace(flat_param_shard, shard_data=None)
+
+        log.info("Validating full parameters...")
+        for key, tensor in full_model_state.items():
+            if torch.isnan(tensor).any():
+                raise ValueError(f"Parameter '{key}' contains NaNs, this is likely a bug with the unsharder")
 
         if not load_optimizer_state:
             return full_model_state, None
