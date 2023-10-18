@@ -378,6 +378,9 @@ class WriteOutputsAsRowsMultipleMetrics(Step):
 def write_to_gsheet(gsheet: str, rows: List[Dict], sheet_title: str = "Sheet1"):
     import pygsheets
 
+    # sheet title must be less than 100 characters, or we truncate
+    sheet_title = sheet_title[:100]
+
     # make rows into dataframe
     new_df = pd.DataFrame(rows)
 
