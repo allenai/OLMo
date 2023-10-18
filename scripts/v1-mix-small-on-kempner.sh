@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=v1-mix-small
-#SBATCH --account=kempner_pi_lab
+#SBATCH --account=kempner_lab
 #SBATCH --output=/n/home06/dgroeneveld/logs/%j.log
 #SBATCH --nodes=2              # Total number of nodes 
 #SBATCH --ntasks-per-node=8
