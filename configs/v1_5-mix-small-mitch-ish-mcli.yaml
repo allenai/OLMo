@@ -40,8 +40,8 @@ compile:
   fullgraph: false
 
 optimizer:
-  name: adamw
-  learning_rate: 2.0e-4   # same as pythia
+  name: lionw
+  learning_rate: 2.0e-4
   weight_decay: 0.1
   betas:
   - 0.9
