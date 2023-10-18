@@ -578,6 +578,7 @@ class CheckpointType(StrEnum):
 class ShardedCheckpointerType(StrEnum):
     new_style = "new_style"
     legacy = "legacy"
+    local = "local"
 
 
 @dataclass
