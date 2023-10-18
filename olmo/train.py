@@ -1047,9 +1047,27 @@ class Trainer:
                 output = p.key_averages().table(sort_by="self_cpu_time_total", row_limit=32)
                 log.info(f"Profile by total CPU time at step {p.step_num}:\n{output}")
 
-                p.export_chrome_trace(str(profiler_output_dir / f"{p.step_num}.chrome_trace.json.gz"))
-                p.export_stacks(str(profiler_output_dir / f"{p.step_num}.gpu.stacks"), "self_cuda_time_total")
-                p.export_stacks(str(profiler_output_dir / f"{p.step_num}.cpu.stacks"), "self_cpu_time_total")
+                p.export_chrome_trace(
+                    str(trace_path := (profiler_output_dir / f"{p.step_num}.chrome_trace.json.gz"))
+                )
+                p.export_stacks(
+                    str(gpu_stacks_path := (profiler_output_dir / f"{p.step_num}.gpu.stacks")),
+                    "self_cuda_time_total",
+                )
+                p.export_stacks(
+                    str(cpu_stacks_path := (profiler_output_dir / f"{p.step_num}.cpu.stacks")),
+                    "self_cpu_time_total",
+                )
+                if self.cfg.remote_save_folder is not None:
+                    upload(trace_path, f"{self.cfg.remote_save_folder.rstrip('/')}/profiler/{trace_path.name}")
+                    upload(
+                        gpu_stacks_path,
+                        f"{self.cfg.remote_save_folder.rstrip('/')}/profiler/{gpu_stacks_path.name}",
+                    )
+                    upload(
+                        cpu_stacks_path,
+                        f"{self.cfg.remote_save_folder.rstrip('/')}/profiler/{cpu_stacks_path.name}",
+                    )
 
             from torch.profiler import ProfilerActivity
 
