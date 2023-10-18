@@ -1,6 +1,6 @@
 run_name: olmo-small-dolma-150B-mcli  # can't have "_" or "." here
 image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
-gpu_num: 16
+gpu_num: 8
 cluster: r12z3
 gpu_type: a100_40gb
 integrations:
@@ -15,9 +15,7 @@ command: |-
 
   export OMP_NUM_THREADS=8
   export LOG_FILTER_TYPE=local_rank0_only
-  export OLMO_NO_SSL=1
-  #export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
-  pip install --upgrade torch torchvision torchaudio
+  export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
 
   cd LLM
 
@@ -26,5 +24,4 @@ command: |-
   --master_port $MASTER_PORT \
   --nnodes $NUM_NODES \
   --node_rank $NODE_RANK \
-  --nproc_per_node 8 \
-  scripts/train.py configs/v1_5-mix-small-mitch-ish-mcli.yaml --max_duration=36000 --scheduler.t_max=72000
+  --nproc_per_node 8 scripts/train.py configs/v1_5-mix-small-mitch-ish-mcli.yaml --max_duration=36000 --scheduler.t_max=72000
