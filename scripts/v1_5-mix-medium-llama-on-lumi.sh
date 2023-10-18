@@ -5,7 +5,7 @@
 #SBATCH --nodes=192             # Total number of nodes
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
-#SBATCH --cpus-per-task=6
+#SBATCH --cpus-per-task=7
 #SBATCH --time=48:00:00
 #SBATCH --time-min=24:00:00
 #SBATCH --mem=0			# All memory on the node
@@ -13,7 +13,7 @@
 
 module load LUMI/22.08 partition/G
 
-export OLMO_CONTAINER=llm-lumi_latest.sif
+export OLMO_CONTAINER=llm-lumi-nightly_latest.sif
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
@@ -24,6 +24,7 @@ export MIOPEN_CUSTOM_CACHE_DIR=${MIOPEN_USER_DB_PATH}
 export CXI_FORK_SAFE=1
 export CXI_FORK_SAFE_HP=1
 export FI_CXI_DISABLE_CQ_HUGETLB=1
+export HSA_FORCE_FINE_GRAIN_PCIE=1
 
 # We need to set this to avoid "Cassini Event Queue overflow detected." errors.
 export FI_CXI_DEFAULT_CQ_SIZE=131072
@@ -36,10 +37,14 @@ export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.
 # Try playing with max_split_size_mb if you run into OOM errors.
 #export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:128
 
+c=fe
+MYMASKS1="0x${c}000000000000,0x${c}00000000000000,0x${c}0000,0x${c}000000,0x${c},0x${c}00,0x${c}00000000,0x${c}0000000000"
+
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
   --distribution=block:block \
   --kill-on-bad-exit \
+  --cpu-bind=mask_cpu:$MYMASKS1 \
   scripts/run_with_environment.sh \
     singularity exec \
     -B"$PROJECT_DIR:$PROJECT_DIR" \
@@ -49,4 +54,4 @@ srun \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
-    python scripts/train.py configs/v1_5-mix-medium-llama.yaml --run_name=${SLURM_JOB_ID} ${@}
+    python scripts/train.py configs/v1_5-mix-medium-llama.yaml --run_name=llama_defaultln_${SLURM_JOB_ID} ${@}
