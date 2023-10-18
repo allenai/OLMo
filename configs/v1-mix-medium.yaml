@@ -43,6 +43,8 @@ optimizer:
   - 0.9
   - 0.95
   metrics_log_interval: 10
+  decay_norm_and_bias: true
+  decay_embeddings: true
 
 scheduler:
   name: cosine_with_warmup
