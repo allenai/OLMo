@@ -38,7 +38,7 @@ class ConstructTaskDict(Step):
                 files = [os.path.join(os.environ["EVAL_DATA_PATH"], filename) for filename in kwargs["files"]]
             else:
                 files = kwargs["files"]
-            task_obj = task_obj.clone(files=files)
+            task_obj = task_obj.clone(files=files, detailed_output=kwargs.get("detailed_output", False))
         task_dict["task_obj"] = task_obj
 
         if task_rename:
@@ -225,6 +225,13 @@ class PredictAndCalculateMetricsStep(Step):
             "processing_time": end_time - start_time,
             "instance_predictions": instance_predictions,
         }
+        
+        if hasattr(task, "process_extra_output"):
+            output['per_instance'] = output['instance_predictions']
+            del output['instance_predictions']
+            output = task.process_extra_output(output)
+            output['instance_predictions'] = output['per_instance']
+            del output['per_instance']
 
         return output
 
@@ -342,6 +349,24 @@ class WriteOutputsAsRowsMultipleMetrics(Step):
                 per_metric_type_tsv_outputs[metric_type_name] = per_metric_type_tsv_outputs.get(
                     metric_type_name, []
                 ) + [row]
+            if 'extra_output' in d and 'token_count_avg_logits_by_domain' in d['extra_output']:
+                for subdomain, token2countNLogit in d['extra_output']['token_count_avg_logits_by_domain'].items():
+                    row = {}
+                    row["date"] = datetime.now(tz=pytz.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                    row["model"] = model
+                    row["model_kwargs"] = d["model_kwargs"]
+                    row["full_model"] = f"lm::pretrained={model}"
+                    row["task"] = d["task"]
+                    row["processing_time"] = d["processing_time"]
+                    row["num_instances"] = d["num_instances"]
+                    row["tango_workspace"] = self.workspace.url
+                    row["tango_step"] = self.unique_id
+                    row['subdomain'] = subdomain
+                    for token, countNLogit in token2countNLogit.items():
+                        row[f"{token}"] = countNLogit
+                    per_metric_type_tsv_outputs[f"{subdomain}_token_count_avg_logits"] = per_metric_type_tsv_outputs.get(
+                        f"{subdomain}_token_count_avg_logits", []
+                    ) + [row]
 
         if gsheet:
             for metric_type_name, tsv_outputs in per_metric_type_tsv_outputs.items():
