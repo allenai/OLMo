@@ -18,6 +18,8 @@ from catwalk.tasks.tasks_lm import TASKS_LM
 from catwalk.utils import guess_instance_id
 from tango.step import Step
 
+from tqdm import tqdm
+
 logger = logging.getLogger(__name__)
 
 
@@ -350,7 +352,7 @@ class WriteOutputsAsRowsMultipleMetrics(Step):
                     metric_type_name, []
                 ) + [row]
             if 'extra_output' in d and 'token_count_avg_logits_by_domain' in d['extra_output']:
-                for subdomain, token2countNLogit in d['extra_output']['token_count_avg_logits_by_domain'].items():
+                for subdomain, token2countNLogit in tqdm(d['extra_output']['token_count_avg_logits_by_domain'].items(), desc="reading token_count_avg_logits_by_domain"):
                     for token, countNLogit in token2countNLogit.items():
                         row = {}
                         task = d["task"]
@@ -372,7 +374,7 @@ class WriteOutputsAsRowsMultipleMetrics(Step):
                         ) + [row]
 
         if gsheet:
-            for metric_type_name, tsv_outputs in per_metric_type_tsv_outputs.items():
+            for metric_type_name, tsv_outputs in tqdm(per_metric_type_tsv_outputs.items(), desc="writing metrics to gsheets"):
                 write_to_gsheet(gsheet, tsv_outputs, sheet_title=metric_type_name)
 
         return per_metric_type_tsv_outputs
