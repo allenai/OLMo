@@ -353,11 +353,12 @@ class WriteOutputsAsRowsMultipleMetrics(Step):
                 for subdomain, token2countNLogit in d['extra_output']['token_count_avg_logits_by_domain'].items():
                     for token, countNLogit in token2countNLogit.items():
                         row = {}
+                        task = d["task"]
                         row["date"] = datetime.now(tz=pytz.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
                         row["model"] = model
                         row["model_kwargs"] = d["model_kwargs"]
                         row["full_model"] = f"lm::pretrained={model}"
-                        row["task"] = d["task"]
+                        row["task"] = task
                         row["processing_time"] = d["processing_time"]
                         row["num_instances"] = d["num_instances"]
                         row["tango_workspace"] = self.workspace.url
@@ -366,8 +367,8 @@ class WriteOutputsAsRowsMultipleMetrics(Step):
                         row[f"token"] = token
                         row[f"count"] = countNLogit[0]
                         row[f"avg_logits"] = countNLogit[1]
-                        per_metric_type_tsv_outputs[f"{subdomain}_token_count_avg_logits"] = per_metric_type_tsv_outputs.get(
-                            f"{subdomain}_token_count_avg_logits", []
+                        per_metric_type_tsv_outputs[f"{task}_token_count_avg_logits"] = per_metric_type_tsv_outputs.get(
+                            f"{task}_token_count_avg_logits", []
                         ) + [row]
 
         if gsheet:
