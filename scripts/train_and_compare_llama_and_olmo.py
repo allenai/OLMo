@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import torch
@@ -29,6 +29,7 @@ SEQ_LEN: int = 50
 TRAINING_ITERATIONS: int = 0
 OLMO_USE_AUTOCAST: bool = True
 HF_USE_AUTOCAST: bool = True
+UPDATE_OLMO_OUTPUT_WITH_HF: bool = False
 
 model_path = "test_fixtures/tiny_llama/"
 # model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
@@ -66,14 +67,6 @@ def get_world_size():
 tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
 
 
-# load Llama weights into HF model
-def build_hf_model(device: str):
-    hf_model = transformers.AutoModelForCausalLM.from_pretrained(
-        model_path, torch_dtype='auto', device_map=device, rms_norm_eps=1e-5
-    )
-    return hf_model
-
-
 def non_meta_device(device_str):
     if device_str == "meta":
         return torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -90,210 +83,34 @@ def get_local_rank():
     return int(os.environ.get("LOCAL_RANK") or 0)
 
 
-# enrich an olmo model with FSDP functionality
-def apply_fsdp(olmo_model: Olmo, cfg: TrainConfig):
-    # Wrap the model in FSDP.
-    log.info("Wrapping model with FDSP...")
-    wrap_policy = None
-    if cfg.fsdp.wrapping_strategy == FSDPWrapStrategy.by_block:
-        wrap_policy = olmo_model.fsdp_wrap_fn
-    elif cfg.fsdp.wrapping_strategy == FSDPWrapStrategy.size_based:
-        wrap_policy = size_based_auto_wrap_policy
-
-    if version.parse(torch.__version__) >= version.parse("2.1.0"):
-        # This prevents any parameters from being initialized twice
-        def dummy_init_fn(module: torch.nn.Module) -> None:
-            module.to_empty(device=non_meta_device(cfg.model.init_device))
-
-        param_init_fn = dummy_init_fn
-    else:
-        param_init_fn = None
-
-    cfg.fsdp.use_orig_params = True
-
-    torch.manual_seed(SEED)
-    fsdp_model = FSDP(
-        olmo_model,
-        sharding_strategy=cfg.fsdp.sharding_strategy,
-        mixed_precision=cfg.fsdp_precision,
-        auto_wrap_policy=wrap_policy,
-        use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
-        limit_all_gathers=True,
-        device_id=get_local_rank(),
-        param_init_fn=param_init_fn,
-    )
-    # when param_init_fn is None, FSDP will call reset_parameters() automatically
-    if param_init_fn is not None:
-        olmo_model.reset_parameters()
-
-    return fsdp_model
-
-
-def build_config(device):
-    cfg = TrainConfig.load("configs/v1_5-mix-medium-llama-local.yaml")
-    cfg.model.precision = cfg.precision
-    cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
-    assert cfg.device_train_batch_size is not None  # for mypy
-    cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
-    cfg.model.init_device = device
-
-    return cfg
-
-
-def update_config_with_hf_settings(cfg, hf_model):
-    cfg.model.n_layers = hf_model.config.num_hidden_layers
-    cfg.model.n_heads = hf_model.config.num_attention_heads
-    cfg.model.d_model = hf_model.config.hidden_size
-    cfg.model.mlp_hidden_size = hf_model.config.intermediate_size * 2
-    cfg.model.max_sequence_length = hf_model.config.max_position_embeddings
-
-
-# create a similar sized OLMo model
-def build_olmo_model(hf_model, cfg, use_fsdp=False):
-    # Make model
-    log.info("Building model...")
-    olmo_model = Olmo(cfg.model)
-    log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
-    log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
-
-    parameters_to_set = {name for name, _ in olmo_model.named_parameters()}
-    parameters_to_read = {name for name, _ in hf_model.named_parameters()}
-
-    with torch.no_grad():
-        # embeddings
-        # assert olmo_model.transformer.wte.weight.dtype == hf_model.model.embed_tokens.weight.dtype
-        assert olmo_model.transformer.wte.weight.shape == hf_model.model.embed_tokens.weight.shape
-        olmo_model.transformer.wte.weight.copy_(hf_model.model.embed_tokens.weight)
-        parameters_to_set.remove("transformer.wte.weight")
-        parameters_to_read.remove("model.embed_tokens.weight")
-
-        # output projection
-        assert hf_model.lm_head.weight.shape == olmo_model.transformer.ff_out.weight.shape
-        # assert hf_model.lm_head.weight.dtype == olmo_model.transformer.ff_out.weight.dtype
-        olmo_model.transformer.ff_out.weight.copy_(hf_model.lm_head.weight)
-        parameters_to_set.remove("transformer.ff_out.weight")
-        parameters_to_read.remove("lm_head.weight")
-
-        # final layer norm
-        assert hf_model.model.norm.weight.shape == olmo_model.transformer.ln_f.weight.shape
-        # assert hf_model.model.norm.weight.dtype == olmo_model.transformer.ln_f.weight.dtype
-        olmo_model.transformer.ln_f.weight.copy_(hf_model.model.norm.weight)
-        parameters_to_set.remove("transformer.ln_f.weight")
-        parameters_to_read.remove("model.norm.weight")
-
-        # layers
-        assert len(hf_model.model.layers) == len(olmo_model.transformer.blocks)
-        for i, (hf_layer, olmo_layer) in enumerate(zip(hf_model.model.layers, olmo_model.transformer.blocks)):
-            # input norm
-            assert hf_layer.input_layernorm.weight.shape == olmo_layer.attn_norm.weight.shape
-            # assert hf_layer.input_layernorm.weight.dtype == olmo_layer.attn_norm.weight.dtype
-            olmo_layer.attn_norm.weight.copy_(hf_layer.input_layernorm.weight)
-            parameters_to_set.remove(f"transformer.blocks.{i}.attn_norm.weight")
-            parameters_to_read.remove(f"model.layers.{i}.input_layernorm.weight")
-
-            # post attention layernorm
-            assert hf_layer.post_attention_layernorm.weight.shape == olmo_layer.ff_norm.weight.shape
-            # assert hf_layer.post_attention_layernorm.weight.dtype == olmo_layer.ff_norm.weight.dtype
-            olmo_layer.ff_norm.weight.copy_(hf_layer.post_attention_layernorm.weight)
-            parameters_to_set.remove(f"transformer.blocks.{i}.ff_norm.weight")
-            parameters_to_read.remove(f"model.layers.{i}.post_attention_layernorm.weight")
-
-            # q, k, v projections
-            # TODO: We already know this does not produce the same result. It's close, but not close enough for
-            # torch.allclose().
-            # assert hf_layer.self_attn.q_proj.weight.dtype == olmo_layer.att_proj.weight.dtype
-            # assert hf_layer.self_attn.k_proj.weight.dtype == olmo_layer.att_proj.weight.dtype
-            # assert hf_layer.self_attn.v_proj.weight.dtype == olmo_layer.att_proj.weight.dtype
-            new_att_proj = torch.cat(
-                [
-                    hf_layer.self_attn.q_proj.weight,
-                    hf_layer.self_attn.k_proj.weight,
-                    hf_layer.self_attn.v_proj.weight,
-                ],
-                dim=0,
-            )
-            parameters_to_read.remove(f"model.layers.{i}.self_attn.q_proj.weight")
-            parameters_to_read.remove(f"model.layers.{i}.self_attn.k_proj.weight")
-            parameters_to_read.remove(f"model.layers.{i}.self_attn.v_proj.weight")
-            assert new_att_proj.shape == olmo_layer.att_proj.weight.shape
-            # assert new_att_proj.dtype == olmo_layer.att_proj.weight.dtype
-            olmo_layer.att_proj.weight.copy_(new_att_proj)
-            parameters_to_set.remove(f"transformer.blocks.{i}.att_proj.weight")
-
-            # attention out
-            assert hf_layer.self_attn.o_proj.weight.shape == olmo_layer.attn_out.weight.shape
-            # assert hf_layer.self_attn.o_proj.weight.dtype == olmo_layer.attn_out.weight.dtype
-            olmo_layer.attn_out.weight.copy_(hf_layer.self_attn.o_proj.weight)
-            parameters_to_set.remove(f"transformer.blocks.{i}.attn_out.weight")
-            parameters_to_read.remove(f"model.layers.{i}.self_attn.o_proj.weight")
-
-            # swiglu output projection
-            assert hf_layer.mlp.down_proj.weight.shape == olmo_layer.ff_out.weight.shape
-            # assert hf_layer.mlp.down_proj.weight.dtype == olmo_layer.ff_out.weight.dtype
-            olmo_layer.ff_out.weight.copy_(hf_layer.mlp.down_proj.weight)
-            parameters_to_set.remove(f"transformer.blocks.{i}.ff_out.weight")
-            parameters_to_read.remove(f"model.layers.{i}.mlp.down_proj.weight")
-
-            # swiglu input projections
-            # TODO: If fused q, k, v above doesn't produce the same result, then this probably also doesn't.
-            # assert hf_layer.mlp.up_proj.weight.dtype == olmo_layer.ff_proj.weight.dtype
-            # assert hf_layer.mlp.gate_proj.weight.dtype == olmo_layer.ff_proj.weight.dtype
-            new_ff_proj = torch.cat([hf_layer.mlp.up_proj.weight, hf_layer.mlp.gate_proj.weight], dim=0)
-            parameters_to_read.remove(f"model.layers.{i}.mlp.up_proj.weight")
-            parameters_to_read.remove(f"model.layers.{i}.mlp.gate_proj.weight")
-            assert new_ff_proj.shape == olmo_layer.ff_proj.weight.shape
-            # assert new_ff_proj.dtype == olmo_layer.ff_proj.weight.dtype
-            olmo_layer.ff_proj.weight.copy_(new_ff_proj)
-            parameters_to_set.remove(f"transformer.blocks.{i}.ff_proj.weight")
-
-    # all done?
-    assert len(parameters_to_set) == 0, parameters_to_set
-    assert len(parameters_to_read) == 0, parameters_to_read
-
-    if use_fsdp:
-        olmo_model = apply_fsdp(olmo_model, cfg)
-
-    return olmo_model
-
-
-def get_max_relative_diff(tensor1: torch.Tensor, tensor2: torch.Tensor) -> torch.Tensor:
-    tensor1 = tensor1.cpu()
-    tensor2 = tensor2.cpu()
-    absolute_diff = torch.abs(tensor1 - tensor2)
-
-    diff_relative_to_tensor1 = absolute_diff / (torch.abs(tensor1) + 1e-8)
-    diff_relative_to_tensor2 = absolute_diff / (torch.abs(tensor2) + 1e-8)
-
-    # relative_diffs = torch.min(diff_relative_to_tensor1, diff_relative_to_tensor2)
-    relative_diffs = torch.max(diff_relative_to_tensor1, diff_relative_to_tensor2)
-
-    # index = torch.argmax(relative_diffs)
-    # print(index)
-    # print(tensor1.flatten()[index], tensor2.flatten()[index])
-    return torch.max(relative_diffs)
-
-
-def print_metrics(olmo_tensor, hf_tensor, tensor_name):
+def print_metrics(olmo_tensor, hf_tensor, tensor_name, verbose=True):
     log.info(f"{tensor_name} max absolute diff: {torch.max(torch.abs(olmo_tensor.cpu() - hf_tensor.cpu()))}")
     log.info(
         f"{tensor_name} max relative diff: {get_max_relative_diff(olmo_tensor, hf_tensor)}"
     )
-    log.info(f"OLMo {tensor_name} norm: {torch.norm(olmo_tensor)}")
-    log.info(f"HF {tensor_name} norm: {torch.norm(hf_tensor)}")
-    log.info(f"OLMo {tensor_name} mean: {torch.mean(olmo_tensor)}")
-    log.info(f"HF {tensor_name} mean: {torch.mean(hf_tensor)}")
-    log.info(f"OLMo {tensor_name} min: {torch.min(olmo_tensor)}")
-    log.info(f"HF {tensor_name} min: {torch.min(hf_tensor)}")
-    log.info(f"OLMo {tensor_name} max: {torch.max(olmo_tensor)}")
-    log.info(f"HF {tensor_name} max: {torch.max(hf_tensor)}")
+
+    if verbose:
+        # log.info(f"{tensor_name} shape: {olmo_tensor.shape}")
+        # log.info(f"OLMo {tensor_name} dtype: {olmo_tensor.dtype}")
+        # log.info(f"HF {tensor_name} dtype: {hf_tensor.dtype}")
+        log.info(f"OLMo {tensor_name} norm: {torch.norm(olmo_tensor)}")
+        log.info(f"HF {tensor_name} norm: {torch.norm(hf_tensor)}")
+        log.info(f"OLMo {tensor_name} mean: {torch.mean(olmo_tensor)}")
+        log.info(f"HF {tensor_name} mean: {torch.mean(hf_tensor)}")
+        log.info(f"OLMo {tensor_name} min: {torch.min(olmo_tensor)}")
+        log.info(f"HF {tensor_name} min: {torch.min(hf_tensor)}")
+        log.info(f"OLMo {tensor_name} max: {torch.max(olmo_tensor)}")
+        log.info(f"HF {tensor_name} max: {torch.max(hf_tensor)}")
+        pass
 
 
 def check_weight_equality(olmo_weight: torch.Tensor, hf_weight: torch.Tensor, tensor_name):
     if not torch.allclose(olmo_weight.cpu().float(), hf_weight.cpu().float()):
         log.warning("Weights not equivalent for %s", tensor_name)
-        print_metrics(olmo_weight, hf_weight, tensor_name)
+        print_metrics(olmo_weight, hf_weight, tensor_name, verbose=True)
         return False
 
+    print_metrics(olmo_weight, hf_weight, tensor_name, verbose=False)
     return True
 
 
@@ -468,6 +285,323 @@ def check_grad_equality(hf_model, olmo_model):
     assert are_equal, "Grad equality check failed"
 
 
+class ModuleOutputCollector():
+    def __init__(self) -> None:
+        self._module_forward_outputs_cache: Dict[str, torch.Tensor] = {}
+
+    def register_forward(self, module: torch.nn.Module, tensor_name: str):
+        self.register_forward_multi_output(module, [tensor_name])
+
+    def register_forward_multi_output(self, module: torch.nn.Module, tensor_names: List[str]):
+        def module_output_hook(_: torch.nn.Module, __: Tuple[Any, ...], output: torch.Tensor) -> None:
+            if isinstance(output, tuple):
+                tensor_values = output
+            else:
+                tensor_values = torch.chunk(output, len(tensor_names), dim=-1)
+
+            for tensor_name, tensor_value in zip(tensor_names, tensor_values):
+                self._module_forward_outputs_cache[tensor_name] = tensor_value.detach().clone()
+
+                if UPDATE_OLMO_OUTPUT_WITH_HF and tensor_name.startswith('olmo_'):
+                    hf_tensor_name = tensor_name.replace('olmo_', 'hf_')
+                    with torch.no_grad():
+                        tensor_value.copy_(self._module_forward_outputs_cache[hf_tensor_name])
+
+        module.register_forward_hook(module_output_hook)
+
+    def is_output_pair_equal_for_hf_and_olmo(self, output_name: str) -> bool:
+        return check_weight_equality(self._module_forward_outputs_cache[f"hf_{output_name}"],
+                                     self._module_forward_outputs_cache[f"olmo_{output_name}"],
+                                     f"{output_name} output")
+
+    def check_models_output_equality(self, num_layers: int):
+        are_equal = True
+
+        # embeddings
+        are_equal = (
+            self.is_output_pair_equal_for_hf_and_olmo("wte")
+            and are_equal
+        )
+
+        # layers
+        for i in range(num_layers):
+            # input norm
+            are_equal = (
+                self.is_output_pair_equal_for_hf_and_olmo(f"input_norm_{i}")
+                and are_equal
+            )
+
+            # q, k, v projections
+            # TODO: We already know this does not produce the same result. It's close, but not close enough for
+            # torch.allclose().
+            are_equal = self.is_output_pair_equal_for_hf_and_olmo(f"q_proj_{i}") and are_equal
+            are_equal = self.is_output_pair_equal_for_hf_and_olmo(f"k_proj_{i}") and are_equal
+            are_equal = self.is_output_pair_equal_for_hf_and_olmo(f"v_proj_{i}") and are_equal
+            # print_metrics(q_proj, hf_layer.self_attn.q_proj.weight, f"q_proj_{i}")
+            # print_metrics(k_proj, hf_layer.self_attn.k_proj.weight, f"k_proj_{i}")
+            # print_metrics(v_proj, hf_layer.self_attn.v_proj.weight, f"v_proj_{i}")
+
+            # # rotary embeddings out
+            # are_equal = self.is_output_pair_equal_for_hf_and_olmo(f"rotary_emb_q_{i}") and are_equal
+            # are_equal = self.is_output_pair_equal_for_hf_and_olmo(f"rotary_emb_k_{i}") and are_equal
+
+            # attention out
+            are_equal = (
+                self.is_output_pair_equal_for_hf_and_olmo(f"attn_out_{i}")
+                and are_equal
+            )
+
+            # post attention layernorm
+            are_equal = (
+                self.is_output_pair_equal_for_hf_and_olmo(f"post_attn_norm_{i}")
+                and are_equal
+            )
+
+            # swiglu input projections
+            # TODO: If fused q, k, v above doesn't produce the same result, then this probably also doesn't.
+            are_equal = self.is_output_pair_equal_for_hf_and_olmo(f"up_proj_{i}") and are_equal
+            are_equal = self.is_output_pair_equal_for_hf_and_olmo(f"gate_proj_{i}") and are_equal
+            # print_metrics(up_proj, hf_layer.mlp.up_proj.weight, f"up_proj_{i}")
+            # print_metrics(gate_proj, hf_layer.mlp.gate_proj.weight, f"gate_proj_{i}")
+
+            # swiglu output projection
+            are_equal = (
+                self.is_output_pair_equal_for_hf_and_olmo(f"ff_out_{i}")
+                and are_equal
+            )
+
+        # final layer norm
+        are_equal = (
+            self.is_output_pair_equal_for_hf_and_olmo("ln_f")
+        )
+
+        # output projection
+        are_equal = (
+            self.is_output_pair_equal_for_hf_and_olmo("ff_out")
+            and are_equal
+        )
+
+        assert are_equal, "Model weight equality check failed"
+
+
+# enrich an olmo model with FSDP functionality
+def apply_fsdp(olmo_model: Olmo, cfg: TrainConfig):
+    # Wrap the model in FSDP.
+    log.info("Wrapping model with FDSP...")
+    wrap_policy = None
+    if cfg.fsdp.wrapping_strategy == FSDPWrapStrategy.by_block:
+        wrap_policy = olmo_model.fsdp_wrap_fn
+    elif cfg.fsdp.wrapping_strategy == FSDPWrapStrategy.size_based:
+        wrap_policy = size_based_auto_wrap_policy
+
+    if version.parse(torch.__version__) >= version.parse("2.1.0"):
+        # This prevents any parameters from being initialized twice
+        def dummy_init_fn(module: torch.nn.Module) -> None:
+            module.to_empty(device=non_meta_device(cfg.model.init_device))
+
+        param_init_fn = dummy_init_fn
+    else:
+        param_init_fn = None
+
+    cfg.fsdp.use_orig_params = True
+
+    torch.manual_seed(SEED)
+    fsdp_model = FSDP(
+        olmo_model,
+        sharding_strategy=cfg.fsdp.sharding_strategy,
+        mixed_precision=cfg.fsdp_precision,
+        auto_wrap_policy=wrap_policy,
+        use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
+        limit_all_gathers=True,
+        device_id=get_local_rank(),
+        param_init_fn=param_init_fn,
+    )
+    # when param_init_fn is None, FSDP will call reset_parameters() automatically
+    if param_init_fn is not None:
+        olmo_model.reset_parameters()
+
+    return fsdp_model
+
+
+def build_config(device):
+    cfg = TrainConfig.load("configs/v1_5-mix-medium-llama-local.yaml")
+    cfg.model.precision = cfg.precision
+    cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
+    assert cfg.device_train_batch_size is not None  # for mypy
+    cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
+    cfg.model.init_device = device
+
+    return cfg
+
+
+def update_config_with_hf_settings(cfg, hf_model):
+    cfg.model.n_layers = hf_model.config.num_hidden_layers
+    cfg.model.n_heads = hf_model.config.num_attention_heads
+    cfg.model.d_model = hf_model.config.hidden_size
+    cfg.model.mlp_hidden_size = hf_model.config.intermediate_size * 2
+    cfg.model.max_sequence_length = hf_model.config.max_position_embeddings
+
+
+# load Llama weights into HF model
+def build_hf_model(device: str):
+    hf_model = transformers.AutoModelForCausalLM.from_pretrained(
+        model_path, torch_dtype='auto', device_map=device, rms_norm_eps=1e-5
+    )
+    return hf_model
+
+
+# create a similar sized OLMo model
+def build_olmo_model(hf_model, cfg, module_output_collector: ModuleOutputCollector, use_fsdp=False):
+    # Make model
+    log.info("Building model...")
+    olmo_model = Olmo(cfg.model)
+    log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
+    log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
+
+    parameters_to_set = {name for name, _ in olmo_model.named_parameters()}
+    parameters_to_read = {name for name, _ in hf_model.named_parameters()}
+
+    with torch.no_grad():
+        # embeddings
+        # assert olmo_model.transformer.wte.weight.dtype == hf_model.model.embed_tokens.weight.dtype
+        assert olmo_model.transformer.wte.weight.shape == hf_model.model.embed_tokens.weight.shape
+        olmo_model.transformer.wte.weight.copy_(hf_model.model.embed_tokens.weight)
+        module_output_collector.register_forward(olmo_model.transformer.wte, "olmo_wte")
+        module_output_collector.register_forward(hf_model.model.embed_tokens, "hf_wte")
+        parameters_to_set.remove("transformer.wte.weight")
+        parameters_to_read.remove("model.embed_tokens.weight")
+
+        # output projection
+        assert hf_model.lm_head.weight.shape == olmo_model.transformer.ff_out.weight.shape
+        # assert hf_model.lm_head.weight.dtype == olmo_model.transformer.ff_out.weight.dtype
+        olmo_model.transformer.ff_out.weight.copy_(hf_model.lm_head.weight)
+        module_output_collector.register_forward(olmo_model.transformer.ff_out, "olmo_ff_out")
+        module_output_collector.register_forward(hf_model.lm_head, "hf_ff_out")
+        parameters_to_set.remove("transformer.ff_out.weight")
+        parameters_to_read.remove("lm_head.weight")
+
+        # final layer norm
+        assert hf_model.model.norm.weight.shape == olmo_model.transformer.ln_f.weight.shape
+        # assert hf_model.model.norm.weight.dtype == olmo_model.transformer.ln_f.weight.dtype
+        olmo_model.transformer.ln_f.weight.copy_(hf_model.model.norm.weight)
+        module_output_collector.register_forward(olmo_model.transformer.ln_f, "olmo_ln_f")
+        module_output_collector.register_forward(hf_model.model.norm, "hf_ln_f")
+        parameters_to_set.remove("transformer.ln_f.weight")
+        parameters_to_read.remove("model.norm.weight")
+
+        # layers
+        assert len(hf_model.model.layers) == len(olmo_model.transformer.blocks)
+        for i, (hf_layer, olmo_layer) in enumerate(zip(hf_model.model.layers, olmo_model.transformer.blocks)):
+            # input norm
+            assert hf_layer.input_layernorm.weight.shape == olmo_layer.attn_norm.weight.shape
+            # assert hf_layer.input_layernorm.weight.dtype == olmo_layer.attn_norm.weight.dtype
+            olmo_layer.attn_norm.weight.copy_(hf_layer.input_layernorm.weight)
+            module_output_collector.register_forward(olmo_layer.attn_norm, f"olmo_input_norm_{i}")
+            module_output_collector.register_forward(hf_layer.input_layernorm, f"hf_input_norm_{i}")
+            parameters_to_set.remove(f"transformer.blocks.{i}.attn_norm.weight")
+            parameters_to_read.remove(f"model.layers.{i}.input_layernorm.weight")
+
+            # post attention layernorm
+            assert hf_layer.post_attention_layernorm.weight.shape == olmo_layer.ff_norm.weight.shape
+            # assert hf_layer.post_attention_layernorm.weight.dtype == olmo_layer.ff_norm.weight.dtype
+            olmo_layer.ff_norm.weight.copy_(hf_layer.post_attention_layernorm.weight)
+            module_output_collector.register_forward(olmo_layer.ff_norm, f"olmo_post_attn_norm_{i}")
+            module_output_collector.register_forward(hf_layer.post_attention_layernorm, f"hf_post_attn_norm_{i}")
+            parameters_to_set.remove(f"transformer.blocks.{i}.ff_norm.weight")
+            parameters_to_read.remove(f"model.layers.{i}.post_attention_layernorm.weight")
+
+            # q, k, v projections
+            # TODO: We already know this does not produce the same result. It's close, but not close enough for
+            # torch.allclose().
+            # assert hf_layer.self_attn.q_proj.weight.dtype == olmo_layer.att_proj.weight.dtype
+            # assert hf_layer.self_attn.k_proj.weight.dtype == olmo_layer.att_proj.weight.dtype
+            # assert hf_layer.self_attn.v_proj.weight.dtype == olmo_layer.att_proj.weight.dtype
+            new_att_proj = torch.cat(
+                [
+                    hf_layer.self_attn.q_proj.weight,
+                    hf_layer.self_attn.k_proj.weight,
+                    hf_layer.self_attn.v_proj.weight,
+                ],
+                dim=0,
+            )
+            parameters_to_read.remove(f"model.layers.{i}.self_attn.q_proj.weight")
+            parameters_to_read.remove(f"model.layers.{i}.self_attn.k_proj.weight")
+            parameters_to_read.remove(f"model.layers.{i}.self_attn.v_proj.weight")
+            assert new_att_proj.shape == olmo_layer.att_proj.weight.shape
+            # assert new_att_proj.dtype == olmo_layer.att_proj.weight.dtype
+            olmo_layer.att_proj.weight.copy_(new_att_proj)
+            module_output_collector.register_forward_multi_output(
+                olmo_layer.att_proj,
+                [f"olmo_q_proj_{i}", f"olmo_k_proj_{i}", f"olmo_v_proj_{i}"])
+            module_output_collector.register_forward(hf_layer.self_attn.q_proj, f"hf_q_proj_{i}")
+            module_output_collector.register_forward(hf_layer.self_attn.k_proj, f"hf_k_proj_{i}")
+            module_output_collector.register_forward(hf_layer.self_attn.v_proj, f"hf_v_proj_{i}")
+            parameters_to_set.remove(f"transformer.blocks.{i}.att_proj.weight")
+
+            # # rotary embedding (this has no weights)
+            # module_output_collector.register_forward_multi_output(olmo_layer.rotary_emb, [f"olmo_rotary_emb_q_{i}", f"olmo_rotary_emb_k_{i}"])
+            # module_output_collector.register_forward_multi_output(hf_layer.self_attn.rotary_emb, [f"hf_rotary_emb_q_{i}", f"hf_rotary_emb_k_{i}"])
+
+            # attention out
+            assert hf_layer.self_attn.o_proj.weight.shape == olmo_layer.attn_out.weight.shape
+            # assert hf_layer.self_attn.o_proj.weight.dtype == olmo_layer.attn_out.weight.dtype
+            olmo_layer.attn_out.weight.copy_(hf_layer.self_attn.o_proj.weight)
+            module_output_collector.register_forward(olmo_layer.attn_out, f"olmo_attn_out_{i}")
+            module_output_collector.register_forward(hf_layer.self_attn.o_proj, f"hf_attn_out_{i}")
+            parameters_to_set.remove(f"transformer.blocks.{i}.attn_out.weight")
+            parameters_to_read.remove(f"model.layers.{i}.self_attn.o_proj.weight")
+
+            # swiglu output projection
+            assert hf_layer.mlp.down_proj.weight.shape == olmo_layer.ff_out.weight.shape
+            # assert hf_layer.mlp.down_proj.weight.dtype == olmo_layer.ff_out.weight.dtype
+            olmo_layer.ff_out.weight.copy_(hf_layer.mlp.down_proj.weight)
+            module_output_collector.register_forward(olmo_layer.ff_out, f"olmo_ff_out_{i}")
+            module_output_collector.register_forward(hf_layer.mlp.down_proj, f"hf_ff_out_{i}")
+            parameters_to_set.remove(f"transformer.blocks.{i}.ff_out.weight")
+            parameters_to_read.remove(f"model.layers.{i}.mlp.down_proj.weight")
+
+            # swiglu input projections
+            # TODO: If fused q, k, v above doesn't produce the same result, then this probably also doesn't.
+            # assert hf_layer.mlp.up_proj.weight.dtype == olmo_layer.ff_proj.weight.dtype
+            # assert hf_layer.mlp.gate_proj.weight.dtype == olmo_layer.ff_proj.weight.dtype
+            new_ff_proj = torch.cat([hf_layer.mlp.up_proj.weight, hf_layer.mlp.gate_proj.weight], dim=0)
+            parameters_to_read.remove(f"model.layers.{i}.mlp.up_proj.weight")
+            parameters_to_read.remove(f"model.layers.{i}.mlp.gate_proj.weight")
+            assert new_ff_proj.shape == olmo_layer.ff_proj.weight.shape
+            # assert new_ff_proj.dtype == olmo_layer.ff_proj.weight.dtype
+            olmo_layer.ff_proj.weight.copy_(new_ff_proj)
+            module_output_collector.register_forward_multi_output(olmo_layer.ff_proj, [f"olmo_up_proj_{i}", f"olmo_gate_proj_{i}"])
+            module_output_collector.register_forward(hf_layer.mlp.up_proj, f"hf_up_proj_{i}")
+            module_output_collector.register_forward(hf_layer.mlp.gate_proj, f"hf_gate_proj_{i}")
+            parameters_to_set.remove(f"transformer.blocks.{i}.ff_proj.weight")
+
+    # all done?
+    assert len(parameters_to_set) == 0, parameters_to_set
+    assert len(parameters_to_read) == 0, parameters_to_read
+
+    if use_fsdp:
+        olmo_model = apply_fsdp(olmo_model, cfg)
+
+    return olmo_model
+
+
+def get_max_relative_diff(tensor1: torch.Tensor, tensor2: torch.Tensor) -> torch.Tensor:
+    tensor1 = tensor1.cpu()
+    tensor2 = tensor2.cpu()
+    absolute_diff = torch.abs(tensor1 - tensor2)
+
+    diff_relative_to_tensor1 = absolute_diff / (torch.abs(tensor1) + 1e-8)
+    diff_relative_to_tensor2 = absolute_diff / (torch.abs(tensor2) + 1e-8)
+
+    # relative_diffs = torch.min(diff_relative_to_tensor1, diff_relative_to_tensor2)
+    relative_diffs = torch.max(diff_relative_to_tensor1, diff_relative_to_tensor2)
+
+    # index = torch.argmax(relative_diffs)
+    # print(index)
+    # print(tensor1.flatten()[index], tensor2.flatten()[index])
+    return torch.max(relative_diffs)
+
+
 config = build_config(olmo_device)
 
 # Initialize process group and set device.
@@ -476,9 +610,10 @@ if use_fsdp:
     barrier()
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
 
+module_output_collector = ModuleOutputCollector()
 hf_model = build_hf_model(hf_device)
 update_config_with_hf_settings(config, hf_model)
-olmo_model = build_olmo_model(hf_model, config, use_fsdp=use_fsdp)
+olmo_model = build_olmo_model(hf_model, config, module_output_collector, use_fsdp=use_fsdp)
 
 # ## ========== uncomment one of the following to test if both models are the same type ==========
 
@@ -540,12 +675,6 @@ def olmo_forward(olmo_model: torch.nn.Module, batch: torch.Tensor, device_str: s
     return olmo_model(batch.to(device))
 
 
-# run on olmo
-torch.manual_seed(SEED)
-olmo_output = olmo_forward(olmo_model, test_batch, olmo_device, config.autocast_precision)
-olmo_logits = olmo_output.logits
-log.info(f"OLmo logits: {olmo_logits}")
-
 # run on hf
 torch.manual_seed(SEED)
 hf_output = hf_forward(hf_model, test_batch, hf_device, config.autocast_precision)
@@ -553,9 +682,17 @@ hf_output = hf_forward(hf_model, test_batch, hf_device, config.autocast_precisio
 hf_logits = hf_output.logits
 log.info(f"HF logits: {hf_logits}")
 
+# run on olmo
+torch.manual_seed(SEED)
+olmo_output = olmo_forward(olmo_model, test_batch, olmo_device, config.autocast_precision)
+olmo_logits = olmo_output.logits.float()
+log.info(f"OLmo logits: {olmo_logits}")
+
 print_metrics(olmo_logits, hf_logits, "logits")
 if not use_fsdp:
     check_model_equality(hf_model, olmo_model)
+
+module_output_collector.check_models_output_equality(config.model.n_layers)
 
 torch.manual_seed(SEED)
 test_all_approx_close(olmo_logits.cpu().float(), hf_logits.cpu().float(), atol=1e-4, rtol=1e-3, count=10)
@@ -581,11 +718,11 @@ if use_fsdp:
         "Generate bypasses FSDP's forward implementation, which causes generation to fail. Using a CPU model instead."
     )
     config.model.init_device = "cpu"
-    olmo_generation_model = build_olmo_model(hf_model, config, use_fsdp=False)
+    olmo_generation_model = build_olmo_model(hf_model, config, module_output_collector, use_fsdp=False)
     config.model.init_device = olmo_device
 
-log.info(f"OLMo generation: {generate(olmo_generation_model, tokenizer, test_string)}")
 log.info(f"HF generation: {generate(hf_model, tokenizer, test_string)}")
+log.info(f"OLMo generation: {generate(olmo_generation_model, tokenizer, test_string)}")
 
 # train on batch
 torch.use_deterministic_algorithms(True)
@@ -593,8 +730,8 @@ torch.manual_seed(SEED)
 log.info("Training...")
 
 # config.optimizer.learning_rate = 0.1
-olmo_optimizer = build_optimizer(config, olmo_model)
 hf_optimizer = build_optimizer(config, hf_model)
+olmo_optimizer = build_optimizer(config, olmo_model)
 
 # betas = (0.9, 0.95)
 # # betas = (0., 0.)
@@ -617,50 +754,48 @@ for i in range(TRAINING_ITERATIONS):
     labels = batch[idx + 1 : idx + 3, :SEQ_LEN]
     labels = reformat_labels_to_look_like_logits(labels)
 
-    olmo_optimizer.zero_grad()
     hf_optimizer.zero_grad()
+    olmo_optimizer.zero_grad()
 
     torch.manual_seed(SEED)
-    olmo_logits = olmo_forward(olmo_model, train_batch, config.autocast_precision).logits
-    # olmo_logits = olmo_model(train_batch.to(device=olmo_device)).logits
+    hf_logits = hf_forward(hf_model, train_batch, hf_device, config.autocast_precision).logits
     torch.manual_seed(SEED)
-    hf_logits = hf_model(train_batch.to(device=hf_device)).logits
+    olmo_logits = olmo_forward(olmo_model, train_batch, olmo_device, config.autocast_precision).logits.float()
 
     if not use_fsdp:
         check_model_equality(hf_model, olmo_model)
     print_metrics(olmo_logits, hf_logits, "logits")
 
     torch.manual_seed(SEED)
-    olmo_loss = F.cross_entropy(olmo_logits, labels.to(device=olmo_device))
-    torch.manual_seed(SEED)
     hf_loss = F.cross_entropy(hf_logits, labels.to(device=hf_device))
-
     torch.manual_seed(SEED)
-    olmo_loss.backward()
+    olmo_loss = F.cross_entropy(olmo_logits, labels.to(device=olmo_device))
+
     torch.manual_seed(SEED)
     hf_loss.backward()
     torch.manual_seed(SEED)
+    olmo_loss.backward()
+    torch.manual_seed(SEED)
+
+    log.info(f"HF loss: {hf_loss}")
+    log.info(f"OLMo loss: {olmo_loss}")
 
     if not use_fsdp:
         check_grad_equality(hf_model, olmo_model)
 
-    log.info(f"OLMo loss: {olmo_loss}")
-    log.info(f"HF loss: {hf_loss}")
-
-    torch.manual_seed(SEED)
-    olmo_optimizer.step()
     torch.manual_seed(SEED)
     hf_optimizer.step()
+    torch.manual_seed(SEED)
+    olmo_optimizer.step()
 
     if not use_fsdp:
         check_model_equality(hf_model, olmo_model)
 
-    # run on olmo
-    olmo_logits = olmo_forward(olmo_model, test_batch, config.autocast_precision).logits
-    # olmo_logits = olmo_model(test_batch.to(device=olmo_device)).logits
-    log.info(f"OLMo logits: {olmo_logits}")
-    hf_logits = hf_model(test_batch.to(device=hf_device)).logits
+    hf_logits = hf_forward(hf_model, test_batch, hf_device, config.autocast_precision).logits
     log.info(f"HF logits: {hf_logits}")
+    olmo_logits = olmo_forward(olmo_model, test_batch, olmo_device, config.autocast_precision).logits.float()
+    log.info(f"OLMo logits: {olmo_logits}")
+    
 
     # print_metrics(olmo_logits, hf_logits, "logits")
     # try:
