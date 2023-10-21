@@ -1024,6 +1024,7 @@ class Olmo(nn.Module):
         min_steps: Optional[int] = None,
         final_sequence_scorer: Optional[FinalSequenceScorer] = None,
         constraints: Optional[List[Constraint]] = None,
+        eos_token_id=None,
     ) -> OlmoGenerateOutput:
         """
         Generate token IDs using beam search.
@@ -1040,7 +1041,7 @@ class Olmo(nn.Module):
         For an explanation of the other arguments, see the :class:`BeamSearch` class.
         """
         beam_search = BeamSearch(
-            self.config.eos_token_id,
+            eos_token_id or self.config.eos_token_id,
             max_steps=max_steps,
             beam_size=beam_size,
             per_node_beam_size=per_node_beam_size,
