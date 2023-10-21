@@ -1,10 +1,9 @@
 import logging
 import shutil
-import sys
 from concurrent.futures import ThreadPoolExecutor
 from functools import reduce
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union, cast
+from typing import Any, Dict, List, Tuple, Union, cast, Set, Optional
 
 import numpy as np
 import torch
@@ -90,11 +89,15 @@ def objects_are_equal(a: Any, b: Any) -> bool:
         return a == b
 
 
-def unshard(input_dir: Union[str, Path], output_dir: Union[str, Path]) -> None:
+def unshard(
+    input_dir: Union[str, Path], output_dir: Union[str, Path], skip_keys: Optional[Set[str]] = None
+) -> None:
     if isinstance(input_dir, str):
         input_dir = Path(input_dir)
     if isinstance(output_dir, str):
         output_dir = Path(output_dir)
+    if skip_keys is None:
+        skip_keys = set()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Monkeypatch torch's ShardedTensor, so we can unpickle without having torch.distributed set up.
@@ -130,7 +133,11 @@ def unshard(input_dir: Union[str, Path], output_dir: Union[str, Path]) -> None:
         shards_dict[shard_number] = executor.submit(torch.load, shard_name, map_location="cpu")
     shards = [None] * len(shards_dict)
     for rank, shard_future in shards_dict.items():
-        shards[rank] = shard_future.result()
+        shard = shard_future.result()
+        for key in skip_keys:
+            if key in shard:
+                del shard[key]
+        shards[rank] = shard
     assert all(shard is not None for shard in shards)
     executor.shutdown()
     del shards_dict
@@ -184,9 +191,13 @@ def unshard(input_dir: Union[str, Path], output_dir: Union[str, Path]) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        sys.stderr.write("Usage: unshard.py <input dir> <output dir>")
-        sys.exit(1)
-    else:
-        logging.basicConfig(level=logging.INFO)
-        unshard(sys.argv[1], sys.argv[2])
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="unshard.py", description="Unshard sharded checkpoints on CPU")
+    parser.add_argument("input_dir")
+    parser.add_argument("output_dir")
+    parser.add_argument("--skip_key", nargs="*", default=[], action="extend")
+    args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO)
+    unshard(args.input_dir, args.output_dir, set(args.skip_key))
