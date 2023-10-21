@@ -1,0 +1,15 @@
+# Defines a CUDA-enabled Docker image suitable for running this project's experiments
+# via beaker-gantry and catwalk.
+
+FROM olmo-torch2-gantry
+
+WORKDIR /stage
+
+COPY olmo olmo/
+COPY olmo_eval olmo_eval/
+
+ENV PYTHONPATH "${PYTHONPATH}:/stage"
+
+LABEL maintainer="oyvindt@allenai.org"
+
+CMD ["/bin/bash/"]
