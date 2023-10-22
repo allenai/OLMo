@@ -808,6 +808,11 @@ class TrainConfig(BaseConfig):
     Save training data indices from each batch for each worker.
     """
 
+    shuffle_train_data: bool = True
+    """
+    If ``True``, shuffle the training data.
+    """
+
     python_profiling: bool = False
     """
     Whether to run the Python profiler on batches 6, 7, and 8.

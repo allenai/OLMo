@@ -93,7 +93,7 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
         IterableDataset(
             dataset,  # type: ignore
             seed=train_config.seed,
-            shuffle=True,
+            shuffle=train_config.shuffle_train_data,
             drop_last=train_config.data.drop_last,
             max_examples=train_config.global_train_batch_size * train_config.max_duration,
             work_dir=work_dir,
