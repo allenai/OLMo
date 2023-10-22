@@ -1,13 +1,13 @@
 #!/bin/bash
 #SBATCH --job-name=v1-mix-small
 #SBATCH --account=kempner_lab
-#SBATCH --output=/n/home06/dgroeneveld/logs/%j.log
-#SBATCH --nodes=2              # Total number of nodes 
-#SBATCH --ntasks-per-node=8
-#SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
-#SBATCH --cpus-per-task=6
-#SBATCH --time=48:00:00
-#SBATCH --time-min=24:00:00
+#SBATCH --output=/n/holyscratch01/kempner_lab/Lab/logs/%j.log
+#SBATCH --nodes=8              # Total number of nodes 
+#SBATCH --ntasks-per-node=4
+#SBATCH --gpus-per-node=4       # Allocate one gpu per MPI rank
+#SBATCH --cpus-per-task=16
+#SBATCH --time=01:00:00
+#SBATCH --time-min=01:00:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=kempner
 
@@ -26,5 +26,4 @@ srun \
   --distribution=block:block \
   --kill-on-bad-exit \
   scripts/run_with_environment.sh \
-    conda run -n LLM --live-stream \
-      python scripts/train.py configs/v1-mix-small-mcli.yaml --run_name=kempner_${SLURM_JOB_ID} ${@}
+    $HOME/miniconda3/envs/LLM/bin/python -u scripts/train.py configs/v1-mix-small-mcli.yaml --run_name=kempner_${SLURM_JOB_ID} ${@} --save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/
