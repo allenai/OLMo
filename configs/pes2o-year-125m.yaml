@@ -1,0 +1,263 @@
+run_name: pes2o-year-125m
+seed: 6198
+dry_run: false
+
+wandb:
+  name: ${run_name}
+  log_interval: ${console_log_interval}
+  group: pes2o-year-125m
+
+model:
+  d_model: 768
+  n_heads: 12
+  n_layers: 12
+  mlp_ratio: 8
+  alibi: false
+  alibi_bias_max: 8.0
+  rope: true
+  flash_attention: true
+  attention_dropout: 0.0
+  attention_layer_norm: false
+  multi_query_attention: true
+  block_type: sequential
+  layer_norm_type: default
+  layer_norm_with_affine: false
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 1024
+  include_bias: true
+  vocab_size: 50280
+  embedding_size: 50304
+  eos_token_id: 0
+  pad_token_id: 1
+  init_device: meta
+  init_std: 0.02
+
+compile: null  # causes instability on AMD GPUs
+# compile:
+#   mode: default
+
+optimizer:
+  name: lionw
+  learning_rate: 6.0e-4
+  weight_decay: 0.1
+  betas:
+  - 0.9
+  - 0.95
+
+scheduler:
+  name: cosine_with_warmup
+  t_warmup: 500
+  alpha_f: 0.1
+
+tokenizer:
+  identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
+  truncate_direction: right
+
+save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/net/nfs.cirrascale/s2-research/olmo/checkpoints}/${oc.env:SLURM_JOB_ID,${run_name}}
+save_overwrite: false
+# Sharded checkpoints (best for restarts)
+save_interval: 1000
+save_num_checkpoints_to_keep: -1
+# Unsharded checkpoints (for final storage)
+save_interval_unsharded: 100000
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: null
+
+max_duration: 108_306
+global_train_batch_size: 512
+device_train_microbatch_size: 16
+
+precision: amp_bf16
+
+max_grad_norm: 1.0
+
+speed_monitor:
+  window_size: 20
+
+console_log_interval: 20
+
+eval_interval: ${save_interval}
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators:
+  - label: all-small-ppl-validation
+    data:
+      num_workers: 0
+      drop_last: true
+      # pin_memory: true
+      # prefetch_factor: 1
+      # persistent_workers: false
+      # timeout: 0
+      datasets:
+        1970-1974:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1970/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1971/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1972/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1973/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1974/gpt-neox-20b/part-0-00000.npy
+
+        1975-1979:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1975/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1976/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1977/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1978/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1979/gpt-neox-20b/part-0-00000.npy
+
+        1980-1984:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1980/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1981/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1982/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1983/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1984/gpt-neox-20b/part-0-00000.npy
+
+        1985-1989:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1985/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1986/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1987/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1988/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1989/gpt-neox-20b/part-0-00000.npy
+
+        1990-1994:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1990/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1991/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1992/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1993/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1994/gpt-neox-20b/part-0-00000.npy
+
+        1995-1999:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1995/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1996/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1997/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1998/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/1999/gpt-neox-20b/part-0-00000.npy
+
+        2000-2004:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2000/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2001/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2002/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2003/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2004/gpt-neox-20b/part-0-00000.npy
+
+        2005-2009:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2005/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2006/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2007/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2008/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2009/gpt-neox-20b/part-0-00000.npy
+
+        2010-2012:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2010/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2011/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2012/gpt-neox-20b/part-0-00000.npy
+
+        2013-2015:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2013/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2014/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2015/gpt-neox-20b/part-0-00000.npy
+
+        2016-2018:
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2016/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2017/gpt-neox-20b/part-0-00000.npy
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2018/gpt-neox-20b/part-0-00000.npy
+
+        '2019':
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2019/gpt-neox-20b/part-0-00000.npy
+
+        '2020':
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2020/gpt-neox-20b/part-0-00000.npy
+
+        '2021':
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2021/gpt-neox-20b/part-0-00000.npy
+
+        '2022':
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2022/gpt-neox-20b/part-0-00000.npy
+
+        '2023':
+          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/eval-data/pes2o/v2-by-year/2023/gpt-neox-20b/part-0-00000.npy
+
+
+  ##########################
+  # Downstream evaluations #
+  ##########################
+  - label: piqa
+    type: downstream
+
+  - label: hellaswag
+    type: downstream
+
+  - label: winogrande
+    type: downstream
+
+  - label: sciq
+    type: downstream
+
+  - label: arc_easy
+    type: downstream
+
+
+shuffle_train_data: true
+
+data:
+  paths:
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1970/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1971/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1972/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1973/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1974/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1975/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1976/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1977/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1978/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1979/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1980/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1981/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1982/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1983/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1984/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1985/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1986/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1987/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1988/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1989/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1990/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1991/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1992/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1993/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1994/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1995/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1996/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1997/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1998/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/1999/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2000/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2001/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2002/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2003/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2004/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2005/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2006/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2007/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2008/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2009/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2010/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2011/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2012/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2013/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2014/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2015/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2016/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2017/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2018/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2019/gpt-neox-20b/part-0-00000.npy
+  pad_direction: right
+  num_workers: 0
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 16
+  persistent_workers: true
+  timeout: 0
