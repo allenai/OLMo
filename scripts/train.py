@@ -155,10 +155,16 @@ def main(cfg: TrainConfig) -> None:
             checkpoint_wrapper,
         )
 
+        preserve_rng_state = (
+            (cfg.model.attention_dropout == 0.0)
+            and (cfg.model.embedding_dropout == 0.0)
+            and (cfg.model.residual_dropout == 0.0)
+        )
         non_reentrant_wrapper = partial(
             checkpoint_wrapper,
             offload_to_cpu=False,
             checkpoint_impl=CheckpointImpl.NO_REENTRANT,
+            preserve_rng_state=preserve_rng_state,
         )
         apply_activation_checkpointing(
             fsdp_model,
