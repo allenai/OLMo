@@ -40,6 +40,9 @@ export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.
 c=fe
 MYMASKS1="0x${c}000000000000,0x${c}00000000000000,0x${c}0000,0x${c}000000,0x${c},0x${c}00,0x${c}00000000,0x${c}0000000000"
 
+export DATA_PATH=$FLASH_DIR/preprocessed/olmo-mix
+export CHECKPOINTS_PATH=$FLASH_DIR/checkpoints
+
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
   --distribution=block:block \

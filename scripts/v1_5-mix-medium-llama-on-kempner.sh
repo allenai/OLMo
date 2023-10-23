@@ -21,6 +21,9 @@ export PYTHONPATH=.:${PYTHONPATH}
 # Try playing with max_split_size_mb if you run into OOM errors.
 # export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:512
 
+export DATA_PATH=/n/home06/dgroeneveld/data/preprocessed/olmo-mix
+export CHECKPOINTS_PATH=/n/home06/dgroeneveld/checkpoints
+
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
   --distribution=block:block \
