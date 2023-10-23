@@ -57,7 +57,7 @@ tokenizer:
   identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
   truncate_direction: right
 
-save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/net/nfs.cirrascale/s2-research/olmo/checkpoints}/${oc.env:SLURM_JOB_ID,${run_name}}
+save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/s2-research/olmo}/checkpoints/${oc.env:SLURM_JOB_ID,${run_name}}
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
 save_interval: 1000
