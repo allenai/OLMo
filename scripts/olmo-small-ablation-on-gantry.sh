@@ -62,9 +62,11 @@ fi
 
 # check if number of nodes in > 1, if so, use leader selection
 if [ ${BEAKER_NODES} -gt 1 ]; then
-  NETWORK_CONFIG="--replicas ${BEAKER_NODES} --leader-selection --host-networking"
+  NETWORK_CONFIG="--replicas ${BEAKER_NODES} --leader-selection"
+  TORCHRUN_CONFIG="--rdzv_id=101 --rdzv_backend=c10d --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400"
 else
-  NETWORK_CONFIG="--replicas 0"
+  NETWORK_CONFIG=""
+  TORCHRUN_CONFIG=""
 fi
 
 gantry run \
@@ -76,6 +78,7 @@ gantry run \
   --cluster ${BEAKER_CLUSTER} \
   --priority ${BEAKER_PRIORITY} \
   --gpus ${BEAKER_GPUS} \
+  --host-networking \
   ${NETWORK_CONFIG} \
   --nfs \
   ${WANDB_API_KEY_ARG} \
@@ -84,4 +87,4 @@ gantry run \
   --shared-memory 10GiB \
   --venv base \
   --yes \
-  -- /bin/bash -c "torchrun --nnodes ${BEAKER_NODES}:${BEAKER_NODES} --nproc-per-node 8 --rdzv_id=101 --rdzv_backend=c10d --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 scripts/train.py ${CONFIG_PATH} --run_name=${FULL_RUN_NAME} ${LOAD_PATH_ARG} ${@}"
+  -- /bin/bash -c "torchrun --nnodes ${BEAKER_NODES}:${BEAKER_NODES} --nproc-per-node 8 ${TORCHRUN_CONFIG} scripts/train.py ${CONFIG_PATH} --run_name=${FULL_RUN_NAME} ${LOAD_PATH_ARG} ${@}"
