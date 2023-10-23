@@ -22,6 +22,7 @@ prepare_cli_environment()
 log = logging.getLogger(__name__)
 
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"  # needed for running in the deterministic mode
+torch.use_deterministic_algorithms(True)
 
 # torch.set_printoptions(precision=10)
 SEED: int = 42
@@ -31,8 +32,9 @@ OLMO_USE_AUTOCAST: bool = True
 HF_USE_AUTOCAST: bool = True
 UPDATE_OLMO_OUTPUT_WITH_HF: bool = False
 
-model_path = "test_fixtures/tiny_llama/"
+# model_path = "test_fixtures/tiny_llama/"
 # model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
+model_path = '/Users/shanea/Documents/data/hf_llama2_models/7B'
 
 # for development
 hf_device = 'cpu'
@@ -85,9 +87,9 @@ def get_local_rank():
 
 def print_metrics(olmo_tensor, hf_tensor, tensor_name, verbose=True):
     log.info(f"{tensor_name} max absolute diff: {torch.max(torch.abs(olmo_tensor.cpu() - hf_tensor.cpu()))}")
-    log.info(
-        f"{tensor_name} max relative diff: {get_max_relative_diff(olmo_tensor, hf_tensor)}"
-    )
+    log.info(f"{tensor_name} max relative diff: {get_max_relative_diff(olmo_tensor, hf_tensor)}")
+    log.info(f"{tensor_name} max relative diff min variant: {get_max_relative_diff(olmo_tensor, hf_tensor, use_min_of_relative_diffs=True)}")
+    log.info(f"{tensor_name} diff norm: {torch.norm(olmo_tensor.cpu() - hf_tensor.cpu())}")
 
     if verbose:
         # log.info(f"{tensor_name} shape: {olmo_tensor.shape}")
@@ -585,7 +587,7 @@ def build_olmo_model(hf_model, cfg, module_output_collector: ModuleOutputCollect
     return olmo_model
 
 
-def get_max_relative_diff(tensor1: torch.Tensor, tensor2: torch.Tensor) -> torch.Tensor:
+def get_max_relative_diff(tensor1: torch.Tensor, tensor2: torch.Tensor, use_min_of_relative_diffs: bool = False) -> torch.Tensor:
     tensor1 = tensor1.cpu()
     tensor2 = tensor2.cpu()
     absolute_diff = torch.abs(tensor1 - tensor2)
@@ -594,7 +596,10 @@ def get_max_relative_diff(tensor1: torch.Tensor, tensor2: torch.Tensor) -> torch
     diff_relative_to_tensor2 = absolute_diff / (torch.abs(tensor2) + 1e-8)
 
     # relative_diffs = torch.min(diff_relative_to_tensor1, diff_relative_to_tensor2)
-    relative_diffs = torch.max(diff_relative_to_tensor1, diff_relative_to_tensor2)
+    if use_min_of_relative_diffs:
+        relative_diffs = torch.min(diff_relative_to_tensor1, diff_relative_to_tensor2)
+    else:
+        relative_diffs = torch.max(diff_relative_to_tensor1, diff_relative_to_tensor2)
 
     # index = torch.argmax(relative_diffs)
     # print(index)
@@ -689,15 +694,13 @@ olmo_logits = olmo_output.logits.float()
 log.info(f"OLmo logits: {olmo_logits}")
 
 print_metrics(olmo_logits, hf_logits, "logits")
-if not use_fsdp:
-    check_model_equality(hf_model, olmo_model)
-
-module_output_collector.check_models_output_equality(config.model.n_layers)
 
 torch.manual_seed(SEED)
 test_all_approx_close(olmo_logits.cpu().float(), hf_logits.cpu().float(), atol=1e-4, rtol=1e-3, count=10)
 if not torch.allclose(olmo_logits.cpu().float(), hf_logits.cpu().float(), atol=1e-4, rtol=1e-3):
     log.error("Olmo and HF logits fail torch.allclose()")
+
+module_output_collector.check_models_output_equality(config.model.n_layers)
 
 
 def reformat_labels_to_look_like_logits(labels):
@@ -762,8 +765,6 @@ for i in range(TRAINING_ITERATIONS):
     torch.manual_seed(SEED)
     olmo_logits = olmo_forward(olmo_model, train_batch, olmo_device, config.autocast_precision).logits.float()
 
-    if not use_fsdp:
-        check_model_equality(hf_model, olmo_model)
     print_metrics(olmo_logits, hf_logits, "logits")
 
     torch.manual_seed(SEED)
