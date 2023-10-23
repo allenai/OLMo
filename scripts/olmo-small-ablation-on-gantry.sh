@@ -19,6 +19,24 @@ else
   export CONFIG_PATH="${CONFIG_PATH}"
 fi
 
+if [ -z ${BEAKER_CLUSTER+x} ]; then
+  export BEAKER_CLUSTER=ai2/general-cirrascale-a100-80g-ib
+else
+  export BEAKER_CLUSTER="${BEAKER_CLUSTER}"
+fi
+
+if [ -z ${BEAKER_NODES+x} ]; then
+  export BEAKER_NODES=4
+else
+  export BEAKER_NODES="${BEAKER_NODES}"
+fi
+
+if [ -z ${BEAKER_GPUS+x} ]; then
+  export BEAKER_GPUS=8
+else
+  export BEAKER_GPUS="${BEAKER_GPUS}"
+fi
+
 # get run name, we will use this as task name in gantry
 RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:\s*//')
 
@@ -36,8 +54,6 @@ else
   WANDB_API_KEY_ARG="--env WANDB_API_KEY=${WANDB_API_KEY}"
 fi
 
-NUM_NODES=4
-
 gantry run \
   --workspace ai2/llm-testing \
   --task-name "${FULL_RUN_NAME}" \
@@ -45,8 +61,8 @@ gantry run \
   --priority "normal" \
   --beaker-image olmo-torch2-gantry \
   --cluster ai2/general-cirrascale-a100-80g-ib \
-  --gpus 8 \
-  --replicas ${NUM_NODES} \
+  --gpus ${BEAKER_GPUS} \
+  --replicas ${BEAKER_NODES} \
   --leader-selection  \
   --host-networking \
   --nfs \
@@ -56,4 +72,4 @@ gantry run \
   --shared-memory 10GiB \
   --venv base \
   --yes \
-  -- /bin/bash -c "torchrun --nnodes ${NUM_NODES}:${NUM_NODES} --nproc-per-node 8 --rdzv_id=101 --rdzv_backend=c10d --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 scripts/train.py ${CONFIG_PATH} --run_name=${FULL_RUN_NAME} ${LOAD_PATH_ARG} --device_train_microbatch_size=8 ${@}"
+  -- /bin/bash -c "torchrun --nnodes ${BEAKER_NODES}:${BEAKER_NODES} --nproc-per-node 8 --rdzv_id=101 --rdzv_backend=c10d --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 scripts/train.py ${CONFIG_PATH} --run_name=${FULL_RUN_NAME} ${LOAD_PATH_ARG} ${@}"
