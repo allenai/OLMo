@@ -67,7 +67,7 @@ gantry run \
   --description "${FULL_RUN_NAME}" \
   --priority "normal" \
   --beaker-image olmo-torch2-gantry \
-  --cluster ai2/general-cirrascale-a100-80g-ib \
+  --cluster ${BEAKER_CLUSTER} \
   --gpus ${BEAKER_GPUS} \
   ${NETWORK_CONFIG} \
   --nfs \
