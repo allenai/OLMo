@@ -39,7 +39,9 @@ model:
 fsdp:
   precision: mixed
   wrapping_strategy: size_based
-  sharding_strategy: SHARD_GRAD_OP
+  sharding_strategy: FULL_SHARD
+
+activation_checkpointing: true
 
 compile: null  # causes instability on AMD GPUs
 
