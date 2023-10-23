@@ -54,6 +54,13 @@ else
   WANDB_API_KEY_ARG="--env WANDB_API_KEY=${WANDB_API_KEY}"
 fi
 
+# check if number of nodes in > 1, if so, use leader selection
+if [ ${BEAKER_NODES} -gt 1 ]; then
+  NETWORK_CONFIG="--replicas ${BEAKER_NODES} --leader-selection --host-networking"
+else
+  NETWORK_CONFIG="--replicas 0"
+fi
+
 gantry run \
   --workspace ai2/llm-testing \
   --task-name "${FULL_RUN_NAME}" \
@@ -62,9 +69,7 @@ gantry run \
   --beaker-image olmo-torch2-gantry \
   --cluster ai2/general-cirrascale-a100-80g-ib \
   --gpus ${BEAKER_GPUS} \
-  --replicas ${BEAKER_NODES} \
-  --leader-selection  \
-  --host-networking \
+  ${NETWORK_CONFIG} \
   --nfs \
   ${WANDB_API_KEY_ARG} \
   --env LOG_FILTER_TYPE=local_rank0_only \
