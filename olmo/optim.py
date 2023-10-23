@@ -607,8 +607,6 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
         for key in PARAM_GROUP_FIELDS:
             assert key in group
 
-    log.info("Parameter groups: %s", repr(param_groups))
-
     return param_groups
 
 
