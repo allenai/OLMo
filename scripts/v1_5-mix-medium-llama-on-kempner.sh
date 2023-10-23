@@ -25,6 +25,9 @@ export DATA_PATH=/n/home06/dgroeneveld/data/preprocessed/olmo-mix
 export EVAL_DATA_PATH=/n/home06/dgroeneveld/data/eval-data
 export CHECKPOINTS_PATH=/n/home06/dgroeneveld/checkpoints
 
+export PYTORCH_KERNEL_CACHE_PATH=/tmp/pytorch_kernel_cache/
+mkdir -p $PYTORCH_KERNEL_CACHE_PATH
+
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
   --distribution=block:block \
