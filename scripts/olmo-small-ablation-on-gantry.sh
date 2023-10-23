@@ -92,4 +92,4 @@ gantry run \
   --shared-memory 10GiB \
   --venv base \
   --yes \
-  -- /bin/bash -c "torchrun --nnodes ${BEAKER_NODES}:${BEAKER_NODES} --nproc-per-node 8 ${TORCHRUN_CONFIG} scripts/train.py ${CONFIG_PATH} --run_name=${FULL_RUN_NAME} ${LOAD_PATH_ARG} ${EXTRA_ARGS}"
+  -- /bin/bash -c "torchrun --nnodes ${BEAKER_NODES}:${BEAKER_NODES} --nproc-per-node 8 ${TORCHRUN_CONFIG} scripts/train.py ${CONFIG_PATH} --run_name=${FULL_RUN_NAME} --wandb.group=${RUN_NAME} ${LOAD_PATH_ARG} ${EXTRA_ARGS}"

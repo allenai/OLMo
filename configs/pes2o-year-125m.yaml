@@ -5,7 +5,6 @@ dry_run: false
 wandb:
   name: ${run_name}
   log_interval: ${console_log_interval}
-  group: pes2o-year-125m
 
 model:
   d_model: 768
