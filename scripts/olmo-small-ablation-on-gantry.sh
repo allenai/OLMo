@@ -10,6 +10,7 @@ else
   LOAD_PATH_ARG="--load_path=${LOAD_PATH}"
 fi
 
+EXTRA_ARGS="${@}"
 
 # check if CONFIG PATH is provided as an environment variable;
 # if so, use that instead of olmo-small-ablation.yaml
@@ -47,7 +48,7 @@ fi
 RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:\s*//')
 
 # get a hash of the load path and config path; take the first 8 characters
-RUN_HASH=$(echo "${LOAD_PATH_ARG}-${CONFIG_PATH}" | md5sum | cut -c 1-8)
+RUN_HASH=$(echo "${LOAD_PATH_ARG}-${CONFIG_PATH}-${EXTRA_ARGS}$" | md5sum | cut -c 1-8)
 
 # compose the two
 FULL_RUN_NAME="${RUN_NAME}-${RUN_HASH}"
@@ -87,4 +88,4 @@ gantry run \
   --shared-memory 10GiB \
   --venv base \
   --yes \
-  -- /bin/bash -c "torchrun --nnodes ${BEAKER_NODES}:${BEAKER_NODES} --nproc-per-node 8 ${TORCHRUN_CONFIG} scripts/train.py ${CONFIG_PATH} --run_name=${FULL_RUN_NAME} ${LOAD_PATH_ARG} ${@}"
+  -- /bin/bash -c "torchrun --nnodes ${BEAKER_NODES}:${BEAKER_NODES} --nproc-per-node 8 ${TORCHRUN_CONFIG} scripts/train.py ${CONFIG_PATH} --run_name=${FULL_RUN_NAME} ${LOAD_PATH_ARG} ${EXTRA_ARGS}"
