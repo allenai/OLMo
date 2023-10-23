@@ -4,6 +4,7 @@ dry_run: false
 
 wandb:
   name: ${run_name}
+  project: 'science-olmo'
   log_interval: ${console_log_interval}
 
 model:
