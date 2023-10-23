@@ -39,7 +39,7 @@ model:
 fsdp:
   precision: mixed
   wrapping_strategy: size_based
-  sharding_strategy: FULL_SHARD
+  sharding_strategy: SHARD_GRAD_OP
 
 activation_checkpointing: true
 
