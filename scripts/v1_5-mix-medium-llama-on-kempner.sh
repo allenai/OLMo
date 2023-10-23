@@ -36,6 +36,5 @@ srun \
     $HOME/miniconda3/envs/LLM/bin/python -u scripts/train.py configs/v1_5-mix-medium-llama.yaml \
       --run_name=kempner_${SLURM_JOB_ID} \
       --save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/ \
-      --compile.mode=max-autotune \
       --data.num_workers=4 \
       ${@}
