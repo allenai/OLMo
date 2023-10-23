@@ -37,6 +37,12 @@ else
   export BEAKER_GPUS="${BEAKER_GPUS}"
 fi
 
+if [ -z ${BEAKER_PRIORITY+x} ]; then
+  export BEAKER_PRIORITY="normal"
+else
+  export BEAKER_PRIORITY="${BEAKER_PRIORITY}"
+fi
+
 # get run name, we will use this as task name in gantry
 RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:\s*//')
 
@@ -68,6 +74,7 @@ gantry run \
   --priority "normal" \
   --beaker-image olmo-torch2-gantry \
   --cluster ${BEAKER_CLUSTER} \
+  --priority ${BEAKER_PRIORITY} \
   --gpus ${BEAKER_GPUS} \
   ${NETWORK_CONFIG} \
   --nfs \
