@@ -23,28 +23,31 @@ log = logging.getLogger(__name__)
 
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"  # needed for running in the deterministic mode
 torch.use_deterministic_algorithms(True)
+torch.backends.cudnn.deterministic = True
 
 # torch.set_printoptions(precision=10)
 SEED: int = 42
 SEQ_LEN: int = 50
 TRAINING_ITERATIONS: int = 0
-OLMO_USE_AUTOCAST: bool = True
-HF_USE_AUTOCAST: bool = True
-UPDATE_OLMO_OUTPUT_WITH_HF: bool = False
+OLMO_USE_AUTOCAST: bool = False
+HF_USE_AUTOCAST: bool = False
+UPDATE_OLMO_OUTPUT_WITH_HF: bool = True
 
 # model_path = "test_fixtures/tiny_llama/"
-# model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
-model_path = '/Users/shanea/Documents/data/hf_llama2_models/7B'
+model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
+# model_path = '/Users/shanea/Documents/data/hf_llama2_models/7B'
 
 # for development
-hf_device = 'cpu'
-olmo_device = 'cpu'
-use_fsdp = False
+# hf_device = 'cpu'
+# olmo_device = 'cpu'
+# use_fsdp = False
 
 # # for running the real 7B model on GPU
 # hf_device = 'cuda:0'
 # olmo_device = 'cuda:1'
-# use_fsdp = False
+hf_device = 'cuda'
+olmo_device = 'cuda'
+use_fsdp = False
 
 # # for FSDP
 # hf_device = "cpu"
@@ -89,6 +92,7 @@ def print_metrics(olmo_tensor, hf_tensor, tensor_name, verbose=True):
     log.info(f"{tensor_name} max absolute diff: {torch.max(torch.abs(olmo_tensor.cpu() - hf_tensor.cpu()))}")
     log.info(f"{tensor_name} max relative diff: {get_max_relative_diff(olmo_tensor, hf_tensor)}")
     log.info(f"{tensor_name} max relative diff min variant: {get_max_relative_diff(olmo_tensor, hf_tensor, use_min_of_relative_diffs=True)}")
+    log.info(f"{tensor_name} max diff relative to abs mean: {get_max_relative_diff(olmo_tensor, hf_tensor, relative_to_abs_mean=True)}")
     log.info(f"{tensor_name} diff norm: {torch.norm(olmo_tensor.cpu() - hf_tensor.cpu())}")
 
     if verbose:
@@ -447,7 +451,7 @@ def update_config_with_hf_settings(cfg, hf_model):
 # load Llama weights into HF model
 def build_hf_model(device: str):
     hf_model = transformers.AutoModelForCausalLM.from_pretrained(
-        model_path, torch_dtype='auto', device_map=device, rms_norm_eps=1e-5
+        model_path, device_map=device, rms_norm_eps=1e-5
     )
     return hf_model
 
@@ -587,19 +591,24 @@ def build_olmo_model(hf_model, cfg, module_output_collector: ModuleOutputCollect
     return olmo_model
 
 
-def get_max_relative_diff(tensor1: torch.Tensor, tensor2: torch.Tensor, use_min_of_relative_diffs: bool = False) -> torch.Tensor:
+def get_max_relative_diff(tensor1: torch.Tensor, tensor2: torch.Tensor, use_min_of_relative_diffs: bool = False, relative_to_abs_mean: bool = False) -> torch.Tensor:
     tensor1 = tensor1.cpu()
     tensor2 = tensor2.cpu()
     absolute_diff = torch.abs(tensor1 - tensor2)
 
-    diff_relative_to_tensor1 = absolute_diff / (torch.abs(tensor1) + 1e-8)
-    diff_relative_to_tensor2 = absolute_diff / (torch.abs(tensor2) + 1e-8)
-
     # relative_diffs = torch.min(diff_relative_to_tensor1, diff_relative_to_tensor2)
-    if use_min_of_relative_diffs:
-        relative_diffs = torch.min(diff_relative_to_tensor1, diff_relative_to_tensor2)
+    if relative_to_abs_mean:
+        tensors_abs_mean = torch.mean(torch.abs(torch.cat([tensor1, tensor2])))
+        relative_diffs = absolute_diff / (tensors_abs_mean + 1e-8)
+
     else:
-        relative_diffs = torch.max(diff_relative_to_tensor1, diff_relative_to_tensor2)
+        diff_relative_to_tensor1 = absolute_diff / (torch.abs(tensor1) + 1e-8)
+        diff_relative_to_tensor2 = absolute_diff / (torch.abs(tensor2) + 1e-8)
+
+        if use_min_of_relative_diffs:
+            relative_diffs = torch.min(diff_relative_to_tensor1, diff_relative_to_tensor2)
+        else:
+            relative_diffs = torch.max(diff_relative_to_tensor1, diff_relative_to_tensor2)
 
     # index = torch.argmax(relative_diffs)
     # print(index)

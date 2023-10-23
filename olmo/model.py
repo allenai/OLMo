@@ -496,36 +496,36 @@ class OlmoBlock(nn.Module):
 
         # Get the attention scores.
         # shape: (B, nh, T, hs)
-        att = F.scaled_dot_product_attention(
-            q,
-            k,
-            v,
-            attn_mask=attention_bias,
-            dropout_p=0.0 if not self.training else self.config.attention_dropout,
-            is_causal=attention_bias is None,
-        )
+        # att = F.scaled_dot_product_attention(
+        #     q,
+        #     k,
+        #     v,
+        #     attn_mask=attention_bias,
+        #     dropout_p=0.0 if not self.training else self.config.attention_dropout,
+        #     is_causal=attention_bias is None,
+        # )
 
-        # if attention_bias is None:
-        #     attention_mask = torch.zeros(query_len, key_len, dtype=q.dtype)
-        #     temp_mask = torch.ones(query_len, key_len, dtype=torch.bool).tril(diagonal=0)
-        #     attention_mask.masked_fill_(temp_mask.logical_not(), float("-inf"))
-        #     attention_mask = attention_mask.to(q.dtype)
+        if attention_bias is None:
+            attention_mask = torch.zeros(query_len, key_len, dtype=q.dtype, device=q.device)
+            temp_mask = torch.ones(query_len, key_len, dtype=torch.bool, device=q.device).tril(diagonal=0)
+            attention_mask.masked_fill_(temp_mask.logical_not(), float("-inf"))
+            attention_mask = attention_mask.to(q.dtype)
 
-        #     with torch.autocast(q.device.type, enabled=False):
-        #         attn_weights = torch.matmul(q.float(), k.transpose(-2, -1).float()) / math.sqrt(q.size(-1))
-        #         attn_weights = attn_weights + attention_mask
-        #         attn_weights = nn.functional.softmax(attn_weights, dim=-1)
-        #         att = torch.matmul(attn_weights, v.float()).to(q.dtype)
+            with torch.autocast(q.device.type, enabled=False):
+                attn_weights = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(q.size(-1))
+                attn_weights = attn_weights + attention_mask
+                attn_weights = nn.functional.softmax(attn_weights, dim=-1)
+                att = torch.matmul(attn_weights, v).to(q.dtype)
 
-        # else:
-        #     att = F.scaled_dot_product_attention(
-        #         q,
-        #         k,
-        #         v,
-        #         attn_mask=attention_bias,
-        #         dropout_p=0.0 if not self.training else self.config.attention_dropout,
-        #         is_causal=attention_bias is None,
-        #     )
+        else:
+            att = F.scaled_dot_product_attention(
+                q,
+                k,
+                v,
+                attn_mask=attention_bias,
+                dropout_p=0.0 if not self.training else self.config.attention_dropout,
+                is_causal=attention_bias is None,
+            )
 
         # attention_mask = torch.zeros(query_len, key_len, dtype=q.dtype)
         # temp_mask = torch.ones(query_len, key_len, dtype=torch.bool).tril(diagonal=0)
