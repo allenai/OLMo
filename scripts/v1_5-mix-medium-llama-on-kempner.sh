@@ -22,6 +22,7 @@ export PYTHONPATH=.:${PYTHONPATH}
 # export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:512
 
 export DATA_PATH=/n/home06/dgroeneveld/data/preprocessed/olmo-mix
+export EVAL_DATA_PATH=/n/home06/dgroeneveld/data/eval-data
 export CHECKPOINTS_PATH=/n/home06/dgroeneveld/checkpoints
 
 srun \
