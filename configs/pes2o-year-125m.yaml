@@ -265,9 +265,12 @@ data:
     - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2018/gpt-neox-20b/part-2-00000.npy
     - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2018/gpt-neox-20b/part-3-00000.npy
     - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2018/gpt-neox-20b/part-4-00000.npy
-    # - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2017/gpt-neox-20b/part-0-00000.npy
-    # - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2018/gpt-neox-20b/part-0-00000.npy
-    # - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2019/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2019/gpt-neox-20b/part-0-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2019/gpt-neox-20b/part-1-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2019/gpt-neox-20b/part-2-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2019/gpt-neox-20b/part-3-00000.npy
+    - ${path.glob:${oc.env:FLASH_DIR,/net/nfs.cirrascale/s2-research/olmo}/preprocessed/pes2o/v2-by-year/train/2019/gpt-neox-20b/part-4-00000.npy
+
   pad_direction: right
   num_workers: 0
   drop_last: true
