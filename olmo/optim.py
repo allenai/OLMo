@@ -540,7 +540,7 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
             if not p.requires_grad:
                 continue
 
-            fpn = f"{mn}.{pn}" if mn else pn
+            fpn = f"{mn} . {pn}" if mn else pn
             all_params[fpn] = p
 
             if pn.endswith("bias"):
