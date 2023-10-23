@@ -543,6 +543,8 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
             fpn = f"{mn}.{pn}" if mn else pn
             all_params[fpn] = p
 
+            log.info("Considering parameter %s, type %s with module type %s", fpn, str(type(p)), str(type(m)))
+
             if pn.endswith("bias"):
                 if cfg.optimizer.decay_norm_and_bias:
                     decay.add(fpn)
