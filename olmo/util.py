@@ -17,6 +17,7 @@ import torch.distributed as dist
 from botocore.config import Config
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
+from rich.progress import Progress
 from rich.text import Text
 from rich.traceback import Traceback
 
@@ -398,14 +399,22 @@ def dir_is_empty(dir: PathOrStr) -> bool:
         return True
 
 
-def resource_path(folder: PathOrStr, fname: str, local_cache: Optional[PathOrStr] = None) -> Path:
+def get_progress_bar() -> Progress:
+    from cached_path import get_download_progress
+
+    return get_download_progress()
+
+
+def resource_path(
+    folder: PathOrStr, fname: str, local_cache: Optional[PathOrStr] = None, progress: Optional[Progress] = None
+) -> Path:
     if local_cache is not None and (local_path := Path(local_cache) / fname).is_file():
         log.info(f"Found local cache of {fname} at {local_path}")
         return local_path
     else:
         from cached_path import cached_path
 
-        return cached_path(f"{str(folder).rstrip('/')}/{fname}")
+        return cached_path(f"{str(folder).rstrip('/')}/{fname}", progress=progress)
 
 
 def file_size(path: PathOrStr) -> int:

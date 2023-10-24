@@ -47,6 +47,8 @@ __all__ = [
     "WandbConfig",
     "CompilerConfig",
     "WandbConfig",
+    "FSDPPrecision",
+    "FSDPWrapStrategy",
     "FSDPConfig",
     "CheckpointType",
 ]
@@ -573,6 +575,12 @@ class CheckpointType(StrEnum):
     unsharded = "unsharded"
 
 
+class ShardedCheckpointerType(StrEnum):
+    new_style = "new_style"
+    legacy = "legacy"
+    local = "local"
+
+
 @dataclass
 class TrainConfig(BaseConfig):
     """
@@ -701,6 +709,28 @@ class TrainConfig(BaseConfig):
     The path to a training checkpoint to restore/resume from.
     """
 
+    load_path_sharded_checkpointer: Optional[ShardedCheckpointerType] = None
+    """
+    The sharded checkpointer type to use to load the initial checkpoint from ``load_path``.
+    """
+
+    reset_optimizer_state: bool = False
+    """
+    When this is set, we restore the model from a checkpoint (if given), but we leave the optimizer uninitialized.
+    We also set a new learning rate schedule that does a new warmup, such that it intercepts the original learning
+    curve (according to the current learning rate schedule settings), and continues from there.
+    """
+
+    sharded_checkpointer: ShardedCheckpointerType = ShardedCheckpointerType.legacy
+    """
+    The name of the sharded checkpointer to use to save (sharded) checkpoints throughout training.
+    """
+
+    new_style_checkpoints: Optional[bool] = None
+    """
+    Deprecated. Use ``sharded_checkpointer`` instead.
+    """
+
     max_duration: int = 10000
     """
     Maximum number of batches to train for.
@@ -816,18 +846,6 @@ class TrainConfig(BaseConfig):
     torch_profiling: bool = False
     """
     Whether to run the PyTorch profiler on batches 6, 7, and 8.
-    """
-
-    reset_optimizer_state: bool = False
-    """
-    When this is set, we restore the model from a checkpoint (if given), but we leave the optimizer uninitialized.
-    We also set a new learning rate schedule that does a new warmup, such that it intercepts the original learning
-    curve (according to the current learning rate schedule settings), and continues from there.
-    """
-
-    new_style_checkpoints: bool = False
-    """
-    Whether to use new-style sharded checkpointing or not.
     """
 
     stop_at: Optional[int] = None
