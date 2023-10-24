@@ -36,6 +36,5 @@ srun \
       --run_name=kempner_${SLURM_JOB_ID} \
       --save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/ \
       --data.num_workers=4 \
-      --device_train_microbatch_size=6 \
-      --time_limit=$((167 * 60 * 60))
+      --time_limit=$((167 * 60 * 60)) \
       ${@}
