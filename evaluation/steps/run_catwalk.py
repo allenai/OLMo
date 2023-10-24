@@ -328,6 +328,7 @@ class WriteOutputsAsRowsMultipleMetrics(Step):
         self, models: List[str], outputs: List[Dict], prediction_kwargs: List[Dict], gsheet: Optional[str] = None
     ) -> Dict[str, List[Dict]]:
         per_metric_type_tsv_outputs: Dict[str, List[Dict]] = {}
+        any_token_count_avg_logits_by_domain = False
         for idx, d in enumerate(outputs):
             model = models[idx]
             pred_kwargs = copy.deepcopy(DEFAULT_PREDICTION_KWARGS)
@@ -352,28 +353,30 @@ class WriteOutputsAsRowsMultipleMetrics(Step):
                     metric_type_name, []
                 ) + [row]
             if 'extra_output' in d and 'token_count_avg_logits_by_domain' in d['extra_output']:
+                any_token_count_avg_logits_by_domain = True
                 for subdomain, token2countNLogit in tqdm(d['extra_output']['token_count_avg_logits_by_domain'].items(), desc="reading token_count_avg_logits_by_domain"):
+                    row = {}
+                    task = d["task"]
+                    row["date"] = datetime.now(tz=pytz.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                    row["model"] = model
+                    row["model_kwargs"] = d["model_kwargs"]
+                    row["full_model"] = f"lm::pretrained={model}"
+                    row["task"] = task
+                    row["processing_time"] = d["processing_time"]
+                    row["num_instances"] = d["num_instances"]
+                    row["tango_workspace"] = self.workspace.url
+                    row["tango_step"] = self.unique_id
+                    row['subdomain'] = subdomain
                     for token, countNLogit in token2countNLogit.items():
-                        row = {}
-                        task = d["task"]
-                        row["date"] = datetime.now(tz=pytz.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-                        row["model"] = model
-                        row["model_kwargs"] = d["model_kwargs"]
-                        row["full_model"] = f"lm::pretrained={model}"
-                        row["task"] = task
-                        row["processing_time"] = d["processing_time"]
-                        row["num_instances"] = d["num_instances"]
-                        row["tango_workspace"] = self.workspace.url
-                        row["tango_step"] = self.unique_id
-                        row['subdomain'] = subdomain
-                        row[f"token"] = token
-                        row[f"count"] = countNLogit[0]
-                        row[f"avg_logits"] = countNLogit[1]
-                        per_metric_type_tsv_outputs[f"{task}_token_count_avg_logits"] = per_metric_type_tsv_outputs.get(
-                            f"{task}_token_count_avg_logits", []
-                        ) + [row]
+                        row[token] = countNLogit
+                    per_metric_type_tsv_outputs[f"{task}_token_count_avg_logits"] = per_metric_type_tsv_outputs.get(
+                        f"{task}_token_count_avg_logits", []
+                    ) + [row]
 
         if gsheet:
+            if any_token_count_avg_logits_by_domain:
+                raise NotImplementedError("token_count_avg_logits_by_domain not supported for gsheet")
+
             for metric_type_name, tsv_outputs in tqdm(per_metric_type_tsv_outputs.items(), desc="writing metrics to gsheets"):
                 write_to_gsheet(gsheet, tsv_outputs, sheet_title=metric_type_name)
 
