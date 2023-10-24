@@ -322,7 +322,7 @@ class WriteOutputsAsRows(Step):
 
 @Step.register("write-outputs-as-rows-multiple-metrics")
 class WriteOutputsAsRowsMultipleMetrics(Step):
-    VERSION = "002"
+    VERSION = "003"
 
     def run(
         self, models: List[str], outputs: List[Dict], prediction_kwargs: List[Dict], gsheet: Optional[str] = None
@@ -364,9 +364,9 @@ class WriteOutputsAsRowsMultipleMetrics(Step):
                         row["token"] = token
                         row["count"] = countNLogit[0]
                         row["avg_logits"] = countNLogit[1]
-                        per_metric_type_tsv_outputs[f"{task}_token_count_avg_logits"] = per_metric_type_tsv_outputs.get(
-                            f"{task}_token_count_avg_logits", []
-                        ) + [row]
+                        if f"{task}_token_count_avg_logits" not in per_metric_type_tsv_outputs:
+                            per_metric_type_tsv_outputs[f"{task}_token_count_avg_logits"] = []
+                        per_metric_type_tsv_outputs[f"{task}_token_count_avg_logits"].append(row)
 
         if gsheet:
             if any_token_count_avg_logits_by_domain:
