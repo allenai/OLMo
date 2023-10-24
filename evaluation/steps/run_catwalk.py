@@ -322,7 +322,7 @@ class WriteOutputsAsRows(Step):
 
 @Step.register("write-outputs-as-rows-multiple-metrics")
 class WriteOutputsAsRowsMultipleMetrics(Step):
-    VERSION = "001"
+    VERSION = "002"
 
     def run(
         self, models: List[str], outputs: List[Dict], prediction_kwargs: List[Dict], gsheet: Optional[str] = None
@@ -355,23 +355,18 @@ class WriteOutputsAsRowsMultipleMetrics(Step):
             if 'extra_output' in d and 'token_count_avg_logits_by_domain' in d['extra_output']:
                 any_token_count_avg_logits_by_domain = True
                 for subdomain, token2countNLogit in tqdm(d['extra_output']['token_count_avg_logits_by_domain'].items(), desc="reading token_count_avg_logits_by_domain"):
-                    row = {}
-                    task = d["task"]
-                    row["date"] = datetime.now(tz=pytz.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-                    row["model"] = model
-                    row["model_kwargs"] = d["model_kwargs"]
-                    row["full_model"] = f"lm::pretrained={model}"
-                    row["task"] = task
-                    row["processing_time"] = d["processing_time"]
-                    row["num_instances"] = d["num_instances"]
-                    row["tango_workspace"] = self.workspace.url
-                    row["tango_step"] = self.unique_id
-                    row['subdomain'] = subdomain
                     for token, countNLogit in token2countNLogit.items():
-                        row[token] = countNLogit
-                    per_metric_type_tsv_outputs[f"{task}_token_count_avg_logits"] = per_metric_type_tsv_outputs.get(
-                        f"{task}_token_count_avg_logits", []
-                    ) + [row]
+                        row = {}
+                        task = d["task"]
+                        row["model"] = model
+                        row["model_kwargs"] = d["model_kwargs"]
+                        row['subdomain'] = subdomain
+                        row["token"] = token
+                        row["count"] = countNLogit[0]
+                        row["avg_logits"] = countNLogit[1]
+                        per_metric_type_tsv_outputs[f"{task}_token_count_avg_logits"] = per_metric_type_tsv_outputs.get(
+                            f"{task}_token_count_avg_logits", []
+                        ) + [row]
 
         if gsheet:
             if any_token_count_avg_logits_by_domain:
