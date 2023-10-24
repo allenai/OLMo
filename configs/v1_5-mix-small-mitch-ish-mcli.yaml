@@ -1,7 +1,8 @@
 run_name: olmo-small-dolma-150B-mcli
 seed: 6198
 dry_run: false
-time_limit: 60 * 60 * 240
+# 10 days
+time_limit: 864000
 
 wandb:
   name: ${run_name}
