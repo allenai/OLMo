@@ -359,7 +359,8 @@ class WriteOutputsAsRowsMultipleMetrics(Step):
                         row = {}
                         task = d["task"]
                         row["model"] = model
-                        row["model_kwargs"] = d["model_kwargs"]
+                        if "revision" in d["model_kwargs"]:
+                            row["revision"] = d["model_kwargs"]["revision"]
                         row['subdomain'] = subdomain
                         row["token"] = token
                         row["count"] = countNLogit[0]
