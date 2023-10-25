@@ -559,6 +559,8 @@ class OlmoBlock(nn.Module):
             return OlmoSequentialBlock(layer_id, config, cache)
         elif config.block_type == BlockType.parallel:
             return OlmoParallelBlock(layer_id, config, cache)
+        elif config.block_type == BlockType.llama:
+            return OlmoLlamaBlock(layer_id, config, cache)
         else:
             raise NotImplementedError(f"not sure how to handle block type '{config.block_type}'")
 
