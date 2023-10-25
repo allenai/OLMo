@@ -3,7 +3,7 @@ import shutil
 from concurrent.futures import ThreadPoolExecutor
 from functools import reduce
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union, cast, Set, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
 
 import numpy as np
 import torch
