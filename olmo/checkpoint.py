@@ -1226,13 +1226,18 @@ class LocalShardedCheckpointer(Checkpointer):
         device: Optional[torch.device] = None,
     ) -> Tuple[Dict[str, torch.Tensor], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
         device = device or torch.device("cpu")
-        metadata = self._load_metadata(load_path, local_cache=local_cache)
+        try:
+            metadata = self._load_metadata(load_path, local_cache=local_cache)
+            world_size = metadata.world_size
+        except FileNotFoundError:
+            assert isinstance(
+                load_path, Path
+            ), "Automatically detecting the world size requires the checkpoint to be local."
+            world_size = sum(1 for _ in (load_path / "train").glob("rank*.pt"))
 
         # Gather paths model state, potentially downloading them.
         log.info("Gathering model state dicts...")
-        model_state_paths = self._gather_state_dict_paths(
-            load_path, "model", metadata.world_size, local_cache=local_cache
-        )
+        model_state_paths = self._gather_state_dict_paths(load_path, "model", world_size, local_cache=local_cache)
 
         # Load model state dicts one-by-one, materializing and populating the full parameters as we go.
         log.info("Materializing full parameters...")
@@ -1274,9 +1279,7 @@ class LocalShardedCheckpointer(Checkpointer):
             return full_model_state, None, trainer_state
 
         log.info("Gathering optim state dicts...")
-        optim_state_paths = self._gather_state_dict_paths(
-            load_path, "optim", metadata.world_size, local_cache=local_cache
-        )
+        optim_state_paths = self._gather_state_dict_paths(load_path, "optim", world_size, local_cache=local_cache)
 
         log.info("Materializing full optim state...")
         full_optim_state: Dict[str, Any] = {"state": defaultdict(dict)}
