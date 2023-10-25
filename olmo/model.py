@@ -972,7 +972,7 @@ class Olmo(nn.Module):
         ):
             # shape: (batch_size, seq_len, d_model)
             x, cache = self.__activation_checkpoint_fn(
-                block, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+                block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
             )
 
             if attn_key_values is not None:
