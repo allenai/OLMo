@@ -184,16 +184,28 @@ python $SCRIPT_DIR/subsetter.py \
 
 python $SCRIPT_DIR/subsetter.py \
     --split_names val \
-    --input_files $(find raw/stack-olmo-mix-v1_5-eval/ -name *.gz) \
+    --input_files $(find $perplexity_dir/raw/stack-olmo-mix-v1_5-eval/ -name *.gz) \
     --output_dir $perplexity_dir/v0/dolma-v1_5_stack \
     --seed 42 \
     --dolma_subdomain_format \
     --sample_evenly_by_file
 
 python $SCRIPT_DIR/subsetter.py \
-    --input_files v0/dolma-v1_5_stack/val/*.gz \
+    --input_files $perplexity_dir/v0/dolma-v1_5_stack/val/*.gz \
     --output_dir $perplexity_dir/v3_not_deconned/dolma-v1_5 \
     --seed 42 \
     --tokenizer "EleutherAI/gpt-neox-20b" \
     --split_token_count_target 500000 \
     --sample_evenly_by_file 
+
+# top 100 programming languages are found by this code https://github.com/allenai/LLM/blob/main/pretrain_data/the_stack/figures/figures.ipynb
+python $SCRIPT_DIR/subsetter.py \
+    --input_files $(find $perplexity_dir/raw/stack-olmo-mix-v1_5-eval/ -name *.gz) \
+    --output_dir $perplexity_dir/v3_not_deconned/dolma_100_programing_languages \
+    --seed 42 \
+    --field_has_subdomain lang \
+    --sample_evenly_by_subdomain \
+    --tokenizer "EleutherAI/gpt-neox-20b" \
+    --split_token_count_target 10000000 \
+    --rename_source "dolma-100-programing-languages" \
+    --subdomains_to_keep_by_rank "text" "markdown" "c" "php" "java" "c++" "python" "javascript" "html" "c#" "yaml" "go" "typescript" "xml" "css" "jupyter-notebook" "rust" "unity3d-asset" "gettext-catalog" "ruby" "vue" "sql" "swift" "kotlin" "scala" "scss" "tex" "dart" "kicad" "shell" "smali" "lua" "restructuredtext" "perl" "diff" "ini" "jsx" "haskell" "gnuplot" "postscript" "groff" "turtle" "fortran" "makefile" "mathematica" "pascal" "common-lisp" "gas" "vhdl" "julia" "edn" "visual-basic" "powershell" "g-code" "ocaml" "java-server-pages" "solidity" "graphviz-(dot)" "less" "twig" "asciidoc" "groovy" "llvm" "hcl" "html+erb" "erlang" "elixir" "eagle" "arduino" "coffeescript" "toml" "cuda" "nix" "smalltalk" "cmake" "actionscript" "glsl" "systemverilog" "haxe" "f#" "max" "objective-c++" "standard-ml" "dockerfile" "emacs-lisp" "scheme" "clojure" "handlebars" "smarty" "logos" "stata" "yacc" "nimrod" "tcl" "viml" "asp" "protocol-buffer" "r" "cython" "mediawiki"

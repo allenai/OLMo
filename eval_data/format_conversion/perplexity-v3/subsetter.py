@@ -71,6 +71,15 @@ def read_input_file(input_file):
                 doc['source'] = 'Dolma-v1_5'
             if args.field_has_subdomain:
                 doc['subdomain'] = doc[args.field_has_subdomain]
+            if args.rename_source:
+                doc['source'] = args.rename_source
+            if args.subdomains_to_keep_by_rank:
+                if doc['subdomain'] not in args.subdomains_to_keep_by_rank:
+                    continue
+                subdomain_name =  'graphviz-dot' if doc['subdomain'] == 'graphviz-(dot)' else doc['subdomain']
+                doc['subdomain'] = f"{args.subdomains_to_keep_by_rank.index(doc['subdomain']):02}_{subdomain_name}"
+
+
 
 
             data.append(doc)
@@ -199,6 +208,8 @@ if __name__ == "__main__":
     parser.add_argument("--dont_overflow_token_count", action="store_true", help="don't overflow the token count target")
     parser.add_argument("--dont_truncate_overflowing_docs", action="store_true", help="do not truncate overflowing docs")
     parser.add_argument("--field_has_subdomain", type=str, help="Extracts subdomain from specified field name")
+    parser.add_argument("--subdomains_to_keep_by_rank", type=str, nargs="+", help="A list of subdomains to keep, whose ranking will be added to the subdomain name")
+    parser.add_argument("--rename_source", type=str, help="Renames the source field to the specified name")
     args = parser.parse_args()
 
     assert not args.sample_evenly_by_subdomain or not args.sample_evenly_by_file, "can't sample evenly by file and subdomain"
