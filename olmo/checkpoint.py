@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from functools import reduce
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, Tuple, cast
+from typing import Any, Dict, Generator, List, Optional, Set, Tuple, cast
 
 import numpy as np
 import torch
@@ -800,7 +800,7 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
         device: Optional[torch.device] = None,
     ) -> Tuple[Dict[str, torch.Tensor], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
         assert local_cache is None, "this method currently only supports local files"
-        full_state_dict = self._unshard(load_path, device or torch.device("cpu"))
+        full_state_dict = self._unshard(load_path, device or torch.device("cpu"), skip_keys={"rng"})
         model_state = full_state_dict.pop("model")
         optim_state = full_state_dict.pop("optim")
         return (
@@ -809,8 +809,9 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
             full_state_dict if load_trainer_state else None,
         )
 
-    def _unshard(self, input_dir: PathOrStr, device: torch.device):
+    def _unshard(self, input_dir: PathOrStr, device: torch.device, skip_keys: Optional[Set[str]] = None):
         input_dir = Path(input_dir)
+        skip_keys = skip_keys or set()
 
         # Monkeypatch torch's ShardedTensor, so we can unpickle without having torch.distributed set up.
         def _rebuild_from_type_v2_monkey(func, new_type, args, state):
@@ -845,7 +846,11 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
             shards_dict[shard_number] = executor.submit(torch.load, shard_name, map_location="cpu")
         shards = [None] * len(shards_dict)
         for rank, shard_future in shards_dict.items():
-            shards[rank] = shard_future.result()
+            shard = shard_future.result()
+            for key in skip_keys:
+                if key in shard:
+                    del shard[key]
+            shards[rank] = shard
         assert all(shard is not None for shard in shards)
         executor.shutdown()
         del shards_dict

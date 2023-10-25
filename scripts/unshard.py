@@ -1,6 +1,5 @@
 import logging
 import shutil
-import sys
 from pathlib import Path
 from typing import Union
 
@@ -23,7 +22,6 @@ def main(input_dir: Union[str, Path], output_dir: Union[str, Path]) -> None:
     checkpointer = TorchLegacyShardedCheckpointer(config)
 
     model_state_dict, optim_state_dict, trainer_state_dict = checkpointer.unshard_checkpoint(input_dir)
-
     # model
     model_output = str(output_dir / "model.pt")
     logger.info("Saving model state to %s", model_output)
@@ -37,7 +35,7 @@ def main(input_dir: Union[str, Path], output_dir: Union[str, Path]) -> None:
     del optim_state_dict
 
     # whatever is left
-    train_output = str(output_dir / "other.pt")
+    train_output = str(output_dir / "train.pt")
     logger.info("Saving everything else to %s", train_output)
     torch.save(trainer_state_dict, train_output)
     del trainer_state_dict
@@ -47,9 +45,12 @@ def main(input_dir: Union[str, Path], output_dir: Union[str, Path]) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        sys.stderr.write("Usage: unshard.py <input dir> <output dir>")
-        sys.exit(1)
-    else:
-        logging.basicConfig(level=logging.INFO)
-        main(sys.argv[1], sys.argv[2])
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="unshard.py", description="Unshard sharded checkpoints on CPU")
+    parser.add_argument("input_dir")
+    parser.add_argument("output_dir")
+    args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO)
+    main(args.input_dir, args.output_dir)
