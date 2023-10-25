@@ -57,8 +57,8 @@ __all__ = [
     "RemoteFileSystemReader",
     "Checkpointer",
     "FullCheckpointer",
-    "NewStyleShardedCheckpointer",
-    "LegacyShardedCheckpointer",
+    "TorchNewStyleShardedCheckpointer",
+    "TorchLegacyShardedCheckpointer",
     "LocalShardedCheckpointer",
     "build_sharded_checkpointer",
 ]
@@ -625,7 +625,7 @@ class FullCheckpointer(Checkpointer):
         return model_state, optim_state
 
 
-class NewStyleShardedCheckpointer(Checkpointer):
+class TorchNewStyleShardedCheckpointer(Checkpointer):
     """
     A sharded :class:`Checkpointer` that uses PyTorch's new distributed checkpointing functionality.
     """
@@ -695,7 +695,7 @@ class NewStyleShardedCheckpointer(Checkpointer):
         return trainer_state
 
 
-class LegacyShardedCheckpointer(Checkpointer):
+class TorchLegacyShardedCheckpointer(Checkpointer):
     """
     A sharded :class:`Checkpointer` that just uses `torch.save()` with extra logic for handling FSDP model
     and optim state.
@@ -1192,10 +1192,10 @@ def build_sharded_checkpointer(
     cfg: TrainConfig, *, name: Optional[ShardedCheckpointerType] = None
 ) -> Checkpointer:
     name = name or cfg.sharded_checkpointer
-    if name == ShardedCheckpointerType.new_style:
-        return NewStyleShardedCheckpointer(cfg)
-    elif name == ShardedCheckpointerType.legacy:
-        return LegacyShardedCheckpointer(cfg)
+    if name == ShardedCheckpointerType.torch_new:
+        return TorchNewStyleShardedCheckpointer(cfg)
+    elif name == ShardedCheckpointerType.torch_legacy:
+        return TorchLegacyShardedCheckpointer(cfg)
     elif name == ShardedCheckpointerType.local:
         return LocalShardedCheckpointer(cfg)
     else:

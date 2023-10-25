@@ -576,8 +576,8 @@ class CheckpointType(StrEnum):
 
 
 class ShardedCheckpointerType(StrEnum):
-    new_style = "new_style"
-    legacy = "legacy"
+    torch_new = "torch_new"
+    torch_legacy = "torch_legacy"
     local = "local"
 
 
@@ -721,7 +721,7 @@ class TrainConfig(BaseConfig):
     curve (according to the current learning rate schedule settings), and continues from there.
     """
 
-    sharded_checkpointer: ShardedCheckpointerType = ShardedCheckpointerType.legacy
+    sharded_checkpointer: ShardedCheckpointerType = ShardedCheckpointerType.torch_legacy
     """
     The name of the sharded checkpointer to use to save (sharded) checkpoints throughout training.
     """
