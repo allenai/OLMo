@@ -10,7 +10,8 @@ import logging
 import math
 from abc import abstractmethod
 from collections.abc import MutableMapping
-from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
+from functools import partial
+from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, cast, Callable
 
 import torch
 import torch.backends.cuda
@@ -741,6 +742,27 @@ class Olmo(nn.Module):
                     "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
                 )
 
+        self.__activation_checkpoint_fn: Callable
+        if self.config.activation_checkpointing:
+            preserve_rng_state = (
+                (self.config.attention_dropout == 0.0)
+                and (self.config.embedding_dropout == 0.0)
+                and (self.config.residual_dropout == 0.0)
+            )
+            import torch.utils.checkpoint
+
+            self.__activation_checkpoint_fn = partial(
+                torch.utils.checkpoint.checkpoint,
+                preserve_rng_state=preserve_rng_state,
+                use_reentrant=False,
+            )
+        else:
+
+            def pass_through_fn(fn, *args, **kwargs):
+                return fn(*args, **kwargs)
+
+            self.__activation_checkpoint_fn = pass_through_fn
+
         torch.backends.cuda.enable_flash_sdp(self.config.flash_attention)
         torch.backends.cuda.enable_mem_efficient_sdp(False)  # this is super slow so make sure torch won't use it
 
@@ -949,7 +971,10 @@ class Olmo(nn.Module):
             past_key_values or [None] * self.config.n_layers,  # type: ignore
         ):
             # shape: (batch_size, seq_len, d_model)
-            x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
+            x, cache = self.__activation_checkpoint_fn(
+                block, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+            )
+
             if attn_key_values is not None:
                 assert cache is not None
                 attn_key_values.append(cache)
