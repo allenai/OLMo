@@ -376,8 +376,8 @@ def syncronize_flag(flag: bool, device: torch.device) -> bool:
         return flag
 
 
-def wait_on(condition: Callable[[], bool], description: str, timeout: float = 10.0):
-    """Wait on the condition function to return True."""
+def wait_for(condition: Callable[[], bool], description: str, timeout: float = 10.0):
+    """Wait for the condition function to return True."""
     start_time = time.monotonic()
     while not condition():
         time.sleep(0.5)

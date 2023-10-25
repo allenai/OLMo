@@ -43,7 +43,7 @@ from .util import (
     get_world_size,
     resource_path,
     upload,
-    wait_on,
+    wait_for,
 )
 
 __all__ = [
@@ -489,7 +489,7 @@ class Checkpointer(metaclass=ABCMeta):
         # replacing the temp directory with the final directory from rank 0 might not be immediately
         # realized in the file systems of the other ranks.
         # So we wait here across all ranks until that final checkpoint directory is visible.
-        wait_on(lambda: checkpoint_dir.exists(), "Waiting for checkpoint directory", timeout=10.0)
+        wait_for(lambda: checkpoint_dir.exists(), "Waiting for checkpoint directory", timeout=10.0)
 
         barrier()
 
