@@ -29,25 +29,25 @@ torch.backends.cudnn.deterministic = True
 SEED: int = 42
 SEQ_LEN: int = 50
 TRAINING_ITERATIONS: int = 0
-OLMO_USE_AUTOCAST: bool = False
-HF_USE_AUTOCAST: bool = False
+OLMO_USE_AUTOCAST: bool = True
+HF_USE_AUTOCAST: bool = True
 UPDATE_OLMO_OUTPUT_WITH_HF: bool = True
 
 # model_path = "test_fixtures/tiny_llama/"
-model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
-# model_path = '/Users/shanea/Documents/data/hf_llama2_models/7B'
+# model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
+model_path = '/Users/shanea/Documents/data/hf_llama2_models/7B'
 
 # for development
-# hf_device = 'cpu'
-# olmo_device = 'cpu'
-# use_fsdp = False
+hf_device = 'cpu'
+olmo_device = 'cpu'
+use_fsdp = False
 
 # # for running the real 7B model on GPU
 # hf_device = 'cuda:0'
 # olmo_device = 'cuda:1'
-hf_device = 'cuda'
-olmo_device = 'cuda'
-use_fsdp = False
+# hf_device = 'cuda'
+# olmo_device = 'cuda'
+# use_fsdp = False
 
 # # for FSDP
 # hf_device = "cpu"
@@ -591,7 +591,7 @@ def build_olmo_model(hf_model, cfg, module_output_collector: ModuleOutputCollect
     return olmo_model
 
 
-def get_max_relative_diff(tensor1: torch.Tensor, tensor2: torch.Tensor, use_min_of_relative_diffs: bool = False, relative_to_abs_mean: bool = False) -> torch.Tensor:
+def get_max_relative_diff(tensor1: torch.Tensor, tensor2: torch.Tensor, use_min_of_relative_diffs: bool = False, relative_to_abs_mean: bool = False):
     tensor1 = tensor1.cpu()
     tensor2 = tensor2.cpu()
     absolute_diff = torch.abs(tensor1 - tensor2)
@@ -610,10 +610,10 @@ def get_max_relative_diff(tensor1: torch.Tensor, tensor2: torch.Tensor, use_min_
         else:
             relative_diffs = torch.max(diff_relative_to_tensor1, diff_relative_to_tensor2)
 
-    # index = torch.argmax(relative_diffs)
+    index = torch.argmax(relative_diffs)
     # print(index)
     # print(tensor1.flatten()[index], tensor2.flatten()[index])
-    return torch.max(relative_diffs)
+    return torch.max(relative_diffs), (tensor1.flatten()[index], tensor2.flatten()[index])
 
 
 config = build_config(olmo_device)
