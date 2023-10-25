@@ -454,6 +454,23 @@ class OlmoBlock(nn.Module):
             ensure_finite_(bias, check_neg_inf=True, check_pos_inf=False)
         return bias
 
+    @classmethod
+    def _scaled_dot_product_attention(cls, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, attn_mask: Optional[torch.Tensor] = None, dropout_p: float = 0.0, is_causal: bool = False) -> torch.Tensor:
+        """
+        Computes scaled dot product attention on query, key and value tensors, using an optional
+        attention mask if passed, and applying dropout if a probability greater than 0.0 is specified.
+
+        This method is based on PyTorch's `scaled_dot_product_attention`.
+        """
+        return F.scaled_dot_product_attention(
+            q,
+            k,
+            v,
+            attn_mask=attn_mask,
+            dropout_p=dropout_p,
+            is_causal=is_causal,
+        )
+
     def attention(
         self,
         q: torch.Tensor,
@@ -513,7 +530,7 @@ class OlmoBlock(nn.Module):
 
         # Get the attention scores.
         # shape: (B, nh, T, hs)
-        att = F.scaled_dot_product_attention(
+        att = self._scaled_dot_product_attention(
             q,
             k,
             v,
@@ -667,6 +684,108 @@ class OlmoParallelBlock(OlmoBlock):
         # We keep these projections separate because we found that we got better throughput this
         # way compared to fusing them.
         return x + self.dropout(self.ff_out(self.act(ff))) + self.dropout(att), cache
+
+
+class OlmoLlamaBlock(OlmoBlock):
+    """
+    This is a transformer block where the output is computed as ``MLP(LN(x + Attention(LN(x))))``
+    (plus another skip connection). This block is similar to `OlmoSequentialBlock`
+    but some operations have slightly different implementations to imitate the
+    behavior of Llama.
+    """
+
+    def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
+        super().__init__(layer_id, config, cache)
+        # Layer norms.
+        self.attn_norm = LayerNorm.build(config)
+        self.ff_norm = LayerNorm.build(config)
+
+        # Attention input projection. Projects x -> (q, k, v)
+        if config.multi_query_attention:
+            q_proj_out_dim = config.d_model
+            k_proj_out_dim = config.d_model // config.n_heads
+            v_proj_out_dim = config.d_model // config.n_heads
+        else:
+            q_proj_out_dim = config.d_model
+            k_proj_out_dim = config.d_model
+            v_proj_out_dim = config.d_model
+        self.q_proj = nn.Linear(
+            config.d_model, q_proj_out_dim, bias=config.include_bias, device=config.init_device
+        )
+        self.k_proj = nn.Linear(
+            config.d_model, k_proj_out_dim, bias=config.include_bias, device=config.init_device
+        )
+        self.v_proj = nn.Linear(
+            config.d_model, v_proj_out_dim, bias=config.include_bias, device=config.init_device
+        )
+
+        # Feed-forward input projection.
+        self.ff_proj = nn.Linear(
+            config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device
+        )
+
+    def reset_parameters(self):
+        super().reset_parameters()
+        self.attn_norm.reset_parameters()
+        self.ff_norm.reset_parameters()
+        # NOTE: the standard deviation for these weights does not depend on the layer.
+        init_weights(self.config, self.q_proj, d=self.config.d_model, layer_id=None)
+        init_weights(self.config, self.k_proj, d=self.config.d_model, layer_id=None)
+        init_weights(self.config, self.v_proj, d=self.config.d_model, layer_id=None)
+        init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None)
+
+    @classmethod
+    def _scaled_dot_product_attention(cls, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, attn_mask: Optional[torch.Tensor] = None, dropout_p: float = 0.0, is_causal: bool = False) -> torch.Tensor:
+        query_len, key_len = q.size(-2), k.size(-2)
+
+        attn_weights = torch.matmul(q, k.transpose(2, 3)) / math.sqrt(q.size(-1))
+
+        attn_bias = torch.zeros(query_len, key_len, dtype=q.dtype)
+        if is_causal:
+            assert attn_mask is None
+
+            diagonal = key_len - query_len + 1
+            context_mask = 1 - torch.triu(torch.ones_like(attn_bias, dtype=torch.int), diagonal=diagonal)
+            attn_bias.masked_fill_(context_mask.bool(), torch.finfo(q.dtype).min)
+
+        if attn_mask is not None:
+            attn_bias += attn_mask.to(q.dtype)
+
+        attn_weights += attn_bias
+        attn_weights = nn.functional.softmax(attn_weights, dim=-1).to(q.dtype)
+        attn_weights = torch.matmul(attn_weights, v)
+        attn_weights = nn.functional.dropout(attn_weights, p=dropout_p)
+        return attn_weights
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        attention_bias: Optional[torch.Tensor] = None,
+        layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        use_cache: bool = False,
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
+        # Get query, key, value projections.
+        # shape:
+        #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
+        #  - for multi-query attn q: (batch_size, seq_len, d_model)
+        #                      k, v: (batch_size, seq_len, d_model // n_heads)
+        x_normed = self.attn_norm(x)
+        q = self.q_proj(x_normed)
+        k = self.k_proj(x_normed)
+        v = self.v_proj(x_normed)
+
+        # Get attention scores.
+        att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
+
+        # Add attention scores.
+        # shape: (B, T, C)
+        x = x + self.dropout(att)
+
+        # Add feed-forward projection.
+        # shape: (batch_size, seq_len, d_model)
+        x = x + self.dropout(self.ff_out(self.act(self.ff_proj(self.ff_norm(x)))))
+
+        return x, cache
 
 
 class OlmoOutput(NamedTuple):
