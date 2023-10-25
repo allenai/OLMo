@@ -206,7 +206,7 @@ def save_state_dict(
     *,
     upload_to: Optional[str] = None,
     save_overwrite: bool = False,
-    no_dist: bool = False,
+    synchronize: bool = True,
 ):
     """
     Save a regular state dict to the file ``fname`` within ``checkpoint_dir`` using :func:`torch.save()`.
@@ -218,7 +218,7 @@ def save_state_dict(
     :param state_dict: The state dict to save.
     :param upload_to: Optional, a remote "directory" to upload the file to.
     :param save_overwrite: Overwrite existing files.
-    :param no_dist: If ``True``, don't do any distributed synchronization. Use this when only calling
+    :param synchronize: If ``False``, don't do any distributed synchronization. Use this when only calling
         this function from a single rank.
 
     :raises FileExistsError: If the ``fname`` already exists within ``checkpoint_dir`` and ``save_overwrite=False``.
@@ -229,10 +229,10 @@ def save_state_dict(
         target_path.unlink(missing_ok=True)
     elif target_path.is_file():
         raise FileExistsError(target_path)
-    if not no_dist:
+    if synchronize:
         barrier()
     target_path.parent.mkdir(exist_ok=True, parents=True)
-    if not no_dist:
+    if synchronize:
         barrier()
     torch.save(state_dict, target_path)
     if upload_to is not None:
@@ -535,7 +535,7 @@ class FullCheckpointer(Checkpointer):
                         model_state_dict,
                         upload_to=upload_to,
                         save_overwrite=self.cfg.save_overwrite,
-                        no_dist=True,
+                        synchronize=False,
                     )
                 del model_state_dict
                 barrier()
@@ -550,7 +550,7 @@ class FullCheckpointer(Checkpointer):
                         optim_state_dict,
                         upload_to=upload_to,
                         save_overwrite=self.cfg.save_overwrite,
-                        no_dist=True,
+                        synchronize=False,
                     )
                 del optim_state_dict
                 barrier()
@@ -564,7 +564,7 @@ class FullCheckpointer(Checkpointer):
                     trainer_state,
                     upload_to=upload_to,
                     save_overwrite=self.cfg.save_overwrite,
-                    no_dist=True,
+                    synchronize=False,
                 )
             # Save config.
             self._save_config(checkpoint_dir, upload_to=upload_to)
