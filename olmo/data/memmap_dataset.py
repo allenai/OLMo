@@ -72,7 +72,7 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
     def offsets(self) -> List[Tuple[int, int]]:
         # Create the global S3 client up front to work around a threading issue in boto.
         _get_s3_client()
-        
+
         if self._mmap_offsets is None:
             import concurrent.futures
 
