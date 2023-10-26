@@ -455,7 +455,15 @@ class OlmoBlock(nn.Module):
         return bias
 
     @classmethod
-    def _scaled_dot_product_attention(cls, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, attn_mask: Optional[torch.Tensor] = None, dropout_p: float = 0.0, is_causal: bool = False) -> torch.Tensor:
+    def _scaled_dot_product_attention(
+        cls,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        attn_mask: Optional[torch.Tensor] = None,
+        dropout_p: float = 0.0,
+        is_causal: bool = False,
+    ) -> torch.Tensor:
         """
         Computes scaled dot product attention on query, key and value tensors, using an optional
         attention mask if passed, and applying dropout if a probability greater than 0.0 is specified.
@@ -737,7 +745,15 @@ class OlmoLlamaBlock(OlmoBlock):
         init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None)
 
     @classmethod
-    def _scaled_dot_product_attention(cls, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, attn_mask: Optional[torch.Tensor] = None, dropout_p: float = 0.0, is_causal: bool = False) -> torch.Tensor:
+    def _scaled_dot_product_attention(
+        cls,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        attn_mask: Optional[torch.Tensor] = None,
+        dropout_p: float = 0.0,
+        is_causal: bool = False,
+    ) -> torch.Tensor:
         attn_weights = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(q.size(-1))
 
         attn_bias = torch.zeros_like(attn_weights)
