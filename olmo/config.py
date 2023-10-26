@@ -258,6 +258,13 @@ class ModelConfig(BaseConfig):
     The transformer block implementation.
     """
 
+    block_group_size: int = 1
+    """
+    The number of blocks to group together into a single parent block.
+    This is has no affect on the number of parameters in the model and is only used to wrap groups
+    of blocks together with a single FSDP wrapper during training.
+    """
+
     alibi: bool = False
     """
     If ``True``, use ALiBi embeddings. Mutually exclusive with ``rope``.
@@ -530,6 +537,12 @@ class FSDPWrapStrategy(StrEnum):
     by_block = "by_block"
     """
     Wrap each OLMo block with its own FSDP instance.
+    """
+
+    by_block_group = "by_block_group"
+    """
+    Wrap each block group together into its own FSDP instance.
+    This requires :attr:`~ModelConfig.block_group_size` to be bigger than 1.
     """
 
     size_based = "size_based"
