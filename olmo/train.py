@@ -749,8 +749,9 @@ class Trainer:
     def _collect_activation_metrics(self) -> Dict[str, torch.Tensor]:
         if not self._activation_metrics:
             return {}
+
         if not is_distributed():
-            metrics = {k: v for k, v in self._activation_metrics.items()}
+            metrics = self._activation_metrics.copy()
         else:
             # Reduce metrics over rank.
             # NOTE: norm is reduce by averaging instead of taking the total norm across all ranks.
@@ -777,24 +778,26 @@ class Trainer:
             sum_reduce_metrics_tensor = torch.cat(sum_reduce_metrics)
             dist.reduce(sum_reduce_metrics_tensor, 0, op=dist.ReduceOp.SUM)
             sum_reduce_metrics_tensor.div_(get_world_size())
-            sum_reduce_metrics = list(reversed(sum_reduce_metrics_tensor.split(1)))
+            sum_reduce_metrics = sum_reduce_metrics_tensor.split(1)
             del sum_reduce_metrics_tensor
 
             # Reduce mins.
             min_reduce_metrics_tensor = torch.cat(min_reduce_metrics)
             dist.reduce(min_reduce_metrics_tensor, 0, op=dist.ReduceOp.MIN)
-            min_reduce_metrics = list(reversed(min_reduce_metrics_tensor.split(1)))
+            min_reduce_metrics = min_reduce_metrics_tensor.split(1)
             del min_reduce_metrics_tensor
 
             # Reduce maxs.
             max_reduce_metrics_tensor = torch.cat(max_reduce_metrics)
             dist.reduce(max_reduce_metrics_tensor, 0, op=dist.ReduceOp.MAX)
-            max_reduce_metrics = list(reversed(max_reduce_metrics_tensor.split(1)))
+            max_reduce_metrics = max_reduce_metrics_tensor.split(1)
             del max_reduce_metrics_tensor
 
             # Collect everything together.
             metrics = {}
-            for key in sorted_metric_names:
+            # NOTE: we go over metric names in reverse order here so that we can pop from the end
+            # of metric list, which is much more efficient than popping from the beginning.
+            for key in reversed(sorted_metric_names):
                 if key.endswith(".norm") or key.endswith(".avg"):
                     metrics[key] = sum_reduce_metrics.pop()
                 elif key.endswith(".min"):
