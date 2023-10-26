@@ -218,7 +218,11 @@ def main(cfg: TrainConfig) -> None:
 
         if cfg.load_path is not None:
             log.info(f"Loading checkpoint from {cfg.load_path}...")
-            trainer.restore_checkpoint(cfg.load_path, load_optimizer_state=not cfg.reset_optimizer_state)
+            trainer.restore_checkpoint(
+                cfg.load_path,
+                load_optimizer_state=not cfg.reset_optimizer_state,
+                sharded_checkpointer=cfg.load_path_sharded_checkpointer,
+            )
             log.info("Checkpoint successfully loaded")
 
             # If we have to, set a new scheduler:
