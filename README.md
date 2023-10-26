@@ -31,7 +31,7 @@ torchrun --nproc-per-node=8 scripts/train.py configs/c4-tiny.yaml \
 
 #### Running on Cirrascale via [beaker-gantry](https://github.com/allenai/beaker-gantry)
 
-Check the script at [`scripts/olmo-small-ablation-on-gantry.sh`](scripts/olmo-small-ablation-on-gantry.sh) for an example on how to run a training job on Cirrascale.
+Check the script at [`scripts/olmo-small-ablation-on-gantry.sh`](scripts/beaker/olmo-small-ablation-on-gantry.sh) for an example on how to run a training job on Cirrascale.
 
 After installing `beaker-gantry`, you can launch a training job like this:
 
