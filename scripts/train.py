@@ -14,7 +14,7 @@ import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
-from olmo.config import CheckpointType, FSDPWrapStrategy, TrainConfig
+from olmo.config import CheckpointType, TrainConfig
 from olmo.data import build_train_dataloader
 from olmo.eval import build_evaluators
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError

@@ -10,14 +10,13 @@ import logging
 import math
 from abc import abstractmethod
 from collections.abc import MutableMapping
-from typing import Dict, Generator, List, NamedTuple, Optional, Sequence, Tuple, cast
+from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
 
 import torch
 import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import einsum
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 from .aliases import PathOrStr
 from .beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
@@ -768,7 +767,7 @@ class Olmo(nn.Module):
                 )
 
         if not (
-            0 < self.config.block_group_size < self.config.n_layers
+            0 < self.config.block_group_size <= self.config.n_layers
             and self.config.n_layers % self.config.block_group_size == 0
         ):
             raise OlmoConfigurationError("n layers must be divisible by block group size")
