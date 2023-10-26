@@ -46,7 +46,7 @@ if `LOAD_PATH` is not specified, the training will start from scratch.
 
 #### Running on LUMI via Slurm
 
-First read our [LUMI](./LUMI.md) documentation, but submitting a new job essentially just boils down to running this:
+First read our [LUMI](docs/LUMI.md) documentation, but submitting a new job essentially just boils down to running this:
 
 ```bash
 sbatch scripts/c4-tiny-on-lumi.sh
