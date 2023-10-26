@@ -1,4 +1,4 @@
-run_name: v1_5-mix-medium-mitch-ish
+run_name: v1_5-mix-medium-run-001
 seed: 6198
 dry_run: false
 
@@ -9,23 +9,21 @@ wandb:
 
 model:
   d_model: 4096
-  n_heads: 32
-  n_layers: 32
-  # mlp_ratio: 6
-  mlp_hidden_size: 22016
-  weight_tying: false
-  alibi: false
-  rope: true
-  flash_attention: false  # not available on AMD
+  n_heads: 16
+  n_layers: 30
+  mlp_ratio: 8
+  weight_tying: false  # disable weight tying
+  alibi: true
+  alibi_bias_max: 8.0
+  flash_attention: false  # not available on AMD 
   attention_dropout: 0.0
-  attention_layer_norm: false
-  multi_query_attention: false
+  attention_layer_norm: true
+  multi_query_attention: true
   include_bias: false
   block_type: sequential
-  layer_norm_type: default
+  layer_norm_type: amd_compatible
   layer_norm_with_affine: false
   bias_for_layer_norm: false
-  attention_layer_norm_with_affine: false
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
@@ -35,9 +33,9 @@ model:
   eos_token_id: 0
   pad_token_id: 1
   init_device: meta
-  init_fn: mitchell
+  init_fn: normal
 
-compile: null
+compile: null  # causes instability on AMD GPUs
 
 optimizer:
   name: adamw
@@ -75,11 +73,11 @@ device_train_microbatch_size: 2
 precision: amp_bf16
 
 fsdp:
-  wrapping_strategy: null
+  wrapping_strategy: by_block
   precision: mixed
 
 max_grad_norm: 1.0
-max_grad_norm_ratio: null
+max_grad_norm_ratio: 1.5
 
 speed_monitor:
   window_size: 20
