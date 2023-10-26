@@ -261,7 +261,7 @@ class ModelConfig(BaseConfig):
     block_group_size: int = 1
     """
     The number of blocks to group together into a single parent block.
-    This is has no affect on the number of parameters in the model and is only used to wrap groups
+    This has no affect on the number of parameters in the model and is only used to wrap groups
     of blocks together with a single FSDP wrapper during training.
     """
 
