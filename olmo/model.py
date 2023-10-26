@@ -11,7 +11,7 @@ import math
 from abc import abstractmethod
 from collections.abc import MutableMapping
 from functools import partial
-from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, cast, Callable
+from typing import Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
 
 import torch
 import torch.backends.cuda
