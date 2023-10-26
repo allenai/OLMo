@@ -723,26 +723,22 @@ class OlmoLlamaBlock(OlmoBlock):
 
     @classmethod
     def _scaled_dot_product_attention(cls, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, attn_mask: Optional[torch.Tensor] = None, dropout_p: float = 0.0, is_causal: bool = False) -> torch.Tensor:
-        query_len, key_len = q.size(-2), k.size(-2)
+        attn_weights = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(q.size(-1))
 
-        attn_weights = torch.matmul(q, k.transpose(2, 3)) / math.sqrt(q.size(-1))
-
-        attn_bias = torch.zeros(query_len, key_len, dtype=q.dtype)
+        attn_bias = torch.zeros_like(attn_weights)
         if is_causal:
             assert attn_mask is None
 
-            diagonal = key_len - query_len + 1
-            context_mask = 1 - torch.triu(torch.ones_like(attn_bias, dtype=torch.int), diagonal=diagonal)
-            attn_bias.masked_fill_(context_mask.bool(), torch.finfo(q.dtype).min)
+            context_mask = torch.ones_like(attn_bias, dtype=torch.bool).tril(diagonal=0)
+            attn_bias.masked_fill_(context_mask.logical_not(), torch.finfo(attn_bias.dtype).min)
 
         if attn_mask is not None:
             attn_bias += attn_mask.to(q.dtype)
 
         attn_weights += attn_bias
         attn_weights = nn.functional.softmax(attn_weights, dim=-1).to(q.dtype)
-        attn_weights = torch.matmul(attn_weights, v)
         attn_weights = nn.functional.dropout(attn_weights, p=dropout_p)
-        return attn_weights
+        return torch.matmul(attn_weights, v)
 
     def forward(
         self,
