@@ -749,10 +749,10 @@ class Olmo(nn.Module):
                 and (self.config.embedding_dropout == 0.0)
                 and (self.config.residual_dropout == 0.0)
             )
-            import torch.utils.checkpoint
+            from torch.utils.checkpoint import checkpoint
 
             self.__activation_checkpoint_fn = partial(
-                torch.utils.checkpoint.checkpoint,
+                checkpoint,
                 preserve_rng_state=preserve_rng_state,
                 use_reentrant=False,
             )
