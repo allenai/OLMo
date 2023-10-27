@@ -528,79 +528,70 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
         "max_grad_norm_ratio": cfg.max_grad_norm_ratio,
     }
 
+    # Separate out parameters that we don't want to apply weight decay to, like norms and biases.
+    decay = set()
+    no_decay = set()
+    all_params = {}
+    for mn, m in model.named_modules():
+        for pn, p in m.named_parameters():
+            # NOTE: because named_modules and named_parameters are recursive
+            # we will see the same tensors p many many times, but doing it this way
+            # allows us to know which parent module any tensor p belongs to...
+            if not p.requires_grad:
+                continue
+
+            fpn = f"{mn}.{pn}" if mn else pn
+            all_params[fpn] = p
+
+            log.info("Considering parameter %s, type %s with module type %s", fpn, str(type(p)), str(type(m)))
+
+            if pn.endswith("bias"):
+                if cfg.optimizer.decay_norm_and_bias:
+                    decay.add(fpn)
+                else:
+                    no_decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, nn.Linear):
+                decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, (LayerNormBase, nn.LayerNorm)):
+                if cfg.optimizer.decay_norm_and_bias:
+                    decay.add(fpn)
+                else:
+                    no_decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, nn.Embedding):
+                if cfg.optimizer.decay_embeddings:
+                    decay.add(fpn)
+                else:
+                    no_decay.add(fpn)
+
+    # Validate that we've considered every parameter
+    inter_params = decay & no_decay
+    union_params = decay | no_decay
+    assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
+    assert (
+        len(all_params.keys() - union_params) == 0
+    ), f"parameters {all_params.keys() - union_params} were not separated into either decay/no_decay set!"
+
+    # Create the pytorch optimizer groups.
+    decay_sorted = sorted(list(decay))
+    no_decay_sorted = sorted(list(no_decay))
     param_groups = []
-    if cfg.optimizer.decay_norm_and_bias and cfg.optimizer.decay_embeddings:
+    if len(decay_sorted) > 0:
         param_groups.append(
             {
-                "params": [param for name, param in model.named_parameters()],
-                "param_names": [name for name, param in model.named_parameters()],
+                "params": [all_params[pn] for pn in decay_sorted],
+                "param_names": decay_sorted,
                 **param_group_defaults,
             }
         )
-    else:
-        # Separate out parameters that we don't want to apply weight decay to, like norms and biases.
-        decay = set()
-        no_decay = set()
-        all_params = {}
-        for mn, m in model.named_modules():
-            for pn, p in m.named_parameters():
-                # NOTE: because named_modules and named_parameters are recursive
-                # we will see the same tensors p many many times, but doing it this way
-                # allows us to know which parent module any tensor p belongs to...
-                if not p.requires_grad:
-                    continue
-
-                fpn = f"{mn}.{pn}" if mn else pn
-                all_params[fpn] = p
-
-                log.info("Considering parameter %s, type %s with module type %s", fpn, str(type(p)), str(type(m)))
-
-                if pn.endswith("bias"):
-                    if cfg.optimizer.decay_norm_and_bias:
-                        decay.add(fpn)
-                    else:
-                        no_decay.add(fpn)
-                elif pn.endswith("weight") and isinstance(m, nn.Linear):
-                    decay.add(fpn)
-                elif pn.endswith("weight") and isinstance(m, (LayerNormBase, nn.LayerNorm)):
-                    if cfg.optimizer.decay_norm_and_bias:
-                        decay.add(fpn)
-                    else:
-                        no_decay.add(fpn)
-                elif pn.endswith("weight") and isinstance(m, nn.Embedding):
-                    if cfg.optimizer.decay_embeddings:
-                        decay.add(fpn)
-                    else:
-                        no_decay.add(fpn)
-
-        # Validate that we've considered every parameter
-        inter_params = decay & no_decay
-        union_params = decay | no_decay
-        assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
-        assert (
-            len(all_params.keys() - union_params) == 0
-        ), f"parameters {all_params.keys() - union_params} were not separated into either decay/no_decay set!"
-
-        # Create the pytorch optimizer groups.
-        decay_sorted = sorted(list(decay))
-        no_decay_sorted = sorted(list(no_decay))
-        if len(decay_sorted) > 0:
-            param_groups.append(
-                {
-                    "params": [all_params[pn] for pn in decay_sorted],
-                    "param_names": decay_sorted,
-                    **param_group_defaults,
-                }
-            )
-        if len(no_decay_sorted) > 0:
-            param_groups.append(
-                {
-                    "params": [all_params[pn] for pn in no_decay_sorted],
-                    "param_names": no_decay_sorted,
-                    "weight_decay": 0.0,
-                    **param_group_defaults,
-                }
-            )
+    if len(no_decay_sorted) > 0:
+        param_groups.append(
+            {
+                "params": [all_params[pn] for pn in no_decay_sorted],
+                "param_names": no_decay_sorted,
+                "weight_decay": 0.0,
+                **param_group_defaults,
+            }
+        )
 
     # Validate fields.
     for group in param_groups:
