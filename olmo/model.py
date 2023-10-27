@@ -287,28 +287,17 @@ class RotaryEmbedding(nn.Module):
         return out.to(t.dtype)
 
     def forward(self, q: torch.Tensor, k: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        # q_, k_ = q.float(), k.float()
-        # with torch.autocast(q.device.type, enabled=False):
-        #     query_len, key_len = q_.shape[-2], k_.shape[-2]  # could be different if layer_past not None
-        #     pos_sin, pos_cos = self.get_rotary_embedding(key_len, q_.device)
-        #     q_ = self.apply_rotary_pos_emb(
-        #         pos_sin[:, :, key_len - query_len : key_len, :],
-        #         pos_cos[:, :, key_len - query_len : key_len, :],
-        #         q_,
-        #     )
-        #     k_ = self.apply_rotary_pos_emb(pos_sin, pos_cos, k_)
-        # return q_.type_as(q), k_.type_as(k)
-        query_len, key_len = q.shape[-2], k.shape[-2]  # could be different if layer_past not None
-        pos_sin, pos_cos = self.get_rotary_embedding(key_len, q.device)
-        pos_sin = pos_sin.type_as(q)
-        pos_cos = pos_cos.type_as(q)
-        q = self.apply_rotary_pos_emb(
-            pos_sin[:, :, key_len - query_len : key_len, :],
-            pos_cos[:, :, key_len - query_len : key_len, :],
-            q,
-        )
-        k = self.apply_rotary_pos_emb(pos_sin, pos_cos, k)
-        return q, k
+        q_, k_ = q.to(dtype=self.config.rope_precision), k.to(dtype=self.config.rope_precision)
+        with torch.autocast(q.device.type, enabled=False):
+            query_len, key_len = q_.shape[-2], k_.shape[-2]  # could be different if layer_past not None
+            pos_sin, pos_cos = self.get_rotary_embedding(key_len, q_.device)
+            q_ = self.apply_rotary_pos_emb(
+                pos_sin[:, :, key_len - query_len : key_len, :],
+                pos_cos[:, :, key_len - query_len : key_len, :],
+                q_,
+            )
+            k_ = self.apply_rotary_pos_emb(pos_sin, pos_cos, k_)
+        return q_.type_as(q), k_.type_as(k)
 
 
 class Activation(nn.Module):
