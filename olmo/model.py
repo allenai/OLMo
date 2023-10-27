@@ -742,26 +742,7 @@ class Olmo(nn.Module):
                     "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
                 )
 
-        self.__activation_checkpoint_fn: Callable
-        if self.config.activation_checkpointing:
-            preserve_rng_state = (
-                (self.config.attention_dropout == 0.0)
-                and (self.config.embedding_dropout == 0.0)
-                and (self.config.residual_dropout == 0.0)
-            )
-            from torch.utils.checkpoint import checkpoint
-
-            self.__activation_checkpoint_fn = partial(
-                checkpoint,
-                preserve_rng_state=preserve_rng_state,
-                use_reentrant=False,
-            )
-        else:
-
-            def pass_through_fn(fn, *args, **kwargs):
-                return fn(*args, **kwargs)
-
-            self.__activation_checkpoint_fn = pass_through_fn
+        self.__activation_checkpoint_fn: Callable = Olmo.pass_through_fn
 
         torch.backends.cuda.enable_flash_sdp(self.config.flash_attention)
         torch.backends.cuda.enable_mem_efficient_sdp(False)  # this is super slow so make sure torch won't use it
@@ -800,6 +781,27 @@ class Olmo(nn.Module):
         if self.config.alibi:
             self.get_causal_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
             self.get_alibi_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
+
+    @staticmethod
+    def pass_through_fn(fn, *args, **kwargs):
+        return fn(*args, **kwargs)
+
+    def enable_activation_checkpointing(self, enable: bool = True):
+        if enable:
+            preserve_rng_state = (
+                (self.config.attention_dropout == 0.0)
+                and (self.config.embedding_dropout == 0.0)
+                and (self.config.residual_dropout == 0.0)
+            )
+            from torch.utils.checkpoint import checkpoint
+
+            self.__activation_checkpoint_fn = partial(
+                checkpoint,
+                preserve_rng_state=preserve_rng_state,
+                use_reentrant=False,
+            )
+        else:
+            self.__activation_checkpoint_fn = Olmo.pass_through_fn
 
     @property
     def device(self) -> torch.device:

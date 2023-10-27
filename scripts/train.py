@@ -58,7 +58,6 @@ def main(cfg: TrainConfig) -> None:
 
     # Fill some configuration options.
     cfg.model.precision = cfg.precision
-    cfg.model.activation_checkpointing = cfg.activation_checkpointing
     cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
     assert cfg.device_train_batch_size is not None  # for mypy
     cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
@@ -113,6 +112,9 @@ def main(cfg: TrainConfig) -> None:
     log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
     log.info(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
+
+    if cfg.activation_checkpointing:
+        olmo_model.enable_activation_checkpointing()
 
     # Wrap the model in FSDP.
     log.info("Wrapping model with FDSP...")

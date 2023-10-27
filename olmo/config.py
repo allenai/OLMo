@@ -404,12 +404,6 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
-    activation_checkpointing: bool = False
-    """
-    Use activation checkpointing on transformer blocks. You shouldn't set this directly.
-    See :data:`TrainConfig.activation_checkpointing` instead.
-    """
-
 
 class OptimizerType(StrEnum):
     lionw = "lionw"
