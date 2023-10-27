@@ -8,7 +8,7 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --time=167:00:00
 #SBATCH --mem=0			# All memory on the node
-#SBATCH --partition=kempner
+#SBATCH --partition=kempner_project
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
