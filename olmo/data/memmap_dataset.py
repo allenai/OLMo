@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import Dataset
 
 from ..aliases import PathOrStr
-from ..util import file_size, get_bytes_range
+from ..util import _get_s3_client, file_size, get_bytes_range
 
 __all__ = ["MemMapDataset"]
 
@@ -70,6 +70,9 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
 
     @property
     def offsets(self) -> List[Tuple[int, int]]:
+        # Create the global S3 client up front to work around a threading issue in boto.
+        _get_s3_client()
+
         if self._mmap_offsets is None:
             import concurrent.futures
 
