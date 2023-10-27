@@ -821,11 +821,6 @@ class TrainConfig(BaseConfig):
     Settings for compiling the model with ``torch.compile()``.
     """
 
-    activation_checkpointing: bool = False
-    """
-    Use activation checkpointing on transformer blocks.
-    """
-
     fsdp: FSDPConfig = field(default_factory=FSDPConfig)
     """
     Fully sharded data parallel settings.
@@ -864,6 +859,11 @@ class TrainConfig(BaseConfig):
     stop_at: Optional[int] = None
     """
     Stop at a specific step.
+    """
+
+    activation_checkpointing: bool = False
+    """
+    Use activation checkpointing on transformer blocks.
     """
 
     @property
