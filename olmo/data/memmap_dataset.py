@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import Dataset
 
 from ..aliases import PathOrStr
-from ..util import _get_s3_client, file_size, get_bytes_range, _get_s3_client
+from ..util import file_size, get_bytes_range, _get_s3_client
 
 __all__ = ["MemMapDataset"]
 

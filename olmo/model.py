@@ -1010,10 +1010,8 @@ class Olmo(nn.Module):
                 layer_past = None if past_key_values is None else past_key_values[block_idx]
                 # shape: (batch_size, seq_len, d_model)
                 x, cache = self.__activation_checkpoint_fn(
-                block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
-
-
-            )
+                    block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+                )
                 if attn_key_values is not None:
                     assert cache is not None
                     attn_key_values.append(cache)
