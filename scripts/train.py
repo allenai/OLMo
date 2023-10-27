@@ -4,7 +4,6 @@ import gzip
 import logging
 import os
 import sys
-from functools import partial
 from pathlib import Path
 from typing import Optional, TextIO
 
@@ -58,6 +57,7 @@ def main(cfg: TrainConfig) -> None:
 
     # Fill some configuration options.
     cfg.model.precision = cfg.precision
+    cfg.model.activation_checkpointing = cfg.activation_checkpointing
     cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
     assert cfg.device_train_batch_size is not None  # for mypy
     cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
@@ -113,6 +113,9 @@ def main(cfg: TrainConfig) -> None:
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
     log.info(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
 
+    if cfg.activation_checkpointing:
+        olmo_model.enable_activation_checkpointing()
+
     # Wrap the model in FSDP.
     log.info("Wrapping model with FDSP...")
     wrap_policy = olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy)
@@ -139,26 +142,6 @@ def main(cfg: TrainConfig) -> None:
         olmo_model.reset_parameters()
 
     log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory() or 0)}")
-
-    if cfg.activation_checkpointing:
-        # verify we have FSDP activation support ready by importing:
-        from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
-            CheckpointImpl,
-            apply_activation_checkpointing,
-            checkpoint_wrapper,
-        )
-
-        non_reentrant_wrapper = partial(
-            checkpoint_wrapper,
-            offload_to_cpu=False,
-            checkpoint_impl=CheckpointImpl.NO_REENTRANT,
-        )
-        apply_activation_checkpointing(
-            fsdp_model,
-            checkpoint_wrapper_fn=non_reentrant_wrapper,  # type: ignore
-            check_fn=olmo_model.activation_checkpointing_fn,  # type: ignore
-        )
-
     log.info("Model:")
     log.info(fsdp_model)
 

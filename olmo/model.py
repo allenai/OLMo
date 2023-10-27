@@ -10,7 +10,18 @@ import logging
 import math
 from abc import abstractmethod
 from collections.abc import MutableMapping
-from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
+from functools import partial
+from typing import (
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Tuple,
+    cast,
+)
 
 import torch
 import torch.backends.cuda
@@ -30,7 +41,7 @@ from .config import (
 )
 from .exceptions import OlmoConfigurationError
 from .initialization import init_weights
-from .util import ensure_finite_
+from .util import ensure_finite_, pass_through_fn
 
 __all__ = [
     "LayerNormBase",
@@ -119,9 +130,7 @@ class LayerNormBase(nn.Module):
         elif config.layer_norm_type == LayerNormType.low_precision:
             return LayerNorm(config, size=size, low_precision=True, **kwargs)
         elif config.layer_norm_type == LayerNormType.rms:
-            return RMSLayerNorm(config, size=size, low_precision=False, **kwargs)
-        elif config.layer_norm_type == LayerNormType.low_precision_rms:
-            return RMSLayerNorm(config, size=size, low_precision=True, **kwargs)
+            return RMSLayerNorm(config, size=size, **kwargs)
         elif config.layer_norm_type == LayerNormType.amd_compatible:
             return AMDLayerNorm(config, size=size, **kwargs)
         else:
@@ -211,53 +220,33 @@ class AMDLayerNorm(LayerNormBase):
 
 class RMSLayerNorm(LayerNormBase):
     """
-    RMS layer norm, a simplified :class:`LayerNorm` implementation that can optionally run
-    in low-precision.
+    RMS layer norm, a simplified :class:`LayerNorm` implementation
     """
 
     def __init__(
         self,
         config: ModelConfig,
         size: Optional[int] = None,
-        low_precision: bool = False,
         elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-08,
+        eps: float = 1e-5,
     ):
         super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
-        self.low_precision = low_precision
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.low_precision:
-            module_device = x.device
-            downcast_x = self._cast_if_autocast_enabled(x)
-            downcast_weight = None if self.weight is None else self._cast_if_autocast_enabled(self.weight)
-            downcast_bias = (
-                None
-                if self.bias is None
-                else self._cast_if_autocast_enabled(self.bias)
-                if self.config.include_bias
-                else None
-            )
-            with torch.autocast(enabled=False, device_type=module_device.type):
-                return self.rms_norm(downcast_x, downcast_weight, downcast_bias)
-        else:
-            return self.rms_norm(x, self.weight, self.bias if self.config.include_bias else None)
+        with torch.autocast(enabled=False, device_type=x.device.type):
+            og_dtype = x.dtype
+            x = x.to(torch.float32)
+            variance = x.pow(2).mean(-1, keepdim=True)
+            x = x * torch.rsqrt(variance + self.eps)
+            x = x.to(og_dtype)
 
-    def rms_norm(
-        self, x: torch.Tensor, weight: Optional[torch.Tensor], bias: Optional[torch.Tensor]
-    ) -> torch.Tensor:
-        norm_x = x.norm(2, dim=-1, keepdim=True)
-
-        rms_x = norm_x * self.normalized_shape[0] ** (-1.0 / 2)
-        x_normed = x / (rms_x + self.eps)
-
-        if weight is not None:
-            if bias is not None:
-                return weight * x_normed + self.bias
+        if self.weight is not None:
+            if self.bias is not None:
+                return self.weight * x + self.bias
             else:
-                return weight * x_normed
+                return self.weight * x
         else:
-            return x_normed
+            return x
 
 
 class RotaryEmbedding(nn.Module):
@@ -427,16 +416,10 @@ class OlmoBlock(nn.Module):
         if self.q_norm is not None:
             self.q_norm.reset_parameters()
         init_weights(
-            self.config,
-            self.attn_out,
-            d=self.config.d_model,
-            layer_id=self.layer_id,
+            self.config, self.attn_out, d=self.config.d_model, layer_id=self.layer_id, type_of_module="out"
         )
         init_weights(
-            self.config,
-            self.ff_out,
-            d=self.ff_out.in_features,
-            layer_id=self.layer_id,
+            self.config, self.ff_out, d=self.ff_out.in_features, layer_id=self.layer_id, type_of_module="out"
         )
 
     @classmethod
@@ -577,8 +560,8 @@ class OlmoSequentialBlock(OlmoBlock):
         self.attn_norm.reset_parameters()
         self.ff_norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
-        init_weights(self.config, self.att_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None)
+        init_weights(self.config, self.att_proj, d=self.config.d_model, layer_id=None, type_of_module="in")
+        init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None, type_of_module="in")
 
     def forward(
         self,
@@ -644,7 +627,9 @@ class OlmoParallelBlock(OlmoBlock):
         super().reset_parameters()
         self.norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
-        init_weights(self.config, self.fused_attn_ff_proj, d=self.config.d_model, layer_id=None)
+        init_weights(
+            self.config, self.fused_attn_ff_proj, d=self.config.d_model, layer_id=None, type_of_module="in"
+        )
 
     def forward(
         self,
@@ -698,6 +683,10 @@ class OlmoGenerateOutput(NamedTuple):
 
 
 class OlmoBlockGroup(nn.ModuleList):
+    def __init__(self, modules: Optional[Iterable[nn.Module]] = None):
+        super().__init__(modules)
+        self.__activation_checkpoint_fn: Callable = pass_through_fn
+
     def forward(
         self,
         x: torch.Tensor,
@@ -708,7 +697,9 @@ class OlmoBlockGroup(nn.ModuleList):
         attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
         for block_idx, block in enumerate(self):
             layer_past = None if layers_past is None else layers_past[block_idx]
-            x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
+            x, cache = self.__activation_checkpoint_fn(
+                block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+            )
             if attn_key_values is not None:
                 assert cache is not None
                 attn_key_values.append(cache)
@@ -766,6 +757,8 @@ class Olmo(nn.Module):
                     "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
                 )
 
+        self.__activation_checkpoint_fn: Callable = pass_through_fn
+
         if not (
             0 < self.config.block_group_size <= self.config.n_layers
             and self.config.n_layers % self.config.block_group_size == 0
@@ -820,6 +813,28 @@ class Olmo(nn.Module):
             self.get_causal_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
             self.get_alibi_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
 
+    def enable_activation_checkpointing(self, enable: bool = True):
+        if enable:
+            preserve_rng_state = (
+                (self.config.attention_dropout == 0.0)
+                and (self.config.embedding_dropout == 0.0)
+                and (self.config.residual_dropout == 0.0)
+            )
+            from torch.utils.checkpoint import checkpoint
+
+            self.__activation_checkpoint_fn = partial(
+                checkpoint,
+                preserve_rng_state=preserve_rng_state,
+                use_reentrant=False,
+            )
+        else:
+            self.__activation_checkpoint_fn = pass_through_fn
+
+        # Set up the blocks to use the same function.
+        if self.config.block_group_size != 1:
+            for block_group in self.transformer.block_groups:
+                block_group.__activation_checkpoint_fn = self.__activation_checkpoint_fn
+
     @property
     def device(self) -> torch.device:
         device: torch.device = self.transformer.wte.weight.device  # type: ignore
@@ -835,16 +850,17 @@ class Olmo(nn.Module):
             self.config,
             self.transformer.wte,  # type: ignore
             std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,
+            type_of_module="emb",
         )
         if hasattr(self.transformer, "wpe"):
-            init_weights(self.config, self.transformer.wpe)  # type: ignore
+            init_weights(self.config, self.transformer.wpe, type_of_module="emb")  # type: ignore
 
         # Top-level layer norm.
         self.transformer.ln_f.reset_parameters()  # type: ignore
 
         # Output weights.
         if hasattr(self.transformer, "ff_out"):
-            init_weights(self.config, self.transformer.ff_out)  # type: ignore
+            init_weights(self.config, self.transformer.ff_out, type_of_module="final_out")  # type: ignore
 
         # Let the blocks handle themselves.
         if self.config.block_group_size == 1:
@@ -993,7 +1009,9 @@ class Olmo(nn.Module):
             for block_idx, block in enumerate(self.transformer.blocks):
                 layer_past = None if past_key_values is None else past_key_values[block_idx]
                 # shape: (batch_size, seq_len, d_model)
-                x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
+                x, cache = self.__activation_checkpoint_fn(
+                    block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+                )
                 if attn_key_values is not None:
                     assert cache is not None
                     attn_key_values.append(cache)

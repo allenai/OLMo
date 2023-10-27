@@ -166,11 +166,6 @@ class LayerNormType(StrEnum):
     probably the fastest implementation.
     """
 
-    low_precision_rms = "low_precision_rms"
-    """
-    A low-precision version of RMSNorm.
-    """
-
     amd_compatible = "amd_compatible"
     """
     LayerNorm implemented manually to work around an issue with ROCm.
@@ -211,6 +206,11 @@ class InitFnType(StrEnum):
     """
     "Fan-in variance scaling", i.e. normal with a standard deviation of ``1/sqrt(d_in)`` where ``d_in``
     is the input dimensionality of the kernel.
+    """
+
+    full_megatron = "full_megatron"
+    """
+    This is what metaseq calls "full megatron init". It is the init used for Llama 2.
     """
 
 
@@ -411,6 +411,12 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
+    activation_checkpointing: bool = False
+    """
+    Use activation checkpointing on transformer blocks. You shouldn't set this directly.
+    See :data:`TrainConfig.activation_checkpointing` instead.
+    """
+
 
 class OptimizerType(StrEnum):
     lionw = "lionw"
@@ -423,8 +429,8 @@ class OptimizerConfig(BaseConfig):
     learning_rate: float = 1.0e-4
     weight_decay: float = 0.01
     betas: Tuple[float, float] = (0.9, 0.95)
-    no_decay_norm_and_bias: bool = True
-    """Do not apply weight decay to norms and biases."""
+    decay_norm_and_bias: bool = False
+    decay_embeddings: bool = False
     metrics_log_interval: Optional[int] = None
     """
     The interval with which to collect and log detailed parameter-specific metrics.
@@ -821,11 +827,6 @@ class TrainConfig(BaseConfig):
     Settings for compiling the model with ``torch.compile()``.
     """
 
-    activation_checkpointing: bool = False
-    """
-    Use activation checkpointing on transformer blocks.
-    """
-
     fsdp: FSDPConfig = field(default_factory=FSDPConfig)
     """
     Fully sharded data parallel settings.
@@ -864,6 +865,11 @@ class TrainConfig(BaseConfig):
     stop_at: Optional[int] = None
     """
     Stop at a specific step.
+    """
+
+    activation_checkpointing: bool = False
+    """
+    Use activation checkpointing on transformer blocks.
     """
 
     @property

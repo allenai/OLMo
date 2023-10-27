@@ -14,7 +14,6 @@ import botocore.exceptions as boto_exceptions
 import rich
 import torch
 import torch.distributed as dist
-import torch.nn as nn
 from botocore.config import Config
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
@@ -614,12 +613,9 @@ def _s3_get_bytes_range(
     raise OlmoNetworkError("Failed to get bytes range from s3") from err
 
 
-def is_weight_decay_module(module: nn.Module) -> bool:
-    """Returns true if the module should use weight decay."""
-    from .model import LayerNormBase
-
-    return not isinstance(module, (LayerNormBase, nn.LayerNorm, nn.Embedding))
-
-
 def default_thread_count() -> int:
     return int(os.environ.get("OLMO_NUM_THREADS") or min(32, (os.cpu_count() or 1) + 4))
+
+
+def pass_through_fn(fn, *args, **kwargs):
+    return fn(*args, **kwargs)
