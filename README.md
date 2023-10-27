@@ -31,7 +31,7 @@ torchrun --nproc-per-node=8 scripts/train.py configs/c4-tiny.yaml \
 
 #### Running on Cirrascale via [beaker-gantry](https://github.com/allenai/beaker-gantry)
 
-Check the script at [`scripts/olmo-small-ablation-on-gantry.sh`](scripts/olmo-small-ablation-on-gantry.sh) for an example on how to run a training job on Cirrascale.
+Check the script at [`scripts/olmo-small-ablation-on-gantry.sh`](scripts/beaker/olmo-small-ablation-on-gantry.sh) for an example on how to run a training job on Cirrascale.
 
 After installing `beaker-gantry`, you can launch a training job like this:
 
@@ -46,7 +46,7 @@ if `LOAD_PATH` is not specified, the training will start from scratch.
 
 #### Running on LUMI via Slurm
 
-First read our [LUMI](./LUMI.md) documentation, but submitting a new job essentially just boils down to running this:
+First read our [LUMI](docs/LUMI.md) documentation, but submitting a new job essentially just boils down to running this:
 
 ```bash
 sbatch scripts/c4-tiny-on-lumi.sh
