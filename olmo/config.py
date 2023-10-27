@@ -277,6 +277,11 @@ class ModelConfig(BaseConfig):
     Use rotary positional embeddings (RoPE). Mutually exclusive with ``alibi``.
     """
 
+    rope_precision_type: str = "fp32"
+    """
+    Precision with which to apply RoPE (e.g. "amp_bf16", "amp_fp16", or "fp32").
+    """
+
     flash_attention: bool = False
     """
     If ``True``, use ``FlashAttention``.
@@ -407,6 +412,17 @@ class ModelConfig(BaseConfig):
     Precision used to train/evaluate with. You shouldn't set this directly.
     See :data:`TrainConfig.precision` instead.
     """
+
+    @property
+    def rope_precision(self) -> torch.dtype:
+        if self.rope_precision_type == "amp_bf16":
+            return torch.bfloat16
+        elif self.rope_precision_type == "amp_fp16":
+            return torch.float16
+        elif self.rope_precision_type == "fp32":
+            return torch.float32
+        else:
+            raise ValueError(f"Unexpected precision type '{self.rope_precision_type}'")
 
 
 class OptimizerType(StrEnum):
