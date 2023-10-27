@@ -49,7 +49,7 @@ scheduler:
   alpha_f: 0.1
 
 data:
-  paths: ${path.glob:${oc.env:FLASH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/books/*.npy,${oc.env:FLASH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/c4/*.npy,${oc.env:FLASH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/common-crawl/*/*.npy,${oc.env:FLASH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/s2/*.npy,${oc.env:FLASH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/stack/*.npy,${oc.env:FLASH_DIR}/preprocessed/olmo-mix/v1-sample/gpt-neox-20b-pii-special/wiki/*.npy}
+  paths: ${path.glob:${oc.env:DATA_PATH}/v1-sample/gpt-neox-20b-pii-special/books/*.npy,${oc.env:DATA_PATH}/v1-sample/gpt-neox-20b-pii-special/c4/*.npy,${oc.env:DATA_PATH}/v1-sample/gpt-neox-20b-pii-special/common-crawl/*/*.npy,${oc.env:DATA_PATH}/v1-sample/gpt-neox-20b-pii-special/s2/*.npy,${oc.env:DATA_PATH}/v1-sample/gpt-neox-20b-pii-special/stack/*.npy,${oc.env:DATA_PATH}/v1-sample/gpt-neox-20b-pii-special/wiki/*.npy}
   pad_direction: right
   num_workers: 1
   drop_last: true
@@ -62,7 +62,7 @@ tokenizer:
   identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
   truncate_direction: right
 
-save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
+save_folder: ${oc.env:CHECKPOINTS_PATH}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
 save_interval: 5000
@@ -117,31 +117,31 @@ evaluators:
     data:
       datasets:
         4chan-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/4chan/val.npy
         c4_100_domains-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/c4_100_domains/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/c4_100_domains/val.npy
         c4_en-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/c4_en/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/c4_en/val.npy
         gab-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/gab/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/gab/val.npy
         ice-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/ice/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/ice/val.npy
         m2d2_s2orc-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/m2d2_s2orc/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/m2d2_s2orc/val.npy
         m2d2_wiki-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/m2d2_wiki/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/m2d2_wiki/val.npy
         manosphere-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/manosphere/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/manosphere/val.npy
         mc4_en-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/mc4_en/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/mc4_en/val.npy
         pile-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/pile/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/pile/val.npy
         ptb-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/ptb/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/ptb/val.npy
         twitterAEE-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
         wikitext_103-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/wikitext_103/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/wikitext_103/val.npy
       drop_last: true
 
   ##########################
