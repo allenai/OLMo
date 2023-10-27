@@ -11,7 +11,7 @@ import math
 from abc import abstractmethod
 from collections.abc import MutableMapping
 from functools import partial
-from typing import Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
+from typing import Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple, cast, Iterable
 
 import torch
 import torch.backends.cuda
@@ -31,7 +31,7 @@ from .config import (
 )
 from .exceptions import OlmoConfigurationError
 from .initialization import init_weights
-from .util import ensure_finite_
+from .util import ensure_finite_, pass_through_fn
 
 __all__ = [
     "LayerNormBase",
@@ -699,6 +699,10 @@ class OlmoGenerateOutput(NamedTuple):
 
 
 class OlmoBlockGroup(nn.ModuleList):
+    def __init__(self, modules: Optional[Iterable[nn.Module]] = None):
+        super().__init__(modules)
+        self.__activation_checkpoint_fn: Callable = pass_through_fn
+
     def forward(
         self,
         x: torch.Tensor,
@@ -709,7 +713,9 @@ class OlmoBlockGroup(nn.ModuleList):
         attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
         for block_idx, block in enumerate(self):
             layer_past = None if layers_past is None else layers_past[block_idx]
-            x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
+            x, cache = self.__activation_checkpoint_fn(
+                block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+            )
             if attn_key_values is not None:
                 assert cache is not None
                 attn_key_values.append(cache)
@@ -767,7 +773,7 @@ class Olmo(nn.Module):
                     "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
                 )
 
-        self.__activation_checkpoint_fn: Callable = Olmo.pass_through_fn
+        self.__activation_checkpoint_fn: Callable = pass_through_fn
 
         if not (
             0 < self.config.block_group_size <= self.config.n_layers
@@ -823,10 +829,6 @@ class Olmo(nn.Module):
             self.get_causal_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
             self.get_alibi_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
 
-    @staticmethod
-    def pass_through_fn(fn, *args, **kwargs):
-        return fn(*args, **kwargs)
-
     def enable_activation_checkpointing(self, enable: bool = True):
         if enable:
             preserve_rng_state = (
@@ -842,7 +844,12 @@ class Olmo(nn.Module):
                 use_reentrant=False,
             )
         else:
-            self.__activation_checkpoint_fn = Olmo.pass_through_fn
+            self.__activation_checkpoint_fn = pass_through_fn
+
+        # Set up the blocks to use the same function.
+        if self.config.block_group_size != 1:
+            for block_group in self.transformer.block_groups:
+                block_group.__activation_checkpoint_fn = self.__activation_checkpoint_fn
 
     @property
     def device(self) -> torch.device:
