@@ -67,7 +67,7 @@ def _run_local_sharded_checkpointer_test(rank: int, world_size: int, tmp_path: P
     full_model_state_dict, full_optim_state_dict = full_checkpointer.load_checkpoint(
         checkpoint_dir_full, device=torch.device("cuda")
     )
-    unsharded_model_state_dict, unsharded_optim_state_dict = checkpointer.unshard_checkpoint(
+    unsharded_model_state_dict, unsharded_optim_state_dict, _ = checkpointer.unshard_checkpoint(
         checkpoint_dir, device=torch.device("cuda")
     )
     assert full_optim_state_dict is not None

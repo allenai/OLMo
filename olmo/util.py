@@ -375,8 +375,8 @@ def syncronize_flag(flag: bool, device: torch.device) -> bool:
         return flag
 
 
-def wait_on(condition: Callable[[], bool], description: str, timeout: float = 10.0):
-    """Wait on the condition function to return True."""
+def wait_for(condition: Callable[[], bool], description: str, timeout: float = 10.0):
+    """Wait for the condition function to return True."""
     start_time = time.monotonic()
     while not condition():
         time.sleep(0.5)
@@ -615,3 +615,7 @@ def _s3_get_bytes_range(
 
 def default_thread_count() -> int:
     return int(os.environ.get("OLMO_NUM_THREADS") or min(32, (os.cpu_count() or 1) + 4))
+
+
+def pass_through_fn(fn, *args, **kwargs):
+    return fn(*args, **kwargs)

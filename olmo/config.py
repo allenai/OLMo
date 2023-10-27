@@ -258,6 +258,13 @@ class ModelConfig(BaseConfig):
     The transformer block implementation.
     """
 
+    block_group_size: int = 1
+    """
+    The number of blocks to group together into a single parent block.
+    This has no affect on the number of parameters in the model and is only used to wrap groups
+    of blocks together with a single FSDP wrapper during training.
+    """
+
     alibi: bool = False
     """
     If ``True``, use ALiBi embeddings. Mutually exclusive with ``rope``.
@@ -538,6 +545,12 @@ class FSDPWrapStrategy(StrEnum):
     Wrap each OLMo block with its own FSDP instance.
     """
 
+    by_block_group = "by_block_group"
+    """
+    Wrap each block group together into its own FSDP instance.
+    This requires :attr:`~ModelConfig.block_group_size` to be bigger than 1.
+    """
+
     size_based = "size_based"
     """
     Used PyTorch's default size-based auto wrap policy.
@@ -582,8 +595,8 @@ class CheckpointType(StrEnum):
 
 
 class ShardedCheckpointerType(StrEnum):
-    new_style = "new_style"
-    legacy = "legacy"
+    torch_new = "torch_new"
+    torch_legacy = "torch_legacy"
     local = "local"
 
 
@@ -727,7 +740,7 @@ class TrainConfig(BaseConfig):
     curve (according to the current learning rate schedule settings), and continues from there.
     """
 
-    sharded_checkpointer: ShardedCheckpointerType = ShardedCheckpointerType.legacy
+    sharded_checkpointer: ShardedCheckpointerType = ShardedCheckpointerType.torch_legacy
     """
     The name of the sharded checkpointer to use to save (sharded) checkpoints throughout training.
     """

@@ -12,9 +12,8 @@ import torch.distributed as dist
 import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 
-from olmo.config import CheckpointType, FSDPWrapStrategy, TrainConfig
+from olmo.config import CheckpointType, TrainConfig
 from olmo.data import build_train_dataloader
 from olmo.eval import build_evaluators
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
@@ -114,14 +113,12 @@ def main(cfg: TrainConfig) -> None:
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
     log.info(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
 
+    if cfg.activation_checkpointing:
+        olmo_model.enable_activation_checkpointing()
+
     # Wrap the model in FSDP.
     log.info("Wrapping model with FDSP...")
-    wrap_policy = None
-    if cfg.fsdp.wrapping_strategy == FSDPWrapStrategy.by_block:
-        wrap_policy = olmo_model.fsdp_wrap_fn
-    elif cfg.fsdp.wrapping_strategy == FSDPWrapStrategy.size_based:
-        wrap_policy = size_based_auto_wrap_policy
-
+    wrap_policy = olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy)
     if version.parse(torch.__version__) >= version.parse("2.1.0"):
         # This prevents any parameters from being initialized twice
         def dummy_init_fn(module: torch.nn.Module) -> None:
@@ -130,7 +127,6 @@ def main(cfg: TrainConfig) -> None:
         param_init_fn = dummy_init_fn
     else:
         param_init_fn = None
-
     fsdp_model = FSDP(
         olmo_model,
         sharding_strategy=cfg.fsdp.sharding_strategy,
@@ -146,7 +142,6 @@ def main(cfg: TrainConfig) -> None:
         olmo_model.reset_parameters()
 
     log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory() or 0)}")
-
     log.info("Model:")
     log.info(fsdp_model)
 

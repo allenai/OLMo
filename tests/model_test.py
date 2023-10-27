@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss
 
 from olmo import BlockType, LayerNorm, Olmo, Tokenizer, TrainConfig
-from olmo.config import PaddingDirection
+from olmo.config import ModelConfig, PaddingDirection
 from olmo.data import DataCollator
 from olmo.model import AMDLayerNorm
 
@@ -432,3 +432,24 @@ def test_layer_norm(train_config: TrainConfig, elementwise_affine: bool, include
 
     y_actual = amd_ln(x)
     torch.testing.assert_close(y_actual, y_expected)
+
+
+def test_block_groups():
+    model_with_block_groups = Olmo(ModelConfig(d_model=128, n_heads=2, n_layers=9, block_group_size=3)).eval()
+    model_without_block_groups = Olmo(ModelConfig(d_model=128, n_heads=2, n_layers=9, block_group_size=1)).eval()
+
+    # We should be able to load the state dict from one model into the other, and vice-versa.
+    model_with_block_groups.load_state_dict(
+        model_with_block_groups._make_state_dict_compatible(model_without_block_groups.state_dict())
+    )
+    model_without_block_groups.load_state_dict(
+        model_without_block_groups._make_state_dict_compatible(model_with_block_groups.state_dict())
+    )
+
+    # Check that output is exactly the same.
+    input_ids = torch.randint(0, model_with_block_groups.config.vocab_size, (2, 16))
+    with torch.no_grad():
+        block_groups_output = model_with_block_groups(input_ids)
+        no_block_groups_output = model_without_block_groups(input_ids)
+
+    torch.testing.assert_close(block_groups_output, no_block_groups_output)
