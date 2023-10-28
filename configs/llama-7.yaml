@@ -38,9 +38,12 @@ model:
 
 fsdp:
   precision: mixed
-  wrapping_strategy: by_block
+  wrapping_strategy: size_based
+  sharding_strategy: SHARD_GRAD_OP
 
-compile: null  # causes instability on AMD GPUs
+activation_checkpointing: true
+
+compile: null
 
 optimizer:
   name: adamw
@@ -78,13 +81,13 @@ save_overwrite: false
 save_interval: 1000000
 save_num_checkpoints_to_keep: -1
 # Unsharded checkpoints (for final storage)
-save_interval_unsharded: 1000
+save_interval_unsharded: 500
 save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 544956  # 2T tokens
-global_train_batch_size: 1024
+max_duration: 423855  # 2T tokens
+global_train_batch_size: 1536
 device_train_microbatch_size: 1
 
 precision: amp_bf16
