@@ -28,6 +28,7 @@ from .exceptions import OlmoConfigurationError
 __all__ = [
     "LogFilterType",
     "ActivationType",
+    "ActivationCheckpointingStrategy",
     "BlockType",
     "CompilerConfig",
     "LayerNormType",
@@ -867,9 +868,9 @@ class TrainConfig(BaseConfig):
     Stop at a specific step.
     """
 
-    activation_checkpointing: Union[ActivationCheckpointingStrategy, bool] = False
+    activation_checkpointing: ActivationCheckpointingStrategy = ActivationCheckpointingStrategy.none
     """
-    The activation checkpointing strategy to use. `true` means `by_layer`.
+    The activation checkpointing strategy to use.
     """
 
     @property

@@ -21,7 +21,6 @@ from typing import (
     Sequence,
     Tuple,
     cast,
-    Union,
 )
 
 import torch
@@ -862,12 +861,7 @@ class Olmo(nn.Module):
             ActivationCheckpointingStrategy.by_layer if enable else ActivationCheckpointingStrategy.none
         )
 
-    def set_activation_checkpointing(self, strategy: Union[bool, ActivationCheckpointingStrategy]):
-        if strategy is True:
-            strategy = ActivationCheckpointingStrategy.by_layer
-        elif strategy is False:
-            strategy = ActivationCheckpointingStrategy.none
-
+    def set_activation_checkpointing(self, strategy: ActivationCheckpointingStrategy):
         if strategy == ActivationCheckpointingStrategy.by_layer:
             self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
         else:
@@ -1126,9 +1120,6 @@ class Olmo(nn.Module):
             return size_based_auto_wrap_policy
         else:
             raise NotImplementedError(wrap_strategy)
-
-    def activation_checkpointing_fn(self, module):
-        return isinstance(module, OlmoBlock)
 
     def num_params(self, include_embedding: bool = True) -> int:
         """
