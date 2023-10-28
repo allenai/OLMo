@@ -594,6 +594,12 @@ class ShardedCheckpointerType(StrEnum):
     local = "local"
 
 
+class ActivationCheckpointingStrategy(StrEnum):
+    none = "none"
+    by_layer = "by_layer"
+    by_ff = "by_ff"
+
+
 @dataclass
 class TrainConfig(BaseConfig):
     """
@@ -861,9 +867,9 @@ class TrainConfig(BaseConfig):
     Stop at a specific step.
     """
 
-    activation_checkpointing: bool = False
+    activation_checkpointing: Union[bool, ActivationCheckpointingStrategy] = False
     """
-    Use activation checkpointing on transformer blocks.
+    The activation checkpointing strategy to use. `true` means `by_layer`.
     """
 
     @property
