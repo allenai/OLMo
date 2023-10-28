@@ -2,7 +2,7 @@
 #SBATCH --job-name=llama7
 #SBATCH --account=kempner_lab
 #SBATCH --output=/n/holyscratch01/kempner_lab/Lab/logs/%j.log
-#SBATCH --nodes=8  # 16              # Total number of nodes
+#SBATCH --nodes=16              # Total number of nodes
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-node=4       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=16
