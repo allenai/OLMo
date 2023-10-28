@@ -390,7 +390,7 @@ class OlmoBlock(nn.Module):
         self.__cache = cache
         assert config.d_model % config.n_heads == 0
 
-        self.__activation_checkpoint_fn = pass_through_fn
+        self._activation_checkpoint_fn = pass_through_fn
 
         # Dropout.
         self.dropout = Dropout(config.residual_dropout)
@@ -442,9 +442,9 @@ class OlmoBlock(nn.Module):
 
     def set_activation_checkpointing(self, strategy: ActivationCheckpointingStrategy):
         if strategy == ActivationCheckpointingStrategy.by_ff:
-            self.__activation_checkpoint_fn = activation_checkpoint_function(self.config)
+            self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
         else:
-            self.__activation_checkpoint_fn = pass_through_fn
+            self._activation_checkpoint_fn = pass_through_fn
 
     @classmethod
     def _cast_attn_bias(cls, bias: torch.Tensor, input_dtype: torch.dtype) -> torch.Tensor:
@@ -533,7 +533,7 @@ class OlmoBlock(nn.Module):
         att = att.transpose(1, 2).contiguous().view(B, T, C)
 
         # Apply output projection.
-        return self.__activation_checkpoint_fn(self.attn_out, att), present
+        return self._activation_checkpoint_fn(self.attn_out, att), present
 
     @abstractmethod
     def forward(
@@ -599,7 +599,7 @@ class OlmoSequentialBlock(OlmoBlock):
         #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
-        q, k, v = self.__activation_checkpoint_fn(self.att_proj, self.attn_norm(x)).split(self.fused_dims, dim=-1)
+        q, k, v = self._activation_checkpoint_fn(self.att_proj, self.attn_norm(x)).split(self.fused_dims, dim=-1)
 
         # Get attention scores.
         att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
@@ -612,9 +612,9 @@ class OlmoSequentialBlock(OlmoBlock):
         # shape: (batch_size, seq_len, d_model)
         og_x = x
         x = self.ff_norm(x)
-        x = self.__activation_checkpoint_fn(self.ff_proj, x)
+        x = self._activation_checkpoint_fn(self.ff_proj, x)
         x = self.act(x)
-        x = self.__activation_checkpoint_fn(self.ff_out, x)
+        x = self._activation_checkpoint_fn(self.ff_out, x)
         x = self.dropout(x)
         x = og_x + x
 
@@ -674,7 +674,7 @@ class OlmoParallelBlock(OlmoBlock):
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
         # shape of ff:      (batch_size, seq_len, hidden_size)
-        q, k, v, ff = self.__activation_checkpoint_fn(self.fused_attn_ff_proj, self.norm(x)).split(
+        q, k, v, ff = self._activation_checkpoint_fn(self.fused_attn_ff_proj, self.norm(x)).split(
             self.fused_dims, dim=-1
         )
 
@@ -686,7 +686,7 @@ class OlmoParallelBlock(OlmoBlock):
         # We keep these projections separate because we found that we got better throughput this
         # way compared to fusing them.
         return (
-            x + self.dropout(self.__activation_checkpoint_fn(self.ff_out, self.act(ff))) + self.dropout(att),
+            x + self.dropout(self._activation_checkpoint_fn(self.ff_out, self.act(ff))) + self.dropout(att),
             cache,
         )
 
@@ -721,7 +721,7 @@ class OlmoBlockGroup(nn.ModuleList):
     def __init__(self, config: ModelConfig, modules: Optional[Iterable[nn.Module]] = None):
         super().__init__(modules)
         self.config = config
-        self.__activation_checkpoint_fn: Callable = pass_through_fn
+        self._activation_checkpoint_fn: Callable = pass_through_fn
 
     def forward(
         self,
@@ -733,7 +733,7 @@ class OlmoBlockGroup(nn.ModuleList):
         attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
         for block_idx, block in enumerate(self):
             layer_past = None if layers_past is None else layers_past[block_idx]
-            x, cache = self.__activation_checkpoint_fn(
+            x, cache = self._activation_checkpoint_fn(
                 block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
             )
             if attn_key_values is not None:
@@ -747,9 +747,9 @@ class OlmoBlockGroup(nn.ModuleList):
 
     def set_activation_checkpointing(self, strategy: ActivationCheckpointingStrategy):
         if strategy == ActivationCheckpointingStrategy.by_layer:
-            self.__activation_checkpoint_fn = activation_checkpoint_function(self.config)
+            self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
         else:
-            self.__activation_checkpoint_fn = pass_through_fn
+            self._activation_checkpoint_fn = pass_through_fn
 
         for block in self:
             block.set_activation_checkpointing(strategy)
@@ -802,7 +802,7 @@ class Olmo(nn.Module):
                     "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
                 )
 
-        self.__activation_checkpoint_fn: Callable = pass_through_fn
+        self._activation_checkpoint_fn: Callable = pass_through_fn
 
         if not (
             0 < self.config.block_group_size <= self.config.n_layers
@@ -870,9 +870,9 @@ class Olmo(nn.Module):
             strategy = ActivationCheckpointingStrategy.none
 
         if strategy == ActivationCheckpointingStrategy.by_layer:
-            self.__activation_checkpoint_fn = activation_checkpoint_function(self.config)
+            self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
         else:
-            self.__activation_checkpoint_fn = pass_through_fn
+            self._activation_checkpoint_fn = pass_through_fn
 
         if self.config.block_group_size != 1:
             for block_group in self.transformer.block_groups:
@@ -1055,7 +1055,7 @@ class Olmo(nn.Module):
             for block_idx, block in enumerate(self.transformer.blocks):
                 layer_past = None if past_key_values is None else past_key_values[block_idx]
                 # shape: (batch_size, seq_len, d_model)
-                x, cache = self.__activation_checkpoint_fn(
+                x, cache = self._activation_checkpoint_fn(
                     block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
                 )
                 if attn_key_values is not None:
