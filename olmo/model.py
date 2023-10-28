@@ -10,7 +10,7 @@ import logging
 import math
 from abc import abstractmethod
 from collections.abc import MutableMapping
-from functools import partial, cache
+from functools import partial
 from typing import (
     Callable,
     Dict,
@@ -67,7 +67,6 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 
-@cache
 def activation_checkpoint_function(cfg: ModelConfig):
     preserve_rng_state = (
         (cfg.attention_dropout == 0.0) and (cfg.embedding_dropout == 0.0) and (cfg.residual_dropout == 0.0)
