@@ -439,7 +439,7 @@ class OlmoBlock(nn.Module):
         )
 
     def set_activation_checkpointing(self, strategy: ActivationCheckpointingStrategy):
-        if strategy == ActivationCheckpointingStrategy.by_ff:
+        if strategy == ActivationCheckpointingStrategy.attention_only:
             self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
         else:
             self._activation_checkpoint_fn = pass_through_fn
@@ -531,7 +531,7 @@ class OlmoBlock(nn.Module):
         att = att.transpose(1, 2).contiguous().view(B, T, C)
 
         # Apply output projection.
-        return self._activation_checkpoint_fn(self.attn_out, att), present
+        return self.attn_out(att), present
 
     @abstractmethod
     def forward(
@@ -597,10 +597,12 @@ class OlmoSequentialBlock(OlmoBlock):
         #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
-        q, k, v = self._activation_checkpoint_fn(self.att_proj, self.attn_norm(x)).split(self.fused_dims, dim=-1)
+        q, k, v = self.att_proj(self.attn_norm(x)).split(self.fused_dims, dim=-1)
 
         # Get attention scores.
-        att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
+        att, cache = self._activation_checkpoint_fn(
+            self.attention, q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache
+        )
 
         # Add attention scores.
         # shape: (B, T, C)
@@ -610,9 +612,9 @@ class OlmoSequentialBlock(OlmoBlock):
         # shape: (batch_size, seq_len, d_model)
         og_x = x
         x = self.ff_norm(x)
-        x = self._activation_checkpoint_fn(self.ff_proj, x)
+        x = self.ff_proj(x)
         x = self.act(x)
-        x = self._activation_checkpoint_fn(self.ff_out, x)
+        x = self.ff_out(x)
         x = self.dropout(x)
         x = og_x + x
 
@@ -672,19 +674,19 @@ class OlmoParallelBlock(OlmoBlock):
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
         # shape of ff:      (batch_size, seq_len, hidden_size)
-        q, k, v, ff = self._activation_checkpoint_fn(self.fused_attn_ff_proj, self.norm(x)).split(
-            self.fused_dims, dim=-1
-        )
+        q, k, v, ff = self.fused_attn_ff_proj(self.norm(x)).split(self.fused_dims, dim=-1)
 
         # Get attention scores.
         # shape: (B, T, C)
-        att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
+        att, cache = self._activation_checkpoint_fn(
+            self.attention, q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache
+        )
 
         # Apply output projections (and activation function) and sum the results.
         # We keep these projections separate because we found that we got better throughput this
         # way compared to fusing them.
         return (
-            x + self.dropout(self._activation_checkpoint_fn(self.ff_out, self.act(ff))) + self.dropout(att),
+            x + self.dropout(self.ff_out(self.act(ff))) + self.dropout(att),
             cache,
         )
 
@@ -744,7 +746,7 @@ class OlmoBlockGroup(nn.ModuleList):
             block.reset_parameters()
 
     def set_activation_checkpointing(self, strategy: ActivationCheckpointingStrategy):
-        if strategy == ActivationCheckpointingStrategy.by_layer:
+        if strategy == ActivationCheckpointingStrategy.whole_layer:
             self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
         else:
             self._activation_checkpoint_fn = pass_through_fn
@@ -858,11 +860,11 @@ class Olmo(nn.Module):
 
     def enable_activation_checkpointing(self, enable: bool = True):
         self.set_activation_checkpointing(
-            ActivationCheckpointingStrategy.by_layer if enable else ActivationCheckpointingStrategy.none
+            ActivationCheckpointingStrategy.whole_layer if enable else ActivationCheckpointingStrategy.none
         )
 
     def set_activation_checkpointing(self, strategy: ActivationCheckpointingStrategy):
-        if strategy == ActivationCheckpointingStrategy.by_layer:
+        if strategy == ActivationCheckpointingStrategy.whole_layer:
             self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
         else:
             self._activation_checkpoint_fn = pass_through_fn
