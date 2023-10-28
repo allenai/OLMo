@@ -867,7 +867,7 @@ class TrainConfig(BaseConfig):
     Stop at a specific step.
     """
 
-    activation_checkpointing: Union[bool, ActivationCheckpointingStrategy] = False
+    activation_checkpointing: Union[ActivationCheckpointingStrategy, bool] = False
     """
     The activation checkpointing strategy to use. `true` means `by_layer`.
     """
