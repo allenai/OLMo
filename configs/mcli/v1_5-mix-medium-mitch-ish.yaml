@@ -6,7 +6,7 @@ gpu_type: a100_40gb
 integrations:
   - integration_type: git_repo
     git_repo: allenai/LLM
-    git_branch: main  # make sure to update this!
+    git_branch: mitchish
     pip_install: -e .
     ssh_clone: true
 command: |-
