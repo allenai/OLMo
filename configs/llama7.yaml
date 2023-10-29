@@ -25,7 +25,7 @@ model:
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
-  max_sequence_length: 3584
+  max_sequence_length: 3072
   vocab_size: 50280
   embedding_size: 50304
   eos_token_id: 0
