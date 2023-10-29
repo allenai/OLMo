@@ -597,7 +597,7 @@ class OlmoSequentialBlock(OlmoBlock):
         #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
-        q, k, v = self.att_proj(self.attn_norm(x)).split(self.fused_dims, dim=-1)
+        q, k, v = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x)).split(self.fused_dims, dim=-1)
 
         # Get attention scores.
         att, cache = self._activation_checkpoint_fn(
@@ -611,9 +611,9 @@ class OlmoSequentialBlock(OlmoBlock):
         # Add feed-forward projection.
         # shape: (batch_size, seq_len, d_model)
         og_x = x
-        x = self.ff_norm(x)
+        x = self._activation_checkpoint_fn(self.ff_norm, x)
         x = self.ff_proj(x)
-        x = self.act(x)
+        x = self._activation_checkpoint_fn(self.act, x)
         x = self.ff_out(x)
         x = self.dropout(x)
         x = og_x + x
@@ -674,7 +674,9 @@ class OlmoParallelBlock(OlmoBlock):
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
         # shape of ff:      (batch_size, seq_len, hidden_size)
-        q, k, v, ff = self.fused_attn_ff_proj(self.norm(x)).split(self.fused_dims, dim=-1)
+        q, k, v, ff = self.fused_attn_ff_proj(self._activation_checkpoint_fn(self.norm, x)).split(
+            self.fused_dims, dim=-1
+        )
 
         # Get attention scores.
         # shape: (B, T, C)
@@ -686,7 +688,7 @@ class OlmoParallelBlock(OlmoBlock):
         # We keep these projections separate because we found that we got better throughput this
         # way compared to fusing them.
         return (
-            x + self.dropout(self.ff_out(self.act(ff))) + self.dropout(att),
+            x + self.dropout(self.ff_out(self._activation_checkpoint_fn(self.act, ff))) + self.dropout(att),
             cache,
         )
 
