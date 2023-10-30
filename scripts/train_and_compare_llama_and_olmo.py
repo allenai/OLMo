@@ -29,19 +29,19 @@ torch.backends.cudnn.deterministic = True
 # torch.set_printoptions(precision=10)
 SEED: int = 42
 SEQ_LEN: int = 50
-TRAINING_ITERATIONS: int = 0
+TRAINING_ITERATIONS: int = 10
 OLMO_USE_AUTOCAST: bool = True
 HF_USE_AUTOCAST: bool = True
 UPDATE_OLMO_OUTPUT_WITH_HF: bool = True
 
-model_path = "test_fixtures/tiny_llama/"
-# model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
+# model_path = "test_fixtures/tiny_llama/"
+model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
 # model_path = '/Users/shanea/Documents/data/hf_llama2_models/7B'
 
 # for development
-hf_device = 'cpu'
-olmo_device = 'cpu'
-use_fsdp = False
+# hf_device = 'cpu'
+# olmo_device = 'cpu'
+# use_fsdp = False
 
 # # for running the real 7B model on GPU
 # hf_device = 'cuda:0'
@@ -51,9 +51,9 @@ use_fsdp = False
 # use_fsdp = False
 
 # # for FSDP
-# hf_device = "cuda"
-# olmo_device = "cuda"
-# use_fsdp = True
+hf_device = "cuda"
+olmo_device = "cuda"
+use_fsdp = True
 
 
 def test_all_approx_close(a, b, rtol, atol, count):
@@ -745,17 +745,13 @@ def reformat_labels_to_look_like_logits(labels):
     return one_hot_labels
 
 
-olmo_generation_model = olmo_model
 if use_fsdp:
     log.warning(
-        "Generate bypasses FSDP's forward implementation, which causes generation to fail. Using a CPU model instead."
+        "Generate bypasses FSDP's forward implementation, which causes generation to fail. Skipping generation."
     )
-    config.model.init_device = "cpu"
-    olmo_generation_model = build_olmo_model(hf_model, config, module_output_collector, use_fsdp=False)
-    config.model.init_device = olmo_device
-
-log.info(f"HF generation: {generate(hf_model, tokenizer, test_string)}")
-log.info(f"OLMo generation: {generate(olmo_generation_model, tokenizer, test_string)}")
+else:
+    log.info(f"HF generation: {generate(hf_model, tokenizer, test_string)}")
+    log.info(f"OLMo generation: {generate(olmo_model, tokenizer, test_string)}")
 
 # train on batch
 torch.use_deterministic_algorithms(True)
@@ -797,6 +793,8 @@ for i in range(TRAINING_ITERATIONS):
 
     print_metrics(olmo_logits, hf_logits, "logits")
 
+    # module_output_collector.check_models_output_equality(config.model.n_layers)
+
     torch.manual_seed(SEED)
     hf_loss = F.cross_entropy(hf_logits, labels.to(device=hf_device))
     torch.manual_seed(SEED)
@@ -822,12 +820,10 @@ for i in range(TRAINING_ITERATIONS):
     if not use_fsdp:
         check_model_equality(hf_model, olmo_model)
 
-    hf_logits = hf_forward(hf_model, test_batch, hf_device, config.autocast_precision).logits
-    log.info(f"HF logits: {hf_logits}")
-    olmo_logits = olmo_forward(olmo_model, test_batch, olmo_device, config.autocast_precision).logits.float()
-    log.info(f"OLMo logits: {olmo_logits}")
-    
-
+    # hf_logits = hf_forward(hf_model, test_batch, hf_device, config.autocast_precision).logits
+    # log.info(f"HF logits: {hf_logits}")
+    # olmo_logits = olmo_forward(olmo_model, test_batch, olmo_device, config.autocast_precision).logits.float()
+    # log.info(f"OLMo logits: {olmo_logits}")
     # print_metrics(olmo_logits, hf_logits, "logits")
     # try:
     #     olmo_input_embeddings = olmo_model.transformer.wte(test_batch.to(device=olmo_device))
