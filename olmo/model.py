@@ -313,6 +313,8 @@ class RotaryEmbedding(nn.Module):
         with torch.autocast(q.device.type, enabled=False):
             query_len, key_len = q_.shape[-2], k_.shape[-2]  # could be different if layer_past not None
             pos_sin, pos_cos = self.get_rotary_embedding(key_len, q_.device)
+            pos_sin = pos_sin.type_as(q_)
+            pos_cos = pos_cos.type_as(q_)
             q_ = self.apply_rotary_pos_emb(
                 pos_sin[:, :, key_len - query_len : key_len, :],
                 pos_cos[:, :, key_len - query_len : key_len, :],
