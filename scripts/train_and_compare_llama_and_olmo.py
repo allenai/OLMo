@@ -5,8 +5,8 @@ import numpy as np
 import torch
 
 from olmo import TrainConfig, Olmo
-from olmo.config import BlockType, FSDPWrapStrategy
-from olmo.model import OlmoGenerateOutput, OlmoOutput
+from olmo.config import FSDPWrapStrategy
+from olmo.model import OlmoBlock, OlmoGenerateOutput, OlmoOutput
 from olmo.optim import build_optimizer
 from olmo.util import prepare_cli_environment
 import transformers
@@ -22,6 +22,7 @@ prepare_cli_environment()
 log = logging.getLogger(__name__)
 
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"  # needed for running in the deterministic mode
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"  # Avoid running out of memory
 torch.use_deterministic_algorithms(True)
 torch.backends.cudnn.deterministic = True
 
@@ -50,7 +51,7 @@ use_fsdp = False
 # use_fsdp = False
 
 # # for FSDP
-# hf_device = "cpu"
+# hf_device = "cuda"
 # olmo_device = "cuda"
 # use_fsdp = True
 
@@ -89,7 +90,7 @@ def get_local_rank():
 
 
 def print_metrics(olmo_tensor, hf_tensor, tensor_name, verbose=True):
-    log.info(f"{tensor_name} max absolute diff: {torch.max(torch.abs(olmo_tensor.cpu() - hf_tensor.cpu()))}")
+    log.info(f"{tensor_name} max absolute diff: {get_max_diff(olmo_tensor, hf_tensor)}")
     log.info(f"{tensor_name} max relative diff: {get_max_relative_diff(olmo_tensor, hf_tensor)}")
     log.info(f"{tensor_name} max relative diff min variant: {get_max_relative_diff(olmo_tensor, hf_tensor, use_min_of_relative_diffs=True)}")
     log.info(f"{tensor_name} max diff relative to abs mean: {get_max_relative_diff(olmo_tensor, hf_tensor, relative_to_abs_mean=True)}")
@@ -308,8 +309,10 @@ class ModuleOutputCollector():
 
                 if UPDATE_OLMO_OUTPUT_WITH_HF and tensor_name.startswith('olmo_'):
                     hf_tensor_name = tensor_name.replace('olmo_', 'hf_')
+                    if tensor_value.dtype != self._module_forward_outputs_cache[hf_tensor_name].dtype:
+                        log.warning(f'Type mismatch in output hook. Llama {self._module_forward_outputs_cache[hf_tensor_name].dtype}, Olmo {tensor_value.dtype}')
                     with torch.no_grad():
-                        tensor_value.copy_(self._module_forward_outputs_cache[hf_tensor_name])
+                        tensor_value.copy_(self._module_forward_outputs_cache[hf_tensor_name].type_as(tensor_value))
 
         module.register_forward_hook(module_output_hook)
 
@@ -385,13 +388,23 @@ class ModuleOutputCollector():
         assert are_equal, "Model weight equality check failed"
 
 
-# enrich an olmo model with FSDP functionality
-def apply_fsdp(olmo_model: Olmo, cfg: TrainConfig):
+# enrich a model with FSDP functionality
+def apply_fsdp(model: torch.nn.Module, cfg: TrainConfig):
     # Wrap the model in FSDP.
     log.info("Wrapping model with FDSP...")
     wrap_policy = None
     if cfg.fsdp.wrapping_strategy == FSDPWrapStrategy.by_block:
-        wrap_policy = olmo_model.fsdp_wrap_fn
+        def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+            del nonwrapped_numel
+            if recurse:
+                return True  # always recurse
+            result = isinstance(module, OlmoBlock) or hasattr(module, 'input_layernorm')
+            # if result:
+            #     log.info('Wrapped module %s', module)
+
+            return result
+
+        wrap_policy = fsdp_wrap_fn
     elif cfg.fsdp.wrapping_strategy == FSDPWrapStrategy.size_based:
         wrap_policy = size_based_auto_wrap_policy
 
@@ -400,7 +413,8 @@ def apply_fsdp(olmo_model: Olmo, cfg: TrainConfig):
         def dummy_init_fn(module: torch.nn.Module) -> None:
             module.to_empty(device=non_meta_device(cfg.model.init_device))
 
-        param_init_fn = dummy_init_fn
+        # param_init_fn = dummy_init_fn
+        param_init_fn = None
     else:
         param_init_fn = None
 
@@ -408,7 +422,7 @@ def apply_fsdp(olmo_model: Olmo, cfg: TrainConfig):
 
     torch.manual_seed(SEED)
     fsdp_model = FSDP(
-        olmo_model,
+        model,
         sharding_strategy=cfg.fsdp.sharding_strategy,
         mixed_precision=cfg.fsdp_precision,
         auto_wrap_policy=wrap_policy,
@@ -419,7 +433,7 @@ def apply_fsdp(olmo_model: Olmo, cfg: TrainConfig):
     )
     # when param_init_fn is None, FSDP will call reset_parameters() automatically
     if param_init_fn is not None:
-        olmo_model.reset_parameters()
+        model.reset_parameters()
 
     return fsdp_model
 
@@ -431,7 +445,6 @@ def build_config(device):
     assert cfg.device_train_batch_size is not None  # for mypy
     cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
     cfg.model.init_device = device
-    cfg.model.block_type = BlockType.llama
 
     return cfg
 
@@ -583,6 +596,15 @@ def build_olmo_model(hf_model, cfg, module_output_collector: ModuleOutputCollect
     return olmo_model
 
 
+def get_max_diff(tensor1: torch.Tensor, tensor2: torch.Tensor):
+    tensor1 = tensor1.cpu()
+    tensor2 = tensor2.cpu()
+    absolute_diff = torch.abs(tensor1 - tensor2)
+
+    index = torch.argmax(absolute_diff)
+    return torch.max(absolute_diff).item(), (tensor1.flatten()[index].item(), tensor2.flatten()[index].item())
+
+
 def get_max_relative_diff(tensor1: torch.Tensor, tensor2: torch.Tensor, use_min_of_relative_diffs: bool = False, relative_to_abs_mean: bool = False):
     tensor1 = tensor1.cpu()
     tensor2 = tensor2.cpu()
@@ -605,7 +627,7 @@ def get_max_relative_diff(tensor1: torch.Tensor, tensor2: torch.Tensor, use_min_
     index = torch.argmax(relative_diffs)
     # print(index)
     # print(tensor1.flatten()[index], tensor2.flatten()[index])
-    return torch.max(relative_diffs), (tensor1.flatten()[index], tensor2.flatten()[index])
+    return torch.max(relative_diffs).item(), (tensor1.flatten()[index].item(), tensor2.flatten()[index].item())
 
 
 config = build_config(olmo_device)
@@ -620,6 +642,13 @@ module_output_collector = ModuleOutputCollector()
 hf_model = build_hf_model(hf_device)
 update_config_with_hf_settings(config, hf_model)
 olmo_model = build_olmo_model(hf_model, config, module_output_collector, use_fsdp=use_fsdp)
+
+if use_fsdp:
+    # Apply FSDP to hf model after 
+    hf_model = apply_fsdp(hf_model, config)
+
+log.info(olmo_model)
+log.info(hf_model)
 
 # ## ========== uncomment one of the following to test if both models are the same type ==========
 
