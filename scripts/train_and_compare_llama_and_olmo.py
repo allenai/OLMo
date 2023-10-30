@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import logging
 from typing import Any, Dict, List, Tuple
 
@@ -6,7 +7,7 @@ import torch
 
 from olmo import TrainConfig, Olmo
 from olmo.config import FSDPWrapStrategy
-from olmo.model import OlmoBlock, OlmoGenerateOutput, OlmoOutput
+from olmo.model import OlmoBlock, OlmoGenerateOutput, OlmoLlamaBlock, OlmoOutput, OlmoSequentialBlock
 from olmo.optim import build_optimizer
 from olmo.util import prepare_cli_environment
 import transformers
@@ -35,7 +36,7 @@ HF_USE_AUTOCAST: bool = True
 UPDATE_OLMO_OUTPUT_WITH_HF: bool = True
 
 # model_path = "test_fixtures/tiny_llama/"
-model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
+model_path = "/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B"
 # model_path = '/Users/shanea/Documents/data/hf_llama2_models/7B'
 
 # for development
@@ -54,6 +55,112 @@ model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
 hf_device = "cuda"
 olmo_device = "cuda"
 use_fsdp = True
+
+
+hf_to_llama_olmo_mapping: Dict[str, str] = {".transformer.wte": ".transformer.wte" for _ in range(32)}
+
+
+def get(model: Any, key: str) -> Any:
+    sub_keys = key.split('.')
+
+    value: Any = None
+    for sub_key in sub_keys:
+        value = getattr(value, sub_key)
+
+    return value
+
+
+def get_component_group_to_impl_mapping(num_layers: int) -> OrderedDict[str | Tuple[str, ...], Dict[str, str | Tuple[str, ...]]]:
+    mapping: OrderedDict[str | Tuple[str, ...], Dict[str, str | Tuple[str, ...]]] = OrderedDict()
+
+    # embeddings
+    mapping["embedding"] = {
+        "llama": "model.embed_tokens",
+        "olmo": "transformer.wte",
+        "olmo_llama": "transformer.wte",
+    }
+
+    # layers
+    for i in range(num_layers):
+        # input norm
+        mapping[f"input_norm_{i}"] = {
+            "llama": f"model.layers.{i}.input_layernorm",
+            "olmo": f"transformer.blocks.{i}.attn_norm",
+            "olmo_llama": f"transformer.blocks.{i}.attn_norm"
+        }
+
+        # q, k, v projections
+        mapping[
+            (
+                f"q_proj_{i}",
+                f"k_proj_{i}",
+                f"v_proj_{i}",
+            )
+        ] = {
+            "llama": (
+                f"model.layers.{i}.self_attn.q_proj",
+                f"model.layers.{i}.self_attn.k_proj",
+                f"model.layers.{i}.self_attn.v_proj",
+            ),
+            "olmo": f"transformer.blocks.{i}.att_proj",
+            "olmo_llama": (
+                f"transformer.blocks.{i}.q_proj"
+                f"transformer.blocks.{i}.k_proj"
+                f"transformer.blocks.{i}.v_proj"
+            ),
+        }
+
+        # attention out
+        mapping[f"post_attn_linear_{i}"] = {
+            "llama": f"model.layers.{i}.self_attn.o_proj",
+            "olmo": f"transformer.blocks.{i}.attn_out",
+            "olmo_llama": f"transformer.blocks.{i}.attn_out"
+        }
+
+        # post attention layernorm
+        mapping[f"post_attn_norm_{i}"] = {
+            "llama": f"model.layers.{i}.post_attention_layernorm",
+            "olmo": f"transformer.blocks.{i}.ff_norm",
+            "olmo_llama": f"transformer.blocks.{i}.ff_norm"
+        }
+
+        # swiglu input projections
+        mapping[
+            (
+                f"up_proj_{i}",
+                f"gate_proj_{i}",
+            )
+        ] = {
+            "llama": (
+                f"model.layers.{i}.mlp.up_proj",
+                f"model.layers.{i}.mlp.gate_proj",
+            ),
+            "olmo": f"transformer.blocks.{i}.ff_proj",
+            "olmo_llama": f"transformer.blocks.{i}.ff_proj"
+        }
+
+        # swiglu output projection
+        mapping[f"ff_out_{i}"] = {
+            "llama": f"model.layers.{i}.mlp.down_proj",
+            "olmo": f"transformer.blocks.{i}.ff_out",
+            "olmo_llama": f"transformer.blocks.{i}.ff_out"
+        }
+
+    # final layer norm
+    mapping["final_norm"] = {
+        "llama": "model.norm",
+        "olmo": "transformer.ln_f",
+        "olmo_llama": "transformer.ln_f",
+    }
+
+    # output projection
+    mapping["ff_out"] = {
+        "llama": "lm_head",
+        "olmo": "transformer.ff_out",
+        "olmo_llama": "transformer.ff_out",
+    }
+
+    return mapping
 
 
 def test_all_approx_close(a, b, rtol, atol, count):
@@ -92,8 +199,12 @@ def get_local_rank():
 def print_metrics(olmo_tensor, hf_tensor, tensor_name, verbose=True):
     log.info(f"{tensor_name} max absolute diff: {get_max_diff(olmo_tensor, hf_tensor)}")
     log.info(f"{tensor_name} max relative diff: {get_max_relative_diff(olmo_tensor, hf_tensor)}")
-    log.info(f"{tensor_name} max relative diff min variant: {get_max_relative_diff(olmo_tensor, hf_tensor, use_min_of_relative_diffs=True)}")
-    log.info(f"{tensor_name} max diff relative to abs mean: {get_max_relative_diff(olmo_tensor, hf_tensor, relative_to_abs_mean=True)}")
+    log.info(
+        f"{tensor_name} max relative diff min variant: {get_max_relative_diff(olmo_tensor, hf_tensor, use_min_of_relative_diffs=True)}"
+    )
+    log.info(
+        f"{tensor_name} max diff relative to abs mean: {get_max_relative_diff(olmo_tensor, hf_tensor, relative_to_abs_mean=True)}"
+    )
     log.info(f"{tensor_name} diff norm: {torch.norm(olmo_tensor.cpu() - hf_tensor.cpu())}")
 
     if verbose:
@@ -161,9 +272,18 @@ def check_model_equality(hf_model, olmo_model):
         # q, k, v projections
         # TODO: We already know this does not produce the same result. It's close, but not close enough for
         # torch.allclose().
-        are_equal = check_weight_equality(olmo_layer.q_proj.weight, hf_layer.self_attn.q_proj.weight, f"q_proj_{i}") and are_equal
-        are_equal = check_weight_equality(olmo_layer.k_proj.weight, hf_layer.self_attn.k_proj.weight, f"k_proj_{i}") and are_equal
-        are_equal = check_weight_equality(olmo_layer.v_proj.weight, hf_layer.self_attn.v_proj.weight, f"v_proj_{i}") and are_equal
+        are_equal = (
+            check_weight_equality(olmo_layer.q_proj.weight, hf_layer.self_attn.q_proj.weight, f"q_proj_{i}")
+            and are_equal
+        )
+        are_equal = (
+            check_weight_equality(olmo_layer.k_proj.weight, hf_layer.self_attn.k_proj.weight, f"k_proj_{i}")
+            and are_equal
+        )
+        are_equal = (
+            check_weight_equality(olmo_layer.v_proj.weight, hf_layer.self_attn.v_proj.weight, f"v_proj_{i}")
+            and are_equal
+        )
         # print_metrics(q_proj, hf_layer.self_attn.q_proj.weight, f"q_proj_{i}")
         # print_metrics(k_proj, hf_layer.self_attn.k_proj.weight, f"k_proj_{i}")
         # print_metrics(v_proj, hf_layer.self_attn.v_proj.weight, f"v_proj_{i}")
@@ -256,15 +376,21 @@ def check_grad_equality(hf_model, olmo_model):
         # TODO: We already know this does not produce the same result. It's close, but not close enough for
         # torch.allclose().
         are_equal = (
-            check_weight_equality(olmo_layer.q_proj.weight.grad, hf_layer.self_attn.q_proj.weight.grad, f"q_proj_grad_{i}")
+            check_weight_equality(
+                olmo_layer.q_proj.weight.grad, hf_layer.self_attn.q_proj.weight.grad, f"q_proj_grad_{i}"
+            )
             and are_equal
         )
         are_equal = (
-            check_weight_equality(olmo_layer.k_proj.weight.grad, hf_layer.self_attn.k_proj.weight.grad, f"k_proj_grad_{i}")
+            check_weight_equality(
+                olmo_layer.k_proj.weight.grad, hf_layer.self_attn.k_proj.weight.grad, f"k_proj_grad_{i}"
+            )
             and are_equal
         )
         are_equal = (
-            check_weight_equality(olmo_layer.v_proj.weight.grad, hf_layer.self_attn.v_proj.weight.grad, f"v_proj_grad_{i}")
+            check_weight_equality(
+                olmo_layer.v_proj.weight.grad, hf_layer.self_attn.v_proj.weight.grad, f"v_proj_grad_{i}"
+            )
             and are_equal
         )
         # print_metrics(q_proj_grad, hf_layer.self_attn.q_proj.weight.grad, f"q_proj_grad_{i}")
@@ -290,7 +416,7 @@ def check_grad_equality(hf_model, olmo_model):
     assert are_equal, "Grad equality check failed"
 
 
-class ModuleOutputCollector():
+class ModuleOutputCollector:
     def __init__(self) -> None:
         self._module_forward_outputs_cache: Dict[str, torch.Tensor] = {}
 
@@ -307,36 +433,36 @@ class ModuleOutputCollector():
             for tensor_name, tensor_value in zip(tensor_names, tensor_values):
                 self._module_forward_outputs_cache[tensor_name] = tensor_value.detach().clone()
 
-                if UPDATE_OLMO_OUTPUT_WITH_HF and tensor_name.startswith('olmo_'):
-                    hf_tensor_name = tensor_name.replace('olmo_', 'hf_')
+                if UPDATE_OLMO_OUTPUT_WITH_HF and tensor_name.startswith("olmo_"):
+                    hf_tensor_name = tensor_name.replace("olmo_", "hf_")
                     if tensor_value.dtype != self._module_forward_outputs_cache[hf_tensor_name].dtype:
-                        log.warning(f'Type mismatch in output hook. Llama {self._module_forward_outputs_cache[hf_tensor_name].dtype}, Olmo {tensor_value.dtype}')
+                        log.warning(
+                            f"Type mismatch in output hook. Llama {self._module_forward_outputs_cache[hf_tensor_name].dtype}, Olmo {tensor_value.dtype}"
+                        )
                     with torch.no_grad():
-                        tensor_value.copy_(self._module_forward_outputs_cache[hf_tensor_name].type_as(tensor_value))
+                        tensor_value.copy_(
+                            self._module_forward_outputs_cache[hf_tensor_name].type_as(tensor_value)
+                        )
 
         module.register_forward_hook(module_output_hook)
 
     def is_output_pair_equal_for_hf_and_olmo(self, output_name: str) -> bool:
-        return check_weight_equality(self._module_forward_outputs_cache[f"hf_{output_name}"],
-                                     self._module_forward_outputs_cache[f"olmo_{output_name}"],
-                                     f"{output_name} output")
+        return check_weight_equality(
+            self._module_forward_outputs_cache[f"hf_{output_name}"],
+            self._module_forward_outputs_cache[f"olmo_{output_name}"],
+            f"{output_name} output",
+        )
 
     def check_models_output_equality(self, num_layers: int):
         are_equal = True
 
         # embeddings
-        are_equal = (
-            self.is_output_pair_equal_for_hf_and_olmo("wte")
-            and are_equal
-        )
+        are_equal = self.is_output_pair_equal_for_hf_and_olmo("wte") and are_equal
 
         # layers
         for i in range(num_layers):
             # input norm
-            are_equal = (
-                self.is_output_pair_equal_for_hf_and_olmo(f"input_norm_{i}")
-                and are_equal
-            )
+            are_equal = self.is_output_pair_equal_for_hf_and_olmo(f"input_norm_{i}") and are_equal
 
             # q, k, v projections
             # TODO: We already know this does not produce the same result. It's close, but not close enough for
@@ -350,16 +476,10 @@ class ModuleOutputCollector():
             # are_equal = self.is_output_pair_equal_for_hf_and_olmo(f"rotary_emb_k_{i}") and are_equal
 
             # attention out
-            are_equal = (
-                self.is_output_pair_equal_for_hf_and_olmo(f"attn_out_{i}")
-                and are_equal
-            )
+            are_equal = self.is_output_pair_equal_for_hf_and_olmo(f"attn_out_{i}") and are_equal
 
             # post attention layernorm
-            are_equal = (
-                self.is_output_pair_equal_for_hf_and_olmo(f"post_attn_norm_{i}")
-                and are_equal
-            )
+            are_equal = self.is_output_pair_equal_for_hf_and_olmo(f"post_attn_norm_{i}") and are_equal
 
             # swiglu input projections
             # TODO: If fused q, k, v above doesn't produce the same result, then this probably also doesn't.
@@ -369,21 +489,13 @@ class ModuleOutputCollector():
             # print_metrics(gate_proj, hf_layer.mlp.gate_proj.weight, f"gate_proj_{i}")
 
             # swiglu output projection
-            are_equal = (
-                self.is_output_pair_equal_for_hf_and_olmo(f"ff_out_{i}")
-                and are_equal
-            )
+            are_equal = self.is_output_pair_equal_for_hf_and_olmo(f"ff_out_{i}") and are_equal
 
         # final layer norm
-        are_equal = (
-            self.is_output_pair_equal_for_hf_and_olmo("ln_f")
-        )
+        are_equal = self.is_output_pair_equal_for_hf_and_olmo("ln_f")
 
         # output projection
-        are_equal = (
-            self.is_output_pair_equal_for_hf_and_olmo("ff_out")
-            and are_equal
-        )
+        are_equal = self.is_output_pair_equal_for_hf_and_olmo("ff_out") and are_equal
 
         assert are_equal, "Model weight equality check failed"
 
@@ -394,11 +506,12 @@ def apply_fsdp(model: torch.nn.Module, cfg: TrainConfig):
     log.info("Wrapping model with FDSP...")
     wrap_policy = None
     if cfg.fsdp.wrapping_strategy == FSDPWrapStrategy.by_block:
+
         def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
             del nonwrapped_numel
             if recurse:
                 return True  # always recurse
-            result = isinstance(module, OlmoBlock) or hasattr(module, 'input_layernorm')
+            result = isinstance(module, OlmoBlock) or hasattr(module, "input_layernorm")
             # if result:
             #     log.info('Wrapped module %s', module)
 
@@ -459,19 +572,37 @@ def update_config_with_hf_settings(cfg, hf_model):
 
 # load Llama weights into HF model
 def build_hf_model(device: str):
-    hf_model = transformers.AutoModelForCausalLM.from_pretrained(
-        model_path, device_map=device, rms_norm_eps=1e-5
-    )
+    hf_model = transformers.AutoModelForCausalLM.from_pretrained(model_path, device_map=device, rms_norm_eps=1e-5)
     return hf_model
 
 
 # create a similar sized OLMo model
-def build_olmo_model(hf_model, cfg, module_output_collector: ModuleOutputCollector, use_fsdp=False):
+def build_olmo_model(hf_model, hf_model_impl_key: str, olmo_impl_key: str, cfg: TrainConfig, module_output_collector: ModuleOutputCollector, use_fsdp=False):
     # Make model
     log.info("Building model...")
     olmo_model = Olmo(cfg.model)
     log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
+
+    component_group_to_impl_mapping = get_component_group_to_impl_mapping(cfg.model.n_layers)
+
+    parameters_to_set = {name for name, _ in olmo_model.named_parameters()}
+    parameters_to_read = {name for name, _ in hf_model.named_parameters()}
+    for component_group, group_impls in component_group_to_impl_mapping.items():
+        hf_group_impl = group_impls[hf_model_impl_key]
+        olmo_group_impl = group_impls[olmo_impl_key]
+
+        if isinstance(component_group, str):
+            component_group = (component_group,)
+        if isinstance(hf_group_impl, str):
+            hf_group_impl = (hf_group_impl,)
+
+        if isinstance(olmo_group_impl, str):
+            hf_combined_weights = torch.cat([
+                get(hf_model, f"{hf_component_impl}.weight")
+                for hf_component_impl in hf_group_impl
+            ], dim=0)
+            # olmo_weight = get(olmo_model, f"{}")
 
     parameters_to_set = {name for name, _ in olmo_model.named_parameters()}
     parameters_to_read = {name for name, _ in hf_model.named_parameters()}
@@ -581,7 +712,9 @@ def build_olmo_model(hf_model, cfg, module_output_collector: ModuleOutputCollect
             assert new_ff_proj.shape == olmo_layer.ff_proj.weight.shape
             # assert new_ff_proj.dtype == olmo_layer.ff_proj.weight.dtype
             olmo_layer.ff_proj.weight.copy_(new_ff_proj)
-            module_output_collector.register_forward_multi_output(olmo_layer.ff_proj, [f"olmo_up_proj_{i}", f"olmo_gate_proj_{i}"])
+            module_output_collector.register_forward_multi_output(
+                olmo_layer.ff_proj, [f"olmo_up_proj_{i}", f"olmo_gate_proj_{i}"]
+            )
             module_output_collector.register_forward(hf_layer.mlp.up_proj, f"hf_up_proj_{i}")
             module_output_collector.register_forward(hf_layer.mlp.gate_proj, f"hf_gate_proj_{i}")
             parameters_to_set.remove(f"transformer.blocks.{i}.ff_proj.weight")
@@ -605,7 +738,12 @@ def get_max_diff(tensor1: torch.Tensor, tensor2: torch.Tensor):
     return torch.max(absolute_diff).item(), (tensor1.flatten()[index].item(), tensor2.flatten()[index].item())
 
 
-def get_max_relative_diff(tensor1: torch.Tensor, tensor2: torch.Tensor, use_min_of_relative_diffs: bool = False, relative_to_abs_mean: bool = False):
+def get_max_relative_diff(
+    tensor1: torch.Tensor,
+    tensor2: torch.Tensor,
+    use_min_of_relative_diffs: bool = False,
+    relative_to_abs_mean: bool = False,
+):
     tensor1 = tensor1.cpu()
     tensor2 = tensor2.cpu()
     absolute_diff = torch.abs(tensor1 - tensor2)
@@ -644,7 +782,7 @@ update_config_with_hf_settings(config, hf_model)
 olmo_model = build_olmo_model(hf_model, config, module_output_collector, use_fsdp=use_fsdp)
 
 if use_fsdp:
-    # Apply FSDP to hf model after 
+    # Apply FSDP to hf model after
     hf_model = apply_fsdp(hf_model, config)
 
 log.info(olmo_model)
@@ -684,7 +822,9 @@ def generate(model, tokenizer, input_str):
     return tokenizer.decode(token_ids)
 
 
-def model_autocast_forward(model: torch.nn.Module, batch: torch.Tensor, device: torch.device, autocast_dtype: torch.dtype) -> Any:
+def model_autocast_forward(
+    model: torch.nn.Module, batch: torch.Tensor, device: torch.device, autocast_dtype: torch.dtype
+) -> Any:
     if autocast_dtype != torch.float32:
         with torch.autocast(device.type, dtype=autocast_dtype):
             # print('autocast_dtype', autocast_dtype)
@@ -694,7 +834,9 @@ def model_autocast_forward(model: torch.nn.Module, batch: torch.Tensor, device: 
         return model(batch.to(device))
 
 
-def hf_forward(hf_model: torch.nn.Module, batch: torch.Tensor, device_str: str, autocast_dtype: torch.dtype) -> Any:
+def hf_forward(
+    hf_model: torch.nn.Module, batch: torch.Tensor, device_str: str, autocast_dtype: torch.dtype
+) -> Any:
     device = torch.device(device_str)
     if HF_USE_AUTOCAST:
         return model_autocast_forward(hf_model, batch, device, autocast_dtype)
@@ -702,7 +844,9 @@ def hf_forward(hf_model: torch.nn.Module, batch: torch.Tensor, device_str: str, 
     return hf_model(batch.to(device))
 
 
-def olmo_forward(olmo_model: torch.nn.Module, batch: torch.Tensor, device_str: str, autocast_dtype: torch.dtype) -> OlmoOutput:
+def olmo_forward(
+    olmo_model: torch.nn.Module, batch: torch.Tensor, device_str: str, autocast_dtype: torch.dtype
+) -> OlmoOutput:
     device = non_meta_device(device_str)
     if OLMO_USE_AUTOCAST:
         return model_autocast_forward(olmo_model, batch, device, autocast_dtype)
