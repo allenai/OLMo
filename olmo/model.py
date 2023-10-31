@@ -360,9 +360,7 @@ def causal_attention_bias(seq_len: int, device: torch.device) -> torch.FloatTens
 
 
 def get_causal_attention_bias(cache: BufferCache, seq_len: int, device: torch.device) -> torch.Tensor:
-    if (causal_bias := cache.get("causal_attention_bias")) is not None and causal_bias.shape[
-        -1
-    ] >= seq_len:
+    if (causal_bias := cache.get("causal_attention_bias")) is not None and causal_bias.shape[-1] >= seq_len:
         if causal_bias.device != device:
             causal_bias = causal_bias.to(device)
             cache["causal_attention_bias"] = causal_bias
@@ -722,6 +720,7 @@ class OlmoLlamaBlock(OlmoBlock):
         # Layer norms.
         self.attn_norm = LayerNorm.build(config)
         self.ff_norm = LayerNorm.build(config)
+        self.__cache = cache
 
         # Attention input projection. Projects x -> (q, k, v)
         if config.multi_query_attention:
@@ -1027,8 +1026,7 @@ class Olmo(nn.Module):
         ):
             if attention_bias is None and self.config.alibi:
                 attention_bias = get_causal_attention_bias(
-                    self.__cache,
-                    past_length + seq_len, x.device
+                    self.__cache, past_length + seq_len, x.device
                 ) + self.get_alibi_attention_bias(past_length + seq_len, x.device)
             elif attention_bias is None:
                 attention_bias = get_causal_attention_bias(self.__cache, past_length + seq_len, x.device)
