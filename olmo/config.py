@@ -734,6 +734,14 @@ class TrainConfig(BaseConfig):
     load_path: Optional[str] = None
     """
     The path to a training checkpoint to restore/resume from.
+
+    Note that you can make use of the "path.last_checkpoint" Omegaconfig YAML resolver here, which takes
+    a local or remote directory and resolves to the latest checkpoint (sharded or unsharded) in that directory.
+    For example,
+
+    ```bash
+    --load_path='${path.last_checkpoint:s3://ai2-llm/checkpoints/7b/v1_5-mix-run-001}'
+    ```
     """
 
     load_path_sharded_checkpointer: Optional[ShardedCheckpointerType] = None
