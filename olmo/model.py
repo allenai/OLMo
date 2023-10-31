@@ -746,6 +746,7 @@ class OlmoLlamaBlock(OlmoBlock):
         # Layer norms.
         self.attn_norm = LayerNorm.build(config)
         self.ff_norm = LayerNorm.build(config)
+        self.__cache = cache
 
         # Attention input projection. Projects x -> (q, k, v)
         if config.multi_query_attention:
