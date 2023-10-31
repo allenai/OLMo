@@ -95,8 +95,22 @@ class BaseConfig:
             else:
                 return ""
 
+        # Finds the latest checkpoint in a folder.
+        def path_last_checkpoint(path) -> str:
+            from .util import find_latest_checkpoint
+
+            latest_checkpoint = find_latest_checkpoint(path)
+            if latest_checkpoint is None:
+                if validate_paths:
+                    raise FileNotFoundError(f"Could not find a latest checkpoint at {path}")
+                else:
+                    return ""
+            else:
+                return str(latest_checkpoint)
+
         om.register_new_resolver("path.glob", path_glob, replace=True)
         om.register_new_resolver("path.choose", path_choose, replace=True)
+        om.register_new_resolver("path.last_checkpoint", path_last_checkpoint, replace=True)
 
     @classmethod
     def new(cls: Type[C], **kwargs) -> C:
@@ -720,6 +734,14 @@ class TrainConfig(BaseConfig):
     load_path: Optional[str] = None
     """
     The path to a training checkpoint to restore/resume from.
+
+    Note that you can make use of the "path.last_checkpoint" Omegaconfig YAML resolver here, which takes
+    a local or remote directory and resolves to the latest checkpoint (sharded or unsharded) in that directory.
+    For example,
+
+    ```bash
+    --load_path='${path.last_checkpoint:s3://ai2-llm/checkpoints/7b/v1_5-mix-run-001}'
+    ```
     """
 
     load_path_sharded_checkpointer: Optional[ShardedCheckpointerType] = None
@@ -821,11 +843,6 @@ class TrainConfig(BaseConfig):
     Settings for compiling the model with ``torch.compile()``.
     """
 
-    activation_checkpointing: bool = False
-    """
-    Use activation checkpointing on transformer blocks.
-    """
-
     fsdp: FSDPConfig = field(default_factory=FSDPConfig)
     """
     Fully sharded data parallel settings.
@@ -864,6 +881,11 @@ class TrainConfig(BaseConfig):
     stop_at: Optional[int] = None
     """
     Stop at a specific step.
+    """
+
+    activation_checkpointing: bool = False
+    """
+    Use activation checkpointing on transformer blocks.
     """
 
     @property
