@@ -1,17 +1,18 @@
-run_name: llama7-001
+run_name: mitchish7
 seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-medium
-  group: llama7
+  group: v1_5-mix
 
 model:
   d_model: 4096
   n_heads: 32
   n_layers: 32
   mlp_hidden_size: 22016
+  alibi: false
   rope: true
   flash_attention: true
   attention_dropout: 0.0
@@ -19,22 +20,20 @@ model:
   multi_query_attention: false
   include_bias: false
   block_type: sequential
-  layer_norm_type: rms
-  layer_norm_with_affine: true
+  layer_norm_type: default
+  layer_norm_with_affine: false
   bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
-  max_sequence_length: 3072
+  max_sequence_length: 2048
   vocab_size: 50280
   embedding_size: 50304
   eos_token_id: 0
   pad_token_id: 1
   init_device: meta
-  init_fn: full_megatron
-  init_std: 0.006
-  init_cutoff_factor: 3
-  weight_tying: false
+  init_fn: mitchell
 
 fsdp:
   precision: mixed
@@ -49,16 +48,14 @@ optimizer:
   name: adamw
   learning_rate: 3.0e-4
   weight_decay: 0.1
-  decay_norm_and_bias: true
-  decay_embeddings: true
   betas:
   - 0.9
   - 0.95
   metrics_log_interval: 10
 
 scheduler:
-  name: cosine_with_warmup
-  t_warmup: 2000
+  name: linear_with_warmup
+  t_warmup: 5000
   alpha_f: 0.1
 
 data:
