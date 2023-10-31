@@ -350,6 +350,44 @@ class SwiGLU(Activation):
         return 0.5
 
 
+def causal_attention_bias(seq_len: int, device: torch.device) -> torch.FloatTensor:
+    att_bias = torch.triu(
+        torch.ones(seq_len, seq_len, device=device, dtype=torch.float),
+        diagonal=1,
+    )
+    att_bias.masked_fill_(att_bias == 1, torch.finfo(att_bias.dtype).min)
+    return att_bias.view(1, 1, seq_len, seq_len)  # type: ignore
+
+
+def get_causal_attention_bias(cache: BufferCache, seq_len: int, device: torch.device) -> torch.Tensor:
+    if (causal_bias := cache.get("causal_attention_bias")) is not None and causal_bias.shape[
+        -1
+    ] >= seq_len:
+        if causal_bias.device != device:
+            causal_bias = causal_bias.to(device)
+            cache["causal_attention_bias"] = causal_bias
+        return causal_bias
+    with torch.autocast(device.type, enabled=False):
+        causal_bias = causal_attention_bias(seq_len, device)
+    cache["causal_attention_bias"] = causal_bias
+    return causal_bias
+
+
+def alibi_attention_bias(seq_len: int, config: ModelConfig, device: torch.device) -> torch.FloatTensor:
+    alibi_bias = torch.arange(1 - seq_len, 1, dtype=torch.float, device=device).view(1, 1, 1, seq_len)
+
+    # shape: (1, 1, seq_len, seq_len)
+    alibi_bias = alibi_bias - torch.arange(1 - seq_len, 1, dtype=torch.float, device=device).view(1, 1, seq_len, 1)
+    alibi_bias.abs_().mul_(-1)
+
+    # shape: (n_heads,)
+    m = torch.arange(1, config.n_heads + 1, dtype=torch.float, device=device)
+    m.mul_(config.alibi_bias_max / config.n_heads)
+
+    # shape: (1, n_heads, seq_len, seq_len)
+    return alibi_bias * (1.0 / (2 ** m.view(1, config.n_heads, 1, 1)))  # type: ignore
+
+
 class OlmoBlock(nn.Module):
     """
     A base class for transformer block implementations.
@@ -428,9 +466,8 @@ class OlmoBlock(nn.Module):
             ensure_finite_(bias, check_neg_inf=True, check_pos_inf=False)
         return bias
 
-    @classmethod
     def _scaled_dot_product_attention(
-        cls,
+        self,
         q: torch.Tensor,
         k: torch.Tensor,
         v: torch.Tensor,
@@ -720,9 +757,8 @@ class OlmoLlamaBlock(OlmoBlock):
         init_weights(self.config, self.v_proj, d=self.config.d_model, layer_id=None)
         init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None)
 
-    @classmethod
     def _scaled_dot_product_attention(
-        cls,
+        self,
         q: torch.Tensor,
         k: torch.Tensor,
         v: torch.Tensor,
@@ -732,15 +768,15 @@ class OlmoLlamaBlock(OlmoBlock):
     ) -> torch.Tensor:
         attn_weights = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(q.size(-1))
 
-        attn_bias = torch.zeros_like(attn_weights)
         if is_causal:
             assert attn_mask is None
 
-            context_mask = torch.ones_like(attn_bias, dtype=torch.bool).tril(diagonal=0)
-            attn_bias.masked_fill_(context_mask.logical_not(), torch.finfo(attn_bias.dtype).min)
-
-        if attn_mask is not None:
-            attn_bias += attn_mask.to(q.dtype)
+            query_len, key_len = q.shape[-2], k.shape[-2]  # could be different if layer_past not None
+            attn_bias = get_causal_attention_bias(self.__cache, key_len, q.device)[:, :, :query_len, :key_len]
+        elif attn_mask is not None:
+            attn_bias = attn_mask.to(q.dtype)
+        else:
+            attn_bias = torch.zeros_like(attn_weights)
 
         attn_weights += attn_bias
         attn_weights = nn.functional.softmax(attn_weights, dim=-1).to(q.dtype)
@@ -804,30 +840,6 @@ class OlmoGenerateOutput(NamedTuple):
     """
 
 
-def causal_attention_bias(seq_len: int, device: torch.device) -> torch.FloatTensor:
-    att_bias = torch.triu(
-        torch.ones(seq_len, seq_len, device=device, dtype=torch.float),
-        diagonal=1,
-    )
-    att_bias.masked_fill_(att_bias == 1, torch.finfo(att_bias.dtype).min)
-    return att_bias.view(1, 1, seq_len, seq_len)  # type: ignore
-
-
-def alibi_attention_bias(seq_len: int, config: ModelConfig, device: torch.device) -> torch.FloatTensor:
-    alibi_bias = torch.arange(1 - seq_len, 1, dtype=torch.float, device=device).view(1, 1, 1, seq_len)
-
-    # shape: (1, 1, seq_len, seq_len)
-    alibi_bias = alibi_bias - torch.arange(1 - seq_len, 1, dtype=torch.float, device=device).view(1, 1, seq_len, 1)
-    alibi_bias.abs_().mul_(-1)
-
-    # shape: (n_heads,)
-    m = torch.arange(1, config.n_heads + 1, dtype=torch.float, device=device)
-    m.mul_(config.alibi_bias_max / config.n_heads)
-
-    # shape: (1, n_heads, seq_len, seq_len)
-    return alibi_bias * (1.0 / (2 ** m.view(1, config.n_heads, 1, 1)))  # type: ignore
-
-
 class Olmo(nn.Module):
     def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
@@ -886,7 +898,7 @@ class Olmo(nn.Module):
 
         # Warm up cache.
         if self.config.alibi:
-            self.get_causal_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
+            get_causal_attention_bias(self.__cache, config.max_sequence_length, _non_meta_init_device(config))
             self.get_alibi_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
 
     @property
@@ -919,19 +931,6 @@ class Olmo(nn.Module):
         # Let the blocks handle themselves.
         for block in self.transformer.blocks:  # type: ignore
             block.reset_parameters()  # type: ignore
-
-    def get_causal_attention_bias(self, seq_len: int, device: torch.device) -> torch.Tensor:
-        if (causal_bias := self.__cache.get("causal_attention_bias")) is not None and causal_bias.shape[
-            -1
-        ] >= seq_len:
-            if causal_bias.device != device:
-                causal_bias = causal_bias.to(device)
-                self.__cache["causal_attention_bias"] = causal_bias
-            return causal_bias
-        with torch.autocast(device.type, enabled=False):
-            causal_bias = causal_attention_bias(seq_len, device)
-        self.__cache["causal_attention_bias"] = causal_bias
-        return causal_bias
 
     def get_alibi_attention_bias(self, seq_len: int, device: torch.device) -> torch.Tensor:
         if (alibi_bias := self.__cache.get("alibi_attention_bias")) is not None and alibi_bias.shape[
@@ -1027,11 +1026,12 @@ class Olmo(nn.Module):
             or past_key_values is not None
         ):
             if attention_bias is None and self.config.alibi:
-                attention_bias = self.get_causal_attention_bias(
+                attention_bias = get_causal_attention_bias(
+                    self.__cache,
                     past_length + seq_len, x.device
                 ) + self.get_alibi_attention_bias(past_length + seq_len, x.device)
             elif attention_bias is None:
-                attention_bias = self.get_causal_attention_bias(past_length + seq_len, x.device)
+                attention_bias = get_causal_attention_bias(self.__cache, past_length + seq_len, x.device)
             elif attention_bias.dtype in (torch.int8, torch.bool):
                 attention_bias = attention_bias.to(dtype=torch.float)
                 attention_bias.masked_fill_(attention_bias == 0.0, torch.finfo(attention_bias.dtype).min)
