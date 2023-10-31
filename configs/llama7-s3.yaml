@@ -10,7 +10,7 @@ dry_run: false
 model:
   d_model: 4096
   n_heads: 32
-  n_layers: 2 #32
+  n_layers: 32
   mlp_hidden_size: 22016
   rope: true
   flash_attention: true
@@ -38,9 +38,12 @@ model:
 
 fsdp:
   precision: mixed
-  wrapping_strategy: by_block
+  wrapping_strategy: size_based
+  sharding_strategy: SHARD_GRAD_OP
 
-compile: null  # causes instability on AMD GPUs
+activation_checkpointing: by_layer
+
+compile: null
 
 optimizer:
   name: adamw

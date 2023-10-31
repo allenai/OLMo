@@ -112,8 +112,7 @@ def main(cfg: TrainConfig) -> None:
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
     log.info(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
 
-    if cfg.activation_checkpointing:
-        olmo_model.enable_activation_checkpointing()
+    olmo_model.set_activation_checkpointing(cfg.activation_checkpointing)
 
     # Wrap the model in FSDP.
     log.info("Wrapping model with FDSP...")

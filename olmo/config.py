@@ -28,6 +28,7 @@ from .exceptions import OlmoConfigurationError
 __all__ = [
     "LogFilterType",
     "ActivationType",
+    "ActivationCheckpointingStrategy",
     "BlockType",
     "CompilerConfig",
     "LayerNormType",
@@ -594,6 +595,15 @@ class ShardedCheckpointerType(StrEnum):
     local = "local"
 
 
+class ActivationCheckpointingStrategy(StrEnum):
+    none = "none"
+    whole_layer = "whole_layer"
+    one_in_two = "one_in_two"
+    one_in_three = "one_in_three"
+    one_in_four = "one_in_four"
+    fine_grained = "fine_grained"
+
+
 @dataclass
 class TrainConfig(BaseConfig):
     """
@@ -861,9 +871,9 @@ class TrainConfig(BaseConfig):
     Stop at a specific step.
     """
 
-    activation_checkpointing: bool = False
+    activation_checkpointing: ActivationCheckpointingStrategy = ActivationCheckpointingStrategy.none
     """
-    Use activation checkpointing on transformer blocks.
+    The activation checkpointing strategy to use.
     """
 
     @property
