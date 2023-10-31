@@ -472,6 +472,34 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
             return f.read(num_bytes)
 
 
+def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
+    if is_url(dir):
+        from urllib.parse import urlparse
+
+        parsed = urlparse(str(dir))
+        if parsed.scheme == "gs":
+            raise NotImplementedError
+        elif parsed.scheme == "s3":
+            return _s3_find_latest_checkpoint(parsed.netloc, parsed.path.strip("/"))
+        elif parsed.scheme == "file":
+            return find_latest_checkpoint(str(dir).replace("file://", "", 1))
+        else:
+            raise NotImplementedError(f"file size not implemented for '{parsed.scheme}' files")
+    else:
+        latest_step = 0
+        latest_checkpoint: Optional[Path] = None
+        for path in Path(dir).glob("step*"):
+            if path.is_dir():
+                try:
+                    step = int(path.name.replace("step", "").replace("-unsharded", ""))
+                except ValueError:
+                    continue
+                if step > latest_step:
+                    latest_step = step
+                    latest_checkpoint = path
+        return latest_checkpoint
+
+
 def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
     from google.cloud import storage as gcs
 
@@ -612,6 +640,28 @@ def _s3_get_bytes_range(
     # in us losing the true exception info. To avoid this, we change the exception
     # to a type that has a single-parameter constructor.
     raise OlmoNetworkError("Failed to get bytes range from s3") from err
+
+
+def _s3_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
+    if not prefix.endswith("/"):
+        prefix = f"{prefix}/"
+    response = _get_s3_client().list_objects(Bucket=bucket_name, Prefix=prefix, Delimiter="/")
+    assert not response["IsTruncated"]  # need to handle this if it happens
+    latest_step = 0
+    latest_checkpoint: Optional[str] = None
+    for item in response["CommonPrefixes"]:
+        prefix = item["Prefix"].strip("/")
+        checkpoint_name = os.path.split(prefix)[-1]
+        if not checkpoint_name.startswith("step"):
+            continue
+        try:
+            step = int(checkpoint_name.replace("step", "").replace("-unsharded", ""))
+        except ValueError:
+            continue
+        if step > latest_step:
+            latest_step = step
+            latest_checkpoint = f"s3://ai2-llm/{prefix}"
+    return latest_checkpoint
 
 
 def is_weight_decay_module(module: nn.Module) -> bool:

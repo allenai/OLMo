@@ -95,8 +95,22 @@ class BaseConfig:
             else:
                 return ""
 
+        # Finds the latest checkpoint in a folder.
+        def path_last_checkpoint(path) -> str:
+            from .util import find_latest_checkpoint
+
+            latest_checkpoint = find_latest_checkpoint(path)
+            if latest_checkpoint is None:
+                if validate_paths:
+                    raise FileNotFoundError(f"Could not find a latest checkpoint at {path}")
+                else:
+                    return ""
+            else:
+                return str(latest_checkpoint)
+
         om.register_new_resolver("path.glob", path_glob, replace=True)
         om.register_new_resolver("path.choose", path_choose, replace=True)
+        om.register_new_resolver("path.last_checkpoint", path_last_checkpoint, replace=True)
 
     @classmethod
     def new(cls: Type[C], **kwargs) -> C:
