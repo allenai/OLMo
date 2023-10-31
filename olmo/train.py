@@ -1051,25 +1051,26 @@ class Trainer:
                     str(trace_path := (profiler_output_dir / f"{p.step_num}.chrome_trace.json.gz"))
                 )
                 p.export_stacks(
-                    str(gpu_stacks_path := (profiler_output_dir / f"{p.step_num}.gpu.stacks")),
+                    str(profiler_output_dir / f"{p.step_num}.gpu.stacks"),
                     "self_cuda_time_total",
                 )
                 p.export_stacks(
-                    str(cpu_stacks_path := (profiler_output_dir / f"{p.step_num}.cpu.stacks")),
+                    str(profiler_output_dir / f"{p.step_num}.cpu.stacks"),
                     "self_cpu_time_total",
                 )
                 if self.cfg.remote_save_folder is not None:
                     upload_folder = f"{self.cfg.remote_save_folder.rstrip('/')}/profiler"
                     log.info(f"Tracing complete, uploading results to '{upload_folder}'...")
                     upload(trace_path, f"{upload_folder}/{trace_path.name}")
-                    upload(
-                        gpu_stacks_path,
-                        f"{upload_folder}/{gpu_stacks_path.name}",
-                    )
-                    upload(
-                        cpu_stacks_path,
-                        f"{upload_folder}/{cpu_stacks_path.name}",
-                    )
+                    # These seem to always end up empty, so we don't bother uploading.
+                    #  upload(
+                    #      gpu_stacks_path,
+                    #      f"{upload_folder}/{gpu_stacks_path.name}",
+                    #  )
+                    #  upload(
+                    #      cpu_stacks_path,
+                    #      f"{upload_folder}/{cpu_stacks_path.name}",
+                    #  )
 
             from torch.profiler import ProfilerActivity
 
