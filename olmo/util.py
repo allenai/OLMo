@@ -484,18 +484,18 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
         elif parsed.scheme == "file":
             return find_latest_checkpoint(str(dir).replace("file://", "", 1))
         else:
-            raise NotImplementedError(f"file size not implemented for '{parsed.scheme}' files")
+            raise NotImplementedError(f"find_latest_checkpoint not implemented for '{parsed.scheme}' files")
     else:
         latest_step = 0
         latest_checkpoint: Optional[Path] = None
-        # Sorting here guarantees that we prioritize sharded checkpoints over unsharded checkpoints.
-        for path in sorted(Path(dir).glob("step*")):
+        for path in Path(dir).glob("step*"):
             if path.is_dir():
                 try:
                     step = int(path.name.replace("step", "").replace("-unsharded", ""))
                 except ValueError:
                     continue
-                if step > latest_step:
+                # We prioritize sharded checkpoints over unsharded checkpoints.
+                if step > latest_step or (step == latest_step and not path.name.endswith("-unsharded")):
                     latest_step = step
                     latest_checkpoint = path
         return latest_checkpoint
@@ -650,8 +650,7 @@ def _s3_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
     assert not response["IsTruncated"]  # need to handle this if it happens
     latest_step = 0
     latest_checkpoint: Optional[str] = None
-    # Sorting here guarantees that we prioritize sharded checkpoints over unsharded checkpoints.
-    for item in sorted(response["CommonPrefixes"], key=lambda x: x["Prefix"]):
+    for item in response["CommonPrefixes"]:
         prefix = item["Prefix"].strip("/")
         checkpoint_name = os.path.split(prefix)[-1]
         if not checkpoint_name.startswith("step"):
@@ -660,7 +659,8 @@ def _s3_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
             step = int(checkpoint_name.replace("step", "").replace("-unsharded", ""))
         except ValueError:
             continue
-        if step > latest_step:
+        # We prioritize sharded checkpoints over unsharded ones.
+        if step > latest_step or (step == latest_step and not checkpoint_name.endswith("-unsharded")):
             latest_step = step
             latest_checkpoint = f"s3://ai2-llm/{prefix}"
     return latest_checkpoint
