@@ -439,7 +439,7 @@ class OlmoBlock(nn.Module):
         )
 
     def set_activation_checkpointing(self, strategy: ActivationCheckpointingStrategy):
-        if strategy == ActivationCheckpointingStrategy.attention_only:
+        if strategy == ActivationCheckpointingStrategy.fine_grained:
             self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
         else:
             self._activation_checkpoint_fn = pass_through_fn
@@ -720,10 +720,12 @@ class OlmoGenerateOutput(NamedTuple):
 
 
 class OlmoBlockGroup(nn.ModuleList):
-    def __init__(self, config: ModelConfig, modules: Optional[Iterable[nn.Module]] = None):
+    def __init__(self, config: ModelConfig, layer_offset: int, modules: Optional[Iterable[nn.Module]] = None):
         super().__init__(modules)
         self.config = config
-        self._activation_checkpoint_fn: Callable = pass_through_fn
+        self.layer_offset = layer_offset
+        self.activation_checkpointing_strategy = ActivationCheckpointingStrategy.none
+        self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
 
     def forward(
         self,
@@ -735,9 +737,29 @@ class OlmoBlockGroup(nn.ModuleList):
         attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
         for block_idx, block in enumerate(self):
             layer_past = None if layers_past is None else layers_past[block_idx]
-            x, cache = self._activation_checkpoint_fn(
-                block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
-            )
+            block_idx += self.layer_offset
+            if (
+                (self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.whole_layer)
+                or (
+                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_two
+                    and block_idx % 2 == 0
+                )
+                or (
+                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_three
+                    and block_idx % 3 == 0
+                )
+                or (
+                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_four
+                    and block_idx % 4 == 0
+                )
+            ):
+                # shape: (batch_size, seq_len, d_model)
+                x, cache = self._activation_checkpoint_fn(
+                    block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+                )
+            else:
+                # shape: (batch_size, seq_len, d_model)
+                x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
             if attn_key_values is not None:
                 assert cache is not None
                 attn_key_values.append(cache)
@@ -748,11 +770,7 @@ class OlmoBlockGroup(nn.ModuleList):
             block.reset_parameters()
 
     def set_activation_checkpointing(self, strategy: ActivationCheckpointingStrategy):
-        if strategy == ActivationCheckpointingStrategy.whole_layer:
-            self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
-        else:
-            self._activation_checkpoint_fn = pass_through_fn
-
+        self.activation_checkpointing_strategy = strategy
         for block in self:
             block.set_activation_checkpointing(strategy)
 
@@ -804,7 +822,8 @@ class Olmo(nn.Module):
                     "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
                 )
 
-        self._activation_checkpoint_fn: Callable = pass_through_fn
+        self.activation_checkpointing_strategy = ActivationCheckpointingStrategy.none
+        self._activation_checkpoint_fn: Callable = activation_checkpoint_function(self.config)
 
         if not (
             0 < self.config.block_group_size <= self.config.n_layers
@@ -828,7 +847,7 @@ class Olmo(nn.Module):
         blocks = [OlmoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
         if self.config.block_group_size > 1:
             block_groups = [
-                OlmoBlockGroup(config, blocks[i : i + config.block_group_size])
+                OlmoBlockGroup(config, i, blocks[i : i + config.block_group_size])
                 for i in range(0, config.n_layers, config.block_group_size)
             ]
             self.transformer.update({"block_groups": nn.ModuleList(block_groups)})
@@ -866,11 +885,7 @@ class Olmo(nn.Module):
         )
 
     def set_activation_checkpointing(self, strategy: ActivationCheckpointingStrategy):
-        if strategy == ActivationCheckpointingStrategy.whole_layer:
-            self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
-        else:
-            self._activation_checkpoint_fn = pass_through_fn
-
+        self.activation_checkpointing_strategy = strategy
         if self.config.block_group_size != 1:
             for block_group in self.transformer.block_groups:
                 block_group.set_activation_checkpointing(strategy)
@@ -1051,10 +1066,28 @@ class Olmo(nn.Module):
         if self.config.block_group_size == 1:
             for block_idx, block in enumerate(self.transformer.blocks):
                 layer_past = None if past_key_values is None else past_key_values[block_idx]
-                # shape: (batch_size, seq_len, d_model)
-                x, cache = self._activation_checkpoint_fn(
-                    block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
-                )
+                if (
+                    (self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.whole_layer)
+                    or (
+                        self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_two
+                        and block_idx % 2 == 0
+                    )
+                    or (
+                        self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_three
+                        and block_idx % 3 == 0
+                    )
+                    or (
+                        self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_four
+                        and block_idx % 4 == 0
+                    )
+                ):
+                    # shape: (batch_size, seq_len, d_model)
+                    x, cache = self._activation_checkpoint_fn(
+                        block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+                    )
+                else:
+                    # shape: (batch_size, seq_len, d_model)
+                    x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
                 if attn_key_values is not None:
                     assert cache is not None
                     attn_key_values.append(cache)

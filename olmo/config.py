@@ -598,7 +598,10 @@ class ShardedCheckpointerType(StrEnum):
 class ActivationCheckpointingStrategy(StrEnum):
     none = "none"
     whole_layer = "whole_layer"
-    attention_only = "attention_only"
+    one_in_two = "one_in_two"
+    one_in_three = "one_in_three"
+    one_in_four = "one_in_four"
+    fine_grained = "fine_grained"
 
 
 @dataclass
