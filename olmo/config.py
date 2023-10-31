@@ -47,6 +47,8 @@ __all__ = [
     "WandbConfig",
     "CompilerConfig",
     "WandbConfig",
+    "FSDPPrecision",
+    "FSDPWrapStrategy",
     "FSDPConfig",
     "CheckpointType",
 ]
@@ -260,6 +262,13 @@ class ModelConfig(BaseConfig):
     block_type: BlockType = BlockType.sequential
     """
     The transformer block implementation.
+    """
+
+    block_group_size: int = 1
+    """
+    The number of blocks to group together into a single parent block.
+    This has no affect on the number of parameters in the model and is only used to wrap groups
+    of blocks together with a single FSDP wrapper during training.
     """
 
     alibi: bool = False
@@ -552,6 +561,12 @@ class FSDPWrapStrategy(StrEnum):
     Wrap each OLMo block with its own FSDP instance.
     """
 
+    by_block_group = "by_block_group"
+    """
+    Wrap each block group together into its own FSDP instance.
+    This requires :attr:`~ModelConfig.block_group_size` to be bigger than 1.
+    """
+
     size_based = "size_based"
     """
     Used PyTorch's default size-based auto wrap policy.
@@ -593,6 +608,12 @@ class FSDPConfig(BaseConfig):
 class CheckpointType(StrEnum):
     sharded = "sharded"
     unsharded = "unsharded"
+
+
+class ShardedCheckpointerType(StrEnum):
+    torch_new = "torch_new"
+    torch_legacy = "torch_legacy"
+    local = "local"
 
 
 @dataclass
@@ -723,6 +744,28 @@ class TrainConfig(BaseConfig):
     The path to a training checkpoint to restore/resume from.
     """
 
+    load_path_sharded_checkpointer: Optional[ShardedCheckpointerType] = None
+    """
+    The sharded checkpointer type to use to load the initial checkpoint from ``load_path``.
+    """
+
+    reset_optimizer_state: bool = False
+    """
+    When this is set, we restore the model from a checkpoint (if given), but we leave the optimizer uninitialized.
+    We also set a new learning rate schedule that does a new warmup, such that it intercepts the original learning
+    curve (according to the current learning rate schedule settings), and continues from there.
+    """
+
+    sharded_checkpointer: ShardedCheckpointerType = ShardedCheckpointerType.torch_legacy
+    """
+    The name of the sharded checkpointer to use to save (sharded) checkpoints throughout training.
+    """
+
+    new_style_checkpoints: Optional[bool] = None
+    """
+    Deprecated. Use ``sharded_checkpointer`` instead.
+    """
+
     max_duration: int = 10000
     """
     Maximum number of batches to train for.
@@ -800,11 +843,6 @@ class TrainConfig(BaseConfig):
     Settings for compiling the model with ``torch.compile()``.
     """
 
-    activation_checkpointing: bool = False
-    """
-    Use activation checkpointing on transformer blocks.
-    """
-
     fsdp: FSDPConfig = field(default_factory=FSDPConfig)
     """
     Fully sharded data parallel settings.
@@ -840,21 +878,14 @@ class TrainConfig(BaseConfig):
     Whether to run the PyTorch profiler on batches 6, 7, and 8.
     """
 
-    reset_optimizer_state: bool = False
-    """
-    When this is set, we restore the model from a checkpoint (if given), but we leave the optimizer uninitialized.
-    We also set a new learning rate schedule that does a new warmup, such that it intercepts the original learning
-    curve (according to the current learning rate schedule settings), and continues from there.
-    """
-
-    new_style_checkpoints: bool = False
-    """
-    Whether to use new-style sharded checkpointing or not.
-    """
-
     stop_at: Optional[int] = None
     """
     Stop at a specific step.
+    """
+
+    activation_checkpointing: bool = False
+    """
+    Use activation checkpointing on transformer blocks.
     """
 
     @property
