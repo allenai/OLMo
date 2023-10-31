@@ -38,9 +38,12 @@ model:
 
 fsdp:
   precision: mixed
-  wrapping_strategy: by_block
+  wrapping_strategy: size_based
+  sharding_strategy: SHARD_GRAD_OP
 
-compile: null  # causes instability on AMD GPUs
+activation_checkpointing: by_layer
+
+compile: null
 
 optimizer:
   name: adamw
