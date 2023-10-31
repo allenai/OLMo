@@ -43,6 +43,7 @@ from .util import (
     move_to_device,
     peak_gpu_memory,
     syncronize_flag,
+    upload,
 )
 
 __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
