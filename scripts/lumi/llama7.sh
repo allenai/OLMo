@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=v1_5-mix-medium-llama
+#SBATCH --job-name=llama7
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
 #SBATCH --nodes=128             # Total number of nodes
@@ -53,4 +53,4 @@ srun \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
-    python scripts/train.py configs/v1_5-mix-medium-llama.yaml --run_name=${SLURM_JOB_ID} ${@}
+    python scripts/train.py configs/llama7.yaml --run_name=${SLURM_JOB_ID} ${@}
