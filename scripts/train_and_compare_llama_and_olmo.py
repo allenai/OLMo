@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 from olmo import TrainConfig, Olmo
-from olmo.config import FSDPWrapStrategy
+from olmo.config import BlockType, FSDPWrapStrategy
 from olmo.model import OlmoBlock, OlmoGenerateOutput, OlmoOutput
 from olmo.optim import build_optimizer
 from olmo.util import prepare_cli_environment
@@ -528,26 +528,40 @@ def build_olmo_model(hf_model, cfg, module_output_collector: ModuleOutputCollect
             # q, k, v projections
             # TODO: We already know this does not produce the same result. It's close, but not close enough for
             # torch.allclose().
-            assert hf_layer.self_attn.q_proj.weight.shape == olmo_layer.q_proj.weight.shape
-            parameters_to_read.remove(f"model.layers.{i}.self_attn.q_proj.weight")
-            olmo_layer.q_proj.weight.copy_(hf_layer.self_attn.q_proj.weight)
-            module_output_collector.register_forward(olmo_layer.q_proj, f"olmo_q_proj_{i}")
-            module_output_collector.register_forward(hf_layer.self_attn.q_proj, f"hf_q_proj_{i}")
-            parameters_to_set.remove(f"transformer.blocks.{i}.q_proj.weight")
+            if cfg.model.block_type == BlockType.llama:
+                assert hf_layer.self_attn.q_proj.weight.shape == olmo_layer.q_proj.weight.shape
+                parameters_to_read.remove(f"model.layers.{i}.self_attn.q_proj.weight")
+                olmo_layer.q_proj.weight.copy_(hf_layer.self_attn.q_proj.weight)
+                module_output_collector.register_forward(olmo_layer.q_proj, f"olmo_q_proj_{i}")
+                module_output_collector.register_forward(hf_layer.self_attn.q_proj, f"hf_q_proj_{i}")
+                parameters_to_set.remove(f"transformer.blocks.{i}.q_proj.weight")
 
-            assert hf_layer.self_attn.k_proj.weight.shape == olmo_layer.k_proj.weight.shape
-            parameters_to_read.remove(f"model.layers.{i}.self_attn.k_proj.weight")
-            olmo_layer.k_proj.weight.copy_(hf_layer.self_attn.k_proj.weight)
-            module_output_collector.register_forward(olmo_layer.k_proj, f"olmo_k_proj_{i}")
-            module_output_collector.register_forward(hf_layer.self_attn.k_proj, f"hf_k_proj_{i}")
-            parameters_to_set.remove(f"transformer.blocks.{i}.k_proj.weight")
+                assert hf_layer.self_attn.k_proj.weight.shape == olmo_layer.k_proj.weight.shape
+                parameters_to_read.remove(f"model.layers.{i}.self_attn.k_proj.weight")
+                olmo_layer.k_proj.weight.copy_(hf_layer.self_attn.k_proj.weight)
+                module_output_collector.register_forward(olmo_layer.k_proj, f"olmo_k_proj_{i}")
+                module_output_collector.register_forward(hf_layer.self_attn.k_proj, f"hf_k_proj_{i}")
+                parameters_to_set.remove(f"transformer.blocks.{i}.k_proj.weight")
 
-            assert hf_layer.self_attn.v_proj.weight.shape == olmo_layer.v_proj.weight.shape
-            parameters_to_read.remove(f"model.layers.{i}.self_attn.v_proj.weight")
-            olmo_layer.v_proj.weight.copy_(hf_layer.self_attn.v_proj.weight)
-            module_output_collector.register_forward(olmo_layer.v_proj, f"olmo_v_proj_{i}")
-            module_output_collector.register_forward(hf_layer.self_attn.v_proj, f"hf_v_proj_{i}")
-            parameters_to_set.remove(f"transformer.blocks.{i}.v_proj.weight")
+                assert hf_layer.self_attn.v_proj.weight.shape == olmo_layer.v_proj.weight.shape
+                parameters_to_read.remove(f"model.layers.{i}.self_attn.v_proj.weight")
+                olmo_layer.v_proj.weight.copy_(hf_layer.self_attn.v_proj.weight)
+                module_output_collector.register_forward(olmo_layer.v_proj, f"olmo_v_proj_{i}")
+                module_output_collector.register_forward(hf_layer.self_attn.v_proj, f"hf_v_proj_{i}")
+                parameters_to_set.remove(f"transformer.blocks.{i}.v_proj.weight")
+
+            else:
+                new_att_proj = torch.cat([hf_layer.self_attn.q_proj.weight, hf_layer.self_attn.k_proj.weight, hf_layer.self_attn.v_proj.weight], dim=0)
+                parameters_to_read.remove(f"model.layers.{i}.self_attn.q_proj.weight")
+                parameters_to_read.remove(f"model.layers.{i}.self_attn.k_proj.weight")
+                parameters_to_read.remove(f"model.layers.{i}.self_attn.v_proj.weight")
+                assert new_att_proj.shape == olmo_layer.att_proj.weight.shape
+                olmo_layer.att_proj.weight.copy_(new_att_proj)
+                module_output_collector.register_forward_multi_output(olmo_layer.att_proj, [f"olmo_q_proj_{i}", f"olmo_k_proj_{i}", f"olmo_v_proj_{i}"])
+                module_output_collector.register_forward(hf_layer.self_attn.q_proj, f"hf_q_proj_{i}")
+                module_output_collector.register_forward(hf_layer.self_attn.k_proj, f"hf_k_proj_{i}")
+                module_output_collector.register_forward(hf_layer.self_attn.v_proj, f"hf_v_proj_{i}")
+                parameters_to_set.remove(f"transformer.blocks.{i}.att_proj.weight")
 
             # # rotary embedding (this has no weights)
             # module_output_collector.register_forward_multi_output(olmo_layer.rotary_emb, [f"olmo_rotary_emb_q_{i}", f"olmo_rotary_emb_k_{i}"])
