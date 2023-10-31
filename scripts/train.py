@@ -110,11 +110,9 @@ def main(cfg: TrainConfig) -> None:
     # Initialize the model.
     log.info("Building model...")
     olmo_model = Olmo(cfg.model)
-    print('############################')
-    print(f"Total number of parameters: {olmo_model.num_params():,d}")
-    print(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
-    print(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
-    print('############################')
+    log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
+    log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
+    log.info(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
 
     # Wrap the model in FSDP.
     log.info("Wrapping model with FDSP...")
