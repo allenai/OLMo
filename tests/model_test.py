@@ -1,3 +1,5 @@
+from typing import Type
+
 import pytest
 import torch
 import torch.nn.functional as F
@@ -6,7 +8,14 @@ from torch.nn import CrossEntropyLoss
 from olmo import BlockType, LayerNorm, Olmo, Tokenizer, TrainConfig
 from olmo.config import ModelConfig, PaddingDirection
 from olmo.data import DataCollator
-from olmo.model import AMDLayerNorm
+from olmo.model import AMDLayerNorm, LayerNormBase, TritonLayerNorm
+
+try:
+    import triton as _  # noqa: F401
+
+    has_triton = True
+except ModuleNotFoundError:
+    has_triton = False
 
 
 @pytest.mark.parametrize(
@@ -395,42 +404,58 @@ def test_generate(
 
 @pytest.mark.parametrize("elementwise_affine", (True, False))
 @pytest.mark.parametrize("include_bias", (True, False))
-def test_layer_norm(train_config: TrainConfig, elementwise_affine: bool, include_bias: bool):
+@pytest.mark.parametrize(
+    "layer_norm_class",
+    [
+        AMDLayerNorm,
+        pytest.param(
+            TritonLayerNorm,
+            marks=(
+                pytest.mark.gpu,
+                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
+                pytest.mark.skipif(not has_triton, reason="Requires triton"),
+            ),
+        ),
+    ],
+)
+def test_layer_norm(
+    train_config: TrainConfig, elementwise_affine: bool, include_bias: bool, layer_norm_class: Type[LayerNormBase]
+):
     train_config.model.layer_norm_with_affine = elementwise_affine
     train_config.model.include_bias = include_bias
-    ln = LayerNorm.build(train_config.model)
-    amd_ln = AMDLayerNorm(train_config.model)
+    torch_ln = LayerNorm.build(train_config.model)
+    our_ln = layer_norm_class(train_config.model)
 
     needs_weight = elementwise_affine
     needs_bias = elementwise_affine and include_bias
     with torch.no_grad():
         if needs_weight:
             weight = torch.randn(train_config.model.d_model)
-            ln.weight.copy_(weight)
-            amd_ln.weight.copy_(weight)
+            torch_ln.weight.copy_(weight)
+            our_ln.weight.copy_(weight)
         else:
             weight = None
 
         if needs_bias:
             bias = torch.randn(train_config.model.d_model)
-            ln.bias.copy_(bias)
-            amd_ln.bias.copy_(bias)
+            torch_ln.bias.copy_(bias)
+            our_ln.bias.copy_(bias)
         else:
             bias = None
 
-    assert ln.bias is None or ln.bias.requires_grad == needs_bias
-    assert ln.weight is None or ln.weight.requires_grad == needs_weight
-    assert amd_ln.bias is None or amd_ln.bias.requires_grad == needs_bias
-    assert amd_ln.weight is None or amd_ln.weight.requires_grad == needs_weight
+    assert torch_ln.bias is None or torch_ln.bias.requires_grad == needs_bias
+    assert torch_ln.weight is None or torch_ln.weight.requires_grad == needs_weight
+    assert our_ln.bias is None or our_ln.bias.requires_grad == needs_bias
+    assert our_ln.weight is None or our_ln.weight.requires_grad == needs_weight
 
     x = torch.randn(16, 1024, train_config.model.d_model)
     x.requires_grad = False
     y_expected = F.layer_norm(x, [train_config.model.d_model], weight, bias)
 
-    y_actual = ln(x)
+    y_actual = torch_ln(x)
     torch.testing.assert_close(y_actual, y_expected)
 
-    y_actual = amd_ln(x)
+    y_actual = our_ln(x)
     torch.testing.assert_close(y_actual, y_expected)
 
 

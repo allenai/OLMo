@@ -18,6 +18,10 @@ export NODE_RANK=$((($RANK - $LOCAL_RANK) / $LOCAL_WORLD_SIZE))
 exec > >(trap "" INT TERM; sed -u "s/^/$NODENAME:$LOCAL_RANK out: /")
 exec 2> >(trap "" INT TERM; sed -u "s/^/$NODENAME:$LOCAL_RANK err: /" >&2)
 
+export TRITON_CACHE_DIR=/tmp/triton_${SLURM_JOB_ID}_${RANK}
+rm -rf $TRITON_CACHE_DIR || true
+mkdir -p $TRITON_CACHE_DIR
+
 if [ $SLURM_LOCALID -eq 0 ] ; then
   if command -v rocm_smi &> /dev/null ; then
     rm -rf /dev/shm/* || true

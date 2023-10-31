@@ -9,6 +9,8 @@ ignore =
     W503
     # line too long, who cares?
     E501
+    # don't assign a lambda expression
+    E731
 
 exclude =
     .venv

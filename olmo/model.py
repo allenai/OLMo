@@ -135,6 +135,8 @@ class LayerNormBase(nn.Module):
             return RMSLayerNorm(config, size=size, low_precision=True, **kwargs)
         elif config.layer_norm_type == LayerNormType.amd_compatible:
             return AMDLayerNorm(config, size=size, **kwargs)
+        elif config.layer_norm_type == LayerNormType.triton:
+            return TritonLayerNorm(config, size=size, **kwargs)
         else:
             raise NotImplementedError(f"Not sure how to handle '{config.layer_norm_type}' LayerNorm type")
 
@@ -218,6 +220,33 @@ class AMDLayerNorm(LayerNormBase):
             if self.bias is not None:
                 x.add_(self.bias)
             return x.to(og_dtype)
+
+
+class TritonLayerNorm(LayerNormBase):
+    def __init__(
+        self,
+        config: ModelConfig,
+        size: Optional[int] = None,
+        elementwise_affine: Optional[bool] = None,
+        eps: float = 1e-05,
+    ):
+        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
+        try:
+            from .triton import layer_norm as triton_layer_norm  # type: ignore
+
+            self._layer_norm = triton_layer_norm
+        except ModuleNotFoundError:
+            raise OlmoConfigurationError(
+                f"{self.__class__.__name__} is not available. Please check if you have triton installed"
+            )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        og_dtype = x.dtype
+        x = self._cast_if_autocast_enabled(x, dtype=torch.float32)
+        with torch.autocast(enabled=False, device_type=x.device.type):
+            return self._layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps).to(
+                og_dtype
+            )
 
 
 class RMSLayerNorm(LayerNormBase):
