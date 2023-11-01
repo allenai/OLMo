@@ -7,3 +7,4 @@ pytest-sphinx
 twine>=1.11.0
 setuptools
 wheel
+build
