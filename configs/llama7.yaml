@@ -41,7 +41,7 @@ fsdp:
   wrapping_strategy: size_based
   sharding_strategy: SHARD_GRAD_OP
 
-activation_checkpointing: by_layer
+activation_checkpointing: whole_layer
 
 compile: null
 
