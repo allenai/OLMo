@@ -29,6 +29,7 @@ DEFAULT_MAX_ARCHIVE_SIZE: float = 5_000_000_000  # 5GB
 class CleaningOperations(Enum):
     DELETE_BAD_RUNS = auto()
     RENAME_RUNS_TO_WANDB_ID = auto()
+    UNSHARD_CHECKPOINTS = auto()
 
 
 class StorageType(Enum):
@@ -154,7 +155,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
             self._gcs_client = gcs.Client()
 
         return self._gcs_client
-    
+
     @staticmethod
     def _get_bucket_name_and_key(path: str) -> Tuple[str, str]:
         parsed_path = urlparse(path)
@@ -442,6 +443,20 @@ class StorageCleaner:
 
         raise NotImplementedError
 
+    def unshard_runs_checkpoints(self, runs_path: str, latest_checkpoint_only: bool):
+        log.info("Starting unsharding checkpoints")
+
+        if not runs_path.endswith("/"):
+            raise ValueError(
+                "Runs path does not end with '/'. Please verify that path is a directory and re-run with trailing '/'."
+            )
+
+        storage: StorageAdapter = self._get_storage_adapter(runs_path)
+        run_dir_entries = [
+            os.path.join(runs_path, entry)
+            for entry in storage.list_dirs(runs_path)
+        ]
+
 
 def perform_operation(args: argparse.Namespace):
     if args.dry_run:
@@ -508,6 +523,22 @@ def _add_wandb_subparser(subparsers: _SubParsersAction):
     )
 
 
+def _add_unsharding_subparser(subparsers: _SubParsersAction):
+    unsharding_runs_parser = subparsers.add_parser(
+        "unshard", help="unshard checkpoint(s) of each run"
+    )
+    unsharding_runs_parser.set_defaults(op=CleaningOperations.UNSHARD_CHECKPOINTS)
+    unsharding_runs_parser.add_argument(
+        "runs_path",
+        help="Path to directory containing one or more run directories",
+    )
+    unsharding_runs_parser.add_argument(
+        "--latest_only",
+        action="store_true",
+        help="If set, only the latest checkpoint of each run (if sharded) is unsharded.",
+    )
+
+
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser()
     parser.add_argument(
@@ -532,6 +563,7 @@ def get_parser() -> ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", help="Cleaning commands")
     _add_delete_subparser(subparsers)
     _add_wandb_subparser(subparsers)
+    _add_unsharding_subparser(subparsers)
 
     # gs://ai2-olmo/ai2-llm/olmo-medium/njmmt4v8/config.yaml
     # temp
