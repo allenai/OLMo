@@ -60,6 +60,15 @@ def main(cfg: TrainConfig) -> None:
     cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
     assert cfg.device_train_batch_size is not None  # for mypy
     cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
+    if cfg.optimizer.no_decay_norm_and_bias is not None:
+        log.warning(
+            "You set the deprecated config option `no_decay_norm_and_bias`. For compatibility, this"
+            "setting will take precedence over all other weight decay configurations. Please change"
+            "your config to use `decay_norm_and_bias` and `decay_embeddings` instead."
+        )
+        cfg.optimizer.decay_norm_and_bias = not cfg.optimizer.no_decay_norm_and_bias
+        cfg.optimizer.decay_embeddings = not cfg.optimizer.no_decay_norm_and_bias
+        cfg.optimizer.no_decay_norm_and_bias = None  # So nobody uses this by accident.
 
     # Display and save configuration.
     if get_global_rank() == 0:
