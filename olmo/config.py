@@ -596,7 +596,6 @@ class ShardedCheckpointerType(StrEnum):
 
 
 class ActivationCheckpointingStrategy(StrEnum):
-    none = "none"
     whole_layer = "whole_layer"
     one_in_two = "one_in_two"
     one_in_three = "one_in_three"
@@ -879,7 +878,7 @@ class TrainConfig(BaseConfig):
     Stop at a specific step.
     """
 
-    activation_checkpointing: ActivationCheckpointingStrategy = ActivationCheckpointingStrategy.none
+    activation_checkpointing: Optional[ActivationCheckpointingStrategy] = None
     """
     The activation checkpointing strategy to use.
     """

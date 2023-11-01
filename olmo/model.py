@@ -446,7 +446,7 @@ class OlmoBlock(nn.Module):
             type_of_module=ModuleType.out_module,
         )
 
-    def set_activation_checkpointing(self, strategy: ActivationCheckpointingStrategy):
+    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         if strategy == ActivationCheckpointingStrategy.fine_grained:
             self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
         else:
@@ -740,7 +740,7 @@ class OlmoBlockGroup(nn.ModuleList):
         super().__init__(modules)
         self.config = config
         self.layer_offset = layer_offset
-        self.activation_checkpointing_strategy = ActivationCheckpointingStrategy.none
+        self.activation_checkpointing_strategy: Optional[ActivationCheckpointingStrategy] = None
         self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
 
     def forward(
@@ -785,7 +785,7 @@ class OlmoBlockGroup(nn.ModuleList):
         for block in self:
             block.reset_parameters()
 
-    def set_activation_checkpointing(self, strategy: ActivationCheckpointingStrategy):
+    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         self.activation_checkpointing_strategy = strategy
         for block in self:
             block.set_activation_checkpointing(strategy)
@@ -838,7 +838,7 @@ class Olmo(nn.Module):
                     "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
                 )
 
-        self.activation_checkpointing_strategy = ActivationCheckpointingStrategy.none
+        self.activation_checkpointing_strategy: Optional[ActivationCheckpointingStrategy] = None
         self._activation_checkpoint_fn: Callable = activation_checkpoint_function(self.config)
 
         if not (
@@ -896,11 +896,9 @@ class Olmo(nn.Module):
             self.get_alibi_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
 
     def enable_activation_checkpointing(self, enable: bool = True):
-        self.set_activation_checkpointing(
-            ActivationCheckpointingStrategy.whole_layer if enable else ActivationCheckpointingStrategy.none
-        )
+        self.set_activation_checkpointing(ActivationCheckpointingStrategy.whole_layer if enable else None)
 
-    def set_activation_checkpointing(self, strategy: ActivationCheckpointingStrategy):
+    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         self.activation_checkpointing_strategy = strategy
         if self.config.block_group_size != 1:
             for block_group in self.transformer.block_groups:
