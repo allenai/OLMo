@@ -23,11 +23,29 @@ from rich.text import Text
 from rich.traceback import Traceback
 
 from .aliases import PathOrStr
-from .config import LogFilterType
 from .exceptions import OlmoCliError, OlmoError, OlmoNetworkError
+
+
+class StrEnum(str, Enum):
+    """
+    This is equivalent to Python's :class:`enum.StrEnum` since version 3.11.
+    We include this here for compatibility with older version of Python.
+    """
+
+    def __str__(self) -> str:
+        return self.value
+
+    def __repr__(self) -> str:
+        return f"'{str(self)}'"
+
 
 _log_extra_fields: Dict[str, Any] = {}
 log = logging.getLogger(__name__)
+
+
+class LogFilterType(StrEnum):
+    rank0_only = "rank0_only"
+    local_rank0_only = "local_rank0_only"
 
 
 def log_extra_field(field_name: str, field_value: Any) -> None:
@@ -672,16 +690,3 @@ def default_thread_count() -> int:
 
 def pass_through_fn(fn, *args, **kwargs):
     return fn(*args, **kwargs)
-
-
-class StrEnum(str, Enum):
-    """
-    This is equivalent to Python's :class:`enum.StrEnum` since version 3.11.
-    We include this here for compatibility with older version of Python.
-    """
-
-    def __str__(self) -> str:
-        return self.value
-
-    def __repr__(self) -> str:
-        return f"'{str(self)}'"

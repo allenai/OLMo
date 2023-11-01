@@ -26,7 +26,6 @@ from .exceptions import OlmoConfigurationError
 from .util import StrEnum
 
 __all__ = [
-    "LogFilterType",
     "ActivationType",
     "ActivationCheckpointingStrategy",
     "BlockType",
@@ -143,11 +142,6 @@ class BaseConfig:
                 if name in out:
                     del out[name]
         return out
-
-
-class LogFilterType(StrEnum):
-    rank0_only = "rank0_only"
-    local_rank0_only = "local_rank0_only"
 
 
 class LayerNormType(StrEnum):
