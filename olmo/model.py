@@ -32,16 +32,16 @@ from torch import einsum
 from .aliases import PathOrStr
 from .beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
 from .config import (
+    ActivationCheckpointingStrategy,
     ActivationType,
     BlockType,
     CheckpointType,
     FSDPWrapStrategy,
     LayerNormType,
     ModelConfig,
-    ActivationCheckpointingStrategy,
 )
 from .exceptions import OlmoConfigurationError
-from .initialization import init_weights, ModuleType
+from .initialization import ModuleType, init_weights
 from .util import ensure_finite_, pass_through_fn
 
 __all__ = [
