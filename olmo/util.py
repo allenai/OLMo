@@ -18,6 +18,7 @@ import torch.nn as nn
 from botocore.config import Config
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
+from rich.progress import Progress
 from rich.text import Text
 from rich.traceback import Traceback
 
@@ -375,8 +376,8 @@ def syncronize_flag(flag: bool, device: torch.device) -> bool:
         return flag
 
 
-def wait_on(condition: Callable[[], bool], description: str, timeout: float = 10.0):
-    """Wait on the condition function to return True."""
+def wait_for(condition: Callable[[], bool], description: str, timeout: float = 10.0):
+    """Wait for the condition function to return True."""
     start_time = time.monotonic()
     while not condition():
         time.sleep(0.5)
@@ -399,14 +400,22 @@ def dir_is_empty(dir: PathOrStr) -> bool:
         return True
 
 
-def resource_path(folder: PathOrStr, fname: str, local_cache: Optional[PathOrStr] = None) -> Path:
+def get_progress_bar() -> Progress:
+    from cached_path import get_download_progress
+
+    return get_download_progress()
+
+
+def resource_path(
+    folder: PathOrStr, fname: str, local_cache: Optional[PathOrStr] = None, progress: Optional[Progress] = None
+) -> Path:
     if local_cache is not None and (local_path := Path(local_cache) / fname).is_file():
         log.info(f"Found local cache of {fname} at {local_path}")
         return local_path
     else:
         from cached_path import cached_path
 
-        return cached_path(f"{str(folder).rstrip('/')}/{fname}")
+        return cached_path(f"{str(folder).rstrip('/')}/{fname}", progress=progress)
 
 
 def file_size(path: PathOrStr) -> int:
@@ -461,6 +470,35 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
         with open(source, "rb") as f:
             f.seek(bytes_start)
             return f.read(num_bytes)
+
+
+def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
+    if is_url(dir):
+        from urllib.parse import urlparse
+
+        parsed = urlparse(str(dir))
+        if parsed.scheme == "gs":
+            raise NotImplementedError
+        elif parsed.scheme == "s3":
+            return _s3_find_latest_checkpoint(parsed.netloc, parsed.path.strip("/"))
+        elif parsed.scheme == "file":
+            return find_latest_checkpoint(str(dir).replace("file://", "", 1))
+        else:
+            raise NotImplementedError(f"find_latest_checkpoint not implemented for '{parsed.scheme}' files")
+    else:
+        latest_step = 0
+        latest_checkpoint: Optional[Path] = None
+        for path in Path(dir).glob("step*"):
+            if path.is_dir():
+                try:
+                    step = int(path.name.replace("step", "").replace("-unsharded", ""))
+                except ValueError:
+                    continue
+                # We prioritize sharded checkpoints over unsharded checkpoints.
+                if step > latest_step or (step == latest_step and not path.name.endswith("-unsharded")):
+                    latest_step = step
+                    latest_checkpoint = path
+        return latest_checkpoint
 
 
 def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
@@ -605,6 +643,29 @@ def _s3_get_bytes_range(
     raise OlmoNetworkError("Failed to get bytes range from s3") from err
 
 
+def _s3_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
+    if not prefix.endswith("/"):
+        prefix = f"{prefix}/"
+    response = _get_s3_client().list_objects(Bucket=bucket_name, Prefix=prefix, Delimiter="/")
+    assert not response["IsTruncated"]  # need to handle this if it happens
+    latest_step = 0
+    latest_checkpoint: Optional[str] = None
+    for item in response["CommonPrefixes"]:
+        prefix = item["Prefix"].strip("/")
+        checkpoint_name = os.path.split(prefix)[-1]
+        if not checkpoint_name.startswith("step"):
+            continue
+        try:
+            step = int(checkpoint_name.replace("step", "").replace("-unsharded", ""))
+        except ValueError:
+            continue
+        # We prioritize sharded checkpoints over unsharded ones.
+        if step > latest_step or (step == latest_step and not checkpoint_name.endswith("-unsharded")):
+            latest_step = step
+            latest_checkpoint = f"s3://ai2-llm/{prefix}"
+    return latest_checkpoint
+
+
 def is_weight_decay_module(module: nn.Module) -> bool:
     """Returns true if the module should use weight decay."""
     from .model import LayerNormBase
@@ -614,3 +675,7 @@ def is_weight_decay_module(module: nn.Module) -> bool:
 
 def default_thread_count() -> int:
     return int(os.environ.get("OLMO_NUM_THREADS") or min(32, (os.cpu_count() or 1) + 4))
+
+
+def pass_through_fn(fn, *args, **kwargs):
+    return fn(*args, **kwargs)

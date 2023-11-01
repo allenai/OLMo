@@ -2,14 +2,24 @@ import io
 import logging
 import pickle
 import shutil
+from abc import ABCMeta, abstractmethod
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import contextmanager
+from dataclasses import dataclass, field, replace
+from functools import reduce
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, Dict, Generator, List, Optional, Set, Tuple, cast
 
+import numpy as np
 import torch
 import torch.distributed.checkpoint as dist_cp
+from numpy import ndarray
 from packaging import version
+from torch.distributed import _remote_device
 from torch.distributed._shard._utils import narrow_tensor_by_index
+from torch.distributed._shard.metadata import ShardMetadata
+from torch.distributed._shard.sharded_tensor import ShardedTensor
 from torch.distributed.checkpoint.filesystem import WriteResult, _StorageInfo
 from torch.distributed.checkpoint.metadata import Metadata, MetadataIndex
 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
@@ -17,12 +27,16 @@ from torch.distributed.checkpoint.planner import LoadItemType, ReadItem
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import StateDictType
 from torch.distributed.fsdp.api import (
+    FullOptimStateDictConfig,
+    FullStateDictConfig,
     ShardedOptimStateDictConfig,
     ShardedStateDictConfig,
 )
+from torch.distributed.fsdp.flat_param import FlatParamHandle
 from torch.futures import Future
 
 from .aliases import PathOrStr
+from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
 from .optim import Optimizer, fix_optim_state_dict
 from .util import (
     barrier,
@@ -30,8 +44,12 @@ from .util import (
     dir_is_empty,
     get_bytes_range,
     get_fs_local_rank,
+    get_global_rank,
+    get_progress_bar,
+    get_world_size,
     resource_path,
     upload,
+    wait_for,
 )
 
 __all__ = [
@@ -43,6 +61,12 @@ __all__ = [
     "load_model_state",
     "RemoteFileSystemWriter",
     "RemoteFileSystemReader",
+    "Checkpointer",
+    "FullCheckpointer",
+    "TorchNewStyleShardedCheckpointer",
+    "TorchLegacyShardedCheckpointer",
+    "LocalShardedCheckpointer",
+    "build_sharded_checkpointer",
 ]
 
 
@@ -188,6 +212,7 @@ def save_state_dict(
     *,
     upload_to: Optional[str] = None,
     save_overwrite: bool = False,
+    synchronize: bool = True,
 ):
     """
     Save a regular state dict to the file ``fname`` within ``checkpoint_dir`` using :func:`torch.save()`.
@@ -199,6 +224,8 @@ def save_state_dict(
     :param state_dict: The state dict to save.
     :param upload_to: Optional, a remote "directory" to upload the file to.
     :param save_overwrite: Overwrite existing files.
+    :param synchronize: If ``False``, don't do any distributed synchronization. Use this when only calling
+        this function from a single rank.
 
     :raises FileExistsError: If the ``fname`` already exists within ``checkpoint_dir`` and ``save_overwrite=False``.
     """
@@ -208,9 +235,11 @@ def save_state_dict(
         target_path.unlink(missing_ok=True)
     elif target_path.is_file():
         raise FileExistsError(target_path)
-    barrier()
+    if synchronize:
+        barrier()
     target_path.parent.mkdir(exist_ok=True, parents=True)
-    barrier()
+    if synchronize:
+        barrier()
     torch.save(state_dict, target_path)
     if upload_to is not None:
         upload_target = f"{upload_to.rstrip('/')}/{fname}"
@@ -389,3 +418,978 @@ class RemoteFileSystemReader(dist_cp.StorageReader):
 
     def prepare_global_plan(self, global_plan: List[dist_cp.LoadPlan]) -> List[dist_cp.LoadPlan]:
         return global_plan
+
+
+class Checkpointer(metaclass=ABCMeta):
+    def __init__(self, cfg: TrainConfig, thread_count: Optional[int] = None):
+        self.cfg = cfg
+        self.thread_count = thread_count or default_thread_count()
+
+    @abstractmethod
+    def save_checkpoint(
+        self,
+        dir: PathOrStr,
+        fsdp_model: FSDP,
+        optim: Optimizer,
+        train_state: Dict[str, Any],
+        *,
+        upload_to: Optional[str] = None,
+    ) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def restore_checkpoint(
+        self,
+        load_path: PathOrStr,
+        fsdp_model: FSDP,
+        optim: Optimizer,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+        load_optimizer_state: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Restores a checkpoint to the model and optimizer. Returns the remaining trainer state.
+        """
+        raise NotImplementedError
+
+    def unshard_checkpoint(
+        self,
+        load_path: PathOrStr,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+        load_optimizer_state: bool = True,
+        load_trainer_state: bool = True,
+        device: Optional[torch.device] = None,
+    ) -> Tuple[Dict[str, torch.Tensor], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        """
+        Unshard a checkpoint.
+
+        Note this is not marked abstract because child classes are not required to implemented this.
+        """
+        del load_path, local_cache, load_optimizer_state, load_trainer_state, device
+        raise NotImplementedError
+
+    @contextmanager
+    def _temporary_wd(self, dir: PathOrStr) -> Generator[Path, None, None]:
+        # Make sure checkpoint directory doesn't exist unless it's okay to overwrite it.
+        checkpoint_dir = Path(dir)
+        if not dir_is_empty(checkpoint_dir):
+            if self.cfg.save_overwrite:
+                if get_fs_local_rank() == 0:
+                    shutil.rmtree(checkpoint_dir, ignore_errors=True)
+            else:
+                raise FileExistsError(checkpoint_dir)
+        # No need to mkdir here since we'll directly replace the temporary directory with
+        # this directory below.
+        barrier()
+
+        # Prepare temporary directory. We don't have to be as careful here, we can
+        # just remove it if it already exists.
+        checkpoint_dir_tmp = checkpoint_dir.with_name(checkpoint_dir.name + "-tmp")
+        if get_fs_local_rank() == 0:
+            shutil.rmtree(checkpoint_dir_tmp, ignore_errors=True)
+        barrier()
+
+        # Yield temporary directory for `.save_checkpoint()` to use.
+        yield checkpoint_dir_tmp
+
+        barrier()
+
+        # Finally if all went well replace the temporary directory with the actual
+        # checkpoint directory.
+        if get_fs_local_rank() == 0:
+            # Replace temp directory with target checkpoint directory.
+            try:
+                checkpoint_dir_tmp.replace(checkpoint_dir)
+            except FileNotFoundError:
+                # Caught when another (file-system) local rank 0 has already replaced the tmp directory.
+                # This can happen when nodes are saving to a common NFS drive but otherwise have distinct
+                # file-systems.
+                if not checkpoint_dir.exists():
+                    raise
+
+        # In the cases where we're using a shared NFS drive between ranks to save checkpoints,
+        # replacing the temp directory with the final directory from rank 0 might not be immediately
+        # realized in the file systems of the other ranks.
+        # So we wait here across all ranks until that final checkpoint directory is visible.
+        wait_for(lambda: checkpoint_dir.exists(), "Waiting for checkpoint directory", timeout=10.0)
+
+        barrier()
+
+    def _save_config(self, dir: PathOrStr, *, upload_to: Optional[str] = None) -> None:
+        if get_global_rank() == 0:
+            log.info("Saving config...")
+            self.cfg.save(config_path := Path(dir) / "config.yaml")
+            if upload_to is not None:
+                upload_target = f"{upload_to}/config.yaml"
+                log.info(f"Uploading {config_path} to {upload_target}")
+                upload(config_path, upload_target, save_overwrite=self.cfg.save_overwrite)
+
+
+class FullCheckpointer(Checkpointer):
+    """
+    A :class:`Checkpointer` that saves a single full model and optimizer state dictionary.
+    """
+
+    def save_checkpoint(
+        self,
+        dir: PathOrStr,
+        fsdp_model: FSDP,
+        optim: Optimizer,
+        trainer_state: Dict[str, Any],
+        *,
+        upload_to: Optional[str] = None,
+    ) -> None:
+        with self._temporary_wd(dir) as checkpoint_dir:
+            with FSDP.state_dict_type(
+                fsdp_model,
+                state_dict_type=StateDictType.FULL_STATE_DICT,
+                state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
+                optim_state_dict_config=FullOptimStateDictConfig(rank0_only=True, offload_to_cpu=True),
+            ):
+                # We'll write the model and optimizer state dicts individually to reduce (CPU) memory consumption.
+                # First the model state.
+                model_state_dict = fsdp_model.state_dict()
+                if get_global_rank() == 0:
+                    log.info("Saving model state...")
+                    save_state_dict(
+                        checkpoint_dir,
+                        "model.pt",
+                        model_state_dict,
+                        upload_to=upload_to,
+                        save_overwrite=self.cfg.save_overwrite,
+                        synchronize=False,
+                    )
+                del model_state_dict
+                barrier()
+
+                # Then the optimizer state.
+                optim_state_dict = FSDP.optim_state_dict(fsdp_model, optim)
+                if get_global_rank() == 0:
+                    log.info("Saving optim state...")
+                    save_state_dict(
+                        checkpoint_dir,
+                        "optim.pt",
+                        optim_state_dict,
+                        upload_to=upload_to,
+                        save_overwrite=self.cfg.save_overwrite,
+                        synchronize=False,
+                    )
+                del optim_state_dict
+                barrier()
+
+            # Save trainer state.
+            if get_global_rank() == 0:
+                log.info("Saving trainer state...")
+                save_state_dict(
+                    checkpoint_dir,
+                    "train.pt",
+                    trainer_state,
+                    upload_to=upload_to,
+                    save_overwrite=self.cfg.save_overwrite,
+                    synchronize=False,
+                )
+            # Save config.
+            self._save_config(checkpoint_dir, upload_to=upload_to)
+
+    def restore_checkpoint(
+        self,
+        load_path: PathOrStr,
+        fsdp_model: FSDP,
+        optim: Optimizer,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+        load_optimizer_state: bool = True,
+    ) -> Dict[str, Any]:
+        with FSDP.state_dict_type(
+            fsdp_model,
+            state_dict_type=StateDictType.FULL_STATE_DICT,
+            state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
+            optim_state_dict_config=FullOptimStateDictConfig(rank0_only=True, offload_to_cpu=True),
+        ):
+            # Load model state.
+            log.info("Loading model state...")
+            fsdp_model.load_state_dict(
+                fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(
+                    load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location="cpu")
+                )
+            )
+
+            # Load optimizer state.
+            if load_optimizer_state:
+                log.info("Loading optimizer state...")
+                optim_state_dict = load_state_dict(
+                    load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
+                )
+                load_fsdp_optim_state(fsdp_model, optim, optim_state_dict)
+
+            # Load other state.
+            try:
+                trainer_state = load_state_dict(load_path, "train.pt", local_cache=local_cache)
+            except FileNotFoundError:
+                # for backwards compatibility
+                trainer_state = load_state_dict(load_path, "other.pt", local_cache=local_cache)
+        barrier()
+        return trainer_state
+
+    def load_checkpoint(
+        self,
+        load_path: PathOrStr,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+        load_optimizer_state: bool = True,
+        device: Optional[torch.device] = None,
+    ) -> Tuple[Dict[str, torch.Tensor], Optional[Dict[str, Any]]]:
+        device = device if device is not None else torch.device("cpu")
+        model_state = load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location=device)  # type: ignore
+        optim_state = None
+        if load_optimizer_state:
+            optim_state = load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location=device)  # type: ignore
+        return model_state, optim_state
+
+
+class TorchNewStyleShardedCheckpointer(Checkpointer):
+    """
+    A sharded :class:`Checkpointer` that uses PyTorch's new distributed checkpointing functionality.
+    """
+
+    def save_checkpoint(
+        self,
+        dir: PathOrStr,
+        fsdp_model: FSDP,
+        optim: Optimizer,
+        trainer_state: Dict[str, Any],
+        *,
+        upload_to: Optional[str] = None,
+    ) -> None:
+        with self._temporary_wd(dir) as checkpoint_dir:
+            # Save model and optim state.
+            save_fsdp_model_and_optim_state(
+                checkpoint_dir,
+                fsdp_model,
+                optim,
+                upload_to=upload_to,
+                save_overwrite=self.cfg.save_overwrite,
+            )
+
+            # Save trainer state.
+            log.info("Saving trainer state...")
+            save_state_dict(
+                checkpoint_dir,
+                f"train/rank{get_global_rank()}.pt",
+                trainer_state,
+                upload_to=upload_to,
+                save_overwrite=self.cfg.save_overwrite,
+            )
+
+            # Save config.
+            self._save_config(checkpoint_dir, upload_to=upload_to)
+
+    def restore_checkpoint(
+        self,
+        load_path: PathOrStr,
+        fsdp_model: FSDP,
+        optim: Optimizer,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+        load_optimizer_state: bool = True,
+    ) -> Dict[str, Any]:
+        # Load model and optimizer state in place.
+        log.info("Loading model and optimizer state...")
+        load_fsdp_model_and_optim_state(
+            load_path,
+            fsdp_model,
+            optim,
+            local_cache=local_cache,
+            load_optimizer_state=load_optimizer_state,
+        )
+
+        # Load trainer state dict.
+        log.info("Loading trainer state...")
+        try:
+            trainer_state = load_state_dict(
+                load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache
+            )
+        except FileNotFoundError:
+            # Fall back to rank 0 train state.
+            # This can happen when we're restoring a checkpoint with a different world size.
+            trainer_state = load_state_dict(load_path, "train/rank0.pt", local_cache=local_cache)
+        barrier()
+        return trainer_state
+
+
+class TorchLegacyShardedCheckpointer(Checkpointer):
+    """
+    A sharded :class:`Checkpointer` that just uses `torch.save()` with extra logic for handling FSDP model
+    and optim state.
+
+    The world size must be kept consistent when using this checkpointer.
+    """
+
+    def save_checkpoint(
+        self,
+        dir: PathOrStr,
+        fsdp_model: FSDP,
+        optim: Optimizer,
+        trainer_state: Dict[str, Any],
+        *,
+        upload_to: Optional[str] = None,
+    ) -> None:
+        with self._temporary_wd(dir) as checkpoint_dir:
+            with FSDP.state_dict_type(
+                fsdp_model,
+                state_dict_type=StateDictType.SHARDED_STATE_DICT,
+                state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
+                optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
+            ):
+                state_dict = {
+                    "model": fsdp_model.state_dict(),
+                    "optim": FSDP.optim_state_dict(fsdp_model, optim),
+                    **trainer_state,
+                }
+                save_state_dict(
+                    checkpoint_dir,
+                    f"rank{get_global_rank()}.pt",
+                    state_dict,
+                    upload_to=upload_to,
+                    save_overwrite=self.cfg.save_overwrite,
+                )
+
+            # Save config.
+            self._save_config(checkpoint_dir, upload_to=upload_to)
+
+    def restore_checkpoint(
+        self,
+        load_path: PathOrStr,
+        fsdp_model: FSDP,
+        optim: Optimizer,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+        load_optimizer_state: bool = True,
+    ) -> Dict[str, Any]:
+        with FSDP.state_dict_type(
+            fsdp_model,
+            state_dict_type=StateDictType.SHARDED_STATE_DICT,
+            state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
+            optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
+        ):
+            # Deserialize state dict.
+            state_dict = load_state_dict(
+                load_path, f"rank{get_global_rank()}.pt", local_cache=local_cache, map_location="cpu"
+            )
+
+            # Load model and optimizer state.
+            log.info("Loading model state...")
+            fsdp_model.load_state_dict(state_dict["model"])
+            del state_dict["model"]
+            if load_optimizer_state:
+                log.info("Loading optimizer state...")
+                load_fsdp_optim_state(fsdp_model, optim, state_dict["optim"])
+            del state_dict["optim"]
+
+        barrier()
+        return state_dict
+
+    def unshard_checkpoint(
+        self,
+        load_path: PathOrStr,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+        load_optimizer_state: bool = True,
+        load_trainer_state: bool = True,
+        device: Optional[torch.device] = None,
+    ) -> Tuple[Dict[str, torch.Tensor], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        assert local_cache is None, "this method currently only supports local files"
+        full_state_dict = self._unshard(load_path, device or torch.device("cpu"), skip_keys={"rng"})
+        model_state = full_state_dict.pop("model")
+        optim_state = full_state_dict.pop("optim")
+        return (
+            model_state,
+            optim_state if load_optimizer_state else None,
+            full_state_dict if load_trainer_state else None,
+        )
+
+    def _unshard(self, input_dir: PathOrStr, device: torch.device, skip_keys: Optional[Set[str]] = None):
+        input_dir = Path(input_dir)
+        skip_keys = skip_keys or set()
+
+        # Monkeypatch torch's ShardedTensor, so we can unpickle without having torch.distributed set up.
+        def _rebuild_from_type_v2_monkey(func, new_type, args, state):
+            ret = func(*args)
+            if type(ret) is not new_type:
+                ret = ret.as_subclass(new_type)
+
+            # Shortcut the construction of ShardedTensor
+            # This is in the top 5 of my worst hacks.
+            if isinstance(ret, ShardedTensor):
+                ret._local_shards, ret._metadata, _, ret._sharding_spec, ret._init_rrefs = state
+                return ret
+
+            # The rest of this function ought to be in the top 5 of somebody else's worst hacks.
+            # Tensor does define __setstate__ even though it doesn't define
+            # __getstate__. So only use __setstate__ if it is NOT the one defined
+            # on Tensor
+            if getattr(ret.__class__, "__setstate__", torch.Tensor.__setstate__) is not torch.Tensor.__setstate__:
+                ret.__setstate__(state)
+            else:
+                ret = torch._utils._set_obj_state(ret, state)
+            return ret
+
+        torch._tensor._rebuild_from_type_v2 = _rebuild_from_type_v2_monkey
+
+        # We load in threads because it's faster.
+        executor = ThreadPoolExecutor()
+        shards_dict = {}
+        for shard_name in input_dir.glob("rank*.pt"):
+            log.info("Loading %s ...", shard_name)
+            shard_number = int(shard_name.name[4:-3])  # shard names look like "rankXX.pt"
+            shards_dict[shard_number] = executor.submit(torch.load, shard_name, map_location="cpu")
+        shards = [None] * len(shards_dict)
+        for rank, shard_future in shards_dict.items():
+            shard = shard_future.result()
+            for key in skip_keys:
+                if key in shard:
+                    del shard[key]
+            shards[rank] = shard
+        assert all(shard is not None for shard in shards)
+        executor.shutdown()
+        del shards_dict
+
+        log.info("Unsharding from %d shards ...", len(shards))
+
+        unsharded_state_dict = self._unshard_object(shards, device=device)
+        # At this point in time we need 2x memory :-(
+        del shards
+
+        return unsharded_state_dict
+
+    def _unshard_object(self, os: List[Any], device: torch.device) -> Any:
+        rank0_item = os[0]
+        assert all(type(o) is type(rank0_item) for o in os)
+        if isinstance(rank0_item, str):
+            assert all(o == rank0_item for o in os)
+            return rank0_item
+        elif isinstance(rank0_item, (list, tuple, set)):
+            assert all(len(o) == len(rank0_item) for o in os)
+            return rank0_item.__class__(self._unshard_object(o, device=device) for o in zip(*os))
+        elif isinstance(rank0_item, dict):
+            assert all(o.keys() == rank0_item.keys() for o in os)
+            return {key: self._unshard_object([o[key] for o in os], device=device) for key in rank0_item.keys()}
+        elif isinstance(rank0_item, ShardedTensor):
+            return self._gather(os, device=device)
+        else:
+            assert all(self._objects_are_equal(o, rank0_item) for o in os)
+            return rank0_item
+
+    def _gather(self, shards: List[ShardedTensor], device: torch.device) -> torch.Tensor:
+        world_size = len(shards)
+        shard0_md = shards[0].metadata()
+        # Make sure all shards agree on the metadata
+        assert all(shard.metadata() == shard0_md for shard in shards)
+        # Make sure the nth shard expects to be the nth shard.
+        assert all(
+            shard_md.placement.rank() == rank  # type: ignore
+            for rank, shard_md in enumerate(shard0_md.shards_metadata)
+        )
+
+        def shard_size(shard_md):
+            return reduce((lambda x, y: x * y), shard_md.shard_sizes)  # type: ignore[attr-defined]
+
+        rank_sizes = [0 for _ in range(world_size)]
+        max_rank_size = 0
+        shard_placement: Dict[ShardMetadata, Tuple[int, int]] = {}
+        for shard_md in shard0_md.shards_metadata:
+            shard_rank = cast(_remote_device, shard_md.placement).rank()
+            assert shard_rank is not None
+
+            shard_placement[shard_md] = (shard_rank, rank_sizes[shard_rank])
+            rank_sizes[shard_rank] += shard_size(shard_md)
+            max_rank_size = max(max_rank_size, rank_sizes[shard_rank])
+
+        gather_list: List[torch.Tensor] = [torch.empty((max_rank_size,)) for _ in range(world_size)]
+
+        datas = []
+        with torch.no_grad():
+            for shard in shards:
+                data = torch.empty(max_rank_size)
+
+                for local_shard in shard.local_shards():
+                    src = local_shard.tensor.flatten()
+                    shard_offset = shard_placement[local_shard.metadata][1]
+                    data[shard_offset : shard_offset + src.numel()].copy_(src)
+
+                datas.append(data)
+
+        # torch.gather in a nutshell
+        for rank, data in enumerate(datas):
+            gather_list[rank].copy_(data)
+
+        full_size = shard0_md.size
+        out = torch.empty(*full_size, dtype=shard0_md.tensor_properties.dtype, device=device)
+        dims = len(full_size)
+        for shard_md in shard0_md.shards_metadata:
+            rank, rank_offset = shard_placement[shard_md]
+            tensor = gather_list[rank]
+            tensor = tensor[rank_offset : rank_offset + shard_size(shard_md)]
+            tensor = tensor.view(shard_md.shard_sizes)
+
+            out_narrow_view = out
+            for dim in range(dims):
+                out_narrow_view = out_narrow_view.narrow(
+                    dim,
+                    shard_md.shard_offsets[dim],
+                    shard_md.shard_sizes[dim],
+                )
+
+            out_narrow_view.copy_(tensor)
+
+        return out
+
+    def _objects_are_equal(self, a: Any, b: Any) -> bool:
+        if type(a) is not type(b):
+            return False
+        if isinstance(a, ndarray):
+            return np.array_equal(a, b)
+        elif isinstance(a, torch.Tensor):
+            return torch.equal(a, b)
+        else:
+            return a == b
+
+
+@dataclass
+class _LocalShardedCheckpointerMetadata(BaseConfig):
+    world_size: int = field(default_factory=get_world_size)
+
+
+@dataclass
+class _FlatParamShard:
+    full_shape: torch.Size
+    shard_offsets: Tuple[int, int]
+    shard_data: Optional[torch.Tensor]
+
+    def copy_into(self, full_tensor: torch.Tensor) -> None:
+        assert self.shard_data is not None
+        full_tensor_shard_view = full_tensor.view(-1)[self.shard_offsets[0] : self.shard_offsets[1] + 1]
+        assert self.shard_data.shape == full_tensor_shard_view.shape
+        full_tensor_shard_view.copy_(self.shard_data)
+
+
+class LocalShardedCheckpointer(Checkpointer):
+    """
+    A sharded :class:`Checkpointer` that directly saves the local FSDP flat params data.
+    The optimizer state is saved directly with `torch.save()` without reformatting via FSDP methods.
+
+    The world size must be kept consistent when using this checkpointer. However, you can easily
+    reconstruct a full unsharded model and/or optimizer state dictionary from a single Python process
+    using :meth:`unshard_checkpoint()` (no distributed initialization required).
+    """
+
+    # These correspond to metadata attributes on `torch.distributed.fsdp.flat_param.FlatParameter`.
+    _FLAT_PARAM_METADATA_TO_SAVE = (
+        "_fqns",
+        "_shard_param_offsets",
+        "_shard_indices",
+        "_numels",
+        "_numels_with_padding",
+        "_shapes",
+        "_shard_numel_padded",
+        "_shard_param_infos",
+    )
+
+    def _fsdp_modules(self, fsdp_model: FSDP) -> List[Tuple[str, FSDP]]:
+        """
+        Returns a list of FSDP modules with their FQN.
+        """
+        modules = []
+        for name, module in fsdp_model.named_modules():
+            if isinstance(module, FSDP):
+                modules.append((name, module))
+        return modules
+
+    def _prepare_fsdp_model(self, fsdp_model: FSDP) -> None:
+        from torch.distributed.fsdp._runtime_utils import _lazy_init
+
+        # TODO (epwalsh): I'm not sure if this is necessary, but this is what PyTorch does before saving/loading
+        # an FSDP state dict through the built-in methods.
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        _lazy_init(fsdp_model, fsdp_model)
+
+    def _fsdp_handles(self, fsdp_model: FSDP) -> List[FlatParamHandle]:
+        if version.parse(torch.__version__) < version.parse("2.1.0"):
+            return fsdp_model._handles  # type: ignore
+        elif version.parse(torch.__version__) < version.parse("2.2.0"):
+            return [fsdp_model._handle]  # type: ignore
+        else:
+            # Need to verify FSDP internals with newer versions.
+            raise NotImplementedError
+
+    @torch.no_grad()
+    def _get_flat_param_state_to_save(self, fsdp_model: FSDP) -> Dict[str, Any]:
+        self._prepare_fsdp_model(fsdp_model)
+        module_data = []
+        for module_fqn, fsdp_module in self._fsdp_modules(fsdp_model):
+            handle_data = []
+            for handle in self._fsdp_handles(fsdp_module):
+                data: Dict[str, Any] = {}
+                # This is a `FlatParameter` instance.
+                # See `torch.distributed.fsdp.flat_param` for the API.
+                flat_param = handle.flat_param
+                data["flat_param.data"] = flat_param.detach()
+                for key in self._FLAT_PARAM_METADATA_TO_SAVE:
+                    if hasattr(flat_param, key):
+                        data[f"flat_param.{key}"] = getattr(flat_param, key)
+                handle_data.append(data)
+            module_data.append({"handles": handle_data, "name": module_fqn})
+        return {"modules": module_data}
+
+    @torch.no_grad()
+    def _load_flat_param_state(self, fsdp_model: FSDP, model_state: Dict[str, Any]):
+        """Load the state produced from `self._get_flat_param_state_to_save()`."""
+        self._prepare_fsdp_model(fsdp_model)
+        fsdp_modules = self._fsdp_modules(fsdp_model)
+        assert len(model_state["modules"]) == len(fsdp_modules)
+        for (_, fsdp_module), module_data in zip(fsdp_modules, model_state["modules"]):
+            handles = self._fsdp_handles(fsdp_module)
+            assert len(handles) == len(module_data["handles"])
+            for handle, data in zip(handles, module_data["handles"]):
+                flat_param = handle.flat_param
+                # Make sure metadata matches.
+                for key in self._FLAT_PARAM_METADATA_TO_SAVE:
+                    if hasattr(flat_param, key):
+                        assert getattr(flat_param, key) == data[f"flat_param.{key}"]
+                # Load the flat sharded data.
+                flat_param.copy_(data["flat_param.data"])
+
+    def _save_metadata(self, dir: PathOrStr, *, upload_to: Optional[str] = None) -> None:
+        if get_fs_local_rank() == 0:
+            log.info("Saving metadata...")
+            metadata = _LocalShardedCheckpointerMetadata()
+            metadata.save(metadata_path := Path(dir) / "metadata.yaml")
+            if upload_to is not None and get_global_rank() == 0:
+                upload_target = f"{upload_to}/metadata.yaml"
+                log.info(f"Uploading {metadata_path} to {upload_target}")
+                upload(metadata_path, upload_target, save_overwrite=self.cfg.save_overwrite)
+
+    def _load_metadata(
+        self, load_path: PathOrStr, *, local_cache: Optional[PathOrStr] = None
+    ) -> _LocalShardedCheckpointerMetadata:
+        metadata_path = resource_path(load_path, "metadata.yaml", local_cache=local_cache)
+        return _LocalShardedCheckpointerMetadata.load(metadata_path)
+
+    def save_checkpoint(
+        self,
+        dir: PathOrStr,
+        fsdp_model: FSDP,
+        optim: Optimizer,
+        trainer_state: Dict[str, Any],
+        *,
+        upload_to: Optional[str] = None,
+    ) -> None:
+        with self._temporary_wd(dir) as checkpoint_dir:
+            # Gather local FSDP flat params data to save.
+            # We also save some flat param metadata like the corresponding fully qualified names (fqns)
+            # of each original parameter so we can validate that the sharding is the same when loading
+            # one of these checkpoints.
+            log.info("Saving local FSDP flat params data...")
+            save_state_dict(
+                checkpoint_dir,
+                f"model/rank{get_global_rank()}.pt",
+                self._get_flat_param_state_to_save(fsdp_model),
+                upload_to=upload_to,
+                save_overwrite=self.cfg.save_overwrite,
+            )
+
+            # Save optimizer state.
+            log.info("Saving local optimizer state...")
+            save_state_dict(
+                checkpoint_dir,
+                f"optim/rank{get_global_rank()}.pt",
+                optim.state_dict(),
+                upload_to=upload_to,
+                save_overwrite=self.cfg.save_overwrite,
+            )
+
+            # Save trainer state.
+            log.info("Saving trainer state...")
+            save_state_dict(
+                checkpoint_dir,
+                f"train/rank{get_global_rank()}.pt",
+                trainer_state,
+                upload_to=upload_to,
+                save_overwrite=self.cfg.save_overwrite,
+            )
+
+            # Save config.
+            self._save_config(checkpoint_dir, upload_to=upload_to)
+
+            # Save metadata.
+            self._save_metadata(checkpoint_dir, upload_to=upload_to)
+
+    def restore_checkpoint(
+        self,
+        load_path: PathOrStr,
+        fsdp_model: FSDP,
+        optim: Optimizer,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+        load_optimizer_state: bool = True,
+    ) -> Dict[str, Any]:
+        # Load metadata and make sure checkpoint is compatible.
+        metadata = self._load_metadata(load_path, local_cache=local_cache)
+        assert metadata.world_size == get_world_size()
+
+        # Load local FSDP flat param data.
+        log.info("Loading local FSDP flat params data...")
+        model_state = load_state_dict(
+            load_path, f"model/rank{get_global_rank()}.pt", local_cache=local_cache, map_location="cpu"
+        )
+        self._load_flat_param_state(fsdp_model, model_state)
+        del model_state
+
+        # Load local optim state.
+        if load_optimizer_state:
+            log.info("Loading local optimizer state...")
+            optim_state = load_state_dict(
+                load_path, f"optim/rank{get_global_rank()}.pt", local_cache=local_cache, map_location="cpu"
+            )
+            optim.load_state_dict(optim_state)
+            del optim_state
+
+        # Load local trainer state.
+        log.info("Loading local trainer state...")
+        trainer_state = load_state_dict(load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache)
+        barrier()
+        return trainer_state
+
+    def _iter_flat_param_shards(
+        self, model_state: Dict[str, Any]
+    ) -> Generator[Tuple[str, _FlatParamShard], None, None]:
+        for module_data in model_state["modules"]:
+            module_prefix = module_data["name"].replace("_fsdp_wrapped_module.", "")
+            for handle in module_data["handles"]:
+                flat_data = handle["flat_param.data"]
+                if (num_padding := handle["flat_param._shard_numel_padded"]) > 0:
+                    # If there's padding in the flat param it should be on the right.
+                    assert (flat_data[-num_padding:] == 0).all()
+                # NOTE: this changes depending on the torch version, but we don't do a version
+                # check since we might be trying to unshard an old checkpoint that was stored
+                # with a different torch version than we're currently running with.
+                if "flat_param._shard_indices" in handle:
+                    # torch <=2.0.1
+                    param_start = handle["flat_param._shard_indices"][0]
+                    current_flat_index = 0
+                    for relative_fqn, full_shape, (offset_start, offset_end) in zip(
+                        handle["flat_param._fqns"][param_start:],
+                        handle["flat_param._shapes"][param_start:],
+                        handle["flat_param._shard_param_offsets"],
+                    ):
+                        root_fqn = relative_fqn if not module_prefix else f"{module_prefix}.{relative_fqn}"
+                        numel_shard = offset_end - offset_start + 1
+                        flat_param_shard = _FlatParamShard(
+                            full_shape=full_shape,
+                            shard_offsets=(offset_start, offset_end),
+                            shard_data=flat_data[current_flat_index : current_flat_index + numel_shard],
+                        )
+                        current_flat_index += numel_shard
+                        yield root_fqn, flat_param_shard
+                else:
+                    # torch >=2.1.0
+                    for relative_fqn, full_shape, shard_param_info in zip(
+                        handle["flat_param._fqns"],
+                        handle["flat_param._shapes"],
+                        handle["flat_param._shard_param_infos"],
+                    ):
+                        if not shard_param_info.in_shard:
+                            continue
+                        root_fqn = relative_fqn if not module_prefix else f"{module_prefix}.{relative_fqn}"
+                        flat_param_shard = _FlatParamShard(
+                            full_shape=full_shape,
+                            shard_offsets=(
+                                shard_param_info.intra_param_start_idx,
+                                shard_param_info.intra_param_end_idx,
+                            ),
+                            shard_data=flat_data[
+                                shard_param_info.offset_in_shard : shard_param_info.offset_in_shard
+                                + shard_param_info.numel_in_shard
+                            ],
+                        )
+                        yield root_fqn, flat_param_shard
+
+    def unshard_checkpoint(
+        self,
+        load_path: PathOrStr,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+        load_optimizer_state: bool = True,
+        load_trainer_state: bool = True,
+        device: Optional[torch.device] = None,
+    ) -> Tuple[Dict[str, torch.Tensor], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        device = device or torch.device("cpu")
+        metadata = self._load_metadata(load_path, local_cache=local_cache)
+
+        # Gather paths model state, potentially downloading them.
+        log.info("Gathering model state dicts...")
+        model_state_paths = self._gather_state_dict_paths(
+            load_path, "model", metadata.world_size, local_cache=local_cache
+        )
+
+        # Load model state dicts one-by-one, materializing and populating the full parameters as we go.
+        log.info("Materializing full parameters...")
+        full_model_state: Dict[str, torch.Tensor] = {}
+        # We keep a copy of the flat param metadata minus the actual tensors so we can reconstruct
+        # the full optimizer state below without having to reload the model state dicts.
+        flat_params_data: Dict[int, Dict[str, _FlatParamShard]] = defaultdict(dict)
+        for rank, path in enumerate(model_state_paths):
+            log.info(f"Loading shards from rank {rank}...")
+            model_state = torch.load(path, map_location="cpu")
+            for root_fqn, flat_param_shard in self._iter_flat_param_shards(model_state):
+                if root_fqn not in full_model_state:
+                    log.info(
+                        f"Materializing full parameter '{root_fqn}' with shape {flat_param_shard.full_shape}..."
+                    )
+                    assert flat_param_shard.shard_data is not None
+                    full_model_state[root_fqn] = torch.empty(
+                        flat_param_shard.full_shape, dtype=flat_param_shard.shard_data.dtype, device=device
+                    )
+                    # Fill with NaNs so we can validate that the whole parameter has been populated
+                    # afterwards.
+                    full_model_state[root_fqn].fill_(torch.nan)
+                # Copy over the local shard to the relevant part of the full parameter.
+                full_param = full_model_state[root_fqn]
+                log.info(f"Loading rank {rank} shard for '{root_fqn}'...")
+                flat_param_shard.copy_into(full_param)
+                flat_params_data[rank][root_fqn] = replace(flat_param_shard, shard_data=None)
+
+        log.info("Validating full parameters...")
+        for key, tensor in full_model_state.items():
+            if torch.isnan(tensor).any():
+                raise ValueError(f"Parameter '{key}' contains NaNs, this is likely a bug with the unsharder")
+
+        trainer_state: Optional[Dict[str, Any]] = None
+        if load_trainer_state:
+            trainer_state = load_state_dict(load_path, "train/rank0.pt", local_cache=local_cache)
+
+        if not load_optimizer_state:
+            return full_model_state, None, trainer_state
+
+        log.info("Gathering optim state dicts...")
+        optim_state_paths = self._gather_state_dict_paths(
+            load_path, "optim", metadata.world_size, local_cache=local_cache
+        )
+
+        log.info("Materializing full optim state...")
+        full_optim_state: Dict[str, Any] = {"state": defaultdict(dict)}
+        fqn_to_id: Dict[str, int] = {}
+        id_to_fqn: Dict[int, str] = {}
+        for rank, path in enumerate(optim_state_paths):
+            log.info(f"Loading sharded optim state from rank {rank}...")
+            optim_state = torch.load(path, map_location="cpu")
+
+            # Initialize param groups.
+            # We assume parameter groups are the same across all ranks.
+            # The only thing that differs across ranks is the state for each local sharded param.
+            if "param_groups" not in full_optim_state:
+                full_optim_state["param_groups"] = optim_state["param_groups"]
+            else:
+                assert full_optim_state["param_groups"] == optim_state["param_groups"]
+
+            # Generate mapping of parameter FQNs to optimizer param IDs and vice-versa.
+            if not fqn_to_id or not id_to_fqn:
+                for group in full_optim_state["param_groups"]:
+                    for fqn, id in zip(group["param_names"], group["params"]):
+                        fqn = fqn.replace("_fsdp_wrapped_module.", "")
+                        fqn_to_id[fqn] = id
+                        id_to_fqn[id] = fqn
+
+            # Iterate over local shard state and copy into the full state.
+            for id, shard_state in optim_state["state"].items():
+                fqn = id_to_fqn[id]
+                flat_param_shard = flat_params_data[rank][fqn]
+                full_state = full_optim_state["state"][id]
+                for key, shard_value in shard_state.items():
+                    assert isinstance(shard_value, torch.Tensor)
+                    if shard_value.shape == torch.Size([]):
+                        # Add singleton tensors directly to full state. These should be the same across
+                        # all ranks.
+                        assert key in ("step", "grad_norm_exp_avg")  # sanity check
+                        if key not in full_state:
+                            full_state[key] = shard_value.to(device)
+                        else:
+                            assert full_state[key] == shard_value
+                    else:
+                        # Otherwise we have a sharded param state.
+                        # If the corresponding full param state hasn't been materialized yet, do so now.
+                        if key not in full_state:
+                            log.info(
+                                f"Materializing full state '{key}' for '{fqn}' with shape {flat_param_shard.full_shape}..."
+                            )
+                            full_state[key] = torch.empty(
+                                flat_param_shard.full_shape, dtype=shard_value.dtype, device=device
+                            )
+                        full_state_value = full_state[key]
+
+                        # Copy over the local shard state to the relevant part of the full parameter state.
+                        log.info(f"Loading rank {rank} shard state of '{key}' for '{fqn}'...")
+                        replace(flat_param_shard, shard_data=shard_value).copy_into(full_state_value)
+
+        # Lastly, clean up the parameter names in param groups.
+        for group in full_optim_state["param_groups"]:
+            group["param_names"] = [n.replace("_fsdp_wrapped_module.", "") for n in group["param_names"]]
+
+        return full_model_state, full_optim_state, trainer_state
+
+    def _get_state_dict_path(
+        self,
+        load_path: PathOrStr,
+        state_dict_type: str,
+        rank: int,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+        progress=None,
+    ) -> Tuple[int, Path]:
+        fname = f"{state_dict_type}/rank{rank}.pt"
+        return rank, resource_path(str(load_path).rstrip("/"), fname, local_cache=local_cache, progress=progress)
+
+    def _gather_state_dict_paths(
+        self,
+        load_path: PathOrStr,
+        state_dict_type: str,
+        world_size: int,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+    ) -> List[Path]:
+        progress = get_progress_bar()
+        with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
+            futures = []
+            for rank in range(world_size):
+                future = executor.submit(
+                    self._get_state_dict_path,
+                    load_path,
+                    state_dict_type,
+                    rank,
+                    local_cache=local_cache,
+                    progress=progress,
+                )
+                futures.append(future)
+
+            results: Dict[int, Path] = {}
+            for future in as_completed(futures):
+                rank, path = future.result()
+                results[rank] = path
+
+        return [results[rank] for rank in range(world_size)]
+
+
+def build_sharded_checkpointer(
+    cfg: TrainConfig, *, name: Optional[ShardedCheckpointerType] = None
+) -> Checkpointer:
+    name = name or cfg.sharded_checkpointer
+    if name == ShardedCheckpointerType.torch_new:
+        return TorchNewStyleShardedCheckpointer(cfg)
+    elif name == ShardedCheckpointerType.torch_legacy:
+        return TorchLegacyShardedCheckpointer(cfg)
+    elif name == ShardedCheckpointerType.local:
+        return LocalShardedCheckpointer(cfg)
+    else:
+        raise NotImplementedError(name)
