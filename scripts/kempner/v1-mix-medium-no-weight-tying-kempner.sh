@@ -2,7 +2,7 @@
 #SBATCH --job-name=v1-mix-medium-no-weight-tying
 #SBATCH --account=kempner_lab
 #SBATCH --output=/n/holyscratch01/kempner_lab/Lab/logs/%j.log
-#SBATCH --nodes=16              # Total number of nodes
+#SBATCH --nodes=8              # Total number of nodes
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-node=4       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=16
