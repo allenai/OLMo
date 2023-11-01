@@ -41,7 +41,7 @@ class StorageType(Enum):
 class StorageAdapter(ABC):
     @abstractmethod
     def list_entries(self, path: str, max_file_size: Optional[float] = None) -> List[str]:
-        """List all the entries within the directory or compressed file at the given path.
+        """Lists all the entries within the directory or compressed file at the given path.
         Returns only top-level entries (i.e. not entries in subdirectories).
 
         max_file_size sets a threshold for the largest size file to retain within entries.
@@ -50,17 +50,20 @@ class StorageAdapter(ABC):
 
     @abstractmethod
     def list_dirs(self, path: str) -> List[str]:
-        """List all the directories within the directory or compressed file at the given path.
+        """Lists all the directories within the directory or compressed file at the given path.
         Returns only top-level entries (i.e. not entries in subdirectories).
         """
 
     @abstractmethod
     def delete_path(self, path: str):
-        pass
+        """Deletes the entry at the given path and, if the path is a directory, delete all entries
+        within its subdirectories.
+        """
 
     @abstractmethod
-    def is_file(self, path: str):
-        pass
+    def is_file(self, path: str) -> bool:
+        """Returns whether the given path corresponds to an existing file.
+        """
 
 
 class LocalFileSystemAdapter(StorageAdapter):
@@ -123,10 +126,10 @@ class LocalFileSystemAdapter(StorageAdapter):
         else:
             shutil.rmtree(path)
 
-    def is_file(self, path: str):
+    def is_file(self, path: str) -> bool:
         path_obj = Path(path)
         if not path_obj.exists():
-            return
+            return False
 
         return path_obj.is_file()
 
@@ -267,7 +270,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         # print(len(blob_names))
         raise NotImplementedError()
     
-    def is_file(self, path: str):
+    def is_file(self, path: str) -> bool:
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         return self._is_file(bucket_name, key)
