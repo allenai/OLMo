@@ -5,8 +5,16 @@ import torch
 import torch.nn as nn
 
 from .config import InitFnType, ModelConfig
+from .util import StrEnum
 
-__all__ = ["init_weights"]
+__all__ = ["init_weights", "ModuleType"]
+
+
+class ModuleType(StrEnum):
+    in_module = "in"
+    out_module = "out"
+    emb = "emb"
+    final_out = "final_out"
 
 
 def init_weights(
@@ -15,7 +23,7 @@ def init_weights(
     d: Optional[int] = None,
     layer_id: Optional[int] = None,
     std_factor: float = 1.0,
-    type_of_module: str = "",
+    type_of_module: Optional[ModuleType] = None,
 ) -> None:
     """
     Initialize weights of a linear or embedding module.
@@ -46,21 +54,24 @@ def init_weights(
         std = std_factor / math.sqrt(d)
         nn.init.normal_(module.weight, mean=0.0, std=std)
     elif config.init_fn == InitFnType.full_megatron:
+        if type_of_module is None:
+            raise RuntimeError(f"When using the {InitFnType.full_megatron} init, every module must have a type.")
+
         cutoff_factor = config.init_cutoff_factor
         if cutoff_factor is None:
             cutoff_factor = 3
 
-        if type_of_module == "in":
+        if type_of_module == ModuleType.in_module:
             # for att_proj (same as QKV), ff_proj
             std = config.init_std
-        elif type_of_module == "out":
+        elif type_of_module == ModuleType.out_module:
             # for attn_out, ff_out
             std = config.init_std / math.sqrt(2.0 * config.n_layers)
-        elif type_of_module == "emb":
+        elif type_of_module == ModuleType.emb:
             # positional embeddings (wpe)
             # token embeddings (wte)
             std = config.init_std
-        elif type_of_module == "final_out":
+        elif type_of_module == ModuleType.final_out:
             # final output (ff_out)
             std = config.d_model**-0.5
         else:

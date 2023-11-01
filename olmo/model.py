@@ -41,7 +41,7 @@ from .config import (
     ActivationCheckpointingStrategy,
 )
 from .exceptions import OlmoConfigurationError
-from .initialization import init_weights
+from .initialization import init_weights, ModuleType
 from .util import ensure_finite_, pass_through_fn
 
 __all__ = [
@@ -432,10 +432,18 @@ class OlmoBlock(nn.Module):
         if self.q_norm is not None:
             self.q_norm.reset_parameters()
         init_weights(
-            self.config, self.attn_out, d=self.config.d_model, layer_id=self.layer_id, type_of_module="out"
+            self.config,
+            self.attn_out,
+            d=self.config.d_model,
+            layer_id=self.layer_id,
+            type_of_module=ModuleType.out_module,
         )
         init_weights(
-            self.config, self.ff_out, d=self.ff_out.in_features, layer_id=self.layer_id, type_of_module="out"
+            self.config,
+            self.ff_out,
+            d=self.ff_out.in_features,
+            layer_id=self.layer_id,
+            type_of_module=ModuleType.out_module,
         )
 
     def set_activation_checkpointing(self, strategy: ActivationCheckpointingStrategy):
@@ -582,8 +590,12 @@ class OlmoSequentialBlock(OlmoBlock):
         self.attn_norm.reset_parameters()
         self.ff_norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
-        init_weights(self.config, self.att_proj, d=self.config.d_model, layer_id=None, type_of_module="in")
-        init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None, type_of_module="in")
+        init_weights(
+            self.config, self.att_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
+        )
+        init_weights(
+            self.config, self.ff_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
+        )
 
     def forward(
         self,
@@ -658,7 +670,11 @@ class OlmoParallelBlock(OlmoBlock):
         self.norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
         init_weights(
-            self.config, self.fused_attn_ff_proj, d=self.config.d_model, layer_id=None, type_of_module="in"
+            self.config,
+            self.fused_attn_ff_proj,
+            d=self.config.d_model,
+            layer_id=None,
+            type_of_module=ModuleType.in_module,
         )
 
     def forward(
@@ -908,17 +924,17 @@ class Olmo(nn.Module):
             self.config,
             self.transformer.wte,  # type: ignore
             std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,
-            type_of_module="emb",
+            type_of_module=ModuleType.emb,
         )
         if hasattr(self.transformer, "wpe"):
-            init_weights(self.config, self.transformer.wpe, type_of_module="emb")  # type: ignore
+            init_weights(self.config, self.transformer.wpe, type_of_module=ModuleType.emb)  # type: ignore
 
         # Top-level layer norm.
         self.transformer.ln_f.reset_parameters()  # type: ignore
 
         # Output weights.
         if hasattr(self.transformer, "ff_out"):
-            init_weights(self.config, self.transformer.ff_out, type_of_module="final_out")  # type: ignore
+            init_weights(self.config, self.transformer.ff_out, type_of_module=ModuleType.final_out)  # type: ignore
 
         # Let the blocks handle themselves.
         if self.config.block_group_size == 1:
