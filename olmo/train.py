@@ -43,6 +43,7 @@ from .util import (
     move_to_device,
     peak_gpu_memory,
     syncronize_flag,
+    upload,
 )
 
 __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
@@ -737,9 +738,13 @@ class Trainer:
                 output = p.key_averages().table(sort_by="self_cpu_time_total", row_limit=32)
                 log.info(f"Profile by total CPU time at step {p.step_num}:\n{output}")
 
-                p.export_chrome_trace(str(profiler_output_dir / f"{p.step_num}.chrome_trace.json.gz"))
-                p.export_stacks(str(profiler_output_dir / f"{p.step_num}.gpu.stacks"), "self_cuda_time_total")
-                p.export_stacks(str(profiler_output_dir / f"{p.step_num}.cpu.stacks"), "self_cpu_time_total")
+                p.export_chrome_trace(
+                    str(trace_path := (profiler_output_dir / f"{p.step_num}.chrome_trace.json.gz"))
+                )
+                if self.cfg.remote_save_folder is not None:
+                    upload_folder = f"{self.cfg.remote_save_folder.rstrip('/')}/profiler"
+                    log.info(f"Tracing complete, uploading results to '{upload_folder}'...")
+                    upload(trace_path, f"{upload_folder}/{trace_path.name}")
 
             from torch.profiler import ProfilerActivity
 
