@@ -12,7 +12,6 @@ from abc import abstractmethod
 from collections.abc import MutableMapping
 from functools import partial
 from typing import (
-    Callable,
     Dict,
     Iterable,
     List,
@@ -839,7 +838,6 @@ class Olmo(nn.Module):
                 )
 
         self.activation_checkpointing_strategy: Optional[ActivationCheckpointingStrategy] = None
-        self._activation_checkpoint_fn: Callable = activation_checkpoint_function(self.config)
 
         if not (
             0 < self.config.block_group_size <= self.config.n_layers
@@ -1008,6 +1006,8 @@ class Olmo(nn.Module):
         if past_key_values:
             assert len(past_key_values) == self.config.n_layers
 
+        checkpoint = activation_checkpoint_function(self.config)
+
         batch_size, seq_len = input_ids.size()
         if past_key_values is None:
             past_length = 0
@@ -1096,7 +1096,7 @@ class Olmo(nn.Module):
                     )
                 ):
                     # shape: (batch_size, seq_len, d_model)
-                    x, cache = self._activation_checkpoint_fn(
+                    x, cache = checkpoint(
                         block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
                     )
                 else:
