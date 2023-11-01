@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-node=4       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=16
-#SBATCH --time=48:00:00
+#SBATCH --time=47:30:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=kempner_project
 
@@ -36,6 +36,6 @@ srun \
       --run_name=kempner_mitchish7_${SLURM_JOB_ID} \
       --save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/ \
       --data.num_workers=4 \
-      --device_train_microbatch_size=8 \
+      --device_train_microbatch_size=2 \
       --time_limit=$((47 * 60 * 60)) \
       ${@}
