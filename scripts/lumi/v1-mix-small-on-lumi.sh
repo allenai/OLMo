@@ -34,7 +34,11 @@ export ROCM_PATH=/opt/rocm
 export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64
 
 # Try playing with max_split_size_mb if you run into OOM errors.
-# export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:512
+#export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:512
+
+export DATA_PATH=$FLASH_DIR/preprocessed/olmo-mix
+export CHECKPOINTS_PATH=$FLASH_DIR/checkpoints
+export EVAL_DATA_PATH=$SCRATCH_DIR/eval-data
 
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
@@ -43,8 +47,8 @@ srun \
   scripts/run_with_environment.sh \
     singularity exec \
     -B"$PROJECT_DIR:$PROJECT_DIR" \
-    -B"$SCRATCH_DIR:$SCRATCH_DIR" \
     -B"$FLASH_DIR:$FLASH_DIR" \
+    -B"$SCRATCH_DIR:$SCRATCH_DIR" \
     -B /opt/cray:/opt/cray \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \

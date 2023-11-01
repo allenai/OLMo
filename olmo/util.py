@@ -18,6 +18,7 @@ import torch.nn as nn
 from botocore.config import Config
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
+from rich.progress import Progress
 from rich.text import Text
 from rich.traceback import Traceback
 
@@ -283,6 +284,17 @@ def move_to_device(o: T, device: torch.device) -> T:
         return o
 
 
+def ensure_finite_(x: torch.Tensor, check_neg_inf: bool = True, check_pos_inf: bool = False):
+    """
+    Modify ``x`` in place to replace ``float("-inf")`` with the minimum value of the dtype when ``check_neg_inf``
+    is ``True`` and to replace ``float("inf")`` with the maximum value of the dtype when ``check_pos_inf`` is ``True``.
+    """
+    if check_neg_inf:
+        x.masked_fill_(x == float("-inf"), torch.finfo(x.dtype).min)
+    if check_pos_inf:
+        x.masked_fill_(x == float("inf"), torch.finfo(x.dtype).max)
+
+
 def is_distributed() -> bool:
     if "LOCAL_RANK" in os.environ:
         return True
@@ -364,8 +376,8 @@ def syncronize_flag(flag: bool, device: torch.device) -> bool:
         return flag
 
 
-def wait_on(condition: Callable[[], bool], description: str, timeout: float = 10.0):
-    """Wait on the condition function to return True."""
+def wait_for(condition: Callable[[], bool], description: str, timeout: float = 10.0):
+    """Wait for the condition function to return True."""
     start_time = time.monotonic()
     while not condition():
         time.sleep(0.5)
@@ -377,13 +389,33 @@ def is_url(path: PathOrStr) -> bool:
     return re.match(r"[a-z0-9]+://.*", str(path)) is not None
 
 
-def resource_path(folder: PathOrStr, fname: str, local_cache: Optional[PathOrStr] = None) -> Path:
+def dir_is_empty(dir: PathOrStr) -> bool:
+    dir = Path(dir)
+    if not dir.is_dir():
+        return True
+    try:
+        next(dir.glob("*"))
+        return False
+    except StopIteration:
+        return True
+
+
+def get_progress_bar() -> Progress:
+    from cached_path import get_download_progress
+
+    return get_download_progress()
+
+
+def resource_path(
+    folder: PathOrStr, fname: str, local_cache: Optional[PathOrStr] = None, progress: Optional[Progress] = None
+) -> Path:
     if local_cache is not None and (local_path := Path(local_cache) / fname).is_file():
+        log.info(f"Found local cache of {fname} at {local_path}")
         return local_path
     else:
         from cached_path import cached_path
 
-        return cached_path(f"{str(folder).rstrip('/')}/{fname}")
+        return cached_path(f"{str(folder).rstrip('/')}/{fname}", progress=progress)
 
 
 def file_size(path: PathOrStr) -> int:
@@ -440,6 +472,35 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
             return f.read(num_bytes)
 
 
+def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
+    if is_url(dir):
+        from urllib.parse import urlparse
+
+        parsed = urlparse(str(dir))
+        if parsed.scheme == "gs":
+            raise NotImplementedError
+        elif parsed.scheme == "s3":
+            return _s3_find_latest_checkpoint(parsed.netloc, parsed.path.strip("/"))
+        elif parsed.scheme == "file":
+            return find_latest_checkpoint(str(dir).replace("file://", "", 1))
+        else:
+            raise NotImplementedError(f"find_latest_checkpoint not implemented for '{parsed.scheme}' files")
+    else:
+        latest_step = 0
+        latest_checkpoint: Optional[Path] = None
+        for path in Path(dir).glob("step*"):
+            if path.is_dir():
+                try:
+                    step = int(path.name.replace("step", "").replace("-unsharded", ""))
+                except ValueError:
+                    continue
+                # We prioritize sharded checkpoints over unsharded checkpoints.
+                if step > latest_step or (step == latest_step and not path.name.endswith("-unsharded")):
+                    latest_step = step
+                    latest_checkpoint = path
+        return latest_checkpoint
+
+
 def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
     from google.cloud import storage as gcs
 
@@ -480,7 +541,18 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
     return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1)
 
 
-s3_client = boto3.client("s3", config=Config(retries={"max_attempts": 10, "mode": "standard"}))
+_s3_client = None
+
+
+def _get_s3_client():
+    global _s3_client
+    if _s3_client is None:
+        _s3_client = boto3.client(
+            "s3",
+            config=Config(retries={"max_attempts": 10, "mode": "standard"}),
+            use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
+        )
+    return _s3_client
 
 
 def _wait_before_retry(attempt: int):
@@ -492,7 +564,7 @@ def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = 
     if not save_overwrite:
         for attempt in range(1, max_attempts + 1):
             try:
-                s3_client.head_object(Bucket=bucket_name, Key=key)
+                _get_s3_client().head_object(Bucket=bucket_name, Key=key)
                 raise FileExistsError(
                     f"s3://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it."
                 )
@@ -510,7 +582,7 @@ def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = 
             raise OlmoNetworkError("Failed to check object existence during s3 upload") from err
 
     try:
-        s3_client.upload_file(source, bucket_name, key)
+        _get_s3_client().upload_file(source, bucket_name, key)
     except boto_exceptions.ClientError as e:
         raise OlmoNetworkError("Failed to upload to s3") from e
 
@@ -519,7 +591,7 @@ def _s3_file_size(bucket_name: str, key: str, max_attempts: int = 3) -> int:
     err: Optional[Exception] = None
     for attempt in range(1, max_attempts + 1):
         try:
-            return s3_client.head_object(Bucket=bucket_name, Key=key)["ContentLength"]
+            return _get_s3_client().head_object(Bucket=bucket_name, Key=key)["ContentLength"]
         except boto_exceptions.ClientError as e:
             if int(e.response["Error"]["Code"]) == 404:
                 raise FileNotFoundError(f"s3://{bucket_name}/{key}") from e
@@ -538,9 +610,13 @@ def _s3_get_bytes_range(
     err: Optional[Exception] = None
     for attempt in range(1, max_attempts + 1):
         try:
-            return s3_client.get_object(
-                Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
-            )["Body"].read()
+            return (
+                _get_s3_client()
+                .get_object(
+                    Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
+                )["Body"]
+                .read()
+            )
         except boto_exceptions.ClientError as e:
             if int(e.response["Error"]["Code"]) == 404:
                 raise FileNotFoundError(f"s3://{bucket_name}/{key}") from e
@@ -567,8 +643,39 @@ def _s3_get_bytes_range(
     raise OlmoNetworkError("Failed to get bytes range from s3") from err
 
 
+def _s3_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
+    if not prefix.endswith("/"):
+        prefix = f"{prefix}/"
+    response = _get_s3_client().list_objects(Bucket=bucket_name, Prefix=prefix, Delimiter="/")
+    assert not response["IsTruncated"]  # need to handle this if it happens
+    latest_step = 0
+    latest_checkpoint: Optional[str] = None
+    for item in response["CommonPrefixes"]:
+        prefix = item["Prefix"].strip("/")
+        checkpoint_name = os.path.split(prefix)[-1]
+        if not checkpoint_name.startswith("step"):
+            continue
+        try:
+            step = int(checkpoint_name.replace("step", "").replace("-unsharded", ""))
+        except ValueError:
+            continue
+        # We prioritize sharded checkpoints over unsharded ones.
+        if step > latest_step or (step == latest_step and not checkpoint_name.endswith("-unsharded")):
+            latest_step = step
+            latest_checkpoint = f"s3://ai2-llm/{prefix}"
+    return latest_checkpoint
+
+
 def is_weight_decay_module(module: nn.Module) -> bool:
     """Returns true if the module should use weight decay."""
     from .model import LayerNormBase
 
     return not isinstance(module, (LayerNormBase, nn.LayerNorm, nn.Embedding))
+
+
+def default_thread_count() -> int:
+    return int(os.environ.get("OLMO_NUM_THREADS") or min(32, (os.cpu_count() or 1) + 4))
+
+
+def pass_through_fn(fn, *args, **kwargs):
+    return fn(*args, **kwargs)

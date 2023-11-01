@@ -6,6 +6,7 @@ from datetime import datetime
 from pydoc import locate
 from typing import Any, Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 import pytz
 from catwalk.dependencies.lm_eval.utils import simple_parse_args_string
@@ -128,6 +129,40 @@ DEFAULT_PREDICTION_KWARGS: Dict[str, Any] = {
 }
 
 
+@Step.register("process-outputs")
+class ProcessOutputs(Step):
+    VERSION = "002"
+
+    def run(
+        self,
+        outputs: Dict,
+        **kwargs,
+    ) -> Dict:
+        task_name = outputs["task"]
+        new_metrics: Dict[str, Dict] = {}
+        if "subdomain" in outputs["instance_predictions"][0]["instance"]:
+            new_metrics[f"ppl_token_{task_name}_subdomains"] = {}
+            sum_logits: Dict[str, float] = {}
+            num_tokens: Dict[str, int] = {}
+            for instance_prediction in outputs["instance_predictions"]:
+                subdomain = instance_prediction["instance"]["subdomain"]
+                sum_logits[subdomain] = (
+                    sum_logits.get(subdomain, 0) + instance_prediction["prediction"]["model_output"]["sum_logits"]
+                )
+                num_tokens[subdomain] = (
+                    num_tokens.get(subdomain, 0) + instance_prediction["prediction"]["model_output"]["num_tokens"]
+                )
+
+            for subdomain in sum_logits:
+                new_metrics[f"ppl_token_{task_name}_subdomains"][subdomain] = np.exp(
+                    -sum_logits[subdomain] / num_tokens[subdomain]
+                )
+
+        outputs["metrics"].update(new_metrics)
+
+        return outputs
+
+
 @Step.register("predict-and-calculate-metrics")
 class PredictAndCalculateMetricsStep(Step):
     VERSION = "003"
@@ -168,16 +203,23 @@ class PredictAndCalculateMetricsStep(Step):
         end_time = time.time()
 
         instance_predictions = self._instance_predictions_map_list(
-            instances, predictions, task_dict.get("keep_instance_fields", None)
+            instances,
+            predictions,
+            task_dict.get("keep_instance_fields", None),
+            task_dict.get("keep_all_instance_fields_except", None),
         )
 
         if instance_predictions:
             self.logger.info(f"First instance details for task {task_name}: {instance_predictions[0]}")
 
         task_options = {key: val for key, val in task_dict.items() if key not in ["name", "task_obj"]}
+        model_kwargs = {}
+        if hasattr(model, "model_kwargs"):
+            model_kwargs.update(model.model_kwargs)
         output = {
             "task": task_dict["name"],
-            "task_options": task_options,  # model prediction kwargs
+            "task_options": task_options,  # model prediction kwargs,
+            "model_kwargs": model_kwargs,
             "metrics": metrics,
             "num_instances": len(instances),
             "processing_time": end_time - start_time,
@@ -188,17 +230,27 @@ class PredictAndCalculateMetricsStep(Step):
 
     @classmethod
     def _instance_predictions_map_list(
-        cls, instances, predictions, keep_instance_fields: Optional[List] = None
+        cls,
+        instances,
+        predictions,
+        keep_instance_fields: Optional[List] = None,
+        keep_all_instance_fields_except: Optional[List] = None,
     ) -> List:
         instance_predictions = []
 
         for idx, (instance, pred) in enumerate(zip(instances, predictions)):
             instance_id = guess_instance_id(instance, idx=idx)  # dict
 
-            if keep_instance_fields:
-                for field in keep_instance_fields:
-                    if field in instance:
-                        instance_id[field] = instance[field]
+            if keep_instance_fields or keep_all_instance_fields_except:
+                assert (
+                    keep_instance_fields is None or keep_all_instance_fields_except is None
+                ), "Can't use both keep_instance_fields and keep_all_instance_fields_except"
+                for field in instance:
+                    if keep_instance_fields and field not in keep_instance_fields:
+                        continue
+                    if keep_all_instance_fields_except and field in keep_all_instance_fields_except:
+                        continue
+                    instance_id[field] = instance[field]
 
             prediction = pred.get("prediction", pred)
 
@@ -232,6 +284,7 @@ class WriteOutputsAsRows(Step):
             row = {}
             row["date"] = datetime.now(tz=pytz.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
             row["model"] = model
+            row["model_kwargs"] = d["model_kwargs"]
             row["full_model"] = f"lm::pretrained={model}"
             metrics_dict = list(d["metrics"].values())[0]
 
@@ -253,16 +306,65 @@ class WriteOutputsAsRows(Step):
             tsv_outputs.append(row)
 
         if gsheet:
-            self._write_to_gsheet(gsheet, tsv_outputs)
+            write_to_gsheet(gsheet, tsv_outputs)
 
         return tsv_outputs
 
-    def _write_to_gsheet(self, gsheet: str, rows: List[Dict]):
-        import pygsheets
 
-        client = pygsheets.authorize(service_account_json=os.environ["GDRIVE_SERVICE_ACCOUNT_JSON"])
-        sheet = client.open(gsheet)
-        worksheet = sheet[0]  # TODO: pass in sheet title, etc.
-        current_df = worksheet.get_as_df()
-        new_df = pd.concat([current_df, pd.DataFrame(rows)])
-        worksheet.set_dataframe(new_df, (1, 1), nan="")
+@Step.register("write-outputs-as-rows-multiple-metrics")
+class WriteOutputsAsRowsMultipleMetrics(Step):
+    VERSION = "001"
+
+    def run(
+        self, models: List[str], outputs: List[Dict], prediction_kwargs: List[Dict], gsheet: Optional[str] = None
+    ) -> Dict[str, List[Dict]]:
+        per_metric_type_tsv_outputs: Dict[str, List[Dict]] = {}
+        for idx, d in enumerate(outputs):
+            model = models[idx]
+            pred_kwargs = copy.deepcopy(DEFAULT_PREDICTION_KWARGS)
+            pred_kwargs.update(prediction_kwargs[idx])
+            tsv_outputs: List[Dict] = []
+            for metric_type_name, metrics_dict in d["metrics"].items():
+                row = {}
+                row["date"] = datetime.now(tz=pytz.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                row["model"] = model
+                row["model_kwargs"] = d["model_kwargs"]
+                row["full_model"] = f"lm::pretrained={model}"
+                row["task"] = d["task"]
+                row["processing_time"] = d["processing_time"]
+                row["num_instances"] = d["num_instances"]
+                row["tango_workspace"] = self.workspace.url
+                row["tango_step"] = self.unique_id
+                for metric_name in metrics_dict:
+                    row[metric_name] = metrics_dict[metric_name]
+
+                row.update(pred_kwargs)
+                per_metric_type_tsv_outputs[metric_type_name] = per_metric_type_tsv_outputs.get(
+                    metric_type_name, []
+                ) + [row]
+
+        if gsheet:
+            for metric_type_name, tsv_outputs in per_metric_type_tsv_outputs.items():
+                write_to_gsheet(gsheet, tsv_outputs, sheet_title=metric_type_name)
+
+        return per_metric_type_tsv_outputs
+
+
+def write_to_gsheet(gsheet: str, rows: List[Dict], sheet_title: str = "Sheet1"):
+    import pygsheets
+
+    # make rows into dataframe
+    new_df = pd.DataFrame(rows)
+
+    client = pygsheets.authorize(service_account_json=os.environ["GDRIVE_SERVICE_ACCOUNT_JSON"])
+    sheet = client.open(gsheet)
+
+    # make sheet if doesn't exist
+    if sheet_title in [s.title for s in sheet.worksheets()]:
+        worksheet = sheet.worksheet_by_title(sheet_title)
+    else:
+        sheet.add_worksheet(rows=new_df.shape[0], cols=new_df.shape[1], title=sheet_title)
+        worksheet = sheet.worksheet_by_title(sheet_title)
+    current_df = worksheet.get_as_df()
+    new_df = pd.concat([current_df, new_df])
+    worksheet.set_dataframe(new_df, (1, 1), nan="")

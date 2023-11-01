@@ -11,4 +11,4 @@ srun --overlap --jobid $1 \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/llm-lumi_latest.sif \
-      bash scripts/pyspy_all_processes.sh | | sort -s -t: -k1,1
+      bash scripts/pyspy_all_processes.sh | sort -s -t: -k1,1
