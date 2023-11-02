@@ -37,7 +37,7 @@ srun \
       --wandb.name=v1_5-mix-mitch-ish-kempner \
       --fsdp.wrapping_strategy=size_based \
       --compile='{}' \
-      --flash_attention=true \
+      --model.flash_attention=true \
       --device_train_microbatch_size=1 \
       --time_limit=$((167 * 60 * 60)) \
       --save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/ \
