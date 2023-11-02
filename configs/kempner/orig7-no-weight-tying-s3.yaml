@@ -1,11 +1,11 @@
-run_name: v1-mix-medium-no-weight-tying-run-001
+run_name: orig7-no-weight-tying-run-001
 seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-medium
-  group: v1-mix
+  group: orig7
 
 model:
   d_model: 4096
