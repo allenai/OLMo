@@ -9,12 +9,13 @@ from abc import ABC, abstractmethod
 from argparse import ArgumentParser, _SubParsersAction
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 import google.cloud.storage as gcs
 import wandb
 from google.api_core.exceptions import NotFound
+import subprocess
 
 from olmo import TrainConfig
 
@@ -66,21 +67,77 @@ class StorageAdapter(ABC):
         """Returns whether the given path corresponds to an existing file.
         """
 
+    @abstractmethod
+    def is_dir(self, path: str) -> bool:
+        """Returns whether the given path corresponds to an existing directory.
+        """
+
+    @abstractmethod
+    def download_to_folder(self, path: str, local_dest_folder: str):
+        """Downloads the content from the directory or file at the path to the local FS destination folder.
+        """
+
+    @abstractmethod
+    def upload(self, path: str, local_src: str):
+        """Uploads the content from the directory or file at the local FS source to the path.
+        """
+
+    @classmethod
+    def create_storage_adapter(cls, storage_type: StorageType):
+        if storage_type == StorageType.LOCAL_FS:
+            return LocalFileSystemAdapter()
+        if storage_type == StorageType.GCS:
+            return GoogleCloudStorageAdapter()
+        if storage_type == StorageType.S3:
+            raise NotImplementedError()
+        if storage_type == StorageType.R2:
+            raise NotImplementedError()
+
+        raise NotImplementedError()
+
+    @staticmethod
+    def _is_url(path: str) -> bool:
+        return re.match(r"[a-z0-9]+://.*", str(path)) is not None
+
+    @staticmethod
+    def get_storage_type_for_path(path: str) -> StorageType:
+        if StorageAdapter._is_url(path):
+            parsed = urlparse(str(path))
+            if parsed.scheme == "gs":
+                return StorageType.GCS
+            elif parsed.scheme == "s3":
+                return StorageType.S3
+            elif parsed.scheme == "r2":
+                return StorageType.R2
+            elif parsed.scheme == "file":
+                path = path.replace("file://", "", 1)
+                return StorageType.LOCAL_FS
+
+        return StorageType.LOCAL_FS
+
 
 class LocalFileSystemAdapter(StorageAdapter):
     def __init__(self) -> None:
         super().__init__()
-        self._temp_files: List[Any] = []
+        self._temp_files: List[tempfile._TemporaryFileWrapper[bytes]] = []
+        self._temp_dirs: List[tempfile.TemporaryDirectory] = []
         self._archive_extensions: List[str] = []
 
     def __del__(self):
         for temp_file in self._temp_files:
             temp_file.close()
+        for temp_dir in self._temp_dirs:
+            temp_dir.cleanup()
 
-    def create_temp_file(self, suffix: str = "") -> str:
+    def create_temp_file(self, suffix: Optional[str] = None) -> str:
         temp_file = tempfile.NamedTemporaryFile(suffix=suffix)
         self._temp_files.append(temp_file)
         return temp_file.name
+
+    def create_temp_dir(self, suffix: Optional[str] = None) -> str:
+        temp_dir = tempfile.TemporaryDirectory(suffix=suffix)
+        self._temp_dirs.append(temp_dir)
+        return temp_dir.name
 
     def has_supported_archive_extension(self, path: str) -> bool:
         if len(self._archive_extensions) == 0:
@@ -95,8 +152,8 @@ class LocalFileSystemAdapter(StorageAdapter):
             return [
                 entry
                 for entry in os.listdir(path)
-                if ((max_file_size is None or os.path.getsize(entry) <= max_file_size)
-                    and (not no_files or not os.path.isfile(os.path.join(path, entry))))
+                if ((not no_files or not os.path.isfile(os.path.join(path, entry)))
+                    and (max_file_size is None or os.path.getsize(os.path.join(path, entry)) <= max_file_size))
             ]
 
         if self.has_supported_archive_extension(path):
@@ -133,6 +190,28 @@ class LocalFileSystemAdapter(StorageAdapter):
             return False
 
         return path_obj.is_file()
+
+    def is_dir(self, path: str) -> bool:
+        path_obj = Path(path)
+        if not path_obj.exists():
+            return False
+
+        return path_obj.is_dir()
+
+    def download_to_folder(self, path: str, local_dest_folder: str):
+        path_obj = Path(path)
+        if not path_obj.exists():
+            raise ValueError(f"No entry exists at path {path}")
+
+        if path_obj.is_dir():
+            shutil.copytree(path, local_dest_folder, dirs_exist_ok=True)
+        elif path_obj.is_file():
+            shutil.copy(path, local_dest_folder)
+        else:
+            raise RuntimeError(f"Unexpected type of path {path}")
+
+    def upload(self, path: str, local_src: str):
+        shutil.copytree(local_src, path)
 
 
 class GoogleCloudStorageAdapter(StorageAdapter):
@@ -276,6 +355,29 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         return self._is_file(bucket_name, key)
 
+    def is_dir(self, path: str) -> bool:
+        bucket_name, key = self._get_bucket_name_and_key(path)
+        bucket = self.gcs_client.bucket(bucket_name)
+        blobs = list(bucket.list_blobs(prefix=key, max_results=1))
+
+        return not self._is_file(bucket_name, key) and len(blobs) > 0
+
+    def download_to_folder(self, path: str, local_dest_folder: str):
+        bucket_name, key = self._get_bucket_name_and_key(path)
+        bucket = self.gcs_client.bucket(bucket_name)
+
+        blobs: List[gcs.Blob] = list(bucket.list_blobs(prefix=key))
+        for blob in blobs:
+            if not blob.name:
+                raise NotImplementedError()
+            blob_path: str = blob.name
+            blob_local_dest = blob_path.replace(key, local_dest_folder)
+            print(blob_local_dest)
+            blob.download_to_filename(blob_local_dest)
+
+    def upload(self, path: str, local_src: str):
+        raise NotImplementedError()
+
 
 class StorageCleaner:
     def __init__(
@@ -295,46 +397,15 @@ class StorageCleaner:
         self._default_wandb_entity: Optional[str] = default_wandb_entity
         self._default_wandb_project: Optional[str] = default_wandb_project
 
-    @staticmethod
-    def _is_url(path: str) -> bool:
-        return re.match(r"[a-z0-9]+://.*", str(path)) is not None
-
-    @staticmethod
-    def _create_storage_adapter(storage_type: StorageType) -> StorageAdapter:
-        if storage_type == StorageType.LOCAL_FS:
-            return LocalFileSystemAdapter()
-        if storage_type == StorageType.GCS:
-            return GoogleCloudStorageAdapter()
-        if storage_type == StorageType.S3:
-            raise NotImplementedError()
-        if storage_type == StorageType.R2:
-            raise NotImplementedError()
-
-        raise NotImplementedError()
-
-    def _get_storage_adapter(self, path: str) -> StorageAdapter:
-        storage_type: Optional[StorageType] = None
-        if StorageCleaner._is_url(path):
-            parsed = urlparse(str(path))
-            if parsed.scheme == "gs":
-                storage_type = StorageType.GCS
-            elif parsed.scheme == "s3":
-                storage_type = StorageType.S3
-            elif parsed.scheme == "r2":
-                storage_type = StorageType.R2
-            elif parsed.scheme == "file":
-                path = path.replace("file://", "", 1)
-                storage_type = StorageType.LOCAL_FS
-        else:
-            storage_type = StorageType.LOCAL_FS
-
-        if storage_type is None:
-            raise ValueError(f"Cannot determine storage type for path {path}")
-
+    def _get_storage_adapter(self, storage_type: StorageType) -> StorageAdapter:
         if storage_type not in self._storage_adapters:
-            self._storage_adapters[storage_type] = StorageCleaner._create_storage_adapter(storage_type)
+            self._storage_adapters[storage_type] = StorageAdapter.create_storage_adapter(storage_type)
 
         return self._storage_adapters[storage_type]
+
+    def _get_storage_adapter_for_path(self, path: str) -> StorageAdapter:
+        storage_type = StorageAdapter.get_storage_type_for_path(path)
+        return self._get_storage_adapter(storage_type)
 
     @staticmethod
     def _contains_config_yaml(dir_entries: List[str]) -> bool:
@@ -380,12 +451,12 @@ class StorageCleaner:
                 "Runs path does not end with '/'. Please verify that path is a directory and re-run with trailing '/'."
             )
 
-        storage: StorageAdapter = self._get_storage_adapter(runs_path)
-        run_dir_entries = [
+        storage: StorageAdapter = self._get_storage_adapter_for_path(runs_path)
+        run_dirs_entries = [
             os.path.join(runs_path, entry)
             for entry in storage.list_entries(runs_path, max_file_size=self._max_archive_size)
         ]
-        for run_dir_entry in run_dir_entries:
+        for run_dir_entry in run_dirs_entries:
             self._delete_if_bad_run(storage, run_dir_entry)
 
     def _get_wandb_id(self, storage: StorageAdapter, run_dir_entry: str) -> str:
@@ -428,7 +499,7 @@ class StorageCleaner:
                 "Runs path does not end with '/'. Please verify that path is a directory and re-run with trailing '/'."
             )
 
-        storage: StorageAdapter = self._get_storage_adapter(runs_path)
+        storage: StorageAdapter = self._get_storage_adapter_for_path(runs_path)
         run_dir_entries = [
             os.path.join(runs_path, entry)
             for entry in storage.list_dirs(runs_path)
@@ -443,19 +514,103 @@ class StorageCleaner:
 
         raise NotImplementedError
 
-    def unshard_runs_checkpoints(self, runs_path: str, latest_checkpoint_only: bool):
+    def _is_sharded_checkpoint_dir(self, storage: StorageAdapter, directory: str) -> bool:
+        return storage.is_dir(directory) and re.search(r"/step\d+/?$", directory) is not None
+
+    @staticmethod
+    def _get_checkpoint_number(checkpoint_dir: str) -> int:
+        checkpoint_dir = checkpoint_dir.rstrip("/")
+        checkpoint_dir = checkpoint_dir.removesuffix("-unsharded")
+        match = re.search(r"/step(\d+)$", checkpoint_dir)
+        if match is None:
+            raise ValueError(f"Failed to find checkpoint number for dir {checkpoint_dir}")
+
+        return int(match.group(1))
+
+    def _get_sharded_checkpoint_dirs(self, storage: StorageAdapter, run_path: str, latest_checkpoint_only: bool) -> List[str]:
+        if storage.is_file(run_path):
+            local_storage = self._get_storage_adapter(StorageType.LOCAL_FS)
+            assert isinstance(local_storage, LocalFileSystemAdapter)
+            if not local_storage.has_supported_archive_extension(run_path):
+                log.info('Trying to get sharded checkpoints from non-archive file %s, skipping', run_path)
+                return []
+
+            temp_dir = local_storage.create_temp_dir()
+            storage.download_to_folder(run_path, temp_dir)
+
+            storage = local_storage
+            run_path = temp_dir
+
+        run_subdirectories = [
+            os.path.join(run_path, entry)
+            for entry in storage.list_dirs(run_path)
+        ]
+        sharded_checkpoint_directories = list(filter(lambda subdirectory: self._is_sharded_checkpoint_dir(storage, subdirectory), run_subdirectories))
+
+        if latest_checkpoint_only:
+            latest_checkpoint_directory = max(sharded_checkpoint_directories, default=None, key=self._get_checkpoint_number)
+            sharded_checkpoint_directories = [latest_checkpoint_directory] if latest_checkpoint_directory is not None else []
+
+        # print('Test', run_subdirectories, sharded_checkpoint_directories)
+
+        return sharded_checkpoint_directories
+
+    def _unshard_checkpoint(self, sharded_checkpoint_dir: str, dest_dir: str):
+        local_storage = self._get_storage_adapter(StorageType.LOCAL_FS)
+        assert isinstance(local_storage, LocalFileSystemAdapter)
+        local_sharded_temp_dir = local_storage.create_temp_dir()
+        local_unsharded_temp_dir = local_storage.create_temp_dir()
+
+        src_storage = self._get_storage_adapter_for_path(sharded_checkpoint_dir)
+        src_storage.download_to_folder(sharded_checkpoint_dir, local_sharded_temp_dir)
+
+        subprocess.run(["python", "scripts/unshard.py", local_sharded_temp_dir, local_unsharded_temp_dir], check=True)
+
+        dest_storage = self._get_storage_adapter_for_path(dest_dir)
+        dest_storage.upload(dest_dir, local_unsharded_temp_dir)
+
+    def _unshard_checkpoints(self, runs_storage: StorageAdapter, run_path: str, checkpoints_dest_dir: str, latest_checkpoint_only: bool):
+        sharded_checkpoint_directories = self._get_sharded_checkpoint_dirs(runs_storage, run_path, latest_checkpoint_only)
+        for sharded_checkpoint_directory in sharded_checkpoint_directories:
+            _, directory_name = os.path.split(sharded_checkpoint_directory.rstrip("/"))
+
+            unsharded_checkpoint_directory_in_source = f"{os.path.join(run_path, directory_name)}-unsharded"
+            if runs_storage.is_dir(unsharded_checkpoint_directory_in_source):
+                log.info("Unsharded directory already exists for %s at source %s, skipping", sharded_checkpoint_directory, unsharded_checkpoint_directory_in_source)
+                continue
+
+            unsharded_checkpoint_dest_directory = f"{os.path.join(checkpoints_dest_dir, directory_name)}-unsharded"
+            dest_storage = self._get_storage_adapter_for_path(unsharded_checkpoint_dest_directory)
+            if dest_storage.is_dir(unsharded_checkpoint_directory_in_source):
+                log.info("Unsharded directory already exists for %s at destination %s, skipping", sharded_checkpoint_directory, unsharded_checkpoint_dest_directory)
+                continue
+
+            if self._dry_run:
+                log.info("Would unshard sharded checkpoint %s to %s", sharded_checkpoint_directory, unsharded_checkpoint_dest_directory)
+            else:
+                log.info("Unsharding sharded checkpoint %s to %s", sharded_checkpoint_directory, unsharded_checkpoint_dest_directory)
+                self._unshard_checkpoint(sharded_checkpoint_directory, unsharded_checkpoint_dest_directory)
+
+    def unshard_runs_checkpoints(self, runs_source_path: str, runs_dest_path: str, latest_checkpoint_only: bool):
         log.info("Starting unsharding checkpoints")
 
-        if not runs_path.endswith("/"):
+        if not runs_source_path.endswith("/"):
             raise ValueError(
                 "Runs path does not end with '/'. Please verify that path is a directory and re-run with trailing '/'."
             )
+        if not runs_dest_path.endswith("/"):
+            raise ValueError(
+                "Checkpoints destination directory does not end with '/'. Please verify that path is a directory and re-run with trailing '/'."
+            )
 
-        storage: StorageAdapter = self._get_storage_adapter(runs_path)
-        run_dir_entries = [
-            os.path.join(runs_path, entry)
-            for entry in storage.list_dirs(runs_path)
+        storage: StorageAdapter = self._get_storage_adapter_for_path(runs_source_path)
+        runs_dir_entries = [
+            os.path.join(runs_source_path, entry)
+            for entry in storage.list_entries(runs_source_path, max_file_size=self._max_archive_size)
         ]
+
+        for run_dir_entry in runs_dir_entries:
+            self._unshard_checkpoints(storage, run_dir_entry, run_dir_entry.replace(runs_source_path, runs_dest_path), latest_checkpoint_only)
 
 
 def perform_operation(args: argparse.Namespace):
@@ -463,21 +618,28 @@ def perform_operation(args: argparse.Namespace):
         log.info("Dry run, no actions will be taken")
 
     if args.op == CleaningOperations.DELETE_BAD_RUNS:
-        storage_manager = StorageCleaner(
+        storage_cleaner = StorageCleaner(
             dry_run=args.dry_run,
             ignore_prompts=args.yes,
             runs_require_config_yaml=args.runs_require_config_yaml,
             max_archive_size=args.max_archive_size,
         )
-        storage_manager.delete_bad_runs(args.runs_path)
+        storage_cleaner.delete_bad_runs(args.runs_path)
     if args.op == CleaningOperations.RENAME_RUNS_TO_WANDB_ID:
-        storage_manager = StorageCleaner(
+        storage_cleaner = StorageCleaner(
             dry_run=args.dry_run,
             ignore_prompts=args.yes,
             default_wandb_entity=args.entity,
             default_wandb_project=args.project,
         )
-        storage_manager.rename_runs_to_wandb_ids(args.runs_path)
+        storage_cleaner.rename_runs_to_wandb_ids(args.runs_path)
+    if args.op == CleaningOperations.UNSHARD_CHECKPOINTS:
+        storage_cleaner = StorageCleaner(
+            dry_run=args.dry_run,
+            ignore_prompts=args.yes,
+            max_archive_size=args.max_archive_size,
+        )
+        storage_cleaner.unshard_runs_checkpoints(args.runs_src_path, args.runs_dest_path, args.latest_checkpoint_only)
 
 
 def _add_delete_subparser(subparsers: _SubParsersAction):
@@ -529,13 +691,22 @@ def _add_unsharding_subparser(subparsers: _SubParsersAction):
     )
     unsharding_runs_parser.set_defaults(op=CleaningOperations.UNSHARD_CHECKPOINTS)
     unsharding_runs_parser.add_argument(
-        "runs_path",
+        "runs_src_path",
         help="Path to directory containing one or more run directories",
     )
     unsharding_runs_parser.add_argument(
-        "--latest_only",
+        "runs_dest_path",
+        help="Path to directory where runs with unsharded checkpoints should be output (only the unsharded checkpoints are stored)",
+    )
+    unsharding_runs_parser.add_argument(
+        "--latest_checkpoint_only",
         action="store_true",
         help="If set, only the latest checkpoint of each run (if sharded) is unsharded.",
+    )
+    unsharding_runs_parser.add_argument(
+        "--max_archive_size",
+        default=DEFAULT_MAX_ARCHIVE_SIZE,
+        help="Max size archive run files to consider for unsharding (in bytes). Any archive larger than this is skipped.",
     )
 
 
@@ -560,7 +731,7 @@ def get_parser() -> ArgumentParser:
         help="Sets the logging level",
     )
 
-    subparsers = parser.add_subparsers(dest="command", help="Cleaning commands")
+    subparsers = parser.add_subparsers(dest="command", help="Cleaning commands", required=True)
     _add_delete_subparser(subparsers)
     _add_wandb_subparser(subparsers)
     _add_unsharding_subparser(subparsers)
