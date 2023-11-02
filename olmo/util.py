@@ -6,6 +6,7 @@ import sys
 import time
 import warnings
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
@@ -22,11 +23,29 @@ from rich.text import Text
 from rich.traceback import Traceback
 
 from .aliases import PathOrStr
-from .config import LogFilterType
 from .exceptions import OlmoCliError, OlmoError, OlmoNetworkError
+
+
+class StrEnum(str, Enum):
+    """
+    This is equivalent to Python's :class:`enum.StrEnum` since version 3.11.
+    We include this here for compatibility with older version of Python.
+    """
+
+    def __str__(self) -> str:
+        return self.value
+
+    def __repr__(self) -> str:
+        return f"'{str(self)}'"
+
 
 _log_extra_fields: Dict[str, Any] = {}
 log = logging.getLogger(__name__)
+
+
+class LogFilterType(StrEnum):
+    rank0_only = "rank0_only"
+    local_rank0_only = "local_rank0_only"
 
 
 def log_extra_field(field_name: str, field_value: Any) -> None:
@@ -471,6 +490,35 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
             return f.read(num_bytes)
 
 
+def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
+    if is_url(dir):
+        from urllib.parse import urlparse
+
+        parsed = urlparse(str(dir))
+        if parsed.scheme == "gs":
+            raise NotImplementedError
+        elif parsed.scheme == "s3":
+            return _s3_find_latest_checkpoint(parsed.netloc, parsed.path.strip("/"))
+        elif parsed.scheme == "file":
+            return find_latest_checkpoint(str(dir).replace("file://", "", 1))
+        else:
+            raise NotImplementedError(f"find_latest_checkpoint not implemented for '{parsed.scheme}' files")
+    else:
+        latest_step = 0
+        latest_checkpoint: Optional[Path] = None
+        for path in Path(dir).glob("step*"):
+            if path.is_dir():
+                try:
+                    step = int(path.name.replace("step", "").replace("-unsharded", ""))
+                except ValueError:
+                    continue
+                # We prioritize sharded checkpoints over unsharded checkpoints.
+                if step > latest_step or (step == latest_step and not path.name.endswith("-unsharded")):
+                    latest_step = step
+                    latest_checkpoint = path
+        return latest_checkpoint
+
+
 def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
     from google.cloud import storage as gcs
 
@@ -611,6 +659,29 @@ def _s3_get_bytes_range(
     # in us losing the true exception info. To avoid this, we change the exception
     # to a type that has a single-parameter constructor.
     raise OlmoNetworkError("Failed to get bytes range from s3") from err
+
+
+def _s3_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
+    if not prefix.endswith("/"):
+        prefix = f"{prefix}/"
+    response = _get_s3_client().list_objects(Bucket=bucket_name, Prefix=prefix, Delimiter="/")
+    assert not response["IsTruncated"]  # need to handle this if it happens
+    latest_step = 0
+    latest_checkpoint: Optional[str] = None
+    for item in response["CommonPrefixes"]:
+        prefix = item["Prefix"].strip("/")
+        checkpoint_name = os.path.split(prefix)[-1]
+        if not checkpoint_name.startswith("step"):
+            continue
+        try:
+            step = int(checkpoint_name.replace("step", "").replace("-unsharded", ""))
+        except ValueError:
+            continue
+        # We prioritize sharded checkpoints over unsharded ones.
+        if step > latest_step or (step == latest_step and not checkpoint_name.endswith("-unsharded")):
+            latest_step = step
+            latest_checkpoint = f"s3://ai2-llm/{prefix}"
+    return latest_checkpoint
 
 
 def default_thread_count() -> int:

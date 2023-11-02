@@ -60,6 +60,15 @@ def main(cfg: TrainConfig) -> None:
     cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
     assert cfg.device_train_batch_size is not None  # for mypy
     cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
+    if cfg.optimizer.no_decay_norm_and_bias is not None:
+        log.warning(
+            "You set the deprecated config option `no_decay_norm_and_bias`. For compatibility, this"
+            "setting will take precedence over all other weight decay configurations. Please change"
+            "your config to use `decay_norm_and_bias` and `decay_embeddings` instead."
+        )
+        cfg.optimizer.decay_norm_and_bias = not cfg.optimizer.no_decay_norm_and_bias
+        cfg.optimizer.decay_embeddings = not cfg.optimizer.no_decay_norm_and_bias
+        cfg.optimizer.no_decay_norm_and_bias = None  # So nobody uses this by accident.
 
     # Display and save configuration.
     if get_global_rank() == 0:
@@ -112,8 +121,7 @@ def main(cfg: TrainConfig) -> None:
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
     log.info(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
 
-    if cfg.activation_checkpointing:
-        olmo_model.enable_activation_checkpointing()
+    olmo_model.set_activation_checkpointing(cfg.activation_checkpointing)
 
     # Wrap the model in FSDP.
     log.info("Wrapping model with FDSP...")
