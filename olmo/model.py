@@ -1152,6 +1152,18 @@ class Olmo(nn.Module):
                 return isinstance(module, OlmoBlock)
 
             return fsdp_wrap_fn
+        elif wrap_strategy == FSDPWrapStrategy.by_block_and_size:
+
+            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+                del nonwrapped_numel
+                if recurse:
+                    # Determine if we should recurse.
+                    return not isinstance(module, OlmoBlock)
+                else:
+                    # Determine if we should wrap.
+                    return isinstance(module, (OlmoBlock, nn.Linear, nn.Embedding))
+
+            return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_group:
             if self.config.block_group_size <= 1:
                 raise OlmoConfigurationError(
@@ -1163,6 +1175,22 @@ class Olmo(nn.Module):
                 if recurse:
                     return True  # always recurse for simplicity
                 return isinstance(module, OlmoBlockGroup)
+
+            return fsdp_wrap_fn
+        elif wrap_strategy == FSDPWrapStrategy.by_block_group_and_size:
+            if self.config.block_group_size <= 1:
+                raise OlmoConfigurationError(
+                    "'by_block_group_and_size' FSDP wrapping strategy requires block group size greater than 1"
+                )
+
+            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+                del nonwrapped_numel
+                if recurse:
+                    # Determine if we should recurse.
+                    return not isinstance(module, OlmoBlockGroup)
+                else:
+                    # Determine if we should wrap.
+                    return isinstance(module, (OlmoBlockGroup, nn.Linear, nn.Embedding))
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.size_based:
