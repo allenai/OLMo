@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=v1.5-mix-medium-mitch-ish
 #SBATCH --account=kempner_lab
-#SBATCH --output=/n/holyscratch01/kempner_lab/Lab/logs/%j.log
+#SBATCH --output=/n/holyscratch01/kempner_lab/Lab/logs-petew/%j.log
 #SBATCH --nodes=8              # Total number of nodes
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-node=4       # Allocate one gpu per MPI rank
