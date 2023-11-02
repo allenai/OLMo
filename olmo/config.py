@@ -552,10 +552,20 @@ class FSDPWrapStrategy(StrEnum):
     Wrap each OLMo block with its own FSDP instance.
     """
 
+    by_block_and_size = "by_block_and_size"
+    """
+    Like 'by_block' but `wte` and `ff_out` will be wrapped separately as well.
+    """
+
     by_block_group = "by_block_group"
     """
     Wrap each block group together into its own FSDP instance.
     This requires :attr:`~ModelConfig.block_group_size` to be bigger than 1.
+    """
+
+    by_block_group_and_size = "by_block_group_and_size"
+    """
+    Like 'by_block_group' but `wte` and `ff_out` will be wrapped separately as well.
     """
 
     size_based = "size_based"
