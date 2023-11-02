@@ -35,6 +35,7 @@ model:
   weight_tying: false
 
 fsdp:
+  sharding_strategy: SHARD_GRAD_OP
   wrapping_strategy: by_block
 
 activation_checkpointing: whole_layer

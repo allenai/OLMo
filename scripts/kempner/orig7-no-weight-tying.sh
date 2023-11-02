@@ -36,6 +36,5 @@ srun \
       --run_name=kempner_${SLURM_JOB_ID} \
       --time_limit=$((167 * 60 * 60)) \
       --device_train_microbatch_size=2 \
-      --fsdp.sharding_strategy=NO_SHARD \
       --save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/ \
       ${@}
