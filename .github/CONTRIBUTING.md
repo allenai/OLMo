@@ -129,9 +129,9 @@ When you're ready to contribute code to address an open issue, please follow the
         isort .
         black .
 
-    Our CI also uses [`flake8`](https://github.com/allenai/LLM/tree/main/tests) to lint the code base and [`mypy`](http://mypy-lang.org/) for type-checking. You should run both of these next with
+    Our CI also uses [`ruff`](https://docs.astral.sh/ruff/) to lint the code base and [`mypy`](http://mypy-lang.org/) for type-checking. You should run both of these next with
 
-        flake8 .
+        ruff check .
 
     and
 
