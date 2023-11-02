@@ -878,7 +878,13 @@ class OlmoLlamaBlock(OlmoBlock):
 
         # Add feed-forward projection.
         # shape: (batch_size, seq_len, d_model)
-        x = x + self.dropout(self.ff_out(self.act(self.ff_proj(self.ff_norm(x)))))
+        og_x = x
+        x = self._activation_checkpoint_fn(self.ff_norm, x)
+        x = self.ff_proj(x)
+        x = self._activation_checkpoint_fn(self.act, x)
+        x = self.ff_out(x)
+        x = self.dropout(x)
+        x = og_x + x
 
         return x, cache
 
