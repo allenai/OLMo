@@ -106,31 +106,31 @@ evaluators:
     data:
       datasets:
         4chan-validation:
-          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/4chan/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/4chan/val/part-0-00000.npy
         c4_100_domains-validation:
-          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/c4_100_domains/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/c4_100_domains/val/part-0-00000.npy
         c4_en-validation:
-          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/c4_en/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/c4_en/val/part-0-00000.npy
         gab-validation:
-          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/gab/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/gab/val/part-0-00000.npy
         ice-validation:
-          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/ice/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/ice/val/part-0-00000.npy
         m2d2_s2orc-validation:
-          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/m2d2_s2orc/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/m2d2_s2orc/val/part-0-00000.npy
         m2d2_wiki-validation:
-          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/m2d2_wiki/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/m2d2_wiki/val/part-0-00000.npy
         manosphere-validation:
-          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/manosphere/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/manosphere/val/part-0-00000.npy
         mc4_en-validation:
-          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/mc4_en/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/mc4_en/val/part-0-00000.npy
         pile-validation:
-          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/pile/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/pile/val/part-0-00000.npy
         ptb-validation:
-          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/ptb/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/ptb/val/part-0-00000.npy
         twitterAEE-validation:
-          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/twitterAEE/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/twitterAEE/val/part-0-00000.npy
         wikitext_103-validation:
-          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/wikitext_103/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_llama2/wikitext_103/val/part-0-00000.npy
       drop_last: true
 
   ##########################
