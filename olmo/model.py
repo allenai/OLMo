@@ -823,10 +823,10 @@ class OlmoLlamaBlock(OlmoBlock):
         self.attn_norm.reset_parameters()
         self.ff_norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
-        init_weights(self.config, self.q_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.k_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.v_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None)
+        init_weights(self.config, self.q_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
+        init_weights(self.config, self.k_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
+        init_weights(self.config, self.v_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
+        init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
 
     def _scaled_dot_product_attention(
         self,
