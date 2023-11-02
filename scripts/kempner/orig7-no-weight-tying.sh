@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=v1-mix-medium-no-weight-tying
+#SBATCH --job-name=orig7-no-weight-tying
 #SBATCH --account=kempner_lab
-#SBATCH --output=/n/holyscratch01/kempner_lab/Lab/logs/%j.log
+#SBATCH --output=/n/home/abhagia/local_logs/%j.log
 #SBATCH --nodes=8              # Total number of nodes
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-node=4       # Allocate one gpu per MPI rank
@@ -32,7 +32,7 @@ srun \
   --distribution=block:block \
   --kill-on-bad-exit \
   scripts/run_with_environment.sh \
-    $HOME/miniconda3/envs/LLM/bin/python -u scripts/train.py configs/kempner/v1-mix-medium-no-weight-tying.yaml \
+    $HOME/miniconda3/envs/LLM/bin/python -u scripts/train.py configs/kempner/orig7-no-weight-tying.yaml \
       --run_name=kempner_${SLURM_JOB_ID} \
       --time_limit=$((167 * 60 * 60)) \
       --device_train_microbatch_size=2 \

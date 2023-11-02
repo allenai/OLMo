@@ -1,4 +1,4 @@
-run_name: v1-mix-medium-no-weight-tying-run-001
+run_name: orig7-no-weight-tying-run-001
 seed: 6198
 dry_run: false
 
@@ -34,7 +34,10 @@ model:
   init_fn: normal
   weight_tying: false
 
-activation_checkpointing: true
+fsdp:
+  wrapping_strategy: by_block
+
+activation_checkpointing: whole_layer
 
 compile: null  # causes instability on AMD GPUs
 
@@ -68,7 +71,7 @@ tokenizer:
   identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
   truncate_direction: right
 
-save_folder: ${path.glob:${oc.env:CHECKPOINTS_PATH}/${oc.env:SLURM_JOB_ID,${run_name}}
+save_folder: ${path.glob:${oc.env:CHECKPOINTS_PATH}/${oc.env:SLURM_JOB_ID,${run_name}}}
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
 save_interval: 1000
