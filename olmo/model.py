@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import math
 from abc import abstractmethod
+from collections import defaultdict
 from collections.abc import MutableMapping
 from functools import partial
 from typing import (
@@ -19,6 +20,7 @@ from typing import (
     NamedTuple,
     Optional,
     Sequence,
+    Set,
     Tuple,
     cast,
 )
@@ -821,10 +823,10 @@ class OlmoLlamaBlock(OlmoBlock):
         self.attn_norm.reset_parameters()
         self.ff_norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
-        init_weights(self.config, self.q_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.k_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.v_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None)
+        init_weights(self.config, self.q_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
+        init_weights(self.config, self.k_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
+        init_weights(self.config, self.v_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
+        init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
 
     def _scaled_dot_product_attention(
         self,
@@ -1295,6 +1297,18 @@ class Olmo(nn.Module):
                 return isinstance(module, OlmoBlock)
 
             return fsdp_wrap_fn
+        elif wrap_strategy == FSDPWrapStrategy.by_block_and_size:
+
+            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+                del nonwrapped_numel
+                if recurse:
+                    # Determine if we should recurse.
+                    return not isinstance(module, OlmoBlock)
+                else:
+                    # Determine if we should wrap.
+                    return isinstance(module, (OlmoBlock, nn.Linear, nn.Embedding))
+
+            return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_group:
             if self.config.block_group_size <= 1:
                 raise OlmoConfigurationError(
@@ -1306,6 +1320,22 @@ class Olmo(nn.Module):
                 if recurse:
                     return True  # always recurse for simplicity
                 return isinstance(module, OlmoBlockGroup)
+
+            return fsdp_wrap_fn
+        elif wrap_strategy == FSDPWrapStrategy.by_block_group_and_size:
+            if self.config.block_group_size <= 1:
+                raise OlmoConfigurationError(
+                    "'by_block_group_and_size' FSDP wrapping strategy requires block group size greater than 1"
+                )
+
+            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+                del nonwrapped_numel
+                if recurse:
+                    # Determine if we should recurse.
+                    return not isinstance(module, OlmoBlockGroup)
+                else:
+                    # Determine if we should wrap.
+                    return isinstance(module, (OlmoBlockGroup, nn.Linear, nn.Embedding))
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.size_based:
@@ -1502,7 +1532,7 @@ class Olmo(nn.Module):
             # Load state dict directly to target device.
             state_dict_path = resource_path(checkpoint_dir, "model.pt")
             state_dict = torch.load(state_dict_path, map_location="cpu")
-            model.load_state_dict(model._make_state_dict_compatible(state_dict))
+            model.load_state_dict(model._make_state_dict_compatible(state_dict)[0])
             model = model.to(torch.device(device))
         else:
             from .checkpoint import load_model_state
@@ -1517,27 +1547,46 @@ class Olmo(nn.Module):
 
         return model.eval()
 
-    def _make_state_dict_compatible(self, state_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def _make_state_dict_compatible(
+        self, state_dict: Dict[str, torch.Tensor]
+    ) -> Tuple[Dict[str, torch.Tensor], Dict[str, Set[str]]]:
+        """
+        Handles some cases where the state dict is valid yet may need to be transformed in order to
+        be loaded.
+
+        This modifies the state dict in-place and also returns it, along with a mapping of original key
+        names to new key names in cases where the keys were simply renamed. That mapping can be used
+        to make a corresponding optimizer state dict compatible as well.
+        """
         import re
         from fnmatch import fnmatch
+
+        new_keys_to_og_keys: Dict[str, str] = {}
 
         # Remove "_fsdp_wrapped_module." prefix from all keys. We don't want this prefix when the model is
         # not wrapped in FSDP. And when the model is wrapped in FSDP, loading this state dict will still work
         # fine without the prefixes. This also simplifies the other steps below.
         for key in list(state_dict.keys()):
-            state_dict[key.replace("_fsdp_wrapped_module.", "")] = state_dict.pop(key)
+            state_dict[(new_key := key.replace("_fsdp_wrapped_module.", ""))] = state_dict.pop(key)
+            new_keys_to_og_keys[new_key] = key
 
         # For backwards compatibility prior to fixing https://github.com/allenai/LLM/issues/222
         if self.config.block_type == BlockType.sequential:
             for key in list(state_dict.keys()):
                 if fnmatch(key, "transformer.*.norm.weight"):
                     tensor = state_dict.pop(key)
-                    state_dict[key.replace("norm.weight", "attn_norm.weight")] = tensor
-                    state_dict[key.replace("norm.weight", "ff_norm.weight")] = tensor.clone()
+                    state_dict[(new_key := key.replace("norm.weight", "attn_norm.weight"))] = tensor
+                    new_keys_to_og_keys[new_key] = new_keys_to_og_keys[key]
+                    state_dict[(new_key := key.replace("norm.weight", "ff_norm.weight"))] = tensor.clone()
+                    new_keys_to_og_keys[new_key] = new_keys_to_og_keys[key]
+                    del new_keys_to_og_keys[key]
                 elif fnmatch(key, "transformer.*.norm.bias"):
                     tensor = state_dict.pop(key)
-                    state_dict[key.replace("norm.bias", "attn_norm.bias")] = tensor
-                    state_dict[key.replace("norm.bias", "ff_norm.bias")] = tensor.clone()
+                    state_dict[(new_key := key.replace("norm.bias", "attn_norm.bias"))] = tensor
+                    new_keys_to_og_keys[new_key] = new_keys_to_og_keys[key]
+                    state_dict[(new_key := key.replace("norm.bias", "ff_norm.bias"))] = tensor.clone()
+                    new_keys_to_og_keys[new_key] = new_keys_to_og_keys[key]
+                    del new_keys_to_og_keys[key]
 
         # For loading a state dict that was saved with a different `block_group_size`.
         if "transformer.block_groups.0.0.attn_out.weight" in state_dict.keys():
@@ -1559,8 +1608,13 @@ class Olmo(nn.Module):
                         group_idx, group_block_idx = int(m.group(1)), int(m.group(2))
                         block_idx = (group_idx * state_dict_block_group_size) + group_block_idx
                         state_dict[
-                            key.replace(f"block_groups.{group_idx}.{group_block_idx}.", f"blocks.{block_idx}.")
+                            (
+                                new_key := key.replace(
+                                    f"block_groups.{group_idx}.{group_block_idx}.", f"blocks.{block_idx}."
+                                )
+                            )
                         ] = state_dict.pop(key)
+                        new_keys_to_og_keys[new_key] = new_keys_to_og_keys.pop(key)
 
             if self.config.block_group_size > 1:
                 # Group the state dict blocks into the right block size.
@@ -1572,7 +1626,16 @@ class Olmo(nn.Module):
                             block_idx % self.config.block_group_size,
                         )
                         state_dict[
-                            key.replace(f"blocks.{block_idx}.", f"block_groups.{group_idx}.{group_block_idx}.")
+                            (
+                                new_key := key.replace(
+                                    f"blocks.{block_idx}.", f"block_groups.{group_idx}.{group_block_idx}."
+                                )
+                            )
                         ] = state_dict.pop(key)
+                        new_keys_to_og_keys[new_key] = new_keys_to_og_keys.pop(key)
 
-        return state_dict
+        og_keys_to_new: Dict[str, Set[str]] = defaultdict(set)
+        for new_key, og_key in new_keys_to_og_keys.items():
+            og_keys_to_new[og_key].add(new_key)
+
+        return state_dict, og_keys_to_new
