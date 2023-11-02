@@ -1,8 +1,0 @@
-cached_path
-pandas
-springs
-fake-useragent
-requests
-beautifulsoup4
-tqdm
-smashed[remote]
