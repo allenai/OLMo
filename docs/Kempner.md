@@ -21,15 +21,14 @@ Getting started
    ```
 
 4. `aws configure`
-5. Install Miniconda
+5. Install Miniconda with `wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && bash Miniconda3-latest-Linux-x86_64.sh`, then follow prompts. You'll probably want to log out and back in after this.
 6. `conda create -y -n LLM python=3.10 ipython`
 7. `conda activate LLM`
 8. `conda install -y pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia`
 9. `git clone https://github.com/allenai/LLM.git`
 10. `cd LLM`
 11. `pip install -e .`
-12. Set up S3 key env vars (in `~/.bashrc`)
-13. Pre-download all the downstream evals. In a Python shell:
+12. Pre-download all the downstream evals. In a Python shell:
 
     ```bash
     from olmo.eval.downstream import *
