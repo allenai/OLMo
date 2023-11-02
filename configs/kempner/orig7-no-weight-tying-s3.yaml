@@ -34,7 +34,11 @@ model:
   init_fn: normal
   weight_tying: false
 
-activation_checkpointing: true
+fsdp:
+  sharding_strategy: SHARD_GRAD_OP
+  wrapping_strategy: by_block
+
+activation_checkpointing: whole_layer
 
 compile: null  # causes instability on AMD GPUs
 
