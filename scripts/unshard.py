@@ -5,7 +5,11 @@ from typing import Union
 
 import torch
 
-from olmo.checkpoint import LocalShardedCheckpointer, TorchLegacyShardedCheckpointer
+from olmo.checkpoint import (
+    Checkpointer,
+    LocalShardedCheckpointer,
+    TorchLegacyShardedCheckpointer,
+)
 from olmo.config import ShardedCheckpointerType, TrainConfig
 
 logger = logging.getLogger(__name__)
@@ -23,6 +27,7 @@ def main(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     config = TrainConfig.load(input_dir / "config.yaml", validate_paths=False)
+    checkpointer: Checkpointer
     if sharded_checkpoint_type == ShardedCheckpointerType.torch_legacy:
         checkpointer = TorchLegacyShardedCheckpointer(config)
     elif sharded_checkpoint_type == ShardedCheckpointerType.local:
