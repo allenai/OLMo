@@ -35,6 +35,7 @@ srun \
     $HOME/miniconda3/envs/LLM/bin/python -u scripts/train.py configs/v1_5-mix-medium-mitch-ish.yaml \
       --run_name=kempner_${SLURM_JOB_ID} \
       --wandb.name=v1_5-mix-mitch-ish-kempner \
+      --fsdp.wrapping_strategy=by_block \
       --compile='{}' \
       --time_limit=$((167 * 60 * 60)) \
       --save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/ \
