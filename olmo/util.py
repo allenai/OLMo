@@ -6,6 +6,7 @@ import sys
 import time
 import warnings
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
@@ -14,7 +15,6 @@ import botocore.exceptions as boto_exceptions
 import rich
 import torch
 import torch.distributed as dist
-import torch.nn as nn
 from botocore.config import Config
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
@@ -23,11 +23,29 @@ from rich.text import Text
 from rich.traceback import Traceback
 
 from .aliases import PathOrStr
-from .config import LogFilterType
 from .exceptions import OlmoCliError, OlmoError, OlmoNetworkError
+
+
+class StrEnum(str, Enum):
+    """
+    This is equivalent to Python's :class:`enum.StrEnum` since version 3.11.
+    We include this here for compatibility with older version of Python.
+    """
+
+    def __str__(self) -> str:
+        return self.value
+
+    def __repr__(self) -> str:
+        return f"'{str(self)}'"
+
 
 _log_extra_fields: Dict[str, Any] = {}
 log = logging.getLogger(__name__)
+
+
+class LogFilterType(StrEnum):
+    rank0_only = "rank0_only"
+    local_rank0_only = "local_rank0_only"
 
 
 def log_extra_field(field_name: str, field_value: Any) -> None:
@@ -664,13 +682,6 @@ def _s3_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
             latest_step = step
             latest_checkpoint = f"s3://ai2-llm/{prefix}"
     return latest_checkpoint
-
-
-def is_weight_decay_module(module: nn.Module) -> bool:
-    """Returns true if the module should use weight decay."""
-    from .model import LayerNormBase
-
-    return not isinstance(module, (LayerNormBase, nn.LayerNorm, nn.Embedding))
 
 
 def default_thread_count() -> int:
