@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from enum import Enum
 from glob import glob
 from pathlib import Path
 from typing import (
@@ -24,10 +23,11 @@ from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
 
 from .aliases import PathOrStr
 from .exceptions import OlmoConfigurationError
+from .util import StrEnum
 
 __all__ = [
-    "LogFilterType",
     "ActivationType",
+    "ActivationCheckpointingStrategy",
     "BlockType",
     "CompilerConfig",
     "LayerNormType",
@@ -53,21 +53,7 @@ __all__ = [
     "CheckpointType",
 ]
 
-
 C = TypeVar("C", bound="BaseConfig")
-
-
-class StrEnum(str, Enum):
-    """
-    This is equivalent to Python's :class:`enum.StrEnum` since version 3.11.
-    We include this here for compatibility with older version of Python.
-    """
-
-    def __str__(self) -> str:
-        return self.value
-
-    def __repr__(self) -> str:
-        return f"'{str(self)}'"
 
 
 class BaseConfig:
@@ -95,8 +81,22 @@ class BaseConfig:
             else:
                 return ""
 
+        # Finds the latest checkpoint in a folder.
+        def path_last_checkpoint(path) -> str:
+            from .util import find_latest_checkpoint
+
+            latest_checkpoint = find_latest_checkpoint(path)
+            if latest_checkpoint is None:
+                if validate_paths:
+                    raise FileNotFoundError(f"Could not find a latest checkpoint at {path}")
+                else:
+                    return ""
+            else:
+                return str(latest_checkpoint)
+
         om.register_new_resolver("path.glob", path_glob, replace=True)
         om.register_new_resolver("path.choose", path_choose, replace=True)
+        om.register_new_resolver("path.last_checkpoint", path_last_checkpoint, replace=True)
 
     @classmethod
     def new(cls: Type[C], **kwargs) -> C:
@@ -144,11 +144,6 @@ class BaseConfig:
         return out
 
 
-class LogFilterType(StrEnum):
-    rank0_only = "rank0_only"
-    local_rank0_only = "local_rank0_only"
-
-
 class LayerNormType(StrEnum):
     default = "default"
     """
@@ -164,11 +159,6 @@ class LayerNormType(StrEnum):
     """
     An RMSNorm implementation. When using ``torch.compile`` this is
     probably the fastest implementation.
-    """
-
-    low_precision_rms = "low_precision_rms"
-    """
-    A low-precision version of RMSNorm.
     """
 
     amd_compatible = "amd_compatible"
@@ -217,6 +207,11 @@ class InitFnType(StrEnum):
     """
     "Fan-in variance scaling", i.e. normal with a standard deviation of ``1/sqrt(d_in)`` where ``d_in``
     is the input dimensionality of the kernel.
+    """
+
+    full_megatron = "full_megatron"
+    """
+    This is what metaseq calls "full megatron init". It is the init used for Llama 2.
     """
 
 
@@ -445,8 +440,14 @@ class OptimizerConfig(BaseConfig):
     learning_rate: float = 1.0e-4
     weight_decay: float = 0.01
     betas: Tuple[float, float] = (0.9, 0.95)
-    no_decay_norm_and_bias: bool = True
-    """Do not apply weight decay to norms and biases."""
+
+    no_decay_norm_and_bias: Optional[bool] = None
+    """
+    Deprecated. Use ``decay_norm_and_bias`` and ``decay_embeddings`` instead.
+    """
+
+    decay_norm_and_bias: bool = False
+    decay_embeddings: bool = False
     metrics_log_interval: Optional[int] = None
     """
     The interval with which to collect and log detailed parameter-specific metrics.
@@ -616,6 +617,14 @@ class ShardedCheckpointerType(StrEnum):
     local = "local"
 
 
+class ActivationCheckpointingStrategy(StrEnum):
+    whole_layer = "whole_layer"
+    one_in_two = "one_in_two"
+    one_in_three = "one_in_three"
+    one_in_four = "one_in_four"
+    fine_grained = "fine_grained"
+
+
 @dataclass
 class TrainConfig(BaseConfig):
     """
@@ -742,6 +751,14 @@ class TrainConfig(BaseConfig):
     load_path: Optional[str] = None
     """
     The path to a training checkpoint to restore/resume from.
+
+    Note that you can make use of the "path.last_checkpoint" Omegaconfig YAML resolver here, which takes
+    a local or remote directory and resolves to the latest checkpoint (sharded or unsharded) in that directory.
+    For example,
+
+    ```bash
+    --load_path='${path.last_checkpoint:s3://ai2-llm/checkpoints/7b/v1_5-mix-run-001}'
+    ```
     """
 
     load_path_sharded_checkpointer: Optional[ShardedCheckpointerType] = None
@@ -883,9 +900,9 @@ class TrainConfig(BaseConfig):
     Stop at a specific step.
     """
 
-    activation_checkpointing: bool = False
+    activation_checkpointing: Optional[ActivationCheckpointingStrategy] = None
     """
-    Use activation checkpointing on transformer blocks.
+    The activation checkpointing strategy to use.
     """
 
     @property
