@@ -66,7 +66,6 @@ if __name__ == "__main__":
     parser.add_argument("output_dir")
     parser.add_argument(
         "--type",
-        type=str,
         choices=list(ShardedCheckpointerType),
         default=ShardedCheckpointerType.torch_legacy,
         help="""The sharded checkpoint type.""",
