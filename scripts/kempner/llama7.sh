@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=v1-mix-medium-no-weight-tying
+#SBATCH --job-name=llama7
 #SBATCH --account=kempner_lab
 #SBATCH --output=/n/holyscratch01/kempner_lab/Lab/logs/%j.log
-#SBATCH --nodes=8              # Total number of nodes
+#SBATCH --nodes=16              # Total number of nodes
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-node=4       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=16
-#SBATCH --time=24:00:00
+#SBATCH --time=167:00:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=kempner_project
 
@@ -32,10 +32,10 @@ srun \
   --distribution=block:block \
   --kill-on-bad-exit \
   scripts/run_with_environment.sh \
-    $HOME/miniconda3/envs/LLM/bin/python -u scripts/train.py configs/kempner/v1-mix-medium-no-weight-tying.yaml \
-      --run_name=kempner_${SLURM_JOB_ID} \
-      --time_limit=$((167 * 60 * 60)) \
-      --device_train_microbatch_size=2 \
-      --fsdp.sharding_strategy=NO_SHARD \
+    $HOME/miniconda3/envs/LLM/bin/python -u scripts/train.py configs/llama7.yaml \
+      --run_name=kempner_llama7_${SLURM_JOB_ID} \
       --save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/ \
+      --data.num_workers=4 \
+      --device_train_microbatch_size=6 \
+      --time_limit=$((167 * 60 * 60)) \
       ${@}
