@@ -5,7 +5,7 @@ dry_run: false
 wandb:
   name: ${run_name}
   project: olmo-medium
-  group: v1-mix
+  group: orig7
 
 model:
   d_model: 4096
