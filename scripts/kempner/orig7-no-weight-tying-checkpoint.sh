@@ -35,6 +35,7 @@ srun \
     $HOME/miniconda3/envs/LLM/bin/python -u scripts/train.py configs/kempner/orig7-no-weight-tying.yaml \
       --run_name=kempner_${SLURM_JOB_ID} \
       --time_limit=$((167 * 60 * 60)) \
-      --device_train_microbatch_size=8 \
+      --device_train_microbatch_size=2 \
       --save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/ \
+      --load_path='${path.last_checkpoint:/n/holyscratch01/kempner_lab/Lab/checkpoints/6852095}' \
       ${@}

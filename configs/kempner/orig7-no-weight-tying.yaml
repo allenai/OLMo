@@ -61,7 +61,7 @@ scheduler:
 data:
   paths: ${path.glob:${oc.env:DATA_PATH}/v1-sample/gpt-neox-20b-pii-special/*/*.npy}
   pad_direction: right
-  num_workers: 0
+  num_workers: 8
   drop_last: true
   pin_memory: true
   prefetch_factor: 16
