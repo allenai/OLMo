@@ -2,7 +2,6 @@
 
 import gzip
 import logging
-import os
 import sys
 from pathlib import Path
 from typing import Optional, TextIO
@@ -39,7 +38,7 @@ log = logging.getLogger("train")
 def main(cfg: TrainConfig) -> None:
     # Ensure run name set.
     if cfg.run_name is None:
-        cfg.run_name = os.environ.get("COMPOSER_RUN_NAME", "train-llm")
+        raise OlmoConfigurationError("--run_name is required")
     log_extra_field("run_name", cfg.run_name)
 
     # Sanity check
