@@ -36,8 +36,9 @@ model:
   init_fn: normal
 
 fsdp:
+  precision: mixed
+  wrapping_strategy: size_based
   sharding_strategy: SHARD_GRAD_OP
-  wrapping_strategy: by_block
 
 activation_checkpointing: null
 
