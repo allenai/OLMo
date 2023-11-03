@@ -42,6 +42,8 @@ fsdp:
 activation_checkpointing: null
 
 compile: null  # causes instability on AMD GPUs
+  
+softmax_auxiliary_loss: true
 
 optimizer:
   name: adamw
