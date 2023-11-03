@@ -32,7 +32,7 @@ srun \
   --distribution=block:block \
   --kill-on-bad-exit \
   scripts/run_with_environment.sh \
-    $HOME/miniconda3/envs/LLM/bin/python -u scripts/train.py configs/kebap7.yaml \
+    $HOME/miniconda3/envs/LLM/bin/python -u scripts/train.py configs/kebab7.yaml \
       --run_name=kempner_kebap7_${SLURM_JOB_ID} \
       --save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/ \
       --data.num_workers=4 \
