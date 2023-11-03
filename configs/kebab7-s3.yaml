@@ -12,6 +12,7 @@ model:
   n_heads: 16
   n_layers: 30
   mlp_hidden_size: 29696
+  weight_tying: false
   alibi: true
   alibi_bias_max: 8.0
   attention_dropout: 0.0
@@ -32,7 +33,6 @@ model:
   pad_token_id: 1
   init_device: meta
   init_fn: normal
-  weight_tying: false
 
 fsdp:
   sharding_strategy: SHARD_GRAD_OP
