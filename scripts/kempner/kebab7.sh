@@ -2,11 +2,11 @@
 #SBATCH --job-name=kebap7
 #SBATCH --account=kempner_lab
 #SBATCH --output=/n/holyscratch01/kempner_lab/Lab/logs/%j.log
-#SBATCH --nodes=16              # Total number of nodes
+#SBATCH --nodes=8              # Total number of nodes
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-node=4       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=16
-#SBATCH --time=167:00:00
+#SBATCH --time=48:00:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=kempner_project
 
@@ -36,7 +36,9 @@ srun \
       --run_name=kempner_kebap7_${SLURM_JOB_ID} \
       --save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/ \
       --data.num_workers=8 \
-      --device_train_microbatch_size=8 \
-      --time_limit=$((167 * 60 * 60)) \
+      --time_limit=$((47 * 60 * 60)) \
       --canceled_check_interval=10 \
+      --activation_checkpointing=whole_layer \
+      --device_train_microbatch_size=8 \
+      --fsdp.sharding_strategy=FULL_SHARD \
       ${@}
