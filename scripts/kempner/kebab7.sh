@@ -35,8 +35,8 @@ srun \
     $HOME/miniconda3/envs/LLM/bin/python -u scripts/train.py configs/kebab7.yaml \
       --run_name=kempner_kebap7_${SLURM_JOB_ID} \
       --save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/ \
-      --data.num_workers=4 \
-      --device_train_microbatch_size=6 \
+      --data.num_workers=8 \
+      --device_train_microbatch_size=8 \
       --time_limit=$((167 * 60 * 60)) \
       --canceled_check_interval=10 \
       ${@}
