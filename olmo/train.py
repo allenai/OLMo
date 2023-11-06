@@ -43,6 +43,7 @@ from .util import (
     move_to_device,
     peak_gpu_memory,
     syncronize_flag,
+    syncronize_value,
     upload,
 )
 
@@ -657,14 +658,16 @@ class Trainer:
 
         return eval_metrics
 
-    def check_if_cancelled(self) -> bool:
+    def check_if_cancelled(self) -> Tuple[bool, int]:
         should_cancel = False
         cancel_reason: Optional[str] = None
+        extra_steps = 0
         if get_global_rank() == 0:
             if self.cfg.time_limit is not None and time.time() - self._start_time >= self.cfg.time_limit:
                 # First check if we've reached the training time limit.
                 should_cancel = True
                 cancel_reason = "time limit reached"
+                extra_steps = 10  # train for 10 extra steps so we get an overlap in metrics when we restart
             elif (
                 self.cfg.early_stopping_factor is not None
                 and self.global_step > self.cfg.scheduler.t_warmup
@@ -691,8 +694,13 @@ class Trainer:
 
         run_canceled = syncronize_flag(should_cancel, self.device)
         if run_canceled and cancel_reason is not None:
-            log.warning(f"Run canceled due to {cancel_reason}")
-        return run_canceled
+            extra_steps = syncronize_value(extra_steps, self.device)
+            if extra_steps > 0:
+                log.warning(f"Run canceled due to {cancel_reason}, stopping in {extra_steps} more steps...")
+            else:
+                log.warning(f"Run canceled due to {cancel_reason}")
+
+        return run_canceled, extra_steps
 
     def fit(self):
         self._start_time = time.time()
@@ -765,6 +773,8 @@ class Trainer:
         # Train.
         first_batch: bool = True
         canceled: bool = False
+        hard_stop: bool = False
+        stop_at: Optional[int] = self.cfg.stop_at
 
         with torch_profiler as p:
             for batch in self.train_loader:
@@ -817,11 +827,17 @@ class Trainer:
                 ):
                     wandb.log(metrics, step=self.global_step)
 
-                # Check if run should be canceled.
-                if self.cfg.stop_at is not None and self.global_step >= self.cfg.stop_at:
-                    canceled = True
-                elif self.global_step % self.cfg.canceled_check_interval == 0:
-                    canceled = self.check_if_cancelled()
+                # Check if/when run should be canceled.
+                if not canceled and self.global_step % self.cfg.canceled_check_interval == 0:
+                    canceled, extra_steps = self.check_if_cancelled()
+                    stop_at = (
+                        self.global_step + extra_steps
+                        if stop_at is None
+                        else min(self.global_step + extra_steps, stop_at)
+                    )
+
+                if stop_at is not None and self.global_step >= stop_at:
+                    canceled = hard_stop = True
 
                 # Maybe save sharded checkpoint.
                 if canceled or (
@@ -867,7 +883,10 @@ class Trainer:
                 if p is not None:
                     p.step()
 
-                if canceled:
+                if hard_stop:
+                    # End training loop due to cancellation or reaching `cfg.stop_at`.
+                    # NOTE: no need to check `canceled` here since we always set `stop_at` when the run
+                    # is canceled and then set `hard_stop` based on `stop_at`.
                     break
 
                 # Python Profiler stuff

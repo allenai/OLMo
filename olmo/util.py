@@ -385,13 +385,20 @@ def peak_gpu_memory(reset: bool = False) -> Optional[float]:
     return peak_mb
 
 
-def syncronize_flag(flag: bool, device: torch.device) -> bool:
+V = TypeVar("V", bool, int, float)
+
+
+def syncronize_value(value: V, device: torch.device) -> V:
     if dist.is_available() and dist.is_initialized():
-        flag_tensor = torch.tensor(flag, device=device)
-        dist.broadcast(flag_tensor, 0)
-        return flag_tensor.item()  # type: ignore
+        value_tensor = torch.tensor(value, device=device)
+        dist.broadcast(value_tensor, 0)
+        return value_tensor.item()  # type: ignore
     else:
-        return flag
+        return value
+
+
+def syncronize_flag(flag: bool, device: torch.device) -> bool:
+    return syncronize_value(flag, device)
 
 
 def wait_for(condition: Callable[[], bool], description: str, timeout: float = 10.0):
