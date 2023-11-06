@@ -16,7 +16,7 @@ model:
   weight_tying: false
   alibi: false
   rope: true
-  flash_attention: false  # not available on AMD
+  flash_attention: true
   attention_dropout: 0.0
   attention_layer_norm: false
   multi_query_attention: false
@@ -37,7 +37,8 @@ model:
   init_device: meta
   init_fn: mitchell
 
-compile: null
+compile:
+  fullgraph: false
 
 optimizer:
   name: adamw
@@ -49,7 +50,7 @@ optimizer:
   metrics_log_interval: 10
 
 scheduler:
-  name: cosine_with_warmup
+  name: linear_with_warmup
   t_warmup: 5000
   alpha_f: 0.1
 
@@ -57,13 +58,13 @@ tokenizer:
   identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
   truncate_direction: right
 
-save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
+save_folder: ${oc.env:CHECKPOINTS_PATH}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
-save_interval: 1000
+save_interval: 1000000
 save_num_checkpoints_to_keep: -1
 # Unsharded checkpoints (for final storage)
-save_interval_unsharded: null  # getting errors on LUMI right now
+save_interval_unsharded: 100
 save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
@@ -75,7 +76,7 @@ device_train_microbatch_size: 2
 precision: amp_bf16
 
 fsdp:
-  wrapping_strategy: null
+  wrapping_strategy: by_block
   precision: mixed
 
 max_grad_norm: 1.0
@@ -88,41 +89,37 @@ eval_interval: ${save_interval}
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
+  # lump all the small datasets together (we still get separate metrics).
   - label: all-small-ppl-validation
     data:
-      num_workers: 0
-      drop_last: true
-      # pin_memory: true
-      # prefetch_factor: 1
-      # persistent_workers: false
-      # timeout: 0
       datasets:
         4chan-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/4chan/val.npy
         c4_100_domains-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/c4_100_domains/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/c4_100_domains/val.npy
         c4_en-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/c4_en/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/c4_en/val.npy
         gab-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/gab/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/gab/val.npy
         ice-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/ice/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/ice/val.npy
         m2d2_s2orc-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/m2d2_s2orc/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/m2d2_s2orc/val.npy
         m2d2_wiki-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/m2d2_wiki/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/m2d2_wiki/val.npy
         manosphere-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/manosphere/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/manosphere/val.npy
         mc4_en-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/mc4_en/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/mc4_en/val.npy
         pile-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/pile/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/pile/val.npy
         ptb-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/ptb/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/ptb/val.npy
         twitterAEE-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
         wikitext_103-validation:
-          - ${path.choose:${oc.env:SCRATCH_DIR,no_exist},/net/nfs.cirrascale/allennlp/llm-data}/eval-data/perplexity/v2_small_gptneox20b/wikitext_103/val.npy
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/wikitext_103/val.npy
+      drop_last: true
 
   ##########################
   # Downstream evaluations #
@@ -167,7 +164,7 @@ evaluators:
     type: downstream
 
 data:
-  paths: ${path.glob:${oc.env:FLASH_DIR,no_exist}/preprocessed/olmo-mix/v1_5/gpt-neox-20b-pii-special/*.npy}
+  paths: ${path.glob:${oc.env:DATA_PATH}/v1_5-sample/gpt-neox-20b-pii-special/*.npy}
   pad_direction: right
   num_workers: 0
   drop_last: true
