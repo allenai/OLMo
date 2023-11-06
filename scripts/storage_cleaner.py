@@ -23,13 +23,11 @@ log = logging.getLogger(__name__)
 
 
 R2_ACCOUNT_ID: str = "a198dc34621661a1a66a02d6eb7c4dc3"
-CONFIG_YAML: str = "config.yaml"
 DEFAULT_MAX_ARCHIVE_SIZE: float = 5_000_000_000  # 5GB
 
 
 class CleaningOperations(Enum):
     DELETE_BAD_RUNS = auto()
-    UNSHARD_CHECKPOINTS = auto()
 
 
 class StorageType(Enum):
