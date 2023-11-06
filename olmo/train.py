@@ -772,9 +772,10 @@ class Trainer:
 
         # Train.
         first_batch: bool = True
+        cancel_initiated: bool = False
         canceled: bool = False
-        hard_stop: bool = False
         stop_at: Optional[int] = self.cfg.stop_at
+        save_checkpoints: bool = True
 
         with torch_profiler as p:
             for batch in self.train_loader:
@@ -828,8 +829,8 @@ class Trainer:
                     wandb.log(metrics, step=self.global_step)
 
                 # Check if/when run should be canceled.
-                if not canceled and self.global_step % self.cfg.canceled_check_interval == 0:
-                    canceled, extra_steps = self.check_if_cancelled()
+                if not cancel_initiated and self.global_step % self.cfg.canceled_check_interval == 0:
+                    cancel_initiated, extra_steps = self.check_if_cancelled()
                     stop_at = (
                         self.global_step + extra_steps
                         if stop_at is None
@@ -837,11 +838,15 @@ class Trainer:
                     )
 
                 if stop_at is not None and self.global_step >= stop_at:
-                    canceled = hard_stop = True
+                    canceled = True
 
                 # Maybe save sharded checkpoint.
-                if canceled or (
-                    self.global_step % self.cfg.save_interval == 0 and self.cfg.save_num_checkpoints_to_keep != 0
+                if save_checkpoints and (
+                    cancel_initiated
+                    or (
+                        self.global_step % self.cfg.save_interval == 0
+                        and self.cfg.save_num_checkpoints_to_keep != 0
+                    )
                 ):
                     log.info("Saving checkpoint...")
                     checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
@@ -850,9 +855,13 @@ class Trainer:
                     # Reset speed monitor so that we don't count the time taken to save checkpoints.
                     speed_monitor.reset()
 
+                    # If the run was just canceled this will be the final checkpoint.
+                    if cancel_initiated:
+                        save_checkpoints = False
+
                 # Maybe save unsharded checkpoint.
                 if (
-                    not canceled  # we already save a sharded checkpoint when canceled
+                    save_checkpoints
                     and self.cfg.save_interval_unsharded is not None
                     and self.global_step % self.cfg.save_interval_unsharded == 0
                     and self.cfg.save_num_unsharded_checkpoints_to_keep != 0
@@ -865,7 +874,7 @@ class Trainer:
                     speed_monitor.reset()
 
                 # Maybe run evaluations.
-                if not canceled and self.global_step % self.cfg.eval_interval == 0:
+                if not cancel_initiated and self.global_step % self.cfg.eval_interval == 0:
                     eval_metrics = self.eval()
 
                     # Log metrics to W&B.
@@ -883,10 +892,7 @@ class Trainer:
                 if p is not None:
                     p.step()
 
-                if hard_stop:
-                    # End training loop due to cancellation or reaching `cfg.stop_at`.
-                    # NOTE: no need to check `canceled` here since we always set `stop_at` when the run
-                    # is canceled and then set `hard_stop` based on `stop_at`.
+                if canceled:
                     break
 
                 # Python Profiler stuff
@@ -902,7 +908,7 @@ class Trainer:
                 log.info("Training loop complete")
 
         # Save final unsharded model-only checkpoint.
-        if not canceled and self.cfg.save_interval_unsharded is not None:
+        if save_checkpoints and self.cfg.save_interval_unsharded is not None:
             log.info("Saving final unsharded model checkpoint...")
             checkpoint_path, _ = self.save_checkpoint(CheckpointType.unsharded)
             log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
