@@ -376,6 +376,16 @@ class S3StorageAdapter(StorageAdapter):
         key = parsed_path.path.lstrip("/")
         return bucket_name, key
 
+    def _download_file(self, bucket_name: str, key: str) -> str:
+        extension = "".join(Path(key).suffixes)
+        temp_file = self.local_fs_adapter.create_temp_file(suffix=extension)
+
+        self._s3_client.download_file(bucket_name, key, temp_file)
+        if not self.local_fs_adapter.is_file(temp_file):
+            raise RuntimeError(f"Failed to download file with bucket | key: {bucket_name} | {key}")
+
+        return temp_file
+
     def _get_directory_entries(
         self,
         bucket_name: str,
@@ -419,12 +429,11 @@ class S3StorageAdapter(StorageAdapter):
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         if self.local_fs_adapter.has_supported_archive_extension(path):
-            raise NotImplementedError()
-            # file_path = self._download_file(bucket_name, key)
+            file_path = self._download_file(bucket_name, key)
 
-            # if no_files:
-            #     return self.local_fs_adapter.list_dirs(file_path)
-            # return self.local_fs_adapter.list_entries(file_path, max_file_size)
+            if no_files:
+                return self.local_fs_adapter.list_dirs(file_path)
+            return self.local_fs_adapter.list_entries(file_path, max_file_size)
 
         if self._is_file(bucket_name, key):
             raise ValueError(
