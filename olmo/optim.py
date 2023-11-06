@@ -431,6 +431,8 @@ class AdamW(torch.optim.AdamW, Optimizer):
 
 @dataclass
 class Scheduler(metaclass=ABCMeta):
+    # NOTE: these fields are not given default values because otherwise dataclasses complains
+    # about how the scheduler subclasses are defined.
     grad_clip_warmup_steps: Optional[int]
     grad_clip_warmup_ratio: Optional[float]
 
