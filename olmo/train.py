@@ -667,7 +667,7 @@ class Trainer:
                 # First check if we've reached the training time limit.
                 should_cancel = True
                 cancel_reason = "time limit reached"
-                extra_steps = 10  # train for 10 extra steps so we get an overlap in metrics when we restart
+                extra_steps = self.cfg.extra_steps_after_cancel
             elif (
                 self.cfg.early_stopping_factor is not None
                 and self.global_step > self.cfg.scheduler.t_warmup
@@ -688,6 +688,7 @@ class Trainer:
                         if tag.lower() in {"cancel", "canceled", "cancelled"}:
                             should_cancel = True
                             cancel_reason = "Weights & Biases tag"
+                            extra_steps = self.cfg.extra_steps_after_cancel
                             break
                 except RequestException:
                     pass

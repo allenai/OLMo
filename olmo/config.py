@@ -878,6 +878,13 @@ class TrainConfig(BaseConfig):
     to write out a final checkpoint.
     """
 
+    extra_steps_after_cancel: int = 10
+    """
+    Under certain conditions when a run is canceled we train for a few extra steps after saving
+    the final checkpoint so that when the run is restarted from the latest checkpoint we have some
+    overlap in metrics.
+    """
+
     early_stopping_factor: Optional[float] = None
 
     save_data_indices: bool = True
