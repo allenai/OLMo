@@ -32,7 +32,7 @@ srun \
   --distribution=block:block \
   --kill-on-bad-exit \
   scripts/run_with_environment.sh \
-    $HOME/miniconda3/envs/LLM/bin/python -u scripts/train.py configs/v1_5-mix-medium-mitch-ish-mcli.yaml \
+    $HOME/miniconda3/envs/LLM-torch201/bin/python -u scripts/train.py configs/v1_5-mix-medium-mitch-ish-mcli.yaml \
       --run_name=kempner_mitchish7_repro_${SLURM_JOB_ID} \
       --save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/ \
       --data.num_workers=8 \
