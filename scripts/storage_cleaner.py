@@ -17,7 +17,7 @@ import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
 from botocore.config import Config
 from google.api_core.exceptions import NotFound
-
+from tqdm import tqdm
 
 log = logging.getLogger(__name__)
 
@@ -159,12 +159,14 @@ class LocalFileSystemAdapter(StorageAdapter):
                 )
 
             with tarfile.open(path) as tar:
+                log.info("Listing entries from archive %s", path)
                 tar_subpaths = [os.path.normpath(name) for name in tar.getnames()]
-                return [
+                result = [
                     os.path.basename(tar_subpath)
                     for tar_subpath in tar_subpaths
                     if tar_subpath.count(os.sep) == 1
                 ]
+                return result
 
         raise ValueError(
             f"Path does not correspond to directory or supported archive file: {path}"
@@ -308,6 +310,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         if self.local_fs_adapter.has_supported_archive_extension(path):
+            log.info("Downloading archive %s", path)
             file_path = self._download_file(bucket_name, key)
 
             if no_files:
@@ -380,7 +383,17 @@ class S3StorageAdapter(StorageAdapter):
         extension = "".join(Path(key).suffixes)
         temp_file = self.local_fs_adapter.create_temp_file(suffix=extension)
 
-        self._s3_client.download_file(bucket_name, key, temp_file)
+        head_response: Dict[str, Any] = self._s3_client.head_object(Bucket=bucket_name, Key=key)
+        if 'ContentLength' not in head_response:
+            raise RuntimeError(f"Failed to get size for file with bucket | key: {bucket_name} | {key}")
+        size_in_bytes: int = head_response['ContentLength']
+
+        with tqdm(total=size_in_bytes, unit='B', unit_scale=True) as pbar:
+            def progress_callback(bytes_downloaded: int):
+                pbar.update(bytes_downloaded)
+
+            self._s3_client.download_file(bucket_name, key, temp_file, Callback=progress_callback)
+
         if not self.local_fs_adapter.is_file(temp_file):
             raise RuntimeError(f"Failed to download file with bucket | key: {bucket_name} | {key}")
 
@@ -429,6 +442,7 @@ class S3StorageAdapter(StorageAdapter):
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         if self.local_fs_adapter.has_supported_archive_extension(path):
+            log.info("Downloading archive %s", path)
             file_path = self._download_file(bucket_name, key)
 
             if no_files:
@@ -563,8 +577,8 @@ class StorageCleaner:
     def _contains_nontrivial_checkpoint_dir(dir_entries: List[str]) -> bool:
         return any(re.match(r"step[1-9]\d*(-unsharded)?", entry) is not None for entry in dir_entries)
 
-    def _verify_deletion_without_checkpoint_dir(self, run_dir_entry: str):
-        msg = f"No checkpoint dir found in run directory entry {run_dir_entry}. This entry might not correspond to a run."
+    def _verify_deletion_without_checkpoint_dir(self, run_dir_or_archive: str, run_entries: List[str]):
+        msg = f"No checkpoint dir found in run directory entry {run_dir_or_archive} (first 5 entries: {run_entries[:5]}). This entry might not correspond to a run."
         if self._runs_require_checkpoint_dir:
             raise ValueError(msg)
 
@@ -572,17 +586,17 @@ class StorageCleaner:
 
         if not self._ignore_prompts:
             while True:
-                response = input(f"{msg} Would you still like to delete {run_dir_entry}? (y/n) ")
+                response = input(f"{msg} Would you still like to delete {run_dir_or_archive}? (y/n) ")
                 if response.lower() == "y":
                     break
-
-                raise ValueError(msg)
+                elif response.lower() == "n":
+                    raise ValueError(msg)
 
     def _delete_if_bad_run(self, storage: StorageAdapter, run_dir_or_archive: str):
         run_entries = storage.list_entries(run_dir_or_archive)
 
         if not self._contains_checkpoint_dir(run_entries):
-            self._verify_deletion_without_checkpoint_dir(run_dir_or_archive)
+            self._verify_deletion_without_checkpoint_dir(run_dir_or_archive, run_entries)
 
         if not self._contains_nontrivial_checkpoint_dir(run_entries):
             if self._dry_run:
@@ -638,7 +652,7 @@ def perform_operation(args: argparse.Namespace):
 
 def _add_delete_subparser(subparsers: _SubParsersAction):
     delete_runs_parser: ArgumentParser = subparsers.add_parser(
-        "clean", help="Delete bad runs (example no non-trivial checkpoints)"
+        "clean", help="Delete bad runs (e.g. runs with no non-trivial checkpoints)"
     )
     delete_runs_parser.set_defaults(op=CleaningOperations.DELETE_BAD_RUNS)
 
