@@ -15,7 +15,6 @@ from urllib.parse import urlparse
 import boto3
 import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
-import wandb
 from botocore.config import Config
 from google.api_core.exceptions import NotFound
 
@@ -26,13 +25,11 @@ log = logging.getLogger(__name__)
 
 R2_ACCOUNT_ID: str = "a198dc34621661a1a66a02d6eb7c4dc3"
 CONFIG_YAML: str = "config.yaml"
-WANDB_ENTITY: str = "ai2-llm"
 DEFAULT_MAX_ARCHIVE_SIZE: float = 5_000_000_000  # 5GB
 
 
 class CleaningOperations(Enum):
     DELETE_BAD_RUNS = auto()
-    RENAME_RUNS_TO_WANDB_ID = auto()
     UNSHARD_CHECKPOINTS = auto()
 
 
@@ -541,16 +538,12 @@ class StorageCleaner:
         runs_require_config_yaml: bool = True,
         r2_account_id: Optional[str] = None,
         max_archive_size: Optional[float] = None,
-        default_wandb_entity: Optional[str] = None,
-        default_wandb_project: Optional[str] = None,
     ) -> None:
         self._dry_run: bool = dry_run
         self._runs_require_config_yaml = runs_require_config_yaml
         self._ignore_prompts: bool = ignore_prompts
         self._r2_account_id: Optional[str] = r2_account_id
         self._max_archive_size: Optional[float] = max_archive_size
-        self._default_wandb_entity: Optional[str] = default_wandb_entity
-        self._default_wandb_project: Optional[str] = default_wandb_project
         self._storage_adapters: Dict[StorageType, StorageAdapter] = {}
 
     def _get_storage_adapter(self, storage_type: StorageType) -> StorageAdapter:
@@ -619,71 +612,6 @@ class StorageCleaner:
         for run_dir_entry in run_dirs_entries:
             self._delete_if_bad_run(storage, run_dir_entry)
 
-    def _get_wandb_id(self, storage: StorageAdapter, run_dir_entry: str) -> str:
-        dir_entries = storage.list_entries(run_dir_entry)
-        if CONFIG_YAML not in dir_entries:
-            raise FileNotFoundError(
-                f"{CONFIG_YAML} not found in dir {run_dir_entry}, cannot get wandb id"
-            )
-
-        config_yaml_path = os.path.join(run_dir_entry, CONFIG_YAML)
-        train_config = TrainConfig.load(config_yaml_path)
-        if train_config.wandb is None:
-            raise ValueError(f"No wandb settings in config file {config_yaml_path}")
-
-        entity_name = train_config.wandb.entity or self._default_wandb_entity
-        project_name = train_config.wandb.project or self._default_wandb_project
-        run_name = train_config.wandb.name
-
-        if entity_name is None:
-            raise ValueError(
-                f"No wandb entity set in cli or in config file {config_yaml_path}"
-            )
-        if project_name is None:
-            raise ValueError(
-                f"No wandb project name set in cli or in config file {config_yaml_path}"
-            )
-        if run_name is None:
-            raise ValueError(f"No wandb name set in config file {config_yaml_path}")
-
-        wandb_api = wandb.Api()
-        runs = list(
-            wandb_api.runs(
-                path=f"{entity_name}/{project_name}",
-                filters={"display_name": {"$regex": run_name}},
-            )
-        )
-        if len(runs) == 0:
-            raise ValueError(f"No wandb runs found for {run_dir_entry}")
-        if len(runs) > 1:
-            raise ValueError(f"{len(runs)} runs found for {run_dir_entry}")
-
-        run = runs[0]
-        print("id", run.id)
-        return run.id
-
-    def rename_runs_to_wandb_ids(self, runs_path: str):
-        log.info("Starting renaming runs to their wandb ids")
-
-        if not runs_path.endswith("/"):
-            raise ValueError(
-                "Runs path does not end with '/'. Please verify that path is a directory and re-run with trailing '/'."
-            )
-
-        storage: StorageAdapter = self._get_storage_adapter_for_path(runs_path)
-        run_dir_entries = [
-            os.path.join(runs_path, entry) for entry in storage.list_dirs(runs_path)
-        ]
-
-        print(run_dir_entries)
-        run_wandb_ids = {
-            run_dir_entry: self._get_wandb_id(storage, run_dir_entry)
-            for run_dir_entry in run_dir_entries
-        }
-        print(run_wandb_ids)
-
-        raise NotImplementedError
-
 
 def perform_operation(args: argparse.Namespace):
     if args.dry_run:
@@ -698,15 +626,6 @@ def perform_operation(args: argparse.Namespace):
             max_archive_size=args.max_archive_size,
         )
         storage_cleaner.delete_bad_runs(args.runs_path)
-    if args.op == CleaningOperations.RENAME_RUNS_TO_WANDB_ID:
-        storage_cleaner = StorageCleaner(
-            dry_run=args.dry_run,
-            ignore_prompts=args.yes,
-            r2_account_id=args.r2_account_id,
-            default_wandb_entity=args.entity,
-            default_wandb_project=args.project,
-        )
-        storage_cleaner.rename_runs_to_wandb_ids(args.runs_path)
 
 
 def _add_delete_subparser(subparsers: _SubParsersAction):
@@ -728,27 +647,6 @@ def _add_delete_subparser(subparsers: _SubParsersAction):
         "--max_archive_size",
         default=DEFAULT_MAX_ARCHIVE_SIZE,
         help="Max size archive files to consider for deletion (in bytes). Any archive larger than this is ignored/not deleted.",
-    )
-
-
-def _add_wandb_subparser(subparsers: _SubParsersAction):
-    wandb_runs_parser = subparsers.add_parser(
-        "rename_to_wandb", help="renames runs to their wandb ids"
-    )
-    wandb_runs_parser.set_defaults(op=CleaningOperations.RENAME_RUNS_TO_WANDB_ID)
-    wandb_runs_parser.add_argument(
-        "runs_path",
-        help="Path to directory containing one or more run directories",
-    )
-    wandb_runs_parser.add_argument(
-        "--entity",
-        default=WANDB_ENTITY,
-        help="Wandb entity to use for runs without a specified entity.",
-    )
-    wandb_runs_parser.add_argument(
-        "--project",
-        default=None,
-        help="Wandb project to use for runs without a specified project. If unset, runs without a specified project will be skipped.",
     )
 
 
@@ -782,7 +680,6 @@ def get_parser() -> ArgumentParser:
         dest="command", help="Cleaning commands", required=True
     )
     _add_delete_subparser(subparsers)
-    _add_wandb_subparser(subparsers)
 
     # gs://ai2-olmo/ai2-llm/olmo-medium/njmmt4v8/config.yaml
     # temp
