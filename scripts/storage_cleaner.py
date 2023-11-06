@@ -3,25 +3,29 @@ import logging
 import os
 import re
 import shutil
+import subprocess
 import tarfile
 import tempfile
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, _SubParsersAction
 from enum import Enum, auto
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
+import botocore.exceptions as boto_exceptions
 
+import boto3
 import google.cloud.storage as gcs
 import wandb
+from botocore.config import Config
 from google.api_core.exceptions import NotFound
-import subprocess
 
 from olmo import TrainConfig
 
 log = logging.getLogger(__name__)
 
 
+R2_ACCOUNT_ID: str = "a198dc34621661a1a66a02d6eb7c4dc3"
 CONFIG_YAML: str = "config.yaml"
 WANDB_ENTITY: str = "ai2-llm"
 DEFAULT_MAX_ARCHIVE_SIZE: float = 5_000_000_000  # 5GB
@@ -83,17 +87,19 @@ class StorageAdapter(ABC):
         """
 
     @classmethod
-    def create_storage_adapter(cls, storage_type: StorageType):
+    def create_storage_adapter(cls, storage_type: StorageType, r2_account_id: Optional[str] = None):
         if storage_type == StorageType.LOCAL_FS:
             return LocalFileSystemAdapter()
         if storage_type == StorageType.GCS:
             return GoogleCloudStorageAdapter()
         if storage_type == StorageType.S3:
-            raise NotImplementedError()
+            return S3StorageAdapter()
         if storage_type == StorageType.R2:
-            raise NotImplementedError()
+            if r2_account_id is None:
+                raise ValueError("R2 account id must be provided to create R2 storage adapter")
+            return S3StorageAdapter(endpoint_url=f"https://{r2_account_id}.r2.cloudflarestorage.com")
 
-        raise NotImplementedError()
+        raise NotImplementedError(f"No storage adapter implemented for storage type {storage_type}")
 
     @staticmethod
     def _is_url(path: str) -> bool:
@@ -211,7 +217,7 @@ class LocalFileSystemAdapter(StorageAdapter):
             raise RuntimeError(f"Unexpected type of path {path}")
 
     def upload(self, path: str, local_src: str):
-        shutil.copytree(local_src, path)
+        self.download_to_folder(local_src, path)
 
 
 class GoogleCloudStorageAdapter(StorageAdapter):
@@ -349,7 +355,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         # print(len(blob_names))
         raise NotImplementedError()
-    
+
     def is_file(self, path: str) -> bool:
         bucket_name, key = self._get_bucket_name_and_key(path)
 
@@ -379,27 +385,213 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         raise NotImplementedError()
 
 
+class S3StorageAdapter(StorageAdapter):
+    def __init__(self, endpoint_url: Optional[str] = None):
+        super().__init__()
+        self._s3_client = boto3.client(
+            "s3",
+            endpoint_url=endpoint_url,
+            config=Config(retries={"max_attempts": 10, "mode": "standard"}),
+            use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
+        )
+
+        # print(self._s3_client.head_bucket(Bucket="olmo-checkpoints"))
+
+        self._local_fs_adapter: Optional[LocalFileSystemAdapter] = None
+        self._temp_dirs: List[tempfile.TemporaryDirectory] = []
+
+    @property
+    def local_fs_adapter(self):
+        if self._local_fs_adapter is None:
+            self._local_fs_adapter = LocalFileSystemAdapter()
+
+        return self._local_fs_adapter
+
+    @staticmethod
+    def _get_bucket_name_and_key(path: str) -> Tuple[str, str]:
+        parsed_path = urlparse(path)
+        bucket_name = parsed_path.netloc
+        key = parsed_path.path.lstrip("/")
+        return bucket_name, key
+
+    def _get_directory_entries(self, bucket_name: str, key: str, no_files: bool = False, max_file_size: Optional[float] = None) -> List[str]:
+        response: Dict[str, Any] = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key, Delimiter="/")
+
+        entries: List[str] = []
+
+        if not no_files:
+            objects_metadata: List[Dict[str, Any]] = response.get('Contents', [])
+            for object_metadata in objects_metadata:
+                object_name = object_metadata['Key']
+
+                size: int = object_metadata['Size']
+                if max_file_size is not None and size > max_file_size:
+                    log.info(
+                        "Object %s has size %.2fGb exceeding max file size %.2fGb, skipping.",
+                        object_name,
+                        size / 1e9,
+                        max_file_size / 1e9,
+                    )
+                    continue
+
+                entries.append(object_name)
+
+        directories_metadata: List[Dict[str, str]] = response.get('CommonPrefixes', [])
+        entries += [
+            directory_metadata['Prefix']
+            for directory_metadata in directories_metadata
+        ]
+
+        return [entry.removeprefix(key) for entry in entries]
+
+    def _list_entries(self, path: str, no_files: bool = False, max_file_size: Optional[float] = None) -> List[str]:
+        bucket_name, key = self._get_bucket_name_and_key(path)
+
+        if self.local_fs_adapter.has_supported_archive_extension(path):
+            raise NotImplementedError()
+            # file_path = self._download_file(bucket_name, key)
+
+            # if no_files:
+            #     return self.local_fs_adapter.list_dirs(file_path)
+            # return self.local_fs_adapter.list_entries(file_path, max_file_size)
+
+        if self._is_file(bucket_name, key):
+            raise ValueError(f"Path corresponds to a file without a supported archive extension {path}")
+
+        res = self._get_directory_entries(bucket_name, key, no_files=no_files, max_file_size=max_file_size)
+        return res
+
+    def list_entries(self, path: str, max_file_size: Optional[float] = None) -> List[str]:
+        return self._list_entries(path, max_file_size=max_file_size)
+
+    def list_dirs(self, path: str) -> List[str]:
+        return self._list_entries(path, no_files=True)
+
+    def delete_path(self, path: str):
+        bucket_name, key = self._get_bucket_name_and_key(path)
+
+        response: Dict[str, Any] = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key)
+
+        objects_metadata: List[Dict[str, Any]] = response.get('Contents', [])
+        object_keys_to_delete: List[str] = [
+            object_metadata['Key']
+            for object_metadata in objects_metadata
+        ]
+
+        log.info("Starting to delete %d objects at %s", len(object_keys_to_delete), path)
+
+        max_delete_batch_size: int = 1000
+        for i in range(len(object_keys_to_delete), max_delete_batch_size):
+
+            delete_batch_keys = {
+                'Key': object_key
+                for object_key in object_keys_to_delete[i:i + max_delete_batch_size]
+            }
+
+            delete_response: Dict[str, Any] = self._s3_client.delete_objects(
+                Bucket=bucket_name,
+                Delete=delete_batch_keys)
+
+            errors: List[Dict[str, Any]] = delete_response.get('Errors', [])
+            if len(errors) > 0:
+                for error in errors:
+                    log.error("Failed to delete %s with code %s, message %s", error['Key'], error['Code'], error['Message'])
+
+                raise RuntimeError(f"Error occurred during deletion at {path}")
+
+            deleted_object_keys = [
+                deleted_object['Key']
+                for deleted_object in delete_response.get('Deleted', [])
+            ]
+            delete_batch_keys_set = set(delete_batch_keys)
+            deleted_object_keys_set = set(deleted_object_keys)
+            unrequested_deleted_keys = deleted_object_keys_set.difference(delete_batch_keys_set)
+            if len(unrequested_deleted_keys) > 0:
+                raise RuntimeError(f"The following keys were unexpectedly deleted: {unrequested_deleted_keys}")
+            undeleted_keys = delete_batch_keys_set.difference(deleted_object_keys_set)
+            if len(undeleted_keys) > 0:
+                raise RuntimeError(f"The following keys failed to be deleted: {undeleted_keys}")
+
+    def _is_file(self, bucket_name: str, key: str) -> bool:
+        try:
+            self._s3_client.head_object(Bucket=bucket_name, Key=key)
+            return True
+        except boto_exceptions.ClientError as e:
+            if int(e.response["Error"]["Code"]) == 404:
+                return False
+
+            raise e
+
+    def is_file(self, path: str) -> bool:
+        bucket_name, key = self._get_bucket_name_and_key(path)
+
+        return self._is_file(bucket_name, key)
+
+    def _is_dir(self, bucket_name: str, key: str) -> bool:
+        if self._is_file(bucket_name, key):
+            return False
+
+        response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key, MaxKeys=1)
+        return 'Contents' in response
+
+    def is_dir(self, path: str) -> bool:
+        bucket_name, key = self._get_bucket_name_and_key(path)
+
+        return self._is_dir(bucket_name, key)
+
+    def download_to_folder(self, path: str, local_dest_folder: str):
+        bucket_name, key = self._get_bucket_name_and_key(path)
+
+        response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key)
+        objects_metadata: List[Dict[str, Any]] = response['Contents']
+        for object_metadata in objects_metadata:
+            object_key = object_metadata['Key']
+            object_local_dest = object_key.replace(key, local_dest_folder)
+            print(object_local_dest)
+
+            self._s3_client.download_file(bucket_name, key, object_local_dest)
+
+    def upload(self, path: str, local_src: str):
+        if self.local_fs_adapter.is_file(local_src):
+            bucket_name, key = self._get_bucket_name_and_key(path)
+            self._s3_client.upload_file(local_src, bucket_name, key)
+
+        elif self.local_fs_adapter.is_dir(local_src):
+            for dirpath, _, filenames in os.walk(local_src):
+                for filename in filenames:
+                    local_filepath = os.path.join(dirpath, filename)
+                    dest_filepath = local_filepath.replace(local_src, path)
+                    bucket_name, key = self._get_bucket_name_and_key(dest_filepath)
+
+                    self._s3_client.upload_file(local_filepath, bucket_name, key)
+
+        else:
+            raise ValueError(f"Local source {local_src} does not correspond to a valid file or directory")
+
+
 class StorageCleaner:
     def __init__(
         self,
         dry_run: bool = False,
         ignore_prompts: bool = False,
         runs_require_config_yaml: bool = True,
+        r2_account_id: Optional[str] = None,
         max_archive_size: Optional[float] = None,
         default_wandb_entity: Optional[str] = None,
         default_wandb_project: Optional[str] = None,
     ) -> None:
         self._dry_run: bool = dry_run
-        self._storage_adapters: Dict[StorageType, StorageAdapter] = {}
         self._runs_require_config_yaml = runs_require_config_yaml
         self._ignore_prompts: bool = ignore_prompts
+        self._r2_account_id: Optional[str] = r2_account_id
         self._max_archive_size: Optional[float] = max_archive_size
         self._default_wandb_entity: Optional[str] = default_wandb_entity
         self._default_wandb_project: Optional[str] = default_wandb_project
+        self._storage_adapters: Dict[StorageType, StorageAdapter] = {}
 
     def _get_storage_adapter(self, storage_type: StorageType) -> StorageAdapter:
         if storage_type not in self._storage_adapters:
-            self._storage_adapters[storage_type] = StorageAdapter.create_storage_adapter(storage_type)
+            self._storage_adapters[storage_type] = StorageAdapter.create_storage_adapter(storage_type, self._r2_account_id)
 
         return self._storage_adapters[storage_type]
 
@@ -408,15 +600,15 @@ class StorageCleaner:
         return self._get_storage_adapter(storage_type)
 
     @staticmethod
-    def _contains_config_yaml(dir_entries: List[str]) -> bool:
-        return any(CONFIG_YAML.lower() == entry.lower() for entry in dir_entries)
+    def _contains_checkpoint_dir(dir_entries: List[str]) -> bool:
+        return any(re.match(r"step\d+(-unsharded)?", entry) is not None for entry in dir_entries)
 
     @staticmethod
     def _contains_nontrivial_checkpoint_dir(dir_entries: List[str]) -> bool:
-        return any("step" in entry.lower() and "step0" not in entry.lower() for entry in dir_entries)
+        return any(re.match(r"step[1-9]\d*(-unsharded)?", entry) is not None for entry in dir_entries)
 
-    def _verify_deletion_without_config_yaml(self, run_dir_entry: str):
-        msg = f"No {CONFIG_YAML} found in run directory entry {run_dir_entry}. This entry might not correspond to a run."
+    def _verify_deletion_without_checkpoint_dir(self, run_dir_entry: str):
+        msg = f"No checkpoint dir found in run directory entry {run_dir_entry}. This entry might not correspond to a run."
         if self._runs_require_config_yaml:
             raise ValueError(msg)
 
@@ -433,8 +625,8 @@ class StorageCleaner:
     def _delete_if_bad_run(self, storage: StorageAdapter, run_dir_entry: str):
         dir_entries = storage.list_entries(run_dir_entry)
 
-        if not self._contains_config_yaml(dir_entries):
-            self._verify_deletion_without_config_yaml(run_dir_entry)
+        if not self._contains_checkpoint_dir(dir_entries):
+            self._verify_deletion_without_checkpoint_dir(run_dir_entry)
 
         if not self._contains_nontrivial_checkpoint_dir(dir_entries):
             if self._dry_run:
@@ -622,6 +814,7 @@ def perform_operation(args: argparse.Namespace):
             dry_run=args.dry_run,
             ignore_prompts=args.yes,
             runs_require_config_yaml=args.runs_require_config_yaml,
+            r2_account_id = args.r2_account_id,
             max_archive_size=args.max_archive_size,
         )
         storage_cleaner.delete_bad_runs(args.runs_path)
@@ -629,6 +822,7 @@ def perform_operation(args: argparse.Namespace):
         storage_cleaner = StorageCleaner(
             dry_run=args.dry_run,
             ignore_prompts=args.yes,
+            r2_account_id = args.r2_account_id,
             default_wandb_entity=args.entity,
             default_wandb_project=args.project,
         )
@@ -637,6 +831,7 @@ def perform_operation(args: argparse.Namespace):
         storage_cleaner = StorageCleaner(
             dry_run=args.dry_run,
             ignore_prompts=args.yes,
+            r2_account_id = args.r2_account_id,
             max_archive_size=args.max_archive_size,
         )
         storage_cleaner.unshard_runs_checkpoints(args.runs_src_path, args.runs_dest_path, args.latest_checkpoint_only)
@@ -730,6 +925,11 @@ def get_parser() -> ArgumentParser:
         default="INFO",
         help="Sets the logging level",
     )
+    parser.add_argument(
+        "--r2_account_id",
+        default=R2_ACCOUNT_ID,
+        help="Account id for R2 cloud storage",
+    )
 
     subparsers = parser.add_subparsers(dest="command", help="Cleaning commands", required=True)
     _add_delete_subparser(subparsers)
@@ -739,6 +939,8 @@ def get_parser() -> ArgumentParser:
     # gs://ai2-olmo/ai2-llm/olmo-medium/njmmt4v8/config.yaml
     # temp
     # gs://ai2-olmo/unsorted-checkpoints/3416090.tar.bz2
+    # r2://olmo-checkpoints/ai2-llm/olmo-medium/ips8ixw7/
+    # s3://ai2-llm/checkpoints/1b/
 
     return parser
 
