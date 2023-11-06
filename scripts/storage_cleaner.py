@@ -525,12 +525,12 @@ class StorageCleaner:
         self,
         dry_run: bool = False,
         ignore_prompts: bool = False,
-        runs_require_config_yaml: bool = True,
+        runs_require_checkpoint_dir: bool = True,
         r2_account_id: Optional[str] = None,
         max_archive_size: Optional[float] = None,
     ) -> None:
         self._dry_run: bool = dry_run
-        self._runs_require_config_yaml = runs_require_config_yaml
+        self._runs_require_checkpoint_dir = runs_require_checkpoint_dir
         self._ignore_prompts: bool = ignore_prompts
         self._r2_account_id: Optional[str] = r2_account_id
         self._max_archive_size: Optional[float] = max_archive_size
@@ -558,7 +558,7 @@ class StorageCleaner:
 
     def _verify_deletion_without_checkpoint_dir(self, run_dir_entry: str):
         msg = f"No checkpoint dir found in run directory entry {run_dir_entry}. This entry might not correspond to a run."
-        if self._runs_require_config_yaml:
+        if self._runs_require_checkpoint_dir:
             raise ValueError(msg)
 
         log.warning(msg)
@@ -611,7 +611,7 @@ def perform_operation(args: argparse.Namespace):
         storage_cleaner = StorageCleaner(
             dry_run=args.dry_run,
             ignore_prompts=args.yes,
-            runs_require_config_yaml=args.runs_require_config_yaml,
+            runs_require_checkpoint_dir=args.runs_require_checkpoint_dir,
             r2_account_id=args.r2_account_id,
             max_archive_size=args.max_archive_size,
         )
@@ -628,10 +628,10 @@ def _add_delete_subparser(subparsers: _SubParsersAction):
         help="Path to directory containing one or more run directories",
     )
     delete_runs_parser.add_argument(
-        "--require_config_yaml",
+        "--require_checkpoint_dir",
         action="store_true",
-        dest="runs_require_config_yaml",
-        help=f"Enforces without prompt the sanity check that an entry being deleted has a {CONFIG_YAML} file (and so is a run)",
+        dest="runs_require_checkpoint_dir",
+        help="Enforces without prompt the sanity check that an entry being deleted has a checkpoint dir (and so is a run)",
     )
     delete_runs_parser.add_argument(
         "--max_archive_size",
