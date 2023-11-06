@@ -566,18 +566,15 @@ class StorageCleaner:
         return self._get_storage_adapter(storage_type)
 
     @staticmethod
-    def _contains_config_yaml(dir_entries: List[str]) -> bool:
-        return any(CONFIG_YAML.lower() == entry.lower() for entry in dir_entries)
+    def _contains_checkpoint_dir(dir_entries: List[str]) -> bool:
+        return any(re.match(r"step\d+(-unsharded)?", entry) is not None for entry in dir_entries)
 
     @staticmethod
     def _contains_nontrivial_checkpoint_dir(dir_entries: List[str]) -> bool:
-        return any(
-            "step" in entry.lower() and "step0" not in entry.lower()
-            for entry in dir_entries
-        )
+        return any(re.match(r"step[1-9]\d*(-unsharded)?", entry) is not None for entry in dir_entries)
 
-    def _verify_deletion_without_config_yaml(self, run_dir_entry: str):
-        msg = f"No {CONFIG_YAML} found in run directory entry {run_dir_entry}. This entry might not correspond to a run."
+    def _verify_deletion_without_checkpoint_dir(self, run_dir_entry: str):
+        msg = f"No checkpoint dir found in run directory entry {run_dir_entry}. This entry might not correspond to a run."
         if self._runs_require_config_yaml:
             raise ValueError(msg)
 
@@ -585,9 +582,7 @@ class StorageCleaner:
 
         if not self._ignore_prompts:
             while True:
-                response = input(
-                    f"{msg} Would you still like to delete {run_dir_entry}? (y/n) "
-                )
+                response = input(f"{msg} Would you still like to delete {run_dir_entry}? (y/n) ")
                 if response.lower() == "y":
                     break
                 else:
@@ -596,8 +591,8 @@ class StorageCleaner:
     def _delete_if_bad_run(self, storage: StorageAdapter, run_dir_entry: str):
         dir_entries = storage.list_entries(run_dir_entry)
 
-        if not self._contains_config_yaml(dir_entries):
-            self._verify_deletion_without_config_yaml(run_dir_entry)
+        if not self._contains_checkpoint_dir(dir_entries):
+            self._verify_deletion_without_checkpoint_dir(run_dir_entry)
 
         if not self._contains_nontrivial_checkpoint_dir(dir_entries):
             if self._dry_run:
