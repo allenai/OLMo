@@ -434,7 +434,7 @@ class Scheduler(metaclass=ABCMeta):
     # NOTE: these fields are not given default values because otherwise dataclasses complains
     # about how the scheduler subclasses are defined.
     grad_clip_warmup_steps: Optional[int]
-    grad_clip_warmup_ratio: Optional[float]
+    grad_clip_warmup_factor: Optional[float]
 
     @abstractmethod
     def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
@@ -448,12 +448,12 @@ class Scheduler(metaclass=ABCMeta):
             return None
         elif (
             self.grad_clip_warmup_steps is None
-            or self.grad_clip_warmup_ratio is None
+            or self.grad_clip_warmup_factor is None
             or step > self.grad_clip_warmup_steps
         ):
             return initial_value
         else:
-            return self.grad_clip_warmup_ratio * initial_value
+            return self.grad_clip_warmup_factor * initial_value
 
     def get_max_grad_norm(
         self, initial_max_grad_norm: Optional[float], step: int, max_steps: int
@@ -539,7 +539,7 @@ class BoltOnWarmupScheduler(Scheduler):
     def wrap(cls, scheduler: Scheduler, warmup_start: int, warmup_end: int) -> "BoltOnWarmupScheduler":
         return cls(
             grad_clip_warmup_steps=None,
-            grad_clip_warmup_ratio=None,
+            grad_clip_warmup_factor=None,
             inner=scheduler,
             warmup_start=warmup_start,
             warmup_end=warmup_end,
@@ -703,7 +703,7 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
     if cfg.scheduler.name == SchedulerType.cosine_with_warmup:
         return CosWithWarmup(
             grad_clip_warmup_steps=sched_cfg.t_grad_clip_warmup,
-            grad_clip_warmup_ratio=sched_cfg.grad_clip_warmup_ratio,
+            grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             warmup_steps=sched_cfg.t_warmup,
             alpha_f=sched_cfg.alpha_f,
             t_max=sched_cfg.t_max,
@@ -711,7 +711,7 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
     elif cfg.scheduler.name == SchedulerType.linear_with_warmup:
         return LinearWithWarmup(
             grad_clip_warmup_steps=sched_cfg.t_grad_clip_warmup,
-            grad_clip_warmup_ratio=sched_cfg.grad_clip_warmup_ratio,
+            grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             warmup_steps=sched_cfg.t_warmup,
             alpha_f=sched_cfg.alpha_f,
             t_max=sched_cfg.t_max,
@@ -719,13 +719,13 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
     elif cfg.scheduler.name == SchedulerType.inverse_sqrt_with_warmup:
         return InvSqrtWithWarmup(
             grad_clip_warmup_steps=sched_cfg.t_grad_clip_warmup,
-            grad_clip_warmup_ratio=sched_cfg.grad_clip_warmup_ratio,
+            grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             warmup_steps=sched_cfg.t_warmup,
         )
     elif cfg.scheduler.name == SchedulerType.max_scheduler:
         return MaxScheduler(
             grad_clip_warmup_steps=sched_cfg.t_grad_clip_warmup,
-            grad_clip_warmup_ratio=sched_cfg.grad_clip_warmup_ratio,
+            grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             sched1=build_scheduler(cfg, replace(sched_cfg, name=SchedulerType.cosine_with_warmup)),
             sched2=build_scheduler(cfg, replace(sched_cfg, name=SchedulerType.inverse_sqrt_with_warmup)),
         )

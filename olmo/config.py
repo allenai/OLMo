@@ -466,10 +466,10 @@ class SchedulerConfig(BaseConfig):
     t_grad_clip_warmup: Optional[int] = None
     """
     The warmup period (in terms of steps) for which the max grad norm (or norm ratio) will be set to its
-    warmup value of `max_grad_norm * grad_clip_warmup_ratio`.
+    warmup value of `max_grad_norm * grad_clip_warmup_factor`.
     """
 
-    grad_clip_warmup_ratio: Optional[float] = None
+    grad_clip_warmup_factor: Optional[float] = None
     """
     The ratio of the max allowed gradient norm (or norm ratio) for clipping during the warmup period
     vs after the warmup period.
