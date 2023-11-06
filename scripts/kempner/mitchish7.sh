@@ -37,7 +37,7 @@ srun \
       --save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/ \
       --data.num_workers=8 \
       --time_limit=$((23 * 60 * 60)) \
-      --global_train_batch_size=2160 \
+      --global_train_batch_size=2144 \
       --new_style_checkpoints=false \
       --canceled_check_interval=10 \
       ${@}
