@@ -209,10 +209,10 @@ def main(cfg: TrainConfig) -> None:
 
             # If we have to, set a new scheduler:
             if cfg.reset_optimizer_state:
-                trainer.scheduler = BoltOnWarmupScheduler(
-                    inner=trainer.scheduler,
-                    warmup_start=trainer.global_step,
-                    warmup_end=trainer.global_step + cfg.scheduler.t_warmup,
+                trainer.scheduler = BoltOnWarmupScheduler.wrap(
+                    trainer.scheduler,
+                    trainer.global_step,
+                    trainer.global_step + cfg.scheduler.t_warmup,
                 )
 
         if cfg.force_save_unsharded:

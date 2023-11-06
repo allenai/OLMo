@@ -534,8 +534,16 @@ class BoltOnWarmupScheduler(Scheduler):
     inner: Scheduler
     warmup_start: int
     warmup_end: int
-    grad_clip_warmup_steps: Optional[int] = None
-    grad_clip_warmup_ratio: Optional[float] = None
+
+    @classmethod
+    def wrap(cls, scheduler: Scheduler, warmup_start: int, warmup_end: int) -> "BoltOnWarmupScheduler":
+        return cls(
+            grad_clip_warmup_steps=None,
+            grad_clip_warmup_ratio=None,
+            inner=scheduler,
+            warmup_start=warmup_start,
+            warmup_end=warmup_end,
+        )
 
     def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
         if step < self.warmup_start:

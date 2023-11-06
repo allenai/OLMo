@@ -20,7 +20,7 @@ def test_bolt_on_warmup_scheduler():
     scheduler = LinearWithWarmup(
         grad_clip_warmup_steps=None, grad_clip_warmup_ratio=None, warmup_steps=1000, alpha_f=alpha_f
     )
-    scheduler2 = BoltOnWarmupScheduler(inner=scheduler, warmup_start=5000, warmup_end=6000)
+    scheduler2 = BoltOnWarmupScheduler.wrap(scheduler, 5000, 6000)
     assert scheduler.get_lr(initial_lr, 100, max_steps) > 0.0
     assert scheduler2.get_lr(initial_lr, 100, max_steps) == 0.0
     assert scheduler2.get_lr(initial_lr, 5000, max_steps) == 0.0
