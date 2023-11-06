@@ -36,7 +36,6 @@ srun \
       --run_name=kempner_mitchish7_repro_${SLURM_JOB_ID} \
       --save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/ \
       --data.num_workers=8 \
-      --device_train_microbatch_size=8 \
       --time_limit=$((23 * 60 * 60)) \
       --global_train_batch_size=2160 \
       --new_style_checkpoints=false \
