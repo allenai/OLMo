@@ -18,7 +18,6 @@ import google.cloud.storage as gcs
 from botocore.config import Config
 from google.api_core.exceptions import NotFound
 
-from olmo import TrainConfig
 
 log = logging.getLogger(__name__)
 
@@ -234,7 +233,6 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         return blob.size
 
     def _is_file(self, bucket_name: str, key: str) -> bool:
-        # print(bucket_name, key)
         bucket = self.gcs_client.bucket(bucket_name)
         blob = bucket.blob(key)
         try:
@@ -319,7 +317,6 @@ class GoogleCloudStorageAdapter(StorageAdapter):
             return self.local_fs_adapter.list_entries(file_path, max_file_size)
 
         if self._is_file(bucket_name, key):
-            # print(bucket_name, key)
             raise ValueError(
                 f"Path corresponds to a file without a supported archive extension {path}"
             )
@@ -327,7 +324,6 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         res = self._get_directory_entries(
             bucket_name, key, no_files=no_files, max_file_size=max_file_size
         )
-        # print('Result', res)
         return res
 
     def list_entries(
@@ -345,12 +341,8 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         # Not using delimiter causes result to not have directory-like structure (all blobs returned)
         blobs = list(bucket.list_blobs(prefix=key))
 
-        # blob_names = []
-        # for blob in blobs:
-        #     blob_names.append(blob.name)
         bucket.delete_blobs(blobs)
 
-        # print(len(blob_names))
         raise NotImplementedError()
 
     def is_file(self, path: str) -> bool:
@@ -368,8 +360,6 @@ class S3StorageAdapter(StorageAdapter):
             config=Config(retries={"max_attempts": 10, "mode": "standard"}),
             use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
         )
-
-        # print(self._s3_client.head_bucket(Bucket="olmo-checkpoints"))
 
         self._local_fs_adapter: Optional[LocalFileSystemAdapter] = None
         self._temp_dirs: List[tempfile.TemporaryDirectory] = []
@@ -680,10 +670,6 @@ def get_parser() -> ArgumentParser:
         dest="command", help="Cleaning commands", required=True
     )
     _add_delete_subparser(subparsers)
-
-    # gs://ai2-olmo/ai2-llm/olmo-medium/njmmt4v8/config.yaml
-    # temp
-    # gs://ai2-olmo/unsorted-checkpoints/3416090.tar.bz2
 
     return parser
 
