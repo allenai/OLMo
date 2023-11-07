@@ -1,6 +1,6 @@
 import logging
 from abc import ABCMeta, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from math import cos, pi, sqrt
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -10,8 +10,9 @@ import torch.nn as nn
 from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.optim.optimizer import Optimizer as OptimizerBase
 
-from .config import OptimizerType, SchedulerType, TrainConfig
-from .util import get_default_device, is_distributed, is_weight_decay_module
+from . import LayerNormBase
+from .config import OptimizerType, SchedulerConfig, SchedulerType, TrainConfig
+from .util import get_default_device, is_distributed
 
 __all__ = [
     "Optimizer",
@@ -428,10 +429,41 @@ class AdamW(torch.optim.AdamW, Optimizer):
         return {key: self.state[param].get(key) for key in ("exp_avg", "exp_avg_sq")}  # type: ignore
 
 
+@dataclass
 class Scheduler(metaclass=ABCMeta):
+    # NOTE: these fields are not given default values because otherwise dataclasses complains
+    # about how the scheduler subclasses are defined.
+    grad_clip_warmup_steps: Optional[int]
+    grad_clip_warmup_factor: Optional[float]
+
     @abstractmethod
     def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
         raise NotImplementedError
+
+    def _get_max_grad_norm_coeff(
+        self, initial_value: Optional[float], step: int, max_steps: int
+    ) -> Optional[float]:
+        del max_steps  # might need this in the future, but for now I just wanted to match the API of `get_lr()`.
+        if initial_value is None:
+            return None
+        elif (
+            self.grad_clip_warmup_steps is None
+            or self.grad_clip_warmup_factor is None
+            or step > self.grad_clip_warmup_steps
+        ):
+            return initial_value
+        else:
+            return self.grad_clip_warmup_factor * initial_value
+
+    def get_max_grad_norm(
+        self, initial_max_grad_norm: Optional[float], step: int, max_steps: int
+    ) -> Optional[float]:
+        return self._get_max_grad_norm_coeff(initial_max_grad_norm, step, max_steps)
+
+    def get_max_grad_norm_ratio(
+        self, initial_max_grad_norm_ratio: Optional[float], step: int, max_steps: int
+    ) -> Optional[float]:
+        return self._get_max_grad_norm_coeff(initial_max_grad_norm_ratio, step, max_steps)
 
     def _linear_warmup(self, initial_lr: float, step: int, warmup_steps: int = 2000) -> float:
         return initial_lr * (0.1 + 0.9 * min(step, warmup_steps) / warmup_steps)
@@ -503,6 +535,16 @@ class BoltOnWarmupScheduler(Scheduler):
     warmup_start: int
     warmup_end: int
 
+    @classmethod
+    def wrap(cls, scheduler: Scheduler, warmup_start: int, warmup_end: int) -> "BoltOnWarmupScheduler":
+        return cls(
+            grad_clip_warmup_steps=None,
+            grad_clip_warmup_factor=None,
+            inner=scheduler,
+            warmup_start=warmup_start,
+            warmup_end=warmup_end,
+        )
+
     def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
         if step < self.warmup_start:
             return 0.0
@@ -511,6 +553,11 @@ class BoltOnWarmupScheduler(Scheduler):
             return lr_at_intercept * (step - self.warmup_start) / (self.warmup_end - self.warmup_start)
         else:
             return self.inner.get_lr(initial_lr, step, max_steps)
+
+    def _get_max_grad_norm_coeff(
+        self, initial_value: Optional[float], step: int, max_steps: int
+    ) -> Optional[float]:
+        return self.inner._get_max_grad_norm_coeff(initial_value, step, max_steps)
 
 
 PARAM_GROUP_FIELDS = ("sharded", "max_grad_norm", "max_grad_norm_ratio", "param_names")
@@ -526,65 +573,70 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
         "max_grad_norm": cfg.max_grad_norm,
         "max_grad_norm_ratio": cfg.max_grad_norm_ratio,
     }
-    if cfg.optimizer.no_decay_norm_and_bias and cfg.optimizer.weight_decay > 0.0:
-        # Separate out parameters that we don't want to apply weight decay to, like norms and biases.
-        decay = set()
-        no_decay = set()
-        all_params = {}
-        for mn, m in model.named_modules():
-            for pn, p in m.named_parameters():
-                # NOTE: because named_modules and named_parameters are recursive
-                # we will see the same tensors p many many times, but doing it this way
-                # allows us to know which parent module any tensor p belongs to...
-                if not p.requires_grad:
-                    continue
 
-                fpn = f"{mn}.{pn}" if mn else pn
-                all_params[fpn] = p
+    # Separate out parameters that we don't want to apply weight decay to, like norms and biases.
+    decay = set()
+    no_decay = set()
+    all_params = {}
+    for mn, m in model.named_modules():
+        for pn, p in m.named_parameters():
+            # NOTE: because named_modules and named_parameters are recursive
+            # we will see the same tensors p many many times, but doing it this way
+            # allows us to know which parent module any tensor p belongs to...
+            if not p.requires_grad:
+                continue
 
-                if pn.endswith("bias"):
-                    # all biases will not be decayed
-                    no_decay.add(fpn)
-                elif pn.endswith("weight") and isinstance(m, nn.Linear):
+            fpn = f"{mn}.{pn}" if mn else pn
+            all_params[fpn] = p
+
+            if pn.endswith("bias"):
+                if cfg.optimizer.decay_norm_and_bias:
                     decay.add(fpn)
-                elif pn.endswith("weight") and not is_weight_decay_module(m):
+                else:
+                    no_decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, nn.Linear):
+                decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, (LayerNormBase, nn.LayerNorm)):
+                if cfg.optimizer.decay_norm_and_bias:
+                    decay.add(fpn)
+                else:
+                    no_decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, nn.Embedding):
+                if cfg.optimizer.decay_embeddings:
+                    decay.add(fpn)
+                else:
                     no_decay.add(fpn)
 
-        # Validate that we've considered every parameter
-        inter_params = decay & no_decay
-        union_params = decay | no_decay
-        assert decay
-        assert no_decay
-        assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
-        assert (
-            len(all_params.keys() - union_params) == 0
-        ), f"parameters {all_params.keys() - union_params} were not separated into either decay/no_decay set!"
+    # Validate that we've considered every parameter
+    inter_params = decay & no_decay
+    union_params = decay | no_decay
+    assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
+    assert (
+        len(all_params.keys() - union_params) == 0
+    ), f"parameters {all_params.keys() - union_params} were not separated into either decay/no_decay set!"
 
-        # Create the pytorch optimizer groups.
-        decay_sorted = sorted(list(decay))
-        no_decay_sorted = sorted(list(no_decay))
-        param_groups = [
+    # Create the pytorch optimizer groups.
+    decay_sorted = sorted(list(decay))
+    no_decay_sorted = sorted(list(no_decay))
+    param_groups = []
+    if len(decay_sorted) > 0:
+        param_groups.append(
             {
                 "params": [all_params[pn] for pn in decay_sorted],
                 "param_names": decay_sorted,
                 **param_group_defaults,
-            },
+            }
+        )
+    if len(no_decay_sorted) > 0:
+        param_groups.append(
             {
                 "params": [all_params[pn] for pn in no_decay_sorted],
                 "param_names": no_decay_sorted,
                 "weight_decay": 0.0,
                 **param_group_defaults,
-            },
-        ]
-    else:
-        param_names, params = zip(*list(model.named_parameters()))
-        param_groups = [
-            {
-                "params": list(params),
-                "param_names": list(param_names),
-                **param_group_defaults,
             }
-        ]
+        )
+
     # Validate fields.
     for group in param_groups:
         for key in PARAM_GROUP_FIELDS:
@@ -646,20 +698,36 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
         raise NotImplementedError
 
 
-def build_scheduler(cfg: TrainConfig) -> Scheduler:
-    sched_cfg = cfg.scheduler
-    if cfg.scheduler.name == SchedulerType.cosine_with_warmup:
-        return CosWithWarmup(warmup_steps=sched_cfg.t_warmup, alpha_f=sched_cfg.alpha_f, t_max=sched_cfg.t_max)
-    elif cfg.scheduler.name == SchedulerType.linear_with_warmup:
-        return LinearWithWarmup(warmup_steps=sched_cfg.t_warmup, alpha_f=sched_cfg.alpha_f, t_max=sched_cfg.t_max)
-    elif cfg.scheduler.name == SchedulerType.inverse_sqrt_with_warmup:
-        return InvSqrtWithWarmup(warmup_steps=sched_cfg.t_warmup)
-    elif cfg.scheduler.name == SchedulerType.max_scheduler:
+def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = None) -> Scheduler:
+    sched_cfg = sched_cfg if sched_cfg is not None else cfg.scheduler
+    if sched_cfg.name == SchedulerType.cosine_with_warmup:
+        return CosWithWarmup(
+            grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
+            grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
+            warmup_steps=sched_cfg.t_warmup,
+            alpha_f=sched_cfg.alpha_f,
+            t_max=sched_cfg.t_max,
+        )
+    elif sched_cfg.name == SchedulerType.linear_with_warmup:
+        return LinearWithWarmup(
+            grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
+            grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
+            warmup_steps=sched_cfg.t_warmup,
+            alpha_f=sched_cfg.alpha_f,
+            t_max=sched_cfg.t_max,
+        )
+    elif sched_cfg.name == SchedulerType.inverse_sqrt_with_warmup:
+        return InvSqrtWithWarmup(
+            grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
+            grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
+            warmup_steps=sched_cfg.t_warmup,
+        )
+    elif sched_cfg.name == SchedulerType.max_scheduler:
         return MaxScheduler(
-            sched1=CosWithWarmup(
-                warmup_steps=sched_cfg.t_warmup, alpha_f=sched_cfg.alpha_f, t_max=sched_cfg.t_max
-            ),
-            sched2=InvSqrtWithWarmup(warmup_steps=sched_cfg.t_warmup),
+            grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
+            grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
+            sched1=build_scheduler(cfg, replace(sched_cfg, name=SchedulerType.cosine_with_warmup)),
+            sched2=build_scheduler(cfg, replace(sched_cfg, name=SchedulerType.inverse_sqrt_with_warmup)),
         )
     else:
         raise NotImplementedError

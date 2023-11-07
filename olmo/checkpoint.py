@@ -6,6 +6,7 @@ from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from functools import reduce
 from pathlib import Path
@@ -609,19 +610,19 @@ class FullCheckpointer(Checkpointer):
         ):
             # Load model state.
             log.info("Loading model state...")
-            fsdp_model.load_state_dict(
-                fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(
-                    load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location="cpu")
-                )
+            state_dict_to_load, og_keys_to_new = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(
+                load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location="cpu")
             )
+            fsdp_model.load_state_dict(state_dict_to_load)
 
             # Load optimizer state.
             if load_optimizer_state:
                 log.info("Loading optimizer state...")
-                optim_state_dict = load_state_dict(
-                    load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
+                optim_state_dict_to_load = self._make_optim_state_dict_compatible(
+                    load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location="cpu"),
+                    og_keys_to_new,
                 )
-                load_fsdp_optim_state(fsdp_model, optim, optim_state_dict)
+                load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
 
             # Load other state.
             try:
@@ -631,6 +632,56 @@ class FullCheckpointer(Checkpointer):
                 trainer_state = load_state_dict(load_path, "other.pt", local_cache=local_cache)
         barrier()
         return trainer_state
+
+    def _make_optim_state_dict_compatible(
+        self, optim_state_dict: Dict[str, Any], og_keys_to_new: Dict[str, Set[str]]
+    ) -> Dict[str, Any]:
+        # This state dict comes in two forms: one where the state keys are integers and one where the
+        # keys are fully qualified parameter names. The latter case is easier to deal with here so we
+        # first transform the integer key form into the FQN key form.
+        if isinstance(next(iter(optim_state_dict.keys())), int):
+            id_to_fqn: Dict[int, str] = {}
+            for group in optim_state_dict["param_groups"]:
+                new_param_names = []
+                for fqn, id in zip(group["param_names"], group["params"]):
+                    fqn = fqn.replace("_fsdp_wrapped_module.", "")
+                    id_to_fqn[id] = fqn
+                    new_param_names.append(fqn)
+                group["param_names"] = new_param_names
+                group["params"] = new_param_names
+            for id in list(optim_state_dict["state"].keys()):
+                optim_state_dict["state"][id_to_fqn[id]] = optim_state_dict["state"].pop(id)
+        else:
+            # Otherwise we still want to clean up the param names to remove the "_fsdp_wrapped_module." prefix.
+            for group in optim_state_dict["param_groups"]:
+                group["param_names"] = [fqn.replace("_fsdp_wrapped_module.", "") for fqn in group["param_names"]]
+                group["params"] = [fqn.replace("_fsdp_wrapped_module.", "") for fqn in group["params"]]
+                assert group["param_names"] == group["params"]
+            for key in list(optim_state_dict["state"].keys()):
+                optim_state_dict["state"][key.replace("_fsdp_wrapped_module.", "")] = optim_state_dict[
+                    "state"
+                ].pop(key)
+
+        # Now we can transform the state dict by renaming parameters according to `og_keys_to_new`.
+        # First fix param names in the state.
+        for og_key, new_keys in og_keys_to_new.items():
+            og_state = optim_state_dict["state"].pop(og_key)
+            for i, new_key in enumerate(new_keys):
+                if i == len(new_keys) - 1:
+                    optim_state_dict["state"][new_key] = og_state
+                else:
+                    optim_state_dict["state"][new_key] = deepcopy(og_state)
+        # Now fix param names in the param groups.
+        for group in optim_state_dict["param_groups"]:
+            og_names = group["params"]
+            new_names = []
+            for og_key in og_names:
+                for new_key in og_keys_to_new[og_key]:
+                    new_names.append(new_key)
+            group["params"] = new_names
+            group["param_names"] = new_names
+
+        return optim_state_dict
 
     def load_checkpoint(
         self,

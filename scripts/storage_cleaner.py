@@ -12,28 +12,23 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
-import botocore.exceptions as boto_exceptions
 
 import boto3
+import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
-import wandb
 from botocore.config import Config
 from google.api_core.exceptions import NotFound
-
-from olmo import TrainConfig
+from tqdm import tqdm
 
 log = logging.getLogger(__name__)
 
 
 R2_ACCOUNT_ID: str = "a198dc34621661a1a66a02d6eb7c4dc3"
-CONFIG_YAML: str = "config.yaml"
-WANDB_ENTITY: str = "ai2-llm"
 DEFAULT_MAX_ARCHIVE_SIZE: float = 5_000_000_000  # 5GB
 
 
 class CleaningOperations(Enum):
     DELETE_BAD_RUNS = auto()
-    RENAME_RUNS_TO_WANDB_ID = auto()
     UNSHARD_CHECKPOINTS = auto()
 
 
@@ -68,8 +63,7 @@ class StorageAdapter(ABC):
 
     @abstractmethod
     def is_file(self, path: str) -> bool:
-        """Returns whether the given path corresponds to an existing file.
-        """
+        """Returns whether the given path corresponds to an existing file."""
 
     @abstractmethod
     def is_dir(self, path: str) -> bool:
@@ -116,10 +110,10 @@ class StorageAdapter(ABC):
             elif parsed.scheme == "r2":
                 return StorageType.R2
             elif parsed.scheme == "file":
-                path = path.replace("file://", "", 1)
                 return StorageType.LOCAL_FS
 
         return StorageType.LOCAL_FS
+
 
 
 class LocalFileSystemAdapter(StorageAdapter):
@@ -158,8 +152,10 @@ class LocalFileSystemAdapter(StorageAdapter):
             return [
                 entry
                 for entry in os.listdir(path)
-                if ((not no_files or not os.path.isfile(os.path.join(path, entry)))
-                    and (max_file_size is None or os.path.getsize(os.path.join(path, entry)) <= max_file_size))
+                if (
+                    (not no_files or not os.path.isfile(os.path.join(path, entry)))
+                    and (max_file_size is None or os.path.getsize(os.path.join(path, entry)) <= max_file_size)
+                )
             ]
 
         if self.has_supported_archive_extension(path):
@@ -167,10 +163,12 @@ class LocalFileSystemAdapter(StorageAdapter):
                 raise NotImplementedError("Filtering out entries from a tar file is not yet supported")
 
             with tarfile.open(path) as tar:
+                log.info("Listing entries from archive %s", path)
                 tar_subpaths = [os.path.normpath(name) for name in tar.getnames()]
-                return [
+                result = [
                     os.path.basename(tar_subpath) for tar_subpath in tar_subpaths if tar_subpath.count(os.sep) == 1
                 ]
+                return result
 
         raise ValueError(f"Path does not correspond to directory or supported archive file: {path}")
 
@@ -255,7 +253,6 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         return blob.size
 
     def _is_file(self, bucket_name: str, key: str) -> bool:
-        # print(bucket_name, key)
         bucket = self.gcs_client.bucket(bucket_name)
         blob = bucket.blob(key)
         try:
@@ -284,7 +281,13 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         blob.download_to_filename(temp_file)
         return temp_file
 
-    def _get_directory_entries(self, bucket_name: str, key: str, no_files: bool = False, max_file_size: Optional[float] = None) -> List[str]:
+    def _get_directory_entries(
+        self,
+        bucket_name: str,
+        key: str,
+        no_files: bool = False,
+        max_file_size: Optional[float] = None,
+    ) -> List[str]:
         bucket = self.gcs_client.bucket(bucket_name)
         # Setting max_results to 10,000 as a reasonable caution that a directory should not have
         # more than 10,000 entries.
@@ -293,8 +296,6 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         entries: List[str] = []
         for blob in blobs:
-            blob: gcs.Blob
-
             if no_files:
                 # Note: We need to iterate through (or otherwise act on?) the blobs to populate blob.prefixes
                 # Thus we no-op here rather than skipping the loop
@@ -321,6 +322,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         if self.local_fs_adapter.has_supported_archive_extension(path):
+            log.info("Downloading archive %s", path)
             file_path = self._download_file(bucket_name, key)
 
             if no_files:
@@ -328,11 +330,9 @@ class GoogleCloudStorageAdapter(StorageAdapter):
             return self.local_fs_adapter.list_entries(file_path, max_file_size)
 
         if self._is_file(bucket_name, key):
-            # print(bucket_name, key)
             raise ValueError(f"Path corresponds to a file without a supported archive extension {path}")
 
         res = self._get_directory_entries(bucket_name, key, no_files=no_files, max_file_size=max_file_size)
-        # print('Result', res)
         return res
 
     def list_entries(self, path: str, max_file_size: Optional[float] = None) -> List[str]:
@@ -348,13 +348,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         # Not using delimiter causes result to not have directory-like structure (all blobs returned)
         blobs = list(bucket.list_blobs(prefix=key))
 
-        # blob_names = []
-        # for blob in blobs:
-        #     blob_names.append(blob.name)
         bucket.delete_blobs(blobs)
-
-        # print(len(blob_names))
-        raise NotImplementedError()
 
     def is_file(self, path: str) -> bool:
         bucket_name, key = self._get_bucket_name_and_key(path)
@@ -395,8 +389,6 @@ class S3StorageAdapter(StorageAdapter):
             use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
         )
 
-        # print(self._s3_client.head_bucket(Bucket="olmo-checkpoints"))
-
         self._local_fs_adapter: Optional[LocalFileSystemAdapter] = None
         self._temp_dirs: List[tempfile.TemporaryDirectory] = []
 
@@ -414,17 +406,44 @@ class S3StorageAdapter(StorageAdapter):
         key = parsed_path.path.lstrip("/")
         return bucket_name, key
 
-    def _get_directory_entries(self, bucket_name: str, key: str, no_files: bool = False, max_file_size: Optional[float] = None) -> List[str]:
+    def _download_file(self, bucket_name: str, key: str) -> str:
+        extension = "".join(Path(key).suffixes)
+        temp_file = self.local_fs_adapter.create_temp_file(suffix=extension)
+
+        head_response: Dict[str, Any] = self._s3_client.head_object(Bucket=bucket_name, Key=key)
+        if "ContentLength" not in head_response:
+            raise RuntimeError(f"Failed to get size for file with bucket | key: {bucket_name} | {key}")
+        size_in_bytes: int = head_response["ContentLength"]
+
+        with tqdm(total=size_in_bytes, unit="B", unit_scale=True) as pbar:
+
+            def progress_callback(bytes_downloaded: int):
+                pbar.update(bytes_downloaded)
+
+            self._s3_client.download_file(bucket_name, key, temp_file, Callback=progress_callback)
+
+        if not self.local_fs_adapter.is_file(temp_file):
+            raise RuntimeError(f"Failed to download file with bucket | key: {bucket_name} | {key}")
+
+        return temp_file
+
+    def _get_directory_entries(
+        self,
+        bucket_name: str,
+        key: str,
+        no_files: bool = False,
+        max_file_size: Optional[float] = None,
+    ) -> List[str]:
         response: Dict[str, Any] = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key, Delimiter="/")
 
         entries: List[str] = []
 
         if not no_files:
-            objects_metadata: List[Dict[str, Any]] = response.get('Contents', [])
+            objects_metadata: List[Dict[str, Any]] = response.get("Contents", [])
             for object_metadata in objects_metadata:
-                object_name = object_metadata['Key']
+                object_name = object_metadata["Key"]
 
-                size: int = object_metadata['Size']
+                size: int = object_metadata["Size"]
                 if max_file_size is not None and size > max_file_size:
                     log.info(
                         "Object %s has size %.2fGb exceeding max file size %.2fGb, skipping.",
@@ -436,11 +455,8 @@ class S3StorageAdapter(StorageAdapter):
 
                 entries.append(object_name)
 
-        directories_metadata: List[Dict[str, str]] = response.get('CommonPrefixes', [])
-        entries += [
-            directory_metadata['Prefix']
-            for directory_metadata in directories_metadata
-        ]
+        directories_metadata: List[Dict[str, str]] = response.get("CommonPrefixes", [])
+        entries += [directory_metadata["Prefix"] for directory_metadata in directories_metadata]
 
         return [entry.removeprefix(key) for entry in entries]
 
@@ -448,12 +464,12 @@ class S3StorageAdapter(StorageAdapter):
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         if self.local_fs_adapter.has_supported_archive_extension(path):
-            raise NotImplementedError()
-            # file_path = self._download_file(bucket_name, key)
+            log.info("Downloading archive %s", path)
+            file_path = self._download_file(bucket_name, key)
 
-            # if no_files:
-            #     return self.local_fs_adapter.list_dirs(file_path)
-            # return self.local_fs_adapter.list_entries(file_path, max_file_size)
+            if no_files:
+                return self.local_fs_adapter.list_dirs(file_path)
+            return self.local_fs_adapter.list_entries(file_path, max_file_size)
 
         if self._is_file(bucket_name, key):
             raise ValueError(f"Path corresponds to a file without a supported archive extension {path}")
@@ -472,38 +488,35 @@ class S3StorageAdapter(StorageAdapter):
 
         response: Dict[str, Any] = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key)
 
-        objects_metadata: List[Dict[str, Any]] = response.get('Contents', [])
-        object_keys_to_delete: List[str] = [
-            object_metadata['Key']
-            for object_metadata in objects_metadata
-        ]
+        objects_metadata: List[Dict[str, Any]] = response.get("Contents", [])
+        object_keys_to_delete: List[str] = [object_metadata["Key"] for object_metadata in objects_metadata]
 
         log.info("Starting to delete %d objects at %s", len(object_keys_to_delete), path)
 
         max_delete_batch_size: int = 1000
-        for i in range(len(object_keys_to_delete), max_delete_batch_size):
-
-            delete_batch_keys = {
-                'Key': object_key
-                for object_key in object_keys_to_delete[i:i + max_delete_batch_size]
-            }
+        for i in range(0, len(object_keys_to_delete), max_delete_batch_size):
+            delete_batch_keys = [
+                {"Key": object_key} for object_key in object_keys_to_delete[i : i + max_delete_batch_size]
+            ]
 
             delete_response: Dict[str, Any] = self._s3_client.delete_objects(
-                Bucket=bucket_name,
-                Delete=delete_batch_keys)
+                Bucket=bucket_name, Delete={"Objects": delete_batch_keys}
+            )
 
-            errors: List[Dict[str, Any]] = delete_response.get('Errors', [])
+            errors: List[Dict[str, Any]] = delete_response.get("Errors", [])
             if len(errors) > 0:
                 for error in errors:
-                    log.error("Failed to delete %s with code %s, message %s", error['Key'], error['Code'], error['Message'])
+                    log.error(
+                        "Failed to delete %s with code %s, message %s",
+                        error["Key"],
+                        error["Code"],
+                        error["Message"],
+                    )
 
                 raise RuntimeError(f"Error occurred during deletion at {path}")
 
-            deleted_object_keys = [
-                deleted_object['Key']
-                for deleted_object in delete_response.get('Deleted', [])
-            ]
-            delete_batch_keys_set = set(delete_batch_keys)
+            deleted_object_keys = [deleted_object["Key"] for deleted_object in delete_response.get("Deleted", [])]
+            delete_batch_keys_set = set(object_keys_to_delete[i : i + max_delete_batch_size])
             deleted_object_keys_set = set(deleted_object_keys)
             unrequested_deleted_keys = deleted_object_keys_set.difference(delete_batch_keys_set)
             if len(unrequested_deleted_keys) > 0:
@@ -574,24 +587,22 @@ class StorageCleaner:
         self,
         dry_run: bool = False,
         ignore_prompts: bool = False,
-        runs_require_config_yaml: bool = True,
+        runs_require_checkpoint_dir: bool = True,
         r2_account_id: Optional[str] = None,
         max_archive_size: Optional[float] = None,
-        default_wandb_entity: Optional[str] = None,
-        default_wandb_project: Optional[str] = None,
     ) -> None:
         self._dry_run: bool = dry_run
-        self._runs_require_config_yaml = runs_require_config_yaml
+        self._runs_require_checkpoint_dir = runs_require_checkpoint_dir
         self._ignore_prompts: bool = ignore_prompts
         self._r2_account_id: Optional[str] = r2_account_id
         self._max_archive_size: Optional[float] = max_archive_size
-        self._default_wandb_entity: Optional[str] = default_wandb_entity
-        self._default_wandb_project: Optional[str] = default_wandb_project
         self._storage_adapters: Dict[StorageType, StorageAdapter] = {}
 
     def _get_storage_adapter(self, storage_type: StorageType) -> StorageAdapter:
         if storage_type not in self._storage_adapters:
-            self._storage_adapters[storage_type] = StorageAdapter.create_storage_adapter(storage_type, self._r2_account_id)
+            self._storage_adapters[storage_type] = StorageAdapter.create_storage_adapter(
+                storage_type, self._r2_account_id
+            )
 
         return self._storage_adapters[storage_type]
 
@@ -607,104 +618,60 @@ class StorageCleaner:
     def _contains_nontrivial_checkpoint_dir(dir_entries: List[str]) -> bool:
         return any(re.match(r"step[1-9]\d*(-unsharded)?", entry) is not None for entry in dir_entries)
 
-    def _verify_deletion_without_checkpoint_dir(self, run_dir_entry: str):
-        msg = f"No checkpoint dir found in run directory entry {run_dir_entry}. This entry might not correspond to a run."
-        if self._runs_require_config_yaml:
+    def _verify_deletion_without_checkpoint_dir(self, run_dir_or_archive: str, run_entries: List[str]) -> bool:
+        msg = f"No checkpoint dir found in run directory entry {run_dir_or_archive} (first 5 entries: {run_entries[:5]}). This entry might not correspond to a run."
+        if self._runs_require_checkpoint_dir:
             raise ValueError(msg)
 
         log.warning(msg)
 
         if not self._ignore_prompts:
             while True:
-                response = input(f"{msg} Would you still like to delete {run_dir_entry}? (y/n) ")
+                response = input(f"{msg} Would you still like to delete {run_dir_or_archive}? (y/skip/exit) ")
                 if response.lower() == "y":
-                    break
-                else:
+                    return True
+                elif response.lower() == "exit":
                     raise ValueError(msg)
+                elif response.lower() == "skip":
+                    return False
 
-    def _delete_if_bad_run(self, storage: StorageAdapter, run_dir_entry: str):
-        dir_entries = storage.list_entries(run_dir_entry)
+        return True
 
-        if not self._contains_checkpoint_dir(dir_entries):
-            self._verify_deletion_without_checkpoint_dir(run_dir_entry)
+    def _delete_if_bad_run(self, storage: StorageAdapter, run_dir_or_archive: str):
+        run_entries = storage.list_entries(run_dir_or_archive)
 
-        if not self._contains_nontrivial_checkpoint_dir(dir_entries):
+        should_delete = True
+        if not self._contains_checkpoint_dir(run_entries):
+            should_delete = self._verify_deletion_without_checkpoint_dir(run_dir_or_archive, run_entries)
+
+        if should_delete and not self._contains_nontrivial_checkpoint_dir(run_entries):
             if self._dry_run:
-                log.info("Would delete run_dir_entry %s", run_dir_entry)
+                log.info("Would delete run directory or archive %s", run_dir_or_archive)
             else:
-                log.info("Deleting run_dir_entry %s", run_dir_entry)
-                storage.delete_path(run_dir_entry)
+                log.info("Deleting run directory or archive %s", run_dir_or_archive)
+                storage.delete_path(run_dir_or_archive)
 
-    def delete_bad_runs(self, runs_path: str):
-        log.info("Starting deletion of bad runs")
+    def delete_bad_run(self, run_dir_or_archive: str):
+        log.info("Starting deletion of bad run at %s", run_dir_or_archive)
 
-        if not runs_path.endswith("/"):
+        storage: StorageAdapter = self._get_storage_adapter_for_path(run_dir_or_archive)
+        self._delete_if_bad_run(storage, run_dir_or_archive)
+
+    def delete_bad_runs(self, runs_directory: str):
+        log.info("Starting deletion of bad runs at %s", runs_directory)
+
+        if not runs_directory.endswith("/"):
             raise ValueError(
                 "Runs path does not end with '/'. Please verify that path is a directory and re-run with trailing '/'."
             )
 
-        storage: StorageAdapter = self._get_storage_adapter_for_path(runs_path)
-        run_dirs_entries = [
-            os.path.join(runs_path, entry)
-            for entry in storage.list_entries(runs_path, max_file_size=self._max_archive_size)
+        storage: StorageAdapter = self._get_storage_adapter_for_path(runs_directory)
+        runs_dir_entries = [
+            os.path.join(runs_directory, entry)
+            for entry in storage.list_entries(runs_directory, max_file_size=self._max_archive_size)
         ]
-        for run_dir_entry in run_dirs_entries:
-            self._delete_if_bad_run(storage, run_dir_entry)
-
-    def _get_wandb_id(self, storage: StorageAdapter, run_dir_entry: str) -> str:
-        dir_entries = storage.list_entries(run_dir_entry)
-        if CONFIG_YAML not in dir_entries:
-            raise FileNotFoundError(f'{CONFIG_YAML} not found in dir {run_dir_entry}, cannot get wandb id')
-
-        config_yaml_path = os.path.join(run_dir_entry, CONFIG_YAML)
-        train_config = TrainConfig.load(config_yaml_path)
-        if train_config.wandb is None:
-            raise ValueError(f'No wandb settings in config file {config_yaml_path}')
-
-        entity_name = train_config.wandb.entity or self._default_wandb_entity
-        project_name = train_config.wandb.project or self._default_wandb_project
-        run_name = train_config.wandb.name
-
-        if entity_name is None:
-            raise ValueError(f'No wandb entity set in cli or in config file {config_yaml_path}')
-        if project_name is None:
-            raise ValueError(f'No wandb project name set in cli or in config file {config_yaml_path}')
-        if run_name is None:
-            raise ValueError(f'No wandb name set in config file {config_yaml_path}')
-
-        wandb_api = wandb.Api()
-        runs = list(wandb_api.runs(path=f'{entity_name}/{project_name}', filters={"display_name": {"$regex": run_name}}))
-        if len(runs) == 0:
-            raise ValueError(f'No wandb runs found for {run_dir_entry}')
-        if len(runs) > 1:
-            raise ValueError(f'{len(runs)} runs found for {run_dir_entry}')
-
-        run = runs[0]
-        print('id', run.id)
-        return run.id
-
-    def rename_runs_to_wandb_ids(self, runs_path: str):
-        log.info("Starting renaming runs to their wandb ids")
-
-        if not runs_path.endswith("/"):
-            raise ValueError(
-                "Runs path does not end with '/'. Please verify that path is a directory and re-run with trailing '/'."
-            )
-
-        storage: StorageAdapter = self._get_storage_adapter_for_path(runs_path)
-        run_dir_entries = [
-            os.path.join(runs_path, entry)
-            for entry in storage.list_dirs(runs_path)
-        ]
-
-        print(run_dir_entries)
-        run_wandb_ids = {
-            run_dir_entry: self._get_wandb_id(storage, run_dir_entry)
-            for run_dir_entry in run_dir_entries
-        }
-        print(run_wandb_ids)
-
-        raise NotImplementedError
+        for runs_dir_entry in runs_dir_entries:
+            self._delete_if_bad_run(storage, runs_dir_entry)
 
     def _is_sharded_checkpoint_dir(self, storage: StorageAdapter, directory: str) -> bool:
         return storage.is_dir(directory) and re.search(r"/step\d+/?$", directory) is not None
@@ -807,26 +774,22 @@ class StorageCleaner:
 
 def perform_operation(args: argparse.Namespace):
     if args.dry_run:
-        log.info("Dry run, no actions will be taken")
+        log.info("Dry run, no irreversible actions will be taken")
 
     if args.op == CleaningOperations.DELETE_BAD_RUNS:
         storage_cleaner = StorageCleaner(
             dry_run=args.dry_run,
             ignore_prompts=args.yes,
-            runs_require_config_yaml=args.runs_require_config_yaml,
-            r2_account_id = args.r2_account_id,
+            runs_require_checkpoint_dir=args.runs_require_checkpoint_dir,
+            r2_account_id=args.r2_account_id,
             max_archive_size=args.max_archive_size,
         )
-        storage_cleaner.delete_bad_runs(args.runs_path)
-    if args.op == CleaningOperations.RENAME_RUNS_TO_WANDB_ID:
-        storage_cleaner = StorageCleaner(
-            dry_run=args.dry_run,
-            ignore_prompts=args.yes,
-            r2_account_id = args.r2_account_id,
-            default_wandb_entity=args.entity,
-            default_wandb_project=args.project,
-        )
-        storage_cleaner.rename_runs_to_wandb_ids(args.runs_path)
+        if args.runs_directory is not None:
+            storage_cleaner.delete_bad_runs(args.runs_directory)
+        elif args.run_path is not None:
+            storage_cleaner.delete_bad_run(args.run_path)
+        else:
+            raise ValueError("Neither runs directory not run path provided for run cleaning")
     if args.op == CleaningOperations.UNSHARD_CHECKPOINTS:
         storage_cleaner = StorageCleaner(
             dry_run=args.dry_run,
@@ -837,46 +800,35 @@ def perform_operation(args: argparse.Namespace):
         storage_cleaner.unshard_runs_checkpoints(args.runs_src_path, args.runs_dest_path, args.latest_checkpoint_only)
 
 
+
 def _add_delete_subparser(subparsers: _SubParsersAction):
-    delete_runs_parser = subparsers.add_parser(
-        "clean", help="Delete bad runs (example no non-trivial checkpoints)"
+    delete_runs_parser: ArgumentParser = subparsers.add_parser(
+        "clean", help="Delete bad runs (e.g. runs with no non-trivial checkpoints)"
     )
     delete_runs_parser.set_defaults(op=CleaningOperations.DELETE_BAD_RUNS)
-    delete_runs_parser.add_argument(
-        "runs_path",
-        help="Path to directory containing one or more run directories",
+
+    path_parser = delete_runs_parser.add_mutually_exclusive_group(required=True)
+    path_parser.add_argument(
+        "--runs_directory",
+        default=None,
+        help="Path to directory containing one or more runs",
     )
+    path_parser.add_argument(
+        "--run_path",
+        default=None,
+        help="Path to directory or archive file corresponding to a run",
+    )
+
     delete_runs_parser.add_argument(
-        "--require_config_yaml",
+        "--require_checkpoint_dir",
         action="store_true",
-        dest="runs_require_config_yaml",
-        help=f"Enforces without prompt the sanity check that an entry being deleted has a {CONFIG_YAML} file (and so is a run)",
+        dest="runs_require_checkpoint_dir",
+        help="Enforces without prompt the sanity check that an entry being deleted has a checkpoint dir (and so is a run)",
     )
     delete_runs_parser.add_argument(
         "--max_archive_size",
         default=DEFAULT_MAX_ARCHIVE_SIZE,
         help="Max size archive files to consider for deletion (in bytes). Any archive larger than this is ignored/not deleted.",
-    )
-
-
-def _add_wandb_subparser(subparsers: _SubParsersAction):
-    wandb_runs_parser = subparsers.add_parser(
-        "rename_to_wandb", help="renames runs to their wandb ids"
-    )
-    wandb_runs_parser.set_defaults(op=CleaningOperations.RENAME_RUNS_TO_WANDB_ID)
-    wandb_runs_parser.add_argument(
-        "runs_path",
-        help="Path to directory containing one or more run directories",
-    )
-    wandb_runs_parser.add_argument(
-        "--entity",
-        default=WANDB_ENTITY,
-        help="Wandb entity to use for runs without a specified entity.",
-    )
-    wandb_runs_parser.add_argument(
-        "--project",
-        default=None,
-        help="Wandb project to use for runs without a specified project. If unset, runs without a specified project will be skipped.",
     )
 
 
@@ -933,14 +885,7 @@ def get_parser() -> ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command", help="Cleaning commands", required=True)
     _add_delete_subparser(subparsers)
-    _add_wandb_subparser(subparsers)
     _add_unsharding_subparser(subparsers)
-
-    # gs://ai2-olmo/ai2-llm/olmo-medium/njmmt4v8/config.yaml
-    # temp
-    # gs://ai2-olmo/unsorted-checkpoints/3416090.tar.bz2
-    # r2://olmo-checkpoints/ai2-llm/olmo-medium/ips8ixw7/
-    # s3://ai2-llm/checkpoints/1b/
 
     return parser
 

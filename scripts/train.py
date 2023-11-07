@@ -2,7 +2,6 @@
 
 import gzip
 import logging
-import os
 import sys
 from pathlib import Path
 from typing import Optional, TextIO
@@ -39,7 +38,7 @@ log = logging.getLogger("train")
 def main(cfg: TrainConfig) -> None:
     # Ensure run name set.
     if cfg.run_name is None:
-        cfg.run_name = os.environ.get("COMPOSER_RUN_NAME", "train-llm")
+        raise OlmoConfigurationError("--run_name is required")
     log_extra_field("run_name", cfg.run_name)
 
     # Sanity check
@@ -60,6 +59,15 @@ def main(cfg: TrainConfig) -> None:
     cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
     assert cfg.device_train_batch_size is not None  # for mypy
     cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
+    if cfg.optimizer.no_decay_norm_and_bias is not None:
+        log.warning(
+            "You set the deprecated config option `no_decay_norm_and_bias`. For compatibility, this"
+            "setting will take precedence over all other weight decay configurations. Please change"
+            "your config to use `decay_norm_and_bias` and `decay_embeddings` instead."
+        )
+        cfg.optimizer.decay_norm_and_bias = not cfg.optimizer.no_decay_norm_and_bias
+        cfg.optimizer.decay_embeddings = not cfg.optimizer.no_decay_norm_and_bias
+        cfg.optimizer.no_decay_norm_and_bias = None  # So nobody uses this by accident.
 
     # Display and save configuration.
     if get_global_rank() == 0:
@@ -112,8 +120,7 @@ def main(cfg: TrainConfig) -> None:
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
     log.info(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
 
-    if cfg.activation_checkpointing:
-        olmo_model.enable_activation_checkpointing()
+    olmo_model.set_activation_checkpointing(cfg.activation_checkpointing)
 
     # Wrap the model in FSDP.
     log.info("Wrapping model with FDSP...")
@@ -202,8 +209,10 @@ def main(cfg: TrainConfig) -> None:
 
             # If we have to, set a new scheduler:
             if cfg.reset_optimizer_state:
-                trainer.scheduler = BoltOnWarmupScheduler(
-                    trainer.scheduler, trainer.global_step, trainer.global_step + cfg.scheduler.t_warmup
+                trainer.scheduler = BoltOnWarmupScheduler.wrap(
+                    trainer.scheduler,
+                    trainer.global_step,
+                    trainer.global_step + cfg.scheduler.t_warmup,
                 )
 
         if cfg.force_save_unsharded:
