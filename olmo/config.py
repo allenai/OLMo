@@ -463,9 +463,9 @@ class SchedulerConfig(BaseConfig):
     t_max: Optional[int] = None
     alpha_f: float = 0.1
 
-    t_grad_clip_warmup: Optional[int] = None
+    grad_clip_warmup_steps: Optional[int] = None
     """
-    The warmup period (in terms of steps) for which the max grad norm (or norm ratio) will be set to its
+    The warmup period for which the max grad norm (or norm ratio) will be set to its
     warmup value of `max_grad_norm * grad_clip_warmup_factor`.
     """
 
