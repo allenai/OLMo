@@ -57,6 +57,9 @@ srun \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
     python scripts/train.py configs/kebab7.yaml \
       --run_name=lumi_${SLURM_JOB_ID} \
-      --fsdp.wrapping_strategy=null \
-      --fsdp.sharding_strategy=FULL_SHARD \
+      --save_interval=1000 --save_interval_unsharded=null --sharded_checkpointer=local \
+      --activation_checkpointing=fine_grained \
+      --device_train_microbatch_size=2 \
+      --fsdp.sharding_strategy=SHARD_GRAD_OP \
+      --fsdp.wrapping_strategy=one_in_four \
       ${@}
