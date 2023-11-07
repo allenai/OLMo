@@ -103,7 +103,6 @@ class StorageAdapter(ABC):
             elif parsed.scheme == "r2":
                 return StorageType.R2
             elif parsed.scheme == "file":
-                path = path.replace("file://", "", 1)
                 return StorageType.LOCAL_FS
 
         return StorageType.LOCAL_FS
