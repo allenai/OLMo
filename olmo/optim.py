@@ -700,7 +700,7 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
 
 def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = None) -> Scheduler:
     sched_cfg = sched_cfg if sched_cfg is not None else cfg.scheduler
-    if cfg.scheduler.name == SchedulerType.cosine_with_warmup:
+    if sched_cfg.name == SchedulerType.cosine_with_warmup:
         return CosWithWarmup(
             grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
@@ -708,7 +708,7 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
             alpha_f=sched_cfg.alpha_f,
             t_max=sched_cfg.t_max,
         )
-    elif cfg.scheduler.name == SchedulerType.linear_with_warmup:
+    elif sched_cfg.name == SchedulerType.linear_with_warmup:
         return LinearWithWarmup(
             grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
@@ -716,13 +716,13 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
             alpha_f=sched_cfg.alpha_f,
             t_max=sched_cfg.t_max,
         )
-    elif cfg.scheduler.name == SchedulerType.inverse_sqrt_with_warmup:
+    elif sched_cfg.name == SchedulerType.inverse_sqrt_with_warmup:
         return InvSqrtWithWarmup(
             grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             warmup_steps=sched_cfg.t_warmup,
         )
-    elif cfg.scheduler.name == SchedulerType.max_scheduler:
+    elif sched_cfg.name == SchedulerType.max_scheduler:
         return MaxScheduler(
             grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
