@@ -344,8 +344,6 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         bucket.delete_blobs(blobs)
 
-        raise NotImplementedError()
-
     def is_file(self, path: str) -> bool:
         bucket_name, key = self._get_bucket_name_and_key(path)
 
