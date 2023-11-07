@@ -1342,6 +1342,24 @@ class Olmo(nn.Module):
             from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 
             return size_based_auto_wrap_policy
+        elif wrap_strategy in {
+            FSDPWrapStrategy.one_in_two,
+            FSDPWrapStrategy.one_in_three,
+            FSDPWrapStrategy.one_in_four,
+        }:
+            c = {
+                FSDPWrapStrategy.one_in_two: 2,
+                FSDPWrapStrategy.one_in_three: 3,
+                FSDPWrapStrategy.one_in_four: 4,
+            }[wrap_strategy]
+
+            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+                del nonwrapped_numel
+                if recurse:
+                    return True  # always recurse for simplicity
+                return isinstance(module, OlmoBlock) and module.layer_id % c == 0
+
+            return fsdp_wrap_fn
         else:
             raise NotImplementedError(wrap_strategy)
 
