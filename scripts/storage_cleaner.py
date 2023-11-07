@@ -484,14 +484,14 @@ class S3StorageAdapter(StorageAdapter):
         )
 
         max_delete_batch_size: int = 1000
-        for i in range(len(object_keys_to_delete), max_delete_batch_size):
-            delete_batch_keys = {
-                "Key": object_key
+        for i in range(0, len(object_keys_to_delete), max_delete_batch_size):
+            delete_batch_keys = [
+                {"Key": object_key}
                 for object_key in object_keys_to_delete[i : i + max_delete_batch_size]
-            }
+            ]
 
             delete_response: Dict[str, Any] = self._s3_client.delete_objects(
-                Bucket=bucket_name, Delete=delete_batch_keys
+                Bucket=bucket_name, Delete={"Objects": delete_batch_keys}
             )
 
             errors: List[Dict[str, Any]] = delete_response.get("Errors", [])
@@ -510,7 +510,7 @@ class S3StorageAdapter(StorageAdapter):
                 deleted_object["Key"]
                 for deleted_object in delete_response.get("Deleted", [])
             ]
-            delete_batch_keys_set = set(delete_batch_keys)
+            delete_batch_keys_set = set(object_keys_to_delete[i : i + max_delete_batch_size])
             deleted_object_keys_set = set(deleted_object_keys)
             unrequested_deleted_keys = deleted_object_keys_set.difference(
                 delete_batch_keys_set
