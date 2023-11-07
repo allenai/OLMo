@@ -32,7 +32,7 @@ jobs:
         task:
           - name: Lint
             run: |
-              flake8 .
+              ruff check .
 
         include:
           - python: '3.10'
@@ -49,8 +49,7 @@ jobs:
             task:
               name: Build
               run: |
-                python setup.py check
-                python setup.py bdist_wheel sdist
+                python -m build
 
           - python: '3.10'
             task:
@@ -175,7 +174,7 @@ jobs:
 
       - name: Install requirements
         run: |
-          pip install --upgrade pip setuptools wheel
+          pip install --upgrade pip setuptools wheel build
           pip install -r dev-requirements.txt
 
       - name: Prepare environment

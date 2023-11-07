@@ -489,8 +489,17 @@ class Trainer:
 
         # Adjust the learning rate.
         for group in self.optim.param_groups:
+            # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
+            # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
+            # the corresponding values from `self.cfg`.
             group["lr"] = self.scheduler.get_lr(
                 self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
+            )
+            group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
+                self.cfg.max_grad_norm, self.global_step, self.cfg.max_duration
+            )
+            group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
+                self.cfg.max_grad_norm_ratio, self.global_step, self.cfg.max_duration
             )
 
         # Optimizer step.

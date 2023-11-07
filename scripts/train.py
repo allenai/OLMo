@@ -2,7 +2,6 @@
 
 import gzip
 import logging
-import os
 import sys
 from pathlib import Path
 from typing import Optional, TextIO
@@ -39,7 +38,7 @@ log = logging.getLogger("train")
 def main(cfg: TrainConfig) -> None:
     # Ensure run name set.
     if cfg.run_name is None:
-        cfg.run_name = os.environ.get("COMPOSER_RUN_NAME", "train-llm")
+        raise OlmoConfigurationError("--run_name is required")
     log_extra_field("run_name", cfg.run_name)
 
     # Sanity check
@@ -210,8 +209,10 @@ def main(cfg: TrainConfig) -> None:
 
             # If we have to, set a new scheduler:
             if cfg.reset_optimizer_state:
-                trainer.scheduler = BoltOnWarmupScheduler(
-                    trainer.scheduler, trainer.global_step, trainer.global_step + cfg.scheduler.t_warmup
+                trainer.scheduler = BoltOnWarmupScheduler.wrap(
+                    trainer.scheduler,
+                    trainer.global_step,
+                    trainer.global_step + cfg.scheduler.t_warmup,
                 )
 
         if cfg.force_save_unsharded:
