@@ -177,6 +177,12 @@ class BlockType(StrEnum):
     sequential = "sequential"
     parallel = "parallel"
 
+    llama = "llama"
+    """
+    A block similar to the sequential block with slightly different
+    implementations of operations like attention to imitate the behavior of Llama.
+    """
+
 
 class InitFnType(StrEnum):
     mitchell = "mitchell"
@@ -273,6 +279,12 @@ class ModelConfig(BaseConfig):
     rope: bool = False
     """
     Use rotary positional embeddings (RoPE). Mutually exclusive with ``alibi``.
+    """
+
+    rope_full_precision: bool = True
+    """
+    If ``True``, apply RoPE embeddings at full precision regardless of the input type. Otherwise,
+    apply RoPE at the precision of the input.
     """
 
     flash_attention: bool = False
@@ -451,6 +463,18 @@ class SchedulerConfig(BaseConfig):
     t_max: Optional[int] = None
     alpha_f: float = 0.1
 
+    grad_clip_warmup_steps: Optional[int] = None
+    """
+    The warmup period for which the max grad norm (or norm ratio) will be set to its
+    warmup value of `max_grad_norm * grad_clip_warmup_factor`.
+    """
+
+    grad_clip_warmup_factor: Optional[float] = None
+    """
+    The ratio of the max allowed gradient norm (or norm ratio) for clipping during the warmup period
+    vs after the warmup period.
+    """
+
 
 class PaddingDirection(StrEnum):
     right = "right"
@@ -540,10 +564,20 @@ class FSDPWrapStrategy(StrEnum):
     Wrap each OLMo block with its own FSDP instance.
     """
 
+    by_block_and_size = "by_block_and_size"
+    """
+    Like 'by_block' but `wte` and `ff_out` will be wrapped separately as well.
+    """
+
     by_block_group = "by_block_group"
     """
     Wrap each block group together into its own FSDP instance.
     This requires :attr:`~ModelConfig.block_group_size` to be bigger than 1.
+    """
+
+    by_block_group_and_size = "by_block_group_and_size"
+    """
+    Like 'by_block_group' but `wte` and `ff_out` will be wrapped separately as well.
     """
 
     size_based = "size_based"
@@ -554,6 +588,7 @@ class FSDPWrapStrategy(StrEnum):
     one_in_two = "one_in_two"
     one_in_three = "one_in_three"
     one_in_four = "one_in_four"
+    one_in_five = "one_in_five"
 
 
 class FSDPPrecision(StrEnum):

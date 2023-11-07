@@ -19,7 +19,7 @@ exec > >(trap "" INT TERM; sed -u "s/^/$NODENAME:$LOCAL_RANK out: /")
 exec 2> >(trap "" INT TERM; sed -u "s/^/$NODENAME:$LOCAL_RANK err: /" >&2)
 
 if [ $SLURM_LOCALID -eq 0 ] ; then
-  if command -v rocm_smi &> /dev/null ; then
+  if command -v rocm-smi &> /dev/null ; then
     rm -rf /dev/shm/* || true
     rocm-smi || true	# rocm-smi returns exit code 2 even when it succeeds
   fi
