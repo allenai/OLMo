@@ -58,6 +58,7 @@ srun \
     python scripts/train.py configs/kebab7.yaml \
       --run_name=lumi_${SLURM_JOB_ID} \
       --save_interval=1000 --save_interval_unsharded=null --sharded_checkpointer=local \
+      --time_limit=$((48 * 60 * 60 - 30)) \
       --activation_checkpointing=fine_grained \
       --device_train_microbatch_size=2 \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
