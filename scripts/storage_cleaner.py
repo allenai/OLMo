@@ -383,19 +383,28 @@ class S3StorageAdapter(StorageAdapter):
         extension = "".join(Path(key).suffixes)
         temp_file = self.local_fs_adapter.create_temp_file(suffix=extension)
 
-        head_response: Dict[str, Any] = self._s3_client.head_object(Bucket=bucket_name, Key=key)
-        if 'ContentLength' not in head_response:
-            raise RuntimeError(f"Failed to get size for file with bucket | key: {bucket_name} | {key}")
-        size_in_bytes: int = head_response['ContentLength']
+        head_response: Dict[str, Any] = self._s3_client.head_object(
+            Bucket=bucket_name, Key=key
+        )
+        if "ContentLength" not in head_response:
+            raise RuntimeError(
+                f"Failed to get size for file with bucket | key: {bucket_name} | {key}"
+            )
+        size_in_bytes: int = head_response["ContentLength"]
 
-        with tqdm(total=size_in_bytes, unit='B', unit_scale=True) as pbar:
+        with tqdm(total=size_in_bytes, unit="B", unit_scale=True) as pbar:
+
             def progress_callback(bytes_downloaded: int):
                 pbar.update(bytes_downloaded)
 
-            self._s3_client.download_file(bucket_name, key, temp_file, Callback=progress_callback)
+            self._s3_client.download_file(
+                bucket_name, key, temp_file, Callback=progress_callback
+            )
 
         if not self.local_fs_adapter.is_file(temp_file):
-            raise RuntimeError(f"Failed to download file with bucket | key: {bucket_name} | {key}")
+            raise RuntimeError(
+                f"Failed to download file with bucket | key: {bucket_name} | {key}"
+            )
 
         return temp_file
 
@@ -510,7 +519,9 @@ class S3StorageAdapter(StorageAdapter):
                 deleted_object["Key"]
                 for deleted_object in delete_response.get("Deleted", [])
             ]
-            delete_batch_keys_set = set(object_keys_to_delete[i : i + max_delete_batch_size])
+            delete_batch_keys_set = set(
+                object_keys_to_delete[i : i + max_delete_batch_size]
+            )
             deleted_object_keys_set = set(deleted_object_keys)
             unrequested_deleted_keys = deleted_object_keys_set.difference(
                 delete_batch_keys_set
@@ -571,13 +582,21 @@ class StorageCleaner:
 
     @staticmethod
     def _contains_checkpoint_dir(dir_entries: List[str]) -> bool:
-        return any(re.match(r"step\d+(-unsharded)?", entry) is not None for entry in dir_entries)
+        return any(
+            re.match(r"step\d+(-unsharded)?", entry) is not None
+            for entry in dir_entries
+        )
 
     @staticmethod
     def _contains_nontrivial_checkpoint_dir(dir_entries: List[str]) -> bool:
-        return any(re.match(r"step[1-9]\d*(-unsharded)?", entry) is not None for entry in dir_entries)
+        return any(
+            re.match(r"step[1-9]\d*(-unsharded)?", entry) is not None
+            for entry in dir_entries
+        )
 
-    def _verify_deletion_without_checkpoint_dir(self, run_dir_or_archive: str, run_entries: List[str]):
+    def _verify_deletion_without_checkpoint_dir(
+        self, run_dir_or_archive: str, run_entries: List[str]
+    ):
         msg = f"No checkpoint dir found in run directory entry {run_dir_or_archive} (first 5 entries: {run_entries[:5]}). This entry might not correspond to a run."
         if self._runs_require_checkpoint_dir:
             raise ValueError(msg)
@@ -586,7 +605,9 @@ class StorageCleaner:
 
         if not self._ignore_prompts:
             while True:
-                response = input(f"{msg} Would you still like to delete {run_dir_or_archive}? (y/n) ")
+                response = input(
+                    f"{msg} Would you still like to delete {run_dir_or_archive}? (y/n) "
+                )
                 if response.lower() == "y":
                     break
                 elif response.lower() == "n":
@@ -596,7 +617,9 @@ class StorageCleaner:
         run_entries = storage.list_entries(run_dir_or_archive)
 
         if not self._contains_checkpoint_dir(run_entries):
-            self._verify_deletion_without_checkpoint_dir(run_dir_or_archive, run_entries)
+            self._verify_deletion_without_checkpoint_dir(
+                run_dir_or_archive, run_entries
+            )
 
         if not self._contains_nontrivial_checkpoint_dir(run_entries):
             if self._dry_run:
@@ -647,7 +670,9 @@ def perform_operation(args: argparse.Namespace):
         elif args.run_path is not None:
             storage_cleaner.delete_bad_run(args.run_path)
         else:
-            raise ValueError("Neither runs directory not run path provided for run cleaning")
+            raise ValueError(
+                "Neither runs directory not run path provided for run cleaning"
+            )
 
 
 def _add_delete_subparser(subparsers: _SubParsersAction):
