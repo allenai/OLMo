@@ -657,7 +657,7 @@ class StorageCleaner:
 
 def perform_operation(args: argparse.Namespace):
     if args.dry_run:
-        log.info("Dry run, no actions will be taken")
+        log.info("Dry run, no irreversible actions will be taken")
 
     if args.op == CleaningOperations.DELETE_BAD_RUNS:
         storage_cleaner = StorageCleaner(
