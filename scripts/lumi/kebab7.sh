@@ -53,4 +53,8 @@ srun \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
-    python scripts/train.py configs/kebab7.yaml --run_name=lumi_${SLURM_JOB_ID} ${@}
+    python scripts/train.py configs/kebab7.yaml \
+      --run_name=lumi_${SLURM_JOB_ID} \
+      --fsdp.wrapping_strategy=null \
+      --fsdp.sharding_strategy=FULL_SHARD \
+      ${@}
