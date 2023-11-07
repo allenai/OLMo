@@ -585,6 +585,11 @@ class FSDPWrapStrategy(StrEnum):
     Used PyTorch's default size-based auto wrap policy.
     """
 
+    one_in_two = "one_in_two"
+    one_in_three = "one_in_three"
+    one_in_four = "one_in_four"
+    one_in_five = "one_in_five"
+
 
 class FSDPPrecision(StrEnum):
     pure = "pure"
