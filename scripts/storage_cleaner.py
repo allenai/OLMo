@@ -248,8 +248,6 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         entries: List[str] = []
         for blob in blobs:
-            blob: gcs.Blob
-
             if no_files:
                 # Note: We need to iterate through (or otherwise act on?) the blobs to populate blob.prefixes
                 # Thus we no-op here rather than skipping the loop
