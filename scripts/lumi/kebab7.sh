@@ -40,6 +40,8 @@ export DATA_PATH=$FLASH_DIR/preprocessed/olmo-mix
 export CHECKPOINTS_PATH=$FLASH_DIR/checkpoints
 export EVAL_DATA_PATH=$SCRATCH_DIR/eval-data
 
+export HF_DATASETS_OFFLINE=1
+
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
   --distribution=block:block \
