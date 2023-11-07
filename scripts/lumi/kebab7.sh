@@ -34,7 +34,7 @@ export ROCM_PATH=/opt/rocm
 export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64
 
 # Try playing with max_split_size_mb if you run into OOM errors.
-export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:128
+#export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:128
 
 export DATA_PATH=$FLASH_DIR/preprocessed/olmo-mix
 export CHECKPOINTS_PATH=$FLASH_DIR/checkpoints
