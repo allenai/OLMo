@@ -596,7 +596,7 @@ class StorageCleaner:
 
     def _verify_deletion_without_checkpoint_dir(
         self, run_dir_or_archive: str, run_entries: List[str]
-    ):
+    ) -> bool:
         msg = f"No checkpoint dir found in run directory entry {run_dir_or_archive} (first 5 entries: {run_entries[:5]}). This entry might not correspond to a run."
         if self._runs_require_checkpoint_dir:
             raise ValueError(msg)
@@ -606,22 +606,27 @@ class StorageCleaner:
         if not self._ignore_prompts:
             while True:
                 response = input(
-                    f"{msg} Would you still like to delete {run_dir_or_archive}? (y/n) "
+                    f"{msg} Would you still like to delete {run_dir_or_archive}? (y/skip/exit) "
                 )
                 if response.lower() == "y":
-                    break
-                elif response.lower() == "n":
+                    return True
+                elif response.lower() == "exit":
                     raise ValueError(msg)
+                elif response.lower() == "skip":
+                    return False
+
+        return True
 
     def _delete_if_bad_run(self, storage: StorageAdapter, run_dir_or_archive: str):
         run_entries = storage.list_entries(run_dir_or_archive)
 
+        should_delete = True
         if not self._contains_checkpoint_dir(run_entries):
-            self._verify_deletion_without_checkpoint_dir(
+            should_delete = self._verify_deletion_without_checkpoint_dir(
                 run_dir_or_archive, run_entries
             )
 
-        if not self._contains_nontrivial_checkpoint_dir(run_entries):
+        if should_delete and not self._contains_nontrivial_checkpoint_dir(run_entries):
             if self._dry_run:
                 log.info("Would delete run directory or archive %s", run_dir_or_archive)
             else:
