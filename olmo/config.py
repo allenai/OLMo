@@ -588,6 +588,7 @@ class FSDPWrapStrategy(StrEnum):
     one_in_two = "one_in_two"
     one_in_three = "one_in_three"
     one_in_four = "one_in_four"
+    one_in_five = "one_in_five"
 
 
 class FSDPPrecision(StrEnum):

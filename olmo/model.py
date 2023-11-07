@@ -1346,11 +1346,13 @@ class Olmo(nn.Module):
             FSDPWrapStrategy.one_in_two,
             FSDPWrapStrategy.one_in_three,
             FSDPWrapStrategy.one_in_four,
+            FSDPWrapStrategy.one_in_five,
         }:
             c = {
                 FSDPWrapStrategy.one_in_two: 2,
                 FSDPWrapStrategy.one_in_three: 3,
                 FSDPWrapStrategy.one_in_four: 4,
+                FSDPWrapStrategy.one_in_five: 5,
             }[wrap_strategy]
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
