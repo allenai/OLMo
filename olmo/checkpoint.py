@@ -614,6 +614,7 @@ class FullCheckpointer(Checkpointer):
                 load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location="cpu")
             )
             fsdp_model.load_state_dict(state_dict_to_load)
+            del state_dict_to_load
 
             # Load optimizer state.
             if load_optimizer_state:
