@@ -58,5 +58,7 @@ srun \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
     python scripts/train.py configs/v1_5-mix-medium-mitch-ish.yaml ${@} \
       --run_name=${SLURM_JOB_ID} \
-      --global_train_batch_size=4096 \
-      --max_duration=238418
+      --activation_checkpointing=fine_grained \
+      --fsdp.wrapping_strategy=one_in_four \
+      --fsdp.sharding_strategy=SHARD_GRAD_OP \
+      --wandb.name=v1_5-mix-mitch-ish-lumi
