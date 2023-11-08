@@ -1,3 +1,4 @@
+import gc
 import io
 import logging
 import pickle
@@ -194,6 +195,7 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
     else:
         flattened_osd = FSDP.optim_state_dict_to_load(fsdp_model, optim, optim_state)  # type: ignore
     del optim_state
+    gc.collect()
     log.info("Loading flattened optimizer state...")
     # Put optim state on CPU since `Optimizer.load_state_dict()` will create a deepcopy of the whole state dict,
     # which takes up unnecessary GPU memory.
@@ -617,6 +619,7 @@ class FullCheckpointer(Checkpointer):
             del state_dict_to_load
 
             # Load optimizer state.
+            gc.collect()
             if load_optimizer_state:
                 log.info("Loading optimizer state...")
                 if get_global_rank() == 0:
