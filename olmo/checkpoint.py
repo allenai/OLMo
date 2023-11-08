@@ -1213,7 +1213,7 @@ class LocalShardedCheckpointer(Checkpointer):
             # the metric.
             for state in optim_state["state"].values():
                 if "grad_norm_exp_avg" in state:
-                    del state["grad_norm_exp_avg]"]
+                    del state["grad_norm_exp_avg"]
             optim.load_state_dict(optim_state)
             del optim_state
 
