@@ -52,6 +52,8 @@ from .util import (
     resource_path,
     upload,
     wait_for,
+    get_local_world_size,
+    get_local_rank,
 )
 
 __all__ = [
@@ -608,7 +610,7 @@ class FullCheckpointer(Checkpointer):
             fsdp_model,
             state_dict_type=StateDictType.FULL_STATE_DICT,
             state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
-            optim_state_dict_config=FullOptimStateDictConfig(rank0_only=True, offload_to_cpu=True),
+            optim_state_dict_config=FullOptimStateDictConfig(rank0_only=False, offload_to_cpu=True),
         ):
             # Load model state.
             log.info("Loading model state...")
@@ -619,17 +621,18 @@ class FullCheckpointer(Checkpointer):
             del state_dict_to_load
 
             # Load optimizer state.
-            gc.collect()
             if load_optimizer_state:
-                log.info("Loading optimizer state...")
-                if get_global_rank() == 0:
-                    optim_state_dict_to_load = self._make_optim_state_dict_compatible(
-                        load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location="cpu"),
-                        og_keys_to_new,
-                    )
-                else:
-                    optim_state_dict_to_load = {}
-                load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
+                gc.collect()
+                for turn in range(get_local_world_size()):
+                    log.info("Loading optimizer state turn %d ...", turn)
+                    if turn == get_local_rank():
+                        optim_state_dict_to_load = self._make_optim_state_dict_compatible(
+                            load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location="cpu"),
+                            og_keys_to_new,
+                        )
+                        load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
+                        gc.collect()
+                    barrier()
 
             # Load other state.
             try:
