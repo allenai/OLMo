@@ -1356,7 +1356,7 @@ class LocalShardedCheckpointer(Checkpointer):
             # Iterate over local shard state and copy into the full state.
             for id, shard_state in optim_state["state"].items():
                 fqn = id_to_fqn[id]
-                flat_param_shard = flat_params_data[rank].get(fqn)
+                flat_param_shard = flat_params_data[rank].get(fqn)  # type: ignore[assignment]
                 full_state = full_optim_state["state"][id]
                 for key, shard_value in shard_state.items():
                     assert isinstance(shard_value, torch.Tensor)
