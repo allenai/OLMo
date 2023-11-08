@@ -207,7 +207,14 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
                 state[k] = v.to(device="cpu")
     torch.cuda.empty_cache()
     flattened_osd = fix_optim_state_dict(optim, flattened_osd)
-    optim.load_state_dict(flattened_osd)
+
+    for turn in range(get_local_world_size()):
+        log.info("Loading flattened optimizer state turn %d", turn)
+        if turn == get_local_rank():
+            optim.load_state_dict(flattened_osd)
+            del flattened_osd
+            gc.collect()
+        barrier()
 
 
 def save_state_dict(
@@ -622,16 +629,12 @@ class FullCheckpointer(Checkpointer):
 
             # Load optimizer state.
             if load_optimizer_state:
-                for turn in range(get_local_world_size()):
-                    log.info("Loading optimizer state turn %d ...", turn)
-                    if turn == get_local_rank():
-                        optim_state_dict_to_load = self._make_optim_state_dict_compatible(
-                            load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location="cpu"),
-                            og_keys_to_new,
-                        )
-                        load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
-                        gc.collect()
-                    barrier()
+                log.info("Loading optimizer state...")
+                optim_state_dict_to_load = self._make_optim_state_dict_compatible(
+                    load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location="cpu"),
+                    og_keys_to_new,
+                )
+                load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
 
             # Load other state.
             try:
