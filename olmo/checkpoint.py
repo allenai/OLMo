@@ -1211,9 +1211,12 @@ class LocalShardedCheckpointer(Checkpointer):
             # So for now we just remove 'grad_norm_exp_avg' everywhere from the state, which resets that metric.
             # Not the end of the world but there's probably a better way around this without resetting
             # the metric.
-            for state in optim_state["state"].values():
+            for param_id in list(optim_state["state"].keys()):
+                state = optim_state["state"][param_id]
                 if "grad_norm_exp_avg" in state:
                     del state["grad_norm_exp_avg"]
+                if len(state) == 0:
+                    del optim_state["state"][param_id]
             optim.load_state_dict(optim_state)
             del optim_state
 
