@@ -619,10 +619,13 @@ class FullCheckpointer(Checkpointer):
             # Load optimizer state.
             if load_optimizer_state:
                 log.info("Loading optimizer state...")
-                optim_state_dict_to_load = self._make_optim_state_dict_compatible(
-                    load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location="cpu"),
-                    og_keys_to_new,
-                )
+                if get_global_rank() == 0:
+                    optim_state_dict_to_load = self._make_optim_state_dict_compatible(
+                        load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location="cpu"),
+                        og_keys_to_new,
+                    )
+                else:
+                    optim_state_dict_to_load = {}
                 load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
 
             # Load other state.
