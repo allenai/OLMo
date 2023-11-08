@@ -631,7 +631,9 @@ class FullCheckpointer(Checkpointer):
                             og_keys_to_new,
                         )
                         load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
+                        del optim_state_dict_to_load
                         gc.collect()
+                        torch.cuda.empty_cache()
                     barrier()
 
             # Load other state.
