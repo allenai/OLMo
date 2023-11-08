@@ -1204,6 +1204,16 @@ class LocalShardedCheckpointer(Checkpointer):
             optim_state = load_state_dict(
                 load_path, f"optim/rank{get_global_rank()}.pt", local_cache=local_cache, map_location="cpu"
             )
+            # HACK/TODO (epwalsh): When we use adaptive clipping we track the 'grad_norm_exp_avg' for every param
+            # in every rank, and keep this in the optimizer state. But this causes issues when loading the
+            # state since torch sees the state is non-empty for some params which would normally be empty,
+            # and then assumes it should have all of the other state tensors for that param, which is doesn't.
+            # So for now we just remove 'grad_norm_exp_avg' everywhere from the state, which resets that metric.
+            # Not the end of the world but there's probably a better way around this without resetting
+            # the metric.
+            for state in optim_state["state"].values():
+                if "grad_norm_exp_avg" in state:
+                    del state["grad_norm_exp_avg]"]
             optim.load_state_dict(optim_state)
             del optim_state
 
