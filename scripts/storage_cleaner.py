@@ -717,16 +717,30 @@ class StorageCleaner:
     def _unshard_checkpoint(self, sharded_checkpoint_dir: str, dest_dir: str):
         local_storage = self._get_storage_adapter(StorageType.LOCAL_FS)
         assert isinstance(local_storage, LocalFileSystemAdapter)
-        local_sharded_temp_dir = local_storage.create_temp_dir()
-        local_unsharded_temp_dir = local_storage.create_temp_dir()
 
-        src_storage = self._get_storage_adapter_for_path(sharded_checkpoint_dir)
-        src_storage.download_to_folder(sharded_checkpoint_dir, local_sharded_temp_dir)
+        sharding_input_dir: str
+        if StorageAdapter.get_storage_type_for_path(sharded_checkpoint_dir) == StorageType.LOCAL_FS:
+            sharding_input_dir = sharded_checkpoint_dir
+        else:
+            sharding_input_dir = local_storage.create_temp_dir()
 
-        subprocess.run(["python", "scripts/unshard.py", local_sharded_temp_dir, local_unsharded_temp_dir], check=True)
+            src_storage = self._get_storage_adapter_for_path(sharded_checkpoint_dir)
+            src_storage.download_to_folder(sharded_checkpoint_dir, sharding_input_dir)
 
-        dest_storage = self._get_storage_adapter_for_path(dest_dir)
-        dest_storage.upload(dest_dir, local_unsharded_temp_dir)
+        sharding_output_dir: str
+        upload_required: bool
+        if StorageAdapter.get_storage_type_for_path(dest_dir) == StorageType.LOCAL_FS:
+            sharding_output_dir = dest_dir
+            upload_required = False
+        else:
+            sharding_output_dir = local_storage.create_temp_dir()
+            upload_required = True
+
+        subprocess.run(["python", "scripts/unshard.py", sharding_input_dir, sharding_output_dir], check=True)
+
+        if upload_required:
+            dest_storage = self._get_storage_adapter_for_path(dest_dir)
+            dest_storage.upload(sharding_output_dir, dest_dir)
 
     def _unshard_checkpoints(self, runs_storage: StorageAdapter, run_path: str, checkpoints_dest_dir: str, latest_checkpoint_only: bool):
         sharded_checkpoint_directories = self._get_sharded_checkpoint_dirs(runs_storage, run_path, latest_checkpoint_only)
