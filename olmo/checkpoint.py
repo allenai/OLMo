@@ -1,4 +1,3 @@
-import gc
 import io
 import logging
 import pickle
@@ -52,8 +51,6 @@ from .util import (
     resource_path,
     upload,
     wait_for,
-    get_local_world_size,
-    get_local_rank,
 )
 
 __all__ = [
@@ -206,15 +203,7 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
             if isinstance(v, torch.Tensor):
                 state[k] = v.to(device="cpu")
     torch.cuda.empty_cache()
-    flattened_osd = fix_optim_state_dict(optim, flattened_osd)
-
-    for turn in range(get_local_world_size()):
-        log.info("Loading flattened optimizer state turn %d", turn)
-        if turn == get_local_rank():
-            optim.load_state_dict(flattened_osd)
-            del flattened_osd
-            gc.collect()
-        barrier()
+    optim.load_state_dict(fix_optim_state_dict(optim, flattened_osd))
 
 
 def save_state_dict(
