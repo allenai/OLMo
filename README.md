@@ -5,7 +5,7 @@
 After cloning this repository, first install the latest [PyTorch](https://pytorch.org) according the official instructions relevant to your environment. Then install the remaining dependencies and code base by running:
 
 ```
-pip install -e .[dev]
+pip install -e .
 ```
 
 ## Running LM pre-training jobs
@@ -31,9 +31,7 @@ torchrun --nproc-per-node=8 scripts/train.py configs/c4-tiny.yaml \
 
 #### Running on Cirrascale via [beaker-gantry](https://github.com/allenai/beaker-gantry)
 
-Check the script at [`scripts/olmo-small-ablation-on-gantry.sh`](scripts/beaker/olmo-small-ablation-on-gantry.sh) for an example on how to run a training job on Cirrascale.
-
-After installing `beaker-gantry`, you can launch a training job like this:
+Check the script at [`scripts/beaker/olmo-small-ablation-on-gantry.sh`](scripts/beaker/olmo-small-ablation-on-gantry.sh) for an example on how to run a training job on Cirrascale. Using that script, you can launch a training job like this:
 
 ```bash
 CONFIG_PATH=configs/choose_a_config.yml \
@@ -41,15 +39,14 @@ LOAD_PATH=/optional/path/to/checkpoint/ \
   bash scripts/olmo-small-ablation-on-gantry.sh
 ```
 
-if `CONFIG_PATH` is not specified, the default config is `configs/olmo-small-ablation.yaml`;
-if `LOAD_PATH` is not specified, the training will start from scratch.
+If `CONFIG_PATH` is not specified, the default config is `configs/olmo-small-ablation.yaml`. If `LOAD_PATH` is not specified, the training will start from scratch.
 
 #### Running on LUMI via Slurm
 
 First read our [LUMI](docs/LUMI.md) documentation, but submitting a new job essentially just boils down to running this:
 
 ```bash
-sbatch scripts/c4-tiny-on-lumi.sh
+sbatch scripts/lumi/c4-small-on-lumi.sh
 ```
 
 ### Restarting a training job from a checkpoint
@@ -62,7 +59,7 @@ There are also symlinks for the latest checkpoints in the form of `latest` and `
 Sharded checkpoints are the default type of checkpoint that's saved during training since these are the fastest, but you can also save unsharded checkpoints by setting `--save_interval_unsharded [INT]`.
 
 If you plan to restart a training run using a *different* world size, you can only restart from an *unsharded* checkpoint.
-However, you can convert a sharded checkpoint into an unsharded checkpoint by launching the script [scripts/unshard_checkpoint.sh](./scripts/unshard_checkpoint.sh) in the same way you launched the training script. Note that this needs to be launched with the exact same world size as when the *sharded* checkpoint was saved.
+However, you can convert a sharded checkpoint into an unsharded checkpoint by launching the script [scripts/unshard.sh](./scripts/unshard.sh) in the same way you launched the training script. Note that this needs to be launched with the exact same world size as when the *sharded* checkpoint was saved.
 
 ## Finding official runs and checkpoints
 

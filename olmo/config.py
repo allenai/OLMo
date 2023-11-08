@@ -463,6 +463,18 @@ class SchedulerConfig(BaseConfig):
     t_max: Optional[int] = None
     alpha_f: float = 0.1
 
+    grad_clip_warmup_steps: Optional[int] = None
+    """
+    The warmup period for which the max grad norm (or norm ratio) will be set to its
+    warmup value of `max_grad_norm * grad_clip_warmup_factor`.
+    """
+
+    grad_clip_warmup_factor: Optional[float] = None
+    """
+    The ratio of the max allowed gradient norm (or norm ratio) for clipping during the warmup period
+    vs after the warmup period.
+    """
+
 
 class PaddingDirection(StrEnum):
     right = "right"
@@ -572,6 +584,11 @@ class FSDPWrapStrategy(StrEnum):
     """
     Used PyTorch's default size-based auto wrap policy.
     """
+
+    one_in_two = "one_in_two"
+    one_in_three = "one_in_three"
+    one_in_four = "one_in_four"
+    one_in_five = "one_in_five"
 
 
 class FSDPPrecision(StrEnum):
