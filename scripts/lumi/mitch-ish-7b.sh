@@ -60,5 +60,6 @@ srun \
       --run_name=${SLURM_JOB_ID} \
       --activation_checkpointing=fine_grained \
       --fsdp.wrapping_strategy=one_in_four \
-      --fsdp.sharding_strategy=SHARD_GRAD_OP \
+      --fsdp.sharding_strategy=FULL_SHARD \
+      --sharded_checkpointer=local \
       --wandb.name=v1_5-mix-mitch-ish-lumi
