@@ -261,8 +261,8 @@ class Optimizer(OptimizerBase):
                 if global_step > 1:
                     state["grad_norm_exp_avg"] = grad_norm_exp_avg
 
-            clipped_norm = max_norm_ratio * grad_norm_exp_avg
-            clip_coef = clipped_norm / (grad_norm + 1e-6)
+            max_allowed_norm = max_norm_ratio * grad_norm_exp_avg
+            clip_coef = max_allowed_norm / (grad_norm + 1e-6)
 
             # Clip the gradients and update the exponential average.
             # Note that multiplying by the clamped coefficient is meaningless when it is
@@ -271,7 +271,11 @@ class Optimizer(OptimizerBase):
             if p.grad is not None:
                 # p.grad could be none for some ranks when using FSDP.
                 p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
-            grad_norm_exp_avg.lerp_(clipped_norm.to(grad_norm_exp_avg.device), 1 - beta)
+
+            # Update the exponential average of the norm of the gradient with the clipped norm of the gradient.
+            grad_norm_exp_avg.lerp_((grad_norm * clip_coef_clamped).to(grad_norm_exp_avg.device), 1 - beta)
+            # Alternative: update with the *unclipped* norm of the gradient.
+            #  grad_norm_exp_avg.lerp_(grad_norm.to(grad_norm_exp_avg.device), 1 - beta)
 
             if collect_param_metrics:
                 # Can't avoid host-device sync here.
