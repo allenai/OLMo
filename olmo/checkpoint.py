@@ -208,7 +208,6 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
     torch.cuda.empty_cache()
     flattened_osd = fix_optim_state_dict(optim, flattened_osd)
 
-    gc.collect()
     for turn in range(get_local_world_size()):
         log.info("Loading flattened optimizer state turn %d", turn)
         if turn == get_local_rank():
