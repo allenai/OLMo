@@ -251,6 +251,12 @@ class Optimizer(OptimizerBase):
                 continue
 
             # Get or initialize the exponential average of grad norm.
+            # TODO: The way we have it right now, every rank tracks the `grad_norm_exp_avg` of every parameter,
+            # even parameters for which the corresponding local shard is empty. This has the potential to
+            # cause some issues with the optimizer, as we ran into with https://github.com/allenai/LLM/pull/372.
+            # So we should consider changing how we do this at some point so that we don't add any state
+            # to parameters for which the local shard is empty. That would probably add extra distributed
+            # communication, at least on steps where we have to log (i.e. when `collect_param_metrics=True`).
             state = self.state[p]
             grad_norm_exp_avg = state.get("grad_norm_exp_avg")
             if grad_norm_exp_avg is None:
