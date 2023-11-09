@@ -18,6 +18,9 @@ import google.cloud.storage as gcs
 from botocore.config import Config
 from google.api_core.exceptions import NotFound
 from rich.progress import Progress
+
+from olmo import util
+
 log = logging.getLogger(__name__)
 
 
@@ -630,12 +633,6 @@ def get_parser() -> ArgumentParser:
         help="If set, bypass prompts",
     )
     parser.add_argument(
-        "-l",
-        "--log_level",
-        default="INFO",
-        help="Sets the logging level",
-    )
-    parser.add_argument(
         "--r2_account_id",
         default=R2_ACCOUNT_ID,
         help="Account id for R2 cloud storage",
@@ -650,7 +647,7 @@ def get_parser() -> ArgumentParser:
 def main():
     args = get_parser().parse_args()
 
-    logging.basicConfig(level=getattr(logging, args.log_level.upper()))
+    util.prepare_cli_environment()
     perform_operation(args)
 
 
