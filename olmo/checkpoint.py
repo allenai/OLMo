@@ -1204,6 +1204,19 @@ class LocalShardedCheckpointer(Checkpointer):
             optim_state = load_state_dict(
                 load_path, f"optim/rank{get_global_rank()}.pt", local_cache=local_cache, map_location="cpu"
             )
+            # HACK/TODO (epwalsh): When we use adaptive clipping we track the 'grad_norm_exp_avg' for every param
+            # in every rank, and keep this in the optimizer state. But this causes issues when loading the
+            # state since torch sees the state is non-empty for some params which would normally be empty,
+            # and then assumes it should have all of the other state tensors for that param, which is doesn't.
+            # So for now we just remove 'grad_norm_exp_avg' everywhere from the state, which resets that metric.
+            # Not the end of the world but there's probably a better way around this without resetting
+            # the metric.
+            for param_id in list(optim_state["state"].keys()):
+                state = optim_state["state"][param_id]
+                if "grad_norm_exp_avg" in state:
+                    del state["grad_norm_exp_avg"]
+                if len(state) == 0:
+                    del optim_state["state"][param_id]
             optim.load_state_dict(optim_state)
             del optim_state
 
@@ -1356,7 +1369,7 @@ class LocalShardedCheckpointer(Checkpointer):
             # Iterate over local shard state and copy into the full state.
             for id, shard_state in optim_state["state"].items():
                 fqn = id_to_fqn[id]
-                flat_param_shard = flat_params_data[rank][fqn]
+                flat_param_shard = flat_params_data[rank].get(fqn)  # type: ignore[assignment]
                 full_state = full_optim_state["state"][id]
                 for key, shard_value in shard_state.items():
                     assert isinstance(shard_value, torch.Tensor)
@@ -1371,6 +1384,7 @@ class LocalShardedCheckpointer(Checkpointer):
                     else:
                         # Otherwise we have a sharded param state.
                         # If the corresponding full param state hasn't been materialized yet, do so now.
+                        assert flat_param_shard is not None, f"missing flat_params_data for {fqn} from rank {rank}"
                         if key not in full_state:
                             log.info(
                                 f"Materializing full state '{key}' for '{fqn}' with shape {flat_param_shard.full_shape}..."
