@@ -11,8 +11,6 @@
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
-module load LUMI/22.08 partition/G
-
 export OLMO_CONTAINER=llm-lumi-torch21_latest.sif
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
@@ -41,6 +39,7 @@ export CHECKPOINTS_PATH=$FLASH_DIR/checkpoints
 export EVAL_DATA_PATH=$SCRATCH_DIR/eval-data
 
 export HF_DATASETS_OFFLINE=1
+export HSA_FORCE_FINE_GRAIN_PCIE=1
 
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
