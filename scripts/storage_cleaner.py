@@ -580,6 +580,8 @@ def perform_operation(args: argparse.Namespace):
             storage_cleaner.delete_bad_run(args.run_path)
         else:
             raise ValueError("Neither runs directory not run path provided for run cleaning")
+    else:
+        raise NotImplementedError(args.op)
 
 
 def _add_delete_subparser(subparsers: _SubParsersAction):
