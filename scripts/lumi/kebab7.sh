@@ -40,6 +40,7 @@ export EVAL_DATA_PATH=$SCRATCH_DIR/eval-data
 
 export HF_DATASETS_OFFLINE=1
 export HSA_FORCE_FINE_GRAIN_PCIE=1
+export GPU_MAX_HW_QUEUES=8
 
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
