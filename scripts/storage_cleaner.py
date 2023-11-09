@@ -17,8 +17,7 @@ import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
 from botocore.config import Config
 from google.api_core.exceptions import NotFound
-from tqdm import tqdm
-
+from rich.progress import Progress
 log = logging.getLogger(__name__)
 
 
@@ -344,10 +343,11 @@ class S3StorageAdapter(StorageAdapter):
             raise RuntimeError(f"Failed to get size for file with bucket | key: {bucket_name} | {key}")
         size_in_bytes: int = head_response["ContentLength"]
 
-        with tqdm(total=size_in_bytes, unit="B", unit_scale=True) as pbar:
+        with Progress(transient=True) as progress:
+            download_task = progress.add_task(f"Downloading {key}", total=size_in_bytes)
 
             def progress_callback(bytes_downloaded: int):
-                pbar.update(bytes_downloaded)
+                progress.update(download_task, advance=bytes_downloaded)
 
             self._s3_client.download_file(bucket_name, key, temp_file, Callback=progress_callback)
 
