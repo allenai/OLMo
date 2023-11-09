@@ -262,7 +262,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         blob = bucket.blob(key)
         try:
             blob.reload()
-            print(blob.name)
+            # print(blob.name)
             return True
         except NotFound:
             return False
@@ -275,16 +275,17 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         return self._get_blob_size(blob)
 
-    def _download_file(self, bucket_name: str, key: str) -> str:
-        extension = "".join(Path(key).suffixes)
-        temp_file = self.local_fs_adapter.create_temp_file(suffix=extension)
+    def _download_file(self, bucket_name: str, key: str, dest_filepath: Optional[PathOrStr] = None) -> Path:
+        if dest_filepath is None:
+            extension = "".join(Path(key).suffixes)
+            dest_filepath = self.local_fs_adapter.create_temp_file(suffix=extension)
 
         bucket = self.gcs_client.bucket(bucket_name)
         blob = bucket.get_blob(key)
         if blob is None:
             raise ValueError(f"Downloading invalid object with bucket | key: {bucket_name} | {key}")
-        blob.download_to_filename(temp_file)
-        return temp_file
+        blob.download_to_filename(str(dest_filepath))
+        return Path(dest_filepath)
 
     def _get_directory_entries(
         self,
@@ -362,25 +363,37 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         return self._is_file(bucket_name, key)
 
-    def is_dir(self, path: PathOrStr) -> bool:
-        bucket_name, key = self._get_bucket_name_and_key(path)
+    def _is_dir(self, bucket_name: str, key: str) -> bool:
         bucket = self.gcs_client.bucket(bucket_name)
         blobs = list(bucket.list_blobs(prefix=key, max_results=1))
 
         return not self._is_file(bucket_name, key) and len(blobs) > 0
 
+    def is_dir(self, path: PathOrStr) -> bool:
+        bucket_name, key = self._get_bucket_name_and_key(path)
+
+        return self._is_dir(bucket_name, key)
+
     def download_to_folder(self, path: PathOrStr, local_dest_folder: PathOrStr):
         bucket_name, key = self._get_bucket_name_and_key(path)
         bucket = self.gcs_client.bucket(bucket_name)
 
-        blobs: List[gcs.Blob] = list(bucket.list_blobs(prefix=key))
-        for blob in blobs:
-            if not blob.name:
-                raise NotImplementedError()
-            blob_path: str = blob.name
-            blob_local_dest = blob_path.replace(str(Path(key)), str(local_dest_folder))
-            print(blob_local_dest)
-            blob.download_to_filename(blob_local_dest)
+        if self._is_file(bucket_name, key):
+            dest_filepath = Path(local_dest_folder) / Path(path).name
+            download_path = self._download_file(bucket_name, key, dest_filepath=dest_filepath)
+            if download_path != dest_filepath:
+                raise RuntimeError(f"Download went to {download_path} instead of {dest_filepath} unexpectedly")
+        elif self._is_dir(bucket_name, key):
+            blobs: List[gcs.Blob] = list(bucket.list_blobs(prefix=key))
+            for blob in blobs:
+                if not blob.name:
+                    raise NotImplementedError()
+                blob_path: str = blob.name
+                blob_local_dest = blob_path.replace(str(Path(key)), str(local_dest_folder))
+                print(path, key, blob_local_dest)
+                blob.download_to_filename(blob_local_dest)
+        else:
+            raise ValueError(f"Path {path} is not a valid file or directory")
 
     def upload(self, path: PathOrStr, local_src: PathOrStr):
         raise NotImplementedError()
@@ -413,9 +426,10 @@ class S3StorageAdapter(StorageAdapter):
         key = parsed_path.path.lstrip("/")
         return bucket_name, key
 
-    def _download_file(self, bucket_name: str, key: str) -> str:
-        extension = "".join(Path(key).suffixes)
-        temp_file = self.local_fs_adapter.create_temp_file(suffix=extension)
+    def _download_file(self, bucket_name: str, key: str, dest_filepath: Optional[PathOrStr] = None) -> Path:
+        if dest_filepath is None:
+            extension = "".join(Path(key).suffixes)
+            dest_filepath = self.local_fs_adapter.create_temp_file(suffix=extension)
 
         head_response: Dict[str, Any] = self._s3_client.head_object(Bucket=bucket_name, Key=key)
         if "ContentLength" not in head_response:
@@ -428,12 +442,12 @@ class S3StorageAdapter(StorageAdapter):
             def progress_callback(bytes_downloaded: int):
                 progress.update(download_task, advance=bytes_downloaded)
 
-            self._s3_client.download_file(bucket_name, key, temp_file, Callback=progress_callback)
+            self._s3_client.download_file(bucket_name, key, str(dest_filepath), Callback=progress_callback)
 
-        if not self.local_fs_adapter.is_file(temp_file):
+        if not self.local_fs_adapter.is_file(dest_filepath):
             raise RuntimeError(f"Failed to download file with bucket | key: {bucket_name} | {key}")
 
-        return temp_file
+        return Path(dest_filepath)
 
     def _get_directory_entries(
         self,
@@ -565,14 +579,22 @@ class S3StorageAdapter(StorageAdapter):
     def download_to_folder(self, path: PathOrStr, local_dest_folder: PathOrStr):
         bucket_name, key = self._get_bucket_name_and_key(path)
 
-        response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key)
-        objects_metadata: List[Dict[str, Any]] = response['Contents']
-        for object_metadata in objects_metadata:
-            object_key: str = object_metadata['Key']
-            object_local_dest = object_key.replace(str(Path(key)), str(local_dest_folder))
-            print(object_local_dest)
+        if self._is_file(bucket_name, key):
+            dest_filepath = Path(local_dest_folder) / Path(path).name
+            download_path = self._download_file(bucket_name, key, dest_filepath=dest_filepath)
+            if download_path != dest_filepath:
+                raise RuntimeError(f"Download went to {download_path} instead of {dest_filepath} unexpectedly")
+        elif self._is_dir(bucket_name, key):
+            response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key)
+            objects_metadata: List[Dict[str, Any]] = response['Contents']
+            for object_metadata in objects_metadata:
+                object_key: str = object_metadata['Key']
+                object_local_dest = object_key.replace(str(Path(key)), str(local_dest_folder))
+                print(object_local_dest)
 
-            self._s3_client.download_file(bucket_name, key, object_local_dest)
+                self._s3_client.download_file(bucket_name, key, object_local_dest)
+        else:
+            raise ValueError(f"Path {path} is not a valid file or directory")
 
     def upload(self, path: PathOrStr, local_src: PathOrStr):
         if self.local_fs_adapter.is_file(local_src):
@@ -725,6 +747,8 @@ class StorageCleaner:
             sharded_checkpoint_directories = [latest_checkpoint_directory] if latest_checkpoint_directory is not None else []
 
         # print('Test', run_subdirectories, sharded_checkpoint_directories)
+
+        log.info("Found %d sharded checkpoint directories for %s", len(sharded_checkpoint_directories), run_path)
 
         return sharded_checkpoint_directories
 
