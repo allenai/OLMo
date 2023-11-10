@@ -762,15 +762,29 @@ class StorageCleaner:
             src_storage.download_to_folder(sharded_checkpoint_dir, sharding_input_dir)
 
         sharding_output_dir: str
+        delete_output_dir_on_failure: bool
         upload_required: bool
         if StorageAdapter.get_storage_type_for_path(dest_dir) == StorageType.LOCAL_FS:
             sharding_output_dir = str(dest_dir)
             upload_required = False
+            assert not local_storage.is_file(sharding_output_dir)
+            assert not local_storage.is_dir(sharding_output_dir), "Unsharding an already unsharded checkpoint should not happen"
+            delete_output_dir_on_failure = True
         else:
             sharding_output_dir = local_storage.create_temp_dir()
             upload_required = True
+            # Temp dir will get removed during cleanup, so no need to do it here
+            delete_output_dir_on_failure = False
 
-        subprocess.run(["python", "scripts/unshard.py", sharding_input_dir, sharding_output_dir], check=True)
+        result = subprocess.run(["python", str(self._unshard_script_path), sharding_input_dir, sharding_output_dir], check=False)
+        if result.returncode != 0:
+            log.error("Unsharding from %s to %s failed with error code %d", sharding_input_dir, sharding_output_dir, result.returncode)
+
+            if delete_output_dir_on_failure:
+                local_storage.delete_path(sharding_output_dir)
+            return
+
+        log.info("Successfully unsharded from %s to %s", sharding_input_dir, sharding_output_dir)
 
         if upload_required:
             dest_storage = self._get_storage_adapter_for_path(dest_dir)
