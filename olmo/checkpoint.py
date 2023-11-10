@@ -1070,7 +1070,11 @@ class LocalShardedCheckpointer(Checkpointer):
         if version.parse(torch.__version__) < version.parse("2.1.0"):
             return fsdp_model._handles  # type: ignore
         elif version.parse(torch.__version__) < version.parse("2.2.0"):
-            return [fsdp_model._handle]  # type: ignore
+            # Handle could be None if the FSDP wrapper doesn't manage any parameters.
+            if fsdp_model._handle is not None:
+                return [fsdp_model._handle]  # type: ignore
+            else:
+                return []
         else:
             # Need to verify FSDP internals with newer versions.
             raise NotImplementedError
