@@ -275,9 +275,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         return [entry.removeprefix(key) for entry in entries]
 
-    def _list_entries(
-        self, path: str, no_files: bool = False, max_file_size: Optional[float] = None
-    ) -> List[str]:
+    def _list_entries(self, path: str, no_files: bool = False, max_file_size: Optional[float] = None) -> List[str]:
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         if self.local_fs_adapter.has_supported_archive_extension(path):
@@ -397,9 +395,7 @@ class S3StorageAdapter(StorageAdapter):
 
         return [entry.removeprefix(key) for entry in entries]
 
-    def _list_entries(
-        self, path: str, no_files: bool = False, max_file_size: Optional[float] = None
-    ) -> List[str]:
+    def _list_entries(self, path: str, no_files: bool = False, max_file_size: Optional[float] = None) -> List[str]:
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         if self.local_fs_adapter.has_supported_archive_extension(path):
@@ -516,9 +512,7 @@ class StorageCleaner:
     def _contains_nontrivial_checkpoint_dir(dir_entries: List[str]) -> bool:
         return any(re.match(r"step[1-9]\d*(-unsharded)?", entry) is not None for entry in dir_entries)
 
-    def _verify_deletion_without_checkpoint_dir(
-        self, run_dir_or_archive: str, run_entries: List[str]
-    ) -> bool:
+    def _verify_deletion_without_checkpoint_dir(self, run_dir_or_archive: str, run_entries: List[str]) -> bool:
         msg = f"No checkpoint dir found in run directory entry {run_dir_or_archive} (first 5 entries: {run_entries[:5]}). This entry might not correspond to a run."
         if self._runs_require_checkpoint_dir:
             raise ValueError(msg)
