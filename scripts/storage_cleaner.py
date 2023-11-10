@@ -28,6 +28,7 @@ log = logging.getLogger(__name__)
 
 R2_ACCOUNT_ID: str = "a198dc34621661a1a66a02d6eb7c4dc3"
 DEFAULT_DELETE_MAX_ARCHIVE_SIZE: float = 5_000_000_000  # 5GB
+UNSHARD_SCRIPT_PATH: str = "scripts/unshard.py"
 
 
 class CleaningOperations(Enum):
@@ -617,6 +618,7 @@ class StorageCleaner:
         runs_require_checkpoint_dir: bool = True,
         r2_account_id: Optional[str] = None,
         max_archive_size: Optional[float] = None,
+        unshard_script_path: Optional[Path] = None,
     ) -> None:
         self._dry_run: bool = dry_run
         self._runs_require_checkpoint_dir = runs_require_checkpoint_dir
@@ -624,6 +626,7 @@ class StorageCleaner:
         self._r2_account_id: Optional[str] = r2_account_id
         self._max_archive_size: Optional[float] = max_archive_size
         self._storage_adapters: Dict[StorageType, StorageAdapter] = {}
+        self._unshard_script_path: Optional[Path] = unshard_script_path
 
     def _get_storage_adapter(self, storage_type: StorageType) -> StorageAdapter:
         if storage_type not in self._storage_adapters:
@@ -863,6 +866,7 @@ def perform_operation(args: argparse.Namespace):
             ignore_prompts=args.yes,
             r2_account_id=args.r2_account_id,
             max_archive_size=args.max_archive_size,
+            unshard_script_path=args.script_path,
         )
         if args.runs_src_directory is not None:
             storage_cleaner.unshard_runs_checkpoints(args.runs_src_directory, args.dest_dir, args.latest_checkpoint_only)
@@ -935,6 +939,11 @@ def _add_unsharding_subparser(subparsers: _SubParsersAction):
     unsharding_runs_parser.add_argument(
         "--max_archive_size",
         default=None,
+        help="Max size archive run files to consider for unsharding (in bytes). If set, any archive larger than the set size is skipped.",
+    )
+    unsharding_runs_parser.add_argument(
+        "--script_path",
+        default=UNSHARD_SCRIPT_PATH,
         help="Max size archive run files to consider for unsharding (in bytes). If set, any archive larger than the set size is skipped.",
     )
 
