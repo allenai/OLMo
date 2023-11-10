@@ -1071,7 +1071,7 @@ class LocalShardedCheckpointer(Checkpointer):
             return fsdp_model._handles  # type: ignore
         elif version.parse(torch.__version__) < version.parse("2.2.0"):
             # Handle could be None if the FSDP wrapper doesn't manage any parameters.
-            if fsdp_model._handle is not None:
+            if hasattr(fsdp_model, "_handle") and fsdp_model._handle is not None:
                 return [fsdp_model._handle]  # type: ignore
             else:
                 return []
