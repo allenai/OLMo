@@ -11,7 +11,7 @@
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
-export OLMO_CONTAINER=llm-lumi-torch21_latest.sif
+export OLMO_CONTAINER=llm-lumi_latest.sif
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
