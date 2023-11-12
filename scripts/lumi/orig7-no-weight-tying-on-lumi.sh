@@ -58,4 +58,5 @@ srun \
     python scripts/train.py configs/orig7-no-weight-tying-lumi.yaml \
       --run_name=${SLURM_JOB_ID}-torch20 \
       --save-interval=500 \
+      --load-path=$FLASH_DIR/checkpoints/4876091/step9500 \
       ${@}
