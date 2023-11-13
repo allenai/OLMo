@@ -126,7 +126,7 @@ class LocalFileSystemAdapter(StorageAdapter):
         return any(filename.endswith(extension) for extension in self._archive_extensions)
 
     def _list_entries(
-        self, path: PathOrStr, no_files: bool = False, max_file_size: Optional[float] = None
+        self, path: PathOrStr, include_files: bool = True, max_file_size: Optional[float] = None
     ) -> List[str]:
         path = Path(path)
         if path.is_dir():
@@ -134,13 +134,13 @@ class LocalFileSystemAdapter(StorageAdapter):
                 entry.name
                 for entry in path.iterdir()
                 if (
-                    (not no_files or not entry.is_file())
+                    (include_files or not entry.is_file())
                     and (max_file_size is None or entry.stat().st_size <= max_file_size)
                 )
             ]
 
         if self.has_supported_archive_extension(path):
-            if no_files or max_file_size is not None:
+            if include_files or max_file_size is not None:
                 raise NotImplementedError("Filtering out entries from a tar file is not yet supported")
 
             with tarfile.open(path) as tar:
@@ -155,7 +155,7 @@ class LocalFileSystemAdapter(StorageAdapter):
         return self._list_entries(path, max_file_size=max_file_size)
 
     def list_dirs(self, path: str) -> List[str]:
-        return self._list_entries(path, no_files=True)
+        return self._list_entries(path, include_files=False)
 
     def delete_path(self, path: str):
         path_obj = Path(path)
@@ -242,7 +242,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         self,
         bucket_name: str,
         key: str,
-        no_files: bool = False,
+        include_files: bool = True,
         max_file_size: Optional[float] = None,
     ) -> List[str]:
         bucket = self.gcs_client.bucket(bucket_name)
@@ -253,7 +253,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         entries: List[str] = []
         for blob in blobs:
-            if no_files:
+            if not include_files:
                 # Note: We need to iterate through (or otherwise act on?) the blobs to populate blob.prefixes
                 # Thus we no-op here rather than skipping the loop
                 continue
@@ -275,28 +275,28 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         return [entry.removeprefix(key) for entry in entries]
 
-    def _list_entries(self, path: str, no_files: bool = False, max_file_size: Optional[float] = None) -> List[str]:
+    def _list_entries(self, path: str, include_files: bool = True, max_file_size: Optional[float] = None) -> List[str]:
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         if self.local_fs_adapter.has_supported_archive_extension(path):
             log.info("Downloading archive %s", path)
             file_path = self._download_file(bucket_name, key)
 
-            if no_files:
+            if not include_files:
                 return self.local_fs_adapter.list_dirs(file_path)
             return self.local_fs_adapter.list_entries(file_path, max_file_size)
 
         if self._is_file(bucket_name, key):
             raise ValueError(f"Path corresponds to a file without a supported archive extension {path}")
 
-        res = self._get_directory_entries(bucket_name, key, no_files=no_files, max_file_size=max_file_size)
+        res = self._get_directory_entries(bucket_name, key, include_files=include_files, max_file_size=max_file_size)
         return res
 
     def list_entries(self, path: str, max_file_size: Optional[float] = None) -> List[str]:
         return self._list_entries(path, max_file_size=max_file_size)
 
     def list_dirs(self, path: str) -> List[str]:
-        return self._list_entries(path, no_files=True)
+        return self._list_entries(path, include_files=False)
 
     def delete_path(self, path: str):
         bucket_name, key = self._get_bucket_name_and_key(path)
@@ -366,14 +366,14 @@ class S3StorageAdapter(StorageAdapter):
         self,
         bucket_name: str,
         key: str,
-        no_files: bool = False,
+        include_files: bool = True,
         max_file_size: Optional[float] = None,
     ) -> List[str]:
         response: Dict[str, Any] = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key, Delimiter="/")
 
         entries: List[str] = []
 
-        if not no_files:
+        if include_files:
             objects_metadata: List[Dict[str, Any]] = response.get("Contents", [])
             for object_metadata in objects_metadata:
                 object_name = object_metadata["Key"]
@@ -395,28 +395,28 @@ class S3StorageAdapter(StorageAdapter):
 
         return [entry.removeprefix(key) for entry in entries]
 
-    def _list_entries(self, path: str, no_files: bool = False, max_file_size: Optional[float] = None) -> List[str]:
+    def _list_entries(self, path: str, include_files: bool = True, max_file_size: Optional[float] = None) -> List[str]:
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         if self.local_fs_adapter.has_supported_archive_extension(path):
             log.info("Downloading archive %s", path)
             file_path = self._download_file(bucket_name, key)
 
-            if no_files:
+            if not include_files:
                 return self.local_fs_adapter.list_dirs(file_path)
             return self.local_fs_adapter.list_entries(file_path, max_file_size)
 
         if self._is_file(bucket_name, key):
             raise ValueError(f"Path corresponds to a file without a supported archive extension {path}")
 
-        res = self._get_directory_entries(bucket_name, key, no_files=no_files, max_file_size=max_file_size)
+        res = self._get_directory_entries(bucket_name, key, include_files=include_files, max_file_size=max_file_size)
         return res
 
     def list_entries(self, path: str, max_file_size: Optional[float] = None) -> List[str]:
         return self._list_entries(path, max_file_size=max_file_size)
 
     def list_dirs(self, path: str) -> List[str]:
-        return self._list_entries(path, no_files=True)
+        return self._list_entries(path, include_files=False)
 
     def delete_path(self, path: str):
         bucket_name, key = self._get_bucket_name_and_key(path)
