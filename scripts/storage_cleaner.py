@@ -25,7 +25,6 @@ from olmo.aliases import PathOrStr
 log = logging.getLogger(__name__)
 
 
-R2_ACCOUNT_ID: str = "a198dc34621661a1a66a02d6eb7c4dc3"
 DEFAULT_MAX_ARCHIVE_SIZE: float = 5 * 1024 * 1024 * 1024  # 5GB
 
 
@@ -67,7 +66,7 @@ class StorageAdapter(ABC):
         """Returns whether the given path corresponds to an existing file."""
 
     @classmethod
-    def create_storage_adapter(cls, storage_type: StorageType, r2_account_id: Optional[str] = None):
+    def create_storage_adapter(cls, storage_type: StorageType):
         if storage_type == StorageType.LOCAL_FS:
             return LocalFileSystemAdapter()
         if storage_type == StorageType.GCS:
@@ -75,8 +74,9 @@ class StorageAdapter(ABC):
         if storage_type == StorageType.S3:
             return S3StorageAdapter()
         if storage_type == StorageType.R2:
+            r2_account_id = os.environ.get("R2_ACCOUNT_ID")
             if r2_account_id is None:
-                raise ValueError("R2 account id must be provided to create R2 storage adapter")
+                raise ValueError("R2_ACCOUNT_ID environment variable not set with R2 account id, cannot connect to R2")
             return S3StorageAdapter(endpoint_url=f"https://{r2_account_id}.r2.cloudflarestorage.com")
 
         raise NotImplementedError(f"No storage adapter implemented for storage type {storage_type}")
@@ -479,21 +479,17 @@ class StorageCleaner:
         dry_run: bool = False,
         ignore_prompts: bool = False,
         runs_require_checkpoint_dir: bool = True,
-        r2_account_id: Optional[str] = None,
         max_archive_size: Optional[int] = None,
     ) -> None:
         self._dry_run: bool = dry_run
         self._runs_require_checkpoint_dir = runs_require_checkpoint_dir
         self._ignore_prompts: bool = ignore_prompts
-        self._r2_account_id: Optional[str] = r2_account_id
         self._max_archive_size: Optional[int] = max_archive_size
         self._storage_adapters: Dict[StorageType, StorageAdapter] = {}
 
     def _get_storage_adapter(self, storage_type: StorageType) -> StorageAdapter:
         if storage_type not in self._storage_adapters:
-            self._storage_adapters[storage_type] = StorageAdapter.create_storage_adapter(
-                storage_type, self._r2_account_id
-            )
+            self._storage_adapters[storage_type] = StorageAdapter.create_storage_adapter(storage_type)
 
         return self._storage_adapters[storage_type]
 
@@ -576,7 +572,6 @@ def perform_operation(args: argparse.Namespace):
             dry_run=args.dry_run,
             ignore_prompts=args.yes,
             runs_require_checkpoint_dir=args.runs_require_checkpoint_dir,
-            r2_account_id=args.r2_account_id,
             max_archive_size=args.max_archive_size,
         )
         if args.runs_directory is not None:
@@ -633,11 +628,6 @@ def get_parser() -> ArgumentParser:
         "--yes",
         action="store_true",
         help="If set, bypass prompts",
-    )
-    parser.add_argument(
-        "--r2_account_id",
-        default=R2_ACCOUNT_ID,
-        help="Account id for R2 cloud storage",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Cleaning commands", required=True)
