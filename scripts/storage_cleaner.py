@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 
 R2_ACCOUNT_ID: str = "a198dc34621661a1a66a02d6eb7c4dc3"
-DEFAULT_MAX_ARCHIVE_SIZE: float = 5_000_000_000  # 5GB
+DEFAULT_MAX_ARCHIVE_SIZE: float = 5 * 1024 * 1024 * 1024  # 5GB
 
 
 class CleaningOperations(Enum):
@@ -260,8 +260,8 @@ class GoogleCloudStorageAdapter(StorageAdapter):
                 log.info(
                     "Blob %s has size %.2fGb exceeding max file size %.2fGb, skipping.",
                     blob.name,
-                    size / 1e9,
-                    max_file_size / 1e9,
+                    size / (1024 * 1024 * 1024),
+                    max_file_size / (1024 * 1024 * 1024),
                 )
                 continue
 
@@ -378,10 +378,10 @@ class S3StorageAdapter(StorageAdapter):
                 size: int = object_metadata["Size"]
                 if max_file_size is not None and size > max_file_size:
                     log.info(
-                        "Object %s has size %.2fGb exceeding max file size %.2fGb, skipping.",
+                        "Object %s has size %.2fGiB exceeding max file size %.2fGiB, skipping.",
                         object_name,
-                        size / 1e9,
-                        max_file_size / 1e9,
+                        size / (1024 * 1024 * 1024),
+                        max_file_size / (1024 * 1024 * 1024),
                     )
                     continue
 
