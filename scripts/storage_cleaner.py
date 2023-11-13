@@ -42,11 +42,11 @@ class StorageType(Enum):
 
 class StorageAdapter(ABC):
     @abstractmethod
-    def list_entries(self, path: str, max_file_size: Optional[float] = None) -> List[str]:
+    def list_entries(self, path: str, max_file_size: Optional[int] = None) -> List[str]:
         """Lists all the entries within the directory or compressed file at the given path.
         Returns only top-level entries (i.e. not entries in subdirectories).
 
-        max_file_size sets a threshold for the largest size file to retain within entries.
+        max_file_size sets a threshold (in bytes) for the largest size file to retain within entries.
         Any file of larger size is not included in the returned results.
         """
 
@@ -123,7 +123,7 @@ class LocalFileSystemAdapter(StorageAdapter):
         return any(filename.endswith(extension) for extension in self._archive_extensions)
 
     def _list_entries(
-        self, path: PathOrStr, include_files: bool = True, max_file_size: Optional[float] = None
+        self, path: PathOrStr, include_files: bool = True, max_file_size: Optional[int] = None
     ) -> List[str]:
         path = Path(path)
         if path.is_dir():
@@ -148,7 +148,7 @@ class LocalFileSystemAdapter(StorageAdapter):
 
         raise ValueError(f"Path does not correspond to directory or supported archive file: {path}")
 
-    def list_entries(self, path: str, max_file_size: Optional[float] = None) -> List[str]:
+    def list_entries(self, path: str, max_file_size: Optional[int] = None) -> List[str]:
         return self._list_entries(path, max_file_size=max_file_size)
 
     def list_dirs(self, path: str) -> List[str]:
@@ -240,7 +240,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         bucket_name: str,
         key: str,
         include_files: bool = True,
-        max_file_size: Optional[float] = None,
+        max_file_size: Optional[int] = None,
     ) -> List[str]:
         bucket = self.gcs_client.bucket(bucket_name)
         # Setting max_results to 10,000 as a reasonable caution that a directory should not have
@@ -272,7 +272,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         return [entry.removeprefix(key) for entry in entries]
 
-    def _list_entries(self, path: str, include_files: bool = True, max_file_size: Optional[float] = None) -> List[str]:
+    def _list_entries(self, path: str, include_files: bool = True, max_file_size: Optional[int] = None) -> List[str]:
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         if self.local_fs_adapter.has_supported_archive_extension(path):
@@ -289,7 +289,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         res = self._get_directory_entries(bucket_name, key, include_files=include_files, max_file_size=max_file_size)
         return res
 
-    def list_entries(self, path: str, max_file_size: Optional[float] = None) -> List[str]:
+    def list_entries(self, path: str, max_file_size: Optional[int] = None) -> List[str]:
         return self._list_entries(path, max_file_size=max_file_size)
 
     def list_dirs(self, path: str) -> List[str]:
@@ -364,7 +364,7 @@ class S3StorageAdapter(StorageAdapter):
         bucket_name: str,
         key: str,
         include_files: bool = True,
-        max_file_size: Optional[float] = None,
+        max_file_size: Optional[int] = None,
     ) -> List[str]:
         response: Dict[str, Any] = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key, Delimiter="/")
 
@@ -392,7 +392,7 @@ class S3StorageAdapter(StorageAdapter):
 
         return [entry.removeprefix(key) for entry in entries]
 
-    def _list_entries(self, path: str, include_files: bool = True, max_file_size: Optional[float] = None) -> List[str]:
+    def _list_entries(self, path: str, include_files: bool = True, max_file_size: Optional[int] = None) -> List[str]:
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         if self.local_fs_adapter.has_supported_archive_extension(path):
@@ -409,7 +409,7 @@ class S3StorageAdapter(StorageAdapter):
         res = self._get_directory_entries(bucket_name, key, include_files=include_files, max_file_size=max_file_size)
         return res
 
-    def list_entries(self, path: str, max_file_size: Optional[float] = None) -> List[str]:
+    def list_entries(self, path: str, max_file_size: Optional[int] = None) -> List[str]:
         return self._list_entries(path, max_file_size=max_file_size)
 
     def list_dirs(self, path: str) -> List[str]:
@@ -480,13 +480,13 @@ class StorageCleaner:
         ignore_prompts: bool = False,
         runs_require_checkpoint_dir: bool = True,
         r2_account_id: Optional[str] = None,
-        max_archive_size: Optional[float] = None,
+        max_archive_size: Optional[int] = None,
     ) -> None:
         self._dry_run: bool = dry_run
         self._runs_require_checkpoint_dir = runs_require_checkpoint_dir
         self._ignore_prompts: bool = ignore_prompts
         self._r2_account_id: Optional[str] = r2_account_id
-        self._max_archive_size: Optional[float] = max_archive_size
+        self._max_archive_size: Optional[int] = max_archive_size
         self._storage_adapters: Dict[StorageType, StorageAdapter] = {}
 
     def _get_storage_adapter(self, storage_type: StorageType) -> StorageAdapter:
