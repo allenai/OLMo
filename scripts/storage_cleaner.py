@@ -540,27 +540,11 @@ class StorageCleaner:
         else:
             log.info("Skipping run directory or archive %s", run_dir_or_archive)
 
-    def delete_bad_run(self, run_dir_or_archive: str):
-        log.info("Starting deletion of bad run at %s", run_dir_or_archive)
-
-        storage: StorageAdapter = self._get_storage_adapter_for_path(run_dir_or_archive)
-        self._delete_if_bad_run(storage, run_dir_or_archive)
-
-    def delete_bad_runs(self, runs_directory: str):
-        log.info("Starting deletion of bad runs at %s", runs_directory)
-
-        if not runs_directory.endswith("/"):
-            raise ValueError(
-                "Runs path does not end with '/'. Please verify that path is a directory and re-run with trailing '/'."
-            )
-
-        storage: StorageAdapter = self._get_storage_adapter_for_path(runs_directory)
-        runs_dir_entries = [
-            os.path.join(runs_directory, entry)
-            for entry in storage.list_entries(runs_directory, max_file_size=self._max_archive_size)
-        ]
-        for runs_dir_entry in runs_dir_entries:
-            self._delete_if_bad_run(storage, runs_dir_entry)
+    def delete_bad_runs(self, run_paths: List[str]):
+        for run_path in run_paths:
+            storage: StorageAdapter = self._get_storage_adapter_for_path(run_path)
+            log.info("Starting deletion of bad run at %s", run_path)
+            self._delete_if_bad_run(storage, run_path)
 
 
 def perform_operation(args: argparse.Namespace):
@@ -574,12 +558,10 @@ def perform_operation(args: argparse.Namespace):
             runs_require_checkpoint_dir=args.runs_require_checkpoint_dir,
             max_archive_size=args.max_archive_size,
         )
-        if args.runs_directory is not None:
-            storage_cleaner.delete_bad_runs(args.runs_directory)
-        elif args.run_path is not None:
-            storage_cleaner.delete_bad_run(args.run_path)
+        if args.run_paths is not None:
+            storage_cleaner.delete_bad_runs(args.run_paths)
         else:
-            raise ValueError("Neither runs directory not run path provided for run cleaning")
+            raise ValueError("Run paths not provided for run cleaning")
     else:
         raise NotImplementedError(args.op)
 
@@ -590,16 +572,10 @@ def _add_delete_subparser(subparsers: _SubParsersAction):
     )
     delete_runs_parser.set_defaults(op=CleaningOperations.DELETE_BAD_RUNS)
 
-    path_parser = delete_runs_parser.add_mutually_exclusive_group(required=True)
-    path_parser.add_argument(
-        "--runs_directory",
-        default=None,
-        help="Path to directory containing one or more runs",
-    )
-    path_parser.add_argument(
-        "--run_path",
-        default=None,
-        help="Path to directory or archive file corresponding to a run",
+    delete_runs_parser.add_argument(
+        "run_paths",
+        nargs="+",
+        help="Directory or archive file paths corresponding to runs.",
     )
 
     delete_runs_parser.add_argument(
