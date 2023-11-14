@@ -137,7 +137,7 @@ class LocalFileSystemAdapter(StorageAdapter):
             ]
 
         if self.has_supported_archive_extension(path):
-            if include_files or max_file_size is not None:
+            if not include_files or max_file_size is not None:
                 raise NotImplementedError("Filtering out entries from a tar file is not yet supported")
 
             with tarfile.open(path) as tar:
