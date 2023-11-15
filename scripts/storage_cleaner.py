@@ -65,8 +65,7 @@ class StorageAdapter(ABC):
 
     @abstractmethod
     def is_dir(self, path: str) -> bool:
-        """Returns whether the given path corresponds to an existing directory.
-        """
+        """Returns whether the given path corresponds to an existing directory."""
 
     @classmethod
     def create_storage_adapter(cls, storage_type: StorageType):
@@ -79,7 +78,9 @@ class StorageAdapter(ABC):
         if storage_type == StorageType.R2:
             r2_account_id = os.environ.get("R2_ACCOUNT_ID")
             if r2_account_id is None:
-                raise ValueError("R2_ACCOUNT_ID environment variable not set with R2 account id, cannot connect to R2")
+                raise ValueError(
+                    "R2_ACCOUNT_ID environment variable not set with R2 account id, cannot connect to R2"
+                )
             return S3StorageAdapter(storage_type, endpoint_url=f"https://{r2_account_id}.r2.cloudflarestorage.com")
 
         raise NotImplementedError(f"No storage adapter implemented for storage type {storage_type}")
@@ -283,7 +284,9 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         return [entry.removeprefix(key) for entry in entries]
 
-    def _list_entries(self, path: str, include_files: bool = True, max_file_size: Optional[int] = None) -> List[str]:
+    def _list_entries(
+        self, path: str, include_files: bool = True, max_file_size: Optional[int] = None
+    ) -> List[str]:
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         if self.local_fs_adapter.has_supported_archive_extension(path):
@@ -297,7 +300,9 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         if self._is_file(bucket_name, key):
             raise ValueError(f"Path corresponds to a file without a supported archive extension {path}")
 
-        res = self._get_directory_entries(bucket_name, key, include_files=include_files, max_file_size=max_file_size)
+        res = self._get_directory_entries(
+            bucket_name, key, include_files=include_files, max_file_size=max_file_size
+        )
         return res
 
     def list_entries(self, path: str, max_file_size: Optional[int] = None) -> List[str]:
@@ -418,7 +423,9 @@ class S3StorageAdapter(StorageAdapter):
 
         return [entry.removeprefix(key) for entry in entries]
 
-    def _list_entries(self, path: str, include_files: bool = True, max_file_size: Optional[int] = None) -> List[str]:
+    def _list_entries(
+        self, path: str, include_files: bool = True, max_file_size: Optional[int] = None
+    ) -> List[str]:
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         if self.local_fs_adapter.has_supported_archive_extension(path):
@@ -432,7 +439,9 @@ class S3StorageAdapter(StorageAdapter):
         if self._is_file(bucket_name, key):
             raise ValueError(f"Path corresponds to a file without a supported archive extension {path}")
 
-        res = self._get_directory_entries(bucket_name, key, include_files=include_files, max_file_size=max_file_size)
+        res = self._get_directory_entries(
+            bucket_name, key, include_files=include_files, max_file_size=max_file_size
+        )
         return res
 
     def list_entries(self, path: str, max_file_size: Optional[int] = None) -> List[str]:
@@ -503,7 +512,7 @@ class S3StorageAdapter(StorageAdapter):
             return False
 
         response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key, MaxKeys=1)
-        return 'Contents' in response
+        return "Contents" in response
 
     def is_dir(self, path: str) -> bool:
         path = f"{path}/" if not path.endswith("/") else path
@@ -576,7 +585,6 @@ class StorageCleaner:
             return f"{path}/" if not path.endswith("/") else path
 
         raise ValueError(f"Path does not correspond to a directory or file: {path}")
-
 
     def _delete_if_bad_run(self, storage: StorageAdapter, run_path: str):
         run_dir_or_archive = self._format_dir_or_archive_path(storage, run_path)
