@@ -8,6 +8,8 @@ import warnings
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+from queue import Queue
+from threading import Thread
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
 import boto3
@@ -690,3 +692,27 @@ def default_thread_count() -> int:
 
 def pass_through_fn(fn, *args, **kwargs):
     return fn(*args, **kwargs)
+
+
+def threaded_generator(g, maxsize: int = 16):
+    q: Queue = Queue(maxsize=maxsize)
+
+    sentinel = object()
+
+    def fill_queue():
+        try:
+            for value in g:
+                q.put(value)
+        except Exception as e:
+            q.put(e)
+        finally:
+            q.put(sentinel)
+
+    thread = Thread(name=repr(g), target=fill_queue, daemon=True)
+    thread.start()
+
+    for x in iter(q.get, sentinel):
+        if isinstance(x, Exception):
+            raise x
+        else:
+            yield x

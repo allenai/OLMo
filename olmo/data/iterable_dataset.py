@@ -8,7 +8,13 @@ import torch
 import torch.utils.data
 
 from ..aliases import PathOrStr
-from ..util import barrier, get_fs_local_rank, get_global_rank, get_world_size
+from ..util import (
+    barrier,
+    get_fs_local_rank,
+    get_global_rank,
+    get_world_size,
+    threaded_generator,
+)
 
 __all__ = ["IterableDataset"]
 
@@ -146,7 +152,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             else:
                 indices = indices[worker_info.id :: worker_info.num_workers]
 
-        return (self._get_dataset_item(int(idx)) for idx in indices)
+        return threaded_generator((self._get_dataset_item(int(idx)) for idx in indices), maxsize=8)
 
     def _get_dataset_item(self, idx: int) -> Dict[str, Any]:
         item = self.dataset[idx]
