@@ -215,7 +215,6 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         blob = bucket.blob(key)
         try:
             blob.reload()
-            print(blob.name)
             return True
         except NotFound:
             return False
