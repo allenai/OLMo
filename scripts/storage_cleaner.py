@@ -899,7 +899,7 @@ def _add_delete_subparser(subparsers: _SubParsersAction):
 
 def _add_unsharding_subparser(subparsers: _SubParsersAction):
     unsharding_runs_parser: ArgumentParser = subparsers.add_parser(
-        "unshard", help="unshard checkpoint(s) of each run"
+        "unshard", help="unshard checkpoints of a run"
     )
     unsharding_runs_parser.set_defaults(op=CleaningOperations.UNSHARD_CHECKPOINTS)
 
@@ -909,7 +909,7 @@ def _add_unsharding_subparser(subparsers: _SubParsersAction):
     )
     unsharding_runs_parser.add_argument(
         "dest_dir",
-        help="Path to directory where run(s) with unsharded checkpoints should be output (only the unsharded checkpoints are stored). If `runs_src_directory` is used, the run directory name will be added to this path automatically.",
+        help="Path to directory where the run's unsharded checkpoints should be output (only the unsharded checkpoints are stored).",
     )
     unsharding_runs_parser.add_argument(
         "--latest_checkpoint_only",
@@ -924,7 +924,7 @@ def _add_unsharding_subparser(subparsers: _SubParsersAction):
     unsharding_runs_parser.add_argument(
         "--script_path",
         default=UNSHARD_SCRIPT_PATH,
-        help="Max size archive run files to consider for unsharding (in bytes). If set, any archive larger than the set size is skipped.",
+        help=f"Path of the unsharder script. Set to `{UNSHARD_SCRIPT_PATH}` by default.",
     )
 
 
