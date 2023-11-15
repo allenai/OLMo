@@ -63,6 +63,11 @@ class StorageAdapter(ABC):
     def is_file(self, path: str) -> bool:
         """Returns whether the given path corresponds to an existing file."""
 
+    @abstractmethod
+    def is_dir(self, path: str) -> bool:
+        """Returns whether the given path corresponds to an existing directory.
+        """
+
     @classmethod
     def create_storage_adapter(cls, storage_type: StorageType):
         if storage_type == StorageType.LOCAL_FS:
@@ -168,6 +173,13 @@ class LocalFileSystemAdapter(StorageAdapter):
             return False
 
         return path_obj.is_file()
+
+    def is_dir(self, path: str) -> bool:
+        path_obj = Path(path)
+        if not path_obj.exists():
+            return False
+
+        return path_obj.is_dir()
 
 
 class GoogleCloudStorageAdapter(StorageAdapter):
@@ -307,6 +319,14 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         return self._is_file(bucket_name, key)
+
+    def is_dir(self, path: str) -> bool:
+        path = f"{path}/" if not path.endswith("/") else path
+        bucket_name, key = self._get_bucket_name_and_key(path)
+        bucket = self.gcs_client.bucket(bucket_name)
+        blobs = list(bucket.list_blobs(prefix=key, max_results=1))
+
+        return not self._is_file(bucket_name, key) and len(blobs) > 0
 
 
 class S3StorageAdapter(StorageAdapter):
@@ -478,6 +498,19 @@ class S3StorageAdapter(StorageAdapter):
 
         return self._is_file(bucket_name, key)
 
+    def _is_dir(self, bucket_name: str, key: str) -> bool:
+        if self._is_file(bucket_name, key):
+            return False
+
+        response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key, MaxKeys=1)
+        return 'Contents' in response
+
+    def is_dir(self, path: str) -> bool:
+        path = f"{path}/" if not path.endswith("/") else path
+        bucket_name, key = self._get_bucket_name_and_key(path)
+
+        return self._is_dir(bucket_name, key)
+
 
 class StorageCleaner:
     def __init__(
@@ -532,7 +565,23 @@ class StorageCleaner:
 
         raise ValueError(msg)
 
-    def _delete_if_bad_run(self, storage: StorageAdapter, run_dir_or_archive: str):
+    def _format_dir_or_archive_path(self, storage: StorageAdapter, path: str) -> str:
+        if storage.is_file(path):
+            local_fs_adapter = self._get_storage_adapter(StorageType.LOCAL_FS)
+            assert isinstance(local_fs_adapter, LocalFileSystemAdapter)
+            if not local_fs_adapter.has_supported_archive_extension(path):
+                raise ValueError(f"Path corresponds to a non-archive file: {path}")
+
+            return path
+
+        if storage.is_dir(path):
+            return f"{path}/" if not path.endswith("/") else path
+
+        raise ValueError(f"Path does not correspond to a directory or file: {path}")
+
+
+    def _delete_if_bad_run(self, storage: StorageAdapter, run_path: str):
+        run_dir_or_archive = self._format_dir_or_archive_path(storage, run_path)
         run_entries = storage.list_entries(run_dir_or_archive)
 
         should_delete = True
