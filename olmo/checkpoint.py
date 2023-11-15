@@ -1,3 +1,4 @@
+import gc
 import io
 import logging
 import pickle
@@ -46,6 +47,8 @@ from .util import (
     get_bytes_range,
     get_fs_local_rank,
     get_global_rank,
+    get_local_rank,
+    get_local_world_size,
     get_progress_bar,
     get_world_size,
     resource_path,
@@ -194,6 +197,7 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
     else:
         flattened_osd = FSDP.optim_state_dict_to_load(fsdp_model, optim, optim_state)  # type: ignore
     del optim_state
+    gc.collect()
     log.info("Loading flattened optimizer state...")
     # Put optim state on CPU since `Optimizer.load_state_dict()` will create a deepcopy of the whole state dict,
     # which takes up unnecessary GPU memory.
@@ -606,7 +610,7 @@ class FullCheckpointer(Checkpointer):
             fsdp_model,
             state_dict_type=StateDictType.FULL_STATE_DICT,
             state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
-            optim_state_dict_config=FullOptimStateDictConfig(rank0_only=True, offload_to_cpu=True),
+            optim_state_dict_config=FullOptimStateDictConfig(rank0_only=False, offload_to_cpu=True),
         ):
             # Load model state.
             log.info("Loading model state...")
@@ -614,15 +618,23 @@ class FullCheckpointer(Checkpointer):
                 load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location="cpu")
             )
             fsdp_model.load_state_dict(state_dict_to_load)
+            del state_dict_to_load
 
             # Load optimizer state.
             if load_optimizer_state:
-                log.info("Loading optimizer state...")
-                optim_state_dict_to_load = self._make_optim_state_dict_compatible(
-                    load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location="cpu"),
-                    og_keys_to_new,
-                )
-                load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
+                gc.collect()
+                for turn in range(get_local_world_size()):
+                    log.info("Loading optimizer state turn %d ...", turn)
+                    if turn == get_local_rank():
+                        optim_state_dict_to_load = self._make_optim_state_dict_compatible(
+                            load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location="cpu"),
+                            og_keys_to_new,
+                        )
+                        load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
+                        del optim_state_dict_to_load
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                    barrier()
 
             # Load other state.
             try:
@@ -639,7 +651,7 @@ class FullCheckpointer(Checkpointer):
         # This state dict comes in two forms: one where the state keys are integers and one where the
         # keys are fully qualified parameter names. The latter case is easier to deal with here so we
         # first transform the integer key form into the FQN key form.
-        if isinstance(next(iter(optim_state_dict.keys())), int):
+        if isinstance(next(iter(optim_state_dict["state"].keys())), int):
             id_to_fqn: Dict[int, str] = {}
             for group in optim_state_dict["param_groups"]:
                 new_param_names = []
@@ -1208,6 +1220,19 @@ class LocalShardedCheckpointer(Checkpointer):
             optim_state = load_state_dict(
                 load_path, f"optim/rank{get_global_rank()}.pt", local_cache=local_cache, map_location="cpu"
             )
+            # HACK/TODO (epwalsh): When we use adaptive clipping we track the 'grad_norm_exp_avg' for every param
+            # in every rank, and keep this in the optimizer state. But this causes issues when loading the
+            # state since torch sees the state is non-empty for some params which would normally be empty,
+            # and then assumes it should have all of the other state tensors for that param, which is doesn't.
+            # So for now we just remove 'grad_norm_exp_avg' everywhere from the state, which resets that metric.
+            # Not the end of the world but there's probably a better way around this without resetting
+            # the metric.
+            for param_id in list(optim_state["state"].keys()):
+                state = optim_state["state"][param_id]
+                if "grad_norm_exp_avg" in state:
+                    del state["grad_norm_exp_avg"]
+                if len(state) == 0:
+                    del optim_state["state"][param_id]
             optim.load_state_dict(optim_state)
             del optim_state
 
@@ -1360,7 +1385,7 @@ class LocalShardedCheckpointer(Checkpointer):
             # Iterate over local shard state and copy into the full state.
             for id, shard_state in optim_state["state"].items():
                 fqn = id_to_fqn[id]
-                flat_param_shard = flat_params_data[rank][fqn]
+                flat_param_shard = flat_params_data[rank].get(fqn)  # type: ignore[assignment]
                 full_state = full_optim_state["state"][id]
                 for key, shard_value in shard_state.items():
                     assert isinstance(shard_value, torch.Tensor)
@@ -1375,6 +1400,7 @@ class LocalShardedCheckpointer(Checkpointer):
                     else:
                         # Otherwise we have a sharded param state.
                         # If the corresponding full param state hasn't been materialized yet, do so now.
+                        assert flat_param_shard is not None, f"missing flat_params_data for {fqn} from rank {rank}"
                         if key not in full_state:
                             log.info(
                                 f"Materializing full state '{key}' for '{fqn}' with shape {flat_param_shard.full_shape}..."
