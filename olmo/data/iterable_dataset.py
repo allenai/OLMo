@@ -65,10 +65,12 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         else:
             num_samples = math.ceil(len(self.dataset) / self.world_size)  # type: ignore[arg-type]
         self.total_size = num_samples * self.world_size
+        self.queue_size = 16
         self.device_batch_size: Optional[int] = None
         if global_batch_size is not None:
             assert global_batch_size % self.world_size == 0
             self.device_batch_size = global_batch_size // self.world_size
+            self.queue_size = self.device_batch_size * 2
         self.global_indices_file: Optional[Path] = None
 
         if work_dir is not None:
@@ -152,7 +154,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             else:
                 indices = indices[worker_info.id :: worker_info.num_workers]
 
-        return threaded_generator((self._get_dataset_item(int(idx)) for idx in indices), maxsize=8)
+        return threaded_generator((self._get_dataset_item(int(idx)) for idx in indices), maxsize=self.queue_size)
 
     def _get_dataset_item(self, idx: int) -> Dict[str, Any]:
         item = self.dataset[idx]
