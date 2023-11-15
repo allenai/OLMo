@@ -332,8 +332,8 @@ class GoogleCloudStorageAdapter(StorageAdapter):
             file_path = self._download_file(bucket_name, key)
 
             if not include_files:
-                return self.local_fs_adapter.list_dirs(file_path)
-            return self.local_fs_adapter.list_entries(file_path, max_file_size)
+                return self.local_fs_adapter.list_dirs(str(file_path))
+            return self.local_fs_adapter.list_entries(str(file_path), max_file_size)
 
         if self._is_file(bucket_name, key):
             raise ValueError(f"Path corresponds to a file without a supported archive extension {path}")
@@ -888,8 +888,6 @@ def perform_operation(args: argparse.Namespace):
     elif args.op == CleaningOperations.UNSHARD_CHECKPOINTS:
         storage_cleaner = StorageCleaner(
             dry_run=args.dry_run,
-            ignore_prompts=args.yes,
-            r2_account_id=args.r2_account_id,
             max_archive_size=args.max_archive_size,
             unshard_script_path=args.script_path,
         )
