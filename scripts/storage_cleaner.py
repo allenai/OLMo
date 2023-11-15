@@ -72,12 +72,12 @@ class StorageAdapter(ABC):
         if storage_type == StorageType.GCS:
             return GoogleCloudStorageAdapter()
         if storage_type == StorageType.S3:
-            return S3StorageAdapter()
+            return S3StorageAdapter(storage_type)
         if storage_type == StorageType.R2:
             r2_account_id = os.environ.get("R2_ACCOUNT_ID")
             if r2_account_id is None:
                 raise ValueError("R2_ACCOUNT_ID environment variable not set with R2 account id, cannot connect to R2")
-            return S3StorageAdapter(endpoint_url=f"https://{r2_account_id}.r2.cloudflarestorage.com")
+            return S3StorageAdapter(storage_type, endpoint_url=f"https://{r2_account_id}.r2.cloudflarestorage.com")
 
         raise NotImplementedError(f"No storage adapter implemented for storage type {storage_type}")
 
@@ -200,6 +200,10 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         key = parsed_path.path.lstrip("/")
         return bucket_name, key
 
+    @staticmethod
+    def _get_path(bucket_name: str, key: str) -> str:
+        return f"gs://{bucket_name}/{key}"
+
     def _get_blob_size(self, blob: gcs.Blob) -> int:
         blob.reload()
         if blob.size is None:
@@ -220,7 +224,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         bucket = self.gcs_client.bucket(bucket_name)
         blob = bucket.get_blob(key)
         if blob is None:
-            raise ValueError(f"Getting size for invalid object with bucket | key: {bucket_name} | {key}")
+            raise ValueError(f"Getting size for invalid object: {self._get_path(bucket_name, key)}")
 
         return self._get_blob_size(blob)
 
@@ -231,7 +235,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         bucket = self.gcs_client.bucket(bucket_name)
         blob = bucket.get_blob(key)
         if blob is None:
-            raise ValueError(f"Downloading invalid object with bucket | key: {bucket_name} | {key}")
+            raise ValueError(f"Downloading invalid object: {self._get_path(bucket_name, key)}")
         blob.download_to_filename(temp_file)
         return temp_file
 
@@ -311,8 +315,9 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
 
 class S3StorageAdapter(StorageAdapter):
-    def __init__(self, endpoint_url: Optional[str] = None):
+    def __init__(self, storage_type: StorageType, endpoint_url: Optional[str] = None):
         super().__init__()
+        self._storage_type = storage_type
         self._s3_client = boto3.client(
             "s3",
             endpoint_url=endpoint_url,
@@ -337,13 +342,24 @@ class S3StorageAdapter(StorageAdapter):
         key = parsed_path.path.lstrip("/")
         return bucket_name, key
 
+    def _get_path(self, bucket_name: str, key: str) -> str:
+        scheme: str
+        if self._storage_type == StorageType.S3:
+            scheme = "s3"
+        elif self._storage_type == StorageType.R2:
+            scheme = "r2"
+        else:
+            raise NotImplementedError
+
+        return f"{scheme}://{bucket_name}/{key}"
+
     def _download_file(self, bucket_name: str, key: str) -> str:
         extension = "".join(Path(key).suffixes)
         temp_file = self.local_fs_adapter.create_temp_file(suffix=extension)
 
         head_response: Dict[str, Any] = self._s3_client.head_object(Bucket=bucket_name, Key=key)
         if "ContentLength" not in head_response:
-            raise RuntimeError(f"Failed to get size for file with bucket | key: {bucket_name} | {key}")
+            raise RuntimeError(f"Failed to get size for file: {self._get_path(bucket_name, key)}")
         size_in_bytes: int = head_response["ContentLength"]
 
         with Progress(transient=True) as progress:
@@ -355,7 +371,7 @@ class S3StorageAdapter(StorageAdapter):
             self._s3_client.download_file(bucket_name, key, temp_file, Callback=progress_callback)
 
         if not self.local_fs_adapter.is_file(temp_file):
-            raise RuntimeError(f"Failed to download file with bucket | key: {bucket_name} | {key}")
+            raise RuntimeError(f"Failed to download file: {self._get_path(bucket_name, key)}")
 
         return temp_file
 
