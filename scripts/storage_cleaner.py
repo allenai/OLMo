@@ -244,10 +244,8 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         max_file_size: Optional[int] = None,
     ) -> List[str]:
         bucket = self.gcs_client.bucket(bucket_name)
-        # Setting max_results to 10,000 as a reasonable caution that a directory should not have
-        # more than 10,000 entries.
         # Using delimiter causes result to have directory-like structure
-        blobs = bucket.list_blobs(max_results=10_000, prefix=key, delimiter="/")
+        blobs = bucket.list_blobs(prefix=key, delimiter="/")
 
         entries: List[str] = []
         for blob in blobs:
