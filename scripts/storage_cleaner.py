@@ -478,11 +478,13 @@ class StorageCleaner:
         self,
         dry_run: bool = False,
         ignore_prompts: bool = False,
-        runs_require_checkpoint_dir: bool = True,
+        should_check_is_run: bool = True,
+        ignore_non_runs: bool = False,
         max_archive_size: Optional[int] = None,
     ) -> None:
         self._dry_run: bool = dry_run
-        self._runs_require_checkpoint_dir = runs_require_checkpoint_dir
+        self._should_check_is_run = should_check_is_run
+        self._ignore_non_runs = ignore_non_runs
         self._ignore_prompts: bool = ignore_prompts
         self._max_archive_size: Optional[int] = max_archive_size
         self._storage_adapters: Dict[StorageType, StorageAdapter] = {}
@@ -505,33 +507,36 @@ class StorageCleaner:
     def _contains_nontrivial_checkpoint_dir(dir_entries: List[str]) -> bool:
         return any(re.match(r"step[1-9]\d*(-unsharded)?", entry) is not None for entry in dir_entries)
 
-    def _verify_deletion_without_checkpoint_dir(self, run_dir_or_archive: str, run_entries: List[str]) -> bool:
-        msg = f"No checkpoint dir found in run directory entry {run_dir_or_archive} (first 5 entries: {run_entries[:5]}). This entry might not correspond to a run."
-        if self._runs_require_checkpoint_dir:
-            raise ValueError(msg)
+    def _is_run(self, run_path: str, run_entries: Optional[List[str]] = None) -> bool:
+        """
+        This method is best effort. It may mark run paths as not (false negatives) or mark non-run
+        paths as runs (false positives). We prioritize minimizing false positives.
+        """
+        if run_entries is None:
+            storage = self._get_storage_adapter_for_path(run_path)
+            run_entries = storage.list_entries(run_path)
 
-        log.warning(msg)
+        return self._contains_checkpoint_dir(run_entries)
 
-        if not self._ignore_prompts:
-            while True:
-                response = input(f"{msg} Would you still like to delete {run_dir_or_archive}? (y/skip/exit) ")
-                if response.lower() == "y":
-                    return True
-                elif response.lower() == "exit":
-                    raise ValueError(msg)
-                elif response.lower() == "skip":
-                    return False
+    def _verify_non_run_deletion(self, run_dir_or_archive: str, run_entries: List[str]) -> bool:
+        msg = f"Attempting to delete non-run directory or archive {run_dir_or_archive} (first 5 entries: {run_entries[:5]})."
+        if self._ignore_non_runs:
+            log.warning(msg)
+            return False
 
-        return True
+        raise ValueError(msg)
 
     def _delete_if_bad_run(self, storage: StorageAdapter, run_dir_or_archive: str):
         run_entries = storage.list_entries(run_dir_or_archive)
 
         should_delete = True
-        if not self._contains_checkpoint_dir(run_entries):
-            should_delete = self._verify_deletion_without_checkpoint_dir(run_dir_or_archive, run_entries)
+        if self._should_check_is_run and not self._is_run(run_dir_or_archive, run_entries=run_entries):
+            should_delete = self._verify_non_run_deletion(run_dir_or_archive, run_entries)
 
-        if should_delete and not self._contains_nontrivial_checkpoint_dir(run_entries):
+        # Runs with non-trivial checkpoints are considered good
+        should_delete = should_delete and not self._contains_nontrivial_checkpoint_dir(run_entries)
+
+        if should_delete:
             if self._dry_run:
                 log.info("Would delete run directory or archive %s", run_dir_or_archive)
             else:
@@ -555,7 +560,8 @@ def perform_operation(args: argparse.Namespace):
         storage_cleaner = StorageCleaner(
             dry_run=args.dry_run,
             ignore_prompts=args.yes,
-            runs_require_checkpoint_dir=args.runs_require_checkpoint_dir,
+            should_check_is_run=args.should_check_is_run,
+            ignore_non_runs=args.ignore_non_runs,
             max_archive_size=args.max_archive_size,
         )
         if args.run_paths is not None:
@@ -578,12 +584,19 @@ def _add_delete_subparser(subparsers: _SubParsersAction):
         help="Directory or archive file paths corresponding to runs.",
     )
 
-    delete_runs_parser.add_argument(
-        "--require_checkpoint_dir",
-        action="store_true",
-        dest="runs_require_checkpoint_dir",
-        help="Enforces without prompt the sanity check that an entry being deleted has a checkpoint dir (and so is a run)",
+    run_verification_parser = delete_runs_parser.add_mutually_exclusive_group(required=False)
+    run_verification_parser.add_argument(
+        "--bypass_run_verification",
+        action="store_false",
+        dest="should_check_is_run",
+        help="(UNSAFE) Bypass the sanity check that a directory/archive being deleted is a run. This could result in a non-run directory/archive being deleted.",
     )
+    run_verification_parser.add_argument(
+        "--ignore_non_runs",
+        action="store_true",
+        help="Ignore (do not delete) directories/archives that are not runs.",
+    )
+
     delete_runs_parser.add_argument(
         "--max_archive_size",
         default=DEFAULT_MAX_ARCHIVE_SIZE,
