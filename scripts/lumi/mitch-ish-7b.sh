@@ -63,4 +63,5 @@ srun \
       --fsdp.wrapping_strategy=one_in_four \
       --fsdp.sharding_strategy=FULL_SHARD \
       --sharded_checkpointer=local \
-      --wandb.name=v1_5-mix-mitch-ish-lumi
+      --wandb.name=v1_5-mix-mitch-ish-lumi \
+      --save_folder=${SCRATCH_DIR}/checkpoints/${SLURM_JOB_ID}
