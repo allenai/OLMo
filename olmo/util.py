@@ -562,11 +562,12 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
 _s3_client = None
 
 
-def _get_s3_client():
+def _get_s3_client(endpoint_url: Optional[str] = None):
     global _s3_client
     if _s3_client is None:
         _s3_client = boto3.client(
             "s3",
+            endpoint_url=endpoint_url,
             config=Config(retries={"max_attempts": 10, "mode": "standard"}),
             use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
         )

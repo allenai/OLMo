@@ -12,10 +12,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
-import boto3
 import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
-from botocore.config import Config
 from google.api_core.exceptions import NotFound
 from rich.progress import Progress
 
@@ -317,12 +315,7 @@ class S3StorageAdapter(StorageAdapter):
     def __init__(self, storage_type: StorageType, endpoint_url: Optional[str] = None):
         super().__init__()
         self._storage_type = storage_type
-        self._s3_client = boto3.client(
-            "s3",
-            endpoint_url=endpoint_url,
-            config=Config(retries={"max_attempts": 10, "mode": "standard"}),
-            use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
-        )
+        self._s3_client = util._get_s3_client(endpoint_url=endpoint_url)
 
         self._local_fs_adapter: Optional[LocalFileSystemAdapter] = None
         self._temp_dirs: List[tempfile.TemporaryDirectory] = []
