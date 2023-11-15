@@ -765,6 +765,7 @@ class StorageCleaner:
         local_storage = self._get_storage_adapter(StorageType.LOCAL_FS)
         assert isinstance(local_storage, LocalFileSystemAdapter)
 
+        # Download checkpoint to a temp dir if it is not in local storage
         sharding_input_dir: str
         if StorageAdapter.get_storage_type_for_path(sharded_checkpoint_dir) == StorageType.LOCAL_FS:
             sharding_input_dir = str(sharded_checkpoint_dir)
@@ -774,6 +775,7 @@ class StorageCleaner:
             src_storage = self._get_storage_adapter_for_path(sharded_checkpoint_dir)
             src_storage.download_to_folder(sharded_checkpoint_dir, sharding_input_dir)
 
+        # Set unsharder output to a temp dir if the final destination is not local
         sharding_output_dir: str
         delete_output_dir_on_failure: bool
         upload_required: bool
@@ -803,71 +805,35 @@ class StorageCleaner:
             dest_storage = self._get_storage_adapter_for_path(dest_dir)
             dest_storage.upload(sharding_output_dir, dest_dir)
 
-    def _unshard_checkpoints(self, runs_storage: StorageAdapter, run_path: str, checkpoints_dest_dir: str, latest_checkpoint_only: bool):
-        sharded_checkpoint_directories = self._get_sharded_checkpoint_dirs(runs_storage, run_path, latest_checkpoint_only)
+    def _unshard_checkpoints(self, run_storage: StorageAdapter, run_dir_or_archive: str, checkpoints_dest_dir: str, latest_checkpoint_only: bool):
+        log.info("Starting unsharding checkpoints of run directory or archive %s", run_dir_or_archive)
+
+        sharded_checkpoint_directories = self._get_sharded_checkpoint_dirs(run_storage, run_dir_or_archive, latest_checkpoint_only)
         for sharded_checkpoint_directory in sharded_checkpoint_directories:
             sharded_checkpoint_dir_name = Path(sharded_checkpoint_directory).name
 
-            unsharded_checkpoint_directory_in_source = os.path.join(run_path, f"{sharded_checkpoint_dir_name}-unsharded")
-            if runs_storage.is_dir(unsharded_checkpoint_directory_in_source):
-                log.info("Unsharded directory already exists for %s at source %s, skipping", sharded_checkpoint_directory, unsharded_checkpoint_directory_in_source)
-                continue
+            if run_storage.is_dir(run_dir_or_archive):
+                unsharded_checkpoint_directory_in_source = os.path.join(run_dir_or_archive, f"{sharded_checkpoint_dir_name}-unsharded")
+                if run_storage.is_dir(unsharded_checkpoint_directory_in_source):
+                    log.info("Unsharded directory already exists for %s at source %s, skipping", sharded_checkpoint_directory, unsharded_checkpoint_directory_in_source)
+                    continue
 
-            unsharded_checkpoint_dest_directory = os.path.join(checkpoints_dest_dir, f"{sharded_checkpoint_dir_name}-unsharded")
-            dest_storage = self._get_storage_adapter_for_path(unsharded_checkpoint_dest_directory)
-            if dest_storage.is_dir(unsharded_checkpoint_directory_in_source):
-                log.info("Unsharded directory already exists for %s at destination %s, skipping", sharded_checkpoint_directory, unsharded_checkpoint_dest_directory)
+            dest_directory = os.path.join(checkpoints_dest_dir, f"{sharded_checkpoint_dir_name}-unsharded")
+            dest_storage = self._get_storage_adapter_for_path(dest_directory)
+            if dest_storage.is_dir(dest_directory):
+                log.info("Unsharded directory already exists for %s at destination %s, skipping", sharded_checkpoint_directory, dest_directory)
                 continue
 
             if self._dry_run:
-                log.info("Would unshard sharded checkpoint %s to %s", sharded_checkpoint_directory, unsharded_checkpoint_dest_directory)
+                log.info("Would unshard sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
             else:
-                log.info("Unsharding sharded checkpoint %s to %s", sharded_checkpoint_directory, unsharded_checkpoint_dest_directory)
-                self._unshard_checkpoint(sharded_checkpoint_directory, unsharded_checkpoint_dest_directory)
+                log.info("Unsharding sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
+                self._unshard_checkpoint(sharded_checkpoint_directory, dest_directory)
 
-    def unshard_run_checkpoints(self, run_source_dir_or_archive: str, run_dest_dir: str, latest_checkpoint_only: bool):
-        log.info("Starting unsharding checkpoints of run directory or archive %s", run_source_dir_or_archive)
-
-        local_storage = self._get_storage_adapter(StorageType.LOCAL_FS)
-        assert isinstance(local_storage, LocalFileSystemAdapter)
-
-        if isinstance(run_source_dir_or_archive, str):
-            if not local_storage.has_supported_archive_extension(run_source_dir_or_archive) and not run_source_dir_or_archive.endswith("/"):
-                raise ValueError(
-                    "Run source does not have a supported archive extension and does not end with '/'. If it is a directory, please re-run with a trailing '/'."
-                )
-        if isinstance(run_dest_dir, str):
-            if not run_dest_dir.endswith("/"):
-                raise ValueError(
-                    "Checkpoints destination directory does not end with '/'. Please verify that path is a directory and re-run with trailing '/'."
-                )
-
-        storage: StorageAdapter = self._get_storage_adapter_for_path(run_source_dir_or_archive)
-        self._unshard_checkpoints(storage, run_source_dir_or_archive, run_dest_dir, latest_checkpoint_only) 
-
-    def unshard_runs_checkpoints(self, runs_source_dir: str, runs_dest_dir: str, latest_checkpoint_only: bool):
-        log.info("Starting unsharding checkpoints of run directory %s", runs_source_dir)
-
-        if not runs_source_dir.endswith("/"):
-            raise ValueError(
-                "Runs source directory does not end with '/'. Please verify that path is a directory and re-run with trailing '/'."
-            )
-        if not runs_dest_dir.endswith("/"):
-            raise ValueError(
-                "Runs destination directory does not end with '/'. Please verify that path is a directory and re-run with trailing '/'."
-            )
-
-        storage: StorageAdapter = self._get_storage_adapter_for_path(runs_source_dir)
-        runs_dir_entries = [
-            os.path.join(runs_source_dir, entry)
-            for entry in storage.list_entries(runs_source_dir, max_file_size=self._max_archive_size)
-        ]
-
-        for run_dir_entry in runs_dir_entries:
-            run_dir_entry_ext = "".join(Path(run_dir_entry).suffixes)
-            checkpoints_dest_dir = run_dir_entry.replace(runs_source_dir, runs_dest_dir).removesuffix(run_dir_entry_ext)
-            self._unshard_checkpoints(storage, run_dir_entry, checkpoints_dest_dir, latest_checkpoint_only)
-
+    def unshard_run_checkpoints(self, run_path: str, checkpoints_dest_dir: str, latest_checkpoint_only: bool):
+        storage = self._get_storage_adapter_for_path(run_path)
+        run_dir_or_archive = self._format_dir_or_archive_path(storage, run_path)
+        self._unshard_checkpoints(storage, run_dir_or_archive, checkpoints_dest_dir, latest_checkpoint_only)
 
 
 def perform_operation(args: argparse.Namespace):
@@ -891,12 +857,10 @@ def perform_operation(args: argparse.Namespace):
             max_archive_size=args.max_archive_size,
             unshard_script_path=args.script_path,
         )
-        if args.runs_src_directory is not None:
-            storage_cleaner.unshard_runs_checkpoints(args.runs_src_directory, args.dest_dir, args.latest_checkpoint_only)
-        elif args.run_src_dir_or_archive is not None:
-            storage_cleaner.unshard_run_checkpoints(args.run_src_dir_or_archive, args.dest_dir, args.latest_checkpoint_only)
+        if args.run_path is not None:
+            storage_cleaner.unshard_run_checkpoints(args.run_path, args.dest_dir, args.latest_checkpoint_only)
         else:
-            raise ValueError("Neither runs directory nor run path provided for run cleaning")
+            raise ValueError("Run path not provided for unsharding")
     else:
         raise NotImplementedError(args.op)
 
@@ -938,21 +902,13 @@ def _add_unsharding_subparser(subparsers: _SubParsersAction):
         "unshard", help="unshard checkpoint(s) of each run"
     )
     unsharding_runs_parser.set_defaults(op=CleaningOperations.UNSHARD_CHECKPOINTS)
-    path_parser = unsharding_runs_parser.add_mutually_exclusive_group(required=True)
-    path_parser.add_argument(
-        "--runs_src_directory",
-        default=None,
-        help="Path to directory containing one or more runs to unshard",
-    )
-    path_parser.add_argument(
-        "--run_src_dir_or_archive",
-        default=None,
-        help="Path to directory or archive file corresponding to a run to unshard",
-    )
 
     unsharding_runs_parser.add_argument(
-        "--dest_dir",
-        required=True,
+        "run_path",
+        help="Path to run directory or archive containing checkpoints to unshard.",
+    )
+    unsharding_runs_parser.add_argument(
+        "dest_dir",
         help="Path to directory where run(s) with unsharded checkpoints should be output (only the unsharded checkpoints are stored). If `runs_src_directory` is used, the run directory name will be added to this path automatically.",
     )
     unsharding_runs_parser.add_argument(
