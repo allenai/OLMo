@@ -516,7 +516,6 @@ class StorageCleaner:
     def __init__(
         self,
         dry_run: bool = False,
-        ignore_prompts: bool = False,
         should_check_is_run: bool = True,
         ignore_non_runs: bool = False,
         max_archive_size: Optional[int] = None,
@@ -524,7 +523,6 @@ class StorageCleaner:
         self._dry_run: bool = dry_run
         self._should_check_is_run = should_check_is_run
         self._ignore_non_runs = ignore_non_runs
-        self._ignore_prompts: bool = ignore_prompts
         self._max_archive_size: Optional[int] = max_archive_size
         self._storage_adapters: Dict[StorageType, StorageAdapter] = {}
 
@@ -614,7 +612,6 @@ def perform_operation(args: argparse.Namespace):
     if args.op == CleaningOperations.DELETE_BAD_RUNS:
         storage_cleaner = StorageCleaner(
             dry_run=args.dry_run,
-            ignore_prompts=args.yes,
             should_check_is_run=args.should_check_is_run,
             ignore_non_runs=args.ignore_non_runs,
             max_archive_size=args.max_archive_size,
@@ -666,12 +663,6 @@ def get_parser() -> ArgumentParser:
         "--dry_run",
         action="store_true",
         help="If set, indicate actions but do not do them",
-    )
-    parser.add_argument(
-        "-y",
-        "--yes",
-        action="store_true",
-        help="If set, bypass prompts",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Cleaning commands", required=True)
