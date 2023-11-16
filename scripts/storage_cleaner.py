@@ -16,7 +16,7 @@ from urllib.parse import urlparse
 import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
 from google.api_core.exceptions import NotFound
-from rich.progress import Progress
+from rich.progress import Progress, track
 
 from olmo import util
 from olmo.aliases import PathOrStr
@@ -387,12 +387,12 @@ class GoogleCloudStorageAdapter(StorageAdapter):
                 raise RuntimeError(f"Download went to {download_path} instead of {dest_filepath} unexpectedly")
         elif self._is_dir(bucket_name, key):
             blobs: List[gcs.Blob] = list(bucket.list_blobs(prefix=key))
-            for blob in blobs:
+
+            for blob in track(blobs, description=f"Downloading files at {path}"):
                 if not blob.name:
                     raise NotImplementedError()
                 blob_path: str = blob.name
                 blob_local_dest = blob_path.replace(key.rstrip("/"), str(local_dest_folder).rstrip("/"))
-                print(path, key, blob_local_dest)
                 blob.download_to_filename(blob_local_dest)
         else:
             raise ValueError(f"Path {path} is not a valid file or directory")
@@ -599,10 +599,9 @@ class S3StorageAdapter(StorageAdapter):
         elif self._is_dir(bucket_name, key):
             response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key)
             objects_metadata: List[Dict[str, Any]] = response['Contents']
-            for object_metadata in objects_metadata:
+            for object_metadata in track(objects_metadata, description=f"Downloading files at {path}"):
                 object_key: str = object_metadata['Key']
                 object_local_dest = object_key.replace(key.rstrip("/"), str(local_dest_folder).rstrip("/"))
-                print(object_local_dest)
 
                 self._s3_client.download_file(bucket_name, key, object_local_dest)
         else:
