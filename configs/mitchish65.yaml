@@ -12,7 +12,7 @@ model:
   n_heads: 64
   n_layers: 80
   # mlp_ratio: 6
-  mlp_hidden_size: 22016
+  mlp_hidden_size: 43520
   weight_tying: false
   alibi: false
   rope: true
@@ -63,7 +63,7 @@ save_overwrite: false
 save_interval: 1000
 save_num_checkpoints_to_keep: -1
 # Unsharded checkpoints (for final storage)
-save_interval_unsharded: null  # getting errors on LUMI right now
+save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
