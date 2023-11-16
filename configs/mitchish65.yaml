@@ -12,7 +12,7 @@ model:
   n_heads: 64
   n_layers: 80
   # mlp_ratio: 6
-  mlp_hidden_size: 43520
+  mlp_hidden_size: 44032
   weight_tying: false
   alibi: false
   rope: true
