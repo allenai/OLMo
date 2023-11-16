@@ -1,0 +1,37 @@
+run_name: olmo-small-pile-checkpoint-eval-15k
+image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
+gpu_num: 24
+cluster: r12z3
+gpu_type: a100_40gb
+integrations:
+  - integration_type: git_repo
+    git_repo: allenai/LLM
+    git_branch: dolma_small
+    pip_install: -e .
+    ssh_clone: true
+command: |-
+  pip freeze
+  mkdir -p /root/.cache/torch/
+
+  export OMP_NUM_THREADS=8
+  export LOG_FILTER_TYPE=local_rank0_only
+  export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
+
+  cd LLM
+
+  export LOAD_PATH=s3://ai2-llm/checkpoints/1b/olmo-small-pile-150B-mcli/step15000/
+  export MAX_DURATION=15001
+
+  torchrun \
+  --master_addr $MASTER_ADDR \
+  --master_port $MASTER_PORT \
+  --nnodes $NUM_NODES \
+  --node_rank $NODE_RANK \
+  --nproc_per_node 8 scripts/train.py configs/v1_5-mix-small-mitch-ish-pile-mcli.yaml \
+  --load_path=$LOAD_PATH \
+  --max_duration=$MAX_DURATION \
+  --scheduler.t_max=70000 \
+  --global_train_batch_size=2112 \
+  --optimizer.learning_rate=1e-24 \
+  --eval_interval=1 \
+  --run_name=olmo-small-pile-checkpoint-eval-15k
