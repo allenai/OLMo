@@ -13,6 +13,7 @@ from ..util import (
     get_fs_local_rank,
     get_global_rank,
     get_world_size,
+    roundrobin,
     threaded_generator,
 )
 
@@ -44,6 +45,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         fs_local_rank: Optional[int] = None,
         work_dir: Optional[PathOrStr] = None,
         global_batch_size: Optional[int] = None,
+        num_threads: Optional[int] = None,
     ):
         self.dataset = dataset
         self.seed = seed
@@ -65,12 +67,11 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         else:
             num_samples = math.ceil(len(self.dataset) / self.world_size)  # type: ignore[arg-type]
         self.total_size = num_samples * self.world_size
-        self.queue_size = 16
+        self.num_threads = num_threads
         self.device_batch_size: Optional[int] = None
         if global_batch_size is not None:
             assert global_batch_size % self.world_size == 0
             self.device_batch_size = global_batch_size // self.world_size
-            self.queue_size = self.device_batch_size * 2
         self.global_indices_file: Optional[Path] = None
 
         if work_dir is not None:
@@ -135,7 +136,11 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         # Slice indices by rank to avoid duplicates.
         indices = indices[self.rank : self.total_size : self.world_size]
 
-        # Lastly, slice the indices by data loader worker rank to avoid duplicates.
+        # Separate from data loading workers (which use multiprocessing), we also have the option
+        # to use multi-threading (within workers).
+        num_threads = self.num_threads
+
+        # Slice the indices by data loader worker rank to avoid duplicates.
         worker_info = torch.utils.data.get_worker_info()
         if worker_info is not None:
             # Note that each data loading worker gathers a whole batch at a time, and the workers
@@ -153,8 +158,31 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
                 indices = np.concatenate([indices, left_overs])
             else:
                 indices = indices[worker_info.id :: worker_info.num_workers]
+        elif num_threads is None:
+            # If `num_threads` hasn't been specified and we're not using multiprocessing we'll try to guess
+            # a good number of threads.
+            num_threads = 4
 
-        return threaded_generator((self._get_dataset_item(int(idx)) for idx in indices), maxsize=self.queue_size)
+        # Finally, potentially slice by threads.
+        if num_threads:
+            # In order to stay ahead of training the total queue size (sum across all threads)
+            # should be bigger than the batch size.
+            queue_size: int
+            if self.device_batch_size is not None:
+                queue_size = math.ceil(self.device_batch_size * 2 / num_threads)
+            else:
+                queue_size = math.ceil(16 / num_threads)
+
+            thread_generators = []
+            for i in range(num_threads):
+                generator = (self._get_dataset_item(int(idx)) for idx in indices[i::num_threads])
+                thread_generators.append(
+                    threaded_generator(generator, maxsize=queue_size, thread_name=f"data thread {i}")
+                )
+
+            return (x for x in roundrobin(*thread_generators))
+        else:
+            return (self._get_dataset_item(int(idx)) for idx in indices)
 
     def _get_dataset_item(self, idx: int) -> Dict[str, Any]:
         item = self.dataset[idx]

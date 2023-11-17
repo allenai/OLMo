@@ -7,6 +7,7 @@ import time
 import warnings
 from datetime import datetime
 from enum import Enum
+from itertools import cycle, islice
 from pathlib import Path
 from queue import Queue
 from threading import Thread
@@ -694,7 +695,7 @@ def pass_through_fn(fn, *args, **kwargs):
     return fn(*args, **kwargs)
 
 
-def threaded_generator(g, maxsize: int = 16):
+def threaded_generator(g, maxsize: int = 16, thread_name: Optional[str] = None):
     q: Queue = Queue(maxsize=maxsize)
 
     sentinel = object()
@@ -708,7 +709,7 @@ def threaded_generator(g, maxsize: int = 16):
         finally:
             q.put(sentinel)
 
-    thread = Thread(name=repr(g), target=fill_queue, daemon=True)
+    thread = Thread(name=thread_name or repr(g), target=fill_queue, daemon=True)
     thread.start()
 
     for x in iter(q.get, sentinel):
@@ -716,3 +717,21 @@ def threaded_generator(g, maxsize: int = 16):
             raise x
         else:
             yield x
+
+
+def roundrobin(*iterables):
+    """
+    Call the given iterables in a round-robin fashion. For example:
+    ``roundrobin('ABC', 'D', 'EF') --> A D E B F C``
+    """
+    # Adapted from https://docs.python.org/3/library/itertools.html#itertools-recipes
+    num_active = len(iterables)
+    nexts = cycle(iter(it).__next__ for it in iterables)
+    while num_active:
+        try:
+            for next in nexts:
+                yield next()
+        except StopIteration:
+            # Remove the iterator we just exhausted from the cycle.
+            num_active -= 1
+            nexts = cycle(islice(nexts, num_active))
