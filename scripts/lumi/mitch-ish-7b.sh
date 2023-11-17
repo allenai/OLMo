@@ -7,7 +7,7 @@
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
 #SBATCH --time=48:00:00
-#SBATCH --time-min=12:00:00
+#SBATCH --time-min=24:00:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
