@@ -663,7 +663,6 @@ class DeleteBadRunsConfig:
 @dataclass
 class UnshardCheckpointsConfig:
     dry_run: bool
-    max_archive_size: Optional[int]
     unshard_script_path: Path
     latest_checkpoint_only: bool
 
@@ -900,7 +899,6 @@ def perform_operation(args: argparse.Namespace):
     elif args.op == CleaningOperations.UNSHARD_CHECKPOINTS:
         unshard_checkpoints_config = UnshardCheckpointsConfig(
             dry_run=args.dry_run,
-            max_archive_size=args.max_archive_size,
             unshard_script_path=args.script_path,
             latest_checkpoint_only=args.latest_checkpoint_only
         )
@@ -962,11 +960,6 @@ def _add_unsharding_subparser(subparsers: _SubParsersAction):
         "--latest_checkpoint_only",
         action="store_true",
         help="If set, only the latest checkpoint of each run (if sharded) is unsharded.",
-    )
-    unsharding_runs_parser.add_argument(
-        "--max_archive_size",
-        default=None,
-        help="Max size archive run files to consider for unsharding (in bytes). If set, any archive larger than the set size is skipped.",
     )
     unsharding_runs_parser.add_argument(
         "--script_path",
