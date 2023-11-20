@@ -808,6 +808,23 @@ def _get_sharded_checkpoint_dirs(storage: StorageAdapter, run_path: str, latest_
     return sharded_checkpoint_directories
 
 
+def _update_legacy_settings(config: Union[DictConfig, ListConfig]) -> Union[DictConfig, ListConfig]:
+    new_config = om.create()
+    new_config = om.merge(new_config, config)
+
+    if new_config.optimizer.name == "decoupled_lionw":
+        new_config.optimizer.name = "lionw"
+        if hasattr(new_config.optimizer, "eps"):
+            del new_config.optimizer.eps
+
+    if new_config.activation_checkpointing is False:
+        new_config.activation_checkpointing = None
+    if new_config.activation_checkpointing is True:
+        new_config.activation_checkpointing = ActivationCheckpointingStrategy.whole_layer
+
+    return new_config
+
+
 def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, unsharding_config: UnshardCheckpointsConfig):
     local_storage = LocalFileSystemAdapter()
 
@@ -819,6 +836,12 @@ def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, unsharding_c
     # Set unsharder output to a temp dir
     sharding_output_dir: str
     sharding_output_dir = local_storage.create_temp_dir()
+
+    # Update legacy config settings that may be incompatible with the unsharder
+    config_yaml_path = Path(sharding_input_dir) / CONFIG_YAML
+    config_yaml = om.load(config_yaml_path)
+    config_yaml = _update_legacy_settings(config_yaml)
+    om.save(config=config_yaml, f=config_yaml_path)
 
     result = subprocess.run(["python", str(unsharding_config.unshard_script_path), sharding_input_dir, sharding_output_dir], check=False)
     if result.returncode != 0:
