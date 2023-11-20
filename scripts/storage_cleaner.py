@@ -13,16 +13,17 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urlparse
-from omegaconf import DictConfig, ListConfig, OmegaConf as om
 
 import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
 from google.api_core.exceptions import NotFound
+from omegaconf import DictConfig, ListConfig
+from omegaconf import OmegaConf as om
 from rich.progress import Progress, track
 
 from olmo import util
 from olmo.aliases import PathOrStr
-from olmo.config import ActivationCheckpointingStrategy, TrainConfig
+from olmo.config import ActivationCheckpointingStrategy
 
 log = logging.getLogger(__name__)
 
@@ -82,13 +83,11 @@ class StorageAdapter(ABC):
 
     @abstractmethod
     def download_to_folder(self, path: str, local_dest_folder: PathOrStr):
-        """Downloads the content from the directory or file at the path to the local FS destination folder.
-        """
+        """Downloads the content from the directory or file at the path to the local FS destination folder."""
 
     @abstractmethod
     def upload(self, path: str, local_src: PathOrStr):
-        """Uploads the content from the directory or file at the local FS source to the path.
-        """
+        """Uploads the content from the directory or file at the local FS source to the path."""
 
     @classmethod
     def create_storage_adapter(cls, storage_type: StorageType):
@@ -126,7 +125,6 @@ class StorageAdapter(ABC):
                 return StorageType.LOCAL_FS
 
         return StorageType.LOCAL_FS
-
 
 
 class LocalFileSystemAdapter(StorageAdapter):
@@ -612,7 +610,7 @@ class S3StorageAdapter(StorageAdapter):
             return False
 
         response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key, MaxKeys=1)
-        return 'Contents' in response
+        return "Contents" in response
 
     def is_dir(self, path: str) -> bool:
         bucket_name, key = self._get_bucket_name_and_key(path)
@@ -629,9 +627,9 @@ class S3StorageAdapter(StorageAdapter):
                 raise RuntimeError(f"Download went to {download_path} instead of {dest_filepath} unexpectedly")
         elif self._is_dir(bucket_name, key):
             response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key)
-            objects_metadata: List[Dict[str, Any]] = response['Contents']
+            objects_metadata: List[Dict[str, Any]] = response["Contents"]
             for object_metadata in track(objects_metadata, description=f"Downloading files at {path}"):
-                object_key: str = object_metadata['Key']
+                object_key: str = object_metadata["Key"]
                 object_local_dest = object_key.replace(key.rstrip("/"), str(local_dest_folder).rstrip("/"))
 
                 self._s3_client.download_file(bucket_name, key, object_local_dest)
@@ -778,11 +776,13 @@ def _get_checkpoint_number(checkpoint_dir: str) -> int:
     return int(match.group(1))
 
 
-def _get_sharded_checkpoint_dirs(storage: StorageAdapter, run_path: str, latest_checkpoint_only: bool) -> List[str]:
+def _get_sharded_checkpoint_dirs(
+    storage: StorageAdapter, run_path: str, latest_checkpoint_only: bool
+) -> List[str]:
     if storage.is_file(run_path):
         local_storage = LocalFileSystemAdapter()
         if not local_storage.has_supported_archive_extension(run_path):
-            log.info('Trying to get sharded checkpoints from non-archive file %s, skipping', run_path)
+            log.info("Trying to get sharded checkpoints from non-archive file %s, skipping", run_path)
             return []
 
         temp_dir = local_storage.create_temp_dir()
@@ -791,15 +791,16 @@ def _get_sharded_checkpoint_dirs(storage: StorageAdapter, run_path: str, latest_
         storage = local_storage
         run_path = temp_dir
 
-    run_subdirectories = [
-        os.path.join(run_path, entry)
-        for entry in storage.list_dirs(run_path)
-    ]
-    sharded_checkpoint_directories = list(filter(lambda subdirectory: _is_sharded_checkpoint_dir(storage, subdirectory), run_subdirectories))
+    run_subdirectories = [os.path.join(run_path, entry) for entry in storage.list_dirs(run_path)]
+    sharded_checkpoint_directories = list(
+        filter(lambda subdirectory: _is_sharded_checkpoint_dir(storage, subdirectory), run_subdirectories)
+    )
 
     if latest_checkpoint_only:
         latest_checkpoint_directory = max(sharded_checkpoint_directories, default=None, key=_get_checkpoint_number)
-        sharded_checkpoint_directories = [latest_checkpoint_directory] if latest_checkpoint_directory is not None else []
+        sharded_checkpoint_directories = (
+            [latest_checkpoint_directory] if latest_checkpoint_directory is not None else []
+        )
 
     # print('Test', run_subdirectories, sharded_checkpoint_directories)
 
@@ -843,36 +844,66 @@ def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, unsharding_c
     config_yaml = _update_legacy_settings(config_yaml)
     om.save(config=config_yaml, f=config_yaml_path)
 
-    result = subprocess.run(["python", str(unsharding_config.unshard_script_path), sharding_input_dir, sharding_output_dir], check=False)
+    result = subprocess.run(
+        ["python", str(unsharding_config.unshard_script_path), sharding_input_dir, sharding_output_dir],
+        check=False,
+    )
     if result.returncode != 0:
-        log.error("Unsharding from %s to %s failed with error code %d", sharding_input_dir, sharding_output_dir, result.returncode)
+        log.error(
+            "Unsharding from %s to %s failed with error code %d",
+            sharding_input_dir,
+            sharding_output_dir,
+            result.returncode,
+        )
 
         local_storage.delete_path(sharding_output_dir)
         return
 
-    log.info("Successfully unsharded from %s to %s, starting upload to %s", sharding_input_dir, sharding_output_dir, dest_dir)
+    log.info(
+        "Successfully unsharded from %s to %s, starting upload to %s",
+        sharding_input_dir,
+        sharding_output_dir,
+        dest_dir,
+    )
 
     dest_storage = _get_storage_adapter_for_path(dest_dir)
     dest_storage.upload(dest_dir, sharding_output_dir)
 
 
-def _unshard_checkpoints(run_storage: StorageAdapter, run_dir_or_archive: str, checkpoints_dest_dir: str, config: UnshardCheckpointsConfig):
+def _unshard_checkpoints(
+    run_storage: StorageAdapter,
+    run_dir_or_archive: str,
+    checkpoints_dest_dir: str,
+    config: UnshardCheckpointsConfig,
+):
     log.info("Starting unsharding checkpoints of run directory or archive %s", run_dir_or_archive)
 
-    sharded_checkpoint_directories = _get_sharded_checkpoint_dirs(run_storage, run_dir_or_archive, config.latest_checkpoint_only)
+    sharded_checkpoint_directories = _get_sharded_checkpoint_dirs(
+        run_storage, run_dir_or_archive, config.latest_checkpoint_only
+    )
     for sharded_checkpoint_directory in sharded_checkpoint_directories:
         sharded_checkpoint_dir_name = Path(sharded_checkpoint_directory).name
 
         if run_storage.is_dir(run_dir_or_archive):
-            unsharded_checkpoint_directory_in_source = os.path.join(run_dir_or_archive, f"{sharded_checkpoint_dir_name}-unsharded")
+            unsharded_checkpoint_directory_in_source = os.path.join(
+                run_dir_or_archive, f"{sharded_checkpoint_dir_name}-unsharded"
+            )
             if run_storage.is_dir(unsharded_checkpoint_directory_in_source):
-                log.info("Unsharded directory already exists for %s at source %s, skipping", sharded_checkpoint_directory, unsharded_checkpoint_directory_in_source)
+                log.info(
+                    "Unsharded directory already exists for %s at source %s, skipping",
+                    sharded_checkpoint_directory,
+                    unsharded_checkpoint_directory_in_source,
+                )
                 continue
 
         dest_directory = os.path.join(checkpoints_dest_dir, f"{sharded_checkpoint_dir_name}-unsharded")
         dest_storage = _get_storage_adapter_for_path(dest_directory)
         if dest_storage.is_dir(dest_directory):
-            log.info("Unsharded directory already exists for %s at destination %s, skipping", sharded_checkpoint_directory, dest_directory)
+            log.info(
+                "Unsharded directory already exists for %s at destination %s, skipping",
+                sharded_checkpoint_directory,
+                dest_directory,
+            )
             continue
 
         if config.dry_run:
@@ -907,7 +938,7 @@ def perform_operation(args: argparse.Namespace):
         unshard_checkpoints_config = UnshardCheckpointsConfig(
             dry_run=args.dry_run,
             unshard_script_path=args.script_path,
-            latest_checkpoint_only=args.latest_checkpoint_only
+            latest_checkpoint_only=args.latest_checkpoint_only,
         )
         if args.run_path is not None:
             unshard_run_checkpoints(args.run_path, args.dest_dir, unshard_checkpoints_config)
@@ -950,9 +981,7 @@ def _add_delete_subparser(subparsers: _SubParsersAction):
 
 
 def _add_unsharding_subparser(subparsers: _SubParsersAction):
-    unsharding_runs_parser: ArgumentParser = subparsers.add_parser(
-        "unshard", help="unshard checkpoints of a run"
-    )
+    unsharding_runs_parser: ArgumentParser = subparsers.add_parser("unshard", help="unshard checkpoints of a run")
     unsharding_runs_parser.set_defaults(op=CleaningOperations.UNSHARD_CHECKPOINTS)
 
     unsharding_runs_parser.add_argument(
