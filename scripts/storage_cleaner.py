@@ -777,10 +777,9 @@ def _get_checkpoint_number(checkpoint_dir: str) -> int:
 
 
 def _get_sharded_checkpoint_dirs(
-    storage: StorageAdapter, run_path: str, latest_checkpoint_only: bool
+    storage: StorageAdapter, local_storage: LocalFileSystemAdapter, run_path: str, latest_checkpoint_only: bool
 ) -> List[str]:
     if storage.is_file(run_path):
-        local_storage = LocalFileSystemAdapter()
         if not local_storage.has_supported_archive_extension(run_path):
             log.info("Trying to get sharded checkpoints from non-archive file %s, skipping", run_path)
             return []
@@ -801,8 +800,6 @@ def _get_sharded_checkpoint_dirs(
         sharded_checkpoint_directories = (
             [latest_checkpoint_directory] if latest_checkpoint_directory is not None else []
         )
-
-    # print('Test', run_subdirectories, sharded_checkpoint_directories)
 
     log.info("Found %d sharded checkpoint directories for %s", len(sharded_checkpoint_directories), run_path)
 
@@ -878,8 +875,9 @@ def _unshard_checkpoints(
 ):
     log.info("Starting unsharding checkpoints of run directory or archive %s", run_dir_or_archive)
 
+    local_storage = LocalFileSystemAdapter()
     sharded_checkpoint_directories = _get_sharded_checkpoint_dirs(
-        run_storage, run_dir_or_archive, config.latest_checkpoint_only
+        run_storage, local_storage, run_dir_or_archive, config.latest_checkpoint_only
     )
     for sharded_checkpoint_directory in sharded_checkpoint_directories:
         sharded_checkpoint_dir_name = Path(sharded_checkpoint_directory).name
@@ -891,7 +889,7 @@ def _unshard_checkpoints(
             if run_storage.is_dir(unsharded_checkpoint_directory_in_source):
                 log.info(
                     "Unsharded directory already exists for %s at source %s, skipping",
-                    sharded_checkpoint_directory,
+                    sharded_checkpoint_dir_name,
                     unsharded_checkpoint_directory_in_source,
                 )
                 continue
@@ -901,7 +899,7 @@ def _unshard_checkpoints(
         if dest_storage.is_dir(dest_directory):
             log.info(
                 "Unsharded directory already exists for %s at destination %s, skipping",
-                sharded_checkpoint_directory,
+                sharded_checkpoint_dir_name,
                 dest_directory,
             )
             continue
