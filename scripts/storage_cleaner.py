@@ -11,8 +11,9 @@ from argparse import ArgumentParser, _SubParsersAction
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urlparse
+from omegaconf import DictConfig, ListConfig, OmegaConf as om
 
 import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
@@ -21,10 +22,12 @@ from rich.progress import Progress, track
 
 from olmo import util
 from olmo.aliases import PathOrStr
+from olmo.config import ActivationCheckpointingStrategy, TrainConfig
 
 log = logging.getLogger(__name__)
 
 
+CONFIG_YAML: str = "config.yaml"
 DEFAULT_DELETE_MAX_ARCHIVE_SIZE: float = 5 * 1024 * 1024 * 1024  # 5GB
 UNSHARD_SCRIPT_PATH: str = "scripts/unshard.py"
 
@@ -805,48 +808,29 @@ def _get_sharded_checkpoint_dirs(storage: StorageAdapter, run_path: str, latest_
     return sharded_checkpoint_directories
 
 
-def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, config: UnshardCheckpointsConfig):
+def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, unsharding_config: UnshardCheckpointsConfig):
     local_storage = LocalFileSystemAdapter()
 
-    # Download checkpoint to a temp dir if it is not in local storage
-    sharding_input_dir: str
-    if StorageAdapter.get_storage_type_for_path(sharded_checkpoint_dir) == StorageType.LOCAL_FS:
-        sharding_input_dir = str(sharded_checkpoint_dir)
-    else:
-        sharding_input_dir = local_storage.create_temp_dir()
+    # Download checkpoint to a temp dir
+    sharding_input_dir = local_storage.create_temp_dir()
+    src_storage = _get_storage_adapter_for_path(sharded_checkpoint_dir)
+    src_storage.download_to_folder(sharded_checkpoint_dir, sharding_input_dir)
 
-        src_storage = _get_storage_adapter_for_path(sharded_checkpoint_dir)
-        src_storage.download_to_folder(sharded_checkpoint_dir, sharding_input_dir)
-
-    # Set unsharder output to a temp dir if the final destination is not local
+    # Set unsharder output to a temp dir
     sharding_output_dir: str
-    delete_output_dir_on_failure: bool
-    upload_required: bool
-    if StorageAdapter.get_storage_type_for_path(dest_dir) == StorageType.LOCAL_FS:
-        sharding_output_dir = str(dest_dir)
-        upload_required = False
-        assert not local_storage.is_file(sharding_output_dir)
-        assert not local_storage.is_dir(sharding_output_dir), "Unsharding an already unsharded checkpoint should not happen"
-        delete_output_dir_on_failure = True
-    else:
-        sharding_output_dir = local_storage.create_temp_dir()
-        upload_required = True
-        # Temp dir will get removed during cleanup, so no need to do it here
-        delete_output_dir_on_failure = False
+    sharding_output_dir = local_storage.create_temp_dir()
 
-    result = subprocess.run(["python", str(config.unshard_script_path), sharding_input_dir, sharding_output_dir], check=False)
+    result = subprocess.run(["python", str(unsharding_config.unshard_script_path), sharding_input_dir, sharding_output_dir], check=False)
     if result.returncode != 0:
         log.error("Unsharding from %s to %s failed with error code %d", sharding_input_dir, sharding_output_dir, result.returncode)
 
-        if delete_output_dir_on_failure:
-            local_storage.delete_path(sharding_output_dir)
+        local_storage.delete_path(sharding_output_dir)
         return
 
-    log.info("Successfully unsharded from %s to %s", sharding_input_dir, sharding_output_dir)
+    log.info("Successfully unsharded from %s to %s, starting upload to %s", sharding_input_dir, sharding_output_dir, dest_dir)
 
-    if upload_required:
-        dest_storage = _get_storage_adapter_for_path(dest_dir)
-        dest_storage.upload(sharding_output_dir, dest_dir)
+    dest_storage = _get_storage_adapter_for_path(dest_dir)
+    dest_storage.upload(dest_dir, sharding_output_dir)
 
 
 def _unshard_checkpoints(run_storage: StorageAdapter, run_dir_or_archive: str, checkpoints_dest_dir: str, config: UnshardCheckpointsConfig):
