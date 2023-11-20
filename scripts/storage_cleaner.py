@@ -64,6 +64,12 @@ class StorageAdapter(ABC):
         """Returns whether the given path corresponds to an existing file."""
 
     @abstractmethod
+    def get_file_size(self, path: str) -> int:
+        """Get the size of the file at the given path in bytes. Raises an error if the path does not
+        correspond to a file.
+        """
+
+    @abstractmethod
     def is_dir(self, path: str) -> bool:
         """Returns whether the given path corresponds to an existing directory."""
 
@@ -136,7 +142,7 @@ class LocalFileSystemAdapter(StorageAdapter):
                 for entry in path.iterdir()
                 if (
                     (include_files or not entry.is_file())
-                    and (max_file_size is None or entry.stat().st_size <= max_file_size)
+                    and (max_file_size is None or self._get_file_size(path) <= max_file_size)
                 )
             ]
 
@@ -169,11 +175,16 @@ class LocalFileSystemAdapter(StorageAdapter):
             shutil.rmtree(path)
 
     def is_file(self, path: str) -> bool:
-        path_obj = Path(path)
-        if not path_obj.exists():
-            return False
+        return Path(path).is_file()
 
-        return path_obj.is_file()
+    def _get_file_size(self, path: Path) -> int:
+        if not path.is_file():
+            raise ValueError(f"Path does not correspond to an existing file: {path}")
+
+        return path.stat().st_size
+
+    def get_file_size(self, path: str) -> int:
+        return self._get_file_size(Path(path))
 
     def is_dir(self, path: str) -> bool:
         path_obj = Path(path)
@@ -325,6 +336,11 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         return self._is_file(bucket_name, key)
 
+    def get_file_size(self, path: str) -> int:
+        bucket_name, key = self._get_bucket_name_and_key(path)
+
+        return self._get_size(bucket_name, key)
+
     def is_dir(self, path: str) -> bool:
         path = f"{path}/" if not path.endswith("/") else path
         bucket_name, key = self._get_bucket_name_and_key(path)
@@ -368,14 +384,20 @@ class S3StorageAdapter(StorageAdapter):
 
         return f"{scheme}://{bucket_name}/{key}"
 
-    def _download_file(self, bucket_name: str, key: str) -> str:
-        extension = "".join(Path(key).suffixes)
-        temp_file = self.local_fs_adapter.create_temp_file(suffix=extension)
+    def _get_size(self, bucket_name: str, key: str) -> int:
+        if not self._is_file(bucket_name, key):
+            raise ValueError(f"Provided path does not correspond to a file: {self._get_path(bucket_name, key)}")
 
         head_response: Dict[str, Any] = self._s3_client.head_object(Bucket=bucket_name, Key=key)
         if "ContentLength" not in head_response:
             raise RuntimeError(f"Failed to get size for file: {self._get_path(bucket_name, key)}")
-        size_in_bytes: int = head_response["ContentLength"]
+        return head_response["ContentLength"]
+
+    def _download_file(self, bucket_name: str, key: str) -> str:
+        extension = "".join(Path(key).suffixes)
+        temp_file = self.local_fs_adapter.create_temp_file(suffix=extension)
+
+        size_in_bytes = self._get_size(bucket_name, key)
 
         with Progress(transient=True) as progress:
             download_task = progress.add_task(f"Downloading {key}", total=size_in_bytes)
@@ -507,6 +529,11 @@ class S3StorageAdapter(StorageAdapter):
 
         return self._is_file(bucket_name, key)
 
+    def get_file_size(self, path: str) -> int:
+        bucket_name, key = self._get_bucket_name_and_key(path)
+
+        return self._get_size(bucket_name, key)
+
     def _is_dir(self, bucket_name: str, key: str) -> bool:
         if self._is_file(bucket_name, key):
             return False
@@ -560,11 +587,11 @@ def _is_run(run_path: str, run_entries: Optional[List[str]] = None) -> bool:
     return _contains_checkpoint_dir(run_entries)
 
 
-def _verify_non_run_deletion(run_dir_or_archive: str, run_entries: List[str], config: DeleteBadRunsConfig) -> bool:
+def _verify_non_run_deletion(run_dir_or_archive: str, run_entries: List[str], config: DeleteBadRunsConfig):
     msg = f"Attempting to delete non-run directory or archive {run_dir_or_archive} (first 5 entries: {run_entries[:5]})."
     if config.ignore_non_runs:
         log.warning(msg)
-        return False
+        return
 
     raise ValueError(msg)
 
@@ -583,18 +610,27 @@ def _format_dir_or_archive_path(storage: StorageAdapter, path: str) -> str:
     raise ValueError(f"Path does not correspond to a directory or file: {path}")
 
 
-def _delete_if_bad_run(storage: StorageAdapter, run_path: str, config: DeleteBadRunsConfig):
-    run_dir_or_archive = _format_dir_or_archive_path(storage, run_path)
-    run_entries = storage.list_entries(run_dir_or_archive)
+def _should_delete_run(storage: StorageAdapter, run_dir_or_archive: str, config: DeleteBadRunsConfig) -> bool:
+    # Do not delete archive files that are bigger than the configured max
+    if config.max_archive_size is not None and storage.is_file(run_dir_or_archive) and storage.get_file_size(run_dir_or_archive) > config.max_archive_size:
+        return False
 
-    should_delete = True
+    run_entries = storage.list_entries(run_dir_or_archive)
     if config.should_check_is_run and not _is_run(run_dir_or_archive, run_entries=run_entries):
-        should_delete = _verify_non_run_deletion(run_dir_or_archive, run_entries, config)
+        _verify_non_run_deletion(run_dir_or_archive, run_entries, config)
+        return False
 
     # Runs with non-trivial checkpoints are considered good
-    should_delete = should_delete and not _contains_nontrivial_checkpoint_dir(run_entries)
+    if _contains_nontrivial_checkpoint_dir(run_entries):
+        return False
 
-    if should_delete:
+    return True
+
+
+def _delete_if_bad_run(storage: StorageAdapter, run_path: str, config: DeleteBadRunsConfig):
+    run_dir_or_archive = _format_dir_or_archive_path(storage, run_path)
+
+    if _should_delete_run(storage, run_dir_or_archive, config):
         if config.dry_run:
             log.info("Would delete run directory or archive %s", run_dir_or_archive)
         else:
