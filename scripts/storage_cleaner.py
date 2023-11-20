@@ -521,7 +521,7 @@ class S3StorageAdapter(StorageAdapter):
         return self._is_dir(bucket_name, key)
 
 
-class StorageCleaner:
+class DeleteBadRunsConfig:
     def __init__(
         self,
         dry_run: bool = False,
@@ -529,88 +529,86 @@ class StorageCleaner:
         ignore_non_runs: bool = False,
         max_archive_size: Optional[int] = None,
     ) -> None:
-        self._dry_run: bool = dry_run
-        self._should_check_is_run = should_check_is_run
-        self._ignore_non_runs = ignore_non_runs
-        self._max_archive_size: Optional[int] = max_archive_size
-        self._storage_adapters: Dict[StorageType, StorageAdapter] = {}
+        self.dry_run: bool = dry_run
+        self.should_check_is_run = should_check_is_run
+        self.ignore_non_runs = ignore_non_runs
+        self.max_archive_size: Optional[int] = max_archive_size
 
-    def _get_storage_adapter(self, storage_type: StorageType) -> StorageAdapter:
-        if storage_type not in self._storage_adapters:
-            self._storage_adapters[storage_type] = StorageAdapter.create_storage_adapter(storage_type)
 
-        return self._storage_adapters[storage_type]
+def _get_storage_adapter_for_path(path: str) -> StorageAdapter:
+    storage_type = StorageAdapter.get_storage_type_for_path(path)
+    return StorageAdapter.create_storage_adapter(storage_type)
 
-    def _get_storage_adapter_for_path(self, path: str) -> StorageAdapter:
-        storage_type = StorageAdapter.get_storage_type_for_path(path)
-        return self._get_storage_adapter(storage_type)
 
-    @staticmethod
-    def _contains_checkpoint_dir(dir_entries: List[str]) -> bool:
-        return any(re.match(r"step\d+(-unsharded)?", entry) is not None for entry in dir_entries)
+def _contains_checkpoint_dir(dir_entries: List[str]) -> bool:
+    return any(re.match(r"step\d+(-unsharded)?", entry) is not None for entry in dir_entries)
 
-    @staticmethod
-    def _contains_nontrivial_checkpoint_dir(dir_entries: List[str]) -> bool:
-        return any(re.match(r"step[1-9]\d*(-unsharded)?", entry) is not None for entry in dir_entries)
 
-    def _is_run(self, run_path: str, run_entries: Optional[List[str]] = None) -> bool:
-        """
-        This method is best effort. It may mark run paths as not (false negatives) or mark non-run
-        paths as runs (false positives). We prioritize minimizing false positives.
-        """
-        if run_entries is None:
-            storage = self._get_storage_adapter_for_path(run_path)
-            run_entries = storage.list_entries(run_path)
+def _contains_nontrivial_checkpoint_dir(dir_entries: List[str]) -> bool:
+    return any(re.match(r"step[1-9]\d*(-unsharded)?", entry) is not None for entry in dir_entries)
 
-        return self._contains_checkpoint_dir(run_entries)
 
-    def _verify_non_run_deletion(self, run_dir_or_archive: str, run_entries: List[str]) -> bool:
-        msg = f"Attempting to delete non-run directory or archive {run_dir_or_archive} (first 5 entries: {run_entries[:5]})."
-        if self._ignore_non_runs:
-            log.warning(msg)
-            return False
+def _is_run(run_path: str, run_entries: Optional[List[str]] = None) -> bool:
+    """
+    This method is best effort. It may mark run paths as not (false negatives) or mark non-run
+    paths as runs (false positives). We prioritize minimizing false positives.
+    """
+    if run_entries is None:
+        storage = _get_storage_adapter_for_path(run_path)
+        run_entries = storage.list_entries(run_path)
 
-        raise ValueError(msg)
+    return _contains_checkpoint_dir(run_entries)
 
-    def _format_dir_or_archive_path(self, storage: StorageAdapter, path: str) -> str:
-        if storage.is_file(path):
-            local_fs_adapter = self._get_storage_adapter(StorageType.LOCAL_FS)
-            assert isinstance(local_fs_adapter, LocalFileSystemAdapter)
-            if not local_fs_adapter.has_supported_archive_extension(path):
-                raise ValueError(f"Path corresponds to a non-archive file: {path}")
 
-            return path
+def _verify_non_run_deletion(run_dir_or_archive: str, run_entries: List[str], config: DeleteBadRunsConfig) -> bool:
+    msg = f"Attempting to delete non-run directory or archive {run_dir_or_archive} (first 5 entries: {run_entries[:5]})."
+    if config.ignore_non_runs:
+        log.warning(msg)
+        return False
 
-        if storage.is_dir(path):
-            return f"{path}/" if not path.endswith("/") else path
+    raise ValueError(msg)
 
-        raise ValueError(f"Path does not correspond to a directory or file: {path}")
 
-    def _delete_if_bad_run(self, storage: StorageAdapter, run_path: str):
-        run_dir_or_archive = self._format_dir_or_archive_path(storage, run_path)
-        run_entries = storage.list_entries(run_dir_or_archive)
+def _format_dir_or_archive_path(storage: StorageAdapter, path: str) -> str:
+    if storage.is_file(path):
+        local_fs_adapter = LocalFileSystemAdapter()
+        if not local_fs_adapter.has_supported_archive_extension(path):
+            raise ValueError(f"Path corresponds to a non-archive file: {path}")
 
-        should_delete = True
-        if self._should_check_is_run and not self._is_run(run_dir_or_archive, run_entries=run_entries):
-            should_delete = self._verify_non_run_deletion(run_dir_or_archive, run_entries)
+        return path
 
-        # Runs with non-trivial checkpoints are considered good
-        should_delete = should_delete and not self._contains_nontrivial_checkpoint_dir(run_entries)
+    if storage.is_dir(path):
+        return f"{path}/" if not path.endswith("/") else path
 
-        if should_delete:
-            if self._dry_run:
-                log.info("Would delete run directory or archive %s", run_dir_or_archive)
-            else:
-                log.info("Deleting run directory or archive %s", run_dir_or_archive)
-                storage.delete_path(run_dir_or_archive)
+    raise ValueError(f"Path does not correspond to a directory or file: {path}")
+
+
+def _delete_if_bad_run(storage: StorageAdapter, run_path: str, config: DeleteBadRunsConfig):
+    run_dir_or_archive = _format_dir_or_archive_path(storage, run_path)
+    run_entries = storage.list_entries(run_dir_or_archive)
+
+    should_delete = True
+    if config.should_check_is_run and not _is_run(run_dir_or_archive, run_entries=run_entries):
+        should_delete = _verify_non_run_deletion(run_dir_or_archive, run_entries, config)
+
+    # Runs with non-trivial checkpoints are considered good
+    should_delete = should_delete and not _contains_nontrivial_checkpoint_dir(run_entries)
+
+    if should_delete:
+        if config.dry_run:
+            log.info("Would delete run directory or archive %s", run_dir_or_archive)
         else:
-            log.info("Skipping run directory or archive %s", run_dir_or_archive)
+            log.info("Deleting run directory or archive %s", run_dir_or_archive)
+            storage.delete_path(run_dir_or_archive)
+    else:
+        log.info("Skipping run directory or archive %s", run_dir_or_archive)
 
-    def delete_bad_runs(self, run_paths: List[str]):
-        for run_path in run_paths:
-            storage: StorageAdapter = self._get_storage_adapter_for_path(run_path)
-            log.info("Starting deletion of bad run at %s", run_path)
-            self._delete_if_bad_run(storage, run_path)
+
+def delete_bad_runs(run_paths: List[str], config: DeleteBadRunsConfig):
+    for run_path in run_paths:
+        storage: StorageAdapter = _get_storage_adapter_for_path(run_path)
+        log.info("Starting deletion of bad run at %s", run_path)
+        _delete_if_bad_run(storage, run_path, config)
 
 
 def perform_operation(args: argparse.Namespace):
@@ -618,14 +616,14 @@ def perform_operation(args: argparse.Namespace):
         log.info("Dry run, no irreversible actions will be taken")
 
     if args.op == CleaningOperations.DELETE_BAD_RUNS:
-        storage_cleaner = StorageCleaner(
+        delete_bad_runs_config = DeleteBadRunsConfig(
             dry_run=args.dry_run,
             should_check_is_run=args.should_check_is_run,
             ignore_non_runs=args.ignore_non_runs,
             max_archive_size=args.max_archive_size,
         )
         if args.run_paths is not None:
-            storage_cleaner.delete_bad_runs(args.run_paths)
+            delete_bad_runs(args.run_paths, delete_bad_runs_config)
         else:
             raise ValueError("Run paths not provided for run cleaning")
     else:
