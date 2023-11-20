@@ -19,7 +19,7 @@ command: |-
 
   cd LLM
 
-  export LOAD_PATH=s3://ai2-llm/checkpoints/1b/olmo-small-pile-150B-mcli/step15000/
+  export LOAD_PATH=s3://ai2-llm/checkpoints/1b/olmo-small-pile-150B-mcli/step30000/
   export MAX_DURATION=15001
 
   torchrun \
