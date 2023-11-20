@@ -1,4 +1,5 @@
 import argparse
+from dataclasses import dataclass
 import logging
 import os
 import re
@@ -548,18 +549,12 @@ class S3StorageAdapter(StorageAdapter):
         return self._is_dir(bucket_name, key)
 
 
+@dataclass
 class DeleteBadRunsConfig:
-    def __init__(
-        self,
-        dry_run: bool = False,
-        should_check_is_run: bool = True,
-        ignore_non_runs: bool = False,
-        max_archive_size: Optional[int] = None,
-    ) -> None:
-        self.dry_run: bool = dry_run
-        self.should_check_is_run = should_check_is_run
-        self.ignore_non_runs = ignore_non_runs
-        self.max_archive_size: Optional[int] = max_archive_size
+    dry_run: bool
+    should_check_is_run: bool
+    ignore_non_runs: bool
+    max_archive_size: Optional[int]
 
 
 def _get_storage_adapter_for_path(path: str) -> StorageAdapter:
