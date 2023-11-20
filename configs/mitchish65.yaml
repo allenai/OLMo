@@ -1,11 +1,11 @@
-run_name: mitchish65
+run_name: mitchish65-001
 seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
-  project: olmo-medium
-  group: v1_5-mix
+  project: olmo-large
+  group: mitchish65
 
 model:
   d_model: 8192
