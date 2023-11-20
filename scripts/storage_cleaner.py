@@ -1,5 +1,4 @@
 import argparse
-from dataclasses import dataclass
 import logging
 import os
 import re
@@ -8,6 +7,7 @@ import tarfile
 import tempfile
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, _SubParsersAction
+from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -610,7 +610,12 @@ def _should_delete_run(storage: StorageAdapter, run_dir_or_archive: str, config:
     if config.max_archive_size is not None and storage.is_file(run_dir_or_archive):
         file_size = storage.get_file_size(run_dir_or_archive)
         if file_size > config.max_archive_size:
-            log.info("File size %d of %s exceeds max archive size %s", file_size, run_dir_or_archive, config.max_archive_size)
+            log.info(
+                "File size %d of %s exceeds max archive size %s",
+                file_size,
+                run_dir_or_archive,
+                config.max_archive_size,
+            )
             return False
 
     run_entries = storage.list_entries(run_dir_or_archive)
