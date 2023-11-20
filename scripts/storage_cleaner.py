@@ -8,6 +8,7 @@ import tarfile
 import tempfile
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, _SubParsersAction
+from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -65,6 +66,12 @@ class StorageAdapter(ABC):
     @abstractmethod
     def is_file(self, path: str) -> bool:
         """Returns whether the given path corresponds to an existing file."""
+
+    @abstractmethod
+    def get_file_size(self, path: str) -> int:
+        """Get the size of the file at the given path in bytes. Raises an error if the path does not
+        correspond to a file.
+        """
 
     @abstractmethod
     def is_dir(self, path: str) -> bool:
@@ -158,7 +165,7 @@ class LocalFileSystemAdapter(StorageAdapter):
                 for entry in path.iterdir()
                 if (
                     (include_files or not entry.is_file())
-                    and (max_file_size is None or entry.stat().st_size <= max_file_size)
+                    and (max_file_size is None or self._get_file_size(path) <= max_file_size)
                 )
             ]
 
@@ -191,11 +198,16 @@ class LocalFileSystemAdapter(StorageAdapter):
             shutil.rmtree(path)
 
     def is_file(self, path: str) -> bool:
-        path_obj = Path(path)
-        if not path_obj.exists():
-            return False
+        return Path(path).is_file()
 
-        return path_obj.is_file()
+    def _get_file_size(self, path: Path) -> int:
+        if not path.is_file():
+            raise ValueError(f"Path does not correspond to an existing file: {path}")
+
+        return path.stat().st_size
+
+    def get_file_size(self, path: str) -> int:
+        return self._get_file_size(Path(path))
 
     def is_dir(self, path: str) -> bool:
         path_obj = Path(path)
@@ -363,6 +375,11 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         return self._is_file(bucket_name, key)
 
+    def get_file_size(self, path: str) -> int:
+        bucket_name, key = self._get_bucket_name_and_key(path)
+
+        return self._get_size(bucket_name, key)
+
     def _is_dir(self, bucket_name: str, key: str) -> bool:
         key = f"{key}/" if not key.endswith("/") else key
 
@@ -435,15 +452,21 @@ class S3StorageAdapter(StorageAdapter):
 
         return f"{scheme}://{bucket_name}/{key}"
 
+    def _get_size(self, bucket_name: str, key: str) -> int:
+        if not self._is_file(bucket_name, key):
+            raise ValueError(f"Provided path does not correspond to a file: {self._get_path(bucket_name, key)}")
+
+        head_response: Dict[str, Any] = self._s3_client.head_object(Bucket=bucket_name, Key=key)
+        if "ContentLength" not in head_response:
+            raise RuntimeError(f"Failed to get size for file: {self._get_path(bucket_name, key)}")
+        return head_response["ContentLength"]
+
     def _download_file(self, bucket_name: str, key: str, local_dest_filepath: Optional[PathOrStr] = None) -> Path:
         if local_dest_filepath is None:
             extension = "".join(Path(key).suffixes)
             local_dest_filepath = self.local_fs_adapter.create_temp_file(suffix=extension)
 
-        head_response: Dict[str, Any] = self._s3_client.head_object(Bucket=bucket_name, Key=key)
-        if "ContentLength" not in head_response:
-            raise RuntimeError(f"Failed to get size for file: {self._get_path(bucket_name, key)}")
-        size_in_bytes: int = head_response["ContentLength"]
+        size_in_bytes = self._get_size(bucket_name, key)
 
         with Progress(transient=True) as progress:
             download_task = progress.add_task(f"Downloading {key}", total=size_in_bytes)
@@ -575,6 +598,11 @@ class S3StorageAdapter(StorageAdapter):
 
         return self._is_file(bucket_name, key)
 
+    def get_file_size(self, path: str) -> int:
+        bucket_name, key = self._get_bucket_name_and_key(path)
+
+        return self._get_size(bucket_name, key)
+
     def _is_dir(self, bucket_name: str, key: str) -> bool:
         key = f"{key}/" if not key.endswith("/") else key
         if self._is_file(bucket_name, key):
@@ -624,215 +652,220 @@ class S3StorageAdapter(StorageAdapter):
             raise ValueError(f"Local source {local_src} does not correspond to a valid file or directory")
 
 
-class StorageCleaner:
-    def __init__(
-        self,
-        dry_run: bool = False,
-        should_check_is_run: bool = True,
-        ignore_non_runs: bool = False,
-        max_archive_size: Optional[int] = None,
-        unshard_script_path: Optional[Path] = None,
-    ) -> None:
-        self._dry_run: bool = dry_run
-        self._should_check_is_run = should_check_is_run
-        self._ignore_non_runs = ignore_non_runs
-        self._max_archive_size: Optional[int] = max_archive_size
-        self._storage_adapters: Dict[StorageType, StorageAdapter] = {}
-        self._unshard_script_path: Optional[Path] = unshard_script_path
+@dataclass
+class DeleteBadRunsConfig:
+    dry_run: bool
+    should_check_is_run: bool
+    ignore_non_runs: bool
+    max_archive_size: Optional[int]
 
-    def _get_storage_adapter(self, storage_type: StorageType) -> StorageAdapter:
-        if storage_type not in self._storage_adapters:
-            self._storage_adapters[storage_type] = StorageAdapter.create_storage_adapter(storage_type)
 
-        return self._storage_adapters[storage_type]
+def _get_storage_adapter_for_path(path: str) -> StorageAdapter:
+    storage_type = StorageAdapter.get_storage_type_for_path(path)
+    return StorageAdapter.create_storage_adapter(storage_type)
 
-    def _get_storage_adapter_for_path(self, path: str) -> StorageAdapter:
-        storage_type = StorageAdapter.get_storage_type_for_path(path)
-        return self._get_storage_adapter(storage_type)
 
-    @staticmethod
-    def _contains_checkpoint_dir(dir_entries: List[str]) -> bool:
-        return any(re.match(r"step\d+(-unsharded)?", entry) is not None for entry in dir_entries)
+def _contains_checkpoint_dir(dir_entries: List[str]) -> bool:
+    return any(re.match(r"step\d+(-unsharded)?", entry) is not None for entry in dir_entries)
 
-    @staticmethod
-    def _contains_nontrivial_checkpoint_dir(dir_entries: List[str]) -> bool:
-        return any(re.match(r"step[1-9]\d*(-unsharded)?", entry) is not None for entry in dir_entries)
 
-    def _is_run(self, run_path: str, run_entries: Optional[List[str]] = None) -> bool:
-        """
-        This method is best effort. It may mark run paths as not (false negatives) or mark non-run
-        paths as runs (false positives). We prioritize minimizing false positives.
-        """
-        if run_entries is None:
-            storage = self._get_storage_adapter_for_path(run_path)
-            run_entries = storage.list_entries(run_path)
+def _contains_nontrivial_checkpoint_dir(dir_entries: List[str]) -> bool:
+    return any(re.match(r"step[1-9]\d*(-unsharded)?", entry) is not None for entry in dir_entries)
 
-        return self._contains_checkpoint_dir(run_entries)
 
-    def _verify_non_run_deletion(self, run_dir_or_archive: str, run_entries: List[str]) -> bool:
-        msg = f"Attempting to delete non-run directory or archive {run_dir_or_archive} (first 5 entries: {run_entries[:5]})."
-        if self._ignore_non_runs:
-            log.warning(msg)
+def _is_run(run_path: str, run_entries: Optional[List[str]] = None) -> bool:
+    """
+    This method is best effort. It may mark run paths as not (false negatives) or mark non-run
+    paths as runs (false positives). We prioritize minimizing false positives.
+    """
+    if run_entries is None:
+        storage = _get_storage_adapter_for_path(run_path)
+        run_entries = storage.list_entries(run_path)
+
+    return _contains_checkpoint_dir(run_entries)
+
+
+def _verify_non_run_deletion(run_dir_or_archive: str, run_entries: List[str], config: DeleteBadRunsConfig):
+    msg = f"Attempting to delete non-run directory or archive {run_dir_or_archive} (first 5 entries: {run_entries[:5]})."
+    if config.ignore_non_runs:
+        log.warning(msg)
+        return
+
+    raise ValueError(msg)
+
+
+def _format_dir_or_archive_path(storage: StorageAdapter, path: str) -> str:
+    if storage.is_file(path):
+        local_fs_adapter = LocalFileSystemAdapter()
+        if not local_fs_adapter.has_supported_archive_extension(path):
+            raise ValueError(f"Path corresponds to a non-archive file: {path}")
+
+        return path
+
+    if storage.is_dir(path):
+        return f"{path}/" if not path.endswith("/") else path
+
+    raise ValueError(f"Path does not correspond to a directory or file: {path}")
+
+
+def _should_delete_run(storage: StorageAdapter, run_dir_or_archive: str, config: DeleteBadRunsConfig) -> bool:
+    # Do not delete archive files that are bigger than the configured max
+    if config.max_archive_size is not None and storage.is_file(run_dir_or_archive):
+        file_size = storage.get_file_size(run_dir_or_archive)
+        if file_size > config.max_archive_size:
+            log.info(
+                "File size %d of %s exceeds max archive size %s",
+                file_size,
+                run_dir_or_archive,
+                config.max_archive_size,
+            )
             return False
 
-        raise ValueError(msg)
+    run_entries = storage.list_entries(run_dir_or_archive)
+    if config.should_check_is_run and not _is_run(run_dir_or_archive, run_entries=run_entries):
+        _verify_non_run_deletion(run_dir_or_archive, run_entries, config)
+        return False
 
-    def _format_dir_or_archive_path(self, storage: StorageAdapter, path: str) -> str:
-        if storage.is_file(path):
-            local_fs_adapter = self._get_storage_adapter(StorageType.LOCAL_FS)
-            assert isinstance(local_fs_adapter, LocalFileSystemAdapter)
-            if not local_fs_adapter.has_supported_archive_extension(path):
-                raise ValueError(f"Path corresponds to a non-archive file: {path}")
+    # Runs with non-trivial checkpoints are considered good
+    if _contains_nontrivial_checkpoint_dir(run_entries):
+        log.info("Run directory or archive %s contains a non-trivial checkpoint directory", run_dir_or_archive)
+        return False
 
-            return path
+    return True
 
-        if storage.is_dir(path):
-            return f"{path}/" if not path.endswith("/") else path
 
-        raise ValueError(f"Path does not correspond to a directory or file: {path}")
+def _delete_if_bad_run(storage: StorageAdapter, run_path: str, config: DeleteBadRunsConfig):
+    run_dir_or_archive = _format_dir_or_archive_path(storage, run_path)
 
-    def _delete_if_bad_run(self, storage: StorageAdapter, run_path: str):
-        run_dir_or_archive = self._format_dir_or_archive_path(storage, run_path)
-        run_entries = storage.list_entries(run_dir_or_archive)
-
-        should_delete = True
-        if self._should_check_is_run and not self._is_run(run_dir_or_archive, run_entries=run_entries):
-            should_delete = self._verify_non_run_deletion(run_dir_or_archive, run_entries)
-
-        # Runs with non-trivial checkpoints are considered good
-        should_delete = should_delete and not self._contains_nontrivial_checkpoint_dir(run_entries)
-
-        if should_delete:
-            if self._dry_run:
-                log.info("Would delete run directory or archive %s", run_dir_or_archive)
-            else:
-                log.info("Deleting run directory or archive %s", run_dir_or_archive)
-                storage.delete_path(run_dir_or_archive)
+    if _should_delete_run(storage, run_dir_or_archive, config):
+        if config.dry_run:
+            log.info("Would delete run directory or archive %s", run_dir_or_archive)
         else:
-            log.info("Skipping run directory or archive %s", run_dir_or_archive)
+            log.info("Deleting run directory or archive %s", run_dir_or_archive)
+            storage.delete_path(run_dir_or_archive)
+    else:
+        log.info("Skipping run directory or archive %s", run_dir_or_archive)
 
-    def delete_bad_runs(self, run_paths: List[str]):
-        for run_path in run_paths:
-            storage: StorageAdapter = self._get_storage_adapter_for_path(run_path)
-            log.info("Starting deletion of bad run at %s", run_path)
-            self._delete_if_bad_run(storage, run_path)
 
-    def _is_sharded_checkpoint_dir(self, storage: StorageAdapter, directory: str) -> bool:
-        return storage.is_dir(directory) and re.match(r"step\d+$", Path(directory).name) is not None
+def delete_bad_runs(run_paths: List[str], config: DeleteBadRunsConfig):
+    for run_path in run_paths:
+        storage: StorageAdapter = _get_storage_adapter_for_path(run_path)
+        log.info("Starting to check if run %s should be deleted", run_path)
+        _delete_if_bad_run(storage, run_path, config)
 
-    @staticmethod
-    def _get_checkpoint_number(checkpoint_dir: str) -> int:
-        checkpoint_dir_name = Path(checkpoint_dir).name
-        checkpoint_dir_name = checkpoint_dir_name.removesuffix("-unsharded")
-        match = re.match(r"step(\d+)$", checkpoint_dir_name)
-        if match is None:
-            raise ValueError(f"Failed to find checkpoint number for dir {checkpoint_dir}")
+def _is_sharded_checkpoint_dir(storage: StorageAdapter, directory: str) -> bool:
+    return storage.is_dir(directory) and re.match(r"step\d+$", Path(directory).name) is not None
 
-        return int(match.group(1))
+def _get_checkpoint_number(checkpoint_dir: str) -> int:
+    checkpoint_dir_name = Path(checkpoint_dir).name
+    checkpoint_dir_name = checkpoint_dir_name.removesuffix("-unsharded")
+    match = re.match(r"step(\d+)$", checkpoint_dir_name)
+    if match is None:
+        raise ValueError(f"Failed to find checkpoint number for dir {checkpoint_dir}")
 
-    def _get_sharded_checkpoint_dirs(self, storage: StorageAdapter, run_path: str, latest_checkpoint_only: bool) -> List[str]:
-        if storage.is_file(run_path):
-            local_storage = self._get_storage_adapter(StorageType.LOCAL_FS)
-            assert isinstance(local_storage, LocalFileSystemAdapter)
-            if not local_storage.has_supported_archive_extension(run_path):
-                log.info('Trying to get sharded checkpoints from non-archive file %s, skipping', run_path)
-                return []
+    return int(match.group(1))
 
-            temp_dir = local_storage.create_temp_dir()
-            storage.download_to_folder(run_path, temp_dir)
+def _get_sharded_checkpoint_dirs(storage: StorageAdapter, run_path: str, latest_checkpoint_only: bool) -> List[str]:
+    if storage.is_file(run_path):
+        local_storage = LocalFileSystemAdapter()
+        if not local_storage.has_supported_archive_extension(run_path):
+            log.info('Trying to get sharded checkpoints from non-archive file %s, skipping', run_path)
+            return []
 
-            storage = local_storage
-            run_path = temp_dir
+        temp_dir = local_storage.create_temp_dir()
+        storage.download_to_folder(run_path, temp_dir)
 
-        run_subdirectories = [
-            os.path.join(run_path, entry)
-            for entry in storage.list_dirs(run_path)
-        ]
-        sharded_checkpoint_directories = list(filter(lambda subdirectory: self._is_sharded_checkpoint_dir(storage, subdirectory), run_subdirectories))
+        storage = local_storage
+        run_path = temp_dir
 
-        if latest_checkpoint_only:
-            latest_checkpoint_directory = max(sharded_checkpoint_directories, default=None, key=self._get_checkpoint_number)
-            sharded_checkpoint_directories = [latest_checkpoint_directory] if latest_checkpoint_directory is not None else []
+    run_subdirectories = [
+        os.path.join(run_path, entry)
+        for entry in storage.list_dirs(run_path)
+    ]
+    sharded_checkpoint_directories = list(filter(lambda subdirectory: _is_sharded_checkpoint_dir(storage, subdirectory), run_subdirectories))
 
-        # print('Test', run_subdirectories, sharded_checkpoint_directories)
+    if latest_checkpoint_only:
+        latest_checkpoint_directory = max(sharded_checkpoint_directories, default=None, key=_get_checkpoint_number)
+        sharded_checkpoint_directories = [latest_checkpoint_directory] if latest_checkpoint_directory is not None else []
 
-        log.info("Found %d sharded checkpoint directories for %s", len(sharded_checkpoint_directories), run_path)
+    # print('Test', run_subdirectories, sharded_checkpoint_directories)
 
-        return sharded_checkpoint_directories
+    log.info("Found %d sharded checkpoint directories for %s", len(sharded_checkpoint_directories), run_path)
 
-    def _unshard_checkpoint(self, sharded_checkpoint_dir: str, dest_dir: str):
-        local_storage = self._get_storage_adapter(StorageType.LOCAL_FS)
-        assert isinstance(local_storage, LocalFileSystemAdapter)
+    return sharded_checkpoint_directories
 
-        # Download checkpoint to a temp dir if it is not in local storage
-        sharding_input_dir: str
-        if StorageAdapter.get_storage_type_for_path(sharded_checkpoint_dir) == StorageType.LOCAL_FS:
-            sharding_input_dir = str(sharded_checkpoint_dir)
-        else:
-            sharding_input_dir = local_storage.create_temp_dir()
+def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str):
+    local_storage = LocalFileSystemAdapter()
 
-            src_storage = self._get_storage_adapter_for_path(sharded_checkpoint_dir)
-            src_storage.download_to_folder(sharded_checkpoint_dir, sharding_input_dir)
+    # Download checkpoint to a temp dir if it is not in local storage
+    sharding_input_dir: str
+    if StorageAdapter.get_storage_type_for_path(sharded_checkpoint_dir) == StorageType.LOCAL_FS:
+        sharding_input_dir = str(sharded_checkpoint_dir)
+    else:
+        sharding_input_dir = local_storage.create_temp_dir()
 
-        # Set unsharder output to a temp dir if the final destination is not local
-        sharding_output_dir: str
-        delete_output_dir_on_failure: bool
-        upload_required: bool
-        if StorageAdapter.get_storage_type_for_path(dest_dir) == StorageType.LOCAL_FS:
-            sharding_output_dir = str(dest_dir)
-            upload_required = False
-            assert not local_storage.is_file(sharding_output_dir)
-            assert not local_storage.is_dir(sharding_output_dir), "Unsharding an already unsharded checkpoint should not happen"
-            delete_output_dir_on_failure = True
-        else:
-            sharding_output_dir = local_storage.create_temp_dir()
-            upload_required = True
-            # Temp dir will get removed during cleanup, so no need to do it here
-            delete_output_dir_on_failure = False
+        src_storage = _get_storage_adapter_for_path(sharded_checkpoint_dir)
+        src_storage.download_to_folder(sharded_checkpoint_dir, sharding_input_dir)
 
-        result = subprocess.run(["python", str(self._unshard_script_path), sharding_input_dir, sharding_output_dir], check=False)
-        if result.returncode != 0:
-            log.error("Unsharding from %s to %s failed with error code %d", sharding_input_dir, sharding_output_dir, result.returncode)
+    # Set unsharder output to a temp dir if the final destination is not local
+    sharding_output_dir: str
+    delete_output_dir_on_failure: bool
+    upload_required: bool
+    if StorageAdapter.get_storage_type_for_path(dest_dir) == StorageType.LOCAL_FS:
+        sharding_output_dir = str(dest_dir)
+        upload_required = False
+        assert not local_storage.is_file(sharding_output_dir)
+        assert not local_storage.is_dir(sharding_output_dir), "Unsharding an already unsharded checkpoint should not happen"
+        delete_output_dir_on_failure = True
+    else:
+        sharding_output_dir = local_storage.create_temp_dir()
+        upload_required = True
+        # Temp dir will get removed during cleanup, so no need to do it here
+        delete_output_dir_on_failure = False
 
-            if delete_output_dir_on_failure:
-                local_storage.delete_path(sharding_output_dir)
-            return
+    result = subprocess.run(["python", str(self._unshard_script_path), sharding_input_dir, sharding_output_dir], check=False)
+    if result.returncode != 0:
+        log.error("Unsharding from %s to %s failed with error code %d", sharding_input_dir, sharding_output_dir, result.returncode)
 
-        log.info("Successfully unsharded from %s to %s", sharding_input_dir, sharding_output_dir)
+        if delete_output_dir_on_failure:
+            local_storage.delete_path(sharding_output_dir)
+        return
 
-        if upload_required:
-            dest_storage = self._get_storage_adapter_for_path(dest_dir)
-            dest_storage.upload(sharding_output_dir, dest_dir)
+    log.info("Successfully unsharded from %s to %s", sharding_input_dir, sharding_output_dir)
 
-    def _unshard_checkpoints(self, run_storage: StorageAdapter, run_dir_or_archive: str, checkpoints_dest_dir: str, latest_checkpoint_only: bool):
-        log.info("Starting unsharding checkpoints of run directory or archive %s", run_dir_or_archive)
+    if upload_required:
+        dest_storage = _get_storage_adapter_for_path(dest_dir)
+        dest_storage.upload(sharding_output_dir, dest_dir)
 
-        sharded_checkpoint_directories = self._get_sharded_checkpoint_dirs(run_storage, run_dir_or_archive, latest_checkpoint_only)
-        for sharded_checkpoint_directory in sharded_checkpoint_directories:
-            sharded_checkpoint_dir_name = Path(sharded_checkpoint_directory).name
+def _unshard_checkpoints(run_storage: StorageAdapter, run_dir_or_archive: str, checkpoints_dest_dir: str, latest_checkpoint_only: bool):
+    log.info("Starting unsharding checkpoints of run directory or archive %s", run_dir_or_archive)
 
-            if run_storage.is_dir(run_dir_or_archive):
-                unsharded_checkpoint_directory_in_source = os.path.join(run_dir_or_archive, f"{sharded_checkpoint_dir_name}-unsharded")
-                if run_storage.is_dir(unsharded_checkpoint_directory_in_source):
-                    log.info("Unsharded directory already exists for %s at source %s, skipping", sharded_checkpoint_directory, unsharded_checkpoint_directory_in_source)
-                    continue
+    sharded_checkpoint_directories = _get_sharded_checkpoint_dirs(run_storage, run_dir_or_archive, latest_checkpoint_only)
+    for sharded_checkpoint_directory in sharded_checkpoint_directories:
+        sharded_checkpoint_dir_name = Path(sharded_checkpoint_directory).name
 
-            dest_directory = os.path.join(checkpoints_dest_dir, f"{sharded_checkpoint_dir_name}-unsharded")
-            dest_storage = self._get_storage_adapter_for_path(dest_directory)
-            if dest_storage.is_dir(dest_directory):
-                log.info("Unsharded directory already exists for %s at destination %s, skipping", sharded_checkpoint_directory, dest_directory)
+        if run_storage.is_dir(run_dir_or_archive):
+            unsharded_checkpoint_directory_in_source = os.path.join(run_dir_or_archive, f"{sharded_checkpoint_dir_name}-unsharded")
+            if run_storage.is_dir(unsharded_checkpoint_directory_in_source):
+                log.info("Unsharded directory already exists for %s at source %s, skipping", sharded_checkpoint_directory, unsharded_checkpoint_directory_in_source)
                 continue
 
-            if self._dry_run:
-                log.info("Would unshard sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
-            else:
-                log.info("Unsharding sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
-                self._unshard_checkpoint(sharded_checkpoint_directory, dest_directory)
+        dest_directory = os.path.join(checkpoints_dest_dir, f"{sharded_checkpoint_dir_name}-unsharded")
+        dest_storage = _get_storage_adapter_for_path(dest_directory)
+        if dest_storage.is_dir(dest_directory):
+            log.info("Unsharded directory already exists for %s at destination %s, skipping", sharded_checkpoint_directory, dest_directory)
+            continue
 
-    def unshard_run_checkpoints(self, run_path: str, checkpoints_dest_dir: str, latest_checkpoint_only: bool):
-        storage = self._get_storage_adapter_for_path(run_path)
-        run_dir_or_archive = self._format_dir_or_archive_path(storage, run_path)
-        self._unshard_checkpoints(storage, run_dir_or_archive, checkpoints_dest_dir, latest_checkpoint_only)
+        if self._dry_run:
+            log.info("Would unshard sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
+        else:
+            log.info("Unsharding sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
+            _unshard_checkpoint(sharded_checkpoint_directory, dest_directory)
+
+def unshard_run_checkpoints(run_path: str, checkpoints_dest_dir: str, latest_checkpoint_only: bool):
+    storage = _get_storage_adapter_for_path(run_path)
+    run_dir_or_archive = _format_dir_or_archive_path(storage, run_path)
+    _unshard_checkpoints(storage, run_dir_or_archive, checkpoints_dest_dir, latest_checkpoint_only)
 
 
 def perform_operation(args: argparse.Namespace):
@@ -840,14 +873,14 @@ def perform_operation(args: argparse.Namespace):
         log.info("Dry run, no irreversible actions will be taken")
 
     if args.op == CleaningOperations.DELETE_BAD_RUNS:
-        storage_cleaner = StorageCleaner(
+        delete_bad_runs_config = DeleteBadRunsConfig(
             dry_run=args.dry_run,
             should_check_is_run=args.should_check_is_run,
             ignore_non_runs=args.ignore_non_runs,
             max_archive_size=args.max_archive_size,
         )
         if args.run_paths is not None:
-            storage_cleaner.delete_bad_runs(args.run_paths)
+            delete_bad_runs(args.run_paths, delete_bad_runs_config)
         else:
             raise ValueError("Run paths not provided for run cleaning")
     elif args.op == CleaningOperations.UNSHARD_CHECKPOINTS:
