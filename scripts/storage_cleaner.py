@@ -612,8 +612,11 @@ def _format_dir_or_archive_path(storage: StorageAdapter, path: str) -> str:
 
 def _should_delete_run(storage: StorageAdapter, run_dir_or_archive: str, config: DeleteBadRunsConfig) -> bool:
     # Do not delete archive files that are bigger than the configured max
-    if config.max_archive_size is not None and storage.is_file(run_dir_or_archive) and storage.get_file_size(run_dir_or_archive) > config.max_archive_size:
-        return False
+    if config.max_archive_size is not None and storage.is_file(run_dir_or_archive):
+        file_size = storage.get_file_size(run_dir_or_archive)
+        if file_size > config.max_archive_size:
+            log.info("File size %d of %s exceeds max archive size %s", file_size, run_dir_or_archive, config.max_archive_size)
+            return False
 
     run_entries = storage.list_entries(run_dir_or_archive)
     if config.should_check_is_run and not _is_run(run_dir_or_archive, run_entries=run_entries):
@@ -622,6 +625,7 @@ def _should_delete_run(storage: StorageAdapter, run_dir_or_archive: str, config:
 
     # Runs with non-trivial checkpoints are considered good
     if _contains_nontrivial_checkpoint_dir(run_entries):
+        log.info("Run directory or archive %s contains a non-trivial checkpoint directory", run_dir_or_archive)
         return False
 
     return True
