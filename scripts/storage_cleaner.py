@@ -642,7 +642,7 @@ def _delete_if_bad_run(storage: StorageAdapter, run_path: str, config: DeleteBad
 def delete_bad_runs(run_paths: List[str], config: DeleteBadRunsConfig):
     for run_path in run_paths:
         storage: StorageAdapter = _get_storage_adapter_for_path(run_path)
-        log.info("Starting deletion of bad run at %s", run_path)
+        log.info("Starting to check if run %s should be deleted", run_path)
         _delete_if_bad_run(storage, run_path, config)
 
 
