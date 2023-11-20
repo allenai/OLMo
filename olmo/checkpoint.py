@@ -1,3 +1,4 @@
+import gc
 import io
 import logging
 import pickle
@@ -46,6 +47,8 @@ from .util import (
     get_bytes_range,
     get_fs_local_rank,
     get_global_rank,
+    get_local_rank,
+    get_local_world_size,
     get_progress_bar,
     get_world_size,
     resource_path,
@@ -194,6 +197,7 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
     else:
         flattened_osd = FSDP.optim_state_dict_to_load(fsdp_model, optim, optim_state)  # type: ignore
     del optim_state
+    gc.collect()
     log.info("Loading flattened optimizer state...")
     # Put optim state on CPU since `Optimizer.load_state_dict()` will create a deepcopy of the whole state dict,
     # which takes up unnecessary GPU memory.
@@ -606,7 +610,7 @@ class FullCheckpointer(Checkpointer):
             fsdp_model,
             state_dict_type=StateDictType.FULL_STATE_DICT,
             state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
-            optim_state_dict_config=FullOptimStateDictConfig(rank0_only=True, offload_to_cpu=True),
+            optim_state_dict_config=FullOptimStateDictConfig(rank0_only=False, offload_to_cpu=True),
         ):
             # Load model state.
             log.info("Loading model state...")
@@ -614,15 +618,23 @@ class FullCheckpointer(Checkpointer):
                 load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location="cpu")
             )
             fsdp_model.load_state_dict(state_dict_to_load)
+            del state_dict_to_load
 
             # Load optimizer state.
             if load_optimizer_state:
-                log.info("Loading optimizer state...")
-                optim_state_dict_to_load = self._make_optim_state_dict_compatible(
-                    load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location="cpu"),
-                    og_keys_to_new,
-                )
-                load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
+                gc.collect()
+                for turn in range(get_local_world_size()):
+                    log.info("Loading optimizer state turn %d ...", turn)
+                    if turn == get_local_rank():
+                        optim_state_dict_to_load = self._make_optim_state_dict_compatible(
+                            load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location="cpu"),
+                            og_keys_to_new,
+                        )
+                        load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
+                        del optim_state_dict_to_load
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                    barrier()
 
             # Load other state.
             try:
@@ -639,7 +651,7 @@ class FullCheckpointer(Checkpointer):
         # This state dict comes in two forms: one where the state keys are integers and one where the
         # keys are fully qualified parameter names. The latter case is easier to deal with here so we
         # first transform the integer key form into the FQN key form.
-        if isinstance(next(iter(optim_state_dict.keys())), int):
+        if isinstance(next(iter(optim_state_dict["state"].keys())), int):
             id_to_fqn: Dict[int, str] = {}
             for group in optim_state_dict["param_groups"]:
                 new_param_names = []
