@@ -70,13 +70,15 @@ load_path: null
 
 max_duration: 476837  # 2T tokens
 global_train_batch_size: 2048
-device_train_microbatch_size: 2
+device_train_microbatch_size: 1
 
 precision: amp_bf16
 
 fsdp:
   wrapping_strategy: by_block
   precision: mixed
+
+activation_checkpointing: whole_layer
 
 max_grad_norm: 1.0
 max_grad_norm_ratio: null
