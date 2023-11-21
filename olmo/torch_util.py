@@ -117,7 +117,7 @@ def peak_gpu_memory(reset: bool = False) -> Optional[float]:
 
 
 def synchronize_flag(flag: bool, device: torch.device) -> bool:
-    if dist.is_available() and dist.is_initialized():
+    if is_distributed():
         flag_tensor = torch.tensor(flag, device=device)
         dist.broadcast(flag_tensor, 0)
         return flag_tensor.item()  # type: ignore
