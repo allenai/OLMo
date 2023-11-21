@@ -124,4 +124,4 @@ def synchronize_flag(flag: bool, device: torch.device) -> bool:
         dist.broadcast(flag_tensor, 0)
         return flag_tensor.item()  # type: ignore
     else:
-        return flag    
+        return flag
