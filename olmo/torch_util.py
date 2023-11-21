@@ -24,10 +24,7 @@ def seed_all(seed: int):
 
 
 def is_distributed() -> bool:
-    if "LOCAL_RANK" in os.environ:
-        return True
-    else:
-        return False
+    return dist.is_available() and dist.is_initialized()
 
 
 def get_node_rank() -> int:
