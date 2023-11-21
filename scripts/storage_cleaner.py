@@ -590,6 +590,33 @@ def _format_dir_or_archive_path(storage: StorageAdapter, path: str) -> str:
     raise ValueError(f"Path does not correspond to a directory or file: {path}")
 
 
+def _get_archive_run_entry_paths(run_archive_path: str, storage: StorageAdapter) -> List[str]:
+    entry_paths = storage.list_entries(run_archive_path, full_path=True)
+
+    local_storage = LocalFileSystemAdapter()
+
+    # The unarchived file could have a redundant top-level directory. If the top-level
+    # directory has only a directory, we should return that directory's entries instead.
+    if len(entry_paths) == 1:
+        entry_path = entry_paths[0]
+        assert StorageAdapter.get_storage_type_for_path(entry_path) == StorageType.LOCAL_FS, "Entries of archived files are expected to be local"
+        if local_storage.is_dir(entry_path):
+            return local_storage.list_entries(entry_path)
+
+    return entry_paths
+
+
+def _get_run_entries(run_dir_or_archive: str, storage: StorageAdapter) -> List[str]:
+    local_storage = LocalFileSystemAdapter()
+    if local_storage.has_supported_archive_extension(run_dir_or_archive):
+        return [
+            Path(entry_path).name
+            for entry_path in _get_archive_run_entry_paths(run_dir_or_archive, storage)
+        ]
+
+    return storage.list_entries(run_dir_or_archive)
+
+
 def _should_delete_run(storage: StorageAdapter, run_dir_or_archive: str, config: DeleteBadRunsConfig) -> bool:
     # Do not delete archive files that are bigger than the configured max
     if config.max_archive_size is not None and storage.is_file(run_dir_or_archive):
@@ -603,7 +630,8 @@ def _should_delete_run(storage: StorageAdapter, run_dir_or_archive: str, config:
             )
             return False
 
-    run_entries = storage.list_entries(run_dir_or_archive)
+    run_entries = _get_run_entries(run_dir_or_archive, storage)
+
     if config.should_check_is_run and not _is_run(run_dir_or_archive, run_entries=run_entries):
         _verify_non_run_deletion(run_dir_or_archive, run_entries, config)
         return False
