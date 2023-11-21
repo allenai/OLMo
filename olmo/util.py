@@ -26,7 +26,7 @@ from rich.text import Text
 from rich.traceback import Traceback
 
 from .aliases import PathOrStr
-from .exceptions import OlmoCliError, OlmoError, OlmoNetworkError
+from .exceptions import OlmoCliError, OlmoError, OlmoNetworkError, OlmoThreadError
 
 
 class StrEnum(str, Enum):
@@ -709,12 +709,13 @@ def threaded_generator(g, maxsize: int = 16, thread_name: Optional[str] = None):
         finally:
             q.put(sentinel)
 
-    thread = Thread(name=thread_name or repr(g), target=fill_queue, daemon=True)
+    thread_name = thread_name or repr(g)
+    thread = Thread(name=thread_name, target=fill_queue, daemon=True)
     thread.start()
 
     for x in iter(q.get, sentinel):
         if isinstance(x, Exception):
-            raise x
+            raise OlmoThreadError(f"generator thread {thread_name} failed") from x
         else:
             yield x
 
