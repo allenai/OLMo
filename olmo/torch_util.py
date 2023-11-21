@@ -13,7 +13,7 @@ def seed_all(seed: int):
 
     import numpy as np
 
-    if seed < 0 or seed > 2 ** 32 - 1:
+    if seed < 0 or seed > 2**32 - 1:
         raise ValueError(f"Seed {seed} is invalid. It must be on [0; 2^32 - 1]")
     random.seed(seed)
     np.random.seed(seed)
