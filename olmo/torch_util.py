@@ -13,7 +13,7 @@ def seed_all(seed: int):
 
     import numpy as np
 
-    if seed < 0 or seed > 2**32 - 1:
+    if seed < 0 or seed > 2 ** 32 - 1:
         raise ValueError(f"Seed {seed} is invalid. It must be on [0; 2^32 - 1]")
     random.seed(seed)
     np.random.seed(seed)
@@ -84,12 +84,14 @@ def ensure_finite_(x: torch.Tensor, check_neg_inf: bool = True, check_pos_inf: b
     if check_pos_inf:
         x.masked_fill_(x == float("inf"), torch.finfo(x.dtype).max)
 
+
 def get_default_device() -> torch.device:
     if torch.cuda.is_available() and torch.cuda.is_initialized():
         return torch.device("cuda")
     else:
         return torch.device("cpu")
-    
+
+
 def barrier() -> None:
     if dist.is_available() and dist.is_initialized():
         dist.barrier()
