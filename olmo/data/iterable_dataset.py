@@ -8,7 +8,7 @@ import torch
 import torch.utils.data
 
 from ..aliases import PathOrStr
-from ..util import barrier, get_fs_local_rank, get_global_rank, get_world_size
+from ..torch_util import barrier, get_fs_local_rank, get_global_rank, get_world_size
 
 __all__ = ["IterableDataset"]
 

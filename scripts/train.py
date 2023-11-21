@@ -26,7 +26,7 @@ from olmo.torch_util import (
     get_local_rank,
     get_world_size,
     peak_gpu_memory,
-    seed_all
+    seed_all,
 )
 from olmo.util import clean_opt, log_extra_field, prepare_cli_environment
 
