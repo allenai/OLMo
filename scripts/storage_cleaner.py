@@ -772,7 +772,8 @@ def delete_bad_runs(run_paths: List[str], config: DeleteBadRunsConfig):
         _delete_if_bad_run(storage, run_path, config)
 
 
-def _is_sharded_checkpoint_dir(storage: StorageAdapter, directory: str) -> bool:
+def _is_sharded_checkpoint_dir(directory: str) -> bool:
+    storage = _get_storage_adapter_for_path(directory)
     return storage.is_dir(directory) and re.match(r"step\d+$", Path(directory).name) is not None
 
 
@@ -787,22 +788,11 @@ def _get_checkpoint_number(checkpoint_dir: str) -> int:
 
 
 def _get_sharded_checkpoint_dirs(
-    storage: StorageAdapter, local_storage: LocalFileSystemAdapter, run_path: str, latest_checkpoint_only: bool
+    storage: StorageAdapter, run_dir_or_archive: str, latest_checkpoint_only: bool
 ) -> List[str]:
-    if storage.is_file(run_path):
-        if not local_storage.has_supported_archive_extension(run_path):
-            log.info("Trying to get sharded checkpoints from non-archive file %s, skipping", run_path)
-            return []
-
-        temp_dir = local_storage.create_temp_dir()
-        storage.download_to_folder(run_path, temp_dir)
-
-        storage = local_storage
-        run_path = temp_dir
-
-    run_subdirectories = [os.path.join(run_path, entry) for entry in storage.list_dirs(run_path)]
+    run_subdirectories = _get_run_entries(run_dir_or_archive, storage, full_path=True)
     sharded_checkpoint_directories = list(
-        filter(lambda subdirectory: _is_sharded_checkpoint_dir(storage, subdirectory), run_subdirectories)
+        filter(_is_sharded_checkpoint_dir, run_subdirectories)
     )
 
     if latest_checkpoint_only:
@@ -811,7 +801,7 @@ def _get_sharded_checkpoint_dirs(
             [latest_checkpoint_directory] if latest_checkpoint_directory is not None else []
         )
 
-    log.info("Found %d sharded checkpoint directories for %s", len(sharded_checkpoint_directories), run_path)
+    log.info("Found %d sharded checkpoint directories for %s", len(sharded_checkpoint_directories), run_dir_or_archive)
 
     return sharded_checkpoint_directories
 
@@ -885,9 +875,8 @@ def _unshard_checkpoints(
 ):
     log.info("Starting unsharding checkpoints of run directory or archive %s", run_dir_or_archive)
 
-    local_storage = LocalFileSystemAdapter()
     sharded_checkpoint_directories = _get_sharded_checkpoint_dirs(
-        run_storage, local_storage, run_dir_or_archive, config.latest_checkpoint_only
+        run_storage, run_dir_or_archive, config.latest_checkpoint_only
     )
     for sharded_checkpoint_directory in sharded_checkpoint_directories:
         sharded_checkpoint_dir_name = Path(sharded_checkpoint_directory).name
