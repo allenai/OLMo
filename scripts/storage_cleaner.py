@@ -3,7 +3,6 @@ import logging
 import os
 import re
 import shutil
-import tarfile
 import tempfile
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, _SubParsersAction
@@ -17,10 +16,9 @@ import boto3.session
 import botocore.client
 import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
-from cached_path import add_scheme_client
+from cached_path import add_scheme_client, cached_path
 from cached_path.schemes import S3Client
 from google.api_core.exceptions import NotFound
-from rich.progress import Progress
 
 from olmo import util
 from olmo.aliases import PathOrStr
@@ -141,6 +139,12 @@ class LocalFileSystemAdapter(StorageAdapter):
         self, path: PathOrStr, include_files: bool = True, max_file_size: Optional[int] = None
     ) -> List[str]:
         path = Path(path)
+        if path.is_file():
+            if not self.has_supported_archive_extension(path):
+                raise ValueError(f"File does not have a supported archive extension: {path}")
+
+            path = cached_path(path, extract_archive=True)
+
         if path.is_dir():
             return [
                 entry.name
@@ -150,16 +154,6 @@ class LocalFileSystemAdapter(StorageAdapter):
                     and (max_file_size is None or self._get_file_size(path) <= max_file_size)
                 )
             ]
-
-        if self.has_supported_archive_extension(path):
-            if not include_files or max_file_size is not None:
-                raise NotImplementedError("Filtering out entries from a tar file is not yet supported")
-
-            with tarfile.open(path) as tar:
-                log.info("Listing entries from archive %s", path)
-                return [
-                    Path(tar_subpath).name for tar_subpath in tar.getnames() if len(Path(tar_subpath).parts) == 2
-                ]
 
         raise ValueError(f"Path does not correspond to directory or supported archive file: {path}")
 
@@ -254,17 +248,6 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         return self._get_blob_size(blob)
 
-    def _download_file(self, bucket_name: str, key: str) -> str:
-        extension = "".join(Path(key).suffixes)
-        temp_file = self.local_fs_adapter.create_temp_file(suffix=extension)
-
-        bucket = self.gcs_client.bucket(bucket_name)
-        blob = bucket.get_blob(key)
-        if blob is None:
-            raise ValueError(f"Downloading invalid object: {self._get_path(bucket_name, key)}")
-        blob.download_to_filename(temp_file)
-        return temp_file
-
     def _get_directory_entries(
         self,
         bucket_name: str,
@@ -306,8 +289,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         if self.local_fs_adapter.has_supported_archive_extension(path):
-            log.info("Downloading archive %s", path)
-            file_path = self._download_file(bucket_name, key)
+            file_path = str(cached_path(path, extract_archive=True))
 
             if not include_files:
                 return self.local_fs_adapter.list_dirs(file_path)
@@ -398,25 +380,6 @@ class S3StorageAdapter(StorageAdapter):
             raise RuntimeError(f"Failed to get size for file: {self._get_path(bucket_name, key)}")
         return head_response["ContentLength"]
 
-    def _download_file(self, bucket_name: str, key: str) -> str:
-        extension = "".join(Path(key).suffixes)
-        temp_file = self.local_fs_adapter.create_temp_file(suffix=extension)
-
-        size_in_bytes = self._get_size(bucket_name, key)
-
-        with Progress(transient=True) as progress:
-            download_task = progress.add_task(f"Downloading {key}", total=size_in_bytes)
-
-            def progress_callback(bytes_downloaded: int):
-                progress.update(download_task, advance=bytes_downloaded)
-
-            self._s3_client.download_file(bucket_name, key, temp_file, Callback=progress_callback)
-
-        if not self.local_fs_adapter.is_file(temp_file):
-            raise RuntimeError(f"Failed to download file: {self._get_path(bucket_name, key)}")
-
-        return temp_file
-
     def _get_directory_entries(
         self,
         bucket_name: str,
@@ -456,8 +419,7 @@ class S3StorageAdapter(StorageAdapter):
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         if self.local_fs_adapter.has_supported_archive_extension(path):
-            log.info("Downloading archive %s", path)
-            file_path = self._download_file(bucket_name, key)
+            file_path = str(cached_path(path, extract_archive=True))
 
             if not include_files:
                 return self.local_fs_adapter.list_dirs(file_path)
