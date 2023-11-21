@@ -64,7 +64,7 @@ def _init_streams(
     state._unshard_stream = state._device_handle.Stream(priority=high_priority)
     # Stream for overlapping gradient reduction with the backward pass gradient
     # computation
-    state._post_backward_stream = state._device_handle.Stream(priority=high_priority)
+    state._post_backward_stream = state._unshard_stream
     # Stream for pre-unshard logic, namely allocations and writes for CPU
     # offloading (H2D copy) and mixed precision (low precision cast)
     state._pre_unshard_stream = state._post_backward_stream
