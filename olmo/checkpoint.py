@@ -41,11 +41,11 @@ from .aliases import PathOrStr
 from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
 from .optim import Optimizer, fix_optim_state_dict
 from .torch_util import (
-    barrier, 
-    get_global_rank, 
-    get_fs_local_rank, 
-    get_local_rank, 
-    get_local_world_size, 
+    barrier,
+    get_fs_local_rank,
+    get_global_rank,
+    get_local_rank,
+    get_local_world_size,
     get_world_size,
 )
 from .util import (

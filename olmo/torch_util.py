@@ -4,7 +4,6 @@ from typing import Optional, TypeVar
 import torch
 import torch.distributed as dist
 
-
 T = TypeVar("T")
 
 

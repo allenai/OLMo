@@ -18,7 +18,6 @@ from olmo.eval import build_evaluators
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
 from olmo.model import Olmo
 from olmo.optim import BoltOnWarmupScheduler, build_optimizer, build_scheduler
-from olmo.train import Trainer
 from olmo.torch_util import (
     barrier,
     get_default_device,
@@ -28,6 +27,7 @@ from olmo.torch_util import (
     peak_gpu_memory,
     seed_all,
 )
+from olmo.train import Trainer
 from olmo.util import clean_opt, log_extra_field, prepare_cli_environment
 
 log = logging.getLogger("train")
