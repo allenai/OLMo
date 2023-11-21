@@ -90,7 +90,7 @@ def get_default_device() -> torch.device:
 
 
 def barrier() -> None:
-    if dist.is_available() and dist.is_initialized():
+    if is_distributed():
         dist.barrier()
 
 
