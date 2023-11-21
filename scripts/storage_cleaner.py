@@ -20,6 +20,9 @@ import google.cloud.storage as gcs
 from cached_path import add_scheme_client, cached_path
 from cached_path.schemes import S3Client
 from google.api_core.exceptions import NotFound
+from omegaconf import DictConfig, ListConfig
+from omegaconf import OmegaConf as om
+from rich.progress import track
 
 from olmo import util
 from olmo.aliases import PathOrStr
@@ -395,10 +398,8 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         bucket = self.gcs_client.bucket(bucket_name)
 
         if self._is_file(bucket_name, key):
-            dest_filepath = Path(local_dest_folder) / Path(path).name
-            download_path = self._download_file(bucket_name, key, dest_filepath=dest_filepath)
-            if download_path != dest_filepath:
-                raise RuntimeError(f"Download went to {download_path} instead of {dest_filepath} unexpectedly")
+            local_path = cached_path(path)
+            self.local_fs_adapter.download_to_folder(str(local_path), local_dest_folder)
         elif self._is_dir(bucket_name, key):
             blobs: List[gcs.Blob] = list(bucket.list_blobs(prefix=key))
 
@@ -602,10 +603,8 @@ class S3StorageAdapter(StorageAdapter):
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         if self._is_file(bucket_name, key):
-            dest_filepath = Path(local_dest_folder) / Path(path).name
-            download_path = self._download_file(bucket_name, key, local_dest_filepath=dest_filepath)
-            if download_path != dest_filepath:
-                raise RuntimeError(f"Download went to {download_path} instead of {dest_filepath} unexpectedly")
+            local_path = cached_path(path)
+            self.local_fs_adapter.download_to_folder(str(local_path), local_dest_folder)
         elif self._is_dir(bucket_name, key):
             response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key)
             objects_metadata: List[Dict[str, Any]] = response["Contents"]
