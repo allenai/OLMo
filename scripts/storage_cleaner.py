@@ -13,8 +13,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
+import boto3.session
+import botocore.client
 import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
+from cached_path import add_scheme_client
+from cached_path.schemes import S3Client
 from google.api_core.exceptions import NotFound
 from rich.progress import Progress
 
@@ -670,6 +674,39 @@ def perform_operation(args: argparse.Namespace):
         raise NotImplementedError(args.op)
 
 
+def _add_cached_path_r2_client(r2_account_id: str):
+    endpoint_url = f"https://{r2_account_id}.r2.cloudflarestorage.com"
+
+    class R2SchemeClient(S3Client):
+        scheme = "r2"
+
+        def __init__(self, resource: str) -> None:
+            super().__init__(resource)
+            parsed_path = urlparse(resource)
+            bucket_name = parsed_path.netloc
+            r2_path = parsed_path.path.lstrip("/")
+
+            session = boto3.session.Session()
+            if session.get_credentials() is None:
+                # Use unsigned requests.
+                s3_resource = session.resource(
+                    "s3",
+                    endpoint_url=endpoint_url,
+                    config=botocore.client.Config(signature_version=botocore.UNSIGNED)
+                )
+            else:
+                s3_resource = session.resource("s3", endpoint_url=endpoint_url)
+            self.s3_object = s3_resource.Object(bucket_name, r2_path) # type: ignore
+
+    add_scheme_client(R2SchemeClient)
+
+
+def _add_cached_path_scheme_clients():
+    r2_account_id = os.environ.get("R2_ACCOUNT_ID")
+    if r2_account_id is not None:
+        _add_cached_path_r2_client(r2_account_id)
+
+
 def _add_delete_subparser(subparsers: _SubParsersAction):
     delete_runs_parser: ArgumentParser = subparsers.add_parser(
         "clean", help="Delete bad runs (e.g. runs with no non-trivial checkpoints)"
@@ -721,6 +758,7 @@ def main():
     args = get_parser().parse_args()
 
     util.prepare_cli_environment()
+    _add_cached_path_scheme_clients()
     perform_operation(args)
 
 
