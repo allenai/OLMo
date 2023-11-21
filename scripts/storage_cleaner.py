@@ -91,8 +91,8 @@ class StorageAdapter(ABC):
         """Returns whether the given path corresponds to an existing directory."""
 
     @abstractmethod
-    def download_to_folder(self, path: str, local_dest_folder: PathOrStr):
-        """Downloads the content from the directory or file at the path to the local FS destination folder."""
+    def download_folder(self, directory_path: str, local_dest_folder: PathOrStr):
+        """Downloads the content from the directory path to the local FS destination folder."""
 
     @abstractmethod
     def upload(self, path: str, local_src: PathOrStr):
@@ -222,20 +222,24 @@ class LocalFileSystemAdapter(StorageAdapter):
 
         return path_obj.is_dir()
 
-    def download_to_folder(self, path: str, local_dest_folder: PathOrStr):
-        path_obj = Path(path)
-        if not path_obj.exists():
-            raise ValueError(f"No entry exists at path {path}")
+    def download_folder(self, directory_path: str, local_dest_folder: PathOrStr):
+        directory_path_obj = Path(directory_path)
+        if not directory_path_obj.exists():
+            raise ValueError(f"No entry exists at path {directory_path}")
 
-        if path_obj.is_dir():
-            shutil.copytree(path, str(local_dest_folder), dirs_exist_ok=True)
-        elif path_obj.is_file():
-            shutil.copy(path, str(local_dest_folder))
+        if directory_path_obj.is_dir():
+            shutil.copytree(directory_path, str(local_dest_folder), dirs_exist_ok=True)
         else:
-            raise RuntimeError(f"Unexpected type of path {path}")
+            raise RuntimeError(f"Unexpected type of path {directory_path}")
 
     def upload(self, path: str, local_src: PathOrStr):
-        self.download_to_folder(str(local_src), path)
+        local_src_obj = Path(local_src)
+        if local_src_obj.is_file():
+            shutil.copy(str(local_src_obj), path)
+        elif local_src_obj.is_dir():
+            self.download_folder(str(local_src), path)
+        else:
+            raise RuntimeError(f"Unexpected type of local src path {local_src}")
 
 
 class GoogleCloudStorageAdapter(StorageAdapter):
@@ -393,24 +397,21 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         return self._is_dir(bucket_name, key)
 
-    def download_to_folder(self, path: str, local_dest_folder: PathOrStr):
-        bucket_name, key = self._get_bucket_name_and_key(path)
+    def download_folder(self, directory_path: str, local_dest_folder: PathOrStr):
+        bucket_name, key = self._get_bucket_name_and_key(directory_path)
         bucket = self.gcs_client.bucket(bucket_name)
 
-        if self._is_file(bucket_name, key):
-            local_path = cached_path(path)
-            self.local_fs_adapter.download_to_folder(str(local_path), local_dest_folder)
-        elif self._is_dir(bucket_name, key):
+        if self._is_dir(bucket_name, key):
             blobs: List[gcs.Blob] = list(bucket.list_blobs(prefix=key))
 
-            for blob in track(blobs, description=f"Downloading files at {path}"):
+            for blob in track(blobs, description=f"Downloading files at {directory_path}"):
                 if not blob.name:
                     raise NotImplementedError()
                 blob_path: str = blob.name
                 blob_local_dest = blob_path.replace(key.rstrip("/"), str(local_dest_folder).rstrip("/"))
                 blob.download_to_filename(blob_local_dest)
         else:
-            raise ValueError(f"Path {path} is not a valid file or directory")
+            raise ValueError(f"Path {directory_path} is not a valid directory")
 
     def upload(self, path: str, local_src: PathOrStr):
         raise NotImplementedError()
@@ -599,22 +600,19 @@ class S3StorageAdapter(StorageAdapter):
 
         return self._is_dir(bucket_name, key)
 
-    def download_to_folder(self, path: str, local_dest_folder: PathOrStr):
-        bucket_name, key = self._get_bucket_name_and_key(path)
+    def download_folder(self, directory_path: str, local_dest_folder: PathOrStr):
+        bucket_name, key = self._get_bucket_name_and_key(directory_path)
 
-        if self._is_file(bucket_name, key):
-            local_path = cached_path(path)
-            self.local_fs_adapter.download_to_folder(str(local_path), local_dest_folder)
-        elif self._is_dir(bucket_name, key):
+        if self._is_dir(bucket_name, key):
             response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key)
             objects_metadata: List[Dict[str, Any]] = response["Contents"]
-            for object_metadata in track(objects_metadata, description=f"Downloading files at {path}"):
+            for object_metadata in track(objects_metadata, description=f"Downloading files at {directory_path}"):
                 object_key: str = object_metadata["Key"]
                 object_local_dest = object_key.replace(key.rstrip("/"), str(local_dest_folder).rstrip("/"))
 
                 self._s3_client.download_file(bucket_name, key, object_local_dest)
         else:
-            raise ValueError(f"Path {path} is not a valid file or directory")
+            raise ValueError(f"Path {directory_path} is not a valid directory")
 
     def upload(self, path: str, local_src: PathOrStr):
         if self.local_fs_adapter.is_file(str(local_src)):
@@ -829,7 +827,7 @@ def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, unsharding_c
     # Download checkpoint to a temp dir
     sharding_input_dir = local_storage.create_temp_dir()
     src_storage = _get_storage_adapter_for_path(sharded_checkpoint_dir)
-    src_storage.download_to_folder(sharded_checkpoint_dir, sharding_input_dir)
+    src_storage.download_folder(sharded_checkpoint_dir, sharding_input_dir)
 
     # Set unsharder output to a temp dir
     sharding_output_dir: str
