@@ -104,7 +104,7 @@ def peak_gpu_memory(reset: bool = False) -> Optional[float]:
 
     device = torch.device("cuda")
     peak_mb = torch.cuda.max_memory_allocated(device) / 1000000
-    if dist.is_available() and dist.is_initialized():
+    if is_distributed():
         peak_mb_tensor = torch.tensor(peak_mb, device=device)
         dist.reduce(peak_mb_tensor, 0, dist.ReduceOp.MAX)
         peak_mb = peak_mb_tensor.item()
