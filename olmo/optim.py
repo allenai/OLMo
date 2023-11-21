@@ -570,6 +570,13 @@ class BoltOnWarmupScheduler(Scheduler):
         return self.inner._get_max_grad_norm_coeff(initial_value, step, max_steps)
 
 
+@dataclass
+class FlatScheduler(Scheduler):
+    def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
+        del step, max_steps
+        return initial_lr
+
+
 PARAM_GROUP_FIELDS = ("sharded", "max_grad_norm", "max_grad_norm_ratio", "param_names")
 
 
@@ -738,6 +745,11 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             sched1=build_scheduler(cfg, replace(sched_cfg, name=SchedulerType.cosine_with_warmup)),
             sched2=build_scheduler(cfg, replace(sched_cfg, name=SchedulerType.inverse_sqrt_with_warmup)),
+        )
+    elif sched_cfg.name == SchedulerType.flat:
+        return FlatScheduler(
+            grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
+            grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
         )
     else:
         raise NotImplementedError
