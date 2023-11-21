@@ -32,7 +32,7 @@ def get_node_rank() -> int:
 
 
 def get_world_size() -> int:
-    if dist.is_available() and dist.is_initialized():
+    if is_distributed():
         return dist.get_world_size()
     else:
         return 1
