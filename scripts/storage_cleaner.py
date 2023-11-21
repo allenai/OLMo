@@ -95,7 +95,7 @@ class StorageAdapter(ABC):
         """Downloads the content from the directory path to the local FS destination folder."""
 
     @abstractmethod
-    def upload(self, path: str, local_src: PathOrStr):
+    def upload(self, local_src: PathOrStr, dest_path: str):
         """Uploads the content from the directory or file at the local FS source to the path."""
 
     @classmethod
@@ -232,12 +232,12 @@ class LocalFileSystemAdapter(StorageAdapter):
         else:
             raise RuntimeError(f"Unexpected type of path {directory_path}")
 
-    def upload(self, path: str, local_src: PathOrStr):
+    def upload(self, local_src: PathOrStr, dest_path: str):
         local_src_obj = Path(local_src)
         if local_src_obj.is_file():
-            shutil.copy(str(local_src_obj), path)
+            shutil.copy(str(local_src_obj), dest_path)
         elif local_src_obj.is_dir():
-            self.download_folder(str(local_src), path)
+            self.download_folder(str(local_src), dest_path)
         else:
             raise RuntimeError(f"Unexpected type of local src path {local_src}")
 
@@ -413,7 +413,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         else:
             raise ValueError(f"Path {directory_path} is not a valid directory")
 
-    def upload(self, path: str, local_src: PathOrStr):
+    def upload(self, local_src: PathOrStr, dest_path: str):
         raise NotImplementedError()
 
 
@@ -614,18 +614,18 @@ class S3StorageAdapter(StorageAdapter):
         else:
             raise ValueError(f"Path {directory_path} is not a valid directory")
 
-    def upload(self, path: str, local_src: PathOrStr):
+    def upload(self, local_src: PathOrStr, dest_path: str):
         if self.local_fs_adapter.is_file(str(local_src)):
-            bucket_name, key = self._get_bucket_name_and_key(path)
+            bucket_name, key = self._get_bucket_name_and_key(dest_path)
             self._s3_client.upload_file(str(local_src), bucket_name, key)
 
         elif self.local_fs_adapter.is_dir(str(local_src)):
             local_src = Path(local_src)
-            for local_filepath in local_src.rglob("*"):
-                dest_filepath = str(local_filepath).replace(str(local_src), path)
-                bucket_name, key = self._get_bucket_name_and_key(dest_filepath)
+            for file_local_path in local_src.rglob("*"):
+                file_dest_path = str(file_local_path).replace(str(local_src), dest_path)
+                bucket_name, key = self._get_bucket_name_and_key(file_dest_path)
 
-                self._s3_client.upload_file(str(local_filepath), bucket_name, key)
+                self._s3_client.upload_file(str(file_local_path), bucket_name, key)
 
         else:
             raise ValueError(f"Local source {local_src} does not correspond to a valid file or directory")
@@ -862,7 +862,7 @@ def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, unsharding_c
     )
 
     dest_storage = _get_storage_adapter_for_path(dest_dir)
-    dest_storage.upload(dest_dir, sharding_output_dir)
+    dest_storage.upload(sharding_output_dir, dest_dir)
 
 
 def _unshard_checkpoints(
