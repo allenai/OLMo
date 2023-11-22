@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from argparse import ArgumentParser, _SubParsersAction
 from dataclasses import dataclass
 from enum import Enum, auto
+from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urlparse
@@ -22,7 +23,7 @@ from cached_path.schemes import S3Client
 from google.api_core.exceptions import NotFound
 from omegaconf import DictConfig, ListConfig
 from omegaconf import OmegaConf as om
-from rich.progress import track
+from rich.progress import Progress, TaskID, track
 
 from olmo import util
 from olmo.aliases import PathOrStr
@@ -623,11 +624,20 @@ class S3StorageAdapter(StorageAdapter):
 
         elif self.local_fs_adapter.is_dir(str(local_src)):
             local_src = Path(local_src)
+
+            def upload_callback(progress: Progress, upload_task: TaskID, bytes_uploaded: int):
+                progress.update(upload_task, advance=bytes_uploaded)
+
             for file_local_path in local_src.rglob("*"):
                 file_dest_path = str(file_local_path).replace(str(local_src), dest_path)
                 bucket_name, key = self._get_bucket_name_and_key(file_dest_path)
 
-                self._s3_client.upload_file(str(file_local_path), bucket_name, key)
+                with Progress(transient=True) as progress:
+                    size_in_bytes = file_local_path.stat().st_size
+                    upload_task = progress.add_task(f"Uploading {key}", total=size_in_bytes)
+                    callback = partial(upload_callback, progress, upload_task)
+
+                    self._s3_client.upload_file(str(file_local_path), bucket_name, key, Callback=callback)
 
         else:
             raise ValueError(f"Local source {local_src} does not correspond to a valid file or directory")
