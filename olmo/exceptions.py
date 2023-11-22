@@ -23,3 +23,9 @@ class OlmoNetworkError(OlmoError):
     """
     An error with a network request.
     """
+
+
+class OlmoThreadError(Exception):
+    """
+    Raised when a thread fails.
+    """
