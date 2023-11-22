@@ -343,13 +343,18 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         return self._get_size(bucket_name, key)
 
-    def is_dir(self, path: str) -> bool:
-        path = f"{path}/" if not path.endswith("/") else path
-        bucket_name, key = self._get_bucket_name_and_key(path)
+    def _is_dir(self, bucket_name: str, key: str) -> bool:
+        key = f"{key}/" if not key.endswith("/") else key
+
         bucket = self.gcs_client.bucket(bucket_name)
         blobs = list(bucket.list_blobs(prefix=key, max_results=1))
 
         return not self._is_file(bucket_name, key) and len(blobs) > 0
+
+    def is_dir(self, path: str) -> bool:
+        bucket_name, key = self._get_bucket_name_and_key(path)
+
+        return self._is_dir(bucket_name, key)
 
 
 class S3StorageAdapter(StorageAdapter):
@@ -523,6 +528,7 @@ class S3StorageAdapter(StorageAdapter):
         return self._get_size(bucket_name, key)
 
     def _is_dir(self, bucket_name: str, key: str) -> bool:
+        key = f"{key}/" if not key.endswith("/") else key
         if self._is_file(bucket_name, key):
             return False
 
@@ -530,7 +536,6 @@ class S3StorageAdapter(StorageAdapter):
         return "Contents" in response
 
     def is_dir(self, path: str) -> bool:
-        path = f"{path}/" if not path.endswith("/") else path
         bucket_name, key = self._get_bucket_name_and_key(path)
 
         return self._is_dir(bucket_name, key)
