@@ -56,6 +56,8 @@ from .util import (
     resource_path,
     upload,
     wait_for,
+    get_local_world_size,
+    get_local_rank,
 )
 
 __all__ = [
