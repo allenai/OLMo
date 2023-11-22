@@ -121,7 +121,7 @@ class LayerNormBase(nn.Module):
         self.config = config
         self.eps = eps
         self.normalized_shape = (size or config.d_model,)
-        if elementwise_affine or self.config.layer_norm_with_affine:
+        if elementwise_affine or (elementwise_affine is None and self.config.layer_norm_with_affine):
             self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
             use_bias = self.config.bias_for_layer_norm
             if use_bias is None:
