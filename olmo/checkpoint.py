@@ -40,17 +40,19 @@ from torch.futures import Future
 from .aliases import PathOrStr
 from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
 from .optim import Optimizer, fix_optim_state_dict
-from .util import (
+from .torch_util import (
     barrier,
-    default_thread_count,
-    dir_is_empty,
-    get_bytes_range,
     get_fs_local_rank,
     get_global_rank,
     get_local_rank,
     get_local_world_size,
-    get_progress_bar,
     get_world_size,
+)
+from .util import (
+    default_thread_count,
+    dir_is_empty,
+    get_bytes_range,
+    get_progress_bar,
     resource_path,
     upload,
     wait_for,
