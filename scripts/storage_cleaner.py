@@ -143,7 +143,7 @@ class LocalFileSystemAdapter(StorageAdapter):
                 for entry in path.iterdir()
                 if (
                     (include_files or not entry.is_file())
-                    and (max_file_size is None or self._get_file_size(path) <= max_file_size)
+                    and (not entry.is_file() or max_file_size is None or self._get_file_size(entry) <= max_file_size)
                 )
             ]
 
