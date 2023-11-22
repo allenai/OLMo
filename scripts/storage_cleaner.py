@@ -28,6 +28,7 @@ from olmo.aliases import PathOrStr
 log = logging.getLogger(__name__)
 
 
+CONFIG_YAML: str = "config.yaml"
 DEFAULT_DELETE_MAX_ARCHIVE_SIZE: float = 5 * 1024 * 1024 * 1024  # 5GB
 UNSHARD_SCRIPT_PATH: str = "scripts/unshard.py"
 
@@ -646,6 +647,13 @@ class DeleteBadRunsConfig:
     max_archive_size: Optional[int]
 
 
+@dataclass
+class UnshardCheckpointsConfig:
+    dry_run: bool
+    unshard_script_path: Path
+    latest_checkpoint_only: bool
+
+
 def _get_storage_adapter_for_path(path: str) -> StorageAdapter:
     storage_type = StorageAdapter.get_storage_type_for_path(path)
     return StorageAdapter.create_storage_adapter(storage_type)
@@ -764,6 +772,10 @@ def delete_bad_runs(run_paths: List[str], config: DeleteBadRunsConfig):
         _delete_if_bad_run(storage, run_path, config)
 
 
+def unshard_run_checkpoints(run_path: str, checkpoints_dest_dir: str, config: UnshardCheckpointsConfig):
+    raise NotImplementedError()
+
+
 def perform_operation(args: argparse.Namespace):
     if args.dry_run:
         log.info("Dry run, no irreversible actions will be taken")
@@ -779,6 +791,16 @@ def perform_operation(args: argparse.Namespace):
             delete_bad_runs(args.run_paths, delete_bad_runs_config)
         else:
             raise ValueError("Run paths not provided for run cleaning")
+    elif args.op == CleaningOperations.UNSHARD_CHECKPOINTS:
+        unshard_checkpoints_config = UnshardCheckpointsConfig(
+            dry_run=args.dry_run,
+            unshard_script_path=args.script_path,
+            latest_checkpoint_only=args.latest_checkpoint_only,
+        )
+        if args.run_path is not None:
+            unshard_run_checkpoints(args.run_path, args.dest_dir, unshard_checkpoints_config)
+        else:
+            raise ValueError("Run path not provided for unsharding")
     else:
         raise NotImplementedError(args.op)
 
