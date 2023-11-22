@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=micthich65
+#SBATCH --job-name=mitchish65
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
 #SBATCH --nodes=64             # Total number of nodes
