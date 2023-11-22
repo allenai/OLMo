@@ -564,7 +564,7 @@ def _is_run(run_path: str, run_entries: Optional[List[str]] = None) -> bool:
     """
     if run_entries is None:
         storage = _get_storage_adapter_for_path(run_path)
-        run_entries = storage.list_entries(run_path)
+        run_entries = _get_run_entries(run_path, storage)
 
     return _contains_checkpoint_dir(run_entries)
 
