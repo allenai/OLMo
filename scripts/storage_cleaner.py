@@ -849,7 +849,8 @@ def _add_training_config_to_checkpoint(local_checkpoint_dir: str, run_dir_or_arc
     ]
 
     if len(run_config_yaml_paths) == 0:
-        raise RuntimeError(f"Cannot find training config to add to checkpoint {local_checkpoint_dir}")
+        log.warning("Cannot find training config to add to checkpoint %s", local_checkpoint_dir)
+        return
     assert len(run_config_yaml_paths) == 1, f"Found multiple {CONFIG_YAML} files in a directory"
 
     shutil.copy(run_config_yaml_paths[0], local_checkpoint_dir)
@@ -871,6 +872,9 @@ def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, run_dir_or_a
 
     # Update legacy config settings that may be incompatible with the unsharder
     config_yaml_path = Path(sharding_input_dir) / CONFIG_YAML
+    if not local_storage.is_file(str(config_yaml_path)):
+        log.warning("No %s found for checkpoint dir %s, skipping unsharding", CONFIG_YAML, sharded_checkpoint_dir)
+        return
     config_yaml = om.load(config_yaml_path)
     config_yaml = _update_legacy_settings(config_yaml)
     om.save(config=config_yaml, f=config_yaml_path)
