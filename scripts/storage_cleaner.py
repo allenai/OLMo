@@ -647,6 +647,7 @@ def _add_cached_path_r2_client(r2_account_id: str):
         R2. Refer to
         [cached_path docs](https://github.com/allenai/cached_path/blob/main/docs/source/overview.md#supported-url-schemes).
         """
+
         scheme = "r2"
 
         def __init__(self, resource: str) -> None:
@@ -661,11 +662,11 @@ def _add_cached_path_r2_client(r2_account_id: str):
                 s3_resource = session.resource(
                     "s3",
                     endpoint_url=endpoint_url,
-                    config=botocore.client.Config(signature_version=botocore.UNSIGNED)
+                    config=botocore.client.Config(signature_version=botocore.UNSIGNED),
                 )
             else:
                 s3_resource = session.resource("s3", endpoint_url=endpoint_url)
-            self.s3_object = s3_resource.Object(bucket_name, r2_path) # type: ignore
+            self.s3_object = s3_resource.Object(bucket_name, r2_path)  # type: ignore
 
     add_scheme_client(R2SchemeClient)
 
