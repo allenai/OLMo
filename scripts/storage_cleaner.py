@@ -124,6 +124,7 @@ class LocalFileSystemAdapter(StorageAdapter):
     def __init__(self) -> None:
         super().__init__()
         self._temp_files: List[tempfile._TemporaryFileWrapper[bytes]] = []
+        self._temp_dirs: List[tempfile.TemporaryDirectory] = []
         self._archive_extensions: List[str] = [
             extension.lower() for _, extensions, _ in shutil.get_unpack_formats() for extension in extensions
         ]
@@ -131,11 +132,18 @@ class LocalFileSystemAdapter(StorageAdapter):
     def __del__(self):
         for temp_file in self._temp_files:
             temp_file.close()
+        for temp_dir in self._temp_dirs:
+            temp_dir.cleanup()
 
     def create_temp_file(self, suffix: Optional[str] = None) -> str:
         temp_file = tempfile.NamedTemporaryFile(suffix=suffix)
         self._temp_files.append(temp_file)
         return temp_file.name
+
+    def create_temp_dir(self, suffix: Optional[str] = None) -> str:
+        temp_dir = tempfile.TemporaryDirectory(suffix=suffix)
+        self._temp_dirs.append(temp_dir)
+        return temp_dir.name
 
     def has_supported_archive_extension(self, path: PathOrStr) -> bool:
         filename = Path(path).name.lower()
