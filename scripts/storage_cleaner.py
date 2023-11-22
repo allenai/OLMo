@@ -28,11 +28,13 @@ from olmo.aliases import PathOrStr
 log = logging.getLogger(__name__)
 
 
-DEFAULT_MAX_ARCHIVE_SIZE: float = 5 * 1024 * 1024 * 1024  # 5GB
+DEFAULT_DELETE_MAX_ARCHIVE_SIZE: float = 5 * 1024 * 1024 * 1024  # 5GB
+UNSHARD_SCRIPT_PATH: str = "scripts/unshard.py"
 
 
 class CleaningOperations(Enum):
     DELETE_BAD_RUNS = auto()
+    UNSHARD_CHECKPOINTS = auto()
 
 
 class StorageType(Enum):
@@ -846,8 +848,32 @@ def _add_delete_subparser(subparsers: _SubParsersAction):
 
     delete_runs_parser.add_argument(
         "--max_archive_size",
-        default=DEFAULT_MAX_ARCHIVE_SIZE,
+        default=DEFAULT_DELETE_MAX_ARCHIVE_SIZE,
         help="Max size archive files to consider for deletion (in bytes). Any archive larger than this is ignored/not deleted.",
+    )
+
+
+def _add_unsharding_subparser(subparsers: _SubParsersAction):
+    unsharding_runs_parser: ArgumentParser = subparsers.add_parser("unshard", help="unshard checkpoints of a run")
+    unsharding_runs_parser.set_defaults(op=CleaningOperations.UNSHARD_CHECKPOINTS)
+
+    unsharding_runs_parser.add_argument(
+        "run_path",
+        help="Path to run directory or archive containing checkpoints to unshard.",
+    )
+    unsharding_runs_parser.add_argument(
+        "dest_dir",
+        help="Path to directory where the run's unsharded checkpoints should be output (only the unsharded checkpoints are stored).",
+    )
+    unsharding_runs_parser.add_argument(
+        "--latest_checkpoint_only",
+        action="store_true",
+        help="If set, only the latest checkpoint of each run (if sharded) is unsharded.",
+    )
+    unsharding_runs_parser.add_argument(
+        "--script_path",
+        default=UNSHARD_SCRIPT_PATH,
+        help=f"Path of the unsharder script. Set to `{UNSHARD_SCRIPT_PATH}` by default.",
     )
 
 
@@ -862,6 +888,7 @@ def get_parser() -> ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command", help="Cleaning commands", required=True)
     _add_delete_subparser(subparsers)
+    _add_unsharding_subparser(subparsers)
 
     return parser
 
