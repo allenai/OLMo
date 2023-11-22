@@ -35,16 +35,16 @@ from .eval import Evaluator
 from .exceptions import OlmoConfigurationError
 from .model import Olmo
 from .optim import Optimizer, Scheduler
-from .util import (
+from .torch_util import (
     barrier,
     get_fs_local_rank,
     get_global_rank,
     get_world_size,
     move_to_device,
     peak_gpu_memory,
-    syncronize_flag,
-    upload,
+    synchronize_flag,
 )
+from .util import upload
 
 __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
 
@@ -698,7 +698,7 @@ class Trainer:
                 except RequestException:
                     pass
 
-        run_canceled = syncronize_flag(should_cancel, self.device)
+        run_canceled = synchronize_flag(should_cancel, self.device)
         if run_canceled and cancel_reason is not None:
             log.warning(f"Run canceled due to {cancel_reason}")
         return run_canceled
