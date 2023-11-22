@@ -1,18 +1,18 @@
-run_name: mitchish50-001
+run_name: mitchish35-001
 seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-large
-  group: mitchish50
+  group: mitchish35
 
 model:
-  d_model: 6144
-  n_heads: 48
-  n_layers: 64
+  d_model: 7168
+  n_heads: 56
+  n_layers: 56
   # mlp_ratio: 6
-  mlp_hidden_size: 43008
+  mlp_hidden_size: 37888
   weight_tying: false
   alibi: false
   rope: true
