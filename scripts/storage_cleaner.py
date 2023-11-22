@@ -47,7 +47,7 @@ class StorageAdapter(ABC):
         Returns only top-level entries (i.e. not entries in subdirectories).
 
         `full_path`: If `full_path` is set to true, returned entries are valid full paths. These full paths
-        might not have `path` as their parent (for example, if `path` corresponds to an archive file).
+        might not have `path` as their parent and might not use the same type of storage as `path`.
         If `full_path` is set to false, returned entries are file/directory names.
 
         `max_file_size`: Sets a threshold (in bytes) for the largest size file to retain within entries.
