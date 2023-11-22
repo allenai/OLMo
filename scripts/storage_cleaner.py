@@ -592,31 +592,27 @@ def _format_dir_or_archive_path(storage: StorageAdapter, path: str) -> str:
     raise ValueError(f"Path does not correspond to a directory or file: {path}")
 
 
-def _get_archive_run_entry_paths(run_archive_path: str, storage: StorageAdapter) -> List[str]:
-    entry_paths = storage.list_entries(run_archive_path, full_path=True)
-
-    local_storage = LocalFileSystemAdapter()
-
+def _get_archive_run_entry_paths(run_archive_path: str, storage: StorageAdapter, full_path: bool = False, max_file_size: Optional[int] = None) -> List[str]:
     # The unarchived file could have a redundant top-level directory. If the top-level
     # directory has only a directory, we should return that directory's entries instead.
+    # We do not pass max_file_size to avoid accidentally skipping files.
+    entry_paths = storage.list_entries(run_archive_path, full_path=True)
     if len(entry_paths) == 1:
         entry_path = entry_paths[0]
         assert StorageAdapter.get_storage_type_for_path(entry_path) == StorageType.LOCAL_FS, "Entries of archived files are expected to be local"
+        local_storage = LocalFileSystemAdapter()
         if local_storage.is_dir(entry_path):
-            return local_storage.list_entries(entry_path)
+            return local_storage.list_entries(entry_path, full_path=full_path, max_file_size=max_file_size)
 
-    return entry_paths
+    return storage.list_entries(run_archive_path, full_path=full_path, max_file_size=max_file_size)
 
 
-def _get_run_entries(run_dir_or_archive: str, storage: StorageAdapter) -> List[str]:
+def _get_run_entries(run_dir_or_archive: str, storage: StorageAdapter, full_path: bool = False, max_file_size: Optional[int] = None) -> List[str]:
     local_storage = LocalFileSystemAdapter()
     if local_storage.has_supported_archive_extension(run_dir_or_archive):
-        return [
-            Path(entry_path).name
-            for entry_path in _get_archive_run_entry_paths(run_dir_or_archive, storage)
-        ]
+        return _get_archive_run_entry_paths(run_dir_or_archive, storage, full_path=full_path, max_file_size=max_file_size)
 
-    return storage.list_entries(run_dir_or_archive)
+    return storage.list_entries(run_dir_or_archive, full_path=full_path, max_file_size=max_file_size)
 
 
 def _should_delete_run(storage: StorageAdapter, run_dir_or_archive: str, config: DeleteBadRunsConfig) -> bool:
