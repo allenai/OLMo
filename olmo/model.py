@@ -1570,8 +1570,8 @@ class Olmo(nn.Module):
         names to new key names in cases where the keys were simply renamed. That mapping can be used
         to make a corresponding optimizer state dict compatible as well.
         """
-        from fnmatch import fnmatch        
         import re
+        from fnmatch import fnmatch
 
         new_keys_to_og_keys: Dict[str, str] = {}
 
