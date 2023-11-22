@@ -44,7 +44,8 @@ from .config import (
 )
 from .exceptions import OlmoConfigurationError
 from .initialization import ModuleType, init_weights
-from .util import ensure_finite_, pass_through_fn
+from .torch_util import ensure_finite_
+from .util import pass_through_fn
 
 __all__ = [
     "LayerNormBase",

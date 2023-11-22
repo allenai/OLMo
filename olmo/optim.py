@@ -12,7 +12,7 @@ from torch.optim.optimizer import Optimizer as OptimizerBase
 
 from . import LayerNormBase
 from .config import OptimizerType, SchedulerConfig, SchedulerType, TrainConfig
-from .util import get_default_device, is_distributed
+from .torch_util import get_default_device, is_distributed
 
 __all__ = [
     "Optimizer",
