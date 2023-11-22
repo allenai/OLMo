@@ -1412,7 +1412,7 @@ class Olmo(nn.Module):
             `(batch_size, 1, seq_len + tokens_to_generate, seq_len + tokens_to_generate)`,
             the same as for the forward method except only one shape is excepted here.
 
-        For an explanation of the other arguments, see the :class:`BeamSearch`.
+        For an explanation of the other arguments, see :class:`BeamSearch`.
         """
         beam_search = BeamSearch(
             self.config.eos_token_id,
