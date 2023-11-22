@@ -817,13 +817,43 @@ def _update_legacy_settings(config: Union[DictConfig, ListConfig]) -> Union[Dict
     return new_config
 
 
-def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, unsharding_config: UnshardCheckpointsConfig):
+def _add_training_config_to_checkpoint(local_checkpoint_dir: str, run_dir_or_archive: str):
+    max_train_config_size = 1_000_000
+
+    if not StorageAdapter.get_storage_type_for_path(local_checkpoint_dir) == StorageType.LOCAL_FS:
+        raise ValueError(f"Checkpoint dir is not local: {local_checkpoint_dir}")
+
+    checkpoint_storage = _get_storage_adapter_for_path(local_checkpoint_dir)
+    if CONFIG_YAML in checkpoint_storage.list_entries(local_checkpoint_dir, max_file_size=max_train_config_size):
+        # Config already exists in the checkpoint
+        return
+
+    log.info("%s not found in %s, attempting to get it from %s", CONFIG_YAML, local_checkpoint_dir, run_dir_or_archive)
+
+    run_storage = _get_storage_adapter_for_path(local_checkpoint_dir)
+    _get_run_entries(run_dir_or_archive, run_storage, full_path=True)
+    run_config_yaml_paths = [
+        run_entry
+        for run_entry in _get_run_entries(run_dir_or_archive, run_storage, full_path=True)
+        if Path(run_entry).name.lower() == CONFIG_YAML
+    ]
+
+    if len(run_config_yaml_paths) == 0:
+        raise RuntimeError(f"Cannot find training config to add to checkpoint {local_checkpoint_dir}")
+    assert len(run_config_yaml_paths) == 1, f"Found multiple {CONFIG_YAML} files in a directory"
+
+    shutil.copy(run_config_yaml_paths[0], local_checkpoint_dir)
+
+
+def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, run_dir_or_archive: str, unsharding_config: UnshardCheckpointsConfig):
     local_storage = LocalFileSystemAdapter()
 
     # Download checkpoint to a temp dir
     sharding_input_dir = local_storage.create_temp_dir()
     src_storage = _get_storage_adapter_for_path(sharded_checkpoint_dir)
     src_storage.download_folder(sharded_checkpoint_dir, sharding_input_dir)
+
+    _add_training_config_to_checkpoint(sharding_input_dir, run_dir_or_archive)
 
     # Set unsharder output to a temp dir
     sharding_output_dir: str
@@ -901,7 +931,7 @@ def _unshard_checkpoints(
             log.info("Would unshard sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
         else:
             log.info("Unsharding sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
-            _unshard_checkpoint(sharded_checkpoint_directory, dest_directory, config)
+            _unshard_checkpoint(sharded_checkpoint_directory, dest_directory, run_dir_or_archive, config)
 
 
 def unshard_run_checkpoints(run_path: str, checkpoints_dest_dir: str, config: UnshardCheckpointsConfig):
