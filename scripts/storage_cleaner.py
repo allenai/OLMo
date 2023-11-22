@@ -685,6 +685,11 @@ def _add_cached_path_r2_client(r2_account_id: str):
     endpoint_url = f"https://{r2_account_id}.r2.cloudflarestorage.com"
 
     class R2SchemeClient(S3Client):
+        """
+        A class that the `cached_path` module can use to retrieve resources from
+        R2. Refer to
+        [cached_path docs](https://github.com/allenai/cached_path/blob/main/docs/source/overview.md#supported-url-schemes).
+        """
         scheme = "r2"
 
         def __init__(self, resource: str) -> None:
