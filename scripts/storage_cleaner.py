@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, _SubParsersAction
@@ -772,8 +773,125 @@ def delete_bad_runs(run_paths: List[str], config: DeleteBadRunsConfig):
         _delete_if_bad_run(storage, run_path, config)
 
 
+def _is_sharded_checkpoint_dir(directory: str) -> bool:
+    storage = _get_storage_adapter_for_path(directory)
+    return storage.is_dir(directory) and re.match(r"step\d+$", Path(directory).name) is not None
+
+
+def _get_checkpoint_number(checkpoint_dir: str) -> int:
+    checkpoint_dir_name = Path(checkpoint_dir).name
+    checkpoint_dir_name = checkpoint_dir_name.removesuffix("-unsharded")
+    match = re.match(r"step(\d+)$", checkpoint_dir_name)
+    if match is None:
+        raise ValueError(f"Failed to find checkpoint number for dir {checkpoint_dir}")
+
+    return int(match.group(1))
+
+
+def _get_sharded_checkpoint_dirs(
+    storage: StorageAdapter, run_dir_or_archive: str, latest_checkpoint_only: bool
+) -> List[str]:
+    run_subdirectories = _get_run_entries(run_dir_or_archive, storage, full_path=True)
+    sharded_checkpoint_directories = list(
+        filter(_is_sharded_checkpoint_dir, run_subdirectories)
+    )
+
+    if latest_checkpoint_only:
+        latest_checkpoint_directory = max(sharded_checkpoint_directories, default=None, key=_get_checkpoint_number)
+        sharded_checkpoint_directories = (
+            [latest_checkpoint_directory] if latest_checkpoint_directory is not None else []
+        )
+
+    log.info("Found %d sharded checkpoint directories for %s", len(sharded_checkpoint_directories), run_dir_or_archive)
+
+    return sharded_checkpoint_directories
+
+
+def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, run_dir_or_archive: str, unsharding_config: UnshardCheckpointsConfig):
+    local_storage = LocalFileSystemAdapter()
+
+    # Download checkpoint to a temp dir
+    sharding_input_dir = local_storage.create_temp_dir()
+    src_storage = _get_storage_adapter_for_path(sharded_checkpoint_dir)
+    src_storage.download_folder(sharded_checkpoint_dir, sharding_input_dir)
+
+    # Set unsharder output to a temp dir
+    sharding_output_dir: str
+    sharding_output_dir = local_storage.create_temp_dir()
+
+    result = subprocess.run(
+        ["python", str(unsharding_config.unshard_script_path), sharding_input_dir, sharding_output_dir],
+        check=False,
+    )
+    if result.returncode != 0:
+        log.error(
+            "Unsharding from %s to %s failed with error code %d",
+            sharding_input_dir,
+            sharding_output_dir,
+            result.returncode,
+        )
+
+        local_storage.delete_path(sharding_output_dir)
+        return
+
+    log.info(
+        "Successfully unsharded from %s to %s, starting upload to %s",
+        sharding_input_dir,
+        sharding_output_dir,
+        dest_dir,
+    )
+
+    dest_storage = _get_storage_adapter_for_path(dest_dir)
+    dest_storage.upload(sharding_output_dir, dest_dir)
+
+
+def _unshard_checkpoints(
+    run_storage: StorageAdapter,
+    run_dir_or_archive: str,
+    checkpoints_dest_dir: str,
+    config: UnshardCheckpointsConfig,
+):
+    log.info("Starting unsharding checkpoints of run directory or archive %s", run_dir_or_archive)
+
+    sharded_checkpoint_directories = _get_sharded_checkpoint_dirs(
+        run_storage, run_dir_or_archive, config.latest_checkpoint_only
+    )
+    for sharded_checkpoint_directory in sharded_checkpoint_directories:
+        sharded_checkpoint_dir_name = Path(sharded_checkpoint_directory).name
+
+        if run_storage.is_dir(run_dir_or_archive):
+            unsharded_checkpoint_directory_in_source = os.path.join(
+                run_dir_or_archive, f"{sharded_checkpoint_dir_name}-unsharded"
+            )
+            if run_storage.is_dir(unsharded_checkpoint_directory_in_source):
+                log.info(
+                    "Unsharded directory already exists for %s at source %s, skipping",
+                    sharded_checkpoint_dir_name,
+                    unsharded_checkpoint_directory_in_source,
+                )
+                continue
+
+        dest_directory = os.path.join(checkpoints_dest_dir, f"{sharded_checkpoint_dir_name}-unsharded")
+        dest_storage = _get_storage_adapter_for_path(dest_directory)
+        if dest_storage.is_dir(dest_directory):
+            log.info(
+                "Unsharded directory already exists for %s at destination %s, skipping",
+                sharded_checkpoint_dir_name,
+                dest_directory,
+            )
+            continue
+
+        if config.dry_run:
+            log.info("Would unshard sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
+        else:
+            log.info("Unsharding sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
+            _unshard_checkpoint(sharded_checkpoint_directory, dest_directory, run_dir_or_archive, config)
+
+
 def unshard_run_checkpoints(run_path: str, checkpoints_dest_dir: str, config: UnshardCheckpointsConfig):
-    raise NotImplementedError()
+    storage = _get_storage_adapter_for_path(run_path)
+    run_dir_or_archive = _format_dir_or_archive_path(storage, run_path)
+    _unshard_checkpoints(storage, run_dir_or_archive, checkpoints_dest_dir, config)
 
 
 def perform_operation(args: argparse.Namespace):
