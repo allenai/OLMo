@@ -954,7 +954,9 @@ class DeepSpeedTrainer(Trainer):
 
     def fit(self):
         for batch in self.train_loader:
+            batch = move_to_device(batch, self.device)
             print("Batch", batch)
+
             loss = self.fsdp_model(
                 input_ids=batch["input_ids"],
                 attention_mask=batch.get("attention_mask"),
