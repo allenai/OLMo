@@ -920,13 +920,14 @@ class DeepSpeedTrainer(Trainer):
             model=self.fsdp_model,
             config={
                 "optimizer": {
-                    "type": "AdamW",
+                    "type": "Adam",
                     "params": {
                         "lr": self.cfg.optimizer.learning_rate,
                         "weight_decay": self.cfg.optimizer.weight_decay,
                         "betas": self.cfg.optimizer.betas,
                         "eps": 1e-5,
                     },
+                    "torch_adam": True,
                 },
                 "train_batch_size": self.cfg.global_train_batch_size,
                 "train_micro_batch_size_per_gpu": self.cfg.device_train_microbatch_size,
