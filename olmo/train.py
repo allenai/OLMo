@@ -954,6 +954,7 @@ class DeepSpeedTrainer(Trainer):
 
     def fit(self):
         for batch in self.train_loader:
+            print("Batch", batch)
             loss = self.fsdp_model(batch)
             print(loss)
             self.fsdp_model.backward(loss)
