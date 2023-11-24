@@ -938,8 +938,7 @@ class DeepSpeedTrainer(Trainer):
                     "overlap_comm": True,
                 },
                 "scheduler": {
-                    # Closest one to cosine with warmup
-                    "type": "WarmupDecayLR",
+                    "type": "WarmupLR",
                     "params": {
                         "warmup_min_lr": 0.0,
                         "warmup_max_lr": self.cfg.optimizer.learning_rate,
