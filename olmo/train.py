@@ -910,3 +910,43 @@ class Trainer:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         del exc_val, exc_tb
         self.close(0 if exc_type is None else 1)
+
+
+class DeepSpeedTrainer(Trainer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        import deepspeed
+        self.fsdp_model, self.optim, _, _ = deepspeed.initialize(
+            model=self.fsdp_model,
+            optimizer=self.optim,
+            config={
+                "train_batch_size": self.cfg.global_train_batch_size,
+                "train_micro_batch_size_per_gpu": self.cfg.device_train_microbatch_size,
+                "zero_optimization": {
+                    "stage": 2,
+                    "cpu_offload": False,
+                    "contiguous_gradients": True,
+                    "overlap_comm": True,
+                },
+                "scheduler": {
+                    # Closest one to cosine with warmup
+                    "type": "WarmupDecayLR",
+                    "params": {
+                        "warmup_min_lr": 0.0,
+                        "warmup_max_lr": self.cfg.optimizer.learning_rate,
+                        "warmup_num_steps": self.cfg.scheduler.t_warmup,
+                    },
+                },
+                "bf16": {
+                    "enabled": self.cfg.precision == "amp_bf16",
+                },
+                "gradient_clipping": self.cfg.max_grad_norm,
+            },
+        )
+
+    def fit(self):
+        for batch in self.train_loader:
+            loss = self.fsdp_model(batch)
+            print(loss)
+            self.fsdp_model.backward(loss)
+            self.fsdp_model.step()

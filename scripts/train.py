@@ -32,6 +32,8 @@ from olmo.util import clean_opt, log_extra_field, prepare_cli_environment
 
 log = logging.getLogger("train")
 
+DEEPSPEED = True
+
 
 def main(cfg: TrainConfig) -> None:
     # Ensure run name set.
@@ -47,7 +49,11 @@ def main(cfg: TrainConfig) -> None:
         )
 
     # Initialize process group and set device.
-    dist.init_process_group(backend="nccl")
+    if DEEPSPEED:
+        import deepspeed
+        deepspeed.init_distributed()
+    else:
+        dist.init_process_group(backend="nccl")
     barrier()
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
     device = torch.device("cuda")
@@ -131,16 +137,25 @@ def main(cfg: TrainConfig) -> None:
         param_init_fn = dummy_init_fn
     else:
         param_init_fn = None
-    fsdp_model = FSDP(
-        olmo_model,
-        sharding_strategy=cfg.fsdp.sharding_strategy,
-        mixed_precision=cfg.fsdp_precision,
-        auto_wrap_policy=wrap_policy,
-        use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
-        limit_all_gathers=True,
-        device_id=get_local_rank(),
-        param_init_fn=param_init_fn,
-    )
+    if True:
+        fsdp_model = olmo_model
+        #import deepspeed
+        #fsdp_model, optimizers, _, _ = deepspeed.initialize(
+        #    config=self.state.deepspeed_config,
+        #    model=olmo_model,
+        #    optimizer=optimizer
+        #)
+    else:
+        fsdp_model = FSDP(
+            olmo_model,
+            sharding_strategy=cfg.fsdp.sharding_strategy,
+            mixed_precision=cfg.fsdp_precision,
+            auto_wrap_policy=wrap_policy,
+            use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
+            limit_all_gathers=True,
+            device_id=get_local_rank(),
+            param_init_fn=param_init_fn,
+        )
     # when param_init_fn is None, FSDP will call reset_parameters() automatically
     if param_init_fn is not None:
         olmo_model.reset_parameters()
