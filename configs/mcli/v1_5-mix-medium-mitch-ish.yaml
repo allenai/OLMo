@@ -31,4 +31,5 @@ command: |-
     --wandb.name=v1_5-mix-mitch-ish-mcli \
     --global_train_batch_size=2160 \
     --time_limit=169200 \
-    --load_path='${path.last_checkpoint:s3://ai2-llm/checkpoints/7b/v1_5-mix-mitch-ish}'
+    --load_path='${path.last_checkpoint:s3://ai2-llm/checkpoints/7b/v1_5-mix-mitch-ish}' \
+    --epoch=1
