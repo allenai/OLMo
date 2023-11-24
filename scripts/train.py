@@ -27,12 +27,18 @@ from olmo.torch_util import (
     peak_gpu_memory,
     seed_all,
 )
-from olmo.train import Trainer
+
+DEEPSPEED = True
+
+if DEEPSPEED:
+    from olmo.train import DeepSpeedTrainer as Trainer
+else:
+    from olmo.train import Trainer
 from olmo.util import clean_opt, log_extra_field, prepare_cli_environment
 
 log = logging.getLogger("train")
 
-DEEPSPEED = True
+
 
 
 def main(cfg: TrainConfig) -> None:
@@ -137,7 +143,7 @@ def main(cfg: TrainConfig) -> None:
         param_init_fn = dummy_init_fn
     else:
         param_init_fn = None
-    if True:
+    if DEEPSPEED:
         fsdp_model = olmo_model
         #import deepspeed
         #fsdp_model, optimizers, _, _ = deepspeed.initialize(
