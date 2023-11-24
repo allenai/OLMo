@@ -926,8 +926,8 @@ class DeepSpeedTrainer(Trainer):
                         "weight_decay": self.cfg.optimizer.weight_decay,
                         "betas": self.cfg.optimizer.betas,
                         "eps": 1e-5,
+                        "torch_adam": True, # Fusing does not work
                     },
-                    "torch_adam": True, # Fusing does not work
                 },
                 "train_batch_size": self.cfg.global_train_batch_size,
                 "train_micro_batch_size_per_gpu": self.cfg.device_train_microbatch_size,
