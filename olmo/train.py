@@ -955,7 +955,11 @@ class DeepSpeedTrainer(Trainer):
     def fit(self):
         for batch in self.train_loader:
             print("Batch", batch)
-            loss = self.fsdp_model(batch)
+            loss = self.fsdp_model(
+                input_ids=batch["input_ids"],
+                attention_mask=batch.get("attention_mask"),
+                attention_bias=batch.get("attention_bias"),
+            )
             print(loss)
             self.fsdp_model.backward(loss)
             self.fsdp_model.step()
