@@ -92,7 +92,7 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
     return DataLoader(
         IterableDataset(
             dataset,  # type: ignore
-            seed=train_config.seed,
+            seed=train_config.seed + train_config.epoch,
             shuffle=True,
             drop_last=train_config.data.drop_last,
             max_examples=train_config.global_train_batch_size * train_config.max_duration,
