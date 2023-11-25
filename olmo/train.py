@@ -932,7 +932,7 @@ class DeepSpeedTrainer(Trainer):
                 "train_batch_size": self.cfg.global_train_batch_size,
                 "train_micro_batch_size_per_gpu": self.cfg.device_train_microbatch_size,
                 "zero_optimization": {
-                    "stage": 2,
+                    "stage": 3,
                     "cpu_offload": False,
                     "contiguous_gradients": True,
                     "overlap_comm": True,
