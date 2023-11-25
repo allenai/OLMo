@@ -962,6 +962,6 @@ class DeepSpeedTrainer(Trainer):
                 attention_mask=batch.get("attention_mask"),
                 attention_bias=batch.get("attention_bias"),
             )
-            print(loss)
+            print("Loss", loss)
             self.fsdp_model.backward(loss)
             self.fsdp_model.step()
