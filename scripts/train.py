@@ -28,12 +28,6 @@ from olmo.torch_util import (
     seed_all,
 )
 
-DEEPSPEED = True
-
-if DEEPSPEED:
-    from olmo.train import DeepSpeedTrainer as Trainer
-else:
-    from olmo.train import Trainer
 from olmo.util import clean_opt, log_extra_field, prepare_cli_environment
 
 log = logging.getLogger("train")
@@ -55,11 +49,14 @@ def main(cfg: TrainConfig) -> None:
         )
 
     # Initialize process group and set device.
-    if DEEPSPEED:
+    if cfg.deepspeed:
+        from olmo.train import DeepSpeedTrainer as Trainer
         import deepspeed
         deepspeed.init_distributed()
     else:
+        from olmo.train import Trainer
         dist.init_process_group(backend="nccl")
+
     barrier()
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
     device = torch.device("cuda")

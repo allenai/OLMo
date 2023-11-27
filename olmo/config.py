@@ -663,6 +663,11 @@ class TrainConfig(BaseConfig):
     If ``True``, don't actually train.
     """
 
+    deepspeed: bool = False
+    """
+    If ``True``, use DeepSpeed to train.
+    """    
+
     model: ModelConfig = field(default_factory=ModelConfig)
     """
     OLMo Model configuration.
