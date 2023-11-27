@@ -949,6 +949,7 @@ class DeepSpeedTrainer(Trainer):
                     "enabled": self.cfg.precision == "amp_bf16",
                 },
                 "gradient_clipping": self.cfg.max_grad_norm,
+                # "activation_checkpointing": { # TODO
             },
         )
 
@@ -956,12 +957,28 @@ class DeepSpeedTrainer(Trainer):
         for batch in self.train_loader:
             batch = move_to_device(batch, self.device)
             print("Batch", batch)
-
+            
+            loss = self.model_forward(batch)
+            """
             loss = self.fsdp_model(
                 input_ids=batch["input_ids"],
                 attention_mask=batch.get("attention_mask"),
                 attention_bias=batch.get("attention_bias"),
-            )
+            ).logits
+            logits_for_loss = logits[..., :-1, :].contiguous()
+            # shape: (batch_size * seq_len, vocab_size)
+            logits_for_loss = logits_for_loss.view(-1, logits_for_loss.size(-1))
+            # shape: (batch_size, seq_len)
+            labels = self.get_labels(batch)
+            # shape: (batch_size * seq_len,)
+            labels = labels.view(-1)
+            ce_loss = F.cross_entropy(logits_for_loss, labels, ignore_index=-100, reduction=loss_reduction)
+            if loss_reduction == "none":
+                # Reshape (batch_size * seq_len,) -> (batch_size, seq_len)
+                ce_loss = ce_loss.view(batch["input_ids"].shape[0], -1)
+
+            """
             print("Loss", loss)
+
             self.fsdp_model.backward(loss)
             self.fsdp_model.step()
