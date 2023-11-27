@@ -3,7 +3,7 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "olmo"
+name = "ai2-olmo"
 dynamic = ["version", "dependencies", "optional-dependencies"]
 readme = "README.md"
 description = "Open Language Model (OLMo)"
@@ -40,10 +40,10 @@ exclude = [
     "docs*",
     "scripts*",
     "olmo_tokenizer.*",
-    "evaluation.*",
+    "evaluation*",
     "pretrain_data.*",
     "tmp_*",
-    "inference.*",
+    "inference*",
 ]
 
 [tool.black]
