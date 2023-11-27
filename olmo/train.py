@@ -926,7 +926,7 @@ class DeepSpeedTrainer(Trainer):
         super().__init__(*args, **kwargs, is_deepspeed=True)
         import deepspeed
         if self.cfg.optimizer.name in {"lion", "lionw"}:
-            optimizer_name = "lion"
+            optimizer_name = "lion" # Requires latest deepspeed
         else:
             optimizer_name = self.cfg.optimizer.name
         self.fsdp_model, self.optim, _, _ = deepspeed.initialize(
@@ -938,8 +938,8 @@ class DeepSpeedTrainer(Trainer):
                         "lr": self.cfg.optimizer.learning_rate,
                         "weight_decay": self.cfg.optimizer.weight_decay,
                         "betas": self.cfg.optimizer.betas,
-                        #"eps": 1e-5,
-                        #"torch_adam": True, # Fusing does not work due to some Permission error on LUMI
+                        "eps": 1e-5,
+                        "torch_adam": True, # Fusing does not work due to some Permission error on LUMI
                     },
                 },
                 "train_batch_size": self.cfg.global_train_batch_size,
