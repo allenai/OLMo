@@ -115,6 +115,7 @@ class Trainer:
     cur_train_loss: float = float("inf")
     indices_file: Optional[TextIO] = None
     _start_time: float = 0.0
+    is_deepspeed: bool = False
 
     def trainer_state_dict(self) -> Dict[str, Any]:
         return {
@@ -452,7 +453,10 @@ class Trainer:
                 del logits
 
             # Run backward pass.
-            loss.backward()
+            if self.is_deepspeed:
+                self.fsdp_model.backward(loss)
+            else:
+                loss.backward()
 
         return ce_batch_loss, z_batch_loss
 
@@ -503,7 +507,10 @@ class Trainer:
             )
 
         # Optimizer step.
-        self.optim.step()
+        if self.is_deepspeed:
+            self.fsdp_model.step()     
+        else:
+            self.optim.step()
 
         # Collect metrics and check for NaN loss.
         # NOTE: this involves a bunch of host-device syncs so we wait until the last moment to do this.
@@ -914,7 +921,7 @@ class Trainer:
 
 class DeepSpeedTrainer(Trainer):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs, is_deepspeed=True)
         import deepspeed
         self.fsdp_model, self.optim, _, _ = deepspeed.initialize(
             model=self.fsdp_model,
@@ -952,6 +959,45 @@ class DeepSpeedTrainer(Trainer):
                 # "activation_checkpointing": { # TODO
             },
         )
+    '''
+    def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+        # Split into micro-batches.
+        micro_batches = self.split_batch(batch)
+
+        # In case this helps with memory utilization.
+        del batch
+
+        ce_batch_loss = torch.tensor(0.0, device=self.device)
+        z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
+        for micro_batch in micro_batches:
+            with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
+                # Run forward pass.
+                ce_loss, logits = self.model_forward(micro_batch)
+                ce_loss = ce_loss / len(micro_batches)
+
+                # In case this helps with memory utilization.
+                del micro_batch
+
+                # Update overall CE batch loss.
+                ce_batch_loss += ce_loss.detach()
+
+                # Get loss to optimize for.
+                if self.cfg.softmax_auxiliary_loss:
+                    z_squared = logits.logsumexp(-1).pow(2).mean()
+                    z_loss = 1e-4 * z_squared / len(micro_batches)
+                    loss = ce_loss + z_loss
+
+                    # Update overall Z batch loss.
+                    z_batch_loss += z_loss.detach()
+                else:
+                    loss = ce_loss
+
+                del logits
+
+            # Run backward pass.
+            self.fsdp_model.backward(loss)
+
+        return ce_batch_loss, z_batch_loss
 
     def fit(self):
         for batch in self.train_loader:
@@ -983,3 +1029,4 @@ class DeepSpeedTrainer(Trainer):
 
             self.fsdp_model.backward(loss)
             self.fsdp_model.step()
+    '''
