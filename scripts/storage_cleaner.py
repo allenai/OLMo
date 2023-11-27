@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 import boto3.session
@@ -21,13 +21,10 @@ import google.cloud.storage as gcs
 from cached_path import add_scheme_client, cached_path
 from cached_path.schemes import S3Client
 from google.api_core.exceptions import NotFound
-from omegaconf import DictConfig, ListConfig
-from omegaconf import OmegaConf as om
 from rich.progress import Progress, TaskID, track
 
 from olmo import util
 from olmo.aliases import PathOrStr
-from olmo.config import ActivationCheckpointingStrategy
 
 log = logging.getLogger(__name__)
 
@@ -810,23 +807,6 @@ def _get_sharded_checkpoint_dirs(
     return sharded_checkpoint_directories
 
 
-def _update_legacy_settings(config: Union[DictConfig, ListConfig]) -> Union[DictConfig, ListConfig]:
-    new_config = om.create()
-    new_config = om.merge(new_config, config)
-
-    if new_config.optimizer.name == "decoupled_lionw":
-        new_config.optimizer.name = "lionw"
-        if hasattr(new_config.optimizer, "eps"):
-            del new_config.optimizer.eps
-
-    if new_config.activation_checkpointing is False:
-        new_config.activation_checkpointing = None
-    if new_config.activation_checkpointing is True:
-        new_config.activation_checkpointing = ActivationCheckpointingStrategy.whole_layer
-
-    return new_config
-
-
 def _add_training_config_to_checkpoint(local_checkpoint_dir: str, run_dir_or_archive: str):
     max_train_config_size = 1_000_000
 
@@ -869,15 +849,6 @@ def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, run_dir_or_a
     # Set unsharder output to a temp dir
     sharding_output_dir: str
     sharding_output_dir = local_storage.create_temp_dir()
-
-    # Update legacy config settings that may be incompatible with the unsharder
-    config_yaml_path = Path(sharding_input_dir) / CONFIG_YAML
-    if not local_storage.is_file(str(config_yaml_path)):
-        log.warning("No %s found for checkpoint dir %s, skipping unsharding", CONFIG_YAML, sharded_checkpoint_dir)
-        return
-    config_yaml = om.load(config_yaml_path)
-    config_yaml = _update_legacy_settings(config_yaml)
-    om.save(config=config_yaml, f=config_yaml_path)
 
     result = subprocess.run(
         ["python", str(unsharding_config.unshard_script_path), sharding_input_dir, sharding_output_dir],
