@@ -955,9 +955,10 @@ class DeepSpeedTrainer(Trainer):
                 "scheduler": {
                     "type": "WarmupLR",
                     "params": {
-                        "warmup_min_lr": 0.0,
+                        "warmup_min_lr": self.cfg.optimizer.learning_rate * 0.1,
                         "warmup_max_lr": self.cfg.optimizer.learning_rate,
                         "warmup_num_steps": self.cfg.scheduler.t_warmup,
+                        "warmup_type": "linear",
                     },
                 },
                 "bf16": {
