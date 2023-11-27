@@ -803,7 +803,9 @@ class TrainConfig(BaseConfig):
 
     max_duration: Union[int, str] = 10000
     """
-    How long to train for. If specified as an integer (the default), the units are assumped to be steps.
+    How long to train for.
+
+    If specified without a unit (the default), the units are assumed to be steps.
     You can also specify this in terms of tokens, for example: `max_duration="2e12T"` means train until
     2 trillion tokens.
     """

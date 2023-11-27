@@ -894,9 +894,6 @@ class Trainer:
 
                 if canceled:
                     break
-                elif self.global_step >= self.max_steps:
-                    log.info("Training loop complete")
-                    break
 
                 # Python Profiler stuff
                 # We do this now, at the bottom of this loop, so we capture the work of getting the next batch.
