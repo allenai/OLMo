@@ -338,6 +338,7 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
         return entries
 
+
     def _list_entries(
         self, path: str, full_path: bool, include_files: bool = True, max_file_size: Optional[int] = None
     ) -> List[str]:
@@ -702,18 +703,14 @@ def _format_dir_or_archive_path(storage: StorageAdapter, path: str) -> str:
     raise ValueError(f"Path does not correspond to a directory or file: {path}")
 
 
-def _get_archive_run_entry_paths(
-    run_archive_path: str, storage: StorageAdapter, full_path: bool = False, max_file_size: Optional[int] = None
-) -> List[str]:
+def _get_archive_run_entry_paths(run_archive_path: str, storage: StorageAdapter, full_path: bool = False, max_file_size: Optional[int] = None) -> List[str]:
     # The unarchived file could have a redundant top-level directory. If the top-level
     # directory has only a directory, we should return that directory's entries instead.
     # We do not pass max_file_size to avoid accidentally skipping files.
     entry_paths = storage.list_entries(run_archive_path, full_path=True)
     if len(entry_paths) == 1:
         entry_path = entry_paths[0]
-        assert (
-            StorageAdapter.get_storage_type_for_path(entry_path) == StorageType.LOCAL_FS
-        ), "Entries of archived files are expected to be local"
+        assert StorageAdapter.get_storage_type_for_path(entry_path) == StorageType.LOCAL_FS, "Entries of archived files are expected to be local"
         local_storage = LocalFileSystemAdapter()
         if local_storage.is_dir(entry_path):
             return local_storage.list_entries(entry_path, full_path=full_path, max_file_size=max_file_size)
@@ -721,14 +718,10 @@ def _get_archive_run_entry_paths(
     return storage.list_entries(run_archive_path, full_path=full_path, max_file_size=max_file_size)
 
 
-def _get_run_entries(
-    run_dir_or_archive: str, storage: StorageAdapter, full_path: bool = False, max_file_size: Optional[int] = None
-) -> List[str]:
+def _get_run_entries(run_dir_or_archive: str, storage: StorageAdapter, full_path: bool = False, max_file_size: Optional[int] = None) -> List[str]:
     local_storage = LocalFileSystemAdapter()
     if local_storage.has_supported_archive_extension(run_dir_or_archive):
-        return _get_archive_run_entry_paths(
-            run_dir_or_archive, storage, full_path=full_path, max_file_size=max_file_size
-        )
+        return _get_archive_run_entry_paths(run_dir_or_archive, storage, full_path=full_path, max_file_size=max_file_size)
 
     return storage.list_entries(run_dir_or_archive, full_path=full_path, max_file_size=max_file_size)
 
@@ -799,7 +792,9 @@ def _get_sharded_checkpoint_dirs(
     storage: StorageAdapter, run_dir_or_archive: str, latest_checkpoint_only: bool
 ) -> List[str]:
     run_subdirectories = _get_run_entries(run_dir_or_archive, storage, full_path=True)
-    sharded_checkpoint_directories = list(filter(_is_sharded_checkpoint_dir, run_subdirectories))
+    sharded_checkpoint_directories = list(
+        filter(_is_sharded_checkpoint_dir, run_subdirectories)
+    )
 
     if latest_checkpoint_only:
         latest_checkpoint_directory = max(sharded_checkpoint_directories, default=None, key=_get_checkpoint_number)
@@ -807,9 +802,7 @@ def _get_sharded_checkpoint_dirs(
             [latest_checkpoint_directory] if latest_checkpoint_directory is not None else []
         )
 
-    log.info(
-        "Found %d sharded checkpoint directories for %s", len(sharded_checkpoint_directories), run_dir_or_archive
-    )
+    log.info("Found %d sharded checkpoint directories for %s", len(sharded_checkpoint_directories), run_dir_or_archive)
 
     return sharded_checkpoint_directories
 
@@ -825,9 +818,7 @@ def _add_training_config_to_checkpoint(local_checkpoint_dir: str, run_dir_or_arc
         # Config already exists in the checkpoint
         return
 
-    log.info(
-        "%s not found in %s, attempting to get it from %s", CONFIG_YAML, local_checkpoint_dir, run_dir_or_archive
-    )
+    log.info("%s not found in %s, attempting to get it from %s", CONFIG_YAML, local_checkpoint_dir, run_dir_or_archive)
 
     run_storage = _get_storage_adapter_for_path(local_checkpoint_dir)
     _get_run_entries(run_dir_or_archive, run_storage, full_path=True)
@@ -845,12 +836,7 @@ def _add_training_config_to_checkpoint(local_checkpoint_dir: str, run_dir_or_arc
     shutil.copy(run_config_yaml_paths[0], local_checkpoint_dir)
 
 
-def _unshard_checkpoint(
-    sharded_checkpoint_dir: str,
-    dest_dir: str,
-    run_dir_or_archive: str,
-    unsharding_config: UnshardCheckpointsConfig,
-):
+def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, run_dir_or_archive: str, unsharding_config: UnshardCheckpointsConfig):
     local_storage = LocalFileSystemAdapter()
 
     # Download checkpoint to a temp dir
@@ -977,7 +963,6 @@ def _add_cached_path_r2_client(r2_account_id: str):
         R2. Refer to
         [cached_path docs](https://github.com/allenai/cached_path/blob/main/docs/source/overview.md#supported-url-schemes).
         """
-
         scheme = "r2"
 
         def __init__(self, resource: str) -> None:
@@ -992,11 +977,11 @@ def _add_cached_path_r2_client(r2_account_id: str):
                 s3_resource = session.resource(
                     "s3",
                     endpoint_url=endpoint_url,
-                    config=botocore.client.Config(signature_version=botocore.UNSIGNED),
+                    config=botocore.client.Config(signature_version=botocore.UNSIGNED)
                 )
             else:
                 s3_resource = session.resource("s3", endpoint_url=endpoint_url)
-            self.s3_object = s3_resource.Object(bucket_name, r2_path)  # type: ignore
+            self.s3_object = s3_resource.Object(bucket_name, r2_path) # type: ignore
 
     add_scheme_client(R2SchemeClient)
 
