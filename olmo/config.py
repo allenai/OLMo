@@ -454,6 +454,7 @@ class SchedulerType(StrEnum):
     linear_with_warmup = "linear_with_warmup"
     inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
     max_scheduler = "max_scheduler"
+    constant = "constant"
 
 
 @dataclass
