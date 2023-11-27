@@ -956,7 +956,8 @@ class DeepSpeedTrainer(Trainer):
     def fit(self):
         for batch in self.train_loader:
             batch = move_to_device(batch, self.device)
-            print("Batch", batch)
+            #print("Batch", batch)
+            print("INP", batch["input_ids"].shape)
             
             loss = self.model_forward(batch)
             """
