@@ -1,5 +1,6 @@
 run_name: olmo-small-ablation
 seed: 6198
+deepspeed: true
 dry_run: false
 no_pre_train_checkpoint: True
 
@@ -27,7 +28,7 @@ model:
   embedding_size: 50304
   eos_token_id: 50276
   pad_token_id: 50276
-  init_device: meta
+  init_device: cpu
   init_std: 0.02
 
 compile: null  # causes instability on AMD GPUs
