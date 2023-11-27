@@ -509,10 +509,10 @@ class Trainer:
                 )
 
         # Optimizer step.
-        if self.is_deepspeed:
-            self.fsdp_model.step()     
-        else:
-            self.optim.step()
+        #if self.is_deepspeed:
+        #    self.fsdp_model.step()     
+        #else:
+        self.optim.step()
 
         # Collect metrics and check for NaN loss.
         # NOTE: this involves a bunch of host-device syncs so we wait until the last moment to do this.
