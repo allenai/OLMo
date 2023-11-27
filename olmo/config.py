@@ -666,7 +666,7 @@ class TrainConfig(BaseConfig):
     deepspeed: bool = False
     """
     If ``True``, use DeepSpeed to train.
-    """    
+    """
 
     model: ModelConfig = field(default_factory=ModelConfig)
     """

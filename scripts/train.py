@@ -27,12 +27,9 @@ from olmo.torch_util import (
     peak_gpu_memory,
     seed_all,
 )
-
 from olmo.util import clean_opt, log_extra_field, prepare_cli_environment
 
 log = logging.getLogger("train")
-
-
 
 
 def main(cfg: TrainConfig) -> None:
@@ -50,11 +47,14 @@ def main(cfg: TrainConfig) -> None:
 
     # Initialize process group and set device.
     if cfg.deepspeed:
-        from olmo.train import DeepSpeedTrainer as Trainer
         import deepspeed
+
+        from olmo.train import DeepSpeedTrainer as Trainer
+
         deepspeed.init_distributed()
     else:
         from olmo.train import Trainer
+
         dist.init_process_group(backend="nccl")
 
     barrier()
