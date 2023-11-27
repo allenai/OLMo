@@ -103,13 +103,9 @@ class Trainer:
     evaluators: List[Evaluator]
     epoch: int = 0
     global_step: int = 0
-    global_data_step: int = 0
-    """This is now redundant since adding 'global_train_examples_seen'."""
     global_train_examples_seen_this_epoch: int = 0
     """Tracks the global number of training examples seen in the current epoch for the purpose of restoring
     the data loader position on restarts."""
-    global_train_examples_seen: int = 0
-    """Tracks the global number of training examples throughout training."""
     global_train_tokens_seen: int = 0
     """Tracks the global total number of tokens trained on."""
     checkpoints: List[Path] = field(default_factory=list)
@@ -123,9 +119,7 @@ class Trainer:
         return {
             "epoch": self.epoch,
             "global_step": self.global_step,
-            "global_data_step": self.global_data_step,
             "global_train_examples_seen_this_epoch": self.global_train_examples_seen_this_epoch,
-            "global_train_examples_seen": self.global_train_examples_seen,
             "global_train_tokens_seen": self.global_train_tokens_seen,
             "world_size": get_world_size(),
             "checkpoints": self.checkpoints,
@@ -154,23 +148,22 @@ class Trainer:
         # Dataset / dataloader position.
         checkpoint_epoch = state_dict.get("epoch", 0)
         self.global_step = state_dict["global_step"]
-        self.global_data_step = state_dict["global_data_step"]
-        self.global_train_examples_seen = state_dict.get(  # newer addition
-            "global_train_examples_seen", self.global_data_step * self.cfg.global_train_batch_size
-        )
         self.global_train_examples_seen_this_epoch = state_dict.get(
             "global_train_examples_seen_this_epoch",
-            self.global_train_examples_seen,
+            state_dict.get(  # for backwards compatibility
+                "global_train_examples_seen",
+                state_dict.get("global_data_step", 0) * self.cfg.global_train_batch_size,
+            ),
         )
-        self.global_train_tokens_seen = state_dict.get(  # newer addition
+        self.global_train_tokens_seen = state_dict.get(
             "global_train_tokens_seen",
-            self.global_data_step * self.cfg.global_train_batch_size * self.cfg.model.max_sequence_length,
+            state_dict.get("global_data_step", 0)  # for backwards compatibility
+            * self.cfg.global_train_batch_size
+            * self.cfg.model.max_sequence_length,
         )
 
         if not self.cfg.restore_dataloader:
             self.epoch = 0
-            self.global_data_step = 0
-            self.global_train_examples_seen = 0
             self.global_train_tokens_seen = 0
             self.global_train_examples_seen_this_epoch = 0
         elif checkpoint_epoch != self.epoch:
@@ -179,10 +172,8 @@ class Trainer:
 
         if self.cfg.fast_forward_batches:
             log.info(f"Fast-forwarding data loader by {self.cfg.fast_forward_batches:,d} steps")
-            self.global_data_step += self.cfg.fast_forward_batches
             # Technically we don't "see" these batches that we fast-forward through, but we use
             # this variable to update the position of the dataset so we need to include them here.
-            self.global_train_examples_seen += self.cfg.fast_forward_batches * self.cfg.global_train_batch_size
             self.global_train_examples_seen_this_epoch += (
                 self.cfg.fast_forward_batches * self.cfg.global_train_batch_size
             )
@@ -801,9 +792,7 @@ class Trainer:
                 assert batch_size == self.cfg.device_train_batch_size
                 global_batch_size = batch_size * get_world_size()  # assumes batch size equal across ranks
                 self.global_step += 1
-                self.global_data_step += 1
                 self.global_train_examples_seen_this_epoch += global_batch_size
-                self.global_train_examples_seen += global_batch_size
                 self.global_train_tokens_seen += global_batch_size * seq_len
                 speed_monitor.batch_start(
                     self.global_train_tokens_seen,
