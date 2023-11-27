@@ -140,14 +140,8 @@ def main(cfg: TrainConfig) -> None:
         param_init_fn = dummy_init_fn
     else:
         param_init_fn = None
-    if DEEPSPEED:
+    if cfg.deepspeed:
         fsdp_model = olmo_model
-        #import deepspeed
-        #fsdp_model, optimizers, _, _ = deepspeed.initialize(
-        #    config=self.state.deepspeed_config,
-        #    model=olmo_model,
-        #    optimizer=optimizer
-        #)
     else:
         fsdp_model = FSDP(
             olmo_model,
@@ -168,7 +162,7 @@ def main(cfg: TrainConfig) -> None:
     log.info(fsdp_model)
 
     # Construct optimizer and learning rate scheduler.
-    if DEEPSPEED:
+    if cfg.deepspeed:
         optim = None
         scheduler = None
     else:

@@ -455,6 +455,8 @@ class Trainer:
             # Run backward pass.
             if self.is_deepspeed:
                 self.fsdp_model.backward(loss)
+                # Only steps if grad acc is complete.
+                self.fsdp_model.step()
             else:
                 loss.backward()
 
@@ -486,8 +488,7 @@ class Trainer:
                 dist.reduce(z_batch_loss, 0)
                 z_batch_loss.div_(get_world_size())
 
-        # Clip gradient norms and collect param/gradient/optim metrics.
-        # DeepSpeed already clips gradients in the Optimizer step:
+        # Optimizer step, gradiennt clipping etc. is all handled is model.step()
         # https://github.com/microsoft/DeepSpeed/blob/2afa1c7f2f961ef18042a88467ff5d3373c22c07/deepspeed/runtime/bf16_optimizer.py#L244
         if not self.is_deepspeed:
             should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
@@ -510,7 +511,7 @@ class Trainer:
                     self.cfg.max_grad_norm_ratio, self.global_step, self.cfg.max_duration
                 )
 
-        self.optim.step()
+            self.optim.step()
 
         # Collect metrics and check for NaN loss.
         # NOTE: this involves a bunch of host-device syncs so we wait until the last moment to do this.
@@ -930,7 +931,7 @@ class DeepSpeedTrainer(Trainer):
         else:
             optimizer_name = self.cfg.optimizer.name
         assert self.cfg.scheduler.name == "linear_with_warmup", "DeepSpeed only supports linear_with_warmup scheduler"
-        self.fsdp_model, self.optim, _, _ = deepspeed.initialize(
+        self.fsdp_model, self.optim, _, self.scheduler = deepspeed.initialize(
             model=self.fsdp_model,
             config={
                 "optimizer": {
