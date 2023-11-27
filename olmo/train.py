@@ -488,7 +488,7 @@ class Trainer:
                 dist.reduce(z_batch_loss, 0)
                 z_batch_loss.div_(get_world_size())
 
-        # Optimizer step, gradiennt clipping etc. is all handled is model.step()
+        # Optimizer step, gradiennt clipping etc. is all handled in model.step()
         # https://github.com/microsoft/DeepSpeed/blob/2afa1c7f2f961ef18042a88467ff5d3373c22c07/deepspeed/runtime/bf16_optimizer.py#L244
         if not self.is_deepspeed:
             should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
