@@ -101,12 +101,11 @@ class Trainer:
     train_loader: DataLoader
     device: torch.device
     evaluators: List[Evaluator]
+    epoch: int = 0
     global_step: int = 0
-    global_data_step: int = 0
-    """This is now redundant since adding 'global_train_examples_seen'."""
-    global_train_examples_seen: int = 0
-    """Tracks the global number of training examples seen for the purpose of restoring the dataset
-    position on restarts."""
+    global_train_examples_seen_this_epoch: int = 0
+    """Tracks the global number of training examples seen in the current epoch for the purpose of restoring
+    the data loader position on restarts."""
     global_train_tokens_seen: int = 0
     """Tracks the global total number of tokens trained on."""
     checkpoints: List[Path] = field(default_factory=list)
@@ -136,9 +135,9 @@ class Trainer:
 
     def trainer_state_dict(self) -> Dict[str, Any]:
         return {
+            "epoch": self.epoch,
             "global_step": self.global_step,
-            "global_data_step": self.global_data_step,
-            "global_train_examples_seen": self.global_train_examples_seen,
+            "global_train_examples_seen_this_epoch": self.global_train_examples_seen_this_epoch,
             "global_train_tokens_seen": self.global_train_tokens_seen,
             "world_size": get_world_size(),
             "checkpoints": self.checkpoints,
@@ -165,40 +164,44 @@ class Trainer:
         ]
 
         # Dataset / dataloader position.
+        checkpoint_epoch = state_dict.get("epoch", 0)
         self.global_step = state_dict["global_step"]
-        self.global_data_step = state_dict["global_data_step"]
-        self.global_train_examples_seen = state_dict.get(  # newer addition
-            "global_train_examples_seen", self.global_data_step * self.cfg.global_train_batch_size
+        self.global_train_examples_seen_this_epoch = state_dict.get(
+            "global_train_examples_seen_this_epoch",
+            state_dict.get(  # for backwards compatibility
+                "global_train_examples_seen",
+                state_dict.get("global_data_step", self.global_step) * self.cfg.global_train_batch_size,
+            ),
         )
-        self.global_train_tokens_seen = state_dict.get(  # newer addition
+        self.global_train_tokens_seen = state_dict.get(
             "global_train_tokens_seen",
-            self.global_data_step * self.cfg.global_train_batch_size * self.cfg.model.max_sequence_length,
+            state_dict.get("global_data_step", self.global_step)  # for backwards compatibility
+            * self.cfg.global_train_batch_size
+            * self.cfg.model.max_sequence_length,
         )
+
         if not self.cfg.restore_dataloader:
-            self.global_data_step = 0
-            self.global_train_examples_seen = 0
+            self.epoch = 0
             self.global_train_tokens_seen = 0
-        elif self.cfg.fast_forward_batches:
-            self.global_data_step += self.cfg.fast_forward_batches
+            self.global_train_examples_seen_this_epoch = 0
+        elif checkpoint_epoch != self.epoch:
+            log.info(f"Starting new epoch (epoch = {self.epoch})")
+            self.global_train_examples_seen_this_epoch = 0
+
+        if self.cfg.fast_forward_batches:
+            log.info(f"Fast-forwarding data loader by {self.cfg.fast_forward_batches:,d} steps")
             # Technically we don't "see" these batches that we fast-forward through, but we use
             # this variable to update the position of the dataset so we need to include them here.
-            self.global_train_examples_seen += self.cfg.fast_forward_batches * self.cfg.global_train_batch_size
+            self.global_train_examples_seen_this_epoch += (
+                self.cfg.fast_forward_batches * self.cfg.global_train_batch_size
+            )
             # NOTE: on the other hand we don't add anything to 'self.global_train_tokens_seen' here because
             # that variable is meant to track the actual number of tokens trained on.
 
-        if self.global_data_step > 0:
-            if self.global_data_step > self.global_step:
-                log.info(
-                    f"Fast-forwarding data loader to step {self.global_step:,d}+{self.global_data_step-self.global_step:,d} "
-                    f"({self.global_train_examples_seen:,d} examples)"
-                )
-            else:
-                log.info(
-                    f"Fast-forwarding data loader to step {self.global_data_step:,d} "
-                    f"({self.global_train_examples_seen:,d} examples)"
-                )
+        if self.global_train_examples_seen_this_epoch > 0:
             assert isinstance(self.train_loader.dataset, IterableDataset)
-            self.train_loader.dataset.start_index = self.global_train_examples_seen
+            log.info(f"Data loader will start at instance index {self.global_train_examples_seen_this_epoch:,d}")
+            self.train_loader.dataset.start_index = self.global_train_examples_seen_this_epoch
 
         # Reset learning rate and weight decay to the values from the config, not the checkpoint.
         log.info("Resetting learning rate...")
@@ -805,8 +808,7 @@ class Trainer:
                 assert batch_size == self.cfg.device_train_batch_size
                 global_batch_size = batch_size * get_world_size()  # assumes batch size equal across ranks
                 self.global_step += 1
-                self.global_data_step += 1
-                self.global_train_examples_seen += global_batch_size
+                self.global_train_examples_seen_this_epoch += global_batch_size
                 self.global_train_tokens_seen += global_batch_size * seq_len
                 speed_monitor.batch_start(
                     self.global_train_tokens_seen,

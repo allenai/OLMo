@@ -659,6 +659,11 @@ class TrainConfig(BaseConfig):
     Used to seed all initial RNG states.
     """
 
+    epoch: int = 0
+    """
+    Increment this when starting a new epoch.
+    """
+
     dry_run: bool = False
     """
     If ``True``, don't actually train.
