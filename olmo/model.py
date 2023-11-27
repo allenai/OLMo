@@ -1151,7 +1151,6 @@ class Olmo(nn.Module):
         :param last_logits_only: If `True`, only compute the logits for the last token of each sequence.
             This can speed up decoding when you only care about the next token.
         """
-        print("INPUTS", input_ids)
         if past_key_values:
             assert len(past_key_values) == self.config.n_layers
 
