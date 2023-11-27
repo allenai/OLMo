@@ -115,6 +115,24 @@ class Trainer:
     indices_file: Optional[TextIO] = None
     _start_time: float = 0.0
 
+    @property
+    def max_steps(self) -> int:
+        if isinstance(self.cfg.max_duration, int):
+            return self.cfg.max_duration
+        elif isinstance(self.cfg.max_duration, str):
+            if self.cfg.max_duration.endswith("T"):
+                # convert to float *first* to handle scientific notation
+                max_tokens = int(float(self.cfg.max_duration[:-1].strip()))
+                tokens_remaining = max_tokens - self.global_train_tokens_seen
+                tokens_per_batch = self.cfg.global_train_batch_size * self.cfg.model.max_sequence_length
+                steps_remaining = tokens_remaining // tokens_per_batch
+                return self.global_step + steps_remaining
+            else:
+                # convert to float *first* to handle scientific notation
+                return int(float(self.cfg.max_duration))
+        else:
+            raise TypeError(f"expected int or str for 'max_duration', found {type(self.cfg.max_duration)}")
+
     def trainer_state_dict(self) -> Dict[str, Any]:
         return {
             "epoch": self.epoch,
@@ -188,7 +206,7 @@ class Trainer:
         # Reset learning rate and weight decay to the values from the config, not the checkpoint.
         log.info("Resetting learning rate...")
         new_learning_rate = self.scheduler.get_lr(
-            self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
+            self.cfg.optimizer.learning_rate, self.global_step, self.max_steps
         )
         for group in self.optim.param_groups:
             group["lr"] = new_learning_rate
@@ -495,14 +513,12 @@ class Trainer:
             # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
             # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
             # the corresponding values from `self.cfg`.
-            group["lr"] = self.scheduler.get_lr(
-                self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
-            )
+            group["lr"] = self.scheduler.get_lr(self.cfg.optimizer.learning_rate, self.global_step, self.max_steps)
             group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
-                self.cfg.max_grad_norm, self.global_step, self.cfg.max_duration
+                self.cfg.max_grad_norm, self.global_step, self.max_steps
             )
             group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
-                self.cfg.max_grad_norm_ratio, self.global_step, self.cfg.max_duration
+                self.cfg.max_grad_norm_ratio, self.global_step, self.max_steps
             )
 
         # Optimizer step.
@@ -818,7 +834,7 @@ class Trainer:
 
                 # Log metrics to console.
                 if self.global_step % self.cfg.console_log_interval == 0:
-                    self.log_metrics_to_console(f"[step={self.global_step}/{self.cfg.max_duration}]", metrics)
+                    self.log_metrics_to_console(f"[step={self.global_step}/{self.max_steps}]", metrics)
 
                 # Log metrics to W&B.
                 if (
