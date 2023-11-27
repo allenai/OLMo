@@ -956,7 +956,7 @@ class DeepSpeedTrainer(Trainer):
                     "overlap_comm": True,
                 },
                 "scheduler": {
-                    "type": "WarmupLR",
+                    "type": "WarmupDecayLR",
                     "params": {
                         "warmup_min_lr": self.cfg.optimizer.learning_rate * 0.1,
                         "warmup_max_lr": self.cfg.optimizer.learning_rate,
