@@ -488,7 +488,7 @@ class Trainer:
                 dist.reduce(z_batch_loss, 0)
                 z_batch_loss.div_(get_world_size())
 
-        # Optimizer step, gradiennt clipping etc. is all handled in model.step()
+        # Optimizer step, gradient clipping etc. is all handled in model.step()
         # https://github.com/microsoft/DeepSpeed/blob/2afa1c7f2f961ef18042a88467ff5d3373c22c07/deepspeed/runtime/bf16_optimizer.py#L244
         if not self.is_deepspeed:
             should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
@@ -958,9 +958,10 @@ class DeepSpeedTrainer(Trainer):
                 "scheduler": {
                     "type": "WarmupLR",
                     "params": {
-                        "warmup_min_lr": 0.0,
+                        "warmup_min_lr": self.cfg.optimizer.learning_rate * 0.1,
                         "warmup_max_lr": self.cfg.optimizer.learning_rate,
                         "warmup_num_steps": self.cfg.scheduler.t_warmup,
+                        "warmup_type": "linear",
                     },
                 },
                 "bf16": {
