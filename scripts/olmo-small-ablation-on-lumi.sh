@@ -62,12 +62,12 @@ fi
 
 # get W&B settings from the config file, then extract the project and group
 WANDB_SETTINGS=$(cat $CONFIG_PATH |  tr '\n' '\r' | grep -ohP "\rwandb:\r.*?\r\r"  | tr '\r' '\n')
-export WANDB_PROJECT=$(echo $WANDB_SETTINGS | grep -ohP "\w*project\:\s*\S+\s" | sed 's/project:\s*//')
+export WANDB_PROJECT=$(echo $WANDB_SETTINGS | grep -ohP "\w*project\:\s*\S+(\s|$)" | sed 's/project:\s*//')
 
 # check if W&B is provided; if not, use the run name as the project name
 # (the actual run rame with have slurm ID appended)
 export WANDB_GROUP=$(echo $WANDB_SETTINGS | grep -ohP "\w*group\:\w*(.+)" | sed 's/group:\s*//')
-if [[ $WANDB_GROUP -eq "" ]]; then
+if [[ -z "${WANDB_GROUP}" ]]; then
   export WANDB_GROUP="${RUN_NAME}"
 fi
 

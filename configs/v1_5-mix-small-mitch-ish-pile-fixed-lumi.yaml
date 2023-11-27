@@ -7,7 +7,6 @@ time_limit: 864000
 wandb:
   name: ${run_name}
   project: olmo-small
-  group: dolma_runs
 
 model:
   d_model: 2048
