@@ -792,6 +792,7 @@ class Trainer:
                 # overhead. So for now I'm putting these assertions here so if the assumption is violated it will
                 # fail loudly.
                 batch_size, seq_len = batch["input_ids"].shape
+                print("INPUTS:", batch_size, seq_len)
                 assert seq_len == self.cfg.model.max_sequence_length
                 assert batch_size == self.cfg.device_train_batch_size
                 global_batch_size = batch_size * get_world_size()  # assumes batch size equal across ranks
