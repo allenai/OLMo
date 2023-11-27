@@ -152,12 +152,12 @@ class Trainer:
             "global_train_examples_seen_this_epoch",
             state_dict.get(  # for backwards compatibility
                 "global_train_examples_seen",
-                state_dict.get("global_data_step", 0) * self.cfg.global_train_batch_size,
+                state_dict.get("global_data_step", self.global_step) * self.cfg.global_train_batch_size,
             ),
         )
         self.global_train_tokens_seen = state_dict.get(
             "global_train_tokens_seen",
-            state_dict.get("global_data_step", 0)  # for backwards compatibility
+            state_dict.get("global_data_step", self.global_step)  # for backwards compatibility
             * self.cfg.global_train_batch_size
             * self.cfg.model.max_sequence_length,
         )
