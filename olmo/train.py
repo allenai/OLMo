@@ -469,7 +469,8 @@ class Trainer:
             self.indices_file.write(f"{self.global_step}\t{indices}\n")
 
         # Zero-gradients.
-        self.optim.zero_grad(set_to_none=True)
+        if not self.is_deepspeed:
+            self.optim.zero_grad(set_to_none=True)
 
         # Move tensors to the right device.
         batch = move_to_device(batch, self.device)
@@ -486,25 +487,26 @@ class Trainer:
                 z_batch_loss.div_(get_world_size())
 
         # Clip gradient norms and collect param/gradient/optim metrics.
-        should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
-        optim_metrics = self.optim.clip_grads_and_collect_metrics(
-            self.global_step, collect_param_metrics=should_log_optim_metrics_this_step
-        )
+        if not self.is_deepspeed:
+            should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
+            optim_metrics = self.optim.clip_grads_and_collect_metrics(
+                self.global_step, collect_param_metrics=should_log_optim_metrics_this_step
+            )
 
-        # Adjust the learning rate.
-        for group in self.optim.param_groups:
-            # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
-            # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
-            # the corresponding values from `self.cfg`.
-            group["lr"] = self.scheduler.get_lr(
-                self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
-            )
-            group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
-                self.cfg.max_grad_norm, self.global_step, self.cfg.max_duration
-            )
-            group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
-                self.cfg.max_grad_norm_ratio, self.global_step, self.cfg.max_duration
-            )
+            # Adjust the learning rate.
+            for group in self.optim.param_groups:
+                # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
+                # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
+                # the corresponding values from `self.cfg`.
+                group["lr"] = self.scheduler.get_lr(
+                    self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
+                )
+                group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
+                    self.cfg.max_grad_norm, self.global_step, self.cfg.max_duration
+                )
+                group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
+                    self.cfg.max_grad_norm_ratio, self.global_step, self.cfg.max_duration
+                )
 
         # Optimizer step.
         if self.is_deepspeed:
@@ -528,10 +530,11 @@ class Trainer:
             metrics["train/ZLoss"] = z_batch_loss.item()
 
         # Maybe collect post-step optimizer-specific metrics.
-        if should_log_optim_metrics_this_step:
-            optim_metrics = self.optim.get_post_step_metrics(self.fsdp_model)
-            for key, value in optim_metrics.items():
-                metrics[f"optim/{key}"] = value.item()
+        if not self.is_deepspeed:
+            if should_log_optim_metrics_this_step:
+                optim_metrics = self.optim.get_post_step_metrics(self.fsdp_model)
+                for key, value in optim_metrics.items():
+                    metrics[f"optim/{key}"] = value.item()
 
         return metrics
 
