@@ -929,6 +929,7 @@ class DeepSpeedTrainer(Trainer):
             optimizer_name = "lion" # Requires latest deepspeed
         else:
             optimizer_name = self.cfg.optimizer.name
+        assert self.cfg.scheduler.name == "linear_with_warmup", "DeepSpeed only supports linear_with_warmup scheduler"
         self.fsdp_model, self.optim, _, _ = deepspeed.initialize(
             model=self.fsdp_model,
             config={
