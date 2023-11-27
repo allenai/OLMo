@@ -487,6 +487,8 @@ class Trainer:
                 z_batch_loss.div_(get_world_size())
 
         # Clip gradient norms and collect param/gradient/optim metrics.
+        # DeepSpeed already clips gradients in the Optimizer step:
+        # https://github.com/microsoft/DeepSpeed/blob/2afa1c7f2f961ef18042a88467ff5d3373c22c07/deepspeed/runtime/bf16_optimizer.py#L244
         if not self.is_deepspeed:
             should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
             optim_metrics = self.optim.clip_grads_and_collect_metrics(
@@ -508,10 +510,6 @@ class Trainer:
                     self.cfg.max_grad_norm_ratio, self.global_step, self.cfg.max_duration
                 )
 
-        # Optimizer step.
-        #if self.is_deepspeed:
-        #    self.fsdp_model.step()     
-        #else:
         self.optim.step()
 
         # Collect metrics and check for NaN loss.
@@ -796,7 +794,6 @@ class Trainer:
                 # overhead. So for now I'm putting these assertions here so if the assumption is violated it will
                 # fail loudly.
                 batch_size, seq_len = batch["input_ids"].shape
-                print("INPUTS:", batch_size, seq_len)
                 assert seq_len == self.cfg.model.max_sequence_length
                 assert batch_size == self.cfg.device_train_batch_size
                 global_batch_size = batch_size * get_world_size()  # assumes batch size equal across ranks
@@ -928,17 +925,21 @@ class DeepSpeedTrainer(Trainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, is_deepspeed=True)
         import deepspeed
+        if self.cfg.optimizer.name in {"lion", "lionw"}:
+            optimizer_name = "lion"
+        else:
+            optimizer_name = self.cfg.optimizer.name
         self.fsdp_model, self.optim, _, _ = deepspeed.initialize(
             model=self.fsdp_model,
             config={
                 "optimizer": {
-                    "type": "Adam",
+                    "type": optimizer_name,
                     "params": {
                         "lr": self.cfg.optimizer.learning_rate,
                         "weight_decay": self.cfg.optimizer.weight_decay,
                         "betas": self.cfg.optimizer.betas,
-                        "eps": 1e-5,
-                        "torch_adam": True, # Fusing does not work
+                        #"eps": 1e-5,
+                        #"torch_adam": True, # Fusing does not work due to some Permission error on LUMI
                     },
                 },
                 "train_batch_size": self.cfg.global_train_batch_size,
