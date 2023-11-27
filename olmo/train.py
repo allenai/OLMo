@@ -959,7 +959,7 @@ class DeepSpeedTrainer(Trainer):
             #print("Batch", batch)
             print("INP", batch["input_ids"].shape)
             
-            loss = self.model_forward(batch)
+            loss = self.model_forward(batch)[0]
             """
             loss = self.fsdp_model(
                 input_ids=batch["input_ids"],
