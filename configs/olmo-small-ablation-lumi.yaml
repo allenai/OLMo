@@ -1,6 +1,7 @@
 run_name: olmo-small-ablation
 seed: 6198
 dry_run: false
+no_pre_train_checkpoint: True
 
 wandb:
   name: ${run_name}
@@ -32,7 +33,7 @@ model:
 compile: null  # causes instability on AMD GPUs
 
 optimizer:
-  name: lionw
+  name: adamw
   learning_rate: 1.0e-4
   weight_decay: 0.01
   betas:
@@ -40,14 +41,14 @@ optimizer:
   - 0.95
 
 scheduler:
-  name: cosine_with_warmup
+  name: linear_with_warmup
   t_warmup: 2000
   t_max: null
 
 data:
   paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4_en/gpt-neox-20b/c4-train.*.npy}
   pad_direction: right
-  num_workers: 4
+  num_workers: 0
   drop_last: true
   pin_memory: true
   prefetch_factor: 16
