@@ -613,12 +613,23 @@ class FullCheckpointer(Checkpointer):
             optim_state_dict_config=FullOptimStateDictConfig(rank0_only=False, offload_to_cpu=True),
         ):
             # Load model state.
-            log.info("Loading model state...")
-            state_dict_to_load, og_keys_to_new = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(
-                load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location="cpu")
-            )
-            fsdp_model.load_state_dict(state_dict_to_load)
-            del state_dict_to_load
+            og_keys_to_new = None
+            gc.collect()
+            for turn in range(get_local_world_size()):
+                log.info("Loading model state turn %d ...", turn)
+                if turn == get_local_rank():
+                    (
+                        state_dict_to_load,
+                        og_keys_to_new,
+                    ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(
+                        load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location="cpu")
+                    )
+                    fsdp_model.load_state_dict(state_dict_to_load)
+                    del state_dict_to_load
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                barrier()
+            assert og_keys_to_new is not None
 
             # Load optimizer state.
             if load_optimizer_state:
