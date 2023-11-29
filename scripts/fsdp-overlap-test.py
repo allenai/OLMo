@@ -8,20 +8,17 @@ from torch.profiler import ProfilerActivity, schedule
 
 from olmo.torch_util import (
     barrier,
-    get_default_device,
     get_global_rank,
     get_local_rank,
-    get_world_size,
     peak_gpu_memory,
-    seed_all,
 )
 from olmo.util import prepare_cli_environment
 
 log = logging.getLogger(__name__)
 
 RANK_TO_BATCH_SIZE_MAP = {
-    0: 2 ** 3,
-    1: 2 ** 3,
+    0: 2 ** 11,
+    1: 2 ** 11,
 }
 PARAM_DIM: int = 2 ** 13
 GATHER_DIM: int = 2 ** 14
@@ -86,7 +83,8 @@ def init_process_group():
 def do_communication(data_to_gather: torch.Tensor, gather_list: Optional[List[torch.Tensor]]):
     s: torch.cuda.Stream = torch.cuda.Stream()
     with torch.cuda.stream(s):
-        dist.gather(data_to_gather, gather_list, 1)
+        # dist.gather(data_to_gather, gather_list, 1)
+        dist.all_gather(gather_list, data_to_gather)
 
 
 def do_computation(model: Model, batch: torch.Tensor):
@@ -109,9 +107,11 @@ def run_batches(model: Model):
 
     batch = torch.randn((batch_size, PARAM_DIM)).cuda()
     data_to_gather = torch.randn((GATHER_DIM, GATHER_DIM)).cuda()
-    gather_list = None
-    if get_global_rank() == 1:
-        gather_list = [torch.zeros((GATHER_DIM, GATHER_DIM)).cuda(), torch.zeros((GATHER_DIM, GATHER_DIM)).cuda()]
+
+    # gather_list = None
+    # if get_global_rank() == 1:
+    #     gather_list = [torch.zeros((GATHER_DIM, GATHER_DIM)).cuda(), torch.zeros((GATHER_DIM, GATHER_DIM)).cuda()]
+    gather_list = [torch.zeros((GATHER_DIM, GATHER_DIM)).cuda(), torch.zeros((GATHER_DIM, GATHER_DIM)).cuda()]
 
     with torch_profiler as p:
         for _ in range(10):
@@ -120,7 +120,7 @@ def run_batches(model: Model):
 
 
 def test():
-    model = Model()
+    model = Model().cuda()
 
     log.info("Peak GPU Memory (MB) after FSDP: %d", int(peak_gpu_memory() or 0))
     log.info("Model:")
