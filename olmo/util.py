@@ -7,6 +7,7 @@ import time
 import warnings
 from datetime import datetime
 from enum import Enum
+from functools import cache
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
@@ -559,19 +560,14 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
     return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1)
 
 
-_s3_client = None
-
-
+@cache
 def _get_s3_client(endpoint_url: Optional[str] = None):
-    global _s3_client
-    if _s3_client is None:
-        _s3_client = boto3.client(
-            "s3",
-            endpoint_url=endpoint_url,
-            config=Config(retries={"max_attempts": 10, "mode": "standard"}),
-            use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
-        )
-    return _s3_client
+    return boto3.client(
+        "s3",
+        endpoint_url=endpoint_url,
+        config=Config(retries={"max_attempts": 10, "mode": "standard"}),
+        use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
+    )
 
 
 def _wait_before_retry(attempt: int):
