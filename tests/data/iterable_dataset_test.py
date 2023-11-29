@@ -16,18 +16,18 @@ def unpack(dataset: IterableDataset) -> List[int]:
 
 
 def test_iterable_dataset_size():
-    dataset = IterableDataset(pack(range(20)), world_size=2, rank=0, shuffle=False)
+    dataset = IterableDataset(pack(range(20)), 2, world_size=2, rank=0, shuffle=False)
     assert dataset.total_size == 20
     assert unpack(dataset) == list(range(0, 20, 2))
 
-    dataset = IterableDataset(pack(range(20)), world_size=3, rank=0, shuffle=False, drop_last=False)
+    dataset = IterableDataset(pack(range(20)), 3, world_size=3, rank=0, shuffle=False, drop_last=False)
     assert dataset.total_size == 21
     assert unpack(dataset) == list(range(0, 20, 3))
 
-    dataset = IterableDataset(pack(range(20)), world_size=3, rank=2, shuffle=False, drop_last=False)
+    dataset = IterableDataset(pack(range(20)), 3, world_size=3, rank=2, shuffle=False, drop_last=False)
     assert unpack(dataset) == list(range(2, 18, 3)) + [0]
 
-    dataset = IterableDataset(pack(range(20)), world_size=3, rank=0, shuffle=False, drop_last=True)
+    dataset = IterableDataset(pack(range(20)), 3, world_size=3, rank=0, shuffle=False, drop_last=True)
     assert dataset.total_size == 18
     assert unpack(dataset) == list(range(0, 18, 3))
 
@@ -36,6 +36,7 @@ def test_iterable_dataset_max_examples(tmp_path):
     device_batch_size = 2
     dataset = IterableDataset(
         pack(range(20)),
+        2,
         world_size=2,
         rank=0,
         shuffle=False,
@@ -48,7 +49,7 @@ def test_iterable_dataset_max_examples(tmp_path):
 def test_iterable_dataset_start_step():
     device_batch_size = 2
     dataset = IterableDataset(
-        pack(range(20)), world_size=2, rank=0, shuffle=False, start_index=2 * device_batch_size * 3
+        pack(range(20)), 2, world_size=2, rank=0, shuffle=False, start_index=2 * device_batch_size * 3
     )
     assert unpack(dataset) == [12, 14, 16, 18]
 
@@ -59,7 +60,7 @@ def test_iterable_dataset_restart_different_world_size(world_size: int):
     all_indices: Set[int] = set()
     for rank in range(world_size):
         dataset = IterableDataset(
-            pack(range(20)), world_size=world_size, rank=rank, shuffle=False, start_index=start_index
+            pack(range(20)), world_size, world_size=world_size, rank=rank, shuffle=False, start_index=start_index
         )
         indices = set(unpack(dataset))
         assert len(all_indices & indices) == 0
@@ -89,9 +90,7 @@ def test_iterable_dataset_with_workers(monkeypatch, worker_id: int):
         return MockWorkerInfo(id=worker_id, num_workers=4)
 
     monkeypatch.setattr(torch.utils.data, "get_worker_info", patched_get_worker_info)
-    dataset = IterableDataset(
-        pack(all_items), world_size=world_size, rank=rank, shuffle=False, global_batch_size=global_batch_size
-    )
+    dataset = IterableDataset(pack(all_items), global_batch_size, world_size=world_size, rank=rank, shuffle=False)
     items = unpack(dataset)
     if worker_id == 0:
         # 1st worker should get the first batch, 5th batch, etc.
