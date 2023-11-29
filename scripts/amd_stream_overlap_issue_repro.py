@@ -132,6 +132,8 @@ def run_batches(model: Model):
 def test():
     model = Model().cuda()
 
+    log.setLevel("INFO")
+
     log.info("Model:")
     log.info(model)
 
