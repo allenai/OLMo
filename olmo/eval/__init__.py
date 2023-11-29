@@ -7,7 +7,7 @@ from torchmetrics import MeanMetric, Metric
 from ..config import EvaluatorConfig, EvaluatorType, TrainConfig
 from ..exceptions import OlmoConfigurationError
 from ..tokenizer import Tokenizer
-from ..util import get_global_rank, get_world_size
+from ..torch_util import get_global_rank, get_world_size
 from .downstream import ICLMetric, label_to_task_map
 from .evaluator import Evaluator
 

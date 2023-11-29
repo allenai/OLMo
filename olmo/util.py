@@ -7,14 +7,16 @@ import time
 import warnings
 from datetime import datetime
 from enum import Enum
+from functools import cache
+from itertools import cycle, islice
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, TypeVar, Union
+from queue import Queue
+from threading import Thread
+from typing import Any, Callable, Dict, Optional, Union
 
 import boto3
 import botocore.exceptions as boto_exceptions
 import rich
-import torch
-import torch.distributed as dist
 from botocore.config import Config
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
@@ -23,7 +25,8 @@ from rich.text import Text
 from rich.traceback import Traceback
 
 from .aliases import PathOrStr
-from .exceptions import OlmoCliError, OlmoError, OlmoNetworkError
+from .exceptions import OlmoCliError, OlmoError, OlmoNetworkError, OlmoThreadError
+from .torch_util import get_global_rank, get_local_rank, get_node_rank, is_distributed
 
 
 class StrEnum(str, Enum):
@@ -270,130 +273,6 @@ class RichHandler(logging.Handler):
         return Text(text, style="log.path")
 
 
-def seed_all(seed: int):
-    """Seed all rng objects."""
-    import random
-
-    import numpy as np
-
-    if seed < 0 or seed > 2**32 - 1:
-        raise ValueError(f"Seed {seed} is invalid. It must be on [0; 2^32 - 1]")
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    # torch.manual_seed may call manual_seed_all but calling it again here
-    # to make sure it gets called at least once
-    torch.cuda.manual_seed_all(seed)
-
-
-T = TypeVar("T")
-
-
-def move_to_device(o: T, device: torch.device) -> T:
-    if isinstance(o, torch.Tensor):
-        return o.to(device)  # type: ignore[return-value]
-    elif isinstance(o, dict):
-        return {k: move_to_device(v, device) for k, v in o.items()}  # type: ignore[return-value]
-    elif isinstance(o, list):
-        return [move_to_device(x, device) for x in o]  # type: ignore[return-value]
-    elif isinstance(o, tuple):
-        return tuple((move_to_device(x, device) for x in o))  # type: ignore[return-value]
-    else:
-        return o
-
-
-def ensure_finite_(x: torch.Tensor, check_neg_inf: bool = True, check_pos_inf: bool = False):
-    """
-    Modify ``x`` in place to replace ``float("-inf")`` with the minimum value of the dtype when ``check_neg_inf``
-    is ``True`` and to replace ``float("inf")`` with the maximum value of the dtype when ``check_pos_inf`` is ``True``.
-    """
-    if check_neg_inf:
-        x.masked_fill_(x == float("-inf"), torch.finfo(x.dtype).min)
-    if check_pos_inf:
-        x.masked_fill_(x == float("inf"), torch.finfo(x.dtype).max)
-
-
-def is_distributed() -> bool:
-    if "LOCAL_RANK" in os.environ:
-        return True
-    else:
-        return False
-
-
-def get_node_rank() -> int:
-    return int(os.environ.get("NODE_RANK") or (get_global_rank() - get_local_rank()) // get_local_world_size())
-
-
-def get_world_size() -> int:
-    if dist.is_available() and dist.is_initialized():
-        return dist.get_world_size()
-    else:
-        return 1
-
-
-def get_local_world_size() -> int:
-    return int(os.environ.get("LOCAL_WORLD_SIZE") or 1)
-
-
-def get_global_rank() -> int:
-    return int(os.environ.get("RANK") or dist.get_rank())
-
-
-def get_local_rank() -> int:
-    return int(os.environ.get("LOCAL_RANK") or 0)
-
-
-def get_fs_local_rank() -> int:
-    """Get the local rank per filesystem, meaning that, regardless of the number of nodes,
-    if all ranks share the same filesystem then `get_fs_local_rank()` will be equivalent to `get_global_rank()`,
-    but if nodes do not share the same filesystem then `get_fs_local_rank()` will be equivalent to `get_local_rank()`.
-    """
-    return int(os.environ.get("FS_LOCAL_RANK") or get_local_rank())
-
-
-def barrier() -> None:
-    if dist.is_available() and dist.is_initialized():
-        dist.barrier()
-
-
-def get_default_device() -> torch.device:
-    if torch.cuda.is_available() and torch.cuda.is_initialized():
-        return torch.device("cuda")
-    else:
-        return torch.device("cpu")
-
-
-def peak_gpu_memory(reset: bool = False) -> Optional[float]:
-    """
-    Get the peak GPU memory usage in MB across all ranks.
-    Only rank 0 will get the final result.
-    """
-    if not torch.cuda.is_available():
-        return None
-
-    device = torch.device("cuda")
-    peak_mb = torch.cuda.max_memory_allocated(device) / 1000000
-    if dist.is_available() and dist.is_initialized():
-        peak_mb_tensor = torch.tensor(peak_mb, device=device)
-        dist.reduce(peak_mb_tensor, 0, dist.ReduceOp.MAX)
-        peak_mb = peak_mb_tensor.item()
-
-    if reset:
-        # Reset peak stats.
-        torch.cuda.reset_max_memory_allocated(device)
-
-    return peak_mb
-
-
-def syncronize_flag(flag: bool, device: torch.device) -> bool:
-    if dist.is_available() and dist.is_initialized():
-        flag_tensor = torch.tensor(flag, device=device)
-        dist.broadcast(flag_tensor, 0)
-        return flag_tensor.item()  # type: ignore
-    else:
-        return flag
-
-
 def wait_for(condition: Callable[[], bool], description: str, timeout: float = 10.0):
     """Wait for the condition function to return True."""
     start_time = time.monotonic()
@@ -559,19 +438,14 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
     return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1)
 
 
-_s3_client = None
-
-
+@cache
 def _get_s3_client(endpoint_url: Optional[str] = None):
-    global _s3_client
-    if _s3_client is None:
-        _s3_client = boto3.client(
-            "s3",
-            endpoint_url=endpoint_url,
-            config=Config(retries={"max_attempts": 10, "mode": "standard"}),
-            use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
-        )
-    return _s3_client
+    return boto3.client(
+        "s3",
+        endpoint_url=endpoint_url,
+        config=Config(retries={"max_attempts": 10, "mode": "standard"}),
+        use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
+    )
 
 
 def _wait_before_retry(attempt: int):
@@ -691,3 +565,46 @@ def default_thread_count() -> int:
 
 def pass_through_fn(fn, *args, **kwargs):
     return fn(*args, **kwargs)
+
+
+def threaded_generator(g, maxsize: int = 16, thread_name: Optional[str] = None):
+    q: Queue = Queue(maxsize=maxsize)
+
+    sentinel = object()
+
+    def fill_queue():
+        try:
+            for value in g:
+                q.put(value)
+        except Exception as e:
+            q.put(e)
+        finally:
+            q.put(sentinel)
+
+    thread_name = thread_name or repr(g)
+    thread = Thread(name=thread_name, target=fill_queue, daemon=True)
+    thread.start()
+
+    for x in iter(q.get, sentinel):
+        if isinstance(x, Exception):
+            raise OlmoThreadError(f"generator thread {thread_name} failed") from x
+        else:
+            yield x
+
+
+def roundrobin(*iterables):
+    """
+    Call the given iterables in a round-robin fashion. For example:
+    ``roundrobin('ABC', 'D', 'EF') --> A D E B F C``
+    """
+    # Adapted from https://docs.python.org/3/library/itertools.html#itertools-recipes
+    num_active = len(iterables)
+    nexts = cycle(iter(it).__next__ for it in iterables)
+    while num_active:
+        try:
+            for next in nexts:
+                yield next()
+        except StopIteration:
+            # Remove the iterator we just exhausted from the cycle.
+            num_active -= 1
+            nexts = cycle(islice(nexts, num_active))
