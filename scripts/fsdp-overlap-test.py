@@ -1,12 +1,9 @@
 import logging
 from pathlib import Path
 from typing import List, Optional
-from packaging import version
 
 import torch
 import torch.distributed as dist
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import ShardingStrategy
 from torch.profiler import ProfilerActivity, schedule
 
 from olmo.torch_util import (
@@ -24,7 +21,7 @@ log = logging.getLogger(__name__)
 
 RANK_TO_BATCH_SIZE_MAP = {
     0: 2 ** 3,
-    1: 0,
+    1: 2 ** 3,
 }
 PARAM_DIM: int = 2 ** 13
 GATHER_DIM: int = 2 ** 14
@@ -79,33 +76,6 @@ def get_profiler(save_folder: str) -> torch.profiler.profile:
     )
 
 
-def get_fsdp_model() -> FSDP:
-    # Initialize the model.
-    log.info("Building model...")
-    model = Model()
-    log.info("Peak GPU Memory (MB) before FSDP: %d", int(peak_gpu_memory() or 0))
-
-    # Wrap the model in FSDP.
-    log.info("Wrapping model with FDSP...")
-    if version.parse(torch.__version__) >= version.parse("2.1.0"):
-        # This prevents any parameters from being initialized twice
-        def dummy_init_fn(module: torch.nn.Module) -> None:
-            module.to_empty(device=get_default_device())
-
-        param_init_fn = dummy_init_fn
-    else:
-        param_init_fn = None
-    return FSDP(
-        model,
-        sync_module_states=True,  # Ensure same init across all ranks for this test
-        sharding_strategy=ShardingStrategy.FULL_SHARD,
-        use_orig_params=True,  # needed for compile and some of our optimizer/parameter metrics
-        limit_all_gathers=True,
-        device_id=get_local_rank(),
-        param_init_fn=param_init_fn,
-    )
-
-
 def init_process_group():
     # Initialize process group and set device.
     dist.init_process_group(backend="nccl")
@@ -114,20 +84,24 @@ def init_process_group():
 
 
 def do_communication(data_to_gather: torch.Tensor, gather_list: Optional[List[torch.Tensor]]):
-    dist.gather(data_to_gather, gather_list, 1)
+    s: torch.cuda.Stream = torch.cuda.Stream()
+    with torch.cuda.stream(s):
+        dist.gather(data_to_gather, gather_list, 1)
 
 
-def do_computation(fsdp_model: FSDP, batch: torch.Tensor):
-    fsdp_model(batch)
+def do_computation(model: Model, batch: torch.Tensor):
+    s: torch.cuda.Stream = torch.cuda.Stream()
+    with torch.cuda.stream(s):
+        model(batch)
 
 
-def run_batch(fsdp_model: FSDP, batch: torch.Tensor, data_to_gather: torch.Tensor, gather_list: Optional[List[torch.Tensor]]):
-    do_computation(fsdp_model, batch)
+def run_batch(model: Model, batch: torch.Tensor, data_to_gather: torch.Tensor, gather_list: Optional[List[torch.Tensor]]):
+    do_computation(model, batch)
     do_communication(data_to_gather, gather_list)
     barrier()
 
 
-def run_batches(fsdp_model: FSDP):
+def run_batches(model: Model):
     batch_size = RANK_TO_BATCH_SIZE_MAP[get_global_rank()]
 
     save_folder = "."
@@ -141,26 +115,26 @@ def run_batches(fsdp_model: FSDP):
 
     with torch_profiler as p:
         for _ in range(10):
-            run_batch(fsdp_model, batch, data_to_gather, gather_list)
+            run_batch(model, batch, data_to_gather, gather_list)
             p.step()
 
 
 def test():
-    fsdp_model = get_fsdp_model()
+    model = Model()
 
     log.info("Peak GPU Memory (MB) after FSDP: %d", int(peak_gpu_memory() or 0))
     log.info("Model:")
-    log.info(fsdp_model)
+    log.info(model)
 
-    # log.warning("Param 1 weight shape %s", fsdp_model.param1.weight.shape)
-    # log.warning("Param 2 weight shape %s", fsdp_model.param2.weight.shape)
-    # log.warning("Param weight shape %s", fsdp_model.param.weight.shape)
-    for param in fsdp_model.parameters():
+    # log.warning("Param 1 weight shape %s", model.param1.weight.shape)
+    # log.warning("Param 2 weight shape %s", model.param2.weight.shape)
+    # log.warning("Param weight shape %s", model.param.weight.shape)
+    for param in model.parameters():
         log.warning("Param weight shape %s", param.shape)
     log.info("Global rank %d", get_global_rank())
     log.info("Local rank %d", get_local_rank())
 
-    run_batches(fsdp_model)
+    run_batches(model)
 
 
 def main():
