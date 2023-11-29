@@ -138,17 +138,17 @@ class LocalFileSystemAdapter(StorageAdapter):
     def _list_entries(
         self, path: PathOrStr, include_files: bool = True, max_file_size: Optional[int] = None
     ) -> List[str]:
-        path = Path(path)
-        if path.is_file():
-            if not self.has_supported_archive_extension(path):
+        path_obj = Path(path)
+        if path_obj.is_file():
+            if not self.has_supported_archive_extension(path_obj):
                 raise ValueError(f"File does not have a supported archive extension: {path}")
 
-            path = cached_path(path, extract_archive=True)
+            path_obj = cached_path(path_obj, extract_archive=True)
 
-        if path.is_dir():
+        if path_obj.is_dir():
             return [
                 entry.name
-                for entry in path.iterdir()
+                for entry in path_obj.iterdir()
                 if (
                     (include_files or not entry.is_file())
                     and (
