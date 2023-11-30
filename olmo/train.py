@@ -794,122 +794,120 @@ class Trainer:
         first_batch: bool = True
         canceled: bool = False
 
-        stream: torch.cuda.Stream = torch.cuda.Stream() # type: ignore
-        with torch.cuda.stream(stream):
-            with torch_profiler as p:
-                for batch in self.train_loader:
-                    # Bookkeeping.
-                    # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
-                    # batches see the same number of tokens, which should be the case for language model pre-training
-                    # (at least when drop_last=True).
-                    # Alternatively we'd have to use a distributed all reduce over seq_len here, but I don't want that
-                    # overhead. So for now I'm putting these assertions here so if the assumption is violated it will
-                    # fail loudly.
-                    batch_size, seq_len = batch["input_ids"].shape
-                    assert seq_len == self.cfg.model.max_sequence_length
-                    assert batch_size == self.cfg.device_train_batch_size
-                    global_batch_size = batch_size * get_world_size()  # assumes batch size equal across ranks
-                    self.global_step += 1
-                    self.global_train_examples_seen_this_epoch += global_batch_size
-                    self.global_train_tokens_seen += global_batch_size * seq_len
-                    speed_monitor.batch_start(
-                        self.global_train_tokens_seen,
-                        batch_size * seq_len,  # num tokens in batch for this device
-                        # We start monitoring speed after the first batch since the first
-                        # batch might be an outlier due to compiling and other initialization overhead.
-                        record=not first_batch,
-                    )
+        with torch_profiler as p:
+            for batch in self.train_loader:
+                # Bookkeeping.
+                # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
+                # batches see the same number of tokens, which should be the case for language model pre-training
+                # (at least when drop_last=True).
+                # Alternatively we'd have to use a distributed all reduce over seq_len here, but I don't want that
+                # overhead. So for now I'm putting these assertions here so if the assumption is violated it will
+                # fail loudly.
+                batch_size, seq_len = batch["input_ids"].shape
+                assert seq_len == self.cfg.model.max_sequence_length
+                assert batch_size == self.cfg.device_train_batch_size
+                global_batch_size = batch_size * get_world_size()  # assumes batch size equal across ranks
+                self.global_step += 1
+                self.global_train_examples_seen_this_epoch += global_batch_size
+                self.global_train_tokens_seen += global_batch_size * seq_len
+                speed_monitor.batch_start(
+                    self.global_train_tokens_seen,
+                    batch_size * seq_len,  # num tokens in batch for this device
+                    # We start monitoring speed after the first batch since the first
+                    # batch might be an outlier due to compiling and other initialization overhead.
+                    record=not first_batch,
+                )
 
-                    should_log_this_step = self.should_log_this_step()
+                should_log_this_step = self.should_log_this_step()
 
-                    # Run train step on batch.
-                    metrics = self.train_step(batch, reduce_global_loss=should_log_this_step)
+                # Run train step on batch.
+                metrics = self.train_step(batch, reduce_global_loss=should_log_this_step)
 
-                    # Maybe collect other metrics.
-                    if should_log_this_step:
-                        # Speed metrics.
-                        metrics.update(speed_monitor.check())
-                        # System metrics.
-                        metrics.update(self.system_metrics())
-                        # Learning rate metrics.
-                        metrics.update(lr_monitor.check())
+                # Maybe collect other metrics.
+                if should_log_this_step:
+                    # Speed metrics.
+                    metrics.update(speed_monitor.check())
+                    # System metrics.
+                    metrics.update(self.system_metrics())
+                    # Learning rate metrics.
+                    metrics.update(lr_monitor.check())
 
-                    # Log metrics to console.
-                    if self.global_step % self.cfg.console_log_interval == 0:
-                        self.log_metrics_to_console(f"[step={self.global_step}/{self.max_steps}]", metrics)
+                # Log metrics to console.
+                if self.global_step % self.cfg.console_log_interval == 0:
+                    self.log_metrics_to_console(f"[step={self.global_step}/{self.max_steps}]", metrics)
+
+                # Log metrics to W&B.
+                if (
+                    wandb.run is not None
+                    and self.cfg.wandb is not None
+                    and self.global_step % self.cfg.wandb.log_interval == 0
+                ):
+                    wandb.log(metrics, step=self.global_step)
+
+                # Check if run should be canceled.
+                if self.cfg.stop_at is not None and self.global_step >= self.cfg.stop_at:
+                    canceled = True
+                elif self.global_step % self.cfg.canceled_check_interval == 0:
+                    canceled = self.check_if_cancelled()
+
+                # Maybe save sharded checkpoint.
+                if canceled or (
+                    self.global_step % self.cfg.save_interval == 0 and self.cfg.save_num_checkpoints_to_keep != 0
+                ):
+                    log.info("Saving checkpoint...")
+                    checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
+                    log.info(f"Checkpoint saved to {checkpoint_path}")
+
+                    # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                    speed_monitor.reset()
+
+                # Maybe save unsharded checkpoint.
+                if (
+                    not canceled  # we already save a sharded checkpoint when canceled
+                    and self.cfg.save_interval_unsharded is not None
+                    and self.global_step % self.cfg.save_interval_unsharded == 0
+                    and self.cfg.save_num_unsharded_checkpoints_to_keep != 0
+                ):
+                    log.info("Saving unsharded checkpoint...")
+                    checkpoint_path, _ = self.save_checkpoint(CheckpointType.unsharded)
+                    log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
+
+                    # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                    speed_monitor.reset()
+
+                # Maybe run evaluations.
+                if not canceled and self.global_step % self.cfg.eval_interval == 0:
+                    eval_metrics = self.eval()
 
                     # Log metrics to W&B.
-                    if (
-                        wandb.run is not None
-                        and self.cfg.wandb is not None
-                        and self.global_step % self.cfg.wandb.log_interval == 0
-                    ):
-                        wandb.log(metrics, step=self.global_step)
+                    if wandb.run is not None:
+                        wandb.log(eval_metrics, step=self.global_step)
 
-                    # Check if run should be canceled.
-                    if self.cfg.stop_at is not None and self.global_step >= self.cfg.stop_at:
-                        canceled = True
-                    elif self.global_step % self.cfg.canceled_check_interval == 0:
-                        canceled = self.check_if_cancelled()
+                    # Reset speed monitor so that we don't count the time taken to run evaluations.
+                    speed_monitor.reset()
 
-                    # Maybe save sharded checkpoint.
-                    if canceled or (
-                        self.global_step % self.cfg.save_interval == 0 and self.cfg.save_num_checkpoints_to_keep != 0
-                    ):
-                        log.info("Saving checkpoint...")
-                        checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
-                        log.info(f"Checkpoint saved to {checkpoint_path}")
+                    # Reset model to 'train' mode.
+                    self.fsdp_model.train()
 
-                        # Reset speed monitor so that we don't count the time taken to save checkpoints.
-                        speed_monitor.reset()
+                # End of batch.
+                first_batch = False
+                if p is not None:
+                    p.step()
 
-                    # Maybe save unsharded checkpoint.
-                    if (
-                        not canceled  # we already save a sharded checkpoint when canceled
-                        and self.cfg.save_interval_unsharded is not None
-                        and self.global_step % self.cfg.save_interval_unsharded == 0
-                        and self.cfg.save_num_unsharded_checkpoints_to_keep != 0
-                    ):
-                        log.info("Saving unsharded checkpoint...")
-                        checkpoint_path, _ = self.save_checkpoint(CheckpointType.unsharded)
-                        log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
+                if canceled:
+                    break
 
-                        # Reset speed monitor so that we don't count the time taken to save checkpoints.
-                        speed_monitor.reset()
-
-                    # Maybe run evaluations.
-                    if not canceled and self.global_step % self.cfg.eval_interval == 0:
-                        eval_metrics = self.eval()
-
-                        # Log metrics to W&B.
-                        if wandb.run is not None:
-                            wandb.log(eval_metrics, step=self.global_step)
-
-                        # Reset speed monitor so that we don't count the time taken to run evaluations.
-                        speed_monitor.reset()
-
-                        # Reset model to 'train' mode.
-                        self.fsdp_model.train()
-
-                    # End of batch.
-                    first_batch = False
-                    if p is not None:
-                        p.step()
-
-                    if canceled:
-                        break
-
-                    # Python Profiler stuff
-                    # We do this now, at the bottom of this loop, so we capture the work of getting the next batch.
-                    if python_profiler is not None:
-                        if self.global_step == 5:
-                            python_profiler.enable()
-                        elif self.global_step == 8:
-                            python_profiler.disable()
-                            python_profiler.print_stats(sort=SortKey.CUMULATIVE)
-                            python_profiler = None
-                else:
-                    log.info("Training loop complete")
+                # Python Profiler stuff
+                # We do this now, at the bottom of this loop, so we capture the work of getting the next batch.
+                if python_profiler is not None:
+                    if self.global_step == 5:
+                        python_profiler.enable()
+                    elif self.global_step == 8:
+                        python_profiler.disable()
+                        python_profiler.print_stats(sort=SortKey.CUMULATIVE)
+                        python_profiler = None
+            else:
+                log.info("Training loop complete")
 
         # Save final unsharded model-only checkpoint.
         if not canceled and self.cfg.save_interval_unsharded is not None:
