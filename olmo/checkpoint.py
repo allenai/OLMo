@@ -617,9 +617,12 @@ class FullCheckpointer(Checkpointer):
             # Load model state.
             og_keys_to_new = None
             gc.collect()
-            for turn in range(get_local_world_size()):
+            num_simultaneous_loads = 2
+            assert get_local_world_size() % num_simultaneous_loads == 0
+            num_turns = get_local_world_size() // num_simultaneous_loads
+            for turn in range(num_turns):
                 log.info("Loading model state turn %d ...", turn)
-                if turn == get_local_rank():
+                if turn == get_local_rank() % num_turns:
                     (
                         state_dict_to_load,
                         og_keys_to_new,
@@ -636,9 +639,9 @@ class FullCheckpointer(Checkpointer):
             # Load optimizer state.
             if load_optimizer_state:
                 gc.collect()
-                for turn in range(get_local_world_size()):
+                for turn in range(num_turns):
                     log.info("Loading optimizer state turn %d ...", turn)
-                    if turn == get_local_rank():
+                    if turn == get_local_rank() % num_turns:
                         optim_state_dict_to_load = self._make_optim_state_dict_compatible(
                             load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location="cpu"),
                             og_keys_to_new,
