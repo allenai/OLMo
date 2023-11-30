@@ -11,6 +11,8 @@ from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from functools import reduce
 from pathlib import Path
+from threading import Thread
+from time import sleep
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple, cast
 
 import numpy as np
@@ -18,7 +20,8 @@ import torch
 import torch.distributed.checkpoint as dist_cp
 from numpy import ndarray
 from packaging import version
-from torch.distributed import _remote_device
+from torch import tensor
+from torch.distributed import _remote_device, all_reduce
 from torch.distributed._shard._utils import narrow_tensor_by_index
 from torch.distributed._shard.metadata import ShardMetadata
 from torch.distributed._shard.sharded_tensor import ShardedTensor
@@ -615,28 +618,76 @@ class FullCheckpointer(Checkpointer):
             optim_state_dict_config=FullOptimStateDictConfig(rank0_only=False, offload_to_cpu=True),
         ):
             # Load model state.
-            log.info("Loading model state...")
-            state_dict_to_load, og_keys_to_new = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(
-                load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location="cpu")
-            )
-            fsdp_model.load_state_dict(state_dict_to_load)
-            del state_dict_to_load
 
-            # Load optimizer state.
-            if load_optimizer_state:
+            # This is complicated. We have to make sure we only load on n ranks at a time, because each rank
+            # will load the whole model, and typical nodes don't have memory for the whole model times the number
+            # of GPUs in a node. Further, loading a single model can take long enough that an NCCL barrier()
+            # call times out. So we load the model in a thread, while doing a barrier() call every 30 seconds.
+
+            with ThreadPoolExecutor(max_workers=1, thread_name_prefix="ModelLoading") as thread_pool:
+                og_keys_to_new = None
                 gc.collect()
-                for turn in range(get_local_world_size()):
-                    log.info("Loading optimizer state turn %d ...", turn)
+                turn = 0
+                loading_future = None
+                while turn < get_local_world_size():
                     if turn == get_local_rank():
-                        optim_state_dict_to_load = self._make_optim_state_dict_compatible(
-                            load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location="cpu"),
-                            og_keys_to_new,
-                        )
-                        load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
-                        del optim_state_dict_to_load
-                        gc.collect()
-                        torch.cuda.empty_cache()
-                    barrier()
+                        if loading_future is None:
+                            log.info("Loading model state turn %d ...", turn)
+                            loading_future = thread_pool.submit(
+                                load_state_dict, "model.pt", local_cache=local_cache, map_location="cpu"
+                            )
+                        else:
+                            try:
+                                state_dict_to_load = loading_future.result(timeout=30)
+                            except TimeoutError:
+                                state_dict_to_load = None
+                            if state_dict_to_load is not None:
+                                (
+                                    state_dict_to_load,
+                                    og_keys_to_new,
+                                ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(state_dict_to_load)
+                                fsdp_model.load_state_dict(state_dict_to_load)
+                                del state_dict_to_load
+                                gc.collect()
+                                torch.cuda.empty_cache()
+                                turn += 1
+                    else:
+                        sleep(30)
+                    turn = all_reduce(tensor(turn), op=torch.distributed.ReduceOp.MAX)
+                    turn = turn.item()
+                assert og_keys_to_new is not None
+
+                # Load optimizer state.
+                if load_optimizer_state:
+                    gc.collect()
+                    turn = 0
+                    loading_future = None
+                    while turn < get_local_world_size():
+                        if turn == get_local_rank():
+                            if loading_future is None:
+                                log.info("Loading optimizer state turn %d ...", turn)
+                                loading_future = thread_pool.submit(
+                                    load_state_dict, "optim.pt", local_cache=local_cache, map_location="cpu"
+                                )
+                            else:
+                                try:
+                                    optim_state_dict_to_load = loading_future.result(timeout=30)
+                                except TimeoutError:
+                                    optim_state_dict_to_load = None
+                                if optim_state_dict_to_load is not None:
+                                    optim_state_dict_to_load = self._make_optim_state_dict_compatible(
+                                        optim_state_dict_to_load,
+                                        og_keys_to_new,
+                                    )
+                                    load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
+                                    del optim_state_dict_to_load
+                                    gc.collect()
+                                    torch.cuda.empty_cache()
+                                    turn += 1
+                        else:
+                            sleep(30)
+                        turn = all_reduce(tensor(turn), op=torch.distributed.ReduceOp.MAX)
+                        turn = turn.item()
 
             # Load other state.
             try:

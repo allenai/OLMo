@@ -181,6 +181,7 @@ def main(cfg: TrainConfig) -> None:
     # Consolidate components into `Trainer` object.
     with Trainer(
         cfg=cfg,
+        epoch=cfg.epoch,
         model=olmo_model,
         fsdp_model=fsdp_model,
         optim=optim,

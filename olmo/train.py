@@ -101,12 +101,11 @@ class Trainer:
     train_loader: DataLoader
     device: torch.device
     evaluators: List[Evaluator]
+    epoch: int = 0
     global_step: int = 0
-    global_data_step: int = 0
-    """This is now redundant since adding 'global_train_examples_seen'."""
-    global_train_examples_seen: int = 0
-    """Tracks the global number of training examples seen for the purpose of restoring the dataset
-    position on restarts."""
+    global_train_examples_seen_this_epoch: int = 0
+    """Tracks the global number of training examples seen in the current epoch for the purpose of restoring
+    the data loader position on restarts."""
     global_train_tokens_seen: int = 0
     """Tracks the global total number of tokens trained on."""
     checkpoints: List[Path] = field(default_factory=list)
@@ -117,11 +116,29 @@ class Trainer:
     _start_time: float = 0.0
     is_deepspeed: bool = False
 
+    @property
+    def max_steps(self) -> int:
+        if isinstance(self.cfg.max_duration, int):
+            return self.cfg.max_duration
+        elif isinstance(self.cfg.max_duration, str):
+            if self.cfg.max_duration.endswith("T"):
+                # convert to float *first* to handle scientific notation
+                max_tokens = int(float(self.cfg.max_duration[:-1].strip()))
+                tokens_remaining = max_tokens - self.global_train_tokens_seen
+                tokens_per_batch = self.cfg.global_train_batch_size * self.cfg.model.max_sequence_length
+                steps_remaining = tokens_remaining // tokens_per_batch
+                return self.global_step + steps_remaining
+            else:
+                # convert to float *first* to handle scientific notation
+                return int(float(self.cfg.max_duration))
+        else:
+            raise TypeError(f"expected int or str for 'max_duration', found {type(self.cfg.max_duration)}")
+
     def trainer_state_dict(self) -> Dict[str, Any]:
         return {
+            "epoch": self.epoch,
             "global_step": self.global_step,
-            "global_data_step": self.global_data_step,
-            "global_train_examples_seen": self.global_train_examples_seen,
+            "global_train_examples_seen_this_epoch": self.global_train_examples_seen_this_epoch,
             "global_train_tokens_seen": self.global_train_tokens_seen,
             "world_size": get_world_size(),
             "checkpoints": self.checkpoints,
@@ -148,45 +165,49 @@ class Trainer:
         ]
 
         # Dataset / dataloader position.
+        checkpoint_epoch = state_dict.get("epoch", 0)
         self.global_step = state_dict["global_step"]
-        self.global_data_step = state_dict["global_data_step"]
-        self.global_train_examples_seen = state_dict.get(  # newer addition
-            "global_train_examples_seen", self.global_data_step * self.cfg.global_train_batch_size
+        self.global_train_examples_seen_this_epoch = state_dict.get(
+            "global_train_examples_seen_this_epoch",
+            state_dict.get(  # for backwards compatibility
+                "global_train_examples_seen",
+                state_dict.get("global_data_step", self.global_step) * self.cfg.global_train_batch_size,
+            ),
         )
-        self.global_train_tokens_seen = state_dict.get(  # newer addition
+        self.global_train_tokens_seen = state_dict.get(
             "global_train_tokens_seen",
-            self.global_data_step * self.cfg.global_train_batch_size * self.cfg.model.max_sequence_length,
+            state_dict.get("global_data_step", self.global_step)  # for backwards compatibility
+            * self.cfg.global_train_batch_size
+            * self.cfg.model.max_sequence_length,
         )
+
         if not self.cfg.restore_dataloader:
-            self.global_data_step = 0
-            self.global_train_examples_seen = 0
+            self.epoch = 0
             self.global_train_tokens_seen = 0
-        elif self.cfg.fast_forward_batches:
-            self.global_data_step += self.cfg.fast_forward_batches
+            self.global_train_examples_seen_this_epoch = 0
+        elif checkpoint_epoch != self.epoch:
+            log.info(f"Starting new epoch (epoch = {self.epoch})")
+            self.global_train_examples_seen_this_epoch = 0
+
+        if self.cfg.fast_forward_batches:
+            log.info(f"Fast-forwarding data loader by {self.cfg.fast_forward_batches:,d} steps")
             # Technically we don't "see" these batches that we fast-forward through, but we use
             # this variable to update the position of the dataset so we need to include them here.
-            self.global_train_examples_seen += self.cfg.fast_forward_batches * self.cfg.global_train_batch_size
+            self.global_train_examples_seen_this_epoch += (
+                self.cfg.fast_forward_batches * self.cfg.global_train_batch_size
+            )
             # NOTE: on the other hand we don't add anything to 'self.global_train_tokens_seen' here because
             # that variable is meant to track the actual number of tokens trained on.
 
-        if self.global_data_step > 0:
-            if self.global_data_step > self.global_step:
-                log.info(
-                    f"Fast-forwarding data loader to step {self.global_step:,d}+{self.global_data_step-self.global_step:,d} "
-                    f"({self.global_train_examples_seen:,d} examples)"
-                )
-            else:
-                log.info(
-                    f"Fast-forwarding data loader to step {self.global_data_step:,d} "
-                    f"({self.global_train_examples_seen:,d} examples)"
-                )
+        if self.global_train_examples_seen_this_epoch > 0:
             assert isinstance(self.train_loader.dataset, IterableDataset)
-            self.train_loader.dataset.start_index = self.global_train_examples_seen
+            log.info(f"Data loader will start at instance index {self.global_train_examples_seen_this_epoch:,d}")
+            self.train_loader.dataset.start_index = self.global_train_examples_seen_this_epoch
 
         # Reset learning rate and weight decay to the values from the config, not the checkpoint.
         log.info("Resetting learning rate...")
         new_learning_rate = self.scheduler.get_lr(
-            self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
+            self.cfg.optimizer.learning_rate, self.global_step, self.max_steps
         )
         for group in self.optim.param_groups:
             group["lr"] = new_learning_rate
@@ -491,6 +512,7 @@ class Trainer:
         # Optimizer step, gradient clipping etc. is all handled in model.step()
         # https://github.com/microsoft/DeepSpeed/blob/2afa1c7f2f961ef18042a88467ff5d3373c22c07/deepspeed/runtime/bf16_optimizer.py#L244
         if not self.is_deepspeed:
+            # Clip gradient norms and collect param/gradient/optim metrics.
             should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
             optim_metrics = self.optim.clip_grads_and_collect_metrics(
                 self.global_step, collect_param_metrics=should_log_optim_metrics_this_step
@@ -501,17 +523,30 @@ class Trainer:
                 # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
                 # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
                 # the corresponding values from `self.cfg`.
-                group["lr"] = self.scheduler.get_lr(
-                    self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
-                )
+                group["lr"] = self.scheduler.get_lr(self.cfg.optimizer.learning_rate, self.global_step, self.max_steps)
                 group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
-                    self.cfg.max_grad_norm, self.global_step, self.cfg.max_duration
+                    self.cfg.max_grad_norm, self.global_step, self.max_steps
                 )
                 group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
-                    self.cfg.max_grad_norm_ratio, self.global_step, self.cfg.max_duration
+                    self.cfg.max_grad_norm_ratio, self.global_step, self.max_steps
                 )
 
-            self.optim.step()
+                # Adjust the learning rate.
+                for group in self.optim.param_groups:
+                    # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
+                    # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
+                    # the corresponding values from `self.cfg`.
+                    group["lr"] = self.scheduler.get_lr(
+                        self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
+                    )
+                    group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
+                        self.cfg.max_grad_norm, self.global_step, self.cfg.max_duration
+                    )
+                    group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
+                        self.cfg.max_grad_norm_ratio, self.global_step, self.cfg.max_duration
+                    )
+
+                self.optim.step()
 
         # Collect metrics and check for NaN loss.
         # NOTE: this involves a bunch of host-device syncs so we wait until the last moment to do this.
@@ -799,8 +834,7 @@ class Trainer:
                 assert batch_size == self.cfg.device_train_batch_size
                 global_batch_size = batch_size * get_world_size()  # assumes batch size equal across ranks
                 self.global_step += 1
-                self.global_data_step += 1
-                self.global_train_examples_seen += global_batch_size
+                self.global_train_examples_seen_this_epoch += global_batch_size
                 self.global_train_tokens_seen += global_batch_size * seq_len
                 speed_monitor.batch_start(
                     self.global_train_tokens_seen,
@@ -826,7 +860,7 @@ class Trainer:
 
                 # Log metrics to console.
                 if self.global_step % self.cfg.console_log_interval == 0:
-                    self.log_metrics_to_console(f"[step={self.global_step}/{self.cfg.max_duration}]", metrics)
+                    self.log_metrics_to_console(f"[step={self.global_step}/{self.max_steps}]", metrics)
 
                 # Log metrics to W&B.
                 if (
