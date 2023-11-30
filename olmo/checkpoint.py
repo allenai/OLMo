@@ -21,6 +21,7 @@ import torch.distributed.checkpoint as dist_cp
 from numpy import ndarray
 from packaging import version
 from torch import tensor
+from torch.cuda import current_device
 from torch.distributed import _remote_device, all_reduce
 from torch.distributed._shard._utils import narrow_tensor_by_index
 from torch.distributed._shard.metadata import ShardMetadata
@@ -653,7 +654,7 @@ class FullCheckpointer(Checkpointer):
                                 turn += 1
                     else:
                         sleep(30)
-                    turn = all_reduce(tensor(turn), op=torch.distributed.ReduceOp.MAX)
+                    turn = all_reduce(tensor(turn, device=current_device()), op=torch.distributed.ReduceOp.MAX)
                     turn = turn.item()
                 assert og_keys_to_new is not None
 
@@ -686,7 +687,7 @@ class FullCheckpointer(Checkpointer):
                                     turn += 1
                         else:
                             sleep(30)
-                        turn = all_reduce(tensor(turn), op=torch.distributed.ReduceOp.MAX)
+                        turn = all_reduce(tensor(turn, device=current_device()), op=torch.distributed.ReduceOp.MAX)
                         turn = turn.item()
 
             # Load other state.
