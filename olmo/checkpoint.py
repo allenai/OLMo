@@ -44,6 +44,7 @@ from torch.futures import Future
 from .aliases import PathOrStr
 from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
 from .optim import Optimizer, fix_optim_state_dict
+from .safetensors_util import safetensors_file_to_state_dict
 from .torch_util import (
     barrier,
     get_fs_local_rank,
@@ -276,9 +277,14 @@ def load_state_dict(
 
     :raises FileNotFoundError: If ``fname`` doesn't exist in the ``checkpoint_dir`` or the local cache.
     """
-    return torch.load(
-        resource_path(str(checkpoint_dir).rstrip("/"), fname, local_cache=local_cache), map_location=map_location
-    )
+    path = resource_path(str(checkpoint_dir).rstrip("/"), fname, local_cache=local_cache)
+
+    if path.suffix == ".pt":
+        safetensors_path = path.with_suffix(".safetensors")
+        if safetensors_path.is_file():
+            return safetensors_file_to_state_dict(safetensors_path, map_location=map_location)
+
+    return torch.load(path, map_location=map_location)
 
 
 def load_model_state(checkpoint_dir: PathOrStr, model: torch.nn.Module):
@@ -669,7 +675,11 @@ class FullCheckpointer(Checkpointer):
                             if loading_future is None:
                                 log.info("Loading optimizer state turn %d ...", turn)
                                 loading_future = thread_pool.submit(
-                                    load_state_dict, load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
+                                    load_state_dict,
+                                    load_path,
+                                    "optim.pt",
+                                    local_cache=local_cache,
+                                    map_location="cpu",
                                 )
                             else:
                                 try:
