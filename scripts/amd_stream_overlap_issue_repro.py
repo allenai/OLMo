@@ -57,9 +57,9 @@ def get_profiler(save_folder: str) -> torch.profiler.profile:
         profiler_output_dir.mkdir(exist_ok=True)
 
         output = p.key_averages().table(sort_by="self_cuda_time_total", row_limit=32)
-        print("Profile by total GPU time at step %d:\n%s", p.step_num, output)
+        print(f"Profile by total GPU time at step {p.step_num}:\n{output}")
         output = p.key_averages().table(sort_by="self_cpu_time_total", row_limit=32)
-        print("Profile by total CPU time at step %d:\n%s", p.step_num, output)
+        print(f"Profile by total CPU time at step {p.step_num}:\n{output}")
 
         p.export_chrome_trace(
             str((profiler_output_dir / f"{get_global_rank()}.{p.step_num}.chrome_trace.json.gz"))
@@ -123,8 +123,8 @@ def run_batches(model: Model):
 
     gather_list = [torch.zeros((GATHER_DIM, GATHER_DIM)).cuda(), torch.zeros((GATHER_DIM, GATHER_DIM)).cuda()]
 
-    communication_stream: Optional[Stream] = Stream()
-    computation_stream: Optional[Stream] = Stream()
+    communication_stream: Optional[Stream] = None
+    computation_stream: Optional[Stream] = None
 
     with torch_profiler as p:
         for _ in range(6):
@@ -132,7 +132,7 @@ def run_batches(model: Model):
 
             # Print an element from every tensor to force device synchronization
             # (just in case).
-            print(batch[0, 0], data_to_gather[0, 0], gather_list[0][0, 0], gather_list[1][0, 0])
+            print("Tensor first elements:", batch[0, 0], data_to_gather[0, 0], gather_list[0][0, 0], gather_list[1][0, 0])
 
             p.step()
 
@@ -144,9 +144,9 @@ def test():
     print(model)
 
     for param in model.parameters():
-        print("Param weight shape %s", param.shape)
-    print("Global rank %d", get_global_rank())
-    print("Local rank %d", get_local_rank())
+        print(f"Param weight shape {param.shape}")
+    print(f"Global rank {get_global_rank()}")
+    print(f"Local rank {get_local_rank()}")
 
     run_batches(model)
 
