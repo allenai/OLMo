@@ -79,6 +79,10 @@ device_train_microbatch_size: 8
 
 precision: amp_bf16
 
+fsdp:
+  wrapping_strategy: by_block
+  precision: mixed
+
 max_grad_norm: 1.0
 
 speed_monitor:
