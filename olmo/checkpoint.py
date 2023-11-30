@@ -654,7 +654,8 @@ class FullCheckpointer(Checkpointer):
                                 turn += 1
                     else:
                         sleep(30)
-                    turn = all_reduce(tensor(turn, device=current_device()), op=torch.distributed.ReduceOp.MAX)
+                    turn = tensor(turn, device=current_device())
+                    all_reduce(turn, op=torch.distributed.ReduceOp.MAX)
                     turn = turn.item()
                 assert og_keys_to_new is not None
 
@@ -687,7 +688,8 @@ class FullCheckpointer(Checkpointer):
                                     turn += 1
                         else:
                             sleep(30)
-                        turn = all_reduce(tensor(turn, device=current_device()), op=torch.distributed.ReduceOp.MAX)
+                        turn = tensor(turn, device=current_device())
+                        all_reduce(turn, op=torch.distributed.ReduceOp.MAX)
                         turn = turn.item()
 
             # Load other state.
