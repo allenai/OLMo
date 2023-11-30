@@ -83,8 +83,8 @@ def init_process_group():
 
 
 def do_communication(data_to_gather: torch.Tensor, gather_list: Optional[List[torch.Tensor]], stream: Optional[Stream] = None):
-    if stream is None:
-        stream = Stream()
+    # if stream is None:
+    #     stream = Stream()
 
     with torch.cuda.stream(stream):
         # dist.gather(data_to_gather, gather_list, 1)
@@ -92,8 +92,8 @@ def do_communication(data_to_gather: torch.Tensor, gather_list: Optional[List[to
 
 
 def do_computation(model: Model, batch: torch.Tensor, stream: Optional[Stream] = None):
-    if stream is None:
-        stream = Stream()
+    # if stream is None:
+    #     stream = Stream()
 
     with torch.cuda.stream(stream):
         model(batch)
@@ -123,7 +123,7 @@ def run_batches(model: Model):
 
     gather_list = [torch.zeros((GATHER_DIM, GATHER_DIM)).cuda(), torch.zeros((GATHER_DIM, GATHER_DIM)).cuda()]
 
-    communication_stream: Optional[Stream] = None
+    communication_stream: Optional[Stream] = Stream()
     computation_stream: Optional[Stream] = None
 
     with torch_profiler as p:
