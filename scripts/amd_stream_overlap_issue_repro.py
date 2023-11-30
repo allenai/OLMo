@@ -125,16 +125,18 @@ def run_batches(model: Model):
 
     communication_stream: Optional[Stream] = Stream()
     computation_stream: Optional[Stream] = None
+    global_stream: Optional[Stream] = None
 
     with torch_profiler as p:
-        for _ in range(6):
-            run_batch(model, batch, data_to_gather, gather_list, communication_stream, computation_stream)
+        with torch.cuda.stream(global_stream):
+            for _ in range(6):
+                run_batch(model, batch, data_to_gather, gather_list, communication_stream, computation_stream)
 
-            # Print an element from every tensor to force device synchronization
-            # (just in case).
-            print("Tensor first elements:", batch[0, 0], data_to_gather[0, 0], gather_list[0][0, 0], gather_list[1][0, 0])
+                # Print an element from every tensor to force device synchronization
+                # (just in case).
+                print("Tensor first elements:", batch[0, 0], data_to_gather[0, 0], gather_list[0][0, 0], gather_list[1][0, 0])
 
-            p.step()
+                p.step()
 
 
 def test():
