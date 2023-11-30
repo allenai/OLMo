@@ -653,7 +653,11 @@ class FullCheckpointer(Checkpointer):
         # This state dict comes in two forms: one where the state keys are integers and one where the
         # keys are fully qualified parameter names. The latter case is easier to deal with here so we
         # first transform the integer key form into the FQN key form.
-        if isinstance(next(iter(optim_state_dict["state"].keys())), int):
+        try:
+            first_key = next(iter(optim_state_dict["state"].keys()))
+        except StopIteration:
+            first_key = None
+        if isinstance(first_key, int):
             id_to_fqn: Dict[int, str] = {}
             for group in optim_state_dict["param_groups"]:
                 new_param_names = []
