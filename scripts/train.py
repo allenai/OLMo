@@ -45,10 +45,9 @@ def main(cfg: TrainConfig) -> None:
             "You want to reset the optimizer state, but we're not loading from the checkpoint. The"
             "setting has no effect."
         )
-
-    # Initialize process group and set device.
-    dist.init_process_group(backend="nccl")
     barrier()
+
+    # Set device.
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
     device = torch.device("cuda")
 
@@ -239,6 +238,9 @@ def main(cfg: TrainConfig) -> None:
 
 
 if __name__ == "__main__":
+    # Initialize process group.
+    dist.init_process_group(backend="nccl")
+
     prepare_cli_environment()
 
     try:
