@@ -2,7 +2,7 @@
 #SBATCH --job-name=mitchish65
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
-#SBATCH --nodes=64             # Total number of nodes
+#SBATCH --nodes=128             # Total number of nodes
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
