@@ -8,17 +8,11 @@ import torch
 import torch.utils.data
 
 from ..aliases import PathOrStr
-from ..torch_util import (
-    barrier,
-    get_fs_local_rank,
-    get_global_rank,
-    get_world_size,
-    roundrobin,
-    threaded_generator,
-)
+from ..torch_util import barrier, get_fs_local_rank, get_global_rank, get_world_size
 
 __all__ = ["IterableDataset"]
 
+from ..util import threaded_generator, roundrobin
 
 log = logging.getLogger(__name__)
 
