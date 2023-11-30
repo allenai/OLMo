@@ -1,4 +1,3 @@
-import logging
 import os
 from pathlib import Path
 from typing import List, Optional
@@ -7,8 +6,6 @@ import torch
 import torch.distributed as dist
 from torch.cuda import Stream
 from torch.profiler import ProfilerActivity, schedule
-
-log = logging.getLogger(__name__)
 
 RANK_TO_BATCH_SIZE_MAP = {
     0: 2**11,
@@ -60,9 +57,9 @@ def get_profiler(save_folder: str) -> torch.profiler.profile:
         profiler_output_dir.mkdir(exist_ok=True)
 
         output = p.key_averages().table(sort_by="self_cuda_time_total", row_limit=32)
-        log.info("Profile by total GPU time at step %d:\n%s", p.step_num, output)
+        print("Profile by total GPU time at step %d:\n%s", p.step_num, output)
         output = p.key_averages().table(sort_by="self_cpu_time_total", row_limit=32)
-        log.info("Profile by total CPU time at step %d:\n%s", p.step_num, output)
+        print("Profile by total CPU time at step %d:\n%s", p.step_num, output)
 
         p.export_chrome_trace(
             str((profiler_output_dir / f"{get_global_rank()}.{p.step_num}.chrome_trace.json.gz"))
@@ -137,15 +134,13 @@ def run_batches(model: Model):
 def test():
     model = Model().cuda()
 
-    log.setLevel("INFO")
-
-    log.info("Model:")
-    log.info(model)
+    print("Model:")
+    print(model)
 
     for param in model.parameters():
-        log.info("Param weight shape %s", param.shape)
-    log.info("Global rank %d", get_global_rank())
-    log.info("Local rank %d", get_local_rank())
+        print("Param weight shape %s", param.shape)
+    print("Global rank %d", get_global_rank())
+    print("Local rank %d", get_local_rank())
 
     run_batches(model)
 
