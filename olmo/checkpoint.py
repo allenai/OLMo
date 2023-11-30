@@ -635,7 +635,7 @@ class FullCheckpointer(Checkpointer):
                         if loading_future is None:
                             log.info("Loading model state turn %d ...", turn)
                             loading_future = thread_pool.submit(
-                                load_state_dict, "model.pt", local_cache=local_cache, map_location="cpu"
+                                load_state_dict, fname="model.pt", local_cache=local_cache, map_location="cpu"
                             )
                         else:
                             try:
@@ -669,7 +669,7 @@ class FullCheckpointer(Checkpointer):
                             if loading_future is None:
                                 log.info("Loading optimizer state turn %d ...", turn)
                                 loading_future = thread_pool.submit(
-                                    load_state_dict, "optim.pt", local_cache=local_cache, map_location="cpu"
+                                    load_state_dict, fname="optim.pt", local_cache=local_cache, map_location="cpu"
                                 )
                             else:
                                 try:
