@@ -82,13 +82,19 @@ def init_process_group():
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
 
 
-def do_communication(data_to_gather: torch.Tensor, gather_list: Optional[List[torch.Tensor]], stream: Stream):
+def do_communication(data_to_gather: torch.Tensor, gather_list: Optional[List[torch.Tensor]], stream: Optional[Stream] = None):
+    if stream is None:
+        stream = Stream()
+
     with torch.cuda.stream(stream):
         # dist.gather(data_to_gather, gather_list, 1)
         dist.all_gather(gather_list, data_to_gather)
 
 
-def do_computation(model: Model, batch: torch.Tensor, stream: Stream):
+def do_computation(model: Model, batch: torch.Tensor, stream: Optional[Stream] = None):
+    if stream is None:
+        stream = Stream()
+
     with torch.cuda.stream(stream):
         model(batch)
 
@@ -98,8 +104,8 @@ def run_batch(
     batch: torch.Tensor,
     data_to_gather: torch.Tensor,
     gather_list: Optional[List[torch.Tensor]],
-    communication_stream: Stream,
-    computation_stream: Stream,
+    communication_stream: Optional[Stream] = None,
+    computation_stream: Optional[Stream] = None,
 ):
     do_computation(model, batch, computation_stream)
     do_communication(data_to_gather, gather_list, communication_stream)
@@ -117,8 +123,8 @@ def run_batches(model: Model):
 
     gather_list = [torch.zeros((GATHER_DIM, GATHER_DIM)).cuda(), torch.zeros((GATHER_DIM, GATHER_DIM)).cuda()]
 
-    communication_stream: torch.cuda.Stream = Stream()
-    computation_stream: torch.cuda.Stream = Stream()
+    communication_stream: Optional[Stream] = Stream()
+    computation_stream: Optional[Stream] = Stream()
 
     with torch_profiler as p:
         for _ in range(6):
