@@ -247,4 +247,7 @@ if __name__ == "__main__":
         raise OlmoCliError(f"Usage: {sys.argv[0]} [CONFIG_PATH] [OPTIONS]")
 
     cfg = TrainConfig.load(yaml_path, [clean_opt(s) for s in args_list])
-    main(cfg)
+
+    stream: torch.cuda.Stream = torch.cuda.Stream() # type: ignore
+    with torch.cuda.stream(stream):
+        main(cfg)
