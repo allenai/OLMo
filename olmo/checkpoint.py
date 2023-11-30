@@ -11,9 +11,9 @@ from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from functools import reduce
 from pathlib import Path
-from threading import Thread
 from time import sleep
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple, cast
+from concurrent.futures import TimeoutError
 
 import numpy as np
 import torch
