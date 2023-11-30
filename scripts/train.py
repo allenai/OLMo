@@ -248,6 +248,6 @@ if __name__ == "__main__":
 
     cfg = TrainConfig.load(yaml_path, [clean_opt(s) for s in args_list])
 
-    stream: torch.cuda.Stream = torch.cuda.Stream() # type: ignore
+    stream: torch.cuda.Stream = None # type: ignore
     with torch.cuda.stream(stream):
         main(cfg)
