@@ -45,9 +45,10 @@ def main(cfg: TrainConfig) -> None:
             "You want to reset the optimizer state, but we're not loading from the checkpoint. The"
             "setting has no effect."
         )
+
     barrier()
 
-    # Set device.
+    # Set CUDA device.
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
     device = torch.device("cuda")
 
