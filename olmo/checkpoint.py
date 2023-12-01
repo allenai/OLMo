@@ -679,7 +679,9 @@ class FullCheckpointer(Checkpointer):
         # Now we can transform the state dict by renaming parameters according to `og_keys_to_new`.
         # First fix param names in the state.
         for og_key, new_keys in og_keys_to_new.items():
-            og_state = optim_state_dict["state"].pop(og_key)
+            og_state = optim_state_dict["state"].pop(og_key, None)
+            if og_state is None:
+                continue
             for i, new_key in enumerate(new_keys):
                 if i == len(new_keys) - 1:
                     optim_state_dict["state"][new_key] = og_state
