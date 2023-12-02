@@ -632,7 +632,14 @@ class FullCheckpointer(Checkpointer):
             # call times out. So we load the model in a thread, while doing a barrier() call every 30 seconds.
 
             with ThreadPoolExecutor(max_workers=1, thread_name_prefix="ModelLoading") as thread_pool:
-                og_keys_to_new = None
+                state_dict_to_load = load_state_dict(
+                    load_path, "model.pt", local_cache=local_cache, map_location="cpu"
+                )
+                (
+                    state_dict_to_load,
+                    og_keys_to_new,
+                ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(state_dict_to_load)
+
                 gc.collect()
                 turn = 0
                 loading_future = None
@@ -640,24 +647,16 @@ class FullCheckpointer(Checkpointer):
                     if turn == get_local_rank():
                         if loading_future is None:
                             log.info("Loading model state turn %d ...", turn)
-                            loading_future = thread_pool.submit(
-                                load_state_dict, load_path, "model.pt", local_cache=local_cache, map_location="cpu"
-                            )
+                            loading_future = thread_pool.submit(fsdp_model.load_state_dict, state_dict_to_load)
+                            del state_dict_to_load
                         else:
                             try:
-                                state_dict_to_load = loading_future.result(timeout=30)
-                            except TimeoutError:
-                                state_dict_to_load = None
-                            if state_dict_to_load is not None:
-                                (
-                                    state_dict_to_load,
-                                    og_keys_to_new,
-                                ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(state_dict_to_load)
-                                fsdp_model.load_state_dict(state_dict_to_load)
-                                del state_dict_to_load
+                                loading_future.result(timeout=30)
                                 gc.collect()
                                 torch.cuda.empty_cache()
                                 turn += 1
+                            except TimeoutError:
+                                pass
                     else:
                         sleep(30)
                     turn = tensor(turn, device=current_device())
@@ -667,6 +666,14 @@ class FullCheckpointer(Checkpointer):
 
                 # Load optimizer state.
                 if load_optimizer_state:
+                    optim_state_dict_to_load = load_state_dict(
+                        load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
+                    )
+                    optim_state_dict_to_load = self._make_optim_state_dict_compatible(
+                        optim_state_dict_to_load,
+                        og_keys_to_new,
+                    )
+
                     gc.collect()
                     turn = 0
                     loading_future = None
@@ -675,27 +682,17 @@ class FullCheckpointer(Checkpointer):
                             if loading_future is None:
                                 log.info("Loading optimizer state turn %d ...", turn)
                                 loading_future = thread_pool.submit(
-                                    load_state_dict,
-                                    load_path,
-                                    "optim.pt",
-                                    local_cache=local_cache,
-                                    map_location="cpu",
+                                    load_fsdp_optim_state, fsdp_model, optim, optim_state_dict_to_load
                                 )
+                                del optim_state_dict_to_load
                             else:
                                 try:
-                                    optim_state_dict_to_load = loading_future.result(timeout=30)
-                                except TimeoutError:
-                                    optim_state_dict_to_load = None
-                                if optim_state_dict_to_load is not None:
-                                    optim_state_dict_to_load = self._make_optim_state_dict_compatible(
-                                        optim_state_dict_to_load,
-                                        og_keys_to_new,
-                                    )
-                                    load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
-                                    del optim_state_dict_to_load
+                                    loading_future.result(timeout=30)
                                     gc.collect()
                                     torch.cuda.empty_cache()
                                     turn += 1
+                                except TimeoutError:
+                                    pass
                         else:
                             sleep(30)
                         turn = tensor(turn, device=current_device())
