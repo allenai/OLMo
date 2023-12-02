@@ -10,7 +10,8 @@ from olmo.aliases import PathOrStr
 
 
 __all__ = [
-    "state_dict_to_safetensors_file", "safetensors_file_to_state_dict",
+    "state_dict_to_safetensors_file",
+    "safetensors_file_to_state_dict",
 ]
 
 
