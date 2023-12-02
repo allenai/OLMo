@@ -626,7 +626,12 @@ class FullCheckpointer(Checkpointer):
                 state_dict_to_load,
                 og_keys_to_new,
             ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(state_dict_to_load)
-            fsdp_model.load_state_dict(state_dict_to_load)
+
+            for module_name, module in fsdp_model.named_modules():
+                with FSDP.summon_full_params(module, recurse=False):
+                    for param_name, param in module.named_parameters(recurse=False):
+                        t = state_dict_to_load[f"{module_name}.{param_name}"]
+                        param.data.copy_(t)
             del state_dict_to_load
 
             # Load optimizer state.
