@@ -615,7 +615,7 @@ class FullCheckpointer(Checkpointer):
         with FSDP.state_dict_type(
             fsdp_model,
             state_dict_type=StateDictType.FULL_STATE_DICT,
-            state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
+            state_dict_config=FullStateDictConfig(rank0_only=False, offload_to_cpu=True),
             optim_state_dict_config=FullOptimStateDictConfig(rank0_only=False, offload_to_cpu=True),
         ):
             # Load model state.
