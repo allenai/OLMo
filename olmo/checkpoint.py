@@ -36,6 +36,7 @@ from torch.distributed.fsdp.api import (
 )
 from torch.distributed.fsdp.flat_param import FlatParamHandle
 from torch.futures import Future
+from torch import nn
 
 from .aliases import PathOrStr
 from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
@@ -627,11 +628,21 @@ class FullCheckpointer(Checkpointer):
                 og_keys_to_new,
             ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(state_dict_to_load)
 
-            for module_name, module in fsdp_model.named_modules():
-                with FSDP.summon_full_params(module, recurse=False):
-                    for param_name, param in module.named_parameters(recurse=False):
-                        t = state_dict_to_load[f"{module_name}.{param_name}"]
-                        param.data.copy_(t)
+            # build a map from modules to their names
+            module_id_to_module_name = {
+                id(module): module_name
+                for module_name, module in fsdp_model.named_modules()
+            }
+
+            def load_from_state_dict(module: nn.Module) -> None:
+                module_name = module_id_to_module_name[id(module)]
+                for param_name, param in module.named_parameters(recurse=False):
+                    key = f"{module_name}.{param_name}"
+                    key = key.replace("_fsdp_wrapped_module.", "")
+                    t = state_dict_to_load[key]
+                    param.data.copy_(t)
+
+            fsdp_model.apply(load_from_state_dict)
             del state_dict_to_load
 
             # Load optimizer state.
