@@ -11,18 +11,14 @@ from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from functools import reduce
 from pathlib import Path
-from time import sleep
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple, cast
-from concurrent.futures import TimeoutError
 
 import numpy as np
 import torch
 import torch.distributed.checkpoint as dist_cp
 from numpy import ndarray
 from packaging import version
-from torch import tensor
-from torch.cuda import current_device
-from torch.distributed import _remote_device, all_reduce
+from torch.distributed import _remote_device
 from torch.distributed._shard._utils import narrow_tensor_by_index
 from torch.distributed._shard.metadata import ShardMetadata
 from torch.distributed._shard.sharded_tensor import ShardedTensor
@@ -40,6 +36,7 @@ from torch.distributed.fsdp.api import (
 )
 from torch.distributed.fsdp.flat_param import FlatParamHandle
 from torch.futures import Future
+from torch import nn
 
 from .aliases import PathOrStr
 from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
@@ -49,8 +46,6 @@ from .torch_util import (
     barrier,
     get_fs_local_rank,
     get_global_rank,
-    get_local_rank,
-    get_local_world_size,
     get_world_size,
 )
 from .util import (
@@ -621,83 +616,42 @@ class FullCheckpointer(Checkpointer):
         with FSDP.state_dict_type(
             fsdp_model,
             state_dict_type=StateDictType.FULL_STATE_DICT,
-            state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
+            state_dict_config=FullStateDictConfig(rank0_only=False, offload_to_cpu=True),
             optim_state_dict_config=FullOptimStateDictConfig(rank0_only=False, offload_to_cpu=True),
         ):
             # Load model state.
+            state_dict_to_load = load_state_dict(
+                load_path, "model.pt", local_cache=local_cache, map_location="cpu"
+            )
+            (
+                state_dict_to_load,
+                og_keys_to_new,
+            ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(state_dict_to_load)
 
-            # This is complicated. We have to make sure we only load on n ranks at a time, because each rank
-            # will load the whole model, and typical nodes don't have memory for the whole model times the number
-            # of GPUs in a node. Further, loading a single model can take long enough that an NCCL barrier()
-            # call times out. So we load the model in a thread, while doing a barrier() call every 30 seconds.
+            # build a map from modules to their names
+            module_id_to_module_name = {
+                id(module): module_name
+                for module_name, module in fsdp_model.named_modules()
+            }
 
-            with ThreadPoolExecutor(max_workers=1, thread_name_prefix="ModelLoading") as thread_pool:
-                state_dict_to_load = load_state_dict(
-                    load_path, "model.pt", local_cache=local_cache, map_location="cpu"
+            def load_from_state_dict(module: nn.Module) -> None:
+                module_name = module_id_to_module_name[id(module)]
+                for param_name, param in module.named_parameters(recurse=False):
+                    key = f"{module_name}.{param_name}"
+                    key = key.replace("_fsdp_wrapped_module.", "")
+                    t = state_dict_to_load[key]
+                    param.data.copy_(t)
+
+            fsdp_model.apply(load_from_state_dict)
+            del state_dict_to_load
+
+            # Load optimizer state.
+            if load_optimizer_state:
+                optim_state_dict_to_load = load_state_dict(
+                    load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
                 )
-                (
-                    state_dict_to_load,
-                    og_keys_to_new,
-                ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(state_dict_to_load)
-
-                gc.collect()
-                turn = 0
-                loading_future = None
-                while turn < get_local_world_size():
-                    if turn == get_local_rank():
-                        if loading_future is None:
-                            log.info("Loading model state turn %d ...", turn)
-                            loading_future = thread_pool.submit(fsdp_model.load_state_dict, state_dict_to_load)
-                            del state_dict_to_load
-                        else:
-                            try:
-                                loading_future.result(timeout=30)
-                                gc.collect()
-                                torch.cuda.empty_cache()
-                                turn += 1
-                            except TimeoutError:
-                                pass
-                    else:
-                        sleep(30)
-                    turn = tensor(turn, device=current_device())
-                    all_reduce(turn, op=torch.distributed.ReduceOp.MAX)
-                    turn = turn.item()
-                assert og_keys_to_new is not None
-
-                # Load optimizer state.
-                if load_optimizer_state:
-                    optim_state_dict_to_load = load_state_dict(
-                        load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
-                    )
-                    optim_state_dict_to_load = self._make_optim_state_dict_compatible(
-                        optim_state_dict_to_load,
-                        og_keys_to_new,
-                    )
-
-                    gc.collect()
-                    turn = 0
-                    loading_future = None
-                    while turn < get_local_world_size():
-                        if turn == get_local_rank():
-                            if loading_future is None:
-                                log.info("Loading optimizer state turn %d ...", turn)
-                                loading_future = thread_pool.submit(
-                                    load_fsdp_optim_state, fsdp_model, optim, optim_state_dict_to_load
-                                )
-                                del optim_state_dict_to_load
-                            else:
-                                try:
-                                    loading_future.result(timeout=30)
-                                    gc.collect()
-                                    torch.cuda.empty_cache()
-                                    turn += 1
-                                except TimeoutError:
-                                    pass
-                        else:
-                            sleep(30)
-                        turn = tensor(turn, device=current_device())
-                        all_reduce(turn, op=torch.distributed.ReduceOp.MAX)
-                        turn = turn.item()
+                load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
+                del optim_state_dict_to_load
 
             # Load other state.
             try:
