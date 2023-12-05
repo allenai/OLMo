@@ -460,6 +460,8 @@ def _get_s3_endpoint_url(scheme: str) -> Optional[str]:
         if r2_endpoint_url is None:
             raise OlmoEnvironmentError("R2 endpoint url is not set.")
 
+        return r2_endpoint_url
+
     raise NotImplementedError(f"Cannot get endpoint url for scheme {scheme}")
 
 
