@@ -25,7 +25,13 @@ from rich.text import Text
 from rich.traceback import Traceback
 
 from .aliases import PathOrStr
-from .exceptions import OlmoCliError, OlmoEnvironmentError, OlmoError, OlmoNetworkError, OlmoThreadError
+from .exceptions import (
+    OlmoCliError,
+    OlmoEnvironmentError,
+    OlmoError,
+    OlmoNetworkError,
+    OlmoThreadError,
+)
 from .torch_util import get_global_rank, get_local_rank, get_node_rank, is_distributed
 
 
