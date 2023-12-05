@@ -25,7 +25,7 @@ from rich.text import Text
 from rich.traceback import Traceback
 
 from .aliases import PathOrStr
-from .exceptions import OlmoCliError, OlmoError, OlmoNetworkError, OlmoThreadError
+from .exceptions import OlmoCliError, OlmoEnvironmentError, OlmoError, OlmoNetworkError, OlmoThreadError
 from .torch_util import get_global_rank, get_local_rank, get_node_rank, is_distributed
 
 
@@ -439,10 +439,27 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
 
 
 def _get_s3_profile_name(scheme: str) -> Optional[str]:
+    if scheme == "s3":
+        # For backwards compatibility, we assume S3 uses the default profile if S3_PROFILE is not set.
+        return os.environ.get("S3_PROFILE")
+    if scheme == "r2":
+        profile_name = os.environ.get("R2_PROFILE")
+        if profile_name is None:
+            raise OlmoEnvironmentError("R2 profile name is not set.")
+
+        return profile_name
+
     raise NotImplementedError(f"Cannot get profile name for scheme {scheme}")
 
 
 def _get_s3_endpoint_url(scheme: str) -> Optional[str]:
+    if scheme == "s3":
+        return None
+    if scheme == "r2":
+        r2_endpoint_url = os.environ.get("R2_ENDPOINT_URL")
+        if r2_endpoint_url is None:
+            raise OlmoEnvironmentError("R2 endpoint url is not set.")
+
     raise NotImplementedError(f"Cannot get endpoint url for scheme {scheme}")
 
 
