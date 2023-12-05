@@ -88,5 +88,5 @@ if __name__ == "__main__":
         args.input_dir,
         args.output_dir,
         sharded_checkpoint_type=args.type,
-        model_only=model_only,
+        model_only=args.model_only,
     )
