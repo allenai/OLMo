@@ -325,7 +325,7 @@ def file_size(path: PathOrStr) -> int:
         parsed = urlparse(str(path))
         if parsed.scheme == "gs":
             return _gcs_file_size(parsed.netloc, parsed.path.strip("/"))
-        elif parsed.scheme == "s3":
+        elif parsed.scheme in ("s3", "r2"):
             return _s3_file_size(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return file_size(str(path).replace("file://", "", 1))
@@ -344,7 +344,7 @@ def upload(source: PathOrStr, target: str, save_overwrite: bool = False):
     parsed = urlparse(target)
     if parsed.scheme == "gs":
         _gcs_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
-    elif parsed.scheme == "s3":
+    elif parsed.scheme in ("s3", "r2"):
         _s3_upload(source, parsed.scheme, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
     else:
         raise NotImplementedError(f"Upload not implemented for '{parsed.scheme}' scheme")
@@ -357,7 +357,7 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
         parsed = urlparse(str(source))
         if parsed.scheme == "gs":
             return _gcs_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
-        elif parsed.scheme == "s3":
+        elif parsed.scheme in ("s3", "r2"):
             return _s3_get_bytes_range(parsed.scheme, parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
         elif parsed.scheme == "file":
             return get_bytes_range(str(source).replace("file://", "", 1), bytes_start, num_bytes)
@@ -376,7 +376,7 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
         parsed = urlparse(str(dir))
         if parsed.scheme == "gs":
             raise NotImplementedError
-        elif parsed.scheme == "s3":
+        elif parsed.scheme in ("s3", "r2"):
             return _s3_find_latest_checkpoint(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return find_latest_checkpoint(str(dir).replace("file://", "", 1))
