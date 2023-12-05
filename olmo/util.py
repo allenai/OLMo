@@ -453,7 +453,7 @@ def _get_s3_profile_name(scheme: str) -> Optional[str]:
     if scheme == "r2":
         profile_name = os.environ.get("R2_PROFILE")
         if profile_name is None:
-            raise OlmoEnvironmentError("R2 profile name is not set.")
+            raise OlmoEnvironmentError("R2 profile name is not set. Did you forget to set the 'R2_PROFILE' env var?")
 
         return profile_name
 
@@ -466,7 +466,7 @@ def _get_s3_endpoint_url(scheme: str) -> Optional[str]:
     if scheme == "r2":
         r2_endpoint_url = os.environ.get("R2_ENDPOINT_URL")
         if r2_endpoint_url is None:
-            raise OlmoEnvironmentError("R2 endpoint url is not set.")
+            raise OlmoEnvironmentError("R2 endpoint url is not set. Did you forget to set the 'R2_ENDPOINT_URL' env var?")
 
         return r2_endpoint_url
 
