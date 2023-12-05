@@ -19,6 +19,7 @@ def main(
     input_dir: Union[str, Path],
     output_dir: Union[str, Path],
     sharded_checkpoint_type: ShardedCheckpointerType = ShardedCheckpointerType.torch_legacy,
+    model_only: bool = False,
 ) -> None:
     if isinstance(input_dir, str):
         input_dir = Path(input_dir)
@@ -35,24 +36,30 @@ def main(
     else:
         raise NotImplementedError(sharded_checkpoint_type)
 
-    model_state_dict, optim_state_dict, trainer_state_dict = checkpointer.unshard_checkpoint(input_dir)
+    model_state_dict, optim_state_dict, trainer_state_dict = checkpointer.unshard_checkpoint(
+        input_dir,
+        load_optimizer_state=not model_only,
+        load_trainer_state=not model_only,
+    )
+
     # model
     model_output = str(output_dir / "model.pt")
     logger.info("Saving model state to %s", model_output)
     torch.save(model_state_dict, model_output)
     del model_state_dict
 
-    # optimizer
-    optim_output = str(output_dir / "optim.pt")
-    logger.info("Saving optimizer state to %s", optim_output)
-    torch.save(optim_state_dict, optim_output)
-    del optim_state_dict
+    if not model_only:
+        # optimizer
+        optim_output = str(output_dir / "optim.pt")
+        logger.info("Saving optimizer state to %s", optim_output)
+        torch.save(optim_state_dict, optim_output)
+        del optim_state_dict
 
-    # whatever is left
-    train_output = str(output_dir / "train.pt")
-    logger.info("Saving everything else to %s", train_output)
-    torch.save(trainer_state_dict, train_output)
-    del trainer_state_dict
+        # trainer
+        train_output = str(output_dir / "train.pt")
+        logger.info("Saving everything else to %s", train_output)
+        torch.save(trainer_state_dict, train_output)
+        del trainer_state_dict
 
     logger.info("Copying config.yaml to %s", output_dir)
     shutil.copy(input_dir / "config.yaml", output_dir)
@@ -70,7 +77,16 @@ if __name__ == "__main__":
         default=ShardedCheckpointerType.torch_legacy,
         help="""The sharded checkpoint type.""",
     )
+    parser.add_argument(
+        "--model-only",
+        action="store_true",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
-    main(args.input_dir, args.output_dir, sharded_checkpoint_type=args.type)
+    main(
+        args.input_dir,
+        args.output_dir,
+        sharded_checkpoint_type=args.type,
+        model_only=model_only,
+    )
