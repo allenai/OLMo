@@ -634,13 +634,24 @@ class FullCheckpointer(Checkpointer):
                 for module_name, module in fsdp_model.named_modules()
             }
 
+            apply_counter = 0
+
             def load_from_state_dict(module: nn.Module) -> None:
+                nonlocal apply_counter
                 module_name = module_id_to_module_name[id(module)]
                 for param_name, param in module.named_parameters(recurse=False):
                     key = f"{module_name}.{param_name}"
                     key = key.replace("_fsdp_wrapped_module.", "")
+                    log.info("Loading %s from unsharded checkpoint", key)
                     t = state_dict_to_load[key]
                     param.data.copy_(t)
+
+                    apply_counter += 1
+                    if apply_counter % 5 == 0:
+                        apply_counter = 0
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                        log.info("Clearing memory after loading 5 tensors from unsharded checkpoint")
 
             fsdp_model.apply(load_from_state_dict)
             del state_dict_to_load
