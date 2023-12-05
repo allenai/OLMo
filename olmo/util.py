@@ -326,7 +326,7 @@ def file_size(path: PathOrStr) -> int:
         if parsed.scheme == "gs":
             return _gcs_file_size(parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "s3":
-            return _s3_file_size(parsed.netloc, parsed.path.strip("/"))
+            return _s3_file_size(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return file_size(str(path).replace("file://", "", 1))
         else:
@@ -345,7 +345,7 @@ def upload(source: PathOrStr, target: str, save_overwrite: bool = False):
     if parsed.scheme == "gs":
         _gcs_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
     elif parsed.scheme == "s3":
-        _s3_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
+        _s3_upload(source, parsed.scheme, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
     else:
         raise NotImplementedError(f"Upload not implemented for '{parsed.scheme}' scheme")
 
@@ -358,7 +358,7 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
         if parsed.scheme == "gs":
             return _gcs_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
         elif parsed.scheme == "s3":
-            return _s3_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
+            return _s3_get_bytes_range(parsed.scheme, parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
         elif parsed.scheme == "file":
             return get_bytes_range(str(source).replace("file://", "", 1), bytes_start, num_bytes)
         else:
@@ -377,7 +377,7 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
         if parsed.scheme == "gs":
             raise NotImplementedError
         elif parsed.scheme == "s3":
-            return _s3_find_latest_checkpoint(parsed.netloc, parsed.path.strip("/"))
+            return _s3_find_latest_checkpoint(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return find_latest_checkpoint(str(dir).replace("file://", "", 1))
         else:
@@ -438,11 +438,20 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
     return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1)
 
 
+def _get_s3_profile_name(scheme: str) -> Optional[str]:
+    raise NotImplementedError(f"Cannot get profile name for scheme {scheme}")
+
+
+def _get_s3_endpoint_url(scheme: str) -> Optional[str]:
+    raise NotImplementedError(f"Cannot get endpoint url for scheme {scheme}")
+
+
 @cache
-def _get_s3_client(endpoint_url: Optional[str] = None):
-    return boto3.client(
+def _get_s3_client(scheme: str):
+    session = boto3.Session(profile_name=_get_s3_profile_name(scheme))
+    return session.client(
         "s3",
-        endpoint_url=endpoint_url,
+        endpoint_url=_get_s3_endpoint_url(scheme),
         config=Config(retries={"max_attempts": 10, "mode": "standard"}),
         use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
     )
@@ -452,12 +461,12 @@ def _wait_before_retry(attempt: int):
     time.sleep(min(0.5 * 2**attempt, 3.0))
 
 
-def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False, max_attempts: int = 3):
+def _s3_upload(source: Path, scheme: str, bucket_name: str, key: str, save_overwrite: bool = False, max_attempts: int = 3):
     err: Optional[Exception] = None
     if not save_overwrite:
         for attempt in range(1, max_attempts + 1):
             try:
-                _get_s3_client().head_object(Bucket=bucket_name, Key=key)
+                _get_s3_client(scheme).head_object(Bucket=bucket_name, Key=key)
                 raise FileExistsError(
                     f"s3://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it."
                 )
@@ -475,16 +484,16 @@ def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = 
             raise OlmoNetworkError("Failed to check object existence during s3 upload") from err
 
     try:
-        _get_s3_client().upload_file(source, bucket_name, key)
+        _get_s3_client(scheme).upload_file(source, bucket_name, key)
     except boto_exceptions.ClientError as e:
         raise OlmoNetworkError("Failed to upload to s3") from e
 
 
-def _s3_file_size(bucket_name: str, key: str, max_attempts: int = 3) -> int:
+def _s3_file_size(scheme: str, bucket_name: str, key: str, max_attempts: int = 3) -> int:
     err: Optional[Exception] = None
     for attempt in range(1, max_attempts + 1):
         try:
-            return _get_s3_client().head_object(Bucket=bucket_name, Key=key)["ContentLength"]
+            return _get_s3_client(scheme).head_object(Bucket=bucket_name, Key=key)["ContentLength"]
         except boto_exceptions.ClientError as e:
             if int(e.response["Error"]["Code"]) == 404:
                 raise FileNotFoundError(f"s3://{bucket_name}/{key}") from e
@@ -498,13 +507,13 @@ def _s3_file_size(bucket_name: str, key: str, max_attempts: int = 3) -> int:
 
 
 def _s3_get_bytes_range(
-    bucket_name: str, key: str, bytes_start: int, num_bytes: int, max_attempts: int = 3
+    scheme: str, bucket_name: str, key: str, bytes_start: int, num_bytes: int, max_attempts: int = 3
 ) -> bytes:
     err: Optional[Exception] = None
     for attempt in range(1, max_attempts + 1):
         try:
             return (
-                _get_s3_client()
+                _get_s3_client(scheme)
                 .get_object(
                     Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
                 )["Body"]
@@ -536,10 +545,10 @@ def _s3_get_bytes_range(
     raise OlmoNetworkError("Failed to get bytes range from s3") from err
 
 
-def _s3_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
+def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Optional[str]:
     if not prefix.endswith("/"):
         prefix = f"{prefix}/"
-    response = _get_s3_client().list_objects(Bucket=bucket_name, Prefix=prefix, Delimiter="/")
+    response = _get_s3_client(scheme).list_objects(Bucket=bucket_name, Prefix=prefix, Delimiter="/")
     assert not response["IsTruncated"]  # need to handle this if it happens
     latest_step = 0
     latest_checkpoint: Optional[str] = None
