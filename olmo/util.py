@@ -358,7 +358,9 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
         if parsed.scheme == "gs":
             return _gcs_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
         elif parsed.scheme in ("s3", "r2"):
-            return _s3_get_bytes_range(parsed.scheme, parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
+            return _s3_get_bytes_range(
+                parsed.scheme, parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes
+            )
         elif parsed.scheme == "file":
             return get_bytes_range(str(source).replace("file://", "", 1), bytes_start, num_bytes)
         else:
@@ -480,7 +482,9 @@ def _wait_before_retry(attempt: int):
     time.sleep(min(0.5 * 2**attempt, 3.0))
 
 
-def _s3_upload(source: Path, scheme: str, bucket_name: str, key: str, save_overwrite: bool = False, max_attempts: int = 3):
+def _s3_upload(
+    source: Path, scheme: str, bucket_name: str, key: str, save_overwrite: bool = False, max_attempts: int = 3
+):
     err: Optional[Exception] = None
     if not save_overwrite:
         for attempt in range(1, max_attempts + 1):
