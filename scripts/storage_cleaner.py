@@ -46,10 +46,6 @@ class StorageAdapter(ABC):
         """Lists all the entries within the given directory.
         Returns only top-level entries (i.e. not entries in subdirectories).
 
-        `full_path`: If `full_path` is set to true, returned entries are valid full paths. These full paths
-        might not have `path` as their parent and might not use the same type of storage as `path`.
-        If `full_path` is set to false, returned entries are file/directory names.
-
         `max_file_size`: Sets a threshold (in bytes) for the largest size file to retain within entries.
         Any file of larger size is not included in the returned results.
         """
@@ -58,8 +54,6 @@ class StorageAdapter(ABC):
     def list_dirs(self, directory: str) -> List[str]:
         """Lists all the directories within the given directory.
         Returns only top-level entries (i.e. not entries in subdirectories).
-
-        `full_path`: See `list_entries` for details.
         """
 
     @abstractmethod
