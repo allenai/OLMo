@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 
 from ..config import DataConfig, TrainConfig
 from ..exceptions import OlmoConfigurationError
-from ..util import barrier, get_global_rank, get_world_size
+from ..torch_util import barrier, get_global_rank, get_world_size
 from .collator import DataCollator
 from .iterable_dataset import IterableDataset
 from .memmap_dataset import MemMapDataset
@@ -92,12 +92,11 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
     return DataLoader(
         IterableDataset(
             dataset,  # type: ignore
-            seed=train_config.seed,
+            train_config.global_train_batch_size,
+            seed=train_config.seed + train_config.epoch,
             shuffle=True,
             drop_last=train_config.data.drop_last,
-            max_examples=train_config.global_train_batch_size * train_config.max_duration,
             work_dir=work_dir,
-            global_batch_size=train_config.global_train_batch_size,
         ),
         batch_size=train_config.device_train_batch_size,
         drop_last=train_config.data.drop_last,
