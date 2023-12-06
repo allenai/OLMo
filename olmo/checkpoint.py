@@ -619,25 +619,29 @@ class FullCheckpointer(Checkpointer):
             state_dict_config=FullStateDictConfig(rank0_only=False, offload_to_cpu=True),
             optim_state_dict_config=FullOptimStateDictConfig(rank0_only=False, offload_to_cpu=True),
         ):
-            # Load model state.
-            state_dict_to_load = load_state_dict(
-                load_path, "model.pt", local_cache=local_cache, map_location="cpu"
-            )
-            (
-                state_dict_to_load,
-                og_keys_to_new,
-            ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(state_dict_to_load)
-
             # build a map from modules to their names
             module_id_to_module_name = {
                 id(module): module_name
                 for module_name, module in fsdp_model.named_modules()
             }
 
+            # Load model state.
+            def load_and_prepare_state_dict():
+                state_dict_to_load = load_state_dict(
+                    load_path, "model.pt", local_cache=local_cache, map_location="cpu"
+                )
+                (
+                    state_dict_to_load,
+                    og_keys_to_new,
+                ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(state_dict_to_load)
+                return state_dict_to_load, og_keys_to_new
+
+            state_dict_to_load, og_keys_to_new = load_and_prepare_state_dict()
             apply_counter = 0
 
             def load_from_state_dict(module: nn.Module) -> None:
                 nonlocal apply_counter
+                nonlocal state_dict_to_load
                 module_name = module_id_to_module_name[id(module)]
                 for param_name, param in module.named_parameters(recurse=False):
                     key = f"{module_name}.{param_name}"
@@ -647,11 +651,12 @@ class FullCheckpointer(Checkpointer):
                     param.data.copy_(t)
 
                     apply_counter += 1
-                    if apply_counter % 5 == 0:
+                    if apply_counter % 10 == 0:
+                        log.info("Clearing memory after loading 5 tensors from unsharded checkpoint")
                         apply_counter = 0
+                        state_dict_to_load, _ = load_and_prepare_state_dict()
                         gc.collect()
                         torch.cuda.empty_cache()
-                        log.info("Clearing memory after loading 5 tensors from unsharded checkpoint")
 
             fsdp_model.apply(load_from_state_dict)
             del state_dict_to_load
