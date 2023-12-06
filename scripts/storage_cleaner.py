@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 import boto3.session
 import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
-from cached_path import add_scheme_client, cached_path
+from cached_path import add_scheme_client, cached_path, set_cache_dir
 from cached_path.schemes import S3Client
 from google.api_core.exceptions import NotFound
 
@@ -657,7 +657,10 @@ def _add_cached_path_s3_client():
     add_scheme_client(S3SchemeClient)
 
 
-def _add_cached_path_scheme_clients():
+def _setup_cached_path(args: argparse.Namespace):
+    if args.temp_dir is not None:
+        set_cache_dir(args.temp_dir)
+
     _add_cached_path_s3_client()
 
 
@@ -701,6 +704,10 @@ def get_parser() -> ArgumentParser:
         action="store_true",
         help="If set, indicate actions but do not do them",
     )
+    parser.add_argument(
+        "--temp_dir",
+        help="Directory where artifacts (e.g. unarchived directories) can be stored temporarily",
+    )
 
     subparsers = parser.add_subparsers(dest="command", help="Cleaning commands", required=True)
     _add_delete_subparser(subparsers)
@@ -712,7 +719,7 @@ def main():
     args = get_parser().parse_args()
 
     util.prepare_cli_environment()
-    _add_cached_path_scheme_clients()
+    _setup_cached_path(args)
     perform_operation(args)
 
 
