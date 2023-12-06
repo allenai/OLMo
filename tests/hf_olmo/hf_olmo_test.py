@@ -187,7 +187,8 @@ def test_forward(
     model = Olmo(train_config.model).eval()
 
     hf_config = OLMoConfig(**model.config.asdict())
-    hf_model = OLMoForCausalLM(hf_config, model=model)
+    hf_model = OLMoForCausalLM(hf_config)
+    hf_model.model = model
 
     input1 = tokenizer.encode("My name is OLMo!")
     input2 = tokenizer.encode("I'm a delightful large open language model :)")
