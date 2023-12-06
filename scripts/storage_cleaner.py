@@ -316,10 +316,10 @@ class GoogleCloudStorageAdapter(StorageAdapter):
     def _list_entries(
         self, directory: str, include_files: bool = True, max_file_size: Optional[int] = None
     ) -> List[str]:
-        if not self.is_dir(directory):
-            raise ValueError(f"{directory} is not an existing directory")
-
         bucket_name, key = self._get_bucket_name_and_key(directory)
+
+        if not self._is_dir(bucket_name, key):
+            raise ValueError(f"{directory} is not an existing directory")
 
         res = self._get_directory_entries(
             bucket_name, key, include_files=include_files, max_file_size=max_file_size
