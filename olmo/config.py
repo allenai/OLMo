@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from enum import Enum
 from glob import glob
 from pathlib import Path
 from typing import (
@@ -24,10 +23,11 @@ from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
 
 from .aliases import PathOrStr
 from .exceptions import OlmoConfigurationError
+from .util import StrEnum
 
 __all__ = [
-    "LogFilterType",
     "ActivationType",
+    "ActivationCheckpointingStrategy",
     "BlockType",
     "CompilerConfig",
     "LayerNormType",
@@ -53,21 +53,7 @@ __all__ = [
     "CheckpointType",
 ]
 
-
 C = TypeVar("C", bound="BaseConfig")
-
-
-class StrEnum(str, Enum):
-    """
-    This is equivalent to Python's :class:`enum.StrEnum` since version 3.11.
-    We include this here for compatibility with older version of Python.
-    """
-
-    def __str__(self) -> str:
-        return self.value
-
-    def __repr__(self) -> str:
-        return f"'{str(self)}'"
 
 
 class BaseConfig:
@@ -158,11 +144,6 @@ class BaseConfig:
         return out
 
 
-class LogFilterType(StrEnum):
-    rank0_only = "rank0_only"
-    local_rank0_only = "local_rank0_only"
-
-
 class LayerNormType(StrEnum):
     default = "default"
     """
@@ -180,11 +161,6 @@ class LayerNormType(StrEnum):
     probably the fastest implementation.
     """
 
-    low_precision_rms = "low_precision_rms"
-    """
-    A low-precision version of RMSNorm.
-    """
-
     amd_compatible = "amd_compatible"
     """
     LayerNorm implemented manually to work around an issue with ROCm.
@@ -200,6 +176,12 @@ class ActivationType(StrEnum):
 class BlockType(StrEnum):
     sequential = "sequential"
     parallel = "parallel"
+
+    llama = "llama"
+    """
+    A block similar to the sequential block with slightly different
+    implementations of operations like attention to imitate the behavior of Llama.
+    """
 
 
 class InitFnType(StrEnum):
@@ -225,6 +207,11 @@ class InitFnType(StrEnum):
     """
     "Fan-in variance scaling", i.e. normal with a standard deviation of ``1/sqrt(d_in)`` where ``d_in``
     is the input dimensionality of the kernel.
+    """
+
+    full_megatron = "full_megatron"
+    """
+    This is what metaseq calls "full megatron init". It is the init used for Llama 2.
     """
 
 
@@ -292,6 +279,12 @@ class ModelConfig(BaseConfig):
     rope: bool = False
     """
     Use rotary positional embeddings (RoPE). Mutually exclusive with ``alibi``.
+    """
+
+    rope_full_precision: bool = True
+    """
+    If ``True``, apply RoPE embeddings at full precision regardless of the input type. Otherwise,
+    apply RoPE at the precision of the input.
     """
 
     flash_attention: bool = False
@@ -437,8 +430,14 @@ class OptimizerConfig(BaseConfig):
     learning_rate: float = 1.0e-4
     weight_decay: float = 0.01
     betas: Tuple[float, float] = (0.9, 0.95)
-    no_decay_norm_and_bias: bool = True
-    """Do not apply weight decay to norms and biases."""
+
+    no_decay_norm_and_bias: Optional[bool] = None
+    """
+    Deprecated. Use ``decay_norm_and_bias`` and ``decay_embeddings`` instead.
+    """
+
+    decay_norm_and_bias: bool = False
+    decay_embeddings: bool = False
     metrics_log_interval: Optional[int] = None
     """
     The interval with which to collect and log detailed parameter-specific metrics.
@@ -455,6 +454,7 @@ class SchedulerType(StrEnum):
     linear_with_warmup = "linear_with_warmup"
     inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
     max_scheduler = "max_scheduler"
+    constant = "constant"
 
 
 @dataclass
@@ -463,6 +463,18 @@ class SchedulerConfig(BaseConfig):
     t_warmup: int = 100
     t_max: Optional[int] = None
     alpha_f: float = 0.1
+
+    grad_clip_warmup_steps: Optional[int] = None
+    """
+    The warmup period for which the max grad norm (or norm ratio) will be set to its
+    warmup value of `max_grad_norm * grad_clip_warmup_factor`.
+    """
+
+    grad_clip_warmup_factor: Optional[float] = None
+    """
+    The ratio of the max allowed gradient norm (or norm ratio) for clipping during the warmup period
+    vs after the warmup period.
+    """
 
 
 class PaddingDirection(StrEnum):
@@ -553,16 +565,31 @@ class FSDPWrapStrategy(StrEnum):
     Wrap each OLMo block with its own FSDP instance.
     """
 
+    by_block_and_size = "by_block_and_size"
+    """
+    Like 'by_block' but `wte` and `ff_out` will be wrapped separately as well.
+    """
+
     by_block_group = "by_block_group"
     """
     Wrap each block group together into its own FSDP instance.
     This requires :attr:`~ModelConfig.block_group_size` to be bigger than 1.
     """
 
+    by_block_group_and_size = "by_block_group_and_size"
+    """
+    Like 'by_block_group' but `wte` and `ff_out` will be wrapped separately as well.
+    """
+
     size_based = "size_based"
     """
     Used PyTorch's default size-based auto wrap policy.
     """
+
+    one_in_two = "one_in_two"
+    one_in_three = "one_in_three"
+    one_in_four = "one_in_four"
+    one_in_five = "one_in_five"
 
 
 class FSDPPrecision(StrEnum):
@@ -608,6 +635,14 @@ class ShardedCheckpointerType(StrEnum):
     local = "local"
 
 
+class ActivationCheckpointingStrategy(StrEnum):
+    whole_layer = "whole_layer"
+    one_in_two = "one_in_two"
+    one_in_three = "one_in_three"
+    one_in_four = "one_in_four"
+    fine_grained = "fine_grained"
+
+
 @dataclass
 class TrainConfig(BaseConfig):
     """
@@ -622,6 +657,11 @@ class TrainConfig(BaseConfig):
     seed: int = 6198
     """
     Used to seed all initial RNG states.
+    """
+
+    epoch: int = 0
+    """
+    Increment this when starting a new epoch.
     """
 
     dry_run: bool = False
@@ -766,9 +806,13 @@ class TrainConfig(BaseConfig):
     Deprecated. Use ``sharded_checkpointer`` instead.
     """
 
-    max_duration: int = 10000
+    max_duration: Union[int, str] = 10000
     """
-    Maximum number of batches to train for.
+    How long to train for.
+
+    If specified without a unit (the default), the units are assumed to be steps.
+    You can also specify this in terms of tokens, for example: `max_duration="2e12T"` means train until
+    2 trillion tokens.
     """
 
     global_train_batch_size: int = 512
@@ -883,9 +927,9 @@ class TrainConfig(BaseConfig):
     Stop at a specific step.
     """
 
-    activation_checkpointing: bool = False
+    activation_checkpointing: Optional[ActivationCheckpointingStrategy] = None
     """
-    Use activation checkpointing on transformer blocks.
+    The activation checkpointing strategy to use.
     """
 
     @property

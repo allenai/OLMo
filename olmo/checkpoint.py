@@ -1,3 +1,4 @@
+import gc
 import io
 import logging
 import pickle
@@ -6,6 +7,7 @@ from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from functools import reduce
 from pathlib import Path
@@ -38,15 +40,19 @@ from torch.futures import Future
 from .aliases import PathOrStr
 from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
 from .optim import Optimizer, fix_optim_state_dict
-from .util import (
+from .torch_util import (
     barrier,
+    get_fs_local_rank,
+    get_global_rank,
+    get_local_rank,
+    get_local_world_size,
+    get_world_size,
+)
+from .util import (
     default_thread_count,
     dir_is_empty,
     get_bytes_range,
-    get_fs_local_rank,
-    get_global_rank,
     get_progress_bar,
-    get_world_size,
     resource_path,
     upload,
     wait_for,
@@ -193,6 +199,7 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
     else:
         flattened_osd = FSDP.optim_state_dict_to_load(fsdp_model, optim, optim_state)  # type: ignore
     del optim_state
+    gc.collect()
     log.info("Loading flattened optimizer state...")
     # Put optim state on CPU since `Optimizer.load_state_dict()` will create a deepcopy of the whole state dict,
     # which takes up unnecessary GPU memory.
@@ -605,23 +612,31 @@ class FullCheckpointer(Checkpointer):
             fsdp_model,
             state_dict_type=StateDictType.FULL_STATE_DICT,
             state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
-            optim_state_dict_config=FullOptimStateDictConfig(rank0_only=True, offload_to_cpu=True),
+            optim_state_dict_config=FullOptimStateDictConfig(rank0_only=False, offload_to_cpu=True),
         ):
             # Load model state.
             log.info("Loading model state...")
-            fsdp_model.load_state_dict(
-                fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(
-                    load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location="cpu")
-                )
+            state_dict_to_load, og_keys_to_new = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(
+                load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location="cpu")
             )
+            fsdp_model.load_state_dict(state_dict_to_load)
+            del state_dict_to_load
 
             # Load optimizer state.
             if load_optimizer_state:
-                log.info("Loading optimizer state...")
-                optim_state_dict = load_state_dict(
-                    load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
-                )
-                load_fsdp_optim_state(fsdp_model, optim, optim_state_dict)
+                gc.collect()
+                for turn in range(get_local_world_size()):
+                    log.info("Loading optimizer state turn %d ...", turn)
+                    if turn == get_local_rank():
+                        optim_state_dict_to_load = self._make_optim_state_dict_compatible(
+                            load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location="cpu"),
+                            og_keys_to_new,
+                        )
+                        load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
+                        del optim_state_dict_to_load
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                    barrier()
 
             # Load other state.
             try:
@@ -631,6 +646,56 @@ class FullCheckpointer(Checkpointer):
                 trainer_state = load_state_dict(load_path, "other.pt", local_cache=local_cache)
         barrier()
         return trainer_state
+
+    def _make_optim_state_dict_compatible(
+        self, optim_state_dict: Dict[str, Any], og_keys_to_new: Dict[str, Set[str]]
+    ) -> Dict[str, Any]:
+        # This state dict comes in two forms: one where the state keys are integers and one where the
+        # keys are fully qualified parameter names. The latter case is easier to deal with here so we
+        # first transform the integer key form into the FQN key form.
+        if isinstance(next(iter(optim_state_dict["state"].keys())), int):
+            id_to_fqn: Dict[int, str] = {}
+            for group in optim_state_dict["param_groups"]:
+                new_param_names = []
+                for fqn, id in zip(group["param_names"], group["params"]):
+                    fqn = fqn.replace("_fsdp_wrapped_module.", "")
+                    id_to_fqn[id] = fqn
+                    new_param_names.append(fqn)
+                group["param_names"] = new_param_names
+                group["params"] = new_param_names
+            for id in list(optim_state_dict["state"].keys()):
+                optim_state_dict["state"][id_to_fqn[id]] = optim_state_dict["state"].pop(id)
+        else:
+            # Otherwise we still want to clean up the param names to remove the "_fsdp_wrapped_module." prefix.
+            for group in optim_state_dict["param_groups"]:
+                group["param_names"] = [fqn.replace("_fsdp_wrapped_module.", "") for fqn in group["param_names"]]
+                group["params"] = [fqn.replace("_fsdp_wrapped_module.", "") for fqn in group["params"]]
+                assert group["param_names"] == group["params"]
+            for key in list(optim_state_dict["state"].keys()):
+                optim_state_dict["state"][key.replace("_fsdp_wrapped_module.", "")] = optim_state_dict[
+                    "state"
+                ].pop(key)
+
+        # Now we can transform the state dict by renaming parameters according to `og_keys_to_new`.
+        # First fix param names in the state.
+        for og_key, new_keys in og_keys_to_new.items():
+            og_state = optim_state_dict["state"].pop(og_key)
+            for i, new_key in enumerate(new_keys):
+                if i == len(new_keys) - 1:
+                    optim_state_dict["state"][new_key] = og_state
+                else:
+                    optim_state_dict["state"][new_key] = deepcopy(og_state)
+        # Now fix param names in the param groups.
+        for group in optim_state_dict["param_groups"]:
+            og_names = group["params"]
+            new_names = []
+            for og_key in og_names:
+                for new_key in og_keys_to_new[og_key]:
+                    new_names.append(new_key)
+            group["params"] = new_names
+            group["param_names"] = new_names
+
+        return optim_state_dict
 
     def load_checkpoint(
         self,
@@ -1153,6 +1218,19 @@ class LocalShardedCheckpointer(Checkpointer):
             optim_state = load_state_dict(
                 load_path, f"optim/rank{get_global_rank()}.pt", local_cache=local_cache, map_location="cpu"
             )
+            # HACK/TODO (epwalsh): When we use adaptive clipping we track the 'grad_norm_exp_avg' for every param
+            # in every rank, and keep this in the optimizer state. But this causes issues when loading the
+            # state since torch sees the state is non-empty for some params which would normally be empty,
+            # and then assumes it should have all of the other state tensors for that param, which is doesn't.
+            # So for now we just remove 'grad_norm_exp_avg' everywhere from the state, which resets that metric.
+            # Not the end of the world but there's probably a better way around this without resetting
+            # the metric.
+            for param_id in list(optim_state["state"].keys()):
+                state = optim_state["state"][param_id]
+                if "grad_norm_exp_avg" in state:
+                    del state["grad_norm_exp_avg"]
+                if len(state) == 0:
+                    del optim_state["state"][param_id]
             optim.load_state_dict(optim_state)
             del optim_state
 
@@ -1305,7 +1383,7 @@ class LocalShardedCheckpointer(Checkpointer):
             # Iterate over local shard state and copy into the full state.
             for id, shard_state in optim_state["state"].items():
                 fqn = id_to_fqn[id]
-                flat_param_shard = flat_params_data[rank][fqn]
+                flat_param_shard = flat_params_data[rank].get(fqn)  # type: ignore[assignment]
                 full_state = full_optim_state["state"][id]
                 for key, shard_value in shard_state.items():
                     assert isinstance(shard_value, torch.Tensor)
@@ -1320,6 +1398,7 @@ class LocalShardedCheckpointer(Checkpointer):
                     else:
                         # Otherwise we have a sharded param state.
                         # If the corresponding full param state hasn't been materialized yet, do so now.
+                        assert flat_param_shard is not None, f"missing flat_params_data for {fqn} from rank {rank}"
                         if key not in full_state:
                             log.info(
                                 f"Materializing full state '{key}' for '{fqn}' with shape {flat_param_shard.full_shape}..."

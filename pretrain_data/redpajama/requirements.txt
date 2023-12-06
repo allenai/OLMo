@@ -1,9 +1,0 @@
-requests
-tqdm
-boto3
-springs
-uniseg
-smashed[remote]
-orjson
-cached_path
-zstandard
