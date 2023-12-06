@@ -630,7 +630,6 @@ def perform_operation(args: argparse.Namespace):
 
 
 def _add_cached_path_s3_client():
-
     class S3SchemeClient(S3Client):
         """
         A class that the `cached_path` module can use to retrieve resources from
