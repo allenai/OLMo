@@ -1,6 +1,5 @@
 import argparse
 import logging
-import os
 import re
 import shutil
 import tempfile
@@ -13,7 +12,6 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 import boto3.session
-import botocore.client
 import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
 from cached_path import add_scheme_client, cached_path
@@ -631,43 +629,35 @@ def perform_operation(args: argparse.Namespace):
         raise NotImplementedError(args.op)
 
 
-def _add_cached_path_r2_client(r2_account_id: str):
-    endpoint_url = f"https://{r2_account_id}.r2.cloudflarestorage.com"
+def _add_cached_path_s3_client():
 
-    class R2SchemeClient(S3Client):
+    class S3SchemeClient(S3Client):
         """
         A class that the `cached_path` module can use to retrieve resources from
-        R2. Refer to
+        S3 (and R2, which is S3-based).  Refer to
         [cached_path docs](https://github.com/allenai/cached_path/blob/main/docs/source/overview.md#supported-url-schemes).
         """
 
-        scheme = "r2"
+        schemes = ("s3", "r2")
 
         def __init__(self, resource: str) -> None:
             super().__init__(resource)
             parsed_path = urlparse(resource)
             bucket_name = parsed_path.netloc
-            r2_path = parsed_path.path.lstrip("/")
+            key = parsed_path.path.lstrip("/")
 
-            session = boto3.session.Session()
-            if session.get_credentials() is None:
-                # Use unsigned requests.
-                s3_resource = session.resource(
-                    "s3",
-                    endpoint_url=endpoint_url,
-                    config=botocore.client.Config(signature_version=botocore.UNSIGNED),
-                )
-            else:
-                s3_resource = session.resource("s3", endpoint_url=endpoint_url)
-            self.s3_object = s3_resource.Object(bucket_name, r2_path)  # type: ignore
+            profile_name = util._get_s3_profile_name(parsed_path.scheme)
+            endpoint_url = util._get_s3_endpoint_url(parsed_path.scheme)
 
-    add_scheme_client(R2SchemeClient)
+            session = boto3.session.Session(profile_name=profile_name)
+            s3_resource = session.resource("s3", endpoint_url=endpoint_url)
+            self.s3_object = s3_resource.Object(bucket_name, key)  # type: ignore
+
+    add_scheme_client(S3SchemeClient)
 
 
 def _add_cached_path_scheme_clients():
-    r2_account_id = os.environ.get("R2_ACCOUNT_ID")
-    if r2_account_id is not None:
-        _add_cached_path_r2_client(r2_account_id)
+    _add_cached_path_s3_client()
 
 
 def _add_delete_subparser(subparsers: _SubParsersAction):
