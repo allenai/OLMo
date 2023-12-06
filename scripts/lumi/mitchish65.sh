@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
-#SBATCH --time=24:10:00
+#SBATCH --time=47:30:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
@@ -52,6 +52,7 @@ srun \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
     python scripts/train.py configs/mitchish65.yaml \
       --run_name=${SLURM_JOB_ID} \
-      --time_limit=$((24 * 60 * 60)) \
+      --time_limit=$((47 * 60 * 60)) \
+      --canceled_check_interval=10 \
       --device_train_microbatch_size=2 \
       ${@}
