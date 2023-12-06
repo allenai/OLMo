@@ -550,18 +550,32 @@ def _verify_non_run_deletion(run_dir_or_archive: str, run_entries: List[str], co
     raise ValueError(msg)
 
 
+def _is_archive(path: str, storage: StorageAdapter) -> bool:
+    local_storage = LocalFileSystemAdapter()
+    return local_storage.has_supported_archive_extension(path) and storage.is_file(path)
+
+
 def _format_dir_or_archive_path(storage: StorageAdapter, path: str) -> str:
-    if storage.is_file(path):
-        local_fs_adapter = LocalFileSystemAdapter()
-        if not local_fs_adapter.has_supported_archive_extension(path):
-            raise ValueError(f"Path corresponds to a non-archive file: {path}")
-
-        return path
-
     if storage.is_dir(path):
         return f"{path}/" if not path.endswith("/") else path
 
-    raise ValueError(f"Path does not correspond to a directory or file: {path}")
+    if _is_archive(path, storage):
+        return path
+
+    raise ValueError(f"Path does not correspond to a directory or archive file: {path}")
+
+
+def _unarchive_if_archive(dir_or_archive: str, storage: StorageAdapter) -> str:
+    if _is_archive(dir_or_archive, storage):
+        unarchived_dir = cached_path(dir_or_archive, extract_archive=True)
+        assert unarchived_dir != Path(dir_or_archive)
+
+        return str(unarchived_dir)
+
+    if storage.is_dir(dir_or_archive):
+        return dir_or_archive
+
+    raise ValueError(f"Run dir or archive {dir_or_archive} is not a valid archive file or directory")
 
 
 def _should_delete_run(storage: StorageAdapter, run_dir_or_archive: str, config: DeleteBadRunsConfig) -> bool:
@@ -577,8 +591,11 @@ def _should_delete_run(storage: StorageAdapter, run_dir_or_archive: str, config:
             )
             return False
 
-    run_entries = storage.list_entries(run_dir_or_archive)
-    if config.should_check_is_run and not _is_run(run_dir_or_archive, run_entries=run_entries):
+    run_dir = _unarchive_if_archive(run_dir_or_archive, storage)
+    run_dir_storage = _get_storage_adapter_for_path(run_dir)
+
+    run_entries = run_dir_storage.list_entries(run_dir)
+    if config.should_check_is_run and not _is_run(run_dir, run_entries=run_entries):
         _verify_non_run_deletion(run_dir_or_archive, run_entries, config)
         return False
 
