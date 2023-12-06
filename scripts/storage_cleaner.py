@@ -33,11 +33,11 @@ class CleaningOperations(Enum):
     DELETE_BAD_RUNS = auto()
 
 
-class StorageType(Enum):
-    LOCAL_FS = auto()
-    GCS = auto()
-    S3 = auto()
-    R2 = auto()
+class StorageType(util.StrEnum):
+    LOCAL_FS = ""
+    GCS = "gs"
+    S3 = "s3"
+    R2 = "r2"
 
 
 class StorageAdapter(ABC):
@@ -82,15 +82,8 @@ class StorageAdapter(ABC):
             return LocalFileSystemAdapter()
         if storage_type == StorageType.GCS:
             return GoogleCloudStorageAdapter()
-        if storage_type == StorageType.S3:
+        if storage_type in (StorageType.S3, StorageType.R2):
             return S3StorageAdapter(storage_type)
-        if storage_type == StorageType.R2:
-            r2_account_id = os.environ.get("R2_ACCOUNT_ID")
-            if r2_account_id is None:
-                raise ValueError(
-                    "R2_ACCOUNT_ID environment variable not set with R2 account id, cannot connect to R2"
-                )
-            return S3StorageAdapter(storage_type, endpoint_url=f"https://{r2_account_id}.r2.cloudflarestorage.com")
 
         raise NotImplementedError(f"No storage adapter implemented for storage type {storage_type}")
 
@@ -340,10 +333,10 @@ class GoogleCloudStorageAdapter(StorageAdapter):
 
 
 class S3StorageAdapter(StorageAdapter):
-    def __init__(self, storage_type: StorageType, endpoint_url: Optional[str] = None):
+    def __init__(self, storage_type: StorageType):
         super().__init__()
         self._storage_type = storage_type
-        self._s3_client = util._get_s3_client(endpoint_url=endpoint_url)
+        self._s3_client = util._get_s3_client(str(storage_type))
 
         self._local_fs_adapter: Optional[LocalFileSystemAdapter] = None
         self._temp_dirs: List[tempfile.TemporaryDirectory] = []
