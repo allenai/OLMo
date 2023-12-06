@@ -638,7 +638,8 @@ def _add_cached_path_s3_client():
         [cached_path docs](https://github.com/allenai/cached_path/blob/main/docs/source/overview.md#supported-url-schemes).
         """
 
-        schemes = ("s3", "r2")
+        # This is used by cached_path to get the schemes are handled by this client
+        scheme = ("s3", "r2")
 
         def __init__(self, resource: str) -> None:
             super().__init__(resource)
