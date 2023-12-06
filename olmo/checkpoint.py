@@ -651,8 +651,8 @@ class FullCheckpointer(Checkpointer):
                     param.data.copy_(t)
 
                     apply_counter += 1
-                    if apply_counter % 10 == 0:
-                        log.info("Clearing memory after loading 5 tensors from unsharded checkpoint")
+                    if apply_counter % 32 == 0:
+                        log.info("Clearing memory after loading 32 tensors from unsharded checkpoint")
                         apply_counter = 0
                         state_dict_to_load, _ = load_and_prepare_state_dict()
                         gc.collect()
