@@ -32,7 +32,6 @@ log = logging.getLogger(__name__)
 
 CONFIG_YAML: str = "config.yaml"
 DEFAULT_DELETE_MAX_ARCHIVE_SIZE: float = 5 * 1024 * 1024 * 1024  # 5GB
-UNSHARD_SCRIPT_PATH: str = "scripts/unshard.py"
 
 
 class CleaningOperations(Enum):
@@ -604,7 +603,6 @@ class DeleteBadRunsConfig:
 @dataclass
 class UnshardCheckpointsConfig:
     dry_run: bool
-    unshard_script_path: Path
     latest_checkpoint_only: bool
 
 
@@ -905,7 +903,6 @@ def perform_operation(args: argparse.Namespace):
     elif args.op == CleaningOperations.UNSHARD_CHECKPOINTS:
         unshard_checkpoints_config = UnshardCheckpointsConfig(
             dry_run=args.dry_run,
-            unshard_script_path=args.script_path,
             latest_checkpoint_only=args.latest_checkpoint_only,
         )
         if args.run_path is not None:
@@ -998,11 +995,6 @@ def _add_unsharding_subparser(subparsers: _SubParsersAction):
         "--latest_checkpoint_only",
         action="store_true",
         help="If set, only the latest checkpoint of each run (if sharded) is unsharded.",
-    )
-    unsharding_runs_parser.add_argument(
-        "--script_path",
-        default=UNSHARD_SCRIPT_PATH,
-        help=f"Path of the unsharder script. Set to `{UNSHARD_SCRIPT_PATH}` by default.",
     )
 
 
