@@ -776,6 +776,7 @@ def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str):
             e,
         )
 
+        local_storage.delete_path(sharding_input_dir)
         local_storage.delete_path(sharding_output_dir)
         return
 
@@ -788,6 +789,9 @@ def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str):
 
     dest_storage = _get_storage_adapter_for_path(dest_dir)
     dest_storage.upload(sharding_output_dir, dest_dir)
+
+    local_storage.delete_path(sharding_input_dir)
+    local_storage.delete_path(sharding_output_dir)
 
 
 def _unshard_checkpoints(
