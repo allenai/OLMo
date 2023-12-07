@@ -477,6 +477,7 @@ class SchedulerType(StrEnum):
     linear_with_warmup = "linear_with_warmup"
     inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
     max_scheduler = "max_scheduler"
+    constant = "constant"
 
 
 @dataclass
@@ -681,6 +682,11 @@ class TrainConfig(BaseConfig):
     Used to seed all initial RNG states.
     """
 
+    epoch: int = 0
+    """
+    Increment this when starting a new epoch.
+    """
+
     dry_run: bool = False
     """
     If ``True``, don't actually train.
@@ -823,9 +829,13 @@ class TrainConfig(BaseConfig):
     Deprecated. Use ``sharded_checkpointer`` instead.
     """
 
-    max_duration: int = 10000
+    max_duration: Union[int, str] = 10000
     """
-    Maximum number of batches to train for.
+    How long to train for.
+
+    If specified without a unit (the default), the units are assumed to be steps.
+    You can also specify this in terms of tokens, for example: `max_duration="2e12T"` means train until
+    2 trillion tokens.
     """
 
     global_train_batch_size: int = 512

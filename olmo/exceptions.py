@@ -1,4 +1,4 @@
-__all__ = ["OlmoError", "OlmoConfigurationError", "OlmoCliError", "OlmoNetworkError"]
+__all__ = ["OlmoError", "OlmoConfigurationError", "OlmoCliError", "OlmoEnvironmentError", "OlmoNetworkError"]
 
 
 class OlmoError(Exception):
@@ -19,7 +19,19 @@ class OlmoCliError(OlmoError):
     """
 
 
+class OlmoEnvironmentError(OlmoError):
+    """
+    An error from incorrect environment variables.
+    """
+
+
 class OlmoNetworkError(OlmoError):
     """
     An error with a network request.
+    """
+
+
+class OlmoThreadError(Exception):
+    """
+    Raised when a thread fails.
     """
