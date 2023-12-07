@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 import boto3.session
 import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
+import torch
 from cached_path import add_scheme_client, cached_path, set_cache_dir
 from cached_path.schemes import S3Client
 from google.api_core.exceptions import NotFound
@@ -23,7 +24,8 @@ from rich.progress import Progress, TaskID, track
 
 from olmo import util
 from olmo.aliases import PathOrStr
-from scripts.unshard import unshard
+from olmo.checkpoint import Checkpointer, LocalShardedCheckpointer, TorchLegacyShardedCheckpointer
+from olmo.config import ShardedCheckpointerType, TrainConfig
 
 log = logging.getLogger(__name__)
 
@@ -765,7 +767,19 @@ def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str):
     sharding_output_dir = local_storage.create_temp_dir()
 
     try:
-        unshard(sharding_input_dir, sharding_output_dir)
+        config = TrainConfig.load(Path(sharding_input_dir) / "config.yaml", validate_paths=False)
+        sharded_checkpoint_type = config.sharded_checkpointer
+        checkpointer: Checkpointer
+        if sharded_checkpoint_type == ShardedCheckpointerType.torch_legacy:
+            checkpointer = TorchLegacyShardedCheckpointer(config)
+        elif sharded_checkpoint_type == ShardedCheckpointerType.local:
+            checkpointer = LocalShardedCheckpointer(config)
+        else:
+            raise NotImplementedError(sharded_checkpoint_type)
+
+        model_state_dict, optim_state_dict, trainer_state_dict = checkpointer.unshard_checkpoint(
+            sharding_input_dir
+        )
     except RuntimeError as e:
         log.error(
             "Unsharding from %s to %s failed with exception: %s",
@@ -777,6 +791,27 @@ def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str):
         local_storage.delete_path(sharding_input_dir)
         local_storage.delete_path(sharding_output_dir)
         return
+
+    # model
+    model_output = str(Path(sharding_output_dir) / "model.pt")
+    log.info("Saving model state to %s", model_output)
+    torch.save(model_state_dict, model_output)
+    del model_state_dict
+
+    # optimizer
+    optim_output = str(Path(sharding_output_dir) / "optim.pt")
+    log.info("Saving optimizer state to %s", optim_output)
+    torch.save(optim_state_dict, optim_output)
+    del optim_state_dict
+
+    # trainer
+    train_output = str(Path(sharding_output_dir) / "train.pt")
+    log.info("Saving everything else to %s", train_output)
+    torch.save(trainer_state_dict, train_output)
+    del trainer_state_dict
+
+    log.info("Copying config.yaml to %s", sharding_output_dir)
+    shutil.copy(Path(sharding_input_dir) / "config.yaml", sharding_output_dir)
 
     log.info(
         "Successfully unsharded from %s to %s, starting upload to %s",

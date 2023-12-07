@@ -15,7 +15,7 @@ from olmo.config import ShardedCheckpointerType, TrainConfig
 logger = logging.getLogger(__name__)
 
 
-def unshard(
+def main(
     input_dir: Union[str, Path],
     output_dir: Union[str, Path],
     sharded_checkpoint_type: ShardedCheckpointerType = ShardedCheckpointerType.torch_legacy,
@@ -65,7 +65,7 @@ def unshard(
     shutil.copy(input_dir / "config.yaml", output_dir)
 
 
-def main():
+if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(prog="unshard.py", description="Unshard sharded checkpoints on CPU")
@@ -84,13 +84,9 @@ def main():
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
-    unshard(
+    main(
         args.input_dir,
         args.output_dir,
         sharded_checkpoint_type=args.type,
         model_only=args.model_only,
     )
-
-
-if __name__ == "__main__":
-    main()
