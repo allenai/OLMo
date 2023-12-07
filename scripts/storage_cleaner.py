@@ -40,8 +40,8 @@ class StorageType(util.StrEnum):
 
 class StorageAdapter(ABC):
     @abstractmethod
-    def list_entries(self, path: str, max_file_size: Optional[int] = None) -> List[str]:
-        """Lists all the entries within the directory or compressed file at the given path.
+    def list_entries(self, directory: str, max_file_size: Optional[int] = None) -> List[str]:
+        """Lists all the entries within the given directory.
         Returns only top-level entries (i.e. not entries in subdirectories).
 
         max_file_size sets a threshold (in bytes) for the largest size file to retain within entries.
@@ -49,8 +49,8 @@ class StorageAdapter(ABC):
         """
 
     @abstractmethod
-    def list_dirs(self, path: str) -> List[str]:
-        """Lists all the directories within the directory or compressed file at the given path.
+    def list_dirs(self, directory: str) -> List[str]:
+        """Lists all the directories within the given directory.
         Returns only top-level entries (i.e. not entries in subdirectories).
         """
 
@@ -127,34 +127,26 @@ class LocalFileSystemAdapter(StorageAdapter):
         return any(filename.endswith(extension) for extension in self._archive_extensions)
 
     def _list_entries(
-        self, path: PathOrStr, include_files: bool = True, max_file_size: Optional[int] = None
+        self, directory: PathOrStr, include_files: bool = True, max_file_size: Optional[int] = None
     ) -> List[str]:
-        path_obj = Path(path)
-        if path_obj.is_file():
-            if not self.has_supported_archive_extension(path_obj):
-                raise ValueError(f"File does not have a supported archive extension: {path}")
+        dir_obj = Path(directory)
+        if not dir_obj.is_dir():
+            raise ValueError(f"{directory} is not an existing directory")
 
-            path_obj = cached_path(path_obj, extract_archive=True)
+        return [
+            entry.name
+            for entry in dir_obj.iterdir()
+            if (
+                (include_files or not entry.is_file())
+                and (not entry.is_file() or max_file_size is None or self._get_file_size(entry) <= max_file_size)
+            )
+        ]
 
-        if path_obj.is_dir():
-            return [
-                entry.name
-                for entry in path_obj.iterdir()
-                if (
-                    (include_files or not entry.is_file())
-                    and (
-                        not entry.is_file() or max_file_size is None or self._get_file_size(entry) <= max_file_size
-                    )
-                )
-            ]
+    def list_entries(self, directory: str, max_file_size: Optional[int] = None) -> List[str]:
+        return self._list_entries(directory, max_file_size=max_file_size)
 
-        raise ValueError(f"Path does not correspond to directory or supported archive file: {path}")
-
-    def list_entries(self, path: str, max_file_size: Optional[int] = None) -> List[str]:
-        return self._list_entries(path, max_file_size=max_file_size)
-
-    def list_dirs(self, path: str) -> List[str]:
-        return self._list_entries(path, include_files=False)
+    def list_dirs(self, directory: str) -> List[str]:
+        return self._list_entries(directory, include_files=False)
 
     def delete_path(self, path: str):
         path_obj = Path(path)
@@ -277,30 +269,23 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         return [entry.removeprefix(key) for entry in entries]
 
     def _list_entries(
-        self, path: str, include_files: bool = True, max_file_size: Optional[int] = None
+        self, directory: str, include_files: bool = True, max_file_size: Optional[int] = None
     ) -> List[str]:
-        bucket_name, key = self._get_bucket_name_and_key(path)
+        if not self.is_dir(directory):
+            raise ValueError(f"{directory} is not an existing directory")
 
-        if self.local_fs_adapter.has_supported_archive_extension(path):
-            file_path = str(cached_path(path, extract_archive=True))
-
-            if not include_files:
-                return self.local_fs_adapter.list_dirs(file_path)
-            return self.local_fs_adapter.list_entries(file_path, max_file_size)
-
-        if self._is_file(bucket_name, key):
-            raise ValueError(f"Path corresponds to a file without a supported archive extension {path}")
+        bucket_name, key = self._get_bucket_name_and_key(directory)
 
         res = self._get_directory_entries(
             bucket_name, key, include_files=include_files, max_file_size=max_file_size
         )
         return res
 
-    def list_entries(self, path: str, max_file_size: Optional[int] = None) -> List[str]:
-        return self._list_entries(path, max_file_size=max_file_size)
+    def list_entries(self, directory: str, max_file_size: Optional[int] = None) -> List[str]:
+        return self._list_entries(directory, max_file_size=max_file_size)
 
-    def list_dirs(self, path: str) -> List[str]:
-        return self._list_entries(path, include_files=False)
+    def list_dirs(self, directory: str) -> List[str]:
+        return self._list_entries(directory, include_files=False)
 
     def delete_path(self, path: str):
         bucket_name, key = self._get_bucket_name_and_key(path)
@@ -407,30 +392,23 @@ class S3StorageAdapter(StorageAdapter):
         return [entry.removeprefix(key) for entry in entries]
 
     def _list_entries(
-        self, path: str, include_files: bool = True, max_file_size: Optional[int] = None
+        self, directory: str, include_files: bool = True, max_file_size: Optional[int] = None
     ) -> List[str]:
-        bucket_name, key = self._get_bucket_name_and_key(path)
+        bucket_name, key = self._get_bucket_name_and_key(directory)
 
-        if self.local_fs_adapter.has_supported_archive_extension(path):
-            file_path = str(cached_path(path, extract_archive=True))
-
-            if not include_files:
-                return self.local_fs_adapter.list_dirs(file_path)
-            return self.local_fs_adapter.list_entries(file_path, max_file_size)
-
-        if self._is_file(bucket_name, key):
-            raise ValueError(f"Path corresponds to a file without a supported archive extension {path}")
+        if not self._is_dir(bucket_name, key):
+            raise ValueError(f"{directory} is not an existing directory")
 
         res = self._get_directory_entries(
             bucket_name, key, include_files=include_files, max_file_size=max_file_size
         )
         return res
 
-    def list_entries(self, path: str, max_file_size: Optional[int] = None) -> List[str]:
-        return self._list_entries(path, max_file_size=max_file_size)
+    def list_entries(self, directory: str, max_file_size: Optional[int] = None) -> List[str]:
+        return self._list_entries(directory, max_file_size=max_file_size)
 
-    def list_dirs(self, path: str) -> List[str]:
-        return self._list_entries(path, include_files=False)
+    def list_dirs(self, directory: str) -> List[str]:
+        return self._list_entries(directory, include_files=False)
 
     def delete_path(self, path: str):
         bucket_name, key = self._get_bucket_name_and_key(path)
@@ -529,14 +507,14 @@ def _contains_nontrivial_checkpoint_dir(dir_entries: List[str]) -> bool:
     return any(re.match(r"step[1-9]\d*(-unsharded)?", entry) is not None for entry in dir_entries)
 
 
-def _is_run(run_path: str, run_entries: Optional[List[str]] = None) -> bool:
+def _is_run(directory: str, run_entries: Optional[List[str]] = None) -> bool:
     """
     This method is best effort. It may mark run paths as not (false negatives) or mark non-run
     paths as runs (false positives). We prioritize minimizing false positives.
     """
     if run_entries is None:
-        storage = _get_storage_adapter_for_path(run_path)
-        run_entries = storage.list_entries(run_path)
+        storage = _get_storage_adapter_for_path(directory)
+        run_entries = storage.list_entries(directory)
 
     return _contains_checkpoint_dir(run_entries)
 
@@ -550,18 +528,32 @@ def _verify_non_run_deletion(run_dir_or_archive: str, run_entries: List[str], co
     raise ValueError(msg)
 
 
+def _is_archive(path: str, storage: StorageAdapter) -> bool:
+    local_storage = LocalFileSystemAdapter()
+    return local_storage.has_supported_archive_extension(path) and storage.is_file(path)
+
+
 def _format_dir_or_archive_path(storage: StorageAdapter, path: str) -> str:
-    if storage.is_file(path):
-        local_fs_adapter = LocalFileSystemAdapter()
-        if not local_fs_adapter.has_supported_archive_extension(path):
-            raise ValueError(f"Path corresponds to a non-archive file: {path}")
-
-        return path
-
     if storage.is_dir(path):
         return f"{path}/" if not path.endswith("/") else path
 
-    raise ValueError(f"Path does not correspond to a directory or file: {path}")
+    if _is_archive(path, storage):
+        return path
+
+    raise ValueError(f"Path does not correspond to a directory or archive file: {path}")
+
+
+def _unarchive_if_archive(dir_or_archive: str, storage: StorageAdapter) -> str:
+    if _is_archive(dir_or_archive, storage):
+        unarchived_dir = cached_path(dir_or_archive, extract_archive=True)
+        assert unarchived_dir != Path(dir_or_archive)
+
+        return str(unarchived_dir)
+
+    if storage.is_dir(dir_or_archive):
+        return dir_or_archive
+
+    raise ValueError(f"Run dir or archive {dir_or_archive} is not a valid archive file or directory")
 
 
 def _should_delete_run(storage: StorageAdapter, run_dir_or_archive: str, config: DeleteBadRunsConfig) -> bool:
@@ -577,8 +569,11 @@ def _should_delete_run(storage: StorageAdapter, run_dir_or_archive: str, config:
             )
             return False
 
-    run_entries = storage.list_entries(run_dir_or_archive)
-    if config.should_check_is_run and not _is_run(run_dir_or_archive, run_entries=run_entries):
+    run_dir = _unarchive_if_archive(run_dir_or_archive, storage)
+    run_dir_storage = _get_storage_adapter_for_path(run_dir)
+
+    run_entries = run_dir_storage.list_entries(run_dir)
+    if config.should_check_is_run and not _is_run(run_dir, run_entries=run_entries):
         _verify_non_run_deletion(run_dir_or_archive, run_entries, config)
         return False
 
