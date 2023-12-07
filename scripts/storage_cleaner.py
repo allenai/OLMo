@@ -24,7 +24,11 @@ from rich.progress import Progress, TaskID, track
 
 from olmo import util
 from olmo.aliases import PathOrStr
-from olmo.checkpoint import Checkpointer, LocalShardedCheckpointer, TorchLegacyShardedCheckpointer
+from olmo.checkpoint import (
+    Checkpointer,
+    LocalShardedCheckpointer,
+    TorchLegacyShardedCheckpointer,
+)
 from olmo.config import ShardedCheckpointerType, TrainConfig
 
 log = logging.getLogger(__name__)
