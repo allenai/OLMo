@@ -941,9 +941,9 @@ def _add_cached_path_s3_client():
     add_scheme_client(S3SchemeClient)
 
 
-def _setup_cached_path(args: argparse.Namespace):
-    if args.temp_dir is not None:
-        set_cache_dir(args.temp_dir)
+def _setup_cached_path(temp_dir: str):
+    if temp_dir is not None:
+        set_cache_dir(temp_dir)
 
     _add_cached_path_s3_client()
 
@@ -951,6 +951,12 @@ def _setup_cached_path(args: argparse.Namespace):
 def perform_operation(args: argparse.Namespace):
     if args.dry_run:
         log.info("Dry run, no irreversible actions will be taken")
+
+    if args.temp_dir is not None and StorageAdapter.get_storage_type_for_path(args.temp_dir) != StorageType.LOCAL_FS:
+        raise ValueError("Temporary directory must be a local path")
+
+    temp_dir = tempfile.mkdtemp(dir=args.temp_dir)
+    _setup_cached_path(temp_dir)
 
     if args.op == CleaningOperations.DELETE_BAD_RUNS:
         delete_bad_runs_config = DeleteBadRunsConfig(
@@ -974,6 +980,10 @@ def perform_operation(args: argparse.Namespace):
             raise ValueError("Run path not provided for unsharding")
     else:
         raise NotImplementedError(args.op)
+
+    if Path(temp_dir).is_dir():
+        log.info("Deleting temp dir %s", temp_dir)
+        shutil.rmtree(temp_dir)
 
 
 def _add_delete_subparser(subparsers: _SubParsersAction):
@@ -1037,7 +1047,7 @@ def get_parser() -> ArgumentParser:
     )
     parser.add_argument(
         "--temp_dir",
-        help="Directory where artifacts (e.g. unarchived directories) can be stored temporarily",
+        help="Local directory where artifacts (e.g. unarchived directories) can be stored temporarily",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Cleaning commands", required=True)
@@ -1051,7 +1061,6 @@ def main():
     args = get_parser().parse_args()
 
     util.prepare_cli_environment()
-    _setup_cached_path(args)
     perform_operation(args)
 
 
