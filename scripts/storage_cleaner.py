@@ -597,16 +597,20 @@ class S3StorageAdapter(StorageAdapter):
 
 
 @dataclass
-class DeleteBadRunsConfig:
+class StorageCleanerConfig:
     dry_run: bool
+    temp_dir: str
+
+
+@dataclass
+class DeleteBadRunsConfig(StorageCleanerConfig):
     should_check_is_run: bool
     ignore_non_runs: bool
     max_archive_size: Optional[int]
 
 
 @dataclass
-class UnshardCheckpointsConfig:
-    dry_run: bool
+class UnshardCheckpointsConfig(StorageCleanerConfig):
     latest_checkpoint_only: bool
 
 
@@ -961,6 +965,7 @@ def perform_operation(args: argparse.Namespace):
     if args.op == CleaningOperations.DELETE_BAD_RUNS:
         delete_bad_runs_config = DeleteBadRunsConfig(
             dry_run=args.dry_run,
+            temp_dir=temp_dir,
             should_check_is_run=args.should_check_is_run,
             ignore_non_runs=args.ignore_non_runs,
             max_archive_size=args.max_archive_size,
@@ -972,6 +977,7 @@ def perform_operation(args: argparse.Namespace):
     elif args.op == CleaningOperations.UNSHARD_CHECKPOINTS:
         unshard_checkpoints_config = UnshardCheckpointsConfig(
             dry_run=args.dry_run,
+            temp_dir=temp_dir,
             latest_checkpoint_only=args.latest_checkpoint_only,
         )
         if args.run_path is not None:
