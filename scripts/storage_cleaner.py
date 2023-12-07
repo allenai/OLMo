@@ -737,9 +737,7 @@ def _get_sharded_checkpoint_dirs(
 ) -> List[str]:
     run_subdir_names = run_dir_storage.list_dirs(run_dir)
     run_subdirectories = list(map(lambda dir_name: os.path.join(run_dir, dir_name), run_subdir_names))
-    sharded_checkpoint_directories = list(
-        filter(_is_sharded_checkpoint_dir, run_subdirectories)
-    )
+    sharded_checkpoint_directories = list(filter(_is_sharded_checkpoint_dir, run_subdirectories))
 
     if latest_checkpoint_only:
         latest_checkpoint_directory = max(sharded_checkpoint_directories, default=None, key=_get_checkpoint_number)
@@ -747,7 +745,9 @@ def _get_sharded_checkpoint_dirs(
             [latest_checkpoint_directory] if latest_checkpoint_directory is not None else []
         )
 
-    log.info("Found %d sharded checkpoint directories for %s", len(sharded_checkpoint_directories), run_dir_or_archive)
+    log.info(
+        "Found %d sharded checkpoint directories for %s", len(sharded_checkpoint_directories), run_dir_or_archive
+    )
 
     return sharded_checkpoint_directories
 
