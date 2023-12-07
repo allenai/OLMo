@@ -752,7 +752,7 @@ def _get_sharded_checkpoint_dirs(
     return sharded_checkpoint_directories
 
 
-def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, run_dir_or_archive: str, unsharding_config: UnshardCheckpointsConfig):
+def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, unsharding_config: UnshardCheckpointsConfig):
     local_storage = LocalFileSystemAdapter()
 
     # Download checkpoint to a temp dir
@@ -830,7 +830,7 @@ def _unshard_checkpoints(
             log.info("Would unshard sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
         else:
             log.info("Unsharding sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
-            _unshard_checkpoint(sharded_checkpoint_directory, dest_directory, run_dir_or_archive, config)
+            _unshard_checkpoint(sharded_checkpoint_directory, dest_directory, config)
 
 
 def unshard_run_checkpoints(run_path: str, checkpoints_dest_dir: str, config: UnshardCheckpointsConfig):
