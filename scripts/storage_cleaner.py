@@ -662,12 +662,21 @@ def _unarchive_if_archive(dir_or_archive: str, storage: StorageAdapter) -> str:
         unarchived_dir = cached_path(dir_or_archive, extract_archive=True)
         assert unarchived_dir != Path(dir_or_archive)
 
+        # The unarchived file could have a redundant top-level directory. If the top-level
+        # directory has only a directory, we should return that directory instead.
+        unarchived_dir_storage = _get_storage_adapter_for_path(str(unarchived_dir))
+        unarchived_dir_entries = unarchived_dir_storage.list_entries(str(unarchived_dir))
+        if len(unarchived_dir_entries) == 1:
+            unarchived_entry_path = unarchived_dir / unarchived_dir_entries[0]
+            if unarchived_dir_storage.is_dir(str(unarchived_entry_path)):
+                return str(unarchived_entry_path)
+
         return str(unarchived_dir)
 
     if storage.is_dir(dir_or_archive):
         return dir_or_archive
 
-    raise ValueError(f"Run dir or archive {dir_or_archive} is not a valid archive file or directory")
+    raise ValueError(f"Dir or archive {dir_or_archive} is not a valid archive file or directory")
 
 
 def _should_delete_run(storage: StorageAdapter, run_dir_or_archive: str, config: DeleteBadRunsConfig) -> bool:
