@@ -992,6 +992,7 @@ class DeepSpeedTrainer(Trainer):
                 "scheduler": {
                     "type": "WarmupDecayLR",
                     "params": {
+                        "total_num_steps": self.max_steps,
                         "warmup_min_lr": self.cfg.optimizer.learning_rate * 0.1,
                         "warmup_max_lr": self.cfg.optimizer.learning_rate,
                         "warmup_num_steps": self.cfg.scheduler.t_warmup,
