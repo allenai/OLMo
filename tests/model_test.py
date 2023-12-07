@@ -439,12 +439,21 @@ def test_block_groups():
     model_without_block_groups = Olmo(ModelConfig(d_model=128, n_heads=2, n_layers=9, block_group_size=1)).eval()
 
     # We should be able to load the state dict from one model into the other, and vice-versa.
-    model_with_block_groups.load_state_dict(
-        model_with_block_groups._make_state_dict_compatible(model_without_block_groups.state_dict())
+    state_dict_to_load, og_keys_to_new_keys = model_with_block_groups._make_state_dict_compatible(
+        model_without_block_groups.state_dict()
     )
-    model_without_block_groups.load_state_dict(
-        model_without_block_groups._make_state_dict_compatible(model_with_block_groups.state_dict())
+    assert og_keys_to_new_keys["transformer.blocks.0.attn_out.weight"] == {
+        "transformer.block_groups.0.0.attn_out.weight"
+    }
+    model_with_block_groups.load_state_dict(state_dict_to_load)
+
+    state_dict_to_load, og_keys_to_new_keys = model_without_block_groups._make_state_dict_compatible(
+        model_with_block_groups.state_dict()
     )
+    assert og_keys_to_new_keys["transformer.block_groups.0.0.attn_out.weight"] == {
+        "transformer.blocks.0.attn_out.weight"
+    }
+    model_without_block_groups.load_state_dict(state_dict_to_load)
 
     # Check that output is exactly the same.
     input_ids = torch.randint(0, model_with_block_groups.config.vocab_size, (2, 16))

@@ -1,3 +1,51 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "olmo"
+dynamic = ["version", "dependencies", "optional-dependencies"]
+readme = "README.md"
+description = "Open Language Model (OLMo)"
+authors = [
+    { name = "Allen Institute for Artificial Intelligence", email = "olmo@allenai.org" }
+]
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+
+[project.urls]
+Homepage = "https://github.com/allenai/LLM"
+Repository = "https://github.com/allenai/LLM"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+olmo = ["py.typed"]
+
+[tool.setuptools.dynamic]
+version = { attr = "olmo.version.VERSION" }
+dependencies = { file = ["requirements.txt"] }
+optional-dependencies = { dev = { file = ["dev-requirements.txt"] } }
+
+[tool.setuptools.packages.find]
+include = ["olmo*", "hf_olmo*"]
+exclude = [
+    "*.tests",
+    "*.tests.*",
+    "tests.*",
+    "tests",
+    "test_fixtures",
+    "test_fixtures.*",
+    "docs*",
+    "scripts*",
+    "olmo_tokenizer.*",
+    "evaluation.*",
+    "pretrain_data.*",
+    "tmp_*",
+    "inference.*",
+]
+
 [tool.black]
 line-length = 115
 include = '\.pyi?$'
@@ -12,6 +60,7 @@ exclude = '''
     | \bdist\b
     | \bdoc\b
     | pretrain_data/
+    | inference/
 )
 '''
 
@@ -20,13 +69,41 @@ profile = "black"
 multi_line_output = 3
 extend_skip = ["pretrain_data", "tokenizer"]
 
+[tool.ruff]
+line-length = 115
+ignore = ["F403", "F405", "E501"]
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".venv",
+    "venv",
+    ".mypy_cache",
+    "__pycache__",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "doc",
+    "pretrain_data",
+    "inference",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401"]
+
 [tool.pyright]
 reportPrivateImportUsage = false
 exclude = ["pretrain_data/", "tokenizer/"]
-
-[build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
 
 [tool.mypy]
 ignore_missing_imports = true
