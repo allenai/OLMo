@@ -914,34 +914,6 @@ def unshard_run_checkpoints(run_path: str, checkpoints_dest_dir: str, config: Un
     _unshard_checkpoints(storage, run_dir_or_archive, checkpoints_dest_dir, config)
 
 
-def perform_operation(args: argparse.Namespace):
-    if args.dry_run:
-        log.info("Dry run, no irreversible actions will be taken")
-
-    if args.op == CleaningOperations.DELETE_BAD_RUNS:
-        delete_bad_runs_config = DeleteBadRunsConfig(
-            dry_run=args.dry_run,
-            should_check_is_run=args.should_check_is_run,
-            ignore_non_runs=args.ignore_non_runs,
-            max_archive_size=args.max_archive_size,
-        )
-        if args.run_paths is not None:
-            delete_bad_runs(args.run_paths, delete_bad_runs_config)
-        else:
-            raise ValueError("Run paths not provided for run cleaning")
-    elif args.op == CleaningOperations.UNSHARD_CHECKPOINTS:
-        unshard_checkpoints_config = UnshardCheckpointsConfig(
-            dry_run=args.dry_run,
-            latest_checkpoint_only=args.latest_checkpoint_only,
-        )
-        if args.run_path is not None:
-            unshard_run_checkpoints(args.run_path, args.dest_dir, unshard_checkpoints_config)
-        else:
-            raise ValueError("Run path not provided for unsharding")
-    else:
-        raise NotImplementedError(args.op)
-
-
 def _add_cached_path_s3_client():
     class S3SchemeClient(S3Client):
         """
@@ -974,6 +946,34 @@ def _setup_cached_path(args: argparse.Namespace):
         set_cache_dir(args.temp_dir)
 
     _add_cached_path_s3_client()
+
+
+def perform_operation(args: argparse.Namespace):
+    if args.dry_run:
+        log.info("Dry run, no irreversible actions will be taken")
+
+    if args.op == CleaningOperations.DELETE_BAD_RUNS:
+        delete_bad_runs_config = DeleteBadRunsConfig(
+            dry_run=args.dry_run,
+            should_check_is_run=args.should_check_is_run,
+            ignore_non_runs=args.ignore_non_runs,
+            max_archive_size=args.max_archive_size,
+        )
+        if args.run_paths is not None:
+            delete_bad_runs(args.run_paths, delete_bad_runs_config)
+        else:
+            raise ValueError("Run paths not provided for run cleaning")
+    elif args.op == CleaningOperations.UNSHARD_CHECKPOINTS:
+        unshard_checkpoints_config = UnshardCheckpointsConfig(
+            dry_run=args.dry_run,
+            latest_checkpoint_only=args.latest_checkpoint_only,
+        )
+        if args.run_path is not None:
+            unshard_run_checkpoints(args.run_path, args.dest_dir, unshard_checkpoints_config)
+        else:
+            raise ValueError("Run path not provided for unsharding")
+    else:
+        raise NotImplementedError(args.op)
 
 
 def _add_delete_subparser(subparsers: _SubParsersAction):
