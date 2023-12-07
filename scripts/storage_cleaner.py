@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -798,23 +799,25 @@ def _unshard_checkpoints(
 ):
     log.info("Starting unsharding checkpoints of run directory or archive %s", run_dir_or_archive)
 
+    run_dir = _unarchive_if_archive(run_dir_or_archive, run_storage)
+    run_dir_storage = _get_storage_adapter_for_path(run_dir)
+
     sharded_checkpoint_directories = _get_sharded_checkpoint_dirs(
-        run_storage, run_dir_or_archive, config.latest_checkpoint_only
+        run_dir_storage, run_dir, config.latest_checkpoint_only
     )
     for sharded_checkpoint_directory in sharded_checkpoint_directories:
         sharded_checkpoint_dir_name = Path(sharded_checkpoint_directory).name
 
-        if run_storage.is_dir(run_dir_or_archive):
-            unsharded_checkpoint_directory_in_source = os.path.join(
-                run_dir_or_archive, f"{sharded_checkpoint_dir_name}-unsharded"
+        unsharded_checkpoint_directory_in_source = os.path.join(
+            run_dir, f"{sharded_checkpoint_dir_name}-unsharded"
+        )
+        if run_dir_storage.is_dir(unsharded_checkpoint_directory_in_source):
+            log.info(
+                "Unsharded directory already exists for %s at source %s, skipping",
+                sharded_checkpoint_dir_name,
+                unsharded_checkpoint_directory_in_source,
             )
-            if run_storage.is_dir(unsharded_checkpoint_directory_in_source):
-                log.info(
-                    "Unsharded directory already exists for %s at source %s, skipping",
-                    sharded_checkpoint_dir_name,
-                    unsharded_checkpoint_directory_in_source,
-                )
-                continue
+            continue
 
         dest_directory = os.path.join(checkpoints_dest_dir, f"{sharded_checkpoint_dir_name}-unsharded")
         dest_storage = _get_storage_adapter_for_path(dest_directory)
