@@ -735,9 +735,10 @@ def _get_checkpoint_number(checkpoint_dir: str) -> int:
 
 
 def _get_sharded_checkpoint_dirs(
-    storage: StorageAdapter, run_dir_or_archive: str, latest_checkpoint_only: bool
+    run_dir_storage: StorageAdapter, run_dir: str, run_dir_or_archive: str, latest_checkpoint_only: bool
 ) -> List[str]:
-    run_subdirectories = _get_run_entries(run_dir_or_archive, storage, full_path=True)
+    run_subdir_names = run_dir_storage.list_dirs(run_dir)
+    run_subdirectories = list(map(lambda dir_name: os.path.join(run_dir, dir_name), run_subdir_names))
     sharded_checkpoint_directories = list(
         filter(_is_sharded_checkpoint_dir, run_subdirectories)
     )
@@ -803,7 +804,7 @@ def _unshard_checkpoints(
     run_dir_storage = _get_storage_adapter_for_path(run_dir)
 
     sharded_checkpoint_directories = _get_sharded_checkpoint_dirs(
-        run_dir_storage, run_dir, config.latest_checkpoint_only
+        run_dir_storage, run_dir, run_dir_or_archive, config.latest_checkpoint_only
     )
     for sharded_checkpoint_directory in sharded_checkpoint_directories:
         sharded_checkpoint_dir_name = Path(sharded_checkpoint_directory).name
