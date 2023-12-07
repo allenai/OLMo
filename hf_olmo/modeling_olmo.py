@@ -1,5 +1,5 @@
 import math
-from typing import Callable, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, List, Optional, Sequence, Tuple, Union
 
 import torch
 import torch.nn.functional as F
@@ -306,7 +306,7 @@ class OLMoModel(OLMoPreTrainedModel):
                 olmo_model.ensure_finite_(attention_bias, check_neg_inf=True, check_pos_inf=False)
 
         attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
-        all_hidden_states = () if output_hidden_states else None
+        all_hidden_states: Optional[Tuple] = () if output_hidden_states else None
 
         # TODO: this remains empty -- update OlmoBlock to also output attn_weights.
         all_self_attns = () if output_attentions else None
