@@ -7,6 +7,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from olmo.exceptions import OlmoEnvironmentError
+
 from ..aliases import PathOrStr
 from ..util import _get_s3_client, file_size, get_bytes_range
 
@@ -71,7 +73,13 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
     @property
     def offsets(self) -> List[Tuple[int, int]]:
         # Create the global S3 client up front to work around a threading issue in boto.
-        _get_s3_client()
+        _get_s3_client("s3")
+        try:
+            _get_s3_client("r2")
+        except OlmoEnvironmentError:
+            # R2 might not be needed, so ignore this error. We will get an error
+            # later if R2 is needed.
+            pass
 
         if self._mmap_offsets is None:
             import concurrent.futures
