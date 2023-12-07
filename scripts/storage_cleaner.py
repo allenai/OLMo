@@ -3,7 +3,6 @@ import logging
 import os
 import re
 import shutil
-import subprocess
 import tempfile
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, _SubParsersAction
@@ -24,6 +23,7 @@ from rich.progress import Progress, TaskID, track
 
 from olmo import util
 from olmo.aliases import PathOrStr
+from scripts.unshard import unshard
 
 log = logging.getLogger(__name__)
 
@@ -754,7 +754,7 @@ def _get_sharded_checkpoint_dirs(
     return sharded_checkpoint_directories
 
 
-def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, unsharding_config: UnshardCheckpointsConfig):
+def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str):
     local_storage = LocalFileSystemAdapter()
 
     # Download checkpoint to a temp dir
@@ -766,16 +766,14 @@ def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, unsharding_c
     sharding_output_dir: str
     sharding_output_dir = local_storage.create_temp_dir()
 
-    result = subprocess.run(
-        ["python", str(unsharding_config.unshard_script_path), sharding_input_dir, sharding_output_dir],
-        check=False,
-    )
-    if result.returncode != 0:
+    try:
+        unshard(sharding_input_dir, sharding_output_dir)
+    except RuntimeError as e:
         log.error(
-            "Unsharding from %s to %s failed with error code %d",
+            "Unsharding from %s to %s failed with exception: %s",
             sharding_input_dir,
             sharding_output_dir,
-            result.returncode,
+            e,
         )
 
         local_storage.delete_path(sharding_output_dir)
@@ -834,7 +832,7 @@ def _unshard_checkpoints(
             log.info("Would unshard sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
         else:
             log.info("Unsharding sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
-            _unshard_checkpoint(sharded_checkpoint_directory, dest_directory, config)
+            _unshard_checkpoint(sharded_checkpoint_directory, dest_directory)
 
 
 def unshard_run_checkpoints(run_path: str, checkpoints_dest_dir: str, config: UnshardCheckpointsConfig):
