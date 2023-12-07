@@ -4,6 +4,7 @@ import torch
 from olmo import BlockType, Tokenizer, TrainConfig
 from olmo.data import DataCollator
 from olmo.model import Olmo
+from olmo.torch_util import seed_all
 
 
 def test_auto_hf_classes(model_path: str):
@@ -184,11 +185,13 @@ def test_forward(
 
     use_amp = dtype in {torch.float16, torch.bfloat16}
 
+    seed_all(1234)
     model = Olmo(train_config.model).eval()
 
     hf_config = OLMoConfig(**model.config.asdict())
-    hf_model = OLMoForCausalLM(hf_config)
-    hf_model.model = model
+
+    seed_all(1234)
+    hf_model = OLMoForCausalLM(hf_config).eval()
 
     input1 = tokenizer.encode("My name is OLMo!")
     input2 = tokenizer.encode("I'm a delightful large open language model :)")

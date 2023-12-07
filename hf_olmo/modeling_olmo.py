@@ -1,6 +1,4 @@
 import math
-
-# import warnings
 from typing import Callable, List, Optional, Sequence, Tuple, Union
 
 import torch
@@ -17,8 +15,6 @@ from olmo.config import ModelConfig
 from olmo.initialization import ModuleType, init_weights
 
 from .configuration_olmo import OLMoConfig
-
-# from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 
 def create_model_config_from_pretrained_config(config: OLMoConfig):
@@ -58,7 +54,7 @@ def create_model_config_from_pretrained_config(config: OLMoConfig):
 class OLMoPreTrainedModel(PreTrainedModel):
     config_class = OLMoConfig
     base_model_prefix = "model"
-    _no_split_modules = ["OLMoBlock"]  # TODO: check
+    _no_split_modules = ["OLMoBlock", "OLMoBlockGroup"]
 
 
 class OLMoModel(OLMoPreTrainedModel):

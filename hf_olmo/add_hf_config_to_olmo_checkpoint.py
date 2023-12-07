@@ -28,6 +28,11 @@ def write_config(checkpoint_dir: str):
     tokenizer = OLMoTokenizerFast.from_pretrained(checkpoint_dir)
     tokenizer.save_pretrained(checkpoint_dir)
 
+    try:
+        os.symlink(os.path.join(checkpoint_dir, "model.pt"), os.path.join(checkpoint_dir, "pytorch_model.bin"))
+    except FileExistsError:
+        pass
+
 
 def download_remote_checkpoint_and_add_hf_config(checkpoint_dir: str, local_dir: str):
     from cached_path import cached_path
