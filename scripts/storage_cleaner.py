@@ -733,6 +733,11 @@ def delete_bad_runs(run_paths: List[str], config: DeleteBadRunsConfig):
         log.info("Starting to check if run %s should be deleted", run_path)
         _delete_if_bad_run(storage, run_path, config)
 
+        # Delete temp dir after each run to avoid memory bloat
+        if Path(config.temp_dir).is_dir():
+            log.info("Deleting temp dir %s", config.temp_dir)
+            shutil.rmtree(config.temp_dir)
+
 
 def _is_sharded_checkpoint_dir(directory: str) -> bool:
     storage = _get_storage_adapter_for_path(directory)
