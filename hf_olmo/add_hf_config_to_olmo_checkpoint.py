@@ -28,10 +28,16 @@ def write_config(checkpoint_dir: str):
     tokenizer = OLMoTokenizerFast.from_pretrained(checkpoint_dir)
     tokenizer.save_pretrained(checkpoint_dir)
 
-    try:
-        os.symlink(os.path.join(checkpoint_dir, "model.pt"), os.path.join(checkpoint_dir, "pytorch_model.bin"))
-    except FileExistsError:
-        pass
+
+def update_checkpoint_filename(checkpoint_dir: str, soft_link: bool = True):
+    if soft_link:
+        try:
+            os.symlink("model.pt", os.path.join(checkpoint_dir, "pytorch_model.bin"))
+        except FileExistsError:
+            pass
+    else:
+        if not os.path.exists(os.path.join(checkpoint_dir, "pytorch_model.bin")):
+            os.rename(os.path.join(checkpoint_dir, "model.pt"), os.path.join(checkpoint_dir, "pytorch_model.bin"))
 
 
 def download_remote_checkpoint_and_add_hf_config(checkpoint_dir: str, local_dir: str):
@@ -54,20 +60,30 @@ def download_remote_checkpoint_and_add_hf_config(checkpoint_dir: str, local_dir:
             logger.info(f"File already present at {final_location}")
 
     write_config(local_model_path)
+    update_checkpoint_filename(local_model_path, soft_link=False)
     return local_model_path
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Adds a config.json to the checkpoint directory, making it easier to load weights as HF models."
+        description="Adds a config.json to the checkpoint directory, and creates pytorch_model.bin, "
+        "making it easier to load weights as HF models."
     )
     parser.add_argument(
         "--checkpoint-dir",
         help="Location of OLMo checkpoint.",
     )
 
+    parser.add_argument(
+        "--ignore-olmo-compatibility",
+        action="store_true",
+        help="Ignore compatibility with the olmo codebase. "
+        "This will rename model.pt --> pytorch_model.bin instead of creating a symlink.",
+    )
+
     args = parser.parse_args()
     write_config(checkpoint_dir=args.checkpoint_dir)
+    update_checkpoint_filename(checkpoint_dir=args.checkpoint_dir, soft_link=not args.ignore_olmo_compatibility)
 
 
 if __name__ == "__main__":
