@@ -1,16 +1,7 @@
-import os
-
-# import warnings
 from typing import List, Optional, Tuple, Union
 
 import torch
 from transformers import PreTrainedModel
-
-# from transformers.generation.utils import (  # BaseStreamer,
-#     GenerateOutput,
-#     LogitsProcessorList,
-#     StoppingCriteriaList,
-# )
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.models.auto import AutoModelForCausalLM
 
@@ -18,8 +9,6 @@ from olmo.config import ModelConfig
 from olmo.model import Olmo
 
 from .configuration_olmo import OLMoConfig
-
-# from typing import Callable, Sequence
 
 
 def create_model_config_from_pretrained_config(config: OLMoConfig):
@@ -62,6 +51,7 @@ class OLMoForCausalLM(PreTrainedModel):
     """
 
     config_class = OLMoConfig
+    base_model_prefix = "model"
 
     def __init__(self, config: OLMoConfig, model: Optional[Olmo] = None):
         super().__init__(config)
@@ -71,11 +61,6 @@ class OLMoForCausalLM(PreTrainedModel):
             self.model = Olmo(model_config, init_params=True)
         else:
             self.model = model
-
-    # def forward(self, *args, **kwargs):
-    #     # use_cache = self.config.use_cache or kwargs.pop("use_cache", False)
-    #     kwargs["use_cache"] = kwargs.pop("use_cache", self.config.use_cache)
-    #     return self.model.forward(*args, **kwargs)
 
     def forward(
         self,
@@ -129,61 +114,6 @@ class OLMoForCausalLM(PreTrainedModel):
     def can_generate(self) -> bool:
         return True
 
-    # Note (akshitab): This model does not use OLMo's generate() function as it does not support all the
-    # bells and whistles that HF's generation-compatible models do, such as `StoppingCriteria` or top-p sampling, etc.
-    # Instead, the model sets `can_generate` to True, and relies on HF's default `.generate()`, and implements
-    # supporting functions like `prepare_inputs_for_generation()`. This allows us to use HF's various generation
-    # options.
-
-    # def generate(
-    #     self,
-    #     input_ids: Optional[torch.Tensor] = None,
-    #     max_length: int = 20,
-    #     max_new_tokens: Optional[int] = None,
-    #     logits_processor: Optional[LogitsProcessorList] = None,
-    #     stopping_criteria: Optional[StoppingCriteriaList] = None,
-    #     prefix_allowed_tokens_fn: Optional[Callable[[int, torch.Tensor], List[int]]] = None,
-    #     synced_gpus: Optional[bool] = None,
-    #     assistant_model: Optional["PreTrainedModel"] = None,
-    #     streamer: Optional["BaseStreamer"] = None,
-    #     **kwargs,
-    # ) -> Union[GenerateOutput, torch.LongTensor]:
-    #
-    #     assert input_ids is not None
-    #
-    #     # TODO: use stopping_criteria, since it's being used by instruct-eval
-    #     if stopping_criteria is not None:
-    #         warnings.warn(
-    #             "OLMo's generate() function does not currently support `stopping_criteria`. "
-    #             "This will likely result in worse performance on tasks."
-    #         )
-    #
-    #     max_steps = max_new_tokens or max_length - input_ids.shape[1]
-    #     result = self.model.generate(
-    #         input_ids,
-    #         max_steps=max_steps,
-    #         beam_size=1,
-    #         **kwargs,
-    #     )
-    #
-    #     return torch.cat((input_ids, result.token_ids[:, 0]), dim=1)
-
-    @classmethod
-    def from_pretrained(
-        cls, pretrained_model_name_or_path: Optional[Union[str, os.PathLike]], *model_args, **kwargs
-    ):
-        assert pretrained_model_name_or_path is not None
-        if kwargs.get("device_map", "auto") == "auto":
-            device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        else:
-            device = "cpu"
-        model = Olmo.from_checkpoint(pretrained_model_name_or_path, device=device)
-        try:
-            config = OLMoConfig.from_pretrained(pretrained_model_name_or_path)
-        except FileNotFoundError:
-            config = OLMoConfig(use_cache=True, **model.config.asdict())
-        return cls(config, model)
-
     def prepare_inputs_for_generation(
         self, input_ids: torch.LongTensor, past_key_values: Optional[List[Tuple]] = None, **kwargs
     ):
@@ -205,6 +135,28 @@ class OLMoForCausalLM(PreTrainedModel):
     #
     # def _reorder_cache(self, past_key_values, beam_idx):
     #     pass
+
+    def get_input_embeddings(self) -> torch.nn.Module:
+        return self.model.transformer.wte
+
+    def set_input_embeddings(self, value: torch.nn.Module):
+        self.model.transformer.wte = value
+
+    def get_output_embeddings(self):
+        if self.config.weight_tying:
+            return self.model.transformer.wte
+        else:
+            return self.model.transformer.ff_out
+
+    def set_output_embeddings(self, value: torch.nn.Module):
+        if self.config.weight_tying:
+            self.model.transformer.wte = value
+        else:
+            self.model.transformer.ff_out = value
+
+    def tie_weights(self):
+        if self.config.weight_tying:
+            self.model.transformer.ff_out = self.model.transformer.wte
 
 
 # Register the model so that it is available for transformer pipelines, auto-loading, etc.

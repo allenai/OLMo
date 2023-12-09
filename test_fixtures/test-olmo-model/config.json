@@ -2,8 +2,14 @@
   "activation_type": "swiglu",
   "alibi": false,
   "alibi_bias_max": 8.0,
+  "architectures": [
+    "OlmoModelForCausalLM"
+  ],
   "attention_dropout": 0.1,
   "attention_layer_norm": false,
+  "attention_layer_norm_with_affine": true,
+  "bias_for_layer_norm": null,
+  "block_group_size": 1,
   "block_type": "sequential",
   "d_model": 32,
   "embedding_dropout": 0.1,
@@ -11,10 +17,14 @@
   "eos_token_id": 50256,
   "flash_attention": false,
   "include_bias": true,
+  "init_cutoff_factor": null,
   "init_device": null,
+  "init_fn": "normal",
   "init_std": 0.02,
   "layer_norm_type": "default",
+  "layer_norm_with_affine": true,
   "max_sequence_length": 1024,
+  "mlp_hidden_size": null,
   "mlp_ratio": 4,
   "model_type": "olmo",
   "multi_query_attention": false,
@@ -24,7 +34,10 @@
   "precision": null,
   "residual_dropout": 0.1,
   "rope": false,
+  "rope_full_precision": true,
+  "scale_logits": false,
   "transformers_version": "4.29.0",
   "use_cache": true,
-  "vocab_size": 50257
+  "vocab_size": 50257,
+  "weight_tying": true
 }
