@@ -25,9 +25,6 @@ def write_config(checkpoint_dir: str):
     logger.info(f"Saving HF-compatible config to {os.path.join(checkpoint_dir, 'config.json')}")
     config.save_pretrained(checkpoint_dir)
 
-    # tokenizer = OLMoTokenizerFast.from_pretrained(checkpoint_dir)
-    # tokenizer.save_pretrained(checkpoint_dir)
-
 
 def write_model(checkpoint_dir: str, soft_link: bool = True):
     if soft_link:
@@ -55,7 +52,7 @@ def write_tokenizer(checkpoint_dir: str):
     tokenizer.save_pretrained(checkpoint_dir)
 
 
-def download_remote_checkpoint_and_add_hf_config(checkpoint_dir: str, local_dir: str):
+def download_remote_checkpoint_and_convert_to_hf(checkpoint_dir: str, local_dir: str):
     from cached_path import cached_path
 
     model_name = os.path.basename(checkpoint_dir)
