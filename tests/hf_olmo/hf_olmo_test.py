@@ -11,11 +11,13 @@ def test_auto_hf_classes(model_path: str):
     from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
     from hf_olmo import OLMoConfig, OLMoForCausalLM, OLMoTokenizerFast
-    from hf_olmo.add_hf_config_to_olmo_checkpoint import write_config
+    from hf_olmo.convert_olmo_to_hf import write_config, write_tokenizer, write_model
 
     # model_path is an OLMo checkpoint.
     # Creates HF-compatible config.json
     write_config(model_path)
+    write_tokenizer(model_path)
+    write_model(model_path)
 
     config = AutoConfig.from_pretrained(model_path)
     assert isinstance(config, OLMoConfig)
