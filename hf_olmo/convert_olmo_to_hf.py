@@ -3,7 +3,10 @@ import logging
 import os
 import shutil
 
+import torch
+
 from hf_olmo.configuration_olmo import OLMoConfig
+from hf_olmo.modeling_olmo import OLMoForCausalLM
 from hf_olmo.tokenization_olmo_fast import OLMoTokenizerFast
 from olmo import ModelConfig, Tokenizer
 
@@ -12,11 +15,10 @@ logger = logging.getLogger(__name__)
 
 def write_config(checkpoint_dir: str):
     # save config as HF config
-    from cached_path import cached_path
 
     logger.info(f"Loading checkpoint from {checkpoint_dir}")
 
-    config_path = cached_path(os.path.join(checkpoint_dir, "config.yaml"))
+    config_path = os.path.join(checkpoint_dir, "config.yaml")
     model_config = ModelConfig.load(config_path, key="model")
     config_kwargs = model_config.asdict()
     config_kwargs["use_cache"] = True
@@ -26,15 +28,19 @@ def write_config(checkpoint_dir: str):
     config.save_pretrained(checkpoint_dir)
 
 
-def write_model(checkpoint_dir: str, soft_link: bool = True):
-    if soft_link:
-        try:
-            os.symlink("model.pt", os.path.join(checkpoint_dir, "pytorch_model.bin"))
-        except FileExistsError:
-            pass
-    else:
-        if not os.path.exists(os.path.join(checkpoint_dir, "pytorch_model.bin")):
-            os.rename(os.path.join(checkpoint_dir, "model.pt"), os.path.join(checkpoint_dir, "pytorch_model.bin"))
+def write_model(checkpoint_dir: str, ignore_olmo_compatibility: bool = False):
+    # For device_map = "auto", etc. the models are loaded in a way that start_prefix is not computed correctly.
+    # So, we explicitly store the model with the expected prefix.
+
+    old_model_path = os.path.join(checkpoint_dir, "model.pt")
+    new_model_path = os.path.join(checkpoint_dir, "pytorch_model.bin")
+
+    state_dict = torch.load(old_model_path)
+    new_state_dict = {f"{OLMoForCausalLM.base_model_prefix}.{key}": val for key, val in state_dict.items()}
+    torch.save(new_state_dict, new_model_path)
+
+    if ignore_olmo_compatibility:
+        os.remove(old_model_path)
 
 
 def write_tokenizer(checkpoint_dir: str):
@@ -50,6 +56,16 @@ def write_tokenizer(checkpoint_dir: str):
     tokenizer.eos_token_id = tokenizer_raw.eos_token_id
 
     tokenizer.save_pretrained(checkpoint_dir)
+
+
+def convert_checkpoint(checkpoint_dir: str, ignore_olmo_compatibility: bool = False):
+    write_config(checkpoint_dir)
+    write_model(checkpoint_dir, ignore_olmo_compatibility=ignore_olmo_compatibility)
+    write_tokenizer(checkpoint_dir)
+
+    # Cannot remove it before writing the tokenizer
+    if ignore_olmo_compatibility:
+        os.remove(os.path.join(checkpoint_dir, "config.yaml"))
 
 
 def download_remote_checkpoint_and_convert_to_hf(checkpoint_dir: str, local_dir: str):
@@ -71,9 +87,7 @@ def download_remote_checkpoint_and_convert_to_hf(checkpoint_dir: str, local_dir:
         else:
             logger.info(f"File already present at {final_location}")
 
-    write_config(local_model_path)
-    write_model(local_model_path, soft_link=False)
-    write_tokenizer(local_model_path)
+    convert_checkpoint(local_model_path)
     return local_model_path
 
 
@@ -91,13 +105,11 @@ def main():
         "--ignore-olmo-compatibility",
         action="store_true",
         help="Ignore compatibility with the olmo codebase. "
-        "This will rename model.pt --> pytorch_model.bin instead of creating a symlink.",
+        "This will remove files that are needed specifically for olmo codebase, eg. config.yaml, etc.",
     )
 
     args = parser.parse_args()
-    write_config(checkpoint_dir=args.checkpoint_dir)
-    write_model(checkpoint_dir=args.checkpoint_dir, soft_link=not args.ignore_olmo_compatibility)
-    write_tokenizer(checkpoint_dir=args.checkpoint_dir)
+    convert_checkpoint(args.checkpoint_dir, args.ignore_olmo_compatibility)
 
 
 if __name__ == "__main__":
