@@ -3,7 +3,7 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "olmo"
+name = "ai2-olmo"
 dynamic = ["version", "dependencies", "optional-dependencies"]
 readme = "README.md"
 description = "Open Language Model (OLMo)"
@@ -25,7 +25,7 @@ olmo = ["py.typed"]
 
 [tool.setuptools.dynamic]
 version = { attr = "olmo.version.VERSION" }
-dependencies = { file = ["requirements.txt"] }
+dependencies = { file = ["requirements.txt", "hf_olmo/requirements.txt"] }
 optional-dependencies = { dev = { file = ["dev-requirements.txt"] } }
 
 [tool.setuptools.packages.find]
