@@ -14,8 +14,8 @@ requires-python = ">=3.8"
 license = {file = "LICENSE"}
 
 [project.urls]
-Homepage = "https://github.com/allenai/LLM"
-Repository = "https://github.com/allenai/LLM"
+Homepage = "https://github.com/allenai/OLMo"
+Repository = "https://github.com/allenai/OLMo"
 
 [tool.setuptools]
 include-package-data = true
