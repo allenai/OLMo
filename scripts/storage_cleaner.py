@@ -972,34 +972,35 @@ def perform_operation(args: argparse.Namespace):
     temp_dir = tempfile.mkdtemp(dir=args.temp_dir)
     _setup_cached_path(temp_dir)
 
-    if args.op == CleaningOperations.DELETE_BAD_RUNS:
-        delete_bad_runs_config = DeleteBadRunsConfig(
-            dry_run=args.dry_run,
-            temp_dir=temp_dir,
-            should_check_is_run=args.should_check_is_run,
-            ignore_non_runs=args.ignore_non_runs,
-            max_archive_size=args.max_archive_size,
-        )
-        if args.run_paths is not None:
-            delete_bad_runs(args.run_paths, delete_bad_runs_config)
+    try:
+        if args.op == CleaningOperations.DELETE_BAD_RUNS:
+            delete_bad_runs_config = DeleteBadRunsConfig(
+                dry_run=args.dry_run,
+                temp_dir=temp_dir,
+                should_check_is_run=args.should_check_is_run,
+                ignore_non_runs=args.ignore_non_runs,
+                max_archive_size=args.max_archive_size,
+            )
+            if args.run_paths is not None:
+                delete_bad_runs(args.run_paths, delete_bad_runs_config)
+            else:
+                raise ValueError("Run paths not provided for run cleaning")
+        elif args.op == CleaningOperations.UNSHARD_CHECKPOINTS:
+            unshard_checkpoints_config = UnshardCheckpointsConfig(
+                dry_run=args.dry_run,
+                temp_dir=temp_dir,
+                latest_checkpoint_only=args.latest_checkpoint_only,
+            )
+            if args.run_path is not None:
+                unshard_run_checkpoints(args.run_path, args.dest_dir, unshard_checkpoints_config)
+            else:
+                raise ValueError("Run path not provided for unsharding")
         else:
-            raise ValueError("Run paths not provided for run cleaning")
-    elif args.op == CleaningOperations.UNSHARD_CHECKPOINTS:
-        unshard_checkpoints_config = UnshardCheckpointsConfig(
-            dry_run=args.dry_run,
-            temp_dir=temp_dir,
-            latest_checkpoint_only=args.latest_checkpoint_only,
-        )
-        if args.run_path is not None:
-            unshard_run_checkpoints(args.run_path, args.dest_dir, unshard_checkpoints_config)
-        else:
-            raise ValueError("Run path not provided for unsharding")
-    else:
-        raise NotImplementedError(args.op)
-
-    if Path(temp_dir).is_dir():
-        log.info("Deleting temp dir %s", temp_dir)
-        shutil.rmtree(temp_dir)
+            raise NotImplementedError(args.op)
+    finally:
+        if Path(temp_dir).is_dir():
+            log.info("Deleting temp dir %s", temp_dir)
+            shutil.rmtree(temp_dir)
 
 
 def _add_delete_subparser(subparsers: _SubParsersAction):
