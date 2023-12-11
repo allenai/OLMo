@@ -4,17 +4,20 @@ import torch
 from olmo import BlockType, Tokenizer, TrainConfig
 from olmo.data import DataCollator
 from olmo.model import Olmo
+from olmo.torch_util import seed_all
 
 
 def test_auto_hf_classes(model_path: str):
     from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
     from hf_olmo import OLMoConfig, OLMoForCausalLM, OLMoTokenizerFast
-    from hf_olmo.add_hf_config_to_olmo_checkpoint import write_config
+    from hf_olmo.convert_olmo_to_hf import write_config, write_model, write_tokenizer
 
     # model_path is an OLMo checkpoint.
     # Creates HF-compatible config.json
     write_config(model_path)
+    write_tokenizer(model_path)
+    write_model(model_path)
 
     config = AutoConfig.from_pretrained(model_path)
     assert isinstance(config, OLMoConfig)
@@ -184,10 +187,13 @@ def test_forward(
 
     use_amp = dtype in {torch.float16, torch.bfloat16}
 
+    seed_all(1234)
     model = Olmo(train_config.model).eval()
 
     hf_config = OLMoConfig(**model.config.asdict())
-    hf_model = OLMoForCausalLM(hf_config, model=model)
+
+    seed_all(1234)
+    hf_model = OLMoForCausalLM(hf_config).eval()
 
     input1 = tokenizer.encode("My name is OLMo!")
     input2 = tokenizer.encode("I'm a delightful large open language model :)")
