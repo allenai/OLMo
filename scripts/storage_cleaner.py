@@ -733,7 +733,7 @@ def delete_bad_runs(run_paths: List[str], config: DeleteBadRunsConfig):
         log.info("Starting to check if run %s should be deleted", run_path)
         _delete_if_bad_run(storage, run_path, config)
 
-        # Delete temp dir after each run to avoid memory bloat
+        # Delete temp dir after each run to avoid storage bloat
         if Path(config.temp_dir).is_dir():
             log.info("Deleting temp dir %s", config.temp_dir)
             shutil.rmtree(config.temp_dir)
