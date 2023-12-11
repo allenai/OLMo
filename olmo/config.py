@@ -17,6 +17,7 @@ from typing import (
 )
 
 import torch
+from omegaconf import DictConfig, ListConfig
 from omegaconf import OmegaConf as om
 from omegaconf.errors import OmegaConfBaseException
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
@@ -54,6 +55,7 @@ __all__ = [
 ]
 
 C = TypeVar("C", bound="BaseConfig")
+D = TypeVar("D", bound="DictConfig|ListConfig")
 
 
 class BaseConfig:
@@ -99,6 +101,13 @@ class BaseConfig:
         om.register_new_resolver("path.last_checkpoint", path_last_checkpoint, replace=True)
 
     @classmethod
+    def update_legacy_settings(cls, config: D) -> D:
+        """
+        Update the legacy config settings whose schemas have undergone backwards-incompatible changes.
+        """
+        return config
+
+    @classmethod
     def new(cls: Type[C], **kwargs) -> C:
         cls._register_resolvers()
         conf = om.structured(cls)
@@ -124,6 +133,7 @@ class BaseConfig:
             raw = om.load(str(path))
             if key is not None:
                 raw = raw[key]  # type: ignore
+            raw = cls.update_legacy_settings(raw)
             conf = om.merge(schema, raw)
             if overrides:
                 conf = om.merge(conf, om.from_dotlist(overrides))
@@ -447,6 +457,19 @@ class OptimizerConfig(BaseConfig):
 
     def __post_init__(self):
         self.betas = tuple(self.betas)  # type: ignore[assignment]
+
+    @classmethod
+    def update_legacy_settings(cls, config: D) -> D:
+        new_config = config.copy()
+        if om.is_dict(new_config):
+            assert isinstance(new_config, DictConfig)
+
+            if hasattr(new_config, "name") and new_config.name == "decoupled_lionw":
+                new_config.name = "lionw"
+                if hasattr(new_config, "eps"):
+                    del new_config.eps
+
+        return new_config
 
 
 class SchedulerType(StrEnum):
@@ -959,3 +982,20 @@ class TrainConfig(BaseConfig):
             )
         else:
             raise NotImplementedError(f"{self.fsdp.precision}")
+
+    @classmethod
+    def update_legacy_settings(cls, config: D) -> D:
+        new_config = config.copy()
+        if om.is_dict(new_config):
+            assert isinstance(new_config, DictConfig)
+
+            if hasattr(new_config, "activation_checkpointing"):
+                if new_config.activation_checkpointing is False:
+                    new_config.activation_checkpointing = None
+                if new_config.activation_checkpointing is True:
+                    new_config.activation_checkpointing = ActivationCheckpointingStrategy.whole_layer
+
+            if hasattr(new_config, "optimizer"):
+                new_config.optimizer = OptimizerConfig.update_legacy_settings(new_config.optimizer)
+
+        return new_config

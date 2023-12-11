@@ -765,13 +765,38 @@ def _get_sharded_checkpoint_dirs(
     return sharded_checkpoint_directories
 
 
-def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str):
+def _add_training_config_to_checkpoint(local_checkpoint_dir: str, run_dir: str):
+    max_train_config_size = 1 * 1024 * 1024  # 1MB
+
+    if not StorageAdapter.get_storage_type_for_path(local_checkpoint_dir) == StorageType.LOCAL_FS:
+        raise ValueError(f"Checkpoint dir is not local: {local_checkpoint_dir}")
+
+    checkpoint_storage = _get_storage_adapter_for_path(local_checkpoint_dir)
+    if CONFIG_YAML in checkpoint_storage.list_entries(local_checkpoint_dir, max_file_size=max_train_config_size):
+        # Config already exists in the checkpoint
+        return
+
+    log.info("%s not found in %s, attempting to get it from %s", CONFIG_YAML, local_checkpoint_dir, run_dir)
+
+    run_storage = _get_storage_adapter_for_path(run_dir)
+    run_config_yaml_path = os.path.join(run_dir, CONFIG_YAML)
+    if run_storage.is_file(run_config_yaml_path):
+        local_config_yaml_path = cached_path(run_config_yaml_path)
+        shutil.copy(local_config_yaml_path, local_checkpoint_dir)
+        return
+
+    log.warning("Cannot find training config to add to checkpoint %s", local_checkpoint_dir)
+
+
+def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, run_dir: str):
     local_storage = LocalFileSystemAdapter()
 
     # Download checkpoint to a temp dir
     sharding_input_dir = local_storage.create_temp_dir()
     src_storage = _get_storage_adapter_for_path(sharded_checkpoint_dir)
     src_storage.download_folder(sharded_checkpoint_dir, sharding_input_dir)
+
+    _add_training_config_to_checkpoint(sharding_input_dir, run_dir)
 
     # Set unsharder output to a temp dir
     sharding_output_dir: str
@@ -880,7 +905,7 @@ def _unshard_checkpoints(
             log.info("Would unshard sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
         else:
             log.info("Unsharding sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
-            _unshard_checkpoint(sharded_checkpoint_directory, dest_directory)
+            _unshard_checkpoint(sharded_checkpoint_directory, dest_directory, run_dir)
 
 
 def unshard_run_checkpoints(run_path: str, checkpoints_dest_dir: str, config: UnshardCheckpointsConfig):
