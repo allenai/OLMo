@@ -797,7 +797,9 @@ def _add_training_config_to_checkpoint(local_checkpoint_dir: str, run_dir: str):
     log.warning("Cannot find training config to add to checkpoint %s", local_checkpoint_dir)
 
 
-def _unshard_checkpoint(sharded_checkpoint_dir: str, dest_dir: str, run_dir: str, unsharding_config: UnshardCheckpointsConfig):
+def _unshard_checkpoint(
+    sharded_checkpoint_dir: str, dest_dir: str, run_dir: str, unsharding_config: UnshardCheckpointsConfig
+):
     local_storage = LocalFileSystemAdapter()
 
     # Download checkpoint to a temp dir
@@ -961,7 +963,10 @@ def perform_operation(args: argparse.Namespace):
     if args.dry_run:
         log.info("Dry run, no irreversible actions will be taken")
 
-    if args.temp_dir is not None and StorageAdapter.get_storage_type_for_path(args.temp_dir) != StorageType.LOCAL_FS:
+    if (
+        args.temp_dir is not None
+        and StorageAdapter.get_storage_type_for_path(args.temp_dir) != StorageType.LOCAL_FS
+    ):
         raise ValueError("Temporary directory must be a local path")
 
     temp_dir = tempfile.mkdtemp(dir=args.temp_dir)
