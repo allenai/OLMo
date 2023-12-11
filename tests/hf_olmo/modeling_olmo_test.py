@@ -1,5 +1,6 @@
 import tempfile
 
+import pytest
 import torch
 
 from olmo.model import Olmo
@@ -42,3 +43,14 @@ def test_save_pretrained(model_path: str):
         saved_hf_output = saved_hf_model(input_tensor)
 
         torch.testing.assert_allclose(saved_hf_output.logits, hf_output.logits)
+
+
+@pytest.mark.gpu
+@pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices")
+def test_auto_device_map_load(model_path: str):
+    from transformers import AutoModelForCausalLM
+
+    from hf_olmo import OLMoForCausalLM, OLMoTokenizerFast  # noqa: F401
+
+    hf_model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto")
+    assert hf_model.device.type == "cuda"
