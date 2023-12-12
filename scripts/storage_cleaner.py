@@ -41,6 +41,7 @@ DEFAULT_DELETE_MAX_ARCHIVE_SIZE: float = 5 * 1024 * 1024 * 1024  # 5GB
 class CleaningOperations(Enum):
     DELETE_BAD_RUNS = auto()
     UNSHARD_CHECKPOINTS = auto()
+    MOVE_RUN = auto()
 
 
 class StorageType(util.StrEnum):
@@ -1123,6 +1124,18 @@ def perform_operation(args: argparse.Namespace):
                 unshard_run_checkpoints(args.run_path, args.dest_dir, unshard_checkpoints_config)
             else:
                 raise ValueError("Run path not provided for unsharding")
+        elif args.op == CleaningOperations.MOVE_RUN:
+            move_run_config = MoveRunConfig(
+                dry_run=args.dry_run,
+                temp_dir=temp_dir,
+                append_wandb_path=args.append_wandb_path,
+                keep_src=args.keep_src,
+                store_archived=args.store_archived,
+            )
+            if args.run_path is not None and args.dest_dir is not None:
+                move_run(args.run_path, args.dest_dir, move_run_config)
+            else:
+                raise ValueError("Run path or dest dir not provided for moving run")
         else:
             raise NotImplementedError(args.op)
     finally:
@@ -1182,6 +1195,36 @@ def _add_unsharding_subparser(subparsers: _SubParsersAction):
     )
 
 
+def _add_move_subparser(subparsers: _SubParsersAction):
+    move_parser: ArgumentParser = subparsers.add_parser("move", help="move run to a new location")
+    move_parser.set_defaults(op=CleaningOperations.MOVE_RUN)
+
+    move_parser.add_argument(
+        "run_path",
+        help="Path of run directory or archive to move.",
+    )
+    move_parser.add_argument(
+        "dest_dir",
+        help="Path of directory to which the run should be moved.",
+    )
+    move_parser.add_argument(
+        "--keep_src",
+        action="store_true",
+        help="If set, the run is not removed from the source location.",
+    )
+    move_parser.add_argument(
+        "--unarchive",
+        dest="store_archived",
+        action="store_false",
+        help="If set and the run path corresponds to an archive file, then the unarchived form of the run is stored at the destination.",
+    )
+    move_parser.add_argument(
+        "--append_wandb_path",
+        action="store_true",
+        help="If set, the wandb path for the run is found and appended to the destination dir. If the run is being stored as an archive file, wandb id is first removed from the wandb path and used as the filename.",
+    )
+
+
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser()
     parser.add_argument(
@@ -1198,6 +1241,7 @@ def get_parser() -> ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", help="Cleaning commands", required=True)
     _add_delete_subparser(subparsers)
     _add_unsharding_subparser(subparsers)
+    _add_move_subparser(subparsers)
 
     return parser
 
