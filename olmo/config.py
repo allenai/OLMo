@@ -650,6 +650,7 @@ class FSDPConfig(BaseConfig):
 class CheckpointType(StrEnum):
     sharded = "sharded"
     unsharded = "unsharded"
+    sharded_ephemeral = "sharded_ephemeral"
 
 
 class ShardedCheckpointerType(StrEnum):
@@ -757,19 +758,31 @@ class TrainConfig(BaseConfig):
 
     save_interval: int = 1000
     """
-    How often (in terms of batches) to save training state checkpoints that can be used for restarts.
+    How often (in terms of steps) to save sharded training state checkpoints.
     """
 
     save_interval_unsharded: Optional[int] = None
     """
-    How often (if at all) to save the unsharded state to a single file.
+    How often (if at all) to save unsharded training state checkpoint.
     For large models it can be costly to save these, so it usually makes sense to save
     these less often than regular (sharded) training checkpoints.
     """
 
+    save_interval_ephemeral: Optional[int] = None
+    """
+    How often (if at all) to save ephemeral sharded checkpoints. These checkpoints are the same
+    as those saved every `save_interval` except that at most only the most recent one of these is kept.
+    This is useful when you want to checkpoint often for restarts in case of failures, but don't
+    want to keep the majority of these checkpoints.
+
+    For example, suppose you want to keep your checkpoints at every 1000 steps, but you want to havesave an ephemeral
+    a temporary checkpoint saved every 100 steps in case your job fails. In that case you would
+    set `save_interval=1000` and `save_interval_ephemeral=100`.
+    """
+
     save_num_checkpoints_to_keep: int = -1
     """
-    How many checkpoints to keep.
+    How many sharded checkpoints to keep.
     """
 
     save_num_unsharded_checkpoints_to_keep: int = -1
