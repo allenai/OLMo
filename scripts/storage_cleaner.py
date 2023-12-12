@@ -614,6 +614,13 @@ class UnshardCheckpointsConfig(StorageCleanerConfig):
     latest_checkpoint_only: bool
 
 
+@dataclass
+class MoveRunConfig(StorageCleanerConfig):
+    append_wandb_path: bool
+    keep_src: bool
+    store_archived: bool
+
+
 def _get_storage_adapter_for_path(path: str) -> StorageAdapter:
     storage_type = StorageAdapter.get_storage_type_for_path(path)
     return StorageAdapter.create_storage_adapter(storage_type)
@@ -981,6 +988,69 @@ def _copy(src_path: str, dest_path: str, temp_dir: str):
         raise ValueError(f"Source path {src_path} does not correspond to a valid file or directory")
 
     dest_storage.upload(local_path, dest_path)
+
+
+def _get_src_and_dest_for_copy(
+    src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: str, config: MoveRunConfig
+) -> Tuple[str, str]:
+    is_archive_file = _is_archive(run_dir_or_archive, src_storage)
+    # We need to unarchive the run if we want to get the wandb path
+    should_unarchive = is_archive_file and (not config.store_archived or config.append_wandb_path)
+
+    if is_archive_file and not should_unarchive:
+        dest_file_path = os.path.join(dest_dir, Path(run_dir_or_archive).name)
+        return run_dir_or_archive, dest_file_path
+
+    run_dir = _unarchive_if_archive(run_dir_or_archive, src_storage)
+
+    src_path = run_dir_or_archive if config.store_archived else run_dir
+
+    dest_path: str
+    if config.append_wandb_path:
+        dest_path = _append_wandb_path(dest_dir, run_dir_or_archive, append_archive_extension=config.store_archived, run_dir=run_dir)
+    elif is_archive_file and not config.store_archived:
+        archive_extension = "".join(Path(run_dir_or_archive).suffixes)
+        dir_name = Path(run_dir_or_archive).name.removesuffix(archive_extension)
+        dest_path = os.path.join(dest_dir, dir_name)
+    else:
+        dest_path = dest_dir
+
+    return src_path, dest_path
+
+
+def _move_run(src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: str, config: MoveRunConfig):
+    log.info("Moving run directory or archive %s to directory %s", run_dir_or_archive, dest_dir)
+
+    dest_storage = _get_storage_adapter_for_path(dest_dir)
+    if dest_storage.is_file(dest_dir):
+        raise ValueError(f"Destination directory {dest_dir} is a file")
+
+    src_move_path, dest_move_path = _get_src_and_dest_for_copy(src_storage, run_dir_or_archive, dest_dir, config)
+
+    if src_move_path == dest_move_path:
+        # This could be a valid scenario if the user is trying to append wandb path to runs
+        # and this run has the right wandb path already.
+        log.info("Source and destination move paths are both %s, skipping", src_move_path)
+        return
+
+    if config.dry_run:
+        log.info("Would copy %s to %s", src_move_path, dest_move_path)
+    else:
+        log.info("Copying %s to %s", src_move_path, dest_move_path)
+        _copy(src_move_path, dest_move_path, config.temp_dir)
+
+    if not config.keep_src:
+        if config.dry_run:
+            log.info("Would delete run dir or archive %s", run_dir_or_archive)
+        else:
+            log.info("Deleting run dir or archive %s", run_dir_or_archive)
+            src_storage.delete_path(run_dir_or_archive)
+
+
+def move_run(run_path: str, dest_dir: str, config: MoveRunConfig):
+    storage = _get_storage_adapter_for_path(run_path)
+    run_dir_or_archive = _format_dir_or_archive_path(storage, run_path)
+    _move_run(storage, run_dir_or_archive, dest_dir, config)
 
 
 def _add_cached_path_s3_client():
