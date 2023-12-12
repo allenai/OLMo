@@ -775,8 +775,8 @@ class TrainConfig(BaseConfig):
     This is useful when you want to checkpoint often for restarts in case of failures, but don't
     want to keep the majority of these checkpoints.
 
-    For example, suppose you want to keep your checkpoints at every 1000 steps, but you want to havesave an ephemeral
-    a temporary checkpoint saved every 100 steps in case your job fails. In that case you would
+    For example, suppose you want to keep your checkpoints at every 1000 steps, but you also want to save
+    a temporary checkpoint every 100 steps in case your job fails. In that case you would
     set `save_interval=1000` and `save_interval_ephemeral=100`.
     """
 
