@@ -925,6 +925,24 @@ def unshard_run_checkpoints(run_path: str, checkpoints_dest_dir: str, config: Un
     _unshard_checkpoints(storage, run_dir_or_archive, checkpoints_dest_dir, config)
 
 
+def _get_wandb_path(run_dir: str) -> str:
+    raise NotImplementedError()
+
+
+def _append_wandb_path(base_dir: str, run_dir_or_archive: str, append_archive_extension: bool = False, run_dir: Optional[str] = None) -> str:
+    run_dir_or_archive_storage = _get_storage_adapter_for_path(run_dir_or_archive)
+    if run_dir is None:
+        run_dir = _unarchive_if_archive(run_dir_or_archive, run_dir_or_archive_storage)
+
+    wandb_path = _get_wandb_path(run_dir)
+
+    if _is_archive(run_dir_or_archive, run_dir_or_archive_storage) and append_archive_extension:
+        archive_extension = "".join(Path(run_dir_or_archive).suffixes)
+        wandb_path = wandb_path + archive_extension
+
+    return os.path.join(base_dir, wandb_path)
+
+
 def _add_cached_path_s3_client():
     class S3SchemeClient(S3Client):
         """
