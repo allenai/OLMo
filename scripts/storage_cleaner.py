@@ -943,6 +943,46 @@ def _append_wandb_path(base_dir: str, run_dir_or_archive: str, append_archive_ex
     return os.path.join(base_dir, wandb_path)
 
 
+def _copy(src_path: str, dest_path: str, temp_dir: str):
+    """
+    Copies the entry at `src_path` to `dest_path`. The destination path can be a directory
+    that does not exist (creating directories without a corresponding file is not always possible
+    in cloud storage). In exchange we require that `src_path` and `dest_path` are either
+    both files or both directories.
+    """
+    src_storage_type = StorageAdapter.get_storage_type_for_path(src_path)
+    dest_storage_type = StorageAdapter.get_storage_type_for_path(dest_path)
+
+    if src_storage_type == dest_storage_type and src_storage_type != StorageType.LOCAL_FS:
+        # The current implementation downloads the src entry to local storage and then
+        # uploads it to the destination. Downloading locally can likely be avoided when
+        # moving an entry within the same storage.
+        log.warning("Moving files and directories within the same storage system has not yet been optimized")
+
+    src_storage = StorageAdapter.create_storage_adapter(src_storage_type)
+    src_is_file = src_storage.is_file(src_path)
+    src_is_dir = src_storage.is_dir(src_path)
+    assert not (src_is_file and src_is_dir), f"Source {src_path} is both a file and a directory"
+
+    dest_storage = StorageAdapter.create_storage_adapter(dest_storage_type)
+    if dest_storage.is_file(dest_path):
+        raise ValueError(f"A file already exists at destination {dest_path}")
+    if src_is_file and (dest_path.endswith("/") or dest_storage.is_dir(dest_path)):
+        raise ValueError(f"Source path {src_path} is a file but the destination {dest_path} is a directory.")
+
+    local_path: PathOrStr
+    if src_is_file:
+        local_path = cached_path(src_path)
+    elif src_is_dir:
+        local_storage = LocalFileSystemAdapter()
+        local_path = local_storage.create_temp_dir(directory=temp_dir)
+        src_storage.download_folder(src_path, local_path)
+    else:
+        raise ValueError(f"Source path {src_path} does not correspond to a valid file or directory")
+
+    dest_storage.upload(local_path, dest_path)
+
+
 def _add_cached_path_s3_client():
     class S3SchemeClient(S3Client):
         """
