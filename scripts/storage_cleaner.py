@@ -937,7 +937,9 @@ def _get_wandb_path(run_dir: str) -> str:
     raise NotImplementedError()
 
 
-def _append_wandb_path(base_dir: str, run_dir_or_archive: str, append_archive_extension: bool = False, run_dir: Optional[str] = None) -> str:
+def _append_wandb_path(
+    base_dir: str, run_dir_or_archive: str, append_archive_extension: bool = False, run_dir: Optional[str] = None
+) -> str:
     run_dir_or_archive_storage = _get_storage_adapter_for_path(run_dir_or_archive)
     if run_dir is None:
         run_dir = _unarchive_if_archive(run_dir_or_archive, run_dir_or_archive_storage)
@@ -1008,7 +1010,9 @@ def _get_src_and_dest_for_copy(
 
     dest_path: str
     if config.append_wandb_path:
-        dest_path = _append_wandb_path(dest_dir, run_dir_or_archive, append_archive_extension=config.store_archived, run_dir=run_dir)
+        dest_path = _append_wandb_path(
+            dest_dir, run_dir_or_archive, append_archive_extension=config.store_archived, run_dir=run_dir
+        )
     elif is_archive_file and not config.store_archived:
         archive_extension = "".join(Path(run_dir_or_archive).suffixes)
         dir_name = Path(run_dir_or_archive).name.removesuffix(archive_extension)
@@ -1029,8 +1033,8 @@ def _move_run(src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: st
     src_move_path, dest_move_path = _get_src_and_dest_for_copy(src_storage, run_dir_or_archive, dest_dir, config)
 
     if src_move_path == dest_move_path:
-        # This could be a valid scenario if the user is trying to append wandb path to runs
-        # and this run has the right wandb path already.
+        # This could be a valid scenario if the user is, for example, trying to
+        # append wandb path to runs and this run has the right wandb path already.
         log.info("Source and destination move paths are both %s, skipping", src_move_path)
         return
 
