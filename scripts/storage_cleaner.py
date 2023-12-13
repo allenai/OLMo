@@ -17,6 +17,7 @@ import boto3.session
 import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
 import torch
+import wandb
 from cached_path import add_scheme_client, cached_path, set_cache_dir
 from cached_path.schemes import S3Client
 from google.api_core.exceptions import NotFound
@@ -937,7 +938,35 @@ def unshard_run_checkpoints(run_path: str, checkpoints_dest_dir: str, config: Un
 
 
 def _get_wandb_path(run_dir: str) -> str:
-    raise NotImplementedError()
+    run_dir_storage = _get_storage_adapter_for_path(run_dir)
+
+    config_path = os.path.join(run_dir, CONFIG_YAML)
+    if not run_dir_storage.is_file(config_path):
+        raise FileNotFoundError("No config file found in run dir, cannot get wandb path")
+
+    local_config_path = cached_path(config_path)
+    config = TrainConfig.load(local_config_path, validate_paths=False)
+
+    if config.wandb is None or config.wandb.entity is None or config.wandb.project is None:
+        raise ValueError(f"Run at {run_dir} has missing wandb config, cannot get wandb run path")
+
+    run_filters = {
+        "display_name": config.wandb.name,
+    }
+    if config.wandb.group is not None:
+        run_filters["group"] = config.wandb.group
+
+    api = wandb.Api()
+    wandb_matching_runs = api.runs(path=f"{config.wandb.entity}/{config.wandb.project}", filters=run_filters)
+
+    if len(wandb_matching_runs) == 0:
+        raise RuntimeError(f"Failed to find any wandb runs for {run_dir}. Run might no longer exist")
+
+    if len(wandb_matching_runs) > 1:
+        raise RuntimeError(f"Found {len(wandb_matching_runs)} runs matching run dir {run_dir}, cannot determine correct run")
+
+    wandb_run = wandb_matching_runs[0]
+    return "/".join(wandb_run.path)
 
 
 def _append_wandb_path(
