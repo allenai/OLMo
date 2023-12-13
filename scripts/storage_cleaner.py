@@ -980,9 +980,11 @@ def _append_wandb_path(
 
     if _is_archive(run_dir_or_archive, run_dir_or_archive_storage) and append_archive_extension:
         archive_extension = "".join(Path(run_dir_or_archive).suffixes)
-        wandb_path = wandb_path + archive_extension
+        relative_wandb_path = wandb_path + archive_extension
+    else:
+        relative_wandb_path = wandb_path + "/"
 
-    return os.path.join(base_dir, wandb_path)
+    return os.path.join(base_dir, relative_wandb_path)
 
 
 def _copy(src_path: str, dest_path: str, temp_dir: str):
@@ -1064,7 +1066,7 @@ def _move_run(src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: st
 
     src_move_path, dest_move_path = _get_src_and_dest_for_copy(src_storage, run_dir_or_archive, dest_dir, config)
 
-    if src_move_path == dest_move_path:
+    if src_move_path.rstrip("/") == dest_move_path.rstrip("/"):
         # This could be a valid scenario if the user is, for example, trying to
         # append wandb path to runs and this run has the right wandb path already.
         log.info("Source and destination move paths are both %s, skipping", src_move_path)
@@ -1087,6 +1089,7 @@ def _move_run(src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: st
 def move_run(run_path: str, dest_dir: str, config: MoveRunConfig):
     storage = _get_storage_adapter_for_path(run_path)
     run_dir_or_archive = _format_dir_or_archive_path(storage, run_path)
+    dest_dir = f"{dest_dir}/" if not dest_dir.endswith("/") else dest_dir
     _move_run(storage, run_dir_or_archive, dest_dir, config)
 
 
