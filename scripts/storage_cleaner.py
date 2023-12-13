@@ -583,6 +583,9 @@ class S3StorageAdapter(StorageAdapter):
                 progress.update(upload_task, advance=bytes_uploaded)
 
             for file_local_path in local_src.rglob("*"):
+                if file_local_path.is_dir():
+                    continue
+
                 file_dest_path = str(file_local_path).replace(str(local_src), dest_path)
                 bucket_name, key = self._get_bucket_name_and_key(file_dest_path)
 
