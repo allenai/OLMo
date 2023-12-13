@@ -41,6 +41,7 @@ DEFAULT_DELETE_MAX_ARCHIVE_SIZE: float = 5 * 1024 * 1024 * 1024  # 5GB
 class CleaningOperations(Enum):
     DELETE_BAD_RUNS = auto()
     UNSHARD_CHECKPOINTS = auto()
+    MOVE_RUN = auto()
 
 
 class StorageType(util.StrEnum):
@@ -614,6 +615,13 @@ class UnshardCheckpointsConfig(StorageCleanerConfig):
     latest_checkpoint_only: bool
 
 
+@dataclass
+class MoveRunConfig(StorageCleanerConfig):
+    append_wandb_path: bool
+    keep_src: bool
+    store_archived: bool
+
+
 def _get_storage_adapter_for_path(path: str) -> StorageAdapter:
     storage_type = StorageAdapter.get_storage_type_for_path(path)
     return StorageAdapter.create_storage_adapter(storage_type)
@@ -925,6 +933,131 @@ def unshard_run_checkpoints(run_path: str, checkpoints_dest_dir: str, config: Un
     _unshard_checkpoints(storage, run_dir_or_archive, checkpoints_dest_dir, config)
 
 
+def _get_wandb_path(run_dir: str) -> str:
+    raise NotImplementedError()
+
+
+def _append_wandb_path(
+    base_dir: str, run_dir_or_archive: str, append_archive_extension: bool = False, run_dir: Optional[str] = None
+) -> str:
+    run_dir_or_archive_storage = _get_storage_adapter_for_path(run_dir_or_archive)
+    if run_dir is None:
+        run_dir = _unarchive_if_archive(run_dir_or_archive, run_dir_or_archive_storage)
+
+    wandb_path = _get_wandb_path(run_dir)
+
+    if _is_archive(run_dir_or_archive, run_dir_or_archive_storage) and append_archive_extension:
+        archive_extension = "".join(Path(run_dir_or_archive).suffixes)
+        wandb_path = wandb_path + archive_extension
+
+    return os.path.join(base_dir, wandb_path)
+
+
+def _copy(src_path: str, dest_path: str, temp_dir: str):
+    """
+    Copies the entry at `src_path` to `dest_path`. The destination path can be a directory
+    that does not exist (creating directories without a corresponding file is not always possible
+    in cloud storage). In exchange we require that `src_path` and `dest_path` are either
+    both files or both directories.
+    """
+    src_storage_type = StorageAdapter.get_storage_type_for_path(src_path)
+    dest_storage_type = StorageAdapter.get_storage_type_for_path(dest_path)
+
+    if src_storage_type == dest_storage_type and src_storage_type != StorageType.LOCAL_FS:
+        # The current implementation downloads the src entry to local storage and then
+        # uploads it to the destination. Downloading locally can likely be avoided when
+        # moving an entry within the same storage.
+        log.warning("Moving files and directories within the same storage system has not yet been optimized")
+
+    src_storage = StorageAdapter.create_storage_adapter(src_storage_type)
+    src_is_file = src_storage.is_file(src_path)
+    src_is_dir = src_storage.is_dir(src_path)
+    assert not (src_is_file and src_is_dir), f"Source {src_path} is both a file and a directory"
+
+    dest_storage = StorageAdapter.create_storage_adapter(dest_storage_type)
+    if dest_storage.is_file(dest_path):
+        raise ValueError(f"A file already exists at destination {dest_path}")
+    if src_is_file and (dest_path.endswith("/") or dest_storage.is_dir(dest_path)):
+        raise ValueError(f"Source path {src_path} is a file but the destination {dest_path} is a directory.")
+
+    local_path: PathOrStr
+    if src_is_file:
+        local_path = cached_path(src_path)
+    elif src_is_dir:
+        local_storage = LocalFileSystemAdapter()
+        local_path = local_storage.create_temp_dir(directory=temp_dir)
+        src_storage.download_folder(src_path, local_path)
+    else:
+        raise ValueError(f"Source path {src_path} does not correspond to a valid file or directory")
+
+    dest_storage.upload(local_path, dest_path)
+
+
+def _get_src_and_dest_for_copy(
+    src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: str, config: MoveRunConfig
+) -> Tuple[str, str]:
+    is_archive_file = _is_archive(run_dir_or_archive, src_storage)
+    # We need to unarchive the run if we want to get the wandb path
+    should_unarchive = is_archive_file and (not config.store_archived or config.append_wandb_path)
+
+    if is_archive_file and not should_unarchive:
+        dest_file_path = os.path.join(dest_dir, Path(run_dir_or_archive).name)
+        return run_dir_or_archive, dest_file_path
+
+    run_dir = _unarchive_if_archive(run_dir_or_archive, src_storage)
+
+    src_path = run_dir_or_archive if config.store_archived else run_dir
+
+    dest_path: str
+    if config.append_wandb_path:
+        dest_path = _append_wandb_path(
+            dest_dir, run_dir_or_archive, append_archive_extension=config.store_archived, run_dir=run_dir
+        )
+    elif is_archive_file and not config.store_archived:
+        archive_extension = "".join(Path(run_dir_or_archive).suffixes)
+        dir_name = Path(run_dir_or_archive).name.removesuffix(archive_extension)
+        dest_path = os.path.join(dest_dir, dir_name)
+    else:
+        dest_path = dest_dir
+
+    return src_path, dest_path
+
+
+def _move_run(src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: str, config: MoveRunConfig):
+    log.info("Moving run directory or archive %s to directory %s", run_dir_or_archive, dest_dir)
+
+    dest_storage = _get_storage_adapter_for_path(dest_dir)
+    if dest_storage.is_file(dest_dir):
+        raise ValueError(f"Destination directory {dest_dir} is a file")
+
+    src_move_path, dest_move_path = _get_src_and_dest_for_copy(src_storage, run_dir_or_archive, dest_dir, config)
+
+    if src_move_path == dest_move_path:
+        # This could be a valid scenario if the user is, for example, trying to
+        # append wandb path to runs and this run has the right wandb path already.
+        log.info("Source and destination move paths are both %s, skipping", src_move_path)
+        return
+
+    if config.dry_run:
+        log.info("Would copy %s to %s", src_move_path, dest_move_path)
+    else:
+        log.info("Copying %s to %s", src_move_path, dest_move_path)
+        _copy(src_move_path, dest_move_path, config.temp_dir)
+
+    if not config.keep_src:
+        if config.dry_run:
+            log.info("Would delete run dir or archive %s", run_dir_or_archive)
+        else:
+            log.info("Deleting run dir or archive %s", run_dir_or_archive)
+            src_storage.delete_path(run_dir_or_archive)
+
+
+def move_run(run_path: str, dest_dir: str, config: MoveRunConfig):
+    storage = _get_storage_adapter_for_path(run_path)
+    run_dir_or_archive = _format_dir_or_archive_path(storage, run_path)
+    _move_run(storage, run_dir_or_archive, dest_dir, config)
+
+
 def _add_cached_path_s3_client():
     class S3SchemeClient(S3Client):
         """
@@ -995,6 +1128,18 @@ def perform_operation(args: argparse.Namespace):
                 unshard_run_checkpoints(args.run_path, args.dest_dir, unshard_checkpoints_config)
             else:
                 raise ValueError("Run path not provided for unsharding")
+        elif args.op == CleaningOperations.MOVE_RUN:
+            move_run_config = MoveRunConfig(
+                dry_run=args.dry_run,
+                temp_dir=temp_dir,
+                append_wandb_path=args.append_wandb_path,
+                keep_src=args.keep_src,
+                store_archived=args.store_archived,
+            )
+            if args.run_path is not None and args.dest_dir is not None:
+                move_run(args.run_path, args.dest_dir, move_run_config)
+            else:
+                raise ValueError("Run path or dest dir not provided for moving run")
         else:
             raise NotImplementedError(args.op)
     finally:
@@ -1054,6 +1199,36 @@ def _add_unsharding_subparser(subparsers: _SubParsersAction):
     )
 
 
+def _add_move_subparser(subparsers: _SubParsersAction):
+    move_parser: ArgumentParser = subparsers.add_parser("move", help="move run to a new location")
+    move_parser.set_defaults(op=CleaningOperations.MOVE_RUN)
+
+    move_parser.add_argument(
+        "run_path",
+        help="Path of run directory or archive to move.",
+    )
+    move_parser.add_argument(
+        "dest_dir",
+        help="Path of directory to which the run should be moved.",
+    )
+    move_parser.add_argument(
+        "--keep_src",
+        action="store_true",
+        help="If set, the run is not removed from the source location.",
+    )
+    move_parser.add_argument(
+        "--unarchive",
+        dest="store_archived",
+        action="store_false",
+        help="If set and the run path corresponds to an archive file, then the unarchived form of the run is stored at the destination.",
+    )
+    move_parser.add_argument(
+        "--append_wandb_path",
+        action="store_true",
+        help="If set, the wandb path for the run is found and appended to the destination dir. If the run is being stored as an archive file, wandb id is first removed from the wandb path and used as the filename.",
+    )
+
+
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser()
     parser.add_argument(
@@ -1070,6 +1245,7 @@ def get_parser() -> ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", help="Cleaning commands", required=True)
     _add_delete_subparser(subparsers)
     _add_unsharding_subparser(subparsers)
+    _add_move_subparser(subparsers)
 
     return parser
 
