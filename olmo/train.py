@@ -317,6 +317,10 @@ class Trainer:
         checkpointer = build_sharded_checkpointer(self.cfg)
         return self._save_checkpoint(checkpointer, CheckpointType.sharded)
 
+    def save_ephemeral_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
+        checkpointer = build_sharded_checkpointer(self.cfg)
+        return self._save_checkpoint(checkpointer, CheckpointType.sharded_ephemeral)
+
     def _remove_sharded_checkpoint(self, idx: int, checkpoints: List[Path]):
         oldest_checkpoint = checkpoints.pop(idx)
         barrier()
@@ -391,6 +395,8 @@ class Trainer:
             return self.save_sharded_checkpoint()
         elif checkpoint_type == CheckpointType.unsharded:
             return self.save_unsharded_checkpoint()
+        elif checkpoint_type == CheckpointType.sharded_ephemeral:
+            return self.save_ephemeral_checkpoint()
         else:
             raise NotImplementedError(checkpoint_type)
 
