@@ -943,6 +943,49 @@ def unshard_run_checkpoints(run_path: str, checkpoints_dest_dir: str, config: Un
     _unshard_checkpoints(storage, run_dir_or_archive, checkpoints_dest_dir, config)
 
 
+def _get_wandb_runs_from_wandb_dir(storage: StorageAdapter, wandb_dir: str, run_config: TrainConfig) -> List:
+    # For some reason, we often have a redundant nested wandb directory. Step into it here.
+    nested_wandb_dir = os.path.join(wandb_dir, "wandb/")
+    if storage.is_dir(nested_wandb_dir):
+        wandb_dir = nested_wandb_dir
+
+    # Wandb run directory names are stored in format <run>-<timestamp>-<id>
+    # https://docs.wandb.ai/guides/track/save-restore#examples-of-wandbsave
+    dir_names = storage.list_dirs(wandb_dir)
+    wandb_run_dir_names = [dir_name for dir_name in dir_names if dir_name.startswith("run")]
+    if len(wandb_run_dir_names) == 0:
+        log.warning("No wandb run directories found in wandb dir %s", wandb_dir)
+        return []
+
+    wandb_ids = [dir_name.split("-")[2] for dir_name in wandb_run_dir_names if dir_name.count("-") >= 2]
+
+    log.debug("Wandb ids: %s", wandb_ids)
+
+    assert run_config.wandb is not None
+    api: wandb.Api = wandb.Api()
+    return [api.run(path=f"{run_config.wandb.entity}/{run_config.wandb.project}/{id}") for id in wandb_ids]
+
+
+def _get_wandb_path_from_run(wandb_run) -> str:
+    return "/".join(wandb_run.path)
+
+
+def _get_wandb_runs_from_train_config(config: TrainConfig) -> List:
+    assert config.wandb is not None
+
+    run_filters = {
+        "display_name": config.wandb.name,
+    }
+    if config.wandb.group is not None:
+        run_filters["group"] = config.wandb.group
+
+    log.debug("Wandb entity/project: %s/%s", config.wandb.entity, config.wandb.project)
+    log.debug("Wandb filters: %s", run_filters)
+
+    api = wandb.Api()
+    return api.runs(path=f"{config.wandb.entity}/{config.wandb.project}", filters=run_filters)
+
+
 def _get_wandb_path(run_dir: str) -> str:
     run_dir_storage = _get_storage_adapter_for_path(run_dir)
 
@@ -956,28 +999,30 @@ def _get_wandb_path(run_dir: str) -> str:
     if config.wandb is None or config.wandb.entity is None or config.wandb.project is None:
         raise ValueError(f"Run at {run_dir} has missing wandb config, cannot get wandb run path")
 
-    run_filters = {
-        "display_name": config.wandb.name,
-    }
-    if config.wandb.group is not None:
-        run_filters["group"] = config.wandb.group
+    wandb_runs = []
 
-    log.debug("Wandb entity/project: %s/%s", config.wandb.entity, config.wandb.project)
-    log.debug("Wandb filters: %s", run_filters)
+    wandb_dir = os.path.join(run_dir, "wandb/")
+    if run_dir_storage.is_dir(wandb_dir):
+        wandb_runs += _get_wandb_runs_from_wandb_dir(run_dir_storage, wandb_dir, config)
 
-    api = wandb.Api()
-    wandb_matching_runs = api.runs(path=f"{config.wandb.entity}/{config.wandb.project}", filters=run_filters)
+    wandb_runs += _get_wandb_runs_from_train_config(config)
+
+    # Remove duplicate wandb runs based on run path, and wandb runs that do not match our run.
+    wandb_runs = list(
+        {_get_wandb_path_from_run(wandb_run): wandb_run for wandb_run in wandb_runs}.values()
+    )
+    wandb_matching_runs = wandb_runs
 
     if len(wandb_matching_runs) == 0:
         raise RuntimeError(f"Failed to find any wandb runs for {run_dir}. Run might no longer exist")
 
     if len(wandb_matching_runs) > 1:
+        wandb_run_urls = [wandb_run.url for wandb_run in wandb_matching_runs]
         raise RuntimeError(
-            f"Found {len(wandb_matching_runs)} runs matching run dir {run_dir}, cannot determine correct run"
+            f"Found {len(wandb_matching_runs)} runs matching run dir {run_dir}, cannot determine correct run: {wandb_run_urls}"
         )
 
-    wandb_run = wandb_matching_runs[0]
-    return "/".join(wandb_run.path)
+    return _get_wandb_path_from_run(wandb_matching_runs[0])
 
 
 def _append_wandb_path(
