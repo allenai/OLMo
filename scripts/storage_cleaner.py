@@ -956,8 +956,8 @@ def _get_wandb_path(run_dir: str) -> str:
     if config.wandb.group is not None:
         run_filters["group"] = config.wandb.group
 
-    log.info("Wandb entity/project: %s/%s", config.wandb.entity, config.wandb.project)
-    log.info("Wandb filters: %s", run_filters)
+    log.debug("Wandb entity/project: %s/%s", config.wandb.entity, config.wandb.project)
+    log.debug("Wandb filters: %s", run_filters)
 
     api = wandb.Api()
     wandb_matching_runs = api.runs(path=f"{config.wandb.entity}/{config.wandb.project}", filters=run_filters)
