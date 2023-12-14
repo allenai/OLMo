@@ -266,6 +266,9 @@ class GoogleCloudStorageAdapter(StorageAdapter):
         return blob.size
 
     def _is_file(self, bucket_name: str, key: str) -> bool:
+        if len(key) == 0:
+            return False
+
         bucket = self.gcs_client.bucket(bucket_name)
         blob = bucket.blob(key)
         try:
@@ -526,6 +529,9 @@ class S3StorageAdapter(StorageAdapter):
                 raise RuntimeError(f"The following keys failed to be deleted: {undeleted_keys}")
 
     def _is_file(self, bucket_name: str, key: str) -> bool:
+        if len(key) == 0:
+            return False
+
         try:
             self._s3_client.head_object(Bucket=bucket_name, Key=key)
             return True
