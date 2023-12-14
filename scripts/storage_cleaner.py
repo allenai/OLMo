@@ -966,7 +966,9 @@ def _get_wandb_path(run_dir: str) -> str:
         raise RuntimeError(f"Failed to find any wandb runs for {run_dir}. Run might no longer exist")
 
     if len(wandb_matching_runs) > 1:
-        raise RuntimeError(f"Found {len(wandb_matching_runs)} runs matching run dir {run_dir}, cannot determine correct run")
+        raise RuntimeError(
+            f"Found {len(wandb_matching_runs)} runs matching run dir {run_dir}, cannot determine correct run"
+        )
 
     wandb_run = wandb_matching_runs[0]
     return "/".join(wandb_run.path)
