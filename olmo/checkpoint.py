@@ -619,6 +619,14 @@ class FullCheckpointer(Checkpointer):
             state_dict_config=FullStateDictConfig(rank0_only=False, offload_to_cpu=True),
             optim_state_dict_config=FullOptimStateDictConfig(rank0_only=False, offload_to_cpu=True),
         ):
+            # fill everything with NaN, so we can check afterwards that every parameter has been restored
+            for module_name, module in fsdp_model.named_modules():
+                if not isinstance(module, FSDP):
+                    continue
+                for param in module.params:
+                    param.fill_(torch.nan)
+
+            # restore params from checkpoint
             state_dict_to_load = load_state_dict(
                 load_path, "model.pt", local_cache=local_cache, map_location="cpu"
             )
@@ -640,56 +648,19 @@ class FullCheckpointer(Checkpointer):
                         with torch.no_grad():
                             t = state_dict_to_load[key]
                             t = t.flatten()
-                            param[spi.offset_in_shard:spi.offset_in_shard+spi.numel_in_shard].copy_(
-                                t[spi.intra_param_start_idx:spi.intra_param_end_idx+1]
+                            param[spi.offset_in_shard : spi.offset_in_shard + spi.numel_in_shard].copy_(
+                                t[spi.intra_param_start_idx : spi.intra_param_end_idx + 1]
                             )
 
-
-
-
-
-
-            # build a map from modules to their names
-            module_id_to_module_name = {
-                id(module): module_name
-                for module_name, module in fsdp_model.named_modules()
-            }
-
-            # Load model state.
-            def load_and_prepare_state_dict():
-                state_dict_to_load = load_state_dict(
-                    load_path, "model.pt", local_cache=local_cache, map_location="cpu"
-                )
-                (
-                    state_dict_to_load,
-                    og_keys_to_new,
-                ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(state_dict_to_load)
-                return state_dict_to_load, og_keys_to_new
-
-            state_dict_to_load, og_keys_to_new = load_and_prepare_state_dict()
-            apply_counter = 0
-
-            def load_from_state_dict(module: nn.Module) -> None:
-                nonlocal apply_counter
-                nonlocal state_dict_to_load
-                module_name = module_id_to_module_name[id(module)]
-                for param_name, param in module.named_parameters(recurse=False):
-                    key = f"{module_name}.{param_name}"
-                    key = key.replace("_fsdp_wrapped_module.", "")
-                    log.info("Loading %s from unsharded checkpoint", key)
-                    t = state_dict_to_load[key]
-                    param.data.copy_(t)
-
-                    apply_counter += 1
-                    if apply_counter % 32 == 0:
-                        log.info("Clearing memory after loading 32 tensors from unsharded checkpoint")
-                        apply_counter = 0
-                        state_dict_to_load, _ = load_and_prepare_state_dict()
-                        gc.collect()
-                        torch.cuda.empty_cache()
-
-            fsdp_model.apply(load_from_state_dict)
-            del state_dict_to_load
+            # make sure that every parameter has been restored
+            for module_name, module in fsdp_model.named_modules():
+                if not isinstance(module, FSDP):
+                    continue
+                for param in module.params:
+                    if torch.isnan(param).any():
+                        raise ValueError(
+                            f"Module '{module_name}' contains NaNs, this is likely a bug restoring from full checkpoints"
+                        )
 
             # Load optimizer state.
             if load_optimizer_state:
