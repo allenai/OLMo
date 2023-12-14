@@ -1092,9 +1092,7 @@ def _get_wandb_path(run_dir: str) -> str:
     wandb_runs += _get_wandb_runs_from_train_config(config)
 
     # Remove duplicate wandb runs based on run path, and wandb runs that do not match our run.
-    wandb_runs = list(
-        {_get_wandb_path_from_run(wandb_run): wandb_run for wandb_run in wandb_runs}.values()
-    )
+    wandb_runs = list({_get_wandb_path_from_run(wandb_run): wandb_run for wandb_run in wandb_runs}.values())
     wandb_matching_runs = _get_matching_wandb_runs(wandb_runs, run_dir)
 
     if len(wandb_matching_runs) == 0:
