@@ -987,86 +987,29 @@ def _get_wandb_runs_from_train_config(config: TrainConfig) -> List:
     return api.runs(path=f"{config.wandb.entity}/{config.wandb.project}", filters=run_filters)
 
 
-def _are_equal_config_settings(wandb_setting, training_setting, wandb_path: str) -> bool:
-    if isinstance(wandb_setting, dict) and isinstance(training_setting, dict):
-        wandb_keys = set(wandb_setting.keys())
-        training_keys = set(training_setting.keys())
-        if wandb_keys != training_keys:
-            log.debug(
-                "Setting of wandb %s and training setting do not have matching keys. Wandb extra keys: %s Training extra keys: %s",
-                wandb_path,
-                wandb_keys - training_keys,
-                training_keys - wandb_keys,
-            )
-            return False
-
-        mismatched_keys = [
-            key
-            for key in training_setting.keys()
-            if not _are_equal_config_settings(wandb_setting[key], training_setting[key], wandb_path)
-        ]
-        if len(mismatched_keys) > 0:
-            log.debug(
-                "Setting of wandb %s and training setting do not match for the following keys: %s",
-                wandb_path,
-                mismatched_keys,
-            )
-            log.debug(
-                "Mismatches in format 'Key: (Wandb, Training)': %s",
-                {key: (wandb_setting[key], training_setting[key]) for key in mismatched_keys},
-            )
-            return False
-
-        return True
-
-    if isinstance(wandb_setting, list) and isinstance(training_setting, list):
-        if len(wandb_setting) != len(training_setting):
-            log.debug(
-                "Setting of wandb %s and training setting has lists of different length. Wandb lists: %s Training list: %s",
-                wandb_path,
-                wandb_setting,
-                training_setting,
-            )
-            return False
-
-        return all(
-            _are_equal_config_settings(wandb_list_entry, training_list_entry, wandb_path)
-            for wandb_list_entry, training_list_entry in zip(wandb_setting, training_setting)
-        )
-
-    if isinstance(wandb_setting, str) and isinstance(training_setting, str):
-        # Wandb keeps enum values in the form <class>.<name>, whereas the config file has them as <name>.
-        if wandb_setting.count(".") == 1 and wandb_setting.split(".")[1].lower() == training_setting.lower():
-            return True
-
-    if isinstance(training_setting, tuple):
-        # Wandb seems to turn tuples to lists. This can cause false equality check failures.
-        if _are_equal_config_settings(wandb_setting, list(training_setting), wandb_path):
-            return True
-
-    return wandb_setting == training_setting
+def _are_equal_configs(wandb_config: TrainConfig, train_config: TrainConfig) -> bool:
+    return wandb_config.asdict(exclude=["wandb"]) == train_config.asdict(exclude=["wandb"])
 
 
-def _are_equal_configs(wandb_config: Dict, train_config: Dict, wandb_path: str) -> bool:
-    return _are_equal_config_settings(wandb_config, train_config, wandb_path)
+def _get_wandb_config(wandb_run) -> TrainConfig:
+    local_storage = LocalFileSystemAdapter()
+    temp_file = local_storage.create_temp_file(suffix=".yaml")
+
+    om.save(config=wandb_run.config, f=temp_file)
+    wandb_config = TrainConfig.load(temp_file)
+
+    return wandb_config
 
 
 def _get_matching_wandb_runs(wandb_runs, training_run_dir: str) -> List:
     config_path = os.path.join(training_run_dir, CONFIG_YAML)
     local_config_path = cached_path(config_path)
-    # Do not use TrainConfig.load since any changes in TrainConfig defaults could cause
-    # false mismatches between the local and wandb config
-    train_config = om.to_object(om.load(local_config_path))
-    if not isinstance(train_config, Dict):
-        raise ValueError("Training config should be a dictionary")
-
-    if "wandb" in train_config:
-        del train_config["wandb"]
+    train_config = TrainConfig.load(local_config_path)
 
     return [
         wandb_run
         for wandb_run in wandb_runs
-        if _are_equal_configs(wandb_run.config, train_config, _get_wandb_path_from_run(wandb_run))
+        if _are_equal_configs(_get_wandb_config(wandb_run), train_config)
     ]
 
 
