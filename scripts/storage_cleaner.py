@@ -1007,9 +1007,7 @@ def _get_matching_wandb_runs(wandb_runs, training_run_dir: str) -> List:
     train_config = TrainConfig.load(local_config_path)
 
     return [
-        wandb_run
-        for wandb_run in wandb_runs
-        if _are_equal_configs(_get_wandb_config(wandb_run), train_config)
+        wandb_run for wandb_run in wandb_runs if _are_equal_configs(_get_wandb_config(wandb_run), train_config)
     ]
 
 
