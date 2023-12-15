@@ -166,7 +166,7 @@ class Trainer:
         ]
         self.ephemeral_checkpoints = [
             path
-            for path in state_dict["ephemeral_checkpoints"]
+            for path in state_dict.get("ephemeral_checkpoints", [])
             if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
         ]
 
