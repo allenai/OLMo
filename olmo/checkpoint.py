@@ -619,48 +619,48 @@ class FullCheckpointer(Checkpointer):
             state_dict_config=FullStateDictConfig(rank0_only=False, offload_to_cpu=True),
             optim_state_dict_config=FullOptimStateDictConfig(rank0_only=False, offload_to_cpu=True),
         ):
-            # fill everything with NaN, so we can check afterwards that every parameter has been restored
-            for module_name, module in fsdp_model.named_modules():
-                if not isinstance(module, FSDP):
-                    continue
-                for param in module.params:
-                    param.fill_(torch.nan)
+            with torch.no_grad():
+                # fill everything with NaN, so we can check afterwards that every parameter has been restored
+                for module_name, module in fsdp_model.named_modules():
+                    if not isinstance(module, FSDP):
+                        continue
+                    for param in module.params:
+                        param.fill_(torch.nan)
 
-            # restore params from checkpoint
-            state_dict_to_load = load_state_dict(
-                load_path, "model.pt", local_cache=local_cache, map_location="cpu"
-            )
-            (
-                state_dict_to_load,
-                og_keys_to_new,
-            ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(state_dict_to_load)
+                # restore params from checkpoint
+                state_dict_to_load = load_state_dict(
+                    load_path, "model.pt", local_cache=local_cache, map_location="cpu"
+                )
+                (
+                    state_dict_to_load,
+                    og_keys_to_new,
+                ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(state_dict_to_load)
 
-            for module_name, module in fsdp_model.named_modules():
-                if not isinstance(module, FSDP):
-                    continue
-                for param in module.params:
-                    assert param._is_flat_param
-                    for fqn, spi in zip(param._fqns, param._shard_param_infos):
-                        if not spi.in_shard:
-                            continue
-                        key = f"{module_name}.{fqn}"
-                        key = key.replace("_fsdp_wrapped_module.", "")
-                        with torch.no_grad():
+                for module_name, module in fsdp_model.named_modules():
+                    if not isinstance(module, FSDP):
+                        continue
+                    for param in module.params:
+                        assert param._is_flat_param
+                        for fqn, spi in zip(param._fqns, param._shard_param_infos):
+                            if not spi.in_shard:
+                                continue
+                            key = f"{module_name}.{fqn}"
+                            key = key.replace("_fsdp_wrapped_module.", "")
                             t = state_dict_to_load[key]
                             t = t.flatten()
                             param[spi.offset_in_shard : spi.offset_in_shard + spi.numel_in_shard].copy_(
                                 t[spi.intra_param_start_idx : spi.intra_param_end_idx + 1]
                             )
 
-            # make sure that every parameter has been restored
-            for module_name, module in fsdp_model.named_modules():
-                if not isinstance(module, FSDP):
-                    continue
-                for param in module.params:
-                    if torch.isnan(param).any():
-                        raise ValueError(
-                            f"Module '{module_name}' contains NaNs, this is likely a bug restoring from full checkpoints"
-                        )
+                # make sure that every parameter has been restored
+                for module_name, module in fsdp_model.named_modules():
+                    if not isinstance(module, FSDP):
+                        continue
+                    for param in module.params:
+                        if torch.isnan(param).any():
+                            raise ValueError(
+                                f"Module '{module_name}' contains NaNs, this is likely a bug restoring from full checkpoints"
+                            )
 
             # Load optimizer state.
             if load_optimizer_state:
