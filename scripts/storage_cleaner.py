@@ -649,9 +649,13 @@ def _is_run(directory: str, run_entries: Optional[List[str]] = None) -> bool:
     This method is best effort. It may mark run paths as not (false negatives) or mark non-run
     paths as runs (false positives). We prioritize minimizing false positives.
     """
+    storage = _get_storage_adapter_for_path(directory)
     if run_entries is None:
-        storage = _get_storage_adapter_for_path(directory)
         run_entries = storage.list_entries(directory)
+
+    if CONFIG_YAML in run_entries and storage.is_dir(os.path.join(directory, "wandb")):
+        # A directory with both config.yaml and a wandb subdirectory is most likely a run
+        return True
 
     return _contains_checkpoint_dir(run_entries)
 
