@@ -1230,7 +1230,7 @@ def perform_operation(args: argparse.Namespace):
                 temp_dir=temp_dir,
                 should_check_is_run=args.should_check_is_run,
                 ignore_non_runs=args.ignore_non_runs,
-                max_archive_size=args.max_archive_size,
+                max_archive_size=int(args.max_archive_size),
             )
             if args.run_paths is not None:
                 delete_bad_runs(args.run_paths, delete_bad_runs_config)
@@ -1293,6 +1293,7 @@ def _add_delete_subparser(subparsers: _SubParsersAction):
 
     delete_runs_parser.add_argument(
         "--max_archive_size",
+        type=float,
         default=DEFAULT_DELETE_MAX_ARCHIVE_SIZE,
         help="Max size archive files to consider for deletion (in bytes). Any archive larger than this is ignored/not deleted.",
     )
