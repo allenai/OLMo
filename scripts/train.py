@@ -122,7 +122,9 @@ def main(cfg: TrainConfig) -> None:
 
     # Initialize the model.
     log.info("Building model...")
-    olmo_model = Olmo(cfg.model)
+    #with deepspeed.OnDevice(dtype=torch.bfloat16, device="meta"):
+    with deepspeed.zero.Init():
+        olmo_model = Olmo(cfg.model)
     log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
     log.info(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
