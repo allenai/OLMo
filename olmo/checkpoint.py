@@ -646,6 +646,7 @@ class FullCheckpointer(Checkpointer):
                                 continue
                             key = f"{module_name}.{fqn}"
                             key = key.replace("_fsdp_wrapped_module.", "")
+                            key = key.lstrip(".")
                             t = state_dict_to_load[key]
                             t = t.flatten()
                             param[spi.offset_in_shard : spi.offset_in_shard + spi.numel_in_shard].copy_(
