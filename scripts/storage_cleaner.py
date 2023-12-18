@@ -575,7 +575,7 @@ class S3StorageAdapter(StorageAdapter):
                 object_key: str = object_metadata["Key"]
                 object_local_dest = object_key.replace(key.rstrip("/"), str(local_dest_folder).rstrip("/"))
 
-                self._s3_client.download_file(bucket_name, key, object_local_dest)
+                self._s3_client.download_file(bucket_name, object_key, object_local_dest)
         else:
             raise ValueError(f"Path {directory_path} is not a valid directory")
 
@@ -655,9 +655,14 @@ def _is_run(directory: str, run_entries: Optional[List[str]] = None) -> bool:
     if run_entries is None:
         run_entries = storage.list_entries(directory)
 
-    if CONFIG_YAML in run_entries and storage.is_dir(os.path.join(directory, "wandb")):
+    if CONFIG_YAML in run_entries:
         # A directory with both config.yaml and a wandb subdirectory is most likely a run
-        return True
+        if storage.is_dir(os.path.join(directory, "wandb")):
+            return True
+
+        # A directory with both config.yaml and a train_data subdirectory is most likely a run
+        if storage.is_dir(os.path.join(directory, "train_data")):
+            return True
 
     return _contains_checkpoint_dir(run_entries)
 
