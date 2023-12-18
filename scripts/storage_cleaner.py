@@ -575,7 +575,7 @@ class S3StorageAdapter(StorageAdapter):
                 object_key: str = object_metadata["Key"]
                 object_local_dest = object_key.replace(key.rstrip("/"), str(local_dest_folder).rstrip("/"))
 
-                self._s3_client.download_file(bucket_name, key, object_local_dest)
+                self._s3_client.download_file(bucket_name, object_key, object_local_dest)
         else:
             raise ValueError(f"Path {directory_path} is not a valid directory")
 
