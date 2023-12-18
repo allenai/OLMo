@@ -668,6 +668,10 @@ class FullCheckpointer(Checkpointer):
                 optim_state_dict_to_load = load_state_dict(
                     load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
                 )
+                optim_state_dict_to_load = self._make_optim_state_dict_compatible(
+                    optim_state_dict_to_load,
+                    og_keys_to_new,
+                )
                 load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
                 del optim_state_dict_to_load
 
