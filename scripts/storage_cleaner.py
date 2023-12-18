@@ -655,9 +655,14 @@ def _is_run(directory: str, run_entries: Optional[List[str]] = None) -> bool:
     if run_entries is None:
         run_entries = storage.list_entries(directory)
 
-    if CONFIG_YAML in run_entries and storage.is_dir(os.path.join(directory, "wandb")):
+    if CONFIG_YAML in run_entries:
         # A directory with both config.yaml and a wandb subdirectory is most likely a run
-        return True
+        if storage.is_dir(os.path.join(directory, "wandb")):
+            return True
+
+        # A directory with both config.yaml and a train_data subdirectory is most likely a run
+        if storage.is_dir(os.path.join(directory, "train_data")):
+            return True
 
     return _contains_checkpoint_dir(run_entries)
 
