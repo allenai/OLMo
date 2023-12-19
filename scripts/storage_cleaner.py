@@ -594,7 +594,7 @@ class S3StorageAdapter(StorageAdapter):
                 if file_local_path.is_dir():
                     continue
 
-                file_dest_path = str(file_local_path).replace(str(local_src), dest_path)
+                file_dest_path = str(file_local_path).replace(str(local_src).rstrip("/"), dest_path.rstrip("/"))
                 bucket_name, key = self._get_bucket_name_and_key(file_dest_path)
 
                 with Progress(transient=True) as progress:
