@@ -110,6 +110,7 @@ class Trainer:
     """Tracks the global total number of tokens trained on."""
     checkpoints: List[Path] = field(default_factory=list)
     unsharded_checkpoints: List[Path] = field(default_factory=list)
+    ephemeral_checkpoints: List[Path] = field(default_factory=list)
     min_train_loss: float = float("inf")
     cur_train_loss: float = float("inf")
     indices_file: Optional[TextIO] = None
@@ -142,6 +143,7 @@ class Trainer:
             "world_size": get_world_size(),
             "checkpoints": self.checkpoints,
             "unsharded_checkpoints": self.unsharded_checkpoints,
+            "ephemeral_checkpoints": self.ephemeral_checkpoints,
             "rng": {
                 "python": random.getstate(),
                 "numpy": np.random.get_state(),
@@ -160,6 +162,11 @@ class Trainer:
         self.unsharded_checkpoints = [
             path
             for path in state_dict["unsharded_checkpoints"]
+            if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
+        ]
+        self.ephemeral_checkpoints = [
+            path
+            for path in state_dict.get("ephemeral_checkpoints", [])
             if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
         ]
 
@@ -245,6 +252,11 @@ class Trainer:
             current_checkpoints = self.unsharded_checkpoints
             link_latest = get_global_rank() == 0
             num_checkpoints_to_keep = self.cfg.save_num_unsharded_checkpoints_to_keep
+        elif checkpoint_type == CheckpointType.sharded_ephemeral:
+            suffix = ""
+            current_checkpoints = self.ephemeral_checkpoints
+            link_latest = get_fs_local_rank() == 0
+            num_checkpoints_to_keep = 1
         else:
             raise NotImplementedError(checkpoint_type)
 
@@ -305,8 +317,12 @@ class Trainer:
         checkpointer = build_sharded_checkpointer(self.cfg)
         return self._save_checkpoint(checkpointer, CheckpointType.sharded)
 
-    def remove_sharded_checkpoint(self, idx: int = 0):
-        oldest_checkpoint = self.checkpoints.pop(idx)
+    def save_ephemeral_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
+        checkpointer = build_sharded_checkpointer(self.cfg)
+        return self._save_checkpoint(checkpointer, CheckpointType.sharded_ephemeral)
+
+    def _remove_sharded_checkpoint(self, idx: int, checkpoints: List[Path]):
+        oldest_checkpoint = checkpoints.pop(idx)
         barrier()
         if get_fs_local_rank() == 0 and oldest_checkpoint.is_dir():
             shutil.rmtree(oldest_checkpoint, ignore_errors=True)
@@ -314,6 +330,12 @@ class Trainer:
             if latest_path.resolve() == oldest_checkpoint.resolve():
                 latest_path.unlink()
         barrier()
+
+    def remove_sharded_checkpoint(self, idx: int = 0):
+        self._remove_sharded_checkpoint(idx, self.checkpoints)
+
+    def remove_ephemeral_checkpoint(self, idx: int = 0):
+        self._remove_sharded_checkpoint(idx, self.ephemeral_checkpoints)
 
     def restore_sharded_checkpoint(
         self,
@@ -373,6 +395,8 @@ class Trainer:
             return self.save_sharded_checkpoint()
         elif checkpoint_type == CheckpointType.unsharded:
             return self.save_unsharded_checkpoint()
+        elif checkpoint_type == CheckpointType.sharded_ephemeral:
+            return self.save_ephemeral_checkpoint()
         else:
             raise NotImplementedError(checkpoint_type)
 
@@ -406,6 +430,8 @@ class Trainer:
             self.remove_sharded_checkpoint(idx=idx)
         elif checkpoint_type == CheckpointType.unsharded:
             self.remove_unsharded_checkpoint(idx=idx)
+        elif checkpoint_type == CheckpointType.sharded_ephemeral:
+            self.remove_ephemeral_checkpoint(idx=idx)
         else:
             raise NotImplementedError(checkpoint_type)
 
@@ -850,12 +876,26 @@ class Trainer:
                 elif self.global_step % self.cfg.canceled_check_interval == 0:
                     canceled = self.check_if_cancelled()
 
-                # Maybe save sharded checkpoint.
+                # Maybe save sharded or ephemeral sharded checkpoint.
                 if canceled or (
                     self.global_step % self.cfg.save_interval == 0 and self.cfg.save_num_checkpoints_to_keep != 0
                 ):
                     log.info("Saving checkpoint...")
                     checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
+                    log.info(f"Checkpoint saved to {checkpoint_path}")
+
+                    # Remove any ephemeral checkpoints.
+                    while self.ephemeral_checkpoints:
+                        self.remove_ephemeral_checkpoint()
+
+                    # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                    speed_monitor.reset()
+                elif (
+                    self.cfg.save_interval_ephemeral is not None
+                    and self.global_step % self.cfg.save_interval_ephemeral == 0
+                ):
+                    log.info("Saving ephemeral checkpoint...")
+                    checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded_ephemeral)
                     log.info(f"Checkpoint saved to {checkpoint_path}")
 
                     # Reset speed monitor so that we don't count the time taken to save checkpoints.
