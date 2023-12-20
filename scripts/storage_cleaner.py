@@ -1106,12 +1106,17 @@ def _copy(src_path: str, dest_path: str, temp_dir: str):
     if src_is_file:
         local_path = cached_path(src_path)
     elif src_is_dir:
-        local_storage = LocalFileSystemAdapter()
-        local_path = local_storage.create_temp_dir(directory=temp_dir)
-        src_storage.download_folder(src_path, local_path)
+        if src_storage_type == StorageType.LOCAL_FS:
+            local_path = src_path
+        else:
+            local_storage = LocalFileSystemAdapter()
+            local_path = local_storage.create_temp_dir(directory=temp_dir)
+            log.info("Temporarily downloading %s to %s", src_path, local_path)
+            src_storage.download_folder(src_path, local_path)
     else:
         raise ValueError(f"Source path {src_path} does not correspond to a valid file or directory")
 
+    log.info("Uploading %s to %s", local_path, dest_path)
     dest_storage.upload(local_path, dest_path)
 
 
