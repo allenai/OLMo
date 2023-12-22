@@ -101,7 +101,8 @@ srun \
       --remote_save_folder="s3://ai2-llm/checkpoints/${RUN_NAME}/${SLURM_JOB_ID}" \
       --save_folder="${FLASH_DIR}/checkpoints/${RUN_NAME}" \
       --save_interval_ephemeral="${SAVE_INTERVAL}" \
-      --save_interval=1000000 \
+      --save_interval=10000000 \
+      --save_interval_unsharded=10000000 \
       --save_overwrite \
       $LOAD_PATH_ARG \
       ${@}
