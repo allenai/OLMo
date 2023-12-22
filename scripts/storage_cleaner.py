@@ -587,23 +587,16 @@ class S3StorageAdapter(StorageAdapter):
         elif self.local_fs_adapter.is_dir(str(local_src)):
             local_src = Path(local_src)
 
-            def upload_callback(progress: Progress, upload_task: TaskID, bytes_uploaded: int):
-                progress.update(upload_task, advance=bytes_uploaded)
-
-            for file_local_path in local_src.rglob("*"):
+            local_file_paths = list(local_src.rglob("*"))
+            for file_local_path in track(local_file_paths, description=f"Uploading to {dest_path}"):
                 if file_local_path.is_dir():
                     continue
 
                 file_dest_path = str(file_local_path).replace(str(local_src).rstrip("/"), dest_path.rstrip("/"))
                 bucket_name, key = self._get_bucket_name_and_key(file_dest_path)
 
-                with Progress(transient=True) as progress:
-                    size_in_bytes = file_local_path.stat().st_size
-                    upload_task = progress.add_task(f"Uploading {key}", total=size_in_bytes)
-                    callback = partial(upload_callback, progress, upload_task)
-
-                    if not self._is_file(bucket_name, key):
-                        self._s3_client.upload_file(str(file_local_path), bucket_name, key, Callback=callback)
+                if not self._is_file(bucket_name, key):
+                    self._s3_client.upload_file(str(file_local_path), bucket_name, key)
 
         else:
             raise ValueError(f"Local source {local_src} does not correspond to a valid file or directory")
