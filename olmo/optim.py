@@ -1,6 +1,6 @@
 import logging
 from abc import ABCMeta, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from math import cos, pi, sqrt
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -10,8 +10,9 @@ import torch.nn as nn
 from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.optim.optimizer import Optimizer as OptimizerBase
 
-from .config import OptimizerType, SchedulerType, TrainConfig
-from .util import get_default_device, is_distributed, is_weight_decay_module
+from . import LayerNormBase
+from .config import OptimizerType, SchedulerConfig, SchedulerType, TrainConfig
+from .torch_util import get_default_device, is_distributed
 
 __all__ = [
     "Optimizer",
@@ -22,6 +23,7 @@ __all__ = [
     "LinearWithWarmup",
     "InvSqrtWithWarmup",
     "MaxScheduler",
+    "ConstantScheduler",
     "BoltOnWarmupScheduler",
     "build_optimizer",
     "build_scheduler",
@@ -67,6 +69,7 @@ class Optimizer(OptimizerBase):
         per_param_avg_metric_names: List[str] = []
         per_param_norm_metric_names: List[str] = []
 
+        # Collect metrics locally.
         for group in self.param_groups:
             if is_distributed():
                 # TODO (epwalsh): handle non-sharded params. We don't have any right now but we would
@@ -90,38 +93,27 @@ class Optimizer(OptimizerBase):
                 for x, prefix in zip(tensors, prefixes):
                     # grad or state tensors could be none for params that have their shards completely on
                     # other ranks.
-                    x = (
-                        x.to(device="cpu")
-                        if x is not None
-                        else torch.tensor([], device="cpu", dtype=torch.float32)
-                    )
-                    if x.numel() > 0:
+                    if x is not None and x.numel() > 0:
                         if collect_param_metrics:
                             x_abs = x.abs()
-                            per_param_min_metrics.append(
-                                x_abs.min().unsqueeze(0).to(device="cpu", dtype=torch.float32)
-                            )
-                            per_param_max_metrics.append(
-                                x_abs.max().unsqueeze(0).to(device="cpu", dtype=torch.float32)
-                            )
-                            per_param_sum_metrics.append(
-                                x.sum().unsqueeze(0).to(device="cpu", dtype=torch.float32)
-                            )
+                            per_param_min_metrics.append(x_abs.min().unsqueeze(0).to(dtype=torch.float32))
+                            per_param_max_metrics.append(x_abs.max().unsqueeze(0).to(dtype=torch.float32))
+                            per_param_sum_metrics.append(x.sum().unsqueeze(0).to(dtype=torch.float32))
                             per_param_numel_metrics.append(
-                                torch.tensor([x.numel()], device="cpu", dtype=torch.float32)
+                                torch.tensor([x.numel()], device=device, dtype=torch.float32)
                             )
                         per_param_norm_metrics.append(
-                            torch.linalg.vector_norm(x, 2.0, dtype=torch.float32).unsqueeze(0).to(device="cpu")
+                            torch.linalg.vector_norm(x, 2.0, dtype=torch.float32).unsqueeze(0)
                         )
                     else:
                         if collect_param_metrics:
                             per_param_min_metrics.append(
-                                torch.tensor([float("inf")], device="cpu", dtype=torch.float32)
+                                torch.tensor([float("inf")], device=device, dtype=torch.float32)
                             )
-                            per_param_max_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
-                            per_param_sum_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
-                            per_param_numel_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
-                        per_param_norm_metrics.append(torch.tensor([0.0], device="cpu", dtype=torch.float32))
+                            per_param_max_metrics.append(torch.tensor([0.0], device=device, dtype=torch.float32))
+                            per_param_sum_metrics.append(torch.tensor([0.0], device=device, dtype=torch.float32))
+                            per_param_numel_metrics.append(torch.tensor([0.0], device=device, dtype=torch.float32))
+                        per_param_norm_metrics.append(torch.tensor([0.0], device=device, dtype=torch.float32))
                     if collect_param_metrics:
                         per_param_min_metric_names.append(f"{prefix}.min")
                         per_param_max_metric_names.append(f"{prefix}.max")
@@ -139,6 +131,11 @@ class Optimizer(OptimizerBase):
         )
         assert len(per_param_norm_metrics) == len(per_param_norm_metric_names)
 
+        def is_grad_norm_metric(metric_name: str) -> bool:
+            return metric_name.startswith("grad/") and metric_name.endswith(".norm")
+
+        # Now reduce metrics over all ranks.
+        total_grad_norm: torch.Tensor
         per_param_avg_metrics: List[torch.Tensor] = []
         if is_distributed():  # TODO (epwalsh): skip for non-sharded params
             # Reduce metrics across all ranks. Note that we can use a `reduce` for most cases
@@ -148,12 +145,12 @@ class Optimizer(OptimizerBase):
             if per_param_min_metrics:
                 all_mins = torch.cat(per_param_min_metrics).to(device)
                 dist.reduce(all_mins, 0, op=dist.ReduceOp.MIN)
-                per_param_min_metrics = all_mins.to(device="cpu").split(1)
+                per_param_min_metrics = all_mins.split(1)
             # Reduce maxs.
             if per_param_max_metrics:
                 all_maxs = torch.cat(per_param_max_metrics).to(device)
                 dist.reduce(all_maxs, 0, op=dist.ReduceOp.MAX)
-                per_param_max_metrics = all_maxs.to(device="cpu").split(1)
+                per_param_max_metrics = all_maxs.split(1)
             # Reduce sums or just norms.
             all_norms = torch.cat(per_param_norm_metrics).to(device) ** 2.0
             if per_param_sum_metrics and per_param_numel_metrics:
@@ -163,14 +160,28 @@ class Optimizer(OptimizerBase):
                     [all_sums.unsqueeze(0), all_norms.unsqueeze(0), all_numels.unsqueeze(0)], dim=0
                 )
                 dist.all_reduce(all_sums_norms_numels, op=dist.ReduceOp.SUM)
-                all_sums, all_norms, all_numels = all_sums_norms_numels.to(device="cpu").split(1)
+                all_sums, all_norms, all_numels = all_sums_norms_numels.split(1)
                 # Get averages.
                 # NOTE: could get infs for non-rank0 processes but that's okay.
                 per_param_avg_metrics = (all_sums / all_numels).squeeze(0).split(1)
             else:
                 dist.all_reduce(all_norms, op=dist.ReduceOp.SUM)
+            grad_norm_metric_mask = torch.tensor(
+                [float(is_grad_norm_metric(n)) for n in per_param_norm_metric_names], device=all_norms.device
+            )
+            total_grad_norm = (all_norms * grad_norm_metric_mask).sum() ** 0.5
             per_param_norm_metrics = (all_norms ** (0.5)).squeeze(0).split(1)
         else:
+            total_grad_norm = (
+                torch.cat(
+                    [
+                        m
+                        for m, n in zip(per_param_norm_metrics, per_param_norm_metric_names)
+                        if is_grad_norm_metric(n)
+                    ]
+                )
+                ** 2.0
+            ).sum() ** 0.5
             per_param_avg_metrics = [x / n for x, n in zip(per_param_sum_metrics, per_param_numel_metrics)]
 
         assert len(per_param_avg_metrics) == len(per_param_avg_metric_names)
@@ -185,69 +196,131 @@ class Optimizer(OptimizerBase):
             all_metrics[metric_name] = metric.squeeze(0)
         for metric_name, metric in zip(per_param_norm_metric_names, per_param_norm_metrics):
             all_metrics[metric_name] = metric.squeeze(0)
+        all_metrics["total_grad_norm"] = total_grad_norm
 
         # Clip gradients.
         num_grads_clipped = 0
         num_eligible_grads = 0
         for group in self.param_groups:
-            # We'll use the bigger of beta1 and beta2 to update the exponential average of the norm of
-            # the gradient (a scalar), not to be confused with the exponential average of the gradient.
-            # TODO (epwalsh): handle optimizers that don't have betas.
-            beta1, beta2 = group["betas"]
-            beta = max(beta1, beta2)
-            max_norm = group.get("max_grad_norm")
-            max_norm_ratio = group.get("max_grad_norm_ratio")
-            if max_norm is None and max_norm_ratio is None:
+            if (max_norm_ratio := group.get("max_grad_norm_ratio")) is not None:
+                num_clipped = self._do_adaptive_clipping(
+                    group, max_norm_ratio, global_step, all_metrics, collect_param_metrics=collect_param_metrics
+                )
+            elif (max_norm := group.get("max_grad_norm")) is not None:
+                num_clipped = self._do_global_fixed_clipping(
+                    group, max_norm, all_metrics, collect_param_metrics=collect_param_metrics
+                )
+            else:
                 # No clipping needed.
                 continue
+            num_eligible_grads += len(group["params"])
+            if num_clipped is not None:
+                num_grads_clipped += num_clipped
 
-            for name, p in zip(group["param_names"], group["params"]):
-                name = self._clean_param_name(name)
-                grad_norm = all_metrics.get(f"grad/{name}.norm")
-                if grad_norm is None:
-                    continue
-
-                num_eligible_grads += 1
-
-                # Get or initialize the exponential average of grad norm.
-                state = self.state[p]
-                grad_norm_exp_avg = state.get("grad_norm_exp_avg")
-                if grad_norm_exp_avg is None:
-                    grad_norm_exp_avg = grad_norm.clone().to(device)
-                    # We don't want to add anything to `state` until `state` has been initialized, otherwise
-                    # this will crash some optimizers which rely on checking `len(state)`. The downside here
-                    # is that we won't start tracking `grad_norm_exp_avg` until the 2nd training step.
-                    if global_step > 1:
-                        state["grad_norm_exp_avg"] = grad_norm_exp_avg
-
-                # Determine the clipping coefficient based on the clipping strategy.
-                if max_norm_ratio is not None:
-                    # Adaptive clipping.
-                    clipped_norm = max_norm_ratio * grad_norm_exp_avg
-                    clip_coef = clipped_norm / (grad_norm + 1e-6)
-                else:
-                    # Fixed clipping.
-                    clipped_norm = torch.tensor(max_norm, device=device)
-                    clip_coef = clipped_norm / (grad_norm + 1e-6)
-
-                # Clip the gradients and update the exponential average.
-                clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
-                if clip_coef_clamped < 1.0:
-                    num_grads_clipped += 1
-                    if p.grad is not None:
-                        # p.grad could be none for some ranks when using FSDP.
-                        p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
-                    grad_norm_exp_avg.lerp_(clipped_norm.to(grad_norm_exp_avg.device), 1 - beta)
-                else:
-                    grad_norm_exp_avg.lerp_(grad_norm.to(grad_norm_exp_avg.device), 1 - beta)
-                all_metrics[f"grad_norm_exp_avg/{name}"] = grad_norm_exp_avg.to(device="cpu")
-
-        clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
         if collect_param_metrics:
+            clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
             all_metrics["clipping_rate"] = clipping_rate
             return all_metrics
         else:
-            return {"clipping_rate": clipping_rate}
+            return {}
+
+    @torch.no_grad()
+    def _do_adaptive_clipping(
+        self,
+        group: Dict[str, Any],
+        max_norm_ratio: float,
+        global_step: int,
+        all_metrics: Dict[str, torch.Tensor],
+        collect_param_metrics: bool = True,
+    ) -> Optional[int]:
+        """
+        Do adaptive gradient clipping on a param group.
+
+        If ``collect_param_metrics`` is ``True`` this will return the total number of gradients clipped.
+        """
+        device = get_default_device()
+        num_grads_clipped = 0
+        # We'll use the bigger of beta1 and beta2 to update the exponential average of the norm of
+        # the gradient (a scalar), not to be confused with the exponential average of the gradient.
+        # TODO (epwalsh): handle optimizers that don't have betas.
+        beta1, beta2 = group["betas"]
+        beta = max(beta1, beta2)
+        for name, p in zip(group["param_names"], group["params"]):
+            name = self._clean_param_name(name)
+            grad_norm = all_metrics.get(f"grad/{name}.norm")
+            if grad_norm is None:
+                continue
+
+            # Get or initialize the exponential average of grad norm.
+            # TODO: The way we have it right now, every rank tracks the `grad_norm_exp_avg` of every parameter,
+            # even parameters for which the corresponding local shard is empty. This has the potential to
+            # cause some issues with the optimizer, as we ran into with https://github.com/allenai/LLM/pull/372.
+            # So we should consider changing how we do this at some point so that we don't add any state
+            # to parameters for which the local shard is empty. That would probably add extra distributed
+            # communication, at least on steps where we have to log (i.e. when `collect_param_metrics=True`).
+            state = self.state[p]
+            grad_norm_exp_avg = state.get("grad_norm_exp_avg")
+            if grad_norm_exp_avg is None:
+                grad_norm_exp_avg = grad_norm.clone().to(device)
+                # We don't want to add anything to `state` until `state` has been initialized, otherwise
+                # this will crash some optimizers which rely on checking `len(state)`. The downside here
+                # is that we won't start tracking `grad_norm_exp_avg` until the 2nd training step.
+                if global_step > 1:
+                    state["grad_norm_exp_avg"] = grad_norm_exp_avg
+
+            max_allowed_norm = max_norm_ratio * grad_norm_exp_avg
+            clip_coef = max_allowed_norm / (grad_norm + 1e-6)
+
+            # Clip the gradients and update the exponential average.
+            # Note that multiplying by the clamped coefficient is meaningless when it is
+            # equal to 1, but it avoids the host-device sync that would result from `if clip_coef_clamped < 1`.
+            clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
+            if p.grad is not None:
+                # p.grad could be none for some ranks when using FSDP.
+                p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
+
+            # Update the exponential average of the norm of the gradient with the clipped norm of the gradient.
+            grad_norm_exp_avg.lerp_((grad_norm * clip_coef_clamped).to(grad_norm_exp_avg.device), 1 - beta)
+            # Alternative: update with the *unclipped* norm of the gradient.
+            #  grad_norm_exp_avg.lerp_(grad_norm.to(grad_norm_exp_avg.device), 1 - beta)
+
+            if collect_param_metrics:
+                # Can't avoid host-device sync here.
+                if clip_coef_clamped < 1.0:
+                    num_grads_clipped += 1
+                all_metrics[f"grad_norm_exp_avg/{name}"] = grad_norm_exp_avg
+        return num_grads_clipped if collect_param_metrics else None
+
+    @torch.no_grad()
+    def _do_global_fixed_clipping(
+        self,
+        group: Dict[str, Any],
+        max_norm: float,
+        all_metrics: Dict[str, torch.Tensor],
+        collect_param_metrics: bool = True,
+    ) -> Optional[int]:
+        """
+        Do global fixed gradient clipping on a param group.
+
+        If ``collect_param_metrics`` is ``True`` this will return the total number of gradients clipped.
+        """
+        device = get_default_device()
+        total_grad_norm = all_metrics["total_grad_norm"]
+        clip_coef = max_norm / (total_grad_norm.to(device) + 1e-6)
+        clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
+        num_grads_clipped: Optional[int] = None
+        if collect_param_metrics:
+            # Can't avoid host-device sync here.
+            if clip_coef_clamped < 1.0:
+                num_grads_clipped = len(group["params"])
+        for p in group["params"]:
+            # Clip the gradients.
+            # Note that multiplying by the clamped coefficient is meaningless when it is
+            # equal to 1, but it avoids the host-device sync that would result from `if clip_coef_clamped < 1`.
+            if p.grad is not None:
+                # p.grad could be none for some ranks when using FSDP.
+                p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
+        return num_grads_clipped
 
     def get_post_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
         del module
@@ -367,10 +440,41 @@ class AdamW(torch.optim.AdamW, Optimizer):
         return {key: self.state[param].get(key) for key in ("exp_avg", "exp_avg_sq")}  # type: ignore
 
 
+@dataclass
 class Scheduler(metaclass=ABCMeta):
+    # NOTE: these fields are not given default values because otherwise dataclasses complains
+    # about how the scheduler subclasses are defined.
+    grad_clip_warmup_steps: Optional[int]
+    grad_clip_warmup_factor: Optional[float]
+
     @abstractmethod
     def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
         raise NotImplementedError
+
+    def _get_max_grad_norm_coeff(
+        self, initial_value: Optional[float], step: int, max_steps: int
+    ) -> Optional[float]:
+        del max_steps  # might need this in the future, but for now I just wanted to match the API of `get_lr()`.
+        if initial_value is None:
+            return None
+        elif (
+            self.grad_clip_warmup_steps is None
+            or self.grad_clip_warmup_factor is None
+            or step > self.grad_clip_warmup_steps
+        ):
+            return initial_value
+        else:
+            return self.grad_clip_warmup_factor * initial_value
+
+    def get_max_grad_norm(
+        self, initial_max_grad_norm: Optional[float], step: int, max_steps: int
+    ) -> Optional[float]:
+        return self._get_max_grad_norm_coeff(initial_max_grad_norm, step, max_steps)
+
+    def get_max_grad_norm_ratio(
+        self, initial_max_grad_norm_ratio: Optional[float], step: int, max_steps: int
+    ) -> Optional[float]:
+        return self._get_max_grad_norm_coeff(initial_max_grad_norm_ratio, step, max_steps)
 
     def _linear_warmup(self, initial_lr: float, step: int, warmup_steps: int = 2000) -> float:
         return initial_lr * (0.1 + 0.9 * min(step, warmup_steps) / warmup_steps)
@@ -442,6 +546,16 @@ class BoltOnWarmupScheduler(Scheduler):
     warmup_start: int
     warmup_end: int
 
+    @classmethod
+    def wrap(cls, scheduler: Scheduler, warmup_start: int, warmup_end: int) -> "BoltOnWarmupScheduler":
+        return cls(
+            grad_clip_warmup_steps=None,
+            grad_clip_warmup_factor=None,
+            inner=scheduler,
+            warmup_start=warmup_start,
+            warmup_end=warmup_end,
+        )
+
     def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
         if step < self.warmup_start:
             return 0.0
@@ -450,6 +564,18 @@ class BoltOnWarmupScheduler(Scheduler):
             return lr_at_intercept * (step - self.warmup_start) / (self.warmup_end - self.warmup_start)
         else:
             return self.inner.get_lr(initial_lr, step, max_steps)
+
+    def _get_max_grad_norm_coeff(
+        self, initial_value: Optional[float], step: int, max_steps: int
+    ) -> Optional[float]:
+        return self.inner._get_max_grad_norm_coeff(initial_value, step, max_steps)
+
+
+@dataclass
+class ConstantScheduler(Scheduler):
+    def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
+        del step, max_steps
+        return initial_lr
 
 
 PARAM_GROUP_FIELDS = ("sharded", "max_grad_norm", "max_grad_norm_ratio", "param_names")
@@ -465,65 +591,70 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
         "max_grad_norm": cfg.max_grad_norm,
         "max_grad_norm_ratio": cfg.max_grad_norm_ratio,
     }
-    if cfg.optimizer.no_decay_norm_and_bias and cfg.optimizer.weight_decay > 0.0:
-        # Separate out parameters that we don't want to apply weight decay to, like norms and biases.
-        decay = set()
-        no_decay = set()
-        all_params = {}
-        for mn, m in model.named_modules():
-            for pn, p in m.named_parameters():
-                # NOTE: because named_modules and named_parameters are recursive
-                # we will see the same tensors p many many times, but doing it this way
-                # allows us to know which parent module any tensor p belongs to...
-                if not p.requires_grad:
-                    continue
 
-                fpn = f"{mn}.{pn}" if mn else pn
-                all_params[fpn] = p
+    # Separate out parameters that we don't want to apply weight decay to, like norms and biases.
+    decay = set()
+    no_decay = set()
+    all_params = {}
+    for mn, m in model.named_modules():
+        for pn, p in m.named_parameters():
+            # NOTE: because named_modules and named_parameters are recursive
+            # we will see the same tensors p many many times, but doing it this way
+            # allows us to know which parent module any tensor p belongs to...
+            if not p.requires_grad:
+                continue
 
-                if pn.endswith("bias"):
-                    # all biases will not be decayed
-                    no_decay.add(fpn)
-                elif pn.endswith("weight") and isinstance(m, nn.Linear):
+            fpn = f"{mn}.{pn}" if mn else pn
+            all_params[fpn] = p
+
+            if pn.endswith("bias"):
+                if cfg.optimizer.decay_norm_and_bias:
                     decay.add(fpn)
-                elif pn.endswith("weight") and not is_weight_decay_module(m):
+                else:
+                    no_decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, nn.Linear):
+                decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, (LayerNormBase, nn.LayerNorm)):
+                if cfg.optimizer.decay_norm_and_bias:
+                    decay.add(fpn)
+                else:
+                    no_decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, nn.Embedding):
+                if cfg.optimizer.decay_embeddings:
+                    decay.add(fpn)
+                else:
                     no_decay.add(fpn)
 
-        # Validate that we've considered every parameter
-        inter_params = decay & no_decay
-        union_params = decay | no_decay
-        assert decay
-        assert no_decay
-        assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
-        assert (
-            len(all_params.keys() - union_params) == 0
-        ), f"parameters {all_params.keys() - union_params} were not separated into either decay/no_decay set!"
+    # Validate that we've considered every parameter
+    inter_params = decay & no_decay
+    union_params = decay | no_decay
+    assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
+    assert (
+        len(all_params.keys() - union_params) == 0
+    ), f"parameters {all_params.keys() - union_params} were not separated into either decay/no_decay set!"
 
-        # Create the pytorch optimizer groups.
-        decay_sorted = sorted(list(decay))
-        no_decay_sorted = sorted(list(no_decay))
-        param_groups = [
+    # Create the pytorch optimizer groups.
+    decay_sorted = sorted(list(decay))
+    no_decay_sorted = sorted(list(no_decay))
+    param_groups = []
+    if len(decay_sorted) > 0:
+        param_groups.append(
             {
                 "params": [all_params[pn] for pn in decay_sorted],
                 "param_names": decay_sorted,
                 **param_group_defaults,
-            },
+            }
+        )
+    if len(no_decay_sorted) > 0:
+        param_groups.append(
             {
                 "params": [all_params[pn] for pn in no_decay_sorted],
                 "param_names": no_decay_sorted,
                 "weight_decay": 0.0,
                 **param_group_defaults,
-            },
-        ]
-    else:
-        param_names, params = zip(*list(model.named_parameters()))
-        param_groups = [
-            {
-                "params": list(params),
-                "param_names": list(param_names),
-                **param_group_defaults,
             }
-        ]
+        )
+
     # Validate fields.
     for group in param_groups:
         for key in PARAM_GROUP_FIELDS:
@@ -585,20 +716,41 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
         raise NotImplementedError
 
 
-def build_scheduler(cfg: TrainConfig) -> Scheduler:
-    sched_cfg = cfg.scheduler
-    if cfg.scheduler.name == SchedulerType.cosine_with_warmup:
-        return CosWithWarmup(warmup_steps=sched_cfg.t_warmup, alpha_f=sched_cfg.alpha_f, t_max=sched_cfg.t_max)
-    elif cfg.scheduler.name == SchedulerType.linear_with_warmup:
-        return LinearWithWarmup(warmup_steps=sched_cfg.t_warmup, alpha_f=sched_cfg.alpha_f, t_max=sched_cfg.t_max)
-    elif cfg.scheduler.name == SchedulerType.inverse_sqrt_with_warmup:
-        return InvSqrtWithWarmup(warmup_steps=sched_cfg.t_warmup)
-    elif cfg.scheduler.name == SchedulerType.max_scheduler:
+def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = None) -> Scheduler:
+    sched_cfg = sched_cfg if sched_cfg is not None else cfg.scheduler
+    if sched_cfg.name == SchedulerType.cosine_with_warmup:
+        return CosWithWarmup(
+            grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
+            grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
+            warmup_steps=sched_cfg.t_warmup,
+            alpha_f=sched_cfg.alpha_f,
+            t_max=sched_cfg.t_max,
+        )
+    elif sched_cfg.name == SchedulerType.linear_with_warmup:
+        return LinearWithWarmup(
+            grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
+            grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
+            warmup_steps=sched_cfg.t_warmup,
+            alpha_f=sched_cfg.alpha_f,
+            t_max=sched_cfg.t_max,
+        )
+    elif sched_cfg.name == SchedulerType.inverse_sqrt_with_warmup:
+        return InvSqrtWithWarmup(
+            grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
+            grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
+            warmup_steps=sched_cfg.t_warmup,
+        )
+    elif sched_cfg.name == SchedulerType.max_scheduler:
         return MaxScheduler(
-            sched1=CosWithWarmup(
-                warmup_steps=sched_cfg.t_warmup, alpha_f=sched_cfg.alpha_f, t_max=sched_cfg.t_max
-            ),
-            sched2=InvSqrtWithWarmup(warmup_steps=sched_cfg.t_warmup),
+            grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
+            grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
+            sched1=build_scheduler(cfg, replace(sched_cfg, name=SchedulerType.cosine_with_warmup)),
+            sched2=build_scheduler(cfg, replace(sched_cfg, name=SchedulerType.inverse_sqrt_with_warmup)),
+        )
+    elif sched_cfg.name == SchedulerType.constant:
+        return ConstantScheduler(
+            grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
+            grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
         )
     else:
         raise NotImplementedError

@@ -2,9 +2,7 @@
 
 import gzip
 import logging
-import os
 import sys
-from functools import partial
 from pathlib import Path
 from typing import Optional, TextIO
 
@@ -13,27 +11,24 @@ import torch.distributed as dist
 import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 
-from olmo.config import CheckpointType, FSDPWrapStrategy, TrainConfig
+from olmo.config import CheckpointType, TrainConfig
 from olmo.data import build_train_dataloader
 from olmo.eval import build_evaluators
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
 from olmo.model import Olmo
 from olmo.optim import BoltOnWarmupScheduler, build_optimizer, build_scheduler
-from olmo.train import Trainer
-from olmo.util import (
+from olmo.torch_util import (
     barrier,
-    clean_opt,
     get_default_device,
     get_global_rank,
     get_local_rank,
     get_world_size,
-    log_extra_field,
     peak_gpu_memory,
-    prepare_cli_environment,
     seed_all,
 )
+from olmo.train import Trainer
+from olmo.util import clean_opt, log_extra_field, prepare_cli_environment
 
 log = logging.getLogger("train")
 
@@ -41,7 +36,7 @@ log = logging.getLogger("train")
 def main(cfg: TrainConfig) -> None:
     # Ensure run name set.
     if cfg.run_name is None:
-        cfg.run_name = os.environ.get("COMPOSER_RUN_NAME", "train-llm")
+        raise OlmoConfigurationError("--run_name is required")
     log_extra_field("run_name", cfg.run_name)
 
     # Sanity check
@@ -51,9 +46,9 @@ def main(cfg: TrainConfig) -> None:
             "setting has no effect."
         )
 
-    # Initialize process group and set device.
-    dist.init_process_group(backend="nccl")
     barrier()
+
+    # Set CUDA device.
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
     device = torch.device("cuda")
 
@@ -62,6 +57,15 @@ def main(cfg: TrainConfig) -> None:
     cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
     assert cfg.device_train_batch_size is not None  # for mypy
     cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
+    if cfg.optimizer.no_decay_norm_and_bias is not None:
+        log.warning(
+            "You set the deprecated config option `no_decay_norm_and_bias`. For compatibility, this"
+            "setting will take precedence over all other weight decay configurations. Please change"
+            "your config to use `decay_norm_and_bias` and `decay_embeddings` instead."
+        )
+        cfg.optimizer.decay_norm_and_bias = not cfg.optimizer.no_decay_norm_and_bias
+        cfg.optimizer.decay_embeddings = not cfg.optimizer.no_decay_norm_and_bias
+        cfg.optimizer.no_decay_norm_and_bias = None  # So nobody uses this by accident.
 
     # Display and save configuration.
     if get_global_rank() == 0:
@@ -114,14 +118,11 @@ def main(cfg: TrainConfig) -> None:
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
     log.info(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
 
+    olmo_model.set_activation_checkpointing(cfg.activation_checkpointing)
+
     # Wrap the model in FSDP.
     log.info("Wrapping model with FDSP...")
-    wrap_policy = None
-    if cfg.fsdp.wrapping_strategy == FSDPWrapStrategy.by_block:
-        wrap_policy = olmo_model.fsdp_wrap_fn
-    elif cfg.fsdp.wrapping_strategy == FSDPWrapStrategy.size_based:
-        wrap_policy = size_based_auto_wrap_policy
-
+    wrap_policy = olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy)
     if version.parse(torch.__version__) >= version.parse("2.1.0"):
         # This prevents any parameters from being initialized twice
         def dummy_init_fn(module: torch.nn.Module) -> None:
@@ -130,7 +131,6 @@ def main(cfg: TrainConfig) -> None:
         param_init_fn = dummy_init_fn
     else:
         param_init_fn = None
-
     fsdp_model = FSDP(
         olmo_model,
         sharding_strategy=cfg.fsdp.sharding_strategy,
@@ -146,26 +146,6 @@ def main(cfg: TrainConfig) -> None:
         olmo_model.reset_parameters()
 
     log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory() or 0)}")
-
-    if cfg.activation_checkpointing:
-        # verify we have FSDP activation support ready by importing:
-        from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
-            CheckpointImpl,
-            apply_activation_checkpointing,
-            checkpoint_wrapper,
-        )
-
-        non_reentrant_wrapper = partial(
-            checkpoint_wrapper,
-            offload_to_cpu=False,
-            checkpoint_impl=CheckpointImpl.NO_REENTRANT,
-        )
-        apply_activation_checkpointing(
-            fsdp_model,
-            checkpoint_wrapper_fn=non_reentrant_wrapper,  # type: ignore
-            check_fn=olmo_model.activation_checkpointing_fn,  # type: ignore
-        )
-
     log.info("Model:")
     log.info(fsdp_model)
 
@@ -185,6 +165,7 @@ def main(cfg: TrainConfig) -> None:
     # Consolidate components into `Trainer` object.
     with Trainer(
         cfg=cfg,
+        epoch=cfg.epoch,
         model=olmo_model,
         fsdp_model=fsdp_model,
         optim=optim,
@@ -218,13 +199,19 @@ def main(cfg: TrainConfig) -> None:
 
         if cfg.load_path is not None:
             log.info(f"Loading checkpoint from {cfg.load_path}...")
-            trainer.restore_checkpoint(cfg.load_path, load_optimizer_state=not cfg.reset_optimizer_state)
+            trainer.restore_checkpoint(
+                cfg.load_path,
+                load_optimizer_state=not cfg.reset_optimizer_state,
+                sharded_checkpointer=cfg.load_path_sharded_checkpointer,
+            )
             log.info("Checkpoint successfully loaded")
 
             # If we have to, set a new scheduler:
             if cfg.reset_optimizer_state:
-                trainer.scheduler = BoltOnWarmupScheduler(
-                    trainer.scheduler, trainer.global_step, trainer.global_step + cfg.scheduler.t_warmup
+                trainer.scheduler = BoltOnWarmupScheduler.wrap(
+                    trainer.scheduler,
+                    trainer.global_step,
+                    trainer.global_step + cfg.scheduler.t_warmup,
                 )
 
         if cfg.force_save_unsharded:
@@ -252,6 +239,9 @@ def main(cfg: TrainConfig) -> None:
 
 
 if __name__ == "__main__":
+    # Initialize process group.
+    dist.init_process_group(backend="nccl")
+
     prepare_cli_environment()
 
     try:

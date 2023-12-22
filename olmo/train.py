@@ -19,43 +19,32 @@ import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 import wandb
-from torch.distributed.fsdp import FullStateDictConfig
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import StateDictType
-from torch.distributed.fsdp.api import (
-    FullOptimStateDictConfig,
-    ShardedOptimStateDictConfig,
-    ShardedStateDictConfig,
-)
 from torch.utils.data import DataLoader
 
 from .aliases import PathOrStr
-from .checkpoint import (
-    load_fsdp_model_and_optim_state,
-    load_fsdp_optim_state,
-    load_state_dict,
-    save_fsdp_model_and_optim_state,
-    save_state_dict,
+from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
+from .config import (
+    CheckpointType,
+    ShardedCheckpointerType,
+    SpeedMonitorConfig,
+    TrainConfig,
 )
-from .config import CheckpointType, SpeedMonitorConfig, TrainConfig
 from .data import IterableDataset
 from .eval import Evaluator
 from .exceptions import OlmoConfigurationError
 from .model import Olmo
 from .optim import Optimizer, Scheduler
-from .util import (
+from .torch_util import (
     barrier,
-    dir_is_empty,
     get_fs_local_rank,
     get_global_rank,
     get_world_size,
     move_to_device,
     peak_gpu_memory,
-    resource_path,
-    syncronize_flag,
-    upload,
-    wait_on,
+    synchronize_flag,
 )
+from .util import upload
 
 __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
 
@@ -112,36 +101,49 @@ class Trainer:
     train_loader: DataLoader
     device: torch.device
     evaluators: List[Evaluator]
+    epoch: int = 0
     global_step: int = 0
-    global_data_step: int = 0
-    """This is now redundant since adding 'global_train_examples_seen'."""
-    global_train_examples_seen: int = 0
-    """Tracks the global number of training examples seen for the purpose of restoring the dataset
-    position on restarts."""
+    global_train_examples_seen_this_epoch: int = 0
+    """Tracks the global number of training examples seen in the current epoch for the purpose of restoring
+    the data loader position on restarts."""
     global_train_tokens_seen: int = 0
     """Tracks the global total number of tokens trained on."""
     checkpoints: List[Path] = field(default_factory=list)
     unsharded_checkpoints: List[Path] = field(default_factory=list)
+    ephemeral_checkpoints: List[Path] = field(default_factory=list)
     min_train_loss: float = float("inf")
     cur_train_loss: float = float("inf")
     indices_file: Optional[TextIO] = None
     _start_time: float = 0.0
 
-    def state_dict(self) -> Dict[str, Any]:
-        state_dict = self.trainer_state_dict()
-        state_dict["model"] = self.fsdp_model.state_dict()
-        state_dict["optim"] = FSDP.optim_state_dict(self.fsdp_model, self.optim)
-        return state_dict
+    @property
+    def max_steps(self) -> int:
+        if isinstance(self.cfg.max_duration, int):
+            return self.cfg.max_duration
+        elif isinstance(self.cfg.max_duration, str):
+            if self.cfg.max_duration.endswith("T"):
+                # convert to float *first* to handle scientific notation
+                max_tokens = int(float(self.cfg.max_duration[:-1].strip()))
+                tokens_remaining = max_tokens - self.global_train_tokens_seen
+                tokens_per_batch = self.cfg.global_train_batch_size * self.cfg.model.max_sequence_length
+                steps_remaining = tokens_remaining // tokens_per_batch
+                return self.global_step + steps_remaining
+            else:
+                # convert to float *first* to handle scientific notation
+                return int(float(self.cfg.max_duration))
+        else:
+            raise TypeError(f"expected int or str for 'max_duration', found {type(self.cfg.max_duration)}")
 
     def trainer_state_dict(self) -> Dict[str, Any]:
         return {
+            "epoch": self.epoch,
             "global_step": self.global_step,
-            "global_data_step": self.global_data_step,
-            "global_train_examples_seen": self.global_train_examples_seen,
+            "global_train_examples_seen_this_epoch": self.global_train_examples_seen_this_epoch,
             "global_train_tokens_seen": self.global_train_tokens_seen,
             "world_size": get_world_size(),
             "checkpoints": self.checkpoints,
             "unsharded_checkpoints": self.unsharded_checkpoints,
+            "ephemeral_checkpoints": self.ephemeral_checkpoints,
             "rng": {
                 "python": random.getstate(),
                 "numpy": np.random.get_state(),
@@ -162,47 +164,56 @@ class Trainer:
             for path in state_dict["unsharded_checkpoints"]
             if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
         ]
+        self.ephemeral_checkpoints = [
+            path
+            for path in state_dict.get("ephemeral_checkpoints", [])
+            if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
+        ]
 
         # Dataset / dataloader position.
+        checkpoint_epoch = state_dict.get("epoch", 0)
         self.global_step = state_dict["global_step"]
-        self.global_data_step = state_dict["global_data_step"]
-        self.global_train_examples_seen = state_dict.get(  # newer addition
-            "global_train_examples_seen", self.global_data_step * self.cfg.global_train_batch_size
+        self.global_train_examples_seen_this_epoch = state_dict.get(
+            "global_train_examples_seen_this_epoch",
+            state_dict.get(  # for backwards compatibility
+                "global_train_examples_seen",
+                state_dict.get("global_data_step", self.global_step) * self.cfg.global_train_batch_size,
+            ),
         )
-        self.global_train_tokens_seen = state_dict.get(  # newer addition
+        self.global_train_tokens_seen = state_dict.get(
             "global_train_tokens_seen",
-            self.global_data_step * self.cfg.global_train_batch_size * self.cfg.model.max_sequence_length,
+            state_dict.get("global_data_step", self.global_step)  # for backwards compatibility
+            * self.cfg.global_train_batch_size
+            * self.cfg.model.max_sequence_length,
         )
+
         if not self.cfg.restore_dataloader:
-            self.global_data_step = 0
-            self.global_train_examples_seen = 0
+            self.epoch = 0
             self.global_train_tokens_seen = 0
-        elif self.cfg.fast_forward_batches:
-            self.global_data_step += self.cfg.fast_forward_batches
+            self.global_train_examples_seen_this_epoch = 0
+        elif checkpoint_epoch != self.epoch:
+            log.info(f"Starting new epoch (epoch = {self.epoch})")
+            self.global_train_examples_seen_this_epoch = 0
+
+        if self.cfg.fast_forward_batches:
+            log.info(f"Fast-forwarding data loader by {self.cfg.fast_forward_batches:,d} steps")
             # Technically we don't "see" these batches that we fast-forward through, but we use
             # this variable to update the position of the dataset so we need to include them here.
-            self.global_train_examples_seen += self.cfg.fast_forward_batches * self.cfg.global_train_batch_size
+            self.global_train_examples_seen_this_epoch += (
+                self.cfg.fast_forward_batches * self.cfg.global_train_batch_size
+            )
             # NOTE: on the other hand we don't add anything to 'self.global_train_tokens_seen' here because
             # that variable is meant to track the actual number of tokens trained on.
 
-        if self.global_data_step > 0:
-            if self.global_data_step > self.global_step:
-                log.info(
-                    f"Fast-forwarding data loader to step {self.global_step:,d}+{self.global_data_step-self.global_step:,d} "
-                    f"({self.global_train_examples_seen:,d} examples)"
-                )
-            else:
-                log.info(
-                    f"Fast-forwarding data loader to step {self.global_data_step:,d} "
-                    f"({self.global_train_examples_seen:,d} examples)"
-                )
+        if self.global_train_examples_seen_this_epoch > 0:
             assert isinstance(self.train_loader.dataset, IterableDataset)
-            self.train_loader.dataset.start_index = self.global_train_examples_seen
+            log.info(f"Data loader will start at instance index {self.global_train_examples_seen_this_epoch:,d}")
+            self.train_loader.dataset.start_index = self.global_train_examples_seen_this_epoch
 
         # Reset learning rate and weight decay to the values from the config, not the checkpoint.
         log.info("Resetting learning rate...")
         new_learning_rate = self.scheduler.get_lr(
-            self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
+            self.cfg.optimizer.learning_rate, self.global_step, self.max_steps
         )
         for group in self.optim.param_groups:
             group["lr"] = new_learning_rate
@@ -211,10 +222,16 @@ class Trainer:
                 group["weight_decay"] = self.cfg.optimizer.weight_decay
 
         # RNG states.
-        if "rng" in state_dict:
+        if "rng" in state_dict and state_dict.get("world_size", get_world_size()) == get_world_size():
             log.info("Restoring RNG states...")
             rng_state = state_dict["rng"]
             self.restore_rng_state(rng_state)
+        else:
+            log.warning(
+                "Trainer will not restore RNG states since the RNG states in the checkpoint are missing or invalid. "
+                "This typically happens when restoring from an unsharded checkpoint or a checkpoint that was saved "
+                "with a different world size. If that's the case you can safely ignore this warning."
+            )
 
     def restore_rng_state(self, rng_state: Dict[str, Any]) -> None:
         random.setstate(rng_state["python"])
@@ -222,85 +239,58 @@ class Trainer:
         torch.set_rng_state(rng_state["torch"])
         torch.cuda.set_rng_state(rng_state["cuda"])
 
-    def save_sharded_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
+    def _save_checkpoint(
+        self, checkpointer: Checkpointer, checkpoint_type: CheckpointType
+    ) -> Tuple[PathOrStr, Optional[PathOrStr]]:
+        if checkpoint_type == CheckpointType.sharded:
+            suffix = ""
+            current_checkpoints = self.checkpoints
+            link_latest = get_fs_local_rank() == 0
+            num_checkpoints_to_keep = self.cfg.save_num_checkpoints_to_keep
+        elif checkpoint_type == CheckpointType.unsharded:
+            suffix = "-unsharded"
+            current_checkpoints = self.unsharded_checkpoints
+            link_latest = get_global_rank() == 0
+            num_checkpoints_to_keep = self.cfg.save_num_unsharded_checkpoints_to_keep
+        elif checkpoint_type == CheckpointType.sharded_ephemeral:
+            suffix = ""
+            current_checkpoints = self.ephemeral_checkpoints
+            link_latest = get_fs_local_rank() == 0
+            num_checkpoints_to_keep = 1
+        else:
+            raise NotImplementedError(checkpoint_type)
+
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
-
-        checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}"
-        checkpoint_dir_tmp = Path(self.cfg.save_folder) / f"step{self.global_step}-tmp"
-
-        # Prepare checkpoint directory.
-        if not dir_is_empty(checkpoint_dir):
-            if self.cfg.save_overwrite:
-                if get_fs_local_rank() == 0:
-                    shutil.rmtree(checkpoint_dir, ignore_errors=True)
-            else:
-                raise OlmoConfigurationError(
-                    f"Checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
-                )
-
-        # Prepare tmp checkpoint directory.
-        if get_fs_local_rank() == 0:
-            shutil.rmtree(checkpoint_dir_tmp, ignore_errors=True)
-        barrier()
-        if get_fs_local_rank() == 0:
-            checkpoint_dir_tmp.mkdir(parents=True, exist_ok=True)
-
-        remote_checkpoint_dir: Optional[str] = None
-        if self.cfg.remote_save_folder is not None:
-            remote_checkpoint_dir = f"{self.cfg.remote_save_folder.rstrip('/')}/{checkpoint_dir.name}"
 
         # Flush data indices file.
         # TODO: upload the indices files?
         if self.indices_file is not None:
             self.indices_file.flush()
 
-        self.checkpoints.append(checkpoint_dir)
+        checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}{suffix}"
+        remote_checkpoint_dir: Optional[str] = None
+        if self.cfg.remote_save_folder is not None:
+            remote_checkpoint_dir = f"{self.cfg.remote_save_folder.rstrip('/')}/{checkpoint_dir.name}"
+        current_checkpoints.append(checkpoint_dir)
 
-        # Save model and optimizer state.
-        log.info("Saving model and optim state...")
-        save_fsdp_model_and_optim_state(
-            checkpoint_dir_tmp,
-            self.fsdp_model,
-            self.optim,
-            upload_to=remote_checkpoint_dir,
-            save_overwrite=self.cfg.save_overwrite,
-        )
+        # Save the checkpoint.
+        try:
+            checkpointer.save_checkpoint(
+                checkpoint_dir,
+                self.fsdp_model,
+                self.optim,
+                self.trainer_state_dict(),
+                upload_to=remote_checkpoint_dir,
+            )
+        except FileExistsError:
+            raise OlmoConfigurationError(
+                f"Checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
+            )
 
-        # Save trainer state.
-        log.info("Saving trainer state...")
-        save_state_dict(
-            checkpoint_dir_tmp,
-            f"train/rank{get_global_rank()}.pt",
-            self.trainer_state_dict(),
-            upload_to=remote_checkpoint_dir,
-            save_overwrite=self.cfg.save_overwrite,
-        )
-
-        # Save config.
-        if get_global_rank() == 0:
-            log.info("Saving config...")
-            self.cfg.save(config_path := checkpoint_dir_tmp / "config.yaml")
-            if remote_checkpoint_dir is not None:
-                upload_target = f"{remote_checkpoint_dir}/config.yaml"
-                log.info(f"Uploading {config_path} to {upload_target}")
-                upload(config_path, upload_target, save_overwrite=self.cfg.save_overwrite)
-
-        barrier()
-
-        if get_fs_local_rank() == 0:
-            # Replace temp directory with target checkpoint directory.
-            try:
-                checkpoint_dir_tmp.replace(checkpoint_dir)
-            except FileNotFoundError:
-                # Caught when another (file-system) local rank 0 has already replaced the tmp directory.
-                # This can happen when nodes are saving to a common NFS drive but otherwise have distinct
-                # file-systems.
-                if not checkpoint_dir.exists():
-                    raise
-
+        if link_latest:
             # Link to 'latest'.
-            latest_path = Path(self.cfg.save_folder) / "latest"
+            latest_path = Path(self.cfg.save_folder) / f"latest{suffix}"
             latest_path.unlink(missing_ok=True)
             try:
                 latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
@@ -311,27 +301,28 @@ class Trainer:
                 if latest_path.resolve().name != checkpoint_dir.name:
                     raise
 
-        # In the cases where we're using a shared NFS drive between ranks to save checkpoints,
-        # replacing the temp directory with the final directory from rank 0 might not be immediately
-        # realized in the file systems of the other ranks.
-        # So we wait here across all ranks until that final checkpoint directory is visible.
-        wait_on(lambda: checkpoint_dir.exists(), "Waiting for checkpoint directory", timeout=10.0)
-
         # Remove old checkpoints.
-        if self.cfg.save_num_checkpoints_to_keep > 0:
-            while len(self.checkpoints) > self.cfg.save_num_checkpoints_to_keep:
-                self.remove_sharded_checkpoint(0)
+        if num_checkpoints_to_keep > 0:
+            while len(current_checkpoints) > num_checkpoints_to_keep:
+                self.remove_checkpoint(0, checkpoint_type)
 
         barrier()
 
-        # Upload checkpoint to bucket.
         if remote_checkpoint_dir is not None:
             return remote_checkpoint_dir, checkpoint_dir
         else:
             return checkpoint_dir, None
 
-    def remove_sharded_checkpoint(self, idx: int = 0):
-        oldest_checkpoint = self.checkpoints.pop(idx)
+    def save_sharded_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
+        checkpointer = build_sharded_checkpointer(self.cfg)
+        return self._save_checkpoint(checkpointer, CheckpointType.sharded)
+
+    def save_ephemeral_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
+        checkpointer = build_sharded_checkpointer(self.cfg)
+        return self._save_checkpoint(checkpointer, CheckpointType.sharded_ephemeral)
+
+    def _remove_sharded_checkpoint(self, idx: int, checkpoints: List[Path]):
+        oldest_checkpoint = checkpoints.pop(idx)
         barrier()
         if get_fs_local_rank() == 0 and oldest_checkpoint.is_dir():
             shutil.rmtree(oldest_checkpoint, ignore_errors=True)
@@ -340,260 +331,36 @@ class Trainer:
                 latest_path.unlink()
         barrier()
 
+    def remove_sharded_checkpoint(self, idx: int = 0):
+        self._remove_sharded_checkpoint(idx, self.checkpoints)
+
+    def remove_ephemeral_checkpoint(self, idx: int = 0):
+        self._remove_sharded_checkpoint(idx, self.ephemeral_checkpoints)
+
     def restore_sharded_checkpoint(
-        self, load_path: PathOrStr, local_cache: Optional[PathOrStr] = None, *, load_optimizer_state: bool = True
+        self,
+        load_path: PathOrStr,
+        local_cache: Optional[PathOrStr] = None,
+        *,
+        load_optimizer_state: bool = True,
+        sharded_checkpointer: Optional[ShardedCheckpointerType] = None,
     ):
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
-
-        # Load model and optimizer state in place.
-        log.info("Loading model and optimizer state...")
-        load_fsdp_model_and_optim_state(
+        checkpointer = build_sharded_checkpointer(self.cfg, name=sharded_checkpointer)
+        trainer_state = checkpointer.restore_checkpoint(
             load_path,
             self.fsdp_model,
             self.optim,
             local_cache=local_cache,
             load_optimizer_state=load_optimizer_state,
         )
-
-        # Load trainer state dict.
-        log.info("Loading trainer state...")
-        # Note that if the world size has changed we don't restore RNG states.
-        try:
-            trainer_state = load_state_dict(
-                load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache
-            )
-            if (
-                last_world_size := trainer_state.get("world_size")
-            ) is not None and last_world_size != get_world_size():
-                del trainer_state["rng"]
-        except FileNotFoundError:
-            # Fall back to rank 0 train state.
-            # This can happen when we're restoring a checkpoint with a different world size.
-            trainer_state = load_state_dict(load_path, "train/rank0.pt", local_cache=local_cache)
-            del trainer_state["rng"]
         self.load_trainer_state_dict(trainer_state)
-
-        barrier()
-
-    def save_legacy_sharded_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
-        # Zero-gradients to avoid gathering them.
-        self.optim.zero_grad(set_to_none=True)
-
-        checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}"
-        checkpoint_dir_tmp = Path(self.cfg.save_folder) / f"step{self.global_step}-tmp"
-
-        # Prepare checkpoint directory.
-        if not dir_is_empty(checkpoint_dir):
-            if self.cfg.save_overwrite:
-                if get_fs_local_rank() == 0:
-                    shutil.rmtree(checkpoint_dir, ignore_errors=True)
-            else:
-                raise OlmoConfigurationError(
-                    f"Checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
-                )
-
-        if get_fs_local_rank() == 0:
-            shutil.rmtree(checkpoint_dir_tmp, ignore_errors=True)
-        barrier()
-        if get_fs_local_rank() == 0:
-            checkpoint_dir_tmp.mkdir(parents=True, exist_ok=True)
-
-        remote_checkpoint_dir: Optional[str] = None
-        if self.cfg.remote_save_folder is not None:
-            remote_checkpoint_dir = f"{self.cfg.remote_save_folder.rstrip('/')}/{checkpoint_dir.name}"
-
-        # Flush data indices file.
-        if self.indices_file is not None:
-            self.indices_file.flush()
-
-        self.checkpoints.append(checkpoint_dir)
-
-        # Write the checkpoint.
-        with FSDP.state_dict_type(
-            self.fsdp_model,
-            state_dict_type=StateDictType.SHARDED_STATE_DICT,
-            state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
-            optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
-        ):
-            # Save trainer state.
-            save_state_dict(
-                checkpoint_dir_tmp,
-                f"rank{get_global_rank()}.pt",
-                self.state_dict(),
-                upload_to=remote_checkpoint_dir,
-                save_overwrite=self.cfg.save_overwrite,
-            )
-
-        # Save config too.
-        if get_global_rank() == 0:
-            self.cfg.save(config_path := checkpoint_dir_tmp / "config.yaml")
-            if remote_checkpoint_dir is not None:
-                upload_target = f"{remote_checkpoint_dir}/config.yaml"
-                log.info(f"Uploading {config_path} to {upload_target}")
-                upload(config_path, upload_target, save_overwrite=self.cfg.save_overwrite)
-
-        barrier()
-
-        if get_fs_local_rank() == 0:
-            # Replace temp directory with target checkpoint directory.
-            try:
-                checkpoint_dir_tmp.replace(checkpoint_dir)
-            except FileNotFoundError:
-                # Caught when another (file-system) local rank 0 has already replaced the tmp directory.
-                # This can happen when nodes are saving to a common NFS drive but otherwise have distinct
-                # file-systems.
-                if not checkpoint_dir.exists():
-                    raise
-
-            # Link to 'latest'.
-            latest_path = Path(self.cfg.save_folder) / "latest"
-            latest_path.unlink(missing_ok=True)
-            try:
-                latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
-            except FileExistsError:
-                # Same as above, caught when another (file-system) local rank 0 has already made the 'latest' symlink.
-                # This can happen when nodes are saving to a common NFS drive but otherwise have distinct
-                # file-systems.
-                if latest_path.resolve().name != checkpoint_dir.name:
-                    raise
-
-        # In the cases where we're using a shared NFS drive between ranks to save checkpoints,
-        # replacing the temp directory with the final directory from rank 0 might not be immediately
-        # realized in the file systems of the other ranks.
-        # So we wait here across all ranks until that final checkpoint directory is visible.
-        wait_on(lambda: checkpoint_dir.exists(), "Waiting for checkpoint directory", timeout=10.0)
-
-        # Remove old checkpoints.
-        if self.cfg.save_num_checkpoints_to_keep > 0:
-            while len(self.checkpoints) > self.cfg.save_num_checkpoints_to_keep:
-                self.remove_sharded_checkpoint(0)
-
-        barrier()
-
-        # Upload checkpoint to bucket.
-        if remote_checkpoint_dir is not None:
-            return remote_checkpoint_dir, checkpoint_dir
-        else:
-            return checkpoint_dir, None
-
-    def restore_legacy_sharded_checkpoint(
-        self, load_path: PathOrStr, local_cache: Optional[PathOrStr] = None, *, load_optimizer_state: bool = True
-    ):
-        # Zero-gradients to avoid gathering them.
-        self.optim.zero_grad(set_to_none=True)
-
-        with FSDP.state_dict_type(
-            self.fsdp_model,
-            state_dict_type=StateDictType.SHARDED_STATE_DICT,
-            state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
-            optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
-        ):
-            # Deserialize state dict.
-            state_dict = torch.load(
-                resource_path(load_path, f"rank{get_global_rank()}.pt", local_cache=local_cache)
-            )
-
-            # Load model and optimizer state.
-            log.info("Loading model state...")
-            self.fsdp_model.load_state_dict(state_dict["model"])
-            if load_optimizer_state:
-                log.info("Loading optimizer state...")
-                load_fsdp_optim_state(self.fsdp_model, self.optim, state_dict["optim"])
-
-            # Load trainer state dict.
-            log.info("Loading trainer state...")
-            self.load_trainer_state_dict(state_dict)
-
-            del state_dict
-
         barrier()
 
     def save_unsharded_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
-        # Zero-gradients to avoid gathering them.
-        self.optim.zero_grad(set_to_none=True)
-
-        checkpoint_dir = Path(self.cfg.save_folder) / f"step{self.global_step}-unsharded"
-        checkpoint_dir_tmp = Path(self.cfg.save_folder) / f"step{self.global_step}-unsharded-tmp"
-
-        try:
-            next(checkpoint_dir.glob("*"))
-            if self.cfg.save_overwrite:
-                if get_global_rank() == 0:
-                    shutil.rmtree(checkpoint_dir)
-            else:
-                raise OlmoConfigurationError(
-                    f"Unsharded checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
-                )
-        except StopIteration:
-            pass
-
-        if get_global_rank() == 0:
-            checkpoint_dir_tmp.mkdir(parents=True, exist_ok=True)
-
-        self.unsharded_checkpoints.append(checkpoint_dir)
-        barrier()
-
-        # Flush data indices file.
-        if self.indices_file is not None:
-            self.indices_file.flush()
-
-        # Write the checkpoint.
-        with FSDP.state_dict_type(
-            self.fsdp_model,
-            state_dict_type=StateDictType.FULL_STATE_DICT,
-            state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
-            optim_state_dict_config=FullOptimStateDictConfig(rank0_only=True, offload_to_cpu=True),
-        ):
-            # We'll write the model and optimizer state dicts individually to reduce (CPU) memory consumption.
-            # First the model state.
-            model_state_dict = self.fsdp_model.state_dict()
-            if get_global_rank() == 0:
-                torch.save(model_state_dict, checkpoint_dir_tmp / "model.pt")
-            del model_state_dict
-
-            # Then the optimizer state.
-            optim_state_dict = FSDP.optim_state_dict(self.fsdp_model, self.optim)
-            if get_global_rank() == 0:
-                torch.save(optim_state_dict, checkpoint_dir_tmp / "optim.pt")
-            del optim_state_dict
-
-            # Then everything else.
-            train_state_dict = self.trainer_state_dict()
-            if get_global_rank() == 0:
-                torch.save(train_state_dict, checkpoint_dir_tmp / "train.pt")
-                self.cfg.save(checkpoint_dir_tmp / "config.yaml")
-            barrier()
-
-        if get_global_rank() == 0:
-            # Replace temp directory with target checkpoint directory.
-            checkpoint_dir_tmp.replace(checkpoint_dir)
-
-            # Link to 'latest'.
-            latest_path = Path(self.cfg.save_folder) / "latest-unsharded"
-            latest_path.unlink(missing_ok=True)
-            latest_path.symlink_to(checkpoint_dir.name, target_is_directory=True)
-
-        # Remove old checkpoints.
-        if self.cfg.save_num_unsharded_checkpoints_to_keep > 0:
-            while len(self.unsharded_checkpoints) > self.cfg.save_num_unsharded_checkpoints_to_keep:
-                self.remove_unsharded_checkpoint(0)
-
-        barrier()
-
-        # Upload checkpoint to bucket.
-        if self.cfg.remote_save_folder is not None:
-            remote_checkpoint_dir = f"{self.cfg.remote_save_folder.rstrip('/')}/{checkpoint_dir.name}"
-            if get_global_rank() == 0:
-                for fname in ["config.yaml", "model.pt", "optim.pt", "train.pt"]:
-                    source = checkpoint_dir / fname
-                    target = f"{remote_checkpoint_dir}/{fname}"
-                    log.info(f"Uploading {source} to {target}...")
-                    upload(source, target, save_overwrite=self.cfg.save_overwrite)
-            barrier()
-            return remote_checkpoint_dir, checkpoint_dir
-        else:
-            return checkpoint_dir, None
+        checkpointer = FullCheckpointer(self.cfg)
+        return self._save_checkpoint(checkpointer, CheckpointType.unsharded)
 
     def remove_unsharded_checkpoint(self, idx: int = 0):
         barrier()
@@ -610,81 +377,51 @@ class Trainer:
     ):
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
-
-        with FSDP.state_dict_type(
+        checkpointer = FullCheckpointer(self.cfg)
+        trainer_state = checkpointer.restore_checkpoint(
+            load_path,
             self.fsdp_model,
-            state_dict_type=StateDictType.FULL_STATE_DICT,
-            state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
-            optim_state_dict_config=FullOptimStateDictConfig(rank0_only=True, offload_to_cpu=True),
-        ):
-            # Load model state.
-            log.info("Loading model state...")
-            self.fsdp_model.load_state_dict(
-                self.model._make_state_dict_compatible(
-                    torch.load(resource_path(load_path, "model.pt", local_cache=local_cache))
-                )
-            )
-
-            # Load optimizer state.
-            if load_optimizer_state:
-                log.info("Loading optimizer state...")
-                optim_state_dict = torch.load(resource_path(load_path, "optim.pt", local_cache=local_cache))
-                load_fsdp_optim_state(self.fsdp_model, self.optim, optim_state_dict)
-
-            # Load other state.
-            try:
-                train_state_dict = torch.load(resource_path(load_path, "train.pt", local_cache=local_cache))
-            except FileNotFoundError:
-                train_state_dict = torch.load(
-                    resource_path(load_path, "other.pt", local_cache=local_cache)
-                )  # for backwards compatibility
-            self.load_trainer_state_dict(train_state_dict)
-
+            self.optim,
+            local_cache=local_cache,
+            load_optimizer_state=load_optimizer_state,
+        )
+        self.load_trainer_state_dict(trainer_state)
         barrier()
 
     def save_checkpoint(
         self, checkpoint_type: CheckpointType = CheckpointType.sharded
     ) -> Tuple[PathOrStr, Optional[PathOrStr]]:
         if checkpoint_type == CheckpointType.sharded:
-            if self.cfg.new_style_checkpoints:
-                return self.save_sharded_checkpoint()
-            else:
-                return self.save_legacy_sharded_checkpoint()
+            return self.save_sharded_checkpoint()
         elif checkpoint_type == CheckpointType.unsharded:
             return self.save_unsharded_checkpoint()
+        elif checkpoint_type == CheckpointType.sharded_ephemeral:
+            return self.save_ephemeral_checkpoint()
         else:
             raise NotImplementedError(checkpoint_type)
 
     def restore_checkpoint(
         self,
         load_path: PathOrStr,
+        *,
         checkpoint_type: Optional[CheckpointType] = None,
         local_cache: Optional[PathOrStr] = None,
-        legacy_mode: bool = False,
-        *,
         load_optimizer_state: bool = True,
+        sharded_checkpointer: Optional[ShardedCheckpointerType] = None,
     ):
         if checkpoint_type == CheckpointType.unsharded or (
-            checkpoint_type is None and str(load_path).endswith("-unsharded")
+            checkpoint_type is None and str(load_path).rstrip("/").endswith("-unsharded")
         ):
             self.restore_unsharded_checkpoint(
                 load_path, local_cache=local_cache, load_optimizer_state=load_optimizer_state
             )
         elif checkpoint_type == CheckpointType.sharded or checkpoint_type is None:
-            try:
-                legacy_mode = resource_path(
-                    load_path, f"rank{get_global_rank()}.pt", local_cache=local_cache
-                ).is_file()
-            except FileNotFoundError:
-                legacy_mode = False
-            if legacy_mode:
-                self.restore_legacy_sharded_checkpoint(
-                    load_path, local_cache=local_cache, load_optimizer_state=load_optimizer_state
-                )
-            else:
-                self.restore_sharded_checkpoint(
-                    load_path, local_cache=local_cache, load_optimizer_state=load_optimizer_state
-                )
+            self.restore_sharded_checkpoint(
+                load_path,
+                local_cache=local_cache,
+                load_optimizer_state=load_optimizer_state,
+                sharded_checkpointer=sharded_checkpointer,
+            )
         elif checkpoint_type is not None:
             raise NotImplementedError(checkpoint_type)
 
@@ -693,6 +430,8 @@ class Trainer:
             self.remove_sharded_checkpoint(idx=idx)
         elif checkpoint_type == CheckpointType.unsharded:
             self.remove_unsharded_checkpoint(idx=idx)
+        elif checkpoint_type == CheckpointType.sharded_ephemeral:
+            self.remove_ephemeral_checkpoint(idx=idx)
         else:
             raise NotImplementedError(checkpoint_type)
 
@@ -762,12 +501,6 @@ class Trainer:
             # Run backward pass.
             loss.backward()
 
-        # Check for nan.
-        if torch.isnan(ce_batch_loss):
-            raise ValueError("nan loss encountered")
-        if z_batch_loss is not None and torch.isnan(z_batch_loss):
-            raise ValueError("nan loss encountered")
-
         return ce_batch_loss, z_batch_loss
 
     def train_step(self, batch: Dict[str, Any], reduce_global_loss: bool = True) -> Dict[str, float]:
@@ -787,37 +520,49 @@ class Trainer:
         # Run forward-backward pass.
         ce_batch_loss, z_batch_loss = self.train_batch(batch)
 
+        # Collect loss, potentially reducing over all ranks.
+        if reduce_global_loss:
+            dist.reduce(ce_batch_loss, 0)
+            ce_batch_loss.div_(get_world_size())
+            if z_batch_loss is not None:
+                dist.reduce(z_batch_loss, 0)
+                z_batch_loss.div_(get_world_size())
+
         # Clip gradient norms and collect param/gradient/optim metrics.
         should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
         optim_metrics = self.optim.clip_grads_and_collect_metrics(
             self.global_step, collect_param_metrics=should_log_optim_metrics_this_step
         )
-        for key, value in optim_metrics.items():
-            metrics[f"optim/{key}"] = value.item()
 
         # Adjust the learning rate.
         for group in self.optim.param_groups:
-            group["lr"] = self.scheduler.get_lr(
-                self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
+            # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
+            # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
+            # the corresponding values from `self.cfg`.
+            group["lr"] = self.scheduler.get_lr(self.cfg.optimizer.learning_rate, self.global_step, self.max_steps)
+            group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
+                self.cfg.max_grad_norm, self.global_step, self.max_steps
+            )
+            group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
+                self.cfg.max_grad_norm_ratio, self.global_step, self.max_steps
             )
 
         # Optimizer step.
         self.optim.step()
 
-        # Collect loss, potentially reducing over all ranks.
-        if reduce_global_loss:
-            dist.reduce(ce_batch_loss, 0)
-            ce_batch_loss.div_(get_world_size())
-        # TODO (dirkgr): If we did this much earlier, like, right after the forwards step, but then didn't
-        # call `.item()` for a long time, would it use laziness to interleave this reduce call with the backward step?
+        # Collect metrics and check for NaN loss.
+        # NOTE: this involves a bunch of host-device syncs so we wait until the last moment to do this.
+        if torch.isnan(ce_batch_loss):
+            raise ValueError("nan loss encountered")
+        if z_batch_loss is not None and torch.isnan(z_batch_loss):
+            raise ValueError("nan loss encountered")
+        for key, value in optim_metrics.items():
+            metrics[f"optim/{key}"] = value.item()
         self.cur_train_loss = ce_batch_loss.item()
         self.min_train_loss = min(self.min_train_loss, self.cur_train_loss)
         metrics["train/CrossEntropyLoss"] = self.cur_train_loss
         metrics["train/Perplexity"] = math.exp(self.cur_train_loss)
         if z_batch_loss is not None:
-            if reduce_global_loss:
-                dist.reduce(z_batch_loss, 0)
-                z_batch_loss.div_(get_world_size())
             metrics["train/ZLoss"] = z_batch_loss.item()
 
         # Maybe collect post-step optimizer-specific metrics.
@@ -998,7 +743,7 @@ class Trainer:
                 except RequestException:
                     pass
 
-        run_canceled = syncronize_flag(should_cancel, self.device)
+        run_canceled = synchronize_flag(should_cancel, self.device)
         if run_canceled and cancel_reason is not None:
             log.warning(f"Run canceled due to {cancel_reason}")
         return run_canceled
@@ -1047,9 +792,13 @@ class Trainer:
                 output = p.key_averages().table(sort_by="self_cpu_time_total", row_limit=32)
                 log.info(f"Profile by total CPU time at step {p.step_num}:\n{output}")
 
-                p.export_chrome_trace(str(profiler_output_dir / f"{p.step_num}.chrome_trace.json.gz"))
-                p.export_stacks(str(profiler_output_dir / f"{p.step_num}.gpu.stacks"), "self_cuda_time_total")
-                p.export_stacks(str(profiler_output_dir / f"{p.step_num}.cpu.stacks"), "self_cpu_time_total")
+                p.export_chrome_trace(
+                    str(trace_path := (profiler_output_dir / f"{p.step_num}.chrome_trace.json.gz"))
+                )
+                if self.cfg.remote_save_folder is not None:
+                    upload_folder = f"{self.cfg.remote_save_folder.rstrip('/')}/profiler"
+                    log.info(f"Tracing complete, uploading results to '{upload_folder}'...")
+                    upload(trace_path, f"{upload_folder}/{trace_path.name}")
 
             from torch.profiler import ProfilerActivity
 
@@ -1085,8 +834,7 @@ class Trainer:
                 assert batch_size == self.cfg.device_train_batch_size
                 global_batch_size = batch_size * get_world_size()  # assumes batch size equal across ranks
                 self.global_step += 1
-                self.global_data_step += 1
-                self.global_train_examples_seen += global_batch_size
+                self.global_train_examples_seen_this_epoch += global_batch_size
                 self.global_train_tokens_seen += global_batch_size * seq_len
                 speed_monitor.batch_start(
                     self.global_train_tokens_seen,
@@ -1112,7 +860,7 @@ class Trainer:
 
                 # Log metrics to console.
                 if self.global_step % self.cfg.console_log_interval == 0:
-                    self.log_metrics_to_console(f"[step={self.global_step}/{self.cfg.max_duration}]", metrics)
+                    self.log_metrics_to_console(f"[step={self.global_step}/{self.max_steps}]", metrics)
 
                 # Log metrics to W&B.
                 if (
@@ -1123,15 +871,31 @@ class Trainer:
                     wandb.log(metrics, step=self.global_step)
 
                 # Check if run should be canceled.
-                if self.global_step % self.cfg.canceled_check_interval == 0:
+                if self.cfg.stop_at is not None and self.global_step >= self.cfg.stop_at:
+                    canceled = True
+                elif self.global_step % self.cfg.canceled_check_interval == 0:
                     canceled = self.check_if_cancelled()
 
-                # Maybe save sharded checkpoint.
+                # Maybe save sharded or ephemeral sharded checkpoint.
                 if canceled or (
                     self.global_step % self.cfg.save_interval == 0 and self.cfg.save_num_checkpoints_to_keep != 0
                 ):
                     log.info("Saving checkpoint...")
                     checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
+                    log.info(f"Checkpoint saved to {checkpoint_path}")
+
+                    # Remove any ephemeral checkpoints.
+                    while self.ephemeral_checkpoints:
+                        self.remove_ephemeral_checkpoint()
+
+                    # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                    speed_monitor.reset()
+                elif (
+                    self.cfg.save_interval_ephemeral is not None
+                    and self.global_step % self.cfg.save_interval_ephemeral == 0
+                ):
+                    log.info("Saving ephemeral checkpoint...")
+                    checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded_ephemeral)
                     log.info(f"Checkpoint saved to {checkpoint_path}")
 
                     # Reset speed monitor so that we don't count the time taken to save checkpoints.

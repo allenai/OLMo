@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from enum import Enum
 from glob import glob
 from pathlib import Path
 from typing import (
@@ -18,16 +17,18 @@ from typing import (
 )
 
 import torch
+from omegaconf import DictConfig, ListConfig
 from omegaconf import OmegaConf as om
 from omegaconf.errors import OmegaConfBaseException
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
 
 from .aliases import PathOrStr
 from .exceptions import OlmoConfigurationError
+from .util import StrEnum
 
 __all__ = [
-    "LogFilterType",
     "ActivationType",
+    "ActivationCheckpointingStrategy",
     "BlockType",
     "CompilerConfig",
     "LayerNormType",
@@ -47,25 +48,14 @@ __all__ = [
     "WandbConfig",
     "CompilerConfig",
     "WandbConfig",
+    "FSDPPrecision",
+    "FSDPWrapStrategy",
     "FSDPConfig",
     "CheckpointType",
 ]
 
-
 C = TypeVar("C", bound="BaseConfig")
-
-
-class StrEnum(str, Enum):
-    """
-    This is equivalent to Python's :class:`enum.StrEnum` since version 3.11.
-    We include this here for compatibility with older version of Python.
-    """
-
-    def __str__(self) -> str:
-        return self.value
-
-    def __repr__(self) -> str:
-        return f"'{str(self)}'"
+D = TypeVar("D", bound="DictConfig|ListConfig")
 
 
 class BaseConfig:
@@ -93,8 +83,29 @@ class BaseConfig:
             else:
                 return ""
 
+        # Finds the latest checkpoint in a folder.
+        def path_last_checkpoint(path) -> str:
+            from .util import find_latest_checkpoint
+
+            latest_checkpoint = find_latest_checkpoint(path)
+            if latest_checkpoint is None:
+                if validate_paths:
+                    raise FileNotFoundError(f"Could not find a latest checkpoint at {path}")
+                else:
+                    return ""
+            else:
+                return str(latest_checkpoint)
+
         om.register_new_resolver("path.glob", path_glob, replace=True)
         om.register_new_resolver("path.choose", path_choose, replace=True)
+        om.register_new_resolver("path.last_checkpoint", path_last_checkpoint, replace=True)
+
+    @classmethod
+    def update_legacy_settings(cls, config: D) -> D:
+        """
+        Update the legacy config settings whose schemas have undergone backwards-incompatible changes.
+        """
+        return config
 
     @classmethod
     def new(cls: Type[C], **kwargs) -> C:
@@ -122,6 +133,7 @@ class BaseConfig:
             raw = om.load(str(path))
             if key is not None:
                 raw = raw[key]  # type: ignore
+            raw = cls.update_legacy_settings(raw)
             conf = om.merge(schema, raw)
             if overrides:
                 conf = om.merge(conf, om.from_dotlist(overrides))
@@ -142,11 +154,6 @@ class BaseConfig:
         return out
 
 
-class LogFilterType(StrEnum):
-    rank0_only = "rank0_only"
-    local_rank0_only = "local_rank0_only"
-
-
 class LayerNormType(StrEnum):
     default = "default"
     """
@@ -164,11 +171,6 @@ class LayerNormType(StrEnum):
     probably the fastest implementation.
     """
 
-    low_precision_rms = "low_precision_rms"
-    """
-    A low-precision version of RMSNorm.
-    """
-
     amd_compatible = "amd_compatible"
     """
     LayerNorm implemented manually to work around an issue with ROCm.
@@ -184,6 +186,12 @@ class ActivationType(StrEnum):
 class BlockType(StrEnum):
     sequential = "sequential"
     parallel = "parallel"
+
+    llama = "llama"
+    """
+    A block similar to the sequential block with slightly different
+    implementations of operations like attention to imitate the behavior of Llama.
+    """
 
 
 class InitFnType(StrEnum):
@@ -209,6 +217,11 @@ class InitFnType(StrEnum):
     """
     "Fan-in variance scaling", i.e. normal with a standard deviation of ``1/sqrt(d_in)`` where ``d_in``
     is the input dimensionality of the kernel.
+    """
+
+    full_megatron = "full_megatron"
+    """
+    This is what metaseq calls "full megatron init". It is the init used for Llama 2.
     """
 
 
@@ -256,6 +269,13 @@ class ModelConfig(BaseConfig):
     The transformer block implementation.
     """
 
+    block_group_size: int = 1
+    """
+    The number of blocks to group together into a single parent block.
+    This has no affect on the number of parameters in the model and is only used to wrap groups
+    of blocks together with a single FSDP wrapper during training.
+    """
+
     alibi: bool = False
     """
     If ``True``, use ALiBi embeddings. Mutually exclusive with ``rope``.
@@ -269,6 +289,12 @@ class ModelConfig(BaseConfig):
     rope: bool = False
     """
     Use rotary positional embeddings (RoPE). Mutually exclusive with ``alibi``.
+    """
+
+    rope_full_precision: bool = True
+    """
+    If ``True``, apply RoPE embeddings at full precision regardless of the input type. Otherwise,
+    apply RoPE at the precision of the input.
     """
 
     flash_attention: bool = False
@@ -414,8 +440,14 @@ class OptimizerConfig(BaseConfig):
     learning_rate: float = 1.0e-4
     weight_decay: float = 0.01
     betas: Tuple[float, float] = (0.9, 0.95)
-    no_decay_norm_and_bias: bool = True
-    """Do not apply weight decay to norms and biases."""
+
+    no_decay_norm_and_bias: Optional[bool] = None
+    """
+    Deprecated. Use ``decay_norm_and_bias`` and ``decay_embeddings`` instead.
+    """
+
+    decay_norm_and_bias: bool = False
+    decay_embeddings: bool = False
     metrics_log_interval: Optional[int] = None
     """
     The interval with which to collect and log detailed parameter-specific metrics.
@@ -426,12 +458,26 @@ class OptimizerConfig(BaseConfig):
     def __post_init__(self):
         self.betas = tuple(self.betas)  # type: ignore[assignment]
 
+    @classmethod
+    def update_legacy_settings(cls, config: D) -> D:
+        new_config = config.copy()
+        if om.is_dict(new_config):
+            assert isinstance(new_config, DictConfig)
+
+            if hasattr(new_config, "name") and new_config.name == "decoupled_lionw":
+                new_config.name = "lionw"
+                if hasattr(new_config, "eps"):
+                    del new_config.eps
+
+        return new_config
+
 
 class SchedulerType(StrEnum):
     cosine_with_warmup = "cosine_with_warmup"
     linear_with_warmup = "linear_with_warmup"
     inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
     max_scheduler = "max_scheduler"
+    constant = "constant"
 
 
 @dataclass
@@ -440,6 +486,18 @@ class SchedulerConfig(BaseConfig):
     t_warmup: int = 100
     t_max: Optional[int] = None
     alpha_f: float = 0.1
+
+    grad_clip_warmup_steps: Optional[int] = None
+    """
+    The warmup period for which the max grad norm (or norm ratio) will be set to its
+    warmup value of `max_grad_norm * grad_clip_warmup_factor`.
+    """
+
+    grad_clip_warmup_factor: Optional[float] = None
+    """
+    The ratio of the max allowed gradient norm (or norm ratio) for clipping during the warmup period
+    vs after the warmup period.
+    """
 
 
 class PaddingDirection(StrEnum):
@@ -530,10 +588,31 @@ class FSDPWrapStrategy(StrEnum):
     Wrap each OLMo block with its own FSDP instance.
     """
 
+    by_block_and_size = "by_block_and_size"
+    """
+    Like 'by_block' but `wte` and `ff_out` will be wrapped separately as well.
+    """
+
+    by_block_group = "by_block_group"
+    """
+    Wrap each block group together into its own FSDP instance.
+    This requires :attr:`~ModelConfig.block_group_size` to be bigger than 1.
+    """
+
+    by_block_group_and_size = "by_block_group_and_size"
+    """
+    Like 'by_block_group' but `wte` and `ff_out` will be wrapped separately as well.
+    """
+
     size_based = "size_based"
     """
     Used PyTorch's default size-based auto wrap policy.
     """
+
+    one_in_two = "one_in_two"
+    one_in_three = "one_in_three"
+    one_in_four = "one_in_four"
+    one_in_five = "one_in_five"
 
 
 class FSDPPrecision(StrEnum):
@@ -571,6 +650,21 @@ class FSDPConfig(BaseConfig):
 class CheckpointType(StrEnum):
     sharded = "sharded"
     unsharded = "unsharded"
+    sharded_ephemeral = "sharded_ephemeral"
+
+
+class ShardedCheckpointerType(StrEnum):
+    torch_new = "torch_new"
+    torch_legacy = "torch_legacy"
+    local = "local"
+
+
+class ActivationCheckpointingStrategy(StrEnum):
+    whole_layer = "whole_layer"
+    one_in_two = "one_in_two"
+    one_in_three = "one_in_three"
+    one_in_four = "one_in_four"
+    fine_grained = "fine_grained"
 
 
 @dataclass
@@ -587,6 +681,11 @@ class TrainConfig(BaseConfig):
     seed: int = 6198
     """
     Used to seed all initial RNG states.
+    """
+
+    epoch: int = 0
+    """
+    Increment this when starting a new epoch.
     """
 
     dry_run: bool = False
@@ -659,19 +758,31 @@ class TrainConfig(BaseConfig):
 
     save_interval: int = 1000
     """
-    How often (in terms of batches) to save training state checkpoints that can be used for restarts.
+    How often (in terms of steps) to save sharded training state checkpoints.
     """
 
     save_interval_unsharded: Optional[int] = None
     """
-    How often (if at all) to save the unsharded state to a single file.
+    How often (if at all) to save unsharded training state checkpoint.
     For large models it can be costly to save these, so it usually makes sense to save
     these less often than regular (sharded) training checkpoints.
     """
 
+    save_interval_ephemeral: Optional[int] = None
+    """
+    How often (if at all) to save ephemeral sharded checkpoints. These checkpoints are the same
+    as those saved every `save_interval` except that at most only the most recent one of these is kept.
+    This is useful when you want to checkpoint often for restarts in case of failures, but don't
+    want to keep the majority of these checkpoints.
+
+    For example, suppose you want to keep your checkpoints at every 1000 steps, but you also want to save
+    a temporary checkpoint every 100 steps in case your job fails. In that case you would
+    set `save_interval=1000` and `save_interval_ephemeral=100`.
+    """
+
     save_num_checkpoints_to_keep: int = -1
     """
-    How many checkpoints to keep.
+    How many sharded checkpoints to keep.
     """
 
     save_num_unsharded_checkpoints_to_keep: int = -1
@@ -699,11 +810,45 @@ class TrainConfig(BaseConfig):
     load_path: Optional[str] = None
     """
     The path to a training checkpoint to restore/resume from.
+
+    Note that you can make use of the "path.last_checkpoint" Omegaconfig YAML resolver here, which takes
+    a local or remote directory and resolves to the latest checkpoint (sharded or unsharded) in that directory.
+    For example,
+
+    ```bash
+    --load_path='${path.last_checkpoint:s3://ai2-llm/checkpoints/7b/v1_5-mix-run-001}'
+    ```
     """
 
-    max_duration: int = 10000
+    load_path_sharded_checkpointer: Optional[ShardedCheckpointerType] = None
     """
-    Maximum number of batches to train for.
+    The sharded checkpointer type to use to load the initial checkpoint from ``load_path``.
+    """
+
+    reset_optimizer_state: bool = False
+    """
+    When this is set, we restore the model from a checkpoint (if given), but we leave the optimizer uninitialized.
+    We also set a new learning rate schedule that does a new warmup, such that it intercepts the original learning
+    curve (according to the current learning rate schedule settings), and continues from there.
+    """
+
+    sharded_checkpointer: ShardedCheckpointerType = ShardedCheckpointerType.torch_legacy
+    """
+    The name of the sharded checkpointer to use to save (sharded) checkpoints throughout training.
+    """
+
+    new_style_checkpoints: Optional[bool] = None
+    """
+    Deprecated. Use ``sharded_checkpointer`` instead.
+    """
+
+    max_duration: Union[int, str] = 10000
+    """
+    How long to train for.
+
+    If specified without a unit (the default), the units are assumed to be steps.
+    You can also specify this in terms of tokens, for example: `max_duration="2e12T"` means train until
+    2 trillion tokens.
     """
 
     global_train_batch_size: int = 512
@@ -778,11 +923,6 @@ class TrainConfig(BaseConfig):
     Settings for compiling the model with ``torch.compile()``.
     """
 
-    activation_checkpointing: bool = False
-    """
-    Use activation checkpointing on transformer blocks.
-    """
-
     fsdp: FSDPConfig = field(default_factory=FSDPConfig)
     """
     Fully sharded data parallel settings.
@@ -818,16 +958,14 @@ class TrainConfig(BaseConfig):
     Whether to run the PyTorch profiler on batches 6, 7, and 8.
     """
 
-    reset_optimizer_state: bool = False
+    stop_at: Optional[int] = None
     """
-    When this is set, we restore the model from a checkpoint (if given), but we leave the optimizer uninitialized.
-    We also set a new learning rate schedule that does a new warmup, such that it intercepts the original learning
-    curve (according to the current learning rate schedule settings), and continues from there.
+    Stop at a specific step.
     """
 
-    new_style_checkpoints: bool = False
+    activation_checkpointing: Optional[ActivationCheckpointingStrategy] = None
     """
-    Whether to use new-style sharded checkpointing or not.
+    The activation checkpointing strategy to use.
     """
 
     @property
@@ -857,3 +995,20 @@ class TrainConfig(BaseConfig):
             )
         else:
             raise NotImplementedError(f"{self.fsdp.precision}")
+
+    @classmethod
+    def update_legacy_settings(cls, config: D) -> D:
+        new_config = config.copy()
+        if om.is_dict(new_config):
+            assert isinstance(new_config, DictConfig)
+
+            if hasattr(new_config, "activation_checkpointing"):
+                if new_config.activation_checkpointing is False:
+                    new_config.activation_checkpointing = None
+                if new_config.activation_checkpointing is True:
+                    new_config.activation_checkpointing = ActivationCheckpointingStrategy.whole_layer
+
+            if hasattr(new_config, "optimizer"):
+                new_config.optimizer = OptimizerConfig.update_legacy_settings(new_config.optimizer)
+
+        return new_config

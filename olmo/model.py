@@ -9,8 +9,21 @@ from __future__ import annotations
 import logging
 import math
 from abc import abstractmethod
+from collections import defaultdict
 from collections.abc import MutableMapping
-from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
+from functools import partial
+from typing import (
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    cast,
+)
 
 import torch
 import torch.backends.cuda
@@ -21,14 +34,18 @@ from torch import einsum
 from .aliases import PathOrStr
 from .beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
 from .config import (
+    ActivationCheckpointingStrategy,
     ActivationType,
     BlockType,
     CheckpointType,
+    FSDPWrapStrategy,
     LayerNormType,
     ModelConfig,
 )
 from .exceptions import OlmoConfigurationError
-from .initialization import init_weights
+from .initialization import ModuleType, init_weights
+from .torch_util import ensure_finite_
+from .util import pass_through_fn
 
 __all__ = [
     "LayerNormBase",
@@ -50,6 +67,19 @@ __all__ = [
 
 
 log = logging.getLogger(__name__)
+
+
+def activation_checkpoint_function(cfg: ModelConfig):
+    preserve_rng_state = (
+        (cfg.attention_dropout == 0.0) and (cfg.embedding_dropout == 0.0) and (cfg.residual_dropout == 0.0)
+    )
+    from torch.utils.checkpoint import checkpoint
+
+    return partial(
+        checkpoint,
+        preserve_rng_state=preserve_rng_state,
+        use_reentrant=False,
+    )
 
 
 class BufferCache(dict, MutableMapping[str, torch.Tensor]):
@@ -91,9 +121,7 @@ class LayerNormBase(nn.Module):
         self.config = config
         self.eps = eps
         self.normalized_shape = (size or config.d_model,)
-        if elementwise_affine is None:
-            elementwise_affine = self.config.layer_norm_with_affine
-        if elementwise_affine:
+        if elementwise_affine or (elementwise_affine is None and self.config.layer_norm_with_affine):
             self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
             use_bias = self.config.bias_for_layer_norm
             if use_bias is None:
@@ -117,25 +145,22 @@ class LayerNormBase(nn.Module):
         elif config.layer_norm_type == LayerNormType.low_precision:
             return LayerNorm(config, size=size, low_precision=True, **kwargs)
         elif config.layer_norm_type == LayerNormType.rms:
-            return RMSLayerNorm(config, size=size, low_precision=False, **kwargs)
-        elif config.layer_norm_type == LayerNormType.low_precision_rms:
-            return RMSLayerNorm(config, size=size, low_precision=True, **kwargs)
+            return RMSLayerNorm(config, size=size, **kwargs)
         elif config.layer_norm_type == LayerNormType.amd_compatible:
             return AMDLayerNorm(config, size=size, **kwargs)
         else:
-            raise NotImplementedError(f"Not sure how to handle '{config.layer_norm_type}' LayerNorm type")
+            raise NotImplementedError(f"Unknown LayerNorm type: '{config.layer_norm_type}'")
 
     def _cast_if_autocast_enabled(self, tensor: torch.Tensor, dtype: Optional[torch.dtype] = None) -> torch.Tensor:
-        if torch.is_autocast_enabled():
-            if dtype is None:
-                if tensor.device.type == "cuda":
-                    dtype = torch.get_autocast_gpu_dtype()
-                elif tensor.device.type == "cpu":
-                    dtype = torch.get_autocast_cpu_dtype()
-                else:
-                    raise NotImplementedError()
-            return tensor.to(dtype=dtype)
-        return tensor
+        # NOTE: `is_autocast_enabled()` only checks for CUDA autocast, so we use the separate function
+        # `is_autocast_cpu_enabled()` for CPU autocast.
+        # See https://github.com/pytorch/pytorch/issues/110966.
+        if tensor.device.type == "cuda" and torch.is_autocast_enabled():
+            return tensor.to(dtype=dtype if dtype is not None else torch.get_autocast_gpu_dtype())
+        elif tensor.device.type == "cpu" and torch.is_autocast_cpu_enabled():
+            return tensor.to(dtype=dtype if dtype is not None else torch.get_autocast_cpu_dtype())
+        else:
+            return tensor
 
     def reset_parameters(self):
         if self.weight is not None:
@@ -210,53 +235,33 @@ class AMDLayerNorm(LayerNormBase):
 
 class RMSLayerNorm(LayerNormBase):
     """
-    RMS layer norm, a simplified :class:`LayerNorm` implementation that can optionally run
-    in low-precision.
+    RMS layer norm, a simplified :class:`LayerNorm` implementation
     """
 
     def __init__(
         self,
         config: ModelConfig,
         size: Optional[int] = None,
-        low_precision: bool = False,
         elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-08,
+        eps: float = 1e-5,
     ):
         super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
-        self.low_precision = low_precision
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.low_precision:
-            module_device = x.device
-            downcast_x = self._cast_if_autocast_enabled(x)
-            downcast_weight = None if self.weight is None else self._cast_if_autocast_enabled(self.weight)
-            downcast_bias = (
-                None
-                if self.bias is None
-                else self._cast_if_autocast_enabled(self.bias)
-                if self.config.include_bias
-                else None
-            )
-            with torch.autocast(enabled=False, device_type=module_device.type):
-                return self.rms_norm(downcast_x, downcast_weight, downcast_bias)
-        else:
-            return self.rms_norm(x, self.weight, self.bias if self.config.include_bias else None)
+        with torch.autocast(enabled=False, device_type=x.device.type):
+            og_dtype = x.dtype
+            x = x.to(torch.float32)
+            variance = x.pow(2).mean(-1, keepdim=True)
+            x = x * torch.rsqrt(variance + self.eps)
+            x = x.to(og_dtype)
 
-    def rms_norm(
-        self, x: torch.Tensor, weight: Optional[torch.Tensor], bias: Optional[torch.Tensor]
-    ) -> torch.Tensor:
-        norm_x = x.norm(2, dim=-1, keepdim=True)
-
-        rms_x = norm_x * self.normalized_shape[0] ** (-1.0 / 2)
-        x_normed = x / (rms_x + self.eps)
-
-        if weight is not None:
-            if bias is not None:
-                return weight * x_normed + self.bias
+        if self.weight is not None:
+            if self.bias is not None:
+                return self.weight * x + self.bias
             else:
-                return weight * x_normed
+                return self.weight * x
         else:
-            return x_normed
+            return x
 
 
 class RotaryEmbedding(nn.Module):
@@ -304,14 +309,19 @@ class RotaryEmbedding(nn.Module):
         return torch.cat((-x2, x1), dim=-1)
 
     def apply_rotary_pos_emb(self, pos_sin: torch.Tensor, pos_cos: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-        out = (t * pos_cos) + (self.rotate_half(t) * pos_sin)
-        return out.to(t.dtype)
+        return ((t * pos_cos) + (self.rotate_half(t) * pos_sin)).to(t.dtype)
 
     def forward(self, q: torch.Tensor, k: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        q_, k_ = q.float(), k.float()
+        if self.config.rope_full_precision:
+            q_, k_ = q.float(), k.float()
+        else:
+            q_, k_ = q, k
+
         with torch.autocast(q.device.type, enabled=False):
             query_len, key_len = q_.shape[-2], k_.shape[-2]  # could be different if layer_past not None
             pos_sin, pos_cos = self.get_rotary_embedding(key_len, q_.device)
+            pos_sin = pos_sin.type_as(q_)
+            pos_cos = pos_cos.type_as(q_)
             q_ = self.apply_rotary_pos_emb(
                 pos_sin[:, :, key_len - query_len : key_len, :],
                 pos_cos[:, :, key_len - query_len : key_len, :],
@@ -344,7 +354,7 @@ class Activation(nn.Module):
         elif config.activation_type == ActivationType.swiglu:
             return SwiGLU(config)
         else:
-            raise NotImplementedError(f"not sure how to handle activation type '{config.activation_type}'")
+            raise NotImplementedError(f"Unknown activation: '{config.activation_type}'")
 
 
 class GELU(nn.GELU):
@@ -369,6 +379,42 @@ class SwiGLU(Activation):
         return 0.5
 
 
+def causal_attention_bias(seq_len: int, device: torch.device) -> torch.FloatTensor:
+    att_bias = torch.triu(
+        torch.ones(seq_len, seq_len, device=device, dtype=torch.float),
+        diagonal=1,
+    )
+    att_bias.masked_fill_(att_bias == 1, torch.finfo(att_bias.dtype).min)
+    return att_bias.view(1, 1, seq_len, seq_len)  # type: ignore
+
+
+def get_causal_attention_bias(cache: BufferCache, seq_len: int, device: torch.device) -> torch.Tensor:
+    if (causal_bias := cache.get("causal_attention_bias")) is not None and causal_bias.shape[-1] >= seq_len:
+        if causal_bias.device != device:
+            causal_bias = causal_bias.to(device)
+            cache["causal_attention_bias"] = causal_bias
+        return causal_bias
+    with torch.autocast(device.type, enabled=False):
+        causal_bias = causal_attention_bias(seq_len, device)
+    cache["causal_attention_bias"] = causal_bias
+    return causal_bias
+
+
+def alibi_attention_bias(seq_len: int, config: ModelConfig, device: torch.device) -> torch.FloatTensor:
+    alibi_bias = torch.arange(1 - seq_len, 1, dtype=torch.float, device=device).view(1, 1, 1, seq_len)
+
+    # shape: (1, 1, seq_len, seq_len)
+    alibi_bias = alibi_bias - torch.arange(1 - seq_len, 1, dtype=torch.float, device=device).view(1, 1, seq_len, 1)
+    alibi_bias.abs_().mul_(-1)
+
+    # shape: (n_heads,)
+    m = torch.arange(1, config.n_heads + 1, dtype=torch.float, device=device)
+    m.mul_(config.alibi_bias_max / config.n_heads)
+
+    # shape: (1, n_heads, seq_len, seq_len)
+    return alibi_bias * (1.0 / (2 ** m.view(1, config.n_heads, 1, 1)))  # type: ignore
+
+
 class OlmoBlock(nn.Module):
     """
     A base class for transformer block implementations.
@@ -383,6 +429,8 @@ class OlmoBlock(nn.Module):
         )
         self.__cache = cache
         assert config.d_model % config.n_heads == 0
+
+        self._activation_checkpoint_fn = pass_through_fn
 
         # Dropout.
         self.dropout = Dropout(config.residual_dropout)
@@ -430,28 +478,60 @@ class OlmoBlock(nn.Module):
             self.attn_out,
             d=self.config.d_model,
             layer_id=self.layer_id,
+            type_of_module=ModuleType.out_module,
         )
         init_weights(
             self.config,
             self.ff_out,
             d=self.ff_out.in_features,
             layer_id=self.layer_id,
+            type_of_module=ModuleType.out_module,
         )
+
+    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+        if strategy == ActivationCheckpointingStrategy.fine_grained:
+            self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
+        else:
+            self._activation_checkpoint_fn = pass_through_fn
 
     @classmethod
     def _cast_attn_bias(cls, bias: torch.Tensor, input_dtype: torch.dtype) -> torch.Tensor:
         target_dtype = input_dtype
-        if torch.is_autocast_enabled():
-            if bias.device.type == "cuda":
-                target_dtype = torch.get_autocast_gpu_dtype()
-            elif bias.device.type == "cpu":
-                target_dtype = torch.get_autocast_cpu_dtype()
-            else:
-                raise NotImplementedError()
+        # NOTE: `is_autocast_enabled()` only checks for CUDA autocast, so we use the separate function
+        # `is_autocast_cpu_enabled()` for CPU autocast.
+        # See https://github.com/pytorch/pytorch/issues/110966.
+        if bias.device.type == "cuda" and torch.is_autocast_enabled():
+            target_dtype = torch.get_autocast_gpu_dtype()
+        elif bias.device.type == "cpu" and torch.is_autocast_cpu_enabled():
+            target_dtype = torch.get_autocast_cpu_dtype()
         if bias.dtype != target_dtype:
             bias = bias.to(target_dtype)
-            bias.masked_fill_(bias == float("-inf"), torch.finfo(target_dtype).min)
+            ensure_finite_(bias, check_neg_inf=True, check_pos_inf=False)
         return bias
+
+    def _scaled_dot_product_attention(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        attn_mask: Optional[torch.Tensor] = None,
+        dropout_p: float = 0.0,
+        is_causal: bool = False,
+    ) -> torch.Tensor:
+        """
+        Computes scaled dot product attention on query, key and value tensors, using an optional
+        attention mask if passed, and applying dropout if a probability greater than 0.0 is specified.
+
+        This method is based on PyTorch's `scaled_dot_product_attention`.
+        """
+        return F.scaled_dot_product_attention(
+            q,
+            k,
+            v,
+            attn_mask=attn_mask,
+            dropout_p=dropout_p,
+            is_causal=is_causal,
+        )
 
     def attention(
         self,
@@ -489,11 +569,7 @@ class OlmoBlock(nn.Module):
             k = torch.cat((past_key, k), dim=-2)
             v = torch.cat((past_value, v), dim=-2)
 
-        if use_cache:
-            present = (k, v)
-        else:
-            present = None
-
+        present = (k, v) if use_cache else None
         query_len, key_len = q.shape[-2], k.shape[-2]  # could be different if layer_past not None
 
         if self.config.rope:
@@ -512,7 +588,7 @@ class OlmoBlock(nn.Module):
 
         # Get the attention scores.
         # shape: (B, nh, T, hs)
-        att = F.scaled_dot_product_attention(
+        att = self._scaled_dot_product_attention(
             q,
             k,
             v,
@@ -532,6 +608,8 @@ class OlmoBlock(nn.Module):
         self,
         x: torch.Tensor,
         attention_bias: Optional[torch.FloatTensor] = None,
+        layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        use_cache: bool = False,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         raise NotImplementedError
 
@@ -541,8 +619,10 @@ class OlmoBlock(nn.Module):
             return OlmoSequentialBlock(layer_id, config, cache)
         elif config.block_type == BlockType.parallel:
             return OlmoParallelBlock(layer_id, config, cache)
+        elif config.block_type == BlockType.llama:
+            return OlmoLlamaBlock(layer_id, config, cache)
         else:
-            raise NotImplementedError(f"not sure how to handle block type '{config.block_type}'")
+            raise NotImplementedError(f"Unknown block type: '{config.block_type}'")
 
 
 class OlmoSequentialBlock(OlmoBlock):
@@ -574,8 +654,12 @@ class OlmoSequentialBlock(OlmoBlock):
         self.attn_norm.reset_parameters()
         self.ff_norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
-        init_weights(self.config, self.att_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None)
+        init_weights(
+            self.config, self.att_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
+        )
+        init_weights(
+            self.config, self.ff_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
+        )
 
     def forward(
         self,
@@ -589,10 +673,12 @@ class OlmoSequentialBlock(OlmoBlock):
         #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
-        q, k, v = self.att_proj(self.attn_norm(x)).split(self.fused_dims, dim=-1)
+        q, k, v = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x)).split(self.fused_dims, dim=-1)
 
         # Get attention scores.
-        att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
+        att, cache = self._activation_checkpoint_fn(
+            self.attention, q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache
+        )
 
         # Add attention scores.
         # shape: (B, T, C)
@@ -600,7 +686,13 @@ class OlmoSequentialBlock(OlmoBlock):
 
         # Add feed-forward projection.
         # shape: (batch_size, seq_len, d_model)
-        x = x + self.dropout(self.ff_out(self.act(self.ff_proj(self.ff_norm(x)))))
+        og_x = x
+        x = self._activation_checkpoint_fn(self.ff_norm, x)
+        x = self.ff_proj(x)
+        x = self._activation_checkpoint_fn(self.act, x)
+        x = self.ff_out(x)
+        x = self.dropout(x)
+        x = og_x + x
 
         return x, cache
 
@@ -620,10 +712,9 @@ class OlmoParallelBlock(OlmoBlock):
         super().__init__(layer_id, config, cache)
         self.norm = LayerNorm.build(config)
         # Fused attention and feed-forward projection.
-        # NOTE: we could also fuse the attention and feed-forward output projections
-        # but we found that didn't help, possibly because of the overhead of joining the `att`
-        # and `ff` activations together.
-        # See https://github.com/allenai/LLM/pull/79 for details.
+        # NOTE: we could also fuse the attention and feed-forward output projections but we
+        # found that didn't help, possibly because of the overhead of joining the `att` and
+        # `ff` activations together. See https://github.com/allenai/LLM/pull/79 for details.
         if config.multi_query_attention:
             self.fused_dims = (
                 config.d_model,
@@ -641,7 +732,13 @@ class OlmoParallelBlock(OlmoBlock):
         super().reset_parameters()
         self.norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
-        init_weights(self.config, self.fused_attn_ff_proj, d=self.config.d_model, layer_id=None)
+        init_weights(
+            self.config,
+            self.fused_attn_ff_proj,
+            d=self.config.d_model,
+            layer_id=None,
+            type_of_module=ModuleType.in_module,
+        )
 
     def forward(
         self,
@@ -656,16 +753,135 @@ class OlmoParallelBlock(OlmoBlock):
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
         # shape of ff:      (batch_size, seq_len, hidden_size)
-        q, k, v, ff = self.fused_attn_ff_proj(self.norm(x)).split(self.fused_dims, dim=-1)
+        q, k, v, ff = self.fused_attn_ff_proj(self._activation_checkpoint_fn(self.norm, x)).split(
+            self.fused_dims, dim=-1
+        )
 
         # Get attention scores.
         # shape: (B, T, C)
-        att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
+        att, cache = self._activation_checkpoint_fn(
+            self.attention, q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache
+        )
 
         # Apply output projections (and activation function) and sum the results.
         # We keep these projections separate because we found that we got better throughput this
         # way compared to fusing them.
-        return x + self.dropout(self.ff_out(self.act(ff))) + self.dropout(att), cache
+        return (
+            x + self.dropout(self.ff_out(self._activation_checkpoint_fn(self.act, ff))) + self.dropout(att),
+            cache,
+        )
+
+
+class OlmoLlamaBlock(OlmoBlock):
+    """
+    This is a transformer block where the output is computed as ``MLP(LN(x + Attention(LN(x))))``
+    (plus another skip connection). This block is similar to `OlmoSequentialBlock`
+    but some operations have slightly different implementations to imitate the
+    behavior of Llama.
+    """
+
+    def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
+        super().__init__(layer_id, config, cache)
+        # Layer norms.
+        self.attn_norm = LayerNorm.build(config)
+        self.ff_norm = LayerNorm.build(config)
+        self.__cache = cache
+
+        # Attention input projection. Projects x -> (q, k, v)
+        if config.multi_query_attention:
+            q_proj_out_dim = config.d_model
+            k_proj_out_dim = config.d_model // config.n_heads
+            v_proj_out_dim = config.d_model // config.n_heads
+        else:
+            q_proj_out_dim = config.d_model
+            k_proj_out_dim = config.d_model
+            v_proj_out_dim = config.d_model
+        self.q_proj = nn.Linear(
+            config.d_model, q_proj_out_dim, bias=config.include_bias, device=config.init_device
+        )
+        self.k_proj = nn.Linear(
+            config.d_model, k_proj_out_dim, bias=config.include_bias, device=config.init_device
+        )
+        self.v_proj = nn.Linear(
+            config.d_model, v_proj_out_dim, bias=config.include_bias, device=config.init_device
+        )
+
+        # Feed-forward input projection.
+        self.ff_proj = nn.Linear(
+            config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device
+        )
+
+    def reset_parameters(self):
+        super().reset_parameters()
+        self.attn_norm.reset_parameters()
+        self.ff_norm.reset_parameters()
+        # NOTE: the standard deviation for these weights does not depend on the layer.
+        init_weights(self.config, self.q_proj, d=self.config.d_model, layer_id=None)
+        init_weights(self.config, self.k_proj, d=self.config.d_model, layer_id=None)
+        init_weights(self.config, self.v_proj, d=self.config.d_model, layer_id=None)
+        init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None)
+
+    def _scaled_dot_product_attention(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        attn_mask: Optional[torch.Tensor] = None,
+        dropout_p: float = 0.0,
+        is_causal: bool = False,
+    ) -> torch.Tensor:
+        attn_weights = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(q.size(-1))
+
+        if is_causal:
+            assert attn_mask is None
+
+            query_len, key_len = q.shape[-2], k.shape[-2]  # could be different if layer_past not None
+            attn_bias = get_causal_attention_bias(self.__cache, key_len, q.device)[:, :, :query_len, :key_len]
+        elif attn_mask is not None:
+            attn_bias = attn_mask.to(q.dtype)
+        else:
+            attn_bias = torch.zeros_like(attn_weights)
+
+        attn_weights += attn_bias
+        attn_weights = nn.functional.softmax(attn_weights, dim=-1).to(q.dtype)
+        attn_weights = nn.functional.dropout(attn_weights, p=dropout_p)
+        return torch.matmul(attn_weights, v)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        attention_bias: Optional[torch.Tensor] = None,
+        layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        use_cache: bool = False,
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
+        # Get query, key, value projections.
+        # shape:
+        #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
+        #  - for multi-query attn q: (batch_size, seq_len, d_model)
+        #                      k, v: (batch_size, seq_len, d_model // n_heads)
+        x_normed = self.attn_norm(x)
+        q = self.q_proj(x_normed)
+        k = self.k_proj(x_normed)
+        v = self.v_proj(x_normed)
+
+        # Get attention scores.
+        att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
+
+        # Add attention scores.
+        # shape: (B, T, C)
+        x = x + self.dropout(att)
+
+        # Add feed-forward projection.
+        # shape: (batch_size, seq_len, d_model)
+        og_x = x
+        x = self._activation_checkpoint_fn(self.ff_norm, x)
+        x = self.ff_proj(x)
+        x = self._activation_checkpoint_fn(self.act, x)
+        x = self.ff_out(x)
+        x = self.dropout(x)
+        x = og_x + x
+
+        return x, cache
 
 
 class OlmoOutput(NamedTuple):
@@ -694,28 +910,60 @@ class OlmoGenerateOutput(NamedTuple):
     """
 
 
-def causal_attention_bias(seq_len: int, device: torch.device) -> torch.FloatTensor:
-    att_bias = torch.triu(
-        torch.ones(seq_len, seq_len, device=device, dtype=torch.float),
-        diagonal=1,
-    )
-    att_bias.masked_fill_(att_bias == 1, torch.finfo(att_bias.dtype).min)
-    return att_bias.view(1, 1, seq_len, seq_len)  # type: ignore
+class OlmoBlockGroup(nn.ModuleList):
+    def __init__(self, config: ModelConfig, layer_offset: int, modules: Optional[Iterable[nn.Module]] = None):
+        super().__init__(modules)
+        self.config = config
+        self.layer_offset = layer_offset
+        self.activation_checkpointing_strategy: Optional[ActivationCheckpointingStrategy] = None
+        self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
 
+    def forward(
+        self,
+        x: torch.Tensor,
+        attention_bias: Optional[torch.FloatTensor] = None,
+        layers_past: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None,
+        use_cache: bool = False,
+    ) -> Tuple[torch.Tensor, Optional[List[Tuple[torch.Tensor, torch.Tensor]]]]:
+        attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
+        for block_idx, block in enumerate(self):
+            layer_past = None if layers_past is None else layers_past[block_idx]
+            block_idx += self.layer_offset
+            if (
+                (self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.whole_layer)
+                or (
+                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_two
+                    and block_idx % 2 == 0
+                )
+                or (
+                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_three
+                    and block_idx % 3 == 0
+                )
+                or (
+                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_four
+                    and block_idx % 4 == 0
+                )
+            ):
+                # shape: (batch_size, seq_len, d_model)
+                x, cache = self._activation_checkpoint_fn(
+                    block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+                )
+            else:
+                # shape: (batch_size, seq_len, d_model)
+                x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
+            if attn_key_values is not None:
+                assert cache is not None
+                attn_key_values.append(cache)
+        return x, attn_key_values
 
-def alibi_attention_bias(seq_len: int, config: ModelConfig, device: torch.device) -> torch.FloatTensor:
-    alibi_bias = torch.arange(1 - seq_len, 1, dtype=torch.float, device=device).view(1, 1, 1, seq_len)
+    def reset_parameters(self):
+        for block in self:
+            block.reset_parameters()
 
-    # shape: (1, 1, seq_len, seq_len)
-    alibi_bias = alibi_bias - torch.arange(1 - seq_len, 1, dtype=torch.float, device=device).view(1, 1, seq_len, 1)
-    alibi_bias.abs_().mul_(-1)
-
-    # shape: (n_heads,)
-    m = torch.arange(1, config.n_heads + 1, dtype=torch.float, device=device)
-    m.mul_(config.alibi_bias_max / config.n_heads)
-
-    # shape: (1, n_heads, seq_len, seq_len)
-    return alibi_bias * (1.0 / (2 ** m.view(1, config.n_heads, 1, 1)))  # type: ignore
+    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+        self.activation_checkpointing_strategy = strategy
+        for block in self:
+            block.set_activation_checkpointing(strategy)
 
 
 class Olmo(nn.Module):
@@ -741,6 +989,15 @@ class Olmo(nn.Module):
                     "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
                 )
 
+        self.activation_checkpointing_strategy: Optional[ActivationCheckpointingStrategy] = None
+        self._activation_checkpoint_fn: Callable = activation_checkpoint_function(self.config)
+
+        if not (
+            0 < self.config.block_group_size <= self.config.n_layers
+            and self.config.n_layers % self.config.block_group_size == 0
+        ):
+            raise OlmoConfigurationError("n layers must be divisible by block group size")
+
         torch.backends.cuda.enable_flash_sdp(self.config.flash_attention)
         torch.backends.cuda.enable_mem_efficient_sdp(False)  # this is super slow so make sure torch won't use it
 
@@ -750,10 +1007,20 @@ class Olmo(nn.Module):
                     config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
                 ),
                 emb_drop=Dropout(config.embedding_dropout),
-                blocks=nn.ModuleList([OlmoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]),
                 ln_f=LayerNorm.build(config),
             )
         )
+
+        blocks = [OlmoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
+        if self.config.block_group_size > 1:
+            block_groups = [
+                OlmoBlockGroup(config, i, blocks[i : i + config.block_group_size])
+                for i in range(0, config.n_layers, config.block_group_size)
+            ]
+            self.transformer.update({"block_groups": nn.ModuleList(block_groups)})
+        else:
+            self.transformer.update({"blocks": nn.ModuleList(blocks)})
+
         if not (self.config.alibi or self.config.rope):
             self.transformer.update(
                 {"wpe": nn.Embedding(config.max_sequence_length, config.d_model, device=config.init_device)}
@@ -776,8 +1043,20 @@ class Olmo(nn.Module):
 
         # Warm up cache.
         if self.config.alibi:
-            self.get_causal_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
+            get_causal_attention_bias(self.__cache, config.max_sequence_length, _non_meta_init_device(config))
             self.get_alibi_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
+
+    def enable_activation_checkpointing(self, enable: bool = True):
+        self.set_activation_checkpointing(ActivationCheckpointingStrategy.whole_layer if enable else None)
+
+    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+        self.activation_checkpointing_strategy = strategy
+        if self.config.block_group_size != 1:
+            for block_group in self.transformer.block_groups:
+                block_group.set_activation_checkpointing(strategy)
+        else:
+            for block in self.transformer.blocks:
+                block.set_activation_checkpointing(strategy)
 
     @property
     def device(self) -> torch.device:
@@ -794,33 +1073,25 @@ class Olmo(nn.Module):
             self.config,
             self.transformer.wte,  # type: ignore
             std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,
+            type_of_module=ModuleType.emb,
         )
         if hasattr(self.transformer, "wpe"):
-            init_weights(self.config, self.transformer.wpe)  # type: ignore
+            init_weights(self.config, self.transformer.wpe, type_of_module=ModuleType.emb)  # type: ignore
 
         # Top-level layer norm.
         self.transformer.ln_f.reset_parameters()  # type: ignore
 
         # Output weights.
         if hasattr(self.transformer, "ff_out"):
-            init_weights(self.config, self.transformer.ff_out)  # type: ignore
+            init_weights(self.config, self.transformer.ff_out, type_of_module=ModuleType.final_out)  # type: ignore
 
         # Let the blocks handle themselves.
-        for block in self.transformer.blocks:  # type: ignore
-            block.reset_parameters()  # type: ignore
-
-    def get_causal_attention_bias(self, seq_len: int, device: torch.device) -> torch.Tensor:
-        if (causal_bias := self.__cache.get("causal_attention_bias")) is not None and causal_bias.shape[
-            -1
-        ] >= seq_len:
-            if causal_bias.device != device:
-                causal_bias = causal_bias.to(device)
-                self.__cache["causal_attention_bias"] = causal_bias
-            return causal_bias
-        with torch.autocast(device.type, enabled=False):
-            causal_bias = causal_attention_bias(seq_len, device)
-        self.__cache["causal_attention_bias"] = causal_bias
-        return causal_bias
+        if self.config.block_group_size == 1:
+            for block in self.transformer.blocks:
+                block.reset_parameters()
+        else:
+            for block_group in self.transformer.block_groups:
+                block_group.reset_parameters()
 
     def get_alibi_attention_bias(self, seq_len: int, device: torch.device) -> torch.Tensor:
         if (alibi_bias := self.__cache.get("alibi_attention_bias")) is not None and alibi_bias.shape[
@@ -902,7 +1173,7 @@ class Olmo(nn.Module):
         # Transform the attention mask into what the blocks expect.
         if attention_mask is not None:
             # shape: (batch_size, 1, 1, seq_len)
-            attention_mask = attention_mask.to(dtype=x.dtype).view(batch_size, -1)[:, None, None, :]
+            attention_mask = attention_mask.to(dtype=torch.float).view(batch_size, -1)[:, None, None, :]
             attention_mask = (1.0 - attention_mask) * torch.finfo(attention_mask.dtype).min
 
         # Merge attention mask with attention bias.
@@ -916,13 +1187,13 @@ class Olmo(nn.Module):
             or past_key_values is not None
         ):
             if attention_bias is None and self.config.alibi:
-                attention_bias = self.get_causal_attention_bias(
-                    past_length + seq_len, x.device
+                attention_bias = get_causal_attention_bias(
+                    self.__cache, past_length + seq_len, x.device
                 ) + self.get_alibi_attention_bias(past_length + seq_len, x.device)
             elif attention_bias is None:
-                attention_bias = self.get_causal_attention_bias(past_length + seq_len, x.device)
+                attention_bias = get_causal_attention_bias(self.__cache, past_length + seq_len, x.device)
             elif attention_bias.dtype in (torch.int8, torch.bool):
-                attention_bias = attention_bias.to(dtype=x.dtype)
+                attention_bias = attention_bias.to(dtype=torch.float)
                 attention_bias.masked_fill_(attention_bias == 0.0, torch.finfo(attention_bias.dtype).min)
 
             # Transform to the right shape and data type.
@@ -931,7 +1202,7 @@ class Olmo(nn.Module):
                 mask_len = attention_mask.shape[-1]
             elif past_key_values is not None:
                 mask_len = past_key_values[0][0].shape[-2] + input_ids.shape[-1]
-            attention_bias = attention_bias[:, :, :mask_len, :mask_len].to(x.dtype)
+            attention_bias = attention_bias[:, :, :mask_len, :mask_len].to(dtype=torch.float)
 
             # Add in the masking bias.
             if attention_mask is not None:
@@ -939,20 +1210,54 @@ class Olmo(nn.Module):
                 # Might get -infs after adding attention mask, since dtype.min + dtype.min = -inf.
                 # `F.scaled_dot_product_attention()` doesn't handle -inf like you'd expect, instead
                 # it can produce NaNs.
-                attention_bias.masked_fill_(attention_bias == float("-inf"), torch.finfo(attention_bias.dtype).min)
+                ensure_finite_(attention_bias, check_neg_inf=True, check_pos_inf=False)
 
         attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
 
         # Apply blocks one-by-one.
-        for block, layer_past in zip(
-            self.transformer.blocks,  # type: ignore
-            past_key_values or [None] * self.config.n_layers,  # type: ignore
-        ):
-            # shape: (batch_size, seq_len, d_model)
-            x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
-            if attn_key_values is not None:
-                assert cache is not None
-                attn_key_values.append(cache)
+        if self.config.block_group_size == 1:
+            for block_idx, block in enumerate(self.transformer.blocks):
+                layer_past = None if past_key_values is None else past_key_values[block_idx]
+                if (
+                    (self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.whole_layer)
+                    or (
+                        self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_two
+                        and block_idx % 2 == 0
+                    )
+                    or (
+                        self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_three
+                        and block_idx % 3 == 0
+                    )
+                    or (
+                        self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_four
+                        and block_idx % 4 == 0
+                    )
+                ):
+                    # shape: (batch_size, seq_len, d_model)
+                    x, cache = self._activation_checkpoint_fn(
+                        block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+                    )
+                else:
+                    # shape: (batch_size, seq_len, d_model)
+                    x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
+                if attn_key_values is not None:
+                    assert cache is not None
+                    attn_key_values.append(cache)
+        else:
+            for group_idx, block_group in enumerate(self.transformer.block_groups):
+                layers_past = (
+                    None
+                    if past_key_values is None
+                    else past_key_values[
+                        group_idx * self.config.block_group_size : (group_idx + 1) * self.config.block_group_size
+                    ]
+                )
+                x, cache = block_group(
+                    x, attention_bias=attention_bias, layers_past=layers_past, use_cache=use_cache
+                )
+                if attn_key_values is not None:
+                    assert cache is not None
+                    attn_key_values.extend(cache)
 
         if last_logits_only:
             # shape: (batch_size, 1, d_model)
@@ -973,14 +1278,85 @@ class Olmo(nn.Module):
 
         return OlmoOutput(logits=logits, attn_key_values=attn_key_values)  # type: ignore[arg-type]
 
-    def fsdp_wrap_fn(self, module, recurse: bool = True, nonwrapped_numel: int = 0):
-        del nonwrapped_numel
-        if recurse:
-            return True  # always recurse
-        return isinstance(module, OlmoBlock)
+    def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
+        if wrap_strategy is None:
+            return None
+        if wrap_strategy == FSDPWrapStrategy.by_block:
 
-    def activation_checkpointing_fn(self, module):
-        return isinstance(module, OlmoBlock)
+            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+                del nonwrapped_numel
+                if recurse:
+                    return True  # always recurse for simplicity
+                return isinstance(module, OlmoBlock)
+
+            return fsdp_wrap_fn
+        elif wrap_strategy == FSDPWrapStrategy.by_block_and_size:
+
+            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+                del nonwrapped_numel
+                if recurse:
+                    # Determine if we should recurse.
+                    return not isinstance(module, OlmoBlock)
+                else:
+                    # Determine if we should wrap.
+                    return isinstance(module, (OlmoBlock, nn.Linear, nn.Embedding))
+
+            return fsdp_wrap_fn
+        elif wrap_strategy == FSDPWrapStrategy.by_block_group:
+            if self.config.block_group_size <= 1:
+                raise OlmoConfigurationError(
+                    "'by_block_group' FSDP wrapping strategy requires block group size greater than 1"
+                )
+
+            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+                del nonwrapped_numel
+                if recurse:
+                    return True  # always recurse for simplicity
+                return isinstance(module, OlmoBlockGroup)
+
+            return fsdp_wrap_fn
+        elif wrap_strategy == FSDPWrapStrategy.by_block_group_and_size:
+            if self.config.block_group_size <= 1:
+                raise OlmoConfigurationError(
+                    "'by_block_group_and_size' FSDP wrapping strategy requires block group size greater than 1"
+                )
+
+            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+                del nonwrapped_numel
+                if recurse:
+                    # Determine if we should recurse.
+                    return not isinstance(module, OlmoBlockGroup)
+                else:
+                    # Determine if we should wrap.
+                    return isinstance(module, (OlmoBlockGroup, nn.Linear, nn.Embedding))
+
+            return fsdp_wrap_fn
+        elif wrap_strategy == FSDPWrapStrategy.size_based:
+            from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
+
+            return size_based_auto_wrap_policy
+        elif wrap_strategy in {
+            FSDPWrapStrategy.one_in_two,
+            FSDPWrapStrategy.one_in_three,
+            FSDPWrapStrategy.one_in_four,
+            FSDPWrapStrategy.one_in_five,
+        }:
+            c = {
+                FSDPWrapStrategy.one_in_two: 2,
+                FSDPWrapStrategy.one_in_three: 3,
+                FSDPWrapStrategy.one_in_four: 4,
+                FSDPWrapStrategy.one_in_five: 5,
+            }[wrap_strategy]
+
+            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+                del nonwrapped_numel
+                if recurse:
+                    return True  # always recurse for simplicity
+                return isinstance(module, OlmoBlock) and module.layer_id % c == 0
+
+            return fsdp_wrap_fn
+        else:
+            raise NotImplementedError(wrap_strategy)
 
     def num_params(self, include_embedding: bool = True) -> int:
         """
@@ -1036,7 +1412,7 @@ class Olmo(nn.Module):
             `(batch_size, 1, seq_len + tokens_to_generate, seq_len + tokens_to_generate)`,
             the same as for the forward method except only one shape is excepted here.
 
-        For an explanation of the other arguments, see the :class:`BeamSearch` class.
+        For an explanation of the other arguments, see :class:`BeamSearch`.
         """
         beam_search = BeamSearch(
             self.config.eos_token_id,
@@ -1169,7 +1545,7 @@ class Olmo(nn.Module):
             # Load state dict directly to target device.
             state_dict_path = resource_path(checkpoint_dir, "model.pt")
             state_dict = torch.load(state_dict_path, map_location="cpu")
-            model.load_state_dict(model._make_state_dict_compatible(state_dict))
+            model.load_state_dict(model._make_state_dict_compatible(state_dict)[0])
             model = model.to(torch.device(device))
         else:
             from .checkpoint import load_model_state
@@ -1184,21 +1560,95 @@ class Olmo(nn.Module):
 
         return model.eval()
 
-    def _make_state_dict_compatible(self, state_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def _make_state_dict_compatible(
+        self, state_dict: Dict[str, torch.Tensor]
+    ) -> Tuple[Dict[str, torch.Tensor], Dict[str, Set[str]]]:
+        """
+        Handles some cases where the state dict is valid yet may need to be transformed in order to
+        be loaded.
+
+        This modifies the state dict in-place and also returns it, along with a mapping of original key
+        names to new key names in cases where the keys were simply renamed. That mapping can be used
+        to make a corresponding optimizer state dict compatible as well.
+        """
+        import re
+        from fnmatch import fnmatch
+
+        new_keys_to_og_keys: Dict[str, str] = {}
+
+        # Remove "_fsdp_wrapped_module." prefix from all keys. We don't want this prefix when the model is
+        # not wrapped in FSDP. And when the model is wrapped in FSDP, loading this state dict will still work
+        # fine without the prefixes. This also simplifies the other steps below.
+        for key in list(state_dict.keys()):
+            state_dict[(new_key := key.replace("_fsdp_wrapped_module.", ""))] = state_dict.pop(key)
+            new_keys_to_og_keys[new_key] = key
+
         # For backwards compatibility prior to fixing https://github.com/allenai/LLM/issues/222
-        prefix = ""
-        if next(iter(state_dict.keys())).startswith((fsdp_prefix := "_fsdp_wrapped_module.")):
-            prefix = fsdp_prefix
         if self.config.block_type == BlockType.sequential:
-            for block_idx in range(self.config.n_layers):
-                norm_w_key = f"{prefix}transformer.blocks.{block_idx}.norm.weight"
-                norm_b_key = f"{prefix}transformer.blocks.{block_idx}.norm.bias"
-                if norm_w_key in state_dict:
-                    norm_w = state_dict.pop(norm_w_key)
-                    state_dict[f"{prefix}transformer.blocks.{block_idx}.attn_norm.weight"] = norm_w
-                    state_dict[f"{prefix}transformer.blocks.{block_idx}.ff_norm.weight"] = norm_w.clone()
-                if norm_b_key in state_dict:
-                    norm_b = state_dict.pop(norm_b_key)
-                    state_dict[f"{prefix}transformer.blocks.{block_idx}.attn_norm.bias"] = norm_b
-                    state_dict[f"{prefix}transformer.blocks.{block_idx}.ff_norm.bias"] = norm_b.clone()
-        return state_dict
+            for key in list(state_dict.keys()):
+                if fnmatch(key, "transformer.*.norm.weight"):
+                    tensor = state_dict.pop(key)
+                    state_dict[(new_key := key.replace("norm.weight", "attn_norm.weight"))] = tensor
+                    new_keys_to_og_keys[new_key] = new_keys_to_og_keys[key]
+                    state_dict[(new_key := key.replace("norm.weight", "ff_norm.weight"))] = tensor.clone()
+                    new_keys_to_og_keys[new_key] = new_keys_to_og_keys[key]
+                    del new_keys_to_og_keys[key]
+                elif fnmatch(key, "transformer.*.norm.bias"):
+                    tensor = state_dict.pop(key)
+                    state_dict[(new_key := key.replace("norm.bias", "attn_norm.bias"))] = tensor
+                    new_keys_to_og_keys[new_key] = new_keys_to_og_keys[key]
+                    state_dict[(new_key := key.replace("norm.bias", "ff_norm.bias"))] = tensor.clone()
+                    new_keys_to_og_keys[new_key] = new_keys_to_og_keys[key]
+                    del new_keys_to_og_keys[key]
+
+        # For loading a state dict that was saved with a different `block_group_size`.
+        if "transformer.block_groups.0.0.attn_out.weight" in state_dict.keys():
+            state_dict_block_group_size = len(
+                [k for k in state_dict.keys() if fnmatch(k, "transformer.block_groups.0.*.attn_out.weight")]
+            )
+        else:
+            state_dict_block_group_size = 1
+        if self.config.block_group_size != state_dict_block_group_size:
+            log.info(
+                f"Regrouping state dict blocks from group size {state_dict_block_group_size} to "
+                f"group size {self.config.block_group_size}"
+            )
+            # For simplicity we're first going to flatten out the block groups in the state dict (if necessary)
+            # and then (re-)group them into the right block sizes.
+            if state_dict_block_group_size > 1:
+                for key in list(state_dict.keys()):
+                    if (m := re.match(r"transformer.block_groups\.(\d+)\.(\d+)\..*", key)) is not None:
+                        group_idx, group_block_idx = int(m.group(1)), int(m.group(2))
+                        block_idx = (group_idx * state_dict_block_group_size) + group_block_idx
+                        state_dict[
+                            (
+                                new_key := key.replace(
+                                    f"block_groups.{group_idx}.{group_block_idx}.", f"blocks.{block_idx}."
+                                )
+                            )
+                        ] = state_dict.pop(key)
+                        new_keys_to_og_keys[new_key] = new_keys_to_og_keys.pop(key)
+
+            if self.config.block_group_size > 1:
+                # Group the state dict blocks into the right block size.
+                for key in list(state_dict.keys()):
+                    if (m := re.match(r"transformer.blocks\.(\d+)\..*", key)) is not None:
+                        block_idx = int(m.group(1))
+                        group_idx, group_block_idx = (
+                            block_idx // self.config.block_group_size,
+                            block_idx % self.config.block_group_size,
+                        )
+                        state_dict[
+                            (
+                                new_key := key.replace(
+                                    f"blocks.{block_idx}.", f"block_groups.{group_idx}.{group_block_idx}."
+                                )
+                            )
+                        ] = state_dict.pop(key)
+                        new_keys_to_og_keys[new_key] = new_keys_to_og_keys.pop(key)
+
+        og_keys_to_new: Dict[str, Set[str]] = defaultdict(set)
+        for new_key, og_key in new_keys_to_og_keys.items():
+            og_keys_to_new[og_key].add(new_key)
+
+        return state_dict, og_keys_to_new
