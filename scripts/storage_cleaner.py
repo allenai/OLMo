@@ -602,7 +602,8 @@ class S3StorageAdapter(StorageAdapter):
                     upload_task = progress.add_task(f"Uploading {key}", total=size_in_bytes)
                     callback = partial(upload_callback, progress, upload_task)
 
-                    self._s3_client.upload_file(str(file_local_path), bucket_name, key, Callback=callback)
+                    if not self._is_file(bucket_name, key):
+                        self._s3_client.upload_file(str(file_local_path), bucket_name, key, Callback=callback)
 
         else:
             raise ValueError(f"Local source {local_src} does not correspond to a valid file or directory")
