@@ -1274,6 +1274,8 @@ def perform_operation(args: argparse.Namespace):
                 raise ValueError("Run path or dest dir not provided for moving run")
         else:
             raise NotImplementedError(args.op)
+
+        log.info("Operation completed successfully!")
     finally:
         if Path(temp_dir).is_dir():
             log.info("Deleting temp dir %s", temp_dir)
