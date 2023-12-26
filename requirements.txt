@@ -12,7 +12,7 @@ logzio-python-handler
 boto3
 google-cloud-storage
 packaging
-datasets
+datasets>=2.14.5
 scikit-learn
 smashed[remote]>=0.21.1
 msgspec>=0.14.0
