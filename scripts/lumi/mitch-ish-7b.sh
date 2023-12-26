@@ -64,4 +64,7 @@ srun \
       --fsdp.sharding_strategy=FULL_SHARD \
       --sharded_checkpointer=local \
       --wandb.name=v1_5-mix-mitch-ish-lumi \
-      --save_folder=${SCRATCH_DIR}/checkpoints/${SLURM_JOB_ID}
+      --save_interval=10000 \
+      --save_interval_ephemeral=1000 \
+      --remote_save_folder=s3://ai2-llm/checkpoints/7b/mitchish-lumi \
+      --save_folder=${FLASH_DIR}/checkpoints/mitchish-lumi
