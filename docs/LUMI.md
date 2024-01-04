@@ -94,7 +94,6 @@ export AWS_SECRET_ACCESS_KEY=YYYYYYY
 
 # Other API keys for logging and metric tracking.
 export WANDB_API_KEY=XXXXXXX
-export LOGZIO_TOKEN=XXXXXX  # find this in 1Password
 ```
 
 I `git clone` the repo directly into my home directory, and I'm running from there.
@@ -203,11 +202,11 @@ Thanks for reading all the way down here. Your reward is some first steps.
 3. Log into LUMI
 4. Set up your `~/.bashrc` the way I have it above. Log out and back in to make it take effect.
 5. `git clone` the OLMo repo.
-6. Edit `scripts/c4-small-on-lumi.sh`:
+6. Edit `scripts/lumi/c4-small-on-lumi.sh`:
    7. Set the maximum run time (`--time`) to 15 minutes.
    8. Set the `--partition` to `small-g`.
    9. Set `--nodes` to `2`.
-10. Kick off your first slurm job: `sbatch scripts/c4-small-on-lumi.sh` This will give you a slurm run id.
+10. Kick off your first slurm job: `sbatch scripts/lumi/c4-small-on-lumi.sh` This will give you a slurm run id.
 11. Look at the logs as they come in: `less $FLASH_DIR/logs/<jobid>.log`. Press `F` to "follow" the logs as they come in.
 12. Look at wandb. There will be a run whose name is the slurm job id. You can rename the run if you like.
 13. Run `squeue --me` and see your run in the list there.

@@ -35,17 +35,17 @@ from .eval import Evaluator
 from .exceptions import OlmoConfigurationError
 from .model import Olmo
 from .optim import Optimizer, Scheduler
-from .util import (
+from .torch_util import (
     barrier,
     get_fs_local_rank,
     get_global_rank,
     get_world_size,
     move_to_device,
     peak_gpu_memory,
-    syncronize_flag,
-    syncronize_value,
-    upload,
+    synchronize_flag,
+    synchronize_value,
 )
+from .util import upload
 
 __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
 
@@ -102,30 +102,49 @@ class Trainer:
     train_loader: DataLoader
     device: torch.device
     evaluators: List[Evaluator]
+    epoch: int = 0
     global_step: int = 0
-    global_data_step: int = 0
-    """This is now redundant since adding 'global_train_examples_seen'."""
-    global_train_examples_seen: int = 0
-    """Tracks the global number of training examples seen for the purpose of restoring the dataset
-    position on restarts."""
+    global_train_examples_seen_this_epoch: int = 0
+    """Tracks the global number of training examples seen in the current epoch for the purpose of restoring
+    the data loader position on restarts."""
     global_train_tokens_seen: int = 0
     """Tracks the global total number of tokens trained on."""
     checkpoints: List[Path] = field(default_factory=list)
     unsharded_checkpoints: List[Path] = field(default_factory=list)
+    ephemeral_checkpoints: List[Path] = field(default_factory=list)
     min_train_loss: float = float("inf")
     cur_train_loss: float = float("inf")
     indices_file: Optional[TextIO] = None
     _start_time: float = 0.0
 
+    @property
+    def max_steps(self) -> int:
+        if isinstance(self.cfg.max_duration, int):
+            return self.cfg.max_duration
+        elif isinstance(self.cfg.max_duration, str):
+            if self.cfg.max_duration.endswith("T"):
+                # convert to float *first* to handle scientific notation
+                max_tokens = int(float(self.cfg.max_duration[:-1].strip()))
+                tokens_remaining = max_tokens - self.global_train_tokens_seen
+                tokens_per_batch = self.cfg.global_train_batch_size * self.cfg.model.max_sequence_length
+                steps_remaining = tokens_remaining // tokens_per_batch
+                return self.global_step + steps_remaining
+            else:
+                # convert to float *first* to handle scientific notation
+                return int(float(self.cfg.max_duration))
+        else:
+            raise TypeError(f"expected int or str for 'max_duration', found {type(self.cfg.max_duration)}")
+
     def trainer_state_dict(self) -> Dict[str, Any]:
         return {
+            "epoch": self.epoch,
             "global_step": self.global_step,
-            "global_data_step": self.global_data_step,
-            "global_train_examples_seen": self.global_train_examples_seen,
+            "global_train_examples_seen_this_epoch": self.global_train_examples_seen_this_epoch,
             "global_train_tokens_seen": self.global_train_tokens_seen,
             "world_size": get_world_size(),
             "checkpoints": self.checkpoints,
             "unsharded_checkpoints": self.unsharded_checkpoints,
+            "ephemeral_checkpoints": self.ephemeral_checkpoints,
             "rng": {
                 "python": random.getstate(),
                 "numpy": np.random.get_state(),
@@ -146,47 +165,56 @@ class Trainer:
             for path in state_dict["unsharded_checkpoints"]
             if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
         ]
+        self.ephemeral_checkpoints = [
+            path
+            for path in state_dict.get("ephemeral_checkpoints", [])
+            if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
+        ]
 
         # Dataset / dataloader position.
+        checkpoint_epoch = state_dict.get("epoch", 0)
         self.global_step = state_dict["global_step"]
-        self.global_data_step = state_dict["global_data_step"]
-        self.global_train_examples_seen = state_dict.get(  # newer addition
-            "global_train_examples_seen", self.global_data_step * self.cfg.global_train_batch_size
+        self.global_train_examples_seen_this_epoch = state_dict.get(
+            "global_train_examples_seen_this_epoch",
+            state_dict.get(  # for backwards compatibility
+                "global_train_examples_seen",
+                state_dict.get("global_data_step", self.global_step) * self.cfg.global_train_batch_size,
+            ),
         )
-        self.global_train_tokens_seen = state_dict.get(  # newer addition
+        self.global_train_tokens_seen = state_dict.get(
             "global_train_tokens_seen",
-            self.global_data_step * self.cfg.global_train_batch_size * self.cfg.model.max_sequence_length,
+            state_dict.get("global_data_step", self.global_step)  # for backwards compatibility
+            * self.cfg.global_train_batch_size
+            * self.cfg.model.max_sequence_length,
         )
+
         if not self.cfg.restore_dataloader:
-            self.global_data_step = 0
-            self.global_train_examples_seen = 0
+            self.epoch = 0
             self.global_train_tokens_seen = 0
-        elif self.cfg.fast_forward_batches:
-            self.global_data_step += self.cfg.fast_forward_batches
+            self.global_train_examples_seen_this_epoch = 0
+        elif checkpoint_epoch != self.epoch:
+            log.info(f"Starting new epoch (epoch = {self.epoch})")
+            self.global_train_examples_seen_this_epoch = 0
+
+        if self.cfg.fast_forward_batches:
+            log.info(f"Fast-forwarding data loader by {self.cfg.fast_forward_batches:,d} steps")
             # Technically we don't "see" these batches that we fast-forward through, but we use
             # this variable to update the position of the dataset so we need to include them here.
-            self.global_train_examples_seen += self.cfg.fast_forward_batches * self.cfg.global_train_batch_size
+            self.global_train_examples_seen_this_epoch += (
+                self.cfg.fast_forward_batches * self.cfg.global_train_batch_size
+            )
             # NOTE: on the other hand we don't add anything to 'self.global_train_tokens_seen' here because
             # that variable is meant to track the actual number of tokens trained on.
 
-        if self.global_data_step > 0:
-            if self.global_data_step > self.global_step:
-                log.info(
-                    f"Fast-forwarding data loader to step {self.global_step:,d}+{self.global_data_step-self.global_step:,d} "
-                    f"({self.global_train_examples_seen:,d} examples)"
-                )
-            else:
-                log.info(
-                    f"Fast-forwarding data loader to step {self.global_data_step:,d} "
-                    f"({self.global_train_examples_seen:,d} examples)"
-                )
+        if self.global_train_examples_seen_this_epoch > 0:
             assert isinstance(self.train_loader.dataset, IterableDataset)
-            self.train_loader.dataset.start_index = self.global_train_examples_seen
+            log.info(f"Data loader will start at instance index {self.global_train_examples_seen_this_epoch:,d}")
+            self.train_loader.dataset.start_index = self.global_train_examples_seen_this_epoch
 
         # Reset learning rate and weight decay to the values from the config, not the checkpoint.
         log.info("Resetting learning rate...")
         new_learning_rate = self.scheduler.get_lr(
-            self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
+            self.cfg.optimizer.learning_rate, self.global_step, self.max_steps
         )
         for group in self.optim.param_groups:
             group["lr"] = new_learning_rate
@@ -225,6 +253,11 @@ class Trainer:
             current_checkpoints = self.unsharded_checkpoints
             link_latest = get_global_rank() == 0
             num_checkpoints_to_keep = self.cfg.save_num_unsharded_checkpoints_to_keep
+        elif checkpoint_type == CheckpointType.sharded_ephemeral:
+            suffix = ""
+            current_checkpoints = self.ephemeral_checkpoints
+            link_latest = get_fs_local_rank() == 0
+            num_checkpoints_to_keep = 1
         else:
             raise NotImplementedError(checkpoint_type)
 
@@ -285,8 +318,12 @@ class Trainer:
         checkpointer = build_sharded_checkpointer(self.cfg)
         return self._save_checkpoint(checkpointer, CheckpointType.sharded)
 
-    def remove_sharded_checkpoint(self, idx: int = 0):
-        oldest_checkpoint = self.checkpoints.pop(idx)
+    def save_ephemeral_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
+        checkpointer = build_sharded_checkpointer(self.cfg)
+        return self._save_checkpoint(checkpointer, CheckpointType.sharded_ephemeral)
+
+    def _remove_sharded_checkpoint(self, idx: int, checkpoints: List[Path]):
+        oldest_checkpoint = checkpoints.pop(idx)
         barrier()
         if get_fs_local_rank() == 0 and oldest_checkpoint.is_dir():
             shutil.rmtree(oldest_checkpoint, ignore_errors=True)
@@ -294,6 +331,12 @@ class Trainer:
             if latest_path.resolve() == oldest_checkpoint.resolve():
                 latest_path.unlink()
         barrier()
+
+    def remove_sharded_checkpoint(self, idx: int = 0):
+        self._remove_sharded_checkpoint(idx, self.checkpoints)
+
+    def remove_ephemeral_checkpoint(self, idx: int = 0):
+        self._remove_sharded_checkpoint(idx, self.ephemeral_checkpoints)
 
     def restore_sharded_checkpoint(
         self,
@@ -353,6 +396,8 @@ class Trainer:
             return self.save_sharded_checkpoint()
         elif checkpoint_type == CheckpointType.unsharded:
             return self.save_unsharded_checkpoint()
+        elif checkpoint_type == CheckpointType.sharded_ephemeral:
+            return self.save_ephemeral_checkpoint()
         else:
             raise NotImplementedError(checkpoint_type)
 
@@ -386,6 +431,8 @@ class Trainer:
             self.remove_sharded_checkpoint(idx=idx)
         elif checkpoint_type == CheckpointType.unsharded:
             self.remove_unsharded_checkpoint(idx=idx)
+        elif checkpoint_type == CheckpointType.sharded_ephemeral:
+            self.remove_ephemeral_checkpoint(idx=idx)
         else:
             raise NotImplementedError(checkpoint_type)
 
@@ -493,14 +540,12 @@ class Trainer:
             # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
             # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
             # the corresponding values from `self.cfg`.
-            group["lr"] = self.scheduler.get_lr(
-                self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
-            )
+            group["lr"] = self.scheduler.get_lr(self.cfg.optimizer.learning_rate, self.global_step, self.max_steps)
             group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
-                self.cfg.max_grad_norm, self.global_step, self.cfg.max_duration
+                self.cfg.max_grad_norm, self.global_step, self.max_steps
             )
             group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
-                self.cfg.max_grad_norm_ratio, self.global_step, self.cfg.max_duration
+                self.cfg.max_grad_norm_ratio, self.global_step, self.max_steps
             )
 
         # Optimizer step.
@@ -702,9 +747,9 @@ class Trainer:
                 except RequestException:
                     pass
 
-        run_canceled = syncronize_flag(should_cancel, self.device)
+        run_canceled = synchronize_flag(should_cancel, self.device)
         if run_canceled and cancel_reason is not None:
-            extra_steps = syncronize_value(extra_steps, self.device)
+            extra_steps = synchronize_value(extra_steps, self.device)
             if extra_steps > 0:
                 log.warning(f"Run canceled due to {cancel_reason}, stopping in {extra_steps} more steps...")
             else:
@@ -801,8 +846,7 @@ class Trainer:
                 assert batch_size == self.cfg.device_train_batch_size
                 global_batch_size = batch_size * get_world_size()  # assumes batch size equal across ranks
                 self.global_step += 1
-                self.global_data_step += 1
-                self.global_train_examples_seen += global_batch_size
+                self.global_train_examples_seen_this_epoch += global_batch_size
                 self.global_train_tokens_seen += global_batch_size * seq_len
                 speed_monitor.batch_start(
                     self.global_train_tokens_seen,
@@ -828,7 +872,7 @@ class Trainer:
 
                 # Log metrics to console.
                 if self.global_step % self.cfg.console_log_interval == 0:
-                    self.log_metrics_to_console(f"[step={self.global_step}/{self.cfg.max_duration}]", metrics)
+                    self.log_metrics_to_console(f"[step={self.global_step}/{self.max_steps}]", metrics)
 
                 # Log metrics to W&B.
                 if (
@@ -860,6 +904,20 @@ class Trainer:
                 ):
                     log.info("Saving checkpoint...")
                     checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
+                    log.info(f"Checkpoint saved to {checkpoint_path}")
+
+                    # Remove any ephemeral checkpoints.
+                    while self.ephemeral_checkpoints:
+                        self.remove_ephemeral_checkpoint()
+
+                    # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                    speed_monitor.reset()
+                elif (
+                    self.cfg.save_interval_ephemeral is not None
+                    and self.global_step % self.cfg.save_interval_ephemeral == 0
+                ):
+                    log.info("Saving ephemeral checkpoint...")
+                    checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded_ephemeral)
                     log.info(f"Checkpoint saved to {checkpoint_path}")
 
                     # Reset speed monitor so that we don't count the time taken to save checkpoints.
@@ -917,11 +975,16 @@ class Trainer:
             else:
                 log.info("Training loop complete")
 
-        # Save final unsharded model-only checkpoint.
-        if save_checkpoints and self.cfg.save_interval_unsharded is not None:
-            log.info("Saving final unsharded model checkpoint...")
-            checkpoint_path, _ = self.save_checkpoint(CheckpointType.unsharded)
-            log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
+        # Save final checkpoint.
+        if save_checkpoints:
+            if self.cfg.save_interval_unsharded is not None:
+                log.info("Saving final unsharded model checkpoint...")
+                checkpoint_path, _ = self.save_checkpoint(CheckpointType.unsharded)
+                log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
+            elif self.cfg.save_num_checkpoints_to_keep != 0:
+                log.info("Saving final checkpoint...")
+                checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
+                log.info(f"Checkpoint saved to {checkpoint_path}")
 
     def close(self, exit_code: int = 0) -> None:
         if self.indices_file is not None:

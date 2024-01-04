@@ -17,6 +17,7 @@ from typing import (
 )
 
 import torch
+from omegaconf import DictConfig, ListConfig
 from omegaconf import OmegaConf as om
 from omegaconf.errors import OmegaConfBaseException
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
@@ -54,6 +55,7 @@ __all__ = [
 ]
 
 C = TypeVar("C", bound="BaseConfig")
+D = TypeVar("D", bound="DictConfig|ListConfig")
 
 
 class BaseConfig:
@@ -99,6 +101,13 @@ class BaseConfig:
         om.register_new_resolver("path.last_checkpoint", path_last_checkpoint, replace=True)
 
     @classmethod
+    def update_legacy_settings(cls, config: D) -> D:
+        """
+        Update the legacy config settings whose schemas have undergone backwards-incompatible changes.
+        """
+        return config
+
+    @classmethod
     def new(cls: Type[C], **kwargs) -> C:
         cls._register_resolvers()
         conf = om.structured(cls)
@@ -124,6 +133,7 @@ class BaseConfig:
             raw = om.load(str(path))
             if key is not None:
                 raw = raw[key]  # type: ignore
+            raw = cls.update_legacy_settings(raw)
             conf = om.merge(schema, raw)
             if overrides:
                 conf = om.merge(conf, om.from_dotlist(overrides))
@@ -448,12 +458,26 @@ class OptimizerConfig(BaseConfig):
     def __post_init__(self):
         self.betas = tuple(self.betas)  # type: ignore[assignment]
 
+    @classmethod
+    def update_legacy_settings(cls, config: D) -> D:
+        new_config = config.copy()
+        if om.is_dict(new_config):
+            assert isinstance(new_config, DictConfig)
+
+            if hasattr(new_config, "name") and new_config.name == "decoupled_lionw":
+                new_config.name = "lionw"
+                if hasattr(new_config, "eps"):
+                    del new_config.eps
+
+        return new_config
+
 
 class SchedulerType(StrEnum):
     cosine_with_warmup = "cosine_with_warmup"
     linear_with_warmup = "linear_with_warmup"
     inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
     max_scheduler = "max_scheduler"
+    constant = "constant"
 
 
 @dataclass
@@ -626,6 +650,7 @@ class FSDPConfig(BaseConfig):
 class CheckpointType(StrEnum):
     sharded = "sharded"
     unsharded = "unsharded"
+    sharded_ephemeral = "sharded_ephemeral"
 
 
 class ShardedCheckpointerType(StrEnum):
@@ -656,6 +681,11 @@ class TrainConfig(BaseConfig):
     seed: int = 6198
     """
     Used to seed all initial RNG states.
+    """
+
+    epoch: int = 0
+    """
+    Increment this when starting a new epoch.
     """
 
     dry_run: bool = False
@@ -728,19 +758,31 @@ class TrainConfig(BaseConfig):
 
     save_interval: int = 1000
     """
-    How often (in terms of batches) to save training state checkpoints that can be used for restarts.
+    How often (in terms of steps) to save sharded training state checkpoints.
     """
 
     save_interval_unsharded: Optional[int] = None
     """
-    How often (if at all) to save the unsharded state to a single file.
+    How often (if at all) to save unsharded training state checkpoint.
     For large models it can be costly to save these, so it usually makes sense to save
     these less often than regular (sharded) training checkpoints.
     """
 
+    save_interval_ephemeral: Optional[int] = None
+    """
+    How often (if at all) to save ephemeral sharded checkpoints. These checkpoints are the same
+    as those saved every `save_interval` except that at most only the most recent one of these is kept.
+    This is useful when you want to checkpoint often for restarts in case of failures, but don't
+    want to keep the majority of these checkpoints.
+
+    For example, suppose you want to keep your checkpoints at every 1000 steps, but you also want to save
+    a temporary checkpoint every 100 steps in case your job fails. In that case you would
+    set `save_interval=1000` and `save_interval_ephemeral=100`.
+    """
+
     save_num_checkpoints_to_keep: int = -1
     """
-    How many checkpoints to keep.
+    How many sharded checkpoints to keep.
     """
 
     save_num_unsharded_checkpoints_to_keep: int = -1
@@ -800,9 +842,13 @@ class TrainConfig(BaseConfig):
     Deprecated. Use ``sharded_checkpointer`` instead.
     """
 
-    max_duration: int = 10000
+    max_duration: Union[int, str] = 10000
     """
-    Maximum number of batches to train for.
+    How long to train for.
+
+    If specified without a unit (the default), the units are assumed to be steps.
+    You can also specify this in terms of tokens, for example: `max_duration="2e12T"` means train until
+    2 trillion tokens.
     """
 
     global_train_batch_size: int = 512
@@ -956,3 +1002,20 @@ class TrainConfig(BaseConfig):
             )
         else:
             raise NotImplementedError(f"{self.fsdp.precision}")
+
+    @classmethod
+    def update_legacy_settings(cls, config: D) -> D:
+        new_config = config.copy()
+        if om.is_dict(new_config):
+            assert isinstance(new_config, DictConfig)
+
+            if hasattr(new_config, "activation_checkpointing"):
+                if new_config.activation_checkpointing is False:
+                    new_config.activation_checkpointing = None
+                if new_config.activation_checkpointing is True:
+                    new_config.activation_checkpointing = ActivationCheckpointingStrategy.whole_layer
+
+            if hasattr(new_config, "optimizer"):
+                new_config.optimizer = OptimizerConfig.update_legacy_settings(new_config.optimizer)
+
+        return new_config
