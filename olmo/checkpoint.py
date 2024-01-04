@@ -36,7 +36,6 @@ from torch.distributed.fsdp.api import (
 )
 from torch.distributed.fsdp.flat_param import FlatParamHandle
 from torch.futures import Future
-from torch import nn
 
 from .aliases import PathOrStr
 from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
