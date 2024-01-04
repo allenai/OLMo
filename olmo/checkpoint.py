@@ -41,12 +41,7 @@ from .aliases import PathOrStr
 from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
 from .optim import Optimizer, fix_optim_state_dict
 from .safetensors_util import safetensors_file_to_state_dict
-from .torch_util import (
-    barrier,
-    get_fs_local_rank,
-    get_global_rank,
-    get_world_size,
-)
+from .torch_util import barrier, get_fs_local_rank, get_global_rank, get_world_size
 from .util import (
     default_thread_count,
     dir_is_empty,
