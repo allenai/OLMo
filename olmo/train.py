@@ -828,7 +828,6 @@ class Trainer:
         # Train.
         first_batch: bool = True
         cancel_initiated: bool = False
-        canceled: bool = False
         stop_at: Optional[int] = self.cfg.stop_at
         save_checkpoints: bool = True
 
@@ -885,14 +884,12 @@ class Trainer:
                 # Check if/when run should be canceled.
                 if not cancel_initiated and self.global_step % self.cfg.canceled_check_interval == 0:
                     cancel_initiated, extra_steps = self.check_if_cancelled()
-                    stop_at = (
-                        self.global_step + extra_steps
-                        if stop_at is None
-                        else min(self.global_step + extra_steps, stop_at)
-                    )
-
-                if stop_at is not None and self.global_step >= stop_at:
-                    canceled = True
+                    if cancel_initiated:
+                        stop_at = (
+                            self.global_step + extra_steps
+                            if stop_at is None
+                            else min(self.global_step + extra_steps, stop_at)
+                        )
 
                 # Maybe save sharded checkpoint.
                 if save_checkpoints and (
@@ -912,6 +909,10 @@ class Trainer:
 
                     # Reset speed monitor so that we don't count the time taken to save checkpoints.
                     speed_monitor.reset()
+
+                    # If the run was just canceled this will be the final checkpoint.
+                    if cancel_initiated:
+                        save_checkpoints = False
                 elif (
                     self.cfg.save_interval_ephemeral is not None
                     and self.global_step % self.cfg.save_interval_ephemeral == 0
@@ -922,10 +923,6 @@ class Trainer:
 
                     # Reset speed monitor so that we don't count the time taken to save checkpoints.
                     speed_monitor.reset()
-
-                    # If the run was just canceled this will be the final checkpoint.
-                    if cancel_initiated:
-                        save_checkpoints = False
 
                 # Maybe save unsharded checkpoint.
                 if (
@@ -960,7 +957,7 @@ class Trainer:
                 if p is not None:
                     p.step()
 
-                if canceled:
+                if stop_at is not None and self.global_step >= stop_at:
                     break
 
                 # Python Profiler stuff
