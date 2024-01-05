@@ -27,18 +27,26 @@ export CHECKPOINTS_PATH=/n/home06/dgroeneveld/checkpoints
 export PYTORCH_KERNEL_CACHE_PATH=/tmp/pytorch_kernel_cache/
 mkdir -p $PYTORCH_KERNEL_CACHE_PATH
 
+LOAD_PATH=s3://ai2-llm/checkpoints/7b/v1_5-mix-mitch-ish/step556000-unsharded
+# SAVE_PATH=s3://ai2-llm/checkpoints/7b/v1_5-mix-mitch-ish-final-tulu
+
 srun \
-  --cpus-per-task=$SLURM_CPUS_PER_TASK \
+  "--cpus-per-task=$SLURM_CPUS_PER_TASK" \
   --distribution=block:block \
   --kill-on-bad-exit \
   scripts/run_with_environment.sh \
-    $HOME/miniconda3/envs/LLM/bin/python -u scripts/train.py configs/v1_5-mix-medium-mitch-ish.yaml \
-      --run_name=kempner_${SLURM_JOB_ID} \
-      --wandb.name=v1_5-mix-mitch-ish-kempner \
-      --fsdp.wrapping_strategy=size_based \
-      --compile='{}' \
-      --model.flash_attention=true \
-      --device_train_microbatch_size=1 \
+    $HOME/miniconda3/envs/LLM/bin/python -u scripts/train.py configs/v1_5-mix-medium-mitch-ish-s3.yaml \
+      "--run_name=kempner_${SLURM_JOB_ID}" \
+      --wandb.name=v1_5-mix-mitch-ish-final-tulu \
+      '--data.paths=[s3://ai2-llm/preprocessed/tulu-v2-sft-mixture/gpt-neox-20b-pii-special/data.npy,s3://ai2-llm/preprocessed/olmo-mix/v1_5-sample-9B/gpt-neox-20b-pii-special/data.npy]' \
+      --eval_interval=100 \
+      --save_interval=500 \
+      "--load_path=${LOAD_PATH}" \
+      --restore_dataloader=false \
+      --optimizer.learning_rate=0.000023 \
+      --scheduler.t_warmup=556000 \
+      --scheduler.alpha_f=0.001 \
+      --scheduler.t_max=558223 \
+      --stop_at=558223 \
       --time_limit=$((167 * 60 * 60)) \
-      --save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/ \
-      ${@}
+      "--save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/"

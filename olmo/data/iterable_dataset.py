@@ -13,7 +13,6 @@ from ..util import roundrobin, threaded_generator
 
 __all__ = ["IterableDataset"]
 
-
 log = logging.getLogger(__name__)
 
 
