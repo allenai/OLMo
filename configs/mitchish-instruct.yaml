@@ -37,7 +37,8 @@ model:
   init_device: meta
   init_fn: mitchell
 
-compile: null
+compile:
+  fullgraph: false
 
 optimizer:
   name: adamw
