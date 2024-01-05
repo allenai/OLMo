@@ -37,6 +37,8 @@ def build_memmap_dataset(
         chunk_size=train_config.model.max_sequence_length,
         metadata=metadata,
         include_instance_metadata=include_instance_metadata,
+        pad_token_id=train_config.model.pad_token_id,
+        generate_attention_mask=data_config.generate_attention_mask,
     )
 
 
