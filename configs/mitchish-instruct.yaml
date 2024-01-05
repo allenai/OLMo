@@ -45,7 +45,7 @@ optimizer:
   weight_decay: 0.0
   betas:
   - 0.9
-  - 0.95
+  - 0.999
   metrics_log_interval: 10
 
 scheduler:
