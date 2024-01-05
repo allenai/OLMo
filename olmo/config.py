@@ -833,6 +833,11 @@ class TrainConfig(BaseConfig):
     curve (according to the current learning rate schedule settings), and continues from there.
     """
 
+    reset_trainer_state: bool = False
+    """
+    When this is set we don't restore the trainer state from a checkpoint.
+    """
+
     sharded_checkpointer: ShardedCheckpointerType = ShardedCheckpointerType.torch_legacy
     """
     The name of the sharded checkpointer to use to save (sharded) checkpoints throughout training.

@@ -363,6 +363,7 @@ class Trainer:
         local_cache: Optional[PathOrStr] = None,
         *,
         load_optimizer_state: bool = True,
+        load_trainer_state: bool = True,
         sharded_checkpointer: Optional[ShardedCheckpointerType] = None,
     ):
         # Zero-gradients to avoid gathering them.
@@ -375,7 +376,8 @@ class Trainer:
             local_cache=local_cache,
             load_optimizer_state=load_optimizer_state,
         )
-        self.load_trainer_state_dict(trainer_state)
+        if load_trainer_state:
+            self.load_trainer_state_dict(trainer_state)
         barrier()
 
     def save_unsharded_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
@@ -393,7 +395,12 @@ class Trainer:
         barrier()
 
     def restore_unsharded_checkpoint(
-        self, load_path: PathOrStr, local_cache: Optional[PathOrStr] = None, *, load_optimizer_state: bool = True
+        self,
+        load_path: PathOrStr,
+        local_cache: Optional[PathOrStr] = None,
+        *,
+        load_optimizer_state: bool = True,
+        load_trainer_state: bool = True,
     ):
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
@@ -405,7 +412,8 @@ class Trainer:
             local_cache=local_cache,
             load_optimizer_state=load_optimizer_state,
         )
-        self.load_trainer_state_dict(trainer_state)
+        if load_trainer_state:
+            self.load_trainer_state_dict(trainer_state)
         barrier()
 
     def save_checkpoint(
@@ -427,19 +435,24 @@ class Trainer:
         checkpoint_type: Optional[CheckpointType] = None,
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
+        load_trainer_state: bool = True,
         sharded_checkpointer: Optional[ShardedCheckpointerType] = None,
     ):
         if checkpoint_type == CheckpointType.unsharded or (
             checkpoint_type is None and str(load_path).rstrip("/").endswith("-unsharded")
         ):
             self.restore_unsharded_checkpoint(
-                load_path, local_cache=local_cache, load_optimizer_state=load_optimizer_state
+                load_path,
+                local_cache=local_cache,
+                load_optimizer_state=load_optimizer_state,
+                load_trainer_state=load_trainer_state,
             )
         elif checkpoint_type == CheckpointType.sharded or checkpoint_type is None:
             self.restore_sharded_checkpoint(
                 load_path,
                 local_cache=local_cache,
                 load_optimizer_state=load_optimizer_state,
+                load_trainer_state=load_trainer_state,
                 sharded_checkpointer=sharded_checkpointer,
             )
         elif checkpoint_type is not None:
