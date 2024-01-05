@@ -40,14 +40,8 @@ from torch.futures import Future
 from .aliases import PathOrStr
 from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
 from .optim import Optimizer, fix_optim_state_dict
-from .torch_util import (
-    barrier,
-    get_fs_local_rank,
-    get_global_rank,
-    get_local_rank,
-    get_local_world_size,
-    get_world_size,
-)
+from .safetensors_util import safetensors_file_to_state_dict
+from .torch_util import barrier, get_fs_local_rank, get_global_rank, get_world_size
 from .util import (
     default_thread_count,
     dir_is_empty,
@@ -272,9 +266,14 @@ def load_state_dict(
 
     :raises FileNotFoundError: If ``fname`` doesn't exist in the ``checkpoint_dir`` or the local cache.
     """
-    return torch.load(
-        resource_path(str(checkpoint_dir).rstrip("/"), fname, local_cache=local_cache), map_location=map_location
-    )
+    path = resource_path(str(checkpoint_dir).rstrip("/"), fname, local_cache=local_cache)
+
+    if path.suffix == ".pt":
+        safetensors_path = path.with_suffix(".safetensors")
+        if safetensors_path.is_file():
+            return safetensors_file_to_state_dict(safetensors_path, map_location=map_location)
+
+    return torch.load(path, map_location=map_location)
 
 
 def load_model_state(checkpoint_dir: PathOrStr, model: torch.nn.Module):
@@ -611,32 +610,64 @@ class FullCheckpointer(Checkpointer):
         with FSDP.state_dict_type(
             fsdp_model,
             state_dict_type=StateDictType.FULL_STATE_DICT,
-            state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
+            state_dict_config=FullStateDictConfig(rank0_only=False, offload_to_cpu=True),
             optim_state_dict_config=FullOptimStateDictConfig(rank0_only=False, offload_to_cpu=True),
         ):
-            # Load model state.
-            log.info("Loading model state...")
-            state_dict_to_load, og_keys_to_new = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(
-                load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location="cpu")
-            )
-            fsdp_model.load_state_dict(state_dict_to_load)
-            del state_dict_to_load
+            with torch.no_grad():
+                # fill everything with NaN, so we can check afterwards that every parameter has been restored
+                for module_name, module in fsdp_model.named_modules():
+                    if not isinstance(module, FSDP):
+                        continue
+                    for param in module.params:
+                        param.fill_(torch.nan)
+
+                # restore params from checkpoint
+                state_dict_to_load = load_state_dict(
+                    load_path, "model.pt", local_cache=local_cache, map_location="cpu"
+                )
+                (
+                    state_dict_to_load,
+                    og_keys_to_new,
+                ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(state_dict_to_load)
+
+                for module_name, module in fsdp_model.named_modules():
+                    if not isinstance(module, FSDP):
+                        continue
+                    for param in module.params:
+                        assert param._is_flat_param
+                        for fqn, spi in zip(param._fqns, param._shard_param_infos):
+                            if not spi.in_shard:
+                                continue
+                            key = f"{module_name}.{fqn}"
+                            key = key.replace("_fsdp_wrapped_module.", "")
+                            key = key.lstrip(".")
+                            t = state_dict_to_load[key]
+                            t = t.flatten()
+                            param[spi.offset_in_shard : spi.offset_in_shard + spi.numel_in_shard].copy_(
+                                t[spi.intra_param_start_idx : spi.intra_param_end_idx + 1]
+                            )
+
+                # make sure that every parameter has been restored
+                for module_name, module in fsdp_model.named_modules():
+                    if not isinstance(module, FSDP):
+                        continue
+                    for param in module.params:
+                        if torch.isnan(param).any():
+                            raise ValueError(
+                                f"Module '{module_name}' contains NaNs, this is likely a bug restoring from full checkpoints"
+                            )
 
             # Load optimizer state.
             if load_optimizer_state:
-                gc.collect()
-                for turn in range(get_local_world_size()):
-                    log.info("Loading optimizer state turn %d ...", turn)
-                    if turn == get_local_rank():
-                        optim_state_dict_to_load = self._make_optim_state_dict_compatible(
-                            load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location="cpu"),
-                            og_keys_to_new,
-                        )
-                        load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
-                        del optim_state_dict_to_load
-                        gc.collect()
-                        torch.cuda.empty_cache()
-                    barrier()
+                optim_state_dict_to_load = load_state_dict(
+                    load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
+                )
+                optim_state_dict_to_load = self._make_optim_state_dict_compatible(
+                    optim_state_dict_to_load,
+                    og_keys_to_new,
+                )
+                load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
+                del optim_state_dict_to_load
 
             # Load other state.
             try:
