@@ -59,7 +59,7 @@ scheduler:
   alpha_f: 0.1
 
 data:
-  paths: ${path.glob:${oc.env:DATA_PATH}/v1_5-sample/gpt-neox-20b-pii-special/*/*.npy}
+  paths: ${path.glob:${oc.env:DATA_PATH}/v1_5-sample/gpt-neox-20b-pii-special/*.npy}
   pad_direction: right
   num_workers: 0
   drop_last: true
