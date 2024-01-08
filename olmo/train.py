@@ -33,13 +33,14 @@ from .config import (
 from .data import IterableDataset
 from .eval import Evaluator
 from .exceptions import OlmoConfigurationError
-from .model import Olmo
+from .model import Olmo, OlmoBlock, RotaryEmbedding
 from .optim import Optimizer, Scheduler
 from .torch_util import (
     barrier,
     get_fs_local_rank,
     get_global_rank,
     get_world_size,
+    is_distributed,
     move_to_device,
     peak_gpu_memory,
     synchronize_flag,
@@ -116,6 +117,7 @@ class Trainer:
     cur_train_loss: float = float("inf")
     indices_file: Optional[TextIO] = None
     _start_time: float = 0.0
+    _activation_metrics: Optional[Dict[str, torch.Tensor]] = None
 
     @property
     def max_steps(self) -> int:
@@ -535,6 +537,9 @@ class Trainer:
             self.global_step, collect_param_metrics=should_log_optim_metrics_this_step
         )
 
+        # Maybe collect activation metrics.
+        activation_metrics = self._collect_activation_metrics()
+
         # Adjust the learning rate.
         for group in self.optim.param_groups:
             # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
@@ -559,6 +564,8 @@ class Trainer:
             raise ValueError("nan loss encountered")
         for key, value in optim_metrics.items():
             metrics[f"optim/{key}"] = value.item()
+        for key, value in activation_metrics.items():
+            metrics[f"activation/{key}"] = value.item()
         self.cur_train_loss = ce_batch_loss.item()
         self.min_train_loss = min(self.min_train_loss, self.cur_train_loss)
         metrics["train/CrossEntropyLoss"] = self.cur_train_loss
@@ -645,7 +652,8 @@ class Trainer:
                 [
                     f"    {name}={format_float(value)}"
                     for name, value in metrics.items()
-                    if not name.startswith("optim/")  # there's too many optimizer metrics
+                    # there's too many optimizer and activation metrics
+                    if not name.startswith("optim/") and not name.startswith("activation/")
                 ]
             )
         )
@@ -757,8 +765,129 @@ class Trainer:
 
         return run_canceled, extra_steps
 
+    def should_log_activations_this_step(self) -> bool:
+        if self.cfg.wandb is None:
+            return False
+        activation_log_interval = self.cfg.activation_log_interval
+        if activation_log_interval is None:
+            activation_log_interval = self.cfg.wandb.log_interval
+        else:
+            activation_log_interval = max(activation_log_interval, self.cfg.wandb.log_interval)
+        return self.global_step % activation_log_interval == 0
+
+    def get_activation_hook(self, module_name: str):
+        module_name = module_name.replace("_fsdp_wrapped_module.", "")
+
+        @torch.no_grad()
+        def activation_hook(module: torch.nn.Module, _, output):
+            prefix = module_name
+            if not self.should_log_activations_this_step():
+                return
+            if self._activation_metrics is None:
+                self._activation_metrics = {}
+            if isinstance(module, OlmoBlock):
+                activation = output[0]
+            elif isinstance(module, Olmo):
+                activation = output.logits
+                if prefix:
+                    prefix += ".logits"
+                else:
+                    prefix = "logits"
+            else:
+                activation = output
+            assert isinstance(
+                activation, torch.Tensor
+            ), f"Not sure how to deal with {module} output of type {type(output)}"
+            activation_abs = activation.abs()
+            self._activation_metrics.update(
+                {
+                    f"{prefix}.norm": torch.linalg.vector_norm(activation, 2.0, dtype=torch.float),
+                    f"{prefix}.avg": activation.sum() / activation.numel(),
+                    f"{prefix}.min": activation_abs.min(),
+                    f"{prefix}.max": activation_abs.max(),
+                }
+            )
+
+        return activation_hook
+
+    def _collect_activation_metrics(self) -> Dict[str, torch.Tensor]:
+        if not self._activation_metrics:
+            return {}
+
+        if not is_distributed():
+            metrics = self._activation_metrics.copy()
+        else:
+            # Reduce metrics over rank.
+            # NOTE: norm is reduce by averaging instead of taking the total norm across all ranks.
+            # NOTE: We make the assumption that per-device batch size is the same across all ranks
+            # to avoid extra distributed reductions.
+            # NOTE: Order needs to be exactly the same across all ranks which we guarantee by collecting
+            # metrics in alphabetical order.
+            sorted_metric_names = sorted(self._activation_metrics.keys())
+            sum_reduce_metrics = []
+            min_reduce_metrics = []
+            max_reduce_metrics = []
+            for key in sorted_metric_names:
+                value = self._activation_metrics.pop(key).unsqueeze(0).to(device=self.device, dtype=torch.float)
+                if key.endswith(".norm") or key.endswith(".avg"):
+                    sum_reduce_metrics.append(value)
+                elif key.endswith(".min"):
+                    min_reduce_metrics.append(value)
+                elif key.endswith(".max"):
+                    max_reduce_metrics.append(value)
+                else:
+                    raise NotImplementedError(key)
+
+            # Reduce sums.
+            sum_reduce_metrics_tensor = torch.cat(sum_reduce_metrics)
+            dist.reduce(sum_reduce_metrics_tensor, 0, op=dist.ReduceOp.SUM)
+            sum_reduce_metrics_tensor.div_(get_world_size())
+            sum_reduce_metrics = sum_reduce_metrics_tensor.split(1)
+            del sum_reduce_metrics_tensor
+
+            # Reduce mins.
+            min_reduce_metrics_tensor = torch.cat(min_reduce_metrics)
+            dist.reduce(min_reduce_metrics_tensor, 0, op=dist.ReduceOp.MIN)
+            min_reduce_metrics = min_reduce_metrics_tensor.split(1)
+            del min_reduce_metrics_tensor
+
+            # Reduce maxs.
+            max_reduce_metrics_tensor = torch.cat(max_reduce_metrics)
+            dist.reduce(max_reduce_metrics_tensor, 0, op=dist.ReduceOp.MAX)
+            max_reduce_metrics = max_reduce_metrics_tensor.split(1)
+            del max_reduce_metrics_tensor
+
+            # Collect everything together.
+            metrics = {}
+            # NOTE: we go over metric names in reverse order here so that we can pop from the end
+            # of metric list, which is much more efficient than popping from the beginning.
+            for key in reversed(sorted_metric_names):
+                if key.endswith(".norm") or key.endswith(".avg"):
+                    metrics[key] = sum_reduce_metrics.pop()
+                elif key.endswith(".min"):
+                    metrics[key] = min_reduce_metrics.pop()
+                elif key.endswith(".max"):
+                    metrics[key] = max_reduce_metrics.pop()
+                else:
+                    raise NotImplementedError(key)
+
+        self._activation_metrics.clear()
+        return metrics
+
+    def _register_forward_hooks(self):
+        if self.cfg.wandb is not None and self.cfg.log_activations:
+            # Add the hook at every named module
+            registered = set()
+            for name, module in self.model.named_modules():
+                if isinstance(module, (FSDP, RotaryEmbedding)):
+                    continue
+                if name not in registered:
+                    module.register_forward_hook(self.get_activation_hook(name))
+                    registered.add(name)
+
     def fit(self):
         self._start_time = time.time()
+        self._register_forward_hooks()
 
         if self.cfg.load_path is not None and self.global_step > 0 and self.cfg.eval_on_load:
             eval_metrics = self.eval()
@@ -840,6 +969,8 @@ class Trainer:
                 # Alternatively we'd have to use a distributed all reduce over seq_len here, but I don't want that
                 # overhead. So for now I'm putting these assertions here so if the assumption is violated it will
                 # fail loudly.
+                # If this ever changes we also need to update `self.get_activation_hook()` and
+                # `self._collect_activation_metrics()` which also currently assume per-device batch size is the same.
                 batch_size, seq_len = batch["input_ids"].shape
                 assert seq_len == self.cfg.model.max_sequence_length
                 assert batch_size == self.cfg.device_train_batch_size

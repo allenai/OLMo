@@ -965,6 +965,17 @@ class TrainConfig(BaseConfig):
     Whether to run the PyTorch profiler on batches 6, 7, and 8.
     """
 
+    log_activations: bool = False
+    """
+    Whether to log activations to W&B. This can be useful for debugging, but it can also be very slow.
+    Note: If WandB is not configured, this activations will not be logged.
+    """
+
+    activation_log_interval: Optional[int] = None
+    """
+    How often to log activations to W&B. If not set, defaults to ``wandb.log_interval``.
+    """
+
     stop_at: Optional[int] = None
     """
     Stop at a specific step.
