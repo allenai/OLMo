@@ -2,7 +2,8 @@ run_name: olmo-7b-instruct
 image: mosaicml/pytorch:2.1.0_cu121-python3.10-ubuntu20.04
 gpu_num: 64
 #gpu_num: 8
-cluster: r12z3
+#cluster: r12z3
+cluster: r7z2
 gpu_type: a100_40gb
 integrations:
   - integration_type: git_repo
