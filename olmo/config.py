@@ -970,6 +970,11 @@ class TrainConfig(BaseConfig):
     Stop at a specific step.
     """
 
+    stop_after: Optional[int] = None
+    """
+    Stop after a specific number of steps.
+    """
+
     activation_checkpointing: Optional[ActivationCheckpointingStrategy] = None
     """
     The activation checkpointing strategy to use.
