@@ -1,6 +1,7 @@
 run_name: olmo-7b-instruct
 image: mosaicml/pytorch:2.1.0_cu121-python3.10-ubuntu20.04
 gpu_num: 64
+#gpu_num: 8
 cluster: r12z3
 gpu_type: a100_40gb
 integrations:
@@ -10,15 +11,23 @@ integrations:
     pip_install: -e .
     ssh_clone: true
 command: |-
+  # Install aws cli
+  apt-get update
+  apt-get install zip unzip
+  curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+  unzip awscliv2.zip
+  sudo ./aws/install
+
   cd LLM
 
   pip freeze
 
   # Prepare environment.
-  mkdir -p /root/.cache/torch/
-  mkdir /root/checkpoint/
+  mkdir -p /root/.cache/torch
+  mkdir /root/checkpoint-unsharded
+  mkdir /root/data
   mkdir /root/.aws
-  touch /root/.aws/credentials
+  touch /root/.aws/credentials /root/.aws/config
   echo '[s3]' >> /root/.aws/credentials
   echo "aws_access_key_id = ${AWS_ACCESS_KEY_ID}" >> /root/.aws/credentials
   echo "aws_secret_access_key = ${AWS_SECRET_ACCESS_KEY}" >> /root/.aws/credentials
@@ -26,40 +35,55 @@ command: |-
   echo '[r2]' >> /root/.aws/credentials
   echo "aws_access_key_id = ${R2_ACCESS_KEY_ID}" >> /root/.aws/credentials
   echo "aws_secret_access_key = ${R2_SECRET_ACCESS_KEY}" >> /root/.aws/credentials
+  echo "[default]" >> /root/.aws/config
+  echo "region = auto" >> /root/.aws/config
+  echo "output = json" >> /root/.aws/config
 
-  export S3_PROFILE=s3
-  export R2_PROFILE=r2
+  #export S3_PROFILE=s3
+  #export R2_PROFILE=r2
   export OMP_NUM_THREADS=8
   export LOG_FILTER_TYPE=local_rank0_only
 
   # Download checkpoint (everything except optimizer state).
-  aws s3 cp \
-    --profile=r2 \
-    --endpoint-url https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflarestorage.com \
+  echo "Downloading checkpoint..."
+  aws s3 cp --profile=r2 --region=auto \
+    --endpoint-url=https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflarestorage.com \
     s3://olmo-checkpoints/ai2-llm/olmo-medium/svtto91c/step456000-unsharded/config.yaml \
-    /root/checkpoint/
-  aws s3 cp \
-    --profile=r2 \
-    --endpoint-url https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflarestorage.com \
+    /root/checkpoint-unsharded/
+  aws s3 cp --profile=r2 --region=auto \
+    --endpoint-url=https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflarestorage.com \
     s3://olmo-checkpoints/ai2-llm/olmo-medium/svtto91c/step456000-unsharded/train.pt \
-    /root/checkpoint/
-  aws s3 cp \
-    --profile=r2 \
-    --endpoint-url https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflarestorage.com \
+    /root/checkpoint-unsharded/
+  aws s3 cp --profile=r2 --region=auto \
+    --endpoint-url=https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflarestorage.com \
     s3://olmo-checkpoints/ai2-llm/olmo-medium/svtto91c/step456000-unsharded/model.pt \
-    /root/checkpoint/
+    /root/checkpoint-unsharded/
+
+  # Now remove the aws configs so it doesn't mess with data loading / uploading checkpoints.
+  rm -rf /root/.aws
+
+  # Download data.
+  echo "Downloading data..."
+  aws s3 cp \
+    s3://ai2-llm/preprocessed/tulu-v2-fine-tune/gpt-neox-20b-pii-special/data.npy \
+    /root/data/data.npy
 
   torchrun \
-  --master_addr $MASTER_ADDR \
-  --master_port $MASTER_PORT \
-  --nnodes $NUM_NODES \
-  --node_rank $NODE_RANK \
+  --master_addr "$MASTER_ADDR" \
+  --master_port "$MASTER_PORT" \
+  --nnodes "$NUM_NODES" \
+  --node_rank "$NODE_RANK" \
   --nproc_per_node 8 \
   scripts/train.py configs/mitchish-instruct.yaml \
-    --run_name=mitchish-instruct \
+    --run_name=mitchish-lumi-2T-instruct-2e-6 \
+    --optimizer.learning_rate=2e-6 \
     --save_overwrite \
-    --wandb.name=mitchish-lumi-instruct \
     --time_limit=169200 \
-    --load_path=/root/checkpoint \
+    --data.paths=[/root/data/data.npy] \
+    --save_interval_unsharded=10000 \
+    --load_path=/root/checkpoint-unsharded \
     --reset_optimizer_state \
-    --reset_trainer_state
+    --reset_trainer_state \
+    --compile=null \
+    --activation_checkpointing=fine_grained \
+    --fsdp.wrapping_strategy=size_based
