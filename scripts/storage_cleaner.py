@@ -18,6 +18,7 @@ import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
 import torch
 import wandb
+from boto3.s3.transfer import TransferConfig
 from cached_path import add_scheme_client, cached_path, set_cache_dir
 from cached_path.schemes import S3Client
 from google.api_core.exceptions import NotFound
@@ -579,10 +580,14 @@ class S3StorageAdapter(StorageAdapter):
         else:
             raise ValueError(f"Path {directory_path} is not a valid directory")
 
+    def _upload_file(self, local_filepath: str, bucket_name: str, key: str):
+        transfer_config = TransferConfig(max_concurrency=4)
+        self._s3_client.upload_file(local_filepath, bucket_name, key, Config=transfer_config)
+
     def upload(self, local_src: PathOrStr, dest_path: str):
         if self.local_fs_adapter.is_file(str(local_src)):
             bucket_name, key = self._get_bucket_name_and_key(dest_path)
-            self._s3_client.upload_file(str(local_src), bucket_name, key)
+            self._upload_file(str(local_src), bucket_name, key)
 
         elif self.local_fs_adapter.is_dir(str(local_src)):
             local_src = Path(local_src)
@@ -596,7 +601,7 @@ class S3StorageAdapter(StorageAdapter):
                 bucket_name, key = self._get_bucket_name_and_key(file_dest_path)
 
                 if not self._is_file(bucket_name, key):
-                    self._s3_client.upload_file(str(file_local_path), bucket_name, key)
+                    self._upload_file(str(file_local_path), bucket_name, key)
 
         else:
             raise ValueError(f"Local source {local_src} does not correspond to a valid file or directory")
