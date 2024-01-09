@@ -51,6 +51,8 @@ export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.
 # Try playing with max_split_size_mb if you run into OOM errors.
 # export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:512
 
+# Only use local HF cache
+export HF_DATASETS_OFFLINE="1"
 
 if [ -z ${RUN_NAME+x} ]; then
   # get run name, we will postpend it with the job id of this slurm run
