@@ -1,12 +1,12 @@
 run_name: mitchish-cosine  # can't have "_" or "." here
 image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
-gpu_num: 135
-cluster: r12z3
+gpu_num: 120
+cluster: r7z2
 gpu_type: a100_40gb
 integrations:
   - integration_type: git_repo
     git_repo: allenai/LLM
-    git_branch: main
+    git_branch: epwalsh/mitchish-cosine
     pip_install: -e .
     ssh_clone: true
 command: |-
