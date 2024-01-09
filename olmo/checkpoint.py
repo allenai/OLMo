@@ -654,7 +654,9 @@ class FullCheckpointer(Checkpointer):
                     for param in module.params:
                         if torch.isnan(param).any():
                             raise ValueError(
-                                f"Module '{module_name}' contains NaNs, this is likely a bug restoring from full checkpoints"
+                                f"Module '{module_name}' contains NaNs, "
+                                f"this is likely a bug restoring from full checkpoints. The module:\n"
+                                f"{module}"
                             )
 
             # Load optimizer state.
