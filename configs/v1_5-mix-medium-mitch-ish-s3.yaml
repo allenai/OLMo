@@ -53,6 +53,8 @@ scheduler:
   name: linear_with_warmup
   t_warmup: 5000
   alpha_f: 0.1
+  grad_clip_warmup_steps: 1000
+  grad_clip_warmup_factor: 10.0
 
 tokenizer:
   identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
