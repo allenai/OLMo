@@ -80,8 +80,8 @@ command: |-
   --node_rank "$NODE_RANK" \
   --nproc_per_node 8 \
   scripts/train.py configs/mitchish-instruct.yaml \
-    --run_name=mitchish-mcli-2T-instruct-2e-5 \
-    --optimizer.learning_rate=2e-5 \
+    --run_name=mitchish-mcli-2.5T-instruct-2e-6 \
+    --optimizer.learning_rate=2e-6 \
     --save_overwrite \
     --time_limit=169200 \
     --data.paths=[/root/data/data.npy] \
