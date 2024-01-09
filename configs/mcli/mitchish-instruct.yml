@@ -46,19 +46,23 @@ command: |-
   export LOG_FILTER_TYPE=local_rank0_only
 
   # Download checkpoint (everything except optimizer state).
-  echo "Downloading checkpoint..."
+  checkpoint=s3://olmo-checkpoints/ai2-llm/olmo-medium/wd2gxrza/step556000-unsharded
+  echo "Downloading checkpoint '${checkpoint}'..."
+
+  # Download config.
   aws s3 cp --profile=r2 --region=auto \
     --endpoint-url=https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflarestorage.com \
-    s3://olmo-checkpoints/ai2-llm/olmo-medium/svtto91c/step456000-unsharded/config.yaml \
-    /root/checkpoint-unsharded/
+    "${checkpoint}/config.yaml" /root/checkpoint-unsharded/
+
+  # Download trainer state.
   aws s3 cp --profile=r2 --region=auto \
     --endpoint-url=https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflarestorage.com \
-    s3://olmo-checkpoints/ai2-llm/olmo-medium/svtto91c/step456000-unsharded/train.pt \
-    /root/checkpoint-unsharded/
+    "${checkpoint}/train.pt" /root/checkpoint-unsharded/
+
+  # Download model weights.
   aws s3 cp --profile=r2 --region=auto \
     --endpoint-url=https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflarestorage.com \
-    s3://olmo-checkpoints/ai2-llm/olmo-medium/svtto91c/step456000-unsharded/model.pt \
-    /root/checkpoint-unsharded/
+    "${checkpoint}/model.pt" /root/checkpoint-unsharded/
 
   # Now remove the aws configs so it doesn't mess with data loading / uploading checkpoints.
   rm -rf /root/.aws
@@ -76,8 +80,8 @@ command: |-
   --node_rank "$NODE_RANK" \
   --nproc_per_node 8 \
   scripts/train.py configs/mitchish-instruct.yaml \
-    --run_name=mitchish-lumi-2T-instruct-2e-6 \
-    --optimizer.learning_rate=2e-6 \
+    --run_name=mitchish-mcli-2T-instruct-2e-5 \
+    --optimizer.learning_rate=2e-5 \
     --save_overwrite \
     --time_limit=169200 \
     --data.paths=[/root/data/data.npy] \
