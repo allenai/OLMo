@@ -653,7 +653,6 @@ class FullCheckpointer(Checkpointer):
                         continue
                     for param in module.params:
                         if torch.isnan(param).any():
-                            print(module_name, module, param)
                             raise ValueError(
                                 f"Module '{module_name}' contains NaNs, "
                                 f"this is likely a bug restoring from full checkpoints. The module:\n"
