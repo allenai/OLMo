@@ -12,6 +12,14 @@ integrations:
     pip_install: -e .
     ssh_clone: true
 command: |-
+  # NOTE: For some reason getting S3 and R2 authentication working both from the command line and
+  # from Python proved to be challenging, maybe because Mosaic's server are in Australia.
+  # In the end I had to use separate methods to get everything working:
+  #  1. AWS config files for CLI access.
+  #  2. Environment variables for boto3 access (to S3 only).
+  # Since we only need CLI access prior to training, we remove the AWS config files before launching
+  # the training job. Otherwise the environment variables won't work.
+
   # Install aws cli
   apt-get update
   apt-get install zip unzip
@@ -23,7 +31,7 @@ command: |-
 
   pip freeze
 
-  # Prepare environment.
+  # Prepare environment including AWS config files for both S3 and R2 access.
   mkdir -p /root/.cache/torch
   mkdir /root/checkpoint-unsharded
   mkdir /root/data
@@ -64,10 +72,10 @@ command: |-
     --endpoint-url=https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflarestorage.com \
     "${checkpoint}/model.pt" /root/checkpoint-unsharded/
 
-  # Now remove the aws configs so it doesn't mess with data loading / uploading checkpoints.
+  # Now remove the aws configs so it doesn't mess with data loading / uploading checkpoints to/from S3.
   rm -rf /root/.aws
 
-  # Download data.
+  # Download data (it's small enough so might as well).
   echo "Downloading data..."
   aws s3 cp \
     s3://ai2-llm/preprocessed/tulu-v2-fine-tune/gpt-neox-20b-pii-special/data.npy \
