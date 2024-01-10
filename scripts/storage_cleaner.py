@@ -630,6 +630,7 @@ class MoveRunConfig(StorageCleanerConfig):
     append_wandb_path: bool
     keep_src: bool
     store_archived: bool
+    subdir: Optional[str]
 
 
 def _get_storage_adapter_for_path(path: str) -> StorageAdapter:
@@ -1129,6 +1130,9 @@ def _get_src_and_dest_for_copy(
     # We need to unarchive the run if we want to get the wandb path
     should_unarchive = is_archive_file and (not config.store_archived or config.append_wandb_path)
 
+    if is_archive_file and config.store_archived and config.subdir is not None:
+        raise ValueError("Cannot move only a subdirectory if run is being moved to an archive destination")
+
     if is_archive_file and not should_unarchive:
         dest_file_path = os.path.join(dest_dir, Path(run_dir_or_archive).name)
         return run_dir_or_archive, dest_file_path
@@ -1148,6 +1152,15 @@ def _get_src_and_dest_for_copy(
         dest_path = os.path.join(dest_dir, dir_name)
     else:
         dest_path = dest_dir
+
+    if config.subdir is not None:
+        subdir_path = os.path.join(src_path, config.subdir)
+        subdir_storage = _get_storage_adapter_for_path(subdir_path)
+        if not subdir_storage.is_dir(subdir_path):
+            raise ValueError(f"{config.subdir} is not a valid subdirectory of {run_dir_or_archive}")
+
+        src_path = subdir_path
+        dest_path = os.path.join(dest_path, config.subdir)
 
     return src_path, dest_path
 
@@ -1265,6 +1278,7 @@ def perform_operation(args: argparse.Namespace):
                 append_wandb_path=args.append_wandb_path,
                 keep_src=args.keep_src,
                 store_archived=args.store_archived,
+                subdir=args.subdir,
             )
             if args.run_path is not None and args.dest_dir is not None:
                 move_run(args.run_path, args.dest_dir, move_run_config)
@@ -1359,6 +1373,11 @@ def _add_move_subparser(subparsers: _SubParsersAction):
         "--append_wandb_path",
         action="store_true",
         help="If set, the wandb path for the run is found and appended to the destination dir. If the run is being stored as an archive file, wandb id is first removed from the wandb path and used as the filename.",
+    )
+    move_parser.add_argument(
+        "--subdir",
+        default=None,
+        help="If provided, moving is restricted to this subdirectory of the run.",
     )
 
 
