@@ -37,6 +37,8 @@ def build_memmap_dataset(
         chunk_size=train_config.model.max_sequence_length,
         metadata=metadata,
         include_instance_metadata=include_instance_metadata,
+        pad_token_id=train_config.model.pad_token_id,
+        generate_attention_mask=data_config.generate_attention_mask,
     )
 
 
@@ -93,7 +95,7 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
         IterableDataset(
             dataset,  # type: ignore
             train_config.global_train_batch_size,
-            seed=train_config.seed + train_config.epoch,
+            seed=train_config.seed + (train_config.epoch or 0),
             shuffle=True,
             drop_last=train_config.data.drop_last,
             work_dir=work_dir,

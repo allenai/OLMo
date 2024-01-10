@@ -502,8 +502,10 @@ class Checkpointer(metaclass=ABCMeta):
         barrier()
 
         # Finally if all went well replace the temporary directory with the actual
-        # checkpoint directory.
-        if get_fs_local_rank() == 0:
+        # checkpoint directory. Note that for some checkpointers the local rank 0 might
+        # not use this folder, so it may not exist; FullCheckpointer, for example, only creates
+        # this for global rank 0.
+        if get_fs_local_rank() == 0 and checkpoint_dir_tmp.exists():
             # Replace temp directory with target checkpoint directory.
             try:
                 checkpoint_dir_tmp.replace(checkpoint_dir)

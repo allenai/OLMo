@@ -40,9 +40,9 @@ def main(cfg: TrainConfig) -> None:
     log_extra_field("run_name", cfg.run_name)
 
     # Sanity check
-    if cfg.reset_optimizer_state and cfg.load_path is None:
+    if (cfg.reset_optimizer_state or cfg.reset_trainer_state) and cfg.load_path is None:
         log.warning(
-            "You want to reset the optimizer state, but we're not loading from the checkpoint. The"
+            "You want to reset the optimizer or trainer state, but we're not loading from the checkpoint. The"
             "setting has no effect."
         )
 
@@ -202,12 +202,13 @@ def main(cfg: TrainConfig) -> None:
             trainer.restore_checkpoint(
                 cfg.load_path,
                 load_optimizer_state=not cfg.reset_optimizer_state,
+                load_trainer_state=not cfg.reset_trainer_state,
                 sharded_checkpointer=cfg.load_path_sharded_checkpointer,
             )
             log.info("Checkpoint successfully loaded")
 
             # If we have to, set a new scheduler:
-            if cfg.reset_optimizer_state:
+            if cfg.reset_optimizer_state and not cfg.reset_trainer_state:
                 trainer.scheduler = BoltOnWarmupScheduler.wrap(
                     trainer.scheduler,
                     trainer.global_step,
