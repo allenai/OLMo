@@ -1169,6 +1169,9 @@ def _get_src_dest_pairs_for_copy(
 def _move_run(src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: str, config: MoveRunConfig):
     log.info("Moving run directory or archive %s to directory %s", run_dir_or_archive, dest_dir)
 
+    if not config.keep_src and config.entry is not None:
+        raise ValueError("Cannot delete source when an entry of the run is specified.")
+
     dest_storage = _get_storage_adapter_for_path(dest_dir)
     if dest_storage.is_file(dest_dir):
         raise ValueError(f"Destination directory {dest_dir} is a file")
