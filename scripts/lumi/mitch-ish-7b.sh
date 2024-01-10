@@ -2,7 +2,7 @@
 #SBATCH --job-name=v1.5-mix-medium-mitch-ish
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
-#SBATCH --nodes=256             # Total number of nodes 
+#SBATCH --nodes=128             # Total number of nodes 
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
@@ -25,6 +25,7 @@ export MIOPEN_CUSTOM_CACHE_DIR=${MIOPEN_USER_DB_PATH}
 export CXI_FORK_SAFE=1
 export CXI_FORK_SAFE_HP=1
 export FI_CXI_DISABLE_CQ_HUGETLB=1
+export GPU_MAX_HW_QUEUES=8
 
 # We need to set this to avoid "Cassini Event Queue overflow detected." errors.
 export FI_CXI_DEFAULT_CQ_SIZE=131072
@@ -36,6 +37,8 @@ export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.
 
 # Try playing with max_split_size_mb if you run into OOM errors.
 #export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:128
+
+export HF_DATASETS_OFFLINE=1
 
 export DATA_PATH=$FLASH_DIR/preprocessed/olmo-mix
 export CHECKPOINTS_PATH=$FLASH_DIR/checkpoints
@@ -56,5 +59,12 @@ srun \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
     python scripts/train.py configs/v1_5-mix-medium-mitch-ish.yaml ${@} \
       --run_name=${SLURM_JOB_ID} \
-      --global_train_batch_size=4096 \
-      --max_duration=238418
+      --activation_checkpointing=fine_grained \
+      --fsdp.wrapping_strategy=one_in_four \
+      --fsdp.sharding_strategy=FULL_SHARD \
+      --sharded_checkpointer=local \
+      --wandb.name=v1_5-mix-mitch-ish-lumi \
+      --save_interval=10000 \
+      --save_interval_ephemeral=1000 \
+      --remote_save_folder=s3://ai2-llm/checkpoints/7b/mitchish-lumi \
+      --save_folder=${FLASH_DIR}/checkpoints/mitchish-lumi
