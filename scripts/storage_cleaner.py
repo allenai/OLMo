@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import logging
 import os
 import re
@@ -1050,6 +1051,10 @@ def _get_wandb_path(checkpoint_dir: str, run_dir: str) -> str:
     # Remove duplicate wandb runs based on run path, and wandb runs that do not match our checkpoint.
     wandb_runs = list({_get_wandb_path_from_run(wandb_run): wandb_run for wandb_run in wandb_runs}.values())
     wandb_matching_runs = _get_matching_wandb_runs(wandb_runs, checkpoint_dir)
+
+    if config.save_overwrite and len(wandb_matching_runs) > 1:
+        log.warning("Found %d runs matching checkpoint dir %s and save_overwrite is enabled, using most recently created run", len(wandb_matching_runs), {checkpoint_dir})
+        wandb_matching_runs = [max(wandb_matching_runs, key=lambda wandb_run: datetime.datetime.fromisoformat(wandb_run.created_at))]
 
     if len(wandb_matching_runs) == 0:
         raise RuntimeError(f"Failed to find any wandb runs for {checkpoint_dir}. Run might no longer exist")
