@@ -624,6 +624,7 @@ class DeleteBadRunsConfig(StorageCleanerConfig):
 @dataclass
 class UnshardCheckpointsConfig(StorageCleanerConfig):
     latest_checkpoint_only: bool
+    checkpoint_num: Optional[int]
 
 
 @dataclass
@@ -926,6 +927,9 @@ def _unshard_checkpoints(
     )
     for sharded_checkpoint_directory in sharded_checkpoint_directories:
         sharded_checkpoint_dir_name = Path(sharded_checkpoint_directory).name
+
+        if config.checkpoint_num is not None and config.checkpoint_num != _get_checkpoint_number(sharded_checkpoint_directory):
+            continue
 
         unsharded_checkpoint_directory_in_source = os.path.join(
             run_dir, f"{sharded_checkpoint_dir_name}-unsharded"
@@ -1271,6 +1275,7 @@ def perform_operation(args: argparse.Namespace):
                 dry_run=args.dry_run,
                 temp_dir=temp_dir,
                 latest_checkpoint_only=args.latest_checkpoint_only,
+                checkpoint_num=args.checkpoint_num,
             )
             if args.run_path is not None:
                 unshard_run_checkpoints(args.run_path, args.dest_dir, unshard_checkpoints_config)
@@ -1348,6 +1353,11 @@ def _add_unsharding_subparser(subparsers: _SubParsersAction):
         "--latest_checkpoint_only",
         action="store_true",
         help="If set, only the latest checkpoint of each run (if sharded) is unsharded.",
+    )
+    unsharding_runs_parser.add_argument(
+        "--checkpoint_num",
+        default=None,
+        help="If provided, unsharding is restricted to this checkpoint of the run.",
     )
 
 
