@@ -686,7 +686,7 @@ class FullCheckpointer(Checkpointer):
         # This state dict comes in two forms: one where the state keys are integers and one where the
         # keys are fully qualified parameter names. The latter case is easier to deal with here so we
         # first transform the integer key form into the FQN key form.
-        if isinstance(next(iter(optim_state_dict["state"].keys())), int):
+        if isinstance(optim_state_dict["param_groups"][0]["params"][0], int):
             id_to_fqn: Dict[int, str] = {}
             for group in optim_state_dict["param_groups"]:
                 new_param_names = []
@@ -712,7 +712,9 @@ class FullCheckpointer(Checkpointer):
         # Now we can transform the state dict by renaming parameters according to `og_keys_to_new`.
         # First fix param names in the state.
         for og_key, new_keys in og_keys_to_new.items():
-            og_state = optim_state_dict["state"].pop(og_key)
+            og_state = optim_state_dict["state"].pop(og_key, None)
+            if og_state is None:
+                continue
             for i, new_key in enumerate(new_keys):
                 if i == len(new_keys) - 1:
                     optim_state_dict["state"][new_key] = og_state
@@ -1117,7 +1119,11 @@ class LocalShardedCheckpointer(Checkpointer):
         if version.parse(torch.__version__) < version.parse("2.1.0"):
             return fsdp_model._handles  # type: ignore
         elif version.parse(torch.__version__) < version.parse("2.2.0"):
-            return [fsdp_model._handle]  # type: ignore
+            # Handle could be None if the FSDP wrapper doesn't manage any parameters.
+            if hasattr(fsdp_model, "_handle") and fsdp_model._handle is not None:
+                return [fsdp_model._handle]  # type: ignore
+            else:
+                return []
         else:
             # Need to verify FSDP internals with newer versions.
             raise NotImplementedError
