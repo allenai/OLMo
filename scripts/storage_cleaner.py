@@ -1356,6 +1356,7 @@ def _add_unsharding_subparser(subparsers: _SubParsersAction):
     )
     unsharding_runs_parser.add_argument(
         "--checkpoint_num",
+        type=int,
         default=None,
         help="If provided, unsharding is restricted to this checkpoint of the run.",
     )
