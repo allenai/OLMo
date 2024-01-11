@@ -494,6 +494,8 @@ class Checkpointer(metaclass=ABCMeta):
         checkpoint_dir_tmp = checkpoint_dir.with_name(checkpoint_dir.name + "-tmp")
         if get_fs_local_rank() == 0:
             shutil.rmtree(checkpoint_dir_tmp, ignore_errors=True)
+            checkpoint_dir_tmp.mkdir(exist_ok=True, parents=True)
+
         barrier()
 
         # Yield temporary directory for `.save_checkpoint()` to use.
@@ -502,10 +504,8 @@ class Checkpointer(metaclass=ABCMeta):
         barrier()
 
         # Finally if all went well replace the temporary directory with the actual
-        # checkpoint directory. Note that for some checkpointers the local rank 0 might
-        # not use this folder, so it may not exist; FullCheckpointer, for example, only creates
-        # this for global rank 0.
-        if get_fs_local_rank() == 0 and checkpoint_dir_tmp.exists():
+        # checkpoint directory.
+        if get_fs_local_rank() == 0:
             # Replace temp directory with target checkpoint directory.
             try:
                 checkpoint_dir_tmp.replace(checkpoint_dir)
