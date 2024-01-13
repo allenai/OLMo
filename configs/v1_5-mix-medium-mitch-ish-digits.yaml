@@ -1,11 +1,11 @@
-run_name: v1_5-mix-medium-mitch-ish
+run_name: mitchish-7b-digits
 seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-medium
-  group: v1_5-mix
+  group: mitchish-7b-digits
 
 model:
   d_model: 4096
