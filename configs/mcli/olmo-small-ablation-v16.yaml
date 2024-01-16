@@ -1,0 +1,81 @@
+run_name: olmo-small-ablation-v1-6  # can't have "_" or "." here
+image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
+env_variables:
+  CONFIG_PATH: configs/v1_5-mix-small/v1_6-mix-small-lower-lr-tie.yaml
+  LOAD_PATH: ""
+gpu_num: 64
+cluster: r12z3
+gpu_type: a100_40gb
+integrations:
+  - integration_type: git_repo
+    git_repo: allenai/OLMo
+    git_branch: soldni/3T-1B-D15
+    git_commit: e2de4f57df134436ed47def2b84bb6e9e1ddcbd2
+    pip_install: -e .
+    ssh_clone: true
+command: |-
+  pip freeze
+  mkdir -p /root/.cache/torch/
+
+  export OMP_NUM_THREADS=8
+  export LOG_FILTER_TYPE=local_rank0_only
+
+  # check if LOAD_PATH is provided as an environment variable and not empty;
+  # if so, create an argument to pass to the training script
+  if [ -z ${LOAD_PATH} ]; then
+    LOAD_PATH_ARG=""
+  else
+    LOAD_PATH_ARG="--load_path=${LOAD_PATH}"
+  fi
+
+  # get run name, we will use this as run name in mcli
+  RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:\s*//')
+
+  # get a hash of the load path and config path; take the first 8 characters
+  RUN_HASH=$(echo "${LOAD_PATH_ARG}-${CONFIG_PATH}" | md5sum | cut -c 1-8)
+
+  # compose the two
+  FULL_RUN_NAME="${RUN_NAME}-${RUN_HASH}"
+
+  # get W&B settings from the config file, then extract the project and group
+  WANDB_SETTINGS=$(cat $CONFIG_PATH |  tr '\n' '\r' | grep -ohP "\rwandb:\r.*?\r\r"  | tr '\r' '\n')
+  export WANDB_PROJECT=$(echo $WANDB_SETTINGS | grep -ohP "\w*project\:\s*\S+(\s|$)" | sed 's/project:\s*//')
+  if [[ -z "${WANDB_PROJECT}" ]]; then
+    export WANDB_PROJECT="olmo-small"
+  fi
+
+  # check if W&B is provided; if not, use the run name as the project name
+  # (the actual run rame with have slurm ID appended)
+  export WANDB_GROUP=$(echo $WANDB_SETTINGS | grep -ohP "\w*group\:\w*(.+)" | sed 's/group:\s*//')
+  if [[ -z "${WANDB_GROUP}" ]]; then
+    export WANDB_GROUP="${RUN_NAME}"
+  fi
+
+  # Even on mosaic, set a time limit of 48 hours for now
+  TIME_LIMIT=172800
+
+  torchrun \
+  --master_addr $MASTER_ADDR \
+  --master_port $MASTER_PORT \
+  --nnodes $NUM_NODES \
+  --node_rank $NODE_RANK \
+  --nproc_per_node 8 \
+  scripts/train.py \
+      --run_name="${FULL_RUN_NAME}" \
+      --wandb.project="${WANDB_PROJECT}" \
+      --wandb.group="${WANDB_GROUP}" \
+      --wandb.name="${FULL_RUN_NAME}" \
+      --time_limit="${TIME_LIMIT}" \
+      $LOAD_PATH_ARG
+
+# We added these flags in order to get a final checkpoint where we decayed the LR down to 0.
+#    --eval_interval=100 \
+#    --save_interval=500 \
+#    --load_path=s3://ai2-llm/checkpoints/7b/v1_5-mix-mitch-ish/step556000 \
+#    --remote_save_folder=s3://ai2-llm/checkpoints/7b/v1_5-mix-mitch-ish-final \
+#    --epoch=1 \
+#    --optimizer.learning_rate=0.000023 \
+#    --scheduler.t_warmup=556000 \
+#    --scheduler.t_max=557000 \
+#    --scheduler.alpha_f=0.001 \
+#    --stop_at=557001
