@@ -1,7 +1,7 @@
 name: olmo-small-ablation-v1-6  # can't have "_" or "." here
 image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
 env_variables:
-  CONFIG_PATH: configs/v1_5-mix-small/v1_6-mix-small-wd01.yaml
+  CONFIG_PATH: configs/v1_5-mix-small/v1_6-mix-small-wd01-digits.yaml
   # LOAD_PATH: ""
 compute:
   gpus: 64
