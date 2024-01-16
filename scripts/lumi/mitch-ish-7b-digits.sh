@@ -39,7 +39,7 @@ export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.
 
 export HF_DATASETS_OFFLINE=1
 
-export DATA_PATH=$FLASH_DIR/preprocessed/olmo-mix
+export DATA_PATH=$SCRATCH_DIR/preprocessed/olmo-mix
 export CHECKPOINTS_PATH=$FLASH_DIR/checkpoints
 export EVAL_DATA_PATH=$SCRATCH_DIR/eval-data
 
