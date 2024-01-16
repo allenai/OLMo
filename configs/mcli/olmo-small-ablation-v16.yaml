@@ -54,6 +54,10 @@ command: |-
     export WANDB_GROUP="${RUN_NAME}"
   fi
 
+  # save path
+  SAVE_FOLDER="/runs/${FULL_RUN_NAME}""
+  mkdir -p "${SAVE_FOLDER}"
+
   # Even on mosaic, set a time limit of 48 hours for now
   TIME_LIMIT=172800
 
@@ -70,6 +74,8 @@ command: |-
       --wandb.group="${WANDB_GROUP}" \
       --wandb.name="${FULL_RUN_NAME}" \
       --time_limit="${TIME_LIMIT}" \
+      --save_folder="${SAVE_FOLDER}" \
+      --no_pre_train_checkpoint \
       $LOAD_PATH_ARG
 
 # We added these flags in order to get a final checkpoint where we decayed the LR down to 0.
