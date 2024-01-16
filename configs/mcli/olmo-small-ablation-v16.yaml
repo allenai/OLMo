@@ -11,7 +11,7 @@ integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
     git_branch: soldni/3T-1B-D15
-    git_commit: c25622723a188c4fbafada43b0b8cb7a5b102c6a
+    git_commit: 0117ab15d8dc27ac987caf80f73addd78bfc3809
     pip_install: -e .
     ssh_clone: true
 command: |-
