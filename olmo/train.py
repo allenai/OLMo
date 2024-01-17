@@ -476,9 +476,9 @@ class Trainer:
             batch.get("attention_mask"),
         )
         if label_mask is not None:
-            labels.masked_fill_(~label_mask, -100)
+            labels = labels.masked_fill(~label_mask, -100)
         if attention_mask is not None:
-            labels.masked_fill_(attention_mask == 0.0, -100)
+            labels = labels.masked_fill(attention_mask == 0.0, -100)
         return labels[..., 1:].contiguous()
 
     def model_forward(

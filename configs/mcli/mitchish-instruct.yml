@@ -1,10 +1,10 @@
-run_name: olmo-7b-instruct
+name: olmo-7b-instruct
 image: mosaicml/pytorch:2.1.0_cu121-python3.10-ubuntu20.04
-gpu_num: 64
-#gpu_num: 8
-#cluster: r12z3
-cluster: r7z2
-gpu_type: a100_40gb
+compute:
+  #cluster: r12z3
+  cluster: r7z2
+  gpus: 64
+  gpu_type: a100_40gb
 integrations:
   - integration_type: git_repo
     git_repo: allenai/LLM
@@ -14,7 +14,7 @@ integrations:
 command: |-
   checkpoint=s3://olmo-checkpoints/ai2-llm/olmo-medium/wd2gxrza/step556000-unsharded
   learning_rate=2e-6
-  run_name=mitchish-mcli-2.5T-instruct-${learning_rate}
+  run_name=mitchish-mcli-2.5T-instruct-${learning_rate}-v2
 
   # NOTE: For some reason getting S3 and R2 authentication working both from the command line and
   # from Python proved to be challenging, maybe because Mosaic's server are in Australia.
