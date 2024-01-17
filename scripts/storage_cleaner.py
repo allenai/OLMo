@@ -1145,7 +1145,7 @@ def _get_src_dest_pairs_for_copy(
             dest_path = os.path.join(dest_dir, dir_name)
             return [(run_dir, dest_path)]
 
-    if not config.append_wandb_path:
+    if not config.append_wandb_path and config.entry is None:
         return [(run_dir_or_archive, dest_dir)]
 
     run_dir = _unarchive_if_archive(run_dir_or_archive, src_storage)
@@ -1156,14 +1156,17 @@ def _get_src_dest_pairs_for_copy(
         if config.entry is not None and entry != config.entry:
             continue
 
-        assert not is_archive_file and config.append_wandb_path
+        entry_src_path = os.path.join(run_dir, entry)
 
-        entry_src_path = os.path.join(run_dir, config.entry)
-
-        if not _is_checkpoint_dir(entry_src_path):
-            raise NotImplementedError("Appending wandb path is currently only supported for checkpoint directories")
-        checkpoint_dir = entry_src_path
-        entry_dest_path = _append_wandb_path(dest_dir, checkpoint_dir, run_dir)
+        if config.append_wandb_path:
+            if not _is_checkpoint_dir(entry_src_path):
+                raise NotImplementedError("Appending wandb path is currently only supported for checkpoint directories")
+            checkpoint_dir = entry_src_path
+            entry_dest_path = _append_wandb_path(dest_dir, checkpoint_dir, run_dir)
+        elif config.entry is not None:
+            entry_dest_path = os.path.join(dest_dir, entry)
+        else:
+            assert False, "Should not look through run entries when moving without entry filter or wandb appending."
 
         src_dest_pairs.append((entry_src_path, entry_dest_path))
 
