@@ -480,9 +480,15 @@ class SchedulerType(StrEnum):
     constant = "constant"
 
 
+class SchedulerUnits(StrEnum):
+    steps = "steps"
+    tokens = "tokens"
+
+
 @dataclass
 class SchedulerConfig(BaseConfig):
     name: SchedulerType = SchedulerType.cosine_with_warmup
+    units: SchedulerUnits = SchedulerUnits.steps
     t_warmup: int = 100
     t_max: Optional[int] = None
     alpha_f: float = 0.1
