@@ -146,7 +146,7 @@ class Trainer:
             if self.cfg.max_duration.endswith("T"):
                 # convert to float *first* to handle scientific notation
                 max_tokens = int(float(self.cfg.max_duration[:-1].strip()))
-                tokens_remaining = max_tokens - self.global_train_tokens_seen
+                tokens_remaining = max(max_tokens - self.global_train_tokens_seen, 0)
                 steps_remaining = tokens_remaining // self.tokens_per_batch
                 return self.global_step + steps_remaining
             elif self.cfg.max_duration.endswith("ep"):
@@ -163,7 +163,7 @@ class Trainer:
         if isinstance(self.cfg.max_duration, int):
             return (
                 self.global_train_tokens_seen
-                + min(self.cfg.max_duration - self.global_step, 0) * self.tokens_per_batch
+                + max(self.cfg.max_duration - self.global_step, 0) * self.tokens_per_batch
             )
         elif isinstance(self.cfg.max_duration, str):
             if self.cfg.max_duration.endswith("T"):
@@ -176,7 +176,7 @@ class Trainer:
                 # convert to float *first* to handle scientific notation
                 return (
                     self.global_train_tokens_seen
-                    + min(int(float(self.cfg.max_duration)) - self.global_step, 0) * self.tokens_per_batch
+                    + max(int(float(self.cfg.max_duration)) - self.global_step, 0) * self.tokens_per_batch
                 )
         else:
             raise TypeError(f"expected int or str for 'max_duration', found {type(self.cfg.max_duration)}")
