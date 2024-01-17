@@ -13,7 +13,7 @@ integrations:
     ssh_clone: true
 command: |-
   checkpoint=s3://olmo-checkpoints/ai2-llm/olmo-medium/wd2gxrza/step556000-unsharded
-  learning_rate=2e-6
+  learning_rate=2e-5
   run_name=mitchish-mcli-2.5T-instruct-${learning_rate}-v2
 
   # NOTE: For some reason getting S3 and R2 authentication working both from the command line and
