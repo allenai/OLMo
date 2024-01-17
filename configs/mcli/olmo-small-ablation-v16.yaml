@@ -11,7 +11,7 @@ integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
     git_branch: soldni/3T-1B-D15
-    git_commit: 0117ab15d8dc27ac987caf80f73addd78bfc3809
+    git_commit: ee019b19dc4d28e70349b53a1252496a66d2f109
     pip_install: -e .
     ssh_clone: true
 command: |-
@@ -55,7 +55,7 @@ command: |-
   fi
 
   # save path
-  SAVE_FOLDER="/runs/${FULL_RUN_NAME}""
+  SAVE_FOLDER="/runs/${FULL_RUN_NAME}"
   mkdir -p "${SAVE_FOLDER}"
 
   # Even on mosaic, set a time limit of 48 hours for now
