@@ -471,14 +471,14 @@ class Trainer:
     def get_labels(self, batch: Dict[str, Any]) -> torch.Tensor:
         # Labels are just input IDs shifted to the left (first item is ignored).
         labels, label_mask, attention_mask = (
-            batch["input_ids"],
+            batch["input_ids"].clone(),
             batch.get("label_mask"),
             batch.get("attention_mask"),
         )
         if label_mask is not None:
-            labels = labels.masked_fill(~label_mask, -100)
+            labels.masked_fill_(~label_mask, -100)
         if attention_mask is not None:
-            labels = labels.masked_fill(attention_mask == 0.0, -100)
+            labels.masked_fill_(attention_mask == 0.0, -100)
         return labels[..., 1:].contiguous()
 
     def model_forward(
