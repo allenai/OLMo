@@ -510,6 +510,7 @@ class DataConfig(BaseConfig):
     paths: Optional[List[str]] = None
     datasets: Optional[Dict[str, List[str]]] = None
     pad_direction: PaddingDirection = PaddingDirection.right
+    generate_attention_mask: bool = False
     num_workers: int = 0
     drop_last: bool = False
     pin_memory: bool = False
@@ -683,7 +684,7 @@ class TrainConfig(BaseConfig):
     Used to seed all initial RNG states.
     """
 
-    epoch: int = 0
+    epoch: Optional[int] = None
     """
     Increment this when starting a new epoch.
     """
@@ -830,6 +831,11 @@ class TrainConfig(BaseConfig):
     When this is set, we restore the model from a checkpoint (if given), but we leave the optimizer uninitialized.
     We also set a new learning rate schedule that does a new warmup, such that it intercepts the original learning
     curve (according to the current learning rate schedule settings), and continues from there.
+    """
+
+    reset_trainer_state: bool = False
+    """
+    When this is set we don't restore the trainer state from a checkpoint.
     """
 
     sharded_checkpointer: ShardedCheckpointerType = ShardedCheckpointerType.torch_legacy

@@ -494,6 +494,8 @@ class Checkpointer(metaclass=ABCMeta):
         checkpoint_dir_tmp = checkpoint_dir.with_name(checkpoint_dir.name + "-tmp")
         if get_fs_local_rank() == 0:
             shutil.rmtree(checkpoint_dir_tmp, ignore_errors=True)
+            checkpoint_dir_tmp.mkdir(exist_ok=True, parents=True)
+
         barrier()
 
         # Yield temporary directory for `.save_checkpoint()` to use.
