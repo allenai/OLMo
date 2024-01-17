@@ -59,6 +59,6 @@ srun \
     python scripts/train.py configs/v1_5-mix-medium-mitch-ish-digits.yaml ${@} \
       --run_name=${SLURM_JOB_ID} \
       --activation_checkpointing=fine_grained \
-      --fsdp.wrapping_strategy=one_in_four \
+      --fsdp.wrapping_strategy=one_in_two \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
       --wandb.name=mitchish-7b-digits
