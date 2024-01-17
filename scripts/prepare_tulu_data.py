@@ -64,19 +64,29 @@ def main(opts) -> None:
 
 
 def preprocess(example, tokenizer: Tokenizer, max_seq_len: int):
-    parts = []
+    input_ids = [tokenizer.eos_token_id]
+    label_mask = [False]
+
     for msg in example["messages"]:
-        parts.append(f"<|{msg['role']}|>")
-        parts.append(msg["content"])
+        role_tokens = tokenizer.encode(f"<|{msg['role']}|>\n", add_special_tokens=False)
+        label_mask += [False] * len(role_tokens)
+        input_ids += role_tokens
 
-    prompt = "\n".join(parts[:-1]) + "\n"
-    completion = parts[-1]
+        if msg["role"] == "assistant":
+            content_tokens = tokenizer.encode(
+                msg["content"].strip() + tokenizer.eos_token + "\n", add_special_tokens=False
+            )
+            label_mask += [True] * len(content_tokens)
+            # mask out the last '\n'
+            assert content_tokens[-2] == tokenizer.eos_token_id
+            label_mask[-1] = False
+        else:
+            content_tokens = tokenizer.encode(msg["content"].strip() + "\n", add_special_tokens=False)
+            label_mask += [False] * len(content_tokens)
+        input_ids += content_tokens
 
-    prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
-    completion_ids = tokenizer.encode(completion, add_special_tokens=True)
-
-    input_ids = (prompt_ids + completion_ids)[:max_seq_len]
-    label_mask = ([False] * len(prompt_ids) + [True] * len(completion_ids))[:max_seq_len]
+    input_ids = input_ids[:max_seq_len]
+    label_mask = label_mask[:max_seq_len]
 
     if len(input_ids) < max_seq_len:
         pad_len = max_seq_len - len(input_ids)
@@ -99,7 +109,7 @@ def get_parser() -> ArgumentParser:
         default="tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json",
     )
     parser.add_argument("-s", "--seq-len", type=int, help="""Max sequence length.""", default=2048)
-    parser.add_argument("--eos", type=int, help="""EOS token ID.""", default=0)
+    parser.add_argument("--eos", type=int, help="""EOS token ID.""", default=50279)
     parser.add_argument("--pad", type=int, help="""PAD token ID.""", default=1)
     parser.add_argument("-j", "--num-proc", type=int, help="""Number of workers.""", default=8)
     return parser
