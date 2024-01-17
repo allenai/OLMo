@@ -179,4 +179,6 @@ data:
   timeout: 0
   generate_attention_mask: true
   paths:
-    - s3://ai2-llm/preprocessed/tulu-v2-fine-tune/gpt-neox-20b-pii-special/data.npy
+    - s3://ai2-llm/preprocessed/tulu-v2-fine-tune/gpt-neox-20b-pii-special/input_ids.npy
+  label_mask_paths:
+    - s3://ai2-llm/preprocessed/tulu-v2-fine-tune/gpt-neox-20b-pii-special/label_mask.npy
