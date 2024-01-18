@@ -13,8 +13,8 @@ integrations:
     ssh_clone: true
 command: |-
   checkpoint=s3://olmo-checkpoints/ai2-llm/olmo-medium/wd2gxrza/step556000-unsharded
-  learning_rate=2e-5
-  run_name=mitchish-mcli-2.5T-instruct-${learning_rate}-v2
+  learning_rate=2e-6
+  run_name=mitchish-mcli-2.5T-instruct-${learning_rate}-5ep-v2
 
   # NOTE: For some reason getting S3 and R2 authentication working both from the command line and
   # from Python proved to be challenging, maybe because Mosaic's server are in Australia.
@@ -38,7 +38,6 @@ command: |-
   # Prepare environment including AWS config files for both S3 and R2 access.
   mkdir -p /root/.cache/torch
   mkdir /root/checkpoint-unsharded
-  mkdir /root/data
   mkdir /root/.aws
   touch /root/.aws/credentials /root/.aws/config
   echo '[s3]' >> /root/.aws/credentials
@@ -75,6 +74,11 @@ command: |-
     --endpoint-url=https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflarestorage.com \
     "${checkpoint}/model.pt" /root/checkpoint-unsharded/
 
+  # Download optimizer state.
+  aws s3 cp --profile=r2 --region=auto \
+    --endpoint-url=https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflarestorage.com \
+    "${checkpoint}/optim.pt" /root/checkpoint-unsharded/
+
   # Now remove the aws configs so it doesn't mess with data loading / uploading checkpoints to/from S3.
   rm -rf /root/.aws
 
@@ -90,8 +94,8 @@ command: |-
     --save_overwrite \
     --save_interval_unsharded=10000 \
     --load_path=/root/checkpoint-unsharded \
-    --reset_optimizer_state \
     --reset_trainer_state \
     --compile=null \
     --activation_checkpointing=fine_grained \
-    --fsdp.wrapping_strategy=size_based
+    --fsdp.wrapping_strategy=size_based \
+    --max_duration=5ep

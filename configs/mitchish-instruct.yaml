@@ -43,15 +43,15 @@ compile:
 optimizer:
   name: adamw
   learning_rate: 2e-5
-  weight_decay: 0.0
+  weight_decay: 0.1
   betas:
   - 0.9
-  - 0.999
+  - 0.95
   metrics_log_interval: 10
 
 scheduler:
   name: linear_with_warmup
-  t_warmup: 100
+  t_warmup: 200
   alpha_f: 0.001
 
 tokenizer:
@@ -91,42 +91,6 @@ eval_interval: ${save_interval}
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
-  - label: all-small-ppl-validation
-    data:
-      num_workers: 0
-      drop_last: true
-      # pin_memory: true
-      # prefetch_factor: 1
-      # persistent_workers: false
-      # timeout: 0
-      datasets:
-        4chan-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
-        c4_100_domains-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/c4_100_domains/val.npy
-        c4_en-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/c4_en/val.npy
-        gab-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/gab/val.npy
-        ice-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/ice/val.npy
-        m2d2_s2orc-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/m2d2_s2orc/val.npy
-        m2d2_wiki-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/m2d2_wiki/val.npy
-        manosphere-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/manosphere/val.npy
-        mc4_en-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/mc4_en/val.npy
-        pile-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/pile/val.npy
-        ptb-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/ptb/val.npy
-        twitterAEE-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
-        wikitext_103-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/wikitext_103/val.npy
-
   ##########################
   # Downstream evaluations #
   ##########################
