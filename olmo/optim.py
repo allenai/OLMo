@@ -12,7 +12,7 @@ from torch.optim.optimizer import Optimizer as OptimizerBase
 
 from . import LayerNormBase
 from .config import OptimizerType, SchedulerConfig, SchedulerType, TrainConfig
-from .util import get_default_device, is_distributed
+from .torch_util import get_default_device, is_distributed
 
 __all__ = [
     "Optimizer",
@@ -23,6 +23,7 @@ __all__ = [
     "LinearWithWarmup",
     "InvSqrtWithWarmup",
     "MaxScheduler",
+    "ConstantScheduler",
     "BoltOnWarmupScheduler",
     "build_optimizer",
     "build_scheduler",
@@ -251,6 +252,12 @@ class Optimizer(OptimizerBase):
                 continue
 
             # Get or initialize the exponential average of grad norm.
+            # TODO: The way we have it right now, every rank tracks the `grad_norm_exp_avg` of every parameter,
+            # even parameters for which the corresponding local shard is empty. This has the potential to
+            # cause some issues with the optimizer, as we ran into with https://github.com/allenai/LLM/pull/372.
+            # So we should consider changing how we do this at some point so that we don't add any state
+            # to parameters for which the local shard is empty. That would probably add extra distributed
+            # communication, at least on steps where we have to log (i.e. when `collect_param_metrics=True`).
             state = self.state[p]
             grad_norm_exp_avg = state.get("grad_norm_exp_avg")
             if grad_norm_exp_avg is None:
@@ -261,8 +268,8 @@ class Optimizer(OptimizerBase):
                 if global_step > 1:
                     state["grad_norm_exp_avg"] = grad_norm_exp_avg
 
-            clipped_norm = max_norm_ratio * grad_norm_exp_avg
-            clip_coef = clipped_norm / (grad_norm + 1e-6)
+            max_allowed_norm = max_norm_ratio * grad_norm_exp_avg
+            clip_coef = max_allowed_norm / (grad_norm + 1e-6)
 
             # Clip the gradients and update the exponential average.
             # Note that multiplying by the clamped coefficient is meaningless when it is
@@ -271,7 +278,11 @@ class Optimizer(OptimizerBase):
             if p.grad is not None:
                 # p.grad could be none for some ranks when using FSDP.
                 p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
-            grad_norm_exp_avg.lerp_(clipped_norm.to(grad_norm_exp_avg.device), 1 - beta)
+
+            # Update the exponential average of the norm of the gradient with the clipped norm of the gradient.
+            grad_norm_exp_avg.lerp_((grad_norm * clip_coef_clamped).to(grad_norm_exp_avg.device), 1 - beta)
+            # Alternative: update with the *unclipped* norm of the gradient.
+            #  grad_norm_exp_avg.lerp_(grad_norm.to(grad_norm_exp_avg.device), 1 - beta)
 
             if collect_param_metrics:
                 # Can't avoid host-device sync here.
@@ -560,6 +571,13 @@ class BoltOnWarmupScheduler(Scheduler):
         return self.inner._get_max_grad_norm_coeff(initial_value, step, max_steps)
 
 
+@dataclass
+class ConstantScheduler(Scheduler):
+    def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
+        del step, max_steps
+        return initial_lr
+
+
 PARAM_GROUP_FIELDS = ("sharded", "max_grad_norm", "max_grad_norm_ratio", "param_names")
 
 
@@ -728,6 +746,11 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             sched1=build_scheduler(cfg, replace(sched_cfg, name=SchedulerType.cosine_with_warmup)),
             sched2=build_scheduler(cfg, replace(sched_cfg, name=SchedulerType.inverse_sqrt_with_warmup)),
+        )
+    elif sched_cfg.name == SchedulerType.constant:
+        return ConstantScheduler(
+            grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
+            grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
         )
     else:
         raise NotImplementedError

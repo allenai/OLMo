@@ -18,19 +18,17 @@ from olmo.eval import build_evaluators
 from olmo.exceptions import OlmoCliError, OlmoConfigurationError
 from olmo.model import Olmo
 from olmo.optim import BoltOnWarmupScheduler, build_optimizer, build_scheduler
-from olmo.train import Trainer
-from olmo.util import (
+from olmo.torch_util import (
     barrier,
-    clean_opt,
     get_default_device,
     get_global_rank,
     get_local_rank,
     get_world_size,
-    log_extra_field,
     peak_gpu_memory,
-    prepare_cli_environment,
     seed_all,
 )
+from olmo.train import Trainer
+from olmo.util import clean_opt, log_extra_field, prepare_cli_environment
 
 log = logging.getLogger("train")
 
@@ -42,15 +40,15 @@ def main(cfg: TrainConfig) -> None:
     log_extra_field("run_name", cfg.run_name)
 
     # Sanity check
-    if cfg.reset_optimizer_state and cfg.load_path is None:
+    if (cfg.reset_optimizer_state or cfg.reset_trainer_state) and cfg.load_path is None:
         log.warning(
-            "You want to reset the optimizer state, but we're not loading from the checkpoint. The"
+            "You want to reset the optimizer or trainer state, but we're not loading from the checkpoint. The"
             "setting has no effect."
         )
 
-    # Initialize process group and set device.
-    dist.init_process_group(backend="nccl")
     barrier()
+
+    # Set CUDA device.
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
     device = torch.device("cuda")
 
@@ -167,6 +165,7 @@ def main(cfg: TrainConfig) -> None:
     # Consolidate components into `Trainer` object.
     with Trainer(
         cfg=cfg,
+        epoch=cfg.epoch,
         model=olmo_model,
         fsdp_model=fsdp_model,
         optim=optim,
@@ -203,12 +202,13 @@ def main(cfg: TrainConfig) -> None:
             trainer.restore_checkpoint(
                 cfg.load_path,
                 load_optimizer_state=not cfg.reset_optimizer_state,
+                load_trainer_state=not cfg.reset_trainer_state,
                 sharded_checkpointer=cfg.load_path_sharded_checkpointer,
             )
             log.info("Checkpoint successfully loaded")
 
             # If we have to, set a new scheduler:
-            if cfg.reset_optimizer_state:
+            if cfg.reset_optimizer_state and not cfg.reset_trainer_state:
                 trainer.scheduler = BoltOnWarmupScheduler.wrap(
                     trainer.scheduler,
                     trainer.global_step,
@@ -240,6 +240,9 @@ def main(cfg: TrainConfig) -> None:
 
 
 if __name__ == "__main__":
+    # Initialize process group.
+    dist.init_process_group(backend="nccl")
+
     prepare_cli_environment()
 
     try:

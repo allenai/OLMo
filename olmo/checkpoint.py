@@ -1,3 +1,4 @@
+import gc
 import io
 import logging
 import pickle
@@ -39,15 +40,13 @@ from torch.futures import Future
 from .aliases import PathOrStr
 from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
 from .optim import Optimizer, fix_optim_state_dict
+from .safetensors_util import safetensors_file_to_state_dict
+from .torch_util import barrier, get_fs_local_rank, get_global_rank, get_world_size
 from .util import (
-    barrier,
     default_thread_count,
     dir_is_empty,
     get_bytes_range,
-    get_fs_local_rank,
-    get_global_rank,
     get_progress_bar,
-    get_world_size,
     resource_path,
     upload,
     wait_for,
@@ -194,6 +193,7 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
     else:
         flattened_osd = FSDP.optim_state_dict_to_load(fsdp_model, optim, optim_state)  # type: ignore
     del optim_state
+    gc.collect()
     log.info("Loading flattened optimizer state...")
     # Put optim state on CPU since `Optimizer.load_state_dict()` will create a deepcopy of the whole state dict,
     # which takes up unnecessary GPU memory.
@@ -266,9 +266,14 @@ def load_state_dict(
 
     :raises FileNotFoundError: If ``fname`` doesn't exist in the ``checkpoint_dir`` or the local cache.
     """
-    return torch.load(
-        resource_path(str(checkpoint_dir).rstrip("/"), fname, local_cache=local_cache), map_location=map_location
-    )
+    path = resource_path(str(checkpoint_dir).rstrip("/"), fname, local_cache=local_cache)
+
+    if path.suffix == ".pt":
+        safetensors_path = path.with_suffix(".safetensors")
+        if safetensors_path.is_file():
+            return safetensors_file_to_state_dict(safetensors_path, map_location=map_location)
+
+    return torch.load(path, map_location=map_location)
 
 
 def load_model_state(checkpoint_dir: PathOrStr, model: torch.nn.Module):
@@ -489,6 +494,8 @@ class Checkpointer(metaclass=ABCMeta):
         checkpoint_dir_tmp = checkpoint_dir.with_name(checkpoint_dir.name + "-tmp")
         if get_fs_local_rank() == 0:
             shutil.rmtree(checkpoint_dir_tmp, ignore_errors=True)
+            checkpoint_dir_tmp.mkdir(exist_ok=True, parents=True)
+
         barrier()
 
         # Yield temporary directory for `.save_checkpoint()` to use.
@@ -605,24 +612,64 @@ class FullCheckpointer(Checkpointer):
         with FSDP.state_dict_type(
             fsdp_model,
             state_dict_type=StateDictType.FULL_STATE_DICT,
-            state_dict_config=FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
-            optim_state_dict_config=FullOptimStateDictConfig(rank0_only=True, offload_to_cpu=True),
+            state_dict_config=FullStateDictConfig(rank0_only=False, offload_to_cpu=True),
+            optim_state_dict_config=FullOptimStateDictConfig(rank0_only=False, offload_to_cpu=True),
         ):
-            # Load model state.
-            log.info("Loading model state...")
-            state_dict_to_load, og_keys_to_new = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(
-                load_state_dict(load_path, "model.pt", local_cache=local_cache, map_location="cpu")
-            )
-            fsdp_model.load_state_dict(state_dict_to_load)
+            with torch.no_grad():
+                # fill everything with NaN, so we can check afterwards that every parameter has been restored
+                for module_name, module in fsdp_model.named_modules():
+                    if not isinstance(module, FSDP):
+                        continue
+                    for param in module.params:
+                        param.fill_(torch.nan)
+
+                # restore params from checkpoint
+                state_dict_to_load = load_state_dict(
+                    load_path, "model.pt", local_cache=local_cache, map_location="cpu"
+                )
+                (
+                    state_dict_to_load,
+                    og_keys_to_new,
+                ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(state_dict_to_load)
+
+                for module_name, module in fsdp_model.named_modules():
+                    if not isinstance(module, FSDP):
+                        continue
+                    for param in module.params:
+                        assert param._is_flat_param
+                        for fqn, spi in zip(param._fqns, param._shard_param_infos):
+                            if not spi.in_shard:
+                                continue
+                            key = f"{module_name}.{fqn}"
+                            key = key.replace("_fsdp_wrapped_module.", "")
+                            key = key.lstrip(".")
+                            t = state_dict_to_load[key]
+                            t = t.flatten()
+                            param[spi.offset_in_shard : spi.offset_in_shard + spi.numel_in_shard].copy_(
+                                t[spi.intra_param_start_idx : spi.intra_param_end_idx + 1]
+                            )
+
+                # make sure that every parameter has been restored
+                for module_name, module in fsdp_model.named_modules():
+                    if not isinstance(module, FSDP):
+                        continue
+                    for param in module.params:
+                        if torch.isnan(param).any():
+                            raise ValueError(
+                                f"Module '{module_name}' contains NaNs, this is likely a bug restoring from full checkpoints"
+                            )
 
             # Load optimizer state.
             if load_optimizer_state:
-                log.info("Loading optimizer state...")
+                optim_state_dict_to_load = load_state_dict(
+                    load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
+                )
                 optim_state_dict_to_load = self._make_optim_state_dict_compatible(
-                    load_state_dict(load_path, "optim.pt", local_cache=local_cache, map_location="cpu"),
+                    optim_state_dict_to_load,
                     og_keys_to_new,
                 )
                 load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
+                del optim_state_dict_to_load
 
             # Load other state.
             try:
@@ -639,7 +686,7 @@ class FullCheckpointer(Checkpointer):
         # This state dict comes in two forms: one where the state keys are integers and one where the
         # keys are fully qualified parameter names. The latter case is easier to deal with here so we
         # first transform the integer key form into the FQN key form.
-        if isinstance(next(iter(optim_state_dict.keys())), int):
+        if isinstance(optim_state_dict["param_groups"][0]["params"][0], int):
             id_to_fqn: Dict[int, str] = {}
             for group in optim_state_dict["param_groups"]:
                 new_param_names = []
@@ -665,7 +712,9 @@ class FullCheckpointer(Checkpointer):
         # Now we can transform the state dict by renaming parameters according to `og_keys_to_new`.
         # First fix param names in the state.
         for og_key, new_keys in og_keys_to_new.items():
-            og_state = optim_state_dict["state"].pop(og_key)
+            og_state = optim_state_dict["state"].pop(og_key, None)
+            if og_state is None:
+                continue
             for i, new_key in enumerate(new_keys):
                 if i == len(new_keys) - 1:
                     optim_state_dict["state"][new_key] = og_state
@@ -1070,7 +1119,11 @@ class LocalShardedCheckpointer(Checkpointer):
         if version.parse(torch.__version__) < version.parse("2.1.0"):
             return fsdp_model._handles  # type: ignore
         elif version.parse(torch.__version__) < version.parse("2.2.0"):
-            return [fsdp_model._handle]  # type: ignore
+            # Handle could be None if the FSDP wrapper doesn't manage any parameters.
+            if hasattr(fsdp_model, "_handle") and fsdp_model._handle is not None:
+                return [fsdp_model._handle]  # type: ignore
+            else:
+                return []
         else:
             # Need to verify FSDP internals with newer versions.
             raise NotImplementedError
@@ -1204,6 +1257,19 @@ class LocalShardedCheckpointer(Checkpointer):
             optim_state = load_state_dict(
                 load_path, f"optim/rank{get_global_rank()}.pt", local_cache=local_cache, map_location="cpu"
             )
+            # HACK/TODO (epwalsh): When we use adaptive clipping we track the 'grad_norm_exp_avg' for every param
+            # in every rank, and keep this in the optimizer state. But this causes issues when loading the
+            # state since torch sees the state is non-empty for some params which would normally be empty,
+            # and then assumes it should have all of the other state tensors for that param, which is doesn't.
+            # So for now we just remove 'grad_norm_exp_avg' everywhere from the state, which resets that metric.
+            # Not the end of the world but there's probably a better way around this without resetting
+            # the metric.
+            for param_id in list(optim_state["state"].keys()):
+                state = optim_state["state"][param_id]
+                if "grad_norm_exp_avg" in state:
+                    del state["grad_norm_exp_avg"]
+                if len(state) == 0:
+                    del optim_state["state"][param_id]
             optim.load_state_dict(optim_state)
             del optim_state
 
@@ -1356,7 +1422,7 @@ class LocalShardedCheckpointer(Checkpointer):
             # Iterate over local shard state and copy into the full state.
             for id, shard_state in optim_state["state"].items():
                 fqn = id_to_fqn[id]
-                flat_param_shard = flat_params_data[rank][fqn]
+                flat_param_shard = flat_params_data[rank].get(fqn)  # type: ignore[assignment]
                 full_state = full_optim_state["state"][id]
                 for key, shard_value in shard_state.items():
                     assert isinstance(shard_value, torch.Tensor)
@@ -1371,6 +1437,7 @@ class LocalShardedCheckpointer(Checkpointer):
                     else:
                         # Otherwise we have a sharded param state.
                         # If the corresponding full param state hasn't been materialized yet, do so now.
+                        assert flat_param_shard is not None, f"missing flat_params_data for {fqn} from rank {rank}"
                         if key not in full_state:
                             log.info(
                                 f"Materializing full state '{key}' for '{fqn}' with shape {flat_param_shard.full_shape}..."

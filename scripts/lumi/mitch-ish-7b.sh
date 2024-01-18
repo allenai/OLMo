@@ -25,6 +25,7 @@ export MIOPEN_CUSTOM_CACHE_DIR=${MIOPEN_USER_DB_PATH}
 export CXI_FORK_SAFE=1
 export CXI_FORK_SAFE_HP=1
 export FI_CXI_DISABLE_CQ_HUGETLB=1
+export GPU_MAX_HW_QUEUES=8
 
 # We need to set this to avoid "Cassini Event Queue overflow detected." errors.
 export FI_CXI_DEFAULT_CQ_SIZE=131072
@@ -60,5 +61,10 @@ srun \
       --run_name=${SLURM_JOB_ID} \
       --activation_checkpointing=fine_grained \
       --fsdp.wrapping_strategy=one_in_four \
-      --fsdp.sharding_strategy=SHARD_GRAD_OP \
-      --wandb.name=v1_5-mix-mitch-ish-lumi
+      --fsdp.sharding_strategy=FULL_SHARD \
+      --sharded_checkpointer=local \
+      --wandb.name=v1_5-mix-mitch-ish-lumi \
+      --save_interval=10000 \
+      --save_interval_ephemeral=1000 \
+      --remote_save_folder=s3://ai2-llm/checkpoints/7b/mitchish-lumi \
+      --save_folder=${FLASH_DIR}/checkpoints/mitchish-lumi

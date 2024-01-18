@@ -44,7 +44,7 @@ from .config import (
 )
 from .exceptions import OlmoConfigurationError
 from .initialization import ModuleType, init_weights
-from .util import ensure_finite_, pass_through_fn
+from .torch_util import ensure_finite_
 
 __all__ = [
     "LayerNormBase",
@@ -120,9 +120,7 @@ class LayerNormBase(nn.Module):
         self.config = config
         self.eps = eps
         self.normalized_shape = (size or config.d_model,)
-        if elementwise_affine is None:
-            elementwise_affine = self.config.layer_norm_with_affine
-        if elementwise_affine:
+        if elementwise_affine or (elementwise_affine is None and self.config.layer_norm_with_affine):
             self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
             use_bias = self.config.bias_for_layer_norm
             if use_bias is None:
@@ -150,7 +148,7 @@ class LayerNormBase(nn.Module):
         elif config.layer_norm_type == LayerNormType.amd_compatible:
             return AMDLayerNorm(config, size=size, **kwargs)
         else:
-            raise NotImplementedError(f"Not sure how to handle '{config.layer_norm_type}' LayerNorm type")
+            raise NotImplementedError(f"Unknown LayerNorm type: '{config.layer_norm_type}'")
 
     def _cast_if_autocast_enabled(self, tensor: torch.Tensor, dtype: Optional[torch.dtype] = None) -> torch.Tensor:
         # NOTE: `is_autocast_enabled()` only checks for CUDA autocast, so we use the separate function
@@ -310,8 +308,7 @@ class RotaryEmbedding(nn.Module):
         return torch.cat((-x2, x1), dim=-1)
 
     def apply_rotary_pos_emb(self, pos_sin: torch.Tensor, pos_cos: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-        out = (t * pos_cos) + (self.rotate_half(t) * pos_sin)
-        return out.to(t.dtype)
+        return ((t * pos_cos) + (self.rotate_half(t) * pos_sin)).to(t.dtype)
 
     def forward(self, q: torch.Tensor, k: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         if self.config.rope_full_precision:
@@ -356,7 +353,7 @@ class Activation(nn.Module):
         elif config.activation_type == ActivationType.swiglu:
             return SwiGLU(config)
         else:
-            raise NotImplementedError(f"not sure how to handle activation type '{config.activation_type}'")
+            raise NotImplementedError(f"Unknown activation: '{config.activation_type}'")
 
 
 class GELU(nn.GELU):
@@ -432,7 +429,7 @@ class OlmoBlock(nn.Module):
         self.__cache = cache
         assert config.d_model % config.n_heads == 0
 
-        self._activation_checkpoint_fn = pass_through_fn
+        self._activation_checkpoint_fn = None
 
         # Dropout.
         self.dropout = Dropout(config.residual_dropout)
@@ -494,7 +491,7 @@ class OlmoBlock(nn.Module):
         if strategy == ActivationCheckpointingStrategy.fine_grained:
             self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
         else:
-            self._activation_checkpoint_fn = pass_through_fn
+            self._activation_checkpoint_fn = None
 
     @classmethod
     def _cast_attn_bias(cls, bias: torch.Tensor, input_dtype: torch.dtype) -> torch.Tensor:
@@ -571,11 +568,7 @@ class OlmoBlock(nn.Module):
             k = torch.cat((past_key, k), dim=-2)
             v = torch.cat((past_value, v), dim=-2)
 
-        if use_cache:
-            present = (k, v)
-        else:
-            present = None
-
+        present = (k, v) if use_cache else None
         query_len, key_len = q.shape[-2], k.shape[-2]  # could be different if layer_past not None
 
         if self.config.rope:
@@ -628,7 +621,7 @@ class OlmoBlock(nn.Module):
         elif config.block_type == BlockType.llama:
             return OlmoLlamaBlock(layer_id, config, cache)
         else:
-            raise NotImplementedError(f"not sure how to handle block type '{config.block_type}'")
+            raise NotImplementedError(f"Unknown block type: '{config.block_type}'")
 
 
 class OlmoSequentialBlock(OlmoBlock):
@@ -679,12 +672,20 @@ class OlmoSequentialBlock(OlmoBlock):
         #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
-        q, k, v = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x)).split(self.fused_dims, dim=-1)
+        if self._activation_checkpoint_fn is not None:
+            q, k, v = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x)).split(
+                self.fused_dims, dim=-1
+            )
+        else:
+            q, k, v = self.att_proj(self.attn_norm(x)).split(self.fused_dims, dim=-1)
 
         # Get attention scores.
-        att, cache = self._activation_checkpoint_fn(
-            self.attention, q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache
-        )
+        if self._activation_checkpoint_fn is not None:
+            att, cache = self._activation_checkpoint_fn(  # type: ignore
+                self.attention, q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache
+            )
+        else:
+            att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
 
         # Add attention scores.
         # shape: (B, T, C)
@@ -693,9 +694,15 @@ class OlmoSequentialBlock(OlmoBlock):
         # Add feed-forward projection.
         # shape: (batch_size, seq_len, d_model)
         og_x = x
-        x = self._activation_checkpoint_fn(self.ff_norm, x)
+        if self._activation_checkpoint_fn is not None:
+            x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+        else:
+            x = self.ff_norm(x)
         x = self.ff_proj(x)
-        x = self._activation_checkpoint_fn(self.act, x)
+        if self._activation_checkpoint_fn is not None:
+            x = self._activation_checkpoint_fn(self.act, x)  # type: ignore
+        else:
+            x = self.act(x)
         x = self.ff_out(x)
         x = self.dropout(x)
         x = og_x + x
@@ -718,10 +725,9 @@ class OlmoParallelBlock(OlmoBlock):
         super().__init__(layer_id, config, cache)
         self.norm = LayerNorm.build(config)
         # Fused attention and feed-forward projection.
-        # NOTE: we could also fuse the attention and feed-forward output projections
-        # but we found that didn't help, possibly because of the overhead of joining the `att`
-        # and `ff` activations together.
-        # See https://github.com/allenai/LLM/pull/79 for details.
+        # NOTE: we could also fuse the attention and feed-forward output projections but we
+        # found that didn't help, possibly because of the overhead of joining the `att` and
+        # `ff` activations together. See https://github.com/allenai/LLM/pull/79 for details.
         if config.multi_query_attention:
             self.fused_dims = (
                 config.d_model,
@@ -760,23 +766,35 @@ class OlmoParallelBlock(OlmoBlock):
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
         # shape of ff:      (batch_size, seq_len, hidden_size)
-        q, k, v, ff = self.fused_attn_ff_proj(self._activation_checkpoint_fn(self.norm, x)).split(
-            self.fused_dims, dim=-1
-        )
+        if self._activation_checkpoint_fn is not None:
+            q, k, v, ff = self.fused_attn_ff_proj(self._activation_checkpoint_fn(self.norm, x)).split(
+                self.fused_dims, dim=-1
+            )
+        else:
+            q, k, v, ff = self.fused_attn_ff_proj(self.norm(x)).split(self.fused_dims, dim=-1)
 
         # Get attention scores.
         # shape: (B, T, C)
-        att, cache = self._activation_checkpoint_fn(
-            self.attention, q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache
-        )
+        if self._activation_checkpoint_fn is not None:
+            att, cache = self._activation_checkpoint_fn(  # type: ignore
+                self.attention, q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache
+            )
+        else:
+            att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
 
         # Apply output projections (and activation function) and sum the results.
         # We keep these projections separate because we found that we got better throughput this
         # way compared to fusing them.
-        return (
-            x + self.dropout(self.ff_out(self._activation_checkpoint_fn(self.act, ff))) + self.dropout(att),
-            cache,
-        )
+        if self._activation_checkpoint_fn is not None:
+            return (
+                x + self.dropout(self.ff_out(self._activation_checkpoint_fn(self.act, ff))) + self.dropout(att),
+                cache,
+            )
+        else:
+            return (
+                x + self.dropout(self.ff_out(self.act(ff))) + self.dropout(att),
+                cache,
+            )
 
 
 class OlmoLlamaBlock(OlmoBlock):
@@ -881,9 +899,15 @@ class OlmoLlamaBlock(OlmoBlock):
         # Add feed-forward projection.
         # shape: (batch_size, seq_len, d_model)
         og_x = x
-        x = self._activation_checkpoint_fn(self.ff_norm, x)
+        if self._activation_checkpoint_fn is not None:
+            x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+        else:
+            x = self.ff_norm(x)
         x = self.ff_proj(x)
-        x = self._activation_checkpoint_fn(self.act, x)
+        if self._activation_checkpoint_fn is not None:
+            x = self._activation_checkpoint_fn(self.act, x)  # type: ignore
+        else:
+            x = self.act(x)
         x = self.ff_out(x)
         x = self.dropout(x)
         x = og_x + x
@@ -952,7 +976,7 @@ class OlmoBlockGroup(nn.ModuleList):
                 )
             ):
                 # shape: (batch_size, seq_len, d_model)
-                x, cache = self._activation_checkpoint_fn(
+                x, cache = self._activation_checkpoint_fn(  # type: ignore
                     block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
                 )
             else:
@@ -1419,7 +1443,7 @@ class Olmo(nn.Module):
             `(batch_size, 1, seq_len + tokens_to_generate, seq_len + tokens_to_generate)`,
             the same as for the forward method except only one shape is excepted here.
 
-        For an explanation of the other arguments, see the :class:`BeamSearch` class.
+        For an explanation of the other arguments, see :class:`BeamSearch`.
         """
         beam_search = BeamSearch(
             self.config.eos_token_id,

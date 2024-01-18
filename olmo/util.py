@@ -7,14 +7,16 @@ import time
 import warnings
 from datetime import datetime
 from enum import Enum
+from functools import cache
+from itertools import cycle, islice
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, TypeVar, Union
+from queue import Queue
+from threading import Thread
+from typing import Any, Callable, Dict, Optional, Union
 
 import boto3
 import botocore.exceptions as boto_exceptions
 import rich
-import torch
-import torch.distributed as dist
 from botocore.config import Config
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
@@ -23,7 +25,14 @@ from rich.text import Text
 from rich.traceback import Traceback
 
 from .aliases import PathOrStr
-from .exceptions import OlmoCliError, OlmoError, OlmoNetworkError
+from .exceptions import (
+    OlmoCliError,
+    OlmoEnvironmentError,
+    OlmoError,
+    OlmoNetworkError,
+    OlmoThreadError,
+)
+from .torch_util import get_global_rank, get_local_rank, get_node_rank, is_distributed
 
 
 class StrEnum(str, Enum):
@@ -124,15 +133,6 @@ def setup_logging(log_filter_type: LogFilterType = LogFilterType.rank0_only) -> 
     if filter is not None:
         handler.addFilter(filter)  # type: ignore
     logging.basicConfig(handlers=[handler], level=logging.INFO)
-
-    logzio_token = os.environ.get("LOGZIO_TOKEN", None)
-    if logzio_token:
-        from logzio.handler import LogzioHandler
-
-        logzio_handler = LogzioHandler(logzio_token)
-        if filter is not None:
-            logzio_handler.addFilter(filter)  # type: ignore
-        logging.getLogger().addHandler(logzio_handler)
 
     logging.captureWarnings(True)
     logging.getLogger("urllib3").setLevel(logging.ERROR)
@@ -270,130 +270,6 @@ class RichHandler(logging.Handler):
         return Text(text, style="log.path")
 
 
-def seed_all(seed: int):
-    """Seed all rng objects."""
-    import random
-
-    import numpy as np
-
-    if seed < 0 or seed > 2**32 - 1:
-        raise ValueError(f"Seed {seed} is invalid. It must be on [0; 2^32 - 1]")
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    # torch.manual_seed may call manual_seed_all but calling it again here
-    # to make sure it gets called at least once
-    torch.cuda.manual_seed_all(seed)
-
-
-T = TypeVar("T")
-
-
-def move_to_device(o: T, device: torch.device) -> T:
-    if isinstance(o, torch.Tensor):
-        return o.to(device)  # type: ignore[return-value]
-    elif isinstance(o, dict):
-        return {k: move_to_device(v, device) for k, v in o.items()}  # type: ignore[return-value]
-    elif isinstance(o, list):
-        return [move_to_device(x, device) for x in o]  # type: ignore[return-value]
-    elif isinstance(o, tuple):
-        return tuple((move_to_device(x, device) for x in o))  # type: ignore[return-value]
-    else:
-        return o
-
-
-def ensure_finite_(x: torch.Tensor, check_neg_inf: bool = True, check_pos_inf: bool = False):
-    """
-    Modify ``x`` in place to replace ``float("-inf")`` with the minimum value of the dtype when ``check_neg_inf``
-    is ``True`` and to replace ``float("inf")`` with the maximum value of the dtype when ``check_pos_inf`` is ``True``.
-    """
-    if check_neg_inf:
-        x.masked_fill_(x == float("-inf"), torch.finfo(x.dtype).min)
-    if check_pos_inf:
-        x.masked_fill_(x == float("inf"), torch.finfo(x.dtype).max)
-
-
-def is_distributed() -> bool:
-    if "LOCAL_RANK" in os.environ:
-        return True
-    else:
-        return False
-
-
-def get_node_rank() -> int:
-    return int(os.environ.get("NODE_RANK") or (get_global_rank() - get_local_rank()) // get_local_world_size())
-
-
-def get_world_size() -> int:
-    if dist.is_available() and dist.is_initialized():
-        return dist.get_world_size()
-    else:
-        return 1
-
-
-def get_local_world_size() -> int:
-    return int(os.environ.get("LOCAL_WORLD_SIZE") or 1)
-
-
-def get_global_rank() -> int:
-    return int(os.environ.get("RANK") or dist.get_rank())
-
-
-def get_local_rank() -> int:
-    return int(os.environ.get("LOCAL_RANK") or 0)
-
-
-def get_fs_local_rank() -> int:
-    """Get the local rank per filesystem, meaning that, regardless of the number of nodes,
-    if all ranks share the same filesystem then `get_fs_local_rank()` will be equivalent to `get_global_rank()`,
-    but if nodes do not share the same filesystem then `get_fs_local_rank()` will be equivalent to `get_local_rank()`.
-    """
-    return int(os.environ.get("FS_LOCAL_RANK") or get_local_rank())
-
-
-def barrier() -> None:
-    if dist.is_available() and dist.is_initialized():
-        dist.barrier()
-
-
-def get_default_device() -> torch.device:
-    if torch.cuda.is_available() and torch.cuda.is_initialized():
-        return torch.device("cuda")
-    else:
-        return torch.device("cpu")
-
-
-def peak_gpu_memory(reset: bool = False) -> Optional[float]:
-    """
-    Get the peak GPU memory usage in MB across all ranks.
-    Only rank 0 will get the final result.
-    """
-    if not torch.cuda.is_available():
-        return None
-
-    device = torch.device("cuda")
-    peak_mb = torch.cuda.max_memory_allocated(device) / 1000000
-    if dist.is_available() and dist.is_initialized():
-        peak_mb_tensor = torch.tensor(peak_mb, device=device)
-        dist.reduce(peak_mb_tensor, 0, dist.ReduceOp.MAX)
-        peak_mb = peak_mb_tensor.item()
-
-    if reset:
-        # Reset peak stats.
-        torch.cuda.reset_max_memory_allocated(device)
-
-    return peak_mb
-
-
-def syncronize_flag(flag: bool, device: torch.device) -> bool:
-    if dist.is_available() and dist.is_initialized():
-        flag_tensor = torch.tensor(flag, device=device)
-        dist.broadcast(flag_tensor, 0)
-        return flag_tensor.item()  # type: ignore
-    else:
-        return flag
-
-
 def wait_for(condition: Callable[[], bool], description: str, timeout: float = 10.0):
     """Wait for the condition function to return True."""
     start_time = time.monotonic()
@@ -446,8 +322,8 @@ def file_size(path: PathOrStr) -> int:
         parsed = urlparse(str(path))
         if parsed.scheme == "gs":
             return _gcs_file_size(parsed.netloc, parsed.path.strip("/"))
-        elif parsed.scheme == "s3":
-            return _s3_file_size(parsed.netloc, parsed.path.strip("/"))
+        elif parsed.scheme in ("s3", "r2"):
+            return _s3_file_size(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return file_size(str(path).replace("file://", "", 1))
         else:
@@ -465,8 +341,8 @@ def upload(source: PathOrStr, target: str, save_overwrite: bool = False):
     parsed = urlparse(target)
     if parsed.scheme == "gs":
         _gcs_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
-    elif parsed.scheme == "s3":
-        _s3_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
+    elif parsed.scheme in ("s3", "r2"):
+        _s3_upload(source, parsed.scheme, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
     else:
         raise NotImplementedError(f"Upload not implemented for '{parsed.scheme}' scheme")
 
@@ -478,8 +354,10 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
         parsed = urlparse(str(source))
         if parsed.scheme == "gs":
             return _gcs_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
-        elif parsed.scheme == "s3":
-            return _s3_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
+        elif parsed.scheme in ("s3", "r2"):
+            return _s3_get_bytes_range(
+                parsed.scheme, parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes
+            )
         elif parsed.scheme == "file":
             return get_bytes_range(str(source).replace("file://", "", 1), bytes_start, num_bytes)
         else:
@@ -497,8 +375,8 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
         parsed = urlparse(str(dir))
         if parsed.scheme == "gs":
             raise NotImplementedError
-        elif parsed.scheme == "s3":
-            return _s3_find_latest_checkpoint(parsed.netloc, parsed.path.strip("/"))
+        elif parsed.scheme in ("s3", "r2"):
+            return _s3_find_latest_checkpoint(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return find_latest_checkpoint(str(dir).replace("file://", "", 1))
         else:
@@ -559,30 +437,60 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
     return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1)
 
 
-_s3_client = None
+def _get_s3_profile_name(scheme: str) -> Optional[str]:
+    if scheme == "s3":
+        # For backwards compatibility, we assume S3 uses the default profile if S3_PROFILE is not set.
+        return os.environ.get("S3_PROFILE")
+    if scheme == "r2":
+        profile_name = os.environ.get("R2_PROFILE")
+        if profile_name is None:
+            raise OlmoEnvironmentError(
+                "R2 profile name is not set. Did you forget to set the 'R2_PROFILE' env var?"
+            )
+
+        return profile_name
+
+    raise NotImplementedError(f"Cannot get profile name for scheme {scheme}")
 
 
-def _get_s3_client():
-    global _s3_client
-    if _s3_client is None:
-        _s3_client = boto3.client(
-            "s3",
-            config=Config(retries={"max_attempts": 10, "mode": "standard"}),
-            use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
-        )
-    return _s3_client
+def _get_s3_endpoint_url(scheme: str) -> Optional[str]:
+    if scheme == "s3":
+        return None
+    if scheme == "r2":
+        r2_endpoint_url = os.environ.get("R2_ENDPOINT_URL")
+        if r2_endpoint_url is None:
+            raise OlmoEnvironmentError(
+                "R2 endpoint url is not set. Did you forget to set the 'R2_ENDPOINT_URL' env var?"
+            )
+
+        return r2_endpoint_url
+
+    raise NotImplementedError(f"Cannot get endpoint url for scheme {scheme}")
+
+
+@cache
+def _get_s3_client(scheme: str):
+    session = boto3.Session(profile_name=_get_s3_profile_name(scheme))
+    return session.client(
+        "s3",
+        endpoint_url=_get_s3_endpoint_url(scheme),
+        config=Config(retries={"max_attempts": 10, "mode": "standard"}),
+        use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
+    )
 
 
 def _wait_before_retry(attempt: int):
     time.sleep(min(0.5 * 2**attempt, 3.0))
 
 
-def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False, max_attempts: int = 3):
+def _s3_upload(
+    source: Path, scheme: str, bucket_name: str, key: str, save_overwrite: bool = False, max_attempts: int = 3
+):
     err: Optional[Exception] = None
     if not save_overwrite:
         for attempt in range(1, max_attempts + 1):
             try:
-                _get_s3_client().head_object(Bucket=bucket_name, Key=key)
+                _get_s3_client(scheme).head_object(Bucket=bucket_name, Key=key)
                 raise FileExistsError(
                     f"s3://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it."
                 )
@@ -600,16 +508,16 @@ def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = 
             raise OlmoNetworkError("Failed to check object existence during s3 upload") from err
 
     try:
-        _get_s3_client().upload_file(source, bucket_name, key)
+        _get_s3_client(scheme).upload_file(source, bucket_name, key)
     except boto_exceptions.ClientError as e:
         raise OlmoNetworkError("Failed to upload to s3") from e
 
 
-def _s3_file_size(bucket_name: str, key: str, max_attempts: int = 3) -> int:
+def _s3_file_size(scheme: str, bucket_name: str, key: str, max_attempts: int = 3) -> int:
     err: Optional[Exception] = None
     for attempt in range(1, max_attempts + 1):
         try:
-            return _get_s3_client().head_object(Bucket=bucket_name, Key=key)["ContentLength"]
+            return _get_s3_client(scheme).head_object(Bucket=bucket_name, Key=key)["ContentLength"]
         except boto_exceptions.ClientError as e:
             if int(e.response["Error"]["Code"]) == 404:
                 raise FileNotFoundError(f"s3://{bucket_name}/{key}") from e
@@ -623,13 +531,13 @@ def _s3_file_size(bucket_name: str, key: str, max_attempts: int = 3) -> int:
 
 
 def _s3_get_bytes_range(
-    bucket_name: str, key: str, bytes_start: int, num_bytes: int, max_attempts: int = 3
+    scheme: str, bucket_name: str, key: str, bytes_start: int, num_bytes: int, max_attempts: int = 3
 ) -> bytes:
     err: Optional[Exception] = None
     for attempt in range(1, max_attempts + 1):
         try:
             return (
-                _get_s3_client()
+                _get_s3_client(scheme)
                 .get_object(
                     Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
                 )["Body"]
@@ -661,10 +569,10 @@ def _s3_get_bytes_range(
     raise OlmoNetworkError("Failed to get bytes range from s3") from err
 
 
-def _s3_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
+def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Optional[str]:
     if not prefix.endswith("/"):
         prefix = f"{prefix}/"
-    response = _get_s3_client().list_objects(Bucket=bucket_name, Prefix=prefix, Delimiter="/")
+    response = _get_s3_client(scheme).list_objects(Bucket=bucket_name, Prefix=prefix, Delimiter="/")
     assert not response["IsTruncated"]  # need to handle this if it happens
     latest_step = 0
     latest_checkpoint: Optional[str] = None
@@ -690,3 +598,46 @@ def default_thread_count() -> int:
 
 def pass_through_fn(fn, *args, **kwargs):
     return fn(*args, **kwargs)
+
+
+def threaded_generator(g, maxsize: int = 16, thread_name: Optional[str] = None):
+    q: Queue = Queue(maxsize=maxsize)
+
+    sentinel = object()
+
+    def fill_queue():
+        try:
+            for value in g:
+                q.put(value)
+        except Exception as e:
+            q.put(e)
+        finally:
+            q.put(sentinel)
+
+    thread_name = thread_name or repr(g)
+    thread = Thread(name=thread_name, target=fill_queue, daemon=True)
+    thread.start()
+
+    for x in iter(q.get, sentinel):
+        if isinstance(x, Exception):
+            raise OlmoThreadError(f"generator thread {thread_name} failed") from x
+        else:
+            yield x
+
+
+def roundrobin(*iterables):
+    """
+    Call the given iterables in a round-robin fashion. For example:
+    ``roundrobin('ABC', 'D', 'EF') --> A D E B F C``
+    """
+    # Adapted from https://docs.python.org/3/library/itertools.html#itertools-recipes
+    num_active = len(iterables)
+    nexts = cycle(iter(it).__next__ for it in iterables)
+    while num_active:
+        try:
+            for next in nexts:
+                yield next()
+        except StopIteration:
+            # Remove the iterator we just exhausted from the cycle.
+            num_active -= 1
+            nexts = cycle(islice(nexts, num_active))

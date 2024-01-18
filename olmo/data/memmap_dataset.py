@@ -7,6 +7,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from olmo.exceptions import OlmoEnvironmentError
+
 from ..aliases import PathOrStr
 from ..util import _get_s3_client, file_size, get_bytes_range
 
@@ -42,6 +44,8 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         memmap_dtype=np.uint16,
         metadata: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None,
         include_instance_metadata: bool = True,
+        generate_attention_mask: bool = False,
+        pad_token_id: Optional[int] = None,
     ):
         if not paths:
             raise ValueError("At least one path is required")
@@ -58,6 +62,8 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         self.dtype = memmap_dtype
         self._item_size = self.dtype(0).itemsize
         self._include_instance_metadata = include_instance_metadata
+        self._generate_attention_mask = generate_attention_mask
+        self._pad_token_id = pad_token_id
 
     @property
     def chunk_size(self) -> int:
@@ -71,7 +77,13 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
     @property
     def offsets(self) -> List[Tuple[int, int]]:
         # Create the global S3 client up front to work around a threading issue in boto.
-        _get_s3_client()
+        _get_s3_client("s3")
+        try:
+            _get_s3_client("r2")
+        except OlmoEnvironmentError:
+            # R2 might not be needed, so ignore this error. We will get an error
+            # later if R2 is needed.
+            pass
 
         if self._mmap_offsets is None:
             import concurrent.futures
@@ -129,10 +141,18 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
 
         # Read the data from file.
         input_ids = self._read_chunk_from_memmap(self._memmap_paths[memmap_index], memmap_local_index)
+
         out: Dict[str, Any] = {"input_ids": input_ids}
         if self._include_instance_metadata:
             metadata = self._metadata[memmap_index]
             out["metadata"] = deepcopy(metadata)
+
+        if self._generate_attention_mask:
+            assert self._pad_token_id is not None
+            attn_mask = torch.ones_like(input_ids)
+            attn_mask.masked_fill_(input_ids == self._pad_token_id, 0)
+            out["attention_mask"] = attn_mask
+
         return out
 
     def __add__(self, other: MemMapDataset) -> MemMapDataset:
