@@ -10,7 +10,7 @@ model:
   d_model: 512
   n_heads: 16
   n_layers: 8
-  mlp_ratio: 8
+  mlp_ratio: 6
   weight_tying: false
   alibi: false
   rope: true
