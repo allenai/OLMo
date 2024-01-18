@@ -18,14 +18,10 @@ command: |-
 
   pip freeze
 
-  # Prepare environment including AWS config files for both S3 and R2 access.
+  # Prepare environment.
   mkdir -p /root/.cache/torch
+  export OMP_NUM_THREADS=8
+  export LOG_FILTER_TYPE=local_rank0_only
 
-  torchrun \
-  --master_addr "$MASTER_ADDR" \
-  --master_port "$MASTER_PORT" \
-  --nnodes "$NUM_NODES" \
-  --node_rank "$NODE_RANK" \
-  --nproc_per_node 8 \
-  scripts/train.py configs/small-test-s3.yaml \
+  torchrun --nproc_per_node 8 scripts/train.py configs/small-test-s3.yaml \
     --run_name=${run_name}

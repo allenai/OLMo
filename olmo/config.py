@@ -489,11 +489,11 @@ class SchedulerUnits(StrEnum):
 class SchedulerConfig(BaseConfig):
     name: SchedulerType = SchedulerType.cosine_with_warmup
     units: SchedulerUnits = SchedulerUnits.steps
-    t_warmup: int = 100
-    t_max: Optional[int] = None
+    t_warmup: Union[int, float] = 100
+    t_max: Optional[Union[int, float]] = None
     alpha_f: float = 0.1
 
-    grad_clip_warmup_steps: Optional[int] = None
+    grad_clip_warmup_steps: Optional[Union[int, float]] = None
     """
     The warmup period for which the max grad norm (or norm ratio) will be set to its
     warmup value of `max_grad_norm * grad_clip_warmup_factor`.
