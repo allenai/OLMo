@@ -24,4 +24,6 @@ command: |-
   export LOG_FILTER_TYPE=local_rank0_only
 
   torchrun --nproc_per_node 8 scripts/train.py configs/small-test-s3.yaml \
-    --run_name=${run_name}
+    --run_name=${run_name} \
+    --load_path=s3://ai2-llm/checkpoints/small-test/${run_name}/step1000 \
+    --global_train_batch_size=4096
