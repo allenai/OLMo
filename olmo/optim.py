@@ -720,36 +720,46 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
     sched_cfg = sched_cfg if sched_cfg is not None else cfg.scheduler
     if sched_cfg.name == SchedulerType.cosine_with_warmup:
         return CosWithWarmup(
-            grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
+            grad_clip_warmup_steps=None
+            if sched_cfg.grad_clip_warmup_steps is None
+            else int(sched_cfg.grad_clip_warmup_steps),
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
-            warmup_steps=sched_cfg.t_warmup,
+            warmup_steps=int(sched_cfg.t_warmup),
             alpha_f=sched_cfg.alpha_f,
-            t_max=sched_cfg.t_max,
+            t_max=None if sched_cfg.t_max is None else int(sched_cfg.t_max),
         )
     elif sched_cfg.name == SchedulerType.linear_with_warmup:
         return LinearWithWarmup(
-            grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
+            grad_clip_warmup_steps=None
+            if sched_cfg.grad_clip_warmup_steps is None
+            else int(sched_cfg.grad_clip_warmup_steps),
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
-            warmup_steps=sched_cfg.t_warmup,
+            warmup_steps=int(sched_cfg.t_warmup),
             alpha_f=sched_cfg.alpha_f,
-            t_max=sched_cfg.t_max,
+            t_max=None if sched_cfg.t_max is None else int(sched_cfg.t_max),
         )
     elif sched_cfg.name == SchedulerType.inverse_sqrt_with_warmup:
         return InvSqrtWithWarmup(
-            grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
+            grad_clip_warmup_steps=None
+            if sched_cfg.grad_clip_warmup_steps is None
+            else int(sched_cfg.grad_clip_warmup_steps),
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
-            warmup_steps=sched_cfg.t_warmup,
+            warmup_steps=int(sched_cfg.t_warmup),
         )
     elif sched_cfg.name == SchedulerType.max_scheduler:
         return MaxScheduler(
-            grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
+            grad_clip_warmup_steps=None
+            if sched_cfg.grad_clip_warmup_steps is None
+            else int(sched_cfg.grad_clip_warmup_steps),
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             sched1=build_scheduler(cfg, replace(sched_cfg, name=SchedulerType.cosine_with_warmup)),
             sched2=build_scheduler(cfg, replace(sched_cfg, name=SchedulerType.inverse_sqrt_with_warmup)),
         )
     elif sched_cfg.name == SchedulerType.constant:
         return ConstantScheduler(
-            grad_clip_warmup_steps=sched_cfg.grad_clip_warmup_steps,
+            grad_clip_warmup_steps=None
+            if sched_cfg.grad_clip_warmup_steps is None
+            else int(sched_cfg.grad_clip_warmup_steps),
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
         )
     else:

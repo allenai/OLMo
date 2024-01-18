@@ -26,6 +26,7 @@ from .aliases import PathOrStr
 from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
 from .config import (
     CheckpointType,
+    SchedulerUnits,
     ShardedCheckpointerType,
     SpeedMonitorConfig,
     TrainConfig,
@@ -123,6 +124,14 @@ class Trainer:
         return self.train_loader.dataset
 
     @property
+    def tokens_per_batch(self) -> int:
+        return self.cfg.global_train_batch_size * self.cfg.model.max_sequence_length
+
+    @property
+    def batches_per_epoch(self) -> int:
+        return self.dataset.total_size // self.cfg.global_train_batch_size
+
+    @property
     def max_epochs(self) -> int:
         if isinstance(self.cfg.max_duration, str) and self.cfg.max_duration.endswith("ep"):
             return int(self.cfg.max_duration[:-2].strip())
@@ -137,20 +146,58 @@ class Trainer:
             if self.cfg.max_duration.endswith("T"):
                 # convert to float *first* to handle scientific notation
                 max_tokens = int(float(self.cfg.max_duration[:-1].strip()))
-                tokens_remaining = max_tokens - self.global_train_tokens_seen
-                tokens_per_batch = self.cfg.global_train_batch_size * self.cfg.model.max_sequence_length
-                steps_remaining = tokens_remaining // tokens_per_batch
+                tokens_remaining = max(max_tokens - self.global_train_tokens_seen, 0)
+                steps_remaining = tokens_remaining // self.tokens_per_batch
                 return self.global_step + steps_remaining
             elif self.cfg.max_duration.endswith("ep"):
                 max_epochs = int(self.cfg.max_duration[:-2].strip())
-                examples_per_epoch = self.dataset.total_size
-                steps_per_epoch = examples_per_epoch // self.cfg.global_train_batch_size
-                return max_epochs * steps_per_epoch
+                return max_epochs * self.batches_per_epoch
             else:
                 # convert to float *first* to handle scientific notation
                 return int(float(self.cfg.max_duration))
         else:
             raise TypeError(f"expected int or str for 'max_duration', found {type(self.cfg.max_duration)}")
+
+    @property
+    def max_tokens(self) -> int:
+        if isinstance(self.cfg.max_duration, int):
+            return (
+                self.global_train_tokens_seen
+                + max(self.cfg.max_duration - self.global_step, 0) * self.tokens_per_batch
+            )
+        elif isinstance(self.cfg.max_duration, str):
+            if self.cfg.max_duration.endswith("T"):
+                # convert to float *first* to handle scientific notation
+                return int(float(self.cfg.max_duration[:-1].strip()))
+            elif self.cfg.max_duration.endswith("ep"):
+                max_epochs = int(self.cfg.max_duration[:-2].strip())
+                return max_epochs * self.batches_per_epoch * self.tokens_per_batch
+            else:
+                # convert to float *first* to handle scientific notation
+                return (
+                    self.global_train_tokens_seen
+                    + max(int(float(self.cfg.max_duration)) - self.global_step, 0) * self.tokens_per_batch
+                )
+        else:
+            raise TypeError(f"expected int or str for 'max_duration', found {type(self.cfg.max_duration)}")
+
+    @property
+    def scheduler_current(self) -> int:
+        if self.cfg.scheduler.units == SchedulerUnits.steps:
+            return self.global_step
+        elif self.cfg.scheduler.units == SchedulerUnits.tokens:
+            return self.global_train_tokens_seen
+        else:
+            raise NotImplementedError(self.cfg.scheduler.units)
+
+    @property
+    def scheduler_max(self) -> int:
+        if self.cfg.scheduler.units == SchedulerUnits.steps:
+            return self.max_steps
+        elif self.cfg.scheduler.units == SchedulerUnits.tokens:
+            return self.max_tokens
+        else:
+            raise NotImplementedError(self.cfg.scheduler.units)
 
     def trainer_state_dict(self) -> Dict[str, Any]:
         return {
@@ -233,7 +280,7 @@ class Trainer:
         # Reset learning rate and weight decay to the values from the config, not the checkpoint.
         log.info("Resetting learning rate...")
         new_learning_rate = self.scheduler.get_lr(
-            self.cfg.optimizer.learning_rate, self.global_step, self.max_steps
+            self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
         )
         for group in self.optim.param_groups:
             group["lr"] = new_learning_rate
@@ -572,12 +619,14 @@ class Trainer:
             # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
             # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
             # the corresponding values from `self.cfg`.
-            group["lr"] = self.scheduler.get_lr(self.cfg.optimizer.learning_rate, self.global_step, self.max_steps)
+            group["lr"] = self.scheduler.get_lr(
+                self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
+            )
             group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
-                self.cfg.max_grad_norm, self.global_step, self.max_steps
+                self.cfg.max_grad_norm, self.scheduler_current, self.scheduler_max
             )
             group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
-                self.cfg.max_grad_norm_ratio, self.global_step, self.max_steps
+                self.cfg.max_grad_norm_ratio, self.scheduler_current, self.scheduler_max
             )
 
         # Optimizer step.
