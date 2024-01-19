@@ -7,13 +7,25 @@
 
 ## Installation
 
+First install [PyTorch](https://pytorch.org) according to the instructions specific to your operating system.
+
+To install from source (recommended for training/fine-tuning) run:
+
+```bash
+git clone https://github.com/allenai/OLMo.git
+cd OLMo
+pip install -e .
 ```
+
+Otherwise you can install the model code by itself directly from PyPI with:
+
+```bash
 pip install ai2-olmo
 ```
 
 ## Fine-tuning
 
-To fine-tune an OLMo model you'll first need to prepare your dataset by tokenizing it and saving the tokens IDs to a flat numpy memory-mapped array. See [`scripts/prepare_tulu_data.py`](./scripts/prepare_tulu_data.py) for an example with the Tulu V2 dataset, which can be easily modified for other datasets.
+To fine-tune an OLMo model using our trainer you'll first need to prepare your dataset by tokenizing it and saving the tokens IDs to a flat numpy memory-mapped array. See [`scripts/prepare_tulu_data.py`](./scripts/prepare_tulu_data.py) for an example with the Tulu V2 dataset, which can be easily modified for other datasets.
 
 Next, prepare your training config. There are many examples in the [`configs/`](./configs) directory that you can use as a starting point. The most important thing is to make sure the model parameters (the `model` field in the config) match up with the checkpoint you're starting from. To be safe you can always start from the config that comes with the model checkpoint. At a minimum you'll need to make the following changes to the config or provide the corresponding overrides from the command line:
 
