@@ -8,7 +8,7 @@ compute:
 integrations:
   - integration_type: git_repo
     git_repo: allenai/LLM
-    git_branch: epwalsh/fine-tune-with-label-masking
+    git_branch: main
     pip_install: -e .
     ssh_clone: true
 command: |-
