@@ -75,9 +75,9 @@ command: |-
     "${checkpoint}/model.pt" /root/checkpoint-unsharded/
 
   # Download optimizer state.
-  aws s3 cp --profile=r2 --region=auto \
-    --endpoint-url=https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflarestorage.com \
-    "${checkpoint}/optim.pt" /root/checkpoint-unsharded/
+  #aws s3 cp --profile=r2 --region=auto \
+  #  --endpoint-url=https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflarestorage.com \
+  #  "${checkpoint}/optim.pt" /root/checkpoint-unsharded/
 
   # Now remove the aws configs so it doesn't mess with data loading / uploading checkpoints to/from S3.
   rm -rf /root/.aws
@@ -91,11 +91,13 @@ command: |-
   scripts/train.py configs/mitchish-instruct.yaml \
     --run_name=${run_name} \
     --optimizer.learning_rate=${learning_rate} \
+    --scheduler.grad_clip_warmup_steps=400 \
     --save_overwrite \
-    --save_interval_unsharded=10000 \
+    --save_interval_unsharded=100000 \
     --load_path=/root/checkpoint-unsharded \
     --reset_trainer_state \
+    --reset_optimizer_state \
     --compile=null \
-    --activation_checkpointing=fine_grained \
+    --activation_checkpointing=whole_layer \
     --fsdp.wrapping_strategy=size_based \
     --max_duration=5ep
