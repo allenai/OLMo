@@ -17,6 +17,7 @@ import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
 import torch
 import wandb
+from boto3.s3.transfer import TransferConfig
 from cached_path import add_scheme_client, cached_path, set_cache_dir
 from cached_path.schemes import S3Client
 from google.api_core.exceptions import NotFound
@@ -579,7 +580,8 @@ class S3StorageAdapter(StorageAdapter):
             raise ValueError(f"Path {directory_path} is not a valid directory")
 
     def _upload_file(self, local_filepath: str, bucket_name: str, key: str):
-        self._s3_client.upload_file(local_filepath, bucket_name, key)
+        transfer_config = TransferConfig(max_concurrency=4)
+        self._s3_client.upload_file(local_filepath, bucket_name, key, Config=transfer_config)
 
     def upload(self, local_src: PathOrStr, dest_path: str):
         if self.local_fs_adapter.is_file(str(local_src)):
