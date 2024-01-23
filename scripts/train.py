@@ -250,5 +250,9 @@ if __name__ == "__main__":
     except IndexError:
         raise OlmoCliError(f"Usage: {sys.argv[0]} [CONFIG_PATH] [OPTIONS]")
 
-    cfg = TrainConfig.load(yaml_path, [clean_opt(s) for s in args_list])
-    main(cfg)
+    # AMD GPUs have an issue where computation and communication do not overlap
+    # as they should when computation occurs on the default stream.
+    stream = torch.cuda.Stream()
+    with torch.cuda.stream(stream): # type: ignore
+        cfg = TrainConfig.load(yaml_path, [clean_opt(s) for s in args_list])
+        main(cfg)
