@@ -67,7 +67,7 @@ save_folder: ${oc.env:CHECKPOINTS_PATH}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_overwrite: false
 
 save_interval: 1000
-save_interval_ephemeral: 100
+save_interval_ephemeral: 50
 save_num_checkpoints_to_keep: -1
 sharded_checkpointer: local
 
