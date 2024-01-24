@@ -480,14 +480,20 @@ class SchedulerType(StrEnum):
     constant = "constant"
 
 
+class SchedulerUnits(StrEnum):
+    steps = "steps"
+    tokens = "tokens"
+
+
 @dataclass
 class SchedulerConfig(BaseConfig):
     name: SchedulerType = SchedulerType.cosine_with_warmup
-    t_warmup: int = 100
-    t_max: Optional[int] = None
+    units: SchedulerUnits = SchedulerUnits.steps
+    t_warmup: Union[int, float] = 100
+    t_max: Optional[Union[int, float]] = None
     alpha_f: float = 0.1
 
-    grad_clip_warmup_steps: Optional[int] = None
+    grad_clip_warmup_steps: Optional[Union[int, float]] = None
     """
     The warmup period for which the max grad norm (or norm ratio) will be set to its
     warmup value of `max_grad_norm * grad_clip_warmup_factor`.
@@ -509,7 +515,9 @@ class PaddingDirection(StrEnum):
 class DataConfig(BaseConfig):
     paths: Optional[List[str]] = None
     datasets: Optional[Dict[str, List[str]]] = None
+    label_mask_paths: Optional[List[str]] = None
     pad_direction: PaddingDirection = PaddingDirection.right
+    generate_attention_mask: bool = False
     num_workers: int = 0
     drop_last: bool = False
     pin_memory: bool = False
@@ -683,7 +691,7 @@ class TrainConfig(BaseConfig):
     Used to seed all initial RNG states.
     """
 
-    epoch: int = 0
+    epoch: Optional[int] = None
     """
     Increment this when starting a new epoch.
     """
@@ -832,6 +840,11 @@ class TrainConfig(BaseConfig):
     curve (according to the current learning rate schedule settings), and continues from there.
     """
 
+    reset_trainer_state: bool = False
+    """
+    When this is set we don't restore the trainer state from a checkpoint.
+    """
+
     sharded_checkpointer: ShardedCheckpointerType = ShardedCheckpointerType.torch_legacy
     """
     The name of the sharded checkpointer to use to save (sharded) checkpoints throughout training.
@@ -939,6 +952,13 @@ class TrainConfig(BaseConfig):
     The maximum amount of time to train for before saving a checkpoint and ending early.
     On LUMI we have 48 hours max per job, so we default to just under 48 hours to give us time
     to write out a final checkpoint.
+    """
+
+    extra_steps_after_cancel: int = 10
+    """
+    Under certain conditions when a run is canceled we train for a few extra steps after saving
+    the final checkpoint so that when the run is restarted from the latest checkpoint we have some
+    overlap in metrics.
     """
 
     early_stopping_factor: Optional[float] = None

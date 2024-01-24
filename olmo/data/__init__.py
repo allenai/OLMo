@@ -1,8 +1,9 @@
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, cast
 
 from torch.utils.data import DataLoader, DistributedSampler
 
+from ..aliases import PathOrStr
 from ..config import DataConfig, TrainConfig
 from ..exceptions import OlmoConfigurationError
 from ..torch_util import barrier, get_global_rank, get_world_size
@@ -37,6 +38,9 @@ def build_memmap_dataset(
         chunk_size=train_config.model.max_sequence_length,
         metadata=metadata,
         include_instance_metadata=include_instance_metadata,
+        pad_token_id=train_config.model.pad_token_id,
+        generate_attention_mask=data_config.generate_attention_mask,
+        label_mask_paths=cast(Optional[List[PathOrStr]], data_config.label_mask_paths),
     )
 
 
@@ -93,7 +97,7 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
         IterableDataset(
             dataset,  # type: ignore
             train_config.global_train_batch_size,
-            seed=train_config.seed + train_config.epoch,
+            seed=train_config.seed + (train_config.epoch or 0),
             shuffle=True,
             drop_last=train_config.data.drop_last,
             work_dir=work_dir,

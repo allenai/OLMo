@@ -134,15 +134,6 @@ def setup_logging(log_filter_type: LogFilterType = LogFilterType.rank0_only) -> 
         handler.addFilter(filter)  # type: ignore
     logging.basicConfig(handlers=[handler], level=logging.INFO)
 
-    logzio_token = os.environ.get("LOGZIO_TOKEN", None)
-    if logzio_token:
-        from logzio.handler import LogzioHandler
-
-        logzio_handler = LogzioHandler(logzio_token)
-        if filter is not None:
-            logzio_handler.addFilter(filter)  # type: ignore
-        logging.getLogger().addHandler(logzio_handler)
-
     logging.captureWarnings(True)
     logging.getLogger("urllib3").setLevel(logging.ERROR)
 

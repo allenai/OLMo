@@ -9,7 +9,6 @@ from abc import ABC, abstractmethod
 from argparse import ArgumentParser, _SubParsersAction
 from dataclasses import dataclass
 from enum import Enum, auto
-from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
@@ -24,7 +23,7 @@ from cached_path import add_scheme_client, cached_path, set_cache_dir
 from cached_path.schemes import S3Client
 from google.api_core.exceptions import NotFound
 from omegaconf import OmegaConf as om
-from rich.progress import Progress, TaskID, track
+from rich.progress import track
 
 from olmo import util
 from olmo.aliases import PathOrStr
