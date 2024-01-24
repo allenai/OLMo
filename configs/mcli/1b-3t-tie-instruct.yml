@@ -1,5 +1,5 @@
 name: 1b-3t-tie-instruct
-image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
+image: mosaicml/pytorch:2.1.0_cu121-python3.10-ubuntu20.04
 env_variables:
   CONFIG_PATH: "configs/v1_5-mix-small/1b-3t-tie-instruct.yml"
   LOAD_PATH: "s3://ai2-llm/checkpoints/olmo-small-3T-lower-lr-tie/5683801/step738020-unsharded"
