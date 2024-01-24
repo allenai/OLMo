@@ -1,8 +1,8 @@
 name: 1b-3t-tie-instruct
 image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
 env_variables:
-  CONFIG_PATH: configs/v1_5-mix-small/v1_6-mix-small-wd01.yaml
-  LOAD_PATH: "s3://ai2-llm/checkpoints/1b/olmo-small-dolma-v16-150B/olmo-small-dolma-v16-150B-d97a7ffd/step4000"
+  CONFIG_PATH: "configs/v1_5-mix-small/1b-3t-tie-instruct.yml"
+  LOAD_PATH: "s3://ai2-llm/checkpoints/olmo-small-3T-lower-lr-tie/5683801/step738020-unsharded"
   LEARNING_RATE: 1e-6
   WARMUP_STEPS: 400
   MAX_EPOCHS: 5
@@ -18,8 +18,14 @@ integrations:
     pip_install: -e .
     ssh_clone: true
 command: |-
-  cd OLMo
+  # Install aws cli
+  apt-get update
+  apt-get install zip unzip
+  curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+  unzip awscliv2.zip
+  sudo ./aws/install
 
+  cd OLMo
   pip freeze
   mkdir -p /root/.cache/torch/
 
