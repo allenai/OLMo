@@ -58,10 +58,13 @@ command: |-
 
   # If a checkpoint is provided, download it
   if [[ -z "${LOAD_PATH}" ]]; then
+    LOAD_PATH_ARG=""
+  else
+    echo "Downloading checkpoint from ${LOAD_PATH}"
+    mkdir -p /root/checkpoint-unsharded
     aws s3 sync "${LOAD_PATH}" /root/checkpoint-unsharded
     LOAD_PATH_ARG="--load_path=/root/checkpoint-unsharded"
-  else
-    LOAD_PATH_ARG=""
+    echo "Checkpoint downloaded."
   fi
 
   torchrun \
