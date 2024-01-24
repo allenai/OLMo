@@ -14,7 +14,7 @@ model:
   weight_tying: true
   alibi: false
   rope: true
-  flash_attention: false  # not available on AMD
+  flash_attention: true  # not available on AMD
   attention_dropout: 0.0
   attention_layer_norm: false
   multi_query_attention: false
@@ -57,13 +57,13 @@ tokenizer:
   truncate_direction: right
 
 save_folder: runs/${run_name}
-remote_save_folder: s3://ai2-llm/checkpoints/1b/${run_name}
-save_overwrite: false
+remote_save_folder: s3://ai2-llm/checkpoints/1b/${wandb.group}/${run_name}
+save_overwrite: true
 # Sharded checkpoints (best for restarts)
 save_interval: 1000
 save_num_checkpoints_to_keep: -1
 # Unsharded checkpoints (for final storage)
-save_interval_unsharded: 10000  # getting errors on LUMI right now
+save_interval_unsharded: 5000  # getting errors on LUMI right now
 save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
