@@ -212,7 +212,7 @@ def main(cfg: TrainConfig) -> None:
                 trainer.scheduler = BoltOnWarmupScheduler.wrap(
                     trainer.scheduler,
                     trainer.global_step,
-                    trainer.global_step + cfg.scheduler.t_warmup,
+                    int(trainer.global_step + cfg.scheduler.t_warmup),
                 )
 
         if cfg.force_save_unsharded:
