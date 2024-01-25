@@ -44,6 +44,14 @@ class Tokenizer:
     def vocab_size(self) -> int:
         return self.base_tokenizer.get_vocab_size()
 
+    @property
+    def eos_token(self) -> str:
+        return self.decode([self.eos_token_id], skip_special_tokens=False)
+
+    @property
+    def pad_token(self) -> str:
+        return self.decode([self.pad_token_id], skip_special_tokens=False)
+
     @classmethod
     def from_train_config(cls, config: TrainConfig) -> Tokenizer:
         tokenizer_identifier = config.tokenizer.identifier

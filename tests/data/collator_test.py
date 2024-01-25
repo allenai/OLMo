@@ -92,3 +92,40 @@ def test_collate_with_attention_bias(train_config, pad_direction):
                 ]
             )
         ).all()
+
+
+@pytest.mark.parametrize(
+    "pad_direction",
+    [pytest.param(PaddingDirection.right, id="pad-right"), pytest.param(PaddingDirection.left, id="pad-left")],
+)
+def test_collate_with_label_mask(train_config, pad_direction):
+    train_config.data.pad_direction = pad_direction
+    collator = DataCollator.from_train_config(train_config)
+
+    inputs = [
+        {
+            "input_ids": torch.tensor([0, 1, 2, 3]),
+            "label_mask": torch.tensor([True, False, True, True]),
+        },
+        {
+            "input_ids": torch.tensor([4, 5, 6]),
+            "label_mask": torch.tensor([True, True, False]),
+        },
+    ]
+    batch = collator(inputs)  # type: ignore
+    assert batch["label_mask"] is not None
+    assert batch["label_mask"].shape == (2, 4)
+    if pad_direction == "right":
+        assert (
+            batch["label_mask"]
+            == torch.tensor(
+                [[True, False, True, True], [True, True, False, False]],
+            )
+        ).all()
+    else:
+        assert (
+            batch["label_mask"]
+            == torch.tensor(
+                [[True, False, True, True], [False, True, True, False]],
+            )
+        ).all()
