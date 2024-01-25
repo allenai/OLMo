@@ -3,7 +3,7 @@ image: mosaicml/pytorch:2.1.0_cu121-python3.10-ubuntu20.04
 env_variables:
   CONFIG_PATH: "configs/v1_5-mix-small/1b-3t-tie-instruct.yml"
   LOAD_PATH: "s3://ai2-llm/checkpoints/olmo-small-3T-lower-lr-tie/5683801/step738020-unsharded"
-  LEARNING_RATE: 1e-6
+  LEARNING_RATE: 1e-5
   WARMUP_STEPS: 400
   MAX_EPOCHS: 5
 compute:
@@ -14,7 +14,7 @@ integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
     git_branch: soldni/3T-1B-D15
-    git_commit: 44c2245008070214cc4145a16b36d9b9beb8aa0b
+    git_commit: a3f4ed8ab5164fc81ea1e72ac9a1416d4be39fad
     pip_install: -e .
     ssh_clone: true
 command: |-
@@ -38,8 +38,8 @@ command: |-
   # get a hash of the load path and config path; take the first 8 characters
   RUN_HASH=$(echo "${LOAD_PATH_ARG}-${CONFIG_PATH}" | md5sum | cut -c 1-8)
 
-  # compose the two
-  FULL_RUN_NAME="${RUN_NAME}-${RUN_HASH}"
+  # compose full run name
+  FULL_RUN_NAME="${RUN_NAME}-${LEARNING_RATE}-${WARMUP_STEPS}-${MAX_EPOCHS}ep-${RUN_HASH}"
 
   # get W&B settings from the config file, then extract the project and group
   WANDB_SETTINGS=$(cat $CONFIG_PATH |  tr '\n' '\r' | grep -ohP "\rwandb:\r.*?\r\r"  | tr '\r' '\n')
