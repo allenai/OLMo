@@ -4,6 +4,17 @@
   <br>
   <h1>OLMo: Open Language Model</h1>
 </div>
+<p align="center">
+  <a href="https://github.com/allenai/OLMo/blob/main/LICENSE">
+    <img alt="GitHub License" src="https://img.shields.io/github/license/allenai/OLMo">
+  </a>
+  <a href="https://github.com/allenai/OLMo/releases">
+    <img alt="GitHub release" src="https://img.shields.io/github/release/allenai/OLMo.svg">
+  </a>
+</p>
+
+OLMo is a repository for training and using AI2's state-of-the-art open language models. 
+It is built by scientists, for scientists.
 
 ## Installation
 
@@ -22,6 +33,16 @@ Otherwise you can install the model code by itself directly from PyPI with:
 ```bash
 pip install ai2-olmo
 ```
+
+## Models overview
+
+The core models in the OLMo family released so far are (all trained on the [Dolma dataset](https://huggingface.co/datasets/allenai/dolma)): 
+| Model | Training Tokens | Context Length |
+|------|--------|---------|
+| [OLMo 1B](https://huggingface.co/allenai/OLMo-1B)   | 3 Trillion | 2048  |
+| [OLMo 7B](https://huggingface.co/allenai/OLMo-7B) | 2.5 Trillion   |  2048  |
+| [OLMo 7B Twin 2T](https://huggingface.co/allenai/OLMo-7B-Twin-2T) | 2 Trillion  |   2048  |
+
 
 ## Fine-tuning
 
@@ -46,3 +67,8 @@ torchrun --nproc_per_node=8 scripts/train.py {path_to_train_config} \
 ```
 
 Note: passing CLI overrides like `--reset_trainer_state` is only necessary if you didn't update those fields in your config.
+
+
+## Evaluation
+
+Additional tools for evaluating OLMo models are available at the [OLMo Eval](https://github.com/allenai/ai2-olmo-eval) repo.
