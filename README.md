@@ -76,7 +76,7 @@ print(olmo_pipe("Language modeling is"))
 
 ### Inference on finetuned checkpoints
 
-If you finetune the model using the code above, you can use the conversion script to convert a native olmo checkpoint to a huggingface-compatible checkpoint
+If you finetune the model using the code above, you can use the conversion script to convert a native OLMo checkpoint to a HuggingFace-compatible checkpoint
 
 ```bash
 python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir /path/to/checkpoint
