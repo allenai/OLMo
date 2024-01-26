@@ -73,6 +73,15 @@ olmo_pipe = pipeline("text-generation", model="allenai/OLMo-7B")
 print(olmo_pipe("Language modeling is"))
 ```
 
+
+### Inference on finetuned checkpoints
+
+If you finetune the model using the code above, you can use the conversion script to convert a native olmo checkpoint to a huggingface-compatible checkpoint
+
+```bash
+python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir /path/to/checkpoint
+```
+
 ### Quantization
 
 ```python
