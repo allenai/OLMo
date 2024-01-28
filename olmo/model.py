@@ -1077,9 +1077,6 @@ class Olmo(nn.Module):
             get_causal_attention_bias(self.__cache, config.max_sequence_length, _non_meta_init_device(config))
             self.get_alibi_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
 
-    def enable_activation_checkpointing(self, enable: bool = True):
-        self.set_activation_checkpointing(ActivationCheckpointingStrategy.whole_layer if enable else None)
-
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         self.activation_checkpointing_strategy = strategy
         if self.config.block_group_size != 1:
