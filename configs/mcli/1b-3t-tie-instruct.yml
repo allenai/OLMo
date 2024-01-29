@@ -4,10 +4,10 @@ env_variables:
   CONFIG_PATH: "configs/v1_5-mix-small/1b-3t-tie-instruct.yml"
   LOAD_PATH: "s3://ai2-llm/checkpoints/olmo-small-3T-lower-lr-tie/5683801/step738020-unsharded"
   LEARNING_RATE: 1e-5
-  WARMUP_STEPS: 400
-  MAX_EPOCHS: 5
+  WARMUP_STEPS: 2000
+  MAX_EPOCHS: 10
 compute:
-  gpus: 32
+  gpus: 16
   cluster: r12z3
   gpu_type: a100_40gb
 integrations:
@@ -88,6 +88,7 @@ command: |-
     --scheduler.grad_clip_warmup_steps=${WARMUP_STEPS} \
     --save_overwrite \
     --save_interval_unsharded=1000 \
+    --global_train_batch_size=64 \
     $LOAD_PATH_ARG \
     --reset_trainer_state \
     --reset_optimizer_state \
