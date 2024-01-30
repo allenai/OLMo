@@ -677,21 +677,22 @@ class ActivationCheckpointingStrategy(StrEnum):
     """
     Checkpoint one in two transformer layers.
     """
-    
+
     one_in_three = "one_in_three"
     """
     Checkpoint one in three transformer layers.
     """
-    
+
     one_in_four = "one_in_four"
     """
     Checkpoint one in four transformer layers.
-    """    
-    
+    """
+
     fine_grained = "fine_grained"
     """
     Focus checkpointing on where it is cheap to recompute and saves most memory.
     """
+
 
 @dataclass
 class TrainConfig(BaseConfig):
