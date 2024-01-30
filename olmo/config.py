@@ -654,6 +654,14 @@ class FSDPConfig(BaseConfig):
 
     precision: FSDPPrecision = FSDPPrecision.pure
 
+    hybrid_sharding_num_groups: Optional[int] = None
+    """
+    The number of process groups across which each parameter is replicated, when using a hybrid sharding strategy.
+    If not ``None``, this must divide the total number of nodes. If ``None``, the default, FSDP defaults to
+    constructing process groups such that parameters are sharded intra-node and replicated inter-node.
+    FSDP's default behavior is roughly equivalent to setting ``hybrid_sharding_num_groups`` to ``1``.
+    """
+
 
 class CheckpointType(StrEnum):
     sharded = "sharded"

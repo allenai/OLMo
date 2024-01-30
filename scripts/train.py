@@ -3,14 +3,16 @@
 import gzip
 import logging
 import sys
+import typing
 from pathlib import Path
-from typing import Optional, TextIO
+from typing import Optional, TextIO, Tuple
 
 import torch
 import torch.distributed as dist
 import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp import ShardingStrategy
 
 from olmo.config import CheckpointType, TrainConfig
 from olmo.data import build_train_dataloader
@@ -23,6 +25,7 @@ from olmo.torch_util import (
     get_default_device,
     get_global_rank,
     get_local_rank,
+    get_local_world_size,
     get_world_size,
     peak_gpu_memory,
     seed_all,
@@ -47,6 +50,34 @@ def main(cfg: TrainConfig) -> None:
         )
 
     barrier()
+
+    fsdp_init_process_group: Optional[Tuple[dist.ProcessGroup, dist.ProcessGroup]] = None
+    if (
+        cfg.fsdp.sharding_strategy == ShardingStrategy.HYBRID_SHARD
+        and cfg.fsdp.hybrid_sharding_num_groups is not None
+    ):
+        if cfg.fsdp.hybrid_sharding_num_groups <= 0:
+            raise OlmoConfigurationError("fsdp.hybrid_sharding_num_groups must be a positive integer")
+
+        num_nodes = get_world_size() // get_local_world_size()
+        if num_nodes % cfg.fsdp.hybrid_sharding_num_groups != 0:
+            raise OlmoConfigurationError("fsdp.hybrid_sharding_num_groups must divide number of nodes")
+
+        group_size = get_world_size() // cfg.fsdp.hybrid_sharding_num_groups
+
+        sharding_proc_group, _ = dist.new_subgroups(group_size)
+
+        ranks_per_replication_group_list = [
+            [group_num + (i * cfg.fsdp.hybrid_sharding_num_groups) for i in range(group_size)]
+            for group_num in range(cfg.fsdp.hybrid_sharding_num_groups)
+        ]
+        replication_proc_group, _ = dist.new_subgroups_by_enumeration(ranks_per_replication_group_list)
+
+        assert sharding_proc_group is not None
+        assert replication_proc_group is not None
+        sharding_proc_group = typing.cast(dist.ProcessGroup, sharding_proc_group)
+        replication_proc_group = typing.cast(dist.ProcessGroup, replication_proc_group)
+        fsdp_init_process_group = (sharding_proc_group, replication_proc_group)
 
     # Set CUDA device.
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
@@ -133,6 +164,7 @@ def main(cfg: TrainConfig) -> None:
         param_init_fn = None
     fsdp_model = FSDP(
         olmo_model,
+        process_group=fsdp_init_process_group,
         sharding_strategy=cfg.fsdp.sharding_strategy,
         mixed_precision=cfg.fsdp_precision,
         auto_wrap_policy=wrap_policy,
