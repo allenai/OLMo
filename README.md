@@ -71,10 +71,11 @@ Note: passing CLI overrides like `--reset_trainer_state` is only necessary if yo
 
 ## Inference
 
-To run inference on the olmo checkpoints:
+You can utilize our HuggingFace integration to run inference on the olmo checkpoints:
 
 ```python
-from hf_olmo import *
+from hf_olmo import * # registers the Auto* classes
+
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 olmo = AutoModelForCausalLM.from_pretrained("allenai/OLMo-7B")
