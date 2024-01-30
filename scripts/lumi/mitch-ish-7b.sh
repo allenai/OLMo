@@ -58,13 +58,11 @@ srun \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
     python scripts/train.py configs/v1_5-mix-medium-mitch-ish.yaml ${@} \
-      --run_name=${SLURM_JOB_ID} \
-      --activation_checkpointing=fine_grained \
-      --fsdp.wrapping_strategy=one_in_four \
+      --run_name=temp-${SLURM_JOB_ID} \
+      --activation_checkpointing=whole_layer \
       --fsdp.sharding_strategy=FULL_SHARD \
       --sharded_checkpointer=local \
-      --wandb.name=v1_5-mix-mitch-ish-lumi \
+      --wandb=null \
       --save_interval=10000 \
       --save_interval_ephemeral=1000 \
-      --remote_save_folder=s3://ai2-llm/checkpoints/7b/mitchish-lumi \
-      --save_folder=${FLASH_DIR}/checkpoints/mitchish-lumi
+      --save_folder=${FLASH_DIR}/checkpoints/temp-shanea-${SLURM_JOB_ID}
