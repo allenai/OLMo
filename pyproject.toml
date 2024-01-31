@@ -42,7 +42,7 @@ train = [
     "beaker-gantry",
     "click",
     "torchmetrics",
-    "smashed[remote]>=0.21.1"
+    "smashed[remote]>=0.21.1",
     "safetensors",
     "datasets",
     "scikit-learn",
