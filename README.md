@@ -31,10 +31,8 @@ pip install -e .[all]
 Otherwise you can install the model code by itself directly from PyPI with:
 
 ```bash
-pip install ai2-olmo[hf]
+pip install ai2-olmo
 ```
-
-The `hf` extra enables the HuggingFace integration.
 
 ## Models overview
 
