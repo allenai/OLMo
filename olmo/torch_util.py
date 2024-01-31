@@ -134,7 +134,8 @@ def synchronize_value(value: V, device: torch.device, process_group: Optional[di
             torch.cuda.synchronize()
             process_group = None
 
-        dist.broadcast(value_tensor, 0, group=process_group)
+        global_rank_of_group_zero = dist.get_global_rank(process_group, 0) if process_group is not None else 0
+        dist.broadcast(value_tensor, global_rank_of_group_zero, group=process_group)
         return value_tensor.item()  # type: ignore
     else:
         return value
