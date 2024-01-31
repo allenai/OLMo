@@ -57,12 +57,40 @@ srun \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
-    python scripts/train.py configs/v1_5-mix-medium-mitch-ish.yaml ${@} \
+    python scripts/train.py configs/v1_5-mix-medium-mitch-ish.yaml \
       --run_name=temp-${SLURM_JOB_ID} \
       --activation_checkpointing=whole_layer \
-      --fsdp.sharding_strategy=FULL_SHARD \
+      --fsdp.wrapping_strategy=by_block \
+      --fsdp.sharding_strategy=HYBRID_SHARD \
+      --fsdp.hybrid_sharding_num_groups=2 \
       --sharded_checkpointer=local \
       --wandb=null \
       --save_interval=10000 \
       --save_interval_ephemeral=1000 \
-      --save_folder=${FLASH_DIR}/checkpoints/temp-shanea-${SLURM_JOB_ID}
+      --save_folder=${FLASH_DIR}/checkpoints/temp-shanea-${SLURM_JOB_ID} \
+      --save_overwrite > ~/logs/hybrid-shard-groups-treatment.log
+
+srun \
+  --cpus-per-task=$SLURM_CPUS_PER_TASK \
+  --distribution=block:block \
+  --kill-on-bad-exit \
+  scripts/run_with_environment.sh \
+    singularity exec \
+    -B"$PROJECT_DIR:$PROJECT_DIR" \
+    -B"$FLASH_DIR:$FLASH_DIR" \
+    -B"$SCRATCH_DIR:$SCRATCH_DIR" \
+    -B /opt/cray:/opt/cray \
+    -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
+    -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
+    $PROJECT_DIR/containers/$OLMO_CONTAINER \
+    python scripts/train.py configs/v1_5-mix-medium-mitch-ish.yaml \
+      --run_name=temp-${SLURM_JOB_ID} \
+      --activation_checkpointing=whole_layer \
+      --fsdp.wrapping_strategy=by_block \
+      --fsdp.sharding_strategy=HYBRID_SHARD \
+      --sharded_checkpointer=local \
+      --wandb=null \
+      --save_interval=10000 \
+      --save_interval_ephemeral=1000 \
+      --save_folder=${FLASH_DIR}/checkpoints/temp-shanea-${SLURM_JOB_ID} \
+      --save_overwrite > ~/logs/hybrid-shard-groups-control.log
