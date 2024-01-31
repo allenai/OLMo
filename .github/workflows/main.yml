@@ -78,10 +78,10 @@ jobs:
         uses: actions/cache@v3
         with:
           path: .mypy_cache
-          key: mypy-${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('*requirements.txt') }}-${{ github.ref }}-${{ github.sha }}
+          key: mypy-${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('*requirements.txt', '*pyproject.toml') }}-${{ github.ref }}-${{ github.sha }}
           restore-keys: |
-            mypy-${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('*requirements.txt') }}-${{ github.ref }}
-            mypy-${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('*requirements.txt') }}
+            mypy-${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('*requirements.txt', '*pyproject.toml') }}-${{ github.ref }}
+            mypy-${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('*requirements.txt', '*pyproject.toml') }}
 
       - name: ${{ matrix.task.name }}
         run: |
@@ -172,10 +172,11 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install requirements
-        run: |
-          pip install --upgrade pip setuptools wheel build
-          pip install -r dev-requirements.txt
+      - name: Setup Python environment
+        uses: ./.github/actions/setup-venv
+        with:
+          python-version: '3.10'
+          cache-prefix: ${{ env.CACHE_PREFIX }}
 
       - name: Prepare environment
         run: |

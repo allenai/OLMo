@@ -30,7 +30,7 @@ runs:
       id: virtualenv-cache
       with:
         path: .venv
-        key: ${{ inputs.cache-prefix }}-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'dev-requirements.txt', 'hf_olmo/requirements.txt') }}
+        key: ${{ inputs.cache-prefix }}-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('*requirements.txt', '*pyproject.toml') }}
 
     - if: steps.virtualenv-cache.outputs.cache-hit != 'true'
       shell: bash
@@ -39,7 +39,7 @@ runs:
         test -d .venv || virtualenv -p $(which python) --copies --reset-app-data .venv
         . .venv/bin/activate
         pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
-        pip install -e .[dev]
+        pip install -e .[all]
         pip install -e hf_olmo
 
     - if: steps.virtualenv-cache.outputs.cache-hit == 'true'
