@@ -94,9 +94,9 @@ def barrier() -> None:
         dist.barrier()
 
 
-def peak_gpu_memory(reset: bool = False) -> Optional[float]:
+def peak_gpu_memory(reset: bool = False, process_group: Optional[dist.ProcessGroup] = None) -> Optional[float]:
     """
-    Get the peak GPU memory usage in MB across all ranks.
+    Get the peak GPU memory usage in MB across all ranks with a process group.
     Only rank 0 will get the final result.
     """
     if not torch.cuda.is_available():
@@ -106,6 +106,11 @@ def peak_gpu_memory(reset: bool = False) -> Optional[float]:
     peak_mb = torch.cuda.max_memory_allocated(device) / 1000000
     if is_distributed():
         peak_mb_tensor = torch.tensor(peak_mb, device=device)
+
+        if process_group is not None:
+            # If process groups are in use,
+            # then we need to make sure they have no activate kernels before we reduce globally.
+            torch.cuda.synchronize()
         dist.reduce(peak_mb_tensor, 0, dist.ReduceOp.MAX)
         peak_mb = peak_mb_tensor.item()
 
@@ -119,14 +124,21 @@ def peak_gpu_memory(reset: bool = False) -> Optional[float]:
 V = TypeVar("V", bool, int, float)
 
 
-def synchronize_value(value: V, device: torch.device) -> V:
+def synchronize_value(value: V, device: torch.device, process_group: Optional[dist.ProcessGroup] = None, sync_only_in_group: bool = True) -> V:
     if dist.is_available() and dist.is_initialized():
         value_tensor = torch.tensor(value, device=device)
-        dist.broadcast(value_tensor, 0)
+
+        if process_group is not None and not sync_only_in_group:
+            # If process groups are in use and we want to synchronize the value beyond just the group (globally),
+            # then we need to make sure they have no activate kernels before we broadcast.
+            torch.cuda.synchronize()
+            process_group = None
+
+        dist.broadcast(value_tensor, 0, group=process_group)
         return value_tensor.item()  # type: ignore
     else:
         return value
 
 
-def synchronize_flag(flag: bool, device: torch.device) -> bool:
-    return synchronize_value(flag, device)
+def synchronize_flag(flag: bool, device: torch.device, process_group: Optional[dist.ProcessGroup] = None, sync_only_in_group: bool = True) -> bool:
+    return synchronize_value(flag, device, process_group=process_group, sync_only_in_group=sync_only_in_group)

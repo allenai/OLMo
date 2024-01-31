@@ -608,10 +608,10 @@ class Trainer:
 
         # Collect loss, potentially reducing over all ranks.
         if reduce_global_loss:
-            dist.reduce(ce_batch_loss, 0)
+            dist.reduce(ce_batch_loss, 0, group=self.fsdp_model.process_group)
             ce_batch_loss.div_(get_world_size())
             if z_batch_loss is not None:
-                dist.reduce(z_batch_loss, 0)
+                dist.reduce(z_batch_loss, 0, group=self.fsdp_model.process_group)
                 z_batch_loss.div_(get_world_size())
 
         # Clip gradient norms and collect param/gradient/optim metrics.
@@ -706,7 +706,7 @@ class Trainer:
     def system_metrics(self) -> Dict[str, float]:
         metrics = {}
         if self.global_step < 3 or self.global_step % 10 == 0:
-            peak_gpu_mb = peak_gpu_memory()
+            peak_gpu_mb = peak_gpu_memory(process_group=self.fsdp_model.process_group)
             if peak_gpu_mb is not None:
                 metrics["System/Peak GPU Memory (MB)"] = peak_gpu_mb
         return metrics
@@ -834,9 +834,9 @@ class Trainer:
                 except RequestException:
                     pass
 
-        run_canceled = synchronize_flag(should_cancel, self.device)
+        run_canceled = synchronize_flag(should_cancel, self.device, process_group=self.fsdp_model.process_group, sync_only_in_group=False)
         if run_canceled and cancel_reason is not None:
-            extra_steps = synchronize_value(extra_steps, self.device)
+            extra_steps = synchronize_value(extra_steps, self.device, process_group=self.fsdp_model.process_group, sync_only_in_group=False)
             if extra_steps > 0:
                 log.warning(f"Run canceled due to {cancel_reason}, stopping in {extra_steps} more steps...")
             else:

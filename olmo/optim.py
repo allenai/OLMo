@@ -34,6 +34,15 @@ log = logging.getLogger(__name__)
 
 
 class Optimizer(OptimizerBase):
+    def __init__(
+        self,
+        params,
+        defaults,
+        process_group: Optional[dist.ProcessGroup] = None
+    ):
+        super().__init__(params, defaults)
+        self.process_group = process_group
+
     def _clean_param_name(self, name: str) -> str:
         return name.replace("_fsdp_wrapped_module.", "")
 
@@ -144,12 +153,12 @@ class Optimizer(OptimizerBase):
             # Reduce mins.
             if per_param_min_metrics:
                 all_mins = torch.cat(per_param_min_metrics).to(device)
-                dist.reduce(all_mins, 0, op=dist.ReduceOp.MIN)
+                dist.reduce(all_mins, 0, op=dist.ReduceOp.MIN, group=self.process_group)
                 per_param_min_metrics = all_mins.split(1)
             # Reduce maxs.
             if per_param_max_metrics:
                 all_maxs = torch.cat(per_param_max_metrics).to(device)
-                dist.reduce(all_maxs, 0, op=dist.ReduceOp.MAX)
+                dist.reduce(all_maxs, 0, op=dist.ReduceOp.MAX, group=self.process_group)
                 per_param_max_metrics = all_maxs.split(1)
             # Reduce sums or just norms.
             all_norms = torch.cat(per_param_norm_metrics).to(device) ** 2.0
@@ -159,13 +168,13 @@ class Optimizer(OptimizerBase):
                 all_sums_norms_numels = torch.cat(
                     [all_sums.unsqueeze(0), all_norms.unsqueeze(0), all_numels.unsqueeze(0)], dim=0
                 )
-                dist.all_reduce(all_sums_norms_numels, op=dist.ReduceOp.SUM)
+                dist.all_reduce(all_sums_norms_numels, op=dist.ReduceOp.SUM, group=self.process_group)
                 all_sums, all_norms, all_numels = all_sums_norms_numels.split(1)
                 # Get averages.
                 # NOTE: could get infs for non-rank0 processes but that's okay.
                 per_param_avg_metrics = (all_sums / all_numels).squeeze(0).split(1)
             else:
-                dist.all_reduce(all_norms, op=dist.ReduceOp.SUM)
+                dist.all_reduce(all_norms, op=dist.ReduceOp.SUM, group=self.process_group)
             grad_norm_metric_mask = torch.tensor(
                 [float(is_grad_norm_metric(n)) for n in per_param_norm_metric_names], device=all_norms.device
             )
@@ -339,6 +348,7 @@ class LionW(Optimizer):
     def __init__(
         self,
         params,
+        process_group: Optional[dist.ProcessGroup] = None,
         lr: float = 1e-4,
         betas: Tuple[float, float] = (0.9, 0.99),
         weight_decay: float = 0.0,
@@ -346,7 +356,7 @@ class LionW(Optimizer):
         assert lr > 0.0
         assert all([0.0 <= beta <= 1.0 for beta in betas])
         defaults = dict(lr=lr, betas=betas, weight_decay=weight_decay)
-        super().__init__(params, defaults)
+        super().__init__(params, defaults, process_group=process_group)
         for group in self.param_groups:
             group["initial_lr"] = group["lr"]
         self._update_total_dot_prod: Optional[torch.Tensor] = None
@@ -367,7 +377,7 @@ class LionW(Optimizer):
             # Reduce all together to avoid multiple communication calls.
             all_together = torch.stack([update_total_dot_prod, update_total_norm, signed_update_total_norm])
             # Only need the final result on rank0, since that's where we log from.
-            dist.reduce(all_together, 0)
+            dist.reduce(all_together, 0, group=self.process_group)
             update_total_dot_prod, update_total_norm, signed_update_total_norm = all_together
             update_total_norm = update_total_norm**0.5
             signed_update_total_norm = signed_update_total_norm**0.5
@@ -436,6 +446,15 @@ class LionW(Optimizer):
 
 
 class AdamW(torch.optim.AdamW, Optimizer):
+    def __init__(
+        self,
+        params,
+        process_group: Optional[dist.ProcessGroup] = None,
+        **kwargs
+    ):
+        super().__init__(params, **kwargs)
+        Optimizer.__init__(self, params, kwargs, process_group=process_group)
+
     def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
         return {key: self.state[param].get(key) for key in ("exp_avg", "exp_avg_sq")}  # type: ignore
 
@@ -694,12 +713,13 @@ def fix_optim_state_dict(optimizer: Optimizer, state_dict: Dict[str, Any]) -> Di
     return state_dict
 
 
-def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
+def build_optimizer(cfg: TrainConfig, model: nn.Module, process_group: Optional[dist.ProcessGroup] = None) -> Optimizer:
     param_groups = get_param_groups(cfg, model)
     log.info(f"Constructing optimizer with {len(param_groups)} param groups")
     if cfg.optimizer.name == OptimizerType.lionw:
         return LionW(
             param_groups,
+            process_group=process_group,
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,
@@ -707,6 +727,7 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
     elif cfg.optimizer.name == OptimizerType.adamw:
         return AdamW(
             param_groups,
+            process_group=process_group,
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,

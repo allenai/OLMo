@@ -177,7 +177,7 @@ def main(cfg: TrainConfig) -> None:
     if param_init_fn is not None:
         olmo_model.reset_parameters()
 
-    log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory() or 0)}")
+    log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory(process_group=fsdp_model.process_group) or 0)}")
     log.info("Model:")
     log.info(fsdp_model)
 
