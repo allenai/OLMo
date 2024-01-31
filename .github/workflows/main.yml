@@ -167,11 +167,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
       - name: Setup Python environment
         uses: ./.github/actions/setup-venv
         with:
@@ -191,10 +186,12 @@ jobs:
 
       - name: Generate release notes
         run: |
+          . .venv/bin/activate
           python scripts/release_notes.py > ${{ github.workspace }}-RELEASE_NOTES.md
 
       - name: Publish package to PyPI
         run: |
+          . .venv/bin/activate
           twine upload -u __token__ -p '${{ secrets.PYPI_PASSWORD }}' dist/*
 
       - name: Publish GitHub release
