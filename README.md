@@ -25,7 +25,7 @@ To install from source (recommended for training/fine-tuning) run:
 ```bash
 git clone https://github.com/allenai/OLMo.git
 cd OLMo
-pip install -e .
+pip install -e .[all]
 ```
 
 Otherwise you can install the model code by itself directly from PyPI with:
