@@ -36,7 +36,8 @@ command: |-
   export LOG_FILTER_TYPE=local_rank0_only
 
   # get the batch size from number of gpus
-  BATCH_SIZE=$((${NUM_NODES} * 4))
+  BATCH_SIZE="$(($NUM_NODES * 8 * 4))"
+  echo "Batch size: ${BATCH_SIZE}"
 
   # get run name, we will use this as run name in mcli
   RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:\s*//')
