@@ -72,6 +72,8 @@ api = wandb.Api()
 for i, run_path in enumerate(run_paths_to_copy):
     run = api.run(run_path)
 
+    print(f"Copying run {i+1} of {len(run_paths_to_copy)}")
+
     # Get the run history and files
     history = run.history()
 
