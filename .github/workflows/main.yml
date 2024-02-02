@@ -104,7 +104,7 @@ jobs:
   gpu_tests:
     name: GPU Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 8
     env:
       BEAKER_TOKEN: ${{ secrets.BEAKER_TOKEN }}
       BEAKER_IMAGE: olmo-torch2-test
