@@ -12,6 +12,9 @@
   <a href="https://github.com/allenai/OLMo/releases">
     <img alt="GitHub release" src="https://img.shields.io/github/release/allenai/OLMo.svg">
   </a>
+  <a href="https://arxiv.org/pdf/2402.00838.pdf">
+    <img alt="Paper URL" src="https://img.shields.io/badge/arxiv-2402.00838-blue">
+  </a>
 </p>
 
 OLMo is a repository for training and using AI2's state-of-the-art open language models. 
