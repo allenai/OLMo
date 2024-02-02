@@ -1,3 +1,4 @@
+from dataclasses import fields
 from typing import List, Optional, Tuple, Union
 
 import torch
@@ -17,8 +18,8 @@ def create_model_config_from_pretrained_config(config: OLMoConfig):
     """
 
     kwargs = {}
-    for key in ModelConfig.__match_args__:
-        kwargs[key] = getattr(config, key)
+    for field in fields(ModelConfig):
+        kwargs[field.name] = getattr(config, field.name)
 
     model_config = ModelConfig(**kwargs)
     return model_config
