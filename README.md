@@ -19,6 +19,14 @@ It is built by scientists, for scientists.
 
 ## Installation
 
+Before proceeding with the installation, ensure that you have Python 3.10 or later installed on your system. You can check your Python version by running the following command in your terminal:
+
+```bash
+python --version
+```
+
+If your Python version is below 3.10, please update it before continuing.
+
 First install [PyTorch](https://pytorch.org) according to the instructions specific to your operating system.
 
 To install from source (recommended for training/fine-tuning) run:
