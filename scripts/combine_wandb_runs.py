@@ -82,7 +82,7 @@ for i, run_path in enumerate(run_paths_to_copy):
         project=dst_project,
         entity=dst_entity,
         config=run.config,
-        name=f"{run.name}-run-{i+1:03d}",
+        name=f"{dst_run_name}-run-{i+1:03d}",
         resume="allow",
         group=dst_group,
     )
