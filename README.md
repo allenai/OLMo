@@ -12,6 +12,9 @@
   <a href="https://github.com/allenai/OLMo/releases">
     <img alt="GitHub release" src="https://img.shields.io/github/release/allenai/OLMo.svg">
   </a>
+  <a href="https://arxiv.org/pdf/2402.00838.pdf">
+    <img alt="Paper URL" src="https://img.shields.io/badge/arxiv-2402.00838-blue">
+  </a>
 </p>
 
 OLMo is a repository for training and using AI2's state-of-the-art open language models. 
@@ -38,11 +41,11 @@ pip install ai2-olmo
 ## Models overview
 
 The core models in the OLMo family released so far are (all trained on the [Dolma dataset](https://huggingface.co/datasets/allenai/dolma)): 
-| Model | Training Tokens | Context Length |
-|------|--------|---------|
-| [OLMo 1B](https://huggingface.co/allenai/OLMo-1B)   | 3 Trillion | 2048  |
-| [OLMo 7B](https://huggingface.co/allenai/OLMo-7B) | 2.5 Trillion   |  2048  |
-| [OLMo 7B Twin 2T](https://huggingface.co/allenai/OLMo-7B-Twin-2T) | 2 Trillion  |   2048  |
+| Model | Training Tokens | Context Length | W&B Logs |
+|-------|-----------------|----------------|----------|
+| [OLMo 1B](https://huggingface.co/allenai/OLMo-1B) | 3 Trillion | 2048 | |
+| [OLMo 7B](https://huggingface.co/allenai/OLMo-7B) | 2.5 Trillion | 2048 | [wandb.ai/ai2-llm/OLMo-7B](https://wandb.ai/ai2-llm/OLMo-7B/reports/OLMo-7B--Vmlldzo2NzQyMzk5) |
+| [OLMo 7B Twin 2T](https://huggingface.co/allenai/OLMo-7B-Twin-2T) | 2 Trillion  | 2048 | |
 
 
 ## Fine-tuning
