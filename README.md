@@ -41,11 +41,11 @@ pip install ai2-olmo
 ## Models overview
 
 The core models in the OLMo family released so far are (all trained on the [Dolma dataset](https://huggingface.co/datasets/allenai/dolma)): 
-| Model | Training Tokens | Context Length | W&B Logs |
-|-------|-----------------|----------------|----------|
-| [OLMo 1B](https://huggingface.co/allenai/OLMo-1B) | 3 Trillion | 2048 | |
-| [OLMo 7B](https://huggingface.co/allenai/OLMo-7B) | 2.5 Trillion | 2048 | [wandb.ai/ai2-llm/OLMo-7B](https://wandb.ai/ai2-llm/OLMo-7B/reports/OLMo-7B--Vmlldzo2NzQyMzk5) |
-| [OLMo 7B Twin 2T](https://huggingface.co/allenai/OLMo-7B-Twin-2T) | 2 Trillion  | 2048 | |
+| Model | Training Tokens | Context Length | Training Config | W&B Logs |
+|-------|-----------------|:--------------:|-----------------|----------|
+| [OLMo 1B](https://huggingface.co/allenai/OLMo-1B) | 3 Trillion | 2048 | [configs/official/OLMo-1B.yaml](https://github.com/allenai/OLMo/blob/main/configs/official/OLMo-1B.yaml) | |
+| [OLMo 7B](https://huggingface.co/allenai/OLMo-7B) | 2.5 Trillion | 2048 | [configs/official/OLMo-7B.yaml](https://github.com/allenai/OLMo/blob/main/configs/official/OLMo-7B.yaml) | [wandb.ai/ai2-llm/OLMo-7B](https://wandb.ai/ai2-llm/OLMo-7B/reports/OLMo-7B--Vmlldzo2NzQyMzk5) |
+| [OLMo 7B Twin 2T](https://huggingface.co/allenai/OLMo-7B-Twin-2T) | 2 Trillion  | 2048 | [configs/official/OLMo-7B.yaml](https://github.com/allenai/OLMo/blob/main/configs/official/OLMo-7B.yaml) | |
 
 
 ## Fine-tuning
