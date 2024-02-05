@@ -51,7 +51,7 @@ The core models in the OLMo family released so far are (all trained on the [Dolm
 
 ## Inference
 
-You can utilize our HuggingFace integration to run inference on the olmo checkpoints:
+You can utilize our Hugging Face integration to run inference on the olmo checkpoints:
 
 ```python
 from hf_olmo import * # registers the Auto* classes
@@ -67,7 +67,7 @@ response = olmo.generate(**inputs, max_new_tokens=100, do_sample=True, top_k=50,
 print(tokenizer.batch_decode(response, skip_special_tokens=True)[0])
 ```
 
-Alternatively, with the huggingface pipeline abstraction:
+Alternatively, with the Hugging Face pipeline abstraction:
 
 ```python
 from transformers import pipeline
@@ -77,7 +77,7 @@ print(olmo_pipe("Language modeling is"))
 
 ### Inference on finetuned checkpoints
 
-If you finetune the model using the code above, you can use the conversion script to convert a native OLMo checkpoint to a HuggingFace-compatible checkpoint
+If you finetune the model using the code above, you can use the conversion script to convert a native OLMo checkpoint to a Hugging Face-compatible checkpoint
 
 ```bash
 python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir /path/to/checkpoint
