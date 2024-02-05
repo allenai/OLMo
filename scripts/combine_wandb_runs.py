@@ -1,10 +1,12 @@
 import wandb
 from wandb.wandb_run import Run
 
-dst_entity = "ai2-llm"
-dst_project = "OLMo-7B"
+ENTITY = "ai2-llm"
 
 runs_to_copy = [
+    ###########################################################################################
+    ######################################### OLMo-7B #########################################
+    ###########################################################################################
     #  ("ai2-llm/olmo-medium/runs/wvc30anm", "OLMo-7B-run-001", "OLMo-7B"),
     #  ("ai2-llm/olmo-medium/runs/uhy9bs35", "OLMo-7B-run-002", "OLMo-7B"),
     #  ("ai2-llm/olmo-medium/runs/l6v218f4", "OLMo-7B-run-003", "OLMo-7B"),
@@ -44,31 +46,103 @@ runs_to_copy = [
     #  ("ai2-llm/olmo-medium/runs/wrv46m83", "OLMo-7B-run-037", "OLMo-7B"),
     #  ("ai2-llm/olmo-medium/runs/wd2gxrza", "OLMo-7B-run-038", "OLMo-7B"),
     #  ("ai2-llm/olmo-medium/runs/z4z0x4m9", "OLMo-7B-run-039", "OLMo-7B"),
+    ###########################################################################################
+    ####################### OLMo-7B fine-tuned on a mix of Tulu + Dolma #######################
+    ###########################################################################################
     #  ("ai2-llm/olmo-medium/runs/p067ktg9", "OLMo-7B-Tulu", "OLMo-7B-Tulu"),
-    ("ai2-llm/olmo-medium/runs/fi03r8h0", "OLMo-7B-Twin-2T-run-001", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/2fi6zuqd", "OLMo-7B-Twin-2T-run-002", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/j8qk3cgd", "OLMo-7B-Twin-2T-run-003", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/gd4pltei", "OLMo-7B-Twin-2T-run-004", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/vpxr4bil", "OLMo-7B-Twin-2T-run-005", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/vgkz4o76", "OLMo-7B-Twin-2T-run-006", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/lp1ynh47", "OLMo-7B-Twin-2T-run-007", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/03rx6g79", "OLMo-7B-Twin-2T-run-008", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/aznf5iwj", "OLMo-7B-Twin-2T-run-009", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/nzw0h387", "OLMo-7B-Twin-2T-run-010", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/v6je6zon", "OLMo-7B-Twin-2T-run-011", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/im54vfs8", "OLMo-7B-Twin-2T-run-012", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/m9j3x5o0", "OLMo-7B-Twin-2T-run-013", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/rto0vcbk", "OLMo-7B-Twin-2T-run-014", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/7qe3jywj", "OLMo-7B-Twin-2T-run-015", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/71r8xird", "OLMo-7B-Twin-2T-run-016", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/kya6t318", "OLMo-7B-Twin-2T-run-017", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/3rvuwvew", "OLMo-7B-Twin-2T-run-018", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/cmash3bz", "OLMo-7B-Twin-2T-run-019", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/qs7w6w53", "OLMo-7B-Twin-2T-run-020", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/z1gcqs1y", "OLMo-7B-Twin-2T-run-021", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/lualc6sf", "OLMo-7B-Twin-2T-run-022", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/s63r1dze", "OLMo-7B-Twin-2T-run-023", "OLMo-7B-Twin-2T"),
-    ("ai2-llm/olmo-medium/runs/n761ckim", "OLMo-7B-Twin-2T-run-024", "OLMo-7B-Twin-2T"),
+    ###########################################################################################
+    ##################################### OLMo-7B-Twin-2T #####################################
+    ###########################################################################################
+    #  ("ai2-llm/olmo-medium/runs/fi03r8h0", "OLMo-7B-Twin-2T-run-001", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/2fi6zuqd", "OLMo-7B-Twin-2T-run-002", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/j8qk3cgd", "OLMo-7B-Twin-2T-run-003", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/gd4pltei", "OLMo-7B-Twin-2T-run-004", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/vpxr4bil", "OLMo-7B-Twin-2T-run-005", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/vgkz4o76", "OLMo-7B-Twin-2T-run-006", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/lp1ynh47", "OLMo-7B-Twin-2T-run-007", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/03rx6g79", "OLMo-7B-Twin-2T-run-008", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/aznf5iwj", "OLMo-7B-Twin-2T-run-009", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/nzw0h387", "OLMo-7B-Twin-2T-run-010", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/v6je6zon", "OLMo-7B-Twin-2T-run-011", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/im54vfs8", "OLMo-7B-Twin-2T-run-012", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/m9j3x5o0", "OLMo-7B-Twin-2T-run-013", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/rto0vcbk", "OLMo-7B-Twin-2T-run-014", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/7qe3jywj", "OLMo-7B-Twin-2T-run-015", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/71r8xird", "OLMo-7B-Twin-2T-run-016", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/kya6t318", "OLMo-7B-Twin-2T-run-017", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/3rvuwvew", "OLMo-7B-Twin-2T-run-018", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/cmash3bz", "OLMo-7B-Twin-2T-run-019", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/qs7w6w53", "OLMo-7B-Twin-2T-run-020", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/z1gcqs1y", "OLMo-7B-Twin-2T-run-021", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/lualc6sf", "OLMo-7B-Twin-2T-run-022", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/s63r1dze", "OLMo-7B-Twin-2T-run-023", "OLMo-7B-Twin-2T"),
+    #  ("ai2-llm/olmo-medium/runs/n761ckim", "OLMo-7B-Twin-2T-run-024", "OLMo-7B-Twin-2T"),
+    ###########################################################################################
+    ######################################### OLMo-1B #########################################
+    ###########################################################################################
+    ("ai2-llm/olmo-small/runs/w1r5xfzt", "OLMo-1B-run-000", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/s7wptaol", "OLMo-1B-run-001", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/sw58clgr", "OLMo-1B-run-002", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/age4ucpn", "OLMo-1B-run-003", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/9lhyy6ec", "OLMo-1B-run-004", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/e72w3guf", "OLMo-1B-run-005", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/czmq3tph", "OLMo-1B-run-006", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/xcki6amz", "OLMo-1B-run-007", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/9o4tqzkc", "OLMo-1B-run-008", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/scjaj9rj", "OLMo-1B-run-009", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/ecm3b6jc", "OLMo-1B-run-010", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/tm06cx1o", "OLMo-1B-run-011", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/hv91c1yz", "OLMo-1B-run-012", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/i27fd8hx", "OLMo-1B-run-013", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/nj3eug16", "OLMo-1B-run-014", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/qkgvoqxh", "OLMo-1B-run-015", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/vohm89rs", "OLMo-1B-run-016", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/bdal15q1", "OLMo-1B-run-017", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/k7gf8upq", "OLMo-1B-run-018", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/9mx2iel7", "OLMo-1B-run-019", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/epwms9w9", "OLMo-1B-run-020", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/8qy0al8a", "OLMo-1B-run-021", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/e3hcu37o", "OLMo-1B-run-022", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/5gqrwqg1", "OLMo-1B-run-023", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/mbho3mal", "OLMo-1B-run-024", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/3v73eans", "OLMo-1B-run-025", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/7l54afq9", "OLMo-1B-run-026", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/mif67a9e", "OLMo-1B-run-027", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/9frhziu4", "OLMo-1B-run-028", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/46zc5fly", "OLMo-1B-run-029", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/n9ya5dg7", "OLMo-1B-run-030", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/sezmr7ds", "OLMo-1B-run-031", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/185jyoim", "OLMo-1B-run-032", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/4ryfkyyz", "OLMo-1B-run-033", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/njlk53cc", "OLMo-1B-run-034", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/gqbsxin2", "OLMo-1B-run-035", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/berj88t7", "OLMo-1B-run-036", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/py49d2az", "OLMo-1B-run-037", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/39zrvyeq", "OLMo-1B-run-038", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/oupb6jak", "OLMo-1B-run-039", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/w4ele4r3", "OLMo-1B-run-040", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/qt3d0ypt", "OLMo-1B-run-041", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/h8d87477", "OLMo-1B-run-042", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/h9g4p1cw", "OLMo-1B-run-043", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/3fii7eec", "OLMo-1B-run-044", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/jy5po36u", "OLMo-1B-run-045", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/s73qq2ny", "OLMo-1B-run-046", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/rs1scdrz", "OLMo-1B-run-047", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/dcd1wqlw", "OLMo-1B-run-048", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/3xqkbrvw", "OLMo-1B-run-049", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/xgc3lo3d", "OLMo-1B-run-050", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/yifb3rvs", "OLMo-1B-run-051", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/q1qhhvxg", "OLMo-1B-run-052", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/mkunaie6", "OLMo-1B-run-053", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/rg0wtuij", "OLMo-1B-run-054", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/xbvqtb2c", "OLMo-1B-run-055", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/mvuu3vcl", "OLMo-1B-run-056", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/bvix71p0", "OLMo-1B-run-057", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/44to2rqh", "OLMo-1B-run-058", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/8fl06671", "OLMo-1B-run-059", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/b3zzyyc7", "OLMo-1B-run-060", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/4k49us4j", "OLMo-1B-run-061", "OLMo-1B"),
+    ("ai2-llm/olmo-small/runs/g4g72enr", "OLMo-1B-run-062", "OLMo-1B"),
 ]
 
 # Set your API key
@@ -79,9 +153,11 @@ api = wandb.Api()
 
 # Iterate through the runs and copy them to the destination project
 for run_path, new_run_name, new_run_group in runs_to_copy:
+    dst_project = "OLMo-7B" if "7B" in new_run_group else "OLMo-1B"
+
     run = api.run(run_path)
 
-    print(f"Copying run '{run_path}' to '{new_run_name}'...")
+    print(f"Copying run '{run_path}' to '{dst_project}/{new_run_name}'...")
 
     # Get the run history and files
     history = run.scan_history()
@@ -89,7 +165,7 @@ for run_path, new_run_name, new_run_group in runs_to_copy:
     # Create a new run in the destination project
     new_run = wandb.init(
         project=dst_project,
-        entity=dst_entity,
+        entity=ENTITY,
         config=run.config,
         name=new_run_name,
         resume="allow",
