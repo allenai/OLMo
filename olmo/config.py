@@ -185,7 +185,6 @@ class ActivationType(StrEnum):
 
 class BlockType(StrEnum):
     sequential = "sequential"
-    parallel = "parallel"
 
     llama = "llama"
     """
