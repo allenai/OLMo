@@ -440,7 +440,7 @@ class OlmoBlock(nn.Module):
         if config.attention_layer_norm:
             self.k_norm = LayerNormBase.build(
                 config,
-                size=config.d_model // config.n_heads if config.multi_query_attention else None,
+                size=config.d_model // config.n_kv_heads,
                 elementwise_affine=config.attention_layer_norm_with_affine,
             )
             self.q_norm = LayerNormBase.build(config, elementwise_affine=config.attention_layer_norm_with_affine)
@@ -552,16 +552,10 @@ class OlmoBlock(nn.Module):
         # Move head forward to be next to the batch dim.
         # shape: (B, nh, T, hs)
         q = q.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
-        if self.config.multi_query_attention:
-            # shape: (B, 1, T, hs)
-            k = k.view(B, T, 1, C // self.config.n_heads).transpose(1, 2)
-            # shape: (B, 1, T, hs)
-            v = v.view(B, T, 1, C // self.config.n_heads).transpose(1, 2)
-        else:
-            # shape: (B, nh, T, hs)
-            k = k.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
-            # shape: (B, nh, T, hs)
-            v = v.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
+        # shape: (B, n_kv_h, T, hs)
+        k = k.view(B, T, self.config.n_kv_heads, C // self.config.n_heads).transpose(1, 2)
+        # shape: (B, n_kv_h, T, hs)
+        v = v.view(B, T, self.config.n_kv_heads, C // self.config.n_heads).transpose(1, 2)
 
         if layer_past is not None:
             past_key, past_value = layer_past
@@ -636,10 +630,13 @@ class OlmoSequentialBlock(OlmoBlock):
         self.attn_norm = LayerNorm.build(config)
         self.ff_norm = LayerNorm.build(config)
         # Attention input projection. Projects x -> (q, k, v)
-        if config.multi_query_attention:
-            self.fused_dims = (config.d_model, config.d_model // config.n_heads, config.d_model // config.n_heads)
-        else:
-            self.fused_dims = (config.d_model, config.d_model, config.d_model)
+
+        head_dim = config.d_model // config.n_heads
+        self.fused_dims = (
+            config.d_model,
+            config.n_kv_heads * head_dim,
+            config.n_kv_heads * head_dim
+        )
         self.att_proj = nn.Linear(
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
@@ -672,6 +669,8 @@ class OlmoSequentialBlock(OlmoBlock):
         #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
+        #  - for group query attn q: (batch_size, seq_len, d_model)
+        #                      k, v: (batch_size, seq_len, d_model // n_kv_heads)
         if self._activation_checkpoint_fn is not None:
             q, k, v = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x)).split(
                 self.fused_dims, dim=-1
