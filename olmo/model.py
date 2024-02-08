@@ -30,6 +30,7 @@ import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import einsum
+from flash_attn import flash_attn_func
 
 from .aliases import PathOrStr
 from .beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
@@ -522,13 +523,11 @@ class OlmoBlock(nn.Module):
 
         This method is based on PyTorch's `scaled_dot_product_attention`.
         """
-        return F.scaled_dot_product_attention(
-            q,
-            k,
-            v,
-            attn_mask=attn_mask,
+        assert attn_mask is None
+        return flash_attn_func(
+            q, k, v,
             dropout_p=dropout_p,
-            is_causal=is_causal,
+            causal=is_causal
         )
 
     def attention(
