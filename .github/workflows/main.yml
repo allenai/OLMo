@@ -7,10 +7,11 @@ on:
   pull_request:
     branches:
       - main
-      - Torch2
+      - mm-dev
   push:
     branches:
       - main
+      - mm-dev
     tags:
       - 'v*.*.*'
 
