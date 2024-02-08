@@ -536,6 +536,8 @@ class Trainer:
             input_ids=batch["input_ids"],
             attention_mask=batch.get("attention_mask"),
             attention_bias=batch.get("attention_bias"),
+            image_patches=batch.get("image_patches"),
+            image_offsets=batch.get("image_offsets"),
         ).logits
         logits_for_loss = logits[..., :-1, :].contiguous()
         # shape: (batch_size * seq_len, vocab_size)
