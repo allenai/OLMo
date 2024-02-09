@@ -1198,9 +1198,7 @@ class Olmo(nn.Module):
         if not (self.config.alibi or self.config.rope):
             # Get positional embeddings.
             # shape: (1, seq_len)
-            pos = torch.arange(
-                past_length, past_length + seq_len, dtype=torch.long, device=x.device
-            ).unsqueeze(0)
+            pos = torch.arange(past_length, past_length + seq_len, dtype=torch.long, device=x.device).unsqueeze(0)
             # shape: (1, seq_len, d_model)
             pos_emb = self.transformer.wpe(pos)  # type: ignore
             x = pos_emb + x
@@ -1498,7 +1496,7 @@ class Olmo(nn.Module):
         tokens_generated = 0
 
         def flatten_past_key_values(
-            past_key_values: List[Tuple[torch.Tensor, torch.Tensor]]
+            past_key_values: List[Tuple[torch.Tensor, torch.Tensor]],
         ) -> Dict[str, torch.Tensor]:
             out = {}
             for i, (key, value) in enumerate(past_key_values):
@@ -1507,7 +1505,7 @@ class Olmo(nn.Module):
             return out
 
         def unflatten_past_key_values(
-            past_key_values: Dict[str, torch.Tensor]
+            past_key_values: Dict[str, torch.Tensor],
         ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
             out = []
             for i in range(self.config.n_layers):
