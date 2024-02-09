@@ -48,6 +48,7 @@ class OLMoForCausalLM(PreTrainedModel):
     def forward(
         self,
         input_ids: torch.LongTensor = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
         attention_mask: Optional[torch.Tensor] = None,
         past_key_values: Optional[List[torch.FloatTensor]] = None,
         labels: Optional[torch.LongTensor] = None,
@@ -64,6 +65,7 @@ class OLMoForCausalLM(PreTrainedModel):
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
         outputs = self.model.forward(
             input_ids=input_ids,
+            input_embeddings=inputs_embeds,
             attention_mask=attention_mask,
             past_key_values=past_key_values,
             use_cache=use_cache,
