@@ -11,7 +11,7 @@ integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
     git_branch: soldni/dolma-v1.7
-    git_commit: b55bf1515e3e6dfa5541c3c340a240c2ec77bd65
+    git_commit: c94100ca7561d49a4f61e87a83264ae304028c54
     pip_install: -e .
     ssh_clone: true
 command: |-
