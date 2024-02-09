@@ -1137,6 +1137,7 @@ class Olmo(nn.Module):
     def forward(
         self,
         input_ids: torch.LongTensor,
+        input_embeddings: Optional[torch.FloatTensor] = None,
         attention_mask: Optional[torch.Tensor] = None,
         attention_bias: Optional[torch.Tensor] = None,
         past_key_values: Optional[Sequence[Tuple[torch.Tensor, torch.Tensor]]] = None,
@@ -1145,6 +1146,8 @@ class Olmo(nn.Module):
     ) -> OlmoOutput:
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
+        :param input_embeddings: A tensor of shape `(batch_size, seq_len, d_model)` with input
+            embeddings. When provided, it is treated as the output of the input embedding layer.
         :param attention_mask: A tensor of shape `(batch_size, seq_len)` that indicates
             which input IDs are masked. A `1` value in the mask means that
             the corresponding input ID should *not* be ignored. A `0` means
