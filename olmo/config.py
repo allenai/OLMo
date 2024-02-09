@@ -185,7 +185,6 @@ class ActivationType(StrEnum):
 
 class BlockType(StrEnum):
     sequential = "sequential"
-    parallel = "parallel"
 
     llama = "llama"
     """
@@ -241,6 +240,14 @@ class ModelConfig(BaseConfig):
     n_heads: int = 12
     """
     The number of self-attention heads.
+    """
+
+    n_kv_heads: Optional[int] = None
+    """
+    The number of heads to use for keys and values.
+    Set this to ``None`` or ``n_heads`` for normal multi-head attention.
+    Set this to 1 for multi-query attention.
+    Set it to some in-between value for Llama2-style grouped query attention.
     """
 
     n_layers: int = 12
@@ -309,8 +316,7 @@ class ModelConfig(BaseConfig):
 
     multi_query_attention: bool = False
     """
-    Use the Multi-Query formulation of attention used in PaLM. This reduces the number of parameters
-    and is more efficient during inference.
+    Deprecated. Use n_kv_heads instead.
     """
 
     attention_layer_norm: bool = False
@@ -427,6 +433,29 @@ class ModelConfig(BaseConfig):
     Precision used to train/evaluate with. You shouldn't set this directly.
     See :data:`TrainConfig.precision` instead.
     """
+
+    def __post_init__(self):
+        if self.n_kv_heads is None:
+            self.n_kv_heads = self.n_heads
+
+    @classmethod
+    def update_legacy_settings(cls, config: D) -> D:
+        new_config = config.copy()
+        if om.is_dict(new_config):
+            assert isinstance(new_config, DictConfig)
+
+            if hasattr(new_config, "multi_query_attention"):
+                if hasattr(new_config, "n_kv_heads") and new_config.n_kv_heads is not None:
+                    raise OlmoConfigurationError("You can't specify both `multi_query_attention` and `n_kv_heads`. Specify only `n_kv_heads`.")
+                if new_config.multi_query_attention:
+                    new_config.n_kv_heads = 1
+                else:
+                    new_config.n_kv_heads = new_config.n_heads
+
+            if hasattr(new_config, "optimizer"):
+                new_config.optimizer = OptimizerConfig.update_legacy_settings(new_config.optimizer)
+
+        return new_config
 
 
 class OptimizerType(StrEnum):
@@ -1035,5 +1064,8 @@ class TrainConfig(BaseConfig):
 
             if hasattr(new_config, "optimizer"):
                 new_config.optimizer = OptimizerConfig.update_legacy_settings(new_config.optimizer)
+
+            if hasattr(new_config, "model"):
+                new_config.model = ModelConfig.update_legacy_settings(new_config.model)
 
         return new_config
