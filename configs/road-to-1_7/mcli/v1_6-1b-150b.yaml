@@ -1,8 +1,8 @@
 name: olmo-small-ablation-v1-6  # can't have "_" or "." here
-image: mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
+image: mosaicml/pytorch:2.1.0_cu121-python3.10-ubuntu20.04
 env_variables:
   CONFIG_PATH: configs/road-to-1_7/runs/v1_6-1b-150b.yml
-  LOAD_PATH: ""
+  # LOAD_PATH: ""
 compute:
   gpus: 64
   cluster: r12z3
@@ -12,7 +12,7 @@ integrations:
     git_repo: allenai/OLMo
     git_branch: soldni/dolma-v1.7
     git_commit: c94100ca7561d49a4f61e87a83264ae304028c54
-    pip_install: -e .
+    pip_install: -e '.[train]'
     ssh_clone: true
 command: |-
   cd OLMo
