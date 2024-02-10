@@ -520,8 +520,6 @@ class OlmoBlock(nn.Module):
         """
         Computes scaled dot product attention on query, key and value tensors, using an optional
         attention mask if passed, and applying dropout if a probability greater than 0.0 is specified.
-
-        This method is based on PyTorch's `scaled_dot_product_attention`.
         """
         assert attn_mask is None
         return flash_attn_func(
