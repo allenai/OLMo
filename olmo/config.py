@@ -434,11 +434,24 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
-    def __post_init__(self):
-        if self.multi_query_attention:
-            self.n_kv_heads = 1
-        elif self.n_kv_heads is None:
-            self.n_kv_heads = self.n_heads
+    @property
+    def effective_n_kv_heads(self) -> int:
+        if self.n_kv_heads is None:
+            if self.multi_query_attention is True:
+                return 1
+            else:
+                return self.n_heads
+        else:
+            if self.multi_query_attention is None:
+                return self.n_kv_heads
+            if self.multi_query_attention:
+                n_kv_heads_should_be = 1
+            else:
+                n_kv_heads_should_be = self.n_heads
+            if self.n_kv_heads == n_kv_heads_should_be:
+                return n_kv_heads_should_be
+            else:
+                raise OlmoConfigurationError("You can't set `multi_query_attention` and `n_kv_heads` at the same time.")
 
 
 class OptimizerType(StrEnum):
