@@ -440,7 +440,7 @@ class OlmoBlock(nn.Module):
         if config.attention_layer_norm:
             self.k_norm = LayerNormBase.build(
                 config,
-                size=config.d_model // config.n_kv_heads,
+                size=config.d_model // config.effective_n_kv_heads,
                 elementwise_affine=config.attention_layer_norm_with_affine,
             )
             self.q_norm = LayerNormBase.build(config, elementwise_affine=config.attention_layer_norm_with_affine)
@@ -551,9 +551,9 @@ class OlmoBlock(nn.Module):
         # shape: (B, nh, T, hs)
         q = q.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
         # shape: (B, n_kv_h, T, hs)
-        k = k.view(B, T, self.config.n_kv_heads, C // self.config.n_heads).transpose(1, 2)
+        k = k.view(B, T, self.config.effective_n_kv_heads, C // self.config.n_heads).transpose(1, 2)
         # shape: (B, n_kv_h, T, hs)
-        v = v.view(B, T, self.config.n_kv_heads, C // self.config.n_heads).transpose(1, 2)
+        v = v.view(B, T, self.config.effective_n_kv_heads, C // self.config.n_heads).transpose(1, 2)
 
         if layer_past is not None:
             past_key, past_value = layer_past
@@ -630,8 +630,8 @@ class OlmoSequentialBlock(OlmoBlock):
         head_dim = config.d_model // config.n_heads
         self.fused_dims = (
             config.d_model,
-            config.n_kv_heads * head_dim,
-            config.n_kv_heads * head_dim
+            config.effective_n_kv_heads * head_dim,
+            config.effective_n_kv_heads * head_dim
         )
         self.att_proj = nn.Linear(
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
