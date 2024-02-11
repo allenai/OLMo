@@ -229,3 +229,24 @@ data:
     - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/cc_en_middle/part-07-00000.npy
     - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/cc_en_middle/part-08-00000.npy
     - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/cc_en_middle/part-09-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/cc_en_tail/part-00-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/cc_en_tail/part-01-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/cc_en_tail/part-02-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/cc_en_tail/part-03-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/cc_en_tail/part-04-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/cc_en_tail/part-05-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/cc_en_tail/part-06-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/cc_en_tail/part-07-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/cc_en_tail/part-08-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/cc_en_tail/part-09-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/pes2o/part-0-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/pes2o/part-1-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/pes2o/part-2-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/reddit/part-0-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/reddit/part-1-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/stack/part-0-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/stack/part-1-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/stack/part-2-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/stack/part-3-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/stack/part-4-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-300G_PS/gpt-neox-olmo-dolma-v1_5/wiki/part-0-00000.npy
