@@ -11,7 +11,7 @@ integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
     git_branch: soldni/dolma-v1.7
-    git_commit: 6510b4f3b04496c659fc64e7ea9ce1555fb47f7d
+    git_commit: 9d65a3752985668328417a696138d9f105a382f1
     pip_install: -e '.[train]'
     ssh_clone: true
 command: |-
