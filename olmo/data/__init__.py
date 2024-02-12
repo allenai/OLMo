@@ -10,8 +10,16 @@ from ..torch_util import barrier, get_global_rank, get_world_size
 from .collator import DataCollator
 from .iterable_dataset import IterableDataset
 from .memmap_dataset import MemMapDataset
+from .multi_modal_iterable_dataset import MultiModalIterableDataset
 
-__all__ = ["MemMapDataset", "DataCollator", "IterableDataset", "build_eval_dataloader", "build_train_dataloader"]
+__all__ = [
+    "MemMapDataset",
+    "DataCollator",
+    "IterableDataset",
+    "MultiModalIterableDataset",
+    "build_eval_dataloader",
+    "build_train_dataloader",
+]
 
 
 def build_memmap_dataset(
@@ -83,7 +91,6 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
     collator = DataCollator(
         pad_direction=train_config.data.pad_direction, pad_token_id=train_config.model.pad_token_id
     )
-    dataset = build_memmap_dataset(train_config, train_config.data, include_instance_metadata=False)
     work_dir = Path(train_config.save_folder) / "train_data"
     if get_global_rank() == 0:
         if work_dir.is_dir() and not train_config.save_overwrite:
@@ -92,16 +99,30 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
             )
         else:
             work_dir.mkdir(exist_ok=True, parents=True)
-    barrier()
-    return DataLoader(
-        IterableDataset(
-            dataset,  # type: ignore
+
+    if train_config.data.multi_modal:
+        assert train_config.model.vision_backbone is not None
+        dataset = MultiModalIterableDataset(
+            pad_token_id=train_config.model.pad_token_id,
+            max_sequence_length=train_config.model.max_sequence_length,
+            vocab_size=train_config.model.vocab_size,
+            patch_width=train_config.model.vision_backbone.patch_width,
+            patch_height=train_config.model.vision_backbone.patch_height,
+        )
+    else:
+        dataset = IterableDataset(
+            build_memmap_dataset(train_config, train_config.data, include_instance_metadata=False),  # type: ignore
             train_config.global_train_batch_size,
             seed=train_config.seed + (train_config.epoch or 0),
             shuffle=True,
             drop_last=train_config.data.drop_last,
             work_dir=work_dir,
-        ),
+        )
+
+    barrier()
+
+    return DataLoader(
+        dataset,
         batch_size=train_config.device_train_batch_size,
         drop_last=train_config.data.drop_last,
         collate_fn=collator,
