@@ -10,10 +10,6 @@ import logging
 import math
 from abc import abstractmethod
 from collections import defaultdict
-try:
-    from collections.abc import MutableMapping
-except ImportError:
-    from typing import MutableMapping
 from functools import partial
 from typing import (
     Callable,
@@ -33,6 +29,13 @@ import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import einsum
+import sys 
+if sys.version_info.minor > 8 :
+    from collections.abc import MutableMapping
+elif sys.version_info.minor == 8:
+    from typing import MutableMapping
+else:
+    raise SystemExit("This script supports Python 3.8 or higher")
 
 from .aliases import PathOrStr
 from .beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
