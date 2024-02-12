@@ -7,7 +7,10 @@ import time
 import warnings
 from datetime import datetime
 from enum import Enum
-from functools import cache
+try:
+    from functools import cache 
+except ImportError:
+    from functools import lru_cache as cache
 from itertools import cycle, islice
 from pathlib import Path
 from queue import Queue

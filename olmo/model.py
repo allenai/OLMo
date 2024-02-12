@@ -10,10 +10,10 @@ import logging
 import math
 from abc import abstractmethod
 from collections import defaultdict
-from collections.abc import MutableMapping
 from functools import partial
 from typing import (
     Callable,
+    MutableMapping, 
     Dict,
     Iterable,
     List,
