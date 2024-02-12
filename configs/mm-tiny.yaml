@@ -1,0 +1,101 @@
+run_name: mm-tiny
+seed: 6198
+dry_run: false
+
+wandb: null
+
+model:
+  d_model: 1024
+  n_heads: 16
+  n_layers: 16
+  mlp_ratio: 8
+  weight_tying: false
+  alibi: false
+  rope: true
+  vision_backbone:
+    name: linear
+    patch_width: 16
+    patch_height: 16
+    frozen: false
+  flash_attention: true
+  attention_dropout: 0.0
+  attention_layer_norm: false
+  multi_query_attention: false
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: default
+  layer_norm_with_affine: false
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 2048
+  vocab_size: 50280
+  embedding_size: 50304
+  eos_token_id: 0
+  pad_token_id: 1
+  init_device: meta
+  init_fn: mitchell
+
+compile: null
+  # fullgraph: false
+
+optimizer:
+  name: adamw
+  learning_rate: 2e-4
+  weight_decay: 0.1
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 10
+
+scheduler:
+  name: linear_with_warmup
+  t_warmup: 200
+  alpha_f: 0.001
+
+tokenizer:
+  identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
+  truncate_direction: right
+
+save_folder: runs/${run_name}
+remote_save_folder: null
+save_overwrite: true
+# Sharded checkpoints (best for restarts)
+save_interval: 1000
+save_num_checkpoints_to_keep: -1
+# Unsharded checkpoints (for final storage)
+save_interval_unsharded: null  # getting errors on LUMI right now
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: null
+
+max_duration: 10e9
+global_train_batch_size: 512
+device_train_microbatch_size: 2
+time_limit: null
+
+precision: amp_bf16
+
+fsdp:
+  wrapping_strategy: by_block_and_size
+  precision: mixed
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 20
+
+eval_interval: ${save_interval}
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators: []
+
+data:
+  pad_direction: right
+  num_workers: 0
+  drop_last: true
+  multi_modal: true
+  paths: []
