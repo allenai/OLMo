@@ -129,3 +129,25 @@ def test_collate_with_label_mask(train_config, pad_direction):
                 [[True, False, True, True], [False, True, True, False]],
             )
         ).all()
+
+
+def test_collate_with_images():
+    collator = DataCollator(pad_direction=PaddingDirection.right, pad_token_id=0)
+    patch_size = 5  # width and height
+
+    inputs = [
+        {
+            "input_ids": torch.tensor([1, 2, 3, 0, 4]),
+            "image_offsets": torch.tensor([3]),
+            "image_patches": torch.rand(1, patch_size, patch_size, 3),
+        },
+        {
+            "input_ids": torch.tensor([4, 0, 0, 1, 2, 3]),
+            "image_offsets": torch.tensor([1, 2]),
+            "image_patches": torch.rand(2, patch_size, patch_size, 3),
+        },
+    ]
+    batch = collator(inputs)  # type: ignore
+    assert batch["image_offsets"].shape == (2, 2)
+    assert (batch["image_offsets"] == torch.tensor([[3, -1], [1, 2]])).all()
+    assert batch["image_patches"].shape == (2, 2, patch_size, patch_size, 3)
