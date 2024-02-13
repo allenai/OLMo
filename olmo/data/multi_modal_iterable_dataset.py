@@ -9,6 +9,10 @@ from ..torch_util import get_fs_local_rank, get_global_rank, get_world_size
 __all__ = ["MultiModalIterableDataset"]
 
 
+# TODO: at the moment this class is a mock dataset, it just generates random data.
+# But this is where we should integrate the actual vision dataset when we get there.
+
+
 class MultiModalIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
     def __init__(
         self,

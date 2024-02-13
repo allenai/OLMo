@@ -101,6 +101,8 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
             work_dir.mkdir(exist_ok=True, parents=True)
 
     if train_config.data.multi_modal:
+        # TODO: this block will need to change a little when we integrate the actual
+        # vision dataset, instead of the mock one.
         assert train_config.model.vision_backbone is not None
         dataset = MultiModalIterableDataset(
             pad_token_id=train_config.model.pad_token_id,
