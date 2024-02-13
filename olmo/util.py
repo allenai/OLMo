@@ -7,10 +7,6 @@ import time
 import warnings
 from datetime import datetime
 from enum import Enum
-try:
-    from functools import cache 
-except ImportError:
-    from functools import lru_cache as cache
 from itertools import cycle, islice
 from pathlib import Path
 from queue import Queue
@@ -27,6 +23,7 @@ from rich.progress import Progress
 from rich.text import Text
 from rich.traceback import Traceback
 
+
 from .aliases import PathOrStr
 from .exceptions import (
     OlmoCliError,
@@ -37,6 +34,11 @@ from .exceptions import (
 )
 from .torch_util import get_global_rank, get_local_rank, get_node_rank, is_distributed
 
+try:
+    from functools import cache 
+except ImportError:
+    from functools import lru_cache as cache
+    
 
 class StrEnum(str, Enum):
     """

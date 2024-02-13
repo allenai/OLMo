@@ -6,6 +6,7 @@ Adapted from
 
 from __future__ import annotations
 
+import sys 
 import logging
 import math
 from abc import abstractmethod
@@ -29,13 +30,6 @@ import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import einsum
-import sys 
-if sys.version_info.minor > 8 :
-    from collections.abc import MutableMapping
-elif sys.version_info.minor == 8:
-    from typing import MutableMapping
-else:
-    raise SystemExit("This script supports Python 3.8 or higher")
 
 from .aliases import PathOrStr
 from .beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
@@ -70,6 +64,12 @@ __all__ = [
     "OlmoGenerateOutput",
 ]
 
+if sys.version_info.minor > 8 :
+    from collections.abc import MutableMapping
+elif sys.version_info.minor == 8:
+    from typing import MutableMapping
+else:
+    raise SystemExit("This script supports Python 3.8 or higher")
 
 log = logging.getLogger(__name__)
 
