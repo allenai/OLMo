@@ -59,6 +59,10 @@ class OLMoForCausalLM(PreTrainedModel):
     ) -> Union[Tuple, CausalLMOutputWithPast]:
         if use_cache is None:
             use_cache = self.config.use_cache
+        if output_attentions:
+            raise ValueError("output_attentions is not yet supported in OLMo")
+        if output_hidden_states:
+            raise ValueError("output_hidden_states is not yet supported in OLMo")
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
@@ -70,6 +74,8 @@ class OLMoForCausalLM(PreTrainedModel):
             past_key_values=past_key_values,
             use_cache=use_cache,
         )
+
+        import ipdb; ipdb.set_trace()
 
         logits = outputs.logits
 
