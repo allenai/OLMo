@@ -67,9 +67,11 @@ class OLMoForCausalLM(PreTrainedModel):
             attention_mask=attention_mask,
             past_key_values=past_key_values,
             use_cache=use_cache,
+            output_hidden_states=output_hidden_states,
         )
 
         logits = outputs.logits
+        hidden_states = outputs.hidden_states
 
         loss = None
         if labels is not None:
@@ -92,6 +94,7 @@ class OLMoForCausalLM(PreTrainedModel):
             loss=loss,
             logits=logits,
             past_key_values=outputs.attn_key_values,
+            hidden_states=hidden_states,
         )
 
     def can_generate(self) -> bool:
