@@ -23,7 +23,6 @@ from rich.progress import Progress
 from rich.text import Text
 from rich.traceback import Traceback
 
-
 from .aliases import PathOrStr
 from .exceptions import (
     OlmoCliError,
