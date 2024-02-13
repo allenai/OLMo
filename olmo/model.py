@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import logging
 import math
+import sys
 from abc import abstractmethod
 from collections import defaultdict
-from collections.abc import MutableMapping
 from functools import partial
 from typing import (
     Callable,
@@ -45,6 +45,13 @@ from .config import (
 from .exceptions import OlmoConfigurationError
 from .initialization import ModuleType, init_weights
 from .torch_util import ensure_finite_
+
+if sys.version_info.minor > 8:
+    from collections.abc import MutableMapping
+elif sys.version_info.minor == 8:
+    from typing import MutableMapping
+else:
+    raise SystemExit("This script supports Python 3.8 or higher")
 
 __all__ = [
     "LayerNormBase",
@@ -1137,6 +1144,7 @@ class Olmo(nn.Module):
     def forward(
         self,
         input_ids: torch.LongTensor,
+        input_embeddings: Optional[torch.FloatTensor] = None,
         attention_mask: Optional[torch.Tensor] = None,
         attention_bias: Optional[torch.Tensor] = None,
         past_key_values: Optional[Sequence[Tuple[torch.Tensor, torch.Tensor]]] = None,
@@ -1145,6 +1153,8 @@ class Olmo(nn.Module):
     ) -> OlmoOutput:
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
+        :param input_embeddings: A tensor of shape `(batch_size, seq_len, d_model)` with input
+            embeddings. When provided, it is treated as the output of the input embedding layer.
         :param attention_mask: A tensor of shape `(batch_size, seq_len)` that indicates
             which input IDs are masked. A `1` value in the mask means that
             the corresponding input ID should *not* be ignored. A `0` means
@@ -1174,7 +1184,7 @@ class Olmo(nn.Module):
         if past_key_values:
             assert len(past_key_values) == self.config.n_layers
 
-        batch_size, seq_len = input_ids.size()
+        batch_size, seq_len = input_ids.size() if input_embeddings is None else input_embeddings.size()[:2]
         if past_key_values is None:
             past_length = 0
         else:
@@ -1182,14 +1192,12 @@ class Olmo(nn.Module):
 
         # Get embeddings of input.
         # shape: (batch_size, seq_len, d_model)
-        x = self.transformer.wte(input_ids)  # type: ignore
+        x = self.transformer.wte(input_ids) if input_embeddings is None else input_embeddings  # type: ignore
 
         if not (self.config.alibi or self.config.rope):
             # Get positional embeddings.
             # shape: (1, seq_len)
-            pos = torch.arange(
-                past_length, past_length + seq_len, dtype=torch.long, device=input_ids.device
-            ).unsqueeze(0)
+            pos = torch.arange(past_length, past_length + seq_len, dtype=torch.long, device=x.device).unsqueeze(0)
             # shape: (1, seq_len, d_model)
             pos_emb = self.transformer.wpe(pos)  # type: ignore
             x = pos_emb + x
@@ -1229,7 +1237,7 @@ class Olmo(nn.Module):
             if attention_mask is not None:
                 mask_len = attention_mask.shape[-1]
             elif past_key_values is not None:
-                mask_len = past_key_values[0][0].shape[-2] + input_ids.shape[-1]
+                mask_len = past_key_values[0][0].shape[-2] + seq_len
             attention_bias = attention_bias[:, :, :mask_len, :mask_len].to(dtype=torch.float)
 
             # Add in the masking bias.
@@ -1470,7 +1478,7 @@ class Olmo(nn.Module):
         tokens_generated = 0
 
         def flatten_past_key_values(
-            past_key_values: List[Tuple[torch.Tensor, torch.Tensor]]
+            past_key_values: List[Tuple[torch.Tensor, torch.Tensor]],
         ) -> Dict[str, torch.Tensor]:
             out = {}
             for i, (key, value) in enumerate(past_key_values):
@@ -1479,7 +1487,7 @@ class Olmo(nn.Module):
             return out
 
         def unflatten_past_key_values(
-            past_key_values: Dict[str, torch.Tensor]
+            past_key_values: Dict[str, torch.Tensor],
         ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
             out = []
             for i in range(self.config.n_layers):
