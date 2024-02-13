@@ -75,8 +75,6 @@ class OLMoForCausalLM(PreTrainedModel):
             use_cache=use_cache,
         )
 
-        import ipdb; ipdb.set_trace()
-
         logits = outputs.logits
 
         loss = None
