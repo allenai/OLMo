@@ -1176,11 +1176,7 @@ class Olmo(nn.Module):
         :param last_logits_only: If `True`, only compute the logits for the last token of each sequence.
             This can speed up decoding when you only care about the next token.
         """
-        output_hidden_states = (
-            output_hidden_states
-            if output_hidden_states is not None
-            else False
-        )
+        output_hidden_states = output_hidden_states if output_hidden_states is not None else False
 
         if past_key_values:
             assert len(past_key_values) == self.config.n_layers
@@ -1252,15 +1248,14 @@ class Olmo(nn.Module):
         attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
 
         # decoder layers
-        all_hidden_states = () if output_hidden_states else None
+        all_hidden_states = []
 
         # Apply blocks one-by-one.
         if self.config.block_group_size == 1:
             for block_idx, block in enumerate(self.transformer.blocks):
-
                 if output_hidden_states:
                     # add hidden states
-                    all_hidden_states += (x,)
+                    all_hidden_states.append(x)
 
                 layer_past = None if past_key_values is None else past_key_values[block_idx]
                 if (
@@ -1290,10 +1285,9 @@ class Olmo(nn.Module):
                     attn_key_values.append(cache)
         else:
             for group_idx, block_group in enumerate(self.transformer.block_groups):
-
                 if output_hidden_states:
                     # add hidden states
-                    all_hidden_states += (x,)
+                    all_hidden_states.append(x)
 
                 layers_past = (
                     None
@@ -1318,8 +1312,7 @@ class Olmo(nn.Module):
         x = self.transformer.ln_f(x)  # type: ignore
         if output_hidden_states:
             # add final hidden state post-final-layernorm, following HuggingFace's convention
-            all_hidden_states += (x,)
-
+            all_hidden_states.append(x)
 
         # Get logits.
         # shape: (batch_size, seq_len or 1, vocab_size)
@@ -1330,7 +1323,7 @@ class Olmo(nn.Module):
         if self.config.scale_logits:
             logits.mul_(1 / math.sqrt(self.config.d_model))
 
-        return OlmoOutput(logits=logits, attn_key_values=attn_key_values, hidden_states=all_hidden_states) # type: ignore[arg-type]
+        return OlmoOutput(logits=logits, attn_key_values=attn_key_values, hidden_states=tuple(all_hidden_states) if output_hidden_states else None)  # type: ignore[arg-type]
 
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
         if wrap_strategy is None:
