@@ -7,7 +7,6 @@ import time
 import warnings
 from datetime import datetime
 from enum import Enum
-from functools import cache
 from itertools import cycle, islice
 from pathlib import Path
 from queue import Queue
@@ -33,6 +32,11 @@ from .exceptions import (
     OlmoThreadError,
 )
 from .torch_util import get_global_rank, get_local_rank, get_node_rank, is_distributed
+
+try:
+    from functools import cache
+except ImportError:
+    from functools import lru_cache as cache
 
 
 class StrEnum(str, Enum):
