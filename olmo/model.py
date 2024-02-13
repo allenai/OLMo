@@ -46,6 +46,13 @@ from .exceptions import OlmoConfigurationError
 from .initialization import ModuleType, init_weights
 from .torch_util import ensure_finite_
 
+if sys.version_info.minor > 8 :
+    from collections.abc import MutableMapping
+elif sys.version_info.minor == 8:
+    from typing import MutableMapping
+else:
+    raise SystemExit("This script supports Python 3.8 or higher")
+
 __all__ = [
     "LayerNormBase",
     "LayerNorm",
@@ -64,12 +71,6 @@ __all__ = [
     "OlmoGenerateOutput",
 ]
 
-if sys.version_info.minor > 8 :
-    from collections.abc import MutableMapping
-elif sys.version_info.minor == 8:
-    from typing import MutableMapping
-else:
-    raise SystemExit("This script supports Python 3.8 or higher")
 
 log = logging.getLogger(__name__)
 
