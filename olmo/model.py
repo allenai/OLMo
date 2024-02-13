@@ -923,9 +923,13 @@ class OlmoOutput(NamedTuple):
     """
 
     attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]]
-    hidden_states: Optional[Tuple[torch.Tensor]]
     """
     Attention keys and values from each block.
+    """
+
+    hidden_states: Optional[Tuple[torch.Tensor]]
+    """
+    Hidden states from each block.
     """
 
 
