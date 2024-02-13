@@ -1261,7 +1261,9 @@ class Olmo(nn.Module):
             # Inject image patch embeddings into input embeddings.
             assert image_offsets is not None
             image_offsets_mask = image_offsets > 0
-            batch_idx = torch.arange(0, batch_size).repeat_interleave(image_offsets_mask.sum(dim=-1))
+            batch_idx = torch.arange(0, batch_size, device=x.device).repeat_interleave(
+                image_offsets_mask.sum(dim=-1)
+            )
             x.index_put_((batch_idx, image_offsets[image_offsets_mask]), img_emb[image_offsets_mask])
 
         if not (self.config.alibi or self.config.rope):
