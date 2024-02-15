@@ -30,7 +30,6 @@ import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import einsum
-from flash_attn import flash_attn_func
 
 from .aliases import PathOrStr
 from .beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
@@ -521,6 +520,7 @@ class OlmoBlock(nn.Module):
         Computes scaled dot product attention on query, key and value tensors, using an optional
         attention mask if passed, and applying dropout if a probability greater than 0.0 is specified.
         """
+        from flash_attn import flash_attn_func
         assert attn_mask is None
         return flash_attn_func(
             q, k, v,
