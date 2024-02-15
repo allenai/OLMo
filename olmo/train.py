@@ -958,7 +958,7 @@ class Trainer:
                         metrics.update(lr_monitor.check())
 
                     # Log metrics to console.
-                    if self.global_step % self.cfg.console_log_interval == 0:
+                    if self.global_step % self.cfg.console_log_interval == 0 and get_global_rank() == 0:
                         self.log_metrics_to_console(f"[step={self.global_step}/{self.max_steps}]", metrics)
 
                     # Log metrics to W&B.
