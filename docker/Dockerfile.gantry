@@ -4,9 +4,15 @@
 # To build and push the image to Beaker, run 'make gantry-image'.
 # To test the image after pushing to Beaker, run 'make gantry-test'.
 
-FROM olmo-torch2-base
+FROM ghcr.io/allenai/pytorch:2.1.2-cuda11.8-python3.10
+
+ENV CUDA_HOME=/opt/conda
 
 WORKDIR /stage
+
+# Install flash attention
+RUN /opt/conda/bin/conda install ninja
+RUN pip install flash-attn --no-build-isolation
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
