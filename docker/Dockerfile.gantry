@@ -1,18 +1,74 @@
 # Defines a CUDA-enabled Docker image suitable for running this project's experiments
 # via beaker-gantry.
-#
-# To build and push the image to Beaker, run 'make gantry-image'.
-# To test the image after pushing to Beaker, run 'make gantry-test'.
 
-FROM ghcr.io/allenai/pytorch:2.1.2-cuda11.8-python3.10
+FROM ubuntu:20.04
 
+################################################################################
+# Install build tools.
+################################################################################
+
+ARG DEBIAN_FRONTEND="noninteractive"
+ENV TZ="America/Los_Angeles"
+ENV LC_ALL=C.UTF-8
+ENV LANG=C.UTF-8
+
+RUN --mount=type=cache,id=apt-dev,target=/var/cache/apt \
+    apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        curl \
+        wget \
+        libxml2-dev \
+        git && \
+    rm -rf /var/lib/apt/lists/*
+ENV PATH /opt/conda/bin:$PATH
+
+################################################################################
+# Install conda.
+################################################################################
+
+ARG PYTHON_VERSION=3.10
+RUN curl -fsSL -v -o ~/miniconda.sh -O  https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh  && \
+    chmod +x ~/miniconda.sh && \
+    ~/miniconda.sh -b -p /opt/conda && \
+    rm ~/miniconda.sh && \
+    /opt/conda/bin/conda install -y python=${PYTHON_VERSION} ipython && \
+    /opt/conda/bin/conda clean -ya
+
+################################################################################
+# Install CUDA toolkit, PyTorch, and other dependencies into conda environment.
+################################################################################
+
+ARG TORCH_INSTALLER=conda
+ARG TORCH_INSTALLER_CMD=install -c pytorch -c nvidia -y pytorch==2.1.2 torchvision torchtext torchaudio pytorch-cuda=11.8
+
+RUN /opt/conda/bin/${TORCH_INSTALLER} ${TORCH_INSTALLER_CMD}
+RUN /opt/conda/bin/conda clean -ya
+
+################################################################################
+# Finalize environment.
+################################################################################
+
+# Install MLNX OFED user-space drivers
+# See https://docs.nvidia.com/networking/pages/releaseview.action?pageId=15049785#Howto:DeployRDMAacceleratedDockercontaineroverInfiniBandfabric.-Dockerfile
+ENV MOFED_VER 5.8-1.1.2.1
+ENV OS_VER ubuntu20.04
+ENV PLATFORM x86_64
+RUN wget --quiet https://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VER}/MLNX_OFED_LINUX-${MOFED_VER}-${OS_VER}-${PLATFORM}.tgz && \
+    tar -xvf MLNX_OFED_LINUX-${MOFED_VER}-${OS_VER}-${PLATFORM}.tgz && \
+    MLNX_OFED_LINUX-${MOFED_VER}-${OS_VER}-${PLATFORM}/mlnxofedinstall --basic --user-space-only --without-fw-update -q && \
+    rm -rf MLNX_OFED_LINUX-${MOFED_VER}-${OS_VER}-${PLATFORM} && \
+    rm MLNX_OFED_LINUX-${MOFED_VER}-${OS_VER}-${PLATFORM}.tgz
+
+ENV PATH /opt/conda/bin:$PATH
+ENV NVIDIA_VISIBLE_DEVICES all
+ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
+ENV LD_LIBRARY_PATH /usr/local/nvidia/lib:/usr/local/nvidia/lib64
 ENV CUDA_HOME=/opt/conda
-
-WORKDIR /stage
 
 # Install flash attention
 RUN /opt/conda/bin/conda install ninja
-RUN pip install flash-attn --no-build-isolation
+RUN pip install --no-cache-dir flash-attn --no-build-isolation
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
