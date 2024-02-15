@@ -39,10 +39,7 @@ RUN curl -fsSL -v -o ~/miniconda.sh -O  https://repo.anaconda.com/miniconda/Mini
 # Install CUDA toolkit, PyTorch, and other dependencies into conda environment.
 ################################################################################
 
-ARG TORCH_INSTALLER=conda
-ARG TORCH_INSTALLER_CMD=install -c pytorch -c nvidia -y pytorch==2.1.2 torchvision torchtext torchaudio pytorch-cuda=11.8
-
-RUN /opt/conda/bin/${TORCH_INSTALLER} ${TORCH_INSTALLER_CMD}
+RUN /opt/conda/bin/conda install -c pytorch -c nvidia -y pytorch==2.1.2 torchvision torchtext torchaudio pytorch-cuda=11.8
 RUN /opt/conda/bin/conda clean -ya
 
 ################################################################################
