@@ -60,6 +60,9 @@ class OLMoForCausalLM(PreTrainedModel):
         if use_cache is None:
             use_cache = self.config.use_cache
 
+        if output_attentions:
+            raise ValueError("output_attentions is not yet supported in OLMo")
+
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
