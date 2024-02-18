@@ -122,7 +122,26 @@ def main(cfg: TrainConfig) -> None:
 
     # Wrap the model in FSDP.
     log.info("Wrapping model with FDSP...")
-    wrap_policy = olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy)
+
+    # HACKS
+    modules_to_wrap = {
+        olmo_model.transformer.wte,
+        olmo_model.transformer.ff_out,
+    }
+    for block in olmo_model.transformer.blocks:
+        modules_to_wrap.add(block)
+
+    def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+        del nonwrapped_numel
+        wrap = module in modules_to_wrap
+        if recurse:
+            # Determine if we should recurse.
+            return not wrap
+        else:
+            # Determine if we should wrap.
+            return wrap
+    wrap_policy = fsdp_wrap_fn
+
     if version.parse(torch.__version__) >= version.parse("2.1.0"):
         # This prevents any parameters from being initialized twice
         def dummy_init_fn(module: torch.nn.Module) -> None:
