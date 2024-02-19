@@ -5,7 +5,7 @@ import pickle
 import shutil
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
@@ -329,7 +329,7 @@ class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
             for write_result in fut.wait():
                 files_to_upload.add(write_result.storage_data.relative_path)
 
-            with ProcessPoolExecutor(max_workers=self.thread_count) as executor:
+            with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
                 futures = []
                 for fname in files_to_upload:
                     source = self.path / fname
@@ -379,7 +379,7 @@ class RemoteFileSystemReader(dist_cp.StorageReader):
         return (read_item, content)
 
     def read_data(self, plan: dist_cp.LoadPlan, planner: dist_cp.LoadPlanner) -> Future[None]:
-        with ProcessPoolExecutor(max_workers=self.thread_count) as executor:
+        with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
             read_item_content_futures = []
             for read_item in plan.items:
                 read_item_content_futures.append(executor.submit(self._get_content_for_read, read_item))
@@ -938,7 +938,7 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
         torch._tensor._rebuild_from_type_v2 = _rebuild_from_type_v2_monkey
 
         # We load in threads because it's faster.
-        executor = ProcessPoolExecutor()
+        executor = ThreadPoolExecutor()
         shards_dict = {}
         for shard_name in input_dir.glob("rank*.pt"):
             log.info("Loading %s ...", shard_name)
@@ -1478,7 +1478,7 @@ class LocalShardedCheckpointer(Checkpointer):
         local_cache: Optional[PathOrStr] = None,
     ) -> List[Path]:
         progress = get_progress_bar()
-        with ProcessPoolExecutor(max_workers=self.thread_count) as executor:
+        with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
             futures = []
             for rank in range(world_size):
                 future = executor.submit(
