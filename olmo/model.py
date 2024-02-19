@@ -521,12 +521,9 @@ class OlmoBlock(nn.Module):
         attention mask if passed, and applying dropout if a probability greater than 0.0 is specified.
         """
         from flash_attn import flash_attn_func
+
         assert attn_mask is None
-        return flash_attn_func(
-            q, k, v,
-            dropout_p=dropout_p,
-            causal=is_causal
-        )
+        return flash_attn_func(q, k, v, dropout_p=dropout_p, causal=is_causal)
 
     def attention(
         self,
@@ -629,7 +626,7 @@ class OlmoSequentialBlock(OlmoBlock):
         self.fused_dims = (
             config.d_model,
             config.effective_n_kv_heads * head_dim,
-            config.effective_n_kv_heads * head_dim
+            config.effective_n_kv_heads * head_dim,
         )
         self.att_proj = nn.Linear(
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
@@ -1222,21 +1219,24 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, OlmoBlock)
                 if recurse:
-                    return True  # always recurse for simplicity
-                return isinstance(module, OlmoBlock)
+                    return not wrap
+                else:
+                    return wrap
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_and_size:
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, (OlmoBlock, nn.Linear, nn.Embedding))
                 if recurse:
                     # Determine if we should recurse.
-                    return not isinstance(module, OlmoBlock)
+                    return not wrap
                 else:
                     # Determine if we should wrap.
-                    return isinstance(module, (OlmoBlock, nn.Linear, nn.Embedding))
+                    return wrap
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_group:
@@ -1247,9 +1247,11 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, OlmoBlockGroup)
                 if recurse:
-                    return True  # always recurse for simplicity
-                return isinstance(module, OlmoBlockGroup)
+                    return not wrap
+                else:
+                    return wrap
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_group_and_size:
@@ -1260,12 +1262,11 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, (OlmoBlockGroup, nn.Linear, nn.Embedding))
                 if recurse:
-                    # Determine if we should recurse.
-                    return not isinstance(module, OlmoBlockGroup)
+                    return not wrap
                 else:
-                    # Determine if we should wrap.
-                    return isinstance(module, (OlmoBlockGroup, nn.Linear, nn.Embedding))
+                    return wrap
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.size_based:
@@ -1287,9 +1288,11 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, OlmoBlock) and module.layer_id % c == 0
                 if recurse:
-                    return True  # always recurse for simplicity
-                return isinstance(module, OlmoBlock) and module.layer_id % c == 0
+                    return not wrap
+                else:
+                    return wrap
 
             return fsdp_wrap_fn
         else:
