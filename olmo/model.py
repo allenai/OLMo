@@ -1213,8 +1213,6 @@ class Olmo(nn.Module):
         return OlmoOutput(logits=logits, attn_key_values=attn_key_values)  # type: ignore[arg-type]
 
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
-        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-
         if wrap_strategy is None:
             return None
         if wrap_strategy == FSDPWrapStrategy.by_block:
@@ -1222,9 +1220,8 @@ class Olmo(nn.Module):
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
                 wrap = isinstance(module, OlmoBlock)
-                is_wrapped = isinstance(module, FSDP) and not module.check_is_root()
                 if recurse:
-                    return not (wrap or is_wrapped)
+                    return not wrap
                 else:
                     return wrap
 
@@ -1234,10 +1231,10 @@ class Olmo(nn.Module):
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
                 wrap = isinstance(module, (OlmoBlock, nn.Linear, nn.Embedding))
-                is_wrapped = isinstance(module, FSDP) and not module.check_is_root()
                 if recurse:
                     # Determine if we should recurse.
-                    return not (wrap or is_wrapped)
+                    log.info("recurse on %s? %s", module.__class__.__name__, not wrap)
+                    return not wrap
                 else:
                     # Determine if we should wrap.
                     return wrap
@@ -1252,9 +1249,8 @@ class Olmo(nn.Module):
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
                 wrap = isinstance(module, OlmoBlockGroup)
-                is_wrapped = isinstance(module, FSDP) and not module.check_is_root()
                 if recurse:
-                    return not (wrap or is_wrapped)
+                    return not wrap
                 else:
                     return wrap
 
@@ -1268,9 +1264,8 @@ class Olmo(nn.Module):
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
                 wrap = isinstance(module, (OlmoBlockGroup, nn.Linear, nn.Embedding))
-                is_wrapped = isinstance(module, FSDP) and not module.check_is_root()
                 if recurse:
-                    return not (wrap or is_wrapped)
+                    return not wrap
                 else:
                     return wrap
 
@@ -1295,9 +1290,8 @@ class Olmo(nn.Module):
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
                 wrap = isinstance(module, OlmoBlock) and module.layer_id % c == 0
-                is_wrapped = isinstance(module, FSDP) and not module.check_is_root()
                 if recurse:
-                    return not (wrap or is_wrapped)
+                    return not wrap
                 else:
                     return wrap
 
