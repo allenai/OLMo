@@ -60,6 +60,9 @@ class OLMoForCausalLM(PreTrainedModel):
         if use_cache is None:
             use_cache = self.config.use_cache
 
+        if output_attentions:
+            raise ValueError("output_attentions is not yet supported in OLMo")
+
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
@@ -69,9 +72,11 @@ class OLMoForCausalLM(PreTrainedModel):
             attention_mask=attention_mask,
             past_key_values=past_key_values,
             use_cache=use_cache,
+            output_hidden_states=output_hidden_states,
         )
 
         logits = outputs.logits
+        hidden_states = outputs.hidden_states
 
         loss = None
         if labels is not None:
@@ -94,6 +99,7 @@ class OLMoForCausalLM(PreTrainedModel):
             loss=loss,
             logits=logits,
             past_key_values=outputs.attn_key_values,
+            hidden_states=hidden_states,
         )
 
     def can_generate(self) -> bool:
