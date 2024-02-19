@@ -84,7 +84,7 @@ device_train_microbatch_size: 1
 precision: amp_bf16
 
 fsdp:
-  wrapping_strategy: by_block
+  wrapping_strategy: by_block_and_size
   precision: mixed
 
 activation_checkpointing: whole_layer
