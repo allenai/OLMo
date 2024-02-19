@@ -5,6 +5,7 @@ import socket
 import sys
 import time
 import warnings
+from contextlib import contextmanager
 from datetime import datetime
 from enum import Enum
 from itertools import cycle, islice
@@ -372,6 +373,11 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
             return f.read(num_bytes)
 
 
+def read_file(source: PathOrStr, bytes_start: int=0):
+    """Return all the contents of a possibly remote file"""
+    return get_bytes_range(source, bytes_start, -1)
+
+
 def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
     if is_url(dir):
         from urllib.parse import urlparse
@@ -438,7 +444,10 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
         blob.reload()
     except NotFound:
         raise FileNotFoundError(f"gs://{bucket_name}/{key}")
-    return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1)
+    if num_bytes == -1:
+        return blob.download_as_bytes(start=bytes_start)
+    else:
+        return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1)
 
 
 def _get_s3_profile_name(scheme: str) -> Optional[str]:
@@ -538,12 +547,16 @@ def _s3_get_bytes_range(
     scheme: str, bucket_name: str, key: str, bytes_start: int, num_bytes: int, max_attempts: int = 3
 ) -> bytes:
     err: Optional[Exception] = None
+    if num_bytes == -1:
+        range_str = f"bytes={bytes_start}-"
+    else:
+        range_str = f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
     for attempt in range(1, max_attempts + 1):
         try:
             return (
                 _get_s3_client(scheme)
                 .get_object(
-                    Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
+                    Bucket=bucket_name, Key=key, Range=range_str
                 )["Body"]
                 .read()
             )
