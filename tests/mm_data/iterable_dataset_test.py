@@ -2,7 +2,7 @@ from typing import Optional
 
 import numpy as np
 
-from olmo.mm_data.torch_dataset import MMIterableDataset
+from olmo.mm_data.iterable_dataset import MMIterableDataset
 from tests.data.iterable_dataset_test import MockWorkerInfo
 
 
