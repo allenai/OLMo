@@ -36,7 +36,8 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         self.drop_last = drop_last
 
         assert global_batch_size % self.world_size == 0
-        assert self.max_examples % self.world_size == 0
+        if self.max_examples is not None:
+            assert self.max_examples % self.world_size == 0
         assert self.start_index % self.world_size == 0
 
         self.num_threads = num_threads
