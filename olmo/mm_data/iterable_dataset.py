@@ -35,8 +35,11 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
     self.max_examples = max_examples
     self.drop_last = drop_last
 
-    self.num_threads = num_threads
     assert global_batch_size % self.world_size == 0
+    assert self.max_examples % self.world_size == 0
+    assert self.start_index % self.world_size == 0
+
+    self.num_threads = num_threads
     self.device_batch_size = global_batch_size // self.world_size
 
     self._seed_idx = -1
@@ -56,6 +59,8 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
     global_end_sequence = self._index.num_sequences
 
     # pad or truncate to get a number of sequences divisible by world size
+    # note its possible different epochs have different number of examples
+    # so we re-compute this each epoch
     remainder = global_end_sequence % self.world_size
     if remainder:
       if self.drop_last:
@@ -66,11 +71,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         global_end_sequence += (self.world_size - remainder)
 
     if self.max_examples:
-      assert self.max_examples % self.world_size == 0
       global_end_sequence = min(global_end_sequence, self.max_examples)
-
-    if self.start_index:
-      assert self.start_index % self.world_size == 0
 
     if hasattr(self, "worker_info"):  # for testing
       worker_info = self.worker_info
