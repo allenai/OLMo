@@ -20,11 +20,11 @@ def _test_seek(sequence_counts, idx_file, to_test):
 
     for target_seq, chunk_size in to_test:
         expected = np.searchsorted(examples, target_seq)
-        out = find_sequence_start(
+        actual = find_sequence_start(
             idx_file, target_seq, len(examples), chunk_size,
             len(examples), len(sequence_counts)
         )
-        assert out == expected
+        assert actual == expected
 
 
 def test_seek_small(tmp_path: Path):
@@ -54,9 +54,8 @@ def test_chunk_random():
     for seed in range(50):
         rng = np.random.RandomState(1581 + seed)
         seq_len = rng.randint(3, 18)
-        num_tokens = seq_len + rng.randint(1, 39)
+        num_tokens = seq_len + rng.randint(1, 57)
         min_seq_len = rng.randint(1, (seq_len - 1) // 2 + 1)
-        # seq_len, num_tokens, min_seq_len =  (7, 12, 2)
         out = chunk_example(rng, num_tokens, seq_len, min_seq_len=min_seq_len)
         assert all(min_seq_len <= x <= seq_len for x in out)
         assert sum(out) == num_tokens

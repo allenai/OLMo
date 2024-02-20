@@ -107,6 +107,13 @@ def test_batch_splitting():
     assert out == [6, 7, 14, 15]
 
 
+def test_threading():
+    for num_threads in [1, 2, 4]:
+        for i in range(50):
+            out = list(PatchedDataset(100, num_threads=num_threads))
+            assert out == list(range(100))
+
+
 def _test_end_to_end(ds_size, batch_size, num_workers, num_devices, start=0):
     device_iterators = []
     device_batch_size = batch_size // num_devices

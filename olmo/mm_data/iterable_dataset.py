@@ -24,6 +24,11 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         num_threads: Optional[int] = None,
         segment_ids=False,
     ):
+        assert global_batch_size % world_size == 0
+        if max_examples is not None:
+            assert max_examples % world_size == 0
+        assert start_index % world_size == 0
+
         self.sequence_length = sequence_length
         self.segment_ids = segment_ids
         self.seeds = seeds
@@ -34,12 +39,6 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         self.reader = reader
         self.max_examples = max_examples
         self.drop_last = drop_last
-
-        assert global_batch_size % self.world_size == 0
-        if self.max_examples is not None:
-            assert self.max_examples % self.world_size == 0
-        assert self.start_index % self.world_size == 0
-
         self.num_threads = num_threads
         self.device_batch_size = global_batch_size // self.world_size
 
@@ -55,6 +54,10 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             self.idx_dir, self.reader.data_files.values(), self.reader.image_sizer,
             self.sequence_length, self.seeds[self._seed_idx])
         self._index = SequenceIndex(index_file)
+        try:
+            _ = self._index.file_size
+        except Exception as e:
+            raise ValueError(e, f"Error reading idx file {index_file}, is it missing?")
 
     def __iter__(self):
         global_end_sequence = self._index.num_sequences
@@ -98,11 +101,28 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             for sequence in it:
                 yield self.reader.read_ranges(sequence, self.sequence_length, self.segment_ids)
         elif num_threads is None:
-            raise NotImplementedError("default thread count")
+            raise NotImplementedError("Default num threads")
         else:
-            # TODO is there a reason not to use? IterableDataset doesn't
+            # In order to stay ahead of training keep a buffer of futures > batch_size
+            buffer = self.device_batch_size * 2
             with ThreadPoolExecutor(max_workers=num_threads) as pool:
                 def _read(_seq):
                     return self.reader.read_ranges(_seq, self.sequence_length, self.segment_ids)
-                return pool.map(_read, it)
 
+                # Note we avoid pool.map(_read, it) since it will consume the entire iterator
+                try:
+                    # Queue up `buffer` reads
+                    futures = []
+                    for i in range(buffer):
+                        futures.append(pool.submit(_read, next(it)))
+                    on = 0
+                    while True:
+                        # Yield the next results and then buffer a new read
+                        yield futures[on].result()
+                        futures[on] = None  # in case we raise StopIteration in the next statement
+                        futures[on] = pool.submit(_read, next(it))
+                        on = (on + 1) % len(futures)
+                except StopIteration as e:
+                    for x in futures:
+                        if x is not None:
+                            yield x.result()
