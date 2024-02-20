@@ -1,6 +1,7 @@
 import hashlib
+import itertools
 from os.path import join, exists
-from typing import Iterable, Tuple, Iterator
+from typing import Iterable, Tuple, Iterator, List
 
 import numpy as np
 
@@ -39,7 +40,7 @@ def get_idx_file(idx_dir, paths: Iterable[str], sizer: ImageTokenSizer,
 
 
 class SequenceIndex:
-  """Provides a way to iterator over sequences of examples ids stored in an index file"""
+  """Provides a way to iterate over sequences of examples ids stored in an index file"""
 
   def __init__(self, idx_file):
     self.idx_file = idx_file
@@ -76,8 +77,9 @@ class SequenceIndex:
       self,
       start_sequence=0,
       end_sequence=None,
-      chunk_size=1024
-  ) -> Iterator[Tuple[int, int, int]]:
+      chunk_size=1024,
+  ) -> Iterator[List[Tuple[int, int, int]]]:
+    """Iterator through the sequences in this index"""
     current_seq = None
     examples_in_sequence = []
     on = self.find_sequence_start(start_sequence)
@@ -96,6 +98,54 @@ class SequenceIndex:
       on += chunk_size
     # Reached the end of the file
     yield examples_in_sequence
+
+  def iter_blocks(
+      self,
+      start_sequence=0,
+      end_sequence=None,
+      block_size: int=1,
+      block_step: int=0,
+      chunk_size=1024,
+  ):
+    """Iterate through blocks of sequences in this index
+
+    start_sequence: First sequence to yield
+    end_sequence: Maximum sequence to yield, if it is larger than this index treat the index
+                  as if it was repeats enough times to contain `end_sequence`
+    block_size: size of the block of examples to read at once
+    block_skip: number of sequences to skip after reading a block
+    chunk_Size: How large of chunks to read the from the index file
+    """
+    # This iteration pattern is used to slice data for the dataloader
+    # TODO we could be clever here and skip readings parts of the file, but for now
+    # we just stream everything
+    if end_sequence is None:
+      end_sequence = self.num_sequences
+
+    if end_sequence > self.num_sequences:
+      iterators = []
+      while end_sequence > self.num_sequences:
+        iterators.append(self.iter_from(0, self.num_sequences, chunk_size))
+        end_sequence -= self.num_sequences
+      if end_sequence:
+        iterators.append(self.iter_from(0, end_sequence, chunk_size))
+      it = itertools.chain(*iterators)
+    else:
+      it = self.iter_from(start_sequence, end_sequence, chunk_size)
+
+    if block_step != 0:
+      while True:
+        for _ in range(block_size):
+          yield next(it)
+        for _ in range(block_step):
+          next(it)
+    else:
+      for out in it:
+        yield out
+
+  def _read(self, start, n):
+    data = get_bytes_range(self.idx_file, start*IDX_DTYPE.itemsize, n*IDX_DTYPE.itemsize)
+    return np.frombuffer(data, IDX_DTYPE)
 
 
 def find_sequence_start(idx_file, target_sequence, n_examples, chunk_size,
