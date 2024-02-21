@@ -28,15 +28,11 @@ IDX_DTYPE = np.dtype([
 ])
 
 
-def get_idx_file(idx_dir, paths: Iterable[str], sizer: ImageTokenSizer,
-                 sequence_length: int, seed: int):
+def get_idx_file(reader: ExampleReader, sequence_length: int, seed: int):
     """Gets the filename that should be used to save the shuffled index"""
-    # TODO should this be using `paths`? it will break the relevant files are moved
-    _hash = hashlib.sha256()
-    _hash.update(np.array(sequence_length, np.uint32).tobytes())
-    _hash.update(bytes(sizer.get_id(), "utf-8"))
-    _hash.update(bytes(" ".join(sorted(paths)), "utf-8"))
-    return join(idx_dir, f"index.{_hash.hexdigest()}.s{seed}.v0")
+    # TODO Currently the client has to track what datafiles this index applies to,
+    # should we fix that?
+    return f"index.{reader.image_sizer.get_id()}.{sequence_length}.s{seed}.v0"
 
 
 class SequenceIndex:
