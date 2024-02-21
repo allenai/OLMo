@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import logging
 import math
+import sys
 from abc import abstractmethod
 from collections import defaultdict
-from collections.abc import MutableMapping
 from functools import partial
 from typing import (
     Callable,
@@ -45,6 +45,13 @@ from .config import (
 from .exceptions import OlmoConfigurationError
 from .initialization import ModuleType, init_weights
 from .torch_util import ensure_finite_
+
+if sys.version_info.minor > 8:
+    from collections.abc import MutableMapping
+elif sys.version_info.minor == 8:
+    from typing import MutableMapping
+else:
+    raise SystemExit("This script supports Python 3.8 or higher")
 
 __all__ = [
     "LayerNormBase",
@@ -927,6 +934,11 @@ class OlmoOutput(NamedTuple):
     Attention keys and values from each block.
     """
 
+    hidden_states: Optional[Tuple[torch.Tensor]]
+    """
+    Hidden states from each block.
+    """
+
 
 class OlmoGenerateOutput(NamedTuple):
     token_ids: torch.LongTensor
@@ -1143,6 +1155,7 @@ class Olmo(nn.Module):
         past_key_values: Optional[Sequence[Tuple[torch.Tensor, torch.Tensor]]] = None,
         use_cache: bool = False,
         last_logits_only: bool = False,
+        output_hidden_states: Optional[bool] = None,
     ) -> OlmoOutput:
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
@@ -1174,6 +1187,8 @@ class Olmo(nn.Module):
         :param last_logits_only: If `True`, only compute the logits for the last token of each sequence.
             This can speed up decoding when you only care about the next token.
         """
+        output_hidden_states = output_hidden_states if output_hidden_states is not None else False
+
         if past_key_values:
             assert len(past_key_values) == self.config.n_layers
 
@@ -1243,9 +1258,16 @@ class Olmo(nn.Module):
 
         attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
 
+        # decoder layers
+        all_hidden_states = []
+
         # Apply blocks one-by-one.
         if self.config.block_group_size == 1:
             for block_idx, block in enumerate(self.transformer.blocks):
+                if output_hidden_states:
+                    # add hidden states
+                    all_hidden_states.append(x)
+
                 layer_past = None if past_key_values is None else past_key_values[block_idx]
                 if (
                     (self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.whole_layer)
@@ -1274,6 +1296,10 @@ class Olmo(nn.Module):
                     attn_key_values.append(cache)
         else:
             for group_idx, block_group in enumerate(self.transformer.block_groups):
+                if output_hidden_states:
+                    # add hidden states
+                    all_hidden_states.append(x)
+
                 layers_past = (
                     None
                     if past_key_values is None
@@ -1295,6 +1321,9 @@ class Olmo(nn.Module):
         # Apply final layer norm.
         # shape: (batch_size, seq_len or 1, d_model)
         x = self.transformer.ln_f(x)  # type: ignore
+        if output_hidden_states:
+            # add final hidden state post-final-layernorm, following HuggingFace's convention
+            all_hidden_states.append(x)
 
         # Get logits.
         # shape: (batch_size, seq_len or 1, vocab_size)
@@ -1305,7 +1334,7 @@ class Olmo(nn.Module):
         if self.config.scale_logits:
             logits.mul_(1 / math.sqrt(self.config.d_model))
 
-        return OlmoOutput(logits=logits, attn_key_values=attn_key_values)  # type: ignore[arg-type]
+        return OlmoOutput(logits=logits, attn_key_values=attn_key_values, hidden_states=tuple(all_hidden_states) if output_hidden_states else None)  # type: ignore[arg-type]
 
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
         if wrap_strategy is None:
