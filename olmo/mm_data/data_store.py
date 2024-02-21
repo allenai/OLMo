@@ -1,15 +1,42 @@
+import hashlib
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from io import BytesIO
 from typing import Dict, Union, List, Tuple, Optional, Iterable, Iterator
 
 import numpy as np
 from PIL import Image
 
-from olmo.mm_data.data_config import MMStorageConfig
 from olmo.mm_data.image_token_size import ImageTokenSizer
 from olmo.mm_data.object_store import ObjectStore
 from olmo.util import get_bytes_range
+
+
+@dataclass
+class MMStorageConfig:
+    """Defines some constants used in data files"""
+    document_end_token: int = 0
+    image_start_token_id: int = 50258
+    mask_start_token_id: int = 50259
+    mask_end_token_id: int = 50260
+    object_id_length: int = 32
+    object_id_hash: str = "sha256"
+    image_start_bytes: bytes = field(init=False)
+    mask_start_bytes: bytes = field(init=False)
+    mask_end_bytes: bytes = field(init=False)
+    doc_end_bytes: bytes = field(init=False)
+
+    def __post_init__(self):
+        self.image_start_bytes = np.array(self.image_start_token_id, np.uint16).tobytes()
+        self.mask_start_bytes = np.array(self.mask_start_token_id, np.uint16).tobytes()
+        self.mask_end_bytes = np.array(self.mask_end_token_id, np.uint16).tobytes()
+        self.doc_end_bytes = np.array(self.document_end_token, np.uint16).tobytes()
+
+    def get_object_id(self, data: bytes) -> bytes:
+        if self.object_id_hash == "sha256":
+            return hashlib.sha256(data).digest()
+        else:
+            raise NotImplementedError(self.object_id_hash)
 
 
 @dataclass

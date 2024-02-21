@@ -4,8 +4,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from olmo.mm_data.data_config import MMStorageConfig
-from olmo.mm_data.data_store import ExampleReader, TextChunk, ImageChunk, build_data_file
+from olmo.mm_data.data_store import ExampleReader, TextChunk, ImageChunk, build_data_file, MMStorageConfig
 from olmo.mm_data.image_token_size import FixedNumberOfToken
 from olmo.mm_data.object_store import InMemoryStore
 

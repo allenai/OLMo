@@ -1,8 +1,7 @@
 from pathlib import Path
 import numpy as np
 
-from olmo.mm_data.data_config import MMStorageConfig
-from olmo.mm_data.data_store import TextChunk, ImageChunk, ExampleReader
+from olmo.mm_data.data_store import TextChunk, ImageChunk, ExampleReader, MMStorageConfig
 from olmo.mm_data.image_token_size import PerPatch
 from olmo.mm_data.structure_index import BasicIndexer, ExampleInfo
 

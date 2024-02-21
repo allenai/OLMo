@@ -6,8 +6,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 from ..aliases import PathOrStr
 from ..config import DataConfig, TrainConfig, ObjectStoreConfig, VisionBackboneConfig
 from ..exceptions import OlmoConfigurationError
-from ..mm_data.data_config import MMStorageConfig
-from ..mm_data.data_store import ExampleReader
+from ..mm_data.data_store import ExampleReader, MMStorageConfig
 from ..mm_data.image_preprocessing import ImagePreprocessor, ResizeImage
 from ..mm_data.iterable_dataset import MMIterableDataset
 from ..mm_data.object_store import FileStore, ObjectStore

@@ -21,11 +21,6 @@ class MockSequenceIndex:
             on += block_step
 
 
-class MockReader:
-    def read_ranges(self, seq, sequence_length, segment_ids):
-        return seq
-
-
 class PatchedDataset(MMIterableDataset):
     # Patched to yield sequence numbers instead of items
 
@@ -45,7 +40,7 @@ class PatchedDataset(MMIterableDataset):
         if global_batch_size is None:
             global_batch_size = world_size
         super().__init__(
-            MockReader(), None, None, None,
+            None, None, None, None,
             global_batch_size=global_batch_size,
             start_index=start_index,
             drop_last=drop_last,
@@ -62,6 +57,9 @@ class PatchedDataset(MMIterableDataset):
 
     def _init_for_seed(self, seed):
         pass
+
+    def read(self, sequence):
+        return sequence
 
 
 def test_bounds():
