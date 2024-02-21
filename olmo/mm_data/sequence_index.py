@@ -1,7 +1,7 @@
 import hashlib
 import itertools
 from os.path import join, exists
-from typing import Iterable, Tuple, Iterator, List
+from typing import Iterable, Tuple, Iterator, List, Dict
 
 import numpy as np
 
@@ -80,19 +80,21 @@ class SequenceIndex:
         chunk_size=1024,
     ) -> Iterator[List[Tuple[int, int, int]]]:
         """Iterator through the sequences in this index"""
-        current_seq = None
+        current_seq = start_sequence-1
         examples_in_sequence = []
         on = self.find_sequence_start(start_sequence)
-        while on < self.num_sequences:
+        while on < self.num_examples:
             buf = get_bytes_range(self.idx_file, on*IDX_DTYPE.itemsize, chunk_size*IDX_DTYPE.itemsize)
             data = np.frombuffer(buf, dtype=IDX_DTYPE)
             for next_seq, example_id in data:
                 if current_seq is None:
                     current_seq = next_seq
                 if next_seq != current_seq:
-                    yield examples_in_sequence
+                    if examples_in_sequence:
+                        yield examples_in_sequence
                     if end_sequence and next_seq >= end_sequence:
                         return
+                    current_seq = next_seq
                     examples_in_sequence = []
                 examples_in_sequence.append(example_id)
             on += chunk_size
@@ -168,7 +170,7 @@ def find_sequence_start(idx_file, target_sequence, n_examples, chunk_size,
     while True:
         # Guess assuming sequences between low and high are roughly evenly spaced
         remaining_seq = high[1] - low[1] - 1
-        percent = (target_sequence - low[1]) / remaining_seq
+        percent = (target_sequence - low[1] + 1) / remaining_seq
         remaining_examples = high[0] - low[0]
         current_guess = low[0] + int(round(remaining_examples*percent))
         read_start = current_guess - chunk_size // 2
@@ -194,9 +196,7 @@ def find_sequence_start(idx_file, target_sequence, n_examples, chunk_size,
                 chunk = get_bytes_range(
                     idx_file, read_start * IDX_DTYPE.itemsize, IDX_DTYPE.itemsize * chunk_size)
                 seq_numbers = np.frombuffer(chunk, IDX_DTYPE)["sequence_number"]
-            # occurrences of `target_sequence` can only be at the right end of this block
-            last_ix = len(seq_numbers) - (seq_numbers == target_sequence).sum()
-            return read_start + last_ix
+            return read_start + np.searchsorted(seq_numbers, target_sequence)
         else:
             return read_start + np.searchsorted(seq_numbers, target_sequence)
 

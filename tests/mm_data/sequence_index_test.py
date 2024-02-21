@@ -45,7 +45,7 @@ def test_seek_random(tmp_path: Path):
     for seed in range(100):
         rng = np.random.RandomState(seed + 991741)
         counts = rng.randint(1, 10, (n_seq,))
-        targets = rng.randint(1, n_seq, (n_targets,))
+        targets = rng.randint(0, n_seq, (n_targets,))
         step_sizes = rng.randint(1, 6, (n_targets,))
         _test_seek(counts, idx_file, np.stack([targets, step_sizes], 1))
 
