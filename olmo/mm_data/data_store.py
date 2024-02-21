@@ -65,11 +65,11 @@ class ExampleReader:
     """Reads examples stored in data files given a file_id, byte offset, and length"""
 
     def __init__(
-            self,
-            image_store: ObjectStore,
-            image_sizer: ImageTokenSizer,
-            data_files: Dict[int, str],
-            storage_config: MMStorageConfig
+        self,
+        image_store: ObjectStore,
+        image_sizer: ImageTokenSizer,
+        data_files: Union[List[str], Dict[int, str]],
+        storage_config: MMStorageConfig
     ):
         self.image_store = image_store
         self.image_sizer = image_sizer
@@ -77,7 +77,10 @@ class ExampleReader:
         self.storage_config = storage_config
 
     def get_raw(self, file_id, start_byte, num_bytes) -> List[RawExample]:
-        buffer = get_bytes_range(self.data_files[file_id], start_byte, num_bytes)
+        # Annoyingly, getting different int numpy dtypes for start_byte and num_bytes can lead to an error since
+        # their sum will become a float, make everything a python int to be safe
+        # TODO should `get_bytes_range` handle that?
+        buffer = get_bytes_range(self.data_files[file_id], int(start_byte), int(num_bytes))
         cfg = self.storage_config
 
         # TODO maybe byte regex would be faster? like:
@@ -106,7 +109,7 @@ class ExampleReader:
                 parts.append(TextChunk(data[on:ix], marker_token == cfg.mask_end_token_id))
             on = ix + 1
             if marker_token == cfg.image_start_token_id:
-                w, h = buffer[on:on+2]
+                w, h = data[on:on+2]
                 on += 2
                 image_id = buffer[on*2:on*2 + cfg.object_id_length]
                 parts.append(ImageChunk(image_id, w, h, self.image_sizer(w, h)))
