@@ -247,11 +247,11 @@ def chunk_example(rng, num_tokens, seq_len, min_seq_len=16):
 
 
 def build_sequence_index(
-        reader: ExampleReader,
-        indexer: Indexer,
-        seq_len: int,
-        seed: int,
-        output_file: str
+    reader: ExampleReader,
+    indexer: Indexer,
+    seq_len: int,
+    seed: int,
+    output_file: str
 ):
     rng = np.random.RandomState(seed)
 

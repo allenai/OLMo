@@ -46,8 +46,6 @@ class ResizeImage(ImagePreprocessor):
     def __call__(self, image: Image.Image, offset):
         patch_w, patch_h = self.patch_size
         target_w, target_h = self.image_size
-        n_w_patches = image.width // patch_w
-        n_h_patches = image.height // patch_h
         image = image.convert("RGB")
         if self.resize_method == "bicubic":
             method = Image.BICUBIC
@@ -71,6 +69,9 @@ class ResizeImage(ImagePreprocessor):
         if left_pad or bot_pad:
             image = np.pad(image, [[0, left_pad], [0, bot_pad], [0, 0]])
         assert image.shape == (target_w, target_h, 3)
+
+        n_w_patches = target_w // patch_w
+        n_h_patches = target_h // patch_h
         image = np.reshape(image, [n_w_patches, patch_w, n_h_patches, patch_h, 3])
         image = np.transpose(image, [0, 2, 1, 3, 4])
         image = np.reshape(image, [n_w_patches*n_h_patches, patch_w, patch_h, 3])
