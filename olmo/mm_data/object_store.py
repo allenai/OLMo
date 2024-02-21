@@ -1,5 +1,7 @@
 from os.path import join, exists
 
+from olmo.util import get_bytes_range
+
 
 class ObjectStore:
     """Interface for getting objects from a remote store"""
@@ -26,8 +28,7 @@ class FileStore(ObjectStore):
         return exists(self._id_to_filename(object_id))
 
     def get(self, object_id):
-        with open(self._id_to_filename(object_id), "rb") as f:
-            return f.read()
+        return get_bytes_range(self._id_to_filename(object_id), 0, -1)
 
     def write(self, object_id, data):
         with open(self._id_to_filename(object_id), "wb") as f:
