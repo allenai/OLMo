@@ -171,7 +171,7 @@ class ExampleReader:
 
     def read_ranges(
         self,
-        examples: List[Tuple[int, int, int]],
+        ranges: List[Tuple[int, int, int]],
         sequence_length: Optional[int]=None,
         return_segments=True
     ) -> Dict:
@@ -186,7 +186,7 @@ class ExampleReader:
         """
         total_tokens = 0
         all_chunks = []
-        for segment_id, (file_id, start_byte, num_bytes) in enumerate(examples):
+        for segment_id, (file_id, start_byte, num_bytes) in enumerate(ranges):
             start_token = total_tokens
             examples = self.get_raw(file_id, start_byte, num_bytes)
             for example in examples:
