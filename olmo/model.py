@@ -29,6 +29,7 @@ import torch
 import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
+from PIL.Image import Image
 from torch import einsum
 
 from .aliases import PathOrStr
@@ -45,6 +46,7 @@ from .config import (
 )
 from .exceptions import OlmoConfigurationError
 from .initialization import ModuleType, init_weights
+from .mm_data.image_preprocessing import ResizeImage
 from .torch_util import ensure_finite_
 
 if sys.version_info.minor > 8:
@@ -1019,6 +1021,9 @@ class OlmoVisionBackbone(nn.Module):
         else:
             raise NotImplementedError(v_cfg.name)
 
+    def get_image_preprocessor(self):
+        raise NotImplementedError()
+
     def reset_parameters(self):
         pass
 
@@ -1027,6 +1032,11 @@ class OlmoLinearVisionBackbone(OlmoVisionBackbone):
     def __init__(self, config: ModelConfig):
         super().__init__(config)
         v_cfg = self.config.vision_backbone
+        self.preprocessor = ResizeImage(
+            (v_cfg.image_width, v_cfg.image_height),
+            (v_cfg.patch_width, v_cfg.patch_height),
+            v_cfg.resize_method
+        )
         assert v_cfg is not None
         self.ff = nn.Linear(
             v_cfg.patch_width * v_cfg.patch_height * 3, self.config.d_model, device=self.config.init_device
@@ -1041,6 +1051,9 @@ class OlmoLinearVisionBackbone(OlmoVisionBackbone):
         # to (batch_size, num_patches, patch_width * patch_height * 3)
         image_patches = image_patches.view(batch_size, num_patches, -1)
         return self.ff(image_patches)
+
+    def get_image_preprocessor(self):
+        return self.preprocessor
 
 
 class Olmo(nn.Module):
@@ -1260,7 +1273,7 @@ class Olmo(nn.Module):
         if img_emb is not None:
             # Inject image patch embeddings into input embeddings.
             assert image_offsets is not None
-            image_offsets_mask = image_offsets > 0
+            image_offsets_mask = image_offsets >= 0
             batch_idx = torch.arange(0, batch_size, device=x.device).repeat_interleave(
                 image_offsets_mask.sum(dim=-1)
             )

@@ -154,7 +154,7 @@ class ExampleReader:
                 else:
                     offsets.append(total_tokens)
                     image = Image.open(BytesIO(self.image_store.get(part.object_id)))
-                    images.append(np.array(image.convert('RGB')))
+                    images.append(image)
                 total_tokens += part.num_tokens
             if return_segments:
                 segments[start_token:total_tokens] = segment_id

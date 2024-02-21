@@ -111,8 +111,8 @@ def test_example_store_mm(tmp_path: Path):
 
     ex3 = store.read_range(*indices[2])
     assert np.all(ex3["input_ids"] == np.array([3, 3] + [0] * 8 + [3]))
-    assert np.all(ex3["images"][0] == image_ar)
-    assert np.all(ex3["images"][1] == image_ar)
+    assert np.all(np.array(ex3["images"][0]) == image_ar)
+    assert np.all(np.array(ex3["images"][1]) == image_ar)
     assert len(ex3["images"]) == 2
     assert np.all(ex3["image_offsets"] == np.array([2, 6]))
 

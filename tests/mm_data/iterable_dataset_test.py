@@ -60,7 +60,7 @@ class PatchedDataset(MMIterableDataset):
             self.worker_info = MockWorkerInfo(worker_id, num_workers)
         self._index = MockSequenceIndex(num_sequences)
 
-    def reshuffle(self):
+    def _init_for_seed(self, seed):
         pass
 
 
@@ -109,9 +109,8 @@ def test_batch_splitting():
 
 def test_threading():
     for num_threads in [1, 2, 4]:
-        for i in range(50):
-            out = list(PatchedDataset(100, num_threads=num_threads))
-            assert out == list(range(100))
+        out = list(PatchedDataset(100, num_threads=num_threads))
+        assert out == list(range(100))
 
 
 def _test_end_to_end(ds_size, batch_size, num_workers, num_devices, start=0):

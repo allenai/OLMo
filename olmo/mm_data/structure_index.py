@@ -132,4 +132,5 @@ class BasicIndexer(Indexer):
                 header_ar = np.array(header, self.DTYPE)[()]
                 assert header == tuple(header_ar)  # check for overflows
                 fh.write(header_ar.tobytes())
-                fh.write(np.array(image_sizes, np.uint16).tobytes())
+                if image_sizes:
+                    fh.write(np.array(image_sizes, np.uint16).tobytes())

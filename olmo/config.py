@@ -234,8 +234,11 @@ class VisionBackboneType(StrEnum):
 @dataclass
 class VisionBackboneConfig(BaseConfig):
     name: VisionBackboneType = VisionBackboneType.linear
+    image_width: int = 256
+    image_height: int = 256
     patch_width: int = 16
     patch_height: int = 16
+    resize_method: str = "bicubic"
     frozen: bool = False
 
 
@@ -533,10 +536,19 @@ class PaddingDirection(StrEnum):
 @dataclass
 class DataConfig(BaseConfig):
     paths: Optional[List[str]] = None
+
+    # for text data
     datasets: Optional[Dict[str, List[str]]] = None
     label_mask_paths: Optional[List[str]] = None
     pad_direction: PaddingDirection = PaddingDirection.right
     generate_attention_mask: bool = False
+
+    # for multi-modal data
+    idx_dir: Optional[str] = None
+    object_store_config: Optional[ObjectStoreConfig] = None
+    return_segment_ids: bool=False
+
+    num_threads: Optional[int] = None
     num_workers: int = 0
     drop_last: bool = False
     pin_memory: bool = False
@@ -544,6 +556,18 @@ class DataConfig(BaseConfig):
     persistent_workers: bool = False
     timeout: int = 0
     multi_modal: bool = False
+
+@dataclass
+class ObjectStoreConfig(BaseConfig):
+    source_folder: Optional[str]
+
+
+@dataclass
+class TextDataConfig(BaseConfig):
+    paths: Optional[List[str]] = None
+    datasets: Optional[Dict[str, List[str]]] = None
+    label_mask_paths: Optional[List[str]] = None
+    pad_direction: PaddingDirection = PaddingDirection.right
 
 
 class EvaluatorType(StrEnum):

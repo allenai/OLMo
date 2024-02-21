@@ -4,19 +4,22 @@ from typing import Any, Dict, List, Optional, cast
 from torch.utils.data import DataLoader, DistributedSampler
 
 from ..aliases import PathOrStr
-from ..config import DataConfig, TrainConfig
+from ..config import DataConfig, TrainConfig, ObjectStoreConfig, VisionBackboneConfig
 from ..exceptions import OlmoConfigurationError
+from ..mm_data.data_config import MMStorageConfig
+from ..mm_data.data_store import ExampleReader
+from ..mm_data.image_preprocessing import ImagePreprocessor, ResizeImage
+from ..mm_data.iterable_dataset import MMIterableDataset
+from ..mm_data.object_store import FileStore, ObjectStore
 from ..torch_util import barrier, get_global_rank, get_world_size
 from .collator import DataCollator
 from .iterable_dataset import IterableDataset
 from .memmap_dataset import MemMapDataset
-from .multi_modal_iterable_dataset import MultiModalIterableDataset
 
 __all__ = [
     "MemMapDataset",
     "DataCollator",
     "IterableDataset",
-    "MultiModalIterableDataset",
     "build_eval_dataloader",
     "build_train_dataloader",
 ]
@@ -86,6 +89,19 @@ def build_eval_dataloader(
     )
 
 
+def build_object_store(config: ObjectStoreConfig) -> ObjectStore:
+    assert config.source_folder is not None
+    return FileStore(config.source_folder)
+
+
+def build_image_preprocessor(config: VisionBackboneConfig) -> ImagePreprocessor:
+    return ResizeImage(
+        (config.image_width, config.image_width),
+        (config.patch_width, config.patch_height),
+        config.resize_method
+    )
+
+
 def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
     assert train_config.device_train_batch_size is not None
     collator = DataCollator(
@@ -101,15 +117,25 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
             work_dir.mkdir(exist_ok=True, parents=True)
 
     if train_config.data.multi_modal:
-        # TODO: this block will need to change a little when we integrate the actual
-        # vision dataset, instead of the mock one.
         assert train_config.model.vision_backbone is not None
-        dataset = MultiModalIterableDataset(
-            pad_token_id=train_config.model.pad_token_id,
-            max_sequence_length=train_config.model.max_sequence_length,
-            vocab_size=train_config.model.vocab_size,
-            patch_width=train_config.model.vision_backbone.patch_width,
-            patch_height=train_config.model.vision_backbone.patch_height,
+        data_cfg = train_config.data
+        vision_config = train_config.model.vision_backbone
+        image_preprocessor = build_image_preprocessor(vision_config)
+        reader = ExampleReader(
+            build_object_store(data_cfg.object_store_config),
+            image_sizer=image_preprocessor.image_token_sizer(),
+            data_files=data_cfg.paths,
+            storage_config=MMStorageConfig()
+        )
+        dataset = MMIterableDataset(
+            reader,
+            data_cfg.idx_dir,
+            image_preprocessor=image_preprocessor,
+            seed=train_config.seed + (train_config.epoch or 0),
+            sequence_length=train_config.model.max_sequence_length,
+            global_batch_size=train_config.global_train_batch_size,
+            drop_last=train_config.data.drop_last,
+            num_threads=train_config.data.num_threads
         )
     else:
         dataset = IterableDataset(
@@ -119,6 +145,7 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
             shuffle=True,
             drop_last=train_config.data.drop_last,
             work_dir=work_dir,
+            num_threads=train_config.data.num_threads
         )
 
     barrier()
