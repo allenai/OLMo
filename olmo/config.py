@@ -54,6 +54,8 @@ __all__ = [
     "FSDPWrapStrategy",
     "FSDPConfig",
     "CheckpointType",
+    "ObjectStoreConfig",
+    "TextDataConfig",
 ]
 
 C = TypeVar("C", bound="BaseConfig")
@@ -239,6 +241,7 @@ class VisionBackboneConfig(BaseConfig):
     patch_width: int = 16
     patch_height: int = 16
     resize_method: str = "bicubic"
+    pad_image: bool = False
     frozen: bool = False
 
 

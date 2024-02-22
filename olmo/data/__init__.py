@@ -19,6 +19,7 @@ __all__ = [
     "MemMapDataset",
     "DataCollator",
     "IterableDataset",
+    "MMIterableDataset",
     "build_eval_dataloader",
     "build_train_dataloader",
 ]
