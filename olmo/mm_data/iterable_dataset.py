@@ -109,6 +109,10 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         elif num_threads is None:
             raise NotImplementedError("Default num threads")
         else:
+            # Multi-threading, we run the iterator in the main thread since it should be fast
+            # and our current implementation does get much benefit sampling from the index
+            # more sparsely, the threads do data reading and data preprocessing
+
             # In order to stay ahead of training keep a buffer of futures > batch_size
             buffer = self.device_batch_size * 2
             with ThreadPoolExecutor(max_workers=num_threads) as pool:
