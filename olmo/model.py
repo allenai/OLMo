@@ -466,6 +466,15 @@ class OlmoBlock(nn.Module):
         if self.config.rope:
             self.rotary_emb = RotaryEmbedding(config, self.__cache)
 
+        self.flash_attn_func = None
+        if config.flash_attention:
+            try:
+                from flash_attn import flash_attn_func  # type: ignore
+
+                self.flash_attn_func = flash_attn_func
+            except ModuleNotFoundError:
+                pass
+
     def reset_parameters(self):
         if self.k_norm is not None:
             self.k_norm.reset_parameters()
@@ -520,10 +529,17 @@ class OlmoBlock(nn.Module):
         Computes scaled dot product attention on query, key and value tensors, using an optional
         attention mask if passed, and applying dropout if a probability greater than 0.0 is specified.
         """
-        from flash_attn import flash_attn_func
-
-        assert attn_mask is None
-        return flash_attn_func(q, k, v, dropout_p=dropout_p, causal=is_causal)
+        if self.flash_attn_func is not None and attn_mask is None:
+            return self.flash_attn_func(q, k, v, dropout_p=dropout_p, causal=is_causal)
+        else:
+            return F.scaled_dot_product_attention(
+                q,
+                k,
+                v,
+                attn_mask=attn_mask,
+                dropout_p=dropout_p,
+                is_causal=is_causal,
+            )
 
     def attention(
         self,
