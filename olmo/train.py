@@ -117,6 +117,36 @@ class Trainer:
     cur_train_loss: float = float("inf")
     indices_file: Optional[TextIO] = None
     _start_time: float = 0.0
+    loss_fn = None
+
+    def __post_init__(self):
+        try:
+            from flash_attn.ops.triton.cross_entropy import (  # type: ignore
+                cross_entropy_loss,
+            )
+
+            def loss_fn(logits, labels, ignore_index: int = -100, reduction: str = "mean"):
+                loss, _ = cross_entropy_loss(
+                    logits,
+                    labels,
+                    label_smoothing=0.0,
+                    logit_scale=1.0,
+                    lse_square_scale=0.0,
+                    ignored_index=ignore_index,
+                    inplace_backward=False,
+                    process_group=None,
+                )
+                if reduction == "mean":
+                    loss = loss.sum() / (labels != ignore_index).sum()
+                elif reduction == "sum":
+                    loss = loss.sum()
+                else:
+                    loss = loss
+                return loss
+
+            self.loss_fn = loss_fn
+        except ModuleNotFoundError:
+            self.loss_fn = F.cross_entropy
 
     @property
     def dataset(self) -> IterableDataset:
@@ -544,7 +574,7 @@ class Trainer:
         labels = self.get_labels(batch)
         # shape: (batch_size * seq_len,)
         labels = labels.view(-1)
-        ce_loss = F.cross_entropy(logits_for_loss, labels, ignore_index=-100, reduction=loss_reduction)
+        ce_loss = self.loss_fn(logits_for_loss, labels, ignore_index=-100, reduction=loss_reduction)  # type: ignore
         if loss_reduction == "none":
             # Reshape (batch_size * seq_len,) -> (batch_size, seq_len)
             ce_loss = ce_loss.view(batch["input_ids"].shape[0], -1)
@@ -850,7 +880,7 @@ class Trainer:
                 self.cfg.stop_at = self.global_step + self.cfg.stop_after
             else:
                 self.cfg.stop_at = min(self.cfg.stop_at, self.global_step + self.cfg.stop_after)
-        
+
         self._start_time = time.time()
 
         if self.cfg.load_path is not None and self.global_step > 0 and self.cfg.eval_on_load:
