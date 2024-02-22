@@ -269,12 +269,13 @@ def build_sequence_index(
                     for chunk_tokens in lengths:
                         chunk_start_byte = ex.start_byte+on*2
                         index_data.append(np.array(
-                            ((file_id, chunk_start_byte, chunk_tokens*2), ex.num_tokens), IN_MEM_SHUFFLE_DTYPE))
+                            ((file_id, chunk_start_byte, chunk_tokens*2), chunk_tokens), IN_MEM_SHUFFLE_DTYPE))
                         on += chunk_tokens*2
                 else:
                     raise NotImplementedError("Chunking multi-modal documents")
-            point = np.array(((file_id, ex.start_byte, ex.num_bytes), ex.num_tokens), IN_MEM_SHUFFLE_DTYPE)
-            index_data.append(point)
+            else:
+                point = np.array(((file_id, ex.start_byte, ex.num_bytes), ex.num_tokens), IN_MEM_SHUFFLE_DTYPE)
+                index_data.append(point)
         examples.append(np.stack(index_data))
     examples = np.concatenate(examples)
 

@@ -74,7 +74,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         if remainder:
             if self.drop_last:
                 global_end_sequence -= remainder
-                if global_end_sequence == remainder:
+                if global_end_sequence == 0:
                     raise ValueError("Entire dataset was dropped")
             else:
                 global_end_sequence += (self.world_size - remainder)
