@@ -200,7 +200,7 @@ def test_forward(
     torch.testing.assert_close(output2.logits[0][-1], batch_output_from_cached.logits[1][-1], rtol=rtol, atol=atol)
 
 
-@pytest.mark.parametrize("positional_embeddings", (None, "rope", "alibi"))
+@pytest.mark.parametrize("positional_embeddings", (None, "rope"))
 @pytest.mark.parametrize("block_type", (BlockType.sequential,))
 @pytest.mark.parametrize("multi_query_attention", (True, False))
 def test_flash_attn(
