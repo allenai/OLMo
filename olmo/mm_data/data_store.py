@@ -1,5 +1,4 @@
 import hashlib
-import re
 from dataclasses import dataclass, field
 from io import BytesIO
 from typing import Dict, Union, List, Tuple, Optional, Iterable, Iterator
@@ -15,10 +14,10 @@ from olmo.util import get_bytes_range
 @dataclass
 class MMStorageConfig:
     """Defines some constants used in data files"""
-    document_end_token: int = 0
     image_start_token_id: int = 50258
     mask_start_token_id: int = 50259
     mask_end_token_id: int = 50260
+    document_end_token: int = 50261
     object_id_length: int = 32
     object_id_hash: str = "sha256"
     image_start_bytes: bytes = field(init=False)
@@ -48,8 +47,7 @@ class ImageChunk:
     num_tokens: Optional[int]=None
 
     def byte_len(self):
-        # 3 tokens of two bytes and object id
-        return len(self.object_id) + 6
+        return len(self.object_id) + 6  # 3 tokens of two bytes and object id
 
     def is_masked(self):
         return True
@@ -85,7 +83,8 @@ class TextChunk:
             data_fh.write(self.tokens.tobytes())
 
 
-RawExample = List[Union[TextChunk, ImageChunk]]
+Document = List[Union[TextChunk, ImageChunk]]
+"""Pre-processed document we can store in the data store"""
 
 
 class ExampleReader:
@@ -103,7 +102,7 @@ class ExampleReader:
         self.data_files = data_files
         self.storage_config = storage_config
 
-    def get_raw(self, file_id, start_byte, num_bytes) -> List[RawExample]:
+    def get_raw(self, file_id, start_byte, num_bytes) -> List[Document]:
         # Annoyingly, getting different int numpy dtypes for start_byte and num_bytes can lead to an error since
         # their sum will become a float, make everything a python int to be safe
         # TODO should `get_bytes_range` handle that?
@@ -153,7 +152,7 @@ class ExampleReader:
 
     def _build_sequence(
         self,
-        chunks: List[RawExample],
+        chunks: List[Document],
         sequence_length=None,
         return_segments=False
     ) -> Dict[str, np.ndarray]:
@@ -242,10 +241,10 @@ class ExampleReader:
 
 
 def build_data_file(
-    examples: Iterable[RawExample],
+    examples: Iterable[Document],
     data_file: str,
     data_config: MMStorageConfig
-) -> Iterator[Tuple[int, int, RawExample]]:
+) -> Iterator[Tuple[int, int, Document]]:
     """Builds a datafile and yield the saved examples and their locations"""
     with open(data_file, "wb") as data_fh:
         on_byte = 0
@@ -259,6 +258,6 @@ def build_data_file(
             data_fh.write(data_config.doc_end_bytes)
             on_byte += 2
 
-            # yield back example and its location in case the indexer needs it
+            # yield back example and its location, useful when building the index
             yield example_start, example_length, example
 

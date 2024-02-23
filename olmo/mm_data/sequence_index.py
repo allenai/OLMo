@@ -1,15 +1,13 @@
-import hashlib
 import itertools
-from os.path import join, exists
-from typing import Iterable, Tuple, Iterator, List, Dict
+import math
+from dataclasses import dataclass
+from typing import Tuple, Iterator, List
 
 import numpy as np
 
-from olmo.mm_data.image_token_size import ImageTokenSizer
-from olmo.mm_data.structure_index import Indexer, get_index_file
 from olmo.mm_data.data_store import ExampleReader
+from olmo.mm_data.structure_index import Indexer, get_index_file
 from olmo.util import file_size, get_bytes_range
-
 
 EXAMPLE_ID_DTYPE = np.dtype([
     ('file_id', np.uint16),
@@ -56,9 +54,7 @@ class SequenceIndex:
     @property
     def num_sequences(self):
         if self._num_sequence is None:
-            last_example_data = get_bytes_range(
-                self.idx_file, self.file_size - IDX_DTYPE.itemsize, IDX_DTYPE.itemsize)
-            last_example = np.frombuffer(last_example_data, IDX_DTYPE)
+            last_example = self._read(self.num_examples-1, 1)
             last_sequence_id = last_example["sequence_number"][0]
             self._num_sequence = last_sequence_id + 1
         return self._num_sequence
@@ -66,8 +62,7 @@ class SequenceIndex:
     def find_sequence_start(self, target_sequence, search_step=1024) -> int:
         return find_sequence_start(
             self.idx_file, target_sequence, self.num_examples,
-            search_step, self.num_examples, self.num_sequences
-        )
+            search_step, self.num_examples, self.num_sequences)
 
     def iter_from(
         self,
@@ -80,7 +75,7 @@ class SequenceIndex:
         examples_in_sequence = []
         on = self.find_sequence_start(start_sequence)
         while on < self.num_examples:
-            buf = get_bytes_range(self.idx_file, on*IDX_DTYPE.itemsize, chunk_size*IDX_DTYPE.itemsize)
+            buf = self._read(on, chunk_size)
             data = np.frombuffer(buf, dtype=IDX_DTYPE)
             for next_seq, example_id in data:
                 if current_seq is None:
@@ -245,13 +240,100 @@ def chunk_example(rng, num_tokens, seq_len, min_seq_len=16):
     rng.shuffle(lengths)
     return lengths
 
+def balanced_merge(arrays: List[np.ndarray]) -> np.ndarray:
+    """Concatenate `arrays` so that examples for each input list are stratified across the output list"""
+    if len(arrays) == 1:
+        return arrays[1]
+    lens = np.array([len(x) for x in arrays])
+    target_ratios = lens / lens.sum()
+    current_counts = np.zeros(len(arrays), dtype=np.int32)
+    out = np.zeros(lens.sum(), dtype=arrays[0].dtype)
+    on = 0
+    while True:
+        if len(out) == 0:
+            next_i = 0
+        else:
+            # Get an item from the most under-represented list in our output list
+            next_i = np.argmin(current_counts / on - target_ratios)
+        current_counts[next_i] += 1
+        out[on] = arrays[next_i][0]
+        on += 1
+        arrays[next_i] = arrays[next_i][1:]
+        if len(arrays[next_i]) == 0:
+            if len(arrays) == 1:
+                assert on + len(arrays[0]) == len(out)
+                out[on:] = arrays[0]
+                return out
+            target_ratios = np.delete(target_ratios, next_i)
+            current_counts = np.delete(current_counts, next_i)
+            arrays = arrays[:next_i] + arrays[next_i + 1:]
+
+
+@dataclass
+class DataSampling:
+    resample: List[float] = None
+    """How re-sample groups
+    
+    for values 1, the whole number of the value will be to repeat the group, the fractional part
+    is used to randomly sample the group without replacement
+    """
+
+    stratify: bool = True
+    """Stratify between groups and up-sampling
+    
+    Data from different groups will be evenly distributed in the output list, and any upsampled groups
+    will produce all examples from the group before starting to repeat examples 
+    """
+
+    def __call__(self, rng, data: List[np.ndarray]) -> np.ndarray:
+        if self.resample is None and not self.stratify:
+            data = np.concatenate(data)
+            rng.shuffle(data)
+            return data
+
+        # TODO might want to group examples from different data files
+        # before stratify if those datafiles the same kinds of examples
+
+        if self.resample:
+            sampled_data = []
+            for w, data in zip(self.resample, data):
+                frac, n = math.modf(w)
+                n = int(n)
+
+                if frac:
+                    n = round(len(data) * w)
+                    selection = rng.choice(data, n, replace=False)
+                else:
+                    selection = None
+
+                if n >= 1:
+                    sampled = np.tile(data[None, :], [n, 1])
+                    if self.stratify:
+                        for row in sampled:  # numpy shuffle does not have a vectorized version
+                            rng.shuffle(row)
+                    sampled = sampled.ravel()
+                    if selection is not None:
+                        sampled = np.concatenate(sampled, selection)
+                else:
+                    sampled = selection
+                sampled_data.append(sampled)
+            data = sampled_data
+
+        if self.stratify:
+            data = balanced_merge(data)
+        else:
+            data = np.concatenate(data)
+            rng.shuffle(data)
+        return data
+
 
 def build_sequence_index(
     reader: ExampleReader,
     indexer: Indexer,
     seq_len: int,
     seed: int,
-    output_file: str
+    output_file: str,
+    sampler: DataSampling=None
 ):
     rng = np.random.RandomState(seed)
 
@@ -276,10 +358,14 @@ def build_sequence_index(
             else:
                 point = np.array(((file_id, ex.start_byte, ex.num_bytes), ex.num_tokens), IN_MEM_SHUFFLE_DTYPE)
                 index_data.append(point)
-        examples.append(np.stack(index_data))
-    examples = np.concatenate(examples)
+        examples.append(index_data)
 
-    rng.shuffle(examples)
+    if sampler:
+        examples = sampler.order_data(rng, examples)
+    else:
+        examples = np.concatenate(examples)
+        rng.shuffle(examples)
+
     sequence_number = 0
     total_tokens = 0
     with open(output_file, "wb") as f:

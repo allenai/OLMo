@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image
 
 from olmo import Tokenizer
-from olmo.mm_data.data_store import ImageChunk, RawExample, TextChunk
+from olmo.mm_data.data_store import ImageChunk, Document, TextChunk
 from olmo.util import read_file
 
 
@@ -53,7 +53,7 @@ def _preprocess_image(image, object_store, data_config) -> ImageChunk:
 
 def preprocess_example(
         example: InputExample, tokenizer: Tokenizer, object_store, data_config
-) -> List[RawExample]:
+) -> List[Document]:
     """pre-processing examples by tokenizing the text and storing the images"""
     out = []
     text = []

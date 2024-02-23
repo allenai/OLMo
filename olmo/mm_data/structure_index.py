@@ -3,7 +3,7 @@ from typing import List, Optional, Union, Iterator
 
 import numpy as np
 
-from olmo.mm_data.data_store import ExampleReader, TextChunk, RawExample
+from olmo.mm_data.data_store import ExampleReader, TextChunk, Document
 from olmo.util import get_bytes_range
 
 
@@ -33,7 +33,7 @@ class ExampleInfo:
     # we don't support it
 
     @staticmethod
-    def from_example(start_byte, ex: RawExample):
+    def from_example(start_byte, ex: Document):
         num_byte, num_token = 0, 0
         pure_text = True
         for c in ex:
@@ -70,7 +70,7 @@ def get_indices_from_data_file(file_id, reader):
 
 
 class NullIndexer(Indexer):
-    """No indexing, requires re-reading the entire data file get indices"""
+    """No indexing, requires re-reading the entire data file to get indices"""
 
     def get_indices(self, index_file: str, file_id, reader: ExampleReader) -> Iterator:
         return get_indices_from_data_file(file_id, reader)
