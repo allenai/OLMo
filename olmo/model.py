@@ -530,7 +530,13 @@ class OlmoBlock(nn.Module):
         attention mask if passed, and applying dropout if a probability greater than 0.0 is specified.
         """
         if self.flash_attn_func is not None and attn_mask is None:
-            return self.flash_attn_func(q, k, v, dropout_p=dropout_p, causal=is_causal)
+            r = self.flash_attn_func(
+                q.transpose(1, 2),
+                k.transpose(1, 2),
+                v.transpose(1, 2),
+                dropout_p=dropout_p,
+                causal=is_causal)
+            return r.transpose(1, 2)
         else:
             return F.scaled_dot_product_attention(
                 q,
