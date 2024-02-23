@@ -210,7 +210,6 @@ def test_flash_attn(
     block_type: BlockType,
     multi_query_attention: bool,
 ):
-    torch.manual_seed(0)
     torch.use_deterministic_algorithms(True)
     device = torch.device("cuda")
 
@@ -227,6 +226,7 @@ def test_flash_attn(
         raise ValueError(f"{positional_embeddings} is not a valid value for positional_embeddings")
 
     def make_model(flash_attn: bool):
+        torch.manual_seed(0)
         train_config.model.alibi = alibi
         train_config.model.rope = rope
         train_config.model.flash_attention = flash_attn
@@ -236,12 +236,14 @@ def test_flash_attn(
         train_config.model.init_device = "cuda"
         return Olmo(train_config.model).eval()
 
-    input1 = tokenizer.encode("As a large language model, I don’t have personal opinions.")
-    input2 = tokenizer.encode("But I can share some interesting facts!")
+    input1 = tokenizer.encode("As a large language model, I don’t have personal opinions, but I can share some interesting facts!")
+    input2 = tokenizer.encode("What do you call a programmer with no bugs in their code? A liar.")
+    input3 = tokenizer.encode("How do you comfort a JavaScript bug? You console it.")
     batch_inputs = DataCollator.from_train_config(train_config)(
         [  # type: ignore
-            {"input_ids": input1, "attention_mask": [1.0] * len(input1)},
-            {"input_ids": input2, "attention_mask": [1.0] * len(input2)},
+            {"input_ids": input1},
+            {"input_ids": input2},
+            {"input_ids": input3},
         ]
     )
     batch_inputs = {  # type: ignore
@@ -264,7 +266,7 @@ def test_flash_attn(
     atol = 1e-2
     rtol = 1e3
 
-    # Check that logits from individual inputs are equal to logits from batch.
+    # Check that logits match
     torch.testing.assert_close(
         output_with_flash.logits, output_without_flash.logits, rtol=rtol, atol=atol
     )
