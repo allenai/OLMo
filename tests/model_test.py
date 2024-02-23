@@ -18,16 +18,6 @@ from olmo.model import AMDLayerNorm
             True, False, False, BlockType.sequential, False, False, torch.bfloat16, id="alibi-emb-cpu-bf16"
         ),
         pytest.param(
-            True,
-            False,
-            False,
-            BlockType.parallel,
-            False,
-            False,
-            torch.bfloat16,
-            id="alibi-emb-parallel-block-cpu-bf16",
-        ),
-        pytest.param(
             False, False, False, BlockType.sequential, False, False, torch.bfloat16, id="abs-emb-cpu-bf16"
         ),
         pytest.param(
@@ -47,20 +37,6 @@ from olmo.model import AMDLayerNorm
             True,
             torch.bfloat16,
             id="alibi-emb-cuda-bf16",
-            marks=(
-                pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
-            ),
-        ),
-        pytest.param(
-            True,
-            False,
-            False,
-            BlockType.parallel,
-            False,
-            True,
-            torch.bfloat16,
-            id="alibi-emb-parallel-block-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
@@ -124,16 +100,6 @@ from olmo.model import AMDLayerNorm
         ),
         pytest.param(
             False, False, False, BlockType.sequential, True, False, torch.float32, id="abs-emb-mqattn-cpu-f32"
-        ),
-        pytest.param(
-            False,
-            False,
-            False,
-            BlockType.parallel,
-            True,
-            False,
-            torch.float32,
-            id="abs-emb-parallel-block-mqattn-cpu-f32",
         ),
         pytest.param(
             True,
