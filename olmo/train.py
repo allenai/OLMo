@@ -125,8 +125,10 @@ class Trainer:
                 cross_entropy_loss,
             )
 
-            def loss_fn(logits, labels, ignore_index: int = -100, reduction: str = "mean"):
-                loss, _ = cross_entropy_loss(
+            def fused_loss_fn(
+                logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False
+            ):
+                loss, z_loss = cross_entropy_loss(
                     logits,
                     labels,
                     label_smoothing=0.0,
@@ -136,17 +138,50 @@ class Trainer:
                     inplace_backward=False,
                     process_group=None,
                 )
+
+                mask = labels != ignore_index
+
                 if reduction == "mean":
-                    loss = loss.sum() / (labels != ignore_index).sum()
+                    loss = loss.sum() / mask.sum()
                 elif reduction == "sum":
                     loss = loss.sum()
                 else:
                     loss = loss
-                return loss
+
+                if not compute_z_loss:
+                    return loss, None
+
+                if reduction == "mean":
+                    z_loss = z_loss.sum() / mask.sum()
+                elif reduction == "sum":
+                    z_loss = z_loss.sum()
+                else:
+                    z_loss = z_loss
+
+                return loss, z_loss
+
+            self.loss_fn = fused_loss_fn
+        except ModuleNotFoundError:
+
+            def loss_fn(
+                logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False
+            ):
+                loss = F.cross_entropy(logits, labels, ignore_index=ignore_index, reduction=reduction)
+
+                if not compute_z_loss:
+                    return loss, None
+
+                z_squared = logits.logsumexp(-1).pow(2)
+                if reduction == "mean":
+                    z_squared = z_squared / (labels != ignore_index).mean()
+                elif reduction == "sum":
+                    z_squared = (z_squared * (labels != ignore_index)).sum()
+
+                z_loss = 1e-4 * z_squared
+
+                return loss, z_loss
 
             self.loss_fn = loss_fn
-        except ModuleNotFoundError:
-            self.loss_fn = F.cross_entropy
 
     @property
     def dataset(self) -> IterableDataset:
@@ -559,8 +594,8 @@ class Trainer:
         return labels[..., 1:].contiguous()
 
     def model_forward(
-        self, batch: Dict[str, Any], loss_reduction: str = "mean"
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        self, batch: Dict[str, Any], loss_reduction: str = "mean", compute_z_loss: bool = False
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], torch.Tensor]:
         # shape: (batch_size, seq_len, vocab_size)
         logits = self.fsdp_model(
             input_ids=batch["input_ids"],
@@ -574,11 +609,13 @@ class Trainer:
         labels = self.get_labels(batch)
         # shape: (batch_size * seq_len,)
         labels = labels.view(-1)
-        ce_loss = self.loss_fn(logits_for_loss, labels, ignore_index=-100, reduction=loss_reduction)  # type: ignore
+        ce_loss, z_loss = self.loss_fn(logits_for_loss, labels, ignore_index=-100, reduction=loss_reduction, compute_z_loss=compute_z_loss)  # type: ignore
         if loss_reduction == "none":
             # Reshape (batch_size * seq_len,) -> (batch_size, seq_len)
             ce_loss = ce_loss.view(batch["input_ids"].shape[0], -1)
-        return ce_loss, logits
+            if z_loss is not None:
+                z_loss = z_loss.view(batch["input_ids"].shape[0], -1)
+        return ce_loss, z_loss, logits
 
     def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Split into micro-batches.
@@ -592,7 +629,9 @@ class Trainer:
         for micro_batch in micro_batches:
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                 # Run forward pass.
-                ce_loss, logits = self.model_forward(micro_batch)
+                ce_loss, z_loss, logits = self.model_forward(
+                    micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss
+                )
                 ce_loss = ce_loss / len(micro_batches)
 
                 # In case this helps with memory utilization.
@@ -603,8 +642,9 @@ class Trainer:
 
                 # Get loss to optimize for.
                 if self.cfg.softmax_auxiliary_loss:
-                    z_squared = logits.logsumexp(-1).pow(2).mean()
-                    z_loss = 1e-4 * z_squared / len(micro_batches)
+                    assert z_loss is not None
+                    assert z_batch_loss is not None
+                    z_loss = z_loss / len(micro_batches)
                     loss = ce_loss + z_loss
 
                     # Update overall Z batch loss.
@@ -693,7 +733,7 @@ class Trainer:
 
     def eval_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
-            ce_loss, logits = self.model_forward(batch, loss_reduction="none")
+            ce_loss, _, logits = self.model_forward(batch, loss_reduction="none")
         return ce_loss.mean(dim=-1), logits
 
     def eval_step(self, batch: Dict[str, Any], evaluator: Evaluator) -> None:
