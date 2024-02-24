@@ -2,7 +2,7 @@
 
 set -ex
 
-CONFIG_PATH=configs/mitchish65-s3.yaml
+CONFIG_PATH=configs/mitchish70.yaml
 NUM_NODES=4
 ARGS='--device_train_microbatch_size=4'
 
