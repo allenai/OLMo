@@ -202,13 +202,13 @@ def test_forward(
 
 @pytest.mark.parametrize("positional_embeddings", (None, "rope"))
 @pytest.mark.parametrize("block_type", (BlockType.sequential,))
-@pytest.mark.parametrize("multi_query_attention", (True, False))
+@pytest.mark.parametrize("attention_mode", ("mha", "mqa", "gqa"))
 def test_flash_attn(
     train_config: TrainConfig,
     tokenizer: Tokenizer,
     positional_embeddings: Optional[str],
     block_type: BlockType,
-    multi_query_attention: bool,
+    attention_mode: str,
 ):
     torch.use_deterministic_algorithms(True)
     device = torch.device("cuda")
@@ -232,7 +232,16 @@ def test_flash_attn(
         train_config.model.flash_attention = flash_attn
         train_config.model.attention_dropout = 0.0
         train_config.model.block_type = block_type
-        train_config.model.multi_query_attention = multi_query_attention
+        train_config.model.d_model = 1024
+        train_config.model.n_heads = 8
+        if attention_mode == "mha":
+            train_config.model.n_kv_heads = train_config.model.n_heads
+        elif attention_mode == "mqa":
+            train_config.model.n_kv_heads = 1
+        elif attention_mode == "gqa":
+            train_config.model.n_kv_heads = train_config.model.n_heads // 2
+        else:
+            raise ValueError(f"{attention_mode} is not a valid value for attention_mode")
         train_config.model.init_device = "cuda"
         return Olmo(train_config.model).eval()
 
