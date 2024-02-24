@@ -127,6 +127,7 @@ jobs:
           spec: |
             version: v2
             description: GPU Tests
+            budget: ai2/oe-training
             tasks:
               - name: tests
                 image:
