@@ -16,7 +16,7 @@ model:
   weight_tying: false
   alibi: false
   rope: true
-  flash_attention: true
+  flash_attention: false
   attention_dropout: 0.0
   attention_layer_norm: false
   multi_query_attention: false
