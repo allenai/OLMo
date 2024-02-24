@@ -32,6 +32,7 @@ command: |-
   --nproc_per_node 8 \
   scripts/train.py configs/mitchish70-s3.yaml \
     --run_name=mitchish70-profiled \
+    --model.flash_attention=true \
     --save_interval_ephemeral=100 \
     --stop_at=200 \
     --device_train_microbatch_size=4 \

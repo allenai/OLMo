@@ -31,6 +31,7 @@ model:
   pad_token_id: 1
   init_device: meta
   init_fn: normal
+  flash_attention: true
 
 compile: null  # causes instability on AMD GPUs
 
