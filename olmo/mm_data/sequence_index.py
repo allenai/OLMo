@@ -1,11 +1,12 @@
 import itertools
 import math
-from dataclasses import dataclass
-from typing import Tuple, Iterator, List
+from dataclasses import dataclass, asdict
+from typing import Tuple, Iterator, List, Optional, Union
 
 import numpy as np
 
-from olmo.mm_data.data_store import ExampleReader
+from olmo.mm_data.data_store import ExampleReader, MMStorageConfig
+from olmo.mm_data.image_token_size import ImageTokenSizer
 from olmo.mm_data.structure_index import Indexer, get_index_file
 from olmo.util import file_size, get_bytes_range
 
@@ -26,11 +27,11 @@ IDX_DTYPE = np.dtype([
 ])
 
 
-def get_idx_file(reader: ExampleReader, sequence_length: int, seed: int):
+def get_idx_file(image_sizer: ImageTokenSizer, sequence_length: int, seed: int):
     """Gets the filename that should be used to save the shuffled index"""
     # TODO Currently the client has to track what datafiles this index applies to,
     # should we fix that?
-    return f"index.{reader.image_sizer.get_id()}.{sequence_length}.s{seed}.v0"
+    return f"index.{image_sizer.get_id()}.{sequence_length}.s{seed}.v0"
 
 
 class SequenceIndex:
@@ -327,41 +328,68 @@ class DataSampling:
         return data
 
 
+@dataclass
+class MMDatasetConfig:
+    FILENAME = "dataset.json"
+
+    """Specifies a dataset
+
+    The dataset consists of various data sources, and policies around resampling, shuffling,
+    and how to handle documents larger than the sequence length
+    """
+    paths: List[str]
+    sampler: Optional[DataSampling] = None
+    split_text: str = "split_long"
+    split_mm: str = "truncate"
+
+    def as_dict(self):
+        return asdict(self)
+
+
 def build_sequence_index(
-    reader: ExampleReader,
-    indexer: Indexer,
+    data: Union[MMDatasetConfig, List[str]],
     seq_len: int,
     seed: int,
-    output_file: str,
-    sampler: DataSampling=None
+    sizing: ImageTokenSizer,
+    indexer: Indexer,
+    output_file: str
 ):
+    if isinstance(data, list):
+        data = MMDatasetConfig(data)
     rng = np.random.RandomState(seed)
+    reader = ExampleReader(None, sizing, data.paths, MMStorageConfig())
 
     examples = []
-    for file_id, data_f in sorted(reader.data_files.items(), key=lambda x: x[1]):
+    for file_id, data_f in enumerate(reader.data_files):
         index_data = []
         index_f = get_index_file(data_f)
         file_id_bytes = np.array(file_id, np.uint16).tobytes()
         for ex in indexer.get_indices(index_f, file_id, reader):
             if ex.num_tokens > seq_len:
                 if ex.pure_text:
-                    # TODO untested
-                    lengths = chunk_example(rng, ex.num_tokens, seq_len)
-                    on = 0
-                    for chunk_tokens in lengths:
-                        chunk_start_byte = ex.start_byte+on*2
-                        index_data.append(np.array(
-                            ((file_id, chunk_start_byte, chunk_tokens*2), chunk_tokens), IN_MEM_SHUFFLE_DTYPE))
-                        on += chunk_tokens*2
+                    if data.split_text == "split_long":
+                        # TODO untested
+                        lengths = chunk_example(rng, ex.num_tokens, seq_len)
+                        on = 0
+                        for chunk_tokens in lengths:
+                            chunk_start_byte = ex.start_byte+on*2
+                            index_data.append(np.array(
+                                ((file_id, chunk_start_byte, chunk_tokens*2), chunk_tokens), IN_MEM_SHUFFLE_DTYPE))
+                            on += chunk_tokens*2
+                    else:
+                        raise NotImplementedError(data.split_text)
                 else:
-                    raise NotImplementedError("Chunking multi-modal documents")
+                    if data.split_mm == "truncate":
+                        pass
+                    else:
+                        raise NotImplementedError(data.split_mm)
             else:
                 point = np.array(((file_id, ex.start_byte, ex.num_bytes), ex.num_tokens), IN_MEM_SHUFFLE_DTYPE)
                 index_data.append(point)
         examples.append(index_data)
 
-    if sampler:
-        examples = sampler.order_data(rng, examples)
+    if data.sampler:
+        examples = data.sampler(rng, examples)
     else:
         examples = np.concatenate(examples)
         rng.shuffle(examples)

@@ -62,7 +62,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         self._init_for_seed(seed)
 
     def _init_for_seed(self, seed):
-        index_file = join(self.idx_dir, get_idx_file(self.reader, self.sequence_length, seed))
+        index_file = join(self.idx_dir, get_idx_file(self.reader.image_sizer, self.sequence_length, seed))
         self._index = SequenceIndex(index_file)
 
     def __iter__(self):
