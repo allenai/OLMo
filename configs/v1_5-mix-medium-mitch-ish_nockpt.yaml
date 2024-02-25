@@ -1,0 +1,98 @@
+run_name: v1_5-mix-medium-mitch-ish
+seed: 6198
+dry_run: false
+
+wandb:
+  name: ${run_name}
+  project: olmo-medium
+  group: v1_5-mix
+
+model:
+  d_model: 4096
+  n_heads: 32
+  n_layers: 32
+  # mlp_ratio: 6
+  mlp_hidden_size: 22016
+  weight_tying: false
+  alibi: false
+  rope: true
+  flash_attention: false  # not available on AMD
+  attention_dropout: 0.0
+  attention_layer_norm: false
+  multi_query_attention: false
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: default
+  layer_norm_with_affine: false
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 2048
+  vocab_size: 50280
+  embedding_size: 50304
+  eos_token_id: 0
+  pad_token_id: 1
+  init_device: meta
+  init_fn: mitchell
+
+compile: null
+
+optimizer:
+  name: adamw
+  learning_rate: 3.0e-4
+  weight_decay: 0.1
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 10
+
+scheduler:
+  name: linear_with_warmup
+  t_warmup: 5000
+  alpha_f: 0.1
+  grad_clip_warmup_steps: 1000
+  grad_clip_warmup_factor: 10.0
+
+tokenizer:
+  identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
+  truncate_direction: right
+
+save_folder: ${oc.env:CHECKPOINTS_PATH}/${oc.env:SLURM_JOB_ID,${run_name}}
+save_overwrite: false
+# Sharded checkpoints (best for restarts)
+save_interval: 1000
+save_num_checkpoints_to_keep: -1
+# Unsharded checkpoints (for final storage)
+save_interval_unsharded: null  # getting errors on LUMI right now
+save_num_unsharded_checkpoints_to_keep: -1
+no_pre_train_checkpoint: true
+
+load_path: null
+
+max_duration: 50  # 2T tokens
+global_train_batch_size: 2048
+device_train_microbatch_size: 2
+
+precision: amp_bf16
+
+fsdp:
+  wrapping_strategy: null
+  precision: mixed
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 20
+
+data:
+  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4_en/gpt-neox-20b/c4-train.*.npy}
+  pad_direction: right
+  num_workers: 0
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 16
+  persistent_workers: true
+  timeout: 0

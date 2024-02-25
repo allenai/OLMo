@@ -1,0 +1,88 @@
+run_name: olmo-small-ablation
+seed: 6198
+dry_run: false
+
+wandb:
+  name: ${run_name}
+  project: c4-small
+
+activation_checkpointing: whole_layer
+
+model:
+  d_model: 2048
+  n_heads: 16
+  n_layers: 16
+  mlp_ratio: 8
+  alibi: true
+  alibi_bias_max: 8.0
+  attention_dropout: 0.0
+  attention_layer_norm: true
+  multi_query_attention: true
+  block_type: sequential
+  layer_norm_type: low_precision  # if not compiling, use 'low_precision'
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 2048
+  vocab_size: 50277
+  embedding_size: 50304
+  eos_token_id: 50276
+  pad_token_id: 50276
+  init_device: meta
+  init_std: 0.02
+
+compile: null  # causes instability on AMD GPUs
+
+optimizer:
+  name: lionw
+  learning_rate: 1.0e-4
+  weight_decay: 0.01
+  betas:
+  - 0.9
+  - 0.95
+
+scheduler:
+  name: cosine_with_warmup
+  t_warmup: 2000
+  t_max: null
+
+data:
+  paths: ${path.glob:${path.choose:${oc.env:SCRATCH_DIR,no_exist}/preprocessed,/net/nfs.cirrascale/allennlp/llm-data}/c4_en/gpt-neox-20b/c4-train.*.npy}
+  pad_direction: right
+  num_workers: 4
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 16
+  persistent_workers: true
+  timeout: 0
+
+tokenizer:
+  identifier: EleutherAI/gpt-neox-20b
+  truncate_direction: right
+
+save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
+save_overwrite: false
+# Sharded checkpoints (best for restarts)
+save_interval: 1000
+save_num_checkpoints_to_keep: 9
+# Unsharded checkpoints (for final storage)
+save_interval_unsharded: 10000
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: null
+
+# max_duration: 953674  # 2T tokens
+max_duration: 50  # 200B tokens
+global_train_batch_size: 1024
+device_train_microbatch_size: 8
+
+precision: amp_bf16
+
+max_grad_norm: 1.0
+
+speed_monitor:
+  window_size: 20
+
+eval_interval: ${save_interval}
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
