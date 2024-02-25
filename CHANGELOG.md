@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the option to directly pass input embeddings to `OLMo` and `OLMoForCausalLM`.
 - Added support for Python 3.8.
 - Added code to throw an error if `output_attentions` is set to `True` in forward call to `OLMoForCausalLM`. This functionality hasn't been implemented yet.
+- Rename `Olmo` to `OLMo` everywhere in the codebase
 
 ### Added
 - Added `output_hidden_states` argument and associated functionality to `OLMo` and `OLMoForCausalLM` to return model intermediate hidden states.
