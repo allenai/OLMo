@@ -14,10 +14,10 @@ from olmo.util import get_bytes_range
 @dataclass
 class MMStorageConfig:
     """Defines some constants used in data files"""
-    image_start_token_id: int = 50258
-    mask_start_token_id: int = 50259
-    mask_end_token_id: int = 50260
-    document_end_token: int = 50261
+    image_start_token_id: int = 50280
+    mask_start_token_id: int = 50281
+    mask_end_token_id: int = 50282
+    document_end_token: int = 50283
     object_id_length: int = 32
     object_id_hash: str = "sha256"
     image_start_bytes: bytes = field(init=False)
@@ -105,7 +105,6 @@ class ExampleReader:
     def get_raw(self, file_id, start_byte, num_bytes) -> List[Document]:
         # Annoyingly, getting different int numpy dtypes for start_byte and num_bytes can lead to an error since
         # their sum will become a float, make everything a python int to be safe
-        # TODO should `get_bytes_range` handle that?
         buffer = get_bytes_range(self.data_files[file_id], int(start_byte), int(num_bytes))
         cfg = self.storage_config
 
