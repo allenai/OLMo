@@ -229,7 +229,7 @@ class ExampleReader:
                         example.pop()
                     if not example:
                         # The shuffling mechanism should ensure this never happens
-                        raise ValueError("An example got completely truncated")
+                        raise ValueError(f"An example got completely truncated reading {ranges}")
                     total_tokens += new_tokens
                 all_chunks.append(example)
 
