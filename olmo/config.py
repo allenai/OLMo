@@ -551,6 +551,7 @@ class DataConfig(BaseConfig):
     prefetch_factor: Optional[int] = None
     persistent_workers: bool = False
     timeout: int = 0
+    seed: Optional[int] = None
 
 
 class EvaluatorType(StrEnum):

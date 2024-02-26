@@ -4,8 +4,9 @@ set -ex
 
 CONFIG_PATH=configs/mitchish70-s3.yaml
 NUM_NODES=4
-RUN_NAME=mitch-init
-ARGS="--run_name=${RUN_NAME} --device_train_microbatch_size=4 --model.flash_attention=true --fused_loss=true --evaluators=[] --wandb.group=mitchish70-ablate-init"
+SEED=6198
+RUN_NAME="mitch-init-${SEED}"
+ARGS="--run_name=${RUN_NAME} --data.seed=6198 --seed=${SEED} --device_train_microbatch_size=4 --model.flash_attention=true --fused_loss=true --evaluators=[] --wandb.group=mitchish70-ablate-init"
 
 gantry run \
   --allow-dirty \
