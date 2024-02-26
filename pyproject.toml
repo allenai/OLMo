@@ -23,6 +23,7 @@ dependencies = [
     "packaging",
     "cached_path",
     "transformers",
+    "open-clip-torch>=2.24.0",
 ]
 
 [project.optional-dependencies]

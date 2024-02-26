@@ -538,6 +538,8 @@ class Trainer:
             attention_bias=batch.get("attention_bias"),
             image_patches=batch.get("image_patches"),
             image_offsets=batch.get("image_offsets"),
+            num_patches_per_image=batch.get("num_patches_per_image"),
+            image_sizes=batch.get("image_sizes"),
         ).logits
         logits_for_loss = logits[..., :-1, :].contiguous()
         # shape: (batch_size * seq_len, vocab_size)

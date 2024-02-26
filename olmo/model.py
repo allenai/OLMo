@@ -46,8 +46,10 @@ from .config import (
 )
 from .exceptions import OlmoConfigurationError
 from .initialization import ModuleType, init_weights
-from .mm_data.image_preprocessing import ResizeImage
-from .torch_util import ensure_finite_
+from .mm_data.image_preprocessing import ClipImageResize, AnyResClipImageResize
+from .torch_util import ensure_finite_, get_global_rank
+from .clip import create_model as create_clip_model
+from .mm_data.image_util import unpad_image
 
 if sys.version_info.minor > 8:
     from collections.abc import MutableMapping
@@ -340,6 +342,98 @@ class RotaryEmbedding(nn.Module):
         return q_.type_as(q), k_.type_as(k)
 
 
+class TwoDimSinCosEmbedding(nn.Module):
+    """
+    [2D sine-consine positional embeddings](https://arxiv.org/abs/2111.06377).
+    Assume sqaure grid.
+    """
+
+    def __init__(self, config: ModelConfig, cache: BufferCache):
+        super().__init__()
+        self.config = config
+        self.__cache = cache
+        # Warm up cache.
+        self.get_2d_sincos_pos_embedding(_non_meta_init_device(config))
+    
+    def get_2d_sincos_pos_embedding(self, device: torch.device, temperature: float = 10000.) -> torch.Tensor:
+        """2D Sinusoidal Position Embedding.
+
+        Args:
+            emb_dim: int, dimension of the embedding.
+            grid_size: int, grid size (H/W)
+
+        Returns:
+            position embedding of shape (size*size, emb_dim).
+        """
+        if (pos_emb := self.__cache.get("sincos_pos")) is not None:
+            if pos_emb.device != device:
+                pos_emb = pos_emb.to(device)
+                self.__cache["sincos_pos"] = pos_emb
+            return pos_emb
+
+        emb_dim = self.config.resampler.d_query
+        assert emb_dim % 4 == 0, 'Embed dimension must be divisible by 4 for 2D sin-cos position embedding'
+        grid_size = int(math.sqrt(self.config.resampler.n_queries))
+
+        with torch.autocast(device.type, enabled=False):
+            grid_w = torch.arange(grid_size, device=device, dtype=torch.float)
+            grid_h = torch.arange(grid_size, device=device, dtype=torch.float)
+            grid_w, grid_h = torch.meshgrid(grid_w, grid_h, indexing='xy')
+
+            emb_w = self.get_1d_sincos_pos_embed_from_grid(emb_dim // 2, grid_w, device, temperature)
+            emb_h = self.get_1d_sincos_pos_embed_from_grid(emb_dim // 2, grid_h, device, temperature)
+            pos_emb = torch.cat([emb_w, emb_h], dim=1) # (H*W, D)
+        
+        self.__cache["sincos_pos"] = pos_emb
+        return pos_emb
+
+    def get_1d_sincos_pos_embed_from_grid(self, emb_dim: int, pos: torch.Tensor, device: torch.device, temperature: float = 10000.) -> torch.Tensor:
+        """
+        (Absolute, additive) 1D sinusoidal positional embeddings used in MoCo v3, MAE
+        Args:
+            emb_dim (int): output dimension for each position
+            pos: a list of positions to be encoded: size (H, W), M = H * W
+            out: (M, D)
+        """
+        assert emb_dim % 2 == 0
+        omega = torch.arange(emb_dim // 2, device=device, dtype=torch.float)
+        omega /= emb_dim / 2.
+        omega = 1. / temperature**omega  # (D/2,)
+
+        out = torch.einsum('m,d->md', pos.flatten(), omega) # (M, D/2), outer product
+
+        emb_sin = torch.sin(out) # (M, D/2)
+        emb_cos = torch.cos(out) # (M, D/2)
+
+        emb = torch.cat([emb_sin, emb_cos], dim=1)  # (M, D)
+        return emb
+    
+    def interpolate_pos_emb(self, pos_emb: torch.Tensor, target_size: int) -> torch.Tensor:
+        # pos_emb: L, C
+        # target_size: M
+        # return: M, C
+        source_grid_size = int(math.sqrt(pos_emb.shape[0]))
+        target_grid_size = int(math.sqrt(target_size))
+        dtype = pos_emb.dtype
+
+        if source_grid_size != target_grid_size:
+            pos_emb = F.interpolate(
+                pos_emb.float().reshape(1, source_grid_size, source_grid_size, -1).permute(0, 3, 1, 2),
+                size=(target_grid_size, target_grid_size),
+                mode="bicubic",
+                align_corners=False,
+            ).permute(0, 2, 3, 1).flatten(0, 2).to(dtype=dtype)
+        return pos_emb
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        pos_emb = self.get_2d_sincos_pos_embedding(x.device)
+        with torch.autocast(x.device.type, enabled=False):
+            pos_emb = self.interpolate_pos_emb(pos_emb, x.shape[1])
+            pos_emb = pos_emb.type_as(x)
+            x = x + pos_emb
+        return x
+
+
 class Activation(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
@@ -355,15 +449,16 @@ class Activation(nn.Module):
         raise NotImplementedError
 
     @classmethod
-    def build(cls, config: ModelConfig) -> Activation:
-        if config.activation_type == ActivationType.gelu:
+    def build(cls, config: ModelConfig, activation_type: ActivationType=None) -> Activation:
+        activation_type = activation_type or config.activation_type
+        if activation_type == ActivationType.gelu:
             return cast(Activation, GELU(approximate="none"))
-        elif config.activation_type == ActivationType.relu:
+        elif activation_type == ActivationType.relu:
             return cast(Activation, ReLU(inplace=False))
-        elif config.activation_type == ActivationType.swiglu:
+        elif activation_type == ActivationType.swiglu:
             return SwiGLU(config)
         else:
-            raise NotImplementedError(f"Unknown activation: '{config.activation_type}'")
+            raise NotImplementedError(f"Unknown activation: '{activation_type}'")
 
 
 class GELU(nn.GELU):
@@ -1007,53 +1102,320 @@ class OlmoBlockGroup(nn.ModuleList):
             block.set_activation_checkpointing(strategy)
 
 
-class OlmoVisionBackbone(nn.Module):
+class Resampler(nn.Module):
+    def __init__(self, config: ModelConfig, cache: BufferCache):
+        super().__init__()
+        self.config = config
+        self.__cache = cache
+        cfg = self.config.resampler
+        assert cfg.d_query % cfg.n_heads == 0
+
+        if config.projector.d_visual != cfg.d_query:
+            self.kv_proj = nn.Linear(
+                config.projector.d_visual, cfg.d_query, bias=config.include_bias, device=config.init_device
+            )
+        else:
+            self.kv_proj = nn.Identity()
+
+        # Layer norms.
+        self.q_norm = LayerNorm.build(config, size=cfg.d_query)
+        self.kv_norm = LayerNorm.build(config, size=cfg.d_query)
+
+        # Positional embedding
+        self.pos_emb = TwoDimSinCosEmbedding(config, self.__cache)
+
+        # Query embeddings
+        self.query = nn.Parameter(
+            torch.zeros(cfg.n_queries, cfg.d_query, device=config.init_device)
+        )
+
+        # Query/key/value projection.
+        self.query_proj = nn.Linear(
+            cfg.d_query, cfg.d_query, bias=config.include_bias, device=config.init_device  
+        )
+        self.key_proj = nn.Linear(
+            cfg.d_query, cfg.d_query, bias=config.include_bias, device=config.init_device
+        )
+        self.value_proj = nn.Linear(
+            cfg.d_query, cfg.d_query, bias=config.include_bias, device=config.init_device
+        )
+        # Attention output projection.
+        self.attn_out = nn.Linear(
+            cfg.d_query, cfg.d_query, bias=config.include_bias, device=config.init_device
+        )
+    
+    def reset_parameters(self):
+        cfg = self.config.resampler
+        self.q_norm.reset_parameters()
+        self.kv_norm.reset_parameters()
+        nn.init.trunc_normal_(self.query, std=0.02)
+        if self.config.projector.d_visual != cfg.d_query:
+            init_weights(
+                self.config, self.kv_proj, d=self.config.projector.d_visual, layer_id=None, type_of_module=ModuleType.in_module
+            )
+        init_weights(
+            self.config, self.query_proj, d=cfg.d_query, layer_id=None, type_of_module=ModuleType.in_module
+        )
+        init_weights(
+            self.config, self.key_proj, d=cfg.d_query, layer_id=None, type_of_module=ModuleType.in_module
+        )
+        init_weights(
+            self.config, self.value_proj, d=cfg.d_query, layer_id=None, type_of_module=ModuleType.in_module
+        )
+        init_weights(
+            self.config, self.attn_out, d=cfg.d_query, layer_id=None, type_of_module=ModuleType.in_module
+        )
+
+    def attention(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
+        cfg = self.config.resampler
+        B, q_len, C = q.size()  # batch size, q_len, d_query
+        kv_len = k.shape[1]
+
+        # Move head forward to be next to the batch dim.
+        # shape: (B, nh, q_len, hs)
+        q = q.view(B, q_len, cfg.n_heads, C // cfg.n_heads).transpose(1, 2)
+        # shape: (B, nh, kv_len, hs)
+        k = k.view(B, kv_len, cfg.n_heads, C // cfg.n_heads).transpose(1, 2)
+        # shape: (B, nh, kv_len, hs)
+        v = v.view(B, kv_len, cfg.n_heads, C // cfg.n_heads).transpose(1, 2)
+
+        # Get the attention scores.
+        # shape: (B, nh, q_len, hs)
+        att = F.scaled_dot_product_attention(q, k, v)
+
+        # Re-assemble all head outputs side-by-side.
+        att = att.transpose(1, 2).contiguous().view(B, q_len, C)
+
+        # Apply output projection.
+        return self.attn_out(att)
+    
+    def forward(self, x):
+        """Get the reduced number of visual tokens using a single cross-attention layer."""
+        # Get query, key value projections.
+        # Apply sinusoidal positional embeddings to query/key, do interpolation if needed.
+        # shape:
+        #  - x -> k/v: (batch_size, num_tokens, d_query)
+        #  - q: (batch_size, n_queries, d_query)
+        q = self.q_norm(self.query).unsqueeze(0).expand(x.size(0), -1, -1)
+        q = self.query_proj(self.pos_emb(q))
+        x = self.kv_norm(self.kv_proj(x))
+        k = self.key_proj(self.pos_emb(x))
+        v = self.value_proj(x)
+        # Apply sdpa.
+        out = self.attention(q, k, v)
+        return out
+
+
+class Projector(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.config = config
+        cfg = self.config.projector
+        self.in_sizes = [cfg.d_visual if config.resampler is None else config.resampler.d_query]
+        self.in_sizes += [config.d_model] * (cfg.n_layers - 1)
+        self.out_sizes = [config.d_model] * cfg.n_layers
+        if cfg.n_layers > 1:
+            self.act = Activation.build(config, activation_type=cfg.activation_type)
+        ff_layers = [
+            nn.Linear(in_size, out_size, bias=config.include_bias, device=config.init_device)
+            for in_size, out_size in zip(self.in_sizes, self.out_sizes)
+        ]
+        self.ff_layers = nn.ModuleList(ff_layers)
+    
+    def reset_parameters(self):
+        for i, layer in enumerate(self.ff_layers):
+            init_weights(
+                self.config, layer, d=self.in_sizes[i], layer_id=None, type_of_module=ModuleType.in_module
+            )
+    
+    def forward(self, x):
+        # Project visual features into language embedding space using an MLP.
+        cfg = self.config.projector
+        for layer in self.ff_layers:
+            x = layer(x)
+            if cfg.n_layers > 1:
+                x = self.act(x)
+        return x
+
+
+class OlmoVisionBackbone(nn.Module):
+    def __init__(self, config: ModelConfig, cache: BufferCache):
+        super().__init__()
+        self.config = config
+        self.__cache = cache
+        v_cfg = self.config.vision_backbone
+
+        self.image_new_line = None
+        if v_cfg.anyres:
+            self.image_newline = nn.Parameter(torch.zeros(config.d_model, device=config.init_device))
+
+        self.resampler = None
+        if config.resampler is not None:
+            assert v_cfg.anyres
+            self.resampler = Resampler(config, self.__cache)
+        
+        self.projector = Projector(config)
 
     @classmethod
-    def build(cls, config: ModelConfig) -> OlmoVisionBackbone:
+    def build(cls, config: ModelConfig, cache: BufferCache) -> OlmoVisionBackbone:
         v_cfg = config.vision_backbone
         assert v_cfg is not None
-        if v_cfg.name == VisionBackboneType.linear:
-            return OlmoLinearVisionBackbone(config)
-        else:
-            raise NotImplementedError(v_cfg.name)
+        return OlmoPretrainedVisionBackbone(config, cache)
 
     def get_image_preprocessor(self):
         raise NotImplementedError()
 
     def reset_parameters(self):
-        pass
+        if self.resampler is not None:
+            self.resampler.reset_parameters()
+        self.projector.reset_parameters()
+        if self.image_newline is not None:
+            embed_std = 1 / math.sqrt(self.config.d_model)
+            nn.init.normal_(self.image_newline, std=embed_std)
 
 
-class OlmoLinearVisionBackbone(OlmoVisionBackbone):
-    def __init__(self, config: ModelConfig):
-        super().__init__(config)
+class OlmoPretrainedVisionBackbone(OlmoVisionBackbone):
+    def __init__(self, config: ModelConfig, cache: BufferCache):
+        super().__init__(config, cache)
         v_cfg = self.config.vision_backbone
-        self.preprocessor = ResizeImage(
-            (v_cfg.image_width, v_cfg.image_height),
-            (v_cfg.patch_width, v_cfg.patch_height),
-            v_cfg.resize_method
-        )
-        assert v_cfg is not None
-        self.ff = nn.Linear(
-            v_cfg.patch_width * v_cfg.patch_height * 3, self.config.d_model, device=self.config.init_device
-        )
+        image_size = (v_cfg.image_width, v_cfg.image_height)
+        patch_size = (v_cfg.patch_width, v_cfg.patch_height)
+        resample_tokens = config.resampler.n_queries if config.resampler is not None else None
+        if v_cfg.anyres:
+            self.preprocessor = AnyResClipImageResize(
+                image_size, patch_size, v_cfg.possible_resolutions, resample_tokens
+            )
+        else:
+            self.preprocessor = ClipImageResize(image_size, patch_size, v_cfg.pad_image)
+        
+        self.image_token_sizer = self.preprocessor.image_token_sizer()
+        
+        if config.init_device == "meta":
+            """
+            for FSDP, we can save cpu memory by loading pretrained model on rank0 only.
+            this avoids cpu oom when loading large models.
+            reference: https://github.com/facebookresearch/llama-recipes/blob/main/src/llama_recipes/finetuning.py
+            """
+            rank = get_global_rank()
+            if rank == 0:
+                self.vision_tower = create_clip_model(v_cfg.name, v_cfg.pretrained, cache_dir=v_cfg.cache_dir)
+            else:
+                self.vision_tower = create_clip_model(v_cfg.name, device=config.init_device)
+        else:
+            self.vision_tower = create_clip_model(v_cfg.name, v_cfg.pretrained, device=config.init_device, cache_dir=v_cfg.cache_dir)
+
         if v_cfg.frozen:
-            for param in self.ff.parameters():
+            for param in self.vision_tower.parameters():
                 param.requires_grad = False
-
-    def forward(self, image_patches: torch.Tensor) -> torch.Tensor:
-        batch_size, num_patches, *_ = image_patches.shape
-        # Reshape image patches from (batch_size, num_patches, patch_width, patch_height, 3)
-        # to (batch_size, num_patches, patch_width * patch_height * 3)
-        image_patches = image_patches.view(batch_size, num_patches, -1)
-        return self.ff(image_patches)
-
+        
+    def reset_parameters(self):
+        super().reset_parameters()
+    
     def get_image_preprocessor(self):
         return self.preprocessor
+    
+    def encode_images(self, image_patches: torch.Tensor) -> torch.Tensor:
+        v_cfg = self.config.vision_backbone
+        # Output all hidden states
+        # n_layers x (batch_num_patches, 1+n_tokens, d_visual)
+        image_features = self.vision_tower(image_patches)
+        # Features from the selected layer
+        image_features = image_features[v_cfg.select_layer][:, 1:] # remove the [CLS] token
+        # Reduce the number of tokens per patch, if needed
+        if self.resampler is not None:
+            image_features = self.resampler(image_features)
+        # Project vision features into language embedding space using an MLP
+        # (batch_num_patches, n_tokens, d_model)
+        image_features = self.projector(image_features)
+        return image_features
+
+    def merge_patches(self, patch_features: torch.Tensor, image_size: List[int]) -> torch.Tensor:
+        grid_width, grid_height = self.image_token_sizer.get_grid_shape(*[int(x) for x in image_size])
+        # downsampled_feature: features for the downsampled image
+        downsampled_feature, patch_features = patch_features[0], patch_features[1:]
+        height = width = int(math.sqrt(self.image_token_sizer.n_tokens))
+        assert height * width == downsampled_feature.shape[0]
+        patch_features = patch_features.view(
+            grid_height, grid_width, height, width, -1
+        )
+        patch_features = patch_features.permute(4, 0, 2, 1, 3).contiguous()
+        patch_features = patch_features.flatten(1, 2).flatten(2, 3) # (d_model, padded_height, padded_width)
+        if self.resampler is None:
+            # Remove zero paddings
+            patch_features = unpad_image(patch_features, image_size) # (d_model, H, W)
+        # Add a new_line embedding after each row
+        new_patch_features = torch.cat(
+            [
+                patch_features,
+                self.image_newline[:, None, None].expand(*patch_features.shape[:-1], 1).to(patch_features.device)
+            ],
+            dim=-1
+        )
+        # (n_tokens, d_model)
+        new_patch_features = new_patch_features.flatten(1, 2).transpose(0, 1)
+        new_patch_features = torch.cat((downsampled_feature, new_patch_features), dim=0)
+
+        return new_patch_features
+            
+    
+    def forward(
+        self, image_patches: torch.Tensor, num_patches_per_image: torch.Tensor,
+        image_sizes: torch.Tensor = None,
+    ) -> torch.Tensor:
+        # image_patches: (batch_size, num_patches, 3, height, width)
+        # num_patches_per_image: (batch_size, n_images)
+        # image_sizes: (batch_size, num_images, 2)
+        v_cfg = self.config.vision_backbone
+        # image_features: (batch_num_patches, n_tokens, d_model)
+        batch_size, num_patches = image_patches.shape[:2]
+        image_features = self.encode_images(image_patches.flatten(0, 1))
+        # Remove paddings
+        image_features = image_features.view(batch_size, num_patches, *image_features.shape[1:])
+        n_patches_seq = num_patches_per_image.sum(dim=1)
+        max_patches = n_patches_seq.max().item()
+        mask = torch.arange(max_patches, device=n_patches_seq.device).expand(batch_size, max_patches) < n_patches_seq.unsqueeze(1)
+        # (batch_num_patches, n_tokens, d_model)
+        image_features = image_features[mask]
+        if v_cfg.anyres:
+            # TODO Need to implement faster logic for anyres
+            # Each image might have different resolution, so consisting of different number of patches
+
+            # Group patches by image
+            # Each element in the tuple is a tensor of shape (n_patches, n_tokens, d_model)
+            # where n_patches is the number of patches in the sequence
+            image_features = torch.split(
+                image_features, n_patches_seq.tolist(), dim=0,
+            )
+            # Each elment in the tuple is a tensor of shape (n_images, 2)
+            # where n_images is the number of images in the sequence
+            image_sizes = image_sizes[num_patches_per_image > 0]
+            image_sizes = torch.split(
+                image_sizes, (num_patches_per_image > 0).sum(dim=1).tolist(), dim=0
+            )
+            # Merge patches
+            new_image_features = []
+            masked_num_patches_per_iamge = num_patches_per_image[n_patches_seq > 0]
+            for sequence_patch_features, num_patches, sequence_image_size in zip(image_features, masked_num_patches_per_iamge, image_sizes):
+                # num_patches: (n_images,)
+                # each element in the sequence_patch_features: patch features for each image
+                # (n_patches_for_the_image, n_tokens, d_model)
+                sequence_patch_features = torch.split(
+                    sequence_patch_features, num_patches.tolist(), dim=0
+                )
+                for patch_features, image_size in zip(sequence_patch_features, sequence_image_size):
+                    patch_features = self.merge_patches(patch_features, image_size.tolist())
+                    new_image_features.append(patch_features)
+            image_features = torch.cat(new_image_features, dim=0)
+        else:
+            image_features = image_features.flatten(0, 1)
+        
+        # (batch_n_tokens, d_model)
+        return image_features
 
 
 class Olmo(nn.Module):
@@ -1130,7 +1492,7 @@ class Olmo(nn.Module):
 
         self.vision_backbone: Optional[OlmoVisionBackbone] = None
         if config.vision_backbone is not None:
-            self.vision_backbone = OlmoVisionBackbone.build(config)
+            self.vision_backbone = OlmoVisionBackbone.build(config, self.__cache)
 
         # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
         if init_params and self.config.init_device != "meta":
@@ -1141,6 +1503,11 @@ class Olmo(nn.Module):
         if self.config.alibi:
             get_causal_attention_bias(self.__cache, config.max_sequence_length, _non_meta_init_device(config))
             self.get_alibi_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
+        
+        # Freeze the model if needed
+        if self.config.llm_frozen:
+            for param in self.transformer.parameters():
+                param.requires_grad = False
 
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         self.activation_checkpointing_strategy = strategy
@@ -1212,6 +1579,8 @@ class Olmo(nn.Module):
         past_key_values: Optional[Sequence[Tuple[torch.Tensor, torch.Tensor]]] = None,
         image_patches: Optional[torch.Tensor] = None,
         image_offsets: Optional[torch.Tensor] = None,
+        num_patches_per_image: Optional[torch.Tensor] = None,
+        image_sizes: Optional[torch.Tensor] = None,
         use_cache: bool = False,
         last_logits_only: bool = False,
     ) -> OlmoOutput:
@@ -1242,9 +1611,16 @@ class Olmo(nn.Module):
             Can be used to speed up sequential decoding. The `input_ids` which have
             their past given to this model should not be passed as `input_ids` as they have already been computed.
         :param image_patches: For multi-modal models, image patch inputs of shape
-            `(num_patches, patch_width, patch_height, 3)`.
+            `(batch_size, num_patches, 3, height, width)`.
         :param image_offsets: For mulit-modal models, specifies where in the input IDs the embedded image
-            patches should go. Shape `(num_patches,)`.
+            patches should go. Shape `(batch_size, n_tokens)`.
+            n_tokens is the (maximum) number of image tokens in each sequence
+        :param num_patches_per_image: For mulit-modal models, specifies the number of patches in each image
+            in the batch. Shape `(batch_size, n_images)`.
+            n_images is the (maximum) number of images in each sequence
+        :param image_sizes: For mulit-modal models, specifies the size of each image
+            in the batch. Shape `(batch_size, num_images, 2)`.
+            batch_num_images is the number of images in the batch
         :param use_cache: If `True`, return key and value tensors for each block.
         :param last_logits_only: If `True`, only compute the logits for the last token of each sequence.
             This can speed up decoding when you only care about the next token.
@@ -1263,8 +1639,8 @@ class Olmo(nn.Module):
             # Get image patch embeddings.
             assert self.vision_backbone is not None
             assert image_offsets is not None
-            # shape: (batch_size, num_patches, d_model)
-            img_emb = self.vision_backbone(image_patches)
+            # shape: (batch_n_tokens, d_model)
+            img_emb = self.vision_backbone(image_patches, num_patches_per_image, image_sizes)
 
         # Get embeddings of input.
         # shape: (batch_size, seq_len, d_model)
@@ -1277,7 +1653,7 @@ class Olmo(nn.Module):
             batch_idx = torch.arange(0, batch_size, device=x.device).repeat_interleave(
                 image_offsets_mask.sum(dim=-1)
             )
-            x.index_put_((batch_idx, image_offsets[image_offsets_mask]), img_emb[image_offsets_mask])
+            x.index_put_((batch_idx, image_offsets[image_offsets_mask]), img_emb)
 
         if not (self.config.alibi or self.config.rope):
             # Get positional embeddings.
