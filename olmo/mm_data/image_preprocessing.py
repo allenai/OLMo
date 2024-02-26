@@ -10,8 +10,10 @@ try:
 except ImportError:
     BICUBIC = Image.BICUBIC
 
-from olmo.mm_data.image_token_size import ImageTokenSizer, FixedNumberOfToken
+from olmo.mm_data.image_token_size import ImageTokenSizer, FixedNumberOfToken, AnyResImageTokenizer
+from olmo.mm_data.image_token_size import select_best_resolution
 from olmo.mm_data.image_util import convert_image_to_rgb, to_numpy_array, normalize
+from olmo.mm_data.image_util import resize_and_pad_image, divide_to_patches
 
 OPENAI_CLIP_MEAN = [0.48145466, 0.4578275, 0.40821073]
 OPENAI_CLIP_STD = [0.26862954, 0.26130258, 0.27577711]
@@ -37,56 +39,6 @@ class ImagePreprocessor:
         n_patch can change between different images, but other dimensions must be fixed
         """
         raise NotImplementedError()
-
-
-class ResizeImage(ImagePreprocessor):
-    """Resize an image and yield the individual patches"""
-    def __init__(self, image_size, patch_size, resize_method, pad=True):
-        self.image_size = image_size
-        self.resize_method = resize_method
-        self.patch_size = patch_size
-        assert image_size[0] % patch_size[0] == 0
-        assert image_size[1] % patch_size[1] == 0
-        w_tok, h_tok = np.array(image_size) // np.array(patch_size)
-        self.n_tokens = w_tok*h_tok
-        self.pad = pad
-
-    def image_token_sizer(self) -> ImageTokenSizer:
-        return FixedNumberOfToken(self.n_tokens)
-
-    def __call__(self, image: Image.Image, offset):
-        patch_w, patch_h = self.patch_size
-        target_w, target_h = self.image_size
-        if self.resize_method == "bicubic":
-            method = Image.BICUBIC
-        else:
-            raise NotImplementedError(self.resize_method)
-
-        image = image.convert("RGB")
-        if self.pad and image.width != image.height:
-            w_r, h_r = np.array(image.size) / np.array(self.image_size)
-            if w_r > h_r:
-                h = round((target_w / image.width) * image.height)
-                image = image.resize([target_w, h], method)
-            else:
-                w = round((target_h / image.height) * image.width)
-                image = image.resize([w, target_h], method)
-        else:
-            image = image.resize(self.image_size, method)
-        image = np.array(image, dtype=np.float32) / 255.0 # height/width transpose from pil_image to ndarray: (w, h) -> (h, w, c)
-
-        left_pad = target_w - image.shape[1]
-        bot_pad = target_h - image.shape[0]
-        if left_pad or bot_pad:
-            image = np.pad(image, [[0, bot_pad], [0, left_pad], [0, 0]])
-        assert image.shape == (target_h, target_w, 3)
-
-        n_h_patches = target_h // patch_h
-        n_w_patches = target_w // patch_w
-        image = np.reshape(image, [n_h_patches, patch_h, n_w_patches, patch_w, 3])
-        image = np.transpose(image, [0, 2, 1, 3, 4])
-        image = np.reshape(image, [n_h_patches*n_w_patches, patch_h, patch_w, 3])
-        return image, np.arange(offset, offset+self.n_tokens, dtype=np.int32)
     
 
 def _transform(n_px):
@@ -116,31 +68,63 @@ def expand2square(pil_img, background_color=OPENAI_CLIP_MEAN):
 
 class ClipImageResize(ImagePreprocessor):
     """LLaVA + CLip Image Resize"""
-    def __init__(self, image_size, patch_size, resize_method, pad=False):
+    def __init__(self, image_size, patch_size, pad_image=False):
         self.image_size = image_size # (width, height)
-        assert resize_method == "bicubic"
         self.patch_size = patch_size # (w, h)
         assert image_size[0] == image_size[1]
         assert patch_size[0] == patch_size[1]
         assert image_size[0] % patch_size[0] == 0
         w_tok, h_tok = np.array(image_size) // np.array(patch_size)
         self.n_tokens = w_tok*h_tok
-        self.pad = pad
+        self.pad_image = pad_image
+        self.transform = _transform(self.image_size[0])
 
     def image_token_sizer(self) -> ImageTokenSizer:
         return FixedNumberOfToken(self.n_tokens)
 
     def __call__(self, image: Image.Image, offset):
-        patch_w, patch_h = self.patch_size
         target_w, target_h = self.image_size
-        n_w_patches = target_w // patch_w
-        n_h_patches = target_h // patch_h
-        if self.pad:
+        if self.pad_image:
             image = expand2square(image, tuple(int(x*255) for x in OPENAI_CLIP_MEAN))
-        image = _transform(self.image_size[0])(image)
+        image = self.transform(image)
 
         assert image.shape == (target_h, target_w, 3)
-        image = np.reshape(image, [n_h_patches, patch_h, n_w_patches, patch_w, 3])
-        image = np.transpose(image, [0, 2, 1, 3, 4])
-        image = np.reshape(image, [n_h_patches*n_w_patches, patch_h, patch_w, 3])
+        image = np.transpose(image, [2, 0, 1])[None] # CHANNEL FIRST
         return image, np.arange(offset, offset+self.n_tokens, dtype=np.int32)
+
+
+class AnyResClipImageResize(ImagePreprocessor):
+    """LLaVA + CLip Image Resize"""
+    def __init__(self, image_size, patch_size, possible_resolutions, resample_tokens=None):
+        self.image_size = image_size # (width, height)
+        self.patch_size = patch_size # (w, h)
+        assert image_size[0] % patch_size[0] == 0
+        assert image_size[1] % patch_size[1] == 0
+        assert all([res[0] % self.image_size[0] == 0 and res[1] % self.image_size[1] == 0 for res in possible_resolutions])
+        self.possible_resolutions = possible_resolutions
+        self.resample_tokens = resample_tokens
+        self.transform = _transform(image_size[0])
+        self.image_sizer = AnyResImageTokenizer(
+            self.image_size[0], self.image_size[1],
+            self.patch_size[0], self.patch_size[1],
+            self.possible_resolutions, self.resample_tokens)
+
+    def image_token_sizer(self) -> ImageTokenSizer:
+        return AnyResImageTokenizer(
+            self.image_size[0], self.image_size[1],
+            self.patch_size[0], self.patch_size[1],
+            self.possible_resolutions, self.resample_tokens)
+
+    def __call__(self, image: Image.Image, offset):
+        target_w, target_h = self.image_size
+        best_resolution = select_best_resolution(image.size, self.possible_resolutions)
+        image_padded = resize_and_pad_image(image, best_resolution)
+        patches = divide_to_patches(image_padded, target_w)
+        downsampled_image = image.resize((target_w, target_h), Image.BICUBIC)
+
+        image_patches = [downsampled_image] + patches
+        image_patches = [np.transpose(self.transform(x), [2, 0, 1]) for x in image_patches] # CHANNEL FIRST
+        assert all(x.shape == (3, target_h, target_w) for x in image_patches)
+        image_patches = np.stack(image_patches, axis=0)
+        n_tokens = self.image_sizer(image.size[0], image.size[1])
+        return image_patches, np.arange(offset, offset+n_tokens, dtype=np.int32)

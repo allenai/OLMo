@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional, Union, Iterator
+from typing import Iterator
 
 import numpy as np
 

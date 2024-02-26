@@ -135,20 +135,38 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
                             yield x.result()
 
     def read(self, sequence):
-        batch = self.reader.read_ranges(sequence, self.sequence_length, self.segment_ids)
+        """
+        Item: Dict[str, Any]
+        - input_ids: (sequence_length,)
+        - label_mask: (sequence_length,)
+        - image_patches: (num_patches, 3, height, width)
+            num_patches is the number of patches from all images in the sequence
+        - image_offsets: (n_tokens,)
+            n_tokens is the number of image tokens in the sequence
+        - num_patches_per_image: (n_images,)
+        - image_sizes: (n_images, 2)
+            width, height of each image
+        """
+        item = self.reader.read_ranges(sequence, self.sequence_length, self.segment_ids)
         if self.image_preprocessor:
-            images = batch.pop("images")
-            offsets = batch.pop("image_offsets")
+            images = item.pop("images")
+            offsets = item.pop("image_offsets")
+            sizes = item.pop("image_sizes", None)
             if images:
                 all_patches = []
                 all_patch_offsets = []
+                all_num_patches_per_image = []
                 for image, offset in zip(images, offsets):
                     patches, patch_offsets = self.image_preprocessor(image, offset)
                     all_patches.append(torch.as_tensor(patches))
                     all_patch_offsets.append(torch.as_tensor(patch_offsets))
-                batch["image_patches"] = torch.cat(all_patches)
-                batch["image_offsets"] = torch.cat(all_patch_offsets)
+                    all_num_patches_per_image.append(patches.shape[0])
+                item["image_patches"] = torch.cat(all_patches)
+                item["image_offsets"] = torch.cat(all_patch_offsets)
+                item["num_patches_per_image"] = torch.as_tensor(all_num_patches_per_image)
+                if sizes is not None:
+                    item["image_sizes"] = torch.as_tensor(sizes)
 
         # Convert to a torch-compatible dtype
-        batch["input_ids"] = torch.as_tensor(batch["input_ids"].astype(np.int32))
-        return batch
+        item["input_ids"] = torch.as_tensor(item["input_ids"].astype(np.int32))
+        return item

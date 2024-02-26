@@ -158,8 +158,11 @@ class ExampleReader:
         if sequence_length is None:
             sequence_length = sum(sum(y.num_tokens for y in x) for x in chunks)
         indices = np.zeros(sequence_length, np.uint16)
-        mask = np.ones(sequence_length, np.bool_)
+        mask = np.zeros(sequence_length, np.bool_)
         images = []
+        sizes = None
+        if 'anyres' in self.image_sizer.get_id():
+            sizes = []
         offsets = []
         if return_segments:
             segments = np.zeros(sequence_length, np.int32)
@@ -175,11 +178,13 @@ class ExampleReader:
                     token_end = min(total_tokens+part.num_tokens, sequence_length) - total_tokens
                     indices[total_tokens:total_tokens+part.num_tokens] = part.tokens[:token_end]
                     if not part.is_masked():
-                        mask[total_tokens:total_tokens+part.num_tokens] = False
+                        mask[total_tokens:total_tokens+part.num_tokens] = True
                 else:
                     offsets.append(total_tokens)
                     image = Image.open(BytesIO(self.image_store.get(part.object_id)))
                     images.append(image)
+                    if sizes is not None:
+                        sizes.append(np.array(image.size), dtype=np.int32)
                 total_tokens += part.num_tokens
             if return_segments:
                 segments[start_token:total_tokens] = segment_id
@@ -190,6 +195,8 @@ class ExampleReader:
             image_offsets=np.asarray(offsets, np.int32) if offsets else np.zeros((0,), np.int32),
             images=images
         )
+        if sizes is not None:
+            out["image_sizes"] = np.stack(sizes) if sizes else np.zeros((0, 2), np.int32)
         if return_segments:
             out["segment_ids"] = segments
         return out

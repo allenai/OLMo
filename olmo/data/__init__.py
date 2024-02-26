@@ -4,10 +4,10 @@ from typing import Any, Dict, List, Optional, cast
 from torch.utils.data import DataLoader, DistributedSampler
 
 from ..aliases import PathOrStr
-from ..config import DataConfig, TrainConfig, ObjectStoreConfig, VisionBackboneConfig
+from ..config import DataConfig, TrainConfig, ObjectStoreConfig, ModelConfig
 from ..exceptions import OlmoConfigurationError
 from ..mm_data.data_store import ExampleReader, MMStorageConfig
-from ..mm_data.image_preprocessing import ImagePreprocessor, ResizeImage
+from ..mm_data.image_preprocessing import ImagePreprocessor, ClipImageResize, AnyResClipImageResize
 from ..mm_data.iterable_dataset import MMIterableDataset
 from ..mm_data.object_store import FileStore, ObjectStore
 from ..torch_util import barrier, get_global_rank, get_world_size
@@ -94,12 +94,22 @@ def build_object_store(config: ObjectStoreConfig) -> ObjectStore:
     return FileStore(config.source_folder)
 
 
-def build_image_preprocessor(config: VisionBackboneConfig) -> ImagePreprocessor:
-    return ResizeImage(
-        (config.image_width, config.image_width),
-        (config.patch_width, config.patch_height),
-        config.resize_method
-    )
+def build_image_preprocessor(config: ModelConfig) -> ImagePreprocessor:
+    v_cfg = config.vision_backbone
+    resampler_tokens = config.resampler.n_queries if config.resampler is not None else None
+    if v_cfg.anyres:
+        return ClipImageResize(
+            (v_cfg.image_width, v_cfg.image_height),
+            (v_cfg.patch_width, v_cfg.patch_height),
+            v_cfg.pad_image,
+        )
+    else:
+        return AnyResClipImageResize(
+            (v_cfg.image_width, v_cfg.image_width),
+            (v_cfg.patch_width, v_cfg.patch_height),
+            v_cfg.possible_resolutions,
+            v_cfg.resample_tokens,
+        )
 
 
 def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
@@ -119,8 +129,8 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
     if train_config.data.multi_modal:
         assert train_config.model.vision_backbone is not None
         data_cfg = train_config.data
-        vision_config = train_config.model.vision_backbone
-        image_preprocessor = build_image_preprocessor(vision_config)
+        model_config = train_config.model
+        image_preprocessor = build_image_preprocessor(model_config)
         reader = ExampleReader(
             build_object_store(data_cfg.object_store_config),
             image_sizer=image_preprocessor.image_token_sizer(),

@@ -24,14 +24,20 @@ class DataCollator:
         assert items
         max_len = max((len(x["input_ids"] if isinstance(x, dict) else x) for x in items))
         max_images = 0
-        if items and isinstance(items[0], dict) and "image_offsets" in items[0]:
-            max_images = max((len(x["image_offsets"]) for x in items))  # type: ignore
+        max_tokens = 0
+        max_patches = 0
+        if items and isinstance(items[0], dict) and "num_patches_per_image" in items[0]:
+            max_images = max(len(x["num_patches_per_image"]) for x in items)  # type: ignore
+            max_tokens = max(len(x["image_offsets"]) for x in items) # type: ignore
+            max_patches = max(len(x["image_patches"]) for x in items) # type: ignore
         all_input_ids = []
         all_attention_mask = []
         all_attention_bias = []
         all_label_mask = []
         all_image_patches = []
         all_image_offsets = []
+        all_image_sizes = []
+        all_num_patches_per_image = []
         all_indices = []
         all_metadata = []
         for x in items:
@@ -97,24 +103,35 @@ class DataCollator:
                     )
                 )
 
-            # Image patches and offsets.
-            image_offsets = x.get("image_offsets") if isinstance(x, dict) else None
-            if image_offsets is not None:
-                pad_shape = (0, max_images - len(image_offsets))
-                image_patches = x["image_patches"]  # type: ignore
+            # Image patches, offsets, sizes, num_patches_per_image
+            num_patches_per_image = x.get("num_patches_per_image") if isinstance(x, dict) else None
+            image_sizes = x.get("image_sizes") if isinstance(x, dict) else None
+            if num_patches_per_image is not None:
+                num_patches_per_image = F.pad(
+                    num_patches_per_image.to(dtype=torch.int32),
+                    (0, max_images - len(num_patches_per_image)),
+                    value=0,
+                )
+                all_num_patches_per_image.append(num_patches_per_image)
+                image_offsets = F.pad(
+                    x["image_offsets"].to(dtype=torch.int32),
+                    (0, max_tokens - len(x["image_offsets"])),
+                    value=-1,
+                )
+                all_image_offsets.append(image_offsets)
                 image_patches = F.pad(
-                    image_patches.to(dtype=torch.float),
-                    (0, 0, 0, 0, 0, 0) + pad_shape,
+                    x["image_patches"].to(dtype=torch.float),
+                    (0, 0, 0, 0, 0, 0) + (0, max_patches - len(x["image_patches"])),
                     value=0.0,
                 )
                 all_image_patches.append(image_patches)
-                all_image_offsets.append(
-                    F.pad(
-                        image_offsets.to(dtype=torch.int32),
-                        pad_shape,
-                        value=-1,
+                if image_sizes is not None:
+                    image_sizes = F.pad(
+                        image_sizes.to(dtype=torch.int32),
+                        (0, 0) + (0, max_images - len(image_sizes)),
+                        value=0,
                     )
-                )
+                    all_image_sizes.append(image_sizes)
 
             # Indices.
             index = x.get("index") if isinstance(x, dict) else None
@@ -126,6 +143,20 @@ class DataCollator:
             if metadata is not None:
                 all_metadata.append(metadata)
 
+        """
+        Out: Dict[str, Any]
+        - input_ids: (batch_size, sequence_length,)
+        - label_mask: (batch_size, sequence_length,)
+        - image_patches: (batch_size, num_patches, 3, height, width)
+            num_patches is the (maximum) number of patches in each sequence
+        - image_offsets: (batch_size, n_tokens)
+            n_tokens is the (maximum) number of image tokens in each sequence
+        - num_patches_per_image: (batch_size, n_images,)
+            n_images is the (maximum) number of images in each sequence
+        - image_sizes: (batch_size, num_images, 2)
+            n_images is the (maximum) number of images in each sequence
+            width, height of each image
+        """
         out: Dict[str, Any] = {"input_ids": torch.stack(all_input_ids)}
         if all_attention_mask:
             out["attention_mask"] = torch.stack(all_attention_mask)
@@ -137,6 +168,10 @@ class DataCollator:
             out["image_patches"] = torch.stack(all_image_patches)
         if all_image_offsets:
             out["image_offsets"] = torch.stack(all_image_offsets)
+        if all_num_patches_per_image:
+            out["num_patches_per_image"] = torch.stack(all_num_patches_per_image)
+        if all_image_sizes:
+            out["image_sizes"] = torch.stack(all_image_sizes)
         if all_indices:
             out["index"] = torch.stack(all_indices)
         if all_metadata:

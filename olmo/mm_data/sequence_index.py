@@ -76,8 +76,7 @@ class SequenceIndex:
         examples_in_sequence = []
         on = self.find_sequence_start(start_sequence)
         while on < self.num_examples:
-            buf = self._read(on, chunk_size)
-            data = np.frombuffer(buf, dtype=IDX_DTYPE)
+            data = self._read(on, chunk_size)
             for next_seq, example_id in data:
                 if current_seq is None:
                     current_seq = next_seq
@@ -207,7 +206,6 @@ def find_sequence_start_scan(
     while True:
         chunk = get_bytes_range(idx_file, on*IDX_DTYPE.itemsize, IDX_DTYPE.itemsize*search_step)
         seq_numbers = np.frombuffer(chunk, IDX_DTYPE)["sequence_number"]
-        prev_on = on
         if target_sequence < seq_numbers[0]:
             if on == 0:
                 raise ValueError(f"{target_sequence} not in index")
@@ -240,6 +238,7 @@ def chunk_example(rng, num_tokens, seq_len, min_seq_len=16):
 
     rng.shuffle(lengths)
     return lengths
+
 
 def balanced_merge(arrays: List[np.ndarray]) -> np.ndarray:
     """Concatenate `arrays` so that examples for each input list are stratified across the output list"""
@@ -404,4 +403,3 @@ def build_sequence_index(
                 total_tokens = 0
             total_tokens += num_tokens
             f.write(np.array((sequence_number, example_id), dtype=IDX_DTYPE).tobytes())
-

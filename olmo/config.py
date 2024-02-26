@@ -230,19 +230,52 @@ class InitFnType(StrEnum):
 
 
 class VisionBackboneType(StrEnum):
-    linear = "linear"
+    OpenAI_ViT_L_14_336 = "ViT-L-14-336"
+    ViT_H_14_378_quickgelu = "ViT-H-14-378-quickgelu"
+    ViT_H_14_quickgelu = "ViT-H-14-quickgelu"
+    ViT_SO400M_14_SigLIP_384 = "ViT-SO400M-14-SigLIP-384"
+    ViT_SO400M_14_SigLIP = "ViT-SO400M-14-SigLIP"
+    ViT_bigG_14_CLIPA_336 = "ViT-bigG-14-CLIPA-336"
+    ViT_L_14_quickgelu = "ViT-L-14-quickgelu"
+
+
+class VisionPretrainedType(StrEnum):
+    openai = "openai"
+    dfn5b = "dfn5b"
+    dfn2b = "dfn2b"
+    webli = "webli"
+    datacomp1b = "datacomp1b"
 
 
 @dataclass
 class VisionBackboneConfig(BaseConfig):
-    name: VisionBackboneType = VisionBackboneType.linear
+    name: VisionBackboneType = VisionBackboneType.OpenAI_ViT_L_14_336
+    pretrained: VisionPretrainedType = VisionPretrainedType.openai
+    cache_dir: Optional[str] = None
     image_width: int = 256
     image_height: int = 256
     patch_width: int = 16
     patch_height: int = 16
     resize_method: str = "bicubic"
+    select_layer: int = -2
+    anyres: bool = False
+    possible_resolutions: Optional[List[Tuple[int, int]]] = None
     pad_image: bool = False
     frozen: bool = False
+
+
+@dataclass
+class ResamplerConfig(BaseConfig):
+    d_query: int = 1024
+    n_queries: int = 144
+    n_heads: int = 16
+
+
+@dataclass
+class ProjectorConfig(BaseConfig):
+    d_visual: int = 1024
+    n_layers: int = 2
+    activation_type: ActivationType = ActivationType.gelu
 
 
 @dataclass
@@ -320,6 +353,22 @@ class ModelConfig(BaseConfig):
     vision_backbone: Optional[VisionBackboneConfig] = None
     """
     Vision backbone settings for multi-modal models.
+    """
+
+    resampler: Optional[ResamplerConfig] = None
+    """
+    Resampler settings for multi-modal models.
+    """
+
+    projector: Optional[ProjectorConfig] = None
+    """
+    Projector settings for multi-modal models.
+    """
+
+    llm_frozen: bool = False
+    """
+    Whether to freeze llm parameters or not.
+    Use this to freeze the llm parameters when training resampler/projector only.
     """
 
     flash_attention: bool = False

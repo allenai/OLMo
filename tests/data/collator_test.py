@@ -2,7 +2,7 @@ import pytest
 import torch
 
 from olmo.data.collator import DataCollator, PaddingDirection
-
+from olmo.mm_data.image_token_size import AnyResImageTokenizer
 
 @pytest.mark.parametrize(
     "pad_direction",
@@ -133,21 +133,93 @@ def test_collate_with_label_mask(train_config, pad_direction):
 
 def test_collate_with_images():
     collator = DataCollator(pad_direction=PaddingDirection.right, pad_token_id=0)
-    patch_size = 5  # width and height
+    image_size = 336  # width and height
+    patch_size = 14
+    
+    # Fixed number of tokens
+    n_tokens = (image_size // patch_size) * (image_size // patch_size)
 
     inputs = [
         {
-            "input_ids": torch.tensor([1, 2, 3, 0, 4]),
-            "image_offsets": torch.tensor([3]),
-            "image_patches": torch.rand(1, patch_size, patch_size, 3),
+            "input_ids": torch.tensor([1, 2, 3] + [0] * n_tokens + [4]),
+            "image_offsets": torch.tensor(range(3, 3+n_tokens)),
+            "image_patches": torch.rand(1, 3, image_size, image_size),
+            "num_patches_per_image": torch.tensor([1]),
         },
         {
-            "input_ids": torch.tensor([4, 0, 0, 1, 2, 3]),
-            "image_offsets": torch.tensor([1, 2]),
-            "image_patches": torch.rand(2, patch_size, patch_size, 3),
+            "input_ids": torch.tensor([4] + [0] * n_tokens + [1, 2] + [0] * n_tokens + [3]),
+            "image_offsets": torch.tensor(list(range(1, 1+n_tokens)) + list(range(3+n_tokens, 3+2*n_tokens))),
+            "image_patches": torch.rand(2, 3, image_size, image_size),
+            "num_patches_per_image": torch.tensor([1, 1]),
         },
     ]
     batch = collator(inputs)  # type: ignore
-    assert batch["image_offsets"].shape == (2, 2)
-    assert (batch["image_offsets"] == torch.tensor([[3, -1], [1, 2]])).all()
-    assert batch["image_patches"].shape == (2, 2, patch_size, patch_size, 3)
+    assert batch["image_offsets"].shape == (2, 2*n_tokens)
+    assert (
+        batch["image_offsets"] == torch.tensor(
+            [
+                list(range(3, 3+n_tokens)) + [-1] * n_tokens,
+                list(range(1, 1+n_tokens)) + list(range(3+n_tokens, 3+2*n_tokens))
+            ]
+        )
+    ).all()
+    assert batch["image_patches"].shape == (2, 2, 3, image_size, image_size)
+    assert batch["num_patches_per_image"].shape == (2, 2)
+    assert (batch["num_patches_per_image"] == torch.tensor([[1, 0], [1, 1]])).all()
+
+    # Images of any resolutions
+    def _test_batch(sz, image_sizes):
+        n_tokens = [sz(*s) for s in image_sizes]
+        inputs = [
+            {
+                "input_ids": torch.tensor([1, 2, 3] + [0] * n_tokens[0] + [4]),
+                "image_offsets": torch.tensor(range(3, 3+n_tokens[0])),
+                "image_patches": torch.rand(2, 3, image_size, image_size),
+                "num_patches_per_image": torch.tensor([2]),
+                "image_sizes": torch.tensor(image_sizes[0:1]),
+            },
+            {
+                "input_ids": torch.tensor([4] + [0] * n_tokens[1] + [1, 2] + [0] * n_tokens[2] + [3]),
+                "image_offsets": torch.tensor(
+                    list(range(1, 1+n_tokens[1])) + list(range(3+n_tokens[1], 3+sum(n_tokens[1:])))),
+                "image_patches": torch.rand(8, 3, image_size, image_size),
+                "num_patches_per_image": torch.tensor([3, 5]),
+                "image_sizes": torch.tensor(image_sizes[1:]),
+            },
+        ]
+        batch = collator(inputs)  # type: ignore
+        assert batch["image_offsets"].shape == (2, sum(n_tokens[1:]))
+        assert (
+            batch["image_offsets"] == torch.tensor(
+                [
+                    list(range(3, 3+n_tokens[0])) + [-1] * (sum(n_tokens[1:]) - n_tokens[0]),
+                    list(range(1, 1+n_tokens[1])) + list(range(3+n_tokens[1], 3+sum(n_tokens[1:])))
+                ]
+            )
+        ).all()
+        assert batch["image_patches"].shape == (2, 8, 3, 336, 336)
+        assert batch["num_patches_per_image"].shape == (2, 2)
+        assert (batch["num_patches_per_image"] == torch.tensor([[2, 0], [3, 5]])).all()
+        assert batch["image_sizes"].shape == (2, 2, 2)
+        assert (
+            batch["image_sizes"] == torch.tensor(
+                [
+                    [list(image_sizes[0]), [0, 0]],
+                    [list(image_sizes[1]), list(image_sizes[2])],
+                ],
+            )
+        ).all()
+
+    possible_resolutions = [
+        (image_size*1, image_size*1),
+        (image_size*1, image_size*2),
+        (image_size*2, image_size*1),
+        (image_size*2, image_size*2)
+    ]
+    sz = AnyResImageTokenizer(image_size, image_size, patch_size, patch_size, possible_resolutions)
+    image_sizes = [(336, 336), (336, 672), (448, 448)]
+    
+    _test_batch(sz, image_sizes)
+
+    sz = AnyResImageTokenizer(image_size, image_size, patch_size, patch_size, possible_resolutions, resample_tokens=144)
+    _test_batch(sz, image_sizes)
