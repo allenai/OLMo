@@ -550,6 +550,7 @@ class DataConfig(BaseConfig):
     idx_dir: Optional[str] = None
     object_store_config: Optional[ObjectStoreConfig] = None
     return_segment_ids: bool=False
+    thread_buffer_factor: Optional[float] = None
 
     num_threads: Optional[int] = None
     num_workers: int = 0

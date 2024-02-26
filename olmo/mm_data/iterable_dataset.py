@@ -28,6 +28,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         rank: Optional[int] = None,
         num_threads: Optional[int] = None,
         segment_ids=False,
+        thread_buffer_factor: float=1
     ):
         self.sequence_length = sequence_length
         self.segment_ids = segment_ids
@@ -42,6 +43,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         self.num_threads = num_threads
         self.device_batch_size = global_batch_size // self.world_size
         self.image_preprocessor = image_preprocessor
+        self.thread_buffer_factor = thread_buffer_factor
 
         assert global_batch_size % self.world_size == 0
         if max_examples is not None:
@@ -95,7 +97,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             global_workers = self.world_size
             worker_rank = self.rank
 
-        # Each worker reads one device batch and the skips examples other workers will read
+        # Each worker reads one device batch and the skips examples other workers across all devices will read
         # This works because the pytorch data loader will collect one batch at a time from each worker
         block_step = self.device_batch_size * (global_workers - 1)
         start = self.start_index + worker_rank * self.device_batch_size
@@ -114,7 +116,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             # more sparsely, the threads do data reading and data preprocessing
 
             # In order to stay ahead of training keep a buffer of futures > batch_size
-            buffer = self.device_batch_size * 2
+            buffer = max(int(round(self.device_batch_size * self.thread_buffer_factor)), num_threads)
             with ThreadPoolExecutor(max_workers=num_threads) as pool:
                 # avoid pool.map(_read, it) since it will consume the entire iterator
                 # instead we queue `buffer` reads then (get)->(yield)->(buffer next read) until done
