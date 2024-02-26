@@ -485,6 +485,7 @@ class CosWithWarmup(Scheduler):
     warmup_steps: int
     alpha_f: float = 0.1
     t_max: Optional[int] = None
+    t_restart: Optional[int] = None
 
     def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
         max_steps = max_steps if self.t_max is None else self.t_max
@@ -496,7 +497,10 @@ class CosWithWarmup(Scheduler):
         else:
             step = step - self.warmup_steps
             max_steps = max_steps - self.warmup_steps
-            return eta_min + (initial_lr - eta_min) * (1 + cos(pi * step / max_steps)) / 2
+
+            steps_between_restarts = max_steps if self.t_restart is None else self.t_restart
+            steps_after_restart = step % steps_between_restarts
+            return eta_min + (initial_lr - eta_min) * (1 + cos(pi * steps_after_restart / steps_between_restarts)) / 2
 
 
 @dataclass
@@ -727,6 +731,7 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
             warmup_steps=int(sched_cfg.t_warmup),
             alpha_f=sched_cfg.alpha_f,
             t_max=None if sched_cfg.t_max is None else int(sched_cfg.t_max),
+            t_restart=None if sched_cfg.t_restart is None else int(sched_cfg.t_restart)
         )
     elif sched_cfg.name == SchedulerType.linear_with_warmup:
         return LinearWithWarmup(

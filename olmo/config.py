@@ -493,6 +493,11 @@ class SchedulerConfig(BaseConfig):
     t_max: Optional[Union[int, float]] = None
     alpha_f: float = 0.1
 
+    t_restart: Optional[Union[int, float]] = None
+    """
+    The duration between restarts, for Schedulers that support restart functionality.
+    """
+
     grad_clip_warmup_steps: Optional[Union[int, float]] = None
     """
     The warmup period for which the max grad norm (or norm ratio) will be set to its
