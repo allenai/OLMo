@@ -2,15 +2,16 @@
 
 set -ex
 
-CONFIG_PATH=configs/mitchish70.yaml
+CONFIG_PATH=configs/mitchish70-s3.yaml
 NUM_NODES=4
-ARGS='--device_train_microbatch_size=4 --model.flash_attention=true --wandb=null'
+RUN_NAME=mitch-init
+ARGS="--run_name=${RUN_NAME} --device_train_microbatch_size=4 --model.flash_attention=true --fused_loss=true --evaluators=[] --wandb.group=mitchish70-ablate-init"
 
 gantry run \
   --allow-dirty \
   --workspace ai2/llm-testing \
-  --task-name mitchish65 \
-  --description mitchish65 \
+  --task-name mitchish70 \
+  --description "OLMo mitchish 70B, model init ablations" \
   --priority high \
   --beaker-image olmo-torch2-gantry \
   --cluster ai2/general-cirrascale-a100-80g-ib \
@@ -30,5 +31,5 @@ gantry run \
   --shared-memory 10GiB \
   --venv base \
   --yes \
-  --follow \
+  --timeout=-1 \
   -- /bin/bash -c "torchrun --nnodes ${NUM_NODES}:${NUM_NODES} --nproc-per-node 8 --rdzv_id=101 --rdzv_backend=c10d --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 scripts/train.py ${CONFIG_PATH} ${ARGS}"

@@ -93,6 +93,25 @@ class LRMonitor:
         return {f"optim/learning_rate_group{idx}": lr for idx, lr in enumerate(lrs)}
 
 
+def cross_entropy_loss(
+    logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False
+):
+    loss = F.cross_entropy(logits, labels, ignore_index=ignore_index, reduction=reduction)
+
+    if not compute_z_loss:
+        return loss, None
+
+    z_squared = logits.logsumexp(-1).pow(2)
+    if reduction == "mean":
+        z_squared = z_squared / (labels != ignore_index).mean()
+    elif reduction == "sum":
+        z_squared = (z_squared * (labels != ignore_index)).sum()
+
+    z_loss = 1e-4 * z_squared
+
+    return loss, z_loss
+
+
 @dataclass
 class Trainer:
     cfg: TrainConfig
@@ -117,10 +136,10 @@ class Trainer:
     cur_train_loss: float = float("inf")
     indices_file: Optional[TextIO] = None
     _start_time: float = 0.0
-    loss_fn = None
+    loss_fn = cross_entropy_loss
 
     def __post_init__(self):
-        try:
+        if self.cfg.fused_loss:
             from flash_attn.ops.triton.cross_entropy import (  # type: ignore
                 cross_entropy_loss,
             )
@@ -161,27 +180,6 @@ class Trainer:
                 return loss, z_loss
 
             self.loss_fn = fused_loss_fn
-        except ModuleNotFoundError:
-
-            def loss_fn(
-                logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False
-            ):
-                loss = F.cross_entropy(logits, labels, ignore_index=ignore_index, reduction=reduction)
-
-                if not compute_z_loss:
-                    return loss, None
-
-                z_squared = logits.logsumexp(-1).pow(2)
-                if reduction == "mean":
-                    z_squared = z_squared / (labels != ignore_index).mean()
-                elif reduction == "sum":
-                    z_squared = (z_squared * (labels != ignore_index)).sum()
-
-                z_loss = 1e-4 * z_squared
-
-                return loss, z_loss
-
-            self.loss_fn = loss_fn
 
     @property
     def dataset(self) -> IterableDataset:
@@ -609,7 +607,9 @@ class Trainer:
         labels = self.get_labels(batch)
         # shape: (batch_size * seq_len,)
         labels = labels.view(-1)
-        ce_loss, z_loss = self.loss_fn(logits_for_loss, labels, ignore_index=-100, reduction=loss_reduction, compute_z_loss=compute_z_loss)  # type: ignore
+        ce_loss, z_loss = self.loss_fn(
+            logits_for_loss, labels, ignore_index=-100, reduction=loss_reduction, compute_z_loss=compute_z_loss
+        )
         if loss_reduction == "none":
             # Reshape (batch_size * seq_len,) -> (batch_size, seq_len)
             ce_loss = ce_loss.view(batch["input_ids"].shape[0], -1)

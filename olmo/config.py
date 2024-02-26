@@ -451,7 +451,9 @@ class ModelConfig(BaseConfig):
             if self.n_kv_heads == n_kv_heads_should_be:
                 return n_kv_heads_should_be
             else:
-                raise OlmoConfigurationError("You can't set `multi_query_attention` and `n_kv_heads` at the same time.")
+                raise OlmoConfigurationError(
+                    "You can't set `multi_query_attention` and `n_kv_heads` at the same time."
+                )
 
 
 class OptimizerType(StrEnum):
@@ -1016,6 +1018,11 @@ class TrainConfig(BaseConfig):
     activation_checkpointing: Optional[ActivationCheckpointingStrategy] = None
     """
     The activation checkpointing strategy to use.
+    """
+
+    fused_loss: Optional[bool] = None
+    """
+    Whether to use the fused CE loss function from `flash-attn`.
     """
 
     @property
