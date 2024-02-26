@@ -4,7 +4,7 @@ set -ex
 
 CONFIG_PATH=configs/mitchish70.yaml
 NUM_NODES=4
-ARGS='--device_train_microbatch_size=4 --model.flash_attention=true'
+ARGS='--device_train_microbatch_size=4 --model.flash_attention=true --wandb=null'
 
 gantry run \
   --allow-dirty \
@@ -16,7 +16,7 @@ gantry run \
   --cluster ai2/general-cirrascale-a100-80g-ib \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
-  --lead-selection \
+  --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
   --nfs \
@@ -30,4 +30,5 @@ gantry run \
   --shared-memory 10GiB \
   --venv base \
   --yes \
+  --follow \
   -- /bin/bash -c "torchrun --nnodes ${NUM_NODES}:${NUM_NODES} --nproc-per-node 8 --rdzv_id=101 --rdzv_backend=c10d --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 scripts/train.py ${CONFIG_PATH} ${ARGS}"
