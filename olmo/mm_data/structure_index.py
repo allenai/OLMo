@@ -61,7 +61,7 @@ class Indexer:
 
 
 def get_indices_from_data_file(file_id, reader):
-    examples = reader.get_raw(file_id, 0, -1)
+    examples = reader.get_documents(file_id, 0, -1)
     on = 0
     for ex in examples:
         info = ExampleInfo.from_example(on, ex)

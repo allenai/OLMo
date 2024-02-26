@@ -102,7 +102,7 @@ class ExampleReader:
         self.data_files = data_files
         self.storage_config = storage_config
 
-    def get_raw(self, file_id, start_byte, num_bytes) -> List[Document]:
+    def get_documents(self, file_id, start_byte, num_bytes) -> List[Document]:
         # Annoyingly, getting different int numpy dtypes for start_byte and num_bytes can lead to an error since
         # their sum will become a float, make everything a python int to be safe
         buffer = get_bytes_range(self.data_files[file_id], int(start_byte), int(num_bytes))
@@ -213,7 +213,7 @@ class ExampleReader:
         all_chunks = []
         for segment_id, (file_id, start_byte, num_bytes) in enumerate(ranges):
             start_token = total_tokens
-            examples = self.get_raw(file_id, start_byte, num_bytes)
+            examples = self.get_documents(file_id, start_byte, num_bytes)
             for example in examples:
                 if sequence_length:
                     new_tokens = sum(x.num_tokens for x in example)
