@@ -1,10 +1,11 @@
-run_name: OLMo-1B
+run_name: lr-scheduling
 seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-small
+  group: lr-scheduling
 
 model:
   d_model: 2048
