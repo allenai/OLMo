@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=olmo-small-ablation
+#SBATCH --job-name=olmo-small
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
 #SBATCH --nodes=16              # Total number of nodes
@@ -12,14 +12,21 @@
 
 module load LUMI/22.08 partition/G
 
-# check if LOAD_PATH is provided as an environment variable; if so, create an argument
-# to pass to the training script
+# check if LOAD_PATH is provided as an environment variable;
+# if so, create an argument to pass to the training script
 if [ -z ${LOAD_PATH+x} ]; then
   LOAD_PATH_ARG=""
 else
   LOAD_PATH_ARG="--load_path=${LOAD_PATH}"
 fi
 
+# check if CONFIG_PATH is provided as an environment variable;
+# if so, use that instead of olmo-small-ablation.yaml
+if [ -z ${CONFIG_PATH+x} ]; then
+  export CONFIG_PATH="configs/olmo-small-ablation.yaml"
+else
+  export CONFIG_PATH="${CONFIG_PATH}"
+fi
 
 export OLMO_CONTAINER=llm-lumi_latest.sif
 
@@ -38,16 +45,33 @@ export FI_CXI_DEFAULT_CQ_SIZE=131072
 
 #export NCCL_DEBUG=INFO
 export PYTHONPATH=.:${PYTHONPATH}
-export WANDB_PROJECT=c4-small
 export ROCM_PATH=/opt/rocm
 export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64
-export CONFIG_PATH=configs/olmo-small-ablation.yaml
 
 # Try playing with max_split_size_mb if you run into OOM errors.
 # export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:512
 
-# get run name, we will postpend it with the job id of this slurm run
-export RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:\s*//')
+# Only use local HF cache
+export HF_DATASETS_OFFLINE="1"
+
+if [ -z ${RUN_NAME+x} ]; then
+  # get run name, we will postpend it with the job id of this slurm run
+  export RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:\s*//')
+else
+  # override passed from the environment
+  export RUN_NAME="${RUN_NAME}"
+fi
+
+# get W&B settings from the config file, then extract the project and group
+WANDB_SETTINGS=$(cat $CONFIG_PATH |  tr '\n' '\r' | grep -ohP "\rwandb:\r.*?\r\r"  | tr '\r' '\n')
+export WANDB_PROJECT=$(echo $WANDB_SETTINGS | grep -ohP "\w*project\:\s*\S+(\s|$)" | sed 's/project:\s*//')
+
+# check if W&B is provided; if not, use the run name as the project name
+# (the actual run rame with have slurm ID appended)
+export WANDB_GROUP=$(echo $WANDB_SETTINGS | grep -ohP "\w*group\:\w*(.+)" | sed 's/group:\s*//')
+if [[ -z "${WANDB_GROUP}" ]]; then
+  export WANDB_GROUP="${RUN_NAME}"
+fi
 
 # actually run the training script
 srun \
@@ -65,6 +89,8 @@ srun \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
     python scripts/train.py $CONFIG_PATH \
       --run_name="${RUN_NAME}_${SLURM_JOB_ID}" \
-      --wandb.project=$WANDB_PROJECT \
+      --wandb.project="${WANDB_PROJECT}" \
+      --wandb.group="${WANDB_GROUP}" \
+      --wandb.name="${RUN_NAME}_${SLURM_JOB_ID}" \
       $LOAD_PATH_ARG \
       ${@}
