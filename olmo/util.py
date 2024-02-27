@@ -509,12 +509,12 @@ def _s3_upload(
                 _wait_before_retry(attempt)
 
         if err is not None:
-            raise OlmoNetworkError("Failed to check object existence during s3 upload") from err
+            raise OlmoNetworkError(f"Failed to check object existence during {scheme} upload") from err
 
     try:
         _get_s3_client(scheme).upload_file(source, bucket_name, key)
     except boto_exceptions.ClientError as e:
-        raise OlmoNetworkError("Failed to upload to s3") from e
+        raise OlmoNetworkError(f"Failed to upload to {scheme}") from e
 
 
 def _s3_file_size(scheme: str, bucket_name: str, key: str, max_attempts: int = 3) -> int:
@@ -531,7 +531,7 @@ def _s3_file_size(scheme: str, bucket_name: str, key: str, max_attempts: int = 3
             log.warning("%s failed attempt %d with retriable error: %s", _s3_file_size.__name__, attempt, err)
             _wait_before_retry(attempt)
 
-    raise OlmoNetworkError("Failed to get s3 file size") from err
+    raise OlmoNetworkError(f"Failed to get {scheme} file size") from err
 
 
 def _s3_get_bytes_range(
@@ -549,7 +549,7 @@ def _s3_get_bytes_range(
             )
         except boto_exceptions.ClientError as e:
             if int(e.response["Error"]["Code"]) == 404:
-                raise FileNotFoundError(f"s3://{bucket_name}/{key}") from e
+                raise FileNotFoundError(f"{scheme}://{bucket_name}/{key}") from e
             err = e
         except (boto_exceptions.HTTPClientError, boto_exceptions.ConnectionError) as e:
             # ResponseStreamingError (subclass of HTTPClientError) can happen as
@@ -570,7 +570,7 @@ def _s3_get_bytes_range(
     # This can cause an irrelevant exception (e.g. KeyError: 'error'), resulting
     # in us losing the true exception info. To avoid this, we change the exception
     # to a type that has a single-parameter constructor.
-    raise OlmoNetworkError("Failed to get bytes range from s3") from err
+    raise OlmoNetworkError(f"Failed to get bytes range from {scheme}") from err
 
 
 def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Optional[str]:
@@ -592,7 +592,7 @@ def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Op
         # We prioritize sharded checkpoints over unsharded ones.
         if step > latest_step or (step == latest_step and not checkpoint_name.endswith("-unsharded")):
             latest_step = step
-            latest_checkpoint = f"s3://ai2-llm/{prefix}"
+            latest_checkpoint = f"{scheme}://ai2-llm/{prefix}"
     return latest_checkpoint
 
 
