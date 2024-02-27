@@ -251,15 +251,13 @@ class VisionPretrainedType(StrEnum):
 class VisionBackboneConfig(BaseConfig):
     name: VisionBackboneType = VisionBackboneType.OpenAI_ViT_L_14_336
     pretrained: VisionPretrainedType = VisionPretrainedType.openai
-    cache_dir: Optional[str] = None
     image_width: int = 256
     image_height: int = 256
     patch_width: int = 16
     patch_height: int = 16
-    resize_method: str = "bicubic"
     select_layer: int = -2
     anyres: bool = False
-    possible_resolutions: Optional[List[Tuple[int, int]]] = None
+    possible_resolutions: Optional[List[List[int]]] = None
     pad_image: bool = False
     frozen: bool = False
 
@@ -369,6 +367,23 @@ class ModelConfig(BaseConfig):
     """
     Whether to freeze llm parameters or not.
     Use this to freeze the llm parameters when training resampler/projector only.
+    """
+    
+    llm_load_path: Optional[str] = None
+    """
+    Use this to partially load the llm transformer.
+    """
+
+    cache_dir: Optional[str] = None
+    """
+    The directory to cache the vision backbone model/pretrained llm transformer in.
+    """
+
+    low_cpu_fsdp: bool = True
+    """
+    If ``True``, we save cpu memory by loading the pretrained vision model on randk0 only
+    when init_device is `meta`.
+    If TrainConfig.load_path is set, this should be set to ``False`` (default: True)
     """
 
     flash_attention: bool = False

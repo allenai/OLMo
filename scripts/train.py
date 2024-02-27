@@ -45,6 +45,12 @@ def main(cfg: TrainConfig) -> None:
             "You want to reset the optimizer or trainer state, but we're not loading from the checkpoint. The"
             "setting has no effect."
         )
+    
+    if cfg.load_path is not None and cfg.model.low_cpu_fsdp:
+        log.warning(
+            "When loading a checkpoint to resume/finetune, the `low_cpu_fsdp` will be ignored."
+        )
+        cfg.model.low_cpu_fsdp = False
 
     barrier()
 
@@ -139,6 +145,7 @@ def main(cfg: TrainConfig) -> None:
         use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
         limit_all_gathers=True,
         device_id=get_local_rank(),
+        sync_module_states=cfg.model.init_device == "meta" and cfg.model.low_cpu_fsdp,
         param_init_fn=param_init_fn,
     )
     # when param_init_fn is None, FSDP will call reset_parameters() automatically

@@ -1250,7 +1250,7 @@ class OlmoVisionBackbone(nn.Module):
         self.__cache = cache
         v_cfg = self.config.vision_backbone
 
-        self.image_new_line = None
+        self.image_newline = None
         if v_cfg.anyres:
             self.image_newline = nn.Parameter(torch.zeros(config.d_model, device=config.init_device))
 
@@ -1295,7 +1295,7 @@ class OlmoPretrainedVisionBackbone(OlmoVisionBackbone):
         
         self.image_token_sizer = self.preprocessor.image_token_sizer()
         
-        if config.init_device == "meta":
+        if config.init_device == "meta" and config.low_cpu_fsdp:
             """
             for FSDP, we can save cpu memory by loading pretrained model on rank0 only.
             this avoids cpu oom when loading large models.
@@ -1303,11 +1303,12 @@ class OlmoPretrainedVisionBackbone(OlmoVisionBackbone):
             """
             rank = get_global_rank()
             if rank == 0:
-                self.vision_tower = create_clip_model(v_cfg.name, v_cfg.pretrained, cache_dir=v_cfg.cache_dir)
+                self.vision_tower = create_clip_model(v_cfg.name, v_cfg.pretrained, cache_dir=config.cache_dir)
             else:
-                self.vision_tower = create_clip_model(v_cfg.name, device=config.init_device)
+                with torch.device("meta"):
+                    self.vision_tower = create_clip_model(v_cfg.name, device='meta')
         else:
-            self.vision_tower = create_clip_model(v_cfg.name, v_cfg.pretrained, device=config.init_device, cache_dir=v_cfg.cache_dir)
+            self.vision_tower = create_clip_model(v_cfg.name, v_cfg.pretrained, device=config.init_device, cache_dir=config.cache_dir)
 
         if v_cfg.frozen:
             for param in self.vision_tower.parameters():
@@ -1508,6 +1509,24 @@ class Olmo(nn.Module):
         if self.config.llm_frozen:
             for param in self.transformer.parameters():
                 param.requires_grad = False
+        
+        if self.config.llm_load_path:
+            from .util import resource_path
+            from pathlib import Path
+            state_dict_path = resource_path(
+                Path(self.config.llm_load_path).parent, Path(self.config.llm_load_path).name,
+                local_cache=self.config.cache_dir,
+            )
+            assert state_dict_path.is_file(), f"Model file {str(state_dict_path)} not found"
+            if config.init_device == "meta" and config.low_cpu_fsdp:
+                rank = get_global_rank()
+                if rank == 0:
+                    state_dict = torch.load(state_dict_path, map_location="cpu")
+                    self.transformer.to_empty(device="cpu")
+                    self.transformer.load_state_dict(state_dict)
+            else:
+                state_dict = torch.load(state_dict_path, map_location="cpu")
+                self.transformer.load_state_dict(state_dict)
 
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         self.activation_checkpointing_strategy = strategy
@@ -1529,6 +1548,14 @@ class Olmo(nn.Module):
     def reset_parameters(self):
         log.info("Initializing model parameters...")
         # Top-level embeddings / linear layers.
+        # Vision backbone.
+        if self.vision_backbone is not None:
+            self.vision_backbone.reset_parameters()
+        
+        if self.config.llm_load_path:
+            log.info("LLM Transformer loaded from a checkpoint, skipping parameter initialization")
+            return
+
         init_weights(
             self.config,
             self.transformer.wte,  # type: ignore
@@ -1544,10 +1571,6 @@ class Olmo(nn.Module):
         # Output weights.
         if hasattr(self.transformer, "ff_out"):
             init_weights(self.config, self.transformer.ff_out, type_of_module=ModuleType.final_out)  # type: ignore
-
-        # Vision backbone.
-        if self.vision_backbone is not None:
-            self.vision_backbone.reset_parameters()
 
         # Let the blocks handle themselves.
         if self.config.block_group_size == 1:
