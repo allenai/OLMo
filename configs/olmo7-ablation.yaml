@@ -68,8 +68,8 @@ save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
 #load_path: r2://olmo-checkpoints/ai2-llm/olmo-medium/hrshlkzq/step119000-unsharded/  # 0.5T
-#load_path: r2://olmo-checkpoints/ai2-llm/olmo-medium/j18wauyq/step238000-unsharded/  # 1.0T
-load_path: r2://olmo-checkpoints/ai2-llm/olmo-medium/4xel5n7e/step358000-unsharded/  # 1.5T
+load_path: r2://olmo-checkpoints/ai2-llm/olmo-medium/j18wauyq/step238000-unsharded/  # 1.0T
+#load_path: r2://olmo-checkpoints/ai2-llm/olmo-medium/4xel5n7e/step358000-unsharded/  # 1.5T
 #load_path: r2://olmo-checkpoints/ai2-llm/olmo-medium/xtruaap8/step477000-unsharded/  # 2.0T
 
 no_pre_train_checkpoint: true
