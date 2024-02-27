@@ -324,14 +324,14 @@ data:
     - s3://ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/gpt-neox-olmo-dolma-v1_5/part-11-00000.npy
     - s3://ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/gpt-neox-olmo-dolma-v1_5/part-12-00000.npy
     # ~> TULU FLAN V0 (1.84 GT)
-    - s3://ai2-llm/preprocessed/tulu_flan/v0_all_train/gpt-neox-olmo-dolma-v1_5/part-00-00000.npy
-    - s3://ai2-llm/preprocessed/tulu_flan/v0_all_train/gpt-neox-olmo-dolma-v1_5/part-01-00000.npy
-    - s3://ai2-llm/preprocessed/tulu_flan/v0_all_train/gpt-neox-olmo-dolma-v1_5/part-02-00000.npy
-    - s3://ai2-llm/preprocessed/tulu_flan/v0_all_train/gpt-neox-olmo-dolma-v1_5/part-03-00000.npy
-    - s3://ai2-llm/preprocessed/tulu_flan/v0_all_train/gpt-neox-olmo-dolma-v1_5/part-04-00000.npy
-    - s3://ai2-llm/preprocessed/tulu_flan/v0_all_train/gpt-neox-olmo-dolma-v1_5/part-05-00000.npy
-    - s3://ai2-llm/preprocessed/tulu_flan/v0_all_train/gpt-neox-olmo-dolma-v1_5/part-06-00000.npy
-    - s3://ai2-llm/preprocessed/tulu_flan/v0_all_train/gpt-neox-olmo-dolma-v1_5/part-07-00000.npy
+    - s3://ai2-llm/preprocessed/tulu_flan/v0_all_train/gpt-neox-olmo-dolma-v1_5/part-0-00000.npy
+    - s3://ai2-llm/preprocessed/tulu_flan/v0_all_train/gpt-neox-olmo-dolma-v1_5/part-1-00000.npy
+    - s3://ai2-llm/preprocessed/tulu_flan/v0_all_train/gpt-neox-olmo-dolma-v1_5/part-2-00000.npy
+    - s3://ai2-llm/preprocessed/tulu_flan/v0_all_train/gpt-neox-olmo-dolma-v1_5/part-3-00000.npy
+    - s3://ai2-llm/preprocessed/tulu_flan/v0_all_train/gpt-neox-olmo-dolma-v1_5/part-4-00000.npy
+    - s3://ai2-llm/preprocessed/tulu_flan/v0_all_train/gpt-neox-olmo-dolma-v1_5/part-5-00000.npy
+    - s3://ai2-llm/preprocessed/tulu_flan/v0_all_train/gpt-neox-olmo-dolma-v1_5/part-6-00000.npy
+    - s3://ai2-llm/preprocessed/tulu_flan/v0_all_train/gpt-neox-olmo-dolma-v1_5/part-7-00000.npy
     ####################################
     ######### CODE #########
     # ~> STARCODER (263.775 GT)
