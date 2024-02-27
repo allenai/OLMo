@@ -11,10 +11,12 @@ integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
     git_branch: soldni/dolma-v1.7
-    git_commit: 56375c0aa2b6a6f1f6c1d94b1d7d0a991a38fea1
+    git_commit: 01414a27ca7e65e80dcb0587c40e37f925d2197f
     pip_install: -e '.[train]'
     ssh_clone: true
 command: |-
+  set -x
+
   cd OLMo
 
   pip freeze
