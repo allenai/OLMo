@@ -137,6 +137,8 @@ class Trainer:
     indices_file: Optional[TextIO] = None
     _start_time: float = 0.0
     loss_fn = cross_entropy_loss
+    last_sharded_checkpoint_step: Optional[int] = None
+    last_unsharded_checkpoint_step: Optional[int] = None
 
     def __post_init__(self):
         if self.cfg.fused_loss:
@@ -445,11 +447,15 @@ class Trainer:
 
     def save_sharded_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
         checkpointer = build_sharded_checkpointer(self.cfg)
-        return self._save_checkpoint(checkpointer, CheckpointType.sharded)
+        result = self._save_checkpoint(checkpointer, CheckpointType.sharded)
+        self.last_sharded_checkpoint_step = self.global_step
+        return result
 
     def save_ephemeral_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
         checkpointer = build_sharded_checkpointer(self.cfg)
-        return self._save_checkpoint(checkpointer, CheckpointType.sharded_ephemeral)
+        result = self._save_checkpoint(checkpointer, CheckpointType.sharded_ephemeral)
+        self.last_sharded_checkpoint_step = self.global_step
+        return result
 
     def _remove_sharded_checkpoint(self, idx: int, checkpoints: List[Path]):
         oldest_checkpoint = checkpoints.pop(idx)
@@ -492,7 +498,9 @@ class Trainer:
 
     def save_unsharded_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
         checkpointer = FullCheckpointer(self.cfg)
-        return self._save_checkpoint(checkpointer, CheckpointType.unsharded)
+        result = self._save_checkpoint(checkpointer, CheckpointType.unsharded)
+        self.last_unsharded_checkpoint_step = self.global_step
+        return result
 
     def remove_unsharded_checkpoint(self, idx: int = 0):
         barrier()
@@ -1145,11 +1153,17 @@ class Trainer:
 
         # Save final checkpoint.
         if save_checkpoints:
-            if self.cfg.save_interval_unsharded is not None:
+            if (
+                self.cfg.save_interval_unsharded is not None
+                and self.last_unsharded_checkpoint_step != self.global_step
+            ):
                 log.info("Saving final unsharded model checkpoint...")
                 checkpoint_path, _ = self.save_checkpoint(CheckpointType.unsharded)
                 log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
-            elif self.cfg.save_num_checkpoints_to_keep != 0:
+            elif (
+                self.cfg.save_num_checkpoints_to_keep != 0
+                and self.last_sharded_checkpoint_step != self.global_step
+            ):
                 log.info("Saving final checkpoint...")
                 checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
                 log.info(f"Checkpoint saved to {checkpoint_path}")

@@ -5,8 +5,9 @@ set -ex
 CONFIG_PATH=configs/mitchish70-s3.yaml
 NUM_NODES=4
 SEED=6198
-RUN_NAME="mitch-init-${SEED}"
-ARGS="--run_name=${RUN_NAME} --data.seed=6198 --seed=${SEED} --device_train_microbatch_size=4 --model.flash_attention=true --fused_loss=true --evaluators=[] --wandb.group=mitchish70-ablate-init"
+INIT=full_megatron
+RUN_NAME="fan-in-init-${SEED}"
+ARGS="--run_name=${RUN_NAME} --data.seed=6198 --seed=${SEED} --model.init_fn=${INIT} --model.init_std=0.006 --model.init_cutoff_factor=3 --device_train_microbatch_size=4 --model.flash_attention=true --fused_loss=true --evaluators=[] --stop_at=100 --wandb.group=mitchish70-ablate-init"
 
 gantry run \
   --allow-dirty \
