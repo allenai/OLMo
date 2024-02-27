@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
+import multiprocessing as mp
 
 from torch.utils.data import DataLoader, DistributedSampler
 
@@ -50,6 +51,7 @@ def build_eval_dataloader(
     batch_size: int,
     shuffle: bool = True,
 ) -> DataLoader:
+    mp.set_start_method('spawn')
     dataset = build_memmap_dataset(train_config, data_config, include_instance_metadata=True)
     collator = DataCollator(pad_direction=data_config.pad_direction, pad_token_id=train_config.model.pad_token_id)
     if data_config.drop_last:
@@ -80,6 +82,7 @@ def build_eval_dataloader(
 
 def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
     assert train_config.device_train_batch_size is not None
+    mp.set_start_method('spawn')
     collator = DataCollator(
         pad_direction=train_config.data.pad_direction, pad_token_id=train_config.model.pad_token_id
     )
