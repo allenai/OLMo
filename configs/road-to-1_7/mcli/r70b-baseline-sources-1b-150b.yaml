@@ -5,7 +5,7 @@ env_variables:
   # LOAD_PATH: ""
 compute:
   gpus: 64
-  cluster: r7z2
+  cluster: r12z3
   gpu_type: a100_40gb
 integrations:
   - integration_type: git_repo
