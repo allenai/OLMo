@@ -96,19 +96,19 @@ def build_object_store(config: ObjectStoreConfig) -> ObjectStore:
 
 def build_image_preprocessor(config: ModelConfig) -> ImagePreprocessor:
     v_cfg = config.vision_backbone
-    resampler_tokens = config.resampler.n_queries if config.resampler is not None else None
+    resample_tokens = config.resampler.n_queries if config.resampler is not None else None
     if v_cfg.anyres:
-        return ClipImageResize(
-            (v_cfg.image_width, v_cfg.image_height),
-            (v_cfg.patch_width, v_cfg.patch_height),
-            v_cfg.pad_image,
-        )
-    else:
         return AnyResClipImageResize(
             (v_cfg.image_width, v_cfg.image_width),
             (v_cfg.patch_width, v_cfg.patch_height),
             v_cfg.possible_resolutions,
-            v_cfg.resample_tokens,
+            resample_tokens,
+        )
+    else:
+        return ClipImageResize(
+            (v_cfg.image_width, v_cfg.image_height),
+            (v_cfg.patch_width, v_cfg.patch_height),
+            v_cfg.pad_image,
         )
 
 
