@@ -1,8 +1,8 @@
-name: olmo7b-ablation  # can't have "_" or "." here
+name: olmo7-ablation  # can't have "_" or "." here
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 compute:
   gpu_num: 64
-  cluster: r7z2
+  cluster: r12z3
   gpu_type: a100_40gb
 integrations:
   - integration_type: git_repo
@@ -20,7 +20,7 @@ command: |-
   #export OLMO_NO_SSL=1
 
   cd LLM
-
+  
   torchrun \
   --master_addr $MASTER_ADDR \
   --master_port $MASTER_PORT \
@@ -28,7 +28,7 @@ command: |-
   --node_rank $NODE_RANK \
   --nproc_per_node 8 \
   scripts/train.py configs/olmo7b-ablation.yaml \
-    --run_name=olmo7b-ablation-baseline \
+    --run_name=olmo7-ablation-baseline \
     --wandb.name=baseline \
     --compile.fullgraph=false \
     --model.flash_attention=true \
