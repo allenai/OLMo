@@ -84,7 +84,7 @@ time_limit: null
 precision: amp_bf16
 
 fsdp:
-  wrapping_strategy: by_block
+  wrapping_strategy: by_block_and_size
   precision: mixed
 
 max_grad_norm: 1.0
