@@ -1,6 +1,6 @@
 import abc
 import re
-from typing import Any, ClassVar, Dict, List, Optional, Union, Sequence
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Union
 
 import datasets
 import torch
