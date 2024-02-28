@@ -53,7 +53,7 @@ srun \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
-    python scripts/train.py configs/mitchish65.yaml \
+    python scripts/train.py configs/road-to-1_7/runs/r70b-baseline-sources-1b-150b.yaml \
       --run_name=${SLURM_JOB_ID} \
       --time_limit=$((47 * 60 * 60)) \
       --device_train_microbatch_size=4 \
