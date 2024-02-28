@@ -594,7 +594,7 @@ class BoolQ(ICLMultiChoiceTaskDataset):
     }
     """
 
-    metric_type = "pmi_dc"
+    metric_type = "acc"
 
     def __init__(self, tokenizer, dataset_path="boolq", dataset_name=None):
         super().__init__(
@@ -716,7 +716,7 @@ class ArcChallenge(ArcEasy):
     implement PMI_DC
     """
 
-    metric_type = "pmi_dc"
+    metric_type = "len_norm"  # Ideally "pmi_dc"
 
     def __init__(self, tokenizer, dataset_path="ai2_arc", dataset_name="ARC-Challenge"):
         super().__init__(
