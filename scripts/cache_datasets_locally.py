@@ -23,7 +23,11 @@ def main(cfg: TrainConfig):
         evaluator = build_downstream_evaluator(
             cfg, eval_cfg, tokenizer, torch.device("cpu"), is_unit_test=True
         )
-        print(evaluator)
+        print(f"evaluator: {evaluator.label}")
+        print(f"  dataset_path:  {evaluator.eval_loader.dataset.dataset_path}")
+        print(f"  dataset_name:  {evaluator.eval_loader.dataset.dataset_name}")
+        print(f"  model_ctx_len: {evaluator.eval_loader.dataset.model_ctx_len}")
+        print()
 
 
 if __name__ == "__main__":

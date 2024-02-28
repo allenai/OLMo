@@ -11,7 +11,7 @@ integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
     git_branch: soldni/dolma-v1.7
-    git_commit: 8fca0867cabc7468f8ee7e274cec5cf9e2660d7a
+    git_commit: 1907dcbdb6a990fc47fafc8d3a7fc47e97ecc8d6
     pip_install: -e '.[train]'
     ssh_clone: true
 command: |-
@@ -33,7 +33,7 @@ command: |-
   /usr/local/bin/aws s3 cp s3://ai2-llm/cache/olmo_huggingface_datasets_downstream_eval_20240228.zip \
       /root/.cache/olmo_huggingface_datasets_downstream_eval_20240228.zip
   unzip /root/.cache/olmo_huggingface_datasets_downstream_eval_20240228.zip -d /root/.cache
-  # export HF_DATASETS_OFFLINE=1
+  export HF_DATASETS_OFFLINE=1
 
   export OMP_NUM_THREADS=8
   export LOG_FILTER_TYPE=local_rank0_only
