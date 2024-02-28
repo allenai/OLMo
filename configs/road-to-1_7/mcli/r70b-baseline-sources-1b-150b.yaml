@@ -4,7 +4,7 @@ env_variables:
   CONFIG_PATH: configs/road-to-1_7/runs/r70b-baseline-sources-1b-150b.yaml
   # LOAD_PATH: ""
 compute:
-  gpus: 64
+  gpus: 8 #64
   cluster: r12z3
   gpu_type: a100_40gb
 integrations:
@@ -21,6 +21,19 @@ command: |-
 
   pip freeze
   mkdir -p /root/.cache/torch/
+
+  # Install aws cli
+  apt-get update
+  apt-get install zip unzip
+  curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+  unzip awscliv2.zip
+  sudo ./aws/install
+
+  # make your life easier by downloading huggingface cache
+  /usr/local/bin/aws s3 cp s3://ai2-llm/cache/olmo_huggingface_datasets_downstream_eval_20240227.zip \
+      /root/.cache/olmo_huggingface_datasets_downstream_eval_20240227.zip
+  unzip /root/.cache/olmo_huggingface_datasets_downstream_eval_20240227.zip -d /root/.cache
+  export HF_DATASETS_OFFLINE=1
 
   export OMP_NUM_THREADS=8
   export LOG_FILTER_TYPE=local_rank0_only
@@ -78,7 +91,15 @@ command: |-
       --time_limit="${TIME_LIMIT}" \
       --save_folder="${SAVE_FOLDER}" \
       --no_pre_train_checkpoint \
-      --compile=null \
+      --model.flash_attention=true \
+      --compile.fullgraph=false \
       --device_train_microbatch_size=6 \
       --global_train_batch_size=2304 \
+      --save_folder='runs/${run_name}' \
+      --save_interval=1000 \
+      --save_interval_unsharded=5000 \
       $LOAD_PATH_ARG
+
+
+      # --fsdp.sharding_strategy=FULL_SHARD
+      # --fsdp.wrapping_strategy=by_block
