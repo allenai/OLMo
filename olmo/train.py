@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
 from pstats import SortKey
-from typing import Any, Deque, Dict, List, Optional, TextIO, Tuple
+from typing import Any, Deque, Dict, List, Optional, TextIO, Tuple, Union
 
 import numpy as np
 import torch
@@ -31,7 +31,9 @@ from .config import (
     SpeedMonitorConfig,
     TrainConfig,
 )
-from .data import IterableDataset
+from torch.utils.data import IterableDataset
+from .data import IterableDataset as TextIterableDataset
+from .mm_data.iterable_dataset import MMIterableDataset
 from .eval import Evaluator
 from .exceptions import OlmoConfigurationError
 from .model import Olmo
@@ -120,7 +122,7 @@ class Trainer:
 
     @property
     def dataset(self) -> IterableDataset:
-        assert isinstance(self.train_loader.dataset, IterableDataset)
+        assert isinstance(self.train_loader.dataset, (TextIterableDataset, MMIterableDataset))
         return self.train_loader.dataset
 
     @property
@@ -273,7 +275,7 @@ class Trainer:
             # that variable is meant to track the actual number of tokens trained on.
 
         if self.global_train_examples_seen_this_epoch > 0:
-            assert isinstance(self.dataset, IterableDataset)
+            assert isinstance(self.dataset, (TextIterableDataset, MMIterableDataset))
             log.info(f"Data loader will start at instance index {self.global_train_examples_seen_this_epoch:,d}")
             self.dataset.start_index = self.global_train_examples_seen_this_epoch
 

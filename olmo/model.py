@@ -1308,7 +1308,8 @@ class OlmoPretrainedVisionBackbone(OlmoVisionBackbone):
                 with torch.device("meta"):
                     self.vision_tower = create_clip_model(v_cfg.name, device='meta')
         else:
-            self.vision_tower = create_clip_model(v_cfg.name, v_cfg.pretrained, device=config.init_device, cache_dir=config.cache_dir)
+            device = config.init_device if config.init_device != "meta" else "cpu"
+            self.vision_tower = create_clip_model(v_cfg.name, v_cfg.pretrained, device=device, cache_dir=config.cache_dir)
 
         if v_cfg.frozen:
             for param in self.vision_tower.parameters():
@@ -1526,6 +1527,7 @@ class Olmo(nn.Module):
                     self.transformer.load_state_dict(state_dict)
             else:
                 state_dict = torch.load(state_dict_path, map_location="cpu")
+                self.transformer.to_empty(device="cpu")
                 self.transformer.load_state_dict(state_dict)
 
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):

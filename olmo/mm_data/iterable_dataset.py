@@ -51,6 +51,19 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         self._seed_idx = 0
         self._init_for_seed(seed[0] if isinstance(seed, list) else seed)
 
+        global_end_sequence = self._index.num_sequences
+        # pad or truncate to get a number of sequences divisible by world size
+        # note we do not assume different shuffles have the same number of examples
+        remainder = global_end_sequence % self.world_size
+        if remainder:
+            if self.drop_last:
+                global_end_sequence -= remainder
+                if global_end_sequence == 0:
+                    raise ValueError("Entire dataset was dropped")
+            else:
+                global_end_sequence += (self.world_size - remainder)
+        self.total_size = global_end_sequence
+
     def reshuffle(self):
         if isinstance(self.seeds, list):
             self._seed_idx += 1
@@ -66,19 +79,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         self._index = SequenceIndex(index_file)
 
     def __iter__(self):
-        global_end_sequence = self._index.num_sequences
-
-        # pad or truncate to get a number of sequences divisible by world size
-        # note we do not assume different shuffles have the same number of examples
-        remainder = global_end_sequence % self.world_size
-        if remainder:
-            if self.drop_last:
-                global_end_sequence -= remainder
-                if global_end_sequence == 0:
-                    raise ValueError("Entire dataset was dropped")
-            else:
-                global_end_sequence += (self.world_size - remainder)
-
+        global_end_sequence = self.total_size
         if self.max_examples:
             global_end_sequence = min(global_end_sequence, self.max_examples)
 
