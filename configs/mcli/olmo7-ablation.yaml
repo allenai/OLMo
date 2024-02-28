@@ -9,7 +9,7 @@ integrations:
     git_repo: allenai/LLM
     git_branch: olmo7-ablations
     #git_commit: d765e8819f5b0be204c96b0b519de2372b0da729
-    pip_install: -e .
+    pip_install: -e .[train]
     ssh_clone: true
 command: |-
   pip freeze
