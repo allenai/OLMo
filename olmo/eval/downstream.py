@@ -1,6 +1,6 @@
 import abc
 import re
-from typing import Any, ClassVar, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Union
 
 import datasets
 import torch
@@ -149,7 +149,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         self,
         tokenizer: Tokenizer,
         dataset_path: str,
-        dataset_name: Optional[str] = None,
+        dataset_name: Optional[Union[str, list]] = None,
         model_ctx_len: int = 2048,
         split="validation",
     ):
@@ -161,7 +161,9 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         self.model_ctx_len = model_ctx_len
 
         self.samples: List[Dict[str, Any]] = []
-        dataset_names = [dataset_name] if isinstance(dataset_name, str) else dataset_name
+        dataset_names = dataset_name
+        if isinstance(dataset_name, str) or dataset_name is None:
+            dataset_names = [dataset_name]
 
         dataset_list = []
         for ds_name in dataset_names:
