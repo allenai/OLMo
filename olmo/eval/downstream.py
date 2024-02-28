@@ -149,7 +149,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         self,
         tokenizer: Tokenizer,
         dataset_path: str,
-        dataset_name: Optional[Union[str, list]] = None,
+        dataset_name: Optional[Union[str, List[str]]] = None,
         model_ctx_len: int = 2048,
         split="validation",
     ):
@@ -167,11 +167,13 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
 
         dataset_list = []
         for ds_name in dataset_names:
-            dataset_list.append(datasets.load_dataset(
-                path=self.dataset_path,
-                name=ds_name,
-                split=split,
-            ))
+            dataset_list.append(
+                datasets.load_dataset(
+                    path=self.dataset_path,
+                    name=ds_name,
+                    split=split,
+                )
+            )
         self.dataset = datasets.concatenate_datasets(dataset_list)
 
         # prep examples
@@ -972,14 +974,14 @@ class SST2(ICLMultiChoiceTaskDataset):
 
 class MMLU(ICLMultiChoiceTaskDataset):
     """MMLU creates context with "Question: QUESTION\nAnswer:" and sends the choices as continuations
-        space added as prefix to each continuation
+           space added as prefix to each continuation
 
-    {
-        'question': "Which of the following terms describes the body's ability to maintain its normal state?",
-        'subject': 'anatomy',
-        'choices': ['Anabolism', 'Catabolism', 'Tolerance', 'Homeostasis'],
- '       answer': 3
-     }
+       {
+           'question': "Which of the following terms describes the body's ability to maintain its normal state?",
+           'subject': 'anatomy',
+           'choices': ['Anabolism', 'Catabolism', 'Tolerance', 'Homeostasis'],
+    '       answer': 3
+        }
     """
 
     metric_type = "len_norm"  # Ideally pmi_dc
@@ -1065,12 +1067,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
             for name, cats in MMLU._subcategories.items():
                 if dataset_name in cats:
                     dataset_names.append(name)
-        super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_names,
-            split=split
-        )
+        super().__init__(tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_names, split=split)
 
     def doc_to_text(self, doc):
         return "Question: " + doc["question"] + "\nAnswer:"
@@ -1080,7 +1077,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
         return [" " + choice for choice in doc["choices"]]
 
     def doc_to_label(self, doc):
-        return doc['answer']
+        return doc["answer"]
 
     def doc_to_domain_conditional(self, doc):
         del doc
