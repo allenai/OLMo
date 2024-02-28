@@ -8,6 +8,7 @@ from typing import Optional, TextIO
 
 import torch
 import torch.distributed as dist
+import multiprocessing as mp
 import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -240,6 +241,7 @@ def main(cfg: TrainConfig) -> None:
 
 
 if __name__ == "__main__":
+    mp.set_start_method("spawn")
     # Initialize process group.
     dist.init_process_group(backend="nccl")
 
