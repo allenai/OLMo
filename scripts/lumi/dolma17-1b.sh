@@ -56,6 +56,8 @@ srun \
     python scripts/train.py configs/road-to-1_7/runs/r70b-baseline-sources-1b-150b.yaml \
       --run_name=${SLURM_JOB_ID} \
       --time_limit=$((47 * 60 * 60)) \
-      --device_train_microbatch_size=4 \
+      --device_train_microbatch_size=8 \
+      --fsdp.sharding_strategy=SHARD_GRAD_OP \
+      --fsdp.wrapping_strategy=null \
       --wandb.group=$WANDB_GROUP \
       ${@}
