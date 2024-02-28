@@ -161,9 +161,10 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         self.model_ctx_len = model_ctx_len
 
         self.samples: List[Dict[str, Any]] = []
-        dataset_names = dataset_name
         if isinstance(dataset_name, str) or dataset_name is None:
             dataset_names = [dataset_name]
+        else:
+            dataset_names = dataset_name
 
         dataset_list = []
         for ds_name in dataset_names:
