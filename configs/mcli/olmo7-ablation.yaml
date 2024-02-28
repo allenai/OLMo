@@ -27,7 +27,7 @@ command: |-
   --nnodes $NUM_NODES \
   --node_rank $NODE_RANK \
   --nproc_per_node 8 \
-  scripts/train.py configs/olmo7b-ablation.yaml \
+  scripts/train.py configs/olmo7-ablation.yaml \
     --run_name=olmo7-ablation-baseline \
     --wandb.name=baseline \
     --compile.fullgraph=false \
