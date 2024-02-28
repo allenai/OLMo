@@ -1,8 +1,6 @@
 run_name: r70b-baseline-sources-1b-150b
 seed: 6198
 dry_run: false
-# 10 days
-time_limit: 864000
 
 wandb:
   name: ${run_name}
@@ -16,7 +14,6 @@ model:
   weight_tying: false
   alibi: false
   rope: true
-  flash_attention: true
   attention_dropout: 0.0
   attention_layer_norm: false
   multi_query_attention: false
@@ -37,8 +34,7 @@ model:
   init_device: meta
   init_fn: mitchell
 
-compile:
-  fullgraph: false
+compile: null
 
 optimizer:
   name: adamw
@@ -54,22 +50,20 @@ scheduler:
   t_warmup: 2000
   t_max: 46_667 # 200B tokens
   alpha_f: 0.1
-  # 7B has these, worth adding?
-  # grad_clip_warmup_steps: 1000
-  # grad_clip_warmup_factor: 10.0
 
 tokenizer:
   identifier: tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
   truncate_direction: right
 
-save_folder: runs/${run_name}
+save_folder: ${oc.env:CHECKPOINTS_PATH}/${oc.env:SLURM_JOB_ID,${run_name}}
 remote_save_folder: s3://ai2-llm/checkpoints/1b/${wandb.group}/${run_name}
-save_overwrite: true
+save_overwrite: false
 # Sharded checkpoints (best for restarts)
-save_interval: 1000
+save_interval: 1000000
 save_num_checkpoints_to_keep: 10
+save_interval_ephemeral: 100
 # Unsharded checkpoints (for final storage)
-save_interval_unsharded: 5000
+save_interval_unsharded: 1000
 save_num_unsharded_checkpoints_to_keep: -1
 
 # load_path: s3://ai2-llm/checkpoints/1b/olmo-small-dolma-150B-mcli/step14950/
@@ -81,7 +75,8 @@ device_train_microbatch_size: 8
 precision: amp_bf16
 
 fsdp:
-  wrapping_strategy: by_block
+  wrapping_strategy: by_block_and_size
+  sharding_strategy: NO_SHARD
   precision: mixed
 
 max_grad_norm: 1.0

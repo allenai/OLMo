@@ -1,19 +1,19 @@
 #!/bin/bash
-#SBATCH --job-name=v1-mix-medium
+#SBATCH --job-name=olmo7-ablation
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
-#SBATCH --nodes=32             # Total number of nodes 
+#SBATCH --nodes=128             # Total number of nodes 
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
-#SBATCH --time=48:00:00
-#SBATCH --time-min=8:00:00
+#SBATCH --time=39:15:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
-module load LUMI/22.08 partition/G
+WANDB_GROUP=$1
+shift
 
-export OLMO_CONTAINER=llm-lumi_latest.sif
+export OLMO_CONTAINER=llm-lumi-torch21_latest.sif
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
@@ -36,6 +36,8 @@ export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.
 # Try playing with max_split_size_mb if you run into OOM errors.
 #export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:128
 
+export HF_DATASETS_OFFLINE=1
+
 export DATA_PATH=$FLASH_DIR/preprocessed/olmo-mix
 export CHECKPOINTS_PATH=$FLASH_DIR/checkpoints
 export EVAL_DATA_PATH=$SCRATCH_DIR/eval-data
@@ -53,4 +55,11 @@ srun \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
-    python scripts/train.py configs/v1-mix-medium.yaml --run_name=${SLURM_JOB_ID} ${@}
+    python scripts/train.py configs/olmo7-ablation.yaml ${@} \
+      --run_name=${SLURM_JOB_ID} \
+      --activation_checkpointing=fine_grained \
+      --fsdp.wrapping_strategy=one_in_four \
+      --fsdp.sharding_strategy=FULL_SHARD \
+      --sharded_checkpointer=local \
+      --time_limit=$((39 * 60 * 60)) \
+      --wandb.group=$WANDB_GROUP
