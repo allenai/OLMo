@@ -10,6 +10,7 @@
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
+CONFIG_PATH="configs/road-to-1_7/runs/r70b-baseline-sources-1b-150b.yaml"
 
 export OLMO_CONTAINER=llm-lumi-torch21_latest.sif
 
@@ -42,6 +43,8 @@ export DATA_PATH=$FLASH_DIR/preprocessed/olmo-mix
 export CHECKPOINTS_PATH=$FLASH_DIR/checkpoints
 export EVAL_DATA_PATH=$SCRATCH_DIR/eval-data
 
+export RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:\s*//')
+
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
   --distribution=block:block \
@@ -55,11 +58,14 @@ srun \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
-    python scripts/train.py configs/road-to-1_7/runs/r70b-baseline-sources-1b-150b.yaml \
-      --wandb.name=${SLURM_JOB_ID} \
-      --wandb.group='${run_name}' \
+    python scripts/train.py $CONFIG_PATH \
+      --run_name=${SLURM_JOB_ID} \
+      --wandb.group=${RUN_NAME} \
       --time_limit=$((11 * 60 * 60)) \
       --device_train_microbatch_size=8 \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
       --fsdp.wrapping_strategy=null \
+      --save_interval=1000 \
+      --save_interval_ephemeral=1000000 \
+      --save_interval_unsharded=5000 \
       ${@}
