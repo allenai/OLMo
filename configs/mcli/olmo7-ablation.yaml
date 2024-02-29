@@ -38,5 +38,4 @@ command: |-
     --wandb.name=baseline \
     --model.flash_attention=true \
     --save_folder=runs/ \
-    --activation_checkpointing=fine_grained \
-    --device_train_microbatch_size=4
+    --device_train_microbatch_size=2
