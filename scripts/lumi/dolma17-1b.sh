@@ -28,6 +28,14 @@ if [ -z "${HF_DATASETS_OFFLINE}" ]; then
   export HF_DATASETS_OFFLINE="${HF_DATASETS_OFFLINE}"
 fi
 
+# check if LOAD_PATH is provided as an environment variable;
+# if so, create an argument to pass to the training script
+if [ -z ${LOAD_PATH+x} ]; then
+  LOAD_PATH_ARG=""
+else
+  LOAD_PATH_ARG="--load_path=${LOAD_PATH}"
+fi
+
 # We need to set this to avoid "Cassini Event Queue overflow detected." errors.
 export FI_CXI_DEFAULT_CQ_SIZE=131072
 
@@ -68,4 +76,5 @@ srun \
       --save_interval=1000 \
       --save_interval_ephemeral=1000000 \
       --save_interval_unsharded=5000 \
+      $LOAD_PATH_ARG \
       ${@}
