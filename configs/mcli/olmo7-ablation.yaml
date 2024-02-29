@@ -1,7 +1,7 @@
 name: olmo7-ablation  # can't have "_" or "." here
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 compute:
-  gpus: 64
+  gpus: 16
   cluster: r12z3
   gpu_type: a100_40gb
 integrations:
@@ -18,6 +18,12 @@ command: |-
   export OMP_NUM_THREADS=8
   export LOG_FILTER_TYPE=local_rank0_only
   #export OLMO_NO_SSL=1
+
+  # warm up huggingface cache
+  pushd /root/.cache
+  curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache.tar.gz" | tar -xzf -
+  popd
+  export HF_DATASETS_OFFLINE=1
 
   cd LLM
   
