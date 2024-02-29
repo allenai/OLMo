@@ -30,9 +30,9 @@ command: |-
   sudo ./aws/install
 
   # make your life easier by downloading huggingface cache
-  /usr/local/bin/aws s3 cp s3://ai2-llm/cache/olmo_huggingface_datasets_downstream_eval_20240228.zip \
-      /root/.cache/olmo_huggingface_datasets_downstream_eval_20240228.zip
-  unzip /root/.cache/olmo_huggingface_datasets_downstream_eval_20240228.zip -d /root/.cache
+  /usr/local/bin/aws s3 cp s3://ai2-llm/cache/olmo_huggingface_datasets_downstream_eval_20240229.zip \
+      /root/.cache/olmo_huggingface_datasets_downstream_eval_20240229.zip
+  unzip /root/.cache/olmo_huggingface_datasets_downstream_eval_20240229.zip -d /root/.cache
   export HF_DATASETS_OFFLINE=1
 
   export OMP_NUM_THREADS=8
@@ -92,11 +92,17 @@ command: |-
       --save_folder="${SAVE_FOLDER}" \
       --no_pre_train_checkpoint \
       --model.flash_attention=true \
-      --compile.fullgraph=false \
-      --device_train_microbatch_size=4 \
-      --global_train_batch_size=2048 \
+      --compile=null \
+      --fsdp.sharding_strategy=FULL_SHARD \
+      --fsdp.wrapping_strategy=by_block \
+      --device_train_microbatch_size=6 \
+      --global_train_batch_size=2304 \
       --save_folder='runs/${run_name}' \
       --save_interval=1000 \
       --save_interval_ephemeral=1000000 \
       --save_interval_unsharded=5000 \
       $LOAD_PATH_ARG
+
+
+  # --device_train_microbatch_size=4 \
+  # --global_train_batch_size=2048 \

@@ -76,7 +76,6 @@ precision: amp_bf16
 
 fsdp:
   wrapping_strategy: by_block_and_size
-  sharding_strategy: NO_SHARD
   precision: mixed
 
 max_grad_norm: 1.0
@@ -112,7 +111,7 @@ evaluators:
           - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/ice/val/part-0-00000.npy
         v3-small-m2d2_s2orc-validation:
           - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/m2d2_s2orc/val/part-0-00000.npy
-        pile:
+        v3-small-pile-validation:
         - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy
         v3-small-wikitext_103-validation:
           - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy
@@ -124,8 +123,6 @@ evaluators:
           - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
         v2-small-c4_100_domains-validation:
           - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/c4_100_domains/val.npy
-        v2-small-c4_en-validation:
-          - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/c4_en/val.npy
         v2-small-gab-validation:
           - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/gab/val.npy
         v2-small-ice-validation:
@@ -144,8 +141,6 @@ evaluators:
           - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/ptb/val.npy
         v2-small-twitterAEE-validation:
           - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
-        v2-small-wikitext_103-validation:
-          - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/wikitext_103/val.npy
 
   ##########################
   # Downstream evaluations #
@@ -162,8 +157,8 @@ evaluators:
   - label: openbook_qa
     type: downstream
 
-  # - label: boolq  # requires implemention of the pmi_dc matrix
-    # type: downstream
+  - label: boolq
+    type: downstream
 
   - label: sciq
     type: downstream
@@ -171,8 +166,8 @@ evaluators:
   - label: arc_easy
     type: downstream
 
-  # - label: arc_challenge  # requires implemention of the pmi_dc matrix
-  #   type: downstream
+  - label: arc_challenge
+    type: downstream
 
   - label: copa
     type: downstream
@@ -187,6 +182,18 @@ evaluators:
     type: downstream
 
   - label: sst2
+    type: downstream
+
+  - label: mmlu_stem
+    type: downstream
+
+  - label: mmlu_humanities
+    type: downstream
+
+  - label: mmlu_social_sciences
+    type: downstream
+
+  - label: mmlu_other
     type: downstream
 
 data:
