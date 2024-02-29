@@ -1,7 +1,7 @@
 name: olmo7-ablation  # can't have "_" or "." here
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 compute:
-  gpus: 16
+  gpus: 32
   cluster: r12z3
   gpu_type: a100_40gb
 integrations:
@@ -37,7 +37,8 @@ command: |-
     --run_name=olmo7-ablation-baseline \
     --wandb.name=baseline \
     --model.flash_attention=true \
-    --fsdp.wrapping_strategy=by_block \
+    --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=FULL_SHARD \
     --save_folder=runs/ \
-    --device_train_microbatch_size=2
+    --activation_checkpointing=whole_layer \
+    --device_train_microbatch_size=4
