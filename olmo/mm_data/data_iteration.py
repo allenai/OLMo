@@ -204,13 +204,13 @@ class Sequential(SequenceBuilder):
         return out
 
 
-class ExamplePool:
-    """Utility class of packing, maintains a `sequence_lengths->examples` mapping for a pool of examples"""
+class DocumentPool:
+    """Utility class of packing, maintains a `sequence_lengths->examples` mapping for a pool of documents"""
 
     def __init__(self, max_seq_len, pool_size):
-        self.n_tokens_to_ex_id = [collections.deque() for _ in range(max_seq_len)]
+        self.n_tokens_to_ex_id = [collections.deque() for _ in range(max_seq_len+1)]
         self.on = 0
-        self.hist = np.zeros(max_seq_len, dtype=np.int32)
+        self.hist = np.zeros(max_seq_len+1, dtype=np.int32)
         self.hist_min = max_seq_len
 
     def add(self, ex):
@@ -228,6 +228,9 @@ class ExamplePool:
                 self.hist_min = len(self.hist)
         return self.n_tokens_to_ex_id[seq_len].popleft()[1]
 
+    def is_empty(self):
+        return self.hist_min == len(self.hist)
+
     def find_at_most(self, ix):
         """Return the largest seq len that we have a document for and is <= `ix`, 0 if there is no such example"""
         # this function gets called a lot its important its fast
@@ -235,6 +238,12 @@ class ExamplePool:
             return 0
         else:
             return ix-np.argmax(self.hist[self.hist_min:ix+1][::-1])
+
+    def get_first(self):
+        if self.is_empty():
+            raise ValueError()
+        candidates = np.argwhere(self.hist > 0)[:, 0]
+        return min(candidates, key=lambda x: self.n_tokens_to_ex_id[x][0][0])
 
     def get_all(self):
         """Return all document in the pool in the order they were entered"""
@@ -253,86 +262,97 @@ class ExamplePool:
 
 
 class OptimizeLast(SequenceBuilder):
-    """Streams through the data while keeping a pool of examples in reserve, places document from the pool at the
+    """Streams through the data while keeping a pool of examples in reserve, places examples from the pool at the
     end of sequences when helpful to maximize the sequence length
 
     This aims to be fast and mostly preserve the order of the data stream
     """
-    def __init__(self, pool_size, pack_pool=None):
+    def __init__(self, pool_size):
         assert isinstance(pool_size, int)
         self.pool_size = pool_size
-        if pack_pool is None:
-            pack_pool = Sequential()
-        self.pack_pool = pack_pool
-
-    @staticmethod
-    def build_idx(on_seq, examples, extra):
-        idx = np.zeros(len(examples)+(len(extra) if extra else 0), DOC_SEQUENCE_DTYPE)
-        idx["doc_id"][:len(examples)] = examples["doc_id"]
-        if extra:
-            idx["doc_id"][-len(extra):] = extra
-        idx["sequence_number"] = on_seq
-        return idx
 
     def __call__(self, examples: np.ndarray, max_seq_len: int, n_procs=None):
         assert np.all(examples["num_tokens"] <= max_seq_len)
-        pool = ExamplePool(max_seq_len, self.pool_size)
+        pool = DocumentPool(max_seq_len, self.pool_size)
         for ex in examples[:self.pool_size]:
             pool.add(ex)
 
-        # Best way to end finish the sequence so far as (seq_end, item_from_pool, num_tokens)
-        best_candidate = (-1, None, 0)
-        seq_start = min(self.pool_size, len(examples))
-        seq_len = 0  # stat as a length sequence
-        seq_end = seq_start
-        on_seq = 0
-        stop_add_to_pool = len(examples) - self.pool_size
         out = np.zeros(len(examples), dtype=DOC_SEQUENCE_DTYPE)
         out_ix = 0
+        on_seq = 0
 
-        while seq_start < len(examples):
-            if seq_end < len(examples):
-                next_len = seq_len + examples[seq_end]["num_tokens"]
+        in_progress = np.zeros(max_seq_len, dtype=DOC_TOKENS_DTYPE)
+        on = 0  # in_progress[:on] is our in-progress sequence
+        on_example = min(len(examples), self.pool_size)  # what example in `examples` we have consumed
+        seq_len = 0  # length of the sequence we are in-progress on
+        n_from_pool = 0  # how many in-progress examples are from the pool
+        stop_add_to_pool = len(examples) - self.pool_size
+        best_pool_only = pool.find_at_most(max_seq_len)
+        best_candidate = (on, best_pool_only, best_pool_only)
+
+        # Max sequence length docs might be very common (e.g., splitting a very long documents), to avoid having
+        # to end an in-progress sequence early when encountering them we skip over them
+        to_skip = examples["num_tokens"] == max_seq_len
+
+        while True:
+            if on_example == len(examples):
+                if pool.is_empty():
+                    if on == 0:
+                        break  # nothing left and nothing in-progress
+                    else:
+                        new_tokens = max_seq_len + 1  # yield the in-progress sequence
+                else:
+                    new_tokens = pool.get_first()  # Ran out of examples, start consuming the pool
             else:
-                next_len = max_seq_len+1
+                new_tokens = examples[on_example]["num_tokens"]
+
+            next_len = seq_len + new_tokens
+
             if next_len > max_seq_len:
-                # Return the best candidate we have found so far
+                # Write the best candidate we have found so far
                 best_end, item_from_pool = best_candidate[:2]
-                seq_examples = examples["doc_id"][seq_start:best_end]
+                to_add = in_progress[:best_end]["doc_id"]
+                remainder = on - best_end  # num in-progress examples we are discarding
+                for k in in_progress[max(on-n_from_pool, best_end):on]:
+                    # If our in-progress sequence used examples from the pool, move the unused example back to
+                    # the pool. We need this since the best sequence might have used one of these examples
+                    pool.add(k.copy())  # copy so it is not a view in `in_progress`
+                    remainder -= 1
+                on_example -= remainder
+
                 out_start = out_ix
-                out["doc_id"][out_ix:out_ix+len(seq_examples)] = seq_examples
-                out_ix += len(seq_examples)
+                out["doc_id"][out_ix:out_ix+len(to_add)] = to_add
+                out_ix += len(to_add)
                 if item_from_pool > 0:
                     out["doc_id"][out_ix] = pool.pop(item_from_pool)
                     out_ix += 1
-                    if best_end < stop_add_to_pool:
-                        pool.add(examples[best_end])  # re-fill the pool
-                        best_end += 1
-                    # else let the pool shrink since we definitely don't need all of it
+                    if on_example < stop_add_to_pool:
+                        pool.add(examples[on_example])  # re-fill the pool
+                        on_example += 1
 
                 out["sequence_number"][out_start:out_ix] = on_seq
                 on_seq += 1
-                seq_start, seq_end = best_end, best_end
-                best_candidate = (-1, [], 0)
-                seq_len = 0
-                continue
+                best_pool_only = pool.find_at_most(max_seq_len)
+                best_candidate = (0, best_pool_only, best_pool_only)
+                on, seq_len, n_from_pool = 0, 0, 0
+            else:
+                # Add to our in-progress sequence
+                seq_len = next_len
+                if on_example == len(examples):
+                    n_from_pool += 1
+                    in_progress[on] = (pool.pop(new_tokens), new_tokens)
+                else:
+                    in_progress[on] = examples[on_example]
+                    on_example += 1
+                on += 1
+                # Build a new candidate using the optimal sequence in the pool
+                remainder = max_seq_len - seq_len
+                in_pool = pool.find_at_most(remainder)
+                candidate = (on, in_pool, seq_len + in_pool)
+                if candidate[-1] > best_candidate[-1]:
+                    best_candidate = candidate
 
-            seq_len = next_len
-            seq_end += 1
-            remainder = max_seq_len - seq_len
-            in_pool = pool.find_at_most(remainder)
-            candidate = (seq_end, in_pool, seq_len + in_pool)
-            if candidate[-1] > best_candidate[-1]:
-                best_candidate = candidate
-
-        from_pool = pool.get_all()
-        if len(from_pool) > 0:
-            from_pool = self.pack_pool(from_pool, max_seq_len)
-            from_pool["sequence_number"] += on_seq
-            assert out_ix + len(from_pool) == len(examples)
-            out[out_ix:] = from_pool
-        else:
-            assert out_ix == len(examples)
+        assert out_ix == len(out)
         return out
 
 
