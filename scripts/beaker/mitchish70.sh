@@ -15,6 +15,7 @@ gantry run \
   --task-name mitchish70 \
   --description "OLMo mitchish 70B, model init ablations" \
   --priority high \
+  --stop-preemptible \
   --beaker-image olmo-torch2-gantry \
   --cluster ai2/general-cirrascale-a100-80g-ib \
   --gpus 8 \
