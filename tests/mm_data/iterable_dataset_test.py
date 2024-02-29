@@ -40,7 +40,7 @@ class PatchedDataset(MMIterableDataset):
         if global_batch_size is None:
             global_batch_size = world_size
         super().__init__(
-            None, None, None, None,
+            "", None, None, None, None, None,
             global_batch_size=global_batch_size,
             start_index=start_index,
             drop_last=drop_last,

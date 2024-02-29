@@ -537,7 +537,43 @@ class PaddingDirection(StrEnum):
 
 
 @dataclass
+class DataSamplingConfig(BaseConfig):
+
+    resample: List[float] = None
+    """
+    How re-sample groups, for values > 1, the whole number of the value will repeat the group, the fractional part
+    is used to randomly sample the group without replacement
+    """
+
+    group_data: List[int] = None
+    """
+    Merge data from different data files into one group for the purposes of resampling and stratifying
+    """
+
+    stratify: bool = False
+    """
+    Stratify between groups and up-sampling, meaning data from different files will be evenly distributed in 
+    the output, and any up-sampled groups will produce all examples from the group before starting to repeat examples
+    """
+
+
+class SequenceBuilderKind(StrEnum):
+    sequential = "sequential"
+    optimize_last = "optimize_last"
+
+
+@dataclass
+class SequenceBuilderConfig(BaseConfig):
+    """Species how to group examples into sequences"""
+    kind: SequenceBuilderKind = SequenceBuilderKind.sequential
+    n_splits: Optional[int] = None
+    max_splits: Optional[int] = None
+    pool_size: Optional[int] = None
+
+
+@dataclass
 class DataConfig(BaseConfig):
+    multi_modal: bool = False
     paths: Optional[List[str]] = None
 
     # for text data
@@ -547,11 +583,14 @@ class DataConfig(BaseConfig):
     generate_attention_mask: bool = False
 
     # for multi-modal data
+    sampler: Optional[DataSamplingConfig] = None
+    sequence_builder: Optional[SequenceBuilderConfig] = None
     idx_dir: Optional[str] = None
     object_store_config: Optional[ObjectStoreConfig] = None
-    return_segment_ids: bool=False
-    thread_buffer_factor: Optional[float] = None
+    return_segment_ids: bool = False
+    thread_buffer_factor: Optional[float] = 1
 
+    # shared
     num_threads: Optional[int] = None
     num_workers: int = 0
     drop_last: bool = False
@@ -559,7 +598,7 @@ class DataConfig(BaseConfig):
     prefetch_factor: Optional[int] = None
     persistent_workers: bool = False
     timeout: int = 0
-    multi_modal: bool = False
+
 
 @dataclass
 class ObjectStoreConfig(BaseConfig):

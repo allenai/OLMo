@@ -1,3 +1,4 @@
+import io
 import logging
 import os
 import re
@@ -5,7 +6,7 @@ import socket
 import sys
 import time
 import warnings
-from contextlib import contextmanager
+import numpy as np
 from datetime import datetime
 from enum import Enum
 from itertools import cycle, islice
@@ -352,7 +353,7 @@ def upload(source: PathOrStr, target: str, save_overwrite: bool = False):
         raise NotImplementedError(f"Upload not implemented for '{parsed.scheme}' scheme")
 
 
-def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> bytes:
+def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: Optional[int]) -> bytes:
     if is_url(source):
         from urllib.parse import urlparse
 
@@ -370,12 +371,12 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
     else:
         with open(source, "rb") as f:
             f.seek(bytes_start)
-            return f.read(num_bytes)
+            return f.read(-1 if num_bytes is None else num_bytes)
 
 
 def read_file(source: PathOrStr, bytes_start: int=0):
     """Return all the contents of a possibly remote file"""
-    return get_bytes_range(source, bytes_start, -1)
+    return get_bytes_range(source, bytes_start, None)
 
 
 def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
@@ -433,7 +434,7 @@ def _gcs_file_size(bucket_name: str, key: str) -> int:
     return blob.size
 
 
-def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int) -> bytes:
+def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: Optional[int]) -> bytes:
     from google.api_core.exceptions import NotFound
     from google.cloud import storage as gcs
 
@@ -444,7 +445,7 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
         blob.reload()
     except NotFound:
         raise FileNotFoundError(f"gs://{bucket_name}/{key}")
-    if num_bytes == -1:
+    if num_bytes is None:
         return blob.download_as_bytes(start=bytes_start)
     else:
         return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1)
@@ -544,10 +545,10 @@ def _s3_file_size(scheme: str, bucket_name: str, key: str, max_attempts: int = 3
 
 
 def _s3_get_bytes_range(
-    scheme: str, bucket_name: str, key: str, bytes_start: int, num_bytes: int, max_attempts: int = 3
+    scheme: str, bucket_name: str, key: str, bytes_start: int, num_bytes: Optional[int], max_attempts: int = 3
 ) -> bytes:
     err: Optional[Exception] = None
-    if num_bytes == -1:
+    if num_bytes is None:
         range_str = f"bytes={bytes_start}-"
     else:
         range_str = f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
@@ -658,3 +659,29 @@ def roundrobin(*iterables):
             # Remove the iterator we just exhausted from the cycle.
             num_active -= 1
             nexts = cycle(islice(nexts, num_active))
+
+
+class NumpyList:
+    """Growable append-only list for many numpy scalars"""
+    # Storing a huge number of scalar numpy objects in a python List incurs a lot of overhead,
+    # especially when concatenating them back together, we instead store the scalars in "blocks" of numpy arrays
+
+    def __init__(self, dtype, block_size=2048):
+        self.block = np.empty((block_size,), dtype=dtype)
+        self.on = 0
+        self.block_size = block_size
+        self.blocks = []
+
+    def append(self, point):
+        self.block[self.on] = point
+        self.on += 1
+        if self.on >= len(self.block):
+            self.on = 0
+            self.blocks.append(self.block)
+            self.block = np.empty_like(self.block)
+
+    def get_blocks(self):
+        return list(self.blocks) + [self.block[:self.on]]
+
+    def to_array(self):
+        return np.concatenate(self.get_blocks())

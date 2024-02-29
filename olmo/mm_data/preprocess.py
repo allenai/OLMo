@@ -1,6 +1,6 @@
 import io
 from dataclasses import dataclass
-from typing import Tuple, Union, List, Iterable, Iterator
+from typing import Union, List
 
 import PIL.Image
 import numpy as np
@@ -45,7 +45,7 @@ def get_image_size(data: bytes):
         return imagesize.get(io.BytesIO(data))
 
 
-def _preprocess_image(image, object_store, data_config, filename_cache) -> ImageChunk:
+def _preprocess_image(image, object_store, data_config) -> ImageChunk:
     """Ensure the image is stored and get the image id, height, and width"""
     if isinstance(image, (Image.Image, np.ndarray)):
         # Raw image, assume a jpeg encoding
@@ -65,22 +65,18 @@ def _preprocess_image(image, object_store, data_config, filename_cache) -> Image
             object_store.write(object_id, image)
         return ImageChunk(object_id, *get_image_size(image))
     elif isinstance(image, ImageFile):
-        if filename_cache and image.image_file in filename_cache:
-            return filename_cache[image.image_file]
         data = read_file(image.image_file)
         object_id = data_config.get_object_id(data)
         if not object_store.contains(object_id):
             object_store.write(object_id, data)
         out = ImageChunk(object_id, *get_image_size(data))
-        if filename_cache:
-            filename_cache[image.image_file] = out
         return out
     else:
         raise NotImplementedError(type(image))
 
 
 def preprocess_example(
-        example: InputExample, tokenizer: Tokenizer, object_store, data_config, image_filename_cache=None
+        example: InputExample, tokenizer: Tokenizer, object_store, data_config
 ) -> List[Document]:
     """pre-processing examples by tokenizing the text and storing the images"""
     out = []
@@ -119,7 +115,7 @@ def preprocess_example(
             prev_was_text = True
         else:
             prev_was_text = False
-            out.append(_preprocess_image(chunk, object_store, data_config, image_filename_cache))
+            out.append(_preprocess_image(chunk, object_store, data_config))
     if out[-1].is_masked():
         raise ValueError("Examples should not end with a masked span")
     return out
