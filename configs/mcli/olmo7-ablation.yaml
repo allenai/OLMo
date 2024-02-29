@@ -36,7 +36,7 @@ command: |-
   scripts/train.py configs/olmo7-ablation.yaml \
     --run_name=olmo7-ablation-baseline \
     --wandb.name=baseline \
-    --compile.fullgraph=false \
     --model.flash_attention=true \
     --save_folder=runs/ \
-    --device_train_microbatch_size=2
+    --activation_checkpointing=fine_grained \
+    --device_train_microbatch_size=4
