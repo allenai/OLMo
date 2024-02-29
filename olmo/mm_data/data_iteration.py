@@ -305,13 +305,25 @@ class OptimizeLast(SequenceBuilder):
                     new_tokens = pool.get_first()  # Ran out of examples, start consuming the pool
             else:
                 new_tokens = examples[on_example]["num_tokens"]
+                if new_tokens == max_seq_len:
+                    # Effectively 0 length since we will write them out separately
+                    new_tokens = 0
 
             next_len = seq_len + new_tokens
 
             if next_len > max_seq_len:
                 # Write the best candidate we have found so far
                 best_end, item_from_pool = best_candidate[:2]
-                to_add = in_progress[:best_end]["doc_id"]
+                to_add = in_progress[:best_end]
+
+                # max length documents get written out specially
+                is_max_len = to_add["num_tokens"] == max_seq_len
+                for ex in to_add[is_max_len]:
+                    out[out_ix] = (ex["doc_id"], on_seq)
+                    out_ix += 1
+                    on_seq += 1
+                to_add = to_add[~is_max_len]["doc_id"]
+
                 remainder = on - best_end  # num in-progress examples we are discarding
                 for k in in_progress[max(on-n_from_pool, best_end):on]:
                     # If our in-progress sequence used examples from the pool, move the unused example back to

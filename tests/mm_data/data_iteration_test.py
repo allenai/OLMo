@@ -82,7 +82,9 @@ def test_sequence_building_random(builder: SequenceBuilder):
         seq_len = 1000 + rng.randint(0, 200, dtype=np.uint32)
         data = np.zeros((200,), DOC_TOKENS_DTYPE)
         data["doc_id"]["start_byte"] = np.arange(len(data), dtype=np.int64)
-        data["num_tokens"] = np.random.RandomState(6911).randint(100, 600, (len(data),), dtype=np.uint32)
+        data["num_tokens"] = rng.randint(100, 600, (len(data),), dtype=np.uint32)
+        data["num_tokens"][rng.choice(len(data), 4, False)] = seq_len
+
         packed = builder(data, seq_len)
 
         # Must contain the original examples
