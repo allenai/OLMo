@@ -41,4 +41,5 @@ command: |-
     --fsdp.sharding_strategy=FULL_SHARD \
     --save_folder=runs/ \
     --activation_checkpointing=whole_layer \
-    --device_train_microbatch_size=4
+    --device_train_microbatch_size=3 \
+    --global_train_batch_size=1536
