@@ -37,5 +37,8 @@ command: |-
     --run_name=olmo7-ablation-baseline \
     --wandb.name=baseline \
     --model.flash_attention=true \
+    --fsdp.wrapping_strategy=by_block \
+    --fsdp.sharding_strategy=FULL_SHARD \
+    --compile.fullgraph=false \
     --save_folder=runs/ \
     --device_train_microbatch_size=2
