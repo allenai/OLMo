@@ -17,7 +17,7 @@ def test_example_store_text(tmp_path: Path):
     store = ExampleReader({0: data_file}, None, None, MMStorageConfig())
     out = store.read_range(0, 0, len(data) * 2)
     assert np.all(out["input_ids"] == data)
-    assert np.all(np.logical_not(out["label_mask"]))
+    assert np.all(out["label_mask"])
 
     out = store.read_range(0, 0, 2)
     assert np.all(out["input_ids"] == data[:1])
@@ -101,12 +101,12 @@ def test_example_store_mm(tmp_path: Path):
 
     ex1 = store.read_range(*indices[0])
     assert np.all(ex1["input_ids"] == np.array([8, 3, 1]))
-    assert np.all(np.logical_not(ex1["label_mask"]))
+    assert np.all(ex1["label_mask"])
     assert ex1["images"] == []
 
     ex2 = store.read_range(*indices[1])
     assert np.all(ex2["input_ids"] == np.array([71, 12, 39]))
-    assert np.all(ex2["label_mask"] == np.array([False, False, True]))
+    assert np.all(ex2["label_mask"] == np.array([True, True, False]))
 
     ex3 = store.read_range(*indices[2])
     assert np.all(ex3["input_ids"] == np.array([3, 3] + [0] * 8 + [3]))
@@ -117,7 +117,7 @@ def test_example_store_mm(tmp_path: Path):
 
     ex4 = store.read_range(*indices[3])
     assert np.all(ex4["input_ids"] == np.array([0] * 4 + [9, 8] + [0] * 4 + [11]))
-    assert np.all(ex4["label_mask"] == ((ex4["input_ids"] == 8) | (ex4["input_ids"] == 0)))
+    assert np.all(ex4["label_mask"] == ~((ex4["input_ids"] == 8) | (ex4["input_ids"] == 0)))
     assert np.all(ex4["image_offsets"] == np.array([0, 6]))
 
     first3 = store.read_range(0, 0, indices[3][1], return_segments=True)

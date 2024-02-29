@@ -182,7 +182,7 @@ class ExampleReader:
         if sequence_length is None:
             sequence_length = sum(sum(y.num_tokens for y in x) for x in documents)
         indices = np.zeros(sequence_length, np.uint16)
-        mask = np.ones(sequence_length, np.bool_)
+        mask = np.zeros(sequence_length, np.bool_)
         images = []
         offsets = []
         if return_segments:
@@ -199,7 +199,7 @@ class ExampleReader:
                     token_end = min(total_tokens+part.num_tokens, sequence_length) - total_tokens
                     indices[total_tokens:total_tokens+part.num_tokens] = part.tokens[:token_end]
                     if not part.is_masked():
-                        mask[total_tokens:total_tokens+part.num_tokens] = False
+                        mask[total_tokens:total_tokens+part.num_tokens] = True
                 else:
                     offsets.append(total_tokens)
                     image = Image.open(BytesIO(self.image_store.get(part.object_id)))
