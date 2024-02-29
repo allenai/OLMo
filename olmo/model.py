@@ -1818,7 +1818,8 @@ class Olmo(nn.Module):
                 del nonwrapped_numel
                 if recurse:
                     return True  # always recurse for simplicity
-                return isinstance(module, (OlmoVisionBackbone, OlmoBlock, nn.Linear, nn.Embedding))
+                return not isinstance(module, nn.modules.linear.NonDynamicallyQuantizableLinear) and \
+                    isinstance(module, (OlmoBlock, nn.Linear, nn.Embedding))
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_group:
@@ -1844,7 +1845,8 @@ class Olmo(nn.Module):
                 del nonwrapped_numel
                 if recurse:
                     return True  # always recurse for simplicity
-                return isinstance(module, (OlmoVisionBackbone, OlmoBlockGroup, nn.Linear, nn.Embedding))
+                return not isinstance(module, nn.modules.linear.NonDynamicallyQuantizableLinear) and \
+                    isinstance(module, (OlmoBlockGroup, nn.Linear, nn.Embedding))
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.size_based:
