@@ -1,7 +1,7 @@
-name: r70b-baseline-sources-1b-150b  # can't have "_" or "." here
+name: v1_5-1b-150b_mmlu
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 env_variables:
-  CONFIG_PATH: configs/road-to-1_7/runs/r70b-baseline-sources-1b-150b.yaml
+  CONFIG_PATH: configs/road-to-1_7/runs/v1_5-1b-150b_mmlu.yaml
   # LOAD_PATH: ""
 compute:
   gpus: 64
