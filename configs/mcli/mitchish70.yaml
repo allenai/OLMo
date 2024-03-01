@@ -8,7 +8,7 @@ integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
     git_branch: mitchish65-2-gqa
-    pip_install: -e .
+    pip_install: -e .[train]
     ssh_clone: true
 command: |-
   # Make sure we have a recent flash-attn.
