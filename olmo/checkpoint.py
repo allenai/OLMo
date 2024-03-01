@@ -34,8 +34,12 @@ from torch.distributed.fsdp.api import (
     ShardedOptimStateDictConfig,
     ShardedStateDictConfig,
 )
-from torch.distributed.fsdp.flat_param import FlatParamHandle
 from torch.futures import Future
+
+try:
+    from torch.distributed.fsdp.flat_param import FlatParamHandle  # type: ignore
+except ModuleNotFoundError:
+    from torch.distributed.fsdp._flat_param import FlatParamHandle  # type: ignore
 
 from .aliases import PathOrStr
 from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
@@ -1124,6 +1128,8 @@ class LocalShardedCheckpointer(Checkpointer):
                 return [fsdp_model._handle]  # type: ignore
             else:
                 return []
+        elif version.parse(torch.__version__) < version.parse("2.3.0"):
+            return fsdp_model._all_handles
         else:
             # Need to verify FSDP internals with newer versions.
             raise NotImplementedError
