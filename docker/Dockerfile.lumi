@@ -94,8 +94,12 @@ RUN cd /opt && \
     sed -i 's/hostname -I/hostname -s/g' /usr/local/lib/python3.10/dist-packages/deepspeed/comm/comm.py
 
 # Install more dependencies
-COPY requirements.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY pyproject.toml .
+RUN mkdir olmo && touch olmo/__init__.py && \
+    pip install --no-cache-dir .[all] && \
+    pip uninstall -y ai2-olmo && \
+    rm -rf olmo/
+
 RUN pip install --no-cache-dir py-spy
 RUN pip install --no-cache-dir wandb --upgrade
 

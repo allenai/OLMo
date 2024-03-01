@@ -4,14 +4,54 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai2-olmo"
-dynamic = ["version", "dependencies", "optional-dependencies"]
+dynamic = ["version"]
 readme = "README.md"
 description = "Open Language Model (OLMo)"
 authors = [
     { name = "Allen Institute for Artificial Intelligence", email = "olmo@allenai.org" }
 ]
 requires-python = ">=3.8"
-license = {file = "LICENSE"}
+license = { file = "LICENSE" }
+dependencies = [
+    "numpy",
+    "torch>=2.0,<2.3",
+    "omegaconf",
+    "rich",
+    "boto3",
+    "google-cloud-storage",
+    "tokenizers",
+    "packaging",
+    "cached_path",
+    "transformers",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "mypy>=1.0,<1.4",
+    "black>=23.1,<24.0",
+    "isort>=5.12,<5.13",
+    "pytest",
+    "pytest-sphinx",
+    "twine>=1.11.0",
+    "setuptools",
+    "wheel",
+    "build",
+]
+train = [
+    "wandb",
+    "beaker-gantry",
+    "click",
+    "torchmetrics",
+    "smashed[remote]>=0.21.1",
+    "safetensors",
+    "datasets",
+    "scikit-learn",
+    "msgspec>=0.14.0",
+]
+all = [
+    "ai2-olmo[dev,train]",
+]
 
 [project.urls]
 Homepage = "https://github.com/allenai/OLMo"
@@ -25,8 +65,6 @@ olmo = ["py.typed"]
 
 [tool.setuptools.dynamic]
 version = { attr = "olmo.version.VERSION" }
-dependencies = { file = ["requirements.txt", "hf_olmo/requirements.txt"] }
-optional-dependencies = { dev = { file = ["dev-requirements.txt"] } }
 
 [tool.setuptools.packages.find]
 include = ["olmo*", "hf_olmo*"]

@@ -16,7 +16,7 @@ on:
 
 env:
   # Change this to invalidate existing cache.
-  CACHE_PREFIX: v1
+  CACHE_PREFIX: v2
   PYTHONPATH: ./
   TOKENIZERS_PARALLELISM: 'false'
 
@@ -78,10 +78,10 @@ jobs:
         uses: actions/cache@v3
         with:
           path: .mypy_cache
-          key: mypy-${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('*requirements.txt') }}-${{ github.ref }}-${{ github.sha }}
+          key: mypy-${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('*requirements.txt', '*pyproject.toml') }}-${{ github.ref }}-${{ github.sha }}
           restore-keys: |
-            mypy-${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('*requirements.txt') }}-${{ github.ref }}
-            mypy-${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('*requirements.txt') }}
+            mypy-${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('*requirements.txt', '*pyproject.toml') }}-${{ github.ref }}
+            mypy-${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('*requirements.txt', '*pyproject.toml') }}
 
       - name: ${{ matrix.task.name }}
         run: |
@@ -104,7 +104,7 @@ jobs:
   gpu_tests:
     name: GPU Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 8
     env:
       BEAKER_TOKEN: ${{ secrets.BEAKER_TOKEN }}
       BEAKER_IMAGE: olmo-torch2-test
@@ -127,6 +127,7 @@ jobs:
           spec: |
             version: v2
             description: GPU Tests
+            budget: ai2/oe-training
             tasks:
               - name: tests
                 image:
@@ -167,15 +168,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - name: Setup Python environment
+        uses: ./.github/actions/setup-venv
         with:
           python-version: '3.10'
-
-      - name: Install requirements
-        run: |
-          pip install --upgrade pip setuptools wheel build
-          pip install -r dev-requirements.txt
+          cache-prefix: ${{ env.CACHE_PREFIX }}
 
       - name: Prepare environment
         run: |
@@ -190,11 +187,13 @@ jobs:
 
       - name: Generate release notes
         run: |
+          . .venv/bin/activate
           python scripts/release_notes.py > ${{ github.workspace }}-RELEASE_NOTES.md
 
       - name: Publish package to PyPI
         run: |
-          twine upload -u '${{ secrets.PYPI_USERNAME }}' -p '${{ secrets.PYPI_PASSWORD }}' dist/*
+          . .venv/bin/activate
+          twine upload -u __token__ -p '${{ secrets.PYPI_PASSWORD }}' dist/*
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v1

@@ -1,3 +1,4 @@
+from dataclasses import fields
 from typing import List, Optional, Tuple, Union
 
 import torch
@@ -17,8 +18,8 @@ def create_model_config_from_pretrained_config(config: OLMoConfig):
     """
 
     kwargs = {}
-    for key in ModelConfig.__match_args__:
-        kwargs[key] = getattr(config, key)
+    for field in fields(ModelConfig):
+        kwargs[field.name] = getattr(config, field.name)
 
     model_config = ModelConfig(**kwargs)
     return model_config
@@ -47,7 +48,9 @@ class OLMoForCausalLM(PreTrainedModel):
     def forward(
         self,
         input_ids: torch.LongTensor = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
         attention_mask: Optional[torch.Tensor] = None,
+        attention_bias: Optional[torch.Tensor] = None,
         past_key_values: Optional[List[torch.FloatTensor]] = None,
         labels: Optional[torch.LongTensor] = None,
         use_cache: Optional[bool] = None,
@@ -58,17 +61,24 @@ class OLMoForCausalLM(PreTrainedModel):
         if use_cache is None:
             use_cache = self.config.use_cache
 
+        if output_attentions:
+            raise ValueError("output_attentions is not yet supported in OLMo")
+
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
         outputs = self.model.forward(
             input_ids=input_ids,
+            input_embeddings=inputs_embeds,
             attention_mask=attention_mask,
+            attention_bias=attention_bias,
             past_key_values=past_key_values,
             use_cache=use_cache,
+            output_hidden_states=output_hidden_states,
         )
 
         logits = outputs.logits
+        hidden_states = outputs.hidden_states
 
         loss = None
         if labels is not None:
@@ -91,6 +101,7 @@ class OLMoForCausalLM(PreTrainedModel):
             loss=loss,
             logits=logits,
             past_key_values=outputs.attn_key_values,
+            hidden_states=hidden_states,
         )
 
     def can_generate(self) -> bool:
