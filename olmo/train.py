@@ -136,7 +136,7 @@ class Trainer:
     cur_train_loss: float = float("inf")
     indices_file: Optional[TextIO] = None
     _start_time: float = 0.0
-    loss_fn = cross_entropy_loss
+    loss_fn = field(default_factory=lambda: cross_entropy_loss)
     last_sharded_checkpoint_step: Optional[int] = None
     last_unsharded_checkpoint_step: Optional[int] = None
 
