@@ -1,11 +1,11 @@
-name: v1_5-1b-150b_mmlu
+name: v1_5-1b-150b-mmlu
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 env_variables:
-  CONFIG_PATH: configs/road-to-1_7/runs/v1_5-1b-150b_mmlu.yaml
+  CONFIG_PATH: configs/road-to-1_7/runs/v1_5-1b-150b-mmlu.yaml
   # LOAD_PATH: ""
 compute:
   gpus: 64
-  cluster: r12z3
+  cluster: r7z2
   gpu_type: a100_40gb
 integrations:
   - integration_type: git_repo

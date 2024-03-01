@@ -10,7 +10,14 @@
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
-CONFIG_PATH="configs/road-to-1_7/runs/r70b-baseline-sources-1b-150b.yaml"
+
+# check if CONFIG_PATH is provided as an environment variable;
+# if not set, use a default value
+if [ -z ${CONFIG_PATH+x} ]; then
+  export CONFIG_PATH="configs/road-to-1_7/runs/r70b-baseline-sources-1b-150b.yaml"
+else
+  export CONFIG_PATH=${CONFIG_PATH}
+fi
 
 export OLMO_CONTAINER=llm-lumi-torch21_latest.sif
 
@@ -71,8 +78,9 @@ srun \
       --wandb.group=${RUN_NAME} \
       --time_limit=$((11 * 60 * 60)) \
       --device_train_microbatch_size=8 \
-      --fsdp.sharding_strategy=SHARD_GRAD_OP \
-      --fsdp.wrapping_strategy=null \
+      --global_train_batch_size=2304 \
+      --fsdp.sharding_strategy=FULL_SHARD \
+      --fsdp.wrapping_strategy=by_block \
       --save_interval=1000 \
       --save_interval_ephemeral=1000000 \
       --save_interval_unsharded=5000 \
