@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import logging
 import math
+import sys
 from abc import abstractmethod
 from collections import defaultdict
-from collections.abc import MutableMapping
 from functools import partial
 from typing import (
     Callable,
@@ -45,6 +45,13 @@ from .config import (
 from .exceptions import OlmoConfigurationError
 from .initialization import ModuleType, init_weights
 from .torch_util import ensure_finite_
+
+if sys.version_info.minor > 8:
+    from collections.abc import MutableMapping
+elif sys.version_info.minor == 8:
+    from typing import MutableMapping
+else:
+    raise SystemExit("This script supports Python 3.8 or higher")
 
 __all__ = [
     "LayerNormBase",
@@ -836,6 +843,11 @@ class OlmoOutput(NamedTuple):
     Attention keys and values from each block.
     """
 
+    hidden_states: Optional[Tuple[torch.Tensor]]
+    """
+    Hidden states from each block.
+    """
+
 
 class OlmoGenerateOutput(NamedTuple):
     token_ids: torch.LongTensor
@@ -986,9 +998,6 @@ class Olmo(nn.Module):
             get_causal_attention_bias(self.__cache, config.max_sequence_length, _non_meta_init_device(config))
             self.get_alibi_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
 
-    def enable_activation_checkpointing(self, enable: bool = True):
-        self.set_activation_checkpointing(ActivationCheckpointingStrategy.whole_layer if enable else None)
-
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         self.activation_checkpointing_strategy = strategy
         if self.config.block_group_size != 1:
@@ -1049,14 +1058,18 @@ class Olmo(nn.Module):
     def forward(
         self,
         input_ids: torch.LongTensor,
+        input_embeddings: Optional[torch.FloatTensor] = None,
         attention_mask: Optional[torch.Tensor] = None,
         attention_bias: Optional[torch.Tensor] = None,
         past_key_values: Optional[Sequence[Tuple[torch.Tensor, torch.Tensor]]] = None,
         use_cache: bool = False,
         last_logits_only: bool = False,
+        output_hidden_states: Optional[bool] = None,
     ) -> OlmoOutput:
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
+        :param input_embeddings: A tensor of shape `(batch_size, seq_len, d_model)` with input
+            embeddings. When provided, it is treated as the output of the input embedding layer.
         :param attention_mask: A tensor of shape `(batch_size, seq_len)` that indicates
             which input IDs are masked. A `1` value in the mask means that
             the corresponding input ID should *not* be ignored. A `0` means
@@ -1083,10 +1096,12 @@ class Olmo(nn.Module):
         :param last_logits_only: If `True`, only compute the logits for the last token of each sequence.
             This can speed up decoding when you only care about the next token.
         """
+        output_hidden_states = output_hidden_states if output_hidden_states is not None else False
+
         if past_key_values:
             assert len(past_key_values) == self.config.n_layers
 
-        batch_size, seq_len = input_ids.size()
+        batch_size, seq_len = input_ids.size() if input_embeddings is None else input_embeddings.size()[:2]
         if past_key_values is None:
             past_length = 0
         else:
@@ -1094,14 +1109,12 @@ class Olmo(nn.Module):
 
         # Get embeddings of input.
         # shape: (batch_size, seq_len, d_model)
-        x = self.transformer.wte(input_ids)  # type: ignore
+        x = self.transformer.wte(input_ids) if input_embeddings is None else input_embeddings  # type: ignore
 
         if not (self.config.alibi or self.config.rope):
             # Get positional embeddings.
             # shape: (1, seq_len)
-            pos = torch.arange(
-                past_length, past_length + seq_len, dtype=torch.long, device=input_ids.device
-            ).unsqueeze(0)
+            pos = torch.arange(past_length, past_length + seq_len, dtype=torch.long, device=x.device).unsqueeze(0)
             # shape: (1, seq_len, d_model)
             pos_emb = self.transformer.wpe(pos)  # type: ignore
             x = pos_emb + x
@@ -1141,7 +1154,7 @@ class Olmo(nn.Module):
             if attention_mask is not None:
                 mask_len = attention_mask.shape[-1]
             elif past_key_values is not None:
-                mask_len = past_key_values[0][0].shape[-2] + input_ids.shape[-1]
+                mask_len = past_key_values[0][0].shape[-2] + seq_len
             attention_bias = attention_bias[:, :, :mask_len, :mask_len].to(dtype=torch.float)
 
             # Add in the masking bias.
@@ -1154,9 +1167,16 @@ class Olmo(nn.Module):
 
         attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
 
+        # decoder layers
+        all_hidden_states = []
+
         # Apply blocks one-by-one.
         if self.config.block_group_size == 1:
             for block_idx, block in enumerate(self.transformer.blocks):
+                if output_hidden_states:
+                    # add hidden states
+                    all_hidden_states.append(x)
+
                 layer_past = None if past_key_values is None else past_key_values[block_idx]
                 if (
                     (self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.whole_layer)
@@ -1185,6 +1205,10 @@ class Olmo(nn.Module):
                     attn_key_values.append(cache)
         else:
             for group_idx, block_group in enumerate(self.transformer.block_groups):
+                if output_hidden_states:
+                    # add hidden states
+                    all_hidden_states.append(x)
+
                 layers_past = (
                     None
                     if past_key_values is None
@@ -1206,6 +1230,9 @@ class Olmo(nn.Module):
         # Apply final layer norm.
         # shape: (batch_size, seq_len or 1, d_model)
         x = self.transformer.ln_f(x)  # type: ignore
+        if output_hidden_states:
+            # add final hidden state post-final-layernorm, following HuggingFace's convention
+            all_hidden_states.append(x)
 
         # Get logits.
         # shape: (batch_size, seq_len or 1, vocab_size)
@@ -1216,30 +1243,42 @@ class Olmo(nn.Module):
         if self.config.scale_logits:
             logits.mul_(1 / math.sqrt(self.config.d_model))
 
-        return OlmoOutput(logits=logits, attn_key_values=attn_key_values)  # type: ignore[arg-type]
+        return OlmoOutput(logits=logits, attn_key_values=attn_key_values, hidden_states=tuple(all_hidden_states) if output_hidden_states else None)  # type: ignore[arg-type]
 
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
         if wrap_strategy is None:
             return None
+
+        # The 'recurse' mode for the wrap function does not behave like you'd expect.
+        # Even if we return False, it may still recurse because PyTorch does what it wants,
+        # not what you want. This causes issues when, for example, we want to wrap 'ff_out' (a linear layer)
+        # but not other linear layers within a block.
+        # So we have to explicitly tell PyTorch which linear layers to wrap, and we also just
+        # return True in 'recurse' mode for simplicity.
+        size_based_module_to_wrap = {self.transformer.wte}
+        if hasattr(self.transformer, "ff_out"):
+            size_based_module_to_wrap.add(self.transformer.ff_out)
+
         if wrap_strategy == FSDPWrapStrategy.by_block:
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, OlmoBlock)
                 if recurse:
-                    return True  # always recurse for simplicity
-                return isinstance(module, OlmoBlock)
+                    return True
+                else:
+                    return wrap
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_and_size:
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, (OlmoBlock,)) or module in size_based_module_to_wrap
                 if recurse:
-                    # Determine if we should recurse.
-                    return not isinstance(module, OlmoBlock)
+                    return True
                 else:
-                    # Determine if we should wrap.
-                    return isinstance(module, (OlmoBlock, nn.Linear, nn.Embedding))
+                    return wrap
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_group:
@@ -1250,9 +1289,11 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, OlmoBlockGroup)
                 if recurse:
-                    return True  # always recurse for simplicity
-                return isinstance(module, OlmoBlockGroup)
+                    return True
+                else:
+                    return wrap
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_group_and_size:
@@ -1263,12 +1304,11 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, (OlmoBlockGroup,)) or module in size_based_module_to_wrap
                 if recurse:
-                    # Determine if we should recurse.
-                    return not isinstance(module, OlmoBlockGroup)
+                    return True
                 else:
-                    # Determine if we should wrap.
-                    return isinstance(module, (OlmoBlockGroup, nn.Linear, nn.Embedding))
+                    return wrap
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.size_based:
@@ -1290,9 +1330,11 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, OlmoBlock) and module.layer_id % c == 0
                 if recurse:
-                    return True  # always recurse for simplicity
-                return isinstance(module, OlmoBlock) and module.layer_id % c == 0
+                    return True
+                else:
+                    return wrap
 
             return fsdp_wrap_fn
         else:
@@ -1382,7 +1424,7 @@ class Olmo(nn.Module):
         tokens_generated = 0
 
         def flatten_past_key_values(
-            past_key_values: List[Tuple[torch.Tensor, torch.Tensor]]
+            past_key_values: List[Tuple[torch.Tensor, torch.Tensor]],
         ) -> Dict[str, torch.Tensor]:
             out = {}
             for i, (key, value) in enumerate(past_key_values):
@@ -1391,7 +1433,7 @@ class Olmo(nn.Module):
             return out
 
         def unflatten_past_key_values(
-            past_key_values: Dict[str, torch.Tensor]
+            past_key_values: Dict[str, torch.Tensor],
         ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
             out = []
             for i in range(self.config.n_layers):

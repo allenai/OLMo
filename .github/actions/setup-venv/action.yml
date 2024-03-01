@@ -8,6 +8,10 @@ inputs:
     description: Update this to invalidate the cache
     required: true
     default: v0
+  torch-version:
+    description: The PyTorch version to install
+    required: false
+    default: '<2.2'
 runs:
   using: composite
   steps:
@@ -30,7 +34,7 @@ runs:
       id: virtualenv-cache
       with:
         path: .venv
-        key: ${{ inputs.cache-prefix }}-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'dev-requirements.txt', 'hf_olmo/requirements.txt') }}
+        key: ${{ inputs.cache-prefix }}-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('*requirements.txt', '*pyproject.toml') }}
 
     - if: steps.virtualenv-cache.outputs.cache-hit != 'true'
       shell: bash
@@ -38,8 +42,8 @@ runs:
         # Set up virtual environment without cache hit.
         test -d .venv || virtualenv -p $(which python) --copies --reset-app-data .venv
         . .venv/bin/activate
-        pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
-        pip install -e .[dev]
+        pip install 'torch${{ inputs.torch-version }}' --extra-index-url https://download.pytorch.org/whl/cpu
+        pip install -e .[all]
         pip install -e hf_olmo
 
     - if: steps.virtualenv-cache.outputs.cache-hit == 'true'
@@ -47,7 +51,7 @@ runs:
       run: |
         # Set up virtual environment from cache hit.
         . .venv/bin/activate
-        pip install --no-deps -e .[dev]
+        pip install --no-deps -e .[all]
         pip install --no-deps -e hf_olmo
 
     - shell: bash

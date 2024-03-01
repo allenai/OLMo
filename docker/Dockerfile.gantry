@@ -8,7 +8,10 @@ FROM olmo-torch2-base
 
 WORKDIR /stage
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY pyproject.toml .
+RUN mkdir olmo && touch olmo/__init__.py && \
+    pip install --no-cache-dir .[all] && \
+    pip uninstall -y ai2-olmo && \
+    rm -rf olmo/
 
 WORKDIR /app/olmo
