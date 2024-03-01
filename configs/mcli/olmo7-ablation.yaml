@@ -1,7 +1,7 @@
 name: olmo7-ablation  # can't have "_" or "." here
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 compute:
-  gpus: 32
+  gpus: 128
   cluster: r12z3
   gpu_type: a100_40gb
 integrations:
@@ -42,4 +42,4 @@ command: |-
     --save_folder=runs/ \
     --activation_checkpointing=whole_layer \
     --device_train_microbatch_size=3 \
-    --global_train_batch_size=1536
+    --global_train_batch_size=6144
