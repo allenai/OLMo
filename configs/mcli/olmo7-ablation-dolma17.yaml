@@ -1,4 +1,4 @@
-name: olmo7-ablation  # can't have "_" or "." here
+name: olmo7-ablation-dolma17  # can't have "_" or "." here
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 compute:
   gpus: 128

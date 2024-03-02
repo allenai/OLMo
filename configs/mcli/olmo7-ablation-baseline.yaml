@@ -1,8 +1,8 @@
-name: olmo7-ablation  # can't have "_" or "." here
+name: olmo7-ablation-baseline  # can't have "_" or "." here
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 compute:
-  gpus: 128
-  cluster: r12z3
+  gpus: 64
+  cluster: r7z2
   gpu_type: a100_40gb
 integrations:
   - integration_type: git_repo
@@ -33,7 +33,7 @@ command: |-
   --nnodes $NUM_NODES \
   --node_rank $NODE_RANK \
   --nproc_per_node 8 \
-  scripts/train.py configs/olmo7-ablation.yaml \
+  scripts/train.py configs/olmo7-ablation-baseline.yaml \
     --run_name=olmo7-ablation-baseline \
     --wandb.name=baseline \
     --model.flash_attention=true \
