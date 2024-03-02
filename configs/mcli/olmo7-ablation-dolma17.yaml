@@ -1,8 +1,8 @@
 name: olmo7-ablation  # can't have "_" or "." here
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 compute:
-  gpus: 256
-  cluster: r12z3
+  gpus: 128
+  cluster: r7z2
   gpu_type: a100_40gb
 integrations:
   - integration_type: git_repo
