@@ -60,9 +60,8 @@ tokenizer:
 save_folder: ${oc.env:CHECKPOINTS_PATH}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
-save_interval: 1000
+save_interval: 200
 save_num_checkpoints_to_keep: -1
-save_interval_ephemeral: 100
 # Unsharded checkpoints (for final storage)
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
