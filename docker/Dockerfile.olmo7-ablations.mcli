@@ -1,0 +1,18 @@
+FROM mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
+
+# warm up huggingface cache
+RUN pushd /root/.cache \
+    curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache.tar.gz" | tar -xzf - \
+    popd
+ENV HF_DATASETS_OFFLINE=1
+
+# warm up cache of checkpoints
+RUN pip install --no-cache cached_path
+RUN python -c "import cached_path; cached_path.cached_path('r2://olmo-checkpoints/ai2-llm/olmo-medium/hrshlkzq/step119000-unsharded/model.pt')"
+RUN python -c "import cached_path; cached_path.cached_path('r2://olmo-checkpoints/ai2-llm/olmo-medium/j18wauyq/step238000-unsharded/model.pt')"
+RUN python -c "import cached_path; cached_path.cached_path('r2://olmo-checkpoints/ai2-llm/olmo-medium/4xel5n7e/step358000-unsharded/model.pt')"
+RUN python -c "import cached_path; cached_path.cached_path('r2://olmo-checkpoints/ai2-llm/olmo-medium/xtruaap8/step477000-unsharded/model.pt')"
+RUN python -c "import cached_path; cached_path.cached_path('r2://olmo-checkpoints/ai2-llm/olmo-medium/hrshlkzq/step119000-unsharded/train.pt')"
+RUN python -c "import cached_path; cached_path.cached_path('r2://olmo-checkpoints/ai2-llm/olmo-medium/j18wauyq/step238000-unsharded/train.pt')"
+RUN python -c "import cached_path; cached_path.cached_path('r2://olmo-checkpoints/ai2-llm/olmo-medium/4xel5n7e/step358000-unsharded/train.pt')"
+RUN python -c "import cached_path; cached_path.cached_path('r2://olmo-checkpoints/ai2-llm/olmo-medium/xtruaap8/step477000-unsharded/train.pt')"
