@@ -43,4 +43,5 @@ command: |-
     --activation_checkpointing=whole_layer \
     --device_train_microbatch_size=3 \
     --global_train_batch_size=6144 \
-    --wandb.group=baseline2
+    --wandb.group=baseline3 \
+    --remote_save_folder=s3://ai2-llm/checkpoints/olmo7-ablation/baseline3
