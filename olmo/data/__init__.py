@@ -129,7 +129,6 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
             work_dir.mkdir(exist_ok=True, parents=True)
 
     if train_config.data.multi_modal:
-        assert train_config.model.vision_backbone is not None
         data_cfg = train_config.data
         model_config = train_config.model
         if model_config.vision_backbone is not None:
