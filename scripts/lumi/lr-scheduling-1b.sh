@@ -60,5 +60,4 @@ srun \
       --run_name=lr-scheduling-${SLURM_JOB_ID} \
       --save_folder=${FLASH_DIR}/checkpoints/shanea-lr-scheduling-${SLURM_JOB_ID} \
       --load_path=/scratch/project_462000229/shanea/checkpoints/ai2-llm/olmo-small/w1r5xfzt/step2000-unsharded/ \
-      --time_limit=$((11 * 60 * 60)) \
       ${@}
