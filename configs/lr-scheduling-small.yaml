@@ -1,10 +1,11 @@
-run_name: OLMo-1B
+run_name: lr-scheduling
 seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-small
+  group: lr-scheduling
 
 model:
   d_model: 2048
@@ -59,20 +60,21 @@ save_folder: ${path.choose:${oc.env:SCRATCH_DIR,no_exist}/checkpoints,/results}/
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
 save_interval: 1000
-save_num_checkpoints_to_keep: 9
+save_num_checkpoints_to_keep: 0
 # Unsharded checkpoints (for final storage)
-save_interval_unsharded: 10000
-save_num_unsharded_checkpoints_to_keep: -1
+save_interval_unsharded: 1000
+save_num_unsharded_checkpoints_to_keep: 3
 
 load_path: null
 
 max_duration: 739_328  # 3.1T tokens
 global_train_batch_size: 2048
-device_train_microbatch_size: 8
+device_train_microbatch_size: 2
 
 precision: amp_bf16
 
 fsdp:
+  sharding_strategy: NO_SHARD
   wrapping_strategy: null
   precision: mixed
 
