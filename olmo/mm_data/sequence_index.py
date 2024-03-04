@@ -15,7 +15,8 @@ logger = logging.get_logger(__name__)
 
 def get_idx_file(image_sizer: ImageTokenSizer, sequence_length: int, seed: int):
     """Gets the filename that should be used to save the shuffled index"""
-    return f"index.{image_sizer.get_id()}.{sequence_length}.s{seed}.v0"
+    sz_id = "none" if image_sizer is None else image_sizer.get_id()
+    return f"index.{sz_id}.{sequence_length}.s{seed}.v0"
 
 
 class SequenceIndex:

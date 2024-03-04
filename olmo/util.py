@@ -13,7 +13,7 @@ from itertools import cycle, islice
 from pathlib import Path
 from queue import Queue
 from threading import Thread
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union, Iterable, List
 
 import boto3
 import botocore.exceptions as boto_exceptions
@@ -685,3 +685,20 @@ class NumpyList:
 
     def to_array(self):
         return np.concatenate(self.get_blocks())
+
+
+def flatten_lists(lsts: Iterable[Iterable]) -> List:
+    return [item for sublist in lsts for item in sublist]
+
+
+def human_readable_number(number):
+    prefixes = ['k', 'm', 'b', 't']
+    if number < 1000:
+        return str(number)
+    for i, pre in enumerate(prefixes, start=1):
+        div = 10**(i*3)
+        if number < (div * 10):
+            return f"{number/div:0.1f}{pre}"
+        if number < (div * 1000) or i == len(prefixes):
+            return f"{number/div:.0f}{pre}"
+    raise RuntimeError()

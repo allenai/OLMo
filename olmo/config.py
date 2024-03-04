@@ -559,15 +559,16 @@ class DataSamplingConfig(BaseConfig):
 
 class SequenceBuilderKind(StrEnum):
     sequential = "sequential"
+    split_text = "split_text"
     optimize_last = "optimize_last"
 
 
 @dataclass
 class SequenceBuilderConfig(BaseConfig):
     """Species how to group examples into sequences"""
-    kind: SequenceBuilderKind = SequenceBuilderKind.sequential
+    kind: SequenceBuilderKind = SequenceBuilderKind.split_text
     n_splits: Optional[int] = None
-    max_splits: Optional[int] = None
+    max_per_split: Optional[int] = None
     pool_size: Optional[int] = None
 
 
