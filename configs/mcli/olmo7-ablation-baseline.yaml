@@ -6,7 +6,7 @@ compute:
   gpu_type: a100_40gb
 integrations:
   - integration_type: git_repo
-    git_repo: allenai/LLM
+    git_repo: allenai/OLMo
     git_branch: olmo7-ablations
     #git_commit: d765e8819f5b0be204c96b0b519de2372b0da729
     pip_install: -e .[train]
@@ -25,7 +25,7 @@ command: |-
   popd
   export HF_DATASETS_OFFLINE=1
 
-  cd LLM
+  cd OLMo
   
   torchrun \
   --master_addr $MASTER_ADDR \
