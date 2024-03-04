@@ -20,16 +20,24 @@ from olmo.util import human_readable_number as hs
 
 logger = logging.get_logger(__name__)
 
-try:
-    import pyximport
-except ImportError:
-    pyximport = None
 
-if pyximport is not None:
+data_iteration_cython = None
+
+
+def try_import_cython():
+    # Only import if needed so we don't compile the cython code if its not needed
+    global data_iteration_cython
+    if data_iteration_cython is not None:
+        return data_iteration_cython
+    try:
+        import pyximport
+    except ImportError:
+        return False
+
     pyximport.install(setup_args={'include_dirs': np.get_include()})
-    from olmo.mm_data import data_iteration_cython
-else:
-    data_iteration_cython = None
+    from olmo.mm_data import data_iteration_cython as cython
+    data_iteration_cython = cython
+    return True
 
 
 DOC_ID_DTYPE = np.dtype([
@@ -215,7 +223,7 @@ class Sequential(SequenceBuilder):
 
     def __call__(self, documents: np.ndarray, max_seq_len: int, pool=None):
         assert np.all(documents["num_tokens"] <= max_seq_len)
-        if data_iteration_cython is not None:
+        if try_import_cython():
             return data_iteration_cython.sequential(documents, max_seq_len)
         total_tokens = 0
         out = np.zeros(len(documents), dtype=DOC_SEQUENCE_DTYPE)
@@ -324,7 +332,7 @@ def merge_pure_text_vectorized(documents: np.ndarray, seq_len):
 class SequentialSplitText(SequenceBuilder):
     """Arranges documents end-to-end but split text-only documents to fill in gaps"""
     def __call__(self, documents: np.ndarray, max_seq_len: int, n_proc=None):
-        if data_iteration_cython is not None:
+        if try_import_cython():
             # About 100x faster
             return data_iteration_cython.sequential_split_text(documents, max_seq_len)
 
@@ -545,8 +553,7 @@ def reorder_sequences(idx, sequence_ixs):
     #     return idx[argsort(new_seq_ids)]                    # sort to fix the ordering
     # But that can become slow at the 1b+ scale, with some tricks we can use a cumulative
     # sum to find out how the new sequence should be ordered instead of a sort
-
-    if data_iteration_cython is not None:
+    if try_import_cython():
         # cython version roughly 4x faster
         return data_iteration_cython.reorder_sequence(idx, sequence_ixs)
 
