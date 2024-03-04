@@ -1,6 +1,7 @@
 from typing import List, Optional, Union, Iterator
 
 import numpy as np
+import torch
 
 from olmo.mm_data.data_store import ExampleReader, TextChunk, Document, read_data_file, MMStorageConfig
 from olmo.mm_data.image_token_size import ImageTokenSizer
@@ -12,13 +13,13 @@ def get_index_file(data_file):
     return data_file + ".index"
 
 
-"""DType for meta-data we might need to shuffle/split/pack document"""
-DOCUMENT_INFO = np.dtype([
+DOC_INFO_DTYPE = np.dtype([
     ("start_byte", np.uint64),  # Starting location of the document
     ("num_bytes", np.uint32),  # Byte length of the document
     ("num_tokens", np.uint32),  # Number of tokens of this document
     ("pure_text", np.bool_),  # Is this data unmasked text (and therefore can be split)
 ])
+"""DType for meta-data we might need to shuffle/split/pack document"""
 # To split multi-modal document we would need token/byte/pure_text data for each
 # sub-section of the example so we (1) know where we can split and (2) know the correct lengths
 # of the halves. This is possible but complicates indexing quite a bit so for now
@@ -58,7 +59,7 @@ class NullIndexer(Indexer):
     def get_indices(self, data_file, sizer, storage_config, index_file: str=None) -> Iterator:
         examples = read_data_file(data_file, 0, -1, storage_config, sizer)
         on = 0
-        data = np.rec.array(len(examples), dtype=DOCUMENT_INFO)
+        data = np.rec.array(len(examples), dtype=DOC_INFO_DTYPE)
         for i, ex in enumerate(examples):
             data[i] = get_example_info(on, ex)
             on += data[i].num_bytes + 2
@@ -67,27 +68,6 @@ class NullIndexer(Indexer):
     def write_index(self, index_file, iterator):
         for _ in iterator:
             pass
-
-
-def lengths_to_segments(lengths: np.ndarray) -> np.ndarray:
-    """Equivalent of [0]*lengths[0] + [1]*lengths[1].... [n]*lengths[n]"""
-    # For millions of lengths, this tricky cumulative sum method is significantly faster
-    # than using a python loop (over 4x)
-    ends = np.trim_zeros(lengths, trim="b")
-    ends = np.cumsum(ends)
-    idx = np.zeros(ends[-1], dtype=np.int64)
-    np.add.at(idx, ends[:-1], 1)
-    np.cumsum(idx, out=idx)
-    return idx
-    # slower:
-    # n = lengths.sum()
-    # out = np.zeros(n, dtype=lengths.dtype)
-    # on = 0
-    # for i, l in enumerate(lengths):
-    #     if l:
-    #         out[on:on+l] = i
-    #         on += l
-    # return out
 
 
 class VectorizedIndexer(Indexer):
@@ -118,7 +98,7 @@ class VectorizedIndexer(Indexer):
         num_images = data["num_images"].astype(np.uint32)
         num_text_tokens = data["num_text_tokens"]
 
-        out = np.zeros(len(num_text_tokens), dtype=DOCUMENT_INFO)
+        out = np.zeros(len(num_text_tokens), dtype=DOC_INFO_DTYPE)
         out["pure_text"] = np.logical_and(num_images == 0, num_masks == 0)
 
         # byte length of each example is derived from the other fields
@@ -130,16 +110,18 @@ class VectorizedIndexer(Indexer):
         # start byte by doing a cumulative sum on the lengths starting at 0
         start_bytes = np.zeros(len(byte_lens), np.uint64)
         start_bytes[1:] = byte_lens[:-1]
-        start_bytes[1:] += 2  # for the doc start tokens
+        if cfg.document_end_token:
+            start_bytes[1:] += 2  # for the doc start tokens
         np.cumsum(start_bytes, out=out["start_byte"])
 
         # number of tokens by batch-computing the image token sizes and adding to the num text tokens
         num_tokens = num_text_tokens
         image_sizes = image_sizes.astype(np.int32)  # Just in case the image size doesn't low/unsigned types
-        image_tokens = image_sizer(image_sizes[:, 0], image_sizes[:, 1])
         num_images = data["num_images"].astype(np.int64)
-        image_segments = lengths_to_segments(num_images)  # build mapping of image -> document it belongs to
-        np.add.at(num_tokens, image_segments, image_tokens)
+        if np.any(num_images > 0):
+            image_tokens = image_sizer(image_sizes[:, 0], image_sizes[:, 1])
+            image_segments = np.repeat(np.arange(len(num_images), dtype=np.int32), num_images)
+            np.add.at(num_tokens, image_segments, image_tokens)
         out["num_tokens"] = num_tokens
         return np.rec.array(out, copy=False)
 

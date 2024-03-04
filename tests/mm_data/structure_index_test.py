@@ -3,7 +3,7 @@ import numpy as np
 
 from olmo.mm_data.data_store import TextChunk, ImageChunk, ExampleReader, MMStorageConfig
 from olmo.mm_data.image_token_size import PerPatch
-from olmo.mm_data.structure_index import VectorizedIndexer, lengths_to_segments, get_example_info
+from olmo.mm_data.structure_index import VectorizedIndexer, get_example_info
 
 
 def _tokens(*data):
@@ -12,15 +12,6 @@ def _tokens(*data):
 
 def _mtokens(*data):
     return TextChunk(np.array(data, np.uint16), True)
-
-
-def test_lengths_to_segments():
-    for i in range(0, 100):
-        rng = np.random.RandomState(i*32+19)
-        lengths = rng.randint(0, 8, 12)
-        actual = lengths_to_segments(lengths)
-        expected = np.concatenate([[i]*l for i, l in enumerate(lengths)])
-        assert np.all(actual == expected)
 
 
 def test_indexer(tmp_path: Path):
