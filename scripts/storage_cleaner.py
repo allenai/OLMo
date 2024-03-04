@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 import boto3.session
 import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
+import omegaconf
 import torch
 import wandb
 from boto3.s3.transfer import TransferConfig
@@ -860,13 +861,29 @@ def _unshard_checkpoint(
     sharding_output_dir = local_storage.create_temp_dir(directory=unsharding_config.temp_dir)
 
     try:
-        config = TrainConfig.load(Path(sharding_input_dir) / "config.yaml", validate_paths=False)
-        sharded_checkpoint_type = config.sharded_checkpointer
+        # `TrainConfig` is not backwards-compatible with all older checkpoints, so
+        # we need to load the yaml directly.
+        raw_config = om.load(str(Path(sharding_input_dir) / "config.yaml"))
+        assert isinstance(raw_config, omegaconf.DictConfig)
+
+        sharded_checkpoint_type_str = raw_config.get("sharded_checkpointer", "torch_legacy")
+        if sharded_checkpoint_type_str == "legacy":
+            # At some point, the enum string for ShardedCheckpointerType.torch_legacy was "legacy"
+            sharded_checkpoint_type_str = "torch_legacy"
+
+        sharded_checkpoint_type = ShardedCheckpointerType[sharded_checkpoint_type_str]
+
+        # The ShardedCheckpointers require a `TrainConfig` to be passed in, but
+        # legacy configs are not all compatible with this class. None of the config
+        # settings are needed for unsharding, so we pass in a dummy config instead.
+        # This is a hack, but decoupling unsharding for checkpoint saving/loading
+        # seems like overkill.
+        dummy_config = TrainConfig.new()
         checkpointer: Checkpointer
         if sharded_checkpoint_type == ShardedCheckpointerType.torch_legacy:
-            checkpointer = TorchLegacyShardedCheckpointer(config)
+            checkpointer = TorchLegacyShardedCheckpointer(dummy_config)
         elif sharded_checkpoint_type == ShardedCheckpointerType.local:
-            checkpointer = LocalShardedCheckpointer(config)
+            checkpointer = LocalShardedCheckpointer(dummy_config)
         else:
             raise NotImplementedError(sharded_checkpoint_type)
 
