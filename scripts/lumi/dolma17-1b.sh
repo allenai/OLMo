@@ -11,6 +11,10 @@
 #SBATCH --partition=standard-g
 
 
+
+export CACHED_PATH_CACHE_ROOT="${SCRATCH_DIR}/tmp"
+mkdir -p "${CACHED_PATH_CACHE_ROOT}"
+
 # check if CONFIG_PATH is provided as an environment variable;
 # if not set, use a default value
 if [ -z ${CONFIG_PATH+x} ]; then
