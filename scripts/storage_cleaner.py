@@ -788,7 +788,11 @@ def _get_checkpoint_number(checkpoint_dir: str) -> int:
 
 
 def _get_sharded_checkpoint_dirs(
-    run_dir_storage: StorageAdapter, run_dir: str, run_dir_or_archive: str, latest_checkpoint_only: bool, checkpoint_num: Optional[int] = None
+    run_dir_storage: StorageAdapter,
+    run_dir: str,
+    run_dir_or_archive: str,
+    latest_checkpoint_only: bool,
+    checkpoint_num: Optional[int] = None,
 ) -> List[str]:
     run_subdir_names = run_dir_storage.list_dirs(run_dir)
     run_subdirectories = list(map(lambda dir_name: os.path.join(run_dir, dir_name), run_subdir_names))
