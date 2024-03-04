@@ -22,7 +22,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         data: Union[IterationConfig, List[str], str],
         seed: Union[int, List[int]],
         sequence_length: int,
-        image_preprocessor: Union[ImagePreprocessor, ImageTokenSizer],
+        image_preprocessor: Union[ImagePreprocessor, ImageTokenSizer, None],
         object_store: ObjectStore=None,
         idx_dir: str=None,
         segment_ids=False,
@@ -40,7 +40,8 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         data: Data to iterate over, a path to a datafile, sequence of paths to datafiles, or an `IterationConfig`
         seed: seed to iterate with, reshuffle will either add one or advance along the list
         sequence_length: sequence length of examples to yield
-        image_preprocessor: How to pre-process images, if `ImageTokenSizer` not pre-processing is done
+        image_preprocessor: How to pre-process images, if `ImageTokenSizer` no pre-processing is done,
+                            if None there must be no images in the data
         object_store: How to look up objects if the data files contains remotely stored objects
         idx_dir: where to look up pre-computed data iteration orders
         global_batch_size: Global batch across all workers and devices
@@ -59,13 +60,15 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             data = IterationConfig([data])
         self.iteration_config = data
 
-        if isinstance(image_preprocessor, ImagePreprocessor):
+        if image_preprocessor is None:
+            self.image_sizer = None
+            self.image_preprocessor = None
+        elif isinstance(image_preprocessor, ImagePreprocessor):
             self.image_sizer = image_preprocessor.image_token_sizer()
             self.image_preprocessor = image_preprocessor
         else:
             self.image_sizer = image_preprocessor
             self.image_preprocessor = None
-
         self.reader = ExampleReader(self.iteration_config.paths, object_store, self.image_sizer, MMStorageConfig())
 
         self.world_size = world_size if world_size is not None else get_world_size()
@@ -98,7 +101,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
     def _init_for_seed(self, seed):
         if self.idx_dir is not None:
             # Iteration order is pre-computed
-            index_file = join(self.idx_dir, get_idx_file(self.reader.image_sizer, self.sequence_length, seed))
+            index_file = join(self.idx_dir, get_idx_file(self.image_sizer, self.sequence_length, seed))
             self._index = SequenceIndex(index_file)
         else:
             # Iteration order is computed on-the-fly
@@ -191,6 +194,11 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
                     all_patch_offsets.append(torch.as_tensor(patch_offsets))
                 batch["image_patches"] = torch.cat(all_patches)
                 batch["image_offsets"] = torch.cat(all_patch_offsets)
+        else:
+            # text-only mode
+            assert len(batch["images"]) == 0
+            del batch["image_offsets"]
+            del batch["images"]
 
         # Convert to a torch-compatible dtype
         batch["input_ids"] = torch.as_tensor(batch["input_ids"].astype(np.int32))
