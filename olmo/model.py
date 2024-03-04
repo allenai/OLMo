@@ -48,7 +48,7 @@ from .exceptions import OlmoConfigurationError
 from .initialization import ModuleType, init_weights
 from .mm_data.image_preprocessing import ClipImageResize, AnyResClipImageResize
 from .torch_util import ensure_finite_, get_global_rank
-from .clip import create_model as create_clip_model
+from .clip import create_model as create_clip_model, TimmBlock, OpenClipBlock
 from .mm_data.image_util import unpad_image
 
 if sys.version_info.minor > 8:
@@ -1112,14 +1112,14 @@ class Resampler(nn.Module):
 
         if config.projector.d_visual != cfg.d_query:
             self.kv_proj = nn.Linear(
-                config.projector.d_visual, cfg.d_query, bias=config.include_bias, device=config.init_device
+                config.projector.d_visual, cfg.d_query, bias=False, device=config.init_device
             )
         else:
             self.kv_proj = nn.Identity()
 
         # Layer norms.
-        self.q_norm = LayerNorm.build(config, size=cfg.d_query)
-        self.kv_norm = LayerNorm.build(config, size=cfg.d_query)
+        self.q_norm = nn.LayerNorm(cfg.d_query, eps=cfg.eps, device=config.init_device)
+        self.kv_norm = nn.LayerNorm(cfg.d_query, eps=cfg.eps, device=config.init_device)
 
         # Positional embedding
         self.pos_emb = TwoDimSinCosEmbedding(config, self.__cache)
@@ -1131,23 +1131,29 @@ class Resampler(nn.Module):
 
         # Query/key/value projection.
         self.query_proj = nn.Linear(
-            cfg.d_query, cfg.d_query, bias=config.include_bias, device=config.init_device  
+            cfg.d_query, cfg.d_query, device=config.init_device
         )
         self.key_proj = nn.Linear(
-            cfg.d_query, cfg.d_query, bias=config.include_bias, device=config.init_device
+            cfg.d_query, cfg.d_query, device=config.init_device
         )
         self.value_proj = nn.Linear(
-            cfg.d_query, cfg.d_query, bias=config.include_bias, device=config.init_device
+            cfg.d_query, cfg.d_query, device=config.init_device
         )
         # Attention output projection.
         self.attn_out = nn.Linear(
-            cfg.d_query, cfg.d_query, bias=config.include_bias, device=config.init_device
+            cfg.d_query, cfg.d_query, device=config.init_device
         )
     
     def reset_parameters(self):
         cfg = self.config.resampler
-        self.q_norm.reset_parameters()
-        self.kv_norm.reset_parameters()
+        if self.q_norm.weight is not None:
+            torch.nn.init.ones_(self.q_norm.weight)  # type: ignore
+        if self.q_norm.bias is not None:
+            torch.nn.init.zeros_(self.q_norm.bias)  # type: ignore
+        if self.kv_norm.weight is not None:
+            torch.nn.init.ones_(self.kv_norm.weight)  # type: ignore
+        if self.kv_norm.bias is not None:
+            torch.nn.init.zeros_(self.kv_norm.bias)  # type: ignore
         nn.init.trunc_normal_(self.query, std=0.02)
         if self.config.projector.d_visual != cfg.d_query:
             init_weights(
@@ -1216,18 +1222,27 @@ class Projector(nn.Module):
         super().__init__()
         self.config = config
         cfg = self.config.projector
-        self.in_sizes = [cfg.d_visual if config.resampler is None else config.resampler.d_query]
+        in_size = cfg.d_visual if config.resampler is None else config.resampler.d_query
+        if cfg.use_pre_ln:
+            self.pre_norm = nn.LayerNorm(in_size, eps=cfg.eps, device=config.init_device)
+        self.in_sizes = [in_size]
         self.in_sizes += [config.d_model] * (cfg.n_layers - 1)
         self.out_sizes = [config.d_model] * cfg.n_layers
         if cfg.n_layers > 1:
             self.act = Activation.build(config, activation_type=cfg.activation_type)
         ff_layers = [
-            nn.Linear(in_size, out_size, bias=config.include_bias, device=config.init_device)
+            nn.Linear(in_size, out_size, device=config.init_device)
             for in_size, out_size in zip(self.in_sizes, self.out_sizes)
         ]
         self.ff_layers = nn.ModuleList(ff_layers)
     
     def reset_parameters(self):
+        cfg = self.config.projector
+        if cfg.use_pre_ln:
+            if self.pre_norm.weight is not None:
+                torch.nn.init.ones_(self.pre_norm.weight)  # type: ignore
+            if self.pre_norm.bias is not None:
+                torch.nn.init.zeros_(self.pre_norm.bias)  # type: ignore
         for i, layer in enumerate(self.ff_layers):
             init_weights(
                 self.config, layer, d=self.in_sizes[i], layer_id=None, type_of_module=ModuleType.in_module
@@ -1236,6 +1251,8 @@ class Projector(nn.Module):
     def forward(self, x):
         # Project visual features into language embedding space using an MLP.
         cfg = self.config.projector
+        if cfg.use_pre_ln:
+            x = self.pre_norm(x)
         for layer in self.ff_layers:
             x = layer(x)
             if cfg.n_layers > 1:
@@ -1256,7 +1273,6 @@ class OlmoVisionBackbone(nn.Module):
 
         self.resampler = None
         if config.resampler is not None:
-            assert v_cfg.anyres
             self.resampler = Resampler(config, self.__cache)
         
         self.projector = Projector(config)
@@ -1269,6 +1285,10 @@ class OlmoVisionBackbone(nn.Module):
 
     def get_image_preprocessor(self):
         raise NotImplementedError()
+
+    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+        raise NotImplementedError()
+
 
     def reset_parameters(self):
         if self.resampler is not None:
@@ -1291,7 +1311,7 @@ class OlmoPretrainedVisionBackbone(OlmoVisionBackbone):
                 image_size, patch_size, v_cfg.possible_resolutions, resample_tokens
             )
         else:
-            self.preprocessor = ClipImageResize(image_size, patch_size, v_cfg.pad_image)
+            self.preprocessor = ClipImageResize(image_size, patch_size, v_cfg.pad_image, resample_tokens)
         
         self.image_token_sizer = self.preprocessor.image_token_sizer()
         
@@ -1320,6 +1340,10 @@ class OlmoPretrainedVisionBackbone(OlmoVisionBackbone):
     
     def get_image_preprocessor(self):
         return self.preprocessor
+
+    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+        if strategy == ActivationCheckpointingStrategy.whole_layer:
+            self.vision_tower.set_grad_checkpointing()
     
     def encode_images(self, image_patches: torch.Tensor) -> torch.Tensor:
         v_cfg = self.config.vision_backbone
@@ -1538,6 +1562,9 @@ class Olmo(nn.Module):
         else:
             for block in self.transformer.blocks:
                 block.set_activation_checkpointing(strategy)
+        
+        if self.vision_backbone is not None:
+            self.vision_backbone.set_activation_checkpointing(strategy)
 
     @property
     def device(self) -> torch.device:
@@ -1803,23 +1830,37 @@ class Olmo(nn.Module):
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
         if wrap_strategy is None:
             return None
-        elif wrap_strategy == FSDPWrapStrategy.by_block:
+
+        # The 'recurse' mode for the wrap function does not behave like you'd expect.
+        # Even if we return False, it may still recurse because PyTorch does what it wants,
+        # not what you want. This causes issues when, for example, we want to wrap 'ff_out' (a linear layer)
+        # but not other linear layers within a block.
+        # So we have to explicitly tell PyTorch which linear layers to wrap, and we also just
+        # return True in 'recurse' mode for simplicity.
+        size_based_module_to_wrap = {self.transformer.wte}
+        if hasattr(self.transformer, "ff_out"):
+            size_based_module_to_wrap.add(self.transformer.ff_out)
+
+        if wrap_strategy == FSDPWrapStrategy.by_block:
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, (TimmBlock, OpenClipBlock, Projector, Resampler, OlmoBlock))
                 if recurse:
-                    return True  # always recurse for simplicity
-                return isinstance(module, (OlmoVisionBackbone, OlmoBlock))
+                    return True
+                else:
+                    return wrap
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_and_size:
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, (TimmBlock, OpenClipBlock, Projector, Resampler, OlmoBlock)) or module in size_based_module_to_wrap
                 if recurse:
-                    return True  # always recurse for simplicity
-                return not isinstance(module, nn.modules.linear.NonDynamicallyQuantizableLinear) and \
-                    isinstance(module, (OlmoBlock, nn.Linear, nn.Embedding))
+                    return True
+                else:
+                    return wrap
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_group:
@@ -1830,9 +1871,11 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, (TimmBlock, OpenClipBlock, Projector, Resampler, OlmoBlockGroup))
                 if recurse:
-                    return True  # always recurse for simplicity
-                return isinstance(module, (OlmoVisionBackbone, OlmoBlockGroup))
+                    return True
+                else:
+                    return wrap
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_group_and_size:
@@ -1843,16 +1886,17 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, (TimmBlock, OpenClipBlock, Projector, Resampler, OlmoBlockGroup,)) or module in size_based_module_to_wrap
                 if recurse:
-                    return True  # always recurse for simplicity
-                return not isinstance(module, nn.modules.linear.NonDynamicallyQuantizableLinear) and \
-                    isinstance(module, (OlmoBlockGroup, nn.Linear, nn.Embedding))
+                    return True
+                else:
+                    return wrap
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.size_based:
             from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 
-            return partial(size_based_auto_wrap_policy, force_leaf_modules={OlmoVisionBackbone})
+            return size_based_auto_wrap_policy
         elif wrap_strategy in {
             FSDPWrapStrategy.one_in_two,
             FSDPWrapStrategy.one_in_three,
@@ -1868,9 +1912,11 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, (TimmBlock, OpenClipBlock, Projector, Resampler)) or (isinstance(module, OlmoBlock) and module.layer_id % c == 0)
                 if recurse:
-                    return True  # always recurse for simplicity
-                return isinstance(module, (OlmoVisionBackbone, OlmoBlock)) and module.layer_id % c == 0
+                    return True
+                else:
+                    return wrap
 
             return fsdp_wrap_fn
         else:

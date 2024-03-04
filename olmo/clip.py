@@ -6,7 +6,7 @@ from copy import deepcopy
 import logging
 from dataclasses import asdict
 from pathlib import Path
-from typing import Callable, Optional, Union
+from typing import Callable, Optional, Union, Sequence, List
 
 import torch
 from torch import nn
@@ -27,6 +27,8 @@ from open_clip.pretrained import get_pretrained_url, download_pretrained_from_ur
 from open_clip.transform import PreprocessCfg, merge_preprocess_dict
 from open_clip.utils import to_2tuple
 from open_clip.pos_embed import get_2d_sincos_pos_embed
+from open_clip.transformer import ResidualAttentionBlock as OpenClipBlock
+from timm.models.vision_transformer import Block as TimmBlock
 
 
 convert_weights_to_fp16 = convert_weights_to_lp  # backwards compat
@@ -117,6 +119,10 @@ class VisionTransformer(nn.Module):
             norm_layer=norm_layer,
         )
 
+    @torch.jit.ignore
+    def set_grad_checkpointing(self, enable=True):
+        self.transformer.grad_checkpointing = enable
+
     def forward(self, x: torch.Tensor):
         x = self.conv1(x)  # shape = [*, width, grid, grid]
         x = x.reshape(x.shape[0], x.shape[1], -1)  # shape = [*, width, grid ** 2]
@@ -160,6 +166,29 @@ class TimmModel(OpenClipTimmModel):
         self.fc_norm = None
         self.head_drop = None
         self.head = None
+
+    def _intermediate_layers(
+            self,
+            x: torch.Tensor,
+            n: Union[int, Sequence] = 1,
+    ) -> List[torch.Tensor]:
+        outputs, num_blocks = [], len(self.blocks)
+        take_indices = set(range(num_blocks - n, num_blocks) if isinstance(n, int) else n)
+
+        # forward pass
+        x = self.patch_embed(x)
+        x = self._pos_embed(x)
+        x = self.patch_drop(x)
+        x = self.norm_pre(x)
+        for i, blk in enumerate(self.blocks):
+            if self.grad_checkpointing and not torch.jit.is_scripting():
+                x = checkpoint(blk, x)
+            else:
+                x = blk(x)
+            if i in take_indices:
+                outputs.append(x)
+
+        return outputs
 
     def forward(self, x):
         return self.trunk.get_intermediate_layers(x, len(self.trunk.blocks))
