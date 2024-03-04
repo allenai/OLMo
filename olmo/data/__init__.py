@@ -120,11 +120,13 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
             work_dir.mkdir(exist_ok=True, parents=True)
 
     if train_config.data.multi_modal:
-        assert train_config.model.vision_backbone is not None
         data_cfg = train_config.data
-        vision_config = train_config.model.vision_backbone
-        image_preprocessor = build_image_preprocessor(vision_config)
-        object_store = build_object_store(data_cfg.object_store_config)
+        if train_config.model.vision_backbone is not None:
+            vision_config = train_config.model.vision_backbone
+            image_preprocessor = build_image_preprocessor(vision_config)
+        else:
+            object_store = None
+            image_preprocessor = None
         it_config = IterationConfig(data_cfg.paths, data_cfg.sampler, data_cfg.sequence_builder)
         dataset = MMIterableDataset(
             data=it_config,
