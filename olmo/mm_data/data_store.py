@@ -17,19 +17,22 @@ class MMStorageConfig:
     image_start_token_id: int = 50280
     mask_start_token_id: int = 50281
     mask_end_token_id: int = 50282
-    document_end_token: int = 50283
+    document_end_token: Optional[int] = 50283
     object_id_length: int = 32
     object_id_hash: str = "sha256"
     image_start_bytes: bytes = field(init=False)
     mask_start_bytes: bytes = field(init=False)
     mask_end_bytes: bytes = field(init=False)
-    doc_end_bytes: bytes = field(init=False)
+    doc_end_bytes: Optional[bytes] = field(init=False)
 
     def __post_init__(self):
         self.image_start_bytes = np.array(self.image_start_token_id, np.uint16).tobytes()
         self.mask_start_bytes = np.array(self.mask_start_token_id, np.uint16).tobytes()
         self.mask_end_bytes = np.array(self.mask_end_token_id, np.uint16).tobytes()
-        self.doc_end_bytes = np.array(self.document_end_token, np.uint16).tobytes()
+        if self.document_end_token is None:
+            self.doc_end_bytes = None
+        else:
+            self.doc_end_bytes = np.array(self.document_end_token, np.uint16).tobytes()
 
     def get_object_id(self, data: bytes) -> bytes:
         if self.object_id_hash == "sha256":
@@ -146,8 +149,9 @@ def write_data_file(
                 chunk.dump(data_fh, data_config)
                 on_byte += chunk.byte_len()
 
-            data_fh.write(data_config.doc_end_bytes)
-            on_byte += 2
+            if data_config.document_end_token is not None:
+                data_fh.write(data_config.doc_end_bytes)
+                on_byte += 2
 
             # yield back example and its location, useful when building the index
             yield example_start, example
@@ -261,4 +265,3 @@ class ExampleReader:
     def read_range(self, file_id, start_byte, num_bytes,
                    sequence_length: int=None, return_segments=True):
         return self.read_ranges([(file_id, start_byte, num_bytes)], sequence_length, return_segments)
-
