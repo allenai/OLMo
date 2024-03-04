@@ -767,9 +767,13 @@ def delete_bad_runs(run_paths: List[str], config: DeleteBadRunsConfig):
             shutil.rmtree(config.temp_dir)
 
 
-def _is_sharded_checkpoint_dir(directory: str) -> bool:
+def _is_checkpoint_dir(directory: str) -> bool:
     storage = _get_storage_adapter_for_path(directory)
-    return storage.is_dir(directory) and re.match(r"step\d+$", Path(directory).name) is not None
+    return storage.is_dir(directory) and re.match(r"step\d+(-unsharded)?$", Path(directory).name) is not None
+
+
+def _is_sharded_checkpoint_dir(directory: str) -> bool:
+    return _is_checkpoint_dir(directory) and re.match(r"step\d+$", Path(directory).name) is not None
 
 
 def _get_checkpoint_number(checkpoint_dir: str) -> int:
@@ -783,17 +787,27 @@ def _get_checkpoint_number(checkpoint_dir: str) -> int:
 
 
 def _get_sharded_checkpoint_dirs(
-    run_dir_storage: StorageAdapter, run_dir: str, run_dir_or_archive: str, latest_checkpoint_only: bool
+    run_dir_storage: StorageAdapter, run_dir: str, run_dir_or_archive: str, latest_checkpoint_only: bool, checkpoint_num: Optional[int] = None
 ) -> List[str]:
     run_subdir_names = run_dir_storage.list_dirs(run_dir)
     run_subdirectories = list(map(lambda dir_name: os.path.join(run_dir, dir_name), run_subdir_names))
     sharded_checkpoint_directories = list(filter(_is_sharded_checkpoint_dir, run_subdirectories))
+
+    if latest_checkpoint_only and checkpoint_num is not None:
+        raise ValueError("Cannot set both 'latest_checkpoint_only' and 'checkpoint_num'")
 
     if latest_checkpoint_only:
         latest_checkpoint_directory = max(sharded_checkpoint_directories, default=None, key=_get_checkpoint_number)
         sharded_checkpoint_directories = (
             [latest_checkpoint_directory] if latest_checkpoint_directory is not None else []
         )
+    elif checkpoint_num is not None:
+        sharded_checkpoint_directories = [
+            sharded_checkpoint_dir
+            for sharded_checkpoint_dir in sharded_checkpoint_directories
+            if _get_checkpoint_number(sharded_checkpoint_dir) == checkpoint_num
+        ]
+        assert len(sharded_checkpoint_directories) <= 1
 
     log.info(
         "Found %d sharded checkpoint directories for %s", len(sharded_checkpoint_directories), run_dir_or_archive
@@ -920,7 +934,7 @@ def _unshard_checkpoints(
     run_dir_storage = _get_storage_adapter_for_path(run_dir)
 
     sharded_checkpoint_directories = _get_sharded_checkpoint_dirs(
-        run_dir_storage, run_dir, run_dir_or_archive, config.latest_checkpoint_only
+        run_dir_storage, run_dir, run_dir_or_archive, config.latest_checkpoint_only, config.checkpoint_num
     )
     for sharded_checkpoint_directory in sharded_checkpoint_directories:
         sharded_checkpoint_dir_name = Path(sharded_checkpoint_directory).name
