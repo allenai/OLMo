@@ -1424,22 +1424,37 @@ class Olmo(nn.Module):
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
         if wrap_strategy is None:
             return None
-        elif wrap_strategy == FSDPWrapStrategy.by_block:
+
+        # The 'recurse' mode for the wrap function does not behave like you'd expect.
+        # Even if we return False, it may still recurse because PyTorch does what it wants,
+        # not what you want. This causes issues when, for example, we want to wrap 'ff_out' (a linear layer)
+        # but not other linear layers within a block.
+        # So we have to explicitly tell PyTorch which linear layers to wrap, and we also just
+        # return True in 'recurse' mode for simplicity.
+        size_based_module_to_wrap = {self.transformer.wte}
+        if hasattr(self.transformer, "ff_out"):
+            size_based_module_to_wrap.add(self.transformer.ff_out)
+
+        if wrap_strategy == FSDPWrapStrategy.by_block:
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, (OlmoBlock, OlmoVisionBackbone))
                 if recurse:
-                    return True  # always recurse for simplicity
-                return isinstance(module, (OlmoVisionBackbone, OlmoBlock))
+                    return True
+                else:
+                    return wrap
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_and_size:
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, (OlmoBlock, OlmoVisionBackbone)) or module in size_based_module_to_wrap
                 if recurse:
-                    return True  # always recurse for simplicity
-                return isinstance(module, (OlmoVisionBackbone, OlmoBlock, nn.Linear, nn.Embedding))
+                    return True
+                else:
+                    return wrap
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_group:
@@ -1450,9 +1465,11 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, (OlmoBlockGroup, OlmoVisionBackbone))
                 if recurse:
-                    return True  # always recurse for simplicity
-                return isinstance(module, (OlmoVisionBackbone, OlmoBlockGroup))
+                    return True
+                else:
+                    return wrap
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_group_and_size:
@@ -1463,9 +1480,13 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = (
+                    isinstance(module, (OlmoBlockGroup, OlmoVisionBackbone)) or module in size_based_module_to_wrap
+                )
                 if recurse:
-                    return True  # always recurse for simplicity
-                return isinstance(module, (OlmoVisionBackbone, OlmoBlockGroup, nn.Linear, nn.Embedding))
+                    return True
+                else:
+                    return wrap
 
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.size_based:
@@ -1487,9 +1508,11 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
+                wrap = isinstance(module, (OlmoBlock, OlmoVisionBackbone)) and module.layer_id % c == 0
                 if recurse:
-                    return True  # always recurse for simplicity
-                return isinstance(module, (OlmoVisionBackbone, OlmoBlock)) and module.layer_id % c == 0
+                    return True
+                else:
+                    return wrap
 
             return fsdp_wrap_fn
         else:
