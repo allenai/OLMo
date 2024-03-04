@@ -913,6 +913,9 @@ def _unshard_checkpoints(
 ):
     log.info("Starting unsharding checkpoints of run directory or archive %s", run_dir_or_archive)
 
+    if config.delete_sharded_checkpoints and _is_archive(run_dir_or_archive, run_storage):
+        raise ValueError("Cannot delete sharded checkpoints of run archive files")
+
     run_dir = _unarchive_if_archive(run_dir_or_archive, run_storage)
     run_dir_storage = _get_storage_adapter_for_path(run_dir)
 
@@ -948,6 +951,14 @@ def _unshard_checkpoints(
         else:
             log.info("Unsharding sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
             _unshard_checkpoint(sharded_checkpoint_directory, dest_directory, run_dir, config)
+
+        if config.delete_sharded_checkpoints:
+            assert run_dir == run_dir_or_archive
+            if config.dry_run:
+                log.info("Would delete sharded checkpoint %s", sharded_checkpoint_directory)
+            else:
+                log.info("Deleting sharded checkpoint %s", sharded_checkpoint_directory)
+                run_dir_storage.delete_path(sharded_checkpoint_directory)
 
 
 def unshard_run_checkpoints(run_path: str, checkpoints_dest_dir: str, config: UnshardCheckpointsConfig):
