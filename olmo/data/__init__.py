@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 from ..aliases import PathOrStr
 from ..config import DataConfig, TrainConfig, ObjectStoreConfig, ModelConfig
 from ..exceptions import OlmoConfigurationError
+from ..mm_data.data_iteration import IterationConfig
 from ..mm_data.data_store import ExampleReader, MMStorageConfig
 from ..mm_data.image_preprocessing import ImagePreprocessor, ClipImageResize, AnyResClipImageResize
 from ..mm_data.iterable_dataset import MMIterableDataset
@@ -109,6 +110,7 @@ def build_image_preprocessor(config: ModelConfig) -> ImagePreprocessor:
             (v_cfg.image_width, v_cfg.image_height),
             (v_cfg.patch_width, v_cfg.patch_height),
             v_cfg.pad_image,
+            resample_tokens,
         )
 
 
@@ -130,22 +132,25 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
         assert train_config.model.vision_backbone is not None
         data_cfg = train_config.data
         model_config = train_config.model
-        image_preprocessor = build_image_preprocessor(model_config)
-        reader = ExampleReader(
-            build_object_store(data_cfg.object_store_config),
-            image_sizer=image_preprocessor.image_token_sizer(),
-            data_files=data_cfg.paths,
-            storage_config=MMStorageConfig()
-        )
+        if model_config.vision_backbone is not None:
+            object_store = build_object_store(data_cfg.object_store_config)
+            image_preprocessor = build_image_preprocessor(model_config)
+        else:
+            object_store = None
+            image_preprocessor = None
+        it_config = IterationConfig(data_cfg.paths, data_cfg.sampler, data_cfg.sequence_builder)
         dataset = MMIterableDataset(
-            reader,
-            data_cfg.idx_dir,
+            data=it_config,
+            object_store=object_store,
             image_preprocessor=image_preprocessor,
+            idx_dir=data_cfg.idx_dir,
             seed=train_config.seed + (train_config.epoch or 0),
             sequence_length=train_config.model.max_sequence_length,
             global_batch_size=train_config.global_train_batch_size,
             drop_last=train_config.data.drop_last,
-            num_threads=train_config.data.num_threads
+            num_threads=train_config.data.num_threads,
+            thread_buffer_factor=train_config.data.thread_buffer_factor,
+            eos_token_id=model_config.eos_token_id,
         )
     else:
         dataset = IterableDataset(

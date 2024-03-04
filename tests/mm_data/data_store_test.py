@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from olmo.mm_data.data_store import ExampleReader, TextChunk, ImageChunk, build_data_file, MMStorageConfig
+from olmo.mm_data.data_store import ExampleReader, TextChunk, ImageChunk, write_data_file, MMStorageConfig
 from olmo.mm_data.image_token_size import FixedNumberOfToken
 from olmo.mm_data.object_store import InMemoryStore
 
@@ -14,10 +14,10 @@ def test_example_store_text(tmp_path: Path):
     data_file = tmp_path.joinpath("data.bin")
     with open(data_file, "wb") as f:
         f.write(data.tobytes())
-    store = ExampleReader(None, None, {0: data_file}, MMStorageConfig())
+    store = ExampleReader({0: data_file}, None, None, MMStorageConfig())
     out = store.read_range(0, 0, len(data) * 2)
     assert np.all(out["input_ids"] == data)
-    assert np.all(np.logical_not(out["label_mask"]))
+    assert np.all(out["label_mask"])
 
     out = store.read_range(0, 0, 2)
     assert np.all(out["input_ids"] == data[:1])
@@ -51,7 +51,7 @@ def test_example_store_two_files(tmp_path: Path):
     data_file2 = tmp_path.joinpath("data2.bin")
     with open(data_file2, "wb") as f:
         f.write(data2.tobytes())
-    store = ExampleReader(None, None, {1: data_file1, 2: data_file2}, MMStorageConfig())
+    store = ExampleReader({1: data_file1, 2: data_file2}, None, None, MMStorageConfig())
 
     assert np.all(store.read_range(1, 2, 6)["input_ids"] == data1[1:4])
     assert np.all(store.read_range(2, 0, 4)["input_ids"] == data2[:2])
@@ -95,18 +95,18 @@ def test_example_store_mm(tmp_path: Path):
         [image_tok, _tokens(9), _mtokens(8), image_tok, _tokens(11)]
     ]
     data_file = tmp_path.joinpath("data1.bin")
-    indices = [(0, x[0], x[1]) for x in build_data_file(data, data_file, cfg)]
+    indices = [(0, x[0], sum(c.byte_len() for c in x[1])) for x in write_data_file(data, data_file, cfg)]
 
-    store = ExampleReader(object_store, FixedNumberOfToken(4), {0: data_file}, cfg)
+    store = ExampleReader({0: data_file}, object_store, FixedNumberOfToken(4), cfg)
 
     ex1 = store.read_range(*indices[0])
     assert np.all(ex1["input_ids"] == np.array([8, 3, 1]))
-    assert np.all(np.logical_not(ex1["label_mask"]))
+    assert np.all(ex1["label_mask"])
     assert ex1["images"] == []
 
     ex2 = store.read_range(*indices[1])
     assert np.all(ex2["input_ids"] == np.array([71, 12, 39]))
-    assert np.all(ex2["label_mask"] == np.array([False, False, True]))
+    assert np.all(ex2["label_mask"] == np.array([True, True, False]))
 
     ex3 = store.read_range(*indices[2])
     assert np.all(ex3["input_ids"] == np.array([3, 3] + [0] * 8 + [3]))
@@ -117,7 +117,7 @@ def test_example_store_mm(tmp_path: Path):
 
     ex4 = store.read_range(*indices[3])
     assert np.all(ex4["input_ids"] == np.array([0] * 4 + [9, 8] + [0] * 4 + [11]))
-    assert np.all(ex4["label_mask"] == ((ex4["input_ids"] == 8) | (ex4["input_ids"] == 0)))
+    assert np.all(ex4["label_mask"] == ~((ex4["input_ids"] == 8) | (ex4["input_ids"] == 0)))
     assert np.all(ex4["image_offsets"] == np.array([0, 6]))
 
     first3 = store.read_range(0, 0, indices[3][1], return_segments=True)

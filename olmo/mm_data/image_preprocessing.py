@@ -4,6 +4,7 @@ import numpy as np
 from PIL import Image
 import functools
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
+
 try:
     from torchvision.transforms import InterpolationMode
     BICUBIC = InterpolationMode.BICUBIC
@@ -68,14 +69,14 @@ def expand2square(pil_img, background_color=OPENAI_CLIP_MEAN):
 
 class ClipImageResize(ImagePreprocessor):
     """LLaVA + CLip Image Resize"""
-    def __init__(self, image_size, patch_size, pad_image=False):
+    def __init__(self, image_size, patch_size, pad_image=False, resample_tokens=None):
         self.image_size = image_size # (width, height)
         self.patch_size = patch_size # (w, h)
         assert image_size[0] == image_size[1]
         assert patch_size[0] == patch_size[1]
         assert image_size[0] % patch_size[0] == 0
         w_tok, h_tok = np.array(image_size) // np.array(patch_size)
-        self.n_tokens = w_tok*h_tok
+        self.n_tokens = w_tok*h_tok if resample_tokens is None else resample_tokens
         self.pad_image = pad_image
         self.transform = _transform(self.image_size[0])
 

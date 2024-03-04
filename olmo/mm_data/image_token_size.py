@@ -1,5 +1,35 @@
-from typing import Tuple
 import math
+from typing import Union, Tuple
+
+import numpy as np
+
+
+class ImageTokenSizer:
+    """Computes the number of tokens an image will be transformed into"""
+
+    def __call__(self, width: Union[int, np.ndarray], height: Union[int, np.ndarray]) -> Union[int, np.ndarray]:
+        """Number of tokens for an image of width x height
+
+        If the inputs are numpy arrays, this should compute the sizes all the images and return a scalar
+        or an array of the same size as the inputs
+        """
+        raise NotImplementedError()
+
+    def get_id(self) -> str:
+        """Persistent ID that reflects the behaviour of `self.num_tokens`"""
+        raise NotImplementedError()
+
+
+class FixedNumberOfToken(ImageTokenSizer):
+    def __init__(self, tokens: int):
+        self.tokens = tokens
+
+    def __call__(self, width: int, height: int) -> int:
+        return self.tokens
+
+    def get_id(self) -> str:
+        return f"fixed{self.tokens}"
+
 
 def select_best_resolution(original_size, possible_resolutions):
     """
@@ -32,27 +62,21 @@ def select_best_resolution(original_size, possible_resolutions):
     return best_fit
 
 
-class ImageTokenSizer:
-    """Computes the number of tokens an image will be transformed into"""
-
-    def __call__(self, width: int, height: int) -> int:
-        """Number of tokens for an image of width x height"""
-        raise NotImplementedError()
-
-    def get_id(self) -> str:
-        """Persistent ID that reflects the behaviour of `self.num_tokens`"""
-        raise NotImplementedError()
-
-
-class FixedNumberOfToken(ImageTokenSizer):
-    def __init__(self, tokens: int):
-        self.tokens = tokens
-
-    def __call__(self, width: int, height: int) -> int:
-        return self.tokens
-
-    def get_id(self) -> str:
-        return f"fixed{self.tokens}"
+def select_best_resolution_vec(width, height, possible_resolutions):
+    """Vectorized `select_best_resolution`"""
+    original_size = np.stack([width, height], -1)
+    original_res = np.prod(original_size, -1)
+    possible_resolutions = np.array(possible_resolutions)  # [n_res, 2]
+    possible_res = np.prod(possible_resolutions, -1)  # [n_res]
+    scale = np.min(possible_resolutions[None, :] / original_size[:, None], -1)  # [n_images, n_res]
+    downscaled = (scale[:, :, None]*original_size[:, None]).astype(np.int64)
+    downscaled_res = np.prod(downscaled, -1)  # [n_images, n_res]
+    # [n_examples, n_res]
+    effective_resolution = np.minimum(downscaled_res, original_res[:, None])  # [n_images, n_res]
+    wasted_resolution = possible_res[None, :] - effective_resolution
+    # Sort by effective_resolution, but with wasted_resolution as the tie breaker
+    selected = np.lexsort((wasted_resolution, -effective_resolution), axis=1)[:, 0] # [n_images]
+    return possible_resolutions[selected].T
 
 
 class AnyResImageTokenizer(ImageTokenSizer):
@@ -90,15 +114,38 @@ class AnyResImageTokenizer(ImageTokenSizer):
             width = current_width - 2 * padding
             height = current_height
         return width, height
+    
+    def get_unpad_shape_vec(self, image_size: Tuple[np.ndarray, np.ndarray], original_size: Tuple[np.ndarray, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
+        original_width, original_height = original_size
+        current_width, current_height = image_size
+        original_aspect_ratio = original_width / original_height
+        current_aspect_ratio = current_width / current_height
 
-    def __call__(self, width: int, height: int) -> int:
-        best_solution = select_best_resolution((width, height), self.possible_resolutions)
+        new_height = (original_height * (current_width / original_width)).astype(np.int64)
+        height_padding = (current_height - new_height) // 2
+        height_padding = height_padding * 2
+
+        new_width = (original_width * (current_height / original_height)).astype(np.int64)
+        width_padding = (current_width - new_width) // 2
+        width_padding = width_padding * 2
+
+        ind = (original_aspect_ratio > current_aspect_ratio).astype(np.int64)
+        width = ind * current_width + (1 - ind) * (current_width - width_padding)
+        height = ind * (current_height - height_padding) + (1 - ind) * current_height
+        return width, height
+
+    def __call__(self, width: Union[int, np.ndarray], height: Union[int, np.ndarray]) -> Union[int, np.ndarray]:
+        if isinstance(width, np.ndarray):
+            best_solution = select_best_resolution_vec(width, height, self.possible_resolutions)
+        else:
+            best_solution = select_best_resolution((width, height), self.possible_resolutions)
         if self.use_resampler:
             n_newlines = (best_solution[1] // self.target_h) * int(math.sqrt(self.n_tokens))
             return (1 + (best_solution[0] // self.target_w) * (best_solution[1] // self.target_h)) * self.n_tokens + n_newlines
         else:
             # Considering padding removal
-            new_width, new_height = self.get_unpad_shape(
+            unpad_func = self.get_unpad_shape_vec if isinstance(width, np.ndarray) else self.get_unpad_shape
+            new_width, new_height = unpad_func(
                 (best_solution[0] // self.patch_w, best_solution[1] // self.patch_h),
                 (width, height)
             )

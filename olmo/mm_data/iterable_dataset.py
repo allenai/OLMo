@@ -1,3 +1,4 @@
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from os.path import join
 from typing import List, Any, Dict, Optional, Union
@@ -5,43 +6,82 @@ from typing import List, Any, Dict, Optional, Union
 import torch
 import numpy as np
 
-
-from olmo.mm_data.data_store import ExampleReader
+from olmo.mm_data.data_store import ExampleReader, MMStorageConfig
 from olmo.mm_data.image_preprocessing import ImagePreprocessor
-from olmo.mm_data.sequence_index import get_idx_file, SequenceIndex
+from olmo.mm_data.image_token_size import ImageTokenSizer
+from olmo.mm_data.object_store import ObjectStore
+from olmo.mm_data.sequence_index import SequenceIndex, get_idx_file
+from olmo.mm_data.data_iteration import IterationConfig, build_iteration_order
 from olmo.torch_util import get_global_rank, get_world_size
+
+logger = logging.getLogger(__name__)
 
 
 class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
     def __init__(
         self,
-        reader: ExampleReader,
-        idx_dir: str,
+        data: Union[IterationConfig, List[str], str],
         seed: Union[int, List[int]],
         sequence_length: int,
-        image_preprocessor: ImagePreprocessor=None,
+        image_preprocessor: Union[ImagePreprocessor, ImageTokenSizer, None],
+        object_store: ObjectStore=None,
+        idx_dir: str=None,
+        segment_ids=False,
         global_batch_size: int=1,
         start_index: int = 0,
-        drop_last: bool = False,
         max_examples: Optional[int] = None,
+        drop_last: bool = False,
         world_size: Optional[int] = None,
         rank: Optional[int] = None,
         num_threads: Optional[int] = None,
-        segment_ids=False,
+        thread_buffer_factor: float=1,
+        n_preprocessing_procs: int=None,
+        eos_token_id: int = 50279,
     ):
+        """
+        data: Data to iterate over, a path to a datafile, sequence of paths to datafiles, or an `IterationConfig`
+        seed: seed to iterate with, reshuffle will either add one or advance along the list
+        sequence_length: sequence length of examples to yield
+        image_preprocessor: How to pre-process images, if `ImageTokenSizer` no pre-processing is done,
+                            if None there must be no images in the data
+        object_store: How to look up objects if the data files contains remotely stored objects
+        idx_dir: where to look up pre-computed data iteration orders
+        global_batch_size: Global batch across all workers and devices
+        start_index: Start iterating from this sequence
+        max_examples: Stop an epoch after reach this sequence
+        """
         self.sequence_length = sequence_length
         self.segment_ids = segment_ids
         self.seeds = seed
+        self.start_index = start_index
         self.idx_dir = idx_dir
+
+        if isinstance(data, list):
+            data = IterationConfig(data)
+        elif isinstance(data, str):
+            data = IterationConfig([data])
+        self.iteration_config = data
+
+        if image_preprocessor is None:
+            self.image_sizer = None
+            self.image_preprocessor = None
+        elif isinstance(image_preprocessor, ImagePreprocessor):
+            self.image_sizer = image_preprocessor.image_token_sizer()
+            self.image_preprocessor = image_preprocessor
+        else:
+            self.image_sizer = image_preprocessor
+            self.image_preprocessor = None
+        self.reader = ExampleReader(self.iteration_config.paths, object_store, self.image_sizer, MMStorageConfig())
+
         self.world_size = world_size if world_size is not None else get_world_size()
         self.rank = rank if rank is not None else get_global_rank()
-        self.start_index = start_index
-        self.reader = reader
         self.max_examples = max_examples
         self.drop_last = drop_last
         self.num_threads = num_threads
         self.device_batch_size = global_batch_size // self.world_size
-        self.image_preprocessor = image_preprocessor
+        self.thread_buffer_factor = thread_buffer_factor
+        self.n_preprocessing_procs = n_preprocessing_procs
+        self.eos_token_id = eos_token_id
 
         assert global_batch_size % self.world_size == 0
         if max_examples is not None:
@@ -75,8 +115,17 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         self._init_for_seed(seed)
 
     def _init_for_seed(self, seed):
-        index_file = join(self.idx_dir, get_idx_file(self.reader.image_sizer, self.sequence_length, seed))
-        self._index = SequenceIndex(index_file)
+        if self.idx_dir is not None:
+            # Iteration order is pre-computed
+            index_file = join(self.idx_dir, get_idx_file(self.image_sizer, self.sequence_length, seed))
+            self._index = SequenceIndex(index_file)
+        else:
+            # Iteration order is computed on-the-fly
+            logging.info(f"Computing iteration order for seed {seed}...")
+            data = build_iteration_order(
+                self.iteration_config, self.sequence_length, seed,
+                self.image_sizer, n_procs=self.n_preprocessing_procs)
+            self._index = SequenceIndex(data)
 
     def __iter__(self):
         global_end_sequence = self.total_size
@@ -96,7 +145,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             global_workers = self.world_size
             worker_rank = self.rank
 
-        # Each worker reads one device batch and the skips examples other workers will read
+        # Each worker reads one device batch and the skips examples other workers across all devices will read
         # This works because the pytorch data loader will collect one batch at a time from each worker
         block_step = self.device_batch_size * (global_workers - 1)
         start = self.start_index + worker_rank * self.device_batch_size
@@ -115,7 +164,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             # more sparsely, the threads do data reading and data preprocessing
 
             # In order to stay ahead of training keep a buffer of futures > batch_size
-            buffer = self.device_batch_size * 2
+            buffer = max(int(round(self.device_batch_size * self.thread_buffer_factor)), num_threads)
             with ThreadPoolExecutor(max_workers=num_threads) as pool:
                 # avoid pool.map(_read, it) since it will consume the entire iterator
                 # instead we queue `buffer` reads then (get)->(yield)->(buffer next read) until done
@@ -167,6 +216,11 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
                 item["num_patches_per_image"] = torch.as_tensor(all_num_patches_per_image)
                 if sizes is not None:
                     item["image_sizes"] = torch.as_tensor(sizes)
+        else:
+            # text-only mode
+            assert len(item["images"]) == 0
+            del item["image_offsets"]
+            del item["images"]
 
         # Convert to a torch-compatible dtype
         item["input_ids"] = torch.as_tensor(item["input_ids"].astype(np.int32))
