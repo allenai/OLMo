@@ -559,6 +559,7 @@ class DataSamplingConfig(BaseConfig):
 
 class SequenceBuilderKind(StrEnum):
     sequential = "sequential"
+    one_document_per_sequence = "one_document_per_sequence"
     split_text = "split_text"
     optimize_last = "optimize_last"
 

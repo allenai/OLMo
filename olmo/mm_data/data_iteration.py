@@ -17,26 +17,25 @@ from olmo.mm_data.image_token_size import ImageTokenSizer
 from olmo.mm_data.structure_index import Indexer, VectorizedIndexer
 from olmo.util import human_readable_number as hs
 
+try:
+    import pyximport
+except ImportError:
+    pyximport = None
 
 logger = logging.get_logger(__name__)
-
 
 data_iteration_cython = None
 
 
 def try_import_cython():
+    if pyximport is None:
+        return False
     # Only import if needed so we don't compile the cython code if its not needed
     global data_iteration_cython
-    if data_iteration_cython is not None:
-        return data_iteration_cython
-    try:
-        import pyximport
-    except ImportError:
-        return False
-
-    pyximport.install(setup_args={'include_dirs': np.get_include()})
-    from olmo.mm_data import data_iteration_cython as cython
-    data_iteration_cython = cython
+    if data_iteration_cython is None:
+        pyximport.install(setup_args={'include_dirs': np.get_include()}, inplace=False)
+        from olmo.mm_data import data_iteration_cython as cython
+        data_iteration_cython = cython
     return True
 
 
@@ -169,6 +168,10 @@ def build_sequence_builder(config: Optional[SequenceBuilderConfig]) -> SequenceB
         return Sequential()
     if config.kind == SequenceBuilderKind.sequential:
         base = Sequential()
+    elif config.kind == SequenceBuilderKind.one_document_per_sequence:
+        assert config.n_splits is None
+        assert config.max_per_split is None
+        return OneDocumentPerSequence()
     elif config.kind == SequenceBuilderKind.split_text:
         base = SequentialSplitText()
     elif config.kind == SequenceBuilderKind.optimize_last:
@@ -215,6 +218,17 @@ class ParallelizableSequenceBuilder(SequenceBuilder):
             r["sequence_number"] += end_seq
             out.append(r)
         out = np.concatenate(out)
+        return out
+
+
+class OneDocumentPerSequence(SequenceBuilder):
+    """Each document is in its own sequence"""
+
+    def __call__(self, documents: np.ndarray, max_seq_len: int, pool=None):
+        assert np.all(documents["num_tokens"] <= max_seq_len)
+        out = np.empty(len(documents), DOC_SEQUENCE_DTYPE)
+        out["doc_id"] = documents["doc_id"]
+        out["sequence_number"] = np.arange(len(documents), dtype=np.uint64)
         return out
 
 
@@ -416,7 +430,7 @@ class DocumentPool:
     def get_first(self):
         if self.is_empty():
             raise ValueError()
-        return np.argmax(self.hist)
+        return self.find_at_most(len(self.hist))
 
 
 class OptimizeLast(SequenceBuilder):
@@ -431,6 +445,8 @@ class OptimizeLast(SequenceBuilder):
 
     def __call__(self, examples: np.ndarray, max_seq_len: int, n_procs=None):
         assert np.all(examples["num_tokens"] <= max_seq_len)
+        if try_import_cython():
+            return data_iteration_cython.optimize_last(examples, max_seq_len, self.pool_size)
         pool = DocumentPool(max_seq_len, self.pool_size)
         for ex in examples[:self.pool_size]:
             pool.add(ex)
