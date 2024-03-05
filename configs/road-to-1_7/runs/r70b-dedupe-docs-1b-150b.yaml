@@ -1,4 +1,4 @@
-run_name: r70b-baseline-sources-1b-150b
+run_name: r70b-dedupe-docs-1b-150b
 seed: 6198
 dry_run: false
 
