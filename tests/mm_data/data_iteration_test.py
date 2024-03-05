@@ -107,25 +107,38 @@ def test_reorder():
     assert np.all(idx["sequence_number"] == [0, 1, 2, 2])
 
 
-def test_shuffle_sequences():
+def reorder_slow(idx, sequence_ixs):
+    new_seq_ids = sequence_ixs[idx["sequence_number"]]
+    idx["sequence_number"] = new_seq_ids                # change to the new sequence number
+    return idx[np.argsort(new_seq_ids, kind="stable")]  # sort to fix the ordering
+
+
+def test_reorder_rng():
     for i in range(3):
         rng = np.random.RandomState(i*31 + 91193)
-        data = np.zeros((5,), DOC_SEQUENCE_DTYPE)
+        data = np.zeros((30,), DOC_SEQUENCE_DTYPE)
         seq_num = (rng.random(len(data)) > 0.7).astype(np.uint64)
         seq_num[0] = 0
         data["doc_id"]["start_byte"] = np.arange(len(data), dtype=np.uint64)
         data["sequence_number"] = np.cumsum(seq_num)
+        n_seq = int(data["sequence_number"][-1]) + 1
 
         sequence_ixs = np.arange(int(data["sequence_number"][-1])+1, dtype=np.int64)
         rng.shuffle(sequence_ixs)
 
-        shuf = reorder_sequences(data, sequence_ixs)
-        seq_num = shuf["sequence_number"].astype(np.int64)
+        actual = reorder_sequences(data.copy(), sequence_ixs)
+
+        expected = reorder_slow(data, sequence_ixs)
+        assert np.all(expected == actual)
+
+        # Some sanity checks just to double-check
+        seq_num = actual["sequence_number"].astype(np.int64)
         deltas = seq_num[1:] - seq_num[:-1]
+        assert np.all(np.unique(seq_num) == np.arange(n_seq, dtype=np.int64))
         assert seq_num[0] == 0
         assert np.all(deltas <= 1)
         assert np.all(deltas >= 0)
-        assert np.all(np.sort(data["doc_id"]["start_byte"]) == np.arange(len(data), dtype=np.int64))
+        assert np.all(np.sort(actual["doc_id"]["start_byte"]) == np.arange(len(data), dtype=np.int64))
 
 
 def test_optimize_last():

@@ -22,7 +22,9 @@ try:
 except ImportError:
     pyximport = None
 
+
 logger = logging.get_logger(__name__)
+
 
 data_iteration_cython = None
 
@@ -33,6 +35,7 @@ def try_import_cython():
     # Only import if needed so we don't compile the cython code if its not needed
     global data_iteration_cython
     if data_iteration_cython is None:
+        logger.info("Importing cython modules")
         pyximport.install(setup_args={'include_dirs': np.get_include()}, inplace=False)
         from olmo.mm_data import data_iteration_cython as cython
         data_iteration_cython = cython
@@ -563,28 +566,28 @@ def split_example(rng, num_tokens, seq_len, min_seq_len=16):
 
 def reorder_sequences(idx, sequence_ixs):
     """Re-arranges the sequences in `idx` according to `sequence_ixs`"""
-    # In essence, we want to do
-    #     new_seq_ids = sequence_ixs[idx["sequence_number"]]
-    #     idx["sequence_number"] = new_seq_ids                # change to the new sequence number
-    #     return idx[argsort(new_seq_ids)]                    # sort to fix the ordering
+    # We want to do
+    # new_seq_ids = sequence_ixs[idx["sequence_number"]]
+    # idx["sequence_number"] = new_seq_ids                 # change to the new sequence number
+    # return idx[np.argsort(new_seq_ids, kind="stable")]   # sort to fix the ordering
     # But that can become slow at the 1b+ scale, with some tricks we can use a cumulative
     # sum to find out how the new sequence should be ordered instead of a sort
+
     if try_import_cython():
         # cython version roughly 4x faster
         return data_iteration_cython.reorder_sequence(idx, sequence_ixs)
 
-    counts = np.zeros(len(sequence_ixs), dtype=np.int64)
-    np.add.at(counts, idx["sequence_number"], 1)
+    new_seq_ids = sequence_ixs[idx["sequence_number"]]
+    counts = np.zeros(len(new_seq_ids), dtype=np.int64)
+    np.add.at(counts, new_seq_ids, 1)
 
     # starts[i] is where sequence number `i` will start in the new `idx` matrix
-    new_counts = np.empty_like(counts)
-    new_counts[sequence_ixs] = counts
-    starts = np.empty(len(new_counts), dtype=np.int64)
+    starts = np.empty(len(counts), dtype=np.int64)
     starts[0] = 0
-    np.cumsum(new_counts[:-1], out=starts[1:])
+    np.cumsum(counts[:-1], out=starts[1:])
 
-    # now starts[i] is where the previous sequence number `i` will start in the new `idx` matrix
     starts = starts[sequence_ixs]
+    counts = counts[sequence_ixs]
 
     # We want to map idx[l] to the row `starts[idx[l].sequence_number]`, but also
     # offset to account for the fact multiple documents will have the same sequence number
@@ -593,9 +596,7 @@ def reorder_sequences(idx, sequence_ixs):
     mapping[counts[0]:] -= np.repeat(counts[:-1].cumsum(), counts[1:])
 
     # Update the sequence numbers
-    idx["sequence_number"] = sequence_ixs[idx["sequence_number"]]
-
-    # Shift to the new order
+    idx["sequence_number"] = new_seq_ids
     out = np.empty_like(idx)
     out[mapping] = idx
     return out

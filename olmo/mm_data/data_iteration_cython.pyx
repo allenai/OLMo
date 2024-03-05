@@ -41,7 +41,7 @@ cdef packed struct DocSequence:
 cdef packed struct DocTokens:
     DocId doc_id
     cnp.uint32_t num_tokens
-
+    
 
 def reorder_sequence(cnp.ndarray idx_arr, cnp.ndarray new_order_arr):
     cdef DocSequence[:] idx = idx_arr
@@ -54,13 +54,10 @@ def reorder_sequence(cnp.ndarray idx_arr, cnp.ndarray new_order_arr):
     cdef long long j
     cdef long long size = len(idx_arr)
     for j in range(size):
-        seq_counts[idx[j].sequence_number] += 1
+        seq_counts[new_order[idx[j].sequence_number]] += 1
 
-    cdef new_seq_counts_arr = seq_counts_arr[new_order_arr]
-    cdef cnp.int64_t[:] new_seq_counts = new_seq_counts_arr
-
-    cdef cnp.ndarray start_arr = seq_counts_arr
-    np.cumsum(start_arr[:-1], out=start_arr[1:])
+    cdef cnp.ndarray start_arr = np.empty_like(seq_counts_arr)
+    np.cumsum(seq_counts_arr[:-1], out=start_arr[1:])
     start_arr[0] = 0
 
     cdef cnp.ndarray out_arr = np.zeros_like(idx_arr)
@@ -69,18 +66,15 @@ def reorder_sequence(cnp.ndarray idx_arr, cnp.ndarray new_order_arr):
 
     cdef long long on = 0
     cdef long long src_idx = 0
-    cdef cnp.uint64_t prev_seq = n_seq
-    cdef cnp.uint64_t out_seq = 0
 
     cdef long long seq, old_seq, count
     for seq in range(n_seq):
-        count = new_seq_counts[seq]
-        old_seq = idx[on].sequence_number
-        out_seq  = new_order[old_seq]
-        src_idx = starts[old_seq]
+        new_seq = new_order[seq]
+        count = seq_counts[new_seq]
+        src_idx = starts[new_seq]
         for j in range(count):
-            out[on].doc_id = idx[src_idx+j].doc_id
-            out[on].sequence_number = seq
+            out[src_idx+j].doc_id = idx[on].doc_id
+            out[src_idx+j].sequence_number = new_seq
             on += 1
     return out_arr
 
