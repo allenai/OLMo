@@ -543,13 +543,13 @@ class OlmoBlock(nn.Module):
             return r.transpose(1, 2)
         else:
             # torch's sdpa doesn't support GQA, so we're doing this
-            assert k.size(1) == v.size(1)
-            num_kv_heads = k.size(1)
-            num_q_heads = q.size(1)
-            if num_q_heads != num_kv_heads:
-                assert num_q_heads % num_kv_heads == 0
-                k = k.repeat_interleave(num_q_heads // num_kv_heads, dim=1, output_size=num_q_heads)
-                v = v.repeat_interleave(num_q_heads // num_kv_heads, dim=1, output_size=num_q_heads)
+            #  assert k.size(1) == v.size(1)
+            #  num_kv_heads = k.size(1)
+            #  num_q_heads = q.size(1)
+            #  if num_q_heads != num_kv_heads:
+            #      assert num_q_heads % num_kv_heads == 0
+            #      k = k.repeat_interleave(num_q_heads // num_kv_heads, dim=1, output_size=num_q_heads)
+            #      v = v.repeat_interleave(num_q_heads // num_kv_heads, dim=1, output_size=num_q_heads)
 
             return F.scaled_dot_product_attention(
                 q,
