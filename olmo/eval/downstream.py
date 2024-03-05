@@ -229,6 +229,8 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
                     # query, remove last token from continuation, truncate from left is longer than model ctx length
                     query = ctx + continuation[:-1]
                     query = query[-self.model_ctx_len :]
+                    # this will be different from len(ctx) when truncated by model_ctx_len
+                    actual_ctx_len = len(query) - len(continuation) + 1
 
                     # get domain conditional query
                     # we don't expect this to be longer than self.model_ctx_len and it won't make sense to truncate from left
@@ -241,7 +243,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
                             "cont_id": cont_id,
                             "ctx": ctx,
                             "continuation": continuation,
-                            "ctx_len": len(ctx),
+                            "ctx_len": actual_ctx_len,
                             "dc_len": len(dc),
                             "cont_len": len(
                                 continuation
