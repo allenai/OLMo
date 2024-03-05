@@ -216,7 +216,10 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
                 dc = self.token_encode(self.doc_to_domain_conditional(doc))
                 if self.log_instances > 0:
                     self.log_instances -= 1
-                    log.info(f"Sample doc from ({self.dataset_path}, {self.dataset_name}, {self.current_prompt}):" +
+                    ds_name = self.dataset_name
+                    if isinstance(ds_name, list):
+                        ds_name = ds_name[0]
+                    log.info(f"Sample doc from ({self.dataset_path}, {ds_name}, {self.current_prompt}):" +
                              f"\ndoc_text: {doc_text}\ncontinuations: {continuations}")
 
                 for cont_id, continuation_str in enumerate(continuations):
@@ -670,7 +673,7 @@ class SciQ(ICLMultiChoiceTaskDataset):
         )
 
     def doc_to_text(self, doc):
-        return doc["support"] + "\nQuestion: " + doc["question"] + "\nAnswer:".strip()
+        return doc["support"].strip() + "\nQuestion: " + doc["question"] + "\nAnswer:"
 
     def doc_to_continuations(self, doc):
         # add spaces in front of continuation
@@ -1091,14 +1094,18 @@ class MMLU(ICLMultiChoiceTaskDataset):
                     dataset_names.append(name)
         self.dev_set = {}
         if prompt_variations == 1:
-            self.prompts = [None, "inst", "inst+1", "inst+2", "inst+3", "inst+4", "inst+5"]
+            prompts = [None, "inst", "inst+1", "inst+2", "inst+3", "inst+4", "inst+5"]
             # Need to grab the dev set for the few-shot prompts
             for name in dataset_names:
                 self.dev_set[name] = datasets.load_dataset(path=dataset_path,
                                                            name=name,
                                                            split="dev",
                                                            trust_remote_code=True)
-        super().__init__(tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_names, split=split)
+        super().__init__(tokenizer=tokenizer,
+                         dataset_path=dataset_path,
+                         dataset_name=dataset_names,
+                         split=split,
+                         prompts=prompts)
 
     def doc_to_text(self, doc):
         output_text = "Question: " + doc["question"] + "\nAnswer:"
