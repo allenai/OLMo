@@ -1,0 +1,108 @@
+name: r70b-baseline-sources-1b-150b  # can't have "_" or "." here
+image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
+env_variables:
+  CONFIG_PATH: configs/road-to-1_7/runs/r70b-dedupe-docs-1b-150b.yaml
+  # LOAD_PATH: ""
+compute:
+  gpus: 64
+  cluster: r12z3
+  gpu_type: a100_40gb
+integrations:
+  - integration_type: git_repo
+    git_repo: allenai/OLMo
+    git_branch: soldni/dolma-v1.7
+    git_commit: 918e06f9fbac750176ef9268830a40543a882e42
+    pip_install: -e '.[train]'
+    ssh_clone: true
+command: |-
+  set -x
+
+  cd OLMo
+
+  pip freeze
+  mkdir -p /root/.cache/torch/
+
+  # Install aws cli
+  apt-get update
+  apt-get install zip unzip
+  curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+  unzip awscliv2.zip
+  sudo ./aws/install
+
+  # make your life easier by downloading huggingface cache
+  /usr/local/bin/aws s3 cp s3://ai2-llm/cache/olmo_huggingface_datasets_downstream_eval_20240229.zip \
+      /root/.cache/olmo_huggingface_datasets_downstream_eval_20240229.zip
+  unzip /root/.cache/olmo_huggingface_datasets_downstream_eval_20240229.zip -d /root/.cache
+  export HF_DATASETS_OFFLINE=1
+
+  export OMP_NUM_THREADS=8
+  export LOG_FILTER_TYPE=local_rank0_only
+
+  # check if LOAD_PATH is provided as an environment variable and not empty;
+  # if so, create an argument to pass to the training script
+  if [ -z ${LOAD_PATH} ]; then
+    LOAD_PATH_ARG=""
+  else
+    LOAD_PATH_ARG="--load_path=${LOAD_PATH}"
+  fi
+
+  # get run name, we will use this as run name in mcli
+  RUN_NAME=$(cat $CONFIG_PATH | grep -ohP "^run_name\:\w*(.+)$" | sed 's/run_name:\s*//')
+
+  # get a hash of the load path and config path; take the first 8 characters
+  RUN_HASH=$(echo "${LOAD_PATH_ARG}-${CONFIG_PATH}" | md5sum | cut -c 1-8)
+
+  # compose the two
+  FULL_RUN_NAME="${RUN_NAME}-${RUN_HASH}"
+
+  # get W&B settings from the config file, then extract the project and group
+  WANDB_SETTINGS=$(cat $CONFIG_PATH |  tr '\n' '\r' | grep -ohP "\rwandb:\r.*?\r\r"  | tr '\r' '\n')
+  export WANDB_PROJECT=$(echo $WANDB_SETTINGS | grep -ohP "\w*project\:\s*\S+(\s|$)" | sed 's/project:\s*//')
+  if [[ -z "${WANDB_PROJECT}" ]]; then
+    export WANDB_PROJECT="olmo-small"
+  fi
+
+  # check if W&B is provided; if not, use the run name as the project name
+  # (the actual run rame with have slurm ID appended)
+  export WANDB_GROUP=$(echo $WANDB_SETTINGS | grep -ohP "\w*group\:\w*(.+)" | sed 's/group:\s*//')
+  if [[ -z "${WANDB_GROUP}" ]]; then
+    export WANDB_GROUP="${RUN_NAME}"
+  fi
+
+  # save path
+  SAVE_FOLDER="/runs/${FULL_RUN_NAME}"
+  mkdir -p "${SAVE_FOLDER}"
+
+  # Even on mosaic, set a time limit of 48 hours for now
+  TIME_LIMIT=172800
+
+  torchrun \
+  --master_addr ${MASTER_ADDR} \
+  --master_port ${MASTER_PORT} \
+  --nnodes $NUM_NODES \
+  --node_rank $NODE_RANK \
+  --nproc_per_node 8 \
+  scripts/train.py \
+      ${CONFIG_PATH} \
+      --run_name="${FULL_RUN_NAME}" \
+      --wandb.project="${WANDB_PROJECT}" \
+      --wandb.group="${WANDB_GROUP}" \
+      --wandb.name="${FULL_RUN_NAME}" \
+      --time_limit="${TIME_LIMIT}" \
+      --save_folder="${SAVE_FOLDER}" \
+      --no_pre_train_checkpoint \
+      --model.flash_attention=true \
+      --compile=null \
+      --fsdp.sharding_strategy=FULL_SHARD \
+      --fsdp.wrapping_strategy=by_block \
+      --device_train_microbatch_size=6 \
+      --global_train_batch_size=2304 \
+      --save_folder='runs/${run_name}' \
+      --save_interval=1000 \
+      --save_interval_ephemeral=1000000 \
+      --save_interval_unsharded=5000 \
+      $LOAD_PATH_ARG
+
+
+  # --device_train_microbatch_size=4 \
+  # --global_train_batch_size=2048 \
