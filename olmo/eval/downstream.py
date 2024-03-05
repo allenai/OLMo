@@ -1117,7 +1117,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
             num_shots = re.findall("\\+(\\d+)", self.current_prompt)
             if num_shots:
                 dev_set = self.dev_set.get(doc.get('subject'), [])
-                for dev_doc in dev_set[:int(num_shots)]:
+                for dev_doc in dev_set[:int(num_shots[0])]:
                     answer = dev_doc["choices"][doc["answer"]]
                     prefix += "Question: " + doc["question"] + "\nAnswer: " + answer + "\n\n"
             output_text = prefix + output_text
