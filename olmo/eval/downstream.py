@@ -219,8 +219,10 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
                     ds_name = self.dataset_name
                     if isinstance(ds_name, list):
                         ds_name = ds_name[0]
-                    log.info(f"Sample doc from ({self.dataset_path}, {ds_name}, {self.current_prompt}):" +
-                             f"\ndoc_text: {doc_text}\ncontinuations: {continuations}")
+                    log.info(
+                        f"Sample doc from ({self.dataset_path}, {ds_name}, {self.current_prompt}):"
+                        + f"\ndoc_text: {doc_text}\ncontinuations: {continuations}"
+                    )
 
                 for cont_id, continuation_str in enumerate(continuations):
                     cont_str_len = len(continuation_str) - 1  # continuation contain leading blank
@@ -1075,12 +1077,14 @@ class MMLU(ICLMultiChoiceTaskDataset):
         "other": ["other", "business", "health"],
     }
 
-    def __init__(self,
-                 tokenizer,
-                 dataset_path="hails/mmlu_no_train",
-                 dataset_name=None,
-                 split="validation",
-                 prompt_variations=None):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="hails/mmlu_no_train",
+        dataset_name=None,
+        split="validation",
+        prompt_variations=None,
+    ):
         dataset_names = []
         # Collect the relevant categories
         if dataset_name in MMLU._categories:
@@ -1099,26 +1103,27 @@ class MMLU(ICLMultiChoiceTaskDataset):
             prompts = [None, "inst", "inst+1", "inst+2", "inst+3", "inst+4", "inst+5"]
             # Need to grab the dev set for the few-shot prompts
             for name in dataset_names:
-                self.dev_set[name] = datasets.load_dataset(path=dataset_path,
-                                                           name=name,
-                                                           split="dev",
-                                                           trust_remote_code=True)
-        super().__init__(tokenizer=tokenizer,
-                         dataset_path=dataset_path,
-                         dataset_name=dataset_names,
-                         split=split,
-                         prompts=prompts)
+                self.dev_set[name] = datasets.load_dataset(
+                    path=dataset_path, name=name, split="dev", trust_remote_code=True
+                )
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_names,
+            split=split,
+            prompts=prompts,
+        )
 
     def doc_to_text(self, doc):
         output_text = "Question: " + doc["question"] + "\nAnswer:"
         if self.current_prompt is not None:
             prefix = ""
             if "inst" in self.current_prompt:
-                subject = doc.get('subject').replace("_", " ")
+                subject = doc.get("subject").replace("_", " ")
                 prefix = f"The following are multiple choice questions (with answers) about {subject}:\n\n"
             num_shots = re.findall("\\+(\\d+)", self.current_prompt)
             if num_shots:
-                dev_set = self.dev_set.get(doc.get('subject'), [])
+                dev_set = self.dev_set.get(doc.get("subject"), [])
                 num_shots_int = int(num_shots[0])
                 for idx, dev_doc in enumerate(dev_set):
                     if idx >= num_shots_int:
