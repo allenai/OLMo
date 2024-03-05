@@ -1,4 +1,5 @@
 import abc
+import logging
 import re
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Union
 
@@ -9,6 +10,8 @@ from sklearn.metrics import f1_score
 from torchmetrics import Metric
 
 from ..tokenizer import Tokenizer
+
+log = logging.getLogger(__name__)
 
 
 class ICLMetric(Metric):
@@ -162,6 +165,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         self.model_ctx_len = model_ctx_len
         self.prompts = prompts
         self.current_prompt = None
+        self.log_instances = 5  # Log the first few instances as a sanity check
 
         self.samples: List[Dict[str, Any]] = []
         dataset_names: Sequence[Optional[str]]
@@ -177,6 +181,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
                     path=self.dataset_path,
                     name=ds_name,
                     split=split,
+                    trust_remote_code=True,
                 )
             )
         self.dataset = datasets.concatenate_datasets(dataset_list)
@@ -206,8 +211,13 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
 
                 continuations = self.doc_to_continuations(doc)
                 label_id = self.doc_to_label(doc)
-                ctx = self.token_encode(self.doc_to_text(doc))
+                doc_text = self.doc_to_text(doc)
+                ctx = self.token_encode(doc_text)
                 dc = self.token_encode(self.doc_to_domain_conditional(doc))
+                if self.log_instances > 0:
+                    self.log_instances -= 1
+                    log.info(f"Sample doc from ({self.dataset_path}, {self.dataset_name}, {self.current_prompt}):" +
+                             f"\ndoc_text: {doc_text}\ncontinuations: {continuations}")
 
                 for cont_id, continuation_str in enumerate(continuations):
                     cont_str_len = len(continuation_str) - 1  # continuation contain leading blank
@@ -1084,7 +1094,10 @@ class MMLU(ICLMultiChoiceTaskDataset):
             self.prompts = [None, "inst", "inst+1", "inst+2", "inst+3", "inst+4", "inst+5"]
             # Need to grab the dev set for the few-shot prompts
             for name in dataset_names:
-                self.dev_set[name] = datasets.load_dataset(path=dataset_path, name=name, split="dev")
+                self.dev_set[name] = datasets.load_dataset(path=dataset_path,
+                                                           name=name,
+                                                           split="dev",
+                                                           trust_remote_code=True)
         super().__init__(tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_names, split=split)
 
     def doc_to_text(self, doc):
