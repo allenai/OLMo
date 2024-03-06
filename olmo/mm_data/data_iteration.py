@@ -551,7 +551,7 @@ def _load_index(file_id, doc_seed, data, indexer, seq_len, sizing,
         # image), instead we just leave the full byte length and let the data reader truncate after loading
         # This is not optimal since the data loader could truncate the document to < seq_len, if, for example,
         # an entire image gets truncated, but we currently don't have the meta-data to detect that here
-        example_info[mm_truncate]["num_tokens"] = seq_len
+        example_info["num_tokens"][mm_truncate] = seq_len
 
     if data.presplit_text_documents:
         long_text = too_long & example_info["pure_text"]
