@@ -151,9 +151,8 @@ def test_optimize_last():
     assert out["sequence_number"][2:].tolist() == [1, 1, 1]
 
 
-# @pytest.mark.parametrize("builder", [Sequential(), SequentialSplitText(), OptimizeLast(32),
-#                                      ParallelizableSequenceBuilder(OptimizeLast(7), n_splits=3)])
-@pytest.mark.parametrize("builder", [SequentialSplitText()])
+@pytest.mark.parametrize("builder", [Sequential(), SequentialSplitText(), OptimizeLast(32),
+                                     ParallelizableSequenceBuilder(OptimizeLast(7), n_splits=3)])
 def test_sequence_building_random(builder: SequenceBuilder):
     for i in range(3):
         rng = np.random.RandomState(i*31 + 91193)

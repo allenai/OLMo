@@ -597,7 +597,7 @@ def build_iteration_order(
     seq_len: int,
     seed: int,
     sizing: ImageTokenSizer,
-    n_processes: int,
+    n_processes: Optional[int] = 1,
     indexer: Optional[Indexer] = None,
     index_files: Optional[List[str]] = None,
     storage_config: Optional[MMStorageConfig] = None
@@ -620,6 +620,8 @@ def build_iteration_order(
         indexer = VectorizedIndexer()
     if storage_config is None:
         storage_config = MMStorageConfig()
+    if n_processes is None:
+        n_processes = 1
     rng = np.random.RandomState(seed)
 
     logger.info(f"Loading meta-data for {len(data.paths)} data files")
