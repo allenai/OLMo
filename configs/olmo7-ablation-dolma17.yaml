@@ -1,11 +1,11 @@
-run_name: olmo7-ablation
+run_name: olmo7-ablation-dolma17
 seed: 61394
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo7-ablations
-  group: olmo7-ablation
+  group: olmo7-ablation-dolma17
 
 model:
   d_model: 4096
@@ -169,6 +169,18 @@ evaluators:
     type: downstream
 
   - label: mmlu_other
+    type: downstream
+
+  - label: mmlu_stem_var
+    type: downstream
+
+  - label: mmlu_humanities_var
+    type: downstream
+
+  - label: mmlu_social_sciences_var
+    type: downstream
+
+  - label: mmlu_other_var
     type: downstream
 
   #- label: copa
