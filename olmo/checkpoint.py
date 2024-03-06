@@ -993,6 +993,83 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
         )
         log.info("Done unsharding shard number %d to shared memory", shard_number)
 
+    def _unshard_using_sharded_mem(
+        self, state: Any, world_size: int, device: torch.device, shard_dir: PathOrStr
+    ) -> Any:
+        return self._unshard_state_using_shared_mem(state, world_size, device, (str(shard_dir).replace("/", "_"),))
+
+    def _unshard_state_using_shared_mem(
+        self, state: Any, world_size: int, device: torch.device, key: Tuple
+    ) -> Any:
+        if isinstance(state, (list, tuple, set)):
+            return state.__class__(
+                self._unshard_state_using_shared_mem(sub_state, world_size, device, key + (i,))
+                for i, sub_state in enumerate(state)
+            )
+        elif isinstance(state, dict):
+            return {
+                name: self._unshard_state_using_shared_mem(state[name], world_size, device, key + (name,))
+                for name in state.keys()
+            }
+        elif isinstance(state, ShardedTensor):
+            return self._unshard_tensor_using_shared_mem(state, world_size, device, key)
+        elif isinstance(state, torch.Tensor):
+            return state.to(device=device)
+        else:
+            return state
+
+    def _unshard_tensor_using_shared_mem(
+        self, sharded_tensor: ShardedTensor, world_size: int, device: torch.device, key: Tuple
+    ) -> torch.Tensor:
+        shard0_md = sharded_tensor.metadata()
+
+        def shard_size(shard_md):
+            return reduce((lambda x, y: x * y), shard_md.shard_sizes)  # type: ignore[attr-defined]
+
+        shard_placement, rank_sizes = self._get_shard_placement_and_rank_sizes(
+            shard0_md.shards_metadata, world_size
+        )
+
+        temp: np.ndarray = torch.zeros(1, dtype=shard0_md.tensor_properties.dtype).numpy()
+        numpy_type = temp.dtype
+        del temp
+
+        out = torch.empty(
+            *sharded_tensor.metadata().size, dtype=sharded_tensor.metadata().tensor_properties.dtype, device=device
+        )
+        dims = len(sharded_tensor.metadata().size)
+        for shard_md, (rank, rank_offset) in shard_placement.items():
+            if rank >= world_size:
+                raise RuntimeError(f"Shard rank {rank} exceeds world size {world_size}")
+
+            sharded_memory_name = "-".join(key + (str(rank),))
+            shm = shared_memory.SharedMemory(name=sharded_memory_name)
+
+            rank_size = rank_sizes[rank]
+            assert rank_size >= 0
+            if rank_size == 0:
+                continue
+
+            np_arr = np.ndarray((rank_size,), dtype=numpy_type, buffer=shm.buf)
+
+            tensor = torch.from_numpy(np_arr)[rank_offset : rank_offset + shard_size(shard_md)]
+            tensor = tensor.view(shard_md.shard_sizes)
+
+            out_narrow_view = out
+            for dim in range(dims):
+                out_narrow_view = out_narrow_view.narrow(
+                    dim,
+                    shard_md.shard_offsets[dim],
+                    shard_md.shard_sizes[dim],
+                )
+
+            out_narrow_view.copy_(tensor)
+
+            shm.close()
+            shm.unlink()
+
+        return out
+
     @contextmanager
     def _patch_sharded_tensor_load(self):
         """
