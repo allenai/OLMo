@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from functools import reduce
+from multiprocessing import shared_memory
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple, cast
 
@@ -912,6 +913,85 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
             optim_state if load_optimizer_state else None,
             full_state_dict if load_trainer_state else None,
         )
+
+    def _copy_sharded_tensors_to_shared_mem(self, state: Dict, world_size: int, rank: int, key: Tuple):
+        key = tuple() if key is None else key
+        if isinstance(state, (list, tuple, set)):
+            for i, sub_state in enumerate(state):
+                self._copy_sharded_tensors_to_shared_mem(sub_state, world_size, rank, key + (i,))
+        elif isinstance(state, dict):
+            for name in state.keys():
+                self._copy_sharded_tensors_to_shared_mem(state[name], world_size, rank, key + (name,))
+        elif isinstance(state, ShardedTensor):
+            self._copy_sharded_tensor_to_shared_mem(state, world_size, rank, key)
+            return
+        else:
+            return
+
+    def _get_shard_placement_and_rank_sizes(
+        self, shards_metadata: List[ShardMetadata], world_size: int
+    ) -> Tuple[Dict[ShardMetadata, Tuple[int, int]], List[int]]:
+        def shard_size(shard_md):
+            return reduce((lambda x, y: x * y), shard_md.shard_sizes)  # type: ignore[attr-defined]
+
+        rank_sizes = [0 for _ in range(world_size)]
+        shard_placement: Dict[ShardMetadata, Tuple[int, int]] = {}
+        for shard_md in shards_metadata:
+            shard_rank = cast(_remote_device, shard_md.placement).rank()
+            assert shard_rank is not None
+            if shard_rank >= world_size:
+                raise RuntimeError(f"Shard rank {shard_rank} exceeds world size {world_size}")
+
+            shard_placement[shard_md] = (shard_rank, rank_sizes[shard_rank])
+            rank_sizes[shard_rank] += shard_size(shard_md)
+
+        return shard_placement, rank_sizes
+
+    def _copy_sharded_tensor_to_shared_mem(
+        self, sharded_tensor: ShardedTensor, world_size: int, rank: int, key: Tuple
+    ) -> Any:
+        shard0_md = sharded_tensor.metadata()
+        shard_placement, rank_sizes = self._get_shard_placement_and_rank_sizes(
+            shard0_md.shards_metadata, world_size
+        )
+
+        rank_size = rank_sizes[rank]
+        assert rank_size >= 0
+        if rank_size == 0:
+            return
+
+        temp: np.ndarray = torch.zeros(rank_size, dtype=shard0_md.tensor_properties.dtype).numpy()
+        numpy_type = temp.dtype
+
+        sharded_memory_name = "-".join(key + (str(rank),))
+
+        shm = shared_memory.SharedMemory(create=True, size=temp.nbytes, name=sharded_memory_name)
+        del temp
+        np_arr = np.ndarray((rank_size,), dtype=numpy_type, buffer=shm.buf)
+
+        for local_shard in sharded_tensor.local_shards():
+            shard_rank = cast(_remote_device, local_shard.metadata.placement).rank()
+            assert shard_rank == rank
+
+            src = local_shard.tensor.flatten()
+            shard_offset = shard_placement[local_shard.metadata][1]
+
+            np_arr[shard_offset : shard_offset + src.numel()] = src.numpy()
+
+        shm.close()
+
+    def _copy_sharded_data_to_shared_mem(self, world_size: int, shard_filepath: Path):
+        shard_number = int(shard_filepath.name[4:-3])
+        log.info("Starting unsharding shard number %d to shared memory", shard_number)
+
+        with self._patch_sharded_tensor_load():
+            shard = torch.load(shard_filepath, map_location="cpu")
+            log.debug("Done loading shard number %d", shard_number)
+
+        self._copy_sharded_tensors_to_shared_mem(
+            shard, world_size, shard_number, (str(shard_filepath.parent).replace("/", "_"),)
+        )
+        log.info("Done unsharding shard number %d to shared memory", shard_number)
 
     @contextmanager
     def _patch_sharded_tensor_load(self):
