@@ -124,6 +124,7 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
         if train_config.model.vision_backbone is not None:
             vision_config = train_config.model.vision_backbone
             image_preprocessor = build_image_preprocessor(vision_config)
+            object_store = build_object_store(data_cfg.object_store_config)
         else:
             object_store = None
             image_preprocessor = None
