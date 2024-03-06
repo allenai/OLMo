@@ -18,9 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added `output_hidden_states` argument and associated functionality to `OLMo` and `OLMoForCausalLM` to return model intermediate hidden states.
-- Added MMLU downstream evaluation tasks.
 - Ability to read from R2 like we read from S3
+- Added MMLU downstream evaluation tasks, with prompt variations.
 - Added support for PyTorch v2.2.
+- Added ability to show logs from all ranks
+
 
 
 ## [v0.2.4](https://github.com/allenai/OLMo/releases/tag/v0.2.4) - 2024-02-02

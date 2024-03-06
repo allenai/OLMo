@@ -59,7 +59,7 @@ log = logging.getLogger(__name__)
 class LogFilterType(StrEnum):
     rank0_only = "rank0_only"
     local_rank0_only = "local_rank0_only"
-    firehose = "firehose"
+    all_ranks = "all_ranks"
 
 
 def log_extra_field(field_name: str, field_value: Any) -> None:
@@ -131,7 +131,7 @@ def setup_logging(log_filter_type: LogFilterType = LogFilterType.rank0_only) -> 
         filter = rank0_filter
     elif log_filter_type == LogFilterType.local_rank0_only:
         filter = local_rank0_filter  # type: ignore
-    elif log_filter_type == LogFilterType.firehose:
+    elif log_filter_type == LogFilterType.all_ranks:
         filter = None
     else:
         raise ValueError(log_filter_type)
