@@ -1,6 +1,7 @@
 """How to iterate over a data in a set of datafiles"""
 import collections
 import dataclasses
+import logging
 import math
 import multiprocessing
 from dataclasses import dataclass
@@ -10,7 +11,6 @@ from typing import List, Optional, Union, Tuple
 
 import numpy as np
 from scipy import sparse
-from transformers.utils import logging
 
 from olmo.config import DataSamplingConfig, SequenceBuilderConfig, SequenceBuilderKind
 from olmo.mm_data.data_store import MMStorageConfig
@@ -24,7 +24,7 @@ except ImportError:
     pyximport = None
 
 
-logger = logging.get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 data_iteration_cython = None
