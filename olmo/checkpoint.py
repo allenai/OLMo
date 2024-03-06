@@ -918,6 +918,7 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
         """
         Monkeypatch for torch's ShardedTensor, so we can unpickle without having torch.distributed set up.
         """
+
         def _rebuild_from_type_v2_monkey(func, new_type, args, state):
             ret = func(*args)
             if type(ret) is not new_type:
