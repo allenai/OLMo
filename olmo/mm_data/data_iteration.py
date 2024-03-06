@@ -313,7 +313,7 @@ class DocumentPool:
     def __init__(self, max_seq_len, pool_size):
         self.n_tokens_to_ex_id = [collections.deque() for _ in range(max_seq_len+1)]
         self.hist = np.zeros(max_seq_len+1, dtype=np.int32)
-        self.hist_min = max_seq_len
+        self.hist_min = max_seq_len + 1
 
     def add(self, ex):
         _n = ex["num_tokens"]
@@ -343,7 +343,7 @@ class DocumentPool:
     def get_first(self):
         if self.is_empty():
             raise ValueError()
-        return self.find_at_most(len(self.hist))
+        return self.find_at_most(len(self.hist)-1)
 
 
 class OptimizeLast(SequenceBuilder):
@@ -352,13 +352,15 @@ class OptimizeLast(SequenceBuilder):
 
     This aims to be fast and mostly preserve the order of the data stream
     """
-    def __init__(self, pool_size):
+    def __init__(self, pool_size, use_cython=None):
         assert isinstance(pool_size, int)
         self.pool_size = pool_size
+        self.use_cython = use_cython
 
     def __call__(self, examples: np.ndarray, max_seq_len: int, n_procs=None):
         assert np.all(examples["num_tokens"] <= max_seq_len)
-        if data_iteration_cython:
+        use_cython = self.use_cython or (self.use_cython is None and data_iteration_cython)
+        if use_cython:
             return data_iteration_cython.optimize_last(examples, max_seq_len, self.pool_size)
         pool = DocumentPool(max_seq_len, self.pool_size)
         for ex in examples[:self.pool_size]:
@@ -595,7 +597,7 @@ def build_iteration_order(
     seq_len: int,
     seed: int,
     sizing: ImageTokenSizer,
-    n_procs: int,
+    n_processes: int,
     indexer: Optional[Indexer] = None,
     index_files: Optional[List[str]] = None,
     storage_config: Optional[MMStorageConfig] = None
@@ -624,8 +626,8 @@ def build_iteration_order(
     doc_seeds = rng.randint(0, np.iinfo(np.uint32).max, len(data.paths))
     load_args = zip(*([range(len(data.paths)), doc_seeds] +
                       [repeat(x) for x in [data, indexer, seq_len, sizing, storage_config, index_files]]))
-    if n_procs > 1 and len(data.paths) > 1:
-        with multiprocessing.Pool(min(n_procs, len(data.paths)//2)) as pool:
+    if n_processes > 1 and len(data.paths) > 1:
+        with multiprocessing.Pool(min(n_processes, len(data.paths) // 2)) as pool:
             results = pool.starmap(_load_index, load_args)
     else:
         results = [_load_index(*x) for x in load_args]
@@ -647,7 +649,7 @@ def build_iteration_order(
     logger.info(f"Building sequences...")
     t0 = perf_counter()
     sequence_builder = build_sequence_builder(data.sequence_builder)
-    idx = sequence_builder(documents, seq_len, n_procs)
+    idx = sequence_builder(documents, seq_len, n_processes)
     del documents
     n_sequences = int(idx["sequence_number"][-1])+1
     logger.info(f"Built {hs(n_sequences)} sequences of len {seq_len} in {perf_counter()-t0:0.1f} seconds")
