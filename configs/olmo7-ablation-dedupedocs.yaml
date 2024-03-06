@@ -171,17 +171,17 @@ evaluators:
   - label: mmlu_other
     type: downstream
 
-  - label: mmlu_stem_var
-    type: downstream
+  #- label: mmlu_stem_var
+  #  type: downstream
 
-  - label: mmlu_humanities_var
-    type: downstream
+  #- label: mmlu_humanities_var
+  #  type: downstream
 
-  - label: mmlu_social_sciences_var
-    type: downstream
+  #- label: mmlu_social_sciences_var
+  #  type: downstream
 
-  - label: mmlu_other_var
-    type: downstream
+  #- label: mmlu_other_var
+  #  type: downstream
 
   #- label: copa
   #  type: downstream
