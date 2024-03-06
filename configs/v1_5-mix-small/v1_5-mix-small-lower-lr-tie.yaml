@@ -90,6 +90,7 @@ evaluators:
   # lump all the small datasets together (we still get separate metrics).
   - label: v3-small-ppl-validation
     data:
+      num_workers: 0
       drop_last: true
       datasets:
         v3-small-c4_en-validation:
@@ -110,13 +111,15 @@ evaluators:
           - ${oc.env:SCRATCH_DIR}/eval-data/perplexity/v3_small_gptneox20b/ice/val/part-0-00000.npy
         v3-small-m2d2_s2orc-validation:
           - ${oc.env:SCRATCH_DIR}/eval-data/perplexity/v3_small_gptneox20b/m2d2_s2orc/val/part-0-00000.npy
-        pile:
-        - ${oc.env:SCRATCH_DIR}/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy
+        v3-small-pile-validation:
+          - ${oc.env:SCRATCH_DIR}/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy
         v3-small-wikitext_103-validation:
           - ${oc.env:SCRATCH_DIR}/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy
 
   - label: v2-small-ppl-validation
     data:
+      num_workers: 0
+      drop_last: true
       datasets:
         v2-small-4chan-validation:
           - ${oc.env:SCRATCH_DIR}/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
@@ -144,7 +147,6 @@ evaluators:
           - ${oc.env:SCRATCH_DIR}/eval-data/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
         v2-small-wikitext_103-validation:
           - ${oc.env:SCRATCH_DIR}/eval-data/perplexity/v2_small_gptneox20b/wikitext_103/val.npy
-      drop_last: true
 
   - label: piqa
     type: downstream
