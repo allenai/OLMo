@@ -16,7 +16,7 @@ command: |-
   mkdir -p /root/.cache/torch/
 
   export OMP_NUM_THREADS=8
-  export LOG_FILTER_TYPE=firehose
+  export LOG_FILTER_TYPE=all_ranks
   #export OLMO_NO_SSL=1
 
   # warm up huggingface cache
