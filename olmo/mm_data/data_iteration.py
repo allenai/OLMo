@@ -27,15 +27,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-data_iteration_cython = None
-
-
-# if pyximport is None:
-#     return False
-# Only import if needed so we don't compile the cython code if its not needed
-# global data_iteration_cython
 if pyximport is not None:
-    logger.info("Importing cython modules")
     pyximport.install(setup_args={'include_dirs': np.get_include()}, inplace=False)
     from olmo.mm_data import data_iteration_cython
 else:
