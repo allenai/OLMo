@@ -21,7 +21,7 @@ dependencies = [
     "google-cloud-storage",
     "tokenizers",
     "packaging",
-    "cached_path",
+    "cached_path>=1.6.2",
     "transformers",
 ]
 

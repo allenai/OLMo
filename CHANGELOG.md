@@ -13,11 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the option to directly pass input embeddings to `OLMo` and `OLMoForCausalLM`.
 - Added support for Python 3.8.
 - Added code to throw an error if `output_attentions` is set to `True` in forward call to `OLMoForCausalLM`. This functionality hasn't been implemented yet.
+- Fixed running with data loading workers on LUMI
 
 ### Added
 - Added `output_hidden_states` argument and associated functionality to `OLMo` and `OLMoForCausalLM` to return model intermediate hidden states.
-- Added MMLU downstream evaluation tasks.
+- Added MMLU downstream evaluation tasks, with prompt variations.
 - Added support for PyTorch v2.2.
+- Added ability to show logs from all ranks
+
+
 
 ## [v0.2.4](https://github.com/allenai/OLMo/releases/tag/v0.2.4) - 2024-02-02
 
