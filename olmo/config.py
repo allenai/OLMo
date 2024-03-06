@@ -440,6 +440,11 @@ class SchedulerConfig(BaseConfig):
     t_warmup: int = 100
     t_max: Optional[int] = None
     alpha_f: float = 0.1
+    
+    t_restart: Optional[Union[int, float]] = None
+    """
+    The duration between restarts, for Schedulers that support restart functionality.
+    """
 
 
 class PaddingDirection(StrEnum):
