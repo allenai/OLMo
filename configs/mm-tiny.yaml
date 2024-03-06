@@ -71,7 +71,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 10e9
+max_duration: 1_000_000_000_000
 global_train_batch_size: 512
 device_train_microbatch_size: 2
 time_limit: null
