@@ -913,11 +913,12 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
             full_state_dict if load_trainer_state else None,
         )
 
-    def _unshard(self, input_dir: PathOrStr, device: torch.device, skip_keys: Optional[Set[str]] = None):
-        input_dir = Path(input_dir)
-        skip_keys = skip_keys or set()
+    @contextmanager
+    def _patch_sharded_tensor_load(self):
+        """
+        Monkeypatch for torch's ShardedTensor, so we can unpickle without having torch.distributed set up.
+        """
 
-        # Monkeypatch torch's ShardedTensor, so we can unpickle without having torch.distributed set up.
         def _rebuild_from_type_v2_monkey(func, new_type, args, state):
             ret = func(*args)
             if type(ret) is not new_type:
@@ -939,25 +940,35 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
                 ret = torch._utils._set_obj_state(ret, state)
             return ret
 
-        torch._tensor._rebuild_from_type_v2 = _rebuild_from_type_v2_monkey
+        original_rebuild_from_type_v2 = torch._tensor._rebuild_from_type_v2
+        try:
+            torch._tensor._rebuild_from_type_v2 = _rebuild_from_type_v2_monkey
+            yield
+        finally:
+            torch._tensor._rebuild_from_type_v2 = original_rebuild_from_type_v2
 
-        # We load in threads because it's faster.
-        executor = ThreadPoolExecutor()
-        shards_dict = {}
-        for shard_name in input_dir.glob("rank*.pt"):
-            log.info("Loading %s ...", shard_name)
-            shard_number = int(shard_name.name[4:-3])  # shard names look like "rankXX.pt"
-            shards_dict[shard_number] = executor.submit(torch.load, shard_name, map_location="cpu")
-        shards = [None] * len(shards_dict)
-        for rank, shard_future in shards_dict.items():
-            shard = shard_future.result()
-            for key in skip_keys:
-                if key in shard:
-                    del shard[key]
-            shards[rank] = shard
-        assert all(shard is not None for shard in shards)
-        executor.shutdown()
-        del shards_dict
+    def _unshard(self, input_dir: PathOrStr, device: torch.device, skip_keys: Optional[Set[str]] = None):
+        input_dir = Path(input_dir)
+        skip_keys = skip_keys or set()
+
+        with self._patch_sharded_tensor_load():
+            # We load in threads because it's faster.
+            executor = ThreadPoolExecutor()
+            shards_dict = {}
+            for shard_name in input_dir.glob("rank*.pt"):
+                log.info("Loading %s ...", shard_name)
+                shard_number = int(shard_name.name[4:-3])  # shard names look like "rankXX.pt"
+                shards_dict[shard_number] = executor.submit(torch.load, shard_name, map_location="cpu")
+            shards = [None] * len(shards_dict)
+            for rank, shard_future in shards_dict.items():
+                shard = shard_future.result()
+                for key in skip_keys:
+                    if key in shard:
+                        del shard[key]
+                shards[rank] = shard
+            assert all(shard is not None for shard in shards)
+            executor.shutdown()
+            del shards_dict
 
         log.info("Unsharding from %d shards ...", len(shards))
 
