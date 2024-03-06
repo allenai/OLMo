@@ -1099,6 +1099,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
                 if dataset_name in cats:
                     dataset_names.append(name)
         self.dev_set = {}
+        prompts = [None]
         if prompt_variations == 1:
             prompts = [None, "inst", "inst+1", "inst+2", "inst+3", "inst+4", "inst+5"]
             # Need to grab the dev set for the few-shot prompts
