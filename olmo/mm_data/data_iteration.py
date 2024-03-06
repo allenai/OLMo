@@ -9,6 +9,7 @@ from time import perf_counter
 from typing import List, Optional, Union, Tuple
 
 import numpy as np
+from scipy import sparse
 from transformers.utils import logging
 
 from olmo.config import DataSamplingConfig, SequenceBuilderConfig, SequenceBuilderKind
@@ -29,17 +30,16 @@ logger = logging.get_logger(__name__)
 data_iteration_cython = None
 
 
-def try_import_cython():
-    if pyximport is None:
-        return False
-    # Only import if needed so we don't compile the cython code if its not needed
-    global data_iteration_cython
-    if data_iteration_cython is None:
-        logger.info("Importing cython modules")
-        pyximport.install(setup_args={'include_dirs': np.get_include()}, inplace=False)
-        from olmo.mm_data import data_iteration_cython as cython
-        data_iteration_cython = cython
-    return True
+# if pyximport is None:
+#     return False
+# Only import if needed so we don't compile the cython code if its not needed
+# global data_iteration_cython
+if pyximport is not None:
+    logger.info("Importing cython modules")
+    pyximport.install(setup_args={'include_dirs': np.get_include()}, inplace=False)
+    from olmo.mm_data import data_iteration_cython
+else:
+    data_iteration_cython = None
 
 
 DOC_ID_DTYPE = np.dtype([
@@ -240,7 +240,7 @@ class Sequential(SequenceBuilder):
 
     def __call__(self, documents: np.ndarray, max_seq_len: int, pool=None):
         assert np.all(documents["num_tokens"] <= max_seq_len)
-        if try_import_cython():
+        if data_iteration_cython:
             return data_iteration_cython.sequential(documents, max_seq_len)
         total_tokens = 0
         out = np.zeros(len(documents), dtype=DOC_SEQUENCE_DTYPE)
@@ -256,100 +256,10 @@ class Sequential(SequenceBuilder):
         return out
 
 
-def segment_cumulative_sum(start_vals, segment_val, segment_starts, segment_lens):
-    arr = np.full(segment_starts[-1]+segment_lens[-1], segment_val, np.int64)
-    seq_delta = start_vals.astype(np.int64)
-    seq_delta[1:] -= seq_delta[:-1]
-    seq_delta[1:] -= (segment_lens[:-1]-1)*segment_val
-    arr[segment_starts] = seq_delta
-    np.cumsum(arr, out=arr)
-    return arr
-
-
-def merge_pure_text_vectorized(documents: np.ndarray, seq_len):
-    # Goes to some heroic lengths to vectorize text splitting
-    t0 = perf_counter()
-
-    # Assign existing documents their sequence numbers
-    total_tokens = documents["num_tokens"].astype(np.uint64)
-    np.cumsum(total_tokens, out=total_tokens)
-    seq_nums = (total_tokens - 1) // seq_len
-
-    out = np.zeros(len(documents), DOC_SEQUENCE_DTYPE)
-    out["doc_id"] = documents["doc_id"]
-    out["sequence_number"] = seq_nums
-    t0 = perf_counter()
-
-    # Now we will insert new doc_ids into `out` for cases where a document must be split
-    # sequence number changes for each document
-    delta = np.empty(len(documents), dtype=np.int64)
-    delta[1:] = seq_nums[1:] - seq_nums[:-1]
-    delta[0] = seq_nums[0]
-
-    t0 = perf_counter()
-
-    to_insert = []
-    to_insert_ix = []
-
-    # Handle cases where a document must be split to fill in a sequence
-    remainder = np.empty(len(documents), dtype=np.int64)
-    remainder[1:] = (seq_nums[:-1]+1)*seq_len - total_tokens[:-1]
-    remainder[0] = 0
-    to_split = np.argwhere((delta > 0) & (remainder > 0))[:, 0]
-    if len(to_split) > 0:
-        remainder = remainder[to_split].astype(np.uint64)
-        remainder *= 2
-        copies = out[to_split]
-        copies["sequence_number"] = out[to_split-1]["sequence_number"]
-        copies["doc_id"]["length"] = remainder
-        out["doc_id"]["start_byte"][to_split] += remainder
-        out["doc_id"]["length"][to_split] -= remainder
-        to_insert.append(copies)
-        to_insert_ix.append(to_split)
-
-    t0 = perf_counter()
-
-    to_copy = np.argwhere(delta > 1)[:, 0]
-    if len(to_copy) > 0:
-        # Case where a document into a some `max_seq_len` chunks
-        n_copies = delta[to_copy]
-        n_copies -= 1
-        starts = np.pad(n_copies, [1, 0])
-        starts = np.cumsum(starts)
-        copies = np.zeros(starts[-1], DOC_SEQUENCE_DTYPE)
-        starts = starts[:-1]
-        copy_from = out[to_copy]
-
-        copies["doc_id"]["length"] = seq_len*2
-        copies["doc_id"]["file_id"] = segment_cumulative_sum(
-            copy_from["doc_id"]["file_id"], 0, starts, n_copies)
-
-        copies["sequence_number"] = segment_cumulative_sum(
-            copy_from["sequence_number"].astype(np.int64) - n_copies,
-            1, starts, n_copies
-        )
-        copies["doc_id"]["start_byte"] = segment_cumulative_sum(
-            copy_from["doc_id"]["start_byte"],
-            2*seq_len, starts, n_copies
-        )
-        delta = (n_copies * (2 * seq_len)).astype(np.uint64)
-        out["doc_id"]["start_byte"][to_copy] += delta
-        out["doc_id"]["length"][to_copy] -= delta
-
-        idx = segment_cumulative_sum(to_copy, 0, starts, n_copies)
-        to_insert_ix.append(idx)
-        to_insert.append(copies)
-
-    if to_insert_ix:
-        out = np.insert(out, np.concatenate(to_insert_ix), np.concatenate(to_insert))
-
-    return out
-
-
 class SequentialSplitText(SequenceBuilder):
     """Arranges documents end-to-end but split text-only documents to fill in gaps"""
     def __call__(self, documents: np.ndarray, max_seq_len: int, n_proc=None):
-        if try_import_cython():
+        if data_iteration_cython:
             # About 100x faster
             return data_iteration_cython.sequential_split_text(documents, max_seq_len)
 
@@ -448,7 +358,7 @@ class OptimizeLast(SequenceBuilder):
 
     def __call__(self, examples: np.ndarray, max_seq_len: int, n_procs=None):
         assert np.all(examples["num_tokens"] <= max_seq_len)
-        if try_import_cython():
+        if data_iteration_cython:
             return data_iteration_cython.optimize_last(examples, max_seq_len, self.pool_size)
         pool = DocumentPool(max_seq_len, self.pool_size)
         for ex in examples[:self.pool_size]:
@@ -570,36 +480,22 @@ def reorder_sequences(idx, sequence_ixs):
     # new_seq_ids = sequence_ixs[idx["sequence_number"]]
     # idx["sequence_number"] = new_seq_ids                 # change to the new sequence number
     # return idx[np.argsort(new_seq_ids, kind="stable")]   # sort to fix the ordering
-    # But that can become slow at the 1b+ scale, with some tricks we can use a cumulative
-    # sum to find out how the new sequence should be ordered instead of a sort
+    # But that can become slow at the 1b+ scale,
 
-    if try_import_cython():
-        # cython version roughly 4x faster
+    if data_iteration_cython:
+        # cython version roughly 3x faster
         return data_iteration_cython.reorder_sequence(idx, sequence_ixs)
 
+    # if our data is in a sparse matrix, we can view this as getting it in a canonical CSR format (which
+    # sorts by row, then column). scipy has optimized code for this, although unfortunately we can't use
+    # complex dtypes in the matrix so have to use dummy data and just extract the indices
     new_seq_ids = sequence_ixs[idx["sequence_number"]]
-    counts = np.zeros(len(new_seq_ids), dtype=np.int64)
-    np.add.at(counts, new_seq_ids, 1)
-
-    # starts[i] is where sequence number `i` will start in the new `idx` matrix
-    starts = np.empty(len(counts), dtype=np.int64)
-    starts[0] = 0
-    np.cumsum(counts[:-1], out=starts[1:])
-
-    starts = starts[sequence_ixs]
-    counts = counts[sequence_ixs]
-
-    # We want to map idx[l] to the row `starts[idx[l].sequence_number]`, but also
-    # offset to account for the fact multiple documents will have the same sequence number
-    mapping = np.repeat(starts, counts)
-    mapping += np.arange(len(idx))
-    mapping[counts[0]:] -= np.repeat(counts[:-1].cumsum(), counts[1:])
-
-    # Update the sequence numbers
+    mapping = sparse.coo_array((
+        np.ones(len(idx), dtype=np.int64),
+        (new_seq_ids, np.arange(len(idx), dtype=np.int64))
+    )).tocsr(copy=False).indices
     idx["sequence_number"] = new_seq_ids
-    out = np.empty_like(idx)
-    out[mapping] = idx
-    return out
+    return idx[mapping]
 
 
 @dataclass
