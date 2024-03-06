@@ -37,7 +37,6 @@ command: |-
     --run_name=olmo7-ablation-dedupedocs \
     --wandb.name=dedupedocs \
     --model.flash_attention=true \
-    --compile.fullgraph=false \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=FULL_SHARD \
     --save_folder=runs/ \
