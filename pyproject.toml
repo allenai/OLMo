@@ -16,13 +16,12 @@ dependencies = [
     "numpy",
     "torch>=2.0,<2.3",
     "omegaconf",
-    "fsspec==2023.5.0", # temporary fix for HF dataset downloads
     "rich",
     "boto3",
     "google-cloud-storage",
     "tokenizers",
     "packaging",
-    "cached_path",
+    "cached_path>=1.6.2",
     "transformers",
 ]
 
