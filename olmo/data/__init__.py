@@ -146,9 +146,10 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
             seed=train_config.seed + (train_config.epoch or 0),
             sequence_length=train_config.model.max_sequence_length,
             global_batch_size=train_config.global_train_batch_size,
-            drop_last=train_config.data.drop_last,
-            num_threads=train_config.data.num_threads,
-            thread_buffer_factor=train_config.data.thread_buffer_factor,
+            drop_last=data_cfg.drop_last,
+            num_threads=data_cfg.num_threads,
+            thread_buffer_factor=data_cfg.thread_buffer_factor,
+            n_preprocessing_procs=data_cfg.n_preprocessing_procs,
             eos_token_id=model_config.eos_token_id,
         )
     else:

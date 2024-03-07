@@ -54,13 +54,10 @@ def reorder_sequence(cnp.ndarray idx_arr, cnp.ndarray new_order_arr):
     cdef long long j
     cdef long long size = len(idx_arr)
     for j in range(size):
-        seq_counts[idx[j].sequence_number] += 1
+        seq_counts[new_order[idx[j].sequence_number]] += 1
 
-    cdef new_seq_counts_arr = seq_counts_arr[new_order_arr]
-    cdef cnp.int64_t[:] new_seq_counts = new_seq_counts_arr
-
-    cdef cnp.ndarray start_arr = seq_counts_arr
-    np.cumsum(start_arr[:-1], out=start_arr[1:])
+    cdef cnp.ndarray start_arr = np.empty_like(seq_counts_arr)
+    np.cumsum(seq_counts_arr[:-1], out=start_arr[1:])
     start_arr[0] = 0
 
     cdef cnp.ndarray out_arr = np.zeros_like(idx_arr)
@@ -69,18 +66,15 @@ def reorder_sequence(cnp.ndarray idx_arr, cnp.ndarray new_order_arr):
 
     cdef long long on = 0
     cdef long long src_idx = 0
-    cdef cnp.uint64_t prev_seq = n_seq
-    cdef cnp.uint64_t out_seq = 0
 
     cdef long long seq, old_seq, count
     for seq in range(n_seq):
-        count = new_seq_counts[seq]
-        old_seq = idx[on].sequence_number
-        out_seq  = new_order[old_seq]
-        src_idx = starts[old_seq]
+        new_seq = new_order[seq]
+        count = seq_counts[new_seq]
+        src_idx = starts[new_seq]
         for j in range(count):
-            out[on].doc_id = idx[src_idx+j].doc_id
-            out[on].sequence_number = seq
+            out[src_idx+j].doc_id = idx[on].doc_id
+            out[src_idx+j].sequence_number = new_seq
             on += 1
     return out_arr
 
@@ -233,16 +227,12 @@ cdef class DocumentPool:
                 ix -= 1
 
     cpdef get_first(self):
-        cdef int j
-        cdef cnp.int32_t[:] hist = self.hist
-        for j in range(len(self.hist)-1, -1, -1):
-            if hist[j] > 0:
-                return j
-        raise ValueError("Pool is empty")
+        return self.find_at_most(self.seq_len)
 
 
 
-def optimize_last(doc_arr: cnp.ndarray, max_seq_len: int, pool_size: int):
+def optimize_last(doc_arr: cnp.ndarray, _max_seq_len, pool_size: int):
+    cdef cnp.uint32_t max_seq_len = _max_seq_len  # to allow np.int or python in as input
     assert np.all(doc_arr["num_tokens"] <= max_seq_len)
     documents: DocInfo[:] = doc_arr
     pool = DocumentPool(max_seq_len, pool_size)
@@ -296,6 +286,7 @@ def optimize_last(doc_arr: cnp.ndarray, max_seq_len: int, pool_size: int):
 
             for j in range(best_on):
                 if in_progress[j].num_tokens != max_seq_len:
+                    assert out_ix < len(out)
                     out[out_ix].doc_id = in_progress[j].doc_id
                     out[out_ix].sequence_number = on_seq
                     out_ix += 1
@@ -319,7 +310,8 @@ def optimize_last(doc_arr: cnp.ndarray, max_seq_len: int, pool_size: int):
             on_seq += 1
             best_pool = pool.find_at_most(max_seq_len)
             best_total = best_pool
-            on, on, seq_len, n_from_pool = 0, 0, 0, 0
+            best_on = 0
+            on, seq_len, n_from_pool = 0, 0, 0
         else:
             seq_len = next_len
             if on_example == size:

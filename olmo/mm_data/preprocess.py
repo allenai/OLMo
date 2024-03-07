@@ -76,7 +76,7 @@ def _preprocess_image(image, object_store, data_config) -> ImageChunk:
 
 
 def preprocess_example(
-        example: InputExample, tokenizer: Tokenizer, object_store, data_config
+        example: InputExample, tokenizer: Tokenizer, object_store, data_config, add_bos_token: bool = False, add_eos_token: bool = True,
 ) -> List[Document]:
     """pre-processing examples by tokenizing the text and storing the images"""
     out = []
@@ -84,6 +84,8 @@ def preprocess_example(
     is_masked = None
     prev_was_text = False
     last_text_ix = max(i for i, ex in enumerate(example) if isinstance(ex, (Masked, str)))
+    first_text_ix = min(i for i, ex in enumerate(example) if isinstance(ex, (Masked, str)))
+    assert not (add_bos_token and add_eos_token)
 
     if not example:
         raise ValueError("Zero length example")
@@ -110,8 +112,14 @@ def preprocess_example(
                 raise ValueError("Text must start with a space, or be preceded by an image, "
                                  "or start the document")
             ends_with_space = text[-1].isspace()
-            tokens = np.array(tokenizer.encode(text, add_special_tokens=ix == last_text_ix), np.uint16)
-            out.append(TextChunk(tokens, is_masked))
+            add_special_tokens = (add_bos_token and ix == first_text_ix) or (add_eos_token and ix == last_text_ix)
+            tokens = np.array(tokenizer.encode(text, add_special_tokens=add_special_tokens), np.uint16)
+            if not is_masked and add_bos_token and ix == first_text_ix:
+                assert tokens[0] == tokenizer.bos_token_id
+                out.append(TextChunk(tokens[:1], True))
+                out.append(TextChunk(tokens[1:], False))
+            else:
+                out.append(TextChunk(tokens, is_masked))
             prev_was_text = True
         else:
             prev_was_text = False

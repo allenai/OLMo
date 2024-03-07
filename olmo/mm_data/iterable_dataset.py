@@ -36,7 +36,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         num_threads: Optional[int] = None,
         thread_buffer_factor: float=1,
         n_preprocessing_procs: int=None,
-        eos_token_id: int = 50279,
+        eos_token_id: int = None,
     ):
         """
         data: Data to iterate over, a path to a datafile, sequence of paths to datafiles, or an `IterationConfig`
@@ -122,9 +122,10 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         else:
             # Iteration order is computed on-the-fly
             logging.info(f"Computing iteration order for seed {seed}...")
+            sequence_length = self.sequence_length if self.eos_token_id is None else self.sequence_length - 1
             data = build_iteration_order(
-                self.iteration_config, self.sequence_length, seed,
-                self.image_sizer, n_procs=self.n_preprocessing_procs)
+                self.iteration_config, sequence_length, seed,
+                self.image_sizer, n_processes=self.n_preprocessing_procs)
             self._index = SequenceIndex(data)
 
     def __iter__(self):
@@ -197,19 +198,21 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         - image_sizes: (n_images, 2)
             width, height of each image
         """
-        item = self.reader.read_ranges(sequence, self.sequence_length, self.segment_ids)
+        sequence_length = self.sequence_length if self.eos_token_id is None else self.sequence_length - 1
+        item = self.reader.read_ranges(sequence, sequence_length, self.segment_ids)
         if self.image_preprocessor:
             images = item.pop("images")
             offsets = item.pop("image_offsets")
             sizes = item.pop("image_sizes", None)
             if images:
+                eos_offset = self.eos_token_id is not None
                 all_patches = []
                 all_patch_offsets = []
                 all_num_patches_per_image = []
                 for image, offset in zip(images, offsets):
                     patches, patch_offsets = self.image_preprocessor(image, offset)
                     all_patches.append(torch.as_tensor(patches))
-                    all_patch_offsets.append(torch.as_tensor(patch_offsets))
+                    all_patch_offsets.append(eos_offset + torch.as_tensor(patch_offsets))
                     all_num_patches_per_image.append(patches.shape[0])
                 item["image_patches"] = torch.cat(all_patches)
                 item["image_offsets"] = torch.cat(all_patch_offsets)
@@ -224,4 +227,19 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
 
         # Convert to a torch-compatible dtype
         item["input_ids"] = torch.as_tensor(item["input_ids"].astype(np.int32))
+        if self.eos_token_id is not None:
+            assert "segment_ids" not in item
+            item["input_ids"] = torch.cat(
+                [
+                    torch.tensor([self.eos_token_id], dtype=item["input_ids"].dtype),
+                    item["input_ids"]
+                ],
+            )
+            item["label_mask"] = torch.as_tensor(item["label_mask"].astype(np.bool_))
+            item["label_mask"] = torch.cat(
+                [
+                    torch.tensor([False], dtype=torch.bool),
+                    item["label_mask"],
+                ],
+            )
         return item

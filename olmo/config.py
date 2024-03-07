@@ -627,6 +627,7 @@ class DataSamplingConfig(BaseConfig):
 
 class SequenceBuilderKind(StrEnum):
     sequential = "sequential"
+    one_document_per_sequence = "one_document_per_sequence"
     split_text = "split_text"
     optimize_last = "optimize_last"
 
@@ -658,6 +659,7 @@ class DataConfig(BaseConfig):
     object_store_config: Optional[ObjectStoreConfig] = None
     return_segment_ids: bool = False
     thread_buffer_factor: Optional[float] = 1
+    n_preprocessing_procs: Optional[int] = 1
 
     # shared
     num_threads: Optional[int] = None

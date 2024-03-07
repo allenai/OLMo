@@ -1,7 +1,7 @@
 """How to iterate over a data in a set of datafiles"""
-import logging
 import collections
 import dataclasses
+import logging
 import math
 import multiprocessing
 from dataclasses import dataclass
@@ -10,6 +10,7 @@ from time import perf_counter
 from typing import List, Optional, Union, Tuple
 
 import numpy as np
+from scipy import sparse
 
 from olmo.config import DataSamplingConfig, SequenceBuilderConfig, SequenceBuilderKind
 from olmo.mm_data.data_store import MMStorageConfig
@@ -17,16 +18,25 @@ from olmo.mm_data.image_token_size import ImageTokenSizer
 from olmo.mm_data.structure_index import Indexer, VectorizedIndexer
 from olmo.util import human_readable_number as hs
 
-
-logger = logging.getLogger(__name__)
-
 try:
     import pyximport
 except ImportError:
     pyximport = None
 
+
+logger = logging.getLogger(__name__)
+
+
+data_iteration_cython = None
+
+
+# if pyximport is None:
+#     return False
+# Only import if needed so we don't compile the cython code if its not needed
+# global data_iteration_cython
 if pyximport is not None:
-    pyximport.install(setup_args={'include_dirs': np.get_include()})
+    logger.info("Importing cython modules")
+    pyximport.install(setup_args={'include_dirs': np.get_include()}, inplace=False)
     from olmo.mm_data import data_iteration_cython
 else:
     data_iteration_cython = None
@@ -161,6 +171,10 @@ def build_sequence_builder(config: Optional[SequenceBuilderConfig]) -> SequenceB
         return Sequential()
     if config.kind == SequenceBuilderKind.sequential:
         base = Sequential()
+    elif config.kind == SequenceBuilderKind.one_document_per_sequence:
+        assert config.n_splits is None
+        assert config.max_per_split is None
+        return OneDocumentPerSequence()
     elif config.kind == SequenceBuilderKind.split_text:
         base = SequentialSplitText()
     elif config.kind == SequenceBuilderKind.optimize_last:
@@ -180,7 +194,7 @@ class ParallelizableSequenceBuilder(SequenceBuilder):
         self.n_splits = n_splits
         self.builder = builder
 
-    def __call__(self, examples: np.ndarray, max_seq_len: int, n_procs: int=None):
+    def __call__(self, examples: np.ndarray, max_seq_len: int, n_procs=None):
         if self.n_splits:
             n_splits = self.n_splits
         else:
@@ -210,12 +224,23 @@ class ParallelizableSequenceBuilder(SequenceBuilder):
         return out
 
 
+class OneDocumentPerSequence(SequenceBuilder):
+    """Each document is in its own sequence"""
+
+    def __call__(self, documents: np.ndarray, max_seq_len: int, n_procs=None):
+        assert np.all(documents["num_tokens"] <= max_seq_len)
+        out = np.empty(len(documents), DOC_SEQUENCE_DTYPE)
+        out["doc_id"] = documents["doc_id"]
+        out["sequence_number"] = np.arange(len(documents), dtype=np.uint64)
+        return out
+
+
 class Sequential(SequenceBuilder):
     """Naive approach that arranges documents end-to-end and never splits or truncate documents"""
 
     def __call__(self, documents: np.ndarray, max_seq_len: int, n_procs=None):
         assert np.all(documents["num_tokens"] <= max_seq_len)
-        if data_iteration_cython is not None:
+        if data_iteration_cython:
             return data_iteration_cython.sequential(documents, max_seq_len)
         total_tokens = 0
         out = np.zeros(len(documents), dtype=DOC_SEQUENCE_DTYPE)
@@ -231,100 +256,10 @@ class Sequential(SequenceBuilder):
         return out
 
 
-def segment_cumulative_sum(start_vals, segment_val, segment_starts, segment_lens):
-    arr = np.full(segment_starts[-1]+segment_lens[-1], segment_val, np.int64)
-    seq_delta = start_vals.astype(np.int64)
-    seq_delta[1:] -= seq_delta[:-1]
-    seq_delta[1:] -= (segment_lens[:-1]-1)*segment_val
-    arr[segment_starts] = seq_delta
-    np.cumsum(arr, out=arr)
-    return arr
-
-
-def merge_pure_text_vectorized(documents: np.ndarray, seq_len):
-    # Goes to some heroic lengths to vectorize text splitting
-    t0 = perf_counter()
-
-    # Assign existing documents their sequence numbers
-    total_tokens = documents["num_tokens"].astype(np.uint64)
-    np.cumsum(total_tokens, out=total_tokens)
-    seq_nums = (total_tokens - 1) // seq_len
-
-    out = np.zeros(len(documents), DOC_SEQUENCE_DTYPE)
-    out["doc_id"] = documents["doc_id"]
-    out["sequence_number"] = seq_nums
-    t0 = perf_counter()
-
-    # Now we will insert new doc_ids into `out` for cases where a document must be split
-    # sequence number changes for each document
-    delta = np.empty(len(documents), dtype=np.int64)
-    delta[1:] = seq_nums[1:] - seq_nums[:-1]
-    delta[0] = seq_nums[0]
-
-    t0 = perf_counter()
-
-    to_insert = []
-    to_insert_ix = []
-
-    # Handle cases where a document must be split to fill in a sequence
-    remainder = np.empty(len(documents), dtype=np.int64)
-    remainder[1:] = (seq_nums[:-1]+1)*seq_len - total_tokens[:-1]
-    remainder[0] = 0
-    to_split = np.argwhere((delta > 0) & (remainder > 0))[:, 0]
-    if len(to_split) > 0:
-        remainder = remainder[to_split].astype(np.uint64)
-        remainder *= 2
-        copies = out[to_split]
-        copies["sequence_number"] = out[to_split-1]["sequence_number"]
-        copies["doc_id"]["length"] = remainder
-        out["doc_id"]["start_byte"][to_split] += remainder
-        out["doc_id"]["length"][to_split] -= remainder
-        to_insert.append(copies)
-        to_insert_ix.append(to_split)
-
-    t0 = perf_counter()
-
-    to_copy = np.argwhere(delta > 1)[:, 0]
-    if len(to_copy) > 0:
-        # Case where a document into a some `max_seq_len` chunks
-        n_copies = delta[to_copy]
-        n_copies -= 1
-        starts = np.pad(n_copies, [1, 0])
-        starts = np.cumsum(starts)
-        copies = np.zeros(starts[-1], DOC_SEQUENCE_DTYPE)
-        starts = starts[:-1]
-        copy_from = out[to_copy]
-
-        copies["doc_id"]["length"] = seq_len*2
-        copies["doc_id"]["file_id"] = segment_cumulative_sum(
-            copy_from["doc_id"]["file_id"], 0, starts, n_copies)
-
-        copies["sequence_number"] = segment_cumulative_sum(
-            copy_from["sequence_number"].astype(np.int64) - n_copies,
-            1, starts, n_copies
-        )
-        copies["doc_id"]["start_byte"] = segment_cumulative_sum(
-            copy_from["doc_id"]["start_byte"],
-            2*seq_len, starts, n_copies
-        )
-        delta = (n_copies * (2 * seq_len)).astype(np.uint64)
-        out["doc_id"]["start_byte"][to_copy] += delta
-        out["doc_id"]["length"][to_copy] -= delta
-
-        idx = segment_cumulative_sum(to_copy, 0, starts, n_copies)
-        to_insert_ix.append(idx)
-        to_insert.append(copies)
-
-    if to_insert_ix:
-        out = np.insert(out, np.concatenate(to_insert_ix), np.concatenate(to_insert))
-
-    return out
-
-
 class SequentialSplitText(SequenceBuilder):
     """Arranges documents end-to-end but split text-only documents to fill in gaps"""
     def __call__(self, documents: np.ndarray, max_seq_len: int, n_procs=None):
-        if data_iteration_cython is not None:
+        if data_iteration_cython:
             # About 100x faster
             return data_iteration_cython.sequential_split_text(documents, max_seq_len)
 
@@ -378,7 +313,7 @@ class DocumentPool:
     def __init__(self, max_seq_len, pool_size):
         self.n_tokens_to_ex_id = [collections.deque() for _ in range(max_seq_len+1)]
         self.hist = np.zeros(max_seq_len+1, dtype=np.int32)
-        self.hist_min = max_seq_len
+        self.hist_min = max_seq_len + 1
 
     def add(self, ex):
         _n = ex["num_tokens"]
@@ -408,7 +343,7 @@ class DocumentPool:
     def get_first(self):
         if self.is_empty():
             raise ValueError()
-        return np.argmax(self.hist)
+        return self.find_at_most(len(self.hist)-1)
 
 
 class OptimizeLast(SequenceBuilder):
@@ -417,12 +352,16 @@ class OptimizeLast(SequenceBuilder):
 
     This aims to be fast and mostly preserve the order of the data stream
     """
-    def __init__(self, pool_size):
+    def __init__(self, pool_size, use_cython=None):
         assert isinstance(pool_size, int)
         self.pool_size = pool_size
+        self.use_cython = use_cython
 
     def __call__(self, examples: np.ndarray, max_seq_len: int, n_procs=None):
         assert np.all(examples["num_tokens"] <= max_seq_len)
+        use_cython = self.use_cython or (self.use_cython is None and data_iteration_cython)
+        if use_cython:
+            return data_iteration_cython.optimize_last(examples, max_seq_len, self.pool_size)
         pool = DocumentPool(max_seq_len, self.pool_size)
         for ex in examples[:self.pool_size]:
             pool.add(ex)
@@ -539,43 +478,26 @@ def split_example(rng, num_tokens, seq_len, min_seq_len=16):
 
 def reorder_sequences(idx, sequence_ixs):
     """Re-arranges the sequences in `idx` according to `sequence_ixs`"""
-    # In essence, we want to do
-    #     new_seq_ids = sequence_ixs[idx["sequence_number"]]
-    #     idx["sequence_number"] = new_seq_ids                # change to the new sequence number
-    #     return idx[argsort(new_seq_ids)]                    # sort to fix the ordering
-    # But that can become slow at the 1b+ scale, with some tricks we can use a cumulative
-    # sum to find out how the new sequence should be ordered instead of a sort
+    # We want to do
+    # new_seq_ids = sequence_ixs[idx["sequence_number"]]
+    # idx["sequence_number"] = new_seq_ids                 # change to the new sequence number
+    # return idx[np.argsort(new_seq_ids, kind="stable")]   # sort to fix the ordering
+    # But that can become slow at the 1b+ scale,
 
-    if data_iteration_cython is not None:
-        # cython version roughly 4x faster
+    if data_iteration_cython:
+        # cython version roughly 3x faster
         return data_iteration_cython.reorder_sequence(idx, sequence_ixs)
 
-    counts = np.zeros(len(sequence_ixs), dtype=np.int64)
-    np.add.at(counts, idx["sequence_number"], 1)
-
-    # starts[i] is where sequence number `i` will start in the new `idx` matrix
-    new_counts = np.empty_like(counts)
-    new_counts[sequence_ixs] = counts
-    starts = np.empty(len(new_counts), dtype=np.int64)
-    starts[0] = 0
-    np.cumsum(new_counts[:-1], out=starts[1:])
-
-    # now starts[i] is where the previous sequence number `i` will start in the new `idx` matrix
-    starts = starts[sequence_ixs]
-
-    # We want to map idx[l] to the row `starts[idx[l].sequence_number]`, but also
-    # offset to account for the fact multiple documents will have the same sequence number
-    mapping = np.repeat(starts, counts)
-    mapping += np.arange(len(idx))
-    mapping[counts[0]:] -= np.repeat(counts[:-1].cumsum(), counts[1:])
-
-    # Update the sequence numbers
-    idx["sequence_number"] = sequence_ixs[idx["sequence_number"]]
-
-    # Shift to the new order
-    out = np.empty_like(idx)
-    out[mapping] = idx
-    return out
+    # if our data is in a sparse matrix, we can view this as getting it in a canonical CSR format (which
+    # sorts by row, then column). scipy has optimized code for this, although unfortunately we can't use
+    # complex dtypes in the matrix so have to use dummy data and just extract the indices
+    new_seq_ids = sequence_ixs[idx["sequence_number"]]
+    mapping = sparse.coo_array((
+        np.ones(len(idx), dtype=np.int64),
+        (new_seq_ids, np.arange(len(idx), dtype=np.int64))
+    )).tocsr(copy=False).indices
+    idx["sequence_number"] = new_seq_ids
+    return idx[mapping]
 
 
 @dataclass
@@ -629,7 +551,7 @@ def _load_index(file_id, doc_seed, data, indexer, seq_len, sizing,
         # image), instead we just leave the full byte length and let the data reader truncate after loading
         # This is not optimal since the data loader could truncate the document to < seq_len, if, for example,
         # an entire image gets truncated, but we currently don't have the meta-data to detect that here
-        example_info[mm_truncate]["num_tokens"] = seq_len
+        example_info["num_tokens"][mm_truncate] = seq_len
 
     if data.presplit_text_documents:
         long_text = too_long & example_info["pure_text"]
@@ -675,7 +597,7 @@ def build_iteration_order(
     seq_len: int,
     seed: int,
     sizing: ImageTokenSizer,
-    n_procs: int,
+    n_processes: Optional[int] = 1,
     indexer: Optional[Indexer] = None,
     index_files: Optional[List[str]] = None,
     storage_config: Optional[MMStorageConfig] = None
@@ -698,14 +620,16 @@ def build_iteration_order(
         indexer = VectorizedIndexer()
     if storage_config is None:
         storage_config = MMStorageConfig()
+    if n_processes is None:
+        n_processes = 1
     rng = np.random.RandomState(seed)
 
     logger.info(f"Loading meta-data for {len(data.paths)} data files")
     doc_seeds = rng.randint(0, np.iinfo(np.uint32).max, len(data.paths))
     load_args = zip(*([range(len(data.paths)), doc_seeds] +
                       [repeat(x) for x in [data, indexer, seq_len, sizing, storage_config, index_files]]))
-    if n_procs > 1 and len(data.paths) > 1:
-        with multiprocessing.Pool(min(n_procs, len(data.paths)//2)) as pool:
+    if n_processes > 1 and len(data.paths) > 1:
+        with multiprocessing.Pool(min(n_processes, len(data.paths) // 2)) as pool:
             results = pool.starmap(_load_index, load_args)
     else:
         results = [_load_index(*x) for x in load_args]
@@ -727,7 +651,7 @@ def build_iteration_order(
     logger.info(f"Building sequences...")
     t0 = perf_counter()
     sequence_builder = build_sequence_builder(data.sequence_builder)
-    idx = sequence_builder(documents, seq_len, n_procs)
+    idx = sequence_builder(documents, seq_len, n_processes)
     del documents
     n_sequences = int(idx["sequence_number"][-1])+1
     logger.info(f"Built {hs(n_sequences)} sequences of len {seq_len} in {perf_counter()-t0:0.1f} seconds")

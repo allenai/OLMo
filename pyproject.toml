@@ -24,6 +24,7 @@ dependencies = [
     "cached_path",
     "transformers",
     "open-clip-torch>=2.24.0",
+    "Cython",
 ]
 
 [project.optional-dependencies]

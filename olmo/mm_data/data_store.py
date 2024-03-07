@@ -152,8 +152,8 @@ def write_data_file(
                 data_fh.write(data_config.doc_end_bytes)
                 on_byte += 2
 
-            # yield back example and its location, useful when building the index
-            yield example_start, example
+            # yield back example, useful when building the index
+            yield example
 
 
 class ExampleReader:
@@ -188,7 +188,7 @@ class ExampleReader:
         mask = np.zeros(sequence_length, np.bool_)
         images = []
         sizes = None
-        if 'anyres' in self.image_sizer.get_id():
+        if self.image_sizer is not None and 'anyres' in self.image_sizer.get_id():
             sizes = []
         offsets = []
         if return_segments:
