@@ -962,13 +962,14 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
         if rank_size == 0:
             return
 
-        temp: np.ndarray = torch.zeros(rank_size, dtype=shard0_md.tensor_properties.dtype).numpy()
-        numpy_type = temp.dtype
+        assert shard0_md.tensor_properties.dtype == torch.float32, "Expected sharded tensor to be fp32"
+        numpy_type = np.float32
 
         sharded_memory_name = "-".join(key + (str(rank),))
 
-        shm = shared_memory.SharedMemory(create=True, size=temp.nbytes, name=sharded_memory_name)
-        del temp
+        shm = shared_memory.SharedMemory(
+            create=True, size=rank_size * np.dtype(numpy_type).itemsize, name=sharded_memory_name
+        )
         np_arr = np.ndarray((rank_size,), dtype=numpy_type, buffer=shm.buf)
 
         for local_shard in sharded_tensor.local_shards():
@@ -1032,9 +1033,8 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
             shard0_md.shards_metadata, world_size
         )
 
-        temp: np.ndarray = torch.zeros(1, dtype=shard0_md.tensor_properties.dtype).numpy()
-        numpy_type = temp.dtype
-        del temp
+        assert shard0_md.tensor_properties.dtype == torch.float32, "Expected sharded tensor to be fp32"
+        numpy_type = np.float32
 
         out = torch.empty(
             *sharded_tensor.metadata().size, dtype=sharded_tensor.metadata().tensor_properties.dtype, device=device
