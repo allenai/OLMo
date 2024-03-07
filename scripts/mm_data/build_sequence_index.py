@@ -6,7 +6,7 @@ from time import perf_counter
 from olmo.mm_data.data_iteration import IterationConfig, build_iteration_order, SequenceBuilderConfig, \
     SequenceBuilderKind
 from olmo.mm_data.image_token_size import FixedNumberOfToken, AnyResImageTokenizer
-from olmo.mm_data.sequence_index import get_idx_file
+from olmo.mm_data.sequence_index import get_idx_file, write_index
 from olmo.mm_data.structure_index import VectorizedIndexer
 from olmo.util import prepare_cli_environment
 
@@ -68,12 +68,10 @@ def main():
             args.seq_len,
             args.seed,
             image_sizer,
-            VectorizedIndexer(),
             n_processes=args.n_processes
         )
         logger.info(f"Writing...")
-        with open(output_file, "wb") as f:
-            f.write(example_arr.tobytes())
+        write_index(example_arr, output_file)
         logger.info(f"Done")
 
 
