@@ -243,6 +243,11 @@ class ModelConfig(BaseConfig):
     The number of self-attention heads.
     """
 
+    clip_qkv: Optional[float] = None
+    """
+    Clip QKV to this value when set.
+    """
+
     n_layers: int = 12
     """
     The number of layers/blocks.
