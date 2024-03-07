@@ -452,6 +452,10 @@ class OlmoBlock(nn.Module):
             )
             self.q_norm = LayerNormBase.build(config, elementwise_affine=config.attention_layer_norm_with_affine)
 
+        # Make sure QKV clip coefficient is positive, otherwise it's not well-defined.
+        if config.clip_qkv is not None:
+            assert config.clip_qkv > 0
+
         # Activation function.
         self.act = Activation.build(config)
         assert (self.act.output_multiplier * self.hidden_size) % 1 == 0
