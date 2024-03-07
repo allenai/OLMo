@@ -60,7 +60,7 @@ save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
 save_interval: 1000
-save_num_checkpoints_to_keep: 0
+save_num_checkpoints_to_keep: 1
 # Unsharded checkpoints (for final storage)
 save_interval_unsharded: 10000
 save_num_unsharded_checkpoints_to_keep: 3
