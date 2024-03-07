@@ -37,7 +37,8 @@ model:
   init_device: meta
   init_fn: mitchell
 
-compile: null
+compile:
+  full_graph: false
 
 optimizer:
   name: adamw
@@ -68,9 +69,9 @@ remote_save_folder: s3://ai2-llm/checkpoints/mitchish70/${run_name}
 save_overwrite: false
 
 save_interval: 1000
-save_interval_ephemeral: 50
+save_interval_ephemeral: null
 save_num_checkpoints_to_keep: -1
-sharded_checkpointer: local
+sharded_checkpointer: torch_new
 
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
