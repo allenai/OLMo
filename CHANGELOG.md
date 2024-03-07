@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Refactor torch.load monkey patching for legacy checkpoint unsharding in anticipation of unsharding implementation change.
+- Changed legacy checkpoint unsharding to use processes and shared memory instead of threads
 
 ## [v0.2.4](https://github.com/allenai/OLMo/releases/tag/v0.2.4) - 2024-02-02
 
