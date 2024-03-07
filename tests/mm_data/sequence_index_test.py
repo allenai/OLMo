@@ -2,40 +2,35 @@ from pathlib import Path
 
 import numpy as np
 
-from olmo.mm_data.sequence_index import DOC_SEQUENCE_DTYPE, find_sequence_start
+from olmo.mm_data.sequence_index import DOC_SEQUENCE_DTYPE, find_sequence_start, compress_index, decompress_index
 
 
-def _test_seek(sequence_counts, idx_file, to_test):
+def _test_seek(sequence_counts, to_test):
     examples = []
     for seq_num, c in enumerate(sequence_counts):
         examples += [seq_num] * c
-    examples = np.array(examples)
-    idx_arr = []
-    for seq_num in examples:
-        idx_arr.append(np.array((tuple(np.random.randint(0, 1024, (3,))), seq_num), DOC_SEQUENCE_DTYPE))
-    idx_arr = np.stack(idx_arr)
-    with open(idx_file, "wb") as f:
-        f.write(idx_arr.tobytes())
+    idx_arr = np.array(examples)
+
+    def _read(on, n):
+        return idx_arr[on:on+n]
 
     for target_seq, chunk_size in to_test:
         expected = np.searchsorted(examples, target_seq)
-        actual = find_sequence_start(idx_file, target_seq, len(examples), len(sequence_counts), chunk_size)
+        actual = find_sequence_start(_read, target_seq, len(examples), len(sequence_counts), chunk_size)
         assert actual == expected
 
 
-def test_seek_small(tmp_path: Path):
-    idx_file = tmp_path.joinpath("index.bin")
-    _test_seek([1, 5, 1, 3, 7, 4], idx_file, [
+def test_seek_small():
+    _test_seek([1, 5, 1, 3, 7, 4], [
         (2, 20), (4, 20), (4, 1), (5, 2)
     ])
 
-    _test_seek([18, 1, 7, 3, 9, 4, 5], idx_file, [
+    _test_seek([18, 1, 7, 3, 9, 4, 5], [
         (0, 8), (6, 4), (1, 3), (1, 2), (6, 2)
     ])
 
 
-def test_seek_random(tmp_path: Path):
-    idx_file = tmp_path.joinpath("index.bin")
+def test_seek_random():
     n_seq = 20
     n_targets = 5
     for seed in range(100):
@@ -43,4 +38,14 @@ def test_seek_random(tmp_path: Path):
         counts = rng.randint(1, 10, (n_seq,))
         targets = rng.randint(0, n_seq, (n_targets,))
         step_sizes = rng.randint(1, 6, (n_targets,))
-        _test_seek(counts, idx_file, np.stack([targets, step_sizes], 1))
+        _test_seek(counts, np.stack([targets, step_sizes], 1))
+
+
+def test_compress():
+    data = np.zeros(2, DOC_SEQUENCE_DTYPE)
+    data["doc_id"]["file_id"][:] = [1231, 0]
+    data["doc_id"]["length"][:] = [0, 2**15 + 10]
+    data["doc_id"]["start_byte"][:] = [2^47, 2**48 - 1]
+    data["sequence_number"][:] = [2**40, 2**48 - 1]
+    actual = decompress_index(compress_index(data))
+    assert np.all(actual == data)

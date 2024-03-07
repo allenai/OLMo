@@ -1,6 +1,7 @@
 import io
 import itertools
-from typing import Tuple, Iterator, List, Union
+import sys
+from typing import Tuple, Iterator, List, Union, Optional
 
 import numpy as np
 from transformers.utils import logging
@@ -13,10 +14,59 @@ from olmo.util import file_size, get_bytes_range
 logger = logging.get_logger(__name__)
 
 
-def get_idx_file(image_sizer: ImageTokenSizer, sequence_length: int, seed: int):
+def get_idx_file(image_sizer: Optional[ImageTokenSizer], sequence_length: int, seed: int):
     """Gets the filename that should be used to save the shuffled index"""
     sz_id = "none" if image_sizer is None else image_sizer.get_id()
-    return f"index.{sz_id}.{sequence_length}.s{seed}.v0"
+    # v0: had no compression
+    return f"index.{sz_id}.{sequence_length}.s{seed}.v1"
+
+
+COMPRESSED_DTYPE = np.dtype([
+    ('file_id', np.uint16),
+    ('start_byte', np.uint8, (6,)),
+    ('length', np.uint16),
+    ('sequence_number', np.uint8, (6,)),
+])
+# How to store the index on disk, this reduces bytes per document from 22 to 16
+# If we want to really try hard we could maybe only store the sequence number every
+# 1000's document or so to cut out that as space as well
+
+
+def compress_index(data: np.ndarray):
+    """Convert array of DOC_SEQUENCE_DTYPE to COMPRESSED_DTYPE"""
+    assert sys.byteorder == "little"
+    compressed = np.zeros(len(data), COMPRESSED_DTYPE)
+    compressed["file_id"] = data["doc_id"]["file_id"]
+
+    assert np.all(data["doc_id"]["length"]) < np.iinfo(np.uint16).max
+    compressed["length"] = data["doc_id"]["length"]
+
+    start_byte = np.ascontiguousarray(data["doc_id"]["start_byte"])
+    start_byte = start_byte.view(np.uint8).reshape(-1, 8)
+    assert np.all(start_byte[:, -2:] == 0)
+    compressed["start_byte"] = start_byte[:, :-2]
+    del start_byte
+
+    seq_num = np.ascontiguousarray(data["sequence_number"])
+    seq_num = seq_num.view(np.uint8).reshape(-1, 8)
+    assert np.all(seq_num[:, -2:] == 0)
+    compressed["sequence_number"] = seq_num[:, :-2]
+    return compressed
+
+
+def decompress_index(compressed: np.ndarray) -> np.ndarray:
+    """Convert array of COMPRESSED_DTYPE to DOC_SEQUENCE_DTYPE"""
+    out = np.zeros(len(compressed), DOC_SEQUENCE_DTYPE)
+    out["sequence_number"] = np.pad(compressed["sequence_number"], [[0, 0], [0, 2]]).view(np.uint64).flatten()
+    doc_id = out["doc_id"]
+    doc_id["start_byte"] = np.pad(compressed["start_byte"], [[0, 0], [0, 2]]).view(np.uint64).flatten()
+    doc_id["file_id"] = compressed["file_id"]
+    doc_id["length"] = compressed["length"]
+    return out
+
+
+def write_index(idx: np.ndarray, out_f):
+    compress_index(idx).tofile(out_f)
 
 
 class SequenceIndex:
@@ -26,11 +76,12 @@ class SequenceIndex:
     """
 
     def __init__(self, data: Union[np.ndarray, PathOrStr]):
-        self.data = data
         if isinstance(data, np.ndarray):
+            self.data = data
             self._idx_size = len(data)
             self._chunk_size = len(data)
         else:
+            self.data = data
             self._chunk_size = 1024
         self._idx_size = None
         self._num_sequence = None
@@ -58,9 +109,9 @@ class SequenceIndex:
 
     def find_sequence_start(self, target_sequence, search_step=1024) -> int:
         if isinstance(self.data, np.ndarray):
-            return np.searchsorted(self.data["sequence_number"], target_sequence)
+            return np.searchsorted(self._read_seq_numbers(0, self.num_examples), target_sequence)
         return find_sequence_start(
-            self.data, target_sequence, self.num_examples, self.num_sequences, search_step)
+            self._read_seq_numbers, target_sequence, self.num_examples, self.num_sequences, search_step)
 
     def iter_from(
         self,
@@ -72,8 +123,7 @@ class SequenceIndex:
         examples_in_sequence = []
         on = self.find_sequence_start(start_sequence)
         while on < self.num_examples:
-            buf = self._read(on, self._chunk_size)
-            data = np.frombuffer(buf, dtype=DOC_SEQUENCE_DTYPE)
+            data = self._read(on, self._chunk_size)
             for example_id, next_seq in data:
                 if current_seq is None:
                     current_seq = next_seq
@@ -132,15 +182,19 @@ class SequenceIndex:
             for out in it:
                 yield out
 
+    def _read_seq_numbers(self, start, n):
+        return self._read(start, n)["sequence_number"]
+
     def _read(self, start, n):
         if isinstance(self.data, np.ndarray):
             return self.data[start:start+n]
         else:
-            data = get_bytes_range(self.data, start * DOC_SEQUENCE_DTYPE.itemsize, n * DOC_SEQUENCE_DTYPE.itemsize)
-            return np.frombuffer(data, DOC_SEQUENCE_DTYPE)
+            data = get_bytes_range(self.data, start * COMPRESSED_DTYPE.itemsize, n * COMPRESSED_DTYPE.itemsize)
+            data = np.frombuffer(data, COMPRESSED_DTYPE)
+            return decompress_index(data)
 
 
-def find_sequence_start(idx_file, target_sequence, num_examples_in_file, num_seq_in_file, chunk_size) -> int:
+def find_sequence_start(read_fn, target_sequence, num_examples_in_file, num_seq_in_file, chunk_size) -> int:
     """Return the index of the first example that starts with `target_sequence` in `idx_file`"""
     max_start = max(num_examples_in_file - chunk_size, 0)
 
@@ -169,9 +223,7 @@ def find_sequence_start(idx_file, target_sequence, num_examples_in_file, num_seq
         elif (read_start + chunk_size) > high[0]:
             read_start = high[0] - chunk_size
         read_start = min(max(read_start, 0), max_start)
-        chunk = get_bytes_range(idx_file, read_start * DOC_SEQUENCE_DTYPE.itemsize,
-                                DOC_SEQUENCE_DTYPE.itemsize * chunk_size)
-        seq_numbers = np.frombuffer(chunk, DOC_SEQUENCE_DTYPE)["sequence_number"]
+        seq_numbers = read_fn(read_start, chunk_size)
         if seq_numbers[-1] < target_sequence:
             low = (read_start + chunk_size - 1, seq_numbers[-1])
         elif seq_numbers[0] > target_sequence:
@@ -182,16 +234,14 @@ def find_sequence_start(idx_file, target_sequence, num_examples_in_file, num_seq
             # (or we reach the end of the file) under the assumption the sequence won't be super long
             while seq_numbers[0] == target_sequence and read_start != 0:
                 read_start = max(0, read_start - chunk_size)
-                chunk = get_bytes_range(
-                    idx_file, read_start * DOC_SEQUENCE_DTYPE.itemsize, DOC_SEQUENCE_DTYPE.itemsize * chunk_size)
-                seq_numbers = np.frombuffer(chunk, DOC_SEQUENCE_DTYPE)["sequence_number"]
+                seq_numbers = read_fn(read_start, chunk_size)
             return read_start + np.searchsorted(seq_numbers, target_sequence)
         else:
             return read_start + np.searchsorted(seq_numbers, target_sequence)
 
 
 def find_sequence_start_scan(
-    idx_file, target_sequence, num_examples_in_file, num_seq_in_file, search_step) -> int:
+        read_fn, target_sequence, num_examples_in_file, num_seq_in_file, search_step) -> int:
     """Return the index of the first example that starts with `target_sequence` in `idx_file`"""
     # Naive version the just scans from the first guess
     # TODO should benchmark on a large index file to see if the optimization is worth anything
@@ -201,11 +251,10 @@ def find_sequence_start_scan(
     on = initial_guess-search_step//2
     on = min(max(on, 0), max_start)
 
-    n_scan= 0
+    n_scan = 0
     while True:
         n_scan += 1
-        chunk = get_bytes_range(idx_file, on * DOC_SEQUENCE_DTYPE.itemsize, DOC_SEQUENCE_DTYPE.itemsize * search_step)
-        seq_numbers = np.frombuffer(chunk, DOC_SEQUENCE_DTYPE)["sequence_number"]
+        seq_numbers = read_fn(on, search_step)
         prev_on = on
         if target_sequence < seq_numbers[0]:
             if on == 0:
