@@ -57,7 +57,6 @@ __all__ = [
     "LayerNormBase",
     "LayerNorm",
     "RMSLayerNorm",
-    "AMDLayerNorm",
     "RotaryEmbedding",
     "Activation",
     "GELU",
@@ -152,8 +151,6 @@ class LayerNormBase(nn.Module):
             return LayerNorm(config, size=size, low_precision=True, **kwargs)
         elif config.layer_norm_type == LayerNormType.rms:
             return RMSLayerNorm(config, size=size, **kwargs)
-        elif config.layer_norm_type == LayerNormType.amd_compatible:
-            return AMDLayerNorm(config, size=size, **kwargs)
         else:
             raise NotImplementedError(f"Unknown LayerNorm type: '{config.layer_norm_type}'")
 
@@ -205,38 +202,6 @@ class LayerNorm(LayerNormBase):
                 )
         else:
             return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
-
-
-class AMDLayerNorm(LayerNormBase):
-    """
-    LayerNorm implemented using PyTorch primitives.
-
-    We do this to work around a bug in the PyTorch/ROCm implementation of layer norm that fails with a
-    segfault when the bias is not present.
-    """
-
-    def __init__(
-        self,
-        config: ModelConfig,
-        size: Optional[int] = None,
-        elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-05,
-    ):
-        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        og_dtype = x.dtype
-        x = self._cast_if_autocast_enabled(x, dtype=torch.float32)
-        with torch.autocast(enabled=False, device_type=x.device.type):
-            var, mean = torch.var_mean(x, dim=-1, correction=0, keepdim=True)
-            var.add_(self.eps)
-            var.rsqrt_()  # rsqrt should be more stable than 1/sqrt
-            x = var * (x - mean)
-            if self.weight is not None:
-                x.mul_(self.weight)
-            if self.bias is not None:
-                x.add_(self.bias)
-            return x.to(og_dtype)
 
 
 class RMSLayerNorm(LayerNormBase):
