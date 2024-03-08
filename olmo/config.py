@@ -23,7 +23,7 @@ from omegaconf.errors import OmegaConfBaseException
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
 
 from .aliases import PathOrStr
-from .exceptions import OlmoConfigurationError
+from .exceptions import OLMoConfigurationError
 from .util import StrEnum
 
 __all__ = [
@@ -116,7 +116,7 @@ class BaseConfig:
                 conf = om.merge(conf, kwargs)
             return cast(C, om.to_object(conf))
         except OmegaConfBaseException as e:
-            raise OlmoConfigurationError(str(e))
+            raise OLMoConfigurationError(str(e))
 
     @classmethod
     def load(
@@ -139,7 +139,7 @@ class BaseConfig:
                 conf = om.merge(conf, om.from_dotlist(overrides))
             return cast(C, om.to_object(conf))
         except OmegaConfBaseException as e:
-            raise OlmoConfigurationError(str(e))
+            raise OLMoConfigurationError(str(e))
 
     def save(self, path: PathOrStr) -> None:
         """Save to a YAML file."""
@@ -169,11 +169,6 @@ class LayerNormType(StrEnum):
     """
     An RMSNorm implementation. When using ``torch.compile`` this is
     probably the fastest implementation.
-    """
-
-    amd_compatible = "amd_compatible"
-    """
-    LayerNorm implemented manually to work around an issue with ROCm.
     """
 
 
@@ -248,6 +243,11 @@ class ModelConfig(BaseConfig):
     Set this to ``None`` or ``n_heads`` for normal multi-head attention.
     Set this to 1 for multi-query attention.
     Set it to some in-between value for Llama2-style grouped query attention.
+    """
+
+    clip_qkv: Optional[float] = None
+    """
+    Clip QKV to this value when set.
     """
 
     n_layers: int = 12
@@ -446,7 +446,9 @@ class ModelConfig(BaseConfig):
 
             if hasattr(new_config, "multi_query_attention"):
                 if hasattr(new_config, "n_kv_heads") and new_config.n_kv_heads is not None:
-                    raise OlmoConfigurationError("You can't specify both `multi_query_attention` and `n_kv_heads`. Specify only `n_kv_heads`.")
+                    raise OLMoConfigurationError(
+                        "You can't specify both `multi_query_attention` and `n_kv_heads`. Specify only `n_kv_heads`."
+                    )
                 if new_config.multi_query_attention:
                     new_config.n_kv_heads = 1
                 else:
