@@ -7,7 +7,7 @@ from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.models.auto import AutoModelForCausalLM
 
 from olmo.config import ModelConfig
-from olmo.model import Olmo
+from olmo.model import OLMo
 
 from .configuration_olmo import OLMoConfig
 
@@ -34,21 +34,23 @@ class OLMoForCausalLM(PreTrainedModel):
     base_model_prefix = "model"
     _no_split_modules = ["OLMoBlock"]
 
-    def __init__(self, config: OLMoConfig, model: Optional[Olmo] = None, init_params: bool = False):
+    def __init__(self, config: OLMoConfig, model: Optional[OLMo] = None, init_params: bool = False):
         super().__init__(config)
 
         if not model:
             model_config = create_model_config_from_pretrained_config(config)
             # Initialize model (always on CPU to start with so we don't run out of GPU memory).
             model_config.init_device = "cpu"
-            self.model = Olmo(model_config, init_params=init_params)
+            self.model = OLMo(model_config, init_params=init_params)
         else:
             self.model = model
 
     def forward(
         self,
         input_ids: torch.LongTensor = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
         attention_mask: Optional[torch.Tensor] = None,
+        attention_bias: Optional[torch.Tensor] = None,
         past_key_values: Optional[List[torch.FloatTensor]] = None,
         labels: Optional[torch.LongTensor] = None,
         use_cache: Optional[bool] = None,
@@ -59,17 +61,24 @@ class OLMoForCausalLM(PreTrainedModel):
         if use_cache is None:
             use_cache = self.config.use_cache
 
+        if output_attentions:
+            raise ValueError("output_attentions is not yet supported in OLMo")
+
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
         outputs = self.model.forward(
             input_ids=input_ids,
+            input_embeddings=inputs_embeds,
             attention_mask=attention_mask,
+            attention_bias=attention_bias,
             past_key_values=past_key_values,
             use_cache=use_cache,
+            output_hidden_states=output_hidden_states,
         )
 
         logits = outputs.logits
+        hidden_states = outputs.hidden_states
 
         loss = None
         if labels is not None:
@@ -92,6 +101,7 @@ class OLMoForCausalLM(PreTrainedModel):
             loss=loss,
             logits=logits,
             past_key_values=outputs.attn_key_values,
+            hidden_states=hidden_states,
         )
 
     def can_generate(self) -> bool:

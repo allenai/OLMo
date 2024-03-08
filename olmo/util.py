@@ -7,7 +7,6 @@ import time
 import warnings
 from datetime import datetime
 from enum import Enum
-from functools import cache
 from itertools import cycle, islice
 from pathlib import Path
 from queue import Queue
@@ -26,13 +25,18 @@ from rich.traceback import Traceback
 
 from .aliases import PathOrStr
 from .exceptions import (
-    OlmoCliError,
-    OlmoEnvironmentError,
-    OlmoError,
-    OlmoNetworkError,
-    OlmoThreadError,
+    OLMoCliError,
+    OLMoEnvironmentError,
+    OLMoError,
+    OLMoNetworkError,
+    OLMoThreadError,
 )
 from .torch_util import get_global_rank, get_local_rank, get_node_rank, is_distributed
+
+try:
+    from functools import cache
+except ImportError:
+    from functools import lru_cache as cache
 
 
 class StrEnum(str, Enum):
@@ -55,6 +59,7 @@ log = logging.getLogger(__name__)
 class LogFilterType(StrEnum):
     rank0_only = "rank0_only"
     local_rank0_only = "local_rank0_only"
+    all_ranks = "all_ranks"
 
 
 def log_extra_field(field_name: str, field_value: Any) -> None:
@@ -122,11 +127,12 @@ def setup_logging(log_filter_type: LogFilterType = LogFilterType.rank0_only) -> 
         else:
             return 0
 
-    filter = None
     if log_filter_type == LogFilterType.rank0_only:
         filter = rank0_filter
     elif log_filter_type == LogFilterType.local_rank0_only:
         filter = local_rank0_filter  # type: ignore
+    elif log_filter_type == LogFilterType.all_ranks:
+        filter = None
     else:
         raise ValueError(log_filter_type)
 
@@ -144,9 +150,9 @@ def excepthook(exctype, value, traceback):
     """
     if issubclass(exctype, KeyboardInterrupt):
         sys.__excepthook__(exctype, value, traceback)
-    elif issubclass(exctype, OlmoCliError):
+    elif issubclass(exctype, OLMoCliError):
         rich.get_console().print(f"[yellow]{value}[/]", highlight=False)
-    elif issubclass(exctype, OlmoError):
+    elif issubclass(exctype, OLMoError):
         rich.get_console().print(Text(f"{exctype.__name__}:", style="red"), value, highlight=False)
     else:
         log.critical("Uncaught %s: %s", exctype.__name__, value, exc_info=(exctype, value, traceback))
@@ -444,7 +450,7 @@ def _get_s3_profile_name(scheme: str) -> Optional[str]:
     if scheme == "r2":
         profile_name = os.environ.get("R2_PROFILE")
         if profile_name is None:
-            raise OlmoEnvironmentError(
+            raise OLMoEnvironmentError(
                 "R2 profile name is not set. Did you forget to set the 'R2_PROFILE' env var?"
             )
 
@@ -459,7 +465,7 @@ def _get_s3_endpoint_url(scheme: str) -> Optional[str]:
     if scheme == "r2":
         r2_endpoint_url = os.environ.get("R2_ENDPOINT_URL")
         if r2_endpoint_url is None:
-            raise OlmoEnvironmentError(
+            raise OLMoEnvironmentError(
                 "R2 endpoint url is not set. Did you forget to set the 'R2_ENDPOINT_URL' env var?"
             )
 
@@ -505,12 +511,12 @@ def _s3_upload(
                 _wait_before_retry(attempt)
 
         if err is not None:
-            raise OlmoNetworkError("Failed to check object existence during s3 upload") from err
+            raise OLMoNetworkError("Failed to check object existence during s3 upload") from err
 
     try:
         _get_s3_client(scheme).upload_file(source, bucket_name, key)
     except boto_exceptions.ClientError as e:
-        raise OlmoNetworkError("Failed to upload to s3") from e
+        raise OLMoNetworkError("Failed to upload to s3") from e
 
 
 def _s3_file_size(scheme: str, bucket_name: str, key: str, max_attempts: int = 3) -> int:
@@ -527,7 +533,7 @@ def _s3_file_size(scheme: str, bucket_name: str, key: str, max_attempts: int = 3
             log.warning("%s failed attempt %d with retriable error: %s", _s3_file_size.__name__, attempt, err)
             _wait_before_retry(attempt)
 
-    raise OlmoNetworkError("Failed to get s3 file size") from err
+    raise OLMoNetworkError("Failed to get s3 file size") from err
 
 
 def _s3_get_bytes_range(
@@ -566,7 +572,7 @@ def _s3_get_bytes_range(
     # This can cause an irrelevant exception (e.g. KeyError: 'error'), resulting
     # in us losing the true exception info. To avoid this, we change the exception
     # to a type that has a single-parameter constructor.
-    raise OlmoNetworkError("Failed to get bytes range from s3") from err
+    raise OLMoNetworkError("Failed to get bytes range from s3") from err
 
 
 def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Optional[str]:
@@ -620,7 +626,7 @@ def threaded_generator(g, maxsize: int = 16, thread_name: Optional[str] = None):
 
     for x in iter(q.get, sentinel):
         if isinstance(x, Exception):
-            raise OlmoThreadError(f"generator thread {thread_name} failed") from x
+            raise OLMoThreadError(f"generator thread {thread_name} failed") from x
         else:
             yield x
 

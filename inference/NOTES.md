@@ -45,12 +45,12 @@ To add an `olmo.py` module, we can basically just imitate what was done for othe
 There's one important wrinkle here: some OLMo models use *fused linear attention*. I'm not sure how GPTQ handles this or whether any existing supported models implement attention the same way. This might be something to discuss with Dirk and Pete.
 
 ```python
-Olmo(
+OLMo(
   (transformer): ModuleDict(
     (wte): Embedding(50304, 768)
     (emb_drop): Dropout(p=0.1, inplace=False)
     (blocks): ModuleList(
-      (0-11): 12 x OlmoSequentialBlock(
+      (0-11): 12 x OLMoSequentialBlock(
         (dropout): Dropout(p=0.1, inplace=False)
         (norm): LayerNorm()
         (act): SwiGLU()

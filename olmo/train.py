@@ -33,8 +33,8 @@ from .config import (
 )
 from .data import IterableDataset
 from .eval import Evaluator
-from .exceptions import OlmoConfigurationError
-from .model import Olmo
+from .exceptions import OLMoConfigurationError
+from .model import OLMo
 from .optim import Optimizer, Scheduler
 from .torch_util import (
     barrier,
@@ -96,7 +96,7 @@ class LRMonitor:
 @dataclass
 class Trainer:
     cfg: TrainConfig
-    model: Olmo
+    model: OLMo
     fsdp_model: FSDP
     optim: Optimizer
     scheduler: Scheduler
@@ -351,7 +351,7 @@ class Trainer:
                 upload_to=remote_checkpoint_dir,
             )
         except FileExistsError:
-            raise OlmoConfigurationError(
+            raise OLMoConfigurationError(
                 f"Checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
             )
 
@@ -877,7 +877,7 @@ class Trainer:
         if self.cfg.torch_profiling and get_global_rank() == 0:
             from torch.profiler import schedule
 
-            profiling_schedule = schedule(wait=1, warmup=5, active=3)
+            profiling_schedule = schedule(wait=1, warmup=5, active=3, repeat=1)
 
             def on_trace_ready(p):
                 profiler_output_dir = Path(self.cfg.save_folder) / "profiler"
