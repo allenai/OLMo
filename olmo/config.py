@@ -171,11 +171,6 @@ class LayerNormType(StrEnum):
     probably the fastest implementation.
     """
 
-    amd_compatible = "amd_compatible"
-    """
-    LayerNorm implemented manually to work around an issue with ROCm.
-    """
-
 
 class ActivationType(StrEnum):
     gelu = "gelu"
