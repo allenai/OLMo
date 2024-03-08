@@ -445,7 +445,11 @@ class ModelConfig(BaseConfig):
             assert isinstance(new_config, DictConfig)
 
             if hasattr(new_config, "multi_query_attention"):
-                if hasattr(new_config, "n_kv_heads") and new_config.n_kv_heads is not None:
+                if (
+                    new_config.multi_query_attention
+                    and hasattr(new_config, "n_kv_heads")
+                    and new_config.n_kv_heads is not None
+                ):
                     raise OLMoConfigurationError(
                         "You can't specify both `multi_query_attention` and `n_kv_heads`. Specify only `n_kv_heads`."
                     )

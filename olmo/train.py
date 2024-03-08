@@ -850,7 +850,7 @@ class Trainer:
                 self.cfg.stop_at = self.global_step + self.cfg.stop_after
             else:
                 self.cfg.stop_at = min(self.cfg.stop_at, self.global_step + self.cfg.stop_after)
-        
+
         self._start_time = time.time()
 
         if self.cfg.load_path is not None and self.global_step > 0 and self.cfg.eval_on_load:
