@@ -38,7 +38,7 @@ model:
   init_fn: mitchell
 
 compile:
-  full_graph: false
+  fullgraph: false
 
 optimizer:
   name: adamw
