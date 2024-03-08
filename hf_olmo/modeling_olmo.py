@@ -7,7 +7,7 @@ from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.models.auto import AutoModelForCausalLM
 
 from olmo.config import ModelConfig
-from olmo.model import Olmo
+from olmo.model import OLMo
 
 from .configuration_olmo import OLMoConfig
 
@@ -34,14 +34,14 @@ class OLMoForCausalLM(PreTrainedModel):
     base_model_prefix = "model"
     _no_split_modules = ["OLMoBlock"]
 
-    def __init__(self, config: OLMoConfig, model: Optional[Olmo] = None, init_params: bool = False):
+    def __init__(self, config: OLMoConfig, model: Optional[OLMo] = None, init_params: bool = False):
         super().__init__(config)
 
         if not model:
             model_config = create_model_config_from_pretrained_config(config)
             # Initialize model (always on CPU to start with so we don't run out of GPU memory).
             model_config.init_device = "cpu"
-            self.model = Olmo(model_config, init_params=init_params)
+            self.model = OLMo(model_config, init_params=init_params)
         else:
             self.model = model
 
