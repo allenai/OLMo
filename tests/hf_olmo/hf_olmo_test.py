@@ -3,7 +3,7 @@ import torch
 
 from olmo import BlockType, Tokenizer, TrainConfig
 from olmo.data import DataCollator
-from olmo.model import Olmo
+from olmo.model import OLMo
 from olmo.torch_util import seed_all
 
 
@@ -154,7 +154,7 @@ def test_forward(
     use_amp = dtype in {torch.float16, torch.bfloat16}
 
     seed_all(1234)
-    model = Olmo(train_config.model).eval()
+    model = OLMo(train_config.model).eval()
 
     hf_config = OLMoConfig(**model.config.asdict())
 
