@@ -632,6 +632,7 @@ class MoveRunConfig(StorageCleanerConfig):
     append_wandb_path: bool
     keep_src: bool
     store_archived: bool
+    entry: Optional[str]
 
 
 def _get_storage_adapter_for_path(path: str) -> StorageAdapter:
@@ -1217,6 +1218,9 @@ def _get_src_dest_pairs_for_copy(
 def _move_run(src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: str, config: MoveRunConfig):
     log.info("Moving run directory or archive %s to directory %s", run_dir_or_archive, dest_dir)
 
+    if not config.keep_src and config.entry is not None:
+        raise ValueError("Cannot delete source when an entry of the run is specified.")
+
     dest_storage = _get_storage_adapter_for_path(dest_dir)
     if dest_storage.is_file(dest_dir):
         raise ValueError(f"Destination directory {dest_dir} is a file")
@@ -1335,6 +1339,7 @@ def perform_operation(args: argparse.Namespace):
                 append_wandb_path=args.append_wandb_path,
                 keep_src=args.keep_src,
                 store_archived=args.store_archived,
+                entry=args.entry,
             )
             if args.run_path is not None and args.dest_dir is not None:
                 move_run(args.run_path, args.dest_dir, move_run_config)
@@ -1342,6 +1347,8 @@ def perform_operation(args: argparse.Namespace):
                 raise ValueError("Run path or dest dir not provided for moving run")
         else:
             raise NotImplementedError(args.op)
+
+        log.info("Operation completed successfully!")
     finally:
         if Path(temp_dir).is_dir():
             log.info("Deleting temp dir %s", temp_dir)
@@ -1439,6 +1446,11 @@ def _add_move_subparser(subparsers: _SubParsersAction):
         "--append_wandb_path",
         action="store_true",
         help="If set, the wandb path for the run is found and appended to the destination dir. If the run is being stored as an archive file, wandb id is first removed from the wandb path and used as the filename.",
+    )
+    move_parser.add_argument(
+        "--entry",
+        default=None,
+        help="If provided, moving is restricted to this entry of the run.",
     )
 
 
