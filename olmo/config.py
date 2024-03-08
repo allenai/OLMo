@@ -23,7 +23,7 @@ from omegaconf.errors import OmegaConfBaseException
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
 
 from .aliases import PathOrStr
-from .exceptions import OlmoConfigurationError
+from .exceptions import OLMoConfigurationError
 from .util import StrEnum
 
 __all__ = [
@@ -116,7 +116,7 @@ class BaseConfig:
                 conf = om.merge(conf, kwargs)
             return cast(C, om.to_object(conf))
         except OmegaConfBaseException as e:
-            raise OlmoConfigurationError(str(e))
+            raise OLMoConfigurationError(str(e))
 
     @classmethod
     def load(
@@ -139,7 +139,7 @@ class BaseConfig:
                 conf = om.merge(conf, om.from_dotlist(overrides))
             return cast(C, om.to_object(conf))
         except OmegaConfBaseException as e:
-            raise OlmoConfigurationError(str(e))
+            raise OLMoConfigurationError(str(e))
 
     def save(self, path: PathOrStr) -> None:
         """Save to a YAML file."""
@@ -169,11 +169,6 @@ class LayerNormType(StrEnum):
     """
     An RMSNorm implementation. When using ``torch.compile`` this is
     probably the fastest implementation.
-    """
-
-    amd_compatible = "amd_compatible"
-    """
-    LayerNorm implemented manually to work around an issue with ROCm.
     """
 
 
