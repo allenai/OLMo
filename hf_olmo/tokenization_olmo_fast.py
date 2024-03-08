@@ -4,7 +4,7 @@ from hf_olmo.configuration_olmo import OLMoConfig
 
 
 class OLMoTokenizerFast(PreTrainedTokenizerFast):
-    # Note: Olmo's tokenizer is already a wrapper around huggingface. This is potentially unnecessary.
+    # Note: OLMo's tokenizer is already a wrapper around huggingface. This is potentially unnecessary.
     pass
 
     # def save_vocabulary(self, save_directory: str, filename_prefix: Optional[str] = None) -> Tuple[str]:
