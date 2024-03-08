@@ -592,7 +592,7 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
 def build_scheduler(cfg: TrainConfig) -> Scheduler:
     sched_cfg = cfg.scheduler
     if cfg.scheduler.name == SchedulerType.cosine_with_warmup:
-        return CosWithWarmup(warmup_steps=sched_cfg.t_warmup, alpha_f=sched_cfg.alpha_f, t_max=sched_cfg.t_max)
+        return CosWithWarmup(warmup_steps=sched_cfg.t_warmup, alpha_f=sched_cfg.alpha_f, t_max=sched_cfg.t_max, t_restart=sched_cfg.t_restart)
     elif cfg.scheduler.name == SchedulerType.linear_with_warmup:
         return LinearWithWarmup(warmup_steps=sched_cfg.t_warmup, alpha_f=sched_cfg.alpha_f, t_max=sched_cfg.t_max)
     elif cfg.scheduler.name == SchedulerType.inverse_sqrt_with_warmup:
@@ -600,7 +600,7 @@ def build_scheduler(cfg: TrainConfig) -> Scheduler:
     elif cfg.scheduler.name == SchedulerType.max_scheduler:
         return MaxScheduler(
             sched1=CosWithWarmup(
-                warmup_steps=sched_cfg.t_warmup, alpha_f=sched_cfg.alpha_f, t_max=sched_cfg.t_max
+                warmup_steps=sched_cfg.t_warmup, alpha_f=sched_cfg.alpha_f, t_max=sched_cfg.t_max, t_restart=sched_cfg.t_restart
             ),
             sched2=InvSqrtWithWarmup(warmup_steps=sched_cfg.t_warmup),
         )
