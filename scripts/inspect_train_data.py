@@ -9,7 +9,7 @@ from typing import Optional
 
 from olmo.config import TrainConfig
 from olmo.data import build_memmap_dataset
-from olmo.exceptions import OlmoCliError
+from olmo.exceptions import OLMoCliError
 from olmo.tokenizer import Tokenizer
 from olmo.util import clean_opt, prepare_cli_environment
 
@@ -51,6 +51,6 @@ if __name__ == "__main__":
     try:
         save_folder, rank, steps = sys.argv[1], int(sys.argv[2]), [int(i) for i in sys.argv[3:]]
     except (IndexError, ValueError):
-        raise OlmoCliError(f"Usage: {sys.argv[0]} [SAVE_FOLDER] [RANK] [STEP_NUMBER...]")
+        raise OLMoCliError(f"Usage: {sys.argv[0]} [SAVE_FOLDER] [RANK] [STEP_NUMBER...]")
 
     main(Path(save_folder), *steps, rank=rank if rank >= 0 else None)

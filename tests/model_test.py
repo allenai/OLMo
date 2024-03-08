@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss
 
-from olmo import BlockType, LayerNorm, Olmo, Tokenizer, TrainConfig
+from olmo import BlockType, LayerNorm, OLMo, Tokenizer, TrainConfig
 from olmo.config import ModelConfig, PaddingDirection
 from olmo.data import DataCollator
 
@@ -173,7 +173,7 @@ def test_forward(
 
     use_amp = dtype in {torch.float16, torch.bfloat16}
 
-    model = Olmo(train_config.model).eval()
+    model = OLMo(train_config.model).eval()
 
     input1 = tokenizer.encode("My name is OLMo!")
     input2 = tokenizer.encode("I'm a delightful large open language model :)")
@@ -293,7 +293,7 @@ def test_backward(
     else:
         train_config.model.init_device = "cpu"
 
-    model = Olmo(train_config.model).train()
+    model = OLMo(train_config.model).train()
 
     with torch.autocast(
         device_type="cuda" if cuda else "cpu", enabled=use_amp, dtype=None if not use_amp else dtype
@@ -364,7 +364,7 @@ def test_generate(
         train_config.model.init_device = "cpu"
     use_amp = dtype in {torch.float16, torch.bfloat16}
 
-    model = Olmo(train_config.model).eval()
+    model = OLMo(train_config.model).eval()
 
     input1 = tokenizer.encode("My name is OLMo! ", add_special_tokens=False)
     input2 = tokenizer.encode("I'm a delightful large open language model :) ", add_special_tokens=False)
@@ -426,8 +426,8 @@ def test_layer_norm(train_config: TrainConfig, elementwise_affine: bool, include
 
 
 def test_block_groups():
-    model_with_block_groups = Olmo(ModelConfig(d_model=128, n_heads=2, n_layers=9, block_group_size=3)).eval()
-    model_without_block_groups = Olmo(ModelConfig(d_model=128, n_heads=2, n_layers=9, block_group_size=1)).eval()
+    model_with_block_groups = OLMo(ModelConfig(d_model=128, n_heads=2, n_layers=9, block_group_size=3)).eval()
+    model_without_block_groups = OLMo(ModelConfig(d_model=128, n_heads=2, n_layers=9, block_group_size=1)).eval()
 
     # We should be able to load the state dict from one model into the other, and vice-versa.
     state_dict_to_load, og_keys_to_new_keys = model_with_block_groups._make_state_dict_compatible(

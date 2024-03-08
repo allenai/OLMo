@@ -13,7 +13,7 @@ from .gptj import GPTJGPTQForCausalLM
 from .internlm import InternLMGPTQForCausalLM
 from .llama import LlamaGPTQForCausalLM
 from .moss import MOSSGPTQForCausalLM
-from .olmo import OlmoGPTQForCausalLM
+from .olmo import OLMoGPTQForCausalLM
 from .opt import OPTGPTQForCausalLM
 from .qwen import QwenGPTQForCausalLM
 from .rw import RWGPTQForCausalLM
@@ -24,7 +24,7 @@ GPTQ_CAUSAL_LM_MODEL_MAP = {
     "gptj": GPTJGPTQForCausalLM,
     "gpt2": GPT2GPTQForCausalLM,
     "llama": LlamaGPTQForCausalLM,
-    "olmo": OlmoGPTQForCausalLM,
+    "olmo": OLMoGPTQForCausalLM,
     "opt": OPTGPTQForCausalLM,
     "moss": MOSSGPTQForCausalLM,
     "gpt_bigcode": GPTBigCodeGPTQForCausalLM,

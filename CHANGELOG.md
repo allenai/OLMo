@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+- Rename `Olmo` to `OLMo` everywhere in the codebase
+
+### Removed
+
+- Removed `AMDLayerNorm`, since the original layer norm bug has been fixed and we don't need this workaround anymore.
+
+
 ## [v0.2.5](https://github.com/allenai/OLMo/releases/tag/v0.2.5) - 2024-03-06
 
 ### Fixed
@@ -27,10 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Changed legacy checkpoint unsharding to use processes and shared memory instead of threads
-
-### Removed
-
-- Removed `AMDLayerNorm`, since the original layer norm bug has been fixed and we don't need this workaround anymore.
 
 
 ## [v0.2.4](https://github.com/allenai/OLMo/releases/tag/v0.2.4) - 2024-02-02
