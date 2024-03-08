@@ -787,6 +787,12 @@ def _get_checkpoint_number(checkpoint_dir: str) -> int:
     return int(match.group(1))
 
 
+def _get_checkpoint_dirs(run_dir: str, run_dir_storage: StorageAdapter) -> List[str]:
+    run_subdir_names = run_dir_storage.list_dirs(run_dir)
+    run_subdirectories = list(map(lambda dir_name: os.path.join(run_dir, dir_name), run_subdir_names))
+    return list(filter(_is_checkpoint_dir, run_subdirectories))
+
+
 def _get_sharded_checkpoint_dirs(
     run_dir_storage: StorageAdapter,
     run_dir: str,
@@ -1106,24 +1112,6 @@ def _get_wandb_path(run_dir: str) -> str:
     return _get_wandb_path_from_run(wandb_matching_runs[0])
 
 
-def _append_wandb_path(
-    base_dir: str, run_dir_or_archive: str, append_archive_extension: bool = False, run_dir: Optional[str] = None
-) -> str:
-    run_dir_or_archive_storage = _get_storage_adapter_for_path(run_dir_or_archive)
-    if run_dir is None:
-        run_dir = _unarchive_if_archive(run_dir_or_archive, run_dir_or_archive_storage)
-
-    wandb_path = _get_wandb_path(run_dir)
-
-    if _is_archive(run_dir_or_archive, run_dir_or_archive_storage) and append_archive_extension:
-        archive_extension = "".join(Path(run_dir_or_archive).suffixes)
-        relative_wandb_path = wandb_path + archive_extension
-    else:
-        relative_wandb_path = wandb_path + "/"
-
-    return os.path.join(base_dir, relative_wandb_path)
-
-
 def _copy(src_path: str, dest_path: str, temp_dir: str):
     """
     Copies the entry at `src_path` to `dest_path`. The destination path can be a directory
@@ -1169,34 +1157,58 @@ def _copy(src_path: str, dest_path: str, temp_dir: str):
     dest_storage.upload(local_path, dest_path)
 
 
-def _get_src_and_dest_for_copy(
+def _get_src_dest_pairs_for_copy(
     src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: str, config: MoveRunConfig
-) -> Tuple[str, str]:
+) -> List[Tuple[str, str]]:
     is_archive_file = _is_archive(run_dir_or_archive, src_storage)
-    # We need to unarchive the run if we want to get the wandb path
-    should_unarchive = is_archive_file and (not config.store_archived or config.append_wandb_path)
+    if is_archive_file and config.append_wandb_path:
+        raise ValueError("Cannot append wandb path for run archive files")
 
-    if is_archive_file and not should_unarchive:
-        dest_file_path = os.path.join(dest_dir, Path(run_dir_or_archive).name)
-        return run_dir_or_archive, dest_file_path
+    if is_archive_file:
+        if config.store_archived:
+            dest_file_path = os.path.join(dest_dir, Path(run_dir_or_archive).name)
+            return [(run_dir_or_archive, dest_file_path)]
+        else:
+            run_dir = _unarchive_if_archive(run_dir_or_archive, src_storage)
+            archive_extension = "".join(Path(run_dir_or_archive).suffixes)
+            dir_name = Path(run_dir_or_archive).name.removesuffix(archive_extension)
+            dest_path = os.path.join(dest_dir, dir_name)
+            return [(run_dir, dest_path)]
 
-    run_dir = _unarchive_if_archive(run_dir_or_archive, src_storage)
+    run_dir = run_dir_or_archive
+    run_dir_storage = _get_storage_adapter_for_path(run_dir)
+    if not run_dir_storage.is_dir(run_dir):
+        raise ValueError(f"Run directory {run_dir} does not exist")
 
-    src_path = run_dir_or_archive if config.store_archived else run_dir
+    if not config.append_wandb_path:
+        return [(run_dir, dest_dir)]
 
-    dest_path: str
-    if config.append_wandb_path:
-        dest_path = _append_wandb_path(
-            dest_dir, run_dir_or_archive, append_archive_extension=config.store_archived, run_dir=run_dir
-        )
-    elif is_archive_file and not config.store_archived:
-        archive_extension = "".join(Path(run_dir_or_archive).suffixes)
-        dir_name = Path(run_dir_or_archive).name.removesuffix(archive_extension)
-        dest_path = os.path.join(dest_dir, dir_name)
-    else:
-        dest_path = dest_dir
+    assert config.append_wandb_path and not is_archive_file
+    checkpoint_dirs = _get_checkpoint_dirs(run_dir, run_dir_storage)
+    # TODO: Update _get_wandb_path to get the wandb path for a checkpoint rather than a run directory.
+    # A run directory could correspond to multiple wandb runs.
+    checkpoint_to_wandb_path = {
+        checkpoint_dir: _get_wandb_path(run_dir) for checkpoint_dir in checkpoint_dirs
+    }
 
-    return src_path, dest_path
+    src_dest_pairs: List[Tuple[str, str]] = []
+    # Mappings of source checkpoint directories to destination checkpoint directories
+    src_dest_pairs += [
+        (checkpoint_dir, os.path.join(dest_dir, wandb_path, Path(checkpoint_dir).name))
+        for checkpoint_dir, wandb_path in checkpoint_to_wandb_path.items()
+    ]
+
+    # Mappings of other source entries to destination entries. Since different checkpoints
+    # may comes from different wandb runs, we need to map non-checkpoint entries to
+    # every folder corresponding to a wandb run of these checkpoints. 
+    src_dest_pairs += [
+        (os.path.join(run_dir, entry), os.path.join(dest_dir, wandb_path, entry))
+        for entry in run_dir_storage.list_entries(run_dir)
+        if not _is_checkpoint_dir(os.path.join(run_dir, entry))
+        for wandb_path in set(checkpoint_to_wandb_path.values())
+    ]
+
+    return src_dest_pairs
 
 
 def _move_run(src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: str, config: MoveRunConfig):
@@ -1206,19 +1218,23 @@ def _move_run(src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: st
     if dest_storage.is_file(dest_dir):
         raise ValueError(f"Destination directory {dest_dir} is a file")
 
-    src_move_path, dest_move_path = _get_src_and_dest_for_copy(src_storage, run_dir_or_archive, dest_dir, config)
+    src_dest_path_pairs = _get_src_dest_pairs_for_copy(src_storage, run_dir_or_archive, dest_dir, config)
 
-    if src_move_path.rstrip("/") == dest_move_path.rstrip("/"):
-        # This could be a valid scenario if the user is, for example, trying to
-        # append wandb path to runs and this run has the right wandb path already.
-        log.info("Source and destination move paths are both %s, skipping", src_move_path)
-        return
+    for src_move_path, dest_move_path in src_dest_path_pairs:
+        if src_move_path.rstrip("/") == dest_move_path.rstrip("/"):
+            if config.keep_src:
+                # This could be a valid scenario if the user is, for example, trying to
+                # append wandb path to runs and this run has the right wandb path already.
+                log.info("Source and destination move paths are both %s, skipping", src_move_path)
+                continue
+            else:
+                raise RuntimeError(f"Source and destination move paths are both {src_move_path} and source is being deleted")
 
-    if config.dry_run:
-        log.info("Would copy %s to %s", src_move_path, dest_move_path)
-    else:
-        log.info("Copying %s to %s", src_move_path, dest_move_path)
-        _copy(src_move_path, dest_move_path, config.temp_dir)
+        if config.dry_run:
+            log.info("Would copy %s to %s", src_move_path, dest_move_path)
+        else:
+            log.info("Copying %s to %s", src_move_path, dest_move_path)
+            _copy(src_move_path, dest_move_path, config.temp_dir)
 
     if not config.keep_src:
         if config.dry_run:
