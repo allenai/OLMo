@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Removed `AMDLayerNorm`, since the original layer norm bug has been fixed and we don't need this workaround anymore.
-
+- Removed `OLMoParallelBlock`.
 
 ## [v0.2.5](https://github.com/allenai/OLMo/releases/tag/v0.2.5) - 2024-03-06
 
