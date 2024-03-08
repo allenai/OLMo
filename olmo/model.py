@@ -452,6 +452,10 @@ class OLMoBlock(nn.Module):
             )
             self.q_norm = LayerNormBase.build(config, elementwise_affine=config.attention_layer_norm_with_affine)
 
+        # Make sure QKV clip coefficient is positive, otherwise it's not well-defined.
+        if config.clip_qkv is not None:
+            assert config.clip_qkv > 0
+
         # Activation function.
         self.act = Activation.build(config)
         assert (self.act.output_multiplier * self.hidden_size) % 1 == 0
@@ -680,11 +684,14 @@ class OLMoSequentialBlock(OLMoBlock):
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
         if self._activation_checkpoint_fn is not None:
-            q, k, v = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x)).split(
-                self.fused_dims, dim=-1
-            )
+            qkv = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x))
         else:
-            q, k, v = self.att_proj(self.attn_norm(x)).split(self.fused_dims, dim=-1)
+            qkv = self.att_proj(self.attn_norm(x))
+
+        if self.config.clip_qkv is not None:
+            qkv.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+
+        q, k, v = qkv.split(self.fused_dims, dim=-1)
 
         # Get attention scores.
         if self._activation_checkpoint_fn is not None:
@@ -779,6 +786,11 @@ class OLMoParallelBlock(OLMoBlock):
             )
         else:
             q, k, v, ff = self.fused_attn_ff_proj(self.norm(x)).split(self.fused_dims, dim=-1)
+
+        if self.config.clip_qkv is not None:
+            q.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+            k.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+            v.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
 
         # Get attention scores.
         # shape: (B, T, C)
@@ -895,6 +907,11 @@ class OLMoLlamaBlock(OLMoBlock):
         q = self.q_proj(x_normed)
         k = self.k_proj(x_normed)
         v = self.v_proj(x_normed)
+
+        if self.config.clip_qkv is not None:
+            q.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+            k.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+            v.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
 
         # Get attention scores.
         att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)

@@ -14,14 +14,14 @@ requires-python = ">=3.8"
 license = { file = "LICENSE" }
 dependencies = [
     "numpy",
-    "torch>=2.0,<2.2",
+    "torch>=2.0,<2.3",
     "omegaconf",
     "rich",
     "boto3",
     "google-cloud-storage",
     "tokenizers",
     "packaging",
-    "cached_path",
+    "cached_path>=1.6.2",
     "transformers",
 ]
 
