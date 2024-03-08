@@ -1192,9 +1192,7 @@ def _get_src_dest_pairs_for_copy(
     checkpoint_dirs = _get_checkpoint_dirs(run_dir, run_dir_storage)
     # TODO: Update _get_wandb_path to get the wandb path for a checkpoint rather than a run directory.
     # A run directory could correspond to multiple wandb runs.
-    checkpoint_to_wandb_path = {
-        checkpoint_dir: _get_wandb_path(run_dir) for checkpoint_dir in checkpoint_dirs
-    }
+    checkpoint_to_wandb_path = {checkpoint_dir: _get_wandb_path(run_dir) for checkpoint_dir in checkpoint_dirs}
 
     src_dest_pairs: List[Tuple[str, str]] = []
     # Mappings of source checkpoint directories to destination checkpoint directories
@@ -1205,7 +1203,7 @@ def _get_src_dest_pairs_for_copy(
 
     # Mappings of other source entries to destination entries. Since different checkpoints
     # may comes from different wandb runs, we need to map non-checkpoint entries to
-    # every folder corresponding to a wandb run of these checkpoints. 
+    # every folder corresponding to a wandb run of these checkpoints.
     src_dest_pairs += [
         (os.path.join(run_dir, entry), os.path.join(dest_dir, wandb_path, entry))
         for entry in run_dir_storage.list_entries(run_dir)
@@ -1233,7 +1231,9 @@ def _move_run(src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: st
                 log.info("Source and destination move paths are both %s, skipping", src_move_path)
                 continue
             else:
-                raise RuntimeError(f"Source and destination move paths are both {src_move_path} and source is being deleted")
+                raise RuntimeError(
+                    f"Source and destination move paths are both {src_move_path} and source is being deleted"
+                )
 
         if config.dry_run:
             log.info("Would copy %s to %s", src_move_path, dest_move_path)
