@@ -1118,6 +1118,9 @@ def _copy(src_path: str, dest_path: str, temp_dir: str):
     that does not exist (creating directories without a corresponding file is not always possible
     in cloud storage). In exchange we require that `src_path` and `dest_path` are either
     both files or both directories.
+
+    If the entry already exists at the destination, the behavior is decided by the
+    underlying storage adapter.
     """
     src_storage_type = StorageAdapter.get_storage_type_for_path(src_path)
     dest_storage_type = StorageAdapter.get_storage_type_for_path(dest_path)
@@ -1132,10 +1135,12 @@ def _copy(src_path: str, dest_path: str, temp_dir: str):
     src_is_file = src_storage.is_file(src_path)
     src_is_dir = src_storage.is_dir(src_path)
     assert not (src_is_file and src_is_dir), f"Source {src_path} is both a file and a directory"
+    if not src_is_file and not src_is_dir:
+        raise ValueError(f"Source {src_path} of copy operation is not a file or a directory")
 
     dest_storage = StorageAdapter.create_storage_adapter(dest_storage_type)
-    if dest_storage.is_file(dest_path):
-        raise ValueError(f"A file already exists at destination {dest_path}")
+    if src_is_dir and dest_storage.is_file(dest_path):
+        raise ValueError(f"Source path {src_path} is a directory but the destination {dest_path} is a file.")
     if src_is_file and (dest_path.endswith("/") or dest_storage.is_dir(dest_path)):
         raise ValueError(f"Source path {src_path} is a file but the destination {dest_path} is a directory.")
 
