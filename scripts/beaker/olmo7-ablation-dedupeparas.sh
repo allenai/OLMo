@@ -13,13 +13,12 @@ gantry run \
   --description olmo7-ablation-dedupeparas \
   --priority high \
   --beaker-image olmo-torch2-gantry \
-  --cluster ai2/general-cirrascale-a100-80g-ib \
+  --cluster ai2/pluto-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
   --nfs \
-  --mount /net/nfs.cirrascale/allennlp/petew/cache:/root/.cache \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
