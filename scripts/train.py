@@ -242,7 +242,7 @@ def main(cfg: TrainConfig) -> None:
 
 
 if __name__ == "__main__":
-    mp.set_start_method("spawn")
+    #  mp.set_start_method("spawn")
     # Initialize process group.
     dist.init_process_group(backend="nccl")
 
