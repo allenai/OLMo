@@ -754,6 +754,27 @@ class ArcChallenge(ArcEasy):
         )
 
 
+class BasicArithmetic(ArcEasy):
+    """This is a basic arithmetic task follows the same prompt format as ArcEasy.
+    Example:
+    {"id": "q85_1d1d_max1d_plus",
+    "question": "Calculate 2 + 5 =",
+    "choices": {"text": ["8", "7", "6", "17"],
+    "label": ["A", "B", "C", "D"]},
+    "answerKey": "B", "type_tag": "easy"}
+
+    """
+
+    metric_type = "acc"
+
+    def __init__(self, tokenizer, dataset_path="allenai/basic_arithmetic", dataset_name=None):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+
 class COPA(ICLMultiChoiceTaskDataset):
     """Prompt: "PREMISE.strip()[:-1] because/therefore"
     Req_loglikelihood('The pair of students came under scrutiny by the teacher because', ' the students both received excellent grades.'
@@ -1154,6 +1175,7 @@ label_to_task_map = {
     "sciq": SciQ,
     "arc_easy": ArcEasy,
     "arc_challenge": ArcChallenge,
+    "basic_arithmetic": BasicArithmetic,
     "copa": COPA,
     "rte": RTE,
     "commitment_bank": CommitmentBank,
