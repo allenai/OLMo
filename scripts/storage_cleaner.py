@@ -1167,8 +1167,11 @@ def _get_src_dest_pairs_for_copy(
     src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: str, config: MoveRunConfig
 ) -> List[Tuple[str, str]]:
     is_archive_file = _is_archive(run_dir_or_archive, src_storage)
+
+    if is_archive_file and config.entry is not None:
+        raise NotImplementedError("Cannot move only an entry if run is an archive file")
     if is_archive_file and config.append_wandb_path:
-        raise ValueError("Cannot append wandb path for run archive files")
+        raise NotImplementedError("Cannot append wandb path for run archive files")
 
     if is_archive_file:
         if config.store_archived:
@@ -1185,15 +1188,33 @@ def _get_src_dest_pairs_for_copy(
     run_dir_storage = _get_storage_adapter_for_path(run_dir)
     if not run_dir_storage.is_dir(run_dir):
         raise ValueError(f"Run directory {run_dir} does not exist")
+    if config.entry is not None:
+        entry_src_path = os.path.join(run_dir, config.entry)
+        if not run_dir_storage.is_dir(entry_src_path) and not run_dir_storage.is_file(entry_src_path):
+            raise ValueError(f"Entry {config.entry} does not exist in directory {run_dir}")
 
     if not config.append_wandb_path:
-        return [(run_dir, dest_dir)]
+        if config.entry is None:
+            return [(run_dir, dest_dir)]
+
+        entry_src_path = os.path.join(run_dir, config.entry)
+        entry_dest_path = os.path.join(dest_dir, config.entry)
+        return [(entry_src_path, entry_dest_path)]
 
     assert config.append_wandb_path and not is_archive_file
-    checkpoint_dirs = _get_checkpoint_dirs(run_dir, run_dir_storage)
+    checkpoint_to_wandb_path: Dict[str, str]
     # TODO: Update _get_wandb_path to get the wandb path for a checkpoint rather than a run directory.
     # A run directory could correspond to multiple wandb runs.
-    checkpoint_to_wandb_path = {checkpoint_dir: _get_wandb_path(run_dir) for checkpoint_dir in checkpoint_dirs}
+    if config.entry is not None and _is_checkpoint_dir(entry_path := os.path.join(run_dir, config.entry)):
+        # No need to consider other checkpoints if we are filtering for a specific checkpoint
+        checkpoint_to_wandb_path = {
+            entry_path: _get_wandb_path(run_dir)
+        }
+    else:
+        checkpoint_dirs = _get_checkpoint_dirs(run_dir, run_dir_storage)
+        checkpoint_to_wandb_path = {
+            checkpoint_dir: _get_wandb_path(run_dir) for checkpoint_dir in checkpoint_dirs
+        }
 
     src_dest_pairs: List[Tuple[str, str]] = []
     # Mappings of source checkpoint directories to destination checkpoint directories
@@ -1211,6 +1232,13 @@ def _get_src_dest_pairs_for_copy(
         if not _is_checkpoint_dir(os.path.join(run_dir, entry))
         for wandb_path in set(checkpoint_to_wandb_path.values())
     ]
+
+    if config.entry is not None:
+        src_dest_pairs = [
+            src_dest_pair
+            for src_dest_pair in src_dest_pairs
+            if Path(src_dest_pair[0]).name == config.entry.rstrip("/")
+        ]
 
     return src_dest_pairs
 
