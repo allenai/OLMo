@@ -2,13 +2,13 @@
 
 import gzip
 import logging
-import multiprocessing as mp
 import sys
 from pathlib import Path
 from typing import Optional, TextIO
 
 import torch
 import torch.distributed as dist
+import torch.multiprocessing as mp
 import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -242,7 +242,12 @@ def main(cfg: TrainConfig) -> None:
 
 
 if __name__ == "__main__":
-    #  mp.set_start_method("spawn")
+    try:
+        mp.set_start_method("spawn")
+    except RuntimeError as e:
+        print(f"failed to set multiprocessing start method: {e}")
+        print(f"start method set to {mp.get_start_method()}")
+
     # Initialize process group.
     dist.init_process_group(backend="nccl")
 
