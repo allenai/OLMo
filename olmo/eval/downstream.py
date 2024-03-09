@@ -165,7 +165,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         self.model_ctx_len = model_ctx_len
         self.prompts = prompts
         self.current_prompt = None
-        self.log_instances = 5  # Log the first few instances as a sanity check
+        self.log_instances = 0  # Set to > 0 to log the first few instances as a sanity check
 
         self.samples: List[Dict[str, Any]] = []
         dataset_names: Sequence[Optional[str]]
@@ -1099,6 +1099,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
                 if dataset_name in cats:
                     dataset_names.append(name)
         self.dev_set = {}
+        prompts: List[Union[None, str]] = [None]
         if prompt_variations == 1:
             prompts = [None, "inst", "inst+1", "inst+2", "inst+3", "inst+4", "inst+5"]
             # Need to grab the dev set for the few-shot prompts
