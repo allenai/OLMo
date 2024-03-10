@@ -2,7 +2,7 @@ name: r70b-dedupe-docs-1b-150b
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 env_variables:
   CONFIG_PATH: configs/road-to-1_7/runs/r70b-dedupe-docs-1b-150b.yaml
-  # LOAD_PATH: ""
+  LOAD_PATH: "s3://ai2-llm/checkpoints/1b/r70b-dedupe-docs-1b-150b/r70b-dedupe-docs-1b-150b-0a8fe5e7/step35000"
 compute:
   gpus: 64
   cluster: r12z3
