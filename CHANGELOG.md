@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for Python 3.8.
 - Added code to throw an error if `output_attentions` is set to `True` in forward call to `OLMoForCausalLM`. This functionality hasn't been implemented yet.
 - Fixed running with data loading workers on LUMI
+- Minor bug fix: uninitialized prompts variable
 
 ### Added
 - Added `output_hidden_states` argument and associated functionality to `OLMo` and `OLMoForCausalLM` to return model intermediate hidden states.
@@ -32,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for PyTorch v2.2.
 - Added ability to show logs from all ranks
 - Added option for QKV clipping.
+- Added basic_arithmetic downstream evaluation task
 
 ### Changed
 
