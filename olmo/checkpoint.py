@@ -3,6 +3,7 @@ import io
 import logging
 import pickle
 import shutil
+import traceback
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
@@ -46,6 +47,7 @@ from olmo import util
 
 from .aliases import PathOrStr
 from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
+from .exceptions import OLMoCheckpointError
 from .optim import Optimizer, fix_optim_state_dict
 from .safetensors_util import safetensors_file_to_state_dict
 from .torch_util import barrier, get_fs_local_rank, get_global_rank, get_world_size
@@ -344,7 +346,13 @@ class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
                     log.info(f"Uploading {source} to {target}...")
                     futures.append(executor.submit(upload, source, target, save_overwrite=self.save_overwrite))
                 for f in as_completed(futures):
-                    f.result()
+                    try:
+                        f.result()
+                    except BaseException:
+                        # NOTE: we might get an error here that can't be pickled, which causes a different failure
+                        # later when PyTorch tries to reduce that error across ranks. So here we just make
+                        # sure we're raising a simple error type that can be pickled.
+                        raise OLMoCheckpointError(f"Original error:\n{traceback.format_exc()}")
         return fut
 
     def finish(self, metadata: Metadata, results: List[List[WriteResult]]) -> None:
@@ -392,7 +400,13 @@ class RemoteFileSystemReader(dist_cp.StorageReader):
                 read_item_content_futures.append(executor.submit(self._get_content_for_read, read_item))
             read_item_content_results = []
             for f in as_completed(read_item_content_futures):
-                read_item_content_results.append(f.result())
+                try:
+                    read_item_content_results.append(f.result())
+                except BaseException:
+                    # NOTE: we might get an error here that can't be pickled, which causes a different failure
+                    # later when PyTorch tries to reduce that error across ranks. So here we just make
+                    # sure we're raising a simple error type that can be pickled.
+                    raise OLMoCheckpointError(f"Original error:\n{traceback.format_exc()}")
 
         # Modified from `FileSystemReader.read_data()`
         for read_item, content in read_item_content_results:
