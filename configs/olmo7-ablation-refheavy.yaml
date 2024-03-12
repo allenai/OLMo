@@ -1,11 +1,11 @@
-run_name: olmo7-ablation-2xnonweb
+run_name: olmo7-ablation-refheavy
 seed: 61394
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo7-ablations
-  group: olmo7-ablation-2xnonweb
+  group: olmo7-ablation-refheavy
 
 model:
   d_model: 4096
