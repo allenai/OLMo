@@ -2,7 +2,7 @@
 #SBATCH --job-name=olmo7-ablation-qkv-clip-8
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
-#SBATCH --nodes=32             # Total number of nodes 
+#SBATCH --nodes=64             # Total number of nodes 
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
@@ -43,6 +43,7 @@ export HF_DATASETS_OFFLINE=1
 export DATA_PATH=$FLASH_DIR/preprocessed/olmo-mix
 export CHECKPOINTS_PATH=$FLASH_DIR/checkpoints
 export EVAL_DATA_PATH=$SCRATCH_DIR/eval-data
+export CACHED_PATH_CACHE_ROOT=$SCRATCH_DIR/checkpoints/akshitab-qkv/cache
 
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
