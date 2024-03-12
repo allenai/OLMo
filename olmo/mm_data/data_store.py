@@ -166,7 +166,7 @@ class ExampleReader:
         data_files: Union[List[str], Dict[int, str]],
         image_store: ObjectStore,
         image_sizer: ImageTokenSizer,
-        storage_config: MMStorageConfig
+        storage_config: MMStorageConfig,
     ):
         self.image_store = image_store
         self.image_sizer = image_sizer
@@ -180,11 +180,12 @@ class ExampleReader:
     def _build_sequence(
         self,
         documents: List[Document],
-        sequence_length=None,
+        max_sequence_length=None,
         return_segments=False
     ) -> Dict[str, np.ndarray]:
-        if sequence_length is None:
-            sequence_length = sum(sum(y.num_tokens for y in x) for x in documents)
+        sequence_length = sum(sum(y.num_tokens for y in x) for x in documents)
+        if max_sequence_length and max_sequence_length < sequence_length:
+            sequence_length = max_sequence_length
         indices = np.zeros(sequence_length, np.uint16)
         mask = np.zeros(sequence_length, np.bool_)
         images = []
@@ -225,14 +226,14 @@ class ExampleReader:
     def read_ranges(
         self,
         ranges: List[Tuple[int, int, int]],
-        sequence_length: Optional[int]=None,
+        max_sequence_length: Optional[int]=None,
         return_segments=True
     ) -> Dict:
-        """Load a list of examples as a single sequence of length `sequence_length`
+        """Load a list of examples as a single sequence of at most length `sequence_length`
 
         examples: list of (file_id, start_byte, num_bytes) tuples
         sequence_length: max output sequence length, examples will be truncated if needed.
-                         If truncation leaves masked tokens/images at the ends of they will be
+                         If truncation leaves masked tokens/images at the end of they sequence will be
                          removed since they provide no training signal
                          It is an error if a document is entirely removed
         return_segments: return segments ids in the output
@@ -243,14 +244,14 @@ class ExampleReader:
             start_token = total_tokens
             examples = self.get_documents(file_id, start_byte, num_bytes)
             for example in examples:
-                if sequence_length:
+                if max_sequence_length:
                     new_tokens = sum(x.num_tokens for x in example)
                     # Possibly truncate this example, we remove chunks until we have a non-masked
                     # chunk that has at least some tokens that do not need to get truncated. This
                     # means we could truncate the document and then add in a new document after it
                     while example and (
-                        example[-1].is_masked() or
-                        (new_tokens + total_tokens - example[-1].num_tokens) > sequence_length
+                            example[-1].is_masked() or
+                            (new_tokens + total_tokens - example[-1].num_tokens) > max_sequence_length
                     ):
                         new_tokens -= example[-1].num_tokens
                         example.pop()
@@ -260,8 +261,8 @@ class ExampleReader:
                     total_tokens += new_tokens
                 all_chunks.append(example)
 
-        return self._build_sequence(all_chunks, sequence_length, return_segments)
+        return self._build_sequence(all_chunks, max_sequence_length, return_segments)
 
     def read_range(self, file_id, start_byte, num_bytes,
-                   sequence_length: int=None, return_segments=True):
-        return self.read_ranges([(file_id, start_byte, num_bytes)], sequence_length, return_segments)
+                   max_sequence_length: int=None, return_segments=True):
+        return self.read_ranges([(file_id, start_byte, num_bytes)], max_sequence_length, return_segments)

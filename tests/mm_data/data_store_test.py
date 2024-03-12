@@ -29,7 +29,7 @@ def test_example_store_text(tmp_path: Path):
     indices = out["input_ids"]
     assert np.all(indices[:3] == data[:3])
     assert np.all(indices[3:] == 0)
-    assert indices.shape == (12,)
+    assert indices.shape == (3,)
 
     out = store.read_ranges([(0, 2, 8)], 1)["input_ids"]
     assert np.all(out == data[1:2])
@@ -60,7 +60,7 @@ def test_example_store_two_files(tmp_path: Path):
         (1, 0, 2), (1, 2, 4), (2, 2, 4),
         (1, 0, 2), (2, 4, 6)
     ], 9)
-    assert np.all(out["input_ids"] == np.array([51, 6, 1, 2, 123, 51, 123, 0, 0], dtype=np.uint16))
+    assert np.all(out["input_ids"] == np.array([51, 6, 1, 2, 123, 51, 123], dtype=np.uint16))
 
 
 def _tokens(*data):
