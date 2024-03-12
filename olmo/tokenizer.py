@@ -111,7 +111,7 @@ class Tokenizer:
         model_config = ModelConfig.load(config_path, key="model")
 
         # Initialize tokenizer and validate vocab size.
-        if(Path(tokenizer_config.identifier).is_file()):
+        if Path(tokenizer_config.identifier).is_file():
             tokenizer = cls.from_file(
                 tokenizer_config.identifier,
                 eos_token_id=model_config.eos_token_id,
