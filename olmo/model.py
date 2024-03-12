@@ -42,7 +42,7 @@ from .config import (
     LayerNormType,
     ModelConfig,
 )
-from .exceptions import OlmoConfigurationError
+from .exceptions import OLMoConfigurationError
 from .initialization import ModuleType, init_weights
 from .torch_util import ensure_finite_
 
@@ -57,18 +57,17 @@ __all__ = [
     "LayerNormBase",
     "LayerNorm",
     "RMSLayerNorm",
-    "AMDLayerNorm",
     "RotaryEmbedding",
     "Activation",
     "GELU",
     "ReLU",
     "SwiGLU",
-    "OlmoBlock",
-    "OlmoSequentialBlock",
-    "OlmoParallelBlock",
-    "Olmo",
-    "OlmoOutput",
-    "OlmoGenerateOutput",
+    "OLMoBlock",
+    "OLMoSequentialBlock",
+    "OLMoParallelBlock",
+    "OLMo",
+    "OLMoOutput",
+    "OLMoGenerateOutput",
 ]
 
 
@@ -152,8 +151,6 @@ class LayerNormBase(nn.Module):
             return LayerNorm(config, size=size, low_precision=True, **kwargs)
         elif config.layer_norm_type == LayerNormType.rms:
             return RMSLayerNorm(config, size=size, **kwargs)
-        elif config.layer_norm_type == LayerNormType.amd_compatible:
-            return AMDLayerNorm(config, size=size, **kwargs)
         else:
             raise NotImplementedError(f"Unknown LayerNorm type: '{config.layer_norm_type}'")
 
@@ -205,38 +202,6 @@ class LayerNorm(LayerNormBase):
                 )
         else:
             return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
-
-
-class AMDLayerNorm(LayerNormBase):
-    """
-    LayerNorm implemented using PyTorch primitives.
-
-    We do this to work around a bug in the PyTorch/ROCm implementation of layer norm that fails with a
-    segfault when the bias is not present.
-    """
-
-    def __init__(
-        self,
-        config: ModelConfig,
-        size: Optional[int] = None,
-        elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-05,
-    ):
-        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        og_dtype = x.dtype
-        x = self._cast_if_autocast_enabled(x, dtype=torch.float32)
-        with torch.autocast(enabled=False, device_type=x.device.type):
-            var, mean = torch.var_mean(x, dim=-1, correction=0, keepdim=True)
-            var.add_(self.eps)
-            var.rsqrt_()  # rsqrt should be more stable than 1/sqrt
-            x = var * (x - mean)
-            if self.weight is not None:
-                x.mul_(self.weight)
-            if self.bias is not None:
-                x.add_(self.bias)
-            return x.to(og_dtype)
 
 
 class RMSLayerNorm(LayerNormBase):
@@ -421,7 +386,7 @@ def alibi_attention_bias(seq_len: int, config: ModelConfig, device: torch.device
     return alibi_bias * (1.0 / (2 ** m.view(1, config.n_heads, 1, 1)))  # type: ignore
 
 
-class OlmoBlock(nn.Module):
+class OLMoBlock(nn.Module):
     """
     A base class for transformer block implementations.
     """
@@ -451,6 +416,10 @@ class OlmoBlock(nn.Module):
                 elementwise_affine=config.attention_layer_norm_with_affine,
             )
             self.q_norm = LayerNormBase.build(config, elementwise_affine=config.attention_layer_norm_with_affine)
+
+        # Make sure QKV clip coefficient is positive, otherwise it's not well-defined.
+        if config.clip_qkv is not None:
+            assert config.clip_qkv > 0
 
         # Activation function.
         self.act = Activation.build(config)
@@ -620,18 +589,18 @@ class OlmoBlock(nn.Module):
         raise NotImplementedError
 
     @classmethod
-    def build(cls, layer_id: int, config: ModelConfig, cache: BufferCache) -> OlmoBlock:
+    def build(cls, layer_id: int, config: ModelConfig, cache: BufferCache) -> OLMoBlock:
         if config.block_type == BlockType.sequential:
-            return OlmoSequentialBlock(layer_id, config, cache)
+            return OLMoSequentialBlock(layer_id, config, cache)
         elif config.block_type == BlockType.parallel:
-            return OlmoParallelBlock(layer_id, config, cache)
+            return OLMoParallelBlock(layer_id, config, cache)
         elif config.block_type == BlockType.llama:
-            return OlmoLlamaBlock(layer_id, config, cache)
+            return OLMoLlamaBlock(layer_id, config, cache)
         else:
             raise NotImplementedError(f"Unknown block type: '{config.block_type}'")
 
 
-class OlmoSequentialBlock(OlmoBlock):
+class OLMoSequentialBlock(OLMoBlock):
     """
     This is a typical transformer block where the output is computed as ``MLP(LN(x + Attention(LN(x))))``
     (plus another skip connection).
@@ -680,11 +649,14 @@ class OlmoSequentialBlock(OlmoBlock):
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
         if self._activation_checkpoint_fn is not None:
-            q, k, v = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x)).split(
-                self.fused_dims, dim=-1
-            )
+            qkv = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x))
         else:
-            q, k, v = self.att_proj(self.attn_norm(x)).split(self.fused_dims, dim=-1)
+            qkv = self.att_proj(self.attn_norm(x))
+
+        if self.config.clip_qkv is not None:
+            qkv.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+
+        q, k, v = qkv.split(self.fused_dims, dim=-1)
 
         # Get attention scores.
         if self._activation_checkpoint_fn is not None:
@@ -717,11 +689,11 @@ class OlmoSequentialBlock(OlmoBlock):
         return x, cache
 
 
-class OlmoParallelBlock(OlmoBlock):
+class OLMoParallelBlock(OLMoBlock):
     """
     This is a transformer block where the output is computed as ``MLP(LN(x)) + Attention(LN(x))``
     as in the PaLM architecture, as opposed to the typical ``MLP(LN(x + Attention(LN(x))))``
-    as in :class:`OlmoSequentialBlock` (ignoring some skip connections).
+    as in :class:`OLMoSequentialBlock` (ignoring some skip connections).
 
     The decoupling of the MLP and Attention functions allow us to fuse the separate input projections
     into a single linear layer to increase throughput. In this configuration it's also straight-forward
@@ -780,6 +752,11 @@ class OlmoParallelBlock(OlmoBlock):
         else:
             q, k, v, ff = self.fused_attn_ff_proj(self.norm(x)).split(self.fused_dims, dim=-1)
 
+        if self.config.clip_qkv is not None:
+            q.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+            k.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+            v.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+
         # Get attention scores.
         # shape: (B, T, C)
         if self._activation_checkpoint_fn is not None:
@@ -804,10 +781,10 @@ class OlmoParallelBlock(OlmoBlock):
             )
 
 
-class OlmoLlamaBlock(OlmoBlock):
+class OLMoLlamaBlock(OLMoBlock):
     """
     This is a transformer block where the output is computed as ``MLP(LN(x + Attention(LN(x))))``
-    (plus another skip connection). This block is similar to `OlmoSequentialBlock`
+    (plus another skip connection). This block is similar to `OLMoSequentialBlock`
     but some operations have slightly different implementations to imitate the
     behavior of Llama.
     """
@@ -896,6 +873,11 @@ class OlmoLlamaBlock(OlmoBlock):
         k = self.k_proj(x_normed)
         v = self.v_proj(x_normed)
 
+        if self.config.clip_qkv is not None:
+            q.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+            k.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+            v.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+
         # Get attention scores.
         att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
 
@@ -922,7 +904,7 @@ class OlmoLlamaBlock(OlmoBlock):
         return x, cache
 
 
-class OlmoOutput(NamedTuple):
+class OLMoOutput(NamedTuple):
     logits: torch.FloatTensor
     """
     A tensor of shape `(batch_size, seq_len, vocab_size)` representing the log probabilities
@@ -940,7 +922,7 @@ class OlmoOutput(NamedTuple):
     """
 
 
-class OlmoGenerateOutput(NamedTuple):
+class OLMoGenerateOutput(NamedTuple):
     token_ids: torch.LongTensor
     """
     The generated token IDs, a tensor of shape `(batch_size, beam_size, max_steps)`.
@@ -953,7 +935,7 @@ class OlmoGenerateOutput(NamedTuple):
     """
 
 
-class OlmoBlockGroup(nn.ModuleList):
+class OLMoBlockGroup(nn.ModuleList):
     def __init__(self, config: ModelConfig, layer_offset: int, modules: Optional[Iterable[nn.Module]] = None):
         super().__init__(modules)
         self.config = config
@@ -1009,7 +991,7 @@ class OlmoBlockGroup(nn.ModuleList):
             block.set_activation_checkpointing(strategy)
 
 
-class Olmo(nn.Module):
+class OLMo(nn.Module):
     def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
         self.config = config
@@ -1017,14 +999,14 @@ class Olmo(nn.Module):
 
         # Validate config.
         if self.config.alibi and self.config.flash_attention:
-            raise OlmoConfigurationError("ALiBi is currently not supported with FlashAttention")
+            raise OLMoConfigurationError("ALiBi is currently not supported with FlashAttention")
 
         if self.config.alibi and self.config.rope:
-            raise OlmoConfigurationError("ALiBi and RoPE are mutually exclusive")
+            raise OLMoConfigurationError("ALiBi and RoPE are mutually exclusive")
 
         if self.config.embedding_size is not None and self.config.embedding_size != self.config.vocab_size:
             if self.config.embedding_size < self.config.vocab_size:
-                raise OlmoConfigurationError("embedding size should be at least as big as vocab size")
+                raise OLMoConfigurationError("embedding size should be at least as big as vocab size")
             elif self.config.embedding_size % 128 != 0:
                 import warnings
 
@@ -1039,7 +1021,7 @@ class Olmo(nn.Module):
             0 < self.config.block_group_size <= self.config.n_layers
             and self.config.n_layers % self.config.block_group_size == 0
         ):
-            raise OlmoConfigurationError("n layers must be divisible by block group size")
+            raise OLMoConfigurationError("n layers must be divisible by block group size")
 
         torch.backends.cuda.enable_flash_sdp(self.config.flash_attention)
         torch.backends.cuda.enable_mem_efficient_sdp(False)  # this is super slow so make sure torch won't use it
@@ -1054,10 +1036,10 @@ class Olmo(nn.Module):
             )
         )
 
-        blocks = [OlmoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
+        blocks = [OLMoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
         if self.config.block_group_size > 1:
             block_groups = [
-                OlmoBlockGroup(config, i, blocks[i : i + config.block_group_size])
+                OLMoBlockGroup(config, i, blocks[i : i + config.block_group_size])
                 for i in range(0, config.n_layers, config.block_group_size)
             ]
             self.transformer.update({"block_groups": nn.ModuleList(block_groups)})
@@ -1156,7 +1138,7 @@ class Olmo(nn.Module):
         use_cache: bool = False,
         last_logits_only: bool = False,
         output_hidden_states: Optional[bool] = None,
-    ) -> OlmoOutput:
+    ) -> OLMoOutput:
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
         :param input_embeddings: A tensor of shape `(batch_size, seq_len, d_model)` with input
@@ -1334,7 +1316,7 @@ class Olmo(nn.Module):
         if self.config.scale_logits:
             logits.mul_(1 / math.sqrt(self.config.d_model))
 
-        return OlmoOutput(logits=logits, attn_key_values=attn_key_values, hidden_states=tuple(all_hidden_states) if output_hidden_states else None)  # type: ignore[arg-type]
+        return OLMoOutput(logits=logits, attn_key_values=attn_key_values, hidden_states=tuple(all_hidden_states) if output_hidden_states else None)  # type: ignore[arg-type]
 
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
         if wrap_strategy is None:
@@ -1354,7 +1336,7 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
-                wrap = isinstance(module, OlmoBlock)
+                wrap = isinstance(module, OLMoBlock)
                 if recurse:
                     return True
                 else:
@@ -1365,7 +1347,7 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
-                wrap = isinstance(module, (OlmoBlock,)) or module in size_based_module_to_wrap
+                wrap = isinstance(module, (OLMoBlock,)) or module in size_based_module_to_wrap
                 if recurse:
                     return True
                 else:
@@ -1374,13 +1356,13 @@ class Olmo(nn.Module):
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_group:
             if self.config.block_group_size <= 1:
-                raise OlmoConfigurationError(
+                raise OLMoConfigurationError(
                     "'by_block_group' FSDP wrapping strategy requires block group size greater than 1"
                 )
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
-                wrap = isinstance(module, OlmoBlockGroup)
+                wrap = isinstance(module, OLMoBlockGroup)
                 if recurse:
                     return True
                 else:
@@ -1389,13 +1371,13 @@ class Olmo(nn.Module):
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_group_and_size:
             if self.config.block_group_size <= 1:
-                raise OlmoConfigurationError(
+                raise OLMoConfigurationError(
                     "'by_block_group_and_size' FSDP wrapping strategy requires block group size greater than 1"
                 )
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
-                wrap = isinstance(module, (OlmoBlockGroup,)) or module in size_based_module_to_wrap
+                wrap = isinstance(module, (OLMoBlockGroup,)) or module in size_based_module_to_wrap
                 if recurse:
                     return True
                 else:
@@ -1421,7 +1403,7 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
-                wrap = isinstance(module, OlmoBlock) and module.layer_id % c == 0
+                wrap = isinstance(module, OLMoBlock) and module.layer_id % c == 0
                 if recurse:
                     return True
                 else:
@@ -1472,7 +1454,7 @@ class Olmo(nn.Module):
         min_steps: Optional[int] = None,
         final_sequence_scorer: Optional[FinalSequenceScorer] = None,
         constraints: Optional[List[Constraint]] = None,
-    ) -> OlmoGenerateOutput:
+    ) -> OLMoGenerateOutput:
         """
         Generate token IDs using beam search.
 
@@ -1582,7 +1564,7 @@ class Olmo(nn.Module):
         with torch.no_grad():
             token_ids, scores = beam_search.search(initial_preds, state, step)
 
-        return OlmoGenerateOutput(
+        return OLMoGenerateOutput(
             token_ids=token_ids,  # type: ignore[arg-type]
             scores=scores,  # type: ignore[arg-type]
         )
@@ -1590,7 +1572,7 @@ class Olmo(nn.Module):
     @classmethod
     def from_checkpoint(
         cls, checkpoint_dir: PathOrStr, device: str = "cpu", checkpoint_type: Optional[CheckpointType] = None
-    ) -> Olmo:
+    ) -> OLMo:
         """
         Load an OLMo model from a checkpoint.
         """
@@ -1613,7 +1595,7 @@ class Olmo(nn.Module):
         if checkpoint_type == CheckpointType.unsharded:
             # Initialize model (always on CPU to start with so we don't run out of GPU memory).
             model_config.init_device = "cpu"
-            model = Olmo(model_config)
+            model = OLMo(model_config)
 
             # Load state dict directly to target device.
             state_dict_path = resource_path(checkpoint_dir, "model.pt")
@@ -1626,7 +1608,7 @@ class Olmo(nn.Module):
             # Initialize model on target device. In this case the state dict is loaded in-place
             # so it's not necessary to start on CPU if the target device is a GPU.
             model_config.init_device = device
-            model = Olmo(model_config)
+            model = OLMo(model_config)
 
             # Load state dict in place.
             load_model_state(checkpoint_dir, model)
