@@ -54,6 +54,6 @@ srun \
       --run_name=${SLURM_JOB_ID} \
       --time_limit=$((47 * 60 * 60)) \
       --canceled_check_interval=10 \
-      --device_train_microbatch_size=2 \
+      --device_train_microbatch_size=4 \
       --save_interval=1000 \
       ${@}
