@@ -3,7 +3,7 @@
 set -ex
 
 CONFIG_PATH=configs/olmo7-ablation-baseline.yaml
-NUM_NODES=4
+NUM_NODES=8
 ARGS='--run_name=olmo7-ablation-baseline --wandb.name=baseline --model.flash_attention=true --fsdp.wrapping_strategy=by_block_and_size --fsdp.sharding_strategy=SHARD_GRAD_OP --save_folder=runs/ --device_train_microbatch_size=3 --global_train_batch_size=6144 --wandb.group=baseline --remote_save_folder=s3://ai2-llm/checkpoints/olmo7-ablation/baseline3 --load_path=s3://ai2-llm/checkpoints/olmo7-ablation/baseline3/step7800'
 
 gantry run \
