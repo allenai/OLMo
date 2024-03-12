@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Don't log garbage on nodes that aren't rank 0
+- Don't crash in the HF code when we are referring to a tokenizer in a local file
 
 
 ## [v0.2.5](https://github.com/allenai/OLMo/releases/tag/v0.2.5) - 2024-03-06
