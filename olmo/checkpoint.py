@@ -322,7 +322,10 @@ class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
             path,
             single_file_per_rank=single_file_per_rank,
             sync_files=sync_files,
-            thread_count=thread_count or default_thread_count(),
+            # NOTE: we default to 1 thread here instead of whatever `default_thread_count()`
+            # returns because uploading big checkpoint files with multiple threads causes
+            # boto3 to fail in weird ways.
+            thread_count=thread_count or 1,
             per_thread_copy_ahead=per_thread_copy_ahead,
         )
         self.upload_to = None if upload_to is None else upload_to.rstrip("/")
