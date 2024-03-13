@@ -1,4 +1,11 @@
-__all__ = ["OLMoError", "OLMoConfigurationError", "OLMoCliError", "OLMoEnvironmentError", "OLMoNetworkError"]
+__all__ = [
+    "OLMoError",
+    "OLMoConfigurationError",
+    "OLMoCliError",
+    "OLMoEnvironmentError",
+    "OLMoNetworkError",
+    "OLMoCheckpointError",
+]
 
 
 class OLMoError(Exception):
@@ -28,6 +35,12 @@ class OLMoEnvironmentError(OLMoError):
 class OLMoNetworkError(OLMoError):
     """
     An error with a network request.
+    """
+
+
+class OLMoCheckpointError(OLMoError):
+    """
+    An error occurred reading or writing from a checkpoint.
     """
 
 
