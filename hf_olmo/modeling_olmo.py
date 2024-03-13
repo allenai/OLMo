@@ -151,43 +151,43 @@ class OLMoForCausalLM(PreTrainedModel):
         if self.config.weight_tying:
             self.model.transformer.ff_out = self.model.transformer.wte
 
-def resize_token_embeddings(
-    self, new_num_tokens: Optional[int] = None, pad_to_multiple_of: Optional[int] = None
-) -> torch.nn.Embedding:
-    """
-    Resizes input token embeddings matrix of the model if `new_num_tokens != config.embedding_size`.
+    def resize_token_embeddings(
+        self, new_num_tokens: Optional[int] = None, pad_to_multiple_of: Optional[int] = None
+    ) -> torch.nn.Embedding:
+        """
+        Resizes input token embeddings matrix of the model if `new_num_tokens != config.embedding_size`.
 
-    Takes care of tying weights embeddings afterwards if the model class has a `tie_weights()` method.
+        Takes care of tying weights embeddings afterwards if the model class has a `tie_weights()` method.
 
-    Arguments:
-        new_num_tokens (`int`, *optional*):
-            The new number of tokens in the embedding matrix. Increasing the size will add newly initialized
-            vectors at the end. Reducing the size will remove vectors from the end. If not provided or `None`, just
-            returns a pointer to the input tokens `torch.nn.Embedding` module of the model without doing anything.
-        pad_to_multiple_of (`int`, *optional*):
-            If set will pad the embedding matrix to a multiple of the provided value. If `new_num_tokens` is set to
-            `None` will just pad the embedding to a multiple of `pad_to_multiple_of`.
+        Arguments:
+            new_num_tokens (`int`, *optional*):
+                The new number of tokens in the embedding matrix. Increasing the size will add newly initialized
+                vectors at the end. Reducing the size will remove vectors from the end. If not provided or `None`, just
+                returns a pointer to the input tokens `torch.nn.Embedding` module of the model without doing anything.
+            pad_to_multiple_of (`int`, *optional*):
+                If set will pad the embedding matrix to a multiple of the provided value. If `new_num_tokens` is set to
+                `None` will just pad the embedding to a multiple of `pad_to_multiple_of`.
 
-            This is especially useful to enable the use of Tensor Cores on NVIDIA hardware with compute capability
-            `>= 7.5` (Volta), or on TPUs which benefit from having sequence lengths be a multiple of 128. For more
-            details about this, or help on choosing the correct value for resizing, refer to this guide:
-            https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#requirements-tc
+                This is especially useful to enable the use of Tensor Cores on NVIDIA hardware with compute capability
+                `>= 7.5` (Volta), or on TPUs which benefit from having sequence lengths be a multiple of 128. For more
+                details about this, or help on choosing the correct value for resizing, refer to this guide:
+                https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#requirements-tc
 
-    Return:
-        `torch.nn.Embedding`: Pointer to the input tokens Embeddings Module of the model.
-    """
-    model_embeds = self._resize_token_embeddings(new_num_tokens, pad_to_multiple_of)
-    if new_num_tokens is None and pad_to_multiple_of is None:
-        return model_embeds
+        Return:
+            `torch.nn.Embedding`: Pointer to the input tokens Embeddings Module of the model.
+        """
+        model_embeds = self._resize_token_embeddings(new_num_tokens, pad_to_multiple_of)
+        if new_num_tokens is None and pad_to_multiple_of is None:
+            return model_embeds
 
-    # Update base model and current model config
-    self.config.embedding_size = model_embeds.weight.shape[0]
-    self.model.config.embedding_size = model_embeds.weight.shape[0]
+        # Update base model and current model config
+        self.config.embedding_size = model_embeds.weight.shape[0]
+        self.model.config.embedding_size = model_embeds.weight.shape[0]
 
-    # Tie weights again if needed
-    self.tie_weights()
+        # Tie weights again if needed
+        self.tie_weights()
 
-    return model_embeds    
+        return model_embeds    
 
 
 # Register the model so that it is available for transformer pipelines, auto-loading, etc.
