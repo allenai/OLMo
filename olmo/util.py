@@ -550,7 +550,7 @@ def _s3_get_bytes_range(
                 .read()
             )
         except boto_exceptions.ClientError as e:
-            if int(e.response["Error"]["Code"]) == 404:
+            if e.response["ResponseMetadata"]["HTTPStatusCode"] == 404:
                 raise FileNotFoundError(f"s3://{bucket_name}/{key}") from e
             err = e
         except (boto_exceptions.HTTPClientError, boto_exceptions.ConnectionError) as e:
