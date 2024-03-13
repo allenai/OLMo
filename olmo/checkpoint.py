@@ -3,6 +3,7 @@ import io
 import logging
 import pickle
 import shutil
+import traceback
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
@@ -46,10 +47,12 @@ from olmo import util
 
 from .aliases import PathOrStr
 from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
+from .exceptions import OLMoCheckpointError
 from .optim import Optimizer, fix_optim_state_dict
 from .safetensors_util import safetensors_file_to_state_dict
 from .torch_util import barrier, get_fs_local_rank, get_global_rank, get_world_size
 from .util import (
+    _get_s3_client,
     default_thread_count,
     dir_is_empty,
     get_bytes_range,
@@ -319,7 +322,10 @@ class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
             path,
             single_file_per_rank=single_file_per_rank,
             sync_files=sync_files,
-            thread_count=thread_count or default_thread_count(),
+            # NOTE: we default to 1 thread here instead of whatever `default_thread_count()`
+            # returns because uploading big checkpoint files with multiple threads causes
+            # boto3 to fail in weird ways.
+            thread_count=thread_count or 1,
             per_thread_copy_ahead=per_thread_copy_ahead,
         )
         self.upload_to = None if upload_to is None else upload_to.rstrip("/")
@@ -336,6 +342,12 @@ class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
             for write_result in fut.wait():
                 files_to_upload.add(write_result.storage_data.relative_path)
 
+            # Create the global S3 client up front to work around a threading issue in boto.
+            if self.upload_to.startswith("s3://"):
+                _get_s3_client("s3")
+            elif self.upload_to.startswith("r2://"):
+                _get_s3_client("r2")
+
             with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
                 futures = []
                 for fname in files_to_upload:
@@ -344,7 +356,13 @@ class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
                     log.info(f"Uploading {source} to {target}...")
                     futures.append(executor.submit(upload, source, target, save_overwrite=self.save_overwrite))
                 for f in as_completed(futures):
-                    f.result()
+                    try:
+                        f.result()
+                    except BaseException:
+                        # NOTE: we might get an error here that can't be pickled, which causes a different failure
+                        # later when PyTorch tries to reduce that error across ranks. So here we just make
+                        # sure we're raising a simple error type that can be pickled.
+                        raise OLMoCheckpointError(f"Original error:\n{traceback.format_exc()}")
         return fut
 
     def finish(self, metadata: Metadata, results: List[List[WriteResult]]) -> None:
@@ -386,13 +404,26 @@ class RemoteFileSystemReader(dist_cp.StorageReader):
         return (read_item, content)
 
     def read_data(self, plan: dist_cp.LoadPlan, planner: dist_cp.LoadPlanner) -> Future[None]:
+        # Create the global S3 client up front to work around a threading issue in boto.
+        if isinstance(self.path, str):
+            if self.path.startswith("s3://"):
+                _get_s3_client("s3")
+            elif self.path.startswith("r2://"):
+                _get_s3_client("r2")
+
         with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
             read_item_content_futures = []
             for read_item in plan.items:
                 read_item_content_futures.append(executor.submit(self._get_content_for_read, read_item))
             read_item_content_results = []
             for f in as_completed(read_item_content_futures):
-                read_item_content_results.append(f.result())
+                try:
+                    read_item_content_results.append(f.result())
+                except BaseException:
+                    # NOTE: we might get an error here that can't be pickled, which causes a different failure
+                    # later when PyTorch tries to reduce that error across ranks. So here we just make
+                    # sure we're raising a simple error type that can be pickled.
+                    raise OLMoCheckpointError(f"Original error:\n{traceback.format_exc()}")
 
         # Modified from `FileSystemReader.read_data()`
         for read_item, content in read_item_content_results:
