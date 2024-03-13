@@ -52,6 +52,7 @@ from .optim import Optimizer, fix_optim_state_dict
 from .safetensors_util import safetensors_file_to_state_dict
 from .torch_util import barrier, get_fs_local_rank, get_global_rank, get_world_size
 from .util import (
+    _get_s3_client,
     default_thread_count,
     dir_is_empty,
     get_bytes_range,
@@ -338,6 +339,12 @@ class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
             for write_result in fut.wait():
                 files_to_upload.add(write_result.storage_data.relative_path)
 
+            # Create the global S3 client up front to work around a threading issue in boto.
+            if self.upload_to.startswith("s3://"):
+                _get_s3_client("s3")
+            elif self.upload_to.startswith("r2://"):
+                _get_s3_client("r2")
+
             with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
                 futures = []
                 for fname in files_to_upload:
@@ -394,6 +401,13 @@ class RemoteFileSystemReader(dist_cp.StorageReader):
         return (read_item, content)
 
     def read_data(self, plan: dist_cp.LoadPlan, planner: dist_cp.LoadPlanner) -> Future[None]:
+        # Create the global S3 client up front to work around a threading issue in boto.
+        if isinstance(self.path, str):
+            if self.path.startswith("s3://"):
+                _get_s3_client("s3")
+            elif self.path.startswith("r2://"):
+                _get_s3_client("r2")
+
         with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
             read_item_content_futures = []
             for read_item in plan.items:
