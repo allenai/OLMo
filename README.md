@@ -53,7 +53,7 @@ The core models in the OLMo family released so far are (all trained on the [Dolm
 
 ### Checkpoints
 
-URLs to checkpoints at intermediate steps of the models' trainings can be found in the csv files under [`checkpoints/official/`](https://github.com/allenai/OLMo/blob/main/checkpoints/official). These 'directory' URLs cannot currently be directly accessed, but files within the directory are publicly accessible. Each checkpoint directory consists of:
+URLs to checkpoints at intermediate steps of the models' trainings can be found in the csv files under [`checkpoints/official/`](https://github.com/allenai/OLMo/blob/main/checkpoints/official). These 'directory' URLs cannot currently be directly accessed, but files within the directory are publicly accessible. These URLs can also be provided to the training script to resume training from the checkpoint (see [Training](#training)). Each checkpoint directory consists of:
 
 - `config.yaml`: the config at that training step.
 - `model.pt`, `optim.pt`, `train.pt`: model, optimizer and training state at that training step.
@@ -125,6 +125,13 @@ torchrun --nproc_per_node=8 scripts/train.py configs/official/OLMo-1B.yaml
 ```
 
 You can use the same method to launch multi-node jobs as well. See [the documentation](https://pytorch.org/docs/stable/elastic/run.html) for `torchrun` to understand the additional arguments you'll need to configure the rendezvous backend / endpoint.
+
+To resume training from a checkpoint, you can pass its path (local or URL)
+to `scripts/train.py` with the `--load_path` arguments. For example, to resume training from step 1000 of the OLMo 1B run:
+
+```bash
+torchrun --nproc_per_node=8 scripts/train.py configs/official/OLMo-1B.yaml --load_path https://olmo-checkpoints.org/ai2-llm/olmo-small/w1r5xfzt/step1000-unsharded
+```
 
 ### Inspecting training data
 
