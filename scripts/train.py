@@ -243,7 +243,7 @@ def main(cfg: TrainConfig) -> None:
 
 if __name__ == "__main__":
     try:
-        mp.set_start_method("spawn")
+        mp.set_start_method("spawn", force=True)
     except RuntimeError as e:
         print(f"failed to set multiprocessing start method: {e}")
         print(f"start method set to {mp.get_start_method()}")
