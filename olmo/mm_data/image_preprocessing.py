@@ -3,7 +3,7 @@ from typing import Tuple
 import numpy as np
 from PIL import Image
 import functools
-from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
+from torchvision.transforms import Compose, Resize, CenterCrop
 
 try:
     from torchvision.transforms import InterpolationMode

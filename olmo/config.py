@@ -251,6 +251,10 @@ class VisionPretrainedType(StrEnum):
 class VisionBackboneConfig(BaseConfig):
     name: VisionBackboneType = VisionBackboneType.OpenAI_ViT_L_14_336
     pretrained: VisionPretrainedType = VisionPretrainedType.openai
+    cache_dir: Optional[str] = None
+    """
+    The directory to cache the vision backbone model in.
+    """
     image_width: int = 256
     image_height: int = 256
     patch_width: int = 16
@@ -375,11 +379,6 @@ class ModelConfig(BaseConfig):
     llm_load_path: Optional[str] = None
     """
     Use this to partially load the llm transformer.
-    """
-
-    cache_dir: Optional[str] = None
-    """
-    The directory to cache the vision backbone model/pretrained llm transformer in.
     """
 
     low_cpu_fsdp: bool = True
@@ -656,6 +655,7 @@ class DataConfig(BaseConfig):
     sampler: Optional[DataSamplingConfig] = None
     sequence_builder: Optional[SequenceBuilderConfig] = None
     idx_dir: Optional[str] = None
+    image_dir: Optional[str] = None
     object_store_config: Optional[ObjectStoreConfig] = None
     return_segment_ids: bool = False
     thread_buffer_factor: Optional[float] = 1
@@ -706,6 +706,10 @@ class TruncationDirection(StrEnum):
 class TokenizerConfig(BaseConfig):
     identifier: str = "gpt2"
     truncate_direction: TruncationDirection = TruncationDirection.right
+    cache_dir: Optional[str] = None
+    """
+    The directory to cache the tokenizer config in.
+    """
 
 
 @dataclass

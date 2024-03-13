@@ -1,7 +1,7 @@
 import pytest
 
 from olmo.mm_data.data_iteration import split_example, balanced_merge, DataSamplingConfig, OptimizeLast, \
-    SequenceBuilder, Sequential, ParallelizableSequenceBuilder, shuffle, SequentialSplitText, \
+        SequenceBuilder, Sequential, ParallelizableSequenceBuilder, shuffle, SequentialSplitText, \
     DOC_INFO_DTYPE, DOC_SEQUENCE_DTYPE, reorder_sequences
 
 import numpy as np
@@ -70,31 +70,6 @@ def _build_docs(tokens):
     return data
 
 
-def test_sequential_split_text():
-    data = _build_docs([12, 3, 10, 25, 51])
-    data["pure_text"] = True
-    split = SequentialSplitText()(data, 20)
-    expected = [
-        [0, 1, 2],  # [12, 3, 5 from the 10]
-        [2, 3],     # [5 from the 10, 15 from 25]
-        [3, 4],     # [10 from the 25, 10 from 51]
-        [4],        # [10-30 from 51]
-        [4],        # [30-50 from 51]
-        [4]         # [50-51 from 51]
-    ]
-    assert len(split) == sum(len(x) for x in expected)
-    on = 0
-    for seq_num, expected_seq in enumerate(expected):
-        actual = split[on:on+len(expected_seq)]
-        on += len(expected_seq)
-        assert actual["doc_id"]["file_id"].tolist() == expected_seq
-        assert np.all(actual["sequence_number"] == seq_num)
-        if seq_num == (len(expected) - 1):
-            assert actual["doc_id"]["length"].sum() // 2 == 1
-        else:
-            assert actual["doc_id"]["length"].sum() // 2 == 20
-
-
 def test_reorder():
     data = np.zeros((3,), DOC_SEQUENCE_DTYPE)
     data["sequence_number"] = [0, 1, 1]
@@ -139,6 +114,31 @@ def test_reorder_rng():
         assert np.all(deltas <= 1)
         assert np.all(deltas >= 0)
         assert np.all(np.sort(actual["doc_id"]["start_byte"]) == np.arange(len(data), dtype=np.int64))
+
+
+def test_sequential_split_text():
+    data = _build_docs([12, 3, 10, 25, 51])
+    data["pure_text"] = True
+    split = SequentialSplitText()(data, 20)
+    expected = [
+        [0, 1, 2],  # [12, 3, 5 from the 10]
+        [2, 3],     # [5 from the 10, 15 from 25]
+        [3, 4],     # [10 from the 25, 10 from 51]
+        [4],        # [10-30 from 51]
+        [4],        # [30-50 from 51]
+        [4]         # [50-51 from 51]
+    ]
+    assert len(split) == sum(len(x) for x in expected)
+    on = 0
+    for seq_num, expected_seq in enumerate(expected):
+        actual = split[on:on+len(expected_seq)]
+        on += len(expected_seq)
+        assert actual["doc_id"]["file_id"].tolist() == expected_seq
+        assert np.all(actual["sequence_number"] == seq_num)
+        if seq_num == (len(expected) - 1):
+            assert actual["doc_id"]["length"].sum() // 2 == 1
+        else:
+            assert actual["doc_id"]["length"].sum() // 2 == 20
 
 
 def test_optimize_last():

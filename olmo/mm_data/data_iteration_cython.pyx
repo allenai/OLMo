@@ -41,7 +41,7 @@ cdef packed struct DocSequence:
 cdef packed struct DocTokens:
     DocId doc_id
     cnp.uint32_t num_tokens
-
+    
 
 def reorder_sequence(cnp.ndarray idx_arr, cnp.ndarray new_order_arr):
     cdef DocSequence[:] idx = idx_arr

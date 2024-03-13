@@ -14,7 +14,8 @@ requires-python = ">=3.8"
 license = { file = "LICENSE" }
 dependencies = [
     "numpy",
-    "torch>=2.0,<2.3",
+    "torch==2.1.1",
+    "torchvision==0.16.1",
     "omegaconf",
     "rich",
     "boto3",
@@ -23,8 +24,15 @@ dependencies = [
     "packaging",
     "cached_path",
     "transformers",
+    "sentencepiece",
+    "shortuid",
+    "accelerate",
+    "pydantic",
+    "markdown2[all]",
+    "requests",
+    "einops",
+    "einops-exts",
     "open-clip-torch>=2.24.0",
-    "Cython",
 ]
 
 [project.optional-dependencies]
@@ -50,6 +58,8 @@ train = [
     "datasets",
     "scikit-learn",
     "msgspec>=0.14.0",
+    "deepspeed<=0.13.1",
+    "ninja",
 ]
 all = [
     "ai2-olmo[dev,train]",

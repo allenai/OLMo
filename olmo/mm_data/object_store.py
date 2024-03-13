@@ -1,6 +1,6 @@
 from os.path import join, exists
 
-from olmo.util import get_bytes_range, read_file
+from olmo.util import read_file
 
 
 class ObjectStore:

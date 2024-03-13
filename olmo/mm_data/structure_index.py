@@ -1,11 +1,11 @@
-from typing import Iterator
+from typing import List, Optional, Union, Iterator
 
 import numpy as np
 import torch
 
-from olmo.mm_data.data_store import TextChunk, Document, read_data_file, MMStorageConfig
+from olmo.mm_data.data_store import ExampleReader, TextChunk, Document, read_data_file, MMStorageConfig
 from olmo.mm_data.image_token_size import ImageTokenSizer
-from olmo.util import NumpyList, read_file
+from olmo.util import get_bytes_range, NumpyList, read_file
 
 
 def get_index_file(data_file):
@@ -39,7 +39,7 @@ class Indexer:
         storage_config: MMStorageConfig,
         index_file: str,
     ) -> np.ndarray:
-        """Read the index and return an array of dtype `DOC_INFO_DTYPE`"""
+        """Read the index and return an array of dtype `DOCUMENT_INFO`"""
         raise NotImplementedError()
 
 

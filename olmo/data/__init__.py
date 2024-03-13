@@ -7,7 +7,6 @@ from ..aliases import PathOrStr
 from ..config import DataConfig, TrainConfig, ObjectStoreConfig, ModelConfig
 from ..exceptions import OlmoConfigurationError
 from ..mm_data.data_iteration import IterationConfig
-from ..mm_data.data_store import ExampleReader, MMStorageConfig
 from ..mm_data.image_preprocessing import ImagePreprocessor, ClipImageResize, AnyResClipImageResize
 from ..mm_data.iterable_dataset import MMIterableDataset
 from ..mm_data.object_store import FileStore, ObjectStore
@@ -132,25 +131,25 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
         data_cfg = train_config.data
         model_config = train_config.model
         if model_config.vision_backbone is not None:
-            object_store = build_object_store(data_cfg.object_store_config)
             image_preprocessor = build_image_preprocessor(model_config)
+            object_store = build_object_store(data_cfg.object_store_config)
         else:
-            object_store = None
             image_preprocessor = None
+            object_store = None
         it_config = IterationConfig(data_cfg.paths, data_cfg.sampler, data_cfg.sequence_builder)
         dataset = MMIterableDataset(
             data=it_config,
+            pad_token_id=model_config.pad_token_id,
             object_store=object_store,
             image_preprocessor=image_preprocessor,
             idx_dir=data_cfg.idx_dir,
             seed=train_config.seed + (train_config.epoch or 0),
             sequence_length=train_config.model.max_sequence_length,
             global_batch_size=train_config.global_train_batch_size,
-            drop_last=data_cfg.drop_last,
-            num_threads=data_cfg.num_threads,
-            thread_buffer_factor=data_cfg.thread_buffer_factor,
+            drop_last=train_config.data.drop_last,
+            num_threads=train_config.data.num_threads,
+            thread_buffer_factor=train_config.data.thread_buffer_factor,
             n_preprocessing_procs=data_cfg.n_preprocessing_procs,
-            eos_token_id=model_config.eos_token_id,
         )
     else:
         dataset = IterableDataset(

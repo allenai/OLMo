@@ -106,6 +106,7 @@ def read_data_file(data_file: str, start_byte: int, num_bytes: int,
     out = []
     parts = []
     on = 0
+    is_masked = False
     for ix in np.argwhere(is_special_token)[:, 0]:
         if ix < on:
             # special token occurred inside an object id, skip it
@@ -152,7 +153,7 @@ def write_data_file(
                 data_fh.write(data_config.doc_end_bytes)
                 on_byte += 2
 
-            # yield back example, useful when building the index
+            # yield back example and its location, useful when building the index
             yield example
 
 
@@ -165,13 +166,15 @@ class ExampleReader:
         data_files: Union[List[str], Dict[int, str]],
         image_store: ObjectStore,
         image_sizer: ImageTokenSizer,
-        storage_config: MMStorageConfig
+        storage_config: MMStorageConfig,
+        pad_token_id: int,
     ):
         self.image_store = image_store
         self.image_sizer = image_sizer
         self.data_files = data_files
         self.storage_config = storage_config
-
+        self.pad_token_id = pad_token_id
+        
     def get_documents(self, file_id, start_byte, num_bytes) -> List[Document]:
         return read_data_file(self.data_files[file_id], int(start_byte), int(num_bytes),
                               self.storage_config, self.image_sizer)
@@ -184,13 +187,13 @@ class ExampleReader:
     ) -> Dict[str, np.ndarray]:
         if sequence_length is None:
             sequence_length = sum(sum(y.num_tokens for y in x) for x in documents)
-        indices = np.zeros(sequence_length, np.uint16)
+        indices = np.full(sequence_length, self.pad_token_id, np.uint16)
         mask = np.zeros(sequence_length, np.bool_)
         images = []
+        offsets = []
         sizes = None
         if self.image_sizer is not None and 'anyres' in self.image_sizer.get_id():
             sizes = []
-        offsets = []
         if return_segments:
             segments = np.zeros(sequence_length, np.int32)
         else:

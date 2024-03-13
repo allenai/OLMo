@@ -3,7 +3,6 @@ Script for preparing the LLaVA pretraining data for aligning visual features wit
 """
 
 import sys
-import random
 import json
 import logging
 from os.path import join
@@ -12,57 +11,48 @@ from pathlib import Path
 from omegaconf import OmegaConf as om
 import multiprocessing
 import math
+from functools import partial
+from rich.progress import track
 
 from olmo import Tokenizer
-from olmo.mm_data.object_store import FileStore
+from olmo.mm_data.object_store import ObjectStore, FileStore
 from olmo.mm_data.data_store import MMStorageConfig, write_data_file
-from olmo.mm_data.image_token_size import FixedNumberOfToken, AnyResImageTokenizer
-from olmo.mm_data.sequence_index import get_idx_file as get_sequence_idx_file
 from olmo.mm_data.structure_index import VectorizedIndexer, get_index_file as get_structure_idx_file
-from olmo.mm_data.preprocess import ImageFile, preprocess_example
+from olmo.mm_data.preprocess import ImageFile, Masked, preprocess_example
 from olmo.util import prepare_cli_environment
 
 
 logger = logging.getLogger(__name__)
 
-def get_sizer(v_cfg):
-    if v_cfg.anyres:
-        return AnyResImageTokenizer(
-            v_cfg.image_width,
-            v_cfg.image_height,
-            v_cfg.patch_width,
-            v_cfg.patch_height,
-            v_cfg.possible_resolutions,
-            v_cfg.n_queries,
-        )
-    else:
-        n_tokens = v_cfg.n_queries if v_cfg.n_queries is not None else (v_cfg.image_width // v_cfg.patch_width) * (v_cfg.image_height // v_cfg.patch_height)
-        return FixedNumberOfToken(n_tokens)
 
-
-def parse_examples(data_path, image_dir, use_image=True):
+def parse_examples(data_path, image_dir, tokenizer, use_image=True):
     with open(data_path) as f:
         list_data_dict = json.load(f)
-    # Construct a list of [ImageFile, caption].
     # The caption is the second conversation in the list of conversations.
     input_examples = []
     for data_dict in list_data_dict:
-        example = []
+        conv = data_dict['conversations'][1]['value'].strip()
         if use_image:
-            example += [ImageFile(join(image_dir, data_dict['image']))]
-        example += [data_dict['conversations'][1]['value']]
+            example = [
+                Masked(tokenizer.eos_token),
+                ImageFile(join(image_dir, data_dict['image'])),
+                conv + tokenizer.eos_token,
+            ]
+        else:
+            example = [Masked(tokenizer.eos_token), conv + tokenizer.eos_token]
         input_examples.append(example)
     return input_examples
 
 
+def preprocess(example, tokenizer: Tokenizer, object_store: ObjectStore, data_config: MMStorageConfig):
+    document = preprocess_example(
+        example, tokenizer, object_store, data_config, add_bos_token=False, add_eos_token=False,
+    )
+    return document
+
+
 def main(config_file):
     args = om.load(config_file)
-
-    # Parse pretraining data
-    t0 = perf_counter()
-    logger.info("Parsing pretraining data...")
-    input_examples = parse_examples(args.data_file, args.image_dir, args.use_image)
-    logger.info(f"Done in {perf_counter() - t0:0.2f} seconds")
 
     # Tokenizer
     tokenizer = Tokenizer.from_file(
@@ -70,6 +60,13 @@ def main(config_file):
         eos_token_id=args.eos_token_id,
         pad_token_id=args.pad_token_id,
     )
+
+    # Parse pretraining data
+    t0 = perf_counter()
+    logger.info("Parsing pretraining data...")
+    input_examples = parse_examples(args.data_file, args.image_dir, tokenizer, args.use_image)
+    logger.info(f"Done in {perf_counter() - t0:0.2f} seconds")
+
     data_config = MMStorageConfig()
     object_store = None
     if args.use_image:
@@ -79,21 +76,12 @@ def main(config_file):
     # Pre-processing examples by tokenizing the text and storing the images
     t0 = perf_counter()
     logger.info("Preprocessing examples by tokenizing the text and storing the images...")
+    _preprocess = partial(preprocess, tokenizer=tokenizer, object_store=object_store, data_config=data_config)
     if args.num_proc > 1:
         with multiprocessing.Pool(args.num_proc) as pool:
-            documents = pool.starmap(
-                preprocess_example,
-                [(input_example, tokenizer, object_store, data_config) for input_example in input_examples])
+            documents = pool.map(_preprocess, input_examples)
     else:
-        documents = [preprocess_example(input_example, tokenizer, object_store, data_config) for input_example in input_examples]
-    logger.info(f"Done in {perf_counter() - t0:0.2f} seconds")
-
-    # Shuffle the documents
-    seed = args.seed
-    t0 = perf_counter()
-    logger.info(f"Starting document shuffle {seed}")
-    random.seed(seed)
-    random.shuffle(documents)
+        documents = [_preprocess(input_example) for input_example in input_examples]
     logger.info(f"Done in {perf_counter() - t0:0.2f} seconds")
 
     # Build data/index files
@@ -104,8 +92,8 @@ def main(config_file):
     data_files = []
     t0 = perf_counter()
     logger.info(f"Starting {num_data_files} data/index files build")
-    for i in range(num_data_files):
-        data_file = join(output_dir, f"data_s{seed}_{i:03d}.bin")
+    for i in track(range(num_data_files)):
+        data_file = join(output_dir, f"data_{i:03d}.bin")
         iterator = write_data_file(documents[i*args.split_size:(i+1)*args.split_size], data_file, data_config)
         index_file = get_structure_idx_file(data_file)
         basic_indexer.write_index(index_file, iterator)

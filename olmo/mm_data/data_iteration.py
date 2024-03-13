@@ -30,16 +30,22 @@ logger = logging.getLogger(__name__)
 data_iteration_cython = None
 
 
-# if pyximport is None:
-#     return False
-# Only import if needed so we don't compile the cython code if its not needed
-# global data_iteration_cython
-if pyximport is not None:
-    logger.info("Importing cython modules")
-    pyximport.install(setup_args={'include_dirs': np.get_include()}, inplace=False)
-    from olmo.mm_data import data_iteration_cython
-else:
-    data_iteration_cython = None
+def try_import_cython():
+    if pyximport is None:
+        return False
+    global data_iteration_cython
+    if data_iteration_cython is not None:
+        return True
+    if pyximport is not None:
+        # pyximport messes with the logging level due to a call in distutils, fix it here
+        level = logging.root.level
+        pyximport.install(setup_args={'include_dirs': np.get_include()}, inplace=False)
+        from olmo.mm_data import data_iteration_cython as module
+        logging.root.setLevel(level)
+        data_iteration_cython = module
+        return True
+    else:
+        return False
 
 
 DOC_ID_DTYPE = np.dtype([
@@ -47,34 +53,22 @@ DOC_ID_DTYPE = np.dtype([
     ('start_byte', np.uint64),
     ('length', np.uint32)
 ])
-# data we need to the load a document from the data files
+# identifies a document within some set of data files
 
 DOC_INFO_DTYPE = np.dtype([
     ("doc_id", DOC_ID_DTYPE),
-    ('num_tokens', np.uint32),
-    ('pure_text', np.uint8),
+    ('num_tokens', np.uint32),  # token length
+    ('pure_text', np.uint8),    # is the document text-only (and is therefore easy to split)
 ])
-# Meta-data needed when shuffling/packing documents
-
-
-DOC_TOKENS_DTYPE = np.dtype([
-    ("doc_id", DOC_ID_DTYPE),
-    ('num_tokens', np.uint32),
-])
-# Document token counts
+# document plus meta-data needed when packing documents into sequences
 
 
 DOC_SEQUENCE_DTYPE = np.dtype([
     ("doc_id", DOC_ID_DTYPE),
     ('sequence_number', np.uint64),
 ])
-# dtype to specify an example and its sequence number, an array of this dtypes defines iteration order
+# dtype to specify an example and its sequence number, an array of these dtypes defines iteration order
 # sequence numbers are consecutive and start at 0
-# sequence numbers are there to make it easy to start at a particular sequence number, and to ensure all workers
-# across all device stay in agreement about how examples should be grouped into sequence
-
-
-# TODO are these dtypes are too conservative?
 
 
 def shuffle(config: Optional[DataSamplingConfig], rng: np.random.RandomState, data: List[np.ndarray]) -> np.ndarray:
@@ -136,7 +130,7 @@ def balanced_merge(arrays: List[np.ndarray]) -> np.ndarray:
     on = 0
     while True:
         # Draw an item from the most under-represented list in our output
-        next_i = np.argmin(current_counts / on - target_ratios) if on != 0 else 0
+        next_i = np.argmin(current_counts / on - target_ratios)
         current_counts[next_i] += 1
         out[on] = arrays[next_i][0]
         on += 1
@@ -156,7 +150,7 @@ class SequenceBuilder:
 
     def __call__(self, examples: np.ndarray, max_seq_len: int, n_processes: int=None) -> np.ndarray:
         """
-        examples: [n] DOC_TOKENS_DTYPE examples to turn into sequences, already shuffled
+        examples: [n] DOC_INFO_DTYPE examples to turn into sequences, already shuffled
         max_seq_len: max sequence length
 
         out: sequences[n] DOC_SEQUENCE_DTYPE, examples and sequence numbers of the documents
@@ -210,6 +204,7 @@ class ParallelizableSequenceBuilder(SequenceBuilder):
         assert on == len(examples)
 
         if n_procs is not None and n_procs > 1:
+            try_import_cython()  # so workers don't individually compile
             with multiprocessing.Pool(n_procs) as pool:
                 results = pool.starmap(self.builder, [(g, max_seq_len) for g in splits])
         else:
@@ -240,7 +235,7 @@ class Sequential(SequenceBuilder):
 
     def __call__(self, documents: np.ndarray, max_seq_len: int, n_procs=None):
         assert np.all(documents["num_tokens"] <= max_seq_len)
-        if data_iteration_cython:
+        if try_import_cython():
             return data_iteration_cython.sequential(documents, max_seq_len)
         total_tokens = 0
         out = np.zeros(len(documents), dtype=DOC_SEQUENCE_DTYPE)
@@ -259,7 +254,7 @@ class Sequential(SequenceBuilder):
 class SequentialSplitText(SequenceBuilder):
     """Arranges documents end-to-end but split text-only documents to fill in gaps"""
     def __call__(self, documents: np.ndarray, max_seq_len: int, n_procs=None):
-        if data_iteration_cython:
+        if try_import_cython():
             # About 100x faster
             return data_iteration_cython.sequential_split_text(documents, max_seq_len)
 
@@ -347,6 +342,12 @@ class DocumentPool:
 
 
 class OptimizeLast(SequenceBuilder):
+
+    DOC_TOKENS_DTYPE = np.dtype([
+        ("doc_id", DOC_ID_DTYPE),
+        ('num_tokens', np.uint32),
+    ])
+
     """Streams through the data while keeping a pool of examples in reserve, places examples from the pool at the
     end of sequences when helpful to maximize the sequence length
 
@@ -359,7 +360,7 @@ class OptimizeLast(SequenceBuilder):
 
     def __call__(self, examples: np.ndarray, max_seq_len: int, n_procs=None):
         assert np.all(examples["num_tokens"] <= max_seq_len)
-        use_cython = self.use_cython or (self.use_cython is None and data_iteration_cython)
+        use_cython = self.use_cython or (self.use_cython is None and try_import_cython())
         if use_cython:
             return data_iteration_cython.optimize_last(examples, max_seq_len, self.pool_size)
         pool = DocumentPool(max_seq_len, self.pool_size)
@@ -370,7 +371,7 @@ class OptimizeLast(SequenceBuilder):
         out_ix = 0
         on_seq = 0
 
-        in_progress = np.zeros(max_seq_len, dtype=DOC_TOKENS_DTYPE)
+        in_progress = np.zeros(max_seq_len, dtype=self.DOC_TOKENS_DTYPE)
         on = 0  # in_progress[:on] is our in-progress sequence
         on_example = min(len(examples), self.pool_size)  # what example in `examples` we have consumed
         seq_len = 0  # length of the sequence we are in-progress on
@@ -484,7 +485,7 @@ def reorder_sequences(idx, sequence_ixs):
     # return idx[np.argsort(new_seq_ids, kind="stable")]   # sort to fix the ordering
     # But that can become slow at the 1b+ scale,
 
-    if data_iteration_cython:
+    if try_import_cython():
         # cython version roughly 3x faster
         return data_iteration_cython.reorder_sequence(idx, sequence_ixs)
 
@@ -628,6 +629,7 @@ def build_iteration_order(
     doc_seeds = rng.randint(0, np.iinfo(np.uint32).max, len(data.paths))
     load_args = zip(*([range(len(data.paths)), doc_seeds] +
                       [repeat(x) for x in [data, indexer, seq_len, sizing, storage_config, index_files]]))
+    assert len(data.paths) < np.iinfo(np.uint16).max
     if n_processes > 1 and len(data.paths) > 1:
         with multiprocessing.Pool(min(n_processes, len(data.paths) // 2)) as pool:
             results = pool.starmap(_load_index, load_args)
@@ -670,3 +672,4 @@ def build_iteration_order(
         logger.info(f"Re-ordering index...")
         idx = reorder_sequences(idx, sequence_ixs)
     return idx
+

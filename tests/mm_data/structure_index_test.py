@@ -2,7 +2,7 @@ from pathlib import Path
 import numpy as np
 
 from olmo.mm_data.data_store import TextChunk, ImageChunk, ExampleReader, MMStorageConfig
-from olmo.mm_data.image_token_size import FixedNumberOfToken
+from olmo.mm_data.image_token_size import PerPatch
 from olmo.mm_data.structure_index import VectorizedIndexer, get_example_info
 
 
@@ -18,7 +18,7 @@ def test_indexer(tmp_path: Path):
     rng = np.random.RandomState(59018)
     index_f = tmp_path.joinpath("index.bin")
     indexer = VectorizedIndexer()
-    sz = FixedNumberOfToken(576)
+    sz = PerPatch(1, 1)
 
     def _image(w, h):
         object_id = rng.randint(0, 256, (32,), dtype=np.uint8).tobytes()

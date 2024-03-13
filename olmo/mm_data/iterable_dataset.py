@@ -6,6 +6,7 @@ from typing import List, Any, Dict, Optional, Union
 import torch
 import numpy as np
 
+
 from olmo.mm_data.data_store import ExampleReader, MMStorageConfig
 from olmo.mm_data.image_preprocessing import ImagePreprocessor
 from olmo.mm_data.image_token_size import ImageTokenSizer
@@ -14,14 +15,13 @@ from olmo.mm_data.sequence_index import SequenceIndex, get_idx_file
 from olmo.mm_data.data_iteration import IterationConfig, build_iteration_order
 from olmo.torch_util import get_global_rank, get_world_size
 
-logger = logging.getLogger(__name__)
-
 
 class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
     def __init__(
         self,
         data: Union[IterationConfig, List[str], str],
         seed: Union[int, List[int]],
+        pad_token_id: int,
         sequence_length: int,
         image_preprocessor: Union[ImagePreprocessor, ImageTokenSizer, None],
         object_store: ObjectStore=None,
@@ -35,12 +35,12 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         rank: Optional[int] = None,
         num_threads: Optional[int] = None,
         thread_buffer_factor: float=1,
-        n_preprocessing_procs: int=None,
-        eos_token_id: int = None,
+        n_preprocessing_procs: int=None
     ):
         """
         data: Data to iterate over, a path to a datafile, sequence of paths to datafiles, or an `IterationConfig`
         seed: seed to iterate with, reshuffle will either add one or advance along the list
+        pad_token_id: token id to use for padding
         sequence_length: sequence length of examples to yield
         image_preprocessor: How to pre-process images, if `ImageTokenSizer` no pre-processing is done,
                             if None there must be no images in the data
@@ -50,6 +50,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         start_index: Start iterating from this sequence
         max_examples: Stop an epoch after reach this sequence
         """
+        self.pad_token_id = pad_token_id
         self.sequence_length = sequence_length
         self.segment_ids = segment_ids
         self.seeds = seed
@@ -71,7 +72,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         else:
             self.image_sizer = image_preprocessor
             self.image_preprocessor = None
-        self.reader = ExampleReader(self.iteration_config.paths, object_store, self.image_sizer, MMStorageConfig())
+        self.reader = ExampleReader(self.iteration_config.paths, object_store, self.image_sizer, MMStorageConfig(), self.pad_token_id)
 
         self.world_size = world_size if world_size is not None else get_world_size()
         self.rank = rank if rank is not None else get_global_rank()
@@ -81,7 +82,6 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         self.device_batch_size = global_batch_size // self.world_size
         self.thread_buffer_factor = thread_buffer_factor
         self.n_preprocessing_procs = n_preprocessing_procs
-        self.eos_token_id = eos_token_id
 
         assert global_batch_size % self.world_size == 0
         if max_examples is not None:
@@ -92,6 +92,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         self._init_for_seed(seed[0] if isinstance(seed, list) else seed)
 
         global_end_sequence = self._index.num_sequences
+
         # pad or truncate to get a number of sequences divisible by world size
         # note we do not assume different shuffles have the same number of examples
         remainder = global_end_sequence % self.world_size
@@ -122,10 +123,9 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         else:
             # Iteration order is computed on-the-fly
             logging.info(f"Computing iteration order for seed {seed}...")
-            sequence_length = self.sequence_length if self.eos_token_id is None else self.sequence_length - 1
             data = build_iteration_order(
-                self.iteration_config, sequence_length, seed,
-                self.image_sizer, n_processes=self.n_preprocessing_procs)
+                self.iteration_config, self.sequence_length, seed,
+                self.reader.image_sizer, n_processes=self.n_preprocessing_procs)
             self._index = SequenceIndex(data)
 
     def __iter__(self):
@@ -198,21 +198,19 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         - image_sizes: (n_images, 2)
             width, height of each image
         """
-        sequence_length = self.sequence_length if self.eos_token_id is None else self.sequence_length - 1
-        item = self.reader.read_ranges(sequence, sequence_length, self.segment_ids)
+        item = self.reader.read_ranges(sequence, self.sequence_length, self.segment_ids)
         if self.image_preprocessor:
             images = item.pop("images")
             offsets = item.pop("image_offsets")
             sizes = item.pop("image_sizes", None)
             if images:
-                eos_offset = self.eos_token_id is not None
                 all_patches = []
                 all_patch_offsets = []
                 all_num_patches_per_image = []
                 for image, offset in zip(images, offsets):
                     patches, patch_offsets = self.image_preprocessor(image, offset)
                     all_patches.append(torch.as_tensor(patches))
-                    all_patch_offsets.append(eos_offset + torch.as_tensor(patch_offsets))
+                    all_patch_offsets.append(torch.as_tensor(patch_offsets))
                     all_num_patches_per_image.append(patches.shape[0])
                 item["image_patches"] = torch.cat(all_patches)
                 item["image_offsets"] = torch.cat(all_patch_offsets)
@@ -227,19 +225,5 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
 
         # Convert to a torch-compatible dtype
         item["input_ids"] = torch.as_tensor(item["input_ids"].astype(np.int32))
-        if self.eos_token_id is not None:
-            assert "segment_ids" not in item
-            item["input_ids"] = torch.cat(
-                [
-                    torch.tensor([self.eos_token_id], dtype=item["input_ids"].dtype),
-                    item["input_ids"]
-                ],
-            )
-            item["label_mask"] = torch.as_tensor(item["label_mask"].astype(np.bool_))
-            item["label_mask"] = torch.cat(
-                [
-                    torch.tensor([False], dtype=torch.bool),
-                    item["label_mask"],
-                ],
-            )
+        item["label_mask"] = torch.as_tensor(item["label_mask"]).to(dtype=torch.bool)
         return item

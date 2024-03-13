@@ -23,13 +23,13 @@ from typing import (
     Set,
     Tuple,
     cast,
+    Type,
 )
 
 import torch
 import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
-from PIL.Image import Image
 from torch import einsum
 
 from .aliases import PathOrStr
@@ -42,7 +42,6 @@ from .config import (
     FSDPWrapStrategy,
     LayerNormType,
     ModelConfig,
-    VisionBackboneType,
 )
 from .exceptions import OlmoConfigurationError
 from .initialization import ModuleType, init_weights
@@ -91,6 +90,30 @@ def activation_checkpoint_function(cfg: ModelConfig):
         preserve_rng_state=preserve_rng_state,
         use_reentrant=False,
     )
+
+
+def fsdp_auto_wrap_policy(transformer_layer_names: Set[Type[nn.Module]]):
+    import functools
+
+    from torch.distributed.fsdp.wrap import _or_policy, lambda_auto_wrap_policy, transformer_auto_wrap_policy
+
+    def lambda_policy_fn(module):
+        if (
+            len(list(module.named_children())) == 0
+            and getattr(module, "weight", None) is not None
+            and module.weight.requires_grad
+        ):
+            return True
+        return False
+
+    lambda_policy = functools.partial(lambda_auto_wrap_policy, lambda_fn=lambda_policy_fn)
+    transformer_wrap_policy = functools.partial(
+        transformer_auto_wrap_policy,
+        transformer_layer_cls=transformer_layer_names,
+    )
+
+    auto_wrap_policy = functools.partial(_or_policy, policies=[lambda_policy, transformer_wrap_policy])
+    return auto_wrap_policy
 
 
 class BufferCache(dict, MutableMapping[str, torch.Tensor]):
@@ -787,7 +810,7 @@ class OlmoSequentialBlock(OlmoBlock):
         # Get attention scores.
         if self._activation_checkpoint_fn is not None:
             att, cache = self._activation_checkpoint_fn(  # type: ignore
-                self.attention, q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache
+                self.attention, q, k, v, attention_bias, layer_past, use_cache
             )
         else:
             att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
@@ -882,7 +905,7 @@ class OlmoParallelBlock(OlmoBlock):
         # shape: (B, T, C)
         if self._activation_checkpoint_fn is not None:
             att, cache = self._activation_checkpoint_fn(  # type: ignore
-                self.attention, q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache
+                self.attention, q, k, v, attention_bias, layer_past, use_cache
             )
         else:
             att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
@@ -1087,7 +1110,7 @@ class OlmoBlockGroup(nn.ModuleList):
             ):
                 # shape: (batch_size, seq_len, d_model)
                 x, cache = self._activation_checkpoint_fn(  # type: ignore
-                    block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+                    block, x, attention_bias, layer_past, use_cache
                 )
             else:
                 # shape: (batch_size, seq_len, d_model)
@@ -1161,21 +1184,21 @@ class Resampler(nn.Module):
             torch.nn.init.zeros_(self.kv_norm.bias)  # type: ignore
         nn.init.trunc_normal_(self.query, std=0.02)
         if self.config.projector.d_visual != cfg.d_query:
-            init_weights(
-                self.config, self.kv_proj, d=self.config.projector.d_visual, layer_id=None, type_of_module=ModuleType.in_module
-            )
-        init_weights(
-            self.config, self.query_proj, d=cfg.d_query, layer_id=None, type_of_module=ModuleType.in_module
-        )
-        init_weights(
-            self.config, self.key_proj, d=cfg.d_query, layer_id=None, type_of_module=ModuleType.in_module
-        )
-        init_weights(
-            self.config, self.value_proj, d=cfg.d_query, layer_id=None, type_of_module=ModuleType.in_module
-        )
-        init_weights(
-            self.config, self.attn_out, d=cfg.d_query, layer_id=None, type_of_module=ModuleType.in_module
-        )
+            std = 1.0 / math.sqrt(self.config.projector.d_visual)
+            nn.init.trunc_normal_(self.kv_proj.weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
+        std = 1.0 / math.sqrt(cfg.d_query)
+        nn.init.trunc_normal_(self.query_proj.weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
+        if self.query_proj.bias is not None:
+            nn.init.zeros_(self.query_proj.bias)
+        nn.init.trunc_normal_(self.key_proj.weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
+        if self.key_proj.bias is not None:
+            nn.init.zeros_(self.key_proj.bias)
+        nn.init.trunc_normal_(self.value_proj.weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
+        if self.value_proj.bias is not None:
+            nn.init.zeros_(self.value_proj.bias)
+        nn.init.trunc_normal_(self.attn_out.weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
+        if self.attn_out.bias is not None:
+            nn.init.zeros_(self.attn_out.bias)
 
     def attention(
         self,
@@ -1249,9 +1272,10 @@ class Projector(nn.Module):
             if self.pre_norm.bias is not None:
                 torch.nn.init.zeros_(self.pre_norm.bias)  # type: ignore
         for i, layer in enumerate(self.ff_layers):
-            init_weights(
-                self.config, layer, d=self.in_sizes[i], layer_id=None, type_of_module=ModuleType.in_module
-            )
+            std = 1.0 / math.sqrt(self.in_sizes[i])
+            nn.init.trunc_normal_(layer.weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
+            if layer.bias is not None:
+                nn.init.zeros_(layer.bias)
     
     def forward(self, x):
         # Project visual features into language embedding space using an MLP.
@@ -1294,7 +1318,6 @@ class OlmoVisionBackbone(nn.Module):
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         raise NotImplementedError()
 
-
     def reset_parameters(self):
         if self.resampler is not None:
             self.resampler.reset_parameters()
@@ -1320,21 +1343,8 @@ class OlmoPretrainedVisionBackbone(OlmoVisionBackbone):
         
         self.image_token_sizer = self.preprocessor.image_token_sizer()
         
-        if config.init_device == "meta" and config.low_cpu_fsdp:
-            """
-            for FSDP, we can save cpu memory by loading pretrained model on rank0 only.
-            this avoids cpu oom when loading large models.
-            reference: https://github.com/facebookresearch/llama-recipes/blob/main/src/llama_recipes/finetuning.py
-            """
-            rank = get_global_rank()
-            if rank == 0:
-                self.vision_tower = create_clip_model(v_cfg.name, v_cfg.pretrained, cache_dir=config.cache_dir)
-            else:
-                with torch.device("meta"):
-                    self.vision_tower = create_clip_model(v_cfg.name, device='meta')
-        else:
-            device = config.init_device if config.init_device != "meta" else "cpu"
-            self.vision_tower = create_clip_model(v_cfg.name, v_cfg.pretrained, device=device, cache_dir=config.cache_dir)
+        device = config.init_device if config.init_device and config.init_device != "meta" else "cpu"
+        self.vision_tower = create_clip_model(v_cfg.name, v_cfg.pretrained, device=device, cache_dir=v_cfg.cache_dir)
 
         if v_cfg.frozen:
             for param in self.vision_tower.parameters():
@@ -1525,6 +1535,25 @@ class Olmo(nn.Module):
         if config.vision_backbone is not None:
             self.vision_backbone = OlmoVisionBackbone.build(config, self.__cache)
 
+        if self.config.llm_load_path:
+            from .util import resource_path
+            from pathlib import Path
+            state_dict_path = resource_path(
+                Path(self.config.llm_load_path).parent, Path(self.config.llm_load_path).name,
+                local_cache=Path(self.config.llm_load_path).parent,
+            )
+            assert state_dict_path.is_file(), f"Model file {str(state_dict_path)} not found"
+            if config.init_device == "meta" and config.low_cpu_fsdp:
+                rank = get_global_rank()
+                if rank == 0:
+                    state_dict = torch.load(state_dict_path, map_location="cpu")
+                    self.transformer.to_empty(device="cpu")
+                    self.transformer.load_state_dict(state_dict)
+            else:
+                state_dict = torch.load(state_dict_path, map_location="cpu")
+                self.transformer.to_empty(device="cpu")
+                self.transformer.load_state_dict(state_dict)
+
         # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
         if init_params and self.config.init_device != "meta":
             self.reset_parameters()
@@ -1539,25 +1568,6 @@ class Olmo(nn.Module):
         if self.config.llm_frozen:
             for param in self.transformer.parameters():
                 param.requires_grad = False
-        
-        if self.config.llm_load_path:
-            from .util import resource_path
-            from pathlib import Path
-            state_dict_path = resource_path(
-                Path(self.config.llm_load_path).parent, Path(self.config.llm_load_path).name,
-                local_cache=self.config.cache_dir,
-            )
-            assert state_dict_path.is_file(), f"Model file {str(state_dict_path)} not found"
-            if config.init_device == "meta" and config.low_cpu_fsdp:
-                rank = get_global_rank()
-                if rank == 0:
-                    state_dict = torch.load(state_dict_path, map_location="cpu")
-                    self.transformer.to_empty(device="cpu")
-                    self.transformer.load_state_dict(state_dict)
-            else:
-                state_dict = torch.load(state_dict_path, map_location="cpu")
-                self.transformer.to_empty(device="cpu")
-                self.transformer.load_state_dict(state_dict)
 
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         self.activation_checkpointing_strategy = strategy
@@ -1570,6 +1580,10 @@ class Olmo(nn.Module):
         
         if self.vision_backbone is not None:
             self.vision_backbone.set_activation_checkpointing(strategy)
+
+    def initialize_vision_backbone(self, model_config: ModelConfig):
+        self.vision_backbone = OlmoVisionBackbone.build(model_config, self.__cache)
+        self.vision_backbone.reset_parameters()
 
     @property
     def device(self) -> torch.device:
@@ -1799,7 +1813,7 @@ class Olmo(nn.Module):
                 ):
                     # shape: (batch_size, seq_len, d_model)
                     x, cache = self._activation_checkpoint_fn(
-                        block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+                        block, x, attention_bias, layer_past, use_cache
                     )
                 else:
                     # shape: (batch_size, seq_len, d_model)
@@ -1876,15 +1890,7 @@ class Olmo(nn.Module):
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_and_size:
 
-            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
-                del nonwrapped_numel
-                wrap = isinstance(module, (TimmBlock, OpenClipBlock, Projector, Resampler, OlmoBlock)) or module in size_based_module_to_wrap
-                if recurse:
-                    return True
-                else:
-                    return wrap
-
-            return fsdp_wrap_fn
+            return fsdp_auto_wrap_policy((TimmBlock, OpenClipBlock, OlmoBlock))
         elif wrap_strategy == FSDPWrapStrategy.by_block_group:
             if self.config.block_group_size <= 1:
                 raise OlmoConfigurationError(
@@ -1906,15 +1912,8 @@ class Olmo(nn.Module):
                     "'by_block_group_and_size' FSDP wrapping strategy requires block group size greater than 1"
                 )
 
-            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
-                del nonwrapped_numel
-                wrap = isinstance(module, (TimmBlock, OpenClipBlock, Projector, Resampler, OlmoBlockGroup,)) or module in size_based_module_to_wrap
-                if recurse:
-                    return True
-                else:
-                    return wrap
+            return fsdp_auto_wrap_policy((TimmBlock, OpenClipBlock, OlmoBlockGroup))
 
-            return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.size_based:
             from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 
@@ -1934,7 +1933,7 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
-                wrap = isinstance(module, (TimmBlock, OpenClipBlock, Projector, Resampler)) or (isinstance(module, OlmoBlock) and module.layer_id % c == 0)
+                wrap = isinstance(module, (TimmBlock, OpenClipBlock)) or (isinstance(module, OlmoBlock) and module.layer_id % c == 0)
                 if recurse:
                     return True
                 else:

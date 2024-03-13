@@ -39,6 +39,5 @@ class OLMoConfig(PretrainedConfig):
     def hidden_size(self):
         return self.d_model
 
-
 # Register the config class so that it is available for transformer pipelines, auto-loading etc.
 AutoConfig.register("olmo", OLMoConfig)

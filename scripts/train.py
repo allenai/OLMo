@@ -113,6 +113,10 @@ def main(cfg: TrainConfig) -> None:
     # Construct data loader.
     train_loader = build_train_dataloader(cfg)
 
+    if isinstance(cfg.scheduler.t_warmup, float): # warmup ratio in unit of epch
+        batches_per_epoch = train_loader.dataset.total_size // cfg.global_train_batch_size
+        cfg.scheduler.t_warmup = int(cfg.scheduler.t_warmup * batches_per_epoch)
+
     # Construct evaluators.
     evaluators = build_evaluators(cfg, device)
     barrier()
@@ -129,10 +133,11 @@ def main(cfg: TrainConfig) -> None:
     # Wrap the model in FSDP.
     log.info("Wrapping model with FDSP...")
     wrap_policy = olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy)
+    sync_module_states = cfg.model.init_device == "meta" and cfg.model.low_cpu_fsdp
     if version.parse(torch.__version__) >= version.parse("2.1.0"):
         # This prevents any parameters from being initialized twice
         def dummy_init_fn(module: torch.nn.Module) -> None:
-            module.to_empty(device=get_default_device())
+            module.to_empty(device=get_default_device(), recurse=False)
 
         param_init_fn = dummy_init_fn
     else:
@@ -145,7 +150,7 @@ def main(cfg: TrainConfig) -> None:
         use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
         limit_all_gathers=True,
         device_id=get_local_rank(),
-        sync_module_states=cfg.model.init_device == "meta" and cfg.model.low_cpu_fsdp,
+        sync_module_states=sync_module_states,
         param_init_fn=param_init_fn,
     )
     # when param_init_fn is None, FSDP will call reset_parameters() automatically

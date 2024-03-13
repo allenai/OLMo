@@ -1,0 +1,159 @@
+run_name: openai-vit-l-14-336-resample144_ln_mlp2x_gelu-olmo-7b-instruct-hf-seq2048
+seed: 6198
+dry_run: false
+
+wandb:
+  name: ${run_name}
+  project: mm-olmo
+  group: LLaVA-Pretrain
+  entity: ${oc.env:WANDB_ENTITY}
+
+model:
+  d_model: 4096
+  n_heads: 32
+  n_layers: 32
+  mlp_hidden_size: 22016
+  weight_tying: false
+  alibi: false
+  rope: true
+  vision_backbone:
+    name: OpenAI_ViT_L_14_336
+    pretrained: openai
+    cache_dir: ${oc.env:DATA_DIR}/open_clip
+    image_width: 336
+    image_height: 336
+    patch_width: 14
+    patch_height: 14
+    select_layer: -2
+    anyres: false
+    possible_resolutions: null
+    pad_image: false
+    frozen: true
+  resampler:
+    d_query: 1024
+    n_queries: 144
+    n_heads: 16
+  projector:
+    use_pre_ln: true
+    d_visual: 1024
+    n_layers: 2
+    activation_type: gelu
+  llm_frozen: true
+  llm_load_path: ${oc.env:DATA_DIR}/olmo/olmo-7b-instruct-hf-transformer.pt
+  low_cpu_fsdp: true
+  flash_attention: true
+  attention_dropout: 0.0
+  attention_layer_norm: false
+  multi_query_attention: false
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: default
+  layer_norm_with_affine: false
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 2048
+  vocab_size: 50280
+  embedding_size: 50304
+  eos_token_id: 50279
+  pad_token_id: 1
+  init_device: meta
+  init_fn: mitchell
+
+compile: null
+
+optimizer:
+  name: adamw
+  learning_rate: 1.0e-3
+  weight_decay: 0.0
+  betas:
+  - 0.9
+  - 0.999
+  eps: 1.0e-8
+  metrics_log_interval: 10
+
+scheduler:
+  name: cosine_with_warmup
+  t_warmup: 0.03
+  alpha_f: 0.0
+
+tokenizer:
+  identifier: tokenizers/olmo-7b-instruct-hf.json
+  truncate_direction: right
+
+save_folder: ${oc.env:OUTPUT_DIR}/runs/${run_name}
+remote_save_folder: null
+save_overwrite: true
+# Sharded checkpoints (best for restarts)
+save_interval: 1000
+save_num_checkpoints_to_keep: -1
+# Unsharded checkpoints (for final storage)
+save_interval_unsharded: null
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: null
+
+max_duration: 1ep  # 2T tokens
+global_train_batch_size: 256
+device_train_microbatch_size: 2
+time_limit: null
+
+fsdp:
+  wrapping_strategy: by_block_and_size
+  precision: mixed
+
+speed_monitor:
+  window_size: 20
+
+eval_interval: ${save_interval}
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators: []
+
+precision: amp_bf16
+
+data:
+  pad_direction: right
+  num_workers: 8
+  num_threads: 4
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 1
+  persistent_workers: true
+  timeout: 0
+  multi_modal: true
+  sequence_builder:
+    kind: one_document_per_sequence
+  object_store_config:
+    source_folder: ${oc.env:DATA_DIR}/llava/pretrain/source_files
+  paths:
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_000.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_001.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_002.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_003.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_004.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_005.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_006.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_007.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_008.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_009.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_010.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_011.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_012.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_013.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_014.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_015.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_016.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_017.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_018.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_019.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_020.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_021.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_022.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_023.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_024.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_025.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_026.bin
+  - ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf/data_027.bin

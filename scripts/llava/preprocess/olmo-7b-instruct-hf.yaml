@@ -1,0 +1,11 @@
+data_file: ${oc.env:DATA_DIR}/llava/pretrain/blip_laion_cc_sbu_558k.json
+image_dir: ${oc.env:DATA_DIR}/llava/pretrain/images
+tokenizer_file: ${oc.env:PROJECT_DIR}/tokenizers/olmo-7b-instruct-hf.json
+eos_token_id: 50279
+pad_token_id: 1
+use_image: true
+seed: 6198
+split_size: 20000
+num_proc: 32
+source_dir: ${oc.env:DATA_DIR}/llava/pretrain/source_files
+output_dir: ${oc.env:DATA_DIR}/llava/pretrain/olmo-7b-instruct-hf

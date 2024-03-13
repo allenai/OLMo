@@ -1,0 +1,61 @@
+run_name: openai-vit-l-14-336-mlp2x_gelu-olmo-7b-instruct-hf-seq2048
+
+wandb:
+  name: ${run_name}
+  project: mm-olmo
+  group: LLaVA-Pretrain
+  entity: ${oc.env:WANDB_ENTITY}
+
+model:
+  d_model: 4096
+  n_heads: 32
+  n_layers: 32
+  mlp_hidden_size: 22016
+  weight_tying: false
+  alibi: false
+  rope: true
+  vision_backbone:
+    name: OpenAI_ViT_L_14_336
+    pretrained: openai
+    cache_dir: ${oc.env:DATA_DIR}/open_clip
+    image_width: 336
+    image_height: 336
+    patch_width: 14
+    patch_height: 14
+    select_layer: -2
+    anyres: false
+    possible_resolutions: null
+    pad_image: false
+    frozen: true
+  resampler: null
+  projector:
+    d_visual: 1024
+    n_layers: 2
+    activation_type: gelu
+  flash_attention: true
+  attention_dropout: 0.0
+  attention_layer_norm: false
+  multi_query_attention: false
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: default
+  layer_norm_with_affine: false
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 2048
+  vocab_size: 50280
+  embedding_size: 50304
+  eos_token_id: 50279
+  pad_token_id: 1
+  init_fn: mitchell
+
+precision: amp_bf16
+
+data:
+  pad_direction: right
+  paths:
+  - ${oc.env:DATA_DIR}/llava/pretrain/blip_laion_cc_sbu_558k.json
+  image_dir: ${oc.env:DATA_DIR}/llava/pretrain/images
