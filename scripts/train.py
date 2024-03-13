@@ -246,7 +246,7 @@ if __name__ == "__main__":
         mp.set_start_method("spawn", force=True)
     except RuntimeError as e:
         print(f"failed to set multiprocessing start method: {e}")
-        print(f"start method set to {mp.get_start_method()}")
+    print(f"multiprocessing start method set to {mp.get_start_method()}")
 
     # Initialize process group.
     dist.init_process_group(backend="nccl")
