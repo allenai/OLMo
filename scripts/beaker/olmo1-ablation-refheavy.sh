@@ -2,7 +2,8 @@
 
 set -ex
 
-CONFIG_PATH=configs/road-to-1_7/runs/d17-dedupe_dp-refheavy.yaml
+# CONFIG_PATH=configs/road-to-1_7/runs/d17-dedupe_dp-refheavy.yaml
+CONFIG_PATH=configs/road-to-1_7/runs/d17-dedupe_dp-refheavy-newflan.yaml
 # LOAD_PATH='s3://ai2-llm/checkpoints/1b/v1_5-1b-150b_mmlu/6368542/step35000-unsharded'
 TASK_NAME=$(basename $(basename ${CONFIG_PATH} .yaml) .yml)
 NUM_NODES=2
