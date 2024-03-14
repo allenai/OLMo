@@ -79,7 +79,7 @@ load_path: null
 
 max_duration: 2e12T
 global_train_batch_size: 512
-device_train_microbatch_size: 4
+device_train_microbatch_size: 2
 
 precision: amp_bf16
 
