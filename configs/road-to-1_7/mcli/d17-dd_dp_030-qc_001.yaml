@@ -11,7 +11,7 @@ integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
     git_branch: soldni/dolma-v1.7
-    git_commit: c2a1e07512aa33b8e64f7594886836f5816f9267
+    git_commit: a79db3cda62251acf5a66e98023b7ce97b2b3899
     pip_install: -e '.[train]'
     ssh_clone: true
 command: |-
@@ -95,7 +95,7 @@ command: |-
       --compile=null \
       --fsdp.sharding_strategy=FULL_SHARD \
       --fsdp.wrapping_strategy=by_block \
-      --device_train_microbatch_size=6 \
+      --device_train_microbatch_size=4 \
       --global_train_batch_size=2304 \
       --save_folder='runs/${run_name}' \
       --save_interval=1000 \
