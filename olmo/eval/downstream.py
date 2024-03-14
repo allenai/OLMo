@@ -398,7 +398,7 @@ class PIQA(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="piqa", dataset_name=None):
+    def __init__(self, tokenizer, dataset_path="piqa", dataset_name='plain_text'):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -436,7 +436,7 @@ class HellaSwag(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="hellaswag", dataset_name=None):
+    def __init__(self, tokenizer, dataset_path="Rowan/hellaswag", dataset_name=None):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -589,7 +589,7 @@ class OpenBookQA(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="openbookqa", dataset_name=None):
+    def __init__(self, tokenizer, dataset_path="openbookqa", dataset_name="main"):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -624,7 +624,7 @@ class BoolQ(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="boolq", dataset_name=None):
+    def __init__(self, tokenizer, dataset_path="google/boolq", dataset_name=None):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -711,7 +711,7 @@ class ArcEasy(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="ai2_arc", dataset_name="ARC-Easy"):
+    def __init__(self, tokenizer, dataset_path="allenai/ai2_arc", dataset_name="ARC-Easy"):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -746,7 +746,7 @@ class ArcChallenge(ArcEasy):
 
     metric_type = "len_norm"  # Ideally "pmi_dc"
 
-    def __init__(self, tokenizer, dataset_path="ai2_arc", dataset_name="ARC-Challenge"):
+    def __init__(self, tokenizer, dataset_path="allenai/ai2_arc", dataset_name="ARC-Challenge"):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
