@@ -29,7 +29,7 @@ model:
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
-  max_sequence_length: 2048
+  max_sequence_length: 4096
   vocab_size: 50280
   embedding_size: 50304
   eos_token_id: 0
@@ -37,8 +37,7 @@ model:
   init_device: meta
   init_fn: mitchell
 
-compile:
-  fullgraph: false
+compile: null
 
 optimizer:
   name: adamw
@@ -71,7 +70,7 @@ save_overwrite: false
 save_interval: 500
 save_interval_ephemeral: null
 save_num_checkpoints_to_keep: -1
-sharded_checkpointer: local
+sharded_checkpointer: torch_new
 
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
@@ -79,7 +78,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 load_path: null
 
 max_duration: 2e12T
-global_train_batch_size: 1024
+global_train_batch_size: 512
 device_train_microbatch_size: 4
 
 precision: amp_bf16
