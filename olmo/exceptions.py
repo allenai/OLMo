@@ -1,37 +1,50 @@
-__all__ = ["OlmoError", "OlmoConfigurationError", "OlmoCliError", "OlmoEnvironmentError", "OlmoNetworkError"]
+__all__ = [
+    "OLMoError",
+    "OLMoConfigurationError",
+    "OLMoCliError",
+    "OLMoEnvironmentError",
+    "OLMoNetworkError",
+    "OLMoCheckpointError",
+]
 
 
-class OlmoError(Exception):
+class OLMoError(Exception):
     """
     Base class for all custom OLMo exceptions.
     """
 
 
-class OlmoConfigurationError(OlmoError):
+class OLMoConfigurationError(OLMoError):
     """
     An error with a configuration file.
     """
 
 
-class OlmoCliError(OlmoError):
+class OLMoCliError(OLMoError):
     """
     An error from incorrect CLI usage.
     """
 
 
-class OlmoEnvironmentError(OlmoError):
+class OLMoEnvironmentError(OLMoError):
     """
     An error from incorrect environment variables.
     """
 
 
-class OlmoNetworkError(OlmoError):
+class OLMoNetworkError(OLMoError):
     """
     An error with a network request.
     """
 
 
-class OlmoThreadError(Exception):
+class OLMoCheckpointError(OLMoError):
+    """
+    An error occurred reading or writing from a checkpoint.
+    """
+
+
+class OLMoThreadError(Exception):
     """
     Raised when a thread fails.
     """

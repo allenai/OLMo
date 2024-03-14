@@ -33,8 +33,8 @@ from .config import (
 )
 from .data import IterableDataset
 from .eval import Evaluator
-from .exceptions import OlmoConfigurationError
-from .model import Olmo
+from .exceptions import OLMoConfigurationError
+from .model import OLMo
 from .optim import Optimizer, Scheduler
 from .torch_util import (
     barrier,
@@ -96,7 +96,7 @@ class LRMonitor:
 @dataclass
 class Trainer:
     cfg: TrainConfig
-    model: Olmo
+    model: OLMo
     fsdp_model: FSDP
     optim: Optimizer
     scheduler: Scheduler
@@ -351,7 +351,7 @@ class Trainer:
                 upload_to=remote_checkpoint_dir,
             )
         except FileExistsError:
-            raise OlmoConfigurationError(
+            raise OLMoConfigurationError(
                 f"Checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
             )
 
@@ -835,12 +835,18 @@ class Trainer:
                     pass
 
         run_canceled = synchronize_flag(should_cancel, self.device)
-        if run_canceled and cancel_reason is not None:
+        if run_canceled:
             extra_steps = synchronize_value(extra_steps, self.device)
-            if extra_steps > 0:
-                log.warning(f"Run canceled due to {cancel_reason}, stopping in {extra_steps} more steps...")
+            if cancel_reason is None:
+                if extra_steps > 0:
+                    log.warning(f"Run canceled, stopping in {extra_steps} more steps...")
+                else:
+                    log.warning("Run canceled")
             else:
-                log.warning(f"Run canceled due to {cancel_reason}")
+                if extra_steps > 0:
+                    log.warning(f"Run canceled due to {cancel_reason}, stopping in {extra_steps} more steps...")
+                else:
+                    log.warning(f"Run canceled due to {cancel_reason}")
 
         return run_canceled, extra_steps
 
@@ -959,7 +965,10 @@ class Trainer:
 
                     # Log metrics to console.
                     if self.global_step % self.cfg.console_log_interval == 0:
-                        self.log_metrics_to_console(f"[step={self.global_step}/{self.max_steps}]", metrics)
+                        if get_global_rank() == 0:
+                            self.log_metrics_to_console(f"[step={self.global_step}/{self.max_steps}]", metrics)
+                        else:
+                            log.info(f"[step={self.global_step}/{self.max_steps}]")
 
                     # Log metrics to W&B.
                     if (

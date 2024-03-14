@@ -165,7 +165,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         self.model_ctx_len = model_ctx_len
         self.prompts = prompts
         self.current_prompt = None
-        self.log_instances = 5  # Log the first few instances as a sanity check
+        self.log_instances = 0  # Set to > 0 to log the first few instances as a sanity check
 
         self.samples: List[Dict[str, Any]] = []
         dataset_names: Sequence[Optional[str]]
@@ -398,7 +398,7 @@ class PIQA(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="piqa", dataset_name='plain_text'):
+    def __init__(self, tokenizer, dataset_path="piqa", dataset_name=None):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -436,7 +436,7 @@ class HellaSwag(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="Rowan/hellaswag", dataset_name=None):
+    def __init__(self, tokenizer, dataset_path="hellaswag", dataset_name=None):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -589,7 +589,7 @@ class OpenBookQA(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="openbookqa", dataset_name="main"):
+    def __init__(self, tokenizer, dataset_path="openbookqa", dataset_name=None):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -624,7 +624,7 @@ class BoolQ(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="google/boolq", dataset_name=None):
+    def __init__(self, tokenizer, dataset_path="boolq", dataset_name=None):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -711,7 +711,7 @@ class ArcEasy(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="allenai/ai2_arc", dataset_name="ARC-Easy"):
+    def __init__(self, tokenizer, dataset_path="ai2_arc", dataset_name="ARC-Easy"):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -746,7 +746,28 @@ class ArcChallenge(ArcEasy):
 
     metric_type = "len_norm"  # Ideally "pmi_dc"
 
-    def __init__(self, tokenizer, dataset_path="allenai/ai2_arc", dataset_name="ARC-Challenge"):
+    def __init__(self, tokenizer, dataset_path="ai2_arc", dataset_name="ARC-Challenge"):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+
+class BasicArithmetic(ArcEasy):
+    """This is a basic arithmetic task follows the same prompt format as ArcEasy.
+    Example:
+    {"id": "q85_1d1d_max1d_plus",
+    "question": "Calculate 2 + 5 =",
+    "choices": {"text": ["8", "7", "6", "17"],
+    "label": ["A", "B", "C", "D"]},
+    "answerKey": "B", "type_tag": "easy"}
+
+    """
+
+    metric_type = "acc"
+
+    def __init__(self, tokenizer, dataset_path="allenai/basic_arithmetic", dataset_name=None):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -1099,7 +1120,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
                 if dataset_name in cats:
                     dataset_names.append(name)
         self.dev_set = {}
-        prompts = [None]
+        prompts: List[Union[None, str]] = [None]
         if prompt_variations == 1:
             prompts = [None, "inst", "inst+1", "inst+2", "inst+3", "inst+4", "inst+5"]
             # Need to grab the dev set for the few-shot prompts
@@ -1155,6 +1176,7 @@ label_to_task_map = {
     "sciq": SciQ,
     "arc_easy": ArcEasy,
     "arc_challenge": ArcChallenge,
+    "basic_arithmetic": BasicArithmetic,
     "copa": COPA,
     "rte": RTE,
     "commitment_bank": CommitmentBank,
