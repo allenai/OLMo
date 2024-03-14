@@ -7,7 +7,7 @@ CONFIG_PATH=configs/road-to-1_7/runs/d17-dedupe_dp-refheavy-newflan.yaml
 # LOAD_PATH='s3://ai2-llm/checkpoints/1b/v1_5-1b-150b_mmlu/6368542/step35000-unsharded'
 TASK_NAME=$(basename $(basename ${CONFIG_PATH} .yaml) .yml)
 NUM_NODES=2
-ARGS=' --wandb.name="\${run_name}-${BEAKER_JOB_ID}" --wandb.group="\${run_name}" --model.flash_attention=true --fsdp.sharding_strategy=FULL_SHARD --fsdp.wrapping_strategy=by_block --save_folder=runs/ --device_train_microbatch_size=12 --global_train_batch_size=2304 --load_path="${LOAD_PATH}"'
+ARGS=' --wandb.name="\${run_name}-${BEAKER_JOB_ID}" --wandb.group="\${run_name}" --model.flash_attention=true --fsdp.sharding_strategy=FULL_SHARD --fsdp.wrapping_strategy=by_block  --save_interval_ephemeral=1000000000 --save_folder=runs/ --device_train_microbatch_size=12 --global_train_batch_size=2304 --load_path="${LOAD_PATH}" --save-overwrite=true'
 
 gantry run \
   --allow-dirty \
