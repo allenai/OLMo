@@ -53,6 +53,7 @@ DATA_DIR={path_to_data_dir} OUTPUT_DIR={path_to_output_dir} WANDB_ENTITY={wandb_
 
 for beaker experiments
 ```bash
+WORKSPACE={your_beaker_workspace} \
 DATA_DIR={path_to_data_dir} \
 OUTPUT_DIR={path_to_output_dir} \
 NUM_GPUS={num_gpus} \
