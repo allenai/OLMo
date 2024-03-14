@@ -100,6 +100,9 @@ fsdp:
   wrapping_strategy: by_block_and_size
   precision: mixed
 
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
 speed_monitor:
   window_size: 20
 
