@@ -94,6 +94,8 @@ def should_checkpoint_block(strategy: Optional[ActivationCheckpointingStrategy],
         or (strategy == ActivationCheckpointingStrategy.one_in_two and block_idx % 2 == 0)
         or (strategy == ActivationCheckpointingStrategy.one_in_three and block_idx % 3 == 0)
         or (strategy == ActivationCheckpointingStrategy.one_in_four and block_idx % 4 == 0)
+        or (strategy == ActivationCheckpointingStrategy.two_in_three and block_idx % 3 != 0)
+        or (strategy == ActivationCheckpointingStrategy.three_in_four and block_idx % 4 != 0)
     ):
         return True
     else:
