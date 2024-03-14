@@ -171,10 +171,10 @@ evaluators:
 
 data:
   pad_direction: right
-  num_workers: 0
+  num_workers: 16
   drop_last: true
   pin_memory: true
-  prefetch_factor: 16
+  prefetch_factor: 1
   persistent_workers: true
   timeout: 0
   paths:
