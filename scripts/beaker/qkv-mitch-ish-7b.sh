@@ -4,7 +4,7 @@ set -ex
 
 CONFIG_PATH=configs/qkv-v1_5-mix-medium-mitch-ish-s3.yaml
 NUM_NODES=8
-ARGS='--run_name=olmo7-ablation-qkv-clip-beaker --wandb.name=qkv-clip-beaker --model.flash_attention=true --fsdp.wrapping_strategy=by_block_and_size --fsdp.sharding_strategy=SHARD_GRAD_OP --save_folder=runs/ --device_train_microbatch_size=3 --global_train_batch_size=6144 --wandb.group=qkv-clip-beaker --remote_save_folder=s3://ai2-llm/checkpoints/olmo7-ablation/qkv-clip-beaker --load-path=r2://olmo-checkpoints/ai2-llm/olmo-medium/vpxr4bil/step81000-unsharded/'
+ARGS='--run_name=olmo7-ablation-qkv-clip-beaker --wandb.name=qkv-clip-beaker --model.flash_attention=false --fsdp.wrapping_strategy=by_block_and_size --fsdp.sharding_strategy=SHARD_GRAD_OP --save_folder=runs/ --wandb.group=qkv-clip-beaker --remote_save_folder=s3://ai2-llm/checkpoints/olmo7-ablation/qkv-clip-beaker --load-path=r2://olmo-checkpoints/ai2-llm/olmo-medium/vpxr4bil/step81000-unsharded/'
 
 gantry run \
   --allow-dirty \
