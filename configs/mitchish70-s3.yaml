@@ -17,7 +17,7 @@ model:
   weight_tying: false
   alibi: false
   rope: true
-  flash_attention: false
+  flash_attention: true
   attention_dropout: 0.0
   attention_layer_norm: false
   include_bias: false
@@ -176,10 +176,10 @@ evaluators:
 
 data:
   pad_direction: right
-  num_workers: 0
+  num_workers: 8
   drop_last: true
   pin_memory: true
-  prefetch_factor: 16
+  prefetch_factor: 2
   persistent_workers: true
   timeout: 0
   paths:

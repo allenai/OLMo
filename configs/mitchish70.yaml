@@ -178,7 +178,3 @@ data:
   pad_direction: right
   num_workers: 0
   drop_last: true
-  pin_memory: true
-  prefetch_factor: 16
-  persistent_workers: true
-  timeout: 0
