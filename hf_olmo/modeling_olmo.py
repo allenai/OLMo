@@ -5,6 +5,7 @@ import torch
 from transformers import PreTrainedModel
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.models.auto import AutoModelForCausalLM
+import warnings
 
 from olmo.config import ModelConfig
 from olmo.model import OLMo
@@ -184,10 +185,19 @@ class OLMoForCausalLM(PreTrainedModel):
         self.config.embedding_size = model_embeds.weight.shape[0]
         self.model.config.embedding_size = model_embeds.weight.shape[0]
 
+    # Check if the embedding size is less than the vocab size
+        if self.config.embedding_size < self.config.vocab_size:
+            warning_message = (
+                f"Resizing token embeddings to size {self.config.embedding_size}, which is less than the vocab size "
+                f"{self.config.vocab_size} defined in the model configuration. Make sure your tokenizer's vocabulary "
+                "size is less than or equal to the new token embedding size."
+            )
+            warnings.warn(warning_message)
+
         # Tie weights again if needed
         self.tie_weights()
 
-        return model_embeds    
+        return model_embeds
 
 
 # Register the model so that it is available for transformer pipelines, auto-loading, etc.
