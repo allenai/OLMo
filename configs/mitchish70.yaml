@@ -69,7 +69,7 @@ save_overwrite: false
 save_interval: 1000
 save_interval_ephemeral: 50
 save_num_checkpoints_to_keep: -1
-sharded_checkpointer: torch_new
+sharded_checkpointer: local
 
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
