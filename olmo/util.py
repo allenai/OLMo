@@ -73,7 +73,7 @@ def log_extra_field(field_name: str, field_value: Any) -> None:
 
 def setup_logging(log_filter_type: LogFilterType = LogFilterType.rank0_only) -> None:
     """
-    :param rank0_only: INFO and below messages will only be emitted on the rank0 process.
+    :param log_filter_type: Selects which ranks show logs
     """
     log_extra_field("hostname", socket.gethostname())
     if is_distributed():
@@ -142,6 +142,7 @@ def setup_logging(log_filter_type: LogFilterType = LogFilterType.rank0_only) -> 
 
     logging.captureWarnings(True)
     logging.getLogger("urllib3").setLevel(logging.ERROR)
+    logging.getLogger("botocore.retries.standard").setLevel(logging.DEBUG)
 
 
 def excepthook(exctype, value, traceback):
