@@ -17,7 +17,7 @@ model:
   weight_tying: false
   alibi: false
   rope: true
-  flash_attention: false
+  flash_attention: true
   attention_dropout: 0.0
   attention_layer_norm: false
   include_bias: false
@@ -29,7 +29,7 @@ model:
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
-  max_sequence_length: 2048
+  max_sequence_length: 4096
   vocab_size: 50280
   embedding_size: 50304
   eos_token_id: 0
@@ -67,8 +67,8 @@ save_folder: runs/${run_name}
 remote_save_folder: s3://ai2-llm/checkpoints/mitchish70/${run_name}
 save_overwrite: false
 
-save_interval: 1000
-save_interval_ephemeral: 50
+save_interval: 500
+save_interval_ephemeral: null
 save_num_checkpoints_to_keep: -1
 sharded_checkpointer: local
 
@@ -78,8 +78,8 @@ save_num_unsharded_checkpoints_to_keep: -1
 load_path: null
 
 max_duration: 2e12T
-global_train_batch_size: 1024
-device_train_microbatch_size: 1
+global_train_batch_size: 512
+device_train_microbatch_size: 2
 
 precision: amp_bf16
 
@@ -176,10 +176,10 @@ evaluators:
 
 data:
   pad_direction: right
-  num_workers: 0
+  num_workers: 8
   drop_last: true
   pin_memory: true
-  prefetch_factor: 16
+  prefetch_factor: 2
   persistent_workers: true
   timeout: 0
   paths:

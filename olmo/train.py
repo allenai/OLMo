@@ -913,12 +913,18 @@ class Trainer:
                     pass
 
         run_canceled = synchronize_flag(should_cancel, self.device)
-        if run_canceled and cancel_reason is not None:
+        if run_canceled:
             extra_steps = synchronize_value(extra_steps, self.device)
-            if extra_steps > 0:
-                log.warning(f"Run canceled due to {cancel_reason}, stopping in {extra_steps} more steps...")
+            if cancel_reason is None:
+                if extra_steps > 0:
+                    log.warning(f"Run canceled, stopping in {extra_steps} more steps...")
+                else:
+                    log.warning("Run canceled")
             else:
-                log.warning(f"Run canceled due to {cancel_reason}")
+                if extra_steps > 0:
+                    log.warning(f"Run canceled due to {cancel_reason}, stopping in {extra_steps} more steps...")
+                else:
+                    log.warning(f"Run canceled due to {cancel_reason}")
 
         return run_canceled, extra_steps
 

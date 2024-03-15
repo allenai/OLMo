@@ -30,7 +30,6 @@ __all__ = [
     "ActivationType",
     "ActivationCheckpointingStrategy",
     "BlockType",
-    "CompilerConfig",
     "LayerNormType",
     "InitFnType",
     "ModelConfig",
@@ -714,6 +713,16 @@ class ActivationCheckpointingStrategy(StrEnum):
     one_in_four = "one_in_four"
     """
     Checkpoint one in four transformer layers.
+    """
+
+    two_in_three = "two_in_three"
+    """
+    Checkpoint two out of every three transformer layers.
+    """
+
+    three_in_four = "three_in_four"
+    """
+    Checkpoint three out of four of every transformer layers.
     """
 
     fine_grained = "fine_grained"

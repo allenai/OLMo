@@ -86,6 +86,22 @@ def activation_checkpoint_function(cfg: ModelConfig):
     )
 
 
+def should_checkpoint_block(strategy: Optional[ActivationCheckpointingStrategy], block_idx: int) -> bool:
+    if strategy is None:
+        return False
+    elif (
+        (strategy == ActivationCheckpointingStrategy.whole_layer)
+        or (strategy == ActivationCheckpointingStrategy.one_in_two and block_idx % 2 == 0)
+        or (strategy == ActivationCheckpointingStrategy.one_in_three and block_idx % 3 == 0)
+        or (strategy == ActivationCheckpointingStrategy.one_in_four and block_idx % 4 == 0)
+        or (strategy == ActivationCheckpointingStrategy.two_in_three and block_idx % 3 != 0)
+        or (strategy == ActivationCheckpointingStrategy.three_in_four and block_idx % 4 != 0)
+    ):
+        return True
+    else:
+        return False
+
+
 class BufferCache(dict, MutableMapping[str, torch.Tensor]):
     """
     Cache for attention biases and other things that would normally be stored as buffers.
@@ -881,21 +897,7 @@ class OLMoBlockGroup(nn.ModuleList):
         for block_idx, block in enumerate(self):
             layer_past = None if layers_past is None else layers_past[block_idx]
             block_idx += self.layer_offset
-            if (
-                (self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.whole_layer)
-                or (
-                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_two
-                    and block_idx % 2 == 0
-                )
-                or (
-                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_three
-                    and block_idx % 3 == 0
-                )
-                or (
-                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_four
-                    and block_idx % 4 == 0
-                )
-            ):
+            if should_checkpoint_block(self.activation_checkpointing_strategy, block_idx):
                 # shape: (batch_size, seq_len, d_model)
                 x, cache = self._activation_checkpoint_fn(  # type: ignore
                     block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
@@ -1178,21 +1180,7 @@ class OLMo(nn.Module):
                     all_hidden_states.append(x)
 
                 layer_past = None if past_key_values is None else past_key_values[block_idx]
-                if (
-                    (self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.whole_layer)
-                    or (
-                        self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_two
-                        and block_idx % 2 == 0
-                    )
-                    or (
-                        self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_three
-                        and block_idx % 3 == 0
-                    )
-                    or (
-                        self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_four
-                        and block_idx % 4 == 0
-                    )
-                ):
+                if should_checkpoint_block(self.activation_checkpointing_strategy, block_idx):
                     # shape: (batch_size, seq_len, d_model)
                     x, cache = self._activation_checkpoint_fn(
                         block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
@@ -1200,6 +1188,7 @@ class OLMo(nn.Module):
                 else:
                     # shape: (batch_size, seq_len, d_model)
                     x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
+
                 if attn_key_values is not None:
                     assert cache is not None
                     attn_key_values.append(cache)
