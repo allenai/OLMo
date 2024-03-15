@@ -501,7 +501,7 @@ def _s3_upload(
                     f"s3://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it."
                 )
             except boto_exceptions.ClientError as e:
-                if int(e.response["Error"]["Code"]) == 404:
+                if e.response["ResponseMetadata"]["HTTPStatusCode"] == 404:
                     err = None
                     break
                 err = e
@@ -525,7 +525,7 @@ def _s3_file_size(scheme: str, bucket_name: str, key: str, max_attempts: int = 3
         try:
             return _get_s3_client(scheme).head_object(Bucket=bucket_name, Key=key)["ContentLength"]
         except boto_exceptions.ClientError as e:
-            if int(e.response["Error"]["Code"]) == 404:
+            if e.response["ResponseMetadata"]["HTTPStatusCode"] == 404:
                 raise FileNotFoundError(f"s3://{bucket_name}/{key}") from e
             err = e
 
