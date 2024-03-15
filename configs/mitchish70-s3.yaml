@@ -138,41 +138,41 @@ evaluators:
   ##########################
   # Downstream evaluations #
   ##########################
-  # - label: piqa
-  #   type: downstream
+  - label: piqa
+    type: downstream
 
   - label: hellaswag
     type: downstream
 
-  # - label: winogrande
-  #   type: downstream
+  - label: winogrande
+    type: downstream
 
-  # - label: openbook_qa
-  #   type: downstream
+  - label: openbook_qa
+    type: downstream
 
   # - label: boolq  # requires implemention of the pmi_dc matrix
     # type: downstream
  
-  # - label: sciq
-  #   type: downstream
+  - label: sciq
+    type: downstream
 
-  # - label: arc_easy
-  #   type: downstream
+  - label: arc_easy
+    type: downstream
 
   # - label: arc_challenge  # requires implemention of the pmi_dc matrix
   #   type: downstream
 
-  # - label: copa
-  #   type: downstream
+  - label: copa
+    type: downstream
 
-  # - label: rte
-  #   type: downstream
+  - label: rte
+    type: downstream
 
-  # - label: commitment_bank
-  #   type: downstream
+  - label: commitment_bank
+    type: downstream
 
-  # - label: sst2
-  #   type: downstream
+  - label: sst2
+    type: downstream
 
 data:
   pad_direction: right
