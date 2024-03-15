@@ -1376,11 +1376,11 @@ class LocalShardedCheckpointer(Checkpointer):
                 save_overwrite=self.cfg.save_overwrite,
             )
 
-            # Save config.
-            self._save_config(checkpoint_dir, upload_to=upload_to)
-
             # Save metadata.
             self._save_metadata(checkpoint_dir, upload_to=upload_to)
+
+            # Save config.
+            self._save_config(checkpoint_dir, upload_to=upload_to)
 
     def restore_checkpoint(
         self,
