@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added ability to show logs from all ranks
 - Added option for QKV clipping.
 - Added basic_arithmetic downstream evaluation task
+- Added commonsense_qa and social_iqa downstream evaluation tasks
 
 ### Changed
 
