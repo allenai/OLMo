@@ -1,4 +1,4 @@
-name: d17-dd_dp_030-qc_001
+name: d17-dedupe_dp-refheavy-newflan
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 env_variables:
   CONFIG_PATH: configs/road-to-1_7/runs/d17-dd_dp_030-qc_001.yaml
