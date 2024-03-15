@@ -1,3 +1,4 @@
+import warnings
 from dataclasses import fields
 from typing import List, Optional, Tuple, Union
 
@@ -5,7 +6,6 @@ import torch
 from transformers import PreTrainedModel
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.models.auto import AutoModelForCausalLM
-import warnings
 
 from olmo.config import ModelConfig
 from olmo.model import OLMo
