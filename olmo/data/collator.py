@@ -23,10 +23,15 @@ class DataCollator:
     def __call__(self, items: Union[List[Dict[str, Any]], List[torch.Tensor]]) -> Dict[str, Any]:
         assert items
         max_len = max((len(x["input_ids"] if isinstance(x, dict) else x) for x in items))
+        max_images = 0
+        if items and isinstance(items[0], dict) and "image_offsets" in items[0]:
+            max_images = max((len(x["image_offsets"]) for x in items))  # type: ignore
         all_input_ids = []
         all_attention_mask = []
         all_attention_bias = []
         all_label_mask = []
+        all_image_patches = []
+        all_image_offsets = []
         all_indices = []
         all_metadata = []
         for x in items:
@@ -92,6 +97,25 @@ class DataCollator:
                     )
                 )
 
+            # Image patches and offsets.
+            image_offsets = x.get("image_offsets") if isinstance(x, dict) else None
+            if image_offsets is not None:
+                pad_shape = (0, max_images - len(image_offsets))
+                image_patches = x["image_patches"]  # type: ignore
+                image_patches = F.pad(
+                    image_patches.to(dtype=torch.float),
+                    (0, 0, 0, 0, 0, 0) + pad_shape,
+                    value=0.0,
+                )
+                all_image_patches.append(image_patches)
+                all_image_offsets.append(
+                    F.pad(
+                        image_offsets.to(dtype=torch.int32),
+                        pad_shape,
+                        value=-1,
+                    )
+                )
+
             # Indices.
             index = x.get("index") if isinstance(x, dict) else None
             if index is not None:
@@ -109,6 +133,10 @@ class DataCollator:
             out["attention_bias"] = torch.stack(all_attention_bias)
         if all_label_mask:
             out["label_mask"] = torch.stack(all_label_mask)
+        if all_image_patches:
+            out["image_patches"] = torch.stack(all_image_patches)
+        if all_image_offsets:
+            out["image_offsets"] = torch.stack(all_image_offsets)
         if all_indices:
             out["index"] = torch.stack(all_indices)
         if all_metadata:

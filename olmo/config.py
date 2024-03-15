@@ -33,6 +33,8 @@ __all__ = [
     "CompilerConfig",
     "LayerNormType",
     "InitFnType",
+    "VisionBackboneType",
+    "VisionBackboneConfig",
     "ModelConfig",
     "OptimizerType",
     "OptimizerConfig",
@@ -220,6 +222,18 @@ class InitFnType(StrEnum):
     """
 
 
+class VisionBackboneType(StrEnum):
+    linear = "linear"
+
+
+@dataclass
+class VisionBackboneConfig(BaseConfig):
+    name: VisionBackboneType = VisionBackboneType.linear
+    patch_width: int = 16
+    patch_height: int = 16
+    frozen: bool = False
+
+
 @dataclass
 class ModelConfig(BaseConfig):
     """
@@ -295,6 +309,11 @@ class ModelConfig(BaseConfig):
     """
     If ``True``, apply RoPE embeddings at full precision regardless of the input type. Otherwise,
     apply RoPE at the precision of the input.
+    """
+
+    vision_backbone: Optional[VisionBackboneConfig] = None
+    """
+    Vision backbone settings for multi-modal models.
     """
 
     flash_attention: bool = False
@@ -524,6 +543,7 @@ class DataConfig(BaseConfig):
     prefetch_factor: Optional[int] = None
     persistent_workers: bool = False
     timeout: int = 0
+    multi_modal: bool = False
 
 
 class EvaluatorType(StrEnum):
