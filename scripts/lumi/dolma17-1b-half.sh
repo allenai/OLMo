@@ -80,10 +80,10 @@ srun \
     python scripts/train.py $CONFIG_PATH \
       --run_name=${SLURM_JOB_ID} \
       --wandb.group="${RUN_NAME}-half" \
-      --wandb.project="olmo-small"
+      --wandb.project="olmo-small" \
       --time_limit=$((11 * 60 * 60)) \
       --device_train_microbatch_size=8 \
-      --optimizer.learning_rate='2.0e-4' \
+      --optimizer.learning_rate=2.0e-4 \
       --global_train_batch_size=1024 \
       --fsdp.sharding_strategy=FULL_SHARD \
       --fsdp.wrapping_strategy=by_block \
