@@ -10,6 +10,10 @@ integrations:
     git_branch: mitchish65-2-gqa
     pip_install: -e .[train]
     ssh_clone: true
+env_variables:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  OMP_NUM_THREADS: "8"
+  LOG_FILTER_TYPE: local_rank0_only
 command: |-
   # Make sure we have a recent flash-attn.
   # NOTE: only pinning flash-attn here to future proof it.
@@ -21,8 +25,6 @@ command: |-
   # Prepare environment.
   cd OLMo
   mkdir -p /root/.cache/torch
-  export OMP_NUM_THREADS=8
-  export LOG_FILTER_TYPE=local_rank0_only
 
   torchrun \
   --master_addr "$MASTER_ADDR" \
