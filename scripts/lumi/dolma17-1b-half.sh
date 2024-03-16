@@ -10,7 +10,7 @@
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
-
+set -ex
 
 export CACHED_PATH_CACHE_ROOT="${SCRATCH_DIR}/tmp"
 mkdir -p "${CACHED_PATH_CACHE_ROOT}"
@@ -78,7 +78,7 @@ srun \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
     python scripts/train.py $CONFIG_PATH \
-      --run_name=${SLURM_JOB_ID} \
+      --run_name="${SLURM_JOB_ID}" \
       --wandb.group="${RUN_NAME}-half" \
       --wandb.project="olmo-small" \
       --time_limit=$((11 * 60 * 60)) \
