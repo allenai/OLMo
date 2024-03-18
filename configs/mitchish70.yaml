@@ -169,6 +169,24 @@ evaluators:
   - label: sst2
     type: downstream
 
+  - label: commonsense_qa
+    type: downstream
+
+  - label: social_iqa
+    type: downstream
+
+  - label: mmlu_stem
+    type: downstream
+
+  - label: mmlu_humanities
+    type: downstream
+
+  - label: mmlu_social_sciences
+    type: downstream
+
+  - label: mmlu_other
+    type: downstream
+
 data:
   paths: ${path.glob:${oc.env:DATA_PATH}/v1_5-sample/gpt-neox-20b-pii-special-longrunfix/*.npy}
   pad_direction: right

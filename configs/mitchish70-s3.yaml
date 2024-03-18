@@ -194,6 +194,24 @@ evaluators:
   - label: sst2
     type: downstream
 
+  - label: commonsense_qa
+    type: downstream
+
+  - label: social_iqa
+    type: downstream
+
+  - label: mmlu_stem
+    type: downstream
+
+  - label: mmlu_humanities
+    type: downstream
+
+  - label: mmlu_social_sciences
+    type: downstream
+
+  - label: mmlu_other
+    type: downstream
+
 data:
   pad_direction: right
   num_workers: 8
