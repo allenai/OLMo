@@ -260,7 +260,7 @@ class RotaryEmbedding(nn.Module):
         self.config = config
         self.__cache = cache
         # Warm up cache.
-        self.get_rotary_embedding(config.max_sequence_length, _non_meta_init_device(config))
+        #  self.get_rotary_embedding(config.max_sequence_length, _non_meta_init_device(config))
 
     def get_rotary_embedding(self, seq_len: int, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
         if (
