@@ -4,14 +4,14 @@ env_variables:
   CONFIG_PATH: configs/road-to-1_7/runs/d17-dd_dp_030-qc_001-v2.yaml
   # LOAD_PATH: "s3://ai2-llm/checkpoints/1b/r70br70b-dedupe-docspara-1b-150b/r70br70b-dedupe-docspara-1b-150b-f9159292/step34000"
 compute:
-  gpus: 64
+  gpus: 96
   cluster: r7z2
   gpu_type: a100_40gb
 integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
     git_branch: soldni/dolma-v1.7
-    git_commit: fcb689374551aafca5149a4d0c3d844eb4d7e819
+    git_commit: 90cf71508d190c770677de00555e9f7da534332d
     pip_install: -e '.[train]'
     ssh_clone: true
 command: |-
