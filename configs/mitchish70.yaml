@@ -98,14 +98,10 @@ eval_interval: 1000
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
-  - label: all-small-ppl-validation
+  - label: v2-small-ppl-validation
     data:
       num_workers: 0
       drop_last: true
-      # pin_memory: true
-      # prefetch_factor: 1
-      # persistent_workers: false
-      # timeout: 0
       datasets:
         4chan-validation:
           - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/4chan/val.npy

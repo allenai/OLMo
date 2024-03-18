@@ -56,8 +56,8 @@ class Evaluator:
                     # get to this one within the current evaluation loop.
                     continue
                 else:
-                    out[f"eval/{label}/CrossEntropyLoss"] = loss.item()
-                    out[f"eval/{label}/Perplexity"] = torch.exp(loss).item()
+                    out[f"eval/ppl/{label}/CrossEntropyLoss"] = loss.item()
+                    out[f"eval/ppl/{label}/Perplexity"] = torch.exp(loss).item()
             return out
         else:
             raise ValueError(f"Unexpected evaluator type '{self.type}'")
