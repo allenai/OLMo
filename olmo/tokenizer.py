@@ -111,11 +111,18 @@ class Tokenizer:
         model_config = ModelConfig.load(config_path, key="model")
 
         # Initialize tokenizer and validate vocab size.
-        tokenizer = cls.from_pretrained(
-            tokenizer_config.identifier,
-            eos_token_id=model_config.eos_token_id,
-            pad_token_id=model_config.pad_token_id,
-        )
+        if Path(tokenizer_config.identifier).is_file():
+            tokenizer = cls.from_file(
+                tokenizer_config.identifier,
+                eos_token_id=model_config.eos_token_id,
+                pad_token_id=model_config.pad_token_id,
+            )
+        else:
+            tokenizer = cls.from_pretrained(
+                tokenizer_config.identifier,
+                eos_token_id=model_config.eos_token_id,
+                pad_token_id=model_config.pad_token_id,
+            )
         if model_config.vocab_size != tokenizer.vocab_size:
             raise OLMoConfigurationError("vocab size mismatch between config and tokenizer")
         return tokenizer
