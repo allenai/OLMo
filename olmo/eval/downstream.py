@@ -775,6 +775,64 @@ class BasicArithmetic(ArcEasy):
         )
 
 
+class CommonsenseQA(ArcEasy):
+    """CommonsenseQA
+    Example:
+    {'id': 'e68fb2448fd74e402aae9982aa76e527',
+    'question': 'Where are  you likely to find a hamburger?',
+    'question_concept': 'hamburger',
+    'choices': {'label': ['A', 'B', 'C', 'D', 'E'],
+    'text': ['fast food restaurant', 'pizza', 'ground up dead cows', 'mouth', 'cow carcus']},
+    'answerKey': 'A'}
+    """
+
+    metric_type = "len_norm"
+
+    def __init__(self, tokenizer, dataset_path="tau/commonsense_qa", dataset_name=None):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+
+class SocialIQa(ICLMultiChoiceTaskDataset):
+    """SocialIQa
+    Example:
+    {'context': 'Jordan was in charge of taking the food on the camping trip and left all the food at home.',
+     'question': 'How would Jordan feel afterwards?',
+     'answerA': 'horrible that he let his friends down on the camping trip',
+     'answerB': "happy that he doesn't need to do the cooking on the trip",
+     'answerC': 'very proud and accomplished about the camping trip', 'label': '1'}
+    """
+
+    metric_type = "len_norm"
+
+    def __init__(self, tokenizer, dataset_path="social_i_qa", dataset_name=None):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+    def doc_to_text(self, doc):
+        return "Question: " + doc["context"] + " " + doc["question"] + "\nAnswer:"
+
+    def doc_to_continuations(self, doc):
+        # add spaces in front of continuation
+        return [
+            " " + doc["answerA"],
+            " " + doc["answerB"],
+            " " + doc["answerC"],
+        ]
+
+    def doc_to_label(self, doc):
+        return int(doc["label"]) - 1
+
+    def doc_to_domain_conditional(self, doc):
+        return "Answer:"
+
+
 class COPA(ICLMultiChoiceTaskDataset):
     """Prompt: "PREMISE.strip()[:-1] because/therefore"
     Req_loglikelihood('The pair of students came under scrutiny by the teacher because', ' the students both received excellent grades.'
@@ -1182,6 +1240,8 @@ label_to_task_map = {
     "commitment_bank": CommitmentBank,
     "mrpc": MRPC,
     "sst2": SST2,
+    "commonsense_qa": CommonsenseQA,
+    "social_iqa": SocialIQa,
     "mmlu_stem_test": (MMLU, {"dataset_name": "stem", "split": "test"}),
     "mmlu_humanities_test": (MMLU, {"dataset_name": "humanities", "split": "test"}),
     "mmlu_social_sciences_test": (MMLU, {"dataset_name": "social_sciences", "split": "test"}),
