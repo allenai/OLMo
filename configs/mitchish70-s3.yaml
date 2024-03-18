@@ -64,7 +64,7 @@ tokenizer:
   truncate_direction: right
 
 save_folder: runs/${run_name}
-remote_save_folder: s3://ai2-llm/checkpoints/mitchish70/${run_name}
+remote_save_folder: s3://ai2-llm/checkpoints/OLMo-large/${run_name}
 save_overwrite: false
 
 save_interval: 500
