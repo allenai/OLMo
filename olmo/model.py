@@ -86,6 +86,22 @@ def activation_checkpoint_function(cfg: ModelConfig):
     )
 
 
+def should_checkpoint_block(strategy: Optional[ActivationCheckpointingStrategy], block_idx: int) -> bool:
+    if strategy is None:
+        return False
+    elif (
+        (strategy == ActivationCheckpointingStrategy.whole_layer)
+        or (strategy == ActivationCheckpointingStrategy.one_in_two and block_idx % 2 == 0)
+        or (strategy == ActivationCheckpointingStrategy.one_in_three and block_idx % 3 == 0)
+        or (strategy == ActivationCheckpointingStrategy.one_in_four and block_idx % 4 == 0)
+        or (strategy == ActivationCheckpointingStrategy.two_in_three and block_idx % 3 != 0)
+        or (strategy == ActivationCheckpointingStrategy.three_in_four and block_idx % 4 != 0)
+    ):
+        return True
+    else:
+        return False
+
+
 class BufferCache(dict, MutableMapping[str, torch.Tensor]):
     """
     Cache for attention biases and other things that would normally be stored as buffers.
@@ -412,7 +428,7 @@ class OLMoBlock(nn.Module):
             assert config.n_kv_heads is not None
             self.k_norm = LayerNormBase.build(
                 config,
-                size=config.d_model // config.n_kv_heads,
+                size=config.d_model // config.effective_n_kv_heads,
                 elementwise_affine=config.attention_layer_norm_with_affine,
             )
             self.q_norm = LayerNormBase.build(config, elementwise_affine=config.attention_layer_norm_with_affine)
@@ -442,6 +458,15 @@ class OLMoBlock(nn.Module):
         # Rotary embeddings.
         if self.config.rope:
             self.rotary_emb = RotaryEmbedding(config, self.__cache)
+
+        self.flash_attn_func = None
+        if config.flash_attention:
+            try:
+                from flash_attn import flash_attn_func  # type: ignore
+
+                self.flash_attn_func = flash_attn_func
+            except ModuleNotFoundError:
+                pass
 
     def reset_parameters(self):
         if self.k_norm is not None:
@@ -496,17 +521,30 @@ class OLMoBlock(nn.Module):
         """
         Computes scaled dot product attention on query, key and value tensors, using an optional
         attention mask if passed, and applying dropout if a probability greater than 0.0 is specified.
-
-        This method is based on PyTorch's `scaled_dot_product_attention`.
         """
-        return F.scaled_dot_product_attention(
-            q,
-            k,
-            v,
-            attn_mask=attn_mask,
-            dropout_p=dropout_p,
-            is_causal=is_causal,
-        )
+        if self.flash_attn_func is not None and attn_mask is None:
+            r = self.flash_attn_func(
+                q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), dropout_p=dropout_p, causal=is_causal
+            )
+            return r.transpose(1, 2)
+        else:
+            # torch's sdpa doesn't support GQA, so we're doing this
+            assert k.size(1) == v.size(1)
+            num_kv_heads = k.size(1)
+            num_q_heads = q.size(1)
+            if num_q_heads != num_kv_heads:
+                assert num_q_heads % num_kv_heads == 0
+                k = k.repeat_interleave(num_q_heads // num_kv_heads, dim=1, output_size=num_q_heads)
+                v = v.repeat_interleave(num_q_heads // num_kv_heads, dim=1, output_size=num_q_heads)
+
+            return F.scaled_dot_product_attention(
+                q,
+                k,
+                v,
+                attn_mask=attn_mask,
+                dropout_p=dropout_p,
+                is_causal=is_causal,
+            )
 
     def attention(
         self,
@@ -529,9 +567,9 @@ class OLMoBlock(nn.Module):
         # shape: (B, nh, T, hs)
         q = q.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
         # shape: (B, n_kv_h, T, hs)
-        k = k.view(B, T, self.config.n_kv_heads, C // self.config.n_heads).transpose(1, 2)
+        k = k.view(B, T, self.config.effective_n_kv_heads, C // self.config.n_heads).transpose(1, 2)
         # shape: (B, n_kv_h, T, hs)
-        v = v.view(B, T, self.config.n_kv_heads, C // self.config.n_heads).transpose(1, 2)
+        v = v.view(B, T, self.config.effective_n_kv_heads, C // self.config.n_heads).transpose(1, 2)
 
         if layer_past is not None:
             past_key, past_value = layer_past
@@ -605,9 +643,12 @@ class OLMoSequentialBlock(OLMoBlock):
         self.ff_norm = LayerNorm.build(config)
         # Attention input projection. Projects x -> (q, k, v)
 
-        assert config.n_kv_heads is not None
         head_dim = config.d_model // config.n_heads
-        self.fused_dims = (config.d_model, config.n_kv_heads * head_dim, config.n_kv_heads * head_dim)
+        self.fused_dims = (
+            config.d_model,
+            config.effective_n_kv_heads * head_dim,
+            config.effective_n_kv_heads * head_dim,
+        )
         self.att_proj = nn.Linear(
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
@@ -856,21 +897,7 @@ class OLMoBlockGroup(nn.ModuleList):
         for block_idx, block in enumerate(self):
             layer_past = None if layers_past is None else layers_past[block_idx]
             block_idx += self.layer_offset
-            if (
-                (self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.whole_layer)
-                or (
-                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_two
-                    and block_idx % 2 == 0
-                )
-                or (
-                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_three
-                    and block_idx % 3 == 0
-                )
-                or (
-                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_four
-                    and block_idx % 4 == 0
-                )
-            ):
+            if should_checkpoint_block(self.activation_checkpointing_strategy, block_idx):
                 # shape: (batch_size, seq_len, d_model)
                 x, cache = self._activation_checkpoint_fn(  # type: ignore
                     block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
@@ -925,7 +952,7 @@ class OLMo(nn.Module):
         ):
             raise OLMoConfigurationError("n layers must be divisible by block group size")
 
-        torch.backends.cuda.enable_flash_sdp(self.config.flash_attention)
+        torch.backends.cuda.enable_flash_sdp(True)
         torch.backends.cuda.enable_mem_efficient_sdp(False)  # this is super slow so make sure torch won't use it
 
         self.transformer = nn.ModuleDict(
@@ -1153,21 +1180,7 @@ class OLMo(nn.Module):
                     all_hidden_states.append(x)
 
                 layer_past = None if past_key_values is None else past_key_values[block_idx]
-                if (
-                    (self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.whole_layer)
-                    or (
-                        self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_two
-                        and block_idx % 2 == 0
-                    )
-                    or (
-                        self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_three
-                        and block_idx % 3 == 0
-                    )
-                    or (
-                        self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_four
-                        and block_idx % 4 == 0
-                    )
-                ):
+                if should_checkpoint_block(self.activation_checkpointing_strategy, block_idx):
                     # shape: (batch_size, seq_len, d_model)
                     x, cache = self._activation_checkpoint_fn(
                         block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
@@ -1175,6 +1188,7 @@ class OLMo(nn.Module):
                 else:
                     # shape: (batch_size, seq_len, d_model)
                     x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
+
                 if attn_key_values is not None:
                     assert cache is not None
                     attn_key_values.append(cache)

@@ -591,6 +591,12 @@ def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Op
             step = int(checkpoint_name.replace("step", "").replace("-unsharded", ""))
         except ValueError:
             continue
+        # Make sure the checkpoint dir contains a config, otherwise the checkpoint is incomplete
+        # (upload might have have failed part way through).
+        try:
+            _s3_file_size(scheme, bucket_name, f"{prefix}/config.yaml")
+        except FileNotFoundError:
+            continue
         # We prioritize sharded checkpoints over unsharded ones.
         if step > latest_step or (step == latest_step and not checkpoint_name.endswith("-unsharded")):
             latest_step = step

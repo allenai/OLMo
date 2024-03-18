@@ -30,7 +30,6 @@ __all__ = [
     "ActivationType",
     "ActivationCheckpointingStrategy",
     "BlockType",
-    "CompilerConfig",
     "LayerNormType",
     "InitFnType",
     "ModelConfig",
@@ -239,7 +238,7 @@ class ModelConfig(BaseConfig):
 
     n_kv_heads: Optional[int] = None
     """
-    The number of heads to use for keys and values.
+    The number of heads to use for keys and values. Defaults to `n_heads`.
     Set this to ``None`` or ``n_heads`` for normal multi-head attention.
     Set this to 1 for multi-query attention.
     Set it to some in-between value for Llama2-style grouped query attention.
@@ -314,7 +313,7 @@ class ModelConfig(BaseConfig):
     The dropout probability within the attention modules.
     """
 
-    multi_query_attention: bool = False
+    multi_query_attention: Optional[bool] = None
     """
     Deprecated. Use n_kv_heads instead.
     """
@@ -434,34 +433,26 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
-    def __post_init__(self):
+    @property
+    def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:
-            self.n_kv_heads = self.n_heads
-
-    @classmethod
-    def update_legacy_settings(cls, config: D) -> D:
-        new_config = config.copy()
-        if om.is_dict(new_config):
-            assert isinstance(new_config, DictConfig)
-
-            if hasattr(new_config, "multi_query_attention"):
-                if (
-                    new_config.multi_query_attention
-                    and hasattr(new_config, "n_kv_heads")
-                    and new_config.n_kv_heads is not None
-                ):
-                    raise OLMoConfigurationError(
-                        "You can't specify both `multi_query_attention` and `n_kv_heads`. Specify only `n_kv_heads`."
-                    )
-                if new_config.multi_query_attention:
-                    new_config.n_kv_heads = 1
-                else:
-                    new_config.n_kv_heads = new_config.n_heads
-
-            if hasattr(new_config, "optimizer"):
-                new_config.optimizer = OptimizerConfig.update_legacy_settings(new_config.optimizer)
-
-        return new_config
+            if self.multi_query_attention is True:
+                return 1
+            else:
+                return self.n_heads
+        else:
+            if self.multi_query_attention is None:
+                return self.n_kv_heads
+            if self.multi_query_attention:
+                n_kv_heads_should_be = 1
+            else:
+                n_kv_heads_should_be = self.n_heads
+            if self.n_kv_heads == n_kv_heads_should_be:
+                return n_kv_heads_should_be
+            else:
+                raise OLMoConfigurationError(
+                    "You can't set `multi_query_attention` and `n_kv_heads` at the same time."
+                )
 
 
 class OptimizerType(StrEnum):
@@ -559,6 +550,7 @@ class DataConfig(BaseConfig):
     prefetch_factor: Optional[int] = None
     persistent_workers: bool = False
     timeout: int = 0
+    seed: Optional[int] = None
 
 
 class EvaluatorType(StrEnum):
@@ -721,6 +713,16 @@ class ActivationCheckpointingStrategy(StrEnum):
     one_in_four = "one_in_four"
     """
     Checkpoint one in four transformer layers.
+    """
+
+    two_in_three = "two_in_three"
+    """
+    Checkpoint two out of every three transformer layers.
+    """
+
+    three_in_four = "three_in_four"
+    """
+    Checkpoint three out of four of every transformer layers.
     """
 
     fine_grained = "fine_grained"
@@ -1047,6 +1049,11 @@ class TrainConfig(BaseConfig):
     The activation checkpointing strategy to use.
     """
 
+    fused_loss: Optional[bool] = None
+    """
+    Whether to use the fused CE loss function from `flash-attn`.
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":
@@ -1089,8 +1096,5 @@ class TrainConfig(BaseConfig):
 
             if hasattr(new_config, "optimizer"):
                 new_config.optimizer = OptimizerConfig.update_legacy_settings(new_config.optimizer)
-
-            if hasattr(new_config, "model"):
-                new_config.model = ModelConfig.update_legacy_settings(new_config.model)
 
         return new_config

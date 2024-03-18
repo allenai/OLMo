@@ -1,3 +1,5 @@
+from typing import Optional
+
 import pytest
 import torch
 import torch.nn.functional as F
@@ -195,6 +197,85 @@ def test_forward(
     torch.testing.assert_close(output1.logits[0][-1], output1_from_cached.logits[0][-1], rtol=rtol, atol=atol)
     # For the batched output this only makes sense for the longer of the two inputs, since the shorter one is padded on the right.
     torch.testing.assert_close(output2.logits[0][-1], batch_output_from_cached.logits[1][-1], rtol=rtol, atol=atol)
+
+
+@pytest.mark.parametrize("positional_embeddings", (None, "rope"))
+@pytest.mark.parametrize("block_type", (BlockType.sequential,))
+@pytest.mark.parametrize("attention_mode", ("mha", "mqa", "gqa"))
+def test_flash_attn(
+    train_config: TrainConfig,
+    tokenizer: Tokenizer,
+    positional_embeddings: Optional[str],
+    block_type: BlockType,
+    attention_mode: str,
+):
+    torch.use_deterministic_algorithms(True)
+    device = torch.device("cuda")
+
+    if positional_embeddings is None:
+        alibi = False
+        rope = False
+    elif positional_embeddings == "alibi":
+        alibi = True
+        rope = False
+    elif positional_embeddings == "rope":
+        alibi = False
+        rope = True
+    else:
+        raise ValueError(f"{positional_embeddings} is not a valid value for positional_embeddings")
+
+    def make_model(flash_attn: bool):
+        torch.manual_seed(0)
+        train_config.model.alibi = alibi
+        train_config.model.rope = rope
+        train_config.model.flash_attention = flash_attn
+        train_config.model.attention_dropout = 0.0
+        train_config.model.block_type = block_type
+        train_config.model.d_model = 1024
+        train_config.model.n_heads = 8
+        if attention_mode == "mha":
+            train_config.model.n_kv_heads = train_config.model.n_heads
+        elif attention_mode == "mqa":
+            train_config.model.n_kv_heads = 1
+        elif attention_mode == "gqa":
+            train_config.model.n_kv_heads = train_config.model.n_heads // 2
+        else:
+            raise ValueError(f"{attention_mode} is not a valid value for attention_mode")
+        train_config.model.init_device = "cuda"
+        return OLMo(train_config.model).eval()
+
+    input1 = tokenizer.encode(
+        "As a large language model, I don’t have personal opinions, but I can share some interesting facts!"
+    )
+    input2 = tokenizer.encode("What do you call a programmer with no bugs in their code? A liar.")
+    input3 = tokenizer.encode("How do you comfort a JavaScript bug? You console it.")
+    batch_inputs = DataCollator.from_train_config(train_config)(
+        [  # type: ignore
+            {"input_ids": input1},
+            {"input_ids": input2},
+            {"input_ids": input3},
+        ]
+    )
+    batch_inputs = {  # type: ignore
+        k: v.to(device=device) if isinstance(v, torch.Tensor) else v for k, v in batch_inputs.items()
+    }
+
+    model_with_flash = make_model(True)
+    model_without_flash = make_model(False)
+
+    # Run forward pass.
+    with torch.inference_mode():
+        with torch.autocast(device_type="cuda", enabled=True, dtype=torch.bfloat16):
+            output_with_flash = model_with_flash(**batch_inputs)
+            output_without_flash = model_without_flash(**batch_inputs)
+
+    # With using half-precision types these might have some big differences in a small
+    # percentage of the elements.
+    atol = 1e-2
+    rtol = 1e3
+
+    # Check that logits match
+    torch.testing.assert_close(output_with_flash.logits, output_without_flash.logits, rtol=rtol, atol=atol)
 
 
 @pytest.mark.parametrize(
