@@ -146,8 +146,8 @@ evaluators:
   - label: openbook_qa
     type: downstream
 
-  # - label: boolq  # requires implemention of the pmi_dc matrix
-    # type: downstream
+  - label: boolq
+    type: downstream
  
   - label: sciq
     type: downstream
@@ -155,20 +155,20 @@ evaluators:
   - label: arc_easy
     type: downstream
 
-  # - label: arc_challenge  # requires implemention of the pmi_dc matrix
-  #   type: downstream
+  - label: arc_challenge
+    type: downstream
 
   - label: copa
     type: downstream
 
-  - label: rte
-    type: downstream
+  #- label: rte
+  #  type: downstream
 
-  - label: commitment_bank
-    type: downstream
+  #- label: commitment_bank
+  #  type: downstream
 
-  - label: sst2
-    type: downstream
+  #- label: sst2
+  #  type: downstream
 
   - label: commonsense_qa
     type: downstream
@@ -176,16 +176,19 @@ evaluators:
   - label: social_iqa
     type: downstream
 
-  - label: mmlu_stem
+  - label: basic_arithmetic
     type: downstream
 
-  - label: mmlu_humanities
+  - label: mmlu_stem_var
     type: downstream
 
-  - label: mmlu_social_sciences
+  - label: mmlu_humanities_var
     type: downstream
 
-  - label: mmlu_other
+  - label: mmlu_social_sciences_var
+    type: downstream
+
+  - label: mmlu_other_var
     type: downstream
 
 data:

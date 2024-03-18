@@ -100,61 +100,33 @@ eval_interval: 1000
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
-  - label: v3-small-ppl-validation
+  - label: all-small-ppl-validation
     data:
       num_workers: 0
       drop_last: true
       datasets:
-        v3-small-c4_en-validation:
+        c4_en-validation:
           - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy
-        v3-small-dolma_books-validation:
+        dolma_books-validation:
           - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_books/val/part-0-00000.npy
-        v3-small-dolma_common-crawl-validation:
+        dolma_common-crawl-validation:
           - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_common-crawl/val/part-0-00000.npy
-        v3-small-dolma_pes2o-validation:
+        dolma_pes2o-validation:
           - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_pes2o/val/part-0-00000.npy
-        v3-small-dolma_reddit-validation:
+        dolma_reddit-validation:
           - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_reddit/val/part-0-00000.npy
-        v3-small-dolma_stack-validation:
+        dolma_stack-validation:
           - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_stack/val/part-0-00000.npy
-        v3-small-dolma_wiki-validation:
+        dolma_wiki-validation:
           - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_wiki/val/part-0-00000.npy
-        v3-small-ice-validation:
+        ice-validation:
           - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/ice/val/part-0-00000.npy
-        v3-small-m2d2_s2orc-validation:
+        m2d2_s2orc-validation:
           - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/m2d2_s2orc/val/part-0-00000.npy
-        v3-small-pile-validation:
+        pile-validation:
         - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy
-        v3-small-wikitext_103-validation:
+        wikitext_103-validation:
           - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy
-
-  - label: v2-small-ppl-validation
-    data:
-      num_workers: 0
-      drop_last: true
-      datasets:
-        v2-small-4chan-validation:
-          - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
-        v2-small-c4_100_domains-validation:
-          - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/c4_100_domains/val.npy
-        v2-small-gab-validation:
-          - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/gab/val.npy
-        v2-small-ice-validation:
-          - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/ice/val.npy
-        v2-small-m2d2_s2orc-validation:
-          - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/m2d2_s2orc/val.npy
-        v2-small-m2d2_wiki-validation:
-          - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/m2d2_wiki/val.npy
-        v2-small-manosphere-validation:
-          - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/manosphere/val.npy
-        v2-small-mc4_en-validation:
-          - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/mc4_en/val.npy
-        v2-small-pile-validation:
-          - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/pile/val.npy
-        v2-small-ptb-validation:
-          - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/ptb/val.npy
-        v2-small-twitterAEE-validation:
-          - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
 
   ##########################
   # Downstream evaluations #
@@ -171,8 +143,8 @@ evaluators:
   - label: openbook_qa
     type: downstream
 
-  # - label: boolq  # requires implemention of the pmi_dc matrix
-    # type: downstream
+  - label: boolq
+    type: downstream
  
   - label: sciq
     type: downstream
@@ -180,20 +152,20 @@ evaluators:
   - label: arc_easy
     type: downstream
 
-  # - label: arc_challenge  # requires implemention of the pmi_dc matrix
-  #   type: downstream
+  - label: arc_challenge
+    type: downstream
 
   - label: copa
     type: downstream
 
-  - label: rte
-    type: downstream
+  #- label: rte
+  #  type: downstream
 
-  - label: commitment_bank
-    type: downstream
+  #- label: commitment_bank
+  #  type: downstream
 
-  - label: sst2
-    type: downstream
+  #- label: sst2
+  #  type: downstream
 
   - label: commonsense_qa
     type: downstream
@@ -201,16 +173,19 @@ evaluators:
   - label: social_iqa
     type: downstream
 
-  - label: mmlu_stem
+  - label: basic_arithmetic
     type: downstream
 
-  - label: mmlu_humanities
+  - label: mmlu_stem_var
     type: downstream
 
-  - label: mmlu_social_sciences
+  - label: mmlu_humanities_var
     type: downstream
 
-  - label: mmlu_other
+  - label: mmlu_social_sciences_var
+    type: downstream
+
+  - label: mmlu_other_var
     type: downstream
 
 data:
