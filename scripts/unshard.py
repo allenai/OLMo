@@ -45,11 +45,13 @@ def main(
     )
 
     # model
-    model_output = str(output_dir / "model.pt")
-    logger.info("Saving model state to %s", model_output)
     if safe_tensors:
+        model_output = str(output_dir / "model.safetensors")
+        logger.info("Saving model state to %s", model_output)
         state_dict_to_safetensors_file(model_state_dict, model_output)
     else:
+        model_output = str(output_dir / "model.pt")
+        logger.info("Saving model state to %s", model_output)
         torch.save(model_state_dict, model_output)
     del model_state_dict
 
@@ -57,11 +59,13 @@ def main(
         assert optim_state_dict is not None
 
         # optimizer
-        optim_output = str(output_dir / "optim.pt")
-        logger.info("Saving optimizer state to %s", optim_output)
         if safe_tensors:
+            optim_output = str(output_dir / "optim.safetensors")
+            logger.info("Saving optimizer state to %s", optim_output)
             state_dict_to_safetensors_file(optim_state_dict, optim_output)
         else:
+            optim_output = str(output_dir / "optim.pt")
+            logger.info("Saving optimizer state to %s", optim_output)
             torch.save(optim_state_dict, optim_output)
         del optim_state_dict
 
