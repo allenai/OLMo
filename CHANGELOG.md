@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Don't crash in the HF code when we are referring to a tokenizer in a local file
 - Changed `tie_weights` method to a no-op as weight tying is handled in olmo/model.py
 
+### Added
+- Added commonsense_qa and social_iqa downstream evaluation tasks
+
 
 ## [v0.2.5](https://github.com/allenai/OLMo/releases/tag/v0.2.5) - 2024-03-06
 
