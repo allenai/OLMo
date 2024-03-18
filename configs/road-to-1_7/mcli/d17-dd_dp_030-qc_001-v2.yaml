@@ -1,7 +1,7 @@
-name: d17-dd_dp_030-qc_001-v1_5
+name: d17-dd_dp_030-qc_001-v2
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 env_variables:
-  CONFIG_PATH: configs/road-to-1_7/runs/d17-dd_dp_030-qc_001-v1_5.yaml
+  CONFIG_PATH: configs/road-to-1_7/runs/d17-dd_dp_030-qc_001-v2.yaml
   # LOAD_PATH: "s3://ai2-llm/checkpoints/1b/r70br70b-dedupe-docspara-1b-150b/r70br70b-dedupe-docspara-1b-150b-f9159292/step34000"
 compute:
   gpus: 64
@@ -11,7 +11,7 @@ integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
     git_branch: soldni/dolma-v1.7
-    git_commit: c94ec5fdf97873ee9507fbee0cb197d8aa411e57
+    git_commit: fcb689374551aafca5149a4d0c3d844eb4d7e819
     pip_install: -e '.[train]'
     ssh_clone: true
 command: |-
