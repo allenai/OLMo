@@ -180,7 +180,7 @@ def load_fsdp_model_and_optim_state(
         # DEBUGGING:
         if get_global_rank() == 0:
             param_fqn = "transformer.blocks.0.ff_proj.weight"
-            log.info("'%s':\n  %s", param_fqn, model_state["model"][param_fqn].shape)
+            log.info("'%s':\n  %s", param_fqn, model_state["model"][param_fqn])
 
         if not load_optimizer_state:
             return
@@ -215,6 +215,7 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
         sharded_tensor = optim_state["state"][param_fqn]["exp_avg"]
         local_tensor = sharded_tensor.local_tensor()
         log.info("'%s' (exp_avg):\n  %s\n  %s", param_fqn, sharded_tensor, local_tensor.shape)
+        # sharded tensor:
 
     log.info("Flattening sharded optimizer state...")
     # NOTE: Careful! The order of the these arguments has changed from 2.0 to 2.1... ¯\_(ツ)_/¯
