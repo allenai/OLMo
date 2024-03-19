@@ -767,7 +767,7 @@ class BasicArithmetic(ArcEasy):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="allenai/basic_arithmetic", dataset_name="main"):
+    def __init__(self, tokenizer, dataset_path="allenai/basic_arithmetic", dataset_name=None):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
