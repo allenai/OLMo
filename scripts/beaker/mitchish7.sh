@@ -12,7 +12,7 @@ gantry run \
   --description "OLMo medium - 7B" \
   --priority high \
   --stop-preemptible \
-  --beaker-image olmo-torch2-gantry \
+  --beaker-image petew/olmo-torch2-gantry \
   --cluster ai2/pluto-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
