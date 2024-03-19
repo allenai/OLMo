@@ -1377,7 +1377,9 @@ class LocalShardedCheckpointer(Checkpointer):
             # Save metadata.
             self._save_metadata(checkpoint_dir, upload_to=upload_to)
 
-            # Save config.
+            # Save config. We do this last b/c the presence of a config in a remote checkpoint
+            # "directory" indicates that the folder is valid, as a opposed to a partially
+            # uploaded checkpoint directory that failed before completing.
             self._save_config(checkpoint_dir, upload_to=upload_to)
 
     def restore_checkpoint(
