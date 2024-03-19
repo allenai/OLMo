@@ -177,6 +177,11 @@ def load_fsdp_model_and_optim_state(
         )
         fsdp_model.load_state_dict(model_state["model"])
 
+        # DEBUGGING:
+        if get_global_rank() == 0:
+            param_fqn = "transformer.blocks.0.ff_proj.weight"
+            log.info("'%s':\n  %s", param_fqn, model_state["model"][param_fqn].shape)
+
         if not load_optimizer_state:
             return
 
@@ -200,6 +205,7 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
     #    'state': { fqn: { 'grad_norm_exp_avg': Tensor, 'step': Tensor, 'exp_avg': ShardedTensor, 'exp_avg_sq': ShardedTensor } },
     #    'param_groups': [{ 'param_names': [ fsdp_fqn, ... ], 'params': [ fqn, ... ], ... }],
     # }
+    # DEBUGGING:
     param_fqn = "transformer.blocks.0.ff_proj.weight"
     param_id = optim_state["param_groups"][0]["params"].index(
         param_fqn
@@ -208,7 +214,7 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
     if get_global_rank() == 0:
         sharded_tensor = optim_state["state"][param_fqn]["exp_avg"]
         local_tensor = sharded_tensor.local_tensor()
-        log.info("'%s':\n  %s\n  %s", param_fqn, sharded_tensor, local_tensor.shape)
+        log.info("'%s' (exp_avg):\n  %s\n  %s", param_fqn, sharded_tensor, local_tensor.shape)
 
     log.info("Flattening sharded optimizer state...")
     # NOTE: Careful! The order of the these arguments has changed from 2.0 to 2.1... ¯\_(ツ)_/¯
@@ -219,13 +225,14 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
     del optim_state
     gc.collect()
 
+    # DEBUGGING:
     # flattened_osd = {
     #    'state': { id: { 'grad_norm_exp_avg': Tensor, 'step': Tensor, 'exp_avg': Tensor, 'exp_avg_sq': Tensor } },
     #    'param_groups': [{ 'param_names': [ fsdp_fqn, ... ], 'params': [ id, ... ], ... }],
     # }
     if get_global_rank() == 0:
         local_tensor = flattened_osd["state"][param_id]["exp_avg"]
-        log.info("'%s':\n  %s", param_fqn, local_tensor.shape)
+        log.info("'%s' (exp_avg):\n  %s", param_fqn, local_tensor.shape)
 
     log.info("Loading flattened optimizer state...")
     # Put optim state on CPU since `Optimizer.load_state_dict()` will create a deepcopy of the whole state dict,
