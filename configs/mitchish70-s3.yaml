@@ -173,8 +173,9 @@ evaluators:
   - label: social_iqa
     type: downstream
 
-  - label: basic_arithmetic
-    type: downstream
+  # Doesn't work from cache.
+  # - label: basic_arithmetic
+  #   type: downstream
 
   - label: mmlu_stem_var
     type: downstream
