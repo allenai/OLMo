@@ -167,17 +167,14 @@ evaluators:
   #- label: sst2
   #  type: downstream
 
-  # Need to re-cache this one.
-  # - label: commonsense_qa
-  #   type: downstream
+  - label: commonsense_qa
+    type: downstream
 
-  # Need to re-cache this one.
-  # - label: social_iqa
-  #   type: downstream
+  - label: social_iqa
+    type: downstream
 
-  # Need to re-cache this one.
-  # - label: basic_arithmetic
-  #   type: downstream
+  - label: basic_arithmetic
+    type: downstream
 
   - label: mmlu_stem_var
     type: downstream
