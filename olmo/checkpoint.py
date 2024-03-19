@@ -204,9 +204,11 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
     param_id = optim_state["param_groups"][0]["params"].index(
         param_fqn
     )  # note, 2nd param group starts idx at len(first_param_group)
-    param_fsdp_fqn = optim_state["param_groups"][0]["param_names"][param_id]
+    # param_fsdp_fqn = optim_state["param_groups"][0]["param_names"][param_id]
     if get_global_rank() == 0:
-        print(f"'{param_fqn}' ('{param_fsdp_fqn}'):", optim_state["state"][param_fqn]["exp_avg"])
+        sharded_tensor = optim_state["state"][param_fqn]["exp_avg"]
+        local_tensor = sharded_tensor.local_tensor()
+        log.info(f"'{param_fqn}':\n  {sharded_tensor}\n  {local_tensor.shape}")
 
     log.info("Flattening sharded optimizer state...")
     # NOTE: Careful! The order of the these arguments has changed from 2.0 to 2.1... ¯\_(ツ)_/¯
@@ -222,7 +224,8 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
     #    'param_groups': [{ 'param_names': [ fsdp_fqn, ... ], 'params': [ id, ... ], ... }],
     # }
     if get_global_rank() == 0:
-        print(f"'{param_fqn}' ('{param_fsdp_fqn}'):", flattened_osd["state"][param_id]["exp_avg"])
+        local_tensor = flattened_osd["state"][param_id]["exp_avg"]
+        log.info(f"'{param_fqn}': {local_tensor.shape}")
 
     log.info("Loading flattened optimizer state...")
     # Put optim state on CPU since `Optimizer.load_state_dict()` will create a deepcopy of the whole state dict,
