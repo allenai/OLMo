@@ -190,29 +190,45 @@ def load_fsdp_model_and_optim_state(
                 local_cache=None if local_cache is None else local_cache / MODEL_AND_OPTIM_FOLDER,
             ),
         )
+        # optim_state["optim"] = {
+        #    'state': { fqn: { 'grad_norm_exp_avg': Tensor, 'step': Tensor, 'exp_avg': ShardedTensor, 'exp_avg_sq': ShardedTensor } },
+        #    'param_groups': [{ 'param_names': [ fsdp_fqn, ... ], 'params': [ fqn, ... ], ... }],
+        # }
         del model_state
+
+        # Make sure tensors are on CPU! PyTorch puts them on GPU even though we have `offload_to_cpu=True`.
+        for state in optim_state["optim"]["state"].values():
+            for k in state.keys():
+                state[k] = state[k].cpu()
         torch.cuda.empty_cache()
+
         load_fsdp_optim_state(fsdp_model, optim, optim_state["optim"])
 
 
 def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[str, Any]):
     log.info("Flattening sharded optimizer state...")
+    # flattened_osd = {
+    #    'state': { id: { 'grad_norm_exp_avg': Tensor, 'step': Tensor, 'exp_avg': Tensor, 'exp_avg_sq': Tensor } },
+    #    'param_groups': [{ 'param_names': [ fsdp_fqn, ... ], 'params': [ id, ... ], ... }],
+    # }
     # NOTE: Careful! The order of the these arguments has changed from 2.0 to 2.1... ¯\_(ツ)_/¯
     if version.parse(torch.__version__) < version.parse("2.1.0"):
         flattened_osd = FSDP.optim_state_dict_to_load(optim_state, fsdp_model, optim)  # type: ignore
     else:
         flattened_osd = FSDP.optim_state_dict_to_load(fsdp_model, optim, optim_state)  # type: ignore
+
     del optim_state
     gc.collect()
+
     log.info("Loading flattened optimizer state...")
+
     # Put optim state on CPU since `Optimizer.load_state_dict()` will create a deepcopy of the whole state dict,
     # which takes up unnecessary GPU memory.
     for state in flattened_osd["state"].values():
         for k in state.keys():
-            v = state[k]
-            if isinstance(v, torch.Tensor):
-                state[k] = v.to(device="cpu")
+            state[k] = state[k].cpu()
     torch.cuda.empty_cache()
+
     optim.load_state_dict(fix_optim_state_dict(optim, flattened_osd))
 
 
