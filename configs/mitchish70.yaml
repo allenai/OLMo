@@ -61,6 +61,8 @@ scheduler:
   grad_clip_warmup_factor: 5
 
 tokenizer:
+  # TODO: this should be:
+  #identifier: tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
   identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
   truncate_direction: right
 
@@ -192,6 +194,7 @@ evaluators:
     type: downstream
 
 data:
+  # TODO: update these
   paths: ${path.glob:${oc.env:DATA_PATH}/v1_5-sample/gpt-neox-20b-pii-special-longrunfix/*.npy}
   pad_direction: right
   num_workers: 0
