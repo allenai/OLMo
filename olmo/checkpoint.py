@@ -195,7 +195,17 @@ def load_fsdp_model_and_optim_state(
         load_fsdp_optim_state(fsdp_model, optim, optim_state["optim"])
 
 
+def debug_state_dict(sd):
+    log.info("State dict:")
+    for k, v in sd.items():
+        if isinstance(sd[k], torch.Tensor):
+            log.info(f"  {k}: {v.shape}")
+        else:
+            log.info(f"  {k}: {v}")
+
+
 def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[str, Any]):
+    debug_state_dict(optim_state)
     log.info("Flattening sharded optimizer state...")
     # NOTE: Careful! The order of the these arguments has changed from 2.0 to 2.1... ¯\_(ツ)_/¯
     if version.parse(torch.__version__) < version.parse("2.1.0"):
@@ -203,6 +213,7 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
     else:
         flattened_osd = FSDP.optim_state_dict_to_load(fsdp_model, optim, optim_state)  # type: ignore
     del optim_state
+    debug_state_dict(flattened_osd)
     gc.collect()
     log.info("Loading flattened optimizer state...")
     # Put optim state on CPU since `Optimizer.load_state_dict()` will create a deepcopy of the whole state dict,
