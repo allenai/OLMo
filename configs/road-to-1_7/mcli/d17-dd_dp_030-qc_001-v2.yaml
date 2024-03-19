@@ -4,7 +4,7 @@ env_variables:
   CONFIG_PATH: configs/road-to-1_7/runs/d17-dd_dp_030-qc_001-v2.yaml
   # LOAD_PATH: "s3://ai2-llm/checkpoints/1b/r70br70b-dedupe-docspara-1b-150b/r70br70b-dedupe-docspara-1b-150b-f9159292/step34000"
 compute:
-  gpus: 96
+  gpus: 64
   cluster: r7z2
   gpu_type: a100_40gb
 integrations:
