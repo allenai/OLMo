@@ -229,7 +229,9 @@ data:
     - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5/part-23-00000.npy
     - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5/part-24-00000.npy
     - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5/part-25-00000.npy
-    # ~> WIKIPEDIA & WIKIBOOKS (3.689 GT)
+    # ~> WIKIPEDIA & WIKIBOOKS (3.689 GT), repeated twice to up-sample
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/wiki/gpt-neox-olmo-dolma-v1_5/part-0-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/wiki/gpt-neox-olmo-dolma-v1_5/part-1-00000.npy
     - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/wiki/gpt-neox-olmo-dolma-v1_5/part-0-00000.npy
     - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/wiki/gpt-neox-olmo-dolma-v1_5/part-1-00000.npy
     # MEGAWIKA v1 (4.6 GT)

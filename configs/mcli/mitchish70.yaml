@@ -1,7 +1,7 @@
 name: olmo-70b
 image: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
 compute:
-  cluster: r14z3p2
+  cluster: r9z3
   gpus: 256
   gpu_type: h100_80gb
 integrations:
