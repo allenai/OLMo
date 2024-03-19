@@ -55,7 +55,7 @@ scheduler:
   name: cosine_with_warmup
   units: tokens
   t_warmup: 10485760000
-  t_max: 2e12
+  t_max: 3e12
   alpha_f: 0.1
   grad_clip_warmup_steps: 2097152000
   grad_clip_warmup_factor: 5
