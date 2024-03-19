@@ -208,7 +208,7 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
     if get_global_rank() == 0:
         sharded_tensor = optim_state["state"][param_fqn]["exp_avg"]
         local_tensor = sharded_tensor.local_tensor()
-        log.info(f"'{param_fqn}':\n  {sharded_tensor}\n  {local_tensor.shape}")
+        log.info("'%s':\n  %s\n  %s", param_fqn, sharded_tensor, local_tensor.shape)
 
     log.info("Flattening sharded optimizer state...")
     # NOTE: Careful! The order of the these arguments has changed from 2.0 to 2.1... ¯\_(ツ)_/¯
@@ -225,7 +225,7 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
     # }
     if get_global_rank() == 0:
         local_tensor = flattened_osd["state"][param_id]["exp_avg"]
-        log.info(f"'{param_fqn}': {local_tensor.shape}")
+        log.info("'%s':\n  %s", param_fqn, local_tensor.shape)
 
     log.info("Loading flattened optimizer state...")
     # Put optim state on CPU since `Optimizer.load_state_dict()` will create a deepcopy of the whole state dict,
