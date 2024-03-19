@@ -7,7 +7,7 @@ compute:
 integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
-    git_branch: mitchish65-2
+    git_branch: train-olmo-large
     pip_install: -e .[train]
     ssh_clone: true
 env_variables:
@@ -41,7 +41,7 @@ command: |-
   --nproc_per_node 8 \
   scripts/train.py configs/mitchish70-s3.yaml \
     --run_name=mitchish70-001 \
-    --wandb.group=mitchish70 \
+    --wandb.group=mitchish70-official \
     --global_train_batch_size=768 \
     --device_train_microbatch_size=3 \
     --save_overwrite
