@@ -4,16 +4,14 @@ set -ex
 
 CONFIG_PATH=configs/mitchish70-s3.yaml
 NUM_NODES=4
-SEED=3423
-INIT=fan_in
-RUN_NAME="fan-in-init-${SEED}"
-ARGS="--run_name=${RUN_NAME} --data.seed=6198 --seed=${SEED} --model.init_fn=${INIT} --model.init_std=0.006 --model.init_cutoff_factor=3 --device_train_microbatch_size=4 --model.flash_attention=true --fused_loss=true --evaluators=[] --stop_at=500 --wandb.group=mitchish70-ablate-init --save_interval_ephemeral=100"
+RUN_NAME="mitchish70-001"
+ARGS="--run_name=${RUN_NAME} --device_train_microbatch_size=4"
 
 gantry run \
   --allow-dirty \
   --workspace ai2/llm-testing \
   --task-name mitchish70 \
-  --description "OLMo mitchish 70B, model init ablations" \
+  --description "OLMo large - 70B" \
   --priority high \
   --stop-preemptible \
   --beaker-image olmo-torch2-gantry \
