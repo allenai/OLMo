@@ -140,6 +140,7 @@ evaluators:
   - label: winogrande
     type: downstream
 
+  # Need to re-cache this one.
   # - label: openbook_qa
   #   type: downstream
 
@@ -167,14 +168,17 @@ evaluators:
   #- label: sst2
   #  type: downstream
 
-  - label: commonsense_qa
-    type: downstream
+  # Need to re-cache this one.
+  # - label: commonsense_qa
+  #   type: downstream
 
-  - label: social_iqa
-    type: downstream
+  # Need to re-cache this one.
+  # - label: social_iqa
+  #   type: downstream
 
-  - label: basic_arithmetic
-    type: downstream
+  # Need to re-cache this one.
+  # - label: basic_arithmetic
+  #   type: downstream
 
   - label: mmlu_stem_var
     type: downstream
