@@ -1,25 +1,26 @@
-run_name: mitchish35-001
+run_name: mitchish70-001
 seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-large
-  group: mitchish35
+  group: mitchish70
 
 model:
-  d_model: 7168
-  n_heads: 56
-  n_layers: 56
+  d_model: 8192
+  n_heads: 64
+  n_kv_heads: 8
+  n_layers: 80
   # mlp_ratio: 6
-  mlp_hidden_size: 37888
+  mlp_hidden_size: 57344
   weight_tying: false
   alibi: false
   rope: true
   flash_attention: false
   attention_dropout: 0.0
   attention_layer_norm: false
-  multi_query_attention: false
+  clip_qkv: 8.0
   include_bias: false
   block_type: sequential
   layer_norm_type: default
@@ -29,7 +30,7 @@ model:
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
-  max_sequence_length: 2048
+  max_sequence_length: 4096
   vocab_size: 50280
   embedding_size: 50304
   eos_token_id: 0
@@ -51,32 +52,35 @@ optimizer:
   metrics_log_interval: 10
 
 scheduler:
-  name: linear_with_warmup
-  t_warmup: 5000
+  name: cosine_with_warmup
+  units: tokens
+  t_warmup: 10485760000
+  t_max: 2e12
   alpha_f: 0.1
-  grad_clip_warmup_steps: 1000
+  grad_clip_warmup_steps: 2097152000
   grad_clip_warmup_factor: 5
 
 tokenizer:
+  # TODO: this should be:
+  #identifier: tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
   identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
   truncate_direction: right
 
 save_folder: ${oc.env:CHECKPOINTS_PATH}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_overwrite: false
 
-# Sharded checkpoints (best for restarts)
-save_interval: 500
+save_interval: 1000
+save_interval_ephemeral: 50
 save_num_checkpoints_to_keep: -1
 sharded_checkpointer: local
 
-# Unsharded checkpoints (for final storage)
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 953674  # 2T tokens
-global_train_batch_size: 1024
+max_duration: 2e12T
+global_train_batch_size: 512
 device_train_microbatch_size: 1
 
 precision: amp_bf16
@@ -93,18 +97,14 @@ max_grad_norm_ratio: null
 speed_monitor:
   window_size: 20
 
-eval_interval: ${save_interval}
+eval_interval: 1000
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
-  - label: all-small-ppl-validation
+  - label: v2-small-ppl-validation
     data:
       num_workers: 0
       drop_last: true
-      # pin_memory: true
-      # prefetch_factor: 1
-      # persistent_workers: false
-      # timeout: 0
       datasets:
         4chan-validation:
           - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/4chan/val.npy
@@ -148,8 +148,8 @@ evaluators:
   - label: openbook_qa
     type: downstream
 
-  # - label: boolq  # requires implemention of the pmi_dc matrix
-    # type: downstream
+  - label: boolq
+    type: downstream
  
   - label: sciq
     type: downstream
@@ -157,27 +157,45 @@ evaluators:
   - label: arc_easy
     type: downstream
 
-  # - label: arc_challenge  # requires implemention of the pmi_dc matrix
-  #   type: downstream
+  - label: arc_challenge
+    type: downstream
 
   - label: copa
     type: downstream
 
-  - label: rte
+  #- label: rte
+  #  type: downstream
+
+  #- label: commitment_bank
+  #  type: downstream
+
+  #- label: sst2
+  #  type: downstream
+
+  - label: commonsense_qa
     type: downstream
 
-  - label: commitment_bank
+  - label: social_iqa
     type: downstream
 
-  - label: sst2
+  - label: basic_arithmetic
+    type: downstream
+
+  - label: mmlu_stem_var
+    type: downstream
+
+  - label: mmlu_humanities_var
+    type: downstream
+
+  - label: mmlu_social_sciences_var
+    type: downstream
+
+  - label: mmlu_other_var
     type: downstream
 
 data:
+  # TODO: update these
   paths: ${path.glob:${oc.env:DATA_PATH}/v1_5-sample/gpt-neox-20b-pii-special-longrunfix/*.npy}
   pad_direction: right
   num_workers: 0
   drop_last: true
-  pin_memory: true
-  prefetch_factor: 16
-  persistent_workers: true
-  timeout: 0
