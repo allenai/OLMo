@@ -7,7 +7,7 @@ NUM_NODES=8
 ARGS='--run_name=mitchish7 --wandb.name=mitchish7 --model.flash_attention=true --fsdp.wrapping_strategy=by_block_and_size --fsdp.sharding_strategy=SHARD_GRAD_OP --save_folder=runs/ --device_train_microbatch_size=3 --global_train_batch_size=1536'
 
 gantry run \
-  --workspace ai2/llm-testing \
+  --workspace ai2/dirkg \
   --task-name mitchish7 \
   --description "OLMo medium - 7B" \
   --priority high \
