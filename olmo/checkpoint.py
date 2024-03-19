@@ -195,17 +195,18 @@ def load_fsdp_model_and_optim_state(
         load_fsdp_optim_state(fsdp_model, optim, optim_state["optim"])
 
 
-def debug_state_dict(sd):
-    log.info("State dict:")
-    for k, v in sd.items():
-        if isinstance(sd[k], torch.Tensor):
-            log.info(f"  {k}: {v.shape}")
-        else:
-            log.info(f"  {k}: {v}")
-
-
 def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[str, Any]):
-    debug_state_dict(optim_state)
+    # optim_state = {
+    #    'state': { fqn: { 'grad_norm_exp_avg': Tensor, 'step': Tensor, 'exp_avg': ShardedTensor, 'exp_avg_sq': ShardedTensor } },
+    #    'param_groups': [{ 'param_names': [ fsdp_fqn, ... ], 'params': [ fqn, ... ], ... }],
+    # }
+    param_fqn = "transformer.blocks.0.ff_proj.weight"
+    param_id = optim_state["param_groups"][0]["params"].index(
+        param_fqn
+    )  # note, 2nd param group starts idx at len(first_param_group)
+    param_fsdp_fqn = optim_state["param_groups"][0]["param_names"][param_id]
+    print(f"{param_fqn} ({param_fsdp_fqn}):", optim_state["state"][param_fqn])
+
     log.info("Flattening sharded optimizer state...")
     # NOTE: Careful! The order of the these arguments has changed from 2.0 to 2.1... ¯\_(ツ)_/¯
     if version.parse(torch.__version__) < version.parse("2.1.0"):
@@ -213,8 +214,14 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
     else:
         flattened_osd = FSDP.optim_state_dict_to_load(fsdp_model, optim, optim_state)  # type: ignore
     del optim_state
-    debug_state_dict(flattened_osd)
     gc.collect()
+
+    # flattened_osd = {
+    #    'state': { id: { 'grad_norm_exp_avg': Tensor, 'step': Tensor, 'exp_avg': Tensor, 'exp_avg_sq': Tensor } },
+    #    'param_groups': [{ 'param_names': [ fsdp_fqn, ... ], 'params': [ id, ... ], ... }],
+    # }
+    print(f"{param_fqn} ({param_fsdp_fqn}):", flattened_osd["state"][param_id])
+
     log.info("Loading flattened optimizer state...")
     # Put optim state on CPU since `Optimizer.load_state_dict()` will create a deepcopy of the whole state dict,
     # which takes up unnecessary GPU memory.
