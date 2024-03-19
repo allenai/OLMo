@@ -1,4 +1,4 @@
-name: d17-dd_dp_030-qc_001-v2
+name: d17-dd_dp_030-qc_001-v2-fix
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 env_variables:
   CONFIG_PATH: configs/road-to-1_7/runs/d17-dd_dp_030-qc_001-v2-fix.yaml
@@ -11,7 +11,7 @@ integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
     git_branch: soldni/dolma-v1.7
-    git_commit: 90cf71508d190c770677de00555e9f7da534332d
+    git_commit: b294f5e74a160b26547ecc55249416fc131d254c
     pip_install: -e '.[train]'
     ssh_clone: true
 command: |-
