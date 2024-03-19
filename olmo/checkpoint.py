@@ -177,11 +177,6 @@ def load_fsdp_model_and_optim_state(
         )
         fsdp_model.load_state_dict(model_state["model"])
 
-        # DEBUGGING:
-        if get_global_rank() == 0:
-            param_fqn = "transformer.blocks.0.ff_proj.weight"
-            log.info("'%s':\n  %s", param_fqn, model_state["model"][param_fqn])
-
         if not load_optimizer_state:
             return
 
@@ -195,61 +190,45 @@ def load_fsdp_model_and_optim_state(
                 local_cache=None if local_cache is None else local_cache / MODEL_AND_OPTIM_FOLDER,
             ),
         )
+        # optim_state["optim"] = {
+        #    'state': { fqn: { 'grad_norm_exp_avg': Tensor, 'step': Tensor, 'exp_avg': ShardedTensor, 'exp_avg_sq': ShardedTensor } },
+        #    'param_groups': [{ 'param_names': [ fsdp_fqn, ... ], 'params': [ fqn, ... ], ... }],
+        # }
         del model_state
 
-        # Make sure tensors are on CPU.
+        # Make sure tensors are on CPU! PyTorch puts them on GPU even though we have `offload_to_cpu=True`.
         for state in optim_state["optim"]["state"].values():
             for k in state.keys():
                 state[k] = state[k].cpu()
-
         torch.cuda.empty_cache()
+
         load_fsdp_optim_state(fsdp_model, optim, optim_state["optim"])
 
 
 def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[str, Any]):
-    # optim_state = {
-    #    'state': { fqn: { 'grad_norm_exp_avg': Tensor, 'step': Tensor, 'exp_avg': ShardedTensor, 'exp_avg_sq': ShardedTensor } },
-    #    'param_groups': [{ 'param_names': [ fsdp_fqn, ... ], 'params': [ fqn, ... ], ... }],
-    # }
-    # DEBUGGING:
-    param_fqn = "transformer.blocks.0.ff_proj.weight"
-    param_id = optim_state["param_groups"][0]["params"].index(
-        param_fqn
-    )  # note, 2nd param group starts idx at len(first_param_group)
-    # param_fsdp_fqn = optim_state["param_groups"][0]["param_names"][param_id]
-    if get_global_rank() == 0:
-        sharded_tensor = optim_state["state"][param_fqn]["exp_avg"]
-        local_tensor = sharded_tensor.local_tensor()
-        log.info("'%s' (exp_avg):\n  %s\n  %s", param_fqn, sharded_tensor, local_tensor.shape)
-        # sharded tensor:
-
     log.info("Flattening sharded optimizer state...")
+    # flattened_osd = {
+    #    'state': { id: { 'grad_norm_exp_avg': Tensor, 'step': Tensor, 'exp_avg': Tensor, 'exp_avg_sq': Tensor } },
+    #    'param_groups': [{ 'param_names': [ fsdp_fqn, ... ], 'params': [ id, ... ], ... }],
+    # }
     # NOTE: Careful! The order of the these arguments has changed from 2.0 to 2.1... ¯\_(ツ)_/¯
     if version.parse(torch.__version__) < version.parse("2.1.0"):
         flattened_osd = FSDP.optim_state_dict_to_load(optim_state, fsdp_model, optim)  # type: ignore
     else:
         flattened_osd = FSDP.optim_state_dict_to_load(fsdp_model, optim, optim_state)  # type: ignore
+
     del optim_state
     gc.collect()
 
-    # DEBUGGING:
-    # flattened_osd = {
-    #    'state': { id: { 'grad_norm_exp_avg': Tensor, 'step': Tensor, 'exp_avg': Tensor, 'exp_avg_sq': Tensor } },
-    #    'param_groups': [{ 'param_names': [ fsdp_fqn, ... ], 'params': [ id, ... ], ... }],
-    # }
-    if get_global_rank() == 0:
-        local_tensor = flattened_osd["state"][param_id]["exp_avg"]
-        log.info("'%s' (exp_avg):\n  %s", param_fqn, local_tensor.shape)
-
     log.info("Loading flattened optimizer state...")
+
     # Put optim state on CPU since `Optimizer.load_state_dict()` will create a deepcopy of the whole state dict,
     # which takes up unnecessary GPU memory.
     for state in flattened_osd["state"].values():
         for k in state.keys():
-            v = state[k]
-            if isinstance(v, torch.Tensor):
-                state[k] = v.to(device="cpu")
+            state[k] = state[k].cpu()
     torch.cuda.empty_cache()
+
     optim.load_state_dict(fix_optim_state_dict(optim, flattened_osd))
 
 
