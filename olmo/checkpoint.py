@@ -198,7 +198,7 @@ def load_fsdp_model_and_optim_state(
         del model_state
 
         # Make sure tensors are on CPU.
-        for state in optim_state["state"].values():
+        for state in optim_state["optim"]["state"].values():
             for k in state.keys():
                 state[k] = state[k].cpu()
 
