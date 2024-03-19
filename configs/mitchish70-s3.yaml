@@ -140,8 +140,8 @@ evaluators:
   - label: winogrande
     type: downstream
 
-  - label: openbook_qa
-    type: downstream
+  # - label: openbook_qa
+  #   type: downstream
 
   - label: boolq
     type: downstream
