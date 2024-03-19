@@ -33,7 +33,7 @@ model:
   max_sequence_length: 4096
   vocab_size: 50280
   embedding_size: 50304
-  eos_token_id: 0
+  eos_token_id: 50279
   pad_token_id: 1
   init_device: meta
   init_fn: mitchell
