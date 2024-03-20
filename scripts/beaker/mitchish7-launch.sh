@@ -2,7 +2,7 @@
 
 set -ex
 
-export NUM_NODES=8
+NUM_NODES=8
 
 gantry run \
   --workspace ai2/dirkg \
@@ -29,4 +29,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  scripts/beaker/mitchish7.sh
+  scripts/beaker/mitchish7.sh ${NUM_NODES}
