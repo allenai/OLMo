@@ -176,6 +176,12 @@ class OLMoForCausalLM(PreTrainedModel):
 
         Return:
             `torch.nn.Embedding`: Pointer to the input tokens Embeddings Module of the model.
+        
+        Note:
+            This method differs from the base class implementation by resizing the `embedding_size` attribute of the
+            model configuration instead of the `vocab_size`. It also includes a warning if the resized `embedding_size`
+            is less than the `vocab_size`. In OLMo, `embedding_size` refers to the dimensionality of the model's token 
+            embeddings, while `vocab_size` refers to the number of unique tokens in the vocabulary.
         """
         model_embeds = self._resize_token_embeddings(new_num_tokens, pad_to_multiple_of)
         if new_num_tokens is None and pad_to_multiple_of is None:
