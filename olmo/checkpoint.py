@@ -50,7 +50,13 @@ from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
 from .exceptions import OLMoCheckpointError
 from .optim import Optimizer, fix_optim_state_dict
 from .safetensors_util import safetensors_file_to_state_dict
-from .torch_util import barrier, get_fs_local_rank, get_global_rank, get_world_size
+from .torch_util import (
+    barrier,
+    gc_cuda,
+    get_fs_local_rank,
+    get_global_rank,
+    get_world_size,
+)
 from .util import (
     _get_s3_client,
     default_thread_count,
@@ -191,7 +197,7 @@ def load_fsdp_model_and_optim_state(
             ),
         )
         del model_state
-        torch.cuda.empty_cache()
+        gc_cuda()
         load_fsdp_optim_state(fsdp_model, optim, optim_state["optim"])
 
 
@@ -212,7 +218,7 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
             v = state[k]
             if isinstance(v, torch.Tensor):
                 state[k] = v.to(device="cpu")
-    torch.cuda.empty_cache()
+    gc_cuda()
     optim.load_state_dict(fix_optim_state_dict(optim, flattened_osd))
 
 
