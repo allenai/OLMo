@@ -1,4 +1,3 @@
-import gc
 import io
 import logging
 import pickle
@@ -50,7 +49,13 @@ from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
 from .exceptions import OLMoCheckpointError
 from .optim import Optimizer, fix_optim_state_dict
 from .safetensors_util import safetensors_file_to_state_dict
-from .torch_util import barrier, get_fs_local_rank, get_global_rank, get_world_size
+from .torch_util import (
+    barrier,
+    gc_cuda,
+    get_fs_local_rank,
+    get_global_rank,
+    get_world_size,
+)
 from .util import (
     _get_s3_client,
     default_thread_count,
@@ -200,7 +205,7 @@ def load_fsdp_model_and_optim_state(
         for state in optim_state["optim"]["state"].values():
             for k in state.keys():
                 state[k] = state[k].cpu()
-        torch.cuda.empty_cache()
+        gc_cuda()
 
         load_fsdp_optim_state(fsdp_model, optim, optim_state["optim"])
 
@@ -218,7 +223,7 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
         flattened_osd = FSDP.optim_state_dict_to_load(fsdp_model, optim, optim_state)  # type: ignore
 
     del optim_state
-    gc.collect()
+    gc_cuda()
 
     log.info("Loading flattened optimizer state...")
 
@@ -227,7 +232,7 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
     for state in flattened_osd["state"].values():
         for k in state.keys():
             state[k] = state[k].cpu()
-    torch.cuda.empty_cache()
+    gc_cuda()
 
     optim.load_state_dict(fix_optim_state_dict(optim, flattened_osd))
 
