@@ -23,6 +23,8 @@ torchrun \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
     --save_folder=runs/ \
+    --activation_checkpointing=fine_grained \
+    --fused_loss=true \
     --device_train_microbatch_size=2 \
     --global_train_batch_size=1024 \
     --save_overwrite
