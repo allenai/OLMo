@@ -8,52 +8,57 @@ from __future__ import annotations
 
 import logging
 import math
-import sys
 from abc import abstractmethod
 from collections import defaultdict
-from functools import partial
 from typing import (
     Callable,
     Dict,
-    Iterable,
     List,
-    NamedTuple,
     Optional,
     Sequence,
     Set,
     Tuple,
     Union,
-    cast,
 )
 
 import torch
 import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
-from torch import einsum
+from mup import MuReadout, MuSharedReadout, kaiming_normal_, normal_, trunc_normal_
 
-from mup import MuReadout, MuSharedReadout, normal_, trunc_normal_, kaiming_normal_
 from olmo.aliases import PathOrStr
 from olmo.beam_search import BeamSearch, Constraint, FinalSequenceScorer, Sampler
 from olmo.config import (
     ActivationCheckpointingStrategy,
-    ActivationType,
     BlockType,
     CheckpointType,
     FSDPWrapStrategy,
-    LayerNormType,
     ModelConfig,
 )
 from olmo.exceptions import OlmoConfigurationError
-from olmo.initialization import ModuleType, InitFnType
+from olmo.initialization import InitFnType, ModuleType
+from olmo.model import (
+    GELU,
+    Activation,
+    AMDLayerNorm,
+    BufferCache,
+    Dropout,
+    LayerNorm,
+    LayerNormBase,
+    OlmoBlockGroup,
+    OlmoGenerateOutput,
+    OlmoOutput,
+    ReLU,
+    RMSLayerNorm,
+    RotaryEmbedding,
+    SwiGLU,
+    _non_meta_init_device,
+    activation_checkpoint_function,
+    alibi_attention_bias,
+    get_causal_attention_bias,
+)
 from olmo.torch_util import ensure_finite_
-
-if sys.version_info.minor > 8:
-    from collections.abc import MutableMapping
-elif sys.version_info.minor == 8:
-    from typing import MutableMapping
-else:
-    raise SystemExit("This script supports Python 3.8 or higher")
 
 __all__ = [
     "LayerNormBase",
@@ -122,9 +127,9 @@ def init_weights(
             nn.init.trunc_normal_(module.weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
     elif config.init_fn == InitFnType.kaiming_normal:
         if hasattr(module.weight, "infshape"):
-            kaiming_normal_(module.weight, nonlinearity="relu")
+            kaiming_normal_(module.weight, nonlinearity="relu", mode="fan_in")
         else:
-            nn.init.kaiming_normal_(module.weight, nonlinearity="relu")
+            nn.init.kaiming_normal_(module.weight, nonlinearity="relu", mode="fan_in")
     elif config.init_fn == InitFnType.fan_in:
         std = std_factor / math.sqrt(d)
         if hasattr(module.weight, "infshape"):
@@ -186,353 +191,7 @@ def init_weights(
 
     if isinstance(module, OlmoBlock):
         if query_zero_init:
-            module.att_proj.weight.data[:, :config.d_model] = 0  # just the query part  
-
-
-def activation_checkpoint_function(cfg: ModelConfig):
-    preserve_rng_state = (
-        (cfg.attention_dropout == 0.0) and (cfg.embedding_dropout == 0.0) and (cfg.residual_dropout == 0.0)
-    )
-    from torch.utils.checkpoint import checkpoint
-
-    return partial(
-        checkpoint,
-        preserve_rng_state=preserve_rng_state,
-        use_reentrant=False,
-    )
-
-
-class BufferCache(dict, MutableMapping[str, torch.Tensor]):
-    """
-    Cache for attention biases and other things that would normally be stored as buffers.
-    We avoid using buffers because we've run into various issues doing so with FSDP.
-    In general it appears the way FSDP handles buffers is not well-defined.
-    It doesn't shard them but apparently it does synchronize them across processes, which we want to avoid
-    since (A) it isn't necessary, and (B) we sometimes have `-inf` in these biases which might get turned into
-    NaNs when they're synchronized due to casting or some other issue.
-    """
-
-
-def _non_meta_init_device(config: ModelConfig) -> torch.device:
-    if config.init_device is not None and config.init_device != "meta":
-        return torch.device(config.init_device)
-    else:
-        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-class Dropout(nn.Dropout):
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        if self.p == 0.0:
-            return input
-        else:
-            return F.dropout(input, self.p, self.training, self.inplace)
-
-
-class LayerNormBase(nn.Module):
-    def __init__(
-        self,
-        config: ModelConfig,
-        *,
-        size: Optional[int] = None,
-        elementwise_affine: Optional[bool] = True,
-        eps: float = 1e-05,
-    ):
-        super().__init__()
-        self.config = config
-        self.eps = eps
-        self.normalized_shape = (size or config.d_model,)
-        if elementwise_affine or (elementwise_affine is None and self.config.layer_norm_with_affine):
-            self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
-            use_bias = self.config.bias_for_layer_norm
-            if use_bias is None:
-                use_bias = self.config.include_bias
-            if use_bias:
-                self.bias = nn.Parameter(torch.zeros(self.normalized_shape, device=config.init_device))
-            else:
-                self.register_parameter("bias", None)
-        else:
-            self.register_parameter("bias", None)
-            self.register_parameter("weight", None)
-
-    @abstractmethod
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError
-
-    @classmethod
-    def build(cls, config: ModelConfig, size: Optional[int] = None, **kwargs) -> LayerNormBase:
-        if config.layer_norm_type == LayerNormType.default:
-            return LayerNorm(config, size=size, low_precision=False, **kwargs)
-        elif config.layer_norm_type == LayerNormType.low_precision:
-            return LayerNorm(config, size=size, low_precision=True, **kwargs)
-        elif config.layer_norm_type == LayerNormType.rms:
-            return RMSLayerNorm(config, size=size, **kwargs)
-        elif config.layer_norm_type == LayerNormType.amd_compatible:
-            return AMDLayerNorm(config, size=size, **kwargs)
-        else:
-            raise NotImplementedError(f"Unknown LayerNorm type: '{config.layer_norm_type}'")
-
-    def _cast_if_autocast_enabled(self, tensor: torch.Tensor, dtype: Optional[torch.dtype] = None) -> torch.Tensor:
-        # NOTE: `is_autocast_enabled()` only checks for CUDA autocast, so we use the separate function
-        # `is_autocast_cpu_enabled()` for CPU autocast.
-        # See https://github.com/pytorch/pytorch/issues/110966.
-        if tensor.device.type == "cuda" and torch.is_autocast_enabled():
-            return tensor.to(dtype=dtype if dtype is not None else torch.get_autocast_gpu_dtype())
-        elif tensor.device.type == "cpu" and torch.is_autocast_cpu_enabled():
-            return tensor.to(dtype=dtype if dtype is not None else torch.get_autocast_cpu_dtype())
-        else:
-            return tensor
-
-    def reset_parameters(self):
-        if self.weight is not None:
-            torch.nn.init.ones_(self.weight)  # type: ignore
-        if self.bias is not None:
-            torch.nn.init.zeros_(self.bias)  # type: ignore
-
-
-class LayerNorm(LayerNormBase):
-    """
-    The default :class:`LayerNorm` implementation which can optionally run in low precision.
-    """
-
-    def __init__(
-        self,
-        config: ModelConfig,
-        size: Optional[int] = None,
-        low_precision: bool = False,
-        elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-05,
-    ):
-        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
-        self.low_precision = low_precision
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.low_precision:
-            module_device = x.device
-            downcast_x = self._cast_if_autocast_enabled(x)
-            downcast_weight = (
-                self._cast_if_autocast_enabled(self.weight) if self.weight is not None else self.weight
-            )
-            downcast_bias = self._cast_if_autocast_enabled(self.bias) if self.bias is not None else self.bias
-            with torch.autocast(enabled=False, device_type=module_device.type):
-                return F.layer_norm(
-                    downcast_x, self.normalized_shape, weight=downcast_weight, bias=downcast_bias, eps=self.eps
-                )
-        else:
-            return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
-
-
-class AMDLayerNorm(LayerNormBase):
-    """
-    LayerNorm implemented using PyTorch primitives.
-
-    We do this to work around a bug in the PyTorch/ROCm implementation of layer norm that fails with a
-    segfault when the bias is not present.
-    """
-
-    def __init__(
-        self,
-        config: ModelConfig,
-        size: Optional[int] = None,
-        elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-05,
-    ):
-        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        og_dtype = x.dtype
-        x = self._cast_if_autocast_enabled(x, dtype=torch.float32)
-        with torch.autocast(enabled=False, device_type=x.device.type):
-            var, mean = torch.var_mean(x, dim=-1, correction=0, keepdim=True)
-            var.add_(self.eps)
-            var.rsqrt_()  # rsqrt should be more stable than 1/sqrt
-            x = var * (x - mean)
-            if self.weight is not None:
-                x.mul_(self.weight)
-            if self.bias is not None:
-                x.add_(self.bias)
-            return x.to(og_dtype)
-
-
-class RMSLayerNorm(LayerNormBase):
-    """
-    RMS layer norm, a simplified :class:`LayerNorm` implementation
-    """
-
-    def __init__(
-        self,
-        config: ModelConfig,
-        size: Optional[int] = None,
-        elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-5,
-    ):
-        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        with torch.autocast(enabled=False, device_type=x.device.type):
-            og_dtype = x.dtype
-            x = x.to(torch.float32)
-            variance = x.pow(2).mean(-1, keepdim=True)
-            x = x * torch.rsqrt(variance + self.eps)
-            x = x.to(og_dtype)
-
-        if self.weight is not None:
-            if self.bias is not None:
-                return self.weight * x + self.bias
-            else:
-                return self.weight * x
-        else:
-            return x
-
-
-class RotaryEmbedding(nn.Module):
-    """
-    [Rotary positional embeddings (RoPE)](https://arxiv.org/abs/2104.09864).
-    """
-
-    def __init__(self, config: ModelConfig, cache: BufferCache):
-        super().__init__()
-        self.config = config
-        self.__cache = cache
-        # Warm up cache.
-        self.get_rotary_embedding(config.max_sequence_length, _non_meta_init_device(config))
-
-    def get_rotary_embedding(self, seq_len: int, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
-        if (
-            (pos_sin := self.__cache.get("rope_pos_sin")) is not None
-            and (pos_cos := self.__cache.get("rope_pos_cos")) is not None
-            and pos_sin.shape[-2] >= seq_len
-            and pos_cos.shape[-2] >= seq_len
-        ):
-            if pos_sin.device != device:
-                pos_sin = pos_sin.to(device)
-                self.__cache["rope_pos_sin"] = pos_sin
-            if pos_cos.device != device:
-                pos_cos = pos_cos.to(device)
-                self.__cache["rope_pos_cos"] = pos_cos
-            return pos_sin[:, :, :seq_len, :], pos_cos[:, :, :seq_len, :]
-
-        with torch.autocast(device.type, enabled=False):
-            dim = self.config.d_model // self.config.n_heads
-            inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2, device=device, dtype=torch.float) / dim))
-            seq = torch.arange(seq_len, device=device, dtype=torch.float)
-            freqs = einsum("i , j -> i j", seq, inv_freq)
-            positions = torch.cat((freqs, freqs), dim=-1)
-            pos_sin, pos_cos = positions.sin()[None, None, :, :], positions.cos()[None, None, :, :]
-        self.__cache["rope_pos_sin"] = pos_sin
-        self.__cache["rope_pos_cos"] = pos_cos
-        return pos_sin, pos_cos
-
-    def rotate_half(self, x: torch.Tensor) -> torch.Tensor:
-        B, nh, T, hs = x.size()
-        x = x.view(B, nh, T, 2, hs // 2)
-        x1, x2 = x.unbind(dim=-2)
-        return torch.cat((-x2, x1), dim=-1)
-
-    def apply_rotary_pos_emb(self, pos_sin: torch.Tensor, pos_cos: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-        return ((t * pos_cos) + (self.rotate_half(t) * pos_sin)).to(t.dtype)
-
-    def forward(self, q: torch.Tensor, k: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        if self.config.rope_full_precision:
-            q_, k_ = q.float(), k.float()
-        else:
-            q_, k_ = q, k
-
-        with torch.autocast(q.device.type, enabled=False):
-            query_len, key_len = q_.shape[-2], k_.shape[-2]  # could be different if layer_past not None
-            pos_sin, pos_cos = self.get_rotary_embedding(key_len, q_.device)
-            pos_sin = pos_sin.type_as(q_)
-            pos_cos = pos_cos.type_as(q_)
-            q_ = self.apply_rotary_pos_emb(
-                pos_sin[:, :, key_len - query_len : key_len, :],
-                pos_cos[:, :, key_len - query_len : key_len, :],
-                q_,
-            )
-            k_ = self.apply_rotary_pos_emb(pos_sin, pos_cos, k_)
-        return q_.type_as(q), k_.type_as(k)
-
-
-class Activation(nn.Module):
-    def __init__(self, config: ModelConfig):
-        super().__init__()
-        self.config = config
-
-    @abstractmethod
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def output_multiplier(self) -> float:
-        raise NotImplementedError
-
-    @classmethod
-    def build(cls, config: ModelConfig) -> Activation:
-        if config.activation_type == ActivationType.gelu:
-            return cast(Activation, GELU(approximate="none"))
-        elif config.activation_type == ActivationType.relu:
-            return cast(Activation, ReLU(inplace=False))
-        elif config.activation_type == ActivationType.swiglu:
-            return SwiGLU(config)
-        else:
-            raise NotImplementedError(f"Unknown activation: '{config.activation_type}'")
-
-
-class GELU(nn.GELU):
-    @property
-    def output_multiplier(self) -> float:
-        return 1.0
-
-
-class ReLU(nn.ReLU):
-    @property
-    def output_multiplier(self) -> float:
-        return 1.0
-
-
-class SwiGLU(Activation):
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x, gate = x.chunk(2, dim=-1)
-        return F.silu(gate) * x
-
-    @property
-    def output_multiplier(self) -> float:
-        return 0.5
-
-
-def causal_attention_bias(seq_len: int, device: torch.device) -> torch.FloatTensor:
-    att_bias = torch.triu(
-        torch.ones(seq_len, seq_len, device=device, dtype=torch.float),
-        diagonal=1,
-    )
-    att_bias.masked_fill_(att_bias == 1, torch.finfo(att_bias.dtype).min)
-    return att_bias.view(1, 1, seq_len, seq_len)  # type: ignore
-
-
-def get_causal_attention_bias(cache: BufferCache, seq_len: int, device: torch.device) -> torch.Tensor:
-    if (causal_bias := cache.get("causal_attention_bias")) is not None and causal_bias.shape[-1] >= seq_len:
-        if causal_bias.device != device:
-            causal_bias = causal_bias.to(device)
-            cache["causal_attention_bias"] = causal_bias
-        return causal_bias
-    with torch.autocast(device.type, enabled=False):
-        causal_bias = causal_attention_bias(seq_len, device)
-    cache["causal_attention_bias"] = causal_bias
-    return causal_bias
-
-
-def alibi_attention_bias(seq_len: int, config: ModelConfig, device: torch.device) -> torch.FloatTensor:
-    alibi_bias = torch.arange(1 - seq_len, 1, dtype=torch.float, device=device).view(1, 1, 1, seq_len)
-
-    # shape: (1, 1, seq_len, seq_len)
-    alibi_bias = alibi_bias - torch.arange(1 - seq_len, 1, dtype=torch.float, device=device).view(1, 1, seq_len, 1)
-    alibi_bias.abs_().mul_(-1)
-
-    # shape: (n_heads,)
-    m = torch.arange(1, config.n_heads + 1, dtype=torch.float, device=device)
-    m.mul_(config.alibi_bias_max / config.n_heads)
-
-    # shape: (1, n_heads, seq_len, seq_len)
-    return alibi_bias * (1.0 / (2 ** m.view(1, config.n_heads, 1, 1)))  # type: ignore
+            module.att_proj.weight.data[:, : config.d_model] = 0  # just the query part
 
 
 class OlmoBlock(nn.Module):
@@ -1037,88 +696,6 @@ class OlmoLlamaBlock(OlmoBlock):
         return x, cache
 
 
-class OlmoOutput(NamedTuple):
-    logits: torch.FloatTensor
-    """
-    A tensor of shape `(batch_size, seq_len, vocab_size)` representing the log probabilities
-    for the next token *before* normalization via (log) softmax.
-    """
-
-    attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]]
-    """
-    Attention keys and values from each block.
-    """
-
-
-class OlmoGenerateOutput(NamedTuple):
-    token_ids: torch.LongTensor
-    """
-    The generated token IDs, a tensor of shape `(batch_size, beam_size, max_steps)`.
-    These do *not* include the original input IDs.
-    """
-
-    scores: torch.FloatTensor
-    """
-    The scores of the generated sequences, a tensor of shape `(batch_size, beam_size)`.
-    """
-
-
-class OlmoBlockGroup(nn.ModuleList):
-    def __init__(self, config: ModelConfig, layer_offset: int, modules: Optional[Iterable[nn.Module]] = None):
-        super().__init__(modules)
-        self.config = config
-        self.layer_offset = layer_offset
-        self.activation_checkpointing_strategy: Optional[ActivationCheckpointingStrategy] = None
-        self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
-
-    def forward(
-        self,
-        x: torch.Tensor,
-        attention_bias: Optional[torch.FloatTensor] = None,
-        layers_past: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None,
-        use_cache: bool = False,
-    ) -> Tuple[torch.Tensor, Optional[List[Tuple[torch.Tensor, torch.Tensor]]]]:
-        attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
-        for block_idx, block in enumerate(self):
-            layer_past = None if layers_past is None else layers_past[block_idx]
-            block_idx += self.layer_offset
-            if (
-                (self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.whole_layer)
-                or (
-                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_two
-                    and block_idx % 2 == 0
-                )
-                or (
-                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_three
-                    and block_idx % 3 == 0
-                )
-                or (
-                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_four
-                    and block_idx % 4 == 0
-                )
-            ):
-                # shape: (batch_size, seq_len, d_model)
-                x, cache = self._activation_checkpoint_fn(  # type: ignore
-                    block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
-                )
-            else:
-                # shape: (batch_size, seq_len, d_model)
-                x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
-            if attn_key_values is not None:
-                assert cache is not None
-                attn_key_values.append(cache)
-        return x, attn_key_values
-
-    def reset_parameters(self):
-        for block in self:
-            block.reset_parameters()
-
-    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
-        self.activation_checkpointing_strategy = strategy
-        for block in self:
-            block.set_activation_checkpointing(strategy)
-
-
 class Olmo(nn.Module):
     def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
@@ -1154,26 +731,26 @@ class Olmo(nn.Module):
         torch.backends.cuda.enable_flash_sdp(self.config.flash_attention)
         torch.backends.cuda.enable_mem_efficient_sdp(False)  # this is super slow so make sure torch won't use it
 
-        if not config.weight_tying:
-            wte = nn.Embedding(
-                config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
-            )
-        else:
-            # mUp: replace output nn.Linear layer with MuSharedReadout
-            # (weight tying means the output layer will be the same as the embedding layer).
-            wte = MuSharedReadout(
-                config.embedding_size or config.vocab_size,
-                config.d_model,
-                device=config.init_device
-            )
-
         self.transformer = nn.ModuleDict(
             dict(
-                wte=wte,
+                wte=nn.Embedding(
+                    config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
+                ),
                 emb_drop=Dropout(config.embedding_dropout),
                 ln_f=LayerNorm.build(config),
             )
         )
+
+        # if not config.weight_tying:
+        #     wte = nn.Embedding(
+        #         config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
+        #     )
+        # else:
+        #     # mUp: replace output nn.Linear layer with MuSharedReadout
+        #     # (weight tying means the output layer will be the same as the embedding layer).
+        #     wte = MuSharedReadout(
+        #         config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
+        #     )
 
         blocks = [OlmoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
         if self.config.block_group_size > 1:
@@ -1189,6 +766,7 @@ class Olmo(nn.Module):
             self.transformer.update(
                 {"wpe": nn.Embedding(config.max_sequence_length, config.d_model, device=config.init_device)}
             )
+
         if not config.weight_tying:
             # mUp: replace output nn.Linear layer with MuReadout
 
@@ -1198,21 +776,22 @@ class Olmo(nn.Module):
                         config.d_model,
                         config.embedding_size or config.vocab_size,
                         bias=config.include_bias,
-                        device=config.init_device
+                        device=config.init_device,
                     )
                 }
             )
 
-            # self.transformer.update(
-            #     {
-            #         "ff_out": nn.Linear(
-            #             config.d_model,
-            #             config.embedding_size or config.vocab_size,
-            #             bias=config.include_bias,
-            #             device=config.init_device,
-            #         )
-            #     }
-            # )
+        else:
+            # mUp: replace output nn.Linear layer with MuSharedReadout
+            # (weight tying means the output layer will be the same as the embedding layer).
+            self.transformer.update(
+                {
+                    "ff_out": MuSharedReadout(
+                        self.transformer.wte.weight, bias=config.include_bias, device=config.init_device
+                    )
+                }
+            )
+
         # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
         if init_params and self.config.init_device != "meta":
             self.reset_parameters()
@@ -1331,6 +910,8 @@ class Olmo(nn.Module):
 
         # Get embeddings of input.
         # shape: (batch_size, seq_len, d_model)
+        import pdb
+        pdb.set_trace()
         x = self.transformer.wte(input_ids) if input_embeddings is None else input_embeddings  # type: ignore
 
         if not (self.config.alibi or self.config.rope):
