@@ -94,7 +94,7 @@ max_grad_norm: 1.0
 max_grad_norm_ratio: null
 
 speed_monitor:
-  window_size: 20
+  window_size: 1
 
 eval_interval: 1000
 eval_subset_num_batches: -1
