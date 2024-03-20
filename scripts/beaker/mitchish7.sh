@@ -2,6 +2,9 @@
 set -exuo pipefail
 IFS=$'\n\t'
 
+BEAKER_LEADER_REPLICA_HOSTNAME=$1
+shift
+
 NUM_NODES=$1
 shift
 
@@ -17,7 +20,7 @@ torchrun \
   --nproc-per-node 8 \
   --rdzv_id=101 \
   --rdzv_backend=c10d \
-  --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
+  --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   scripts/train.py \
   configs/mitchish7-s3.yaml \
     --run_name=mitchish7 \
