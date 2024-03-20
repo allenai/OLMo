@@ -276,13 +276,17 @@ def load_state_dict(
 
     :raises FileNotFoundError: If ``fname`` doesn't exist in the ``checkpoint_dir`` or the local cache.
     """
+    if fname.endswith(".pt"):
+        # Try safetensors version first.
+        try:
+            path = resource_path(
+                str(checkpoint_dir).rstrip("/"), fname[:-2] + "safetensors", local_cache=local_cache
+            )
+            return safetensors_file_to_state_dict(path, map_location=map_location)
+        except FileNotFoundError:
+            pass
+
     path = resource_path(str(checkpoint_dir).rstrip("/"), fname, local_cache=local_cache)
-
-    if path.suffix == ".pt":
-        safetensors_path = path.with_suffix(".safetensors")
-        if safetensors_path.is_file():
-            return safetensors_file_to_state_dict(safetensors_path, map_location=map_location)
-
     return torch.load(path, map_location=map_location)
 
 
@@ -1264,16 +1268,10 @@ class LocalShardedCheckpointer(Checkpointer):
     def _fsdp_handles(self, fsdp_model: FSDP) -> List[FlatParamHandle]:
         if version.parse(torch.__version__) < version.parse("2.1.0"):
             return fsdp_model._handles  # type: ignore
-        elif version.parse(torch.__version__) < version.parse("2.2.0"):
+        elif version.parse(torch.__version__) < version.parse("2.3.0"):
             # Handle could be None if the FSDP wrapper doesn't manage any parameters.
             if hasattr(fsdp_model, "_handle") and fsdp_model._handle is not None:
                 return [fsdp_model._handle]  # type: ignore
-            else:
-                return []
-        elif version.parse(torch.__version__) < version.parse("2.3.0"):
-            # Could be None if the FSDP wrapper doesn't manage any parameters.
-            if hasattr(fsdp_model, "_all_handles") and fsdp_model._all_handles is not None:
-                return fsdp_model._all_handles
             else:
                 return []
         else:
@@ -1376,11 +1374,13 @@ class LocalShardedCheckpointer(Checkpointer):
                 save_overwrite=self.cfg.save_overwrite,
             )
 
-            # Save config.
-            self._save_config(checkpoint_dir, upload_to=upload_to)
-
             # Save metadata.
             self._save_metadata(checkpoint_dir, upload_to=upload_to)
+
+            # Save config. We do this last b/c the presence of a config in a remote checkpoint
+            # "directory" indicates that the folder is valid, as a opposed to a partially
+            # uploaded checkpoint directory that failed before completing.
+            self._save_config(checkpoint_dir, upload_to=upload_to)
 
     def restore_checkpoint(
         self,
