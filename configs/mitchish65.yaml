@@ -16,7 +16,7 @@ model:
   weight_tying: false
   alibi: false
   rope: true
-  flash_attention: true
+  flash_attention: false
   attention_dropout: 0.0
   attention_layer_norm: false
   multi_query_attention: false
@@ -51,10 +51,12 @@ optimizer:
   metrics_log_interval: 10
 
 scheduler:
-  name: linear_with_warmup
-  t_warmup: 5000
+  name: cosine_with_warmup
+  units: tokens
+  t_warmup: 10485760000
+  t_max: 2e12
   alpha_f: 0.1
-  grad_clip_warmup_steps: 1000
+  grad_clip_warmup_steps: 2097152000
   grad_clip_warmup_factor: 5
 
 tokenizer:
@@ -65,7 +67,7 @@ save_folder: ${oc.env:CHECKPOINTS_PATH}/${oc.env:SLURM_JOB_ID,${run_name}}
 save_overwrite: false
 
 save_interval: 1000
-save_interval_ephemeral: 100
+save_interval_ephemeral: 50
 save_num_checkpoints_to_keep: -1
 sharded_checkpointer: local
 
@@ -75,7 +77,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 load_path: null
 
 max_duration: 2e12T
-global_train_batch_size: 1024
+global_train_batch_size: 2048
 device_train_microbatch_size: 1
 
 precision: amp_bf16
@@ -92,7 +94,7 @@ max_grad_norm_ratio: null
 speed_monitor:
   window_size: 20
 
-eval_interval: ${save_interval}
+eval_interval: 1000
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
