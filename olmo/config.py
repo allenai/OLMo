@@ -23,14 +23,13 @@ from omegaconf.errors import OmegaConfBaseException
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
 
 from .aliases import PathOrStr
-from .exceptions import OlmoConfigurationError
+from .exceptions import OLMoConfigurationError
 from .util import StrEnum
 
 __all__ = [
     "ActivationType",
     "ActivationCheckpointingStrategy",
     "BlockType",
-    "CompilerConfig",
     "LayerNormType",
     "InitFnType",
     "ModelConfig",
@@ -116,7 +115,7 @@ class BaseConfig:
                 conf = om.merge(conf, kwargs)
             return cast(C, om.to_object(conf))
         except OmegaConfBaseException as e:
-            raise OlmoConfigurationError(str(e))
+            raise OLMoConfigurationError(str(e))
 
     @classmethod
     def load(
@@ -139,7 +138,7 @@ class BaseConfig:
                 conf = om.merge(conf, om.from_dotlist(overrides))
             return cast(C, om.to_object(conf))
         except OmegaConfBaseException as e:
-            raise OlmoConfigurationError(str(e))
+            raise OLMoConfigurationError(str(e))
 
     def save(self, path: PathOrStr) -> None:
         """Save to a YAML file."""
@@ -171,11 +170,6 @@ class LayerNormType(StrEnum):
     probably the fastest implementation.
     """
 
-    amd_compatible = "amd_compatible"
-    """
-    LayerNorm implemented manually to work around an issue with ROCm.
-    """
-
 
 class ActivationType(StrEnum):
     gelu = "gelu"
@@ -185,7 +179,6 @@ class ActivationType(StrEnum):
 
 class BlockType(StrEnum):
     sequential = "sequential"
-    parallel = "parallel"
 
     llama = "llama"
     """
@@ -241,6 +234,19 @@ class ModelConfig(BaseConfig):
     n_heads: int = 12
     """
     The number of self-attention heads.
+    """
+
+    n_kv_heads: Optional[int] = None
+    """
+    The number of heads to use for keys and values. Defaults to `n_heads`.
+    Set this to ``None`` or ``n_heads`` for normal multi-head attention.
+    Set this to 1 for multi-query attention.
+    Set it to some in-between value for Llama2-style grouped query attention.
+    """
+
+    clip_qkv: Optional[float] = None
+    """
+    Clip QKV to this value when set.
     """
 
     n_layers: int = 12
@@ -307,10 +313,9 @@ class ModelConfig(BaseConfig):
     The dropout probability within the attention modules.
     """
 
-    multi_query_attention: bool = False
+    multi_query_attention: Optional[bool] = None
     """
-    Use the Multi-Query formulation of attention used in PaLM. This reduces the number of parameters
-    and is more efficient during inference.
+    Deprecated. Use n_kv_heads instead.
     """
 
     attention_layer_norm: bool = False
@@ -428,6 +433,27 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
+    @property
+    def effective_n_kv_heads(self) -> int:
+        if self.n_kv_heads is None:
+            if self.multi_query_attention is True:
+                return 1
+            else:
+                return self.n_heads
+        else:
+            if self.multi_query_attention is None:
+                return self.n_kv_heads
+            if self.multi_query_attention:
+                n_kv_heads_should_be = 1
+            else:
+                n_kv_heads_should_be = self.n_heads
+            if self.n_kv_heads == n_kv_heads_should_be:
+                return n_kv_heads_should_be
+            else:
+                raise OLMoConfigurationError(
+                    "You can't set `multi_query_attention` and `n_kv_heads` at the same time."
+                )
+
 
 class OptimizerType(StrEnum):
     lionw = "lionw"
@@ -524,6 +550,7 @@ class DataConfig(BaseConfig):
     prefetch_factor: Optional[int] = None
     persistent_workers: bool = False
     timeout: int = 0
+    seed: Optional[int] = None
 
 
 class EvaluatorType(StrEnum):
@@ -686,6 +713,16 @@ class ActivationCheckpointingStrategy(StrEnum):
     one_in_four = "one_in_four"
     """
     Checkpoint one in four transformer layers.
+    """
+
+    two_in_three = "two_in_three"
+    """
+    Checkpoint two out of every three transformer layers.
+    """
+
+    three_in_four = "three_in_four"
+    """
+    Checkpoint three out of four of every transformer layers.
     """
 
     fine_grained = "fine_grained"
@@ -1002,9 +1039,19 @@ class TrainConfig(BaseConfig):
     Stop at a specific step.
     """
 
+    stop_after: Optional[int] = None
+    """
+    Stop after a specific number of steps.
+    """
+
     activation_checkpointing: Optional[ActivationCheckpointingStrategy] = None
     """
     The activation checkpointing strategy to use.
+    """
+
+    fused_loss: Optional[bool] = None
+    """
+    Whether to use the fused CE loss function from `flash-attn`.
     """
 
     @property

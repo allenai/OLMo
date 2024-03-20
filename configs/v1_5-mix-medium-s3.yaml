@@ -17,7 +17,7 @@ model:
   attention_dropout: 0.0
   attention_layer_norm: true
   multi_query_attention: true
-  flash_attention: false  # can't be used with ALiBi
+  flash_attention: false
   include_bias: false
   block_type: sequential
   layer_norm_type: default
