@@ -29,4 +29,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  scripts/beaker/mitchish7.sh $BEAKER_LEADER_REPLICA_HOSTNAME $NUM_NODES
+  -- scripts/beaker/mitchish7.sh $BEAKER_LEADER_REPLICA_HOSTNAME $NUM_NODES
