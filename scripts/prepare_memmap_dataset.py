@@ -391,7 +391,7 @@ def main(
     cache_dir: Optional[str] = None,
 ):
 
-    print('[WARNING] THIS SCRIPT IS DEPRECATED!!!')
+    print('WARNING: THIS SCRIPT IS DEPRECATED!!!')
     print('Consider using tokenization tool in the Dolma toolkit: https://github.com/allenai/dolma/blob/main/docs/tokenize.md')
     continue_question = input('Do you want to continue? [y/N]: ')
     if not (c := continue_question.lower().strip()) or c != 'y':
