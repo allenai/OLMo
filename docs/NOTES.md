@@ -70,10 +70,10 @@ For example, checkpoints for the run [https://wandb.ai/ai2-llm/c4-small/runs/euo
 You can load a checkpoint like this:
 
 ```python
-from olmo import Olmo, Tokenizer
+from olmo import OLMo, Tokenizer
 
 checkpoint = "gs://ai2-olmo/ai2-llm/c4-small/euox4j8q/step73000-unsharded"
-model = Olmo.from_checkpoint(checkpoint, device="cuda")
+model = OLMo.from_checkpoint(checkpoint, device="cuda")
 tokenizer = Tokenizer.from_checkpoint(checkpoint)
 ```
 

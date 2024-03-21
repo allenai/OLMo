@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=mitchish65
+#SBATCH --job-name=mitchish70
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
-#SBATCH --nodes=128             # Total number of nodes
+#SBATCH --nodes=64             # Total number of nodes
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
@@ -33,6 +33,8 @@ export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.
 # Try playing with max_split_size_mb if you run into OOM errors.
 #export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:128
 
+export HF_DATASETS_OFFLINE=1
+
 export DATA_PATH=$FLASH_DIR/preprocessed/olmo-mix
 export CHECKPOINTS_PATH=$FLASH_DIR/checkpoints
 export EVAL_DATA_PATH=$SCRATCH_DIR/eval-data
@@ -50,7 +52,7 @@ srun \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
-    python scripts/train.py configs/mitchish65.yaml \
+    python scripts/train.py configs/mitchish70.yaml \
       --run_name=${SLURM_JOB_ID} \
       --time_limit=$((47 * 60 * 60)) \
       --canceled_check_interval=10 \

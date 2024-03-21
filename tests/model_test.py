@@ -1,12 +1,13 @@
+from typing import Optional
+
 import pytest
 import torch
 import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss
 
-from olmo import BlockType, LayerNorm, Olmo, Tokenizer, TrainConfig
+from olmo import BlockType, LayerNorm, OLMo, Tokenizer, TrainConfig
 from olmo.config import ModelConfig, PaddingDirection
 from olmo.data import DataCollator
-from olmo.model import AMDLayerNorm
 
 
 @pytest.mark.parametrize(
@@ -14,16 +15,6 @@ from olmo.model import AMDLayerNorm
     [
         pytest.param(
             True, False, False, BlockType.sequential, False, False, torch.bfloat16, id="alibi-emb-cpu-bf16"
-        ),
-        pytest.param(
-            True,
-            False,
-            False,
-            BlockType.parallel,
-            False,
-            False,
-            torch.bfloat16,
-            id="alibi-emb-parallel-block-cpu-bf16",
         ),
         pytest.param(
             False, False, False, BlockType.sequential, False, False, torch.bfloat16, id="abs-emb-cpu-bf16"
@@ -45,20 +36,6 @@ from olmo.model import AMDLayerNorm
             True,
             torch.bfloat16,
             id="alibi-emb-cuda-bf16",
-            marks=(
-                pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
-            ),
-        ),
-        pytest.param(
-            True,
-            False,
-            False,
-            BlockType.parallel,
-            False,
-            True,
-            torch.bfloat16,
-            id="alibi-emb-parallel-block-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
@@ -124,16 +101,6 @@ from olmo.model import AMDLayerNorm
             False, False, False, BlockType.sequential, True, False, torch.float32, id="abs-emb-mqattn-cpu-f32"
         ),
         pytest.param(
-            False,
-            False,
-            False,
-            BlockType.parallel,
-            True,
-            False,
-            torch.float32,
-            id="abs-emb-parallel-block-mqattn-cpu-f32",
-        ),
-        pytest.param(
             True,
             False,
             False,
@@ -174,7 +141,7 @@ def test_forward(
 
     use_amp = dtype in {torch.float16, torch.bfloat16}
 
-    model = Olmo(train_config.model).eval()
+    model = OLMo(train_config.model).eval()
 
     input1 = tokenizer.encode("My name is OLMo!")
     input2 = tokenizer.encode("I'm a delightful large open language model :)")
@@ -230,6 +197,86 @@ def test_forward(
     torch.testing.assert_close(output1.logits[0][-1], output1_from_cached.logits[0][-1], rtol=rtol, atol=atol)
     # For the batched output this only makes sense for the longer of the two inputs, since the shorter one is padded on the right.
     torch.testing.assert_close(output2.logits[0][-1], batch_output_from_cached.logits[1][-1], rtol=rtol, atol=atol)
+
+
+@pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device")
+@pytest.mark.parametrize("positional_embeddings", (None, "rope"))
+@pytest.mark.parametrize("block_type", (BlockType.sequential,))
+@pytest.mark.parametrize("attention_mode", ("mha", "mqa", "gqa"))
+def test_flash_attn(
+    train_config: TrainConfig,
+    tokenizer: Tokenizer,
+    positional_embeddings: Optional[str],
+    block_type: BlockType,
+    attention_mode: str,
+):
+    torch.use_deterministic_algorithms(True)
+    device = torch.device("cuda")
+
+    if positional_embeddings is None:
+        alibi = False
+        rope = False
+    elif positional_embeddings == "alibi":
+        alibi = True
+        rope = False
+    elif positional_embeddings == "rope":
+        alibi = False
+        rope = True
+    else:
+        raise ValueError(f"{positional_embeddings} is not a valid value for positional_embeddings")
+
+    def make_model(flash_attn: bool):
+        torch.manual_seed(0)
+        train_config.model.alibi = alibi
+        train_config.model.rope = rope
+        train_config.model.flash_attention = flash_attn
+        train_config.model.attention_dropout = 0.0
+        train_config.model.block_type = block_type
+        train_config.model.d_model = 1024
+        train_config.model.n_heads = 8
+        if attention_mode == "mha":
+            train_config.model.n_kv_heads = train_config.model.n_heads
+        elif attention_mode == "mqa":
+            train_config.model.n_kv_heads = 1
+        elif attention_mode == "gqa":
+            train_config.model.n_kv_heads = train_config.model.n_heads // 2
+        else:
+            raise ValueError(f"{attention_mode} is not a valid value for attention_mode")
+        train_config.model.init_device = "cuda"
+        return OLMo(train_config.model).eval()
+
+    input1 = tokenizer.encode(
+        "As a large language model, I don’t have personal opinions, but I can share some interesting facts!"
+    )
+    input2 = tokenizer.encode("What do you call a programmer with no bugs in their code? A liar.")
+    input3 = tokenizer.encode("How do you comfort a JavaScript bug? You console it.")
+    batch_inputs = DataCollator.from_train_config(train_config)(
+        [  # type: ignore
+            {"input_ids": input1},
+            {"input_ids": input2},
+            {"input_ids": input3},
+        ]
+    )
+    batch_inputs = {  # type: ignore
+        k: v.to(device=device) if isinstance(v, torch.Tensor) else v for k, v in batch_inputs.items()
+    }
+
+    model_with_flash = make_model(True)
+    model_without_flash = make_model(False)
+
+    # Run forward pass.
+    with torch.inference_mode():
+        with torch.autocast(device_type="cuda", enabled=True, dtype=torch.bfloat16):
+            output_with_flash = model_with_flash(**batch_inputs)
+            output_without_flash = model_without_flash(**batch_inputs)
+
+    # With using half-precision types these might have some big differences in a small
+    # percentage of the elements.
+    atol = 1e-2
+    rtol = 1e3
+
+    # Check that logits match
+    torch.testing.assert_close(output_with_flash.logits, output_without_flash.logits, rtol=rtol, atol=atol)
 
 
 @pytest.mark.parametrize(
@@ -294,7 +341,7 @@ def test_backward(
     else:
         train_config.model.init_device = "cpu"
 
-    model = Olmo(train_config.model).train()
+    model = OLMo(train_config.model).train()
 
     with torch.autocast(
         device_type="cuda" if cuda else "cpu", enabled=use_amp, dtype=None if not use_amp else dtype
@@ -365,7 +412,7 @@ def test_generate(
         train_config.model.init_device = "cpu"
     use_amp = dtype in {torch.float16, torch.bfloat16}
 
-    model = Olmo(train_config.model).eval()
+    model = OLMo(train_config.model).eval()
 
     input1 = tokenizer.encode("My name is OLMo! ", add_special_tokens=False)
     input2 = tokenizer.encode("I'm a delightful large open language model :) ", add_special_tokens=False)
@@ -399,7 +446,6 @@ def test_layer_norm(train_config: TrainConfig, elementwise_affine: bool, include
     train_config.model.layer_norm_with_affine = elementwise_affine
     train_config.model.include_bias = include_bias
     ln = LayerNorm.build(train_config.model)
-    amd_ln = AMDLayerNorm(train_config.model)
 
     needs_weight = elementwise_affine
     needs_bias = elementwise_affine and include_bias
@@ -407,21 +453,17 @@ def test_layer_norm(train_config: TrainConfig, elementwise_affine: bool, include
         if needs_weight:
             weight = torch.randn(train_config.model.d_model)
             ln.weight.copy_(weight)
-            amd_ln.weight.copy_(weight)
         else:
             weight = None
 
         if needs_bias:
             bias = torch.randn(train_config.model.d_model)
             ln.bias.copy_(bias)
-            amd_ln.bias.copy_(bias)
         else:
             bias = None
 
     assert ln.bias is None or ln.bias.requires_grad == needs_bias
     assert ln.weight is None or ln.weight.requires_grad == needs_weight
-    assert amd_ln.bias is None or amd_ln.bias.requires_grad == needs_bias
-    assert amd_ln.weight is None or amd_ln.weight.requires_grad == needs_weight
 
     x = torch.randn(16, 1024, train_config.model.d_model)
     x.requires_grad = False
@@ -430,13 +472,10 @@ def test_layer_norm(train_config: TrainConfig, elementwise_affine: bool, include
     y_actual = ln(x)
     torch.testing.assert_close(y_actual, y_expected)
 
-    y_actual = amd_ln(x)
-    torch.testing.assert_close(y_actual, y_expected)
-
 
 def test_block_groups():
-    model_with_block_groups = Olmo(ModelConfig(d_model=128, n_heads=2, n_layers=9, block_group_size=3)).eval()
-    model_without_block_groups = Olmo(ModelConfig(d_model=128, n_heads=2, n_layers=9, block_group_size=1)).eval()
+    model_with_block_groups = OLMo(ModelConfig(d_model=128, n_heads=2, n_layers=9, block_group_size=3)).eval()
+    model_without_block_groups = OLMo(ModelConfig(d_model=128, n_heads=2, n_layers=9, block_group_size=1)).eval()
 
     # We should be able to load the state dict from one model into the other, and vice-versa.
     state_dict_to_load, og_keys_to_new_keys = model_with_block_groups._make_state_dict_compatible(

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Added support for Grouped Query Attention.
+- Added commonsense_qa and social_iqa downstream evaluation tasks
+
+### Changed
+
+- Rename `Olmo` to `OLMo` everywhere in the codebase
+- Disabled automatic garbage collection during training, instead we run manually at regular intervals to avoid ranks getting out-of-sync with their own gc.
+
+### Removed
+
+- Removed `AMDLayerNorm`, since the original layer norm bug has been fixed and we don't need this workaround anymore.
+- Removed `OLMoParallelBlock`.
+
+### Fixed
+
+- Don't log garbage on nodes that aren't rank 0
+- Don't crash in the HF code when we are referring to a tokenizer in a local file
+
+## [v0.2.5](https://github.com/allenai/OLMo/releases/tag/v0.2.5) - 2024-03-06
+
 ### Fixed
 
 - Fixed default value of `--tokenizer` argument to `scripts/prepare_tulu_data.py` to be an absolute path, not relative path, the script can be run from other directories.
@@ -15,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added code to throw an error if `output_attentions` is set to `True` in forward call to `OLMoForCausalLM`. This functionality hasn't been implemented yet.
 - Correct scheme displayed in error messages that come from R2
 - Fixed running with multiple data loading workers in LUMI
+- Minor bug fix: uninitialized prompts variable
 
 ### Added
 - Added `output_hidden_states` argument and associated functionality to `OLMo` and `OLMoForCausalLM` to return model intermediate hidden states.
@@ -22,7 +45,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added MMLU downstream evaluation tasks, with prompt variations.
 - Added support for PyTorch v2.2.
 - Added ability to show logs from all ranks
+- Added option for QKV clipping.
+- Added basic_arithmetic downstream evaluation task
 
+### Changed
+
+- Changed legacy checkpoint unsharding to use processes and shared memory instead of threads
 
 
 ## [v0.2.4](https://github.com/allenai/OLMo/releases/tag/v0.2.4) - 2024-02-02

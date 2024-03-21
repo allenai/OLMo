@@ -42,7 +42,7 @@ from .config import (
     LayerNormType,
     ModelConfig,
 )
-from .exceptions import OlmoConfigurationError
+from .exceptions import OLMoConfigurationError
 from .initialization import ModuleType, init_weights
 from .torch_util import ensure_finite_
 
@@ -57,18 +57,16 @@ __all__ = [
     "LayerNormBase",
     "LayerNorm",
     "RMSLayerNorm",
-    "AMDLayerNorm",
     "RotaryEmbedding",
     "Activation",
     "GELU",
     "ReLU",
     "SwiGLU",
-    "OlmoBlock",
-    "OlmoSequentialBlock",
-    "OlmoParallelBlock",
-    "Olmo",
-    "OlmoOutput",
-    "OlmoGenerateOutput",
+    "OLMoBlock",
+    "OLMoSequentialBlock",
+    "OLMo",
+    "OLMoOutput",
+    "OLMoGenerateOutput",
 ]
 
 
@@ -86,6 +84,22 @@ def activation_checkpoint_function(cfg: ModelConfig):
         preserve_rng_state=preserve_rng_state,
         use_reentrant=False,
     )
+
+
+def should_checkpoint_block(strategy: Optional[ActivationCheckpointingStrategy], block_idx: int) -> bool:
+    if strategy is None:
+        return False
+    elif (
+        (strategy == ActivationCheckpointingStrategy.whole_layer)
+        or (strategy == ActivationCheckpointingStrategy.one_in_two and block_idx % 2 == 0)
+        or (strategy == ActivationCheckpointingStrategy.one_in_three and block_idx % 3 == 0)
+        or (strategy == ActivationCheckpointingStrategy.one_in_four and block_idx % 4 == 0)
+        or (strategy == ActivationCheckpointingStrategy.two_in_three and block_idx % 3 != 0)
+        or (strategy == ActivationCheckpointingStrategy.three_in_four and block_idx % 4 != 0)
+    ):
+        return True
+    else:
+        return False
 
 
 class BufferCache(dict, MutableMapping[str, torch.Tensor]):
@@ -152,8 +166,6 @@ class LayerNormBase(nn.Module):
             return LayerNorm(config, size=size, low_precision=True, **kwargs)
         elif config.layer_norm_type == LayerNormType.rms:
             return RMSLayerNorm(config, size=size, **kwargs)
-        elif config.layer_norm_type == LayerNormType.amd_compatible:
-            return AMDLayerNorm(config, size=size, **kwargs)
         else:
             raise NotImplementedError(f"Unknown LayerNorm type: '{config.layer_norm_type}'")
 
@@ -205,38 +217,6 @@ class LayerNorm(LayerNormBase):
                 )
         else:
             return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
-
-
-class AMDLayerNorm(LayerNormBase):
-    """
-    LayerNorm implemented using PyTorch primitives.
-
-    We do this to work around a bug in the PyTorch/ROCm implementation of layer norm that fails with a
-    segfault when the bias is not present.
-    """
-
-    def __init__(
-        self,
-        config: ModelConfig,
-        size: Optional[int] = None,
-        elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-05,
-    ):
-        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        og_dtype = x.dtype
-        x = self._cast_if_autocast_enabled(x, dtype=torch.float32)
-        with torch.autocast(enabled=False, device_type=x.device.type):
-            var, mean = torch.var_mean(x, dim=-1, correction=0, keepdim=True)
-            var.add_(self.eps)
-            var.rsqrt_()  # rsqrt should be more stable than 1/sqrt
-            x = var * (x - mean)
-            if self.weight is not None:
-                x.mul_(self.weight)
-            if self.bias is not None:
-                x.add_(self.bias)
-            return x.to(og_dtype)
 
 
 class RMSLayerNorm(LayerNormBase):
@@ -421,7 +401,7 @@ def alibi_attention_bias(seq_len: int, config: ModelConfig, device: torch.device
     return alibi_bias * (1.0 / (2 ** m.view(1, config.n_heads, 1, 1)))  # type: ignore
 
 
-class OlmoBlock(nn.Module):
+class OLMoBlock(nn.Module):
     """
     A base class for transformer block implementations.
     """
@@ -445,12 +425,17 @@ class OlmoBlock(nn.Module):
         self.k_norm: Optional[LayerNormBase] = None
         self.q_norm: Optional[LayerNormBase] = None
         if config.attention_layer_norm:
+            assert config.n_kv_heads is not None
             self.k_norm = LayerNormBase.build(
                 config,
-                size=config.d_model // config.n_heads if config.multi_query_attention else None,
+                size=config.d_model // config.effective_n_kv_heads,
                 elementwise_affine=config.attention_layer_norm_with_affine,
             )
             self.q_norm = LayerNormBase.build(config, elementwise_affine=config.attention_layer_norm_with_affine)
+
+        # Make sure QKV clip coefficient is positive, otherwise it's not well-defined.
+        if config.clip_qkv is not None:
+            assert config.clip_qkv > 0
 
         # Activation function.
         self.act = Activation.build(config)
@@ -473,6 +458,15 @@ class OlmoBlock(nn.Module):
         # Rotary embeddings.
         if self.config.rope:
             self.rotary_emb = RotaryEmbedding(config, self.__cache)
+
+        self.flash_attn_func = None
+        if config.flash_attention:
+            try:
+                from flash_attn import flash_attn_func  # type: ignore
+
+                self.flash_attn_func = flash_attn_func
+            except ModuleNotFoundError:
+                pass
 
     def reset_parameters(self):
         if self.k_norm is not None:
@@ -527,17 +521,30 @@ class OlmoBlock(nn.Module):
         """
         Computes scaled dot product attention on query, key and value tensors, using an optional
         attention mask if passed, and applying dropout if a probability greater than 0.0 is specified.
-
-        This method is based on PyTorch's `scaled_dot_product_attention`.
         """
-        return F.scaled_dot_product_attention(
-            q,
-            k,
-            v,
-            attn_mask=attn_mask,
-            dropout_p=dropout_p,
-            is_causal=is_causal,
-        )
+        if self.flash_attn_func is not None and attn_mask is None:
+            r = self.flash_attn_func(
+                q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), dropout_p=dropout_p, causal=is_causal
+            )
+            return r.transpose(1, 2)
+        else:
+            # torch's sdpa doesn't support GQA, so we're doing this
+            assert k.size(1) == v.size(1)
+            num_kv_heads = k.size(1)
+            num_q_heads = q.size(1)
+            if num_q_heads != num_kv_heads:
+                assert num_q_heads % num_kv_heads == 0
+                k = k.repeat_interleave(num_q_heads // num_kv_heads, dim=1, output_size=num_q_heads)
+                v = v.repeat_interleave(num_q_heads // num_kv_heads, dim=1, output_size=num_q_heads)
+
+            return F.scaled_dot_product_attention(
+                q,
+                k,
+                v,
+                attn_mask=attn_mask,
+                dropout_p=dropout_p,
+                is_causal=is_causal,
+            )
 
     def attention(
         self,
@@ -559,16 +566,10 @@ class OlmoBlock(nn.Module):
         # Move head forward to be next to the batch dim.
         # shape: (B, nh, T, hs)
         q = q.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
-        if self.config.multi_query_attention:
-            # shape: (B, 1, T, hs)
-            k = k.view(B, T, 1, C // self.config.n_heads).transpose(1, 2)
-            # shape: (B, 1, T, hs)
-            v = v.view(B, T, 1, C // self.config.n_heads).transpose(1, 2)
-        else:
-            # shape: (B, nh, T, hs)
-            k = k.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
-            # shape: (B, nh, T, hs)
-            v = v.view(B, T, self.config.n_heads, C // self.config.n_heads).transpose(1, 2)
+        # shape: (B, n_kv_h, T, hs)
+        k = k.view(B, T, self.config.effective_n_kv_heads, C // self.config.n_heads).transpose(1, 2)
+        # shape: (B, n_kv_h, T, hs)
+        v = v.view(B, T, self.config.effective_n_kv_heads, C // self.config.n_heads).transpose(1, 2)
 
         if layer_past is not None:
             past_key, past_value = layer_past
@@ -620,18 +621,16 @@ class OlmoBlock(nn.Module):
         raise NotImplementedError
 
     @classmethod
-    def build(cls, layer_id: int, config: ModelConfig, cache: BufferCache) -> OlmoBlock:
+    def build(cls, layer_id: int, config: ModelConfig, cache: BufferCache) -> OLMoBlock:
         if config.block_type == BlockType.sequential:
-            return OlmoSequentialBlock(layer_id, config, cache)
-        elif config.block_type == BlockType.parallel:
-            return OlmoParallelBlock(layer_id, config, cache)
+            return OLMoSequentialBlock(layer_id, config, cache)
         elif config.block_type == BlockType.llama:
-            return OlmoLlamaBlock(layer_id, config, cache)
+            return OLMoLlamaBlock(layer_id, config, cache)
         else:
             raise NotImplementedError(f"Unknown block type: '{config.block_type}'")
 
 
-class OlmoSequentialBlock(OlmoBlock):
+class OLMoSequentialBlock(OLMoBlock):
     """
     This is a typical transformer block where the output is computed as ``MLP(LN(x + Attention(LN(x))))``
     (plus another skip connection).
@@ -643,10 +642,13 @@ class OlmoSequentialBlock(OlmoBlock):
         self.attn_norm = LayerNorm.build(config)
         self.ff_norm = LayerNorm.build(config)
         # Attention input projection. Projects x -> (q, k, v)
-        if config.multi_query_attention:
-            self.fused_dims = (config.d_model, config.d_model // config.n_heads, config.d_model // config.n_heads)
-        else:
-            self.fused_dims = (config.d_model, config.d_model, config.d_model)
+
+        head_dim = config.d_model // config.n_heads
+        self.fused_dims = (
+            config.d_model,
+            config.effective_n_kv_heads * head_dim,
+            config.effective_n_kv_heads * head_dim,
+        )
         self.att_proj = nn.Linear(
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
@@ -679,12 +681,17 @@ class OlmoSequentialBlock(OlmoBlock):
         #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
         #  - for multi-query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
+        #  - for group query attn q: (batch_size, seq_len, d_model)
+        #                      k, v: (batch_size, seq_len, d_model // n_kv_heads)
         if self._activation_checkpoint_fn is not None:
-            q, k, v = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x)).split(
-                self.fused_dims, dim=-1
-            )
+            qkv = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x))
         else:
-            q, k, v = self.att_proj(self.attn_norm(x)).split(self.fused_dims, dim=-1)
+            qkv = self.att_proj(self.attn_norm(x))
+
+        if self.config.clip_qkv is not None:
+            qkv.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+
+        q, k, v = qkv.split(self.fused_dims, dim=-1)
 
         # Get attention scores.
         if self._activation_checkpoint_fn is not None:
@@ -717,97 +724,10 @@ class OlmoSequentialBlock(OlmoBlock):
         return x, cache
 
 
-class OlmoParallelBlock(OlmoBlock):
-    """
-    This is a transformer block where the output is computed as ``MLP(LN(x)) + Attention(LN(x))``
-    as in the PaLM architecture, as opposed to the typical ``MLP(LN(x + Attention(LN(x))))``
-    as in :class:`OlmoSequentialBlock` (ignoring some skip connections).
-
-    The decoupling of the MLP and Attention functions allow us to fuse the separate input projections
-    into a single linear layer to increase throughput. In this configuration it's also straight-forward
-    to fuse the output projections, but we found that didn't help.
-    """
-
-    def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
-        super().__init__(layer_id, config, cache)
-        self.norm = LayerNorm.build(config)
-        # Fused attention and feed-forward projection.
-        # NOTE: we could also fuse the attention and feed-forward output projections but we
-        # found that didn't help, possibly because of the overhead of joining the `att` and
-        # `ff` activations together. See https://github.com/allenai/LLM/pull/79 for details.
-        if config.multi_query_attention:
-            self.fused_dims = (
-                config.d_model,
-                config.d_model // config.n_heads,
-                config.d_model // config.n_heads,
-                self.hidden_size,
-            )
-        else:
-            self.fused_dims = (config.d_model, config.d_model, config.d_model, self.hidden_size)
-        self.fused_attn_ff_proj = nn.Linear(
-            config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
-        )
-
-    def reset_parameters(self):
-        super().reset_parameters()
-        self.norm.reset_parameters()
-        # NOTE: the standard deviation for these weights does not depend on the layer.
-        init_weights(
-            self.config,
-            self.fused_attn_ff_proj,
-            d=self.config.d_model,
-            layer_id=None,
-            type_of_module=ModuleType.in_module,
-        )
-
-    def forward(
-        self,
-        x: torch.Tensor,
-        attention_bias: Optional[torch.Tensor] = None,
-        layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
-        use_cache: bool = False,
-    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
-        # Get query, key, value, and feed-forward projections.
-        # shape of q, k, v:
-        #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
-        #  - for multi-query attn q: (batch_size, seq_len, d_model)
-        #                      k, v: (batch_size, seq_len, d_model // n_heads)
-        # shape of ff:      (batch_size, seq_len, hidden_size)
-        if self._activation_checkpoint_fn is not None:
-            q, k, v, ff = self.fused_attn_ff_proj(self._activation_checkpoint_fn(self.norm, x)).split(
-                self.fused_dims, dim=-1
-            )
-        else:
-            q, k, v, ff = self.fused_attn_ff_proj(self.norm(x)).split(self.fused_dims, dim=-1)
-
-        # Get attention scores.
-        # shape: (B, T, C)
-        if self._activation_checkpoint_fn is not None:
-            att, cache = self._activation_checkpoint_fn(  # type: ignore
-                self.attention, q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache
-            )
-        else:
-            att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
-
-        # Apply output projections (and activation function) and sum the results.
-        # We keep these projections separate because we found that we got better throughput this
-        # way compared to fusing them.
-        if self._activation_checkpoint_fn is not None:
-            return (
-                x + self.dropout(self.ff_out(self._activation_checkpoint_fn(self.act, ff))) + self.dropout(att),
-                cache,
-            )
-        else:
-            return (
-                x + self.dropout(self.ff_out(self.act(ff))) + self.dropout(att),
-                cache,
-            )
-
-
-class OlmoLlamaBlock(OlmoBlock):
+class OLMoLlamaBlock(OLMoBlock):
     """
     This is a transformer block where the output is computed as ``MLP(LN(x + Attention(LN(x))))``
-    (plus another skip connection). This block is similar to `OlmoSequentialBlock`
+    (plus another skip connection). This block is similar to `OLMoSequentialBlock`
     but some operations have slightly different implementations to imitate the
     behavior of Llama.
     """
@@ -896,6 +816,11 @@ class OlmoLlamaBlock(OlmoBlock):
         k = self.k_proj(x_normed)
         v = self.v_proj(x_normed)
 
+        if self.config.clip_qkv is not None:
+            q.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+            k.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+            v.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+
         # Get attention scores.
         att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
 
@@ -922,7 +847,7 @@ class OlmoLlamaBlock(OlmoBlock):
         return x, cache
 
 
-class OlmoOutput(NamedTuple):
+class OLMoOutput(NamedTuple):
     logits: torch.FloatTensor
     """
     A tensor of shape `(batch_size, seq_len, vocab_size)` representing the log probabilities
@@ -940,7 +865,7 @@ class OlmoOutput(NamedTuple):
     """
 
 
-class OlmoGenerateOutput(NamedTuple):
+class OLMoGenerateOutput(NamedTuple):
     token_ids: torch.LongTensor
     """
     The generated token IDs, a tensor of shape `(batch_size, beam_size, max_steps)`.
@@ -953,7 +878,7 @@ class OlmoGenerateOutput(NamedTuple):
     """
 
 
-class OlmoBlockGroup(nn.ModuleList):
+class OLMoBlockGroup(nn.ModuleList):
     def __init__(self, config: ModelConfig, layer_offset: int, modules: Optional[Iterable[nn.Module]] = None):
         super().__init__(modules)
         self.config = config
@@ -972,21 +897,7 @@ class OlmoBlockGroup(nn.ModuleList):
         for block_idx, block in enumerate(self):
             layer_past = None if layers_past is None else layers_past[block_idx]
             block_idx += self.layer_offset
-            if (
-                (self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.whole_layer)
-                or (
-                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_two
-                    and block_idx % 2 == 0
-                )
-                or (
-                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_three
-                    and block_idx % 3 == 0
-                )
-                or (
-                    self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_four
-                    and block_idx % 4 == 0
-                )
-            ):
+            if should_checkpoint_block(self.activation_checkpointing_strategy, block_idx):
                 # shape: (batch_size, seq_len, d_model)
                 x, cache = self._activation_checkpoint_fn(  # type: ignore
                     block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
@@ -1009,7 +920,7 @@ class OlmoBlockGroup(nn.ModuleList):
             block.set_activation_checkpointing(strategy)
 
 
-class Olmo(nn.Module):
+class OLMo(nn.Module):
     def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
         self.config = config
@@ -1017,14 +928,14 @@ class Olmo(nn.Module):
 
         # Validate config.
         if self.config.alibi and self.config.flash_attention:
-            raise OlmoConfigurationError("ALiBi is currently not supported with FlashAttention")
+            raise OLMoConfigurationError("ALiBi is currently not supported with FlashAttention")
 
         if self.config.alibi and self.config.rope:
-            raise OlmoConfigurationError("ALiBi and RoPE are mutually exclusive")
+            raise OLMoConfigurationError("ALiBi and RoPE are mutually exclusive")
 
         if self.config.embedding_size is not None and self.config.embedding_size != self.config.vocab_size:
             if self.config.embedding_size < self.config.vocab_size:
-                raise OlmoConfigurationError("embedding size should be at least as big as vocab size")
+                raise OLMoConfigurationError("embedding size should be at least as big as vocab size")
             elif self.config.embedding_size % 128 != 0:
                 import warnings
 
@@ -1039,9 +950,9 @@ class Olmo(nn.Module):
             0 < self.config.block_group_size <= self.config.n_layers
             and self.config.n_layers % self.config.block_group_size == 0
         ):
-            raise OlmoConfigurationError("n layers must be divisible by block group size")
+            raise OLMoConfigurationError("n layers must be divisible by block group size")
 
-        torch.backends.cuda.enable_flash_sdp(self.config.flash_attention)
+        torch.backends.cuda.enable_flash_sdp(True)
         torch.backends.cuda.enable_mem_efficient_sdp(False)  # this is super slow so make sure torch won't use it
 
         self.transformer = nn.ModuleDict(
@@ -1054,10 +965,10 @@ class Olmo(nn.Module):
             )
         )
 
-        blocks = [OlmoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
+        blocks = [OLMoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
         if self.config.block_group_size > 1:
             block_groups = [
-                OlmoBlockGroup(config, i, blocks[i : i + config.block_group_size])
+                OLMoBlockGroup(config, i, blocks[i : i + config.block_group_size])
                 for i in range(0, config.n_layers, config.block_group_size)
             ]
             self.transformer.update({"block_groups": nn.ModuleList(block_groups)})
@@ -1156,7 +1067,7 @@ class Olmo(nn.Module):
         use_cache: bool = False,
         last_logits_only: bool = False,
         output_hidden_states: Optional[bool] = None,
-    ) -> OlmoOutput:
+    ) -> OLMoOutput:
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
         :param input_embeddings: A tensor of shape `(batch_size, seq_len, d_model)` with input
@@ -1269,21 +1180,7 @@ class Olmo(nn.Module):
                     all_hidden_states.append(x)
 
                 layer_past = None if past_key_values is None else past_key_values[block_idx]
-                if (
-                    (self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.whole_layer)
-                    or (
-                        self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_two
-                        and block_idx % 2 == 0
-                    )
-                    or (
-                        self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_three
-                        and block_idx % 3 == 0
-                    )
-                    or (
-                        self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.one_in_four
-                        and block_idx % 4 == 0
-                    )
-                ):
+                if should_checkpoint_block(self.activation_checkpointing_strategy, block_idx):
                     # shape: (batch_size, seq_len, d_model)
                     x, cache = self._activation_checkpoint_fn(
                         block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
@@ -1291,6 +1188,7 @@ class Olmo(nn.Module):
                 else:
                     # shape: (batch_size, seq_len, d_model)
                     x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
+
                 if attn_key_values is not None:
                     assert cache is not None
                     attn_key_values.append(cache)
@@ -1334,7 +1232,7 @@ class Olmo(nn.Module):
         if self.config.scale_logits:
             logits.mul_(1 / math.sqrt(self.config.d_model))
 
-        return OlmoOutput(logits=logits, attn_key_values=attn_key_values, hidden_states=tuple(all_hidden_states) if output_hidden_states else None)  # type: ignore[arg-type]
+        return OLMoOutput(logits=logits, attn_key_values=attn_key_values, hidden_states=tuple(all_hidden_states) if output_hidden_states else None)  # type: ignore[arg-type]
 
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
         if wrap_strategy is None:
@@ -1354,7 +1252,7 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
-                wrap = isinstance(module, OlmoBlock)
+                wrap = isinstance(module, OLMoBlock)
                 if recurse:
                     return True
                 else:
@@ -1365,7 +1263,7 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
-                wrap = isinstance(module, (OlmoBlock,)) or module in size_based_module_to_wrap
+                wrap = isinstance(module, (OLMoBlock,)) or module in size_based_module_to_wrap
                 if recurse:
                     return True
                 else:
@@ -1374,13 +1272,13 @@ class Olmo(nn.Module):
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_group:
             if self.config.block_group_size <= 1:
-                raise OlmoConfigurationError(
+                raise OLMoConfigurationError(
                     "'by_block_group' FSDP wrapping strategy requires block group size greater than 1"
                 )
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
-                wrap = isinstance(module, OlmoBlockGroup)
+                wrap = isinstance(module, OLMoBlockGroup)
                 if recurse:
                     return True
                 else:
@@ -1389,13 +1287,13 @@ class Olmo(nn.Module):
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_group_and_size:
             if self.config.block_group_size <= 1:
-                raise OlmoConfigurationError(
+                raise OLMoConfigurationError(
                     "'by_block_group_and_size' FSDP wrapping strategy requires block group size greater than 1"
                 )
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
-                wrap = isinstance(module, (OlmoBlockGroup,)) or module in size_based_module_to_wrap
+                wrap = isinstance(module, (OLMoBlockGroup,)) or module in size_based_module_to_wrap
                 if recurse:
                     return True
                 else:
@@ -1421,7 +1319,7 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
-                wrap = isinstance(module, OlmoBlock) and module.layer_id % c == 0
+                wrap = isinstance(module, OLMoBlock) and module.layer_id % c == 0
                 if recurse:
                     return True
                 else:
@@ -1472,7 +1370,7 @@ class Olmo(nn.Module):
         min_steps: Optional[int] = None,
         final_sequence_scorer: Optional[FinalSequenceScorer] = None,
         constraints: Optional[List[Constraint]] = None,
-    ) -> OlmoGenerateOutput:
+    ) -> OLMoGenerateOutput:
         """
         Generate token IDs using beam search.
 
@@ -1582,7 +1480,7 @@ class Olmo(nn.Module):
         with torch.no_grad():
             token_ids, scores = beam_search.search(initial_preds, state, step)
 
-        return OlmoGenerateOutput(
+        return OLMoGenerateOutput(
             token_ids=token_ids,  # type: ignore[arg-type]
             scores=scores,  # type: ignore[arg-type]
         )
@@ -1590,7 +1488,7 @@ class Olmo(nn.Module):
     @classmethod
     def from_checkpoint(
         cls, checkpoint_dir: PathOrStr, device: str = "cpu", checkpoint_type: Optional[CheckpointType] = None
-    ) -> Olmo:
+    ) -> OLMo:
         """
         Load an OLMo model from a checkpoint.
         """
@@ -1613,7 +1511,7 @@ class Olmo(nn.Module):
         if checkpoint_type == CheckpointType.unsharded:
             # Initialize model (always on CPU to start with so we don't run out of GPU memory).
             model_config.init_device = "cpu"
-            model = Olmo(model_config)
+            model = OLMo(model_config)
 
             # Load state dict directly to target device.
             state_dict_path = resource_path(checkpoint_dir, "model.pt")
@@ -1626,7 +1524,7 @@ class Olmo(nn.Module):
             # Initialize model on target device. In this case the state dict is loaded in-place
             # so it's not necessary to start on CPU if the target device is a GPU.
             model_config.init_device = device
-            model = Olmo(model_config)
+            model = OLMo(model_config)
 
             # Load state dict in place.
             load_model_state(checkpoint_dir, model)

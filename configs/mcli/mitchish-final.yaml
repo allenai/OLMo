@@ -97,6 +97,7 @@ command: |-
     --save_interval_unsharded=10000 \
     --load_path=/root/checkpoint-unsharded \
     --compile=null \
+    --model.flash_attention=true \
     --activation_checkpointing=fine_grained \
     --fsdp.wrapping_strategy=size_based \
     --remote_save_folder=s3://ai2-llm/checkpoints/7b/${run_name} \

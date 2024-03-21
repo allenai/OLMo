@@ -2,13 +2,13 @@
 
 import gzip
 import logging
-import multiprocessing as mp
 import sys
 from pathlib import Path
 from typing import Optional, TextIO
 
 import torch
 import torch.distributed as dist
+import torch.multiprocessing as mp
 import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -16,8 +16,8 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from olmo.config import CheckpointType, TrainConfig
 from olmo.data import build_train_dataloader
 from olmo.eval import build_evaluators
-from olmo.exceptions import OlmoCliError, OlmoConfigurationError
-from olmo.model import Olmo
+from olmo.exceptions import OLMoCliError, OLMoConfigurationError
+from olmo.model import OLMo
 from olmo.optim import BoltOnWarmupScheduler, build_optimizer, build_scheduler
 from olmo.torch_util import (
     barrier,
@@ -37,7 +37,7 @@ log = logging.getLogger("train")
 def main(cfg: TrainConfig) -> None:
     # Ensure run name set.
     if cfg.run_name is None:
-        raise OlmoConfigurationError("--run_name is required")
+        raise OLMoConfigurationError("--run_name is required")
     log_extra_field("run_name", cfg.run_name)
 
     # Sanity check
@@ -77,7 +77,7 @@ def main(cfg: TrainConfig) -> None:
             # Save config.
             save_path = Path(cfg.save_folder) / "config.yaml"
             if save_path.is_file() and not cfg.save_overwrite:
-                raise OlmoConfigurationError(f"{save_path} already exists, use --save_overwrite to overwrite")
+                raise OLMoConfigurationError(f"{save_path} already exists, use --save_overwrite to overwrite")
             else:
                 log.info(f"Saving config to {save_path}")
                 save_path.parent.mkdir(exist_ok=True, parents=True)
@@ -114,7 +114,7 @@ def main(cfg: TrainConfig) -> None:
 
     # Initialize the model.
     log.info("Building model...")
-    olmo_model = Olmo(cfg.model)
+    olmo_model = OLMo(cfg.model)
     log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
     log.info(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
@@ -124,6 +124,7 @@ def main(cfg: TrainConfig) -> None:
     # Wrap the model in FSDP.
     log.info("Wrapping model with FDSP...")
     wrap_policy = olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy)
+
     if version.parse(torch.__version__) >= version.parse("2.1.0"):
         # This prevents any parameters from being initialized twice
         def dummy_init_fn(module: torch.nn.Module) -> None:
@@ -159,7 +160,7 @@ def main(cfg: TrainConfig) -> None:
     if cfg.save_data_indices:
         indices_file_path = Path(cfg.save_folder) / f"data-indices/rank{get_global_rank()}.tsv.gz"
         if indices_file_path.exists() and not cfg.save_overwrite:
-            raise OlmoConfigurationError(f"{indices_file_path} already exists, use --save_overwrite to overwrite")
+            raise OLMoConfigurationError(f"{indices_file_path} already exists, use --save_overwrite to overwrite")
         indices_file_path.parent.mkdir(exist_ok=True, parents=True)
         indices_file = gzip.open(indices_file_path, "wt")
 
@@ -241,16 +242,22 @@ def main(cfg: TrainConfig) -> None:
 
 
 if __name__ == "__main__":
-    mp.set_start_method("spawn")
+    try:
+        mp.set_start_method("spawn", force=True)
+    except RuntimeError as e:
+        print(f"failed to set multiprocessing start method: {e}")
+
     # Initialize process group.
     dist.init_process_group(backend="nccl")
 
     prepare_cli_environment()
 
+    log.info(f"multiprocessing start method set to '{mp.get_start_method()}'")
+
     try:
         yaml_path, args_list = sys.argv[1], sys.argv[2:]
     except IndexError:
-        raise OlmoCliError(f"Usage: {sys.argv[0]} [CONFIG_PATH] [OPTIONS]")
+        raise OLMoCliError(f"Usage: {sys.argv[0]} [CONFIG_PATH] [OPTIONS]")
 
     cfg = TrainConfig.load(yaml_path, [clean_opt(s) for s in args_list])
     main(cfg)
