@@ -317,7 +317,7 @@ def make_source_and_target(
     if paths_per_worker > 1:
         assert (
             len(exploded_src) >= paths_per_worker
-        ), f"Number of paths ({len(exploded_src)}) must be <= paths_per_worker ({paths_per_worker})"
+        ), f"Number of paths ({len(exploded_src)}) must be >= paths_per_worker ({paths_per_worker})"
 
         # group the paths into chunks of paths_per_worker
         exploded_src = [
