@@ -1,5 +1,4 @@
 import logging
-import warnings
 from dataclasses import fields
 from typing import List, Optional, Tuple, Union
 
@@ -261,14 +260,14 @@ class OLMoForCausalLM(PreTrainedModel):
         self.config.embedding_size = model_embeds.weight.shape[0]
         self.model.config.embedding_size = model_embeds.weight.shape[0]
 
-    # Check if the embedding size is less than the vocab size
+        # Check if the embedding size is less than the vocab size
         if self.config.embedding_size < self.config.vocab_size:
             warning_message = (
                 f"Resizing token embeddings to size {self.config.embedding_size}, which is less than the vocab size "
                 f"{self.config.vocab_size} defined in the model configuration. Make sure your tokenizer's vocabulary "
                 "size is less than or equal to the new token embedding size."
             )
-            warnings.warn(warning_message)
+            log.warning(warning_message)
 
         # Tie weights again if needed
         self.tie_weights()
