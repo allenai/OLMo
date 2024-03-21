@@ -152,11 +152,11 @@ class MemmapFile:
 
         if (len(values) + self._written_tokens) >= self.max_tokens:
             values = values[: self.max_tokens - self._written_tokens]
-            rest = values[self.max_tokens - self._written_tokens :]
+            rest = values[self.max_tokens - self._written_tokens:]
         else:
             rest = None
 
-        self._memmap[self._written_tokens : self._written_tokens + len(values)] = values
+        self._memmap[self._written_tokens: self._written_tokens + len(values)] = values
         self._written_tokens += len(values)
 
         if flush:
@@ -321,7 +321,7 @@ def make_source_and_target(
 
         # group the paths into chunks of paths_per_worker
         exploded_src = [
-            sorted(exploded_src[i : i + paths_per_worker]) for i in range(0, len(exploded_src), paths_per_worker)
+            sorted(exploded_src[i: i + paths_per_worker]) for i in range(0, len(exploded_src), paths_per_worker)
         ]
 
     # determine the destination paths
