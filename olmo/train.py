@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import cProfile
+import gc
 import logging
 import math
 import os
@@ -38,6 +39,7 @@ from .model import OLMo
 from .optim import Optimizer, Scheduler
 from .torch_util import (
     barrier,
+    gc_cuda,
     get_fs_local_rank,
     get_global_rank,
     get_world_size,
@@ -136,6 +138,7 @@ class Trainer:
     cur_train_loss: float = float("inf")
     indices_file: Optional[TextIO] = None
     _start_time: float = 0.0
+    _gc_init_state: bool = True
     loss_fn: Callable[..., torch.Tensor] = field(default_factory=lambda: cross_entropy_loss)  # type: ignore
     last_sharded_checkpoint_step: Optional[int] = None
     last_unsharded_checkpoint_step: Optional[int] = None
@@ -537,14 +540,18 @@ class Trainer:
     def save_checkpoint(
         self, checkpoint_type: CheckpointType = CheckpointType.sharded
     ) -> Tuple[PathOrStr, Optional[PathOrStr]]:
+        result: Tuple[PathOrStr, Optional[PathOrStr]]
         if checkpoint_type == CheckpointType.sharded:
-            return self.save_sharded_checkpoint()
+            result = self.save_sharded_checkpoint()
         elif checkpoint_type == CheckpointType.unsharded:
-            return self.save_unsharded_checkpoint()
+            result = self.save_unsharded_checkpoint()
         elif checkpoint_type == CheckpointType.sharded_ephemeral:
-            return self.save_ephemeral_checkpoint()
+            result = self.save_ephemeral_checkpoint()
         else:
             raise NotImplementedError(checkpoint_type)
+
+        gc_cuda()
+        return result
 
     def restore_checkpoint(
         self,
@@ -575,6 +582,8 @@ class Trainer:
             )
         elif checkpoint_type is not None:
             raise NotImplementedError(checkpoint_type)
+
+        gc_cuda()
 
     def remove_checkpoint(self, idx: int = 0, checkpoint_type: CheckpointType = CheckpointType.sharded):
         if checkpoint_type == CheckpointType.sharded:
@@ -936,6 +945,10 @@ class Trainer:
                 self.cfg.stop_at = min(self.cfg.stop_at, self.global_step + self.cfg.stop_after)
 
         self._start_time = time.time()
+        self._gc_init_state = gc.isenabled()  # cache if garbage collection is enabled, reset on close.
+
+        # Disable automatic garbage collection, FSDP doesn't work well with it.
+        gc.disable()
 
         if self.cfg.load_path is not None and self.global_step > 0 and self.cfg.eval_on_load:
             eval_metrics = self.eval()
@@ -1141,6 +1154,9 @@ class Trainer:
                     if stop_at is not None and self.global_step >= stop_at:
                         break
 
+                    # Run generation 1 garbage collection.
+                    gc.collect(1)
+
                     # Python Profiler stuff
                     # We do this now, at the bottom of this loop, so we capture the work of getting the next batch.
                     if python_profiler is not None:
@@ -1178,9 +1194,15 @@ class Trainer:
                 log.info(f"Checkpoint saved to {checkpoint_path}")
 
     def close(self, exit_code: int = 0) -> None:
+        gc_cuda()
+
         if self.indices_file is not None:
             self.indices_file.flush()
             self.indices_file.close()
+        if self._gc_init_state:
+            gc.enable()
+        else:
+            gc.disable()
         if wandb.run is not None:
             wandb.finish(exit_code=exit_code, quiet=True)
 
