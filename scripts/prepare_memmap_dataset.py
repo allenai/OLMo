@@ -392,7 +392,6 @@ def main(
     cache_dir: Optional[str] = None,
     ack_deprecated: bool = False,
 ):
-
     print("WARNING: THIS SCRIPT IS DEPRECATED!!!")
     print(
         "Consider using the tokenization tool in the Dolma toolkit: "
