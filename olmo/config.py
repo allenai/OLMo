@@ -433,6 +433,24 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
+    # muP parameters
+
+    input_mult: float = 1.0
+    """
+    Scalar multiplier for the input embeddings. Defaults to 1.0.
+    """
+
+    output_mult: float = 1.0
+    """
+    Scalar multiplier for the output logits. Defaults to 1.0.
+    """
+
+    attn_mult: Optional[float] = None
+    """
+    Optional multiplier for attention. If set to None, it defaults to 1/sqrt(width);
+    i.e., the standard attention multipler.
+    """
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:
