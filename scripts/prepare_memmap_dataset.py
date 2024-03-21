@@ -390,6 +390,14 @@ def main(
     max_workers: int = 1,
     cache_dir: Optional[str] = None,
 ):
+
+    print('[WARNING] THIS SCRIPT IS DEPRECATED!!!')
+    print('Consider using tokenization tool in the Dolma toolkit: https://github.com/allenai/dolma/blob/main/docs/tokenize.md')
+    continue_question = input('Do you want to continue? [y/N]: ')
+    if not (c := continue_question.lower().strip()) or c != 'y':
+        print('Aborting')
+        return
+
     print("=== CONFIGURATION ===")
     print(f"src:              {src}")
     print(f"output:           {output}")
