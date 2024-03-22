@@ -31,6 +31,7 @@ command: |-
     --run_name=v1_5-mix-mitch-ish \
     --wandb.name=v1_5-mix-mitch-ish-mcli-final \
     --global_train_batch_size=2160 \
+    --model.flash_attention=true \
     --time_limit=169200
 
 # We added these flags in order to get a final checkpoint where we decayed the LR down to 0.

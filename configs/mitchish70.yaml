@@ -1,0 +1,201 @@
+run_name: mitchish70-001
+seed: 6198
+dry_run: false
+
+wandb:
+  name: ${run_name}
+  project: olmo-large
+  group: mitchish70
+
+model:
+  d_model: 8192
+  n_heads: 64
+  n_kv_heads: 8
+  n_layers: 80
+  # mlp_ratio: 6
+  mlp_hidden_size: 57344
+  weight_tying: false
+  alibi: false
+  rope: true
+  flash_attention: false
+  attention_dropout: 0.0
+  attention_layer_norm: false
+  clip_qkv: 8.0
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: default
+  layer_norm_with_affine: false
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 4096
+  vocab_size: 50280
+  embedding_size: 50304
+  eos_token_id: 0
+  pad_token_id: 1
+  init_device: meta
+  init_fn: mitchell
+
+compile: null
+
+optimizer:
+  name: adamw
+  learning_rate: 1.5e-4
+  weight_decay: 0.1
+  decay_norm_and_bias: true
+  decay_embeddings: true
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 10
+
+scheduler:
+  name: cosine_with_warmup
+  units: tokens
+  t_warmup: 10485760000
+  t_max: 2e12
+  alpha_f: 0.1
+  grad_clip_warmup_steps: 2097152000
+  grad_clip_warmup_factor: 5
+
+tokenizer:
+  # TODO: this should be:
+  #identifier: tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
+  identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
+  truncate_direction: right
+
+save_folder: ${oc.env:CHECKPOINTS_PATH}/${oc.env:SLURM_JOB_ID,${run_name}}
+save_overwrite: false
+
+save_interval: 1000
+save_interval_ephemeral: 50
+save_num_checkpoints_to_keep: -1
+sharded_checkpointer: local
+
+save_interval_unsharded: null
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: null
+
+max_duration: 2e12T
+global_train_batch_size: 512
+device_train_microbatch_size: 1
+
+precision: amp_bf16
+
+fsdp:
+  wrapping_strategy: by_block
+  precision: mixed
+
+activation_checkpointing: whole_layer
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 20
+
+eval_interval: 1000
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators:
+  - label: v2-small-ppl-validation
+    data:
+      num_workers: 0
+      drop_last: true
+      datasets:
+        4chan-validation:
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/4chan/val.npy
+        c4_100_domains-validation:
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/c4_100_domains/val.npy
+        c4_en-validation:
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/c4_en/val.npy
+        gab-validation:
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/gab/val.npy
+        ice-validation:
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/ice/val.npy
+        m2d2_s2orc-validation:
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/m2d2_s2orc/val.npy
+        m2d2_wiki-validation:
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/m2d2_wiki/val.npy
+        manosphere-validation:
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/manosphere/val.npy
+        mc4_en-validation:
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/mc4_en/val.npy
+        pile-validation:
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/pile/val.npy
+        ptb-validation:
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/ptb/val.npy
+        twitterAEE-validation:
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
+        wikitext_103-validation:
+          - ${oc.env:EVAL_DATA_PATH}/perplexity/v2_small_gptneox20b/wikitext_103/val.npy
+
+  ##########################
+  # Downstream evaluations #
+  ##########################
+  - label: piqa
+    type: downstream
+
+  - label: hellaswag
+    type: downstream
+
+  - label: winogrande
+    type: downstream
+
+  - label: openbook_qa
+    type: downstream
+
+  - label: boolq
+    type: downstream
+ 
+  - label: sciq
+    type: downstream
+
+  - label: arc_easy
+    type: downstream
+
+  - label: arc_challenge
+    type: downstream
+
+  - label: copa
+    type: downstream
+
+  #- label: rte
+  #  type: downstream
+
+  #- label: commitment_bank
+  #  type: downstream
+
+  #- label: sst2
+  #  type: downstream
+
+  - label: commonsense_qa
+    type: downstream
+
+  - label: social_iqa
+    type: downstream
+
+  - label: basic_arithmetic
+    type: downstream
+
+  - label: mmlu_stem_var
+    type: downstream
+
+  - label: mmlu_humanities_var
+    type: downstream
+
+  - label: mmlu_social_sciences_var
+    type: downstream
+
+  - label: mmlu_other_var
+    type: downstream
+
+data:
+  # TODO: update these
+  paths: ${path.glob:${oc.env:DATA_PATH}/v1_5-sample/gpt-neox-20b-pii-special-longrunfix/*.npy}
+  pad_direction: right
+  num_workers: 0
+  drop_last: true
