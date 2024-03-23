@@ -69,6 +69,8 @@ class ICLMetric(Metric):
                 log_likelihood = (
                     torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum() / batch["cont_str_len"][idx]
                 )
+                if self.metric_type == "ce_loss":
+                    log_likelihood = -log_likelihood
             else:
                 raise ValueError(self.metric_type)
 
