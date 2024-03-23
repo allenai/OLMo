@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added support for Grouped Query Attention.
 - Added commonsense_qa and social_iqa downstream evaluation tasks
+- Added ce_loss metric, with TriviaQA and NaturalQuestions tasks
 
 ### Changed
 
