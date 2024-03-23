@@ -1332,7 +1332,7 @@ label_to_task_map = {
     "sst2": SST2,
     "commonsense_qa": CommonsenseQA,
     "social_iqa": SocialIQa,
-    "trivia_qa_web_ppl": TriviaQACELoss,
+    "trivia_qa_wiki_ppl": TriviaQACELoss,
     "natural_qs_open_ppl": NaturalQuestionsCELoss,
     "mmlu_stem_test": (MMLU, {"dataset_name": "stem", "split": "test"}),
     "mmlu_humanities_test": (MMLU, {"dataset_name": "humanities", "split": "test"}),
