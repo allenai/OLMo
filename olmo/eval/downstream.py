@@ -1293,7 +1293,7 @@ class NaturalQuestionsCELoss(ICLMultiChoiceTaskDataset):
 
     metric_type = "ce_loss"
 
-    def __init__(self, tokenizer, dataset_path="trivia_qa", dataset_name="rc.wikipedia.nocontext"):
+    def __init__(self, tokenizer, dataset_path="nq_open", dataset_name=None):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
