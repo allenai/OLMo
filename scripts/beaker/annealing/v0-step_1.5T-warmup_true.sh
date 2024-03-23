@@ -11,7 +11,7 @@ gantry run \
   --task-name v0-step_1.5T-warmup_true \
   --description v0-step_1.5T-warmup_true \
   --priority high \
-  --beaker-image olmo-torch2-gantry \
+  --beaker-image petew/olmo-torch2-gantry \
   --cluster ai2/pluto-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
