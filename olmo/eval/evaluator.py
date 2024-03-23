@@ -70,7 +70,7 @@ class Evaluator:
     ) -> None:
         if self.type == EvaluatorType.downstream:
             assert isinstance(self.eval_metric, ICLMetric)
-            self.eval_metric.update(batch, logits)  # type: ignore
+            self.eval_metric.update(batch, logits, ce_loss=ce_loss)  # type: ignore
         elif self.type == EvaluatorType.lm:
             # Metric(s) = cross entropy loss
             for metadata, instance_loss in zip(batch["metadata"], ce_loss):

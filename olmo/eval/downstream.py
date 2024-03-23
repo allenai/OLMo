@@ -19,7 +19,7 @@ class ICLMetric(Metric):
     full_state_update: bool = False
 
     def __init__(self, metric_type="acc") -> None:
-        """metric_type: f1, acc, len_norm, pmi_dc"""
+        """metric_type: f1, acc, len_norm, pmi_dc, ce_loss"""
         super().__init__(sync_on_compute=True)
 
         self.metric_type = metric_type
@@ -33,7 +33,7 @@ class ICLMetric(Metric):
         self.loglikelihoods = []
         self.labels = []
 
-    def update(self, batch: Dict[str, Any], lm_logits: torch.Tensor, dc_lm_logits=None):
+    def update(self, batch: Dict[str, Any], lm_logits: torch.Tensor, dc_lm_logits=None, ce_loss=None):
         lm_logits = F.log_softmax(lm_logits, dim=-1)
 
         if self.metric_type == "pmi_dc":
@@ -69,6 +69,8 @@ class ICLMetric(Metric):
                 log_likelihood = (
                     torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum() / batch["cont_str_len"][idx]
                 )
+            elif self.metric_type == "ce_loss":
+                log_likelihood = ce_loss[idx]
             else:
                 raise ValueError(self.metric_type)
 
@@ -123,8 +125,10 @@ class ICLMetric(Metric):
 
             if skip_document:
                 continue
-
-            correct.append(1.0 if torch.argmax(loglikelihoods).item() == label_dict[doc_id] else 0.0)
+            if self.metric_type == "ce_loss":
+                correct.append(loglikelihoods[0])  # Only one answer is scored
+            else:
+                correct.append(1.0 if torch.argmax(loglikelihoods).item() == label_dict[doc_id] else 0.0)
 
             if self.metric_type == "f1":
                 assert preds is not None
@@ -754,6 +758,17 @@ class ArcChallenge(ArcEasy):
         )
 
 
+class ArcEasyCELoss(ArcEasy):
+    """ArcEasyCELoss is ARCEasy using an alternate ce_loss metric"""
+
+    metric_type = "ce_loss"
+
+    def doc_to_continuations(self, doc):
+        # We only consider the correct answer for this metric
+        answer = doc["choices"]["text"][self.doc_to_label(doc)]
+        return [" " + answer]
+
+
 class BasicArithmetic(ArcEasy):
     """This is a basic arithmetic task follows the same prompt format as ArcEasy.
     Example:
@@ -1233,6 +1248,7 @@ label_to_task_map = {
     "boolq": BoolQ,
     "sciq": SciQ,
     "arc_easy": ArcEasy,
+    "arc_easy_ppl": ArcEasyCELoss,
     "arc_challenge": ArcChallenge,
     "basic_arithmetic": BasicArithmetic,
     "copa": COPA,
