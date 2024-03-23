@@ -768,6 +768,9 @@ class ArcEasyCELoss(ArcEasy):
         answer = doc["choices"]["text"][self.doc_to_label(doc)]
         return [" " + answer]
 
+    def doc_to_label(self, doc):
+        return 0
+
 
 class BasicArithmetic(ArcEasy):
     """This is a basic arithmetic task follows the same prompt format as ArcEasy.
@@ -1240,6 +1243,77 @@ class MMLU(ICLMultiChoiceTaskDataset):
         return "Answer:"
 
 
+class TriviaQACELoss(ICLMultiChoiceTaskDataset):
+    """Sample TriviaQA entity with some fields suppressed. For CE Loss we only consider the "value"
+    field as the answer to score.
+
+    {
+        'question': 'Which Lloyd Webber musical premiered in the US on 10th December 1993?',
+        'question_id': 'tc_33',
+        'answer': {
+            'aliases': ['Sunset Blvd', ...],
+            'normalized_aliases': ['sunset boulevard', ...],
+            'normalized_value': 'sunset boulevard',
+            'value': 'Sunset Boulevard'
+        }
+    }
+    """
+
+    metric_type = "ce_loss"
+
+    def __init__(self, tokenizer, dataset_path="trivia_qa", dataset_name="rc.wikipedia.nocontext"):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+    def doc_to_text(self, doc):
+        return "\nQuestion: " + doc["question"] + "\nAnswer:"
+
+    def doc_to_continuations(self, doc):
+        return [" " + doc["answer"]["value"]]
+
+    def doc_to_label(self, doc):
+        return 0
+
+    def doc_to_domain_conditional(self, doc):
+        del doc
+        return "Answer:"
+
+
+class NaturalQuestionsCELoss(ICLMultiChoiceTaskDataset):
+    """Sample NaturalQuestions entity. For CE Loss we only consider the first answer entry to score.
+
+    {
+        'question': 'when was the last time anyone was on the moon',
+        'answer': ['14 December 1972 UTC', 'December 1972']
+    }
+    """
+
+    metric_type = "ce_loss"
+
+    def __init__(self, tokenizer, dataset_path="trivia_qa", dataset_name="rc.wikipedia.nocontext"):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+    def doc_to_text(self, doc):
+        return "\nQuestion: " + doc["question"] + "\nAnswer:"
+
+    def doc_to_continuations(self, doc):
+        return [" " + doc["answer"][0]]
+
+    def doc_to_label(self, doc):
+        return 0
+
+    def doc_to_domain_conditional(self, doc):
+        del doc
+        return "Answer:"
+
+
 label_to_task_map = {
     "piqa": PIQA,
     "hellaswag": HellaSwag,
@@ -1258,6 +1332,8 @@ label_to_task_map = {
     "sst2": SST2,
     "commonsense_qa": CommonsenseQA,
     "social_iqa": SocialIQa,
+    "trivia_qa_web_ppl": TriviaQACELoss,
+    "natural_qs_open_ppl": NaturalQuestionsCELoss,
     "mmlu_stem_test": (MMLU, {"dataset_name": "stem", "split": "test"}),
     "mmlu_humanities_test": (MMLU, {"dataset_name": "humanities", "split": "test"}),
     "mmlu_social_sciences_test": (MMLU, {"dataset_name": "social_sciences", "split": "test"}),
