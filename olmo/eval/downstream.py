@@ -33,7 +33,7 @@ class ICLMetric(Metric):
         self.loglikelihoods = []
         self.labels = []
 
-    def update(self, batch: Dict[str, Any], lm_logits: torch.Tensor, dc_lm_logits=None, ce_loss=None):
+    def update(self, batch: Dict[str, Any], lm_logits: torch.Tensor, dc_lm_logits=None):
         lm_logits = F.log_softmax(lm_logits, dim=-1)
 
         if self.metric_type == "pmi_dc":
@@ -65,12 +65,10 @@ class ICLMetric(Metric):
             elif self.metric_type == "acc" or self.metric_type == "f1":
                 # gather log-probs at continuation token indices
                 log_likelihood = torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum()
-            elif self.metric_type == "len_norm":
+            elif self.metric_type == "len_norm" or self.metric_type == "ce_loss":
                 log_likelihood = (
                     torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum() / batch["cont_str_len"][idx]
                 )
-            elif self.metric_type == "ce_loss":
-                log_likelihood = ce_loss[idx]
             else:
                 raise ValueError(self.metric_type)
 
