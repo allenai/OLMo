@@ -1,7 +1,7 @@
 name: final2-fix-allS-2048
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 env_variables:
-  CONFIG_PATH: configs/road-to-1_7/runs/final2-fix-allS-2048.yaml
+  CONFIG_PATH: configs/road-to-1_7/runs/final2-fix-allS.yaml
   # LOAD_PATH: "s3://ai2-llm/checkpoints/1b/final2-fix-allS-2048/final2-fix-allS-2048-42d28dd8/step6000"
 compute:
   gpus: 64
@@ -11,7 +11,7 @@ integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
     git_branch: soldni/dolma-v1.7
-    git_commit: 746a39081480834f2b37fdc29180c1b2169c3227
+    git_commit: 50a845e37478f2bccf03d77f0cc60143cad54c0a
     pip_install: -e '.[train]'
     ssh_clone: true
 command: |-
@@ -86,8 +86,8 @@ command: |-
       ${CONFIG_PATH} \
       --run_name="${FULL_RUN_NAME}" \
       --wandb.project="${WANDB_PROJECT}" \
-      --wandb.group="${WANDB_GROUP}" \
-      --wandb.name="${FULL_RUN_NAME}" \
+      --wandb.group="${WANDB_GROUP}-2048" \
+      --wandb.name="${FULL_RUN_NAME}-2048" \
       --time_limit="${TIME_LIMIT}" \
       --save_folder="${SAVE_FOLDER}" \
       --no_pre_train_checkpoint \
