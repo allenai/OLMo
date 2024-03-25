@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
-#SBATCH --time=11:30:00
+#SBATCH --time=12:00:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
@@ -79,17 +79,16 @@ srun \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
     python scripts/train.py $CONFIG_PATH \
       --run_name="${SLURM_JOB_ID}" \
-      --wandb.group="${RUN_NAME}-half-4096" \
+      --wandb.group="${RUN_NAME}-half-2048" \
       --wandb.project="olmo-small" \
       --time_limit=$((11 * 60 * 60)) \
-      --device_train_microbatch_size=4 \
+      --device_train_microbatch_size=8 \
       --optimizer.learning_rate=2.0e-4 \
-      --global_train_batch_size=512 \
+      --global_train_batch_size=1024 \
       --fsdp.sharding_strategy=FULL_SHARD \
       --fsdp.wrapping_strategy=by_block \
       --save_interval=1000 \
       --save_interval_ephemeral=1000000 \
       --save_interval_unsharded=5000 \
-      --model.max_sequence_length=4096 \
       $LOAD_PATH_ARG \
       ${@}

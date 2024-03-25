@@ -1,4 +1,4 @@
-name: final2-fix-allS-2048
+name: final2-fix-allS-4096
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 env_variables:
   CONFIG_PATH: configs/road-to-1_7/runs/final2-fix-allS.yaml
@@ -11,7 +11,7 @@ integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
     git_branch: soldni/dolma-v1.7
-    git_commit: 50a845e37478f2bccf03d77f0cc60143cad54c0a
+    git_commit: 719fbe5f56cb3e2521bce3888c6d0c334d50f7b2
     pip_install: -e '.[train]'
     ssh_clone: true
 command: |-
