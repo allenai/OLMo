@@ -49,7 +49,7 @@ command: |-
     --run_name=mitchish70-002 \
     --wandb.group=mitchish70-official \
     '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
-    --global_train_batch_size=768 \
+    --global_train_batch_size=1536 \
     --device_train_microbatch_size=3 \
     --time_limit=604800 \
     --save_overwrite
