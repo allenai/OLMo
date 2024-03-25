@@ -82,7 +82,7 @@ srun \
       --wandb.group="${RUN_NAME}-half-4096" \
       --wandb.project="olmo-small" \
       --time_limit=$((11 * 60 * 60)) \
-      --device_train_microbatch_size=4 \
+      --device_train_microbatch_size=2 \
       --optimizer.learning_rate=2.0e-4 \
       --global_train_batch_size=512 \
       --fsdp.sharding_strategy=FULL_SHARD \
