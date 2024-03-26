@@ -126,8 +126,15 @@ class OLMoForCausalLM(PreTrainedModel):
     # def get_position_embeddings(self) -> Union[nn.Embedding, Tuple[nn.Embedding]]:
     #     pass
     #
-    # def _reorder_cache(self, past_key_values, beam_idx):
-    #     pass
+
+    def _reorder_cache(self, past_key_values: Tuple[Tuple[torch.Tensor]], beam_idx: torch.Tensor
+    ) -> Tuple[Tuple[torch.Tensor]]:
+        reordered_past = ()
+        for layer_past in past_key_values:
+            reordered_past += (
+                tuple(past_state.index_select(0, beam_idx.to(past_state.device)) for past_state in layer_past),
+            )
+        return reordered_past
 
     def get_input_embeddings(self) -> torch.nn.Module:
         return self.model.transformer.wte
