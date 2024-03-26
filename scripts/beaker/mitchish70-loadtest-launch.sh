@@ -2,20 +2,16 @@
 
 set -ex
 
-CONFIG_PATH=configs/mitchish70-s3.yaml
 NUM_NODES=4
-RUN_NAME="mitchish70-001"
-ARGS="--run_name=${RUN_NAME} --device_train_microbatch_size=4"
 
 gantry run \
-  --allow-dirty \
-  --workspace ai2/llm-testing \
-  --task-name mitchish70 \
-  --description "OLMo large - 70B" \
+  --workspace ai2/dirkg \
+  --task-name mitchish70-loadtest \
+  --description "OLMo large - 70B - loadtest" \
   --priority high \
   --stop-preemptible \
-  --beaker-image olmo-torch2-gantry \
-  --cluster ai2/general-cirrascale-a100-80g-ib \
+  --beaker-image petew/olmo-torch2-gantry \
+  --cluster ai2/pluto-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
@@ -33,4 +29,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "torchrun --nnodes ${NUM_NODES}:${NUM_NODES} --nproc-per-node 8 --rdzv_id=101 --rdzv_backend=c10d --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 scripts/train.py ${CONFIG_PATH} ${ARGS}"
+  -- /bin/bash -c "scripts/beaker/mitchish70-loadtest.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES}"
