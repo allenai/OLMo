@@ -38,11 +38,13 @@ def main(
     else:
         raise NotImplementedError(sharded_checkpoint_type)
 
-    model_state_dict, optim_state_dict, trainer_state_dict = checkpointer.unshard_checkpoint(
+    model_state_dict, _, _ = checkpointer.unshard_checkpoint(
         input_dir,
-        load_optimizer_state=not model_only,
-        load_trainer_state=not model_only,
+        load_model_state=True,
+        load_optimizer_state=False,
+        load_trainer_state=False,
     )
+    assert model_state_dict is not None
 
     # model
     if safe_tensors:
@@ -53,10 +55,18 @@ def main(
         model_output = str(output_dir / "model.pt")
         logger.info("Saving model state to %s", model_output)
         torch.save(model_state_dict, model_output)
+
     del model_state_dict
 
     if not model_only:
+        _, optim_state_dict, trainer_state_dict = checkpointer.unshard_checkpoint(
+            input_dir,
+            load_model_state=False,
+            load_optimizer_state=True,
+            load_trainer_state=True,
+        )
         assert optim_state_dict is not None
+        assert trainer_state_dict is not None
 
         # optimizer
         if safe_tensors:
@@ -67,6 +77,7 @@ def main(
             optim_output = str(output_dir / "optim.pt")
             logger.info("Saving optimizer state to %s", optim_output)
             torch.save(optim_state_dict, optim_output)
+
         del optim_state_dict
 
         # trainer

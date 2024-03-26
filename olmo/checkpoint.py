@@ -511,16 +511,17 @@ class Checkpointer(metaclass=ABCMeta):
         load_path: PathOrStr,
         *,
         local_cache: Optional[PathOrStr] = None,
+        load_model_state: bool = True,
         load_optimizer_state: bool = True,
         load_trainer_state: bool = True,
         device: Optional[torch.device] = None,
-    ) -> Tuple[Dict[str, torch.Tensor], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    ) -> Tuple[Optional[Dict[str, torch.Tensor]], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """
         Unshard a checkpoint.
 
         Note this is not marked abstract because child classes are not required to implemented this.
         """
-        del load_path, local_cache, load_optimizer_state, load_trainer_state, device
+        del load_path, local_cache, load_model_state, load_optimizer_state, load_trainer_state, device
         raise NotImplementedError
 
     @contextmanager
@@ -943,16 +944,17 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
         load_path: PathOrStr,
         *,
         local_cache: Optional[PathOrStr] = None,
+        load_model_state: bool = True,
         load_optimizer_state: bool = True,
         load_trainer_state: bool = True,
         device: Optional[torch.device] = None,
-    ) -> Tuple[Dict[str, torch.Tensor], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    ) -> Tuple[Optional[Dict[str, torch.Tensor]], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
         assert local_cache is None, "this method currently only supports local files"
         full_state_dict = self._unshard(load_path, device or torch.device("cpu"), skip_keys={"rng"})
         model_state = full_state_dict.pop("model")
         optim_state = full_state_dict.pop("optim")
         return (
-            model_state,
+            model_state if load_model_state else None,
             optim_state if load_optimizer_state else None,
             full_state_dict if load_trainer_state else None,
         )
@@ -1496,10 +1498,11 @@ class LocalShardedCheckpointer(Checkpointer):
         load_path: PathOrStr,
         *,
         local_cache: Optional[PathOrStr] = None,
+        load_model_state: bool = True,
         load_optimizer_state: bool = True,
         load_trainer_state: bool = True,
         device: Optional[torch.device] = None,
-    ) -> Tuple[Dict[str, torch.Tensor], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    ) -> Tuple[Optional[Dict[str, torch.Tensor]], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
         device = device or torch.device("cpu")
         metadata = self._load_metadata(load_path, local_cache=local_cache)
 
@@ -1511,7 +1514,7 @@ class LocalShardedCheckpointer(Checkpointer):
 
         # Load model state dicts one-by-one, materializing and populating the full parameters as we go.
         log.info("Materializing full parameters...")
-        full_model_state: Dict[str, torch.Tensor] = {}
+        full_model_state: Optional[Dict[str, torch.Tensor]] = {} if load_model_state else None
         # We keep a copy of the flat param metadata minus the actual tensors so we can reconstruct
         # the full optimizer state below without having to reload the model state dicts.
         flat_params_data: Dict[int, Dict[str, _FlatParamShard]] = defaultdict(dict)
@@ -1519,27 +1522,29 @@ class LocalShardedCheckpointer(Checkpointer):
             log.info(f"Loading shards from rank {rank}...")
             model_state = torch.load(path, map_location="cpu")
             for root_fqn, flat_param_shard in self._iter_flat_param_shards(model_state):
-                if root_fqn not in full_model_state:
-                    log.info(
-                        f"Materializing full parameter '{root_fqn}' with shape {flat_param_shard.full_shape}..."
-                    )
-                    assert flat_param_shard.shard_data is not None
-                    full_model_state[root_fqn] = torch.empty(
-                        flat_param_shard.full_shape, dtype=flat_param_shard.shard_data.dtype, device=device
-                    )
-                    # Fill with NaNs so we can validate that the whole parameter has been populated
-                    # afterwards.
-                    full_model_state[root_fqn].fill_(torch.nan)
-                # Copy over the local shard to the relevant part of the full parameter.
-                full_param = full_model_state[root_fqn]
-                log.info(f"Loading rank {rank} shard for '{root_fqn}'...")
-                flat_param_shard.copy_into(full_param)
+                if full_model_state is not None:
+                    if root_fqn not in full_model_state:
+                        log.info(
+                            f"Materializing full parameter '{root_fqn}' with shape {flat_param_shard.full_shape}..."
+                        )
+                        assert flat_param_shard.shard_data is not None
+                        full_model_state[root_fqn] = torch.empty(
+                            flat_param_shard.full_shape, dtype=flat_param_shard.shard_data.dtype, device=device
+                        )
+                        # Fill with NaNs so we can validate that the whole parameter has been populated
+                        # afterwards.
+                        full_model_state[root_fqn].fill_(torch.nan)
+                    # Copy over the local shard to the relevant part of the full parameter.
+                    log.info(f"Loading rank {rank} shard for '{root_fqn}'...")
+                    full_param = full_model_state[root_fqn]
+                    flat_param_shard.copy_into(full_param)
                 flat_params_data[rank][root_fqn] = replace(flat_param_shard, shard_data=None)
 
         log.info("Validating full parameters...")
-        for key, tensor in full_model_state.items():
-            if torch.isnan(tensor).any():
-                raise ValueError(f"Parameter '{key}' contains NaNs, this is likely a bug with the unsharder")
+        if full_model_state is not None:
+            for key, tensor in full_model_state.items():
+                if torch.isnan(tensor).any():
+                    raise ValueError(f"Parameter '{key}' contains NaNs, this is likely a bug with the unsharder")
 
         trainer_state: Optional[Dict[str, Any]] = None
         if load_trainer_state:
