@@ -25,6 +25,9 @@ gantry run \
   --env-secret WANDB_API_KEY=WANDB_API_KEY \
   --env-secret AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID \
   --env-secret AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY \
+  --env-secret R2_ACCESS_KEY_ID=R2_ACCESS_KEY_ID \
+  --env-secret R2_SECRET_ACCESS_KEY=R2_SECRET_ACCESS_KEY \
+  --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
   --shared-memory 10GiB \
   --venv base \
   --yes \
