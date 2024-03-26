@@ -7,6 +7,7 @@ For example:
 python scripts/show_model_size.py train_config.yaml
 ```
 """
+
 import logging
 import sys
 
