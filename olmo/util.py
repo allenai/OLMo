@@ -330,6 +330,8 @@ def file_size(path: PathOrStr) -> int:
             return _gcs_file_size(parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme in ("s3", "r2"):
             return _s3_file_size(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
+        elif parsed.scheme in ("http", "https"):
+            return _http_file_size(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return file_size(str(path).replace("file://", "", 1))
         else:
@@ -364,10 +366,14 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
             return _s3_get_bytes_range(
                 parsed.scheme, parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes
             )
+        elif parsed.scheme in ("http", "https"):
+            return _http_get_bytes_range(
+                parsed.scheme, parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes
+            )
         elif parsed.scheme == "file":
             return get_bytes_range(str(source).replace("file://", "", 1), bytes_start, num_bytes)
         else:
-            raise NotImplementedError(f"file size not implemented for '{parsed.scheme}' files")
+            raise NotImplementedError(f"get bytes range not implemented for '{parsed.scheme}' files")
     else:
         with open(source, "rb") as f:
             f.seek(bytes_start)
@@ -602,6 +608,26 @@ def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Op
             latest_step = step
             latest_checkpoint = f"{scheme}://ai2-llm/{prefix}"
     return latest_checkpoint
+
+
+def _http_file_size(scheme: str, host_name: str, path: str) -> int:
+    import requests
+
+    response = requests.head(f"{scheme}://{host_name}/{path}", allow_redirects=True)
+    return int(response.headers.get("content-length"))
+
+
+def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: int, num_bytes: int) -> bytes:
+    import requests
+
+    response = requests.get(
+        f"{scheme}://{host_name}/{path}", headers={"Range": f"bytes={bytes_start}-{bytes_start+num_bytes-1}"}
+    )
+    result = response.content
+    assert (
+        len(result) == num_bytes
+    ), f"expected {num_bytes} bytes, got {len(result)}"  # Some web servers silently ignore range requests and send everything
+    return result
 
 
 def default_thread_count() -> int:
