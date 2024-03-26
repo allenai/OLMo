@@ -21,6 +21,7 @@ def main(
     output_dir: Union[str, Path],
     sharded_checkpoint_type: ShardedCheckpointerType = ShardedCheckpointerType.torch_legacy,
     model_only: bool = False,
+    optim_only: bool = False,
     safe_tensors: bool = False,
 ) -> None:
     if isinstance(input_dir, str):
@@ -38,25 +39,26 @@ def main(
     else:
         raise NotImplementedError(sharded_checkpoint_type)
 
-    model_state_dict, _, _ = checkpointer.unshard_checkpoint(
-        input_dir,
-        load_model_state=True,
-        load_optimizer_state=False,
-        load_trainer_state=False,
-    )
-    assert model_state_dict is not None
+    if not optim_only:
+        model_state_dict, _, _ = checkpointer.unshard_checkpoint(
+            input_dir,
+            load_model_state=True,
+            load_optimizer_state=False,
+            load_trainer_state=False,
+        )
+        assert model_state_dict is not None
 
-    # model
-    if safe_tensors:
-        model_output = str(output_dir / "model.safetensors")
-        logger.info("Saving model state to %s", model_output)
-        state_dict_to_safetensors_file(model_state_dict, model_output)
-    else:
-        model_output = str(output_dir / "model.pt")
-        logger.info("Saving model state to %s", model_output)
-        torch.save(model_state_dict, model_output)
+        # model
+        if safe_tensors:
+            model_output = str(output_dir / "model.safetensors")
+            logger.info("Saving model state to %s", model_output)
+            state_dict_to_safetensors_file(model_state_dict, model_output)
+        else:
+            model_output = str(output_dir / "model.pt")
+            logger.info("Saving model state to %s", model_output)
+            torch.save(model_state_dict, model_output)
 
-    del model_state_dict
+        del model_state_dict
 
     if not model_only:
         _, optim_state_dict, trainer_state_dict = checkpointer.unshard_checkpoint(
@@ -107,6 +109,10 @@ if __name__ == "__main__":
         action="store_true",
     )
     parser.add_argument(
+        "--optim-only",
+        action="store_true",
+    )
+    parser.add_argument(
         "--safe-tensors",
         action="store_true",
     )
@@ -118,5 +124,6 @@ if __name__ == "__main__":
         args.output_dir,
         sharded_checkpoint_type=args.type,
         model_only=args.model_only,
+        optim_only=args.optim_only,
         safe_tensors=args.safe_tensors,
     )
