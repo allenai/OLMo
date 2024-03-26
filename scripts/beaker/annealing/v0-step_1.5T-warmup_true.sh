@@ -3,7 +3,7 @@
 set -ex
 
 CONFIG_PATH=configs/annealing/v0-step_1.5T-warmup_true.yaml
-NUM_NODES=8
+NUM_NODES=6
 
 gantry run \
   --allow-dirty \
