@@ -1513,8 +1513,10 @@ class LocalShardedCheckpointer(Checkpointer):
         )
 
         # Load model state dicts one-by-one, materializing and populating the full parameters as we go.
-        log.info("Materializing full parameters...")
         full_model_state: Optional[Dict[str, torch.Tensor]] = {} if load_model_state else None
+        if full_model_state is not None:
+            log.info("Materializing full parameters...")
+
         # We keep a copy of the flat param metadata minus the actual tensors so we can reconstruct
         # the full optimizer state below without having to reload the model state dicts.
         flat_params_data: Dict[int, Dict[str, _FlatParamShard]] = defaultdict(dict)
@@ -1540,8 +1542,8 @@ class LocalShardedCheckpointer(Checkpointer):
                     flat_param_shard.copy_into(full_param)
                 flat_params_data[rank][root_fqn] = replace(flat_param_shard, shard_data=None)
 
-        log.info("Validating full parameters...")
         if full_model_state is not None:
+            log.info("Validating full parameters...")
             for key, tensor in full_model_state.items():
                 if torch.isnan(tensor).any():
                     raise ValueError(f"Parameter '{key}' contains NaNs, this is likely a bug with the unsharder")
