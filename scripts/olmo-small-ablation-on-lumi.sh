@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
-#SBATCH --time=48:00:00
+#SBATCH --time=12:00:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
@@ -28,7 +28,7 @@ else
   export CONFIG_PATH="${CONFIG_PATH}"
 fi
 
-export OLMO_CONTAINER=llm-lumi_latest.sif
+export OLMO_CONTAINER=llm-lumi-torch21_latest.sif
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
@@ -71,6 +71,8 @@ if [[ $WANDB_GROUP -eq "" ]]; then
   export WANDB_GROUP="${RUN_NAME}"
 fi
 
+export HF_DATASETS_OFFLINE=1
+
 # actually run the training script
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
@@ -90,5 +92,6 @@ srun \
       --wandb.project="${WANDB_PROJECT}" \
       --wandb.group="${WANDB_GROUP}" \
       --wandb.name="${RUN_NAME}_${SLURM_JOB_ID}" \
+      --time_limit=$((11.5 * 60 * 60)) \
       $LOAD_PATH_ARG \
       ${@}

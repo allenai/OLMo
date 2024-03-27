@@ -1,11 +1,10 @@
-run_name: lr-scheduling
+run_name: lr-cosine-anneal-warmup-resets
 seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-small
-  group: lr-scheduling
 
 model:
   d_model: 2048
