@@ -1,8 +1,12 @@
 name: olmo-70b
 image: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
+scheduling:
+  priority: auto
+  # preemptible: true  # means it can be retried
+  # max_retries: 3
 compute:
-  cluster: r9z3
-  gpus: 256
+  cluster: r15z1p1
+  gpus: 128
   gpu_type: h100_80gb
 integrations:
   - integration_type: git_repo
@@ -48,10 +52,15 @@ command: |-
   scripts/train.py configs/mitchish70-s3.yaml \
     --run_name=mitchish70-002 \
     --wandb.group=mitchish70-official \
-    '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
+    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step34700-unsharded \
     --global_train_batch_size=1536 \
     --device_train_microbatch_size=3 \
     --time_limit=604800 \
     --save_overwrite
 
 #    '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
+#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step32310 \
+#    --load_path_sharded_checkpointer=torch_new \
+#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step32050-unsharded \
+#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step32300-unsharded \
+#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step32300 \
