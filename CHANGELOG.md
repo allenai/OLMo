@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added support for Grouped Query Attention.
 - Added commonsense_qa and social_iqa downstream evaluation tasks
+- Added MMLU multiple choice (A/B/C/D) 5-shot variant downstream tasks
 
 ### Changed
 
@@ -26,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Don't log garbage on nodes that aren't rank 0
 - Don't crash in the HF code when we are referring to a tokenizer in a local file
+- Fixed the size calculation for qk layer norm
 
 ## [v0.2.5](https://github.com/allenai/OLMo/releases/tag/v0.2.5) - 2024-03-06
 
@@ -35,11 +37,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the option to directly pass input embeddings to `OLMo` and `OLMoForCausalLM`.
 - Added support for Python 3.8.
 - Added code to throw an error if `output_attentions` is set to `True` in forward call to `OLMoForCausalLM`. This functionality hasn't been implemented yet.
-- Fixed running with data loading workers on LUMI
+- Correct scheme displayed in error messages that come from R2
+- Fixed running with multiple data loading workers in LUMI
 - Minor bug fix: uninitialized prompts variable
 
 ### Added
 - Added `output_hidden_states` argument and associated functionality to `OLMo` and `OLMoForCausalLM` to return model intermediate hidden states.
+- Ability to read from R2 like we read from S3
 - Added MMLU downstream evaluation tasks, with prompt variations.
 - Added support for PyTorch v2.2.
 - Added ability to show logs from all ranks
