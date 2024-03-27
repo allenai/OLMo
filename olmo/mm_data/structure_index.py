@@ -59,10 +59,12 @@ class NullIndexer(Indexer):
     def get_indices(self, data_file, sizer, storage_config, index_file: str=None) -> Iterator:
         examples = read_data_file(data_file, 0, -1, storage_config, sizer)
         on = 0
-        data = np.rec.array(len(examples), dtype=DOC_INFO_DTYPE)
+        data = np.zeros(len(examples), dtype=DOC_INFO_DTYPE)
         for i, ex in enumerate(examples):
             data[i] = get_example_info(on, ex)
-            on += data[i].num_bytes + 2
+            on += data["num_bytes"][i]
+            if storage_config.document_end_token is not None:
+                on += 2
         return data
 
     def write_index(self, index_file, iterator):
@@ -103,8 +105,8 @@ class VectorizedIndexer(Indexer):
 
         # byte length of each example is derived from the other fields
         byte_lens = data["num_text_tokens"]*2
-        byte_lens += data["num_masks"]*4
-        byte_lens += data["num_images"]*image_byte_size
+        byte_lens += num_masks*4
+        byte_lens += num_images*image_byte_size
         out["num_bytes"] = byte_lens
 
         # start byte by doing a cumulative sum on the lengths starting at 0
@@ -119,6 +121,8 @@ class VectorizedIndexer(Indexer):
         image_sizes = image_sizes.astype(np.int32)  # Just in case the image size doesn't low/unsigned types
         num_images = data["num_images"].astype(np.int64)
         if np.any(num_images > 0):
+            if image_sizer is None:
+                raise ValueError("This dataset has images, so an ImageSizing function is required")
             image_tokens = image_sizer(image_sizes[:, 0], image_sizes[:, 1])
             image_segments = np.repeat(np.arange(len(num_images), dtype=np.int32), num_images)
             np.add.at(num_tokens, image_segments, image_tokens)
