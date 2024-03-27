@@ -2,7 +2,7 @@ name: olmo-7b
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 compute:
   cluster: r15z1p1
-  gpus: 64
+  gpus: 128
   gpu_type: h100_80gb
 integrations:
   - integration_type: git_repo
