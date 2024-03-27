@@ -50,6 +50,7 @@ scheduler:
   name: cosine_with_warmup
   t_warmup: 2000
   alpha_f: 0.1
+  t_restart: 25000
 
 tokenizer:
   identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
