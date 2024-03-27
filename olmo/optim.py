@@ -385,6 +385,11 @@ class CosWithWarmup(Scheduler):
 
     def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
         max_steps = max_steps if self.t_max is None else self.t_max
+
+        if self.t_restart is not None:
+            step = step % self.t_restart
+            max_steps = self.t_restart
+
         eta_min = initial_lr * self.alpha_f
         if step < self.warmup_steps:
             return self._linear_warmup(initial_lr, step, self.warmup_steps)
@@ -393,10 +398,7 @@ class CosWithWarmup(Scheduler):
         else:
             step = step - self.warmup_steps
             max_steps = max_steps - self.warmup_steps
-
-            steps_between_restarts = max_steps if self.t_restart is None else self.t_restart
-            steps_after_restart = step % steps_between_restarts
-            return eta_min + (initial_lr - eta_min) * (1 + cos(pi * steps_after_restart / steps_between_restarts)) / 2
+            return eta_min + (initial_lr - eta_min) * (1 + cos(pi * step / max_steps)) / 2
 
 
 @dataclass
