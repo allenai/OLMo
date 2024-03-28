@@ -189,6 +189,18 @@ evaluators:
   - label: mmlu_other_var
     type: downstream
 
+  - label: mmlu_stem_mc_5shot
+    type: downstream
+
+  - label: mmlu_humanities_mc_5shot
+    type: downstream
+
+  - label: mmlu_social_sciences_mc_5shot
+    type: downstream
+
+  - label: mmlu_other_mc_5shot
+    type: downstream
+
 data:
   pad_direction: right
   num_workers: 8
