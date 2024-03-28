@@ -211,10 +211,16 @@ class Trainer:
                 group["weight_decay"] = self.cfg.optimizer.weight_decay
 
         # RNG states.
-        if "rng" in state_dict:
+        if "rng" in state_dict and state_dict.get("world_size", get_world_size()) == get_world_size():
             log.info("Restoring RNG states...")
             rng_state = state_dict["rng"]
             self.restore_rng_state(rng_state)
+        else:
+            log.warning(
+                "Trainer will not restore RNG states since the RNG states in the checkpoint are missing or invalid. "
+                "This typically happens when restoring from an unsharded checkpoint or a checkpoint that was saved "
+                "with a different world size. If that's the case you can safely ignore this warning."
+            )
 
     def restore_rng_state(self, rng_state: Dict[str, Any]) -> None:
         random.setstate(rng_state["python"])
