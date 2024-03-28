@@ -71,6 +71,8 @@ if [[ $WANDB_GROUP -eq "" ]]; then
   export WANDB_GROUP="${RUN_NAME}"
 fi
 
+export HF_DATASETS_OFFLINE=1
+
 # actually run the training script
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
