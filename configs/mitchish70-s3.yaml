@@ -131,8 +131,8 @@ evaluators:
   ##########################
   # Downstream evaluations #
   ##########################
-  # - label: piqa
-  #   type: downstream
+  - label: piqa
+    type: downstream
 
   - label: hellaswag
     type: downstream
