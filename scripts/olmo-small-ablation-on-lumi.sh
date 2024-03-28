@@ -28,7 +28,7 @@ else
   export CONFIG_PATH="${CONFIG_PATH}"
 fi
 
-export OLMO_CONTAINER=llm-lumi_latest.sif
+export OLMO_CONTAINER=llm-lumi-torch21_latest.sif
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
@@ -62,7 +62,7 @@ fi
 
 # get W&B settings from the config file, then extract the project and group
 WANDB_SETTINGS=$(cat $CONFIG_PATH |  tr '\n' '\r' | grep -ohP "\rwandb:\r.*?\r\r"  | tr '\r' '\n')
-export WANDB_PROJECT=$(echo $WANDB_SETTINGS | grep -ohP "\w*project\:\s*\S+\s" | sed 's/project:\s*//')
+export WANDB_PROJECT=$(echo $WANDB_SETTINGS | grep -ohP "\w*project\:\s*\S+" | sed 's/project:\s*//')
 
 # check if W&B is provided; if not, use the run name as the project name
 # (the actual run rame with have slurm ID appended)
