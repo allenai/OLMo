@@ -398,7 +398,7 @@ class PIQA(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="piqa", dataset_name=None):
+    def __init__(self, tokenizer, dataset_path="piqa", dataset_name="plain_text"):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,

@@ -1,12 +1,8 @@
-name: olmo-70b
-image: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
-scheduling:
-  priority: auto
-  # preemptible: true  # means it can be retried
-  # max_retries: 3
+name: olmo-7b
+image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 compute:
   cluster: r15z1p1
-  gpus: 128
+  gpus: 256
   gpu_type: h100_80gb
 integrations:
   - integration_type: git_repo
@@ -49,19 +45,16 @@ command: |-
   --nnodes "$NUM_NODES" \
   --node_rank "$NODE_RANK" \
   --nproc_per_node 8 \
-  scripts/train.py configs/mitchish70-s3.yaml \
-    --run_name=mitchish70-002 \
-    --wandb.group=mitchish70-official \
+  scripts/train.py configs/mitchish7-s3.yaml \
+    --run_name=mitchish7 \
+    --wandb.group=mitchish7 \
+    --model.flash_attention=true \
+    --fsdp.wrapping_strategy=by_block_and_size \
+    --fsdp.sharding_strategy=SHARD_GRAD_OP \
+    --save_folder=runs/ \
+    --activation_checkpointing=fine_grained \
+    --fused_loss=true \
+    --device_train_microbatch_size=2 \
+    --global_train_batch_size=1024 \
     '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
-    --global_train_batch_size=1536 \
-    --device_train_microbatch_size=3 \
-    --time_limit=604800 \
     --save_overwrite
-
-#    '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
-#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step32310 \
-#    --load_path_sharded_checkpointer=torch_new \
-#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step32050-unsharded \
-#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step32300-unsharded \
-#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step32300 \
-#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step34700-unsharded \
