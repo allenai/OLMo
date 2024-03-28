@@ -2,7 +2,7 @@ name: olmo-7b
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 compute:
   cluster: r15z1p1
-  gpus: 32
+  gpus: 256
   gpu_type: h100_80gb
 integrations:
   - integration_type: git_repo
@@ -58,4 +58,4 @@ command: |-
     --global_train_batch_size=1024 \
     '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
     --save_overwrite \
-    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step51450-unsharded
+    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step52300-unsharded
