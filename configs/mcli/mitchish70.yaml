@@ -6,7 +6,7 @@ scheduling:
   # max_retries: 3
 compute:
   cluster: r15z1p1
-  gpus: 128
+  gpus: 256
   gpu_type: h100_80gb
 integrations:
   - integration_type: git_repo
@@ -29,6 +29,7 @@ command: |-
   # Make sure we have a recent flash-attn.
   # NOTE: only pinning flash-attn here to future proof it.
   pip install flash-attn==2.5.3 --no-build-isolation
+  pip install awscli
 
   # Show packages for debugging.
   pip freeze
@@ -40,6 +41,13 @@ command: |-
   curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" | tar -xzf -
   popd
   export HF_DATASETS_OFFLINE=1
+
+  #checkpoint=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step35750-unsharded
+  #mkdir /root/checkpoint-unsharded
+  #aws s3 cp ${checkpoint}/config.yaml /root/checkpoint-unsharded/
+  #aws s3 cp ${checkpoint}/train.pt /root/checkpoint-unsharded/
+  #aws s3 cp ${checkpoint}/model.safetensors /root/checkpoint-unsharded/
+  #aws s3 cp ${checkpoint}/optim.safetensors /root/checkpoint-unsharded/
 
   cd OLMo
 
@@ -65,3 +73,4 @@ command: |-
 #    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step32300-unsharded \
 #    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step32300 \
 #    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step34700-unsharded \
+#    --load_path=/root/checkpoint-unsharded \
