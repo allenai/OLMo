@@ -105,7 +105,7 @@ def cross_entropy_loss(
 
     z_squared = logits.logsumexp(-1).pow(2)
     if reduction == "mean":
-        z_squared = z_squared / (labels != ignore_index).mean()
+        z_squared = (z_squared * (labels != ignore_index)).mean()
     elif reduction == "sum":
         z_squared = (z_squared * (labels != ignore_index)).sum()
 
