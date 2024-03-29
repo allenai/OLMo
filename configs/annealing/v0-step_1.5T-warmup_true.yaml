@@ -57,7 +57,7 @@ tokenizer:
   identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
   truncate_direction: right
 
-save_folder: /runs
+save_folder: /runs # This was a mistake; should be /data
 save_overwrite: false
 remote_save_folder: s3://ai2-llm/checkpoints/davidw/annealing/${run_name}
 # Sharded checkpoints (best for restarts)
