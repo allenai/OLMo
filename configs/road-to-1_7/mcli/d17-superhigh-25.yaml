@@ -1,8 +1,8 @@
-name: d17-dd_dp_030-qc_001-v2-fix
+name: d17-superhigh-25
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 env_variables:
-  CONFIG_PATH: configs/road-to-1_7/runs/d17-dd_dp_030-qc_001-v2-fix.yaml
-  LOAD_PATH: "s3://ai2-llm/checkpoints/1b/d17-dd_dp_030-qc_001-v2-fix/d17-dd_dp_030-qc_001-v2-fix-47000ffa/step36000"
+  CONFIG_PATH: configs/road-to-1_7/runs/d17-superhigh-25.yaml
+  # LOAD_PATH: "s3://ai2-llm/checkpoints/1b/d17-dd_dp_030-qc_001-v2-fix/d17-dd_dp_030-qc_001-v2-fix-47000ffa/step36000"
 compute:
   gpus: 64
   cluster: r7z2
