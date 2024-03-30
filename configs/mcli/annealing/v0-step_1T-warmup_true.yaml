@@ -1,7 +1,7 @@
 name: v0-step_1T-warmup_true  # can't have "_" or "." here
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 compute:
-  gpus: 32
+  gpus: 64
   cluster: r15z1p1
   gpu_type: h100_80gb
 integrations:
