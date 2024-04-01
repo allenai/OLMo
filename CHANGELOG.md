@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for Grouped Query Attention.
 - Added commonsense_qa and social_iqa downstream evaluation tasks
 - Makes it possible to read from http/https the same way we read from s3/r2.
+- Added MMLU multiple choice (A/B/C/D) 5-shot variant downstream tasks
 
 ### Changed
 
