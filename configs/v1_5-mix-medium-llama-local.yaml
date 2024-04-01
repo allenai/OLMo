@@ -1,0 +1,189 @@
+run_name: v1_5-mix-medium-run-001
+seed: 6198
+dry_run: false
+
+wandb:
+  name: ${run_name}
+  project: olmo-medium
+  group: llama
+
+model:
+  d_model: 4096
+  n_heads: 32
+  n_layers: 32
+  mlp_hidden_size: 22016
+  rope: true
+  flash_attention: true
+  attention_dropout: 0.0
+  attention_layer_norm: false
+  multi_query_attention: false
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  bias_for_layer_norm: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 4096
+  vocab_size: 32000
+  embedding_size: 32000
+  eos_token_id: 0
+  pad_token_id: 1
+  init_device: meta
+  init_fn: normal
+  weight_tying: false
+
+fsdp:
+  precision: mixed
+  wrapping_strategy: by_block
+
+compile: null  # causes instability on AMD GPUs
+
+optimizer:
+  name: adamw
+  learning_rate: 3.0e-4
+  weight_decay: 0.1
+  decay_norm_and_bias: false
+  decay_embeddings: false
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 10
+
+scheduler:
+  name: cosine_with_warmup
+  t_warmup: 2000
+  alpha_f: 0.1
+
+data:
+  paths:
+   - /some/data/path
+  pad_direction: right
+  num_workers: 0
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 16
+  persistent_workers: true
+  timeout: 0
+
+tokenizer:
+  identifier: oobabooga/llama-tokenizer #tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
+  truncate_direction: right
+
+save_folder: results/${oc.env:SLURM_JOB_ID,${run_name}}
+save_overwrite: false
+# Sharded checkpoints (best for restarts)
+save_interval: 1000
+save_num_checkpoints_to_keep: -1
+# Unsharded checkpoints (for final storage)
+save_interval_unsharded: null  # getting errors on LUMI right now
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: null
+
+max_duration: 476837  # 2T tokens
+global_train_batch_size: 1024
+device_train_microbatch_size: 1
+
+# precision: fp32
+precision: amp_bf16
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: 1.5
+# max_grad_norm: null
+# max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 20
+
+eval_interval: ${save_interval}
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators:
+  ##########################
+  # Downstream evaluations #
+  ##########################
+  - label: piqa
+    type: downstream
+
+  - label: hellaswag
+    type: downstream
+
+  - label: winogrande
+    type: downstream
+
+#  - label: openbook_qa
+#    type: downstream
+#
+#  - label: boolq
+#    type: downstream
+#
+#  - label: sciq
+#    type: downstream
+#
+#  - label: arc_easy
+#    type: downstream
+#
+#  - label: arc_challenge
+#    type: downstream
+#
+#  - label: copa
+#    type: downstream
+
+  #- label: rte
+  #  type: downstream
+
+  #- label: commitment_bank
+  #  type: downstream
+
+  #- label: sst2
+  #  type: downstream
+
+#  - label: commonsense_qa
+#    type: downstream
+
+  - label: social_iqa
+    type: downstream
+
+#  - label: basic_arithmetic
+#    type: downstream
+
+#  - label: mmlu_stem_var
+#    type: downstream
+#
+#  - label: mmlu_humanities_var
+#    type: downstream
+#
+#  - label: mmlu_social_sciences_var
+#    type: downstream
+#
+#  - label: mmlu_other_var
+#    type: downstream
+#
+#  - label: mmlu_stem_mc_5shot_test
+#    type: downstream
+#
+#  - label: mmlu_humanities_mc_5shot_test
+#    type: downstream
+#
+#  - label: mmlu_social_sciences_mc_5shot_test
+#    type: downstream
+#
+#  - label: mmlu_other_mc_5shot_test
+#    type: downstream
+#
+#  - label: mmlu_stem_mc_5shot
+#    type: downstream
+#
+#  - label: mmlu_humanities_mc_5shot
+#    type: downstream
+#
+#  - label: mmlu_social_sciences_mc_5shot
+#    type: downstream
+#
+#  - label: mmlu_other_mc_5shot
+#    type: downstream
+
+
+
