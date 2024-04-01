@@ -1709,6 +1709,7 @@ class OlmoCoreCheckpointer(Checkpointer):
         log.info("Loading model and optim state...")
         load_model_and_optim_state(load_path, fsdp_model, optim if load_optimizer_state else None)
 
+        log.info("Loading trainer state...")
         trainer_state = load_state_dict(load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache)
 
         barrier()
