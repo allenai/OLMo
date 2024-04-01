@@ -1155,7 +1155,8 @@ class Trainer:
                         break
 
                     # Run generation 1 garbage collection.
-                    gc.collect(1)
+                    if self.global_step % self.cfg.gen1_gc_interval == 0:
+                        gc.collect(1)
 
                     # Python Profiler stuff
                     # We do this now, at the bottom of this loop, so we capture the work of getting the next batch.
