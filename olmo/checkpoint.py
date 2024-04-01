@@ -1674,7 +1674,7 @@ class OlmoCoreCheckpointer(Checkpointer):
         with self._temporary_wd(dir) as checkpoint_dir:
             log.info("Saving model and optim state...")
             save_model_and_optim_state(checkpoint_dir, fsdp_model, optim, save_overwrite=self.cfg.save_overwrite)
-            if upload_to is not None:
+            if upload_to is not None and get_fs_local_rank() == 0:
                 for path in Path(checkpoint_dir).glob("**/*"):
                     if not path.is_file():
                         continue
