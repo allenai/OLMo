@@ -4,9 +4,9 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 import torch
 
-from olmo import TrainConfig, Olmo
+from olmo import TrainConfig, OLMo
 from olmo.config import BlockType, FSDPWrapStrategy
-from olmo.model import OlmoBlock, OlmoGenerateOutput, OlmoOutput
+from olmo.model import OLMoBlock, OLMoGenerateOutput, OLMoOutput
 from olmo.optim import build_optimizer
 from olmo.util import prepare_cli_environment
 import transformers
@@ -37,7 +37,7 @@ UPDATE_OLMO_OUTPUT_WITH_HF: bool = True
 
 # model_path = "test_fixtures/tiny_llama/"
 model_path = "/home/yulingg/models/llama-7b"
-#m odel_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
+#model_path = '/net/nfs.cirrascale/allennlp/yizhongw/hf_llama2_models/7B'
 # model_path = '/Users/shanea/Documents/data/hf_llama2_models/7B'
 
 # for development
@@ -312,7 +312,7 @@ class ModuleOutputCollector():
                 if UPDATE_OLMO_OUTPUT_WITH_HF and tensor_name.startswith('olmo_'):
                     hf_tensor_name = tensor_name.replace('olmo_', 'hf_')
                     if tensor_value.dtype != self._module_forward_outputs_cache[hf_tensor_name].dtype:
-                        log.warning(f'Type mismatch in output hook. Llama {self._module_forward_outputs_cache[hf_tensor_name].dtype}, Olmo {tensor_value.dtype}')
+                        log.warning(f'Type mismatch in output hook. Llama {self._module_forward_outputs_cache[hf_tensor_name].dtype}, OLMo {tensor_value.dtype}')
                     with torch.no_grad():
                         tensor_value.copy_(self._module_forward_outputs_cache[hf_tensor_name].type_as(tensor_value))
 
@@ -400,7 +400,7 @@ def apply_fsdp(model: torch.nn.Module, cfg: TrainConfig):
             del nonwrapped_numel
             if recurse:
                 return True  # always recurse
-            result = isinstance(module, OlmoBlock) or hasattr(module, 'input_layernorm')
+            result = isinstance(module, OLMoBlock) or hasattr(module, 'input_layernorm')
             # if result:
             #     log.info('Wrapped module %s', module)
 
@@ -471,7 +471,7 @@ def build_hf_model(device: str):
 def build_olmo_model(hf_model, cfg, module_output_collector: ModuleOutputCollector, use_fsdp=False):
     # Make model
     log.info("Building model...")
-    olmo_model = Olmo(cfg.model)
+    olmo_model = OLMo(cfg.model)
     log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
 
@@ -699,7 +699,7 @@ def generate(model, tokenizer, input_str):
     tokens = tokenizer.encode(input_str, return_tensors="pt").to(device=non_meta_device(model.device))
     generated_ids = model.generate(tokens)
 
-    if isinstance(generated_ids, OlmoGenerateOutput):
+    if isinstance(generated_ids, OLMoGenerateOutput):
         generated_ids = generated_ids.token_ids
 
     token_ids = torch.flatten(generated_ids)
@@ -725,7 +725,7 @@ def hf_forward(hf_model: torch.nn.Module, batch: torch.Tensor, device_str: str, 
     return hf_model(batch.to(device))
 
 
-def olmo_forward(olmo_model: torch.nn.Module, batch: torch.Tensor, device_str: str, autocast_dtype: torch.dtype) -> OlmoOutput:
+def olmo_forward(olmo_model: torch.nn.Module, batch: torch.Tensor, device_str: str, autocast_dtype: torch.dtype) -> OLMoOutput:
     device = non_meta_device(device_str)
     if OLMO_USE_AUTOCAST:
         return model_autocast_forward(olmo_model, batch, device, autocast_dtype)
@@ -751,7 +751,7 @@ print_metrics(olmo_logits, hf_logits, "logits")
 torch.manual_seed(SEED)
 test_all_approx_close(olmo_logits.cpu().float(), hf_logits.cpu().float(), atol=1e-4, rtol=1e-3, count=10)
 if not torch.allclose(olmo_logits.cpu().float(), hf_logits.cpu().float(), atol=1e-4, rtol=1e-3):
-    log.error("Olmo and HF logits fail torch.allclose()")
+    log.error("OLMo and HF logits fail torch.allclose()")
 
 module_output_collector.check_models_output_equality(config.model.n_layers)
 
