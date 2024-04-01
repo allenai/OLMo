@@ -1678,7 +1678,7 @@ class OlmoCoreCheckpointer(Checkpointer):
                 for path in Path(checkpoint_dir).glob("**/*"):
                     if not path.is_file():
                         continue
-                    upload_target = f"{upload_to.rstrip('/')}/{path.name}"
+                    upload_target = f"{upload_to.rstrip('/')}/{path.relative_to(checkpoint_dir)}"
                     log.info(f"Uploading {path} to {upload_target}...")
                     upload(path, upload_target, save_overwrite=self.cfg.save_overwrite)
 
