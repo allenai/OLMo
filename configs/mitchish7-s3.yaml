@@ -67,7 +67,7 @@ save_folder: runs/${run_name}
 remote_save_folder: s3://ai2-llm/checkpoints/OLMo-medium/${run_name}
 save_overwrite: false
 
-save_interval: 50
+save_interval: 1000
 save_interval_ephemeral: null
 save_num_checkpoints_to_keep: -1
 sharded_checkpointer: olmo_core
