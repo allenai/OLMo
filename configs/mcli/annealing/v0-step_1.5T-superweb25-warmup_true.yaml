@@ -28,9 +28,12 @@ command: |-
   popd
   export HF_DATASETS_OFFLINE=1
 
+  apt-get update
+  apt-get install strace
+
   cd OLMo
   
-  LOGLEVEL=DEBUG torchrun \
+  LOGLEVEL=DEBUG strace torchrun \
   --master_addr $MASTER_ADDR \
   --master_port $MASTER_PORT \
   --nnodes $NUM_NODES \
