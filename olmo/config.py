@@ -692,6 +692,7 @@ class ShardedCheckpointerType(StrEnum):
     torch_new = "torch_new"
     torch_legacy = "torch_legacy"
     local = "local"
+    olmo_core = "olmo_core"
 
 
 class ActivationCheckpointingStrategy(StrEnum):
