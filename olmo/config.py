@@ -987,6 +987,12 @@ class TrainConfig(BaseConfig):
     How often to log to the console.
     """
 
+    gen1_gc_interval: Optional[int] = 1
+    """
+    How often (in steps) to run generation 1 garbage collection.
+    Set to ``None`` to use automatic garbage collection (i.e. we don't mess with it).
+    """
+
     compile: Optional[CompilerConfig] = None
     """
     Settings for compiling the model with ``torch.compile()``.
