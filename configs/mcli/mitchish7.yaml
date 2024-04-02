@@ -57,11 +57,11 @@ command: |-
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
+    --gen1_gc_interval=null \
     --save_folder=runs/ \
     --activation_checkpointing=null \
     --fused_loss=true \
     --device_train_microbatch_size=2 \
     --global_train_batch_size=1024 \
     '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
-    --save_overwrite \
-    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step160500-unsharded
+    --save_overwrite
