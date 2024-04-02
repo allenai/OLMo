@@ -1,14 +1,20 @@
 name: olmo-7b
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 compute:
-  cluster: r15z1p1
-  gpus: 128
+  cluster: r15z4
+  gpus: 512
   gpu_type: h100_80gb
+  instance: oci.bm.gpu.h100.8
 integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
     git_branch: train-olmo-large
     pip_install: -e .[train]
+    ssh_clone: true
+  - integration_type: git_repo
+    git_repo: allenai/OLMo-core
+    git_branch: main
+    pip_install: -e .
     ssh_clone: true
 env_variables:
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
@@ -52,10 +58,10 @@ command: |-
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
     --save_folder=runs/ \
-    --activation_checkpointing=fine_grained \
+    --activation_checkpointing=null \
     --fused_loss=true \
     --device_train_microbatch_size=2 \
     --global_train_batch_size=1024 \
     '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
     --save_overwrite \
-    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step73100-unsharded
+    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step160500-unsharded
