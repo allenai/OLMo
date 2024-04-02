@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple, Union
 
 import torch
 from transformers import PreTrainedModel
+from transformers.cache_utils import Cache
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.models.auto import AutoModelForCausalLM
 
@@ -60,6 +61,9 @@ class OLMoForCausalLM(PreTrainedModel):
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
+        cache_position: Optional[
+            Cache
+        ] = None,  # This is a hack mitigation of an issue in transformers `4.39.x` https://github.com/huggingface/transformers/issues/29426
     ) -> Union[Tuple, CausalLMOutputWithPast]:
         if use_cache is None:
             use_cache = self.config.use_cache
@@ -151,8 +155,18 @@ class OLMoForCausalLM(PreTrainedModel):
             self.model.transformer.ff_out = value
 
     def tie_weights(self):
-        if self.config.weight_tying:
-            self.model.transformer.ff_out = self.model.transformer.wte
+        """
+        This function is intentionally left as a no-op.
+
+        Weight tying is handled as follows:
+        - When the model is initialized, the `ff_out` layer is conditionally defined based on the `weight_tying` configuration.
+        See: `if not config.weight_tying: self.transformer.update(...)` in `olmo/model.py`.
+        - When computing logits, the `wte` weights are used directly if `weight_tying` is enabled.
+        See: `if self.config.weight_tying: logits = F.linear(x, self.transformer.wte.weight, None)` in the `forward` method.
+
+        Therefore, there is no need to explicitly tie the weights in this function.
+        """
+        pass
 
     def resize_token_embeddings(
         self, new_num_tokens: Optional[int] = None, pad_to_multiple_of: Optional[int] = None
