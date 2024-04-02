@@ -5,14 +5,20 @@ scheduling:
   # preemptible: true  # means it can be retried
   # max_retries: 3
 compute:
-  cluster: r15z1p1
-  gpus: 256
+  cluster: r15z4
+  gpus: 384
   gpu_type: h100_80gb
+  instance: oci.bm.gpu.h100.8
 integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
     git_branch: train-olmo-large
     pip_install: -e .[train]
+    ssh_clone: true
+  - integration_type: git_repo
+    git_repo: allenai/OLMo-core
+    git_branch: main
+    pip_install: -e .
     ssh_clone: true
 env_variables:
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
@@ -55,16 +61,20 @@ command: |-
     --run_name=mitchish70-002 \
     --wandb.group=mitchish70-official \
     '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
+    --load_path_sharded_checkpointer=olmo_core \
+    --sharded_checkpointer=olmo_core \
     --global_train_batch_size=1536 \
-    --device_train_microbatch_size=3 \
+    --device_train_microbatch_size=2 \
     --time_limit=604800 \
     --save_overwrite
 
 #    '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
-#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step32310 \
-#    --load_path_sharded_checkpointer=torch_new \
-#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step32050-unsharded \
-#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step32300-unsharded \
-#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step32300 \
-#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step34700-unsharded \
+#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step48950 \
+#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step49000 \
 #    --load_path=/root/checkpoint-unsharded \
+#
+#  gpus: 256
+#    --global_train_batch_size=1536 \
+#  gpus: 384
+#    --global_train_batch_size=1536 \
+#    --device_train_microbatch_size=2 \
