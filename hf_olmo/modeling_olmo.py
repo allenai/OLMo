@@ -152,8 +152,18 @@ class OLMoForCausalLM(PreTrainedModel):
             self.model.transformer.ff_out = value
 
     def tie_weights(self):
-        if self.config.weight_tying:
-            self.model.transformer.ff_out = self.model.transformer.wte
+        """
+        This function is intentionally left as a no-op.
+
+        Weight tying is handled as follows:
+        - When the model is initialized, the `ff_out` layer is conditionally defined based on the `weight_tying` configuration.
+        See: `if not config.weight_tying: self.transformer.update(...)` in `olmo/model.py`.
+        - When computing logits, the `wte` weights are used directly if `weight_tying` is enabled.
+        See: `if self.config.weight_tying: logits = F.linear(x, self.transformer.wte.weight, None)` in the `forward` method.
+
+        Therefore, there is no need to explicitly tie the weights in this function.
+        """
+        pass
 
 
 # Register the model so that it is available for transformer pipelines, auto-loading, etc.
