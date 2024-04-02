@@ -948,7 +948,8 @@ class Trainer:
         self._gc_init_state = gc.isenabled()  # cache if garbage collection is enabled, reset on close.
 
         # Disable automatic garbage collection, FSDP doesn't work well with it.
-        gc.disable()
+        if self.cfg.gen1_gc_interval is not None:
+            gc.disable()
 
         if self.cfg.load_path is not None and self.global_step > 0 and self.cfg.eval_on_load:
             eval_metrics = self.eval()
@@ -1155,7 +1156,8 @@ class Trainer:
                         break
 
                     # Run generation 1 garbage collection.
-                    gc.collect(1)
+                    if self.cfg.gen1_gc_interval is not None and self.global_step % self.cfg.gen1_gc_interval == 0:
+                        gc.collect(1)
 
                     # Python Profiler stuff
                     # We do this now, at the bottom of this loop, so we capture the work of getting the next batch.
