@@ -1474,7 +1474,7 @@ def _add_move_subparser(subparsers: _SubParsersAction):
     move_parser.add_argument(
         "--entry",
         default=None,
-        help="If provided, moving is restricted to this entry of the run.",
+        help="If provided, only the directory/file with this name within the run is moved. Example: 'step0-unsharded'.",
     )
 
 
