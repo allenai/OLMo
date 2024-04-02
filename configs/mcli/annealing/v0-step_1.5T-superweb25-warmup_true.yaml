@@ -2,8 +2,9 @@ name: v0-step_1.5T-superweb25-warmup_true
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 compute:
   gpus: 64
-  cluster: r15z1p1
+  cluster: r15z4
   gpu_type: h100_80gb
+  instance: oci.bm.gpu.h100.8
 integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
@@ -33,4 +34,9 @@ command: |-
   --nnodes $NUM_NODES \
   --node_rank $NODE_RANK \
   --nproc_per_node 8 \
-    scripts/train.py configs/annealing/v0-step_1.5T-superweb25-warmup_true.yaml --save_overwrite
+    scripts/train.py configs/annealing/v0-step_1.5T-superweb25-warmup_true.yaml \
+    --save_overwrite \
+    --load_path=s3://ai2-llm/checkpoints/davidw/annealing/v0-step_1.5T-superweb25-warmup_true/step3000-unsharded/ \
+    --reset_optimizer_state=false \
+    --reset_trainer_state=false \
+    --restore_dataloader=true
