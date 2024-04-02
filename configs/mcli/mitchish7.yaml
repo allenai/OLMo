@@ -57,7 +57,6 @@ command: |-
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
-    --gen1_gc_interval=null \
     --save_folder=runs/ \
     --activation_checkpointing=null \
     --fused_loss=true \
