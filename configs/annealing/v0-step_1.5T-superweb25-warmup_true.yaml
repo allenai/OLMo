@@ -57,7 +57,7 @@ tokenizer:
   identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
   truncate_direction: right
 
-save_folder: /runs # This was a mistake; should be /data
+save_folder: /data
 save_overwrite: false
 remote_save_folder: s3://ai2-llm/checkpoints/davidw/annealing/${run_name}
 # Sharded checkpoints (best for restarts)
@@ -67,9 +67,7 @@ save_num_checkpoints_to_keep: -1
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
-# restore_dataloader: false
-# NOTE(davidw) Restore dataloader since training broke in the middle.
-restore_dataloader: true
+restore_dataloader: false
 
 #load_path: r2://olmo-checkpoints/ai2-llm/olmo-medium/hrshlkzq/step119000-unsharded/  # 0.5T
 # load_path: r2://olmo-checkpoints/ai2-llm/olmo-medium/j18wauyq/step238000-unsharded/  # 1.0T
@@ -77,19 +75,11 @@ restore_dataloader: true
 #load_path: r2://olmo-checkpoints/ai2-llm/olmo-medium/xtruaap8/step477000-unsharded/  # 2.0T
 
 # R2 has weird permissions issues; use S3 instead.
-# Just point to my most recent checkpoint.
 load_path: s3://ai2-llm/checkpoints/davidw/olmo-medium/4xel5n7e/step358000-unsharded/  # 1.5T
 
-# NOTE(davidw) Job failed; restart from last available checkpoint
-# load_path: s3://ai2-llm/checkpoints/davidw/annealing/v0-step_1.5T-warmup_true/step1800
-
 no_pre_train_checkpoint: true
-# reset_optimizer_state: true        # These both are false when resetting..
-# reset_trainer_state: true
-
-# NOTE(davidw) Job failed; needed to restart from checkpoint.
-reset_optimizer_state: false
-reset_trainer_state: false
+reset_optimizer_state: true
+reset_trainer_state: true
 
 max_duration: 100e9T
 global_train_batch_size: 3072
