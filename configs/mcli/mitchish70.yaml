@@ -19,16 +19,10 @@ env_variables:
   OMP_NUM_THREADS: "8"
   LOG_FILTER_TYPE: local_rank0_only
 command: |-
-  # Install AWS CLI (for download unsharded checkpoints).
-  #apt-get update
-  #apt-get install zip unzip
-  #curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-  #unzip awscliv2.zip
-  #sudo ./aws/install
-
   # Make sure we have a recent flash-attn.
   # NOTE: only pinning flash-attn here to future proof it.
   pip install flash-attn==2.5.3 --no-build-isolation
+  # Install AWS CLI (for pre-downloading unsharded checkpoints).
   pip install awscli
 
   # Show packages for debugging.
