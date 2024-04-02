@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, Optional, Union
 
 import boto3
 import botocore.exceptions as boto_exceptions
+import datasets
 import rich
 from botocore.config import Config
 from rich.console import Console, ConsoleRenderable
@@ -31,7 +32,7 @@ from .exceptions import (
     OLMoNetworkError,
     OLMoThreadError,
 )
-from .torch_util import get_global_rank, get_local_rank, get_node_rank, is_distributed
+from .torch_util import barrier, get_fs_local_rank, get_global_rank, get_local_rank, get_node_rank, is_distributed
 
 try:
     from functools import cache
@@ -653,3 +654,34 @@ def roundrobin(*iterables):
             # Remove the iterator we just exhausted from the cycle.
             num_active -= 1
             nexts = cycle(islice(nexts, num_active))
+
+
+def load_hf_dataset(
+    path: str, name: Optional[str] = None, split: Optional[str] = None, trust_remote_code: bool = False
+):
+    """
+    Loads a dataset from Hugging Face. In a distributed setting, downloads the dataset once per
+    filesystem.
+    """
+    dataset = None
+    if get_fs_local_rank() == 0:
+        # Load dataset on just the FS rank 0 so that it gets cached in each FS
+        dataset = datasets.load_dataset(
+            path=path,
+            name=name,
+            split=split,
+            trust_remote_code=trust_remote_code,
+        )
+
+    barrier()
+
+    if dataset is None:
+        # This should load the dataset from the cache
+        dataset = datasets.load_dataset(
+            path=path,
+            name=name,
+            split=split,
+            trust_remote_code=trust_remote_code,
+        )
+
+    return dataset
