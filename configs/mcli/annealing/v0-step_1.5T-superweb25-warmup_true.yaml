@@ -30,7 +30,7 @@ command: |-
 
   cd OLMo
   
-  torchrun \
+  LOGLEVEL=DEBUG torchrun \
   --master_addr $MASTER_ADDR \
   --master_port $MASTER_PORT \
   --nnodes $NUM_NODES \
