@@ -28,8 +28,8 @@ command: |-
   popd
   export HF_DATASETS_OFFLINE=1
 
-  apt-get update
-  apt-get install strace
+  apt-get -y update
+  apt-get -y install strace
 
   cd OLMo
   
