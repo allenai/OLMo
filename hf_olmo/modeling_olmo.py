@@ -5,6 +5,7 @@ import torch
 from transformers import PreTrainedModel
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.models.auto import AutoModelForCausalLM
+from transformers.generation.utils import GenerateOutput
 
 from olmo.config import ModelConfig, ActivationCheckpointingStrategy
 from olmo.model import Olmo
@@ -92,7 +93,7 @@ class OLMoForCausalLM(PreTrainedModel):
 
         loss = None
 
-        if labels is None:
+        if labels is None and label_mask is not None:
             labels = self.get_labels(input_ids, label_mask, attention_mask)
 
         if labels is not None:
@@ -117,6 +118,33 @@ class OLMoForCausalLM(PreTrainedModel):
             past_key_values=outputs.attn_key_values,
             hidden_states=hidden_states,
         )
+
+    @torch.no_grad()
+    def generate(
+        self,
+        input_ids: torch.LongTensor = None,
+        image_patches: Optional[torch.Tensor] = None,
+        image_offsets: Optional[torch.Tensor] = None,
+        num_patches_per_image: Optional[torch.Tensor] = None,
+        image_sizes: Optional[torch.Tensor] = None,
+        **kwargs,
+    ) -> Union[GenerateOutput, torch.LongTensor]:
+        attention_mask = kwargs.pop("attention_mask", None)
+        
+        inputs_embeds = self.model.prepare_inputs_for_multimodal(
+            input_ids=input_ids,
+            past_key_values=None,
+            image_patches=image_patches,
+            image_offsets=image_offsets,
+            num_patches_per_image=num_patches_per_image,
+            image_sizes=image_sizes,
+        )
+
+        return super().generate(
+            attention_mask=attention_mask,
+            inputs_embeds=inputs_embeds,
+            **kwargs,
+        )
     
     def get_labels(self, input_ids: torch.LongTensor, label_mask: torch.BoolTensor, attention_mask: torch.Tensor):
         labels = input_ids.clone()
@@ -130,13 +158,15 @@ class OLMoForCausalLM(PreTrainedModel):
         return True
 
     def prepare_inputs_for_generation(
-        self, input_ids: torch.LongTensor, past_key_values: Optional[List[Tuple]] = None, **kwargs
+        self, input_ids: torch.LongTensor, past_key_values: Optional[List[Tuple]] = None, inputs_embeds=None, **kwargs
     ):
         if past_key_values:
             # This is because we want the model to only process the last generated token.
             input_ids = input_ids[:, -1:]
         model_inputs = {"input_ids": input_ids, "past_key_values": past_key_values}
 
+        if inputs_embeds is not None and past_key_values is None:
+            model_inputs = {"inputs_embeds": inputs_embeds}
         model_inputs.update(kwargs)
         model_inputs["use_cache"] = kwargs.pop("use_cache", self.config.use_cache)
         return model_inputs

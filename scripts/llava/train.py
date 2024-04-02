@@ -4,6 +4,7 @@ from dataclasses import dataclass, field, asdict
 import logging
 from pathlib import Path
 from typing import Dict, Optional, List
+import json
 import wandb
 
 import torch
@@ -13,6 +14,8 @@ import transformers
 from olmo.config import TrainConfig, ModelConfig, DataConfig
 from olmo.data import DataCollator
 from olmo.torch_util import barrier
+from olmo.exceptions import OlmoConfigurationError
+from olmo.util import log_extra_field, prepare_cli_environment, StrEnum
 from hf_olmo import *
 
 
@@ -95,7 +98,11 @@ def safe_save_model_for_hf_trainer(trainer: transformers.Trainer,
         trainer._save(output_dir, state_dict=cpu_state_dict)  # noqa
 
 
-def make_supervised_data_module(tokenizer: transformers.PreTrainedTokenizer, model_cfg: ModelConfig, data_cfg: DataConfig) -> Dict:
+def make_supervised_data_module(
+        tokenizer: transformers.PreTrainedTokenizer,
+        model_cfg: ModelConfig,
+        data_cfg: DataConfig,
+    ) -> Dict:
     """Make dataset and collator for supervised fine-tuning."""
     train_dataset = build_train_dataset(tokenizer, model_cfg, data_cfg)
     data_collator = DataCollator(data_cfg.pad_direction, model_cfg.pad_token_id)
@@ -111,6 +118,10 @@ def train():
     olmo_train_cfg.model.precision = olmo_train_cfg.precision
     olmo_model_cfg, olmo_data_cfg = olmo_train_cfg.model, olmo_train_cfg.data
 
+    if olmo_train_cfg.run_name is None:
+        raise OlmoConfigurationError("--run_name is required")
+    log_extra_field("run_name", olmo_train_cfg.run_name)
+
     local_rank = training_args.local_rank
     compute_dtype = olmo_train_cfg.autocast_precision
 
@@ -120,7 +131,10 @@ def train():
         torch_dtype=(torch.bfloat16 if compute_dtype == torch.bfloat16 else None),
     )
     model.config.use_cache = False
+    model.config.local_rank = local_rank
 
+    barrier()
+    
     """
     if training_args.gradient_checkpointing:
         if hasattr(model, "enable_input_require_grads"):
@@ -135,7 +149,14 @@ def train():
         model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
         model_max_length=olmo_model_cfg.max_sequence_length,
+        padding_side="right",
+        use_fast='vicuna' not in model_args.model_name_or_path,
     )
+
+    if 'vicuna' in model_args.model_name_or_path:
+        tokenizer.pad_token = tokenizer.unk_token
+    if tokenizer.bos_token is None:
+        tokenizer.bos_token = tokenizer.eos_token
 
     if model.get_vision_backbone() is None:
         model.get_model().initialize_vision_backbone(olmo_model_cfg)
@@ -143,10 +164,22 @@ def train():
         dtype=torch.bfloat16 if compute_dtype == torch.bfloat16 else torch.float16,
         device=training_args.device,
     )
+
+    barrier()
+    
+    model.config.vision_backbone = olmo_model_cfg.vision_backbone.asdict() if olmo_model_cfg.vision_backbone else None
+    model.config.resampler = olmo_model_cfg.resampler.asdict() if olmo_model_cfg.resampler else None
+    model.config.projector = olmo_model_cfg.projector.asdict() if olmo_model_cfg.projector else None
     model.config.tune_mm_adapter = training_args.tune_mm_adapter = model_args.tune_mm_adapter
+    model.config.conv_version = str(olmo_data_cfg.conv_version)
+    model.config.add_system_message = olmo_data_cfg.add_system_message
     if model_args.tune_mm_adapter:
         model.get_language_model().requires_grad_(False)
-    data_module = make_supervised_data_module(tokenizer, olmo_model_cfg, olmo_data_cfg)
+    data_module = make_supervised_data_module(
+        tokenizer,
+        olmo_model_cfg,
+        olmo_data_cfg,
+    )
 
     if isinstance(training_args.report_to, List):
         report_to_wandb = "wandb" in training_args.report_to

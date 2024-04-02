@@ -15,7 +15,7 @@
     "gradient_accumulation_steps": "auto",
     "zero_optimization": {
         "stage": 2,
-        "overlap_comm": true,
+        "overlap_comm": false,
         "contiguous_gradients": true,
         "sub_group_size": 1e9,
         "reduce_bucket_size": "auto"

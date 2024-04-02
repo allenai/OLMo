@@ -1,6 +1,8 @@
 from os.path import join
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import json
+from dataclasses import dataclass, field
+import copy
 
 import numpy as np
 from PIL import Image
@@ -13,6 +15,7 @@ from olmo.config import ModelConfig, DataConfig
 from olmo.data import build_image_preprocessor
 from olmo.mm_data.image_preprocessing import ImagePreprocessor
 from olmo.mm_data.preprocess import Masked, ImageFile
+from olmo.mm_data.conversation import DEFAULT_IMAGE_TOKEN, conv_templates
 
 
 class MMDataset(Dataset):
@@ -23,6 +26,8 @@ class MMDataset(Dataset):
         tokenizer: transformers.PreTrainedTokenizer,
         sequence_length: int,
         image_preprocessor: Optional[ImagePreprocessor] = None,
+        conv_version: str = "olmo_instruct",
+        add_system_message: bool = False,
     ):
         """
         data_path: Path to the dataset file
@@ -43,6 +48,10 @@ class MMDataset(Dataset):
 
         with open(data_path, 'r') as f:
             self.list_data_dict = json.load(f)
+        
+        self.conv_version = conv_version
+        self.conv_cfg = conv_templates[conv_version]
+        self.add_system_message = add_system_message
 
     def __len__(self):
         return len(self.list_data_dict)
@@ -51,12 +60,54 @@ class MMDataset(Dataset):
         conv = data_dict['conversations'][1]['value'].strip()
         if self.image_preprocessor:
             example = [
-                Masked(self.tokenizer.eos_token),
+                Masked(self.tokenizer.bos_token),
                 ImageFile(join(self.image_dir, data_dict['image'])),
                 conv + self.tokenizer.eos_token,
             ]
         else:
-            example = [Masked(self.tokenizer.eos_token), conv + self.tokenizer.eos_token]
+            example = [Masked(self.tokenizer.bos_token), conv + self.tokenizer.eos_token]
+        return example
+    
+    def parse_instruct_tune_data(self, data_dict):
+        roles = {"human": self.conv_cfg.roles[0], "gpt": self.conv_cfg.roles[1]}
+        seps = [self.conv_cfg.sep, self.conv_cfg.sep2]
+        conversations = copy.deepcopy(data_dict['conversations'])
+        example = []
+        if roles[conversations[0]["from"]] != self.conv_cfg.roles[0]:
+            # Skip the first one if it is not from human
+            conversations = conversations[1:]
+        assert len(conversations) % 2 == 0, "Conversations must be in pairs"
+        for i in range(0, len(conversations), 2):
+            if i == 0 and self.add_system_message:
+                start_token = self.tokenizer.bos_token + self.conv_cfg.system + seps[0]
+            elif i == 0:
+                start_token = self.tokenizer.bos_token
+            else:
+                start_token = ""
+            sentence1 = conversations[i]
+            sentence2 = conversations[i+1]
+            role1, role2 = roles[sentence1["from"]], roles[sentence2["from"]]
+            assert role1 == self.conv_cfg.roles[0], f"First role should be {self.conv_cfg.roles[0]}"
+            assert role2 == self.conv_cfg.roles[1], f"Second role should be {self.conv_cfg.roles[1]}"
+            value1 = sentence1["value"]
+            value2 = sentence2["value"]
+            if DEFAULT_IMAGE_TOKEN in value1:
+                value1 = value1.replace(DEFAULT_IMAGE_TOKEN, '')
+                example += [
+                    Masked(start_token + role1 + self.conv_cfg.role_sep),
+                    ImageFile(join(self.image_dir, data_dict['image'])),
+                    Masked(value1.strip() + seps[0] + role2 + self.conv_cfg.role_sep),
+                ]
+                if value2:
+                    example += [value2.strip() + seps[1]]
+            else:
+                example += [
+                    Masked(
+                        start_token + role1 + self.conv_cfg.role_sep + value1.strip() + seps[0] + role2 + self.conv_cfg.role_sep
+                    ),
+                ]
+                if value2:
+                    example += [value2.strip() + seps[1]]
         return example
 
     def preprocess(self, item):
@@ -75,7 +126,7 @@ class MMDataset(Dataset):
         if self.image_preprocessor:
             images = item.pop("images")
             offsets = item.pop("image_offsets")
-            sizes = item.pop("image_sizes", None)
+            use_image_size = 'anyres' in self.image_sizer.get_id()
             if images:
                 all_patches = []
                 all_patch_offsets = []
@@ -88,8 +139,15 @@ class MMDataset(Dataset):
                 item["image_patches"] = torch.cat(all_patches)
                 item["image_offsets"] = torch.cat(all_patch_offsets)
                 item["num_patches_per_image"] = torch.as_tensor(all_num_patches_per_image)
-                if sizes is not None:
-                    item["image_sizes"] = torch.as_tensor(sizes)
+                if use_image_size:
+                    item["image_sizes"] = torch.as_tensor(item.pop("image_sizes"))
+            else:
+                w, h = self.image_preprocessor.image_size
+                item["image_patches"] = torch.as_tensor(np.zeros((0, 3, h, w), dtype=np.float32))
+                item["image_offsets"] = torch.as_tensor(offsets)
+                item["num_patches_per_image"] = torch.as_tensor(np.zeros((0,), dtype=np.int32))
+                if use_image_size:
+                    item["image_sizes"] = torch.as_tensor(item.pop("image_sizes"))
         else:
             # text-only mode
             assert len(item["images"]) == 0
@@ -103,9 +161,12 @@ class MMDataset(Dataset):
     
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
         data_dict = self.list_data_dict[i]
-        # TODO: Implement parsing for visual instruction tuning data
-        example = self.parse_pretrain_data(data_dict)
-        indices = np.zeros(self.sequence_length, dtype=np.uint16)
+        # TODO: Implement grouping text-only/image-text examples.
+        if self.conv_version == "plain":
+            example = self.parse_pretrain_data(data_dict)
+        else:
+            example = self.parse_instruct_tune_data(data_dict)
+        indices = np.full(self.sequence_length, self.tokenizer.pad_token_id, dtype=np.uint16)
         mask = np.zeros(self.sequence_length, dtype=np.bool_)
         images = []
         sizes = None
@@ -116,7 +177,10 @@ class MMDataset(Dataset):
         total_tokens = 0
         prev_was_text = False
         is_masked = None
+        pass_chunks = 0
         for chunk in example:
+            if total_tokens >= self.sequence_length:
+                break
             if isinstance(chunk, (str, Masked)):
                 if isinstance(chunk, str):
                     if prev_was_text and not is_masked:
@@ -130,9 +194,6 @@ class MMDataset(Dataset):
                     text = chunk.text
                 if not text:
                     raise ValueError("Got empty text")
-                if prev_was_text and not text[0].isspace():
-                    raise ValueError("Text must start with a space, or be preceded by an image, "
-                                    "or start the document")
                 tokens = np.array(self.tokenizer.encode(text, add_special_tokens=False), np.uint16)
                 num_tokens = len(tokens)
                 token_end = min(total_tokens + num_tokens, self.sequence_length) - total_tokens
@@ -148,17 +209,18 @@ class MMDataset(Dataset):
                 if sizes is not None:
                     sizes.append(np.array(image.size), dtype=np.int32)
                 num_tokens = self.image_sizer(image.size[0], image.size[1])
-            total_tokens += num_tokens
+            total_tokens = min(total_tokens + num_tokens, self.sequence_length)
+            pass_chunks += 1
         
-        if not prev_was_text or is_masked:
-            raise ValueError("Document must end with a non-masked span")
+        # if not prev_was_text or ((pass_chunks == len(example)) and is_masked):
+        #     raise ValueError("Document must end with a non-masked span")
 
         total_tokens = min(total_tokens, self.sequence_length)
         item = dict(
             input_ids=indices[:total_tokens],
             label_mask=mask[:total_tokens],
             images=images,
-            image_offsets=np.asarray(offsets, np.int32) if offsets else np.zeros((0,), np.int32),
+            image_offsets=np.asarray(offsets, np.int32) if offsets else np.full((0,), -1, np.int32),
         )
         if sizes is not None:
             item["image_sizes"] = np.stack(sizes) if sizes else np.zeros((0, 2), np.int32)
@@ -169,7 +231,7 @@ class MMDataset(Dataset):
 def build_train_dataset(
     tokenizer: transformers.PreTrainedTokenizer,
     model_cfg: ModelConfig,
-    data_cfg: DataConfig
+    data_cfg: DataConfig,
 ) -> Dataset:
     if model_cfg.vision_backbone is not None:
         image_preprocessor = build_image_preprocessor(model_cfg)
@@ -182,4 +244,6 @@ def build_train_dataset(
         tokenizer=tokenizer,
         sequence_length=model_cfg.max_sequence_length,
         image_preprocessor=image_preprocessor,
+        conv_version=str(data_cfg.conv_version),
+        add_system_message=data_cfg.add_system_message,
     )

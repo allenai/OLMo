@@ -56,6 +56,10 @@ __all__ = [
     "CheckpointType",
     "ObjectStoreConfig",
     "TextDataConfig",
+    "DataSamplingConfig",
+    "SequenceBuilderKind",
+    "SequenceBuilderConfig",
+    "ConversationVersion",
 ]
 
 C = TypeVar("C", bound="BaseConfig")
@@ -250,7 +254,7 @@ class VisionPretrainedType(StrEnum):
 @dataclass
 class VisionBackboneConfig(BaseConfig):
     name: VisionBackboneType = VisionBackboneType.OpenAI_ViT_L_14_336
-    pretrained: VisionPretrainedType = VisionPretrainedType.openai
+    pretrained: Optional[VisionPretrainedType] = VisionPretrainedType.openai
     cache_dir: Optional[str] = None
     """
     The directory to cache the vision backbone model in.
@@ -264,6 +268,10 @@ class VisionBackboneConfig(BaseConfig):
     possible_resolutions: Optional[List[List[int]]] = None
     pad_image: bool = False
     frozen: bool = False
+    adapter_load_path: Optional[str] = None
+    """
+    Use this to partially load the image_newline embedding, projector and resampler.
+    """
 
 
 @dataclass
@@ -529,6 +537,7 @@ class OptimizerType(StrEnum):
 class OptimizerConfig(BaseConfig):
     name: OptimizerType = OptimizerType.lionw
     learning_rate: float = 1.0e-4
+    adapter_learning_rate: Optional[float] = None
     weight_decay: float = 0.01
     betas: Tuple[float, float] = (0.9, 0.95)
     eps: float = 1.0e-5
@@ -640,6 +649,12 @@ class SequenceBuilderConfig(BaseConfig):
     pool_size: Optional[int] = None
 
 
+class ConversationVersion(StrEnum):
+    plain = "plain"
+    olmo_instruct = "olmo_instruct"
+    vicuna_v1 = "vicuna_v1"
+
+
 @dataclass
 class DataConfig(BaseConfig):
     multi_modal: bool = False
@@ -660,6 +675,8 @@ class DataConfig(BaseConfig):
     return_segment_ids: bool = False
     thread_buffer_factor: Optional[float] = 1
     n_preprocessing_procs: Optional[int] = 1
+    conv_version: ConversationVersion = ConversationVersion.plain
+    add_system_message: bool = True
 
     # shared
     num_threads: Optional[int] = None
