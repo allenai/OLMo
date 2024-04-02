@@ -38,4 +38,5 @@ srun \
       --data.num_workers=4 \
       --device_train_microbatch_size=6 \
       --time_limit=$((167 * 60 * 60)) \
+      --model.flash_attention=true \
       ${@}

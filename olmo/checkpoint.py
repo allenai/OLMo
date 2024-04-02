@@ -3,6 +3,7 @@ import io
 import logging
 import pickle
 import shutil
+import traceback
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
@@ -46,10 +47,18 @@ from olmo import util
 
 from .aliases import PathOrStr
 from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
+from .exceptions import OLMoCheckpointError
 from .optim import Optimizer, fix_optim_state_dict
 from .safetensors_util import safetensors_file_to_state_dict
-from .torch_util import barrier, get_fs_local_rank, get_global_rank, get_world_size
+from .torch_util import (
+    barrier,
+    gc_cuda,
+    get_fs_local_rank,
+    get_global_rank,
+    get_world_size,
+)
 from .util import (
+    _get_s3_client,
     default_thread_count,
     dir_is_empty,
     get_bytes_range,
@@ -188,7 +197,7 @@ def load_fsdp_model_and_optim_state(
             ),
         )
         del model_state
-        torch.cuda.empty_cache()
+        gc_cuda()
         load_fsdp_optim_state(fsdp_model, optim, optim_state["optim"])
 
 
@@ -209,7 +218,7 @@ def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[
             v = state[k]
             if isinstance(v, torch.Tensor):
                 state[k] = v.to(device="cpu")
-    torch.cuda.empty_cache()
+    gc_cuda()
     optim.load_state_dict(fix_optim_state_dict(optim, flattened_osd))
 
 
@@ -273,13 +282,17 @@ def load_state_dict(
 
     :raises FileNotFoundError: If ``fname`` doesn't exist in the ``checkpoint_dir`` or the local cache.
     """
+    if fname.endswith(".pt"):
+        # Try safetensors version first.
+        try:
+            path = resource_path(
+                str(checkpoint_dir).rstrip("/"), fname[:-2] + "safetensors", local_cache=local_cache
+            )
+            return safetensors_file_to_state_dict(path, map_location=map_location)
+        except FileNotFoundError:
+            pass
+
     path = resource_path(str(checkpoint_dir).rstrip("/"), fname, local_cache=local_cache)
-
-    if path.suffix == ".pt":
-        safetensors_path = path.with_suffix(".safetensors")
-        if safetensors_path.is_file():
-            return safetensors_file_to_state_dict(safetensors_path, map_location=map_location)
-
     return torch.load(path, map_location=map_location)
 
 
@@ -319,7 +332,10 @@ class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
             path,
             single_file_per_rank=single_file_per_rank,
             sync_files=sync_files,
-            thread_count=thread_count or default_thread_count(),
+            # NOTE: we default to 1 thread here instead of whatever `default_thread_count()`
+            # returns because uploading big checkpoint files with multiple threads causes
+            # boto3 to fail in weird ways.
+            thread_count=thread_count or 1,
             per_thread_copy_ahead=per_thread_copy_ahead,
         )
         self.upload_to = None if upload_to is None else upload_to.rstrip("/")
@@ -336,6 +352,12 @@ class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
             for write_result in fut.wait():
                 files_to_upload.add(write_result.storage_data.relative_path)
 
+            # Create the global S3 client up front to work around a threading issue in boto.
+            if self.upload_to.startswith("s3://"):
+                _get_s3_client("s3")
+            elif self.upload_to.startswith("r2://"):
+                _get_s3_client("r2")
+
             with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
                 futures = []
                 for fname in files_to_upload:
@@ -344,7 +366,13 @@ class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
                     log.info(f"Uploading {source} to {target}...")
                     futures.append(executor.submit(upload, source, target, save_overwrite=self.save_overwrite))
                 for f in as_completed(futures):
-                    f.result()
+                    try:
+                        f.result()
+                    except BaseException:
+                        # NOTE: we might get an error here that can't be pickled, which causes a different failure
+                        # later when PyTorch tries to reduce that error across ranks. So here we just make
+                        # sure we're raising a simple error type that can be pickled.
+                        raise OLMoCheckpointError(f"Original error:\n{traceback.format_exc()}")
         return fut
 
     def finish(self, metadata: Metadata, results: List[List[WriteResult]]) -> None:
@@ -386,13 +414,26 @@ class RemoteFileSystemReader(dist_cp.StorageReader):
         return (read_item, content)
 
     def read_data(self, plan: dist_cp.LoadPlan, planner: dist_cp.LoadPlanner) -> Future[None]:
+        # Create the global S3 client up front to work around a threading issue in boto.
+        if isinstance(self.path, str):
+            if self.path.startswith("s3://"):
+                _get_s3_client("s3")
+            elif self.path.startswith("r2://"):
+                _get_s3_client("r2")
+
         with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
             read_item_content_futures = []
             for read_item in plan.items:
                 read_item_content_futures.append(executor.submit(self._get_content_for_read, read_item))
             read_item_content_results = []
             for f in as_completed(read_item_content_futures):
-                read_item_content_results.append(f.result())
+                try:
+                    read_item_content_results.append(f.result())
+                except BaseException:
+                    # NOTE: we might get an error here that can't be pickled, which causes a different failure
+                    # later when PyTorch tries to reduce that error across ranks. So here we just make
+                    # sure we're raising a simple error type that can be pickled.
+                    raise OLMoCheckpointError(f"Original error:\n{traceback.format_exc()}")
 
         # Modified from `FileSystemReader.read_data()`
         for read_item, content in read_item_content_results:
@@ -1233,16 +1274,10 @@ class LocalShardedCheckpointer(Checkpointer):
     def _fsdp_handles(self, fsdp_model: FSDP) -> List[FlatParamHandle]:
         if version.parse(torch.__version__) < version.parse("2.1.0"):
             return fsdp_model._handles  # type: ignore
-        elif version.parse(torch.__version__) < version.parse("2.2.0"):
+        elif version.parse(torch.__version__) < version.parse("2.3.0"):
             # Handle could be None if the FSDP wrapper doesn't manage any parameters.
             if hasattr(fsdp_model, "_handle") and fsdp_model._handle is not None:
                 return [fsdp_model._handle]  # type: ignore
-            else:
-                return []
-        elif version.parse(torch.__version__) < version.parse("2.3.0"):
-            # Could be None if the FSDP wrapper doesn't manage any parameters.
-            if hasattr(fsdp_model, "_all_handles") and fsdp_model._all_handles is not None:
-                return fsdp_model._all_handles
             else:
                 return []
         else:
@@ -1345,11 +1380,13 @@ class LocalShardedCheckpointer(Checkpointer):
                 save_overwrite=self.cfg.save_overwrite,
             )
 
-            # Save config.
-            self._save_config(checkpoint_dir, upload_to=upload_to)
-
             # Save metadata.
             self._save_metadata(checkpoint_dir, upload_to=upload_to)
+
+            # Save config. We do this last b/c the presence of a config in a remote checkpoint
+            # "directory" indicates that the folder is valid, as a opposed to a partially
+            # uploaded checkpoint directory that failed before completing.
+            self._save_config(checkpoint_dir, upload_to=upload_to)
 
     def restore_checkpoint(
         self,
@@ -1620,6 +1657,65 @@ class LocalShardedCheckpointer(Checkpointer):
         return [results[rank] for rank in range(world_size)]
 
 
+class OlmoCoreCheckpointer(Checkpointer):
+    def save_checkpoint(
+        self,
+        dir: PathOrStr,
+        fsdp_model: FSDP,
+        optim: Optimizer,
+        trainer_state: Dict[str, Any],
+        *,
+        upload_to: Optional[str] = None,
+    ) -> None:
+        from olmo_core.distributed.checkpoint import (  # type: ignore
+            save_model_and_optim_state,
+        )
+
+        with self._temporary_wd(dir) as checkpoint_dir:
+            log.info("Saving model and optim state...")
+            save_model_and_optim_state(checkpoint_dir, fsdp_model, optim, save_overwrite=self.cfg.save_overwrite)
+            if upload_to is not None and get_fs_local_rank() == 0:
+                for path in Path(checkpoint_dir).glob("**/*"):
+                    if not path.is_file():
+                        continue
+                    upload_target = f"{upload_to.rstrip('/')}/{path.relative_to(checkpoint_dir)}"
+                    log.info(f"Uploading {path} to {upload_target}...")
+                    upload(path, upload_target, save_overwrite=self.cfg.save_overwrite)
+
+            log.info("Saving trainer state...")
+            save_state_dict(
+                checkpoint_dir,
+                f"train/rank{get_global_rank()}.pt",
+                trainer_state,
+                save_overwrite=self.cfg.save_overwrite,
+                upload_to=upload_to,
+            )
+
+            self._save_config(checkpoint_dir, upload_to=upload_to)
+
+    def restore_checkpoint(
+        self,
+        load_path: PathOrStr,
+        fsdp_model: FSDP,
+        optim: Optimizer,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+        load_optimizer_state: bool = True,
+    ) -> Dict[str, Any]:
+        from olmo_core.distributed.checkpoint import (  # type: ignore
+            load_model_and_optim_state,
+        )
+
+        log.info("Loading model and optim state...")
+        load_model_and_optim_state(load_path, fsdp_model, optim if load_optimizer_state else None)
+
+        log.info("Loading trainer state...")
+        trainer_state = load_state_dict(load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache)
+
+        barrier()
+        return trainer_state
+
+
 def build_sharded_checkpointer(
     cfg: TrainConfig, *, name: Optional[ShardedCheckpointerType] = None
 ) -> Checkpointer:
@@ -1630,5 +1726,7 @@ def build_sharded_checkpointer(
         return TorchLegacyShardedCheckpointer(cfg)
     elif name == ShardedCheckpointerType.local:
         return LocalShardedCheckpointer(cfg)
+    elif name == ShardedCheckpointerType.olmo_core:
+        return OlmoCoreCheckpointer(cfg)
     else:
         raise NotImplementedError(name)

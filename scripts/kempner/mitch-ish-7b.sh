@@ -49,4 +49,5 @@ srun \
       --scheduler.t_max=558223 \
       --stop_at=558223 \
       --time_limit=$((167 * 60 * 60)) \
+      --model.flash_attention=true \
       "--save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/"

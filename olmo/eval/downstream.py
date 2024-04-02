@@ -165,7 +165,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         self.model_ctx_len = model_ctx_len
         self.prompts = prompts
         self.current_prompt = None
-        self.log_instances = 5  # Log the first few instances as a sanity check
+        self.log_instances = 0  # Set to > 0 to log the first few instances as a sanity check
 
         self.samples: List[Dict[str, Any]] = []
         dataset_names: Sequence[Optional[str]]
@@ -589,7 +589,7 @@ class OpenBookQA(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="openbookqa", dataset_name=None):
+    def __init__(self, tokenizer, dataset_path="openbookqa", dataset_name="main"):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -752,6 +752,85 @@ class ArcChallenge(ArcEasy):
             dataset_path=dataset_path,
             dataset_name=dataset_name,
         )
+
+
+class BasicArithmetic(ArcEasy):
+    """This is a basic arithmetic task follows the same prompt format as ArcEasy.
+    Example:
+    {"id": "q85_1d1d_max1d_plus",
+    "question": "Calculate 2 + 5 =",
+    "choices": {"text": ["8", "7", "6", "17"],
+    "label": ["A", "B", "C", "D"]},
+    "answerKey": "B", "type_tag": "easy"}
+
+    """
+
+    metric_type = "acc"
+
+    def __init__(self, tokenizer, dataset_path="allenai/basic_arithmetic", dataset_name=None):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+
+class CommonsenseQA(ArcEasy):
+    """CommonsenseQA
+    Example:
+    {'id': 'e68fb2448fd74e402aae9982aa76e527',
+    'question': 'Where are  you likely to find a hamburger?',
+    'question_concept': 'hamburger',
+    'choices': {'label': ['A', 'B', 'C', 'D', 'E'],
+    'text': ['fast food restaurant', 'pizza', 'ground up dead cows', 'mouth', 'cow carcus']},
+    'answerKey': 'A'}
+    """
+
+    metric_type = "len_norm"
+
+    def __init__(self, tokenizer, dataset_path="tau/commonsense_qa", dataset_name=None):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+
+class SocialIQa(ICLMultiChoiceTaskDataset):
+    """SocialIQa
+    Example:
+    {'context': 'Jordan was in charge of taking the food on the camping trip and left all the food at home.',
+     'question': 'How would Jordan feel afterwards?',
+     'answerA': 'horrible that he let his friends down on the camping trip',
+     'answerB': "happy that he doesn't need to do the cooking on the trip",
+     'answerC': 'very proud and accomplished about the camping trip', 'label': '1'}
+    """
+
+    metric_type = "len_norm"
+
+    def __init__(self, tokenizer, dataset_path="social_i_qa", dataset_name=None):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+    def doc_to_text(self, doc):
+        return "Question: " + doc["context"] + " " + doc["question"] + "\nAnswer:"
+
+    def doc_to_continuations(self, doc):
+        # add spaces in front of continuation
+        return [
+            " " + doc["answerA"],
+            " " + doc["answerB"],
+            " " + doc["answerC"],
+        ]
+
+    def doc_to_label(self, doc):
+        return int(doc["label"]) - 1
+
+    def doc_to_domain_conditional(self, doc):
+        return "Answer:"
 
 
 class COPA(ICLMultiChoiceTaskDataset):
@@ -1084,6 +1163,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
         dataset_name=None,
         split="validation",
         prompt_variations=None,
+        mc_labels=False,
     ):
         dataset_names = []
         # Collect the relevant categories
@@ -1099,8 +1179,15 @@ class MMLU(ICLMultiChoiceTaskDataset):
                 if dataset_name in cats:
                     dataset_names.append(name)
         self.dev_set = {}
-        if prompt_variations == 1:
-            prompts = [None, "inst", "inst+1", "inst+2", "inst+3", "inst+4", "inst+5"]
+        self.mc_labels = mc_labels
+        prompts: List[Union[None, str]] = [None]
+        if prompt_variations is not None:
+            if prompt_variations == 1:
+                prompts = [None, "inst", "inst+1", "inst+2", "inst+3", "inst+4", "inst+5"]
+            elif prompt_variations == 2:
+                prompts = ["inst+5"]
+            else:
+                raise ValueError(f"Unknown prompt variations: {prompt_variations}")
             # Need to grab the dev set for the few-shot prompts
             for name in dataset_names:
                 self.dev_set[name] = datasets.load_dataset(
@@ -1115,7 +1202,20 @@ class MMLU(ICLMultiChoiceTaskDataset):
         )
 
     def doc_to_text(self, doc):
-        output_text = "Question: " + doc["question"] + "\nAnswer:"
+        def format_example(doc, keys):
+            question_prefix = ""
+            if not self.mc_labels:
+                question_prefix = "Question: "  # To make context more clear
+            question = question_prefix + doc["question"].strip()
+            choices = ""
+            if self.mc_labels:
+                choices = "".join([f"{key}. {choice}\n" for key, choice in zip(keys, doc["choices"])])
+            prompt = f"{question}\n{choices}Answer:"
+            return prompt
+
+        keys = ["A", "B", "C", "D"]
+        output_text = format_example(doc, keys)
+
         if self.current_prompt is not None:
             prefix = ""
             if "inst" in self.current_prompt:
@@ -1128,13 +1228,18 @@ class MMLU(ICLMultiChoiceTaskDataset):
                 for idx, dev_doc in enumerate(dev_set):
                     if idx >= num_shots_int:
                         break
-                    answer = dev_doc["choices"][dev_doc["answer"]]
-                    prefix += "Question: " + dev_doc["question"] + "\nAnswer: " + answer + "\n\n"
+                    if self.mc_labels:
+                        answer = keys[dev_doc["answer"]]
+                    else:
+                        answer = dev_doc["choices"][dev_doc["answer"]]
+                    prefix += format_example(dev_doc, keys) + " " + answer + "\n\n"
             output_text = prefix + output_text
         return output_text
 
     def doc_to_continuations(self, doc):
         # add spaces in front of continuation
+        if self.mc_labels:
+            return [" A", " B", " C", " D"]
         return [" " + choice for choice in doc["choices"]]
 
     def doc_to_label(self, doc):
@@ -1154,11 +1259,14 @@ label_to_task_map = {
     "sciq": SciQ,
     "arc_easy": ArcEasy,
     "arc_challenge": ArcChallenge,
+    "basic_arithmetic": BasicArithmetic,
     "copa": COPA,
     "rte": RTE,
     "commitment_bank": CommitmentBank,
     "mrpc": MRPC,
     "sst2": SST2,
+    "commonsense_qa": CommonsenseQA,
+    "social_iqa": SocialIQa,
     "mmlu_stem_test": (MMLU, {"dataset_name": "stem", "split": "test"}),
     "mmlu_humanities_test": (MMLU, {"dataset_name": "humanities", "split": "test"}),
     "mmlu_social_sciences_test": (MMLU, {"dataset_name": "social_sciences", "split": "test"}),
@@ -1171,4 +1279,27 @@ label_to_task_map = {
     "mmlu_humanities_var": (MMLU, {"dataset_name": "humanities", "prompt_variations": 1}),
     "mmlu_social_sciences_var": (MMLU, {"dataset_name": "social_sciences", "prompt_variations": 1}),
     "mmlu_other_var": (MMLU, {"dataset_name": "other", "prompt_variations": 1}),
+    "mmlu_stem_mc_5shot": (MMLU, {"dataset_name": "stem", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_humanities_mc_5shot": (MMLU, {"dataset_name": "humanities", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_social_sciences_mc_5shot": (
+        MMLU,
+        {"dataset_name": "social_sciences", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_other_mc_5shot": (MMLU, {"dataset_name": "other", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_stem_mc_5shot_test": (
+        MMLU,
+        {"dataset_name": "stem", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_humanities_mc_5shot_test": (
+        MMLU,
+        {"dataset_name": "humanities", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_social_sciences_mc_5shot_test": (
+        MMLU,
+        {"dataset_name": "social_sciences", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_other_mc_5shot_test": (
+        MMLU,
+        {"dataset_name": "other", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
 }

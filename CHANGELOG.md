@@ -7,14 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Added support for Grouped Query Attention.
+- Added commonsense_qa and social_iqa downstream evaluation tasks
+- Added MMLU multiple choice (A/B/C/D) 5-shot variant downstream tasks
+
 ### Changed
 
 - Rename `Olmo` to `OLMo` everywhere in the codebase
+- Disabled automatic garbage collection during training, instead we run manually at regular intervals to avoid ranks getting out-of-sync with their own gc.
 
 ### Removed
 
 - Removed `AMDLayerNorm`, since the original layer norm bug has been fixed and we don't need this workaround anymore.
+- Removed `OLMoParallelBlock`.
 
+### Fixed
+
+- Don't log garbage on nodes that aren't rank 0
+- Don't crash in the HF code when we are referring to a tokenizer in a local file
+- Corrected the `resize_token_embeddings` method in the `OLMoForCausalLM` class to properly update the token embeddings when resizing the vocabulary.
+- Changed `tie_weights` method to a no-op as weight tying is handled in olmo/model.py
+- Fixed the size calculation for qk layer norm
+- Fixed pipeline test failure that occurs due to a bug in transformers version 4.39.1
 
 ## [v0.2.5](https://github.com/allenai/OLMo/releases/tag/v0.2.5) - 2024-03-06
 
@@ -24,14 +40,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the option to directly pass input embeddings to `OLMo` and `OLMoForCausalLM`.
 - Added support for Python 3.8.
 - Added code to throw an error if `output_attentions` is set to `True` in forward call to `OLMoForCausalLM`. This functionality hasn't been implemented yet.
-- Fixed running with data loading workers on LUMI
+- Correct scheme displayed in error messages that come from R2
+- Fixed running with multiple data loading workers in LUMI
+- Minor bug fix: uninitialized prompts variable
 
 ### Added
 - Added `output_hidden_states` argument and associated functionality to `OLMo` and `OLMoForCausalLM` to return model intermediate hidden states.
+- Ability to read from R2 like we read from S3
 - Added MMLU downstream evaluation tasks, with prompt variations.
 - Added support for PyTorch v2.2.
 - Added ability to show logs from all ranks
 - Added option for QKV clipping.
+- Added basic_arithmetic downstream evaluation task
 
 ### Changed
 

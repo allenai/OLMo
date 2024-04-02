@@ -45,13 +45,18 @@ RUN apt-get update
 RUN apt-get install google-cloud-cli
 
 # Install ROCm
-RUN wget http://repo.radeon.com/amdgpu-install/latest/ubuntu/jammy/amdgpu-install_5.5.50500-1_all.deb && \
-    apt-get install -y ./amdgpu-install_5.5.50500-1_all.deb && \
-    sed -i 's/@AMDGPUVER@/5.5/g' /etc/apt/sources.list.d/amdgpu-proprietary.list && \
-    amdgpu-install -y --accept-eula --usecase=rocm --no-dkms && \
-    rm ./amdgpu-install_5.5.50500-1_all.deb && \
-    apt-get install -y rccl rocm-libs
+RUN mkdir --parents --mode=0755 /etc/apt/keyrings && \
+    wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | gpg --dearmor | tee /etc/apt/keyrings/rocm.gpg > /dev/null && \
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/5.6/ubuntu jammy main" >> /etc/apt/sources.list.d/amdgpu.list && \
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/5.6 jammy main" >> /etc/apt/sources.list.d/rocm.list && \
+    echo 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' > /etc/apt/preferences.d/rocm-pin-600 && \
+    apt-get update && \
+    apt-get install -y rccl rccl-dev rocm-libs rocm-gdb rocm-dev rocm-developer-tools rocm-hip-runtime-dev rocm-utils rocm-hip-sdk && \
+    echo /opt/rocm/lib >> /etc/ld.so.conf.d/rocm.conf && \
+    echo /opt/rocm/lib64 >> /etc/ld.so.conf.d/rocm.conf && \
+    ldconfig
 ENV ROCM_HOME=/opt/rocm
+ENV ROCM_PATH=/opt/rocm
 
 # Install MPICH
 ENV MPICH_VERSION="3.1.4"
@@ -61,7 +66,8 @@ RUN cd /opt && \
     cd mpich-${MPICH_VERSION} && \
     ./configure --disable-fortran --enable-fast=all,O3 --prefix=/usr && \
     make -j install && \
-    ldconfig
+    ldconfig && \
+    rm /opt/mpich-3.1.4.tar.gz
 
 # Install aws-ofi-rccl
 RUN apt-get install -y libfabric-dev
@@ -77,7 +83,7 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # Install torch
 RUN pip install --upgrade pip
-RUN pip install --no-cache-dir torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/rocm5.4.2
+RUN pip install torch==2.1.1 torchvision==0.16.1 torchaudio==2.1.1 --index-url https://download.pytorch.org/whl/rocm5.6
 
 # Install DeepSpeed
 RUN pip install --no-cache-dir mpi4py
@@ -102,3 +108,9 @@ RUN apt-get autoremove
 RUN rm -rf /opt/mpich-3.1.4 /opt/aws-ofi-rccl /opt/DeepSpeed
 RUN apt-get clean
 RUN pip cache purge
+
+# Install flash attention (for MI200 series!)
+RUN cd /opt && \
+    git clone --recursive https://github.com/ROCm/flash-attention.git && \
+    cd flash-attention && \
+    GPU_ARCHS="gfx90a" pip install .

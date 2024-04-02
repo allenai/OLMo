@@ -29,7 +29,7 @@ base-image :
 	docker build -f docker/Dockerfile.base -t $(IMAGE_NAME_BASE)-base .
 
 .PHONY : gantry-image
-gantry-image : base-image
+gantry-image :
 	docker build -f docker/Dockerfile.gantry -t $(IMAGE_NAME_BASE)-gantry .
 	beaker image create $(IMAGE_NAME_BASE)-gantry --name $(IMAGE_NAME_BASE)-gantry-tmp --workspace $(BEAKER_WORKSPACE)
 	beaker image delete $(GANTRY_IMAGE) || true

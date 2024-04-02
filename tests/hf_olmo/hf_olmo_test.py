@@ -36,16 +36,6 @@ def test_auto_hf_classes(model_path: str):
             True, False, False, BlockType.sequential, False, False, torch.bfloat16, id="alibi-emb-cpu-bf16"
         ),
         pytest.param(
-            True,
-            False,
-            False,
-            BlockType.parallel,
-            False,
-            False,
-            torch.bfloat16,
-            id="alibi-emb-parallel-block-cpu-bf16",
-        ),
-        pytest.param(
             False, False, False, BlockType.sequential, False, False, torch.bfloat16, id="posit-emb-cpu-bf16"
         ),
         pytest.param(
@@ -67,20 +57,6 @@ def test_auto_hf_classes(model_path: str):
             True,
             torch.bfloat16,
             id="alibi-emb-cuda-bf16",
-            marks=(
-                pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
-            ),
-        ),
-        pytest.param(
-            True,
-            False,
-            False,
-            BlockType.parallel,
-            False,
-            True,
-            torch.bfloat16,
-            id="alibi-emb-parallel-block-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
@@ -144,16 +120,6 @@ def test_auto_hf_classes(model_path: str):
         ),
         pytest.param(
             False, False, False, BlockType.sequential, True, False, torch.float32, id="posit-emb-mqattn-cpu-f32"
-        ),
-        pytest.param(
-            False,
-            False,
-            False,
-            BlockType.parallel,
-            True,
-            False,
-            torch.float32,
-            id="posit-emb-parallel-block-mqattn-cpu-f32",
         ),
     ],
 )

@@ -38,4 +38,5 @@ srun \
       --device_train_microbatch_size=2 \
       --fsdp.sharding_strategy=NO_SHARD \
       --save_folder=/n/holyscratch01/kempner_lab/Lab/checkpoints/${SLURM_JOB_ID}/ \
+      --model.flash_attention=true \
       ${@}
