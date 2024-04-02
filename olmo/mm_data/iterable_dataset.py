@@ -12,8 +12,13 @@ from olmo.mm_data.image_preprocessing import ImagePreprocessor
 from olmo.mm_data.image_token_size import ImageTokenSizer
 from olmo.mm_data.object_store import ObjectStore
 from olmo.mm_data.sequence_index import SequenceIndex, get_idx_file
-from olmo.mm_data.data_iteration import IterationConfig, build_iteration_order
+from olmo.mm_data.data_iteration import IterationConfig, build_iteration_order, SequenceBuilderKind
 from olmo.torch_util import get_global_rank, get_world_size
+
+
+def get_causal_attention_bias(seq_len) -> torch.FloatTensor:
+    att_bias = torch.tril(torch.ones(seq_len, seq_len, dtype=torch.bool))
+    return att_bias  # type: ignore
 
 
 class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
@@ -55,6 +60,8 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         self.segment_ids = segment_ids
         self.seeds = seed
         self.start_index = start_index
+        if self.start_index > 0:
+            logging.info(f"Starting from index {self.start_index}")
         self.idx_dir = idx_dir
 
         if isinstance(data, list):
@@ -62,6 +69,10 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         elif isinstance(data, str):
             data = IterationConfig([data])
         self.iteration_config = data
+
+        if self.iteration_config.sequence_builder.kind != SequenceBuilderKind.one_document_per_sequence:
+            logging.info(f"For packing multiple images into a single sequence, we set semant_ids=True.")
+            self.segment_ids = True
 
         if image_preprocessor is None:
             self.image_sizer = None
@@ -129,7 +140,19 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             self._index = SequenceIndex(data)
 
     def __iter__(self):
-        global_end_sequence = self.total_size
+        global_end_sequence = self._index.num_sequences
+
+        # pad or truncate to get a number of sequences divisible by world size
+        # note we do not assume different shuffles have the same number of examples
+        remainder = global_end_sequence % self.world_size
+        if remainder:
+            if self.drop_last:
+                global_end_sequence -= remainder
+                if global_end_sequence == 0:
+                    raise ValueError("Entire dataset was dropped")
+            else:
+                global_end_sequence += (self.world_size - remainder)
+
         if self.max_examples:
             global_end_sequence = min(global_end_sequence, self.max_examples)
 
@@ -180,7 +203,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
                         futures[on] = None  # in case we raise StopIteration in the next statement
                         futures[on] = pool.submit(self.read, next(it))
                         on = (on + 1) % len(futures)
-                except StopIteration as e:
+                except:
                     for x in futures:
                         if x is not None:
                             yield x.result()
@@ -202,7 +225,7 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         if self.image_preprocessor:
             images = item.pop("images")
             offsets = item.pop("image_offsets")
-            sizes = item.pop("image_sizes", None)
+            use_image_size = 'anyres' in self.image_sizer.get_id()
             if images:
                 all_patches = []
                 all_patch_offsets = []
@@ -215,8 +238,15 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
                 item["image_patches"] = torch.cat(all_patches)
                 item["image_offsets"] = torch.cat(all_patch_offsets)
                 item["num_patches_per_image"] = torch.as_tensor(all_num_patches_per_image)
-                if sizes is not None:
-                    item["image_sizes"] = torch.as_tensor(sizes)
+                if use_image_size:
+                    item["image_sizes"] = torch.as_tensor(item.pop("image_sizes"))
+            else:
+                w, h = self.image_preprocessor.image_size
+                item["image_patches"] = torch.as_tensor(np.zeros((0, 3, h, w), dtype=np.float32))
+                item["image_offsets"] = torch.as_tensor(offsets)
+                item["num_patches_per_image"] = torch.as_tensor(np.zeros((0,), dtype=np.int32))
+                if use_image_size:
+                    item["image_sizes"] = torch.as_tensor(item.pop("image_sizes"))
         else:
             # text-only mode
             assert len(item["images"]) == 0
@@ -226,4 +256,15 @@ class MMIterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         # Convert to a torch-compatible dtype
         item["input_ids"] = torch.as_tensor(item["input_ids"].astype(np.int32))
         item["label_mask"] = torch.as_tensor(item["label_mask"]).to(dtype=torch.bool)
+        if self.segment_ids:
+            # Conver segment_ids to attention_bias
+            seq_len = len(item["input_ids"])
+            segment_ids = torch.as_tensor(item["segment_ids"].astype(np.int32))
+            attention_bias = segment_ids[:, None] == segment_ids[None, :]
+            # Disable attention on padding tokens
+            attention_bias = attention_bias & (segment_ids[:, None] != 0)
+            # Causal attention bias
+            causal_attention_bias = get_causal_attention_bias(seq_len)
+            attention_bias = attention_bias & causal_attention_bias
+            item["attention_bias"] = attention_bias.unsqueeze(0)
         return item

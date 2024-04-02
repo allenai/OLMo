@@ -12,9 +12,9 @@ fi
 
 
 # check if CONFIG PATH is provided as an environment variable;
-# if so, use that instead of olmo-small-ablation.yaml
+# if so, use that instead of default config file
 if [ -z ${CONFIG_PATH+x} ]; then
-  export CONFIG_PATH=configs/olmo-small-ablation.yaml
+  export CONFIG_PATH=configs/llava/pretrain/openai-vit-l-14-336-mlp2x_gelu-olmo-7b-instruct-hf-seq2048.yaml
 else
   export CONFIG_PATH="${CONFIG_PATH}"
 fi
@@ -46,16 +46,15 @@ NUM_NODES=1
 gantry run \
   --budget ai2/oe-training \
   --allow-dirty \
-  --workspace ${WORKSPACE} \
+  --workspace "${WORKSPACE}" \
   --task-name "${FULL_RUN_NAME}" \
   --description "${FULL_RUN_NAME}" \
   --priority "normal" \
   --beaker-image petew/olmo-torch2-gantry \
-  --cluster ai2/prior-cirrascale \
-  --cluster ai2/prior-elanding \
+  --cluster ai2/pluto-cirrascale \
   --gpus ${NUM_GPUS} \
   --no-nfs \
   --mount /net/nfs/prior:/net/nfs/prior \
   ${WANDB_API_KEY_ARG} \
   --venv base \
-  -- /bin/bash -c "torchrun --nproc-per-node ${NUM_GPUS} scripts/train.py ${CONFIG_PATH} --run_name=${FULL_RUN_NAME} ${LOAD_PATH_ARG} ${@}"
+  -- /bin/bash -c "DATA_DIR=${DATA_DIR} OUTPUT_DIR=${OUTPUT_DIR} WANDB_ENTITY=${WANDB_ENTITY} torchrun -m --nproc-per-node ${NUM_GPUS} scripts.train ${CONFIG_PATH} --run_name=${FULL_RUN_NAME} ${LOAD_PATH_ARG} ${@}"

@@ -1,4 +1,4 @@
-from typing import Dict, List, Union
+from typing import Dict, List, Union, cast
 
 import torch
 from torch.utils.data import DataLoader, DistributedSampler
@@ -8,8 +8,9 @@ from ..config import EvaluatorConfig, EvaluatorType, TrainConfig
 from ..exceptions import OlmoConfigurationError
 from ..tokenizer import Tokenizer
 from ..torch_util import get_global_rank, get_world_size
-from .downstream import ICLMetric, label_to_task_map
+from .downstream import ICLMetric, label_to_task_map, ICLMMMultiChoiceTaskDataset
 from .evaluator import Evaluator
+from olmo.data import build_image_preprocessor
 
 __all__ = [
     "Evaluator",
@@ -28,9 +29,31 @@ def build_downstream_evaluator(
     device: torch.device,
     is_unit_test=False,
 ) -> Evaluator:
+    task_kwargs = {}
     task_class = label_to_task_map[eval_cfg.label]
-    ds_eval_dataset = task_class(tokenizer=tokenizer)  # type: ignore
+    if isinstance(task_class, tuple):
+        task_class, task_kwargs = task_class
     data_config = eval_cfg.data
+    if data_config.multi_modal:
+        model_config = train_config.model
+        if model_config.vision_backbone is not None:
+            image_preprocessor = build_image_preprocessor(model_config)
+        else:
+            image_preprocessor = None
+        assert len(data_config.paths) == 1
+        ds_eval_dataset = task_class(
+            tokenizer=tokenizer,
+            dataset_path=data_config.paths[0],
+            image_dir=data_config.image_dir,
+            model_ctx_len=model_config.max_sequence_length,
+            image_preprocessor=image_preprocessor,
+            conv_version=str(data_config.conv_version),
+            add_system_message=data_config.add_system_message,
+            **task_kwargs,
+        )
+    else:
+        ds_eval_dataset = task_class(tokenizer=tokenizer, **task_kwargs)  # type: ignore
+
     if is_unit_test:
         ds_eval_sampler = None
     else:
@@ -105,7 +128,17 @@ def build_evaluator(
 
 def build_evaluators(cfg: TrainConfig, device: torch.device) -> List[Evaluator]:
     evaluators = []
-    tokenizer = Tokenizer.from_train_config(cfg)
+    if cfg.tokenizer.identifier.startswith("hf:"):
+        from transformers import AutoTokenizer
+        tokenizer = AutoTokenizer.from_pretrained(
+            cfg.tokenizer.identifier[3:],
+            cache_dir=cfg.tokenizer.cache_dir,
+            padding_side=str(cfg.data.pad_direction),
+            use_fast='vicuna' not in cfg.tokenizer.identifier,
+        )
+        tokenizer = cast(Tokenizer, tokenizer)
+    else:
+        tokenizer = Tokenizer.from_train_config(cfg)
     for eval_cfg in cfg.evaluators:
         evaluators.append(build_evaluator(cfg, eval_cfg, tokenizer, device))
     return evaluators

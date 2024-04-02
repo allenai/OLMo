@@ -137,6 +137,9 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
             image_preprocessor = None
             object_store = None
         it_config = IterationConfig(data_cfg.paths, data_cfg.sampler, data_cfg.sequence_builder)
+        start_index = 0
+        if train_config.load_path and Path(train_config.load_path).parent == Path(train_config.save_folder):
+            start_index = int(Path(train_config.load_path).name.replace("step", "").replace("-unsharded", ""))
         dataset = MMIterableDataset(
             data=it_config,
             pad_token_id=model_config.pad_token_id,
@@ -146,6 +149,7 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
             seed=train_config.seed + (train_config.epoch or 0),
             sequence_length=train_config.model.max_sequence_length,
             global_batch_size=train_config.global_train_batch_size,
+            start_index=start_index,
             drop_last=train_config.data.drop_last,
             num_threads=train_config.data.num_threads,
             thread_buffer_factor=train_config.data.thread_buffer_factor,

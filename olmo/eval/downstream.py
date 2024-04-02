@@ -1,14 +1,25 @@
 import abc
+import logging
 import re
-from typing import Any, ClassVar, Dict, List, Optional
+import os
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Union
+import json
+from dataclasses import dataclass, field
 
 import datasets
+from PIL import Image
+import numpy as np
 import torch
 import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from torchmetrics import Metric
 
+from ..aliases import PathOrStr
 from ..tokenizer import Tokenizer
+from olmo.mm_data.image_preprocessing import ImagePreprocessor
+from olmo.mm_data.conversation import DEFAULT_IMAGE_TOKEN, conv_templates
+
+log = logging.getLogger(__name__)
 
 
 class ICLMetric(Metric):
@@ -149,8 +160,10 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         self,
         tokenizer: Tokenizer,
         dataset_path: str,
-        dataset_name: Optional[str] = None,
+        dataset_name: Union[str, Sequence[str], None] = None,
         model_ctx_len: int = 2048,
+        split="validation",
+        prompts=[None],  # List of prompt variants to use
     ):
         super().__init__()
 
@@ -158,13 +171,28 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         self.dataset_path = dataset_path
         self.dataset_name = dataset_name
         self.model_ctx_len = model_ctx_len
+        self.prompts = prompts
+        self.current_prompt = None
+        self.log_instances = 0  # Set to > 0 to log the first few instances as a sanity check
 
         self.samples: List[Dict[str, Any]] = []
-        self.dataset = datasets.load_dataset(
-            path=self.dataset_path,
-            name=self.dataset_name,
-            split="validation",
-        )
+        dataset_names: Sequence[Optional[str]]
+        if isinstance(dataset_name, str) or dataset_name is None:
+            dataset_names = [dataset_name]
+        else:
+            dataset_names = dataset_name
+
+        dataset_list = []
+        for ds_name in dataset_names:
+            dataset_list.append(
+                datasets.load_dataset(
+                    path=self.dataset_path,
+                    name=ds_name,
+                    split=split,
+                    trust_remote_code=True,
+                )
+            )
+        self.dataset = datasets.concatenate_datasets(dataset_list)
 
         # prep examples
         self.prep_examples()
@@ -179,51 +207,65 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         """Append doc_ids to each example so that they are processed together in the metric"""
         doc_id = 0
         for doc in self.dataset:
-            # from EAI harness
-            # how this all works:
-            #          CTX      CONT
-            # inp    0 1 2 3|4 5 6 7 8 9   <- last token is deleted by inp[:, :-1]
-            # gpt2    \               \
-            # logits   1 2 3|4 5 6 7 8 9   <- the ctx half gets tossed out by the
-            # cont_toks      4 5 6 7 8 9      [:, -len(continuation_enc):, :self.vocab_size] slice
+            for prompt in self.prompts:
+                self.current_prompt = prompt
+                # from EAI harness
+                # how this all works:
+                #          CTX      CONT
+                # inp    0 1 2 3|4 5 6 7 8 9   <- last token is deleted by inp[:, :-1]
+                # gpt2    \               \
+                # logits   1 2 3|4 5 6 7 8 9   <- the ctx half gets tossed out by the
+                # cont_toks      4 5 6 7 8 9      [:, -len(continuation_enc):, :self.vocab_size] slice
 
-            continuations = self.doc_to_continuations(doc)
-            label_id = self.doc_to_label(doc)
-            ctx = self.token_encode(self.doc_to_text(doc))
-            dc = self.token_encode(self.doc_to_domain_conditional(doc))
+                continuations = self.doc_to_continuations(doc)
+                label_id = self.doc_to_label(doc)
+                doc_text = self.doc_to_text(doc)
+                ctx = self.token_encode(doc_text)
+                dc = self.token_encode(self.doc_to_domain_conditional(doc))
+                if self.log_instances > 0:
+                    self.log_instances -= 1
+                    ds_name = self.dataset_name
+                    if isinstance(ds_name, list):
+                        ds_name = ds_name[0]
+                    log.info(
+                        f"Sample doc from ({self.dataset_path}, {ds_name}, {self.current_prompt}):"
+                        + f"\ndoc_text: {doc_text}\ncontinuations: {continuations}"
+                    )
 
-            for cont_id, continuation_str in enumerate(continuations):
-                cont_str_len = len(continuation_str) - 1  # continuation contain leading blank
-                continuation = self.token_encode(continuation_str)
+                for cont_id, continuation_str in enumerate(continuations):
+                    cont_str_len = len(continuation_str) - 1  # continuation contain leading blank
+                    continuation = self.token_encode(continuation_str)
 
-                # query, remove last token from continuation, truncate from left is longer than model ctx length
-                query = ctx + continuation[:-1]
-                query = query[-self.model_ctx_len :]
+                    # query, remove last token from continuation, truncate from left is longer than model ctx length
+                    query = ctx + continuation[:-1]
+                    query = query[-self.model_ctx_len :]
+                    # this will be different from len(ctx) when truncated by model_ctx_len
+                    actual_ctx_len = len(query) - len(continuation) + 1
 
-                # get domain conditional query
-                # we don't expect this to be longer than self.model_ctx_len and it won't make sense to truncate from left
-                dc_query = dc + continuation[:-1]
+                    # get domain conditional query
+                    # we don't expect this to be longer than self.model_ctx_len and it won't make sense to truncate from left
+                    dc_query = dc + continuation[:-1]
 
-                # form a sample
-                self.samples.append(
-                    {
-                        "doc_id": doc_id,
-                        "cont_id": cont_id,
-                        "ctx": ctx,
-                        "continuation": continuation,
-                        "ctx_len": len(ctx),
-                        "dc_len": len(dc),
-                        "cont_len": len(
-                            continuation
-                        ),  # even if query has last token removed, LM will output same cont len
-                        "cont_str_len": cont_str_len,
-                        "query": query,  # remove last token from continuation
-                        "dc_query": dc_query,
-                        "label_id": label_id,
-                    }
-                )
+                    # form a sample
+                    self.samples.append(
+                        {
+                            "doc_id": doc_id,
+                            "cont_id": cont_id,
+                            "ctx": ctx,
+                            "continuation": continuation,
+                            "ctx_len": actual_ctx_len,
+                            "dc_len": len(dc),
+                            "cont_len": len(
+                                continuation
+                            ),  # even if query has last token removed, LM will output same cont len
+                            "cont_str_len": cont_str_len,
+                            "query": query,  # remove last token from continuation
+                            "dc_query": dc_query,
+                            "label_id": label_id,
+                        }
+                    )
 
-            doc_id += 1
+                doc_id += 1
 
     def pad_tokens_until_max(self, tokens, max_len=2048):
         """truncate from left if len(tokens) > model_ctx_len, max_len is not considered then
@@ -346,6 +388,472 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         """
         del doc
         return " "
+
+
+class ICLMMMultiChoiceTaskDataset(ICLMultiChoiceTaskDataset):
+    """Multimodal Multiple Choice Tassk Dataset. Only supports zero-shot for now."""
+
+    def __init__(
+        self,
+        tokenizer: Tokenizer,
+        dataset_path: PathOrStr,
+        image_dir : PathOrStr,
+        dataset_name: Union[str, Sequence[str], None] = None,
+        model_ctx_len: int = 2048,
+        image_preprocessor: Optional[ImagePreprocessor] = None,
+        conv_version: str = "olmo_instruct",
+        split="validation",
+        add_system_message: bool = False,
+        prompts=[None],  # List of prompt variants to use,
+        **kwargs,
+    ):
+        self.tokenizer = tokenizer
+        if not hasattr(self.tokenizer, 'bos_token') or self.tokenizer.bos_token is None:
+            self.tokenizer.bos_token = self.tokenizer.eos_token
+        if conv_version == "vicuna_v1":
+            self.tokenizer.pad_token = self.tokenizer.unk_token
+        self.dataset_path = dataset_path
+        self.dataset_name = dataset_name
+        self.image_dir = image_dir
+        self.model_ctx_len = model_ctx_len
+        if image_preprocessor:
+            self.image_preprocessor = image_preprocessor
+            self.image_sizer = image_preprocessor.image_token_sizer()
+        else:
+            self.image_preprocessor = None
+            self.image_sizer = None
+        self.conv_version = conv_version
+        self.conv_cfg = conv_templates[conv_version]
+        self.add_system_message = add_system_message
+        self.prompts = prompts
+        self.current_prompt = None
+        self.log_instances = 0  # Set to > 0 to log the first few instances as a sanity check
+
+        self.samples: List[Dict[str, Any]] = []
+        self.dataset = self.parse_data(dataset_path, image_dir, split, **kwargs)
+
+        # prep examples
+        self.prep_examples()
+
+    def __getitem__(self, index):
+        sample = self.samples[index]
+        images = sample.get("images")
+        offsets = sample.get("image_offsets")
+        image_sizes = sample.get("image_sizes")
+        use_image_size = 'anyres' in self.image_sizer.get_id()
+        item = {k: v for k, v in sample.items() if k not in ["images", "image_offsets", "image_sizes"]}
+        if images:
+            assert self.image_preprocessor is not None, "Image preprocessor is required for multimodal datasets"
+            all_patches = []
+            all_patch_offsets = []
+            all_num_patches_per_image = []
+            for image, offset in zip(images, offsets):
+                patches, patch_offsets = self.image_preprocessor(image, offset)
+                all_patches.append(torch.as_tensor(patches))
+                all_patch_offsets.append(torch.as_tensor(patch_offsets))
+                all_num_patches_per_image.append(patches.shape[0])
+            item["image_patches"] = torch.cat(all_patches)
+            item["image_offsets"] = torch.cat(all_patch_offsets)
+            item["num_patches_per_image"] = torch.as_tensor(all_num_patches_per_image)
+            if use_image_size:
+                item["image_sizes"] = torch.as_tensor(image_sizes)
+        else:
+            w, h = self.image_preprocessor.image_size
+            item["image_patches"] = torch.as_tensor(np.zeros((0, 3, h, w), dtype=np.float32))
+            item["image_offsets"] = torch.as_tensor(offsets)
+            item["num_patches_per_image"] = torch.as_tensor(np.zeros((0,), dtype=np.int32))
+            if use_image_size:
+                item["image_sizes"] = torch.as_tensor(item.pop("image_sizes"))
+        return self.samples[index]
+    
+    def prep_examples(self):
+        """Append doc_ids to each example so that they are processed together in the metric"""
+        doc_id = 0
+        for doc in self.dataset:
+            for prompt in self.prompts:
+                self.current_prompt = prompt
+
+                continuations = self.doc_to_continuations(doc)
+                label_id = self.doc_to_label(doc)
+                doc_text = self.doc_to_text(doc)
+                item = self.multimodal_token_encode(doc_text)
+                dc = self.token_encode(self.doc_to_domain_conditional(doc))
+                if self.log_instances > 0:
+                    self.log_instances -= 1
+                    ds_name = self.dataset_name
+                    if isinstance(ds_name, list):
+                        ds_name = ds_name[0]
+                    log.info(
+                        f"Sample doc from ({self.dataset_path}, {ds_name}, {self.current_prompt}):"
+                        + f"\ndoc_text: {doc_text}\ncontinuations: {continuations}"
+                    )
+                
+                images = item['images']
+                image_offsets = item['image_offsets']
+                for cont_id, continuation_str in enumerate(continuations):
+                    cont_str_len = len(continuation_str) - 1  # continuation contain leading blank
+                    continuation = self.token_encode(continuation_str)
+
+                    # query, remove last token from continuation, truncate from left is longer than model ctx length
+                    ctx = item['indices']
+                    if images:
+                        assert all(image_offsets >= len(ctx) + len(continuation) - 1 - self.model_ctx_len), \
+                            f"Sample doc from ({self.dataset_path}, {ds_name}, {self.current_prompt}):" + \
+                            "Images cannot fit in the model context length"
+                    # query, remove last token from continuation, truncate from left is longer than model ctx length
+                    query = ctx + continuation[:-1]
+                    query = query[-self.model_ctx_len :]
+                    # this will be different from len(ctx) when truncated by model_ctx_len
+                    actual_ctx_len = len(query) - len(continuation) + 1
+
+                    # get domain conditional query
+                    # we don't expect this to be longer than self.model_ctx_len and it won't make sense to truncate from left
+                    dc_query = dc + continuation[:-1]
+
+                    # form a sample
+                    self.samples.append(
+                        {
+                            "doc_id": doc_id,
+                            "cont_id": cont_id,
+                            "ctx": ctx,
+                            "continuation": continuation,
+                            "ctx_len": actual_ctx_len,
+                            "dc_len": len(dc),
+                            "cont_len": len(
+                                continuation
+                            ),  # even if query has last token removed, LM will output same cont len
+                            "cont_str_len": cont_str_len,
+                            "query": query,  # remove last token from continuation
+                            "dc_query": dc_query,
+                            "label_id": label_id,
+                            "images": images,
+                            "image_offsets": image_offsets,
+                            "image_sizes": item.get("image_sizes", None),
+                        }
+                    )
+
+                doc_id += 1
+    
+    def collate_fn(self, items):
+        batch = super().collate_fn(items)
+        max_images = 0
+        max_tokens = 0
+        max_patches = 0
+        if items and isinstance(items[0], dict) and "num_patches_per_image" in items[0]:
+            max_images = max(len(x["num_patches_per_image"]) for x in items)  # type: ignore
+            max_tokens = max(len(x["image_offsets"]) for x in items) # type: ignore
+            max_patches = max(len(x["image_patches"]) for x in items) # type: ignore
+
+        all_image_patches = []
+        all_image_offsets = []
+        all_image_sizes = []
+        all_num_patches_per_image = []
+
+        for x in items:
+            # Image patches, offsets, sizes, num_patches_per_image
+            num_patches_per_image = x.get("num_patches_per_image") if isinstance(x, dict) else None
+            image_sizes = x.get("image_sizes") if isinstance(x, dict) else None
+            if num_patches_per_image is not None:
+                num_patches_per_image = F.pad(
+                    num_patches_per_image.to(dtype=torch.int32),
+                    (0, max_images - len(num_patches_per_image)),
+                    value=0,
+                )
+                all_num_patches_per_image.append(num_patches_per_image)
+                image_offsets = F.pad(
+                    x["image_offsets"].to(dtype=torch.int32),
+                    (0, max_tokens - len(x["image_offsets"])),
+                    value=-1,
+                )
+                all_image_offsets.append(image_offsets)
+                image_patches = F.pad(
+                    x["image_patches"].to(dtype=torch.float),
+                    (0, 0, 0, 0, 0, 0) + (0, max_patches - len(x["image_patches"])),
+                    value=0.0,
+                )
+                all_image_patches.append(image_patches)
+                if image_sizes is not None:
+                    image_sizes = F.pad(
+                        image_sizes.to(dtype=torch.int32),
+                        (0, 0) + (0, max_images - len(image_sizes)),
+                        value=0,
+                    )
+                    all_image_sizes.append(image_sizes)
+
+        if all_image_patches:
+            batch["image_patches"] = torch.stack(all_image_patches)
+        if all_image_offsets:
+            batch["image_offsets"] = torch.stack(all_image_offsets)
+        if all_num_patches_per_image:
+            batch["num_patches_per_image"] = torch.stack(all_num_patches_per_image)
+        if all_image_sizes:
+            batch["image_sizes"] = torch.stack(all_image_sizes)
+        
+        return batch
+
+    @abc.abstractmethod
+    def parse_data(
+        self, dataset_path: PathOrStr, image_dir: PathOrStr, split: str
+    ) -> List[Dict[str, Any]]:
+        """Parse the dataset and return a list of dictionaries"""
+        raise NotImplementedError
+    
+    def convert_conv(self, conversations: Dict, image_path: PathOrStr) -> List[Dict[str, Union[str, bool]]]:
+        roles = {"human": self.conv_cfg.roles[0], "gpt": self.conv_cfg.roles[1]}
+        seps = [self.conv_cfg.sep, self.conv_cfg.sep2]
+        example = []
+        if roles[conversations[0]["from"]] != self.conv_cfg.roles[0]:
+            # Skip the first one if it is not from human
+            conversations = conversations[1:]
+        assert len(conversations) % 2 == 0, "Conversations must be in pairs"
+        for i in range(0, len(conversations), 2):
+            if i == 0 and self.add_system_message:
+                start_token = self.tokenizer.bos_token + self.conv_cfg.system + seps[0]
+            elif i == 0:
+                start_token = self.tokenizer.bos_token
+            else:
+                start_token = ""
+            sentence1 = conversations[i]
+            sentence2 = conversations[i+1]
+            role1, role2 = roles[sentence1["from"]], roles[sentence2["from"]]
+            assert role1 == self.conv_cfg.roles[0], f"First role should be {self.conv_cfg.roles[0]}"
+            assert role2 == self.conv_cfg.roles[1], f"Second role should be {self.conv_cfg.roles[1]}"
+            value1 = sentence1["value"]
+            value2 = sentence2["value"]
+            end_token = value2.strip() + seps[1] if value2 else ""
+            if DEFAULT_IMAGE_TOKEN in value1:
+                value1 = value1.replace(DEFAULT_IMAGE_TOKEN, '')
+                example += [
+                    {'text': start_token + role1 + self.conv_cfg.role_sep, 'is_image': False},
+                    {'text': image_path, 'is_image': True},
+                    {'text': value1.strip() + seps[0] + role2 + self.conv_cfg.role_sep + end_token, 'is_image': False},
+                ]
+            else:
+                example += [
+                    {'text': start_token + role1 + self.conv_cfg.role_sep + value1.strip() + seps[0] + role2 + self.conv_cfg.role_sep + end_token, 'is_image': False},
+                ]
+        return example
+    
+    def multimodal_token_encode(self, example: List[Dict[str, Union[str, bool]]]):
+        indices = []
+        images = []
+        sizes = None
+        if self.image_sizer is not None and 'anyres' in self.image_sizer.get_id():
+            sizes = []
+        offsets = []
+
+        total_tokens = 0
+        for chunk in example:
+            if total_tokens >= self.model_ctx_len:
+                break
+            if chunk['is_image']:
+                offsets.append(total_tokens)
+                image = Image.open(chunk['text']).convert('RGB')
+                images.append(image)
+                if sizes is not None:
+                    sizes.append(np.array(image.size), dtype=np.int32)
+                num_tokens = self.image_sizer(image.size[0], image.size[1])
+                assert total_tokens + num_tokens <= self.model_ctx_len
+                indices += [self.tokenizer.pad_token_id] * num_tokens
+            else:
+                tokens = self.tokenizer.encode(chunk['text'], add_special_tokens=False)
+                num_tokens = len(tokens)
+                if total_tokens + num_tokens > self.model_ctx_len:
+                    num_tokens = self.model_ctx_len - total_tokens
+                indices += tokens[:num_tokens]
+            total_tokens += num_tokens
+        
+        item = dict(
+            indices=indices,
+            images=images,
+            image_offsets=np.asarray(offsets, np.int32) if offsets else np.full((0,), -1, np.int32),
+        )
+        if sizes is not None:
+            item["image_sizes"] = np.stack(sizes) if sizes else np.zeros((0, 2), np.int32)
+        return item
+    
+
+class ScienceQA(ICLMMMultiChoiceTaskDataset):
+    """ScienceQA dataset
+    Example:
+    {
+        "id": "18499",
+        "image": "18499/image.png",
+        "conversations": [
+        {
+            "from": "human",
+            "value": "<image>\nContext: The passage below describes an experiment. Read the passage and then follow the instructions below.\n\n"
+                     "Brody put one two-inch steel nail into each of six test tubes. He added water to three of the test tubes and vinegar to the other three. "
+                     "In each test tube, he completely covered the nail with the same volume of liquid. Brody checked the nails for rust at the same time every day. "
+                     "He recorded how many days it took each nail to become completely covered in rust. "
+                     "Then, he compared the number of days it took nails to rust in water to the number of days it took nails to rust in vinegar.\n"
+                     "Figure: a new steel nail on a pile of rusty nails.\n"
+                     "Identify the question that Brody's experiment can best answer.\n"
+                     "A. Do steel nails rust in fewer days when submerged in a large volume of liquid compared to a small volume?\nB. Do steel nails take fewer days to rust in water compared to vinegar?"
+        },
+        {
+            "from": "gpt",
+            "value": "B"
+        }
+        ],
+        "choices": ["Do steel nails rust in fewer days when submerged in a large volume of liquid compared to a small volume?", "Do steel nails take fewer days to rust in water compared to vinegar?"]
+    }
+    """
+
+    metric_type = "acc"
+
+    def __init__(
+        self,
+        tokenizer: Tokenizer,
+        dataset_path: PathOrStr,
+        image_dir : PathOrStr,
+        model_ctx_len: int = 2048,
+        image_preprocessor: Optional[ImagePreprocessor] = None,
+        conv_version: str = "olmo-instruct",
+        split="test",
+        add_system_message: bool = False,
+        **kwargs
+    ):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            image_dir=image_dir,
+            model_ctx_len=model_ctx_len,
+            image_preprocessor=image_preprocessor,
+            conv_version=conv_version,
+            split=split,
+            add_system_message=add_system_message,
+            **kwargs,
+        )
+
+    def parse_data(
+        self, dataset_path: PathOrStr, image_dir: PathOrStr, split: str, **kwrags,
+    ):
+        only_image = kwrags.get('only_image', False)
+        with open(dataset_path, "r") as f:
+            qas = json.load(f)
+        qas = sorted(qas, key=lambda x: int(x["id"]))
+        dataset = []
+        choices = ["A", "B", "C", "D", "E"]
+        for qa in qas:
+            doc = {'id': qa['id']}
+            if only_image and 'image' not in qa:
+                continue
+            conversations = qa['conversations']
+            question = conversations[0]['value'].replace(DEFAULT_IMAGE_TOKEN, '').strip()
+            response_format_prompt = "\nAnswer with the option's letter from the given choices directly."
+            if 'image' in qa:
+                question = DEFAULT_IMAGE_TOKEN + '\n' + question
+                image_path = os.path.join(image_dir, qa['image'])
+            else:
+                image_path = None
+            question = question + response_format_prompt
+            doc['question'] = self.convert_conv(
+                [{'from': 'human', 'value': question}, {'from': 'gpt', 'value': ''}], image_path
+            )
+            doc['answer'] = choices.index(conversations[1]['value'].strip())
+            doc['choices'] = choices[:len(qa["choices"])]
+            dataset.append(doc)
+        
+        return dataset
+
+    def doc_to_text(self, doc):
+        return doc["question"]
+
+    def doc_to_continuations(self, doc):
+        # add spaces in front of continuation
+        return [" " + choice for choice in doc["choices"]]
+
+    def doc_to_label(self, doc):
+        return doc["answer"]
+
+    def doc_to_domain_conditional(self, doc):
+        # del doc
+        return self.conv_cfg.roles[1] + self.conv_cfg.role_sep
+
+
+class SeedBench(ICLMMMultiChoiceTaskDataset):
+    """SeedBench dataset
+    Example:
+    {
+        "question_id": 101669,
+        "image": "SEED-Bench-image/1454426_2591111986",
+        "text": "How many towels are in the image?\nA. One\nB. Two\nC. Three\nD. Four\nAnswer with the option's letter from the given choices directly."
+        "category": 'Instances Counting',
+        'choices': ['One', 'Two', 'Three', 'Four'],
+        'answer': 'A',
+    }
+    """
+
+    metric_type = "acc"
+
+    def __init__(
+        self,
+        tokenizer: Tokenizer,
+        dataset_path: PathOrStr,
+        image_dir : PathOrStr,
+        model_ctx_len: int = 2048,
+        image_preprocessor: Optional[ImagePreprocessor] = None,
+        conv_version: str = "olmo-instruct",
+        split="test",
+        add_system_message: bool = False,
+        **kwargs
+    ):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            image_dir=image_dir,
+            model_ctx_len=model_ctx_len,
+            image_preprocessor=image_preprocessor,
+            conv_version=conv_version,
+            split=split,
+            add_system_message=add_system_message,
+            **kwargs,
+        )
+
+    def parse_data(
+        self, dataset_path: PathOrStr, image_dir: PathOrStr, split: str, **kwrags,
+    ):
+        only_image = kwrags.get('only_image', False)
+        only_video = kwrags.get('only_video', False)
+        qas = [json.loads(line) for line in open(dataset_path, "r")]
+        dataset = []
+        qids = set()
+        for qa in qas:
+            qid = str(qa["question_id"])
+            if qid in qids:
+                continue
+            qids.add(qid)
+            doc = {'question_id': qid}
+            if only_image and qa['image'].startswith("SEED-Bench-video-image"):
+                continue
+            if only_video and qa['image'].startswith("SEED-Bench-image"):
+                continue
+            question = qa['text'].replace(DEFAULT_IMAGE_TOKEN, '').strip()
+            question = DEFAULT_IMAGE_TOKEN + '\n' + question
+            image_path = os.path.join(image_dir, qa['image'])
+            doc['question'] = self.convert_conv(
+                [{'from': 'human', 'value': question}, {'from': 'gpt', 'value': ''}], image_path
+            )
+            doc['answer'] = ["A", "B", "C", "D"].index(qa['answer'])
+            doc['choices'] = ["A", "B", "C", "D"]
+            dataset.append(doc)
+        
+        return dataset
+
+    def doc_to_text(self, doc):
+        return doc["question"]
+
+    def doc_to_continuations(self, doc):
+        # add spaces in front of continuation
+        return [" " + choice for choice in doc["choices"]]
+
+    def doc_to_label(self, doc):
+        return doc["answer"]
+
+    def doc_to_domain_conditional(self, doc):
+        # del doc
+        return self.conv_cfg.roles[1] + self.conv_cfg.role_sep
 
 
 class PIQA(ICLMultiChoiceTaskDataset):
@@ -555,7 +1063,7 @@ class OpenBookQA(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="openbookqa", dataset_name=None):
+    def __init__(self, tokenizer, dataset_path="openbookqa", dataset_name="main"):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -588,7 +1096,7 @@ class BoolQ(ICLMultiChoiceTaskDataset):
     }
     """
 
-    metric_type = "pmi_dc"
+    metric_type = "acc"
 
     def __init__(self, tokenizer, dataset_path="boolq", dataset_name=None):
         super().__init__(
@@ -643,7 +1151,7 @@ class SciQ(ICLMultiChoiceTaskDataset):
         )
 
     def doc_to_text(self, doc):
-        return doc["support"] + "\nQuestion: " + doc["question"] + "\nAnswer:".strip()
+        return doc["support"].strip() + "\nQuestion: " + doc["question"] + "\nAnswer:"
 
     def doc_to_continuations(self, doc):
         # add spaces in front of continuation
@@ -710,7 +1218,7 @@ class ArcChallenge(ArcEasy):
     implement PMI_DC
     """
 
-    metric_type = "pmi_dc"
+    metric_type = "len_norm"  # Ideally "pmi_dc"
 
     def __init__(self, tokenizer, dataset_path="ai2_arc", dataset_name="ARC-Challenge"):
         super().__init__(
@@ -718,6 +1226,85 @@ class ArcChallenge(ArcEasy):
             dataset_path=dataset_path,
             dataset_name=dataset_name,
         )
+
+
+class BasicArithmetic(ArcEasy):
+    """This is a basic arithmetic task follows the same prompt format as ArcEasy.
+    Example:
+    {"id": "q85_1d1d_max1d_plus",
+    "question": "Calculate 2 + 5 =",
+    "choices": {"text": ["8", "7", "6", "17"],
+    "label": ["A", "B", "C", "D"]},
+    "answerKey": "B", "type_tag": "easy"}
+
+    """
+
+    metric_type = "acc"
+
+    def __init__(self, tokenizer, dataset_path="allenai/basic_arithmetic", dataset_name=None):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+
+class CommonsenseQA(ArcEasy):
+    """CommonsenseQA
+    Example:
+    {'id': 'e68fb2448fd74e402aae9982aa76e527',
+    'question': 'Where are  you likely to find a hamburger?',
+    'question_concept': 'hamburger',
+    'choices': {'label': ['A', 'B', 'C', 'D', 'E'],
+    'text': ['fast food restaurant', 'pizza', 'ground up dead cows', 'mouth', 'cow carcus']},
+    'answerKey': 'A'}
+    """
+
+    metric_type = "len_norm"
+
+    def __init__(self, tokenizer, dataset_path="tau/commonsense_qa", dataset_name=None):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+
+class SocialIQa(ICLMultiChoiceTaskDataset):
+    """SocialIQa
+    Example:
+    {'context': 'Jordan was in charge of taking the food on the camping trip and left all the food at home.',
+     'question': 'How would Jordan feel afterwards?',
+     'answerA': 'horrible that he let his friends down on the camping trip',
+     'answerB': "happy that he doesn't need to do the cooking on the trip",
+     'answerC': 'very proud and accomplished about the camping trip', 'label': '1'}
+    """
+
+    metric_type = "len_norm"
+
+    def __init__(self, tokenizer, dataset_path="social_i_qa", dataset_name=None):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+    def doc_to_text(self, doc):
+        return "Question: " + doc["context"] + " " + doc["question"] + "\nAnswer:"
+
+    def doc_to_continuations(self, doc):
+        # add spaces in front of continuation
+        return [
+            " " + doc["answerA"],
+            " " + doc["answerB"],
+            " " + doc["answerC"],
+        ]
+
+    def doc_to_label(self, doc):
+        return int(doc["label"]) - 1
+
+    def doc_to_domain_conditional(self, doc):
+        return "Answer:"
 
 
 class COPA(ICLMultiChoiceTaskDataset):
@@ -962,7 +1549,162 @@ class SST2(ICLMultiChoiceTaskDataset):
         return "Answer:"
 
 
+class MMLU(ICLMultiChoiceTaskDataset):
+    """MMLU creates context with "Question: QUESTION\nAnswer:" and sends the choices as continuations
+           space added as prefix to each continuation
+
+       {
+           'question': "Which of the following terms describes the body's ability to maintain its normal state?",
+           'subject': 'anatomy',
+           'choices': ['Anabolism', 'Catabolism', 'Tolerance', 'Homeostasis'],
+    '       answer': 3
+        }
+    """
+
+    metric_type = "len_norm"  # Ideally pmi_dc
+
+    _subcategories = {
+        "abstract_algebra": ["math"],
+        "anatomy": ["health"],
+        "astronomy": ["physics"],
+        "business_ethics": ["business"],
+        "clinical_knowledge": ["health"],
+        "college_biology": ["biology"],
+        "college_chemistry": ["chemistry"],
+        "college_computer_science": ["computer science"],
+        "college_mathematics": ["math"],
+        "college_medicine": ["health"],
+        "college_physics": ["physics"],
+        "computer_security": ["computer science"],
+        "conceptual_physics": ["physics"],
+        "econometrics": ["economics"],
+        "electrical_engineering": ["engineering"],
+        "elementary_mathematics": ["math"],
+        "formal_logic": ["philosophy"],
+        "global_facts": ["other"],
+        "high_school_biology": ["biology"],
+        "high_school_chemistry": ["chemistry"],
+        "high_school_computer_science": ["computer science"],
+        "high_school_european_history": ["history"],
+        "high_school_geography": ["geography"],
+        "high_school_government_and_politics": ["politics"],
+        "high_school_macroeconomics": ["economics"],
+        "high_school_mathematics": ["math"],
+        "high_school_microeconomics": ["economics"],
+        "high_school_physics": ["physics"],
+        "high_school_psychology": ["psychology"],
+        "high_school_statistics": ["math"],
+        "high_school_us_history": ["history"],
+        "high_school_world_history": ["history"],
+        "human_aging": ["health"],
+        "human_sexuality": ["culture"],
+        "international_law": ["law"],
+        "jurisprudence": ["law"],
+        "logical_fallacies": ["philosophy"],
+        "machine_learning": ["computer science"],
+        "management": ["business"],
+        "marketing": ["business"],
+        "medical_genetics": ["health"],
+        "miscellaneous": ["other"],
+        "moral_disputes": ["philosophy"],
+        "moral_scenarios": ["philosophy"],
+        "nutrition": ["health"],
+        "philosophy": ["philosophy"],
+        "prehistory": ["history"],
+        "professional_accounting": ["other"],
+        "professional_law": ["law"],
+        "professional_medicine": ["health"],
+        "professional_psychology": ["psychology"],
+        "public_relations": ["politics"],
+        "security_studies": ["politics"],
+        "sociology": ["culture"],
+        "us_foreign_policy": ["politics"],
+        "virology": ["health"],
+        "world_religions": ["philosophy"],
+    }
+
+    _categories = {
+        "stem": ["physics", "chemistry", "biology", "computer science", "math", "engineering"],
+        "humanities": ["history", "philosophy", "law"],
+        "social_sciences": ["politics", "culture", "economics", "geography", "psychology"],
+        "other": ["other", "business", "health"],
+    }
+
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="hails/mmlu_no_train",
+        dataset_name=None,
+        split="validation",
+        prompt_variations=None,
+    ):
+        dataset_names = []
+        # Collect the relevant categories
+        if dataset_name in MMLU._categories:
+            for sub_cat in MMLU._categories[dataset_name]:
+                for name, cats in MMLU._subcategories.items():
+                    if sub_cat in cats:
+                        dataset_names.append(name)
+        elif dataset_name in MMLU._subcategories:
+            dataset_names.append(dataset_name)
+        else:  # E.g., "math"
+            for name, cats in MMLU._subcategories.items():
+                if dataset_name in cats:
+                    dataset_names.append(name)
+        self.dev_set = {}
+        prompts: List[Union[None, str]] = [None]
+        if prompt_variations == 1:
+            prompts = [None, "inst", "inst+1", "inst+2", "inst+3", "inst+4", "inst+5"]
+            # Need to grab the dev set for the few-shot prompts
+            for name in dataset_names:
+                self.dev_set[name] = datasets.load_dataset(
+                    path=dataset_path, name=name, split="dev", trust_remote_code=True
+                )
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_names,
+            split=split,
+            prompts=prompts,
+        )
+
+    def doc_to_text(self, doc):
+        output_text = "Question: " + doc["question"] + "\nAnswer:"
+        if self.current_prompt is not None:
+            prefix = ""
+            if "inst" in self.current_prompt:
+                subject = doc.get("subject").replace("_", " ")
+                prefix = f"The following are multiple choice questions (with answers) about {subject}:\n\n"
+            num_shots = re.findall("\\+(\\d+)", self.current_prompt)
+            if num_shots:
+                dev_set = self.dev_set.get(doc.get("subject"), [])
+                num_shots_int = int(num_shots[0])
+                for idx, dev_doc in enumerate(dev_set):
+                    if idx >= num_shots_int:
+                        break
+                    answer = dev_doc["choices"][dev_doc["answer"]]
+                    prefix += "Question: " + dev_doc["question"] + "\nAnswer: " + answer + "\n\n"
+            output_text = prefix + output_text
+        return output_text
+
+    def doc_to_continuations(self, doc):
+        # add spaces in front of continuation
+        return [" " + choice for choice in doc["choices"]]
+
+    def doc_to_label(self, doc):
+        return doc["answer"]
+
+    def doc_to_domain_conditional(self, doc):
+        del doc
+        return "Answer:"
+
+
 label_to_task_map = {
+    "scienceqa": (ScienceQA, {"split": "test", "only_image": False}),
+    "scienceqa_img": (ScienceQA, {"split": "test", "only_image": True}),
+    "seed_bench": (SeedBench, {"split": "test", "only_image": False, "only_video": False}),
+    "seed_bench_spatial": (SeedBench, {"split": "test", "only_image": True, "only_video": False}),
+    "seed_bench_temporal": (SeedBench, {"split": "test", "only_image": False, "only_video": True}),
     "piqa": PIQA,
     "hellaswag": HellaSwag,
     "winogrande": WinoGrande,
@@ -971,9 +1713,24 @@ label_to_task_map = {
     "sciq": SciQ,
     "arc_easy": ArcEasy,
     "arc_challenge": ArcChallenge,
+    "basic_arithmetic": BasicArithmetic,
     "copa": COPA,
     "rte": RTE,
     "commitment_bank": CommitmentBank,
     "mrpc": MRPC,
     "sst2": SST2,
+    "commonsense_qa": CommonsenseQA,
+    "social_iqa": SocialIQa,
+    "mmlu_stem_test": (MMLU, {"dataset_name": "stem", "split": "test"}),
+    "mmlu_humanities_test": (MMLU, {"dataset_name": "humanities", "split": "test"}),
+    "mmlu_social_sciences_test": (MMLU, {"dataset_name": "social_sciences", "split": "test"}),
+    "mmlu_other_test": (MMLU, {"dataset_name": "other", "split": "test"}),
+    "mmlu_stem": (MMLU, {"dataset_name": "stem"}),
+    "mmlu_humanities": (MMLU, {"dataset_name": "humanities"}),
+    "mmlu_social_sciences": (MMLU, {"dataset_name": "social_sciences"}),
+    "mmlu_other": (MMLU, {"dataset_name": "other"}),
+    "mmlu_stem_var": (MMLU, {"dataset_name": "stem", "prompt_variations": 1}),
+    "mmlu_humanities_var": (MMLU, {"dataset_name": "humanities", "prompt_variations": 1}),
+    "mmlu_social_sciences_var": (MMLU, {"dataset_name": "social_sciences", "prompt_variations": 1}),
+    "mmlu_other_var": (MMLU, {"dataset_name": "other", "prompt_variations": 1}),
 }

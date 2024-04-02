@@ -1,0 +1,10 @@
+model_name: allenai/OLMo-7B-Instruct
+cache_dir: ${oc.env:DATA_DIR}/olmo
+conv_version: olmo_instruct
+add_system_message: true
+data_file: ${oc.env:DATA_DIR}/llava/instruct_tune/llava_v1_5_mix665k.json
+image_dir: ${oc.env:DATA_DIR}/llava/instruct_tune
+split_size: 20000
+num_proc: 32
+source_dir: ${oc.env:DATA_DIR}/llava/instruct_tune/source_files
+output_dir: ${oc.env:DATA_DIR}/llava/instruct_tune/olmo-7b-instruct-hf

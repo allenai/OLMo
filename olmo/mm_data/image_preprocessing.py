@@ -111,10 +111,7 @@ class AnyResClipImageResize(ImagePreprocessor):
             self.possible_resolutions, self.resample_tokens)
 
     def image_token_sizer(self) -> ImageTokenSizer:
-        return AnyResImageTokenizer(
-            self.image_size[0], self.image_size[1],
-            self.patch_size[0], self.patch_size[1],
-            self.possible_resolutions, self.resample_tokens)
+        return self.image_sizer
 
     def __call__(self, image: Image.Image, offset):
         target_w, target_h = self.image_size

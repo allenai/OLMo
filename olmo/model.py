@@ -92,30 +92,6 @@ def activation_checkpoint_function(cfg: ModelConfig):
     )
 
 
-def fsdp_auto_wrap_policy(transformer_layer_names: Set[Type[nn.Module]]):
-    import functools
-
-    from torch.distributed.fsdp.wrap import _or_policy, lambda_auto_wrap_policy, transformer_auto_wrap_policy
-
-    def lambda_policy_fn(module):
-        if (
-            len(list(module.named_children())) == 0
-            and getattr(module, "weight", None) is not None
-            and module.weight.requires_grad
-        ):
-            return True
-        return False
-
-    lambda_policy = functools.partial(lambda_auto_wrap_policy, lambda_fn=lambda_policy_fn)
-    transformer_wrap_policy = functools.partial(
-        transformer_auto_wrap_policy,
-        transformer_layer_cls=transformer_layer_names,
-    )
-
-    auto_wrap_policy = functools.partial(_or_policy, policies=[lambda_policy, transformer_wrap_policy])
-    return auto_wrap_policy
-
-
 class BufferCache(dict, MutableMapping[str, torch.Tensor]):
     """
     Cache for attention biases and other things that would normally be stored as buffers.
@@ -396,7 +372,7 @@ class TwoDimSinCosEmbedding(nn.Module):
 
         emb_dim = self.config.resampler.d_query
         assert emb_dim % 4 == 0, 'Embed dimension must be divisible by 4 for 2D sin-cos position embedding'
-        grid_size = int(math.sqrt(self.config.resampler.n_queries))
+        grid_size = int(self.config.resampler.n_queries ** 0.5)
 
         with torch.autocast(device.type, enabled=False):
             grid_w = torch.arange(grid_size, device=device, dtype=torch.float)
@@ -435,8 +411,8 @@ class TwoDimSinCosEmbedding(nn.Module):
         # pos_emb: L, C
         # target_size: M
         # return: M, C
-        source_grid_size = int(math.sqrt(pos_emb.shape[0]))
-        target_grid_size = int(math.sqrt(target_size))
+        source_grid_size = int(pos_emb.shape[0] ** 0.5)
+        target_grid_size = int(target_size ** 0.5)
         dtype = pos_emb.dtype
 
         if source_grid_size != target_grid_size:
@@ -983,7 +959,7 @@ class OlmoLlamaBlock(OlmoBlock):
         dropout_p: float = 0.0,
         is_causal: bool = False,
     ) -> torch.Tensor:
-        attn_weights = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(q.size(-1))
+        attn_weights = torch.matmul(q, k.transpose(-2, -1)) / (q.size(-1) ** 0.5)
 
         if is_causal:
             assert attn_mask is None
@@ -1276,6 +1252,17 @@ class Projector(nn.Module):
             nn.init.trunc_normal_(layer.weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
             if layer.bias is not None:
                 nn.init.zeros_(layer.bias)
+            """
+            # Follow the default initialization
+            fan = self.in_sizes[i]
+            a = math.sqrt(5)
+            gain = math.sqrt(2.0 / (1 + a ** 2))
+            std = gain / math.sqrt(fan)
+            weight_bound = math.sqrt(3.0) * std  # Calculate uniform bounds from standard deviation
+            nn.init.uniform_(layer.weight, -weight_bound, weight_bound)
+            bias_bound = 1 / math.sqrt(fan)
+            nn.init.uniform_(layer.bias, -bias_bound, bias_bound)
+            """
     
     def forward(self, x):
         # Project visual features into language embedding space using an MLP.
@@ -1379,7 +1366,7 @@ class OlmoPretrainedVisionBackbone(OlmoVisionBackbone):
         grid_width, grid_height = self.image_token_sizer.get_grid_shape(*[int(x) for x in image_size])
         # downsampled_feature: features for the downsampled image
         downsampled_feature, patch_features = patch_features[0], patch_features[1:]
-        height = width = int(math.sqrt(self.image_token_sizer.n_tokens))
+        height = width = int(self.image_token_sizer.n_tokens ** 0.5)
         assert height * width == downsampled_feature.shape[0]
         patch_features = patch_features.view(
             grid_height, grid_width, height, width, -1
@@ -1418,8 +1405,8 @@ class OlmoPretrainedVisionBackbone(OlmoVisionBackbone):
         # Remove paddings
         image_features = image_features.view(batch_size, num_patches, *image_features.shape[1:])
         n_patches_seq = num_patches_per_image.sum(dim=1)
-        max_patches = n_patches_seq.max().item()
-        mask = torch.arange(max_patches, device=n_patches_seq.device).expand(batch_size, max_patches) < n_patches_seq.unsqueeze(1)
+        # HACK: Since we use micro-batch, (max_patches := n_patches_seq.max().item()) could be smaller than num_patches
+        mask = torch.arange(num_patches, device=n_patches_seq.device).expand(batch_size, num_patches) < n_patches_seq.unsqueeze(1)
         # (batch_num_patches, n_tokens, d_model)
         image_features = image_features[mask]
         if v_cfg.anyres:
@@ -1551,7 +1538,8 @@ class Olmo(nn.Module):
                     self.transformer.load_state_dict(state_dict)
             else:
                 state_dict = torch.load(state_dict_path, map_location="cpu")
-                self.transformer.to_empty(device="cpu")
+                if config.init_device == "meta":
+                    self.transformer.to_empty(device="cpu")
                 self.transformer.load_state_dict(state_dict)
 
         # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
@@ -1583,7 +1571,31 @@ class Olmo(nn.Module):
 
     def initialize_vision_backbone(self, model_config: ModelConfig):
         self.vision_backbone = OlmoVisionBackbone.build(model_config, self.__cache)
-        self.vision_backbone.reset_parameters()
+        if model_config.vision_backbone.adapter_load_path:
+            from .util import resource_path
+            from pathlib import Path
+            state_dict_path = resource_path(
+                Path(model_config.vision_backbone.adapter_load_path).parent, Path(model_config.vision_backbone.adapter_load_path).name,
+                local_cache=Path(model_config.vision_backbone.adapter_load_path).parent,
+            )
+            assert state_dict_path.is_file(), f"Model file {str(state_dict_path)} not found"
+            mm_adapter_weights = torch.load(state_dict_path, map_location="cpu")
+            if self.vision_backbone.image_newline is not None:
+                image_newline = [v for k, v in mm_adapter_weights.items() if 'image_newline' in k]
+                assert len(image_newline) == 1, "Image newline not found in the adapter checkpoint"
+                with torch.no_grad():
+                    self.vision_backbone.image_newline.data.copy_(image_newline[0])
+            def get_w(weights, keyword):
+                return {k.split(keyword + '.')[1]: v for k, v in weights.items() if keyword in k}
+            if self.vision_backbone.resampler is not None:
+                resampler_weights = get_w(mm_adapter_weights, 'resampler')
+                assert len(resampler_weights) > 0, "Resampler weights not found in the adapter checkpoint"
+                self.vision_backbone.resampler.load_state_dict(resampler_weights)
+            project_weights = get_w(mm_adapter_weights, 'projector')
+            assert len(project_weights) > 0, "Projector weights not found in the adapter checkpoint"
+            self.vision_backbone.projector.load_state_dict(project_weights)
+        else:
+            self.vision_backbone.reset_parameters()
 
     @property
     def device(self) -> torch.device:
@@ -1640,6 +1652,53 @@ class Olmo(nn.Module):
             alibi_bias = alibi_attention_bias(seq_len, self.config, device)
         self.__cache["alibi_attention_bias"] = alibi_bias
         return alibi_bias
+    
+    def prepare_inputs_for_multimodal(
+        self,
+        input_ids: torch.LongTensor,
+        past_key_values: Optional[Sequence[Tuple[torch.Tensor, torch.Tensor]]] = None,
+        image_patches: Optional[torch.Tensor] = None,
+        image_offsets: Optional[torch.Tensor] = None,
+        num_patches_per_image: Optional[torch.Tensor] = None,
+        image_sizes: Optional[torch.Tensor] = None,
+    ):
+
+        batch_size, seq_len = input_ids.size()
+        if past_key_values is None:
+            past_length = 0
+        else:
+            past_length = past_key_values[0][0].size(-2)
+
+        img_emb: Optional[torch.Tensor] = None
+        if image_patches is not None:
+            # Get image patch embeddings.
+            assert self.vision_backbone is not None
+            assert image_offsets is not None
+            # shape: (batch_n_tokens, d_model)
+            img_emb = self.vision_backbone(image_patches, num_patches_per_image, image_sizes)
+
+        # Get embeddings of input.
+        # shape: (batch_size, seq_len, d_model)
+        x = self.transformer.wte(input_ids)
+
+        if img_emb is not None:
+            # Inject image patch embeddings into input embeddings.
+            assert image_offsets is not None
+            image_offsets_mask = image_offsets >= 0
+            batch_idx = torch.arange(0, batch_size, device=x.device).repeat_interleave(
+                image_offsets_mask.sum(dim=-1)
+            )
+            x.index_put_((batch_idx, image_offsets[image_offsets_mask]), img_emb)
+
+        if not (self.config.alibi or self.config.rope):
+            # Get positional embeddings.
+            # shape: (1, seq_len)
+            pos = torch.arange(past_length, past_length + seq_len, dtype=torch.long, device=x.device).unsqueeze(0)
+            # shape: (1, seq_len, d_model)
+            pos_emb = self.transformer.wpe(pos)  # type: ignore
+            x = pos_emb + x
+        
+        return x
 
     def forward(
         self,
@@ -1881,7 +1940,7 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
-                wrap = isinstance(module, (TimmBlock, OpenClipBlock, Projector, Resampler, OlmoBlock))
+                wrap = isinstance(module, OlmoBlock)
                 if recurse:
                     return True
                 else:
@@ -1890,7 +1949,16 @@ class Olmo(nn.Module):
             return fsdp_wrap_fn
         elif wrap_strategy == FSDPWrapStrategy.by_block_and_size:
 
-            return fsdp_auto_wrap_policy((TimmBlock, OpenClipBlock, OlmoBlock))
+            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+                del nonwrapped_numel
+                wrap = isinstance(module, (TimmBlock, OpenClipBlock, Projector, Resampler, OlmoBlock)) or module in size_based_module_to_wrap
+                if recurse:
+                    return True
+                else:
+                    return wrap
+
+            return fsdp_wrap_fn
+            # return fsdp_auto_wrap_policy((TimmBlock, OpenClipBlock, OlmoBlock))
         elif wrap_strategy == FSDPWrapStrategy.by_block_group:
             if self.config.block_group_size <= 1:
                 raise OlmoConfigurationError(
@@ -1899,7 +1967,7 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
-                wrap = isinstance(module, (TimmBlock, OpenClipBlock, Projector, Resampler, OlmoBlockGroup))
+                wrap = isinstance(module, OlmoBlockGroup)
                 if recurse:
                     return True
                 else:
@@ -1911,8 +1979,15 @@ class Olmo(nn.Module):
                 raise OlmoConfigurationError(
                     "'by_block_group_and_size' FSDP wrapping strategy requires block group size greater than 1"
                 )
+            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+                del nonwrapped_numel
+                wrap = isinstance(module, (TimmBlock, OpenClipBlock, Projector, Resampler, OlmoBlockGroup)) or module in size_based_module_to_wrap
+                if recurse:
+                    return True
+                else:
+                    return wrap
 
-            return fsdp_auto_wrap_policy((TimmBlock, OpenClipBlock, OlmoBlockGroup))
+            return fsdp_wrap_fn
 
         elif wrap_strategy == FSDPWrapStrategy.size_based:
             from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
@@ -1933,7 +2008,7 @@ class Olmo(nn.Module):
 
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
-                wrap = isinstance(module, (TimmBlock, OpenClipBlock)) or (isinstance(module, OlmoBlock) and module.layer_id % c == 0)
+                wrap = isinstance(module, OlmoBlock) and module.layer_id % c == 0
                 if recurse:
                     return True
                 else:
@@ -1977,6 +2052,10 @@ class Olmo(nn.Module):
         input_ids: torch.LongTensor,
         attention_mask: Optional[torch.Tensor] = None,
         attention_bias: Optional[torch.Tensor] = None,
+        image_patches: Optional[torch.Tensor] = None,
+        image_offsets: Optional[torch.Tensor] = None,
+        num_patches_per_image: Optional[torch.Tensor] = None,
+        image_sizes: Optional[torch.Tensor] = None,
         max_steps: int = 10,
         beam_size: int = 1,
         per_node_beam_size: Optional[int] = None,
@@ -2071,6 +2150,10 @@ class Olmo(nn.Module):
                 attention_mask=attention_mask,
                 attention_bias=attention_bias,
                 past_key_values=past_key_values,
+                image_patches=image_patches if tokens_generated == 0 else None,
+                image_offsets=image_offsets if tokens_generated == 0 else None,
+                num_patches_per_image=num_patches_per_image if tokens_generated == 0 else None,
+                image_sizes=image_sizes if tokens_generated == 0 else None,
                 use_cache=True,
                 last_logits_only=True,
             )

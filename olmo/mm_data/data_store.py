@@ -120,7 +120,8 @@ def read_data_file(data_file: str, start_byte: int, num_bytes: int,
             w, h = data[on:on+2]
             on += 2
             image_id = buffer[on*2:on*2 + cfg.object_id_length]
-            assert len(image_id) == cfg.object_id_length  # Make sure the image id was not truncated by a bad query
+            # Make sure the image id was not truncated by a bad query
+            assert len(image_id) == cfg.object_id_length, f"Error reading {data_file} {start_byte} {num_bytes}"
             num_tokens = None if image_sizing is None else image_sizing(w, h)
             parts.append(ImageChunk(image_id, w, h, num_tokens))
             on += cfg.object_id_length // 2
@@ -211,7 +212,7 @@ class ExampleReader:
                         mask[total_tokens:total_tokens+part.num_tokens] = True
                 else:
                     offsets.append(total_tokens)
-                    image = Image.open(BytesIO(self.image_store.get(part.object_id)))
+                    image = Image.open(BytesIO(self.image_store.get(part.object_id))).convert("RGB")
                     images.append(image)
                     if sizes is not None:
                         sizes.append(np.array(image.size), dtype=np.int32)
@@ -222,7 +223,7 @@ class ExampleReader:
         out = dict(
             input_ids=indices,
             label_mask=mask,
-            image_offsets=np.asarray(offsets, np.int32) if offsets else np.zeros((0,), np.int32),
+            image_offsets=np.asarray(offsets, np.int32) if offsets else np.full((0,), -1, np.int32),
             images=images
         )
         if sizes is not None:

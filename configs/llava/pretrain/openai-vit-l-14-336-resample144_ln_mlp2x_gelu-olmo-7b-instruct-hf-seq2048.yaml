@@ -70,13 +70,12 @@ optimizer:
   weight_decay: 0.0
   betas:
   - 0.9
-  - 0.999
-  eps: 1.0e-8
+  - 0.95
   metrics_log_interval: 10
 
 scheduler:
   name: cosine_with_warmup
-  t_warmup: 0.03
+  t_warmup: 56
   alpha_f: 0.0
 
 tokenizer:
@@ -88,21 +87,25 @@ remote_save_folder: null
 save_overwrite: true
 # Sharded checkpoints (best for restarts)
 save_interval: 1000
-save_num_checkpoints_to_keep: -1
+save_num_checkpoints_to_keep: 1
 # Unsharded checkpoints (for final storage)
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 1ep  # 2T tokens
-global_train_batch_size: 256
+max_duration: 1884  # 2T tokens
+global_train_batch_size: 24
 device_train_microbatch_size: 2
 time_limit: null
+
+stop_at: 1884
 
 fsdp:
   wrapping_strategy: by_block_and_size
   precision: mixed
+
+# activation_checkpointing: whole_layer
 
 max_grad_norm: 1.0
 max_grad_norm_ratio: null
@@ -119,7 +122,7 @@ precision: amp_bf16
 
 data:
   pad_direction: right
-  num_workers: 8
+  num_workers: 4
   num_threads: 4
   drop_last: true
   pin_memory: true
@@ -128,7 +131,7 @@ data:
   timeout: 0
   multi_modal: true
   sequence_builder:
-    kind: one_document_per_sequence
+    kind: sequential
   object_store_config:
     source_folder: ${oc.env:DATA_DIR}/llava/pretrain/source_files
   paths:

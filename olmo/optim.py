@@ -598,6 +598,8 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
     # Separate out parameters that we don't want to apply weight decay to, like norms and biases.
     decay = set()
     no_decay = set()
+    adapter_decay = set()
+    adapter_no_decay = set()
     all_params = {}
     for mn, m in model.named_modules():
         for pn, p in m.named_parameters():
@@ -612,25 +614,50 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
 
             if pn.endswith("bias"):
                 if cfg.optimizer.decay_norm_and_bias:
-                    decay.add(fpn)
+                    if 'resampler' in fpn or 'projector' in fpn:
+                        adapter_decay.add(fpn)
+                    else:
+                        decay.add(fpn)
                 else:
-                    no_decay.add(fpn)
+                    if 'resampler' in fpn or 'projector' in fpn:
+                        adapter_no_decay.add(fpn)
+                    else:
+                        no_decay.add(fpn)
             elif pn.endswith("weight") and isinstance(m, nn.Linear):
-                decay.add(fpn)
+                if 'resampler' in fpn or 'projector' in fpn:
+                    adapter_decay.add(fpn)
+                else:
+                    decay.add(fpn)
             elif pn.endswith("weight") and isinstance(m, (LayerNormBase, nn.LayerNorm)):
                 if cfg.optimizer.decay_norm_and_bias:
-                    decay.add(fpn)
+                    if 'resampler' in fpn or 'projector' in fpn:
+                        adapter_decay.add(fpn)
+                    else:
+                        decay.add(fpn)
                 else:
-                    no_decay.add(fpn)
+                    if 'resampler' in fpn or 'projector' in fpn:
+                        adapter_no_decay.add(fpn)
+                    else:
+                        no_decay.add(fpn)
             elif pn.endswith("weight") and isinstance(m, nn.Embedding):
                 if cfg.optimizer.decay_embeddings:
-                    decay.add(fpn)
+                    if 'resampler' in fpn or 'projector' in fpn:
+                        adapter_decay.add(fpn)
+                    else:
+                        decay.add(fpn)
                 else:
-                    no_decay.add(fpn)
+                    if 'resampler' in fpn or 'projector' in fpn:
+                        adapter_no_decay.add(fpn)
+                    else:
+                        no_decay.add(fpn)
+            elif ('resampler' in pn and pn.endswith('query')) or pn.endswith('image_newline'):
+                # resampler query and image_newline
+                adapter_no_decay.add(fpn)
 
     # Validate that we've considered every parameter
-    inter_params = decay & no_decay
-    union_params = decay | no_decay
+    inter_params = (decay & no_decay) | (adapter_decay & adapter_no_decay) | (decay & adapter_no_decay) | (adapter_decay & no_decay)
+    inter_params = inter_params | (adapter_decay & decay) | (adapter_no_decay & no_decay)
+    union_params = decay | no_decay | adapter_decay | adapter_no_decay
     assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
     assert (
         len(all_params.keys() - union_params) == 0
@@ -639,6 +666,8 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
     # Create the pytorch optimizer groups.
     decay_sorted = sorted(list(decay))
     no_decay_sorted = sorted(list(no_decay))
+    adapter_decay_sorted = sorted(list(adapter_decay))
+    adapter_no_decay_sorted = sorted(list(adapter_no_decay))
     param_groups = []
     if len(decay_sorted) > 0:
         param_groups.append(
@@ -654,6 +683,25 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
                 "params": [all_params[pn] for pn in no_decay_sorted],
                 "param_names": no_decay_sorted,
                 "weight_decay": 0.0,
+                **param_group_defaults,
+            }
+        )
+    if len(adapter_decay_sorted) > 0:
+        param_groups.append(
+            {
+                "params": [all_params[pn] for pn in adapter_decay_sorted],
+                "param_names": adapter_decay_sorted,
+                "lr": cfg.optimizer.adapter_learning_rate,
+                **param_group_defaults,
+            }
+        )
+    if len(adapter_no_decay_sorted) > 0:
+        param_groups.append(
+            {
+                "params": [all_params[pn] for pn in adapter_no_decay_sorted],
+                "param_names": adapter_no_decay_sorted,
+                "weight_decay": 0.0,
+                "lr": cfg.optimizer.adapter_learning_rate,
                 **param_group_defaults,
             }
         )

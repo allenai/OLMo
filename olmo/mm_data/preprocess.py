@@ -1,6 +1,7 @@
 import io
 from dataclasses import dataclass
-from typing import Union, List
+from typing import Union, List, Optional
+import logging
 
 import PIL.Image
 import numpy as np
@@ -15,6 +16,8 @@ try:
 except ImportError:
     imagesize = None
 
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class Masked:
@@ -76,7 +79,13 @@ def _preprocess_image(image, object_store, data_config) -> ImageChunk:
 
 
 def preprocess_example(
-        example: InputExample, tokenizer: Tokenizer, object_store, data_config, add_bos_token: bool = False, add_eos_token: bool = True,
+        example: InputExample,
+        tokenizer: Tokenizer,
+        object_store,
+        data_config,
+        add_bos_token: bool = False,
+        add_eos_token: bool = True,
+        do_eval: bool = False,
 ) -> List[Document]:
     """pre-processing examples by tokenizing the text and storing the images"""
     out = []
@@ -104,13 +113,6 @@ def preprocess_example(
                 text = chunk.text
             if not text:
                 raise ValueError("Got empty text")
-            if prev_was_text and not text[0].isspace():
-                # (hopefully) ensures tokens could never cross masked/unmasked boundaries
-                # We assume the tokenizer never merges whitespace with preceding text
-                # TODO just assuming this is a bit dangerous, should we check this more
-                # carefully by tokenizing the text as a single string?
-                raise ValueError("Text must start with a space, or be preceded by an image, "
-                                 "or start the document")
             ends_with_space = text[-1].isspace()
             add_special_tokens = (add_bos_token and ix == first_text_ix) or (add_eos_token and ix == last_text_ix)
             tokens = np.array(tokenizer.encode(text, add_special_tokens=add_special_tokens), np.uint16)
@@ -124,6 +126,6 @@ def preprocess_example(
         else:
             prev_was_text = False
             out.append(_preprocess_image(chunk, object_store, data_config))
-    if out[-1].is_masked():
+    if not do_eval and out[-1].is_masked():
         raise ValueError("Examples should not end with a masked span")
     return out
