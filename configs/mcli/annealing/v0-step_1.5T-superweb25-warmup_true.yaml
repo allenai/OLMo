@@ -33,4 +33,4 @@ command: |-
   --nnodes $NUM_NODES \
   --node_rank $NODE_RANK \
   --nproc_per_node 8 \
-    scripts/train.py configs/annealing/v0-step_1.5T-superweb25-warmup_true.yaml --save_override
+    scripts/train.py configs/annealing/v0-step_1.5T-superweb25-warmup_true.yaml --save_overwrite
