@@ -9,6 +9,8 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from torchmetrics import Metric
 
+from olmo.util import load_hf_dataset
+
 from ..tokenizer import Tokenizer
 
 log = logging.getLogger(__name__)
@@ -177,7 +179,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         dataset_list = []
         for ds_name in dataset_names:
             dataset_list.append(
-                datasets.load_dataset(
+                load_hf_dataset(
                     path=self.dataset_path,
                     name=ds_name,
                     split=split,
@@ -1190,7 +1192,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
                 raise ValueError(f"Unknown prompt variations: {prompt_variations}")
             # Need to grab the dev set for the few-shot prompts
             for name in dataset_names:
-                self.dev_set[name] = datasets.load_dataset(
+                self.dev_set[name] = load_hf_dataset(
                     path=dataset_path, name=name, split="dev", trust_remote_code=True
                 )
         super().__init__(
