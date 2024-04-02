@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Don't log garbage on nodes that aren't rank 0
 - Don't crash in the HF code when we are referring to a tokenizer in a local file
+- Changed `tie_weights` method to a no-op as weight tying is handled in olmo/model.py
 - Fixed the size calculation for qk layer norm
 - Fixed pipeline test failure that occurs due to a bug in transformers version 4.39.1
 
