@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple, Union
 
 import torch
 from transformers import PreTrainedModel
+from transformers.cache_utils import Cache
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.models.auto import AutoModelForCausalLM
 
@@ -57,6 +58,9 @@ class OLMoForCausalLM(PreTrainedModel):
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
+        cache_position: Optional[
+            Cache
+        ] = None,  # This is a hack mitigation of an issue in transformers `4.39.x` https://github.com/huggingface/transformers/issues/29426
     ) -> Union[Tuple, CausalLMOutputWithPast]:
         if use_cache is None:
             use_cache = self.config.use_cache
