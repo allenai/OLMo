@@ -1231,9 +1231,7 @@ def _get_src_dest_pairs_for_copy(
 
     if config.entry is not None:
         src_dest_pairs = [
-            src_dest_pair
-            for src_dest_pair in src_dest_pairs
-            if Path(src_dest_pair[0]).name == config.entry.rstrip("/")
+            src_dest_pair for src_dest_pair in src_dest_pairs if Path(src_dest_pair[0]).match(config.entry)
         ]
 
     return src_dest_pairs
