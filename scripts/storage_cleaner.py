@@ -1248,6 +1248,8 @@ def _move_run(src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: st
         raise ValueError(f"Destination directory {dest_dir} is a file")
 
     src_dest_path_pairs = _get_src_dest_pairs_for_copy(src_storage, run_dir_or_archive, dest_dir, config)
+    if len(src_dest_path_pairs) == 0:
+        raise RuntimeError("Found no valid source-destination pairs to move.")
 
     for src_move_path, dest_move_path in src_dest_path_pairs:
         if src_move_path.rstrip("/") == dest_move_path.rstrip("/"):
