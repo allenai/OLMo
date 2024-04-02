@@ -13,6 +13,8 @@ integrations:
     pip_install: -e .[train]
     ssh_clone: true
 command: |-
+  set -x
+  
   pip freeze
   mkdir -p /root/.cache/torch/
 
