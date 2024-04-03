@@ -30,9 +30,6 @@ command: |-
 
   cd OLMo
   
-  export NCCL_DEBUG=INFO
-  export TORCH_DISTRIBUTED_SOCKET_TIMEOUT=60
-  
   torchrun \
   --master_addr $MASTER_ADDR \
   --master_port $MASTER_PORT \
