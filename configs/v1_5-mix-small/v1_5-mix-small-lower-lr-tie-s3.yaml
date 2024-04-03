@@ -57,7 +57,7 @@ tokenizer:
   truncate_direction: right
 
 save_folder: ${path.choose:${oc.env:FLASH_DIR,no_exist}/checkpoints,/results}/${oc.env:SLURM_JOB_ID,${run_name}}
-remote_save_folder: r2://olmo-checkpoints/ai2-llm/unsorted/${run_name}
+remote_save_folder: r2://olmo-checkpoints/unsorted/${run_name}
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
 save_interval: 1000
