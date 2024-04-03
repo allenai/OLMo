@@ -8,7 +8,7 @@ from tokenizers import Tokenizer as BaseTokenizer
 
 from .aliases import PathOrStr
 from .config import ModelConfig, TokenizerConfig, TrainConfig, TruncationDirection
-from .exceptions import OlmoConfigurationError
+from .exceptions import OLMoConfigurationError
 
 __all__ = ["Tokenizer"]
 
@@ -68,7 +68,7 @@ class Tokenizer:
                 pad_token_id=config.model.pad_token_id,
             )
         if config.model.vocab_size != tokenizer.vocab_size:
-            raise OlmoConfigurationError("vocab size mismatch between config and tokenizer")
+            raise OLMoConfigurationError("vocab size mismatch between config and tokenizer")
         return tokenizer
 
     @classmethod
@@ -111,13 +111,20 @@ class Tokenizer:
         model_config = ModelConfig.load(config_path, key="model")
 
         # Initialize tokenizer and validate vocab size.
-        tokenizer = cls.from_pretrained(
-            tokenizer_config.identifier,
-            eos_token_id=model_config.eos_token_id,
-            pad_token_id=model_config.pad_token_id,
-        )
+        if Path(tokenizer_config.identifier).is_file():
+            tokenizer = cls.from_file(
+                tokenizer_config.identifier,
+                eos_token_id=model_config.eos_token_id,
+                pad_token_id=model_config.pad_token_id,
+            )
+        else:
+            tokenizer = cls.from_pretrained(
+                tokenizer_config.identifier,
+                eos_token_id=model_config.eos_token_id,
+                pad_token_id=model_config.pad_token_id,
+            )
         if model_config.vocab_size != tokenizer.vocab_size:
-            raise OlmoConfigurationError("vocab size mismatch between config and tokenizer")
+            raise OLMoConfigurationError("vocab size mismatch between config and tokenizer")
         return tokenizer
 
     def add_special_tokens(self, input_ids: List[int]) -> List[int]:

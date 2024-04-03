@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import MeanMetric, Metric
 
 from ..config import EvaluatorConfig, EvaluatorType, TrainConfig
-from ..exceptions import OlmoConfigurationError
+from ..exceptions import OLMoConfigurationError
 from ..tokenizer import Tokenizer
 from ..torch_util import get_global_rank, get_world_size
 from .downstream import ICLMetric, label_to_task_map
@@ -28,8 +28,11 @@ def build_downstream_evaluator(
     device: torch.device,
     is_unit_test=False,
 ) -> Evaluator:
+    task_kwargs = {}
     task_class = label_to_task_map[eval_cfg.label]
-    ds_eval_dataset = task_class(tokenizer=tokenizer)  # type: ignore
+    if isinstance(task_class, tuple):
+        task_class, task_kwargs = task_class
+    ds_eval_dataset = task_class(tokenizer=tokenizer, **task_kwargs)  # type: ignore
     data_config = eval_cfg.data
     if is_unit_test:
         ds_eval_sampler = None
@@ -90,7 +93,7 @@ def build_evaluator(
         elif eval_config.data.datasets:
             eval_metric = {label: make_metric() for label in eval_config.data.datasets.keys()}
         else:
-            raise OlmoConfigurationError("One of DataConfig.paths or DataConfig.datasets is required")
+            raise OLMoConfigurationError("One of DataConfig.paths or DataConfig.datasets is required")
 
         return Evaluator(
             label=eval_config.label,

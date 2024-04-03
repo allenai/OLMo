@@ -1,3 +1,4 @@
+import gc
 import os
 from typing import Optional, TypeVar
 
@@ -130,3 +131,9 @@ def synchronize_value(value: V, device: torch.device) -> V:
 
 def synchronize_flag(flag: bool, device: torch.device) -> bool:
     return synchronize_value(flag, device)
+
+
+def gc_cuda():
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()

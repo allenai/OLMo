@@ -3,7 +3,7 @@ import tempfile
 import pytest
 import torch
 
-from olmo.model import Olmo
+from olmo.model import OLMo
 
 
 def test_olmo_model(model_path: str):
@@ -11,7 +11,7 @@ def test_olmo_model(model_path: str):
 
     from hf_olmo import OLMoForCausalLM, OLMoTokenizerFast  # noqa: F401
 
-    model = Olmo.from_checkpoint(model_path)
+    model = OLMo.from_checkpoint(model_path)
     hf_model = AutoModelForCausalLM.from_pretrained(model_path)
 
     tokenizer = AutoTokenizer.from_pretrained(model_path)

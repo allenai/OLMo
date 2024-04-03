@@ -1,0 +1,47 @@
+name: olmo7-ablation-dolma17  # can't have "_" or "." here
+image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
+compute:
+  gpus: 128
+  cluster: r12z3
+  gpu_type: a100_40gb
+integrations:
+  - integration_type: git_repo
+    git_repo: allenai/OLMo
+    git_branch: olmo7-ablations
+    #git_commit: d765e8819f5b0be204c96b0b519de2372b0da729
+    pip_install: -e .[train]
+    ssh_clone: true
+command: |-
+  pip freeze
+  mkdir -p /root/.cache/torch/
+
+  export OMP_NUM_THREADS=8
+  export LOG_FILTER_TYPE=all_ranks
+  #export OLMO_NO_SSL=1
+
+  # warm up huggingface cache
+  pushd /root/.cache
+  curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache.tar.gz" | tar -xzf -
+  popd
+  export HF_DATASETS_OFFLINE=1
+
+  cd OLMo
+  
+  torchrun \
+  --master_addr $MASTER_ADDR \
+  --master_port $MASTER_PORT \
+  --nnodes $NUM_NODES \
+  --node_rank $NODE_RANK \
+  --nproc_per_node 8 \
+  scripts/train.py configs/olmo7-ablation-dolma17.yaml \
+    --run_name=olmo7-ablation-dolma17 \
+    --wandb.name=dolma17 \
+    --model.flash_attention=true \
+    --fsdp.wrapping_strategy=by_block_and_size \
+    --fsdp.sharding_strategy=FULL_SHARD \
+    --save_folder=runs/ \
+    --activation_checkpointing=whole_layer \
+    --device_train_microbatch_size=3 \
+    --global_train_batch_size=6144 \
+    --wandb.group=dolma17 \
+    --remote_save_folder=s3://ai2-llm/checkpoints/olmo7-ablation/dolma17

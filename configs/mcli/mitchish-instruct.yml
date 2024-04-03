@@ -98,6 +98,7 @@ command: |-
     --reset_trainer_state \
     --reset_optimizer_state \
     --compile=null \
+    --model.flash_attention=true \
     --activation_checkpointing=whole_layer \
     --fsdp.wrapping_strategy=size_based \
     --max_duration=5ep

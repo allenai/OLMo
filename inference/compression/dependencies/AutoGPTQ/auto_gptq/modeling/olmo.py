@@ -1,7 +1,7 @@
 from ._base import *
 
 
-class OlmoGPTQForCausalLM(BaseGPTQForCausalLM):
+class OLMoGPTQForCausalLM(BaseGPTQForCausalLM):
     # Attribute name of Transformer layer block.
     layers_block_name = "model.transformer.blocks"
 
@@ -19,4 +19,4 @@ class OlmoGPTQForCausalLM(BaseGPTQForCausalLM):
     inside_layer_modules = [["att_proj"], ["attn_out"], ["ff_proj"], ["ff_out"]]
 
 
-__all__ = ["OlmoGPTQForCausalLM"]
+__all__ = ["OLMoGPTQForCausalLM"]

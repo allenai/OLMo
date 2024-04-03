@@ -218,7 +218,10 @@ class Optimizer(OptimizerBase):
                 num_grads_clipped += num_clipped
 
         if collect_param_metrics:
-            clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
+            if num_eligible_grads > 0:
+                clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
+            else:
+                clipping_rate = torch.tensor(0.0, device="cpu")
             all_metrics["clipping_rate"] = clipping_rate
             return all_metrics
         else:

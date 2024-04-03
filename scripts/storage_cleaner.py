@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 import boto3.session
 import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
+import omegaconf
 import torch
 import wandb
 from boto3.s3.transfer import TransferConfig
@@ -622,6 +623,8 @@ class DeleteBadRunsConfig(StorageCleanerConfig):
 @dataclass
 class UnshardCheckpointsConfig(StorageCleanerConfig):
     latest_checkpoint_only: bool
+    delete_sharded_checkpoints: bool
+    checkpoint_num: Optional[int]
 
 
 @dataclass
@@ -765,9 +768,13 @@ def delete_bad_runs(run_paths: List[str], config: DeleteBadRunsConfig):
             shutil.rmtree(config.temp_dir)
 
 
-def _is_sharded_checkpoint_dir(directory: str) -> bool:
+def _is_checkpoint_dir(directory: str) -> bool:
     storage = _get_storage_adapter_for_path(directory)
-    return storage.is_dir(directory) and re.match(r"step\d+$", Path(directory).name) is not None
+    return storage.is_dir(directory) and re.match(r"step\d+(-unsharded)?$", Path(directory).name) is not None
+
+
+def _is_sharded_checkpoint_dir(directory: str) -> bool:
+    return _is_checkpoint_dir(directory) and re.match(r"step\d+$", Path(directory).name) is not None
 
 
 def _get_checkpoint_number(checkpoint_dir: str) -> int:
@@ -780,18 +787,38 @@ def _get_checkpoint_number(checkpoint_dir: str) -> int:
     return int(match.group(1))
 
 
+def _get_checkpoint_dirs(run_dir: str, run_dir_storage: StorageAdapter) -> List[str]:
+    run_subdir_names = run_dir_storage.list_dirs(run_dir)
+    run_subdirectories = list(map(lambda dir_name: os.path.join(run_dir, dir_name), run_subdir_names))
+    return list(filter(_is_checkpoint_dir, run_subdirectories))
+
+
 def _get_sharded_checkpoint_dirs(
-    run_dir_storage: StorageAdapter, run_dir: str, run_dir_or_archive: str, latest_checkpoint_only: bool
+    run_dir_storage: StorageAdapter,
+    run_dir: str,
+    run_dir_or_archive: str,
+    latest_checkpoint_only: bool,
+    checkpoint_num: Optional[int] = None,
 ) -> List[str]:
     run_subdir_names = run_dir_storage.list_dirs(run_dir)
     run_subdirectories = list(map(lambda dir_name: os.path.join(run_dir, dir_name), run_subdir_names))
     sharded_checkpoint_directories = list(filter(_is_sharded_checkpoint_dir, run_subdirectories))
+
+    if latest_checkpoint_only and checkpoint_num is not None:
+        raise ValueError("Cannot set both 'latest_checkpoint_only' and 'checkpoint_num'")
 
     if latest_checkpoint_only:
         latest_checkpoint_directory = max(sharded_checkpoint_directories, default=None, key=_get_checkpoint_number)
         sharded_checkpoint_directories = (
             [latest_checkpoint_directory] if latest_checkpoint_directory is not None else []
         )
+    elif checkpoint_num is not None:
+        sharded_checkpoint_directories = [
+            sharded_checkpoint_dir
+            for sharded_checkpoint_dir in sharded_checkpoint_directories
+            if _get_checkpoint_number(sharded_checkpoint_dir) == checkpoint_num
+        ]
+        assert len(sharded_checkpoint_directories) <= 1
 
     log.info(
         "Found %d sharded checkpoint directories for %s", len(sharded_checkpoint_directories), run_dir_or_archive
@@ -844,13 +871,29 @@ def _unshard_checkpoint(
     sharding_output_dir = local_storage.create_temp_dir(directory=unsharding_config.temp_dir)
 
     try:
-        config = TrainConfig.load(Path(sharding_input_dir) / "config.yaml", validate_paths=False)
-        sharded_checkpoint_type = config.sharded_checkpointer
+        # `TrainConfig` is not backwards-compatible with all older checkpoints, so
+        # we need to load the yaml directly.
+        raw_config = om.load(str(Path(sharding_input_dir) / "config.yaml"))
+        assert isinstance(raw_config, omegaconf.DictConfig)
+
+        sharded_checkpoint_type_str = raw_config.get("sharded_checkpointer", "torch_legacy")
+        if sharded_checkpoint_type_str == "legacy":
+            # At some point, the enum string for ShardedCheckpointerType.torch_legacy was "legacy"
+            sharded_checkpoint_type_str = "torch_legacy"
+
+        sharded_checkpoint_type = ShardedCheckpointerType[sharded_checkpoint_type_str]
+
+        # The ShardedCheckpointers require a `TrainConfig` to be passed in, but
+        # legacy configs are not all compatible with this class. None of the config
+        # settings are needed for unsharding, so we pass in a dummy config instead.
+        # This is a hack, but decoupling unsharding for checkpoint saving/loading
+        # seems like overkill.
+        dummy_config = TrainConfig.new()
         checkpointer: Checkpointer
         if sharded_checkpoint_type == ShardedCheckpointerType.torch_legacy:
-            checkpointer = TorchLegacyShardedCheckpointer(config)
+            checkpointer = TorchLegacyShardedCheckpointer(dummy_config)
         elif sharded_checkpoint_type == ShardedCheckpointerType.local:
-            checkpointer = LocalShardedCheckpointer(config)
+            checkpointer = LocalShardedCheckpointer(dummy_config)
         else:
             raise NotImplementedError(sharded_checkpoint_type)
 
@@ -911,11 +954,14 @@ def _unshard_checkpoints(
 ):
     log.info("Starting unsharding checkpoints of run directory or archive %s", run_dir_or_archive)
 
+    if config.delete_sharded_checkpoints and _is_archive(run_dir_or_archive, run_storage):
+        raise ValueError("Cannot delete sharded checkpoints of run archive files")
+
     run_dir = _unarchive_if_archive(run_dir_or_archive, run_storage)
     run_dir_storage = _get_storage_adapter_for_path(run_dir)
 
     sharded_checkpoint_directories = _get_sharded_checkpoint_dirs(
-        run_dir_storage, run_dir, run_dir_or_archive, config.latest_checkpoint_only
+        run_dir_storage, run_dir, run_dir_or_archive, config.latest_checkpoint_only, config.checkpoint_num
     )
     for sharded_checkpoint_directory in sharded_checkpoint_directories:
         sharded_checkpoint_dir_name = Path(sharded_checkpoint_directory).name
@@ -946,6 +992,14 @@ def _unshard_checkpoints(
         else:
             log.info("Unsharding sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
             _unshard_checkpoint(sharded_checkpoint_directory, dest_directory, run_dir, config)
+
+        if config.delete_sharded_checkpoints:
+            assert run_dir == run_dir_or_archive
+            if config.dry_run:
+                log.info("Would delete sharded checkpoint %s", sharded_checkpoint_directory)
+            else:
+                log.info("Deleting sharded checkpoint %s", sharded_checkpoint_directory)
+                run_dir_storage.delete_path(sharded_checkpoint_directory)
 
 
 def unshard_run_checkpoints(run_path: str, checkpoints_dest_dir: str, config: UnshardCheckpointsConfig):
@@ -1058,30 +1112,15 @@ def _get_wandb_path(run_dir: str) -> str:
     return _get_wandb_path_from_run(wandb_matching_runs[0])
 
 
-def _append_wandb_path(
-    base_dir: str, run_dir_or_archive: str, append_archive_extension: bool = False, run_dir: Optional[str] = None
-) -> str:
-    run_dir_or_archive_storage = _get_storage_adapter_for_path(run_dir_or_archive)
-    if run_dir is None:
-        run_dir = _unarchive_if_archive(run_dir_or_archive, run_dir_or_archive_storage)
-
-    wandb_path = _get_wandb_path(run_dir)
-
-    if _is_archive(run_dir_or_archive, run_dir_or_archive_storage) and append_archive_extension:
-        archive_extension = "".join(Path(run_dir_or_archive).suffixes)
-        relative_wandb_path = wandb_path + archive_extension
-    else:
-        relative_wandb_path = wandb_path + "/"
-
-    return os.path.join(base_dir, relative_wandb_path)
-
-
 def _copy(src_path: str, dest_path: str, temp_dir: str):
     """
     Copies the entry at `src_path` to `dest_path`. The destination path can be a directory
     that does not exist (creating directories without a corresponding file is not always possible
     in cloud storage). In exchange we require that `src_path` and `dest_path` are either
     both files or both directories.
+
+    If the entry already exists at the destination, the behavior is decided by the
+    underlying storage adapter.
     """
     src_storage_type = StorageAdapter.get_storage_type_for_path(src_path)
     dest_storage_type = StorageAdapter.get_storage_type_for_path(dest_path)
@@ -1096,10 +1135,12 @@ def _copy(src_path: str, dest_path: str, temp_dir: str):
     src_is_file = src_storage.is_file(src_path)
     src_is_dir = src_storage.is_dir(src_path)
     assert not (src_is_file and src_is_dir), f"Source {src_path} is both a file and a directory"
+    if not src_is_file and not src_is_dir:
+        raise ValueError(f"Source {src_path} of copy operation is not a file or a directory")
 
     dest_storage = StorageAdapter.create_storage_adapter(dest_storage_type)
-    if dest_storage.is_file(dest_path):
-        raise ValueError(f"A file already exists at destination {dest_path}")
+    if src_is_dir and dest_storage.is_file(dest_path):
+        raise ValueError(f"Source path {src_path} is a directory but the destination {dest_path} is a file.")
     if src_is_file and (dest_path.endswith("/") or dest_storage.is_dir(dest_path)):
         raise ValueError(f"Source path {src_path} is a file but the destination {dest_path} is a directory.")
 
@@ -1121,34 +1162,56 @@ def _copy(src_path: str, dest_path: str, temp_dir: str):
     dest_storage.upload(local_path, dest_path)
 
 
-def _get_src_and_dest_for_copy(
+def _get_src_dest_pairs_for_copy(
     src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: str, config: MoveRunConfig
-) -> Tuple[str, str]:
+) -> List[Tuple[str, str]]:
     is_archive_file = _is_archive(run_dir_or_archive, src_storage)
-    # We need to unarchive the run if we want to get the wandb path
-    should_unarchive = is_archive_file and (not config.store_archived or config.append_wandb_path)
+    if is_archive_file and config.append_wandb_path:
+        raise ValueError("Cannot append wandb path for run archive files")
 
-    if is_archive_file and not should_unarchive:
-        dest_file_path = os.path.join(dest_dir, Path(run_dir_or_archive).name)
-        return run_dir_or_archive, dest_file_path
+    if is_archive_file:
+        if config.store_archived:
+            dest_file_path = os.path.join(dest_dir, Path(run_dir_or_archive).name)
+            return [(run_dir_or_archive, dest_file_path)]
+        else:
+            run_dir = _unarchive_if_archive(run_dir_or_archive, src_storage)
+            archive_extension = "".join(Path(run_dir_or_archive).suffixes)
+            dir_name = Path(run_dir_or_archive).name.removesuffix(archive_extension)
+            dest_path = os.path.join(dest_dir, dir_name)
+            return [(run_dir, dest_path)]
 
-    run_dir = _unarchive_if_archive(run_dir_or_archive, src_storage)
+    run_dir = run_dir_or_archive
+    run_dir_storage = _get_storage_adapter_for_path(run_dir)
+    if not run_dir_storage.is_dir(run_dir):
+        raise ValueError(f"Run directory {run_dir} does not exist")
 
-    src_path = run_dir_or_archive if config.store_archived else run_dir
+    if not config.append_wandb_path:
+        return [(run_dir, dest_dir)]
 
-    dest_path: str
-    if config.append_wandb_path:
-        dest_path = _append_wandb_path(
-            dest_dir, run_dir_or_archive, append_archive_extension=config.store_archived, run_dir=run_dir
-        )
-    elif is_archive_file and not config.store_archived:
-        archive_extension = "".join(Path(run_dir_or_archive).suffixes)
-        dir_name = Path(run_dir_or_archive).name.removesuffix(archive_extension)
-        dest_path = os.path.join(dest_dir, dir_name)
-    else:
-        dest_path = dest_dir
+    assert config.append_wandb_path and not is_archive_file
+    checkpoint_dirs = _get_checkpoint_dirs(run_dir, run_dir_storage)
+    # TODO: Update _get_wandb_path to get the wandb path for a checkpoint rather than a run directory.
+    # A run directory could correspond to multiple wandb runs.
+    checkpoint_to_wandb_path = {checkpoint_dir: _get_wandb_path(run_dir) for checkpoint_dir in checkpoint_dirs}
 
-    return src_path, dest_path
+    src_dest_pairs: List[Tuple[str, str]] = []
+    # Mappings of source checkpoint directories to destination checkpoint directories
+    src_dest_pairs += [
+        (checkpoint_dir, os.path.join(dest_dir, wandb_path, Path(checkpoint_dir).name))
+        for checkpoint_dir, wandb_path in checkpoint_to_wandb_path.items()
+    ]
+
+    # Mappings of other source entries to destination entries. Since different checkpoints
+    # may comes from different wandb runs, we need to map non-checkpoint entries to
+    # every folder corresponding to a wandb run of these checkpoints.
+    src_dest_pairs += [
+        (os.path.join(run_dir, entry), os.path.join(dest_dir, wandb_path, entry))
+        for entry in run_dir_storage.list_entries(run_dir)
+        if not _is_checkpoint_dir(os.path.join(run_dir, entry))
+        for wandb_path in set(checkpoint_to_wandb_path.values())
+    ]
+
+    return src_dest_pairs
 
 
 def _move_run(src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: str, config: MoveRunConfig):
@@ -1158,19 +1221,25 @@ def _move_run(src_storage: StorageAdapter, run_dir_or_archive: str, dest_dir: st
     if dest_storage.is_file(dest_dir):
         raise ValueError(f"Destination directory {dest_dir} is a file")
 
-    src_move_path, dest_move_path = _get_src_and_dest_for_copy(src_storage, run_dir_or_archive, dest_dir, config)
+    src_dest_path_pairs = _get_src_dest_pairs_for_copy(src_storage, run_dir_or_archive, dest_dir, config)
 
-    if src_move_path.rstrip("/") == dest_move_path.rstrip("/"):
-        # This could be a valid scenario if the user is, for example, trying to
-        # append wandb path to runs and this run has the right wandb path already.
-        log.info("Source and destination move paths are both %s, skipping", src_move_path)
-        return
+    for src_move_path, dest_move_path in src_dest_path_pairs:
+        if src_move_path.rstrip("/") == dest_move_path.rstrip("/"):
+            if config.keep_src:
+                # This could be a valid scenario if the user is, for example, trying to
+                # append wandb path to runs and this run has the right wandb path already.
+                log.info("Source and destination move paths are both %s, skipping", src_move_path)
+                continue
+            else:
+                raise RuntimeError(
+                    f"Source and destination move paths are both {src_move_path} and source is being deleted"
+                )
 
-    if config.dry_run:
-        log.info("Would copy %s to %s", src_move_path, dest_move_path)
-    else:
-        log.info("Copying %s to %s", src_move_path, dest_move_path)
-        _copy(src_move_path, dest_move_path, config.temp_dir)
+        if config.dry_run:
+            log.info("Would copy %s to %s", src_move_path, dest_move_path)
+        else:
+            log.info("Copying %s to %s", src_move_path, dest_move_path)
+            _copy(src_move_path, dest_move_path, config.temp_dir)
 
     if not config.keep_src:
         if config.dry_run:
@@ -1252,6 +1321,8 @@ def perform_operation(args: argparse.Namespace):
                 dry_run=args.dry_run,
                 temp_dir=temp_dir,
                 latest_checkpoint_only=args.latest_checkpoint_only,
+                delete_sharded_checkpoints=args.delete_sharded_checkpoints,
+                checkpoint_num=args.checkpoint_num,
             )
             if args.run_path is not None:
                 unshard_run_checkpoints(args.run_path, args.dest_dir, unshard_checkpoints_config)
@@ -1326,6 +1397,18 @@ def _add_unsharding_subparser(subparsers: _SubParsersAction):
         "--latest_checkpoint_only",
         action="store_true",
         help="If set, only the latest checkpoint of each run (if sharded) is unsharded.",
+    )
+    unsharding_runs_parser.add_argument(
+        "--delete_sharded",
+        dest="delete_sharded_checkpoints",
+        action="store_true",
+        help="If set, deletes sharded checkpoints after they have been successfully unsharded.",
+    )
+    unsharding_runs_parser.add_argument(
+        "--checkpoint_num",
+        type=int,
+        default=None,
+        help="If provided, unsharding is restricted to this checkpoint of the run.",
     )
 
 

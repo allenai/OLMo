@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 
 from ..aliases import PathOrStr
 from ..config import DataConfig, TrainConfig
-from ..exceptions import OlmoConfigurationError
+from ..exceptions import OLMoConfigurationError
 from ..torch_util import barrier, get_global_rank, get_world_size
 from .collator import DataCollator
 from .iterable_dataset import IterableDataset
@@ -21,7 +21,7 @@ def build_memmap_dataset(
     metadata: List[Dict[str, Any]] = []
     if data_config.paths:
         if data_config.datasets:
-            raise OlmoConfigurationError("DataConfig.paths is mutually exclusive with DataConfig.datasets")
+            raise OLMoConfigurationError("DataConfig.paths is mutually exclusive with DataConfig.datasets")
         paths = data_config.paths
         for path in paths:
             metadata.append({"path": str(path)})
@@ -32,7 +32,7 @@ def build_memmap_dataset(
             paths.extend(label_paths)
             metadata.extend([{"label": label}] * len(label_paths))
     else:
-        raise OlmoConfigurationError("One of DataConfig.paths or DataConfig.datasets is required")
+        raise OLMoConfigurationError("One of DataConfig.paths or DataConfig.datasets is required")
     return MemMapDataset(
         *paths,
         chunk_size=train_config.model.max_sequence_length,
@@ -57,13 +57,14 @@ def build_eval_dataloader(
         samples_per_device = len(dataset) // get_world_size()
         batch_size = min(batch_size, samples_per_device)
         assert batch_size > 0, f"dataset for {data_config.paths} is too small"
+    seed = data_config.seed if data_config.seed is not None else train_config.seed
     sampler = DistributedSampler(
         dataset,
         drop_last=data_config.drop_last,
         shuffle=shuffle,
         num_replicas=get_world_size(),
         rank=get_global_rank(),
-        seed=train_config.seed,
+        seed=seed,
     )
     return DataLoader(
         dataset,
@@ -87,17 +88,18 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
     work_dir = Path(train_config.save_folder) / "train_data"
     if get_global_rank() == 0:
         if work_dir.is_dir() and not train_config.save_overwrite:
-            raise OlmoConfigurationError(
+            raise OLMoConfigurationError(
                 "train data working directory already exists, use --save_overwrite to overwrite"
             )
         else:
             work_dir.mkdir(exist_ok=True, parents=True)
     barrier()
+    seed = train_config.data.seed if train_config.data.seed is not None else train_config.seed
     return DataLoader(
         IterableDataset(
             dataset,  # type: ignore
             train_config.global_train_batch_size,
-            seed=train_config.seed + (train_config.epoch or 0),
+            seed=seed + (train_config.epoch or 0),
             shuffle=True,
             drop_last=train_config.data.drop_last,
             work_dir=work_dir,
