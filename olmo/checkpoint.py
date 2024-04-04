@@ -1738,6 +1738,29 @@ class OlmoCoreCheckpointer(Checkpointer):
         barrier()
         return trainer_state
 
+    def unshard_checkpoint(
+        self,
+        load_path: PathOrStr,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+        load_optimizer_state: bool = True,
+        load_trainer_state: bool = True,
+        device: Optional[torch.device] = None,
+    ) -> Tuple[Dict[str, torch.Tensor], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        from olmo_core.distributed.checkpoint import (  # type: ignore
+            unshard_model_state,
+            unshard_optim_state,
+        )
+
+        model_state = unshard_model_state(load_path, device=device)
+        optim_state: Optional[Dict[str, Any]] = None
+        train_state: Optional[Dict[str, Any]] = None
+        if load_optimizer_state:
+            optim_state = cast(Dict[str, Any], unshard_optim_state(load_path, device=device))
+        if load_trainer_state:
+            train_state = load_state_dict(load_path, "train/rank0.pt", local_cache=local_cache)
+        return model_state, optim_state, train_state
+
 
 def build_sharded_checkpointer(
     cfg: TrainConfig, *, name: Optional[ShardedCheckpointerType] = None
