@@ -25,5 +25,5 @@ torchrun \
     configs/lr-scheduling-s3.yaml \
       --run_name=lr-schedule-const-lr \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
-      '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
+      --load_path=r2://olmo-checkpoints/unsorted/6720641/step430000-unsharded \
       --save_overwrite
