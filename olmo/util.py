@@ -443,6 +443,22 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
     return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1)
 
 
+def _get_s3_profile_name(scheme: str) -> Optional[str]:
+    if scheme == "s3":
+        # For backwards compatibility, we assume S3 uses the default profile if S3_PROFILE is not set.
+        return os.environ.get("S3_PROFILE")
+    if scheme == "r2":
+        profile_name = os.environ.get("R2_PROFILE")
+        if profile_name is None:
+            raise OLMoEnvironmentError(
+                "R2 profile name is not set. Did you forget to set the 'R2_PROFILE' env var?"
+            )
+
+        return profile_name
+
+    raise NotImplementedError(f"Cannot get profile name for scheme {scheme}")
+
+
 def _get_s3_endpoint_url(scheme: str) -> Optional[str]:
     if scheme == "s3":
         return None
@@ -460,14 +476,9 @@ def _get_s3_endpoint_url(scheme: str) -> Optional[str]:
 
 @cache
 def _get_s3_client(scheme: str):
-    session = boto3.Session()
-
-    aws_access_key_id = os.environ["R2_ACCESS_KEY_ID"] if scheme == "r2" else None
-    aws_secret_access_key = os.environ["R2_SECRET_ACCESS_KEY"] if scheme == "r2" else None
+    session = boto3.Session(profile_name=_get_s3_profile_name(scheme))
     return session.client(
         "s3",
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
         endpoint_url=_get_s3_endpoint_url(scheme),
         config=Config(retries={"max_attempts": 10, "mode": "standard"}),
         use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
