@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added support for Grouped Query Attention.
 - Added commonsense_qa and social_iqa downstream evaluation tasks
+- Makes it possible to read from http/https the same way we read from s3/r2.
 - Added MMLU multiple choice (A/B/C/D) 5-shot variant downstream tasks
 
 ### Changed
@@ -27,10 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Don't log garbage on nodes that aren't rank 0
 - Don't crash in the HF code when we are referring to a tokenizer in a local file
+- Point official training scripts to publicly available URLs
 - Corrected the `resize_token_embeddings` method in the `OLMoForCausalLM` class to properly update the token embeddings when resizing the vocabulary.
 - Changed `tie_weights` method to a no-op as weight tying is handled in olmo/model.py
 - Fixed the size calculation for qk layer norm
 - Fixed pipeline test failure that occurs due to a bug in transformers version 4.39.1
+
 
 ## [v0.2.5](https://github.com/allenai/OLMo/releases/tag/v0.2.5) - 2024-03-06
 
