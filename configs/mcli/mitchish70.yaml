@@ -51,6 +51,7 @@ command: |-
 
   cd OLMo
 
+  echo "Launching train script..."
   torchrun \
   --master_addr "$MASTER_ADDR" \
   --master_port "$MASTER_PORT" \
