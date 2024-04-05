@@ -62,7 +62,7 @@ save_overwrite: false
 
 save_interval: 1000
 save_interval_ephemeral: null
-save_num_checkpoints_to_keep: -1
+save_num_checkpoints_to_keep: 1
 sharded_checkpointer: local
 
 save_interval_unsharded: null
