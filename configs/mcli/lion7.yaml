@@ -50,11 +50,14 @@ command: |-
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
+    --canceled_check_interval=10 \
     --save_folder=runs/ \
     --activation_checkpointing=null \
     --fused_loss=true \
     --device_train_microbatch_size=2 \
     --global_train_batch_size=1024 \
-    --save_overwrite
+    --save_overwrite \
+    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step0/ \
+    --reset_optimizer_state
 
     #'--load_path=${path.last_checkpoint:${remote_save_folder}}' \
