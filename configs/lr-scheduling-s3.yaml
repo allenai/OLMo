@@ -56,7 +56,7 @@ tokenizer:
   identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
   truncate_direction: right
 
-save_folder: runs/${run_name}
+save_folder: /data/shanea/runs/${run_name}
 remote_save_folder: s3://ai2-llm/checkpoints/1b/${run_name}
 save_overwrite: false
 
