@@ -25,5 +25,6 @@ torchrun \
     configs/lr-scheduling-s3.yaml \
       --run_name=lr-schedule-const-lr \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
-      --load_path=s3://ai2-llm/checkpoints/1b/lr-schedule-const-lr/step515450 \
+      --load_path=s3://ai2-llm/checkpoints/1b/lr-schedule-const-lr/step515450-unsharded \
+      --device_train_microbatch_size=4 \
       --save_overwrite
