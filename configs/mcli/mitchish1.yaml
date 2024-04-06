@@ -54,7 +54,7 @@ command: |-
     --activation_checkpointing=fine_grained \
     --fused_loss=true \
     --canceled_check_interval=50 \
-    --gen1_gc_interval=4 \
+    --gen1_gc_interval=8 \
     --device_train_microbatch_size=8 \
     --global_train_batch_size=512 \
     '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
