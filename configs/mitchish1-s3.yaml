@@ -211,7 +211,7 @@ evaluators:
 
 data:
   pad_direction: right
-  num_workers: 32
+  num_workers: 64
   drop_last: true
   pin_memory: true
   prefetch_factor: 8
