@@ -1,5 +1,5 @@
 name: olmo-7b
-image: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
+image: ghcr.io/allenai/mosaicml-torch22:latest
 compute:
   cluster: r15z4
   gpus: 512
