@@ -25,6 +25,5 @@ torchrun \
     configs/lr-scheduling-s3.yaml \
       --run_name=lr-schedule-const-lr \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
-      --load_path=/net/nfs.cirrascale/allennlp/shanea/checkpoints/lr-schedule-const-lr/step515450-unsharded \
-      --device_train_microbatch_size=4 \
+      --load_path=/net/nfs.cirrascale/allennlp/shanea/checkpoints/lr-schedule-const-lr/step551850-unsharded \
       --save_overwrite
