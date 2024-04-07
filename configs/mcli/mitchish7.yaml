@@ -63,5 +63,6 @@ command: |-
     --device_train_microbatch_size=2 \
     --global_train_batch_size=1024 \
     --epoch=1 \
+    --gen1_gc_interval=8 \
     '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
     --save_overwrite
