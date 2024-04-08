@@ -9,6 +9,128 @@ compute:
   gpus: 896
   gpu_type: h100_80gb
   instance: oci.bm.gpu.h100.8
+  node_names:
+    - inst-ij1rg-r15z3-workers
+    - inst-kx7fu-r15z3-workers
+    - inst-ubbqk-r15z3-workers
+    - inst-8jhc4-r15z3-workers
+    - inst-xh87c-r15z3-workers
+    - inst-cm3ec-r15z3-workers
+    - inst-vzhyo-r15z3-workers
+    - inst-tg5bs-r15z3-workers
+    - inst-eigqe-r15z3-workers
+    - inst-pzgox-r15z3-workers
+    - inst-i9qwf-r15z3-workers
+    - inst-yg289-r15z3-workers
+    - inst-go2bm-r15z3-workers
+    - inst-dpvjh-r15z3-workers
+    - inst-jmxxa-r15z3-workers
+    - inst-grtmk-r15z3-workers
+    - inst-fdyxp-r15z3-workers
+    - inst-5irk5-r15z3-workers
+    - inst-lwagu-r15z3-workers
+    - inst-bsgg4-r15z3-workers
+    - inst-2iaxk-r15z3-workers
+    - inst-lduqx-r15z3-workers
+    - inst-r01sx-r15z3-workers
+    - inst-wrucg-r15z3-workers
+    - inst-vvd97-r15z3-workers
+    - inst-bluc6-r15z3-workers
+    - inst-o186f-r15z3-workers
+    - inst-bw20d-r15z3-workers
+    - inst-f0kqy-r15z3-workers
+    - inst-ed8jl-r15z3-workers
+    - inst-vjsri-r15z3-workers
+    - inst-ndddu-r15z3-workers
+    - inst-edsue-r15z3-workers
+    - inst-rdvlq-r15z3-workers
+    - inst-ekaiy-r15z3-workers
+    - inst-cupyv-r15z3-workers
+    - inst-tfi9t-r15z3-workers
+    - inst-hzzsd-r15z3-workers
+    - inst-vy0zb-r15z3-workers
+    - inst-kdmu6-r15z3-workers
+    - inst-6tz4b-r15z3-workers
+    - inst-ih7jm-r15z3-workers
+    - inst-2oyig-r15z3-workers
+    - inst-rymxc-r15z3-workers
+    - inst-1nnph-r15z3-workers
+    - inst-dhjn2-r15z3-workers
+    - inst-kxpsv-r15z3-workers
+    - inst-v87vf-r15z3-workers
+    - inst-ivjqi-r15z3-workers
+    - inst-bv9yy-r15z3-workers
+    - inst-0mf4w-r15z3-workers
+    - inst-bg14o-r15z3-workers
+    - inst-bn5zq-r15z3-workers
+    - inst-glcak-r15z3-workers
+    - inst-xalw1-r15z3-workers
+    - inst-vwwku-r15z3-workers
+    - inst-ijtgf-r15z3-workers
+    - inst-21fqf-r15z3-workers
+    - inst-ht0xx-r15z3-workers
+    - inst-entnk-r15z3-workers
+    - inst-hvw6t-r15z3-workers
+    - inst-3to96-r15z3-workers
+    - inst-4ki3x-r15z3-workers
+    - inst-aixwt-r15z3-workers
+    - inst-pbivr-r15z3-workers
+    - inst-6yvq9-r15z3-workers
+    - inst-i1ted-r15z3-workers
+    - inst-nv70l-r15z3-workers
+    - inst-awtjo-r15z3-workers
+    - inst-olazl-r15z3-workers
+    - inst-qc1pa-r15z3-workers
+    - inst-daiox-r15z3-workers
+    - inst-5wqam-r15z3-workers
+    - inst-drkao-r15z3-workers
+    - inst-j8byk-r15z3-workers
+    - inst-csom5-r15z3-workers
+    - inst-mrxmj-r15z3-workers
+    - inst-g5ojd-r15z3-workers
+    - inst-irzic-r15z3-workers
+    - inst-gggd1-r15z3-workers
+    - inst-vwnx8-r15z3-workers
+    - inst-4zdz3-r15z3-workers
+    - inst-c6t2k-r15z3-workers
+    - inst-jhqyu-r15z3-workers
+    - inst-8z7hr-r15z3-workers
+    - inst-v8mxi-r15z3-workers
+    - inst-jeel7-r15z3-workers
+    - inst-zlnho-r15z3-workers
+    - inst-xdqqd-r15z3-workers
+    - inst-di0ri-r15z3-workers
+    - inst-lpz5k-r15z3-workers
+    - inst-jhhcv-r15z3-workers
+    - inst-fatfc-r15z3-workers
+    - inst-xoiov-r15z3-workers
+    - inst-rtaii-r15z3-workers
+    - inst-tcttd-r15z3-workers
+    - inst-likvg-r15z3-workers
+    - inst-gn4hg-r15z3-workers
+    - inst-rnyqr-r15z3-workers
+    - inst-zgb86-r15z3-workers
+    - inst-rpmhf-r15z3-workers
+    - inst-pfzsm-r15z3-workers
+    - inst-9hoiv-r15z3-workers
+    - inst-v2vx0-r15z3-workers
+    - inst-tw9i6-r15z3-workers
+    - inst-aj1o1-r15z3-workers
+    - inst-xmxc2-r15z3-workers
+    - inst-o3fxl-r15z3-workers
+    - inst-4vqjq-r15z3-workers
+    - inst-ll38i-r15z3-workers
+    - inst-j3mfc-r15z3-workers
+    - inst-e1ijl-r15z3-workers
+    # - inst-evbig-r15z3-workers
+    # - inst-tturo-r15z3-workers
+    # - inst-kc1z1-r15z3-workers
+    # - inst-97xv1-r15z3-workers
+    # - inst-vaqst-r15z3-workers
+    # - inst-i6mnk-r15z3-workers
+    # Bad nodes:
+    # - inst-hdlqg-r15z3-workers
+    # - inst-6jp2q-r15z3-workers
 integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
