@@ -1208,7 +1208,9 @@ def _get_src_dest_pairs_for_copy(
         checkpoint_to_wandb_path = {entry_path: _get_wandb_path(entry_path, run_dir)}
     else:
         checkpoint_dirs = _get_checkpoint_dirs(run_dir, run_dir_storage)
-        checkpoint_to_wandb_path = {checkpoint_dir: _get_wandb_path(checkpoint_dir, run_dir) for checkpoint_dir in checkpoint_dirs}
+        checkpoint_to_wandb_path = {
+            checkpoint_dir: _get_wandb_path(checkpoint_dir, run_dir) for checkpoint_dir in checkpoint_dirs
+        }
 
     src_dest_pairs: List[Tuple[str, str]] = []
     # Mappings of source checkpoint directories to destination checkpoint directories
