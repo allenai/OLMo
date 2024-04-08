@@ -46,11 +46,6 @@ def make_parser():
     )
     parser.add_argument("--type", default=None, help="If given, pass this argument on to `unshard.py`.")
     parser.add_argument("--model-only", action="store_true", help="If given, only unshard the model.")
-    parser.add_argument(
-        "--safe-tensors",
-        action="store_true",
-        help="Save unsharded safetensors as well.",
-    )
     return parser
 
 
@@ -83,8 +78,6 @@ def s3_unshard_to_hf(args):
         unshard_cmd += f" --type {args.type}"
     if args.model_only:
         unshard_cmd += " --model-only"
-    if args.safe_tensors:
-        unshard_cmd += " --safe-tensors"
 
     subprocess.run(unshard_cmd, shell=True, check=True)
 
