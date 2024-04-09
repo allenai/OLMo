@@ -54,22 +54,22 @@ def main(cfg: TrainConfig) -> None:
     fsdp_init_process_group: Optional[Tuple[dist.ProcessGroup, dist.ProcessGroup]] = None
     if (
         cfg.fsdp.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2)
-        and cfg.fsdp.hybrid_sharding_num_groups is not None
+        and cfg.fsdp.hybrid_sharding_num_model_replicas is not None
     ):
-        if cfg.fsdp.hybrid_sharding_num_groups <= 0:
-            raise OlmoConfigurationError("fsdp.hybrid_sharding_num_groups must be a positive integer")
+        if cfg.fsdp.hybrid_sharding_num_model_replicas <= 0:
+            raise OlmoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must be a positive integer")
 
         num_nodes = get_world_size() // get_local_world_size()
-        if num_nodes % cfg.fsdp.hybrid_sharding_num_groups != 0:
-            raise OlmoConfigurationError("fsdp.hybrid_sharding_num_groups must divide number of nodes")
+        if num_nodes % cfg.fsdp.hybrid_sharding_num_model_replicas != 0:
+            raise OlmoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must divide number of nodes")
 
-        group_size = get_world_size() // cfg.fsdp.hybrid_sharding_num_groups
+        group_size = get_world_size() // cfg.fsdp.hybrid_sharding_num_model_replicas
 
         sharding_proc_group, _ = dist.new_subgroups(group_size)
 
         ranks_per_replication_group_list = [
-            [group_num + (i * cfg.fsdp.hybrid_sharding_num_groups) for i in range(group_size)]
-            for group_num in range(cfg.fsdp.hybrid_sharding_num_groups)
+            [group_num + (i * cfg.fsdp.hybrid_sharding_num_model_replicas) for i in range(group_size)]
+            for group_num in range(cfg.fsdp.hybrid_sharding_num_model_replicas)
         ]
         replication_proc_group, _ = dist.new_subgroups_by_enumeration(ranks_per_replication_group_list)
 
@@ -183,7 +183,7 @@ def main(cfg: TrainConfig) -> None:
 
     num_model_replicas = 1
     if fsdp_model.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2):
-        num_model_replicas = cfg.fsdp.hybrid_sharding_num_groups or 1
+        num_model_replicas = cfg.fsdp.hybrid_sharding_num_model_replicas or (get_world_size() // get_local_world_size())
     if fsdp_model.sharding_strategy == ShardingStrategy.NO_SHARD:
         num_model_replicas = get_world_size()
 

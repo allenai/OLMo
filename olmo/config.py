@@ -654,12 +654,12 @@ class FSDPConfig(BaseConfig):
 
     precision: FSDPPrecision = FSDPPrecision.pure
 
-    hybrid_sharding_num_groups: Optional[int] = None
+    hybrid_sharding_num_model_replicas: Optional[int] = None
     """
-    The number of process groups across which each parameter is replicated, when using a hybrid sharding strategy.
-    If not ``None``, this must divide the total number of nodes. If ``None``, the default, FSDP defaults to
-    constructing process groups such that parameters are sharded intra-node and replicated inter-node.
-    FSDP's default behavior is roughly equivalent to setting ``hybrid_sharding_num_groups`` to ``1``.
+    The number of model instances across which each parameter is replicated, when using a hybrid sharding strategy.
+    If not ``None``, this must divide the total number of nodes. If ``None``, the default, a model replica
+    is used per node (as determined by ``get_world_size() // get_local_world_size()``).
+    PyTorch's default HSDP behavior is roughly equivalent to the default.
     """
 
 
