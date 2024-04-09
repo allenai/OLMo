@@ -53,7 +53,7 @@ def main(cfg: TrainConfig) -> None:
 
     fsdp_init_process_group: Optional[Tuple[dist.ProcessGroup, dist.ProcessGroup]] = None
     if (
-        cfg.fsdp.sharding_strategy == ShardingStrategy.HYBRID_SHARD
+        cfg.fsdp.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2)
         and cfg.fsdp.hybrid_sharding_num_groups is not None
     ):
         if cfg.fsdp.hybrid_sharding_num_groups <= 0:
@@ -177,12 +177,18 @@ def main(cfg: TrainConfig) -> None:
     if param_init_fn is not None:
         olmo_model.reset_parameters()
 
-    log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory(process_group=fsdp_model.process_group) or 0)}")
+    log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory() or 0)}")
     log.info("Model:")
     log.info(fsdp_model)
 
+    num_model_replicas = 1
+    if fsdp_model.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2):
+        num_model_replicas = cfg.fsdp.hybrid_sharding_num_groups or 1
+    if fsdp_model.sharding_strategy == ShardingStrategy.NO_SHARD:
+        num_model_replicas = get_world_size()
+
     # Construct optimizer and learning rate scheduler.
-    optim = build_optimizer(cfg, fsdp_model, process_group=fsdp_model.process_group)
+    optim = build_optimizer(cfg, fsdp_model, num_model_replicas=num_model_replicas)
     scheduler = build_scheduler(cfg)
 
     # Data indices file.
