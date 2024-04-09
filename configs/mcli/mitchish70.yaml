@@ -7,7 +7,7 @@ scheduling:
   # max_retries: 10
 compute:
   cluster: r15z4
-  gpus: 896
+  gpus: 912
   gpu_type: h100_80gb
   instance: oci.bm.gpu.h100.8
   node_names:
@@ -123,8 +123,8 @@ compute:
     - inst-evbig-r15z3-workers
     - inst-tturo-r15z3-workers
     - inst-kc1z1-r15z3-workers
-    # - inst-97xv1-r15z3-workers
-    # - inst-vaqst-r15z3-workers
+    - inst-97xv1-r15z3-workers
+    - inst-vaqst-r15z3-workers
     # - inst-i6mnk-r15z3-workers
     # Bad nodes:
     # - inst-hdlqg-r15z3-workers
@@ -187,7 +187,7 @@ command: |-
     '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
     --load_path_sharded_checkpointer=olmo_core \
     --sharded_checkpointer=olmo_core \
-    --global_train_batch_size=1792 \
+    --global_train_batch_size=1824 \
     --device_train_microbatch_size=2 \
     --time_limit=604800 \
     --save_overwrite
@@ -202,3 +202,5 @@ command: |-
 #  gpus: 384
 #    --global_train_batch_size=1536 \
 #    --device_train_microbatch_size=2 \
+#  gpus: 896
+#    --global_train_batch_size=1792 \
