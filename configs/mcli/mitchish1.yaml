@@ -2,16 +2,7 @@ name: olmo-1b
 image: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
 compute:
   cluster: r15z4
-  node_names:
-    - inst-i1ted-r15z3-workers
-    - inst-bw20d-r15z3-workers
-    - inst-dpvjh-r15z3-workers
-    - inst-xmxc2-r15z3-workers
-    - inst-4ki3x-r15z3-workers
-    - inst-ij1rg-r15z3-workers
-    - inst-9hoiv-r15z3-workers
-    - inst-pzgox-r15z3-workers
-  gpus: 64
+  gpus: 16
   gpu_type: h100_80gb
   instance: oci.bm.gpu.h100.8
 integrations:
