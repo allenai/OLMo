@@ -3,14 +3,14 @@
 import gzip
 import logging
 import sys
-import typing
 from pathlib import Path
-from typing import Optional, TextIO, Tuple
+from typing import Optional, TextIO
 
 import torch
 import torch.distributed as dist
 import wandb
 from packaging import version
+from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import ShardingStrategy
 
@@ -51,33 +51,25 @@ def main(cfg: TrainConfig) -> None:
 
     barrier()
 
-    fsdp_init_process_group: Optional[Tuple[dist.ProcessGroup, dist.ProcessGroup]] = None
-    if (
-        cfg.fsdp.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2)
-        and cfg.fsdp.hybrid_sharding_num_model_replicas is not None
-    ):
-        if cfg.fsdp.hybrid_sharding_num_model_replicas <= 0:
-            raise OlmoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must be a positive integer")
+    device_mesh: Optional[DeviceMesh] = None
+    if cfg.fsdp.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2):
+        if version.parse(torch.__version__) < version.parse("2.2.0"):
+            raise OlmoConfigurationError(
+                "OLMo training does not correctly support hybrid sharding before torch 2.2.0"
+            )
+
+        num_model_replicas = cfg.fsdp.hybrid_sharding_num_model_replicas or (
+            get_world_size() // get_local_world_size()
+        )
+
+        if num_model_replicas <= 0:
+            raise OlmoConfigurationError("num_model_replicas must be a positive integer")
 
         num_nodes = get_world_size() // get_local_world_size()
-        if num_nodes % cfg.fsdp.hybrid_sharding_num_model_replicas != 0:
-            raise OlmoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must divide number of nodes")
+        if num_nodes % num_model_replicas != 0:
+            raise OlmoConfigurationError("num_model_replicas must divide number of nodes")
 
-        group_size = get_world_size() // cfg.fsdp.hybrid_sharding_num_model_replicas
-
-        sharding_proc_group, _ = dist.new_subgroups(group_size)
-
-        ranks_per_replication_group_list = [
-            [group_num + (i * cfg.fsdp.hybrid_sharding_num_model_replicas) for i in range(group_size)]
-            for group_num in range(cfg.fsdp.hybrid_sharding_num_model_replicas)
-        ]
-        replication_proc_group, _ = dist.new_subgroups_by_enumeration(ranks_per_replication_group_list)
-
-        assert sharding_proc_group is not None
-        assert replication_proc_group is not None
-        sharding_proc_group = typing.cast(dist.ProcessGroup, sharding_proc_group)
-        replication_proc_group = typing.cast(dist.ProcessGroup, replication_proc_group)
-        fsdp_init_process_group = (sharding_proc_group, replication_proc_group)
+        device_mesh = init_device_mesh("cuda", (num_model_replicas, get_world_size() // num_model_replicas))
 
     # Set CUDA device.
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
@@ -164,7 +156,7 @@ def main(cfg: TrainConfig) -> None:
         param_init_fn = None
     fsdp_model = FSDP(
         olmo_model,
-        process_group=fsdp_init_process_group,
+        device_mesh=device_mesh,
         sharding_strategy=cfg.fsdp.sharding_strategy,
         mixed_precision=cfg.fsdp_precision,
         auto_wrap_policy=wrap_policy,
@@ -183,7 +175,9 @@ def main(cfg: TrainConfig) -> None:
 
     num_model_replicas = 1
     if fsdp_model.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2):
-        num_model_replicas = cfg.fsdp.hybrid_sharding_num_model_replicas or (get_world_size() // get_local_world_size())
+        num_model_replicas = cfg.fsdp.hybrid_sharding_num_model_replicas or (
+            get_world_size() // get_local_world_size()
+        )
     if fsdp_model.sharding_strategy == ShardingStrategy.NO_SHARD:
         num_model_replicas = get_world_size()
 
