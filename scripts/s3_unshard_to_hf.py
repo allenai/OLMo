@@ -2,13 +2,17 @@
 Convenience script to take a model checkpoint stored on S3, unshard, and convert to HF
 format. Requires the AWS CLI to be installed and configured.
 
-Example usage for new-style checkpoint (circa April 2024):
+Example usage for `olmo_core`-style checkpoint (circa April 2024):
 python scripts/s3_unshard_to_hf.py \
     --sharded_bucket s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step239000 \
     --unsharded_bucket s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step239000-unsharded \
     --hf_bucket s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step239000-huggingface \
     --type olmo_core \
     --tmp_dir /net/nfs.cirrascale/allennlp/davidw/tmp/unshard
+
+NOTE: For this to work, you need to install the `OLMo-core` repo as follows:
+- Clone https://github.com/allenai/OLMo-core
+- Run `pip install -e .[all]`
 """
 
 import argparse
@@ -42,11 +46,6 @@ def make_parser():
     )
     parser.add_argument("--type", default=None, help="If given, pass this argument on to `unshard.py`.")
     parser.add_argument("--model-only", action="store_true", help="If given, only unshard the model.")
-    parser.add_argument(
-        "--safe-tensors",
-        action="store_true",
-        help="Save unsharded safetensors as well.",
-    )
     return parser
 
 
@@ -79,8 +78,6 @@ def s3_unshard_to_hf(args):
         unshard_cmd += f" --type {args.type}"
     if args.model_only:
         unshard_cmd += " --model-only"
-    if args.safe_tensors:
-        unshard_cmd += " --safe-tensors"
 
     subprocess.run(unshard_cmd, shell=True, check=True)
 
