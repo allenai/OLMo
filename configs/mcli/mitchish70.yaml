@@ -1,9 +1,10 @@
 name: olmo-70b
-image: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
+# image: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
+image: public.ecr.aws/z0f8p3z5/olmo:pytorch2.2.1_cu121-python3.11-ubuntu20.04
 scheduling:
   priority: auto
-  preemptible: true  # means it can be retried
-  max_retries: 10
+  # preemptible: true  # means it can be retried
+  # max_retries: 10
 compute:
   cluster: r15z4
   gpus: 896
@@ -95,7 +96,6 @@ compute:
     - inst-8z7hr-r15z3-workers
     - inst-v8mxi-r15z3-workers
     - inst-jeel7-r15z3-workers
-    - inst-zlnho-r15z3-workers
     - inst-xdqqd-r15z3-workers
     - inst-di0ri-r15z3-workers
     - inst-lpz5k-r15z3-workers
@@ -122,7 +122,7 @@ compute:
     - inst-e1ijl-r15z3-workers
     - inst-evbig-r15z3-workers
     - inst-tturo-r15z3-workers
-    # - inst-kc1z1-r15z3-workers
+    - inst-kc1z1-r15z3-workers
     # - inst-97xv1-r15z3-workers
     # - inst-vaqst-r15z3-workers
     # - inst-i6mnk-r15z3-workers
@@ -131,6 +131,7 @@ compute:
     # - inst-6jp2q-r15z3-workers
     # - inst-bw20d-r15z3-workers
     # - inst-4zdz3-r15z3-workers
+    # - inst-zlnho-r15z3-workers
 integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
