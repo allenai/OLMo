@@ -70,7 +70,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 restore_dataloader: false
 
 # 2T token checkpoint for new 7B model; we call this v1.7 to match the Dolma data.
-load_path: s3:///ai2-llm/checkpoints/OLMo-medium/mitchish7/step477000-unsharded
+load_path: s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step477000-unsharded
 
 no_pre_train_checkpoint: true
 reset_optimizer_state: true
