@@ -181,6 +181,8 @@ class BlockType(StrEnum):
     sequential = "sequential"
 
     llama = "llama"
+
+    moe = "moe"
     """
     A block similar to the sequential block with slightly different
     implementations of operations like attention to imitate the behavior of Llama.

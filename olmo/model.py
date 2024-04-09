@@ -72,6 +72,12 @@ __all__ = [
 
 log = logging.getLogger(__name__)
 
+try:
+    from megablocks.layers.moe import MoE
+    from megablocks.layers.arguments import Arguments as MoEArgs
+except ImportError:
+    log.warning("megablocks not installed, MoE layers will not be available.")
+
 
 def activation_checkpoint_function(cfg: ModelConfig):
     preserve_rng_state = (
@@ -626,8 +632,162 @@ class OLMoBlock(nn.Module):
             return OLMoSequentialBlock(layer_id, config, cache)
         elif config.block_type == BlockType.llama:
             return OLMoLlamaBlock(layer_id, config, cache)
+        elif config.block_type == BlockType.moe:
+            return OLMoEBlock(layer_id, config, cache)        
         else:
             raise NotImplementedError(f"Unknown block type: '{config.block_type}'")
+
+
+class OLMoEBlock(OLMoBlock):
+    """
+    This is a a transformer MoE block where the output is computed as ``MoE(LN(x + Attention(LN(x))))``
+    (plus another skip connection).
+    """
+    def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
+        super().__init__()
+        self.layer_id = layer_id
+        self.config = config
+        self.hidden_size = (
+            config.mlp_hidden_size if config.mlp_hidden_size is not None else config.mlp_ratio * config.d_model
+        )
+        self.__cache = cache
+        assert config.d_model % config.n_heads == 0
+
+        self._activation_checkpoint_fn = None
+
+        # Dropout.
+        self.dropout = Dropout(config.residual_dropout)
+
+        # Layer norms.
+        self.k_norm: Optional[LayerNormBase] = None
+        self.q_norm: Optional[LayerNormBase] = None
+        if config.attention_layer_norm:
+            assert config.effective_n_kv_heads is not None
+            self.k_norm = LayerNormBase.build(
+                config,
+                size=(config.d_model // config.n_heads) * config.effective_n_kv_heads,
+                elementwise_affine=config.attention_layer_norm_with_affine,
+            )
+            self.q_norm = LayerNormBase.build(config, elementwise_affine=config.attention_layer_norm_with_affine)
+
+        # Make sure QKV clip coefficient is positive, otherwise it's not well-defined.
+        if config.clip_qkv is not None:
+            assert config.clip_qkv > 0
+
+        # Activation function.
+        self.act = Activation.build(config)
+        assert (self.act.output_multiplier * self.hidden_size) % 1 == 0
+
+        # Attention output projection.
+        self.attn_out = nn.Linear(
+            config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
+        )
+
+        # MoE Block
+        moe_args = MoEArgs(
+            hidden_size=config.d_model,
+            ffn_hidden_size=config.d_model*4,#int(self.act.output_multiplier * self.hidden_size),
+            moe_num_experts=8,#config.moe_num_experts,
+            moe_weight_parallelism=False,#config.moe_weight_parallelism,
+            moe_expert_model_parallelism=False,#config.moe_expert_model_parallelism,
+            moe_top_k=2,#config.moe_top_k,
+            moe_capacity_factor=1.25,#config.moe_capacity_factor,
+            moe_loss_weight=0.1,#config.moe_loss_weight,
+            device=torch.cuda.current_device(),
+            # Handled by FSDP
+            bf16=False,
+            fp16=False,
+        )
+        self.ffn = MoE(moe_args)
+
+        # Rotary embeddings.
+        if self.config.rope:
+            self.rotary_emb = RotaryEmbedding(config, self.__cache)
+
+        self.flash_attn_func = None
+        if config.flash_attention:
+            try:
+                from flash_attn import flash_attn_func  # type: ignore
+
+                self.flash_attn_func = flash_attn_func
+            except ModuleNotFoundError:
+                pass
+
+    def reset_parameters(self):
+        if self.k_norm is not None:
+            self.k_norm.reset_parameters()
+        if self.q_norm is not None:
+            self.q_norm.reset_parameters()
+        init_weights(
+            self.config,
+            self.attn_out,
+            d=self.config.d_model,
+            layer_id=self.layer_id,
+            type_of_module=ModuleType.out_module,
+        )
+        self.attn_norm.reset_parameters()
+        self.ff_norm.reset_parameters()
+        # NOTE: the standard deviation for these weights does not depend on the layer.
+        init_weights(
+            self.config, self.att_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
+        )
+        init_weights(
+            self.config, self.ffn, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
+        )
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        attention_bias: Optional[torch.Tensor] = None,
+        layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        use_cache: bool = False,
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
+        # Get query, key, value projections.
+        # shape:
+        #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
+        #  - for multi-query attn q: (batch_size, seq_len, d_model)
+        #                      k, v: (batch_size, seq_len, d_model // n_heads)
+        #  - for group query attn q: (batch_size, seq_len, d_model)
+        #                      k, v: (batch_size, seq_len, d_model // n_kv_heads)
+        if self._activation_checkpoint_fn is not None:
+            qkv = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x))
+        else:
+            qkv = self.att_proj(self.attn_norm(x))
+
+        if self.config.clip_qkv is not None:
+            qkv.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+
+        q, k, v = qkv.split(self.fused_dims, dim=-1)
+
+        # Get attention scores.
+        if self._activation_checkpoint_fn is not None:
+            att, cache = self._activation_checkpoint_fn(  # type: ignore
+                self.attention, q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache
+            )
+        else:
+            att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
+
+        # Add attention scores.
+        # shape: (B, T, C)
+        x = x + self.dropout(att)
+
+        # Add feed-forward projection.
+        # shape: (batch_size, seq_len, d_model)
+        og_x = x
+        if self._activation_checkpoint_fn is not None:
+            x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+        else:
+            x = self.ff_norm(x)
+
+        if self._activation_checkpoint_fn is not None:
+            x, _ = self._activation_checkpoint_fn(self.ffn, x)  # type: ignore
+        else:
+            x, _ = self.ffn(x)
+
+        x = self.dropout(x)
+        x = og_x + x
+
+        return x, cache
 
 
 class OLMoSequentialBlock(OLMoBlock):
