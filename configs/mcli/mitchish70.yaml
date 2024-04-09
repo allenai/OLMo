@@ -2,8 +2,8 @@ name: olmo-70b
 image: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
 scheduling:
   priority: auto
-  # preemptible: true  # means it can be retried
-  # max_retries: 3
+  preemptible: true  # means it can be retried
+  max_retries: 10
 compute:
   cluster: r15z4
   gpus: 896
