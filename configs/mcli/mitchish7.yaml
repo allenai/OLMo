@@ -5,6 +5,11 @@ compute:
   gpus: 512
   gpu_type: h100_80gb
   instance: oci.bm.gpu.h100.8
+  node_names:
+    - inst-kc1z1-r15z3-workers
+    - inst-97xv1-r15z3-workers
+    - inst-vaqst-r15z3-workers
+    - inst-i6mnk-r15z3-workers
 integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
