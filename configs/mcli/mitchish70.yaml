@@ -37,7 +37,6 @@ compute:
     - inst-vvd97-r15z3-workers
     - inst-bluc6-r15z3-workers
     - inst-o186f-r15z3-workers
-    - inst-bw20d-r15z3-workers
     - inst-f0kqy-r15z3-workers
     - inst-ed8jl-r15z3-workers
     - inst-vjsri-r15z3-workers
@@ -91,7 +90,6 @@ compute:
     - inst-irzic-r15z3-workers
     - inst-gggd1-r15z3-workers
     - inst-vwnx8-r15z3-workers
-    - inst-4zdz3-r15z3-workers
     - inst-c6t2k-r15z3-workers
     - inst-jhqyu-r15z3-workers
     - inst-8z7hr-r15z3-workers
@@ -122,8 +120,8 @@ compute:
     - inst-ll38i-r15z3-workers
     - inst-j3mfc-r15z3-workers
     - inst-e1ijl-r15z3-workers
-    # - inst-evbig-r15z3-workers
-    # - inst-tturo-r15z3-workers
+    - inst-evbig-r15z3-workers
+    - inst-tturo-r15z3-workers
     # - inst-kc1z1-r15z3-workers
     # - inst-97xv1-r15z3-workers
     # - inst-vaqst-r15z3-workers
@@ -131,6 +129,8 @@ compute:
     # Bad nodes:
     # - inst-hdlqg-r15z3-workers
     # - inst-6jp2q-r15z3-workers
+    # - inst-bw20d-r15z3-workers
+    # - inst-4zdz3-r15z3-workers
 integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
