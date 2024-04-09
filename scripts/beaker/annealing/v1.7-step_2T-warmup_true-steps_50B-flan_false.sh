@@ -2,17 +2,17 @@
 
 set -ex
 
-CONFIG_PATH=configs/annealing/v1.7-step_2T-warmup_true-steps_50B.yaml
+CONFIG_PATH=configs/annealing/v1.7-step_2T-warmup_true-steps_50B-flan_false.yaml
 NUM_NODES=3
 
 gantry run \
   --allow-dirty \
   --workspace ai2/davidw-oe-annealing \
-  --task-name v1.7-step_2T-warmup_true-steps_50B \
-  --description v1.7-step_2T-warmup_true-steps_50B \
+  --task-name v1.7-step_2T-warmup_true-steps_50B-flan_false \
+  --description v1.7-step_2T-warmup_true-steps_50B-flan_false \
   --priority high \
   --beaker-image petew/olmo-torch2-gantry \
-  --cluster ai2/pluto-cirrascale \
+  --cluster ai2/general-cirrascale-a100-80g-ib \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
