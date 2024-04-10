@@ -24,9 +24,9 @@ aws s3 cp --endpoint-url=https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflares
 
 ```commandline
 python olmo/scaling/mup_coord_check.py test_fixtures/mup_train_tiny.yaml \
-    --coord_check 
-    --lr 0.01 
-    --load_base_shapes tiny-olmo-base-shapes.bsh 
-    --coord_check_nsteps 1 
+    --coord_check \
+    --lr 0.01 \
+    --load_base_shapes tiny-olmo-base-shapes.bsh \
+    --coord_check_nsteps 1 \
     --coord_check_nseeds 1
 ```
