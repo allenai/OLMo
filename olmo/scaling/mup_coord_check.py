@@ -109,7 +109,7 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=""
         return f
 
     optimizer = optimizer.replace("mu", "")
-    widths = [16, 32, 64, 128]  # 2 ** np.arange(7, 9)  #2 ** np.arange(7, 9 if optimizer == 'sgd' else 12)
+    widths = 2 ** np.arange(7, 11)
     models = {w: gen(w, standparam=not mup) for w in widths}
 
     train_config = TrainConfig.load(args.config_path)
