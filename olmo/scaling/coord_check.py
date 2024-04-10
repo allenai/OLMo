@@ -1,8 +1,8 @@
 # Copyright 2022 Microsoft Corporation.
-'''
+"""
 Helper functions for performing coord check.
 Copied from mup/coord_check.py
-'''
+"""
 import os
 from copy import copy
 from itertools import product
@@ -15,14 +15,14 @@ import torch.nn.functional as F
 
 
 def cov(x):
-    '''Treat `x` as a collection of vectors and its Gram matrix.
+    """Treat `x` as a collection of vectors and its Gram matrix.
     Input:
         x: If it has shape [..., d], then it's treated as
             a collection of d-dimensional vectors
     Output:
         cov: a matrix of size N x N where N is the product of
             the non-last dimensions of `x`.
-    '''
+    """
     if x.nelement() == 1:
         width = 1
         xx = x.reshape(1, 1)
@@ -33,45 +33,42 @@ def cov(x):
 
 
 def covoffdiag(x):
-    '''Get off-diagonal entries of `cov(x)` in a vector.
+    """Get off-diagonal entries of `cov(x)` in a vector.
     Input:
         x: If it has shape [..., d], then it's treated as
             a collection of d-dimensional vectors
     Output:
-        Off-diagonal entries of `cov(x)` in a vector.'''
+        Off-diagonal entries of `cov(x)` in a vector."""
     c = cov(x)
     return c[~torch.eye(c.shape[0], dtype=bool)]
 
 
 #: dict of provided functions for use in coord check
 FDICT = {
-    'l1': lambda x: torch.abs(x).mean(dtype=torch.float32),
-    'l2': lambda x: (x ** 2).mean(dtype=torch.float32) ** 0.5,
-    'mean': lambda x: x.mean(dtype=torch.float32),
-    'std': lambda x: x.std(dtype=torch.float32),
-    'covl1': lambda x: torch.abs(cov(x)).mean(dtype=torch.float32),
-    'covl2': lambda x: (cov(x) ** 2).mean(dtype=torch.float32) ** 0.5,
-    'covoffdiagl1': lambda x: torch.abs(covoffdiag(x)).mean(dtype=torch.float32),
-    'covoffdiagl2': lambda x: (covoffdiag(x) ** 2).mean(dtype=torch.float32) ** 0.5
+    "l1": lambda x: torch.abs(x).mean(dtype=torch.float32),
+    "l2": lambda x: (x**2).mean(dtype=torch.float32) ** 0.5,
+    "mean": lambda x: x.mean(dtype=torch.float32),
+    "std": lambda x: x.std(dtype=torch.float32),
+    "covl1": lambda x: torch.abs(cov(x)).mean(dtype=torch.float32),
+    "covl2": lambda x: (cov(x) ** 2).mean(dtype=torch.float32) ** 0.5,
+    "covoffdiagl1": lambda x: torch.abs(covoffdiag(x)).mean(dtype=torch.float32),
+    "covoffdiagl2": lambda x: (covoffdiag(x) ** 2).mean(dtype=torch.float32) ** 0.5,
 }
 
 
 def convert_fdict(d):
-    '''convert a dict `d` with string values to function values.
+    """convert a dict `d` with string values to function values.
     Input:
         d: a dict whose values are either strings or functions
     Output:
         a new dict, with the same keys as `d`, but the string values are
         converted to functions using `FDICT`.
-    '''
-    return dict([
-        ((k, FDICT[v]) if isinstance(v, str) else (k, v))
-        for k, v in d.items()])
+    """
+    return dict([((k, FDICT[v]) if isinstance(v, str) else (k, v)) for k, v in d.items()])
 
 
-def _record_coords(records, width, modulename, t,
-                   output_fdict=None, input_fdict=None, param_fdict=None):
-    '''Returns a forward hook that records coordinate statistics.
+def _record_coords(records, width, modulename, t, output_fdict=None, input_fdict=None, param_fdict=None):
+    """Returns a forward hook that records coordinate statistics.
 
     Returns a forward hook that records statistics regarding the output, input,
     and/or parameters of a `nn.Module`. This hook is intended to run only once,
@@ -118,9 +115,9 @@ def _record_coords(records, width, modulename, t,
     Output:
         a forward hook that records statistics regarding the output, input,
         and/or parameters of a `nn.Module`, as discussed above.
-    '''
+    """
     if output_fdict is None:
-        output_fdict = dict(l1=FDICT['l1'])
+        output_fdict = dict(l1=FDICT["l1"])
     else:
         output_fdict = convert_fdict(output_fdict)
     if input_fdict is None:
@@ -137,12 +134,12 @@ def _record_coords(records, width, modulename, t,
             if isinstance(x, (tuple, list)):
                 for i, _x in enumerate(x):
                     _d = copy(d)
-                    _d['module'] += f'[{i}]'
+                    _d["module"] += f"[{i}]"
                     get_stat(_d, _x, fdict)
             elif isinstance(x, dict):
                 for name, _x in x.items():
                     _d = copy(d)
-                    _d['module'] += f'[{name}]'
+                    _d["module"] += f"[{name}]"
                     get_stat(_d, _x, fdict)
             elif isinstance(x, torch.Tensor):
                 _d = copy(d)
@@ -152,25 +149,21 @@ def _record_coords(records, width, modulename, t,
             elif x is None:
                 pass
             else:
-                raise NotImplementedError(f'Unexpected output type: {type(x)}')
+                raise NotImplementedError(f"Unexpected output type: {type(x)}")
 
         with torch.no_grad():
-            ret = {
-                'width': width,
-                'module': modulename,
-                't': t
-            }
+            ret = {"width": width, "module": modulename, "t": t}
 
             # output stats
             if isinstance(output, (tuple, list)):
                 for i, out in enumerate(output):
                     _ret = copy(ret)
-                    _ret['module'] += f':out[{i}]'
+                    _ret["module"] += f":out[{i}]"
                     get_stat(_ret, out, output_fdict)
             elif isinstance(output, dict):
                 for name, out in output.items():
                     _ret = copy(ret)
-                    _ret['module'] += f':out[{name}]'
+                    _ret["module"] += f":out[{name}]"
                     get_stat(_ret, out, output_fdict)
             elif isinstance(output, torch.Tensor):
                 _ret = copy(ret)
@@ -178,19 +171,19 @@ def _record_coords(records, width, modulename, t,
                     _ret[fname] = f(output).item()
                 records.append(_ret)
             else:
-                raise NotImplementedError(f'Unexpected output type: {type(output)}')
+                raise NotImplementedError(f"Unexpected output type: {type(output)}")
 
             # input stats
             if input_fdict:
                 if isinstance(input, (tuple, list)):
                     for i, out in enumerate(input):
                         _ret = copy(ret)
-                        _ret['module'] += f':in[{i}]'
+                        _ret["module"] += f":in[{i}]"
                         get_stat(_ret, out, input_fdict)
                 elif isinstance(input, dict):
                     for name, out in input.items():
                         _ret = copy(ret)
-                        _ret['module'] += f':in[{name}]'
+                        _ret["module"] += f":in[{name}]"
                         get_stat(_ret, out, input_fdict)
                 elif isinstance(input, torch.Tensor):
                     _ret = copy(ret)
@@ -198,13 +191,13 @@ def _record_coords(records, width, modulename, t,
                         _ret[fname] = f(input).item()
                     records.append(_ret)
                 else:
-                    raise NotImplementedError(f'Unexpected output type: {type(input)}')
+                    raise NotImplementedError(f"Unexpected output type: {type(input)}")
 
             # param stats
             if param_fdict:
                 for name, p in module.named_parameters():
                     _ret = copy(ret)
-                    _ret['module'] += f':param[{name}]'
+                    _ret["module"] += f":param[{name}]"
                     for fname, f in param_fdict.items():
                         _ret[fname] = f(p).item()
                     records.append(_ret)
@@ -226,13 +219,29 @@ def get_labels(batch: Dict[str, Any]) -> torch.Tensor:
     return labels[..., 1:].contiguous()
 
 
-def _get_coord_data(models, dataloader, optcls, nsteps=3,
-                    dict_in_out=False, flatten_input=False, flatten_output=False,
-                    output_name='loss', lossfn='xent', filter_module_by_name=None,
-                    fix_data=True, cuda=True, nseeds=1,
-                    output_fdict=None, input_fdict=None, param_fdict=None,
-                    show_progress=True, one_hot_target=False, loss_reduction="mean", compute_z_loss=False):
-    '''Inner method for `get_coord_data`.
+def _get_coord_data(
+    models,
+    dataloader,
+    optcls,
+    nsteps=3,
+    dict_in_out=False,
+    flatten_input=False,
+    flatten_output=False,
+    output_name="loss",
+    lossfn="xent",
+    filter_module_by_name=None,
+    fix_data=True,
+    cuda=True,
+    nseeds=1,
+    output_fdict=None,
+    input_fdict=None,
+    param_fdict=None,
+    show_progress=True,
+    one_hot_target=False,
+    loss_reduction="mean",
+    compute_z_loss=False,
+):
+    """Inner method for `get_coord_data`.
 
     Train the models in `models` with optimizer given by `optcls` and data from
     `dataloader` for `nsteps` steps, and record coordinate statistics specified
@@ -302,13 +311,14 @@ def _get_coord_data(models, dataloader, optcls, nsteps=3,
         behavior is turned off, and the user needs to explicitly turn on this
         behavior by setting `one_hot_target=True`.
 
-    '''
+    """
     df = []
     if fix_data:
         batch = next(iter(dataloader))
         dataloader = [batch] * nsteps
     if show_progress:
         from tqdm import tqdm
+
         pbar = tqdm(total=nseeds * len(models))
 
     for i in range(nseeds):
@@ -325,11 +335,19 @@ def _get_coord_data(models, dataloader, optcls, nsteps=3,
                 for name, module in model.named_modules():
                     if filter_module_by_name and not filter_module_by_name(name):
                         continue
-                    remove_hooks.append(module.register_forward_hook(
-                        _record_coords(df, width, name, batch_idx,
-                                       output_fdict=output_fdict,
-                                       input_fdict=input_fdict,
-                                       param_fdict=param_fdict)))
+                    remove_hooks.append(
+                        module.register_forward_hook(
+                            _record_coords(
+                                df,
+                                width,
+                                name,
+                                batch_idx,
+                                output_fdict=output_fdict,
+                                input_fdict=input_fdict,
+                                param_fdict=param_fdict,
+                            )
+                        )
+                    )
                 if dict_in_out:
                     if cuda:
                         for k, v in batch.items():
@@ -347,8 +365,11 @@ def _get_coord_data(models, dataloader, optcls, nsteps=3,
                     # shape: (batch_size * seq_len,)
                     labels = labels.view(-1)
                     ce_loss, z_loss = lossfn(
-                        logits_for_loss, labels, ignore_index=-100, reduction=loss_reduction,
-                        compute_z_loss=compute_z_loss
+                        logits_for_loss,
+                        labels,
+                        ignore_index=-100,
+                        reduction=loss_reduction,
+                        compute_z_loss=compute_z_loss,
                     )
 
                     if compute_z_loss:
@@ -368,7 +389,8 @@ def _get_coord_data(models, dataloader, optcls, nsteps=3,
                 for handle in remove_hooks:
                     handle.remove()
 
-                if batch_idx == nsteps: break
+                if batch_idx == nsteps:
+                    break
             if show_progress:
                 pbar.update(1)
     if show_progress:
@@ -376,10 +398,10 @@ def _get_coord_data(models, dataloader, optcls, nsteps=3,
     return pd.DataFrame(df)
 
 
-def get_coord_data(models, dataloader, optimizer='sgd', lr=None, mup=True,
-                   filter_trainable_by_name=None,
-                   **kwargs):
-    '''Get coord data for coord check.
+def get_coord_data(
+    models, dataloader, optimizer="sgd", lr=None, mup=True, filter_trainable_by_name=None, **kwargs
+):
+    """Get coord data for coord check.
 
     Train the models in `models` with data from `dataloader` and optimizer
     specified by `optimizer` and `lr` for `nsteps` steps, and record coordinate
@@ -459,9 +481,9 @@ def get_coord_data(models, dataloader, optimizer='sgd', lr=None, mup=True,
         to a one hot vector before loss computation. Starting in v1.1.0, this
         behavior is turned off, and the user needs to explicitly turn on this
         behavior by setting `one_hot_target=True`.
-    '''
+    """
     if lr is None:
-        lr = 0.1 if optimizer == 'sgd' else 1e-3
+        lr = 0.1 if optimizer == "sgd" else 1e-3
     if mup:
         from mup.optim import MuAdam as Adam
         from mup.optim import MuAdamW as AdamW
@@ -478,26 +500,39 @@ def get_coord_data(models, dataloader, optimizer='sgd', lr=None, mup=True,
                     params.append(p)
         return params
 
-    if optimizer == 'sgd':
+    if optimizer == "sgd":
         optcls = lambda model: SGD(get_trainable(model), lr=lr)
-    elif optimizer == 'adam':
+    elif optimizer == "adam":
         optcls = lambda model: Adam(get_trainable(model), lr=lr)
-    elif optimizer == 'adamw':
+    elif optimizer == "adamw":
         optcls = lambda model: AdamW(get_trainable(model), lr=lr)
     elif optimizer is None:
-        raise ValueError('optimizer should be sgd|adam|adamw or a custom function')
+        raise ValueError("optimizer should be sgd|adam|adamw or a custom function")
 
     data = _get_coord_data(models, dataloader, optcls, **kwargs)
-    data['optimizer'] = optimizer
-    data['lr'] = lr
+    data["optimizer"] = optimizer
+    data["lr"] = lr
     return data
 
 
-def plot_coord_data(df, y='l1', save_to=None, suptitle=None, x='width', hue='module',
-                    legend='full', name_contains=None, name_not_contains=None, module_list=None,
-                    loglog=True, logbase=2, face_color=None, subplot_width=5,
-                    subplot_height=4):
-    '''Plot coord check data `df` obtained from `get_coord_data`.
+def plot_coord_data(
+    df,
+    y="l1",
+    save_to=None,
+    suptitle=None,
+    x="width",
+    hue="module",
+    legend="full",
+    name_contains=None,
+    name_not_contains=None,
+    module_list=None,
+    loglog=True,
+    logbase=2,
+    face_color=None,
+    subplot_width=5,
+    subplot_height=4,
+):
+    """Plot coord check data `df` obtained from `get_coord_data`.
 
     Input:
         df:
@@ -532,21 +567,21 @@ def plot_coord_data(df, y='l1', save_to=None, suptitle=None, x='width', hue='mod
 
     Output:
         the `matplotlib` figure object
-    '''
+    """
     ### preprocessing
     df = copy(df)
     # nn.Sequential has name '', which duplicates the output layer
-    df = df[df.module != '']
+    df = df[df.module != ""]
     if module_list is not None:
-        df = df[df['module'].isin(module_list)]
+        df = df[df["module"].isin(module_list)]
     else:
         if name_contains is not None:
-            df = df[df['module'].str.contains(name_contains)]
+            df = df[df["module"].str.contains(name_contains)]
         if name_not_contains is not None:
-            df = df[~(df['module'].str.contains(name_not_contains))]
+            df = df[~(df["module"].str.contains(name_not_contains))]
     # for nn.Sequential, module names are numerical
     try:
-        df['module'] = pd.to_numeric(df['module'])
+        df["module"] = pd.to_numeric(df["module"])
     except ValueError:
         pass
 
@@ -554,6 +589,7 @@ def plot_coord_data(df, y='l1', save_to=None, suptitle=None, x='width', hue='mod
 
     import matplotlib.pyplot as plt
     import seaborn as sns
+
     sns.set()
 
     def tight_layout(plt):
@@ -561,7 +597,7 @@ def plot_coord_data(df, y='l1', save_to=None, suptitle=None, x='width', hue='mod
 
     ### plot
     fig = plt.figure(figsize=(subplot_width * len(ts), subplot_height))
-    hue_order = sorted(set(df['module']))
+    hue_order = sorted(set(df["module"]))
     if face_color is not None:
         fig.patch.set_facecolor(face_color)
     ymin, ymax = min(df[y]), max(df[y])
@@ -569,9 +605,9 @@ def plot_coord_data(df, y='l1', save_to=None, suptitle=None, x='width', hue='mod
         t = int(t)
         plt.subplot(1, len(ts), t)
         sns.lineplot(x=x, y=y, data=df[df.t == t], hue=hue, hue_order=hue_order, legend=legend if t == 1 else None)
-        plt.title(f't={t}')
+        plt.title(f"t={t}")
         if t != 1:
-            plt.ylabel('')
+            plt.ylabel("")
         if loglog:
             plt.loglog(base=logbase)
         ax = plt.gca()
@@ -581,7 +617,7 @@ def plot_coord_data(df, y='l1', save_to=None, suptitle=None, x='width', hue='mod
     tight_layout(plt)
     if save_to is not None:
         plt.savefig(save_to)
-        print(f'coord check plot saved to {save_to}')
+        print(f"coord check plot saved to {save_to}")
 
     return fig
 
@@ -589,41 +625,70 @@ def plot_coord_data(df, y='l1', save_to=None, suptitle=None, x='width', hue='mod
 # example of how to plot coord check results
 # for the CNN and MLP models in mup.test
 def example_plot_coord_check(
-        arch='mlp', optimizer='sgd', lr=None, widths=None, mup=True,
-        nsteps=3, nseeds=10, plotdir='', batchnorm=False, batch_size=1,
-        init='kaiming_fan_in_normal', download_cifar=True, legend='full',
-        dict_in_out=False, name_contains=None, name_not_contains=None):
+    arch="mlp",
+    optimizer="sgd",
+    lr=None,
+    widths=None,
+    mup=True,
+    nsteps=3,
+    nseeds=10,
+    plotdir="",
+    batchnorm=False,
+    batch_size=1,
+    init="kaiming_fan_in_normal",
+    download_cifar=True,
+    legend="full",
+    dict_in_out=False,
+    name_contains=None,
+    name_not_contains=None,
+):
     from mup.test.models import get_lazy_models, get_train_loader
+
     if batchnorm:
         batch_size = 5
     train_loader = get_train_loader(batch_size=batch_size, download=download_cifar)
 
     if widths is None:
-        widths = 2 ** np.arange(7, 14) if arch == 'mlp' else 2 ** np.arange(3, 10)
+        widths = 2 ** np.arange(7, 14) if arch == "mlp" else 2 ** np.arange(3, 10)
     models = get_lazy_models(arch, widths, mup=mup, batchnorm=batchnorm, init=init, readout_zero_init=True)
-    df = get_coord_data(models, train_loader, mup=mup, lr=lr, optimizer=optimizer, flatten_input=arch == 'mlp',
-                        nseeds=nseeds, nsteps=nsteps, dict_in_out=dict_in_out)
+    df = get_coord_data(
+        models,
+        train_loader,
+        mup=mup,
+        lr=lr,
+        optimizer=optimizer,
+        flatten_input=arch == "mlp",
+        nseeds=nseeds,
+        nsteps=nsteps,
+        dict_in_out=dict_in_out,
+    )
 
-    prm = 'μP' if mup else 'SP'
-    bn = 'on' if batchnorm else 'off'
+    prm = "μP" if mup else "SP"
+    bn = "on" if batchnorm else "off"
     if lr is None:
-        lr = 0.1 if optimizer == 'sgd' else 1e-3
-    return plot_coord_data(df, legend=legend,
-                           name_contains=name_contains, name_not_contains=name_not_contains,
-                           save_to=os.path.join(plotdir,
-                                                f'{prm.lower()}_{arch}_{optimizer}_lr{lr}_nseeds{nseeds}_bn{int(batchnorm)}_coord.png'),
-                           suptitle=f'{prm} {arch.upper()} {optimizer} lr={lr} bn={bn} nseeds={nseeds}',
-                           face_color='xkcd:light grey' if not mup else None)
+        lr = 0.1 if optimizer == "sgd" else 1e-3
+    return plot_coord_data(
+        df,
+        legend=legend,
+        name_contains=name_contains,
+        name_not_contains=name_not_contains,
+        save_to=os.path.join(
+            plotdir, f"{prm.lower()}_{arch}_{optimizer}_lr{lr}_nseeds{nseeds}_bn{int(batchnorm)}_coord.png"
+        ),
+        suptitle=f"{prm} {arch.upper()} {optimizer} lr={lr} bn={bn} nseeds={nseeds}",
+        face_color="xkcd:light grey" if not mup else None,
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import os
 
-    os.makedirs('coord_checks', exist_ok=True)
-    plotdir = 'coord_checks'
+    os.makedirs("coord_checks", exist_ok=True)
+    plotdir = "coord_checks"
 
     nseeds = 5
 
-    for arch, opt, bn, mup in product(['mlp', 'cnn'], ['sgd', 'adam'], [False, True], [False, True]):
-        example_plot_coord_check(arch, opt, batchnorm=bn, mup=mup, nseeds=nseeds, download_cifar=True, legend=None,
-                                 plotdir=plotdir)
+    for arch, opt, bn, mup in product(["mlp", "cnn"], ["sgd", "adam"], [False, True], [False, True]):
+        example_plot_coord_check(
+            arch, opt, batchnorm=bn, mup=mup, nseeds=nseeds, download_cifar=True, legend=None, plotdir=plotdir
+        )

@@ -8,23 +8,9 @@ from __future__ import annotations
 
 import logging
 import math
-import sys
 from abc import abstractmethod
 from collections import defaultdict
-from functools import partial
-from typing import (
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    NamedTuple,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    cast,
-    Union
-)
+from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import torch
 import torch.backends.cuda
@@ -43,17 +29,22 @@ from olmo.config import (
 )
 from olmo.exceptions import OLMoConfigurationError
 from olmo.initialization import InitFnType, ModuleType
-from olmo.torch_util import ensure_finite_
-
 from olmo.model import (
-    activation_checkpoint_function,
-    should_checkpoint_block,
+    Activation,
     BufferCache,
-    _non_meta_init_device,
     Dropout,
-    LayerNormBase, Activation, RotaryEmbedding, LayerNorm, get_causal_attention_bias, OLMoBlockGroup,
-    alibi_attention_bias, OLMoOutput,
+    LayerNorm,
+    LayerNormBase,
+    OLMoBlockGroup,
+    OLMoOutput,
+    RotaryEmbedding,
+    _non_meta_init_device,
+    activation_checkpoint_function,
+    alibi_attention_bias,
+    get_causal_attention_bias,
+    should_checkpoint_block,
 )
+from olmo.torch_util import ensure_finite_
 
 __all__ = [
     "LayerNormBase",
@@ -256,7 +247,6 @@ class OLMoBlock(nn.Module):
         self.k = nn.Identity()
         self.v = nn.Identity()
 
-
     def reset_parameters(self):
         if self.k_norm is not None:
             self.k_norm.reset_parameters()
@@ -313,7 +303,12 @@ class OLMoBlock(nn.Module):
         """
         if self.flash_attn_func is not None and attn_mask is None:
             r = self.flash_attn_func(
-                q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), dropout_p=dropout_p, causal=is_causal
+                q.transpose(1, 2),
+                k.transpose(1, 2),
+                v.transpose(1, 2),
+                dropout_p=dropout_p,
+                causal=is_causal,
+                softmax_scale=1 / q.size(-1),  # TODO: confirm
             )
             return r.transpose(1, 2)
         else:
@@ -333,8 +328,8 @@ class OLMoBlock(nn.Module):
                 attn_mask=attn_mask,
                 dropout_p=dropout_p,
                 is_causal=is_causal,
-                #scale=1 / q.size(-1),  # mUP: scale by 1/d instead of 1/sqrt(d) #TODO: confirm
-                scale=self.attn_mult,  # mUP: scale by 1/d instead of 1/sqrt(d) #TODO: confirm
+                scale=1 / q.size(-1),  # mUP: scale by 1/d instead of 1/sqrt(d) #TODO: confirm
+                # scale=self.attn_mult,  # mUP: scale by 1/d instead of 1/sqrt(d) #TODO: confirm
             )
 
     def attention(
@@ -346,7 +341,6 @@ class OLMoBlock(nn.Module):
         layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         use_cache: bool = False,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
-
         # For coordinate checks in mUP
         # TODO: remove at integration
         q = self.q(q)
