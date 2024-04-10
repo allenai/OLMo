@@ -134,6 +134,9 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=""
         show_progress=True,
     )
 
+    import pdb
+    pdb.set_trace()
+
     prm = "μP" if mup else "SP"
     return plot_coord_data(
         df,
@@ -233,7 +236,7 @@ if __name__ == "__main__":
             nseeds=args.coord_check_nseeds,
             args=args,
             plotdir=plotdir,
-            legend=False,
+            legend=True,
         )
         coord_check(
             mup=False,
@@ -244,7 +247,7 @@ if __name__ == "__main__":
             nseeds=args.coord_check_nseeds,
             args=args,
             plotdir=plotdir,
-            legend=False,
+            legend=True,
         )
         import sys
 
