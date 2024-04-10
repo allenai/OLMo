@@ -3,16 +3,16 @@ import os
 import numpy as np
 import torch
 
-from mup.coord_check import get_coord_data, plot_coord_data
 from mup import MuAdam, MuSGD, get_shapes, make_base_shapes, set_base_shapes
 from torch.utils.data import DataLoader
 
 from olmo.config import ModelConfig, TrainConfig
 from olmo.tokenizer import Tokenizer
 from olmo.data import DataCollator, build_memmap_dataset, IterableDataset
+from olmo.train import cross_entropy_loss
 from olmo.scaling.model import MuOLMo
 from olmo.torch_util import seed_all
-
+from olmo.scaling.coord_check import get_coord_data, plot_coord_data
 
 def set_precision(t, precision):
     if precision == 'half':
@@ -92,14 +92,12 @@ def get_dataloader(cfg: TrainConfig, batch_size: int) -> DataLoader:
 
 def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir='', legend=False):
 
-    # TODO: change to all parameters that need to be scaled.
+    # TODO: currently only for width; change to all parameters that need to be scaled.
     def gen(d_model, standparam=False):
         def f():
             config = ModelConfig.load(args.config_path, key="model")
             config.d_model = d_model
             model = load_mu_model(config)  # .to(args.device)
-
-            print(model)
 
             model = set_precision(model, args.precision)
             if standparam:
@@ -112,7 +110,7 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=''
         return f
 
     optimizer = optimizer.replace('mu', '')
-    widths = 2 ** np.arange(7, 14 if optimizer == 'sgd' else 12)
+    widths = [16, 32, 64, 128]  #2 ** np.arange(7, 9)  #2 ** np.arange(7, 9 if optimizer == 'sgd' else 12)
     models = {w: gen(w, standparam=not mup) for w in widths}
 
     train_config = TrainConfig.load(args.config_path)
@@ -121,8 +119,10 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=''
     # # TODO: temporary; change to real data and batching
     # batches = [get_batch_inputs(train_config, tokenizer, device=torch.device("cpu"))] * batch_size
     data_loader = get_dataloader(train_config, batch_size=batch_size)
+
     df = get_coord_data(models, data_loader, mup=mup, lr=lr, optimizer=optimizer,
-                        dict_in_out=True, nseeds=nseeds, nsteps=nsteps, lossfn='nll', cuda=False)
+                        dict_in_out=True, nseeds=nseeds, nsteps=nsteps, lossfn=cross_entropy_loss,
+                        cuda=False, compute_z_loss=train_config.softmax_auxiliary_loss, show_progress=True)
 
     prm = 'μP' if mup else 'SP'
     return plot_coord_data(df, legend=legend,
@@ -159,7 +159,7 @@ if __name__ == "__main__":
     parser.add_argument('--attn_mult', type=float, default=1,
                         help='attn is multiplied by sqrt(attn_mult)/head_dim')
 
-    parser.add_argument('--optimizer', default='musgd', choices=['sgd', 'musgd', 'adam', 'muadam'])
+    parser.add_argument('--optimizer', default='muadamw', choices=['sgd', 'musgd', 'adam', 'muadam', 'adamw', 'muadamw'])
     parser.add_argument('--init_var', type=float, default=1,
                         help='weights are initialized with variance init_var/ninp')
     parser.add_argument('--clip', type=float, default=0.25,

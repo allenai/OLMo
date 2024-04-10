@@ -58,17 +58,10 @@ from olmo.model import (
 __all__ = [
     "LayerNormBase",
     "LayerNorm",
-    "RMSLayerNorm",
     "RotaryEmbedding",
     "Activation",
-    "GELU",
-    "ReLU",
-    "SwiGLU",
     "OLMoBlock",
     "OLMoSequentialBlock",
-    "OLMo",
-    "OLMoOutput",
-    "OLMoGenerateOutput",
 ]
 
 
@@ -488,9 +481,6 @@ class OLMoSequentialBlock(OLMoBlock):
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
         #  - for group query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_kv_heads)
-
-        import pdb
-        pdb.set_trace()
 
         if self._activation_checkpoint_fn is not None:
             qkv = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x))
@@ -941,10 +931,6 @@ class MuOLMo(nn.Module):
                     )
                 else:
                     # shape: (batch_size, seq_len, d_model)
-
-                    import pdb
-                    pdb.set_trace()
-
                     x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
 
                 if attn_key_values is not None:
