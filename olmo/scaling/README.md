@@ -4,6 +4,8 @@
 
 ### Changes made to the model
 
+TODO
+
 ### Running coord check
 
 1. Get sample data (from R2) for running coord check:
@@ -21,6 +23,11 @@ aws s3 cp --endpoint-url=https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflares
 ```
 
 3. Run coord check:
+
+Temporary workaround for olmo's distributed code:
+```commandline
+export RANK=0
+```
 
 ```commandline
 python olmo/scaling/mup_coord_check.py test_fixtures/mup_train_tiny.yaml \
