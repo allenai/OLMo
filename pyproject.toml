@@ -52,6 +52,9 @@ train = [
 all = [
     "ai2-olmo[dev,train]",
 ]
+scaling = [
+    "mup"
+]
 
 [project.urls]
 Homepage = "https://github.com/allenai/OLMo"
