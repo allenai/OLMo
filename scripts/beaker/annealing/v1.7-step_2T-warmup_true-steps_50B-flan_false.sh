@@ -3,7 +3,7 @@
 set -ex
 
 CONFIG_PATH=configs/annealing/v1.7-step_2T-warmup_true-steps_50B-flan_false.yaml
-NUM_NODES=3
+NUM_NODES=4
 
 gantry run \
   --allow-dirty \
