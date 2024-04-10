@@ -107,7 +107,6 @@ compute:
     - inst-likvg-r15z3-workers
     - inst-gn4hg-r15z3-workers
     - inst-rnyqr-r15z3-workers
-    - inst-zgb86-r15z3-workers
     - inst-rpmhf-r15z3-workers
     - inst-pfzsm-r15z3-workers
     - inst-9hoiv-r15z3-workers
@@ -125,8 +124,9 @@ compute:
     - inst-kc1z1-r15z3-workers
     - inst-97xv1-r15z3-workers
     - inst-vaqst-r15z3-workers
-    # - inst-i6mnk-r15z3-workers
+    - inst-i6mnk-r15z3-workers
     # Bad nodes:
+    # - inst-zgb86-r15z3-workers
     # - inst-hdlqg-r15z3-workers
     # - inst-6jp2q-r15z3-workers
     # - inst-bw20d-r15z3-workers
