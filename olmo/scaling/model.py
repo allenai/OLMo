@@ -81,6 +81,7 @@ def mup_init_weights(
         ``1 / sqrt(2 * (layer_id + 1))``.
     """
     # mUP: swap std normal, trunc_normal init with normal_, trunc_normal_ from mup.init respectively
+    # TODO: assert that init_fn is normal; we don't know yet how muP plays with mitchell init.
     d = d if d is not None else config.d_model
     if config.init_fn == InitFnType.normal:
         std = config.init_std * std_factor
