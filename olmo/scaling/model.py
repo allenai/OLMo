@@ -96,68 +96,10 @@ def mup_init_weights(
                 normal_(module.weight, mean=0.0, std=std)
             else:
                 nn.init.normal_(module.weight, mean=0.0, std=std)
-    elif config.init_fn == InitFnType.mitchell:
-        std = std_factor / math.sqrt(d)
-        if layer_id is not None:
-            std = std / math.sqrt(2 * (layer_id + 1))
-        if hasattr(module.weight, "infshape"):
-            trunc_normal_(module.weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
-        else:
-            nn.init.trunc_normal_(module.weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
-    elif config.init_fn == InitFnType.kaiming_normal:
-        if hasattr(module.weight, "infshape"):
-            kaiming_normal_(module.weight, nonlinearity="relu", mode="fan_in")
-        else:
-            nn.init.kaiming_normal_(module.weight, nonlinearity="relu", mode="fan_in")
-    elif config.init_fn == InitFnType.fan_in:
-        std = std_factor / math.sqrt(d)
-        if hasattr(module.weight, "infshape"):
-            normal_(module.weight, mean=0.0, std=std)
-        else:
-            nn.init.normal_(module.weight, mean=0.0, std=std)
-    elif config.init_fn == InitFnType.full_megatron:
-        if type_of_module is None:
-            raise RuntimeError(f"When using the {InitFnType.full_megatron} init, every module must have a type.")
-
-        cutoff_factor = config.init_cutoff_factor
-        if cutoff_factor is None:
-            cutoff_factor = 3
-
-        if type_of_module == ModuleType.in_module:
-            # for att_proj (same as QKV), ff_proj
-            std = config.init_std
-        elif type_of_module == ModuleType.out_module:
-            # for attn_out, ff_out
-            std = config.init_std / math.sqrt(2.0 * config.n_layers)
-        elif type_of_module == ModuleType.emb:
-            # positional embeddings (wpe)
-            # token embeddings (wte)
-            std = config.init_std
-        elif type_of_module == ModuleType.final_out:
-            # final output (ff_out)
-            std = config.d_model**-0.5
-        else:
-            raise RuntimeError(f"Unknown module type '{type_of_module}'")
-
-        if hasattr(module.weight, "infshape"):
-            trunc_normal_(
-                module.weight,
-                mean=0.0,
-                std=std,
-                a=-cutoff_factor * std,
-                b=cutoff_factor * std,
-            )
-        else:
-            nn.init.trunc_normal_(
-                module.weight,
-                mean=0.0,
-                std=std,
-                a=-cutoff_factor * std,
-                b=cutoff_factor * std,
-            )
     else:
         raise NotImplementedError(config.init_fn)
 
+    # don't do this for MuSharedReadout
     if isinstance(module, MuReadout) and readout_zero_init:
         module.weight.data.zero_()
     elif isinstance(module, nn.Linear):
@@ -424,8 +366,6 @@ class OLMoBlock(nn.Module):
     def build(cls, layer_id: int, config: ModelConfig, cache: BufferCache) -> OLMoBlock:
         if config.block_type == BlockType.sequential:
             return OLMoSequentialBlock(layer_id, config, cache)
-        elif config.block_type == BlockType.llama:
-            return OLMoLlamaBlock(layer_id, config, cache)
         else:
             raise NotImplementedError(f"Unknown block type: '{config.block_type}'")
 
@@ -501,129 +441,6 @@ class OLMoSequentialBlock(OLMoBlock):
             )
         else:
             att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
-
-        # Add attention scores.
-        # shape: (B, T, C)
-        x = x + self.dropout(att)
-
-        # Add feed-forward projection.
-        # shape: (batch_size, seq_len, d_model)
-        og_x = x
-        if self._activation_checkpoint_fn is not None:
-            x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
-        else:
-            x = self.ff_norm(x)
-        x = self.ff_proj(x)
-        if self._activation_checkpoint_fn is not None:
-            x = self._activation_checkpoint_fn(self.act, x)  # type: ignore
-        else:
-            x = self.act(x)
-        x = self.ff_out(x)
-        x = self.dropout(x)
-        x = og_x + x
-
-        return x, cache
-
-
-class OLMoLlamaBlock(OLMoBlock):
-    """
-    This is a transformer block where the output is computed as ``MLP(LN(x + Attention(LN(x))))``
-    (plus another skip connection). This block is similar to `OLMoSequentialBlock`
-    but some operations have slightly different implementations to imitate the
-    behavior of Llama.
-    """
-
-    def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
-        super().__init__(layer_id, config, cache)
-        # Layer norms.
-        self.attn_norm = LayerNorm.build(config)
-        self.ff_norm = LayerNorm.build(config)
-        self.__cache = cache
-
-        # Attention input projection. Projects x -> (q, k, v)
-        if config.multi_query_attention:
-            q_proj_out_dim = config.d_model
-            k_proj_out_dim = config.d_model // config.n_heads
-            v_proj_out_dim = config.d_model // config.n_heads
-        else:
-            q_proj_out_dim = config.d_model
-            k_proj_out_dim = config.d_model
-            v_proj_out_dim = config.d_model
-        self.q_proj = nn.Linear(
-            config.d_model, q_proj_out_dim, bias=config.include_bias, device=config.init_device
-        )
-        self.k_proj = nn.Linear(
-            config.d_model, k_proj_out_dim, bias=config.include_bias, device=config.init_device
-        )
-        self.v_proj = nn.Linear(
-            config.d_model, v_proj_out_dim, bias=config.include_bias, device=config.init_device
-        )
-
-        # Feed-forward input projection.
-        self.ff_proj = nn.Linear(
-            config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device
-        )
-
-    def reset_parameters(self):
-        super().reset_parameters()
-        self.attn_norm.reset_parameters()
-        self.ff_norm.reset_parameters()
-        # NOTE: the standard deviation for these weights does not depend on the layer.
-        mup_init_weights(self.config, self.q_proj, d=self.config.d_model, layer_id=None)
-        mup_init_weights(self.config, self.k_proj, d=self.config.d_model, layer_id=None)
-        mup_init_weights(self.config, self.v_proj, d=self.config.d_model, layer_id=None)
-        mup_init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None)
-
-    def _scaled_dot_product_attention(
-        self,
-        q: torch.Tensor,
-        k: torch.Tensor,
-        v: torch.Tensor,
-        attn_mask: Optional[torch.Tensor] = None,
-        dropout_p: float = 0.0,
-        is_causal: bool = False,
-    ) -> torch.Tensor:
-        attn_weights = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(q.size(-1))
-
-        if is_causal:
-            assert attn_mask is None
-
-            query_len, key_len = q.shape[-2], k.shape[-2]  # could be different if layer_past not None
-            attn_bias = get_causal_attention_bias(self.__cache, key_len, q.device)[:, :, :query_len, :key_len]
-        elif attn_mask is not None:
-            attn_bias = attn_mask.to(q.dtype)
-        else:
-            attn_bias = torch.zeros_like(attn_weights)
-
-        attn_weights += attn_bias
-        attn_weights = nn.functional.softmax(attn_weights, dim=-1).to(q.dtype)
-        attn_weights = nn.functional.dropout(attn_weights, p=dropout_p)
-        return torch.matmul(attn_weights, v)
-
-    def forward(
-        self,
-        x: torch.Tensor,
-        attention_bias: Optional[torch.Tensor] = None,
-        layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
-        use_cache: bool = False,
-    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
-        # Get query, key, value projections.
-        # shape:
-        #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
-        #  - for multi-query attn q: (batch_size, seq_len, d_model)
-        #                      k, v: (batch_size, seq_len, d_model // n_heads)
-        x_normed = self.attn_norm(x)
-        q = self.q_proj(x_normed)
-        k = self.k_proj(x_normed)
-        v = self.v_proj(x_normed)
-
-        if self.config.clip_qkv is not None:
-            q.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
-            k.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
-            v.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
-
-        # Get attention scores.
-        att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
 
         # Add attention scores.
         # shape: (B, T, C)
@@ -769,7 +586,7 @@ class MuOLMo(nn.Module):
         mup_init_weights(
             self.config,
             self.transformer.wte,  # type: ignore
-            std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,
+            std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,  # debug: 1.0
             type_of_module=ModuleType.emb,
         )
         if hasattr(self.transformer, "wpe"):
