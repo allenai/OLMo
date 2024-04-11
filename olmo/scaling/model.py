@@ -66,8 +66,8 @@ def mup_init_weights(
     layer_id: Optional[int] = None,
     std_factor: float = 1.0,
     type_of_module: Optional[ModuleType] = None,
-    readout_zero_init: bool = False,
-    query_zero_init: bool = False,
+    readout_zero_init: bool = True,
+    query_zero_init: bool = True,
 ) -> None:
     """
     Initialize weights of a linear or embedding module.

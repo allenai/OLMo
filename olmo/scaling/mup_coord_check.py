@@ -119,6 +119,8 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=""
     )
 
     prm = "μP" if mup else "SP"
+    coords_file = "mup_coords.csv" if mup else "sp_coords.csv"
+    df.to_csv(coords_file, index=False)
     return plot_coord_data(
         df,
         legend=legend,
@@ -217,7 +219,7 @@ if __name__ == "__main__":
             nseeds=args.coord_check_nseeds,
             args=args,
             plotdir=plotdir,
-            legend=True,
+            legend=False,
         )
         coord_check(
             mup=False,
@@ -228,7 +230,7 @@ if __name__ == "__main__":
             nseeds=args.coord_check_nseeds,
             args=args,
             plotdir=plotdir,
-            legend=True,
+            legend=False,
         )
         import sys
 
