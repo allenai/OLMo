@@ -2,9 +2,19 @@
 
 ## muP implementation for OLMo
 
-### Changes made to the model
+### Changes made to the model class
 
-TODO
+1. Replace the readout layer with MuReadout or MuSharedReadout
+2. Replace torch.nn.init.normal_ with mup.init.normal_
+3. Scale attention weights by 1/d instead of q/sqrt(d).
+
+Other updates: Added input, output, attn multipliers.
+
+#### Implementation references
+
+1. muP [Transformer](https://github.com/microsoft/mup/blob/main/examples/Transformer/model.py) example.
+2. mutransformers [gpt2](https://github.com/microsoft/mutransformers/blob/main/mutransformers/models/gpt2/modeling_gpt2.py) example.
+3. LLM360 [CrystalCoder](https://huggingface.co/LLM360/CrystalCoder/blob/main/modeling_crystalcoder.py) example.
 
 ### Running coord check
 
@@ -30,10 +40,13 @@ export RANK=0
 ```
 
 ```commandline
-python olmo/scaling/mup_coord_check.py test_fixtures/mup_train_tiny.yaml \
+python olmo/scaling/mup_coord_check.py test_fixtures/mup_train_tiny.yaml
     --coord_check \
-    --lr 0.01 \
-    --load_base_shapes tiny-olmo-base-shapes.bsh \
-    --coord_check_nsteps 1 \
-    --coord_check_nseeds 1
+    --lr 0.002  \
+   --load_base_shapes tiny-olmo-base-shapes.bsh   \
+   --coord_check_nsteps 5    \
+   --coord_check_nseeds 3 \
+   --cuda \
+   --batch_size 2 \
+   --optimizer muadamw
 ```
