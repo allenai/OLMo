@@ -4,6 +4,7 @@ import os
 import shutil
 
 import torch
+from omegaconf import OmegaConf as om
 
 from hf_olmo.configuration_olmo import OLMoConfig
 from hf_olmo.modeling_olmo import OLMoForCausalLM
@@ -91,6 +92,14 @@ def download_remote_checkpoint_and_convert_to_hf(checkpoint_dir: str, local_dir:
     return local_model_path
 
 
+def fix_bad_tokenizer(checkpoint_dir: str):
+    path = os.path.join(checkpoint_dir, "config.yaml")
+    conf = om.load(path)
+    conf["tokenizer"]["identifier"] = "allenai/gpt-neox-olmo-dolma-v1_5"
+    conf["model"]["eos_token_id"] = 50279
+    om.save(conf, path)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Adds a config.json to the checkpoint directory, and creates pytorch_model.bin, "
@@ -109,6 +118,7 @@ def main():
     )
 
     args = parser.parse_args()
+    fix_bad_tokenizer(args.checkpoint_dir)
     convert_checkpoint(args.checkpoint_dir, args.ignore_olmo_compatibility)
 
 
