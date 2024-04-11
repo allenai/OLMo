@@ -28,25 +28,9 @@ def set_precision(t, precision):
 
 
 def load_mu_model(config: ModelConfig):
+    config.mup = True
     model = MuOLMo(config, init_params=False)
     return model
-
-
-def get_batch_inputs(train_config: TrainConfig, tokenizer: Tokenizer, device: torch.device):
-    # TODO: change to real batches, more number of inputs.
-    input1 = tokenizer.encode("My name is OLMo!")
-    input2 = tokenizer.encode("I'm a delightful large open language model :)")
-    batch_inputs = DataCollator.from_train_config(train_config)(
-        [  # type: ignore
-            {"input_ids": input1, "attention_mask": [1.0] * len(input1)},
-            {"input_ids": input2, "attention_mask": [1.0] * len(input2)},
-        ]
-    )
-    batch_inputs = {  # type: ignore
-        k: v.to(device=device) if isinstance(v, torch.Tensor) else v for k, v in batch_inputs.items()
-    }
-
-    return batch_inputs
 
 
 def get_dataloader(cfg: TrainConfig, batch_size: int) -> DataLoader:
@@ -115,8 +99,6 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=""
     train_config = TrainConfig.load(args.config_path)
     # tokenizer = Tokenizer.from_train_config(train_config)
 
-    # # TODO: temporary; change to real data and batching
-    # batches = [get_batch_inputs(train_config, tokenizer, device=torch.device("cpu"))] * batch_size
     data_loader = get_dataloader(train_config, batch_size=batch_size)
 
     df = get_coord_data(
@@ -133,9 +115,6 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=""
         compute_z_loss=train_config.softmax_auxiliary_loss,
         show_progress=True,
     )
-
-    import pdb
-    pdb.set_trace()
 
     prm = "μP" if mup else "SP"
     return plot_coord_data(

@@ -246,6 +246,7 @@ class OLMoBlock(nn.Module):
         self.q = nn.Identity()
         self.k = nn.Identity()
         self.v = nn.Identity()
+        self.attn_score = nn.Identity()
 
     def reset_parameters(self):
         if self.k_norm is not None:
@@ -301,6 +302,10 @@ class OLMoBlock(nn.Module):
         Computes scaled dot product attention on query, key and value tensors, using an optional
         attention mask if passed, and applying dropout if a probability greater than 0.0 is specified.
         """
+
+        # mUP: scale by 1/d instead of 1/sqrt(d)
+        attn_scale = self.attn_mult / (self.hidden_size if self.config.mup else math.sqrt(self.hidden_size))
+
         if self.flash_attn_func is not None and attn_mask is None:
             r = self.flash_attn_func(
                 q.transpose(1, 2),
@@ -308,7 +313,7 @@ class OLMoBlock(nn.Module):
                 v.transpose(1, 2),
                 dropout_p=dropout_p,
                 causal=is_causal,
-                softmax_scale=1 / q.size(-1),  # TODO: confirm
+                softmax_scale=attn_scale,
             )
             return r.transpose(1, 2)
         else:
@@ -328,8 +333,7 @@ class OLMoBlock(nn.Module):
                 attn_mask=attn_mask,
                 dropout_p=dropout_p,
                 is_causal=is_causal,
-                scale=1 / q.size(-1),  # mUP: scale by 1/d instead of 1/sqrt(d) #TODO: confirm
-                # scale=self.attn_mult,  # mUP: scale by 1/d instead of 1/sqrt(d) #TODO: confirm
+                scale=attn_scale
             )
 
     def attention(
@@ -395,6 +399,9 @@ class OLMoBlock(nn.Module):
             dropout_p=0.0 if not self.training else self.config.attention_dropout,
             is_causal=attention_bias is None,
         )
+
+        # muP: no-op, but allows tracking for coord check
+        att = self.attn_score(att)
 
         # Re-assemble all head outputs side-by-side.
         att = att.transpose(1, 2).contiguous().view(B, T, C)
@@ -710,6 +717,7 @@ class MuOLMo(nn.Module):
                         config.embedding_size or config.vocab_size,
                         bias=config.include_bias,
                         device=config.init_device,
+                        output_mult=config.output_mult
                     )
                 }
             )
@@ -720,7 +728,10 @@ class MuOLMo(nn.Module):
             self.transformer.update(
                 {
                     "ff_out": MuSharedReadout(
-                        self.transformer.wte.weight, bias=config.include_bias, device=config.init_device
+                        self.transformer.wte.weight,
+                        bias=config.include_bias,
+                        device=config.init_device,
+                        output_mult=config.output_mult
                     )
                 }
             )
@@ -967,12 +978,9 @@ class MuOLMo(nn.Module):
             logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
         else:
             logits = self.transformer.ff_out(x)  # type: ignore
-
-        # muP
         if self.config.scale_logits:
-            # TODO: should 1 / sqrt(d) always be present? Or, should we tune the multiplier as a whole?
-            output_multiplier = self.config.output_mult / math.sqrt(self.config.d_model)
-            logits.mul_(output_multiplier)
+            # TODO: How does this interact with muP readout layer's output multiplier?
+            logits.mul_(1 / math.sqrt(self.config.d_model))
 
         return OLMoOutput(logits=logits, attn_key_values=attn_key_values, hidden_states=tuple(all_hidden_states) if output_hidden_states else None)  # type: ignore[arg-type]
 
