@@ -305,7 +305,7 @@ class OLMoBlock(nn.Module):
         """
 
         # mUP: scale by 1/d instead of 1/sqrt(d)
-        attn_scale = self.attn_mult / (self.hidden_size if self.config.mup else math.sqrt(self.hidden_size))
+        attn_scale = self.attn_mult / (q.size(-1) if self.config.mup else math.sqrt(q.resize(-1)))
 
         if self.flash_attn_func is not None and attn_mask is None:
             r = self.flash_attn_func(
