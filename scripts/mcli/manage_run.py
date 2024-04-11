@@ -157,11 +157,11 @@ def main(config_path: str, timeout: int = _DEFAULT_TIMEOUT) -> int:
 
     # Check if config is already running or queued on the cluster.
     for run in cluster.utilization.active_runs_by_user:
-        if run.name.startswith(run_prefix):
+        if run.name.startswith(f"{run_prefix}-"):
             print(f"[green]✔️[/] Run '{run.name}' is already active")
             return 0
     for run in cluster.utilization.queued_runs_by_user:
-        if run.name.startswith(run_prefix):
+        if run.name.startswith(f"{run_prefix}-"):
             print(f"[green]✔️[/] Run '{run.name}' is already queued")
             return 0
 
