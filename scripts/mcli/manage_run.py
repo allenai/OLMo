@@ -240,7 +240,7 @@ def main(config_path: str, timeout: int = _DEFAULT_TIMEOUT) -> int:
     if not confirm_continue("Launching new run..."):
         return 1
     run = mcli.create_run(run_config, timeout=timeout)
-    print(f"Launched new run '{run.name}'")
+    print(f"[green]✔️[/] Launched new run '{run.name}'")
 
     return 0
 
