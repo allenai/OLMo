@@ -1,9 +1,9 @@
 save_folder: "/tmp/olmo-train-tiny"
 model:
   d_model: 128
-  n_heads: 4
-  n_layers: 4
-  mlp_ratio: 4
+  n_heads: 2
+  n_layers: 2
+  mlp_ratio: 1
   alibi: false
   alibi_bias_max: 8.0
   attention_dropout: 0.1

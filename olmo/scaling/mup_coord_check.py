@@ -88,12 +88,14 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=""
             else:
                 assert args.load_base_shapes, "load_base_shapes needs to be nonempty"
                 set_base_shapes(model, args.load_base_shapes)
+
+            model.reset_parameters()  # to apply mup init TODO: confirm
             return model
 
         return f
 
     optimizer = optimizer.replace("mu", "")
-    widths = 2 ** np.arange(7, 11)
+    widths = 2 ** np.arange(7, 13)
     models = {w: gen(w, standparam=not mup) for w in widths}
 
     train_config = TrainConfig.load(args.config_path)
