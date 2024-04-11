@@ -75,7 +75,6 @@ def get_dataloader(cfg: TrainConfig, batch_size: int) -> DataLoader:
 
 
 def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir="", legend=False):
-    # TODO: currently only for width; change to all parameters that need to be scaled.
     def gen(d_model, standparam=False):
         def f():
             config = ModelConfig.load(args.config_path, key="model")
@@ -141,15 +140,6 @@ if __name__ == "__main__":
     parser.add_argument("--load_base_shapes", type=str, default="", help="file location to load base shapes from")
 
     parser.add_argument("--lr", type=float, default=0.001, help="initial learning rate")
-    parser.add_argument(
-        "--output_mult", type=float, default=1, help="output is multiplied by sqrt(output_mult/d_model)"
-    )
-    parser.add_argument(
-        "--input_mult", type=float, default=1, help="input is multiplied by sqrt(input_mult*d_model)"
-    )
-    parser.add_argument(
-        "--attn_mult", type=float, default=1, help="attn is multiplied by sqrt(attn_mult)/head_dim"
-    )
 
     parser.add_argument(
         "--optimizer", default="muadamw", choices=["sgd", "musgd", "adam", "muadam", "adamw", "muadamw"]
@@ -157,8 +147,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--init_var", type=float, default=1, help="weights are initialized with variance init_var/ninp"
     )
-    parser.add_argument("--clip", type=float, default=0.25, help="gradient clipping")
-    parser.add_argument("--epochs", type=int, default=40, help="upper epoch limit")
     parser.add_argument("--batch_size", type=int, default=20, metavar="N", help="batch size")
 
     parser.add_argument("--cuda", action="store_true", help="use CUDA")
@@ -175,11 +163,6 @@ if __name__ == "__main__":
         type=int,
         default=3,
         help="number of seeds for testing correctness of μ parametrization",
-    )
-    parser.add_argument(
-        "--deferred_init",
-        action="store_true",
-        help="Skip instantiating the base and delta models for mup. Requires torchdistx.",
     )
 
     args = parser.parse_args()
