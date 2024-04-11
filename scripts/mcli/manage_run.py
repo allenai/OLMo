@@ -1,12 +1,26 @@
 """
-This takes an MCLI run config and attempts to manage the run as follows:
+This script is meant to be run periodically (e.g. every 30 minutes) to automatically
+restart a run if necessary on MosaicML's platform.
+You can also use it as an alternative to `mcli run` as a one-off script for launching a new run.
+The benefit of using this script is that it will automatically detect bad nodes before launching the run.
+
+It takes an MCLI run config and attempts to manage the run as follows:
 - If a run with the same name on the specified cluster is already running or queued, it does nothing.
 - If there's enough nodes available to run the job, it submits and monitors a light-weight test run on each
   available node to determine which nodes are working properly.
 - If there's enough working nodes it will launch a new run on a subset of the working nodes.
+
+For example:
+    python scripts/mcli/manage_run.py configs/mcli/mitchish7.yaml
+
+Notes:
+- This script will always override the `compute.node_names` field in your MCLI config when it launches
+  a new run, so there is no need to specify `node_names` manually. Just specify the number of gpus
+  (`compute.gpus`).
 """
 
 import argparse
+import sys
 from concurrent.futures import as_completed
 from typing import List, Optional, Set
 
@@ -20,6 +34,7 @@ from rich.progress import track
 from rich.prompt import Confirm
 
 _SKIP_CONFIRMATION = False
+_DEFAULT_TIMEOUT = 360
 
 
 def get_test_config(
@@ -39,7 +54,7 @@ def get_test_config(
     return run_config
 
 
-def submit_runs(run_configs: List[RunConfig], timeout: int = 30) -> List[Run]:
+def submit_runs(run_configs: List[RunConfig], timeout: int = _DEFAULT_TIMEOUT) -> List[Run]:
     """
     Submit a list of runs.
     """
@@ -56,7 +71,7 @@ def submit_runs(run_configs: List[RunConfig], timeout: int = 30) -> List[Run]:
     return runs
 
 
-def wait_on_runs(runs: List[Run], timeout: int = 360) -> List[Run]:
+def wait_on_runs(runs: List[Run], timeout: int = _DEFAULT_TIMEOUT) -> List[Run]:
     """
     Wait on a list of runs to reach 'COMPLETED' status (or a failure of some kind).
     """
@@ -79,7 +94,7 @@ def identify_bad_nodes(
     cluster_name: str,
     image_name: str,
     instance_name: Optional[str] = None,
-    timeout: int = 360,
+    timeout: int = _DEFAULT_TIMEOUT,
 ) -> Set[str]:
     """
     Identify faulty nodes from a set of nodes on a cluster.
@@ -91,7 +106,8 @@ def identify_bad_nodes(
                 cluster_name=cluster_name, image_name=image_name, node_name=node_name, instance_name=instance_name
             )
             for node_name in available_nodes
-        ]
+        ],
+        timeout=timeout,
     )
 
     try:
@@ -102,15 +118,17 @@ def identify_bad_nodes(
         raise
 
     for run in test_runs:
+        if not run.nodes:
+            run = mcli.api.runs.get_run(run)
         assert len(run.nodes) == 1
         node_name = run.nodes[0].name
         if run.status in {RunStatus.FAILED, RunStatus.UNKNOWN, RunStatus.STOPPED}:
             bad_nodes.add(node_name)
-            print(f"  ✖️ '{node_name}' {run.status} (run '{run.name}')")
+            print(f"  [red]✖️[/] '{node_name}' {run.status} (run '{run.name}')")
         elif run.status in {RunStatus.COMPLETED}:
-            print(f"  ✔️ '{node_name}' {run.status} (run '{run.name}')")
+            print(f"  [green]✔️[/] '{node_name}' {run.status} (run '{run.name}')")
         else:
-            print(f"  ❔ '{node_name}' {run.status} (run '{run.name}')")
+            print(f"  [yellow]?[/] '{node_name}' {run.status} (run '{run.name}')")
 
     return bad_nodes
 
@@ -123,7 +141,8 @@ def confirm_continue(prompt: str) -> bool:
         return Confirm.ask(f"{prompt} Continue?")
 
 
-def main(config_path: str):
+def main(config_path: str, timeout: int = _DEFAULT_TIMEOUT) -> int:
+    # Read target run config and grab relevant fields.
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
     cluster_name = config["compute"]["cluster"]
@@ -132,20 +151,21 @@ def main(config_path: str):
     run_prefix = config["name"]
     gpus_required = config["compute"]["gpus"]
 
+    # Get cluster metadata.
     cluster = mcli.get_cluster(cluster_name)
     assert cluster.utilization is not None
 
-    # Check if config is already running or queued.
+    # Check if config is already running or queued on the cluster.
     for run in cluster.utilization.active_runs_by_user:
         if run.name.startswith(run_prefix):
-            print(f"Run '{run.name}' is already active")
-            return
+            print(f"[green]✔️[/] Run '{run.name}' is already active")
+            return 0
     for run in cluster.utilization.queued_runs_by_user:
         if run.name.startswith(run_prefix):
-            print(f"Run '{run.name}' is already queued")
-            return
+            print(f"[green]✔️[/] Run '{run.name}' is already queued")
+            return 0
 
-    # Collect instance data.
+    # Collect cluster instance metadata.
     instance: Optional[Instance] = None
     for instance_util in cluster.utilization.cluster_instance_utils:
         if instance_name is None or instance_util.instance.name == instance_name:
@@ -163,7 +183,8 @@ def main(config_path: str):
     print(f"There are {len(all_nodes)} total nodes")
 
     if nodes_required > len(all_nodes):
-        raise RuntimeError(f"Not enough nodes to meet requirement of {nodes_required} ({gpus_required} GPUs)")
+        print(f"[yellow]Not enough nodes to meet requirement of {nodes_required} ({gpus_required} GPUs)[/]")
+        return 1
 
     # Filter out nodes that already have a job.
     available_nodes = all_nodes.copy()
@@ -176,19 +197,26 @@ def main(config_path: str):
     print(f"There are {len(available_nodes)} available nodes")
 
     if nodes_required > len(available_nodes):
-        raise RuntimeError(
-            f"Not enough nodes available to meet requirement of {nodes_required} ({gpus_required} GPUs)"
+        print(
+            f"[yellow]Not enough nodes available to meet requirement of {nodes_required} ({gpus_required} GPUs)[/]"
         )
+        return 1
 
-    if not confirm_continue("Submitting test runs to determine working nodes..."):
-        return
+    if not confirm_continue(
+        f"Submitting test runs to the {len(available_nodes)} available nodes to determine working nodes..."
+    ):
+        return 1
     bad_nodes = identify_bad_nodes(
         available_nodes=available_nodes,
         cluster_name=cluster_name,
         image_name=image_name,
         instance_name=instance_name,
+        timeout=timeout,
     )
-    print(f"Identified {len(bad_nodes)} bad nodes")
+    if bad_nodes:
+        print(
+            f"[yellow]Identified {len(bad_nodes)} bad nodes. Please notify MosaicML team if you haven't already.[/]"
+        )
 
     # Gather all working nodes.
     working_nodes = set()
@@ -199,9 +227,10 @@ def main(config_path: str):
     print(f"There are {len(working_nodes)} working available nodes")
 
     if nodes_required > len(working_nodes):
-        raise RuntimeError(
-            f"Not enough working nodes available to meet requirement of {nodes_required} ({gpus_required} GPUs)"
+        print(
+            f"[yellow]Not enough working nodes available to meet requirement of {nodes_required} ({gpus_required} GPUs)[/]"
         )
+        return 1
 
     # Initialize run config to submit.
     run_config = RunConfig(**config)
@@ -209,18 +238,23 @@ def main(config_path: str):
 
     # Submit job.
     if not confirm_continue("Launching new run..."):
-        return
-    run = mcli.create_run(run_config, timeout=30)
+        return 1
+    run = mcli.create_run(run_config, timeout=timeout)
     print(f"Launched new run '{run.name}'")
+
+    return 0
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="mcli-run-manager")
     parser.add_argument("run_config")
     parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation prompts")
+    parser.add_argument(
+        "-t", "--timeout", type=int, default=_DEFAULT_TIMEOUT, help="Timeout in seconds to wait for jobs"
+    )
 
     args = parser.parse_args()
     if args.yes:
         _SKIP_CONFIRMATION = True
 
-    main(args.run_config)
+    sys.exit(main(args.run_config, timeout=args.timeout))
