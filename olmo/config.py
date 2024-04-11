@@ -445,10 +445,15 @@ class ModelConfig(BaseConfig):
     Scalar multiplier for the output logits. Defaults to 1.0.
     """
 
-    attn_mult: Optional[float] = None
+    attn_mult: Optional[float] = 1.0
     """
     Optional multiplier for attention. If set to None, it defaults to 1/sqrt(width);
     i.e., the standard attention multipler.
+    """
+
+    mup: bool = False
+    """
+    Whether the model is being parametrized in mup or standard parametrization. 
     """
 
     @property
