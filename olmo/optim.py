@@ -560,6 +560,7 @@ class BoltOnWarmupScheduler(Scheduler):
             inner=scheduler,
             warmup_start=warmup_start,
             warmup_end=warmup_end,
+            warmup_min_lr=None,
         )
 
     def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
