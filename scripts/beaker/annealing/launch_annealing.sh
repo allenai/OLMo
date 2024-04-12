@@ -11,10 +11,6 @@ function launch {
   CONFIG_DIR=configs/annealing
   CONFIG_PATH=${CONFIG_DIR}/${CONFIG_NAME}.yaml
 
-  echo $CONFIG_NAME
-  echo $NUM_NODES
-  echo $CLUSTER
-
   gantry run \
     --allow-dirty \
     --workspace ai2/davidw-oe-annealing \
