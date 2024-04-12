@@ -18,7 +18,7 @@ function launch {
     --description ${CONFIG_NAME} \
     --priority high \
     --beaker-image petew/olmo-torch2-gantry \
-    --cluster ai2/pluto-cirrascale \
+    --cluster $CLUSTER \
     --gpus 8 \
     --replicas "${NUM_NODES}" \
     --leader-selection \
