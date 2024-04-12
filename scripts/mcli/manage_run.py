@@ -21,6 +21,7 @@ Notes:
 
 import argparse
 import sys
+import time
 from concurrent.futures import as_completed
 from typing import List, Optional, Set
 
@@ -76,8 +77,11 @@ def wait_on_runs(runs: List[Run], timeout: int = _DEFAULT_TIMEOUT) -> List[Run]:
     Wait on a list of runs to reach 'COMPLETED' status (or a failure of some kind).
     """
     futures = []
-    for run in runs:
+    for i, run in enumerate(runs):
         futures.append(mcli.api.runs.wait_for_run_status(run, RunStatus.COMPLETED, future=True))
+        if i == 0:
+            # HACK: this works around a bug in `mcli`.
+            time.sleep(0.05)
 
     results = []
     for future in track(
