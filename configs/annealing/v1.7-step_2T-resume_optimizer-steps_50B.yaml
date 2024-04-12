@@ -19,7 +19,7 @@ model:
   flash_attention: true
   attention_dropout: 0.0
   attention_layer_norm: false
-  multi_query_attention: false
+  clip_qkv: 8.0
   include_bias: false
   block_type: sequential
   layer_norm_type: default
@@ -43,6 +43,8 @@ optimizer:
   name: adamw
   learning_rate: 0.00009785
   weight_decay: 0.1
+  decay_norm_and_bias: true
+  decay_embeddings: true
   betas:
   - 0.9
   - 0.95
@@ -54,7 +56,7 @@ scheduler:
   alpha_f: 0
 
 tokenizer:
-  identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
+  identifier: tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
   truncate_direction: right
 
 save_folder: /data
@@ -63,7 +65,8 @@ remote_save_folder: s3://ai2-llm/checkpoints/davidw/annealing/${run_name}
 # Sharded checkpoints (best for restarts)
 save_interval: 500
 save_num_checkpoints_to_keep: -1
-# Unsharded checkpoints (for final storage)
+sharded_checkpointer: olmo_core
+
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
@@ -86,13 +89,12 @@ precision: amp_bf16
 fsdp:
   wrapping_strategy: by_block_and_size
   precision: mixed
-  sharding_strategy: SHARD_GRAD_OP
 
 max_grad_norm: 1.0
 max_grad_norm_ratio: null
 
 speed_monitor:
-  window_size: 20
+  window_size: 1
 
 eval_interval: ${save_interval}
 eval_subset_num_batches: -1
@@ -102,10 +104,6 @@ evaluators:
     data:
       num_workers: 0
       drop_last: true
-      # pin_memory: true
-      # prefetch_factor: 1
-      # persistent_workers: false
-      # timeout: 0
       datasets:
         4chan-validation:
         - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
@@ -214,10 +212,10 @@ evaluators:
 
 data:
   pad_direction: right
-  num_workers: 16
+  num_workers: 32
   drop_last: true
   pin_memory: true
-  prefetch_factor: 1
+  prefetch_factor: 8
   persistent_workers: true
   timeout: 0
   paths:

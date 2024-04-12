@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# This runs annealing for the new v1.7 models; do not use this for the v1 models.
 # Invoke from project root like `bash scripts/beaker/annealing/launch_annealing.sh`.
 
 set -ex
@@ -38,7 +39,7 @@ function launch {
     --shared-memory 10GiB \
     --venv base \
     --yes \
-    -- /bin/bash -c "source scripts/beaker/warm_hf_cache.sh && torchrun --nnodes ${NUM_NODES}:${NUM_NODES} --nproc-per-node 8 --rdzv_id=101 --rdzv_backend=c10d --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 scripts/train.py ${CONFIG_PATH}"
+    -- /bin/bash -c "source scripts/beaker/warm_hf_cache.sh && torchrun --nnodes ${NUM_NODES}:${NUM_NODES} --nproc-per-node 8 --rdzv_id=101 --rdzv_backend=c10d --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 scripts/train.py ${CONFIG_PATH} --model.flash_attention=true --fsdp.wrapping_strategy=by_block_and_size --fsdp.sharding_strategy=SHARD_GRAD_OP --activation_checkpointing=fine_grained --fused_loss=true --device_train_microbatch_size=2 --global_train_batch_size=1024 --gen1_gc_interval=8"
 }
 
 
