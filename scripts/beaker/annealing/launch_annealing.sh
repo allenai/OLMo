@@ -10,7 +10,7 @@ function launch {
   NUM_NODES=$2
   CLUSTER=$3
 
-  CONFIG_DIR=configs/annealing/
+  CONFIG_DIR=configs/annealing
   CONFIG_PATH=${CONFIG_DIR}/${CONFIG_NAME}.yaml
 
   echo $CONFIG_NAME
