@@ -86,6 +86,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         barrier()
 
     def _build_global_indices(self) -> np.ndarray:
+        print(f"Building global indices for dataset with length {len(self.dataset)}...")
         assert len(self.dataset) < np.iinfo(np.uint32).max
         indices = np.arange(len(self.dataset), dtype=np.uint32)
         if self.shuffle:
@@ -136,6 +137,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
 
         # Slice indices by rank to avoid duplicates.
         indices = indices[self.rank : self.total_size : self.world_size]
+        print(f"Rank {self.rank} has {len(indices)} samples")
 
         # Separate from data loading workers (which use multiprocessing), we also have the option
         # to use multi-threading (within workers).
