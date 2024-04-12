@@ -744,7 +744,7 @@ class ArcChallenge(ArcEasy):
     implement PMI_DC
     """
 
-    metric_type = "len_norm"  # Ideally "pmi_dc"
+    metric_type = "len_norm"
 
     def __init__(self, tokenizer, dataset_path="ai2_arc", dataset_name="ARC-Challenge"):
         super().__init__(
@@ -841,7 +841,6 @@ class COPA(ICLMultiChoiceTaskDataset):
     "cause": "because",
     "effect": "therefore",
 
-    implement PMI_DC
     acc, random at 50%
 
     {
@@ -884,7 +883,6 @@ class COPA(ICLMultiChoiceTaskDataset):
 
 class RTE(ICLMultiChoiceTaskDataset):
     """Prompt: "SENTENCE1\nQuestion: SENTENCE2 True or False?\nAnswer:"
-    implement PMI_DC
     acc, random at 50% (GLUE)
     continuations: True, False
 
@@ -924,7 +922,6 @@ class CommitmentBank(ICLMultiChoiceTaskDataset):
     """Prompt: "PREMISE\nQuestion: HYPOTHESIS. True, False or Neither?\nAnswer:"
     continuations: True, False, Neither
 
-        implement PMI_DC
         acc/F1, random at 33% acc. (SuperGLUE)
 
     {
@@ -1027,7 +1024,6 @@ class SST2(ICLMultiChoiceTaskDataset):
     positive: 1313
     negative: 2430
 
-    implement PMI_DC
     acc, random at 50% (GLUE)
 
     {
@@ -1087,7 +1083,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
         }
     """
 
-    metric_type = "len_norm"  # Ideally pmi_dc
+    metric_type = "len_norm"
 
     _subcategories = {
         "abstract_algebra": ["math"],
