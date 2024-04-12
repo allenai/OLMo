@@ -8,6 +8,7 @@ import torch
 from olmo.checkpoint import (
     Checkpointer,
     LocalShardedCheckpointer,
+    OlmoCoreCheckpointer,
     TorchLegacyShardedCheckpointer,
 )
 from olmo.config import ShardedCheckpointerType, TrainConfig
@@ -35,6 +36,8 @@ def main(
         checkpointer = TorchLegacyShardedCheckpointer(config)
     elif sharded_checkpoint_type == ShardedCheckpointerType.local:
         checkpointer = LocalShardedCheckpointer(config)
+    elif sharded_checkpoint_type == ShardedCheckpointerType.olmo_core:
+        checkpointer = OlmoCoreCheckpointer(config)
     else:
         raise NotImplementedError(sharded_checkpoint_type)
 
