@@ -480,7 +480,7 @@ class Scheduler(metaclass=ABCMeta):
         return self._get_max_grad_norm_coeff(initial_max_grad_norm_ratio, step, max_steps)
 
     def _linear_warmup(self, initial_lr: float, step: int, warmup_steps: int = 2000) -> float:
-        return initial_lr * (0.1 + 0.9 * min(step, warmup_steps) / warmup_steps)
+        return initial_lr * min(step, warmup_steps) / warmup_steps
 
 
 @dataclass
