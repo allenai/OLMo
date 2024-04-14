@@ -24,6 +24,6 @@ torchrun \
   scripts/train.py \
     configs/alt_arch/tranformer_base-300M.yaml \
       --run_name=mqa-transformer-300M-baseline \
-      --device_train_microbatch_size=32 \
+      --device_train_microbatch_size=16 \
       --save_folder=/net/nfs/allennlp/ananyaj/alt_arch/checkpoints \
       --save_overwrite
