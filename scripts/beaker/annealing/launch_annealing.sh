@@ -47,4 +47,5 @@ function launch {
 
 # Launch runs.
 
-launch v1.7-step_2T-resume_optimizer-steps_50B 8 ai2/pluto-cirrascale
+# launch v1.7-step_2T-resume_optimizer-steps_50B 8 ai2/pluto-cirrascale
+launch v1.7-step_2T-resume_optimizer-steps_50B-flan_downweight 8 ai2/pluto-cirrascale
