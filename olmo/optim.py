@@ -34,6 +34,15 @@ log = logging.getLogger(__name__)
 
 
 class Optimizer(OptimizerBase):
+    def __init__(
+        self,
+        params,
+        defaults,
+        num_model_replicas: int = 1
+    ):
+        super().__init__(params, defaults)
+        self.num_model_replicas = num_model_replicas
+
     def _clean_param_name(self, name: str) -> str:
         return name.replace("_fsdp_wrapped_module.", "")
 
@@ -345,11 +354,12 @@ class LionW(Optimizer):
         lr: float = 1e-4,
         betas: Tuple[float, float] = (0.9, 0.99),
         weight_decay: float = 0.0,
+        num_model_replicas: int = 1,
     ):
         assert lr > 0.0
         assert all([0.0 <= beta <= 1.0 for beta in betas])
         defaults = dict(lr=lr, betas=betas, weight_decay=weight_decay)
-        super().__init__(params, defaults)
+        super().__init__(params, defaults, num_model_replicas=num_model_replicas)
         for group in self.param_groups:
             group["initial_lr"] = group["lr"]
         self._update_total_dot_prod: Optional[torch.Tensor] = None
@@ -439,6 +449,15 @@ class LionW(Optimizer):
 
 
 class AdamW(torch.optim.AdamW, Optimizer):
+    def __init__(
+        self,
+        params,
+        num_model_replicas: int = 1,
+        **kwargs
+    ):
+        super().__init__(params, **kwargs)
+        Optimizer.__init__(self, params, kwargs, num_model_replicas=num_model_replicas)
+
     def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
         return {key: self.state[param].get(key) for key in ("exp_avg", "exp_avg_sq")}  # type: ignore
 
@@ -703,6 +722,7 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
     if cfg.optimizer.name == OptimizerType.lionw:
         return LionW(
             param_groups,
+            num_model_replicas=cfg.fsdp.num_model_replicas,
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,
@@ -710,6 +730,7 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
     elif cfg.optimizer.name == OptimizerType.adamw:
         return AdamW(
             param_groups,
+            num_model_replicas=cfg.fsdp.num_model_replicas,
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,
