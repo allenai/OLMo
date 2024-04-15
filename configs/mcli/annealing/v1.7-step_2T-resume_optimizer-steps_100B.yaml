@@ -4,6 +4,7 @@ compute:
   gpus: 256
   cluster: r15z4
   gpu_type: h100_80gb
+  instance: oci.bm.gpu.h100.8
 integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
@@ -12,13 +13,15 @@ integrations:
     pip_install: -e .[train]
     ssh_clone: true
 command: |-
+  # Make sure we have a recent flash-attn.
+  # NOTE: only pinning flash-attn here to future proof it.
+  pip install flash-attn==2.5.3 --no-build-isolation
+
+  # Show packages for debugging.
   pip freeze
-  mkdir -p /root/.cache/torch/
 
-  export OMP_NUM_THREADS=8
-  export LOG_FILTER_TYPE=all_ranks
-  #export OLMO_NO_SSL=1
-
+  # Prepare environment.
+  mkdir -p /root/.cache/torch
   # warm up huggingface cache
   pushd /root/.cache
   curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" | tar -xzf -
