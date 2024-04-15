@@ -57,7 +57,7 @@ tokenizer:
   identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
   truncate_direction: right
 
-save_folder: checkpoints/${run_name}
+save_folder: s3://allennlp-ananyaj/alt_arch/${run_name}
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
 save_interval: 5000
@@ -169,10 +169,10 @@ evaluators:
 
 data:
   pad_direction: right
-  num_workers: 8
+  num_workers: 32
   drop_last: true
   pin_memory: true
-  prefetch_factor: 2
+  prefetch_factor: 8
   persistent_workers: true
   timeout: 0
   paths:
