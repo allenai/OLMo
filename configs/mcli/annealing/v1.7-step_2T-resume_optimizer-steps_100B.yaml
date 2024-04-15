@@ -2,7 +2,7 @@ name: v1.7-step_2T-resume_optimizer-steps_100B
 image: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
 compute:
   gpus: 256
-  cluster: r15z1p1
+  cluster: r15z4
   gpu_type: h100_80gb
 integrations:
   - integration_type: git_repo
