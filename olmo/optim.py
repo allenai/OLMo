@@ -169,12 +169,14 @@ class Optimizer(OptimizerBase):
                     [all_sums.unsqueeze(0), all_norms.unsqueeze(0), all_numels.unsqueeze(0)], dim=0
                 )
                 dist.all_reduce(all_sums_norms_numels, op=dist.ReduceOp.SUM)
+                all_sums_norms_numels = all_sums_norms_numels / self.num_model_replicas
                 all_sums, all_norms, all_numels = all_sums_norms_numels.split(1)
                 # Get averages.
                 # NOTE: could get infs for non-rank0 processes but that's okay.
                 per_param_avg_metrics = (all_sums / all_numels).squeeze(0).split(1)
             else:
                 dist.all_reduce(all_norms, op=dist.ReduceOp.SUM)
+                all_norms = all_norms / self.num_model_replicas
             grad_norm_metric_mask = torch.tensor(
                 [float(is_grad_norm_metric(n)) for n in per_param_norm_metric_names], device=all_norms.device
             )
