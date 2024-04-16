@@ -1505,7 +1505,7 @@ class OLMo(nn.Module):
         else:
             raise NotImplementedError(wrap_strategy)
 
-    def num_params(self, include_embedding: bool = True) -> int:
+    def num_params(self, include_embedding: bool = True, include_inactivated_experts: bool = True) -> int:
         """
         Get the total number of parameters.
         """
@@ -1515,6 +1515,14 @@ class OLMo(nn.Module):
                 lambda np: ".wte." not in np[0] and ".wpe." not in np[0],
                 params,
             )
+        if not include_inactivated_experts:
+            # Need to reduce blocks the number of experts that are selected
+            # e.g. 'transformer.blocks.0.ffn.experts.mlp.w1' has shape (total_experts, in_dim, out_dim)
+            # change to 'transformer.blocks.0.ffn.experts.mlp.w1' has shape (selected_experts, in_dim, out_dim)
+            params = [
+                (np[0], np[1][: self.config.moe_top_k] if "experts.mlp" in np[0] else np[1])
+                for np in params
+            ]
         return sum(p.numel() for _, p in params)
 
     @property

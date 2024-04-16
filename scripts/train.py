@@ -117,6 +117,8 @@ def main(cfg: TrainConfig) -> None:
     olmo_model = OLMo(cfg.model)
     log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
+    if olmo_model.config.block_type == "moe":
+        log.info(f"Number of active parameters: {olmo_model.num_params(include_inactivated_experts=False):,d}")
     log.info(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
 
     olmo_model.set_activation_checkpointing(cfg.activation_checkpointing)

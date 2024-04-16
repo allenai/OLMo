@@ -193,7 +193,6 @@ class Trainer:
 
             self.loss_fn = fused_loss_fn
 
-        print(self.cfg)
         if self.model.config.block_type == BlockType.moe:
             # these MoEArgs are necessary for logging load balancing.
             self.moe_args = MoEArgs(
