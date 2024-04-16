@@ -193,18 +193,20 @@ class Trainer:
 
             self.loss_fn = fused_loss_fn
 
-        if self.cfg.block_type == BlockType.moe:#self.cfg.moe_freq > 0:
+        print(self.cfg)
+        if self.model.config.block_type == BlockType.moe:
             # these MoEArgs are necessary for logging load balancing.
             self.moe_args = MoEArgs(
-                hidden_size=self.cfg.d_model,
-                ffn_hidden_size=self.cfg.d_model * 4,
-                moe_num_experts=8,#self.cfg.moe_num_experts,
-                num_layers=self.cfg.n_layers,#if params.moe_freq > 0 and layer_id % params.moe_freq == 0:
-                moe_expert_model_parallelism=True,
-                moe_top_k=2,#self.cfg.moe_top_k,
-                device=torch.cuda.current_device(),
-                moe_capacity_factor=1.25,#self.cfg.moe_capacity_factor,
-                moe_loss_weight=0.1,#self.cfg.moe_loss_weight,
+                hidden_size=self.model.config.d_model,
+                ffn_hidden_size=self.model.config.d_model * 4,
+                moe_num_experts=self.model.config.moe_num_experts,
+                num_layers=self.model.config.n_layers,
+                # Not tested for nowe
+                moe_expert_model_parallelism=False,
+                moe_top_k=self.model.config.moe_top_k,
+                device=self.model.config.init_device,
+                moe_capacity_factor=self.model.config.moe_capacity_factor,
+                moe_loss_weight=self.model.config.moe_loss_weight,
                 fp16=False,
                 bf16=False,
             )
@@ -666,7 +668,7 @@ class Trainer:
 
         ce_batch_loss = torch.tensor(0.0, device=self.device)
         z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
-        lb_batch_loss = None if self.cfg.block_type != BlockType.moe else torch.tensor(0.0, device=self.device)
+        lb_batch_loss = None if self.model.config.block_type != BlockType.moe else torch.tensor(0.0, device=self.device)
         for micro_batch in micro_batches:
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                 # Run forward pass.
@@ -693,7 +695,7 @@ class Trainer:
                 else:
                     loss = ce_loss
 
-                if self.cfg.block_type == BlockType.moe:
+                if self.model.config.block_type == BlockType.moe:
                     lb_batch_loss = batched_load_balancing_loss(self.moe_args)
                     clear_load_balancing_loss()
                     loss += lb_batch_loss                

@@ -53,6 +53,12 @@ elif sys.version_info.minor == 8:
 else:
     raise SystemExit("This script supports Python 3.8 or higher")
 
+try:
+    from megablocks.layers.moe import MoE
+    from megablocks.layers.arguments import Arguments as MoEArgs
+except ImportError:
+    log.warning("megablocks not installed, MoE layers will not be available.")
+
 __all__ = [
     "LayerNormBase",
     "LayerNorm",
@@ -71,12 +77,6 @@ __all__ = [
 
 
 log = logging.getLogger(__name__)
-
-try:
-    from megablocks.layers.moe import MoE
-    from megablocks.layers.arguments import Arguments as MoEArgs
-except ImportError:
-    log.warning("megablocks not installed, MoE layers will not be available.")
 
 
 def activation_checkpoint_function(cfg: ModelConfig):
@@ -480,15 +480,15 @@ class OLMoBlock(nn.Module):
         if self.q_norm is not None:
             self.q_norm.reset_parameters()
         init_weights(
-            self.config,
             self.attn_out,
+            self.config,
             d=self.config.d_model,
             layer_id=self.layer_id,
             type_of_module=ModuleType.out_module,
         )
         init_weights(
-            self.config,
             self.ff_out,
+            self.config,
             d=self.ff_out.in_features,
             layer_id=self.layer_id,
             type_of_module=ModuleType.out_module,
@@ -633,7 +633,7 @@ class OLMoBlock(nn.Module):
         elif config.block_type == BlockType.llama:
             return OLMoLlamaBlock(layer_id, config, cache)
         elif config.block_type == BlockType.moe:
-            return OLMoEBlock(layer_id, config, cache)        
+            return OLMoEBlock(layer_id, config, cache)
         else:
             raise NotImplementedError(f"Unknown block type: '{config.block_type}'")
 
@@ -644,7 +644,7 @@ class OLMoEBlock(OLMoBlock):
     (plus another skip connection).
     """
     def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
-        super().__init__()
+        nn.Module.__init__(self)
         self.layer_id = layer_id
         self.config = config
         self.hidden_size = (
@@ -685,18 +685,23 @@ class OLMoEBlock(OLMoBlock):
 
         # MoE Block
         moe_args = MoEArgs(
+            activation_fn=F.silu if 'glu' in config.activation_type.lower() else self.act,
+            mlp_type='glu' if 'glu' in config.activation_type.lower() else 'mlp',
             hidden_size=config.d_model,
-            ffn_hidden_size=config.d_model*4,#int(self.act.output_multiplier * self.hidden_size),
-            moe_num_experts=8,#config.moe_num_experts,
-            moe_weight_parallelism=False,#config.moe_weight_parallelism,
-            moe_expert_model_parallelism=False,#config.moe_expert_model_parallelism,
-            moe_top_k=2,#config.moe_top_k,
-            moe_capacity_factor=1.25,#config.moe_capacity_factor,
-            moe_loss_weight=0.1,#config.moe_loss_weight,
-            device=torch.cuda.current_device(),
+            ffn_hidden_size=int(self.act.output_multiplier * self.hidden_size),
+            moe_num_experts=config.moe_num_experts,
+            # Handled by FSDP (https://github.com/databricks/megablocks/issues/57#issuecomment-1854594483)
+            moe_weight_parallelism=False,
+            # Not tested for now
+            moe_expert_model_parallelism=False,
+            moe_top_k=config.moe_top_k,
+            moe_capacity_factor=config.moe_capacity_factor,
+            moe_loss_weight=config.moe_loss_weight,
+            device=config.init_device,
             # Handled by FSDP
             bf16=False,
             fp16=False,
+            init_method=partial(init_weights, config=config, d=config.d_model, layer_id=None, type_of_module=ModuleType.in_module),
         )
         self.ffn = MoE(moe_args)
 
@@ -713,14 +718,28 @@ class OLMoEBlock(OLMoBlock):
             except ModuleNotFoundError:
                 pass
 
+        self.attn_norm = LayerNorm.build(config)
+        self.ff_norm = LayerNorm.build(config)
+
+        # Attention input projection. Projects x -> (q, k, v)
+        head_dim = config.d_model // config.n_heads
+        self.fused_dims = (
+            config.d_model,
+            config.effective_n_kv_heads * head_dim,
+            config.effective_n_kv_heads * head_dim,
+        )
+        self.att_proj = nn.Linear(
+            config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
+        )
+
     def reset_parameters(self):
         if self.k_norm is not None:
             self.k_norm.reset_parameters()
         if self.q_norm is not None:
             self.q_norm.reset_parameters()
         init_weights(
-            self.config,
             self.attn_out,
+            self.config,
             d=self.config.d_model,
             layer_id=self.layer_id,
             type_of_module=ModuleType.out_module,
@@ -729,10 +748,7 @@ class OLMoEBlock(OLMoBlock):
         self.ff_norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
         init_weights(
-            self.config, self.att_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
-        )
-        init_weights(
-            self.config, self.ffn, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
+            self.att_proj, self.config, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
         )
 
     def forward(
@@ -823,10 +839,10 @@ class OLMoSequentialBlock(OLMoBlock):
         self.ff_norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
         init_weights(
-            self.config, self.att_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
+            self.att_proj, self.config, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
         )
         init_weights(
-            self.config, self.ff_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
+            self.ff_proj, self.config, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
         )
 
     def forward(
@@ -928,10 +944,10 @@ class OLMoLlamaBlock(OLMoBlock):
         self.attn_norm.reset_parameters()
         self.ff_norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
-        init_weights(self.config, self.q_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.k_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.v_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None)
+        init_weights(self.q_proj, self.config, d=self.config.d_model, layer_id=None)
+        init_weights(self.k_proj, self.config, d=self.config.d_model, layer_id=None)
+        init_weights(self.v_proj, self.config, d=self.config.d_model, layer_id=None)
+        init_weights(self.ff_proj, self.config, d=self.config.d_model, layer_id=None)
 
     def _scaled_dot_product_attention(
         self,
@@ -1181,20 +1197,20 @@ class OLMo(nn.Module):
         log.info("Initializing model parameters...")
         # Top-level embeddings / linear layers.
         init_weights(
-            self.config,
             self.transformer.wte,  # type: ignore
+            self.config,
             std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,
             type_of_module=ModuleType.emb,
         )
         if hasattr(self.transformer, "wpe"):
-            init_weights(self.config, self.transformer.wpe, type_of_module=ModuleType.emb)  # type: ignore
+            init_weights(self.transformer.wpe, self.config, type_of_module=ModuleType.emb)  # type: ignore
 
         # Top-level layer norm.
         self.transformer.ln_f.reset_parameters()  # type: ignore
 
         # Output weights.
         if hasattr(self.transformer, "ff_out"):
-            init_weights(self.config, self.transformer.ff_out, type_of_module=ModuleType.final_out)  # type: ignore
+            init_weights(self.transformer.ff_out, self.config, type_of_module=ModuleType.final_out)  # type: ignore
 
         # Let the blocks handle themselves.
         if self.config.block_group_size == 1:

@@ -18,8 +18,8 @@ class ModuleType(StrEnum):
 
 
 def init_weights(
-    config: ModelConfig,
     module: Union[nn.Linear, nn.Embedding],
+    config: ModelConfig,
     d: Optional[int] = None,
     layer_id: Optional[int] = None,
     std_factor: float = 1.0,
@@ -47,7 +47,10 @@ def init_weights(
         std = std_factor / math.sqrt(d)
         if layer_id is not None:
             std = std / math.sqrt(2 * (layer_id + 1))
-        nn.init.trunc_normal_(module.weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
+        if hasattr(module, "weight"):
+            nn.init.trunc_normal_(module.weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
+        else:
+            nn.init.trunc_normal_(module, mean=0.0, std=std, a=-3 * std, b=3 * std)
     elif config.init_fn == InitFnType.kaiming_normal:
         nn.init.kaiming_normal_(module.weight, nonlinearity="relu")
     elif config.init_fn == InitFnType.fan_in:
