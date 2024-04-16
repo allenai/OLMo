@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import logging
 import os
 import re
@@ -22,6 +23,7 @@ from boto3.s3.transfer import TransferConfig
 from cached_path import add_scheme_client, cached_path, set_cache_dir
 from cached_path.schemes import S3Client
 from google.api_core.exceptions import NotFound
+from omegaconf import DictConfig
 from omegaconf import OmegaConf as om
 from rich.progress import track
 
@@ -1004,7 +1006,7 @@ def unshard_run_checkpoints(run_path: str, checkpoints_dest_dir: str, config: Un
     _unshard_checkpoints(storage, run_dir_or_archive, checkpoints_dest_dir, config)
 
 
-def _get_wandb_runs_from_wandb_dir(storage: StorageAdapter, wandb_dir: str, run_config: TrainConfig) -> List:
+def _get_wandb_runs_from_wandb_dir(storage: StorageAdapter, wandb_dir: str, run_config: DictConfig) -> List:
     # For some reason, we often have a redundant nested wandb directory. Step into it here.
     nested_wandb_dir = os.path.join(wandb_dir, "wandb/")
     if storage.is_dir(nested_wandb_dir):
@@ -1031,7 +1033,7 @@ def _get_wandb_path_from_run(wandb_run) -> str:
     return "/".join(wandb_run.path)
 
 
-def _get_wandb_runs_from_train_config(config: TrainConfig) -> List:
+def _get_wandb_runs_from_train_config(config: DictConfig) -> List:
     assert config.wandb is not None
 
     run_filters = {
@@ -1047,16 +1049,81 @@ def _get_wandb_runs_from_train_config(config: TrainConfig) -> List:
     return api.runs(path=f"{config.wandb.entity}/{config.wandb.project}", filters=run_filters)
 
 
-def _are_equal_configs(wandb_config: TrainConfig, train_config: TrainConfig) -> bool:
-    return wandb_config.asdict(exclude=["wandb"]) == train_config.asdict(exclude=["wandb"])
+def _are_equal_config_settings(wandb_setting, training_setting) -> bool:
+    if isinstance(wandb_setting, dict) and isinstance(training_setting, dict):
+        wandb_keys = set(wandb_setting.keys())
+        training_keys = set(training_setting.keys())
+        if wandb_keys != training_keys:
+            log.debug(
+                "Setting of wandb and training setting do not have matching keys. Wandb extra keys: %s Training extra keys: %s",
+                wandb_keys - training_keys,
+                training_keys - wandb_keys,
+            )
+            return False
+
+        mismatched_keys = [
+            key
+            for key in training_setting.keys()
+            if not _are_equal_config_settings(wandb_setting[key], training_setting[key])
+        ]
+        if len(mismatched_keys) > 0:
+            log.debug(
+                "Setting of wandb and training setting do not match for the following keys: %s",
+                mismatched_keys,
+            )
+            log.debug(
+                "Mismatches in format 'Key: (Wandb, Training)': %s",
+                {key: (wandb_setting[key], training_setting[key]) for key in mismatched_keys},
+            )
+            return False
+
+        return True
+
+    if isinstance(wandb_setting, list) and isinstance(training_setting, list):
+        if len(wandb_setting) != len(training_setting):
+            log.debug(
+                "Setting of wandb and training setting has lists of different length. Wandb lists: %s Training list: %s",
+                wandb_setting,
+                training_setting,
+            )
+            return False
+
+        return all(
+            _are_equal_config_settings(wandb_list_entry, training_list_entry)
+            for wandb_list_entry, training_list_entry in zip(wandb_setting, training_setting)
+        )
+
+    if isinstance(wandb_setting, str) and isinstance(training_setting, str):
+        # Wandb keeps enum values in the form <class>.<name>, whereas the config file has them as <name>.
+        if wandb_setting.count(".") == 1 and wandb_setting.split(".")[1].lower() == training_setting.lower():
+            return True
+
+    if isinstance(training_setting, tuple):
+        # Wandb seems to turn tuples to lists. This can cause false equality check failures.
+        if _are_equal_config_settings(wandb_setting, list(training_setting)):
+            return True
+
+    return wandb_setting == training_setting
 
 
-def _get_wandb_config(wandb_run) -> TrainConfig:
+def _are_equal_configs(wandb_config: DictConfig, train_config: DictConfig) -> bool:
+    wandb_obj = om.to_object(wandb_config)
+    train_obj = om.to_object(train_config)
+    if isinstance(wandb_obj, dict) and "wandb" in wandb_obj:
+        del wandb_obj["wandb"]
+    if isinstance(train_obj, dict) and "wandb" in train_obj:
+        del train_obj["wandb"]
+    return _are_equal_config_settings(wandb_obj, train_obj)
+
+
+def _get_wandb_config(wandb_run) -> DictConfig:
     local_storage = LocalFileSystemAdapter()
     temp_file = local_storage.create_temp_file(suffix=".yaml")
 
     om.save(config=wandb_run.config, f=temp_file)
-    wandb_config = TrainConfig.load(temp_file)
+    wandb_config = om.load(temp_file)
+    assert isinstance(wandb_config, DictConfig)
+    # wandb_config = TrainConfig.load(temp_file)
 
     return wandb_config
 
@@ -1064,7 +1131,9 @@ def _get_wandb_config(wandb_run) -> TrainConfig:
 def _get_matching_wandb_runs(wandb_runs, checkpoint_dir: str) -> List:
     config_path = os.path.join(checkpoint_dir, CONFIG_YAML)
     local_config_path = cached_path(config_path)
-    train_config = TrainConfig.load(local_config_path)
+
+    train_config = om.load(local_config_path)
+    assert isinstance(train_config, DictConfig)
 
     return [
         wandb_run for wandb_run in wandb_runs if _are_equal_configs(_get_wandb_config(wandb_run), train_config)
@@ -1079,21 +1148,28 @@ def _get_wandb_path(checkpoint_dir: str, run_dir: str) -> str:
         raise FileNotFoundError(f"No config file found in checkpoint dir {checkpoint_dir}, cannot get wandb path")
 
     local_config_path = cached_path(config_path)
-    config = TrainConfig.load(local_config_path, validate_paths=False)
+    # config = TrainConfig.load(local_config_path, validate_paths=False)
+    config = om.load(local_config_path)
+    assert isinstance(config, DictConfig)
 
     if config.wandb is None or config.wandb.entity is None or config.wandb.project is None:
         raise ValueError(f"Checkpoint at {checkpoint_dir} has missing wandb config, cannot get wandb run path")
 
     wandb_runs = []
-
-    wandb_dir = os.path.join(run_dir, "wandb/")
-    if run_dir_storage.is_dir(wandb_dir):
-        wandb_runs += _get_wandb_runs_from_wandb_dir(run_dir_storage, wandb_dir, config)
+    wandb_runs += _get_wandb_runs_from_train_config(config)
+    if len(wandb_runs) == 0:
+        wandb_dir = os.path.join(run_dir, "wandb/")
+        if run_dir_storage.is_dir(wandb_dir):
+            wandb_runs += _get_wandb_runs_from_wandb_dir(run_dir_storage, wandb_dir, config)
 
     wandb_runs += _get_wandb_runs_from_train_config(config)
     # Remove duplicate wandb runs based on run path, and wandb runs that do not match our checkpoint.
     wandb_runs = list({_get_wandb_path_from_run(wandb_run): wandb_run for wandb_run in wandb_runs}.values())
     wandb_matching_runs = _get_matching_wandb_runs(wandb_runs, checkpoint_dir)
+
+    if config.save_overwrite and len(wandb_matching_runs) > 1:
+        log.warning("Found %d runs matching checkpoint dir %s and save_overwrite is enabled, using most recently created run", len(wandb_matching_runs), {checkpoint_dir})
+        wandb_matching_runs = [max(wandb_matching_runs, key=lambda wandb_run: datetime.datetime.fromisoformat(wandb_run.created_at))]
 
     if len(wandb_matching_runs) == 0:
         raise RuntimeError(f"Failed to find any wandb runs for {checkpoint_dir}. Run might no longer exist")
