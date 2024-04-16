@@ -1141,7 +1141,13 @@ class OLMo(nn.Module):
             )
         )
 
-        blocks = [OLMoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
+        ### MODIFIED ###
+        if self.config.share_blocks:
+            assert self.config.block_group_size == 1, "Block sharing is only supported with block_group_size=1"
+            blocks = [OLMoBlock.build(i, config, self.__cache)]
+        else:
+            blocks = [OLMoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
+
         if self.config.block_group_size > 1:
             block_groups = [
                 OLMoBlockGroup(config, i, blocks[i : i + config.block_group_size])
@@ -1350,13 +1356,13 @@ class OLMo(nn.Module):
 
         # Apply blocks one-by-one.
         if self.config.block_group_size == 1:
-            for block_idx, block in enumerate(self.transformer.blocks):
+            for i in range(self.config.n_layers):
                 if output_hidden_states:
                     # add hidden states
                     all_hidden_states.append(x)
-
-                layer_past = None if past_key_values is None else past_key_values[block_idx]
-                if should_checkpoint_block(self.activation_checkpointing_strategy, block_idx):
+                layer_past = None if past_key_values is None else past_key_values[i]
+                block = self.transformer.blocks[0] if self.config.share_blocks else self.transformer.blocks[i]
+                if should_checkpoint_block(self.activation_checkpointing_strategy, i):
                     # shape: (batch_size, seq_len, d_model)
                     x, cache = self._activation_checkpoint_fn(
                         block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache

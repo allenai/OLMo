@@ -455,6 +455,11 @@ class ModelConfig(BaseConfig):
     The weight to use for the MoE loss.
     """
 
+    share_blocks: bool = False
+    """
+    If ``True``, share the same block across all layers.
+    """
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:
