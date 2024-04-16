@@ -40,9 +40,15 @@ def init_weights(
         std = config.init_std * std_factor
         if config.init_cutoff_factor is not None:
             cutoff_value = config.init_cutoff_factor * std
-            nn.init.trunc_normal_(module.weight, mean=0.0, std=std, a=-cutoff_value, b=cutoff_value)
+            if hasattr(module, "weight"):
+                nn.init.trunc_normal_(module.weight, mean=0.0, std=std, a=-cutoff_value, b=cutoff_value)
+            else:
+                nn.init.trunc_normal_(module, mean=0.0, std=std, a=-cutoff_value, b=cutoff_value)
         else:
-            nn.init.normal_(module.weight, mean=0.0, std=std)
+            if hasattr(module, "weight"):
+                nn.init.normal_(module.weight, mean=0.0, std=std)
+            else:
+                nn.init.normal_(module, mean=0.0, std=std)
     elif config.init_fn == InitFnType.mitchell:
         std = std_factor / math.sqrt(d)
         if layer_id is not None:
@@ -52,10 +58,16 @@ def init_weights(
         else:
             nn.init.trunc_normal_(module, mean=0.0, std=std, a=-3 * std, b=3 * std)
     elif config.init_fn == InitFnType.kaiming_normal:
-        nn.init.kaiming_normal_(module.weight, nonlinearity="relu")
+        if hasattr(module, "weight"):
+            nn.init.kaiming_normal_(module.weight, nonlinearity="relu")
+        else:
+            nn.init.kaiming_normal_(module, nonlinearity="relu")
     elif config.init_fn == InitFnType.fan_in:
         std = std_factor / math.sqrt(d)
-        nn.init.normal_(module.weight, mean=0.0, std=std)
+        if hasattr(module, "weight"):
+            nn.init.normal_(module.weight, mean=0.0, std=std)
+        else:
+            nn.init.normal_(module, mean=0.0, std=std)
     elif config.init_fn == InitFnType.full_megatron:
         if type_of_module is None:
             raise RuntimeError(f"When using the {InitFnType.full_megatron} init, every module must have a type.")
@@ -79,13 +91,22 @@ def init_weights(
             std = config.d_model**-0.5
         else:
             raise RuntimeError(f"Unknown module type '{type_of_module}'")
-        nn.init.trunc_normal_(
-            module.weight,
-            mean=0.0,
-            std=std,
-            a=-cutoff_factor * std,
-            b=cutoff_factor * std,
-        )
+        if hasattr(module, "weight"):
+            nn.init.trunc_normal_(
+                module.weight,
+                mean=0.0,
+                std=std,
+                a=-cutoff_factor * std,
+                b=cutoff_factor * std,
+            )
+        else:
+            nn.init.trunc_normal_(
+                module,
+                mean=0.0,
+                std=std,
+                a=-cutoff_factor * std,
+                b=cutoff_factor * std,
+            )
     else:
         raise NotImplementedError(config.init_fn)
 
