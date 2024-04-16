@@ -847,6 +847,24 @@ class OLMoLlamaBlock(OLMoBlock):
         return x, cache
 
 
+class LRUBlock(nn.Module):
+    """
+    Linear Recurrent Unit block from the paper Griffin: https://arxiv.org/pdf/2402.19427.pdf
+    """
+
+    def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
+        super().__init__()
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        attention_bias: Optional[torch.Tensor] = None,
+        layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        use_cache: bool = False,
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
+        return x, cache
+
+
 class OLMoOutput(NamedTuple):
     logits: torch.FloatTensor
     """
