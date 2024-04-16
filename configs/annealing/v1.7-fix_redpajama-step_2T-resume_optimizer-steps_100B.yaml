@@ -79,7 +79,7 @@ reset_optimizer_state: false
 reset_trainer_state: true
 
 max_duration: 100e9T
-stop_at: ${max_duration}
+stop_at: 23852
 global_train_batch_size: 1024
 device_train_microbatch_size: 2
 time_limit: null
