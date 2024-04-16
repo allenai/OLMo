@@ -26,6 +26,7 @@ from torch.utils.data import DataLoader
 from .aliases import PathOrStr
 from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
 from .config import (
+    BlockType,
     CheckpointType,
     SchedulerUnits,
     ShardedCheckpointerType,
@@ -53,6 +54,12 @@ from .util import upload
 __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
 
 log = logging.getLogger(__name__)
+
+try:
+    from megablocks.layers.moe import batched_load_balancing_loss, clear_load_balancing_loss
+    from megablocks.layers.arguments import Arguments as MoEArgs
+except ImportError:
+    log.warning(f"Megablocks not installed. To train MoE, install with pip install megablocks.")
 
 
 @dataclass
@@ -185,6 +192,23 @@ class Trainer:
                 return loss, z_loss
 
             self.loss_fn = fused_loss_fn
+
+        if self.model.config.block_type == BlockType.moe:
+            # these MoEArgs are necessary for logging load balancing.
+            self.moe_args = MoEArgs(
+                hidden_size=self.model.config.d_model,
+                ffn_hidden_size=self.model.config.d_model * 4,
+                moe_num_experts=self.model.config.moe_num_experts,
+                num_layers=self.model.config.n_layers,
+                # Not tested for nowe
+                moe_expert_model_parallelism=False,
+                moe_top_k=self.model.config.moe_top_k,
+                device=self.model.config.init_device,
+                moe_capacity_factor=self.model.config.moe_capacity_factor,
+                moe_loss_weight=self.model.config.moe_loss_weight,
+                fp16=False,
+                bf16=False,
+            )
 
     @property
     def dataset(self) -> IterableDataset:
@@ -643,6 +667,7 @@ class Trainer:
 
         ce_batch_loss = torch.tensor(0.0, device=self.device)
         z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
+        lb_batch_loss = None if self.model.config.block_type != BlockType.moe else torch.tensor(0.0, device=self.device)
         for micro_batch in micro_batches:
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                 # Run forward pass.
@@ -669,12 +694,17 @@ class Trainer:
                 else:
                     loss = ce_loss
 
+                if self.model.config.block_type == BlockType.moe:
+                    lb_batch_loss = batched_load_balancing_loss(self.moe_args)
+                    clear_load_balancing_loss()
+                    loss += lb_batch_loss                
+
                 del logits
 
             # Run backward pass.
             loss.backward()
 
-        return ce_batch_loss, z_batch_loss
+        return ce_batch_loss, z_batch_loss, lb_batch_loss
 
     def train_step(self, batch: Dict[str, Any], reduce_global_loss: bool = True) -> Dict[str, float]:
         metrics: Dict[str, float] = {}
@@ -691,7 +721,7 @@ class Trainer:
         batch = move_to_device(batch, self.device)
 
         # Run forward-backward pass.
-        ce_batch_loss, z_batch_loss = self.train_batch(batch)
+        ce_batch_loss, z_batch_loss, lb_batch_loss = self.train_batch(batch)
 
         # Collect loss, potentially reducing over all ranks.
         if reduce_global_loss:
@@ -700,6 +730,9 @@ class Trainer:
             if z_batch_loss is not None:
                 dist.reduce(z_batch_loss, 0)
                 z_batch_loss.div_(get_world_size())
+            if lb_batch_loss is not None:
+                dist.reduce(lb_batch_loss, 0)
+                lb_batch_loss.div_(get_world_size())
 
         # Clip gradient norms and collect param/gradient/optim metrics.
         should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
@@ -728,9 +761,11 @@ class Trainer:
         # Collect metrics and check for NaN loss.
         # NOTE: this involves a bunch of host-device syncs so we wait until the last moment to do this.
         if torch.isnan(ce_batch_loss):
-            raise ValueError("nan loss encountered")
+            raise ValueError("nan ce loss encountered")
         if z_batch_loss is not None and torch.isnan(z_batch_loss):
-            raise ValueError("nan loss encountered")
+            raise ValueError("nan z loss encountered")
+        if lb_batch_loss is not None and torch.isnan(lb_batch_loss):
+            raise ValueError("nan lb loss encountered")
         for key, value in optim_metrics.items():
             metrics[f"optim/{key}"] = value.item()
         self.cur_train_loss = ce_batch_loss.item()
@@ -739,6 +774,8 @@ class Trainer:
         metrics["train/Perplexity"] = math.exp(self.cur_train_loss)
         if z_batch_loss is not None:
             metrics["train/ZLoss"] = z_batch_loss.item()
+        if lb_batch_loss is not None:
+            metrics["train/LoadBalancingLoss"] = lb_batch_loss.item()
 
         # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:

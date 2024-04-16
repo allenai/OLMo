@@ -181,6 +181,8 @@ class BlockType(StrEnum):
     sequential = "sequential"
 
     llama = "llama"
+
+    moe = "moe"
     """
     A block similar to the sequential block with slightly different
     implementations of operations like attention to imitate the behavior of Llama.
@@ -431,6 +433,26 @@ class ModelConfig(BaseConfig):
     """
     Precision used to train/evaluate with. You shouldn't set this directly.
     See :data:`TrainConfig.precision` instead.
+    """
+
+    moe_num_experts: Optional[int] = 8
+    """
+    The number of experts to use in the MoE block.
+    """
+
+    moe_top_k: Optional[int] = 2
+    """
+    The number of top experts to use in the MoE block.
+    """
+
+    moe_capacity_factor: Optional[float] = 1.25
+    """
+    The capacity factor to use in the MoE block.
+    """
+
+    moe_loss_weight: Optional[float] = 0.1
+    """
+    The weight to use for the MoE loss.
     """
 
     @property
