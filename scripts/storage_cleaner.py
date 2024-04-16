@@ -27,12 +27,7 @@ from rich.progress import track
 
 from olmo import util
 from olmo.aliases import PathOrStr
-from olmo.checkpoint import (
-    Checkpointer,
-    LocalShardedCheckpointer,
-    TorchLegacyShardedCheckpointer,
-    build_sharded_checkpointer,
-)
+from olmo.checkpoint import build_sharded_checkpointer
 from olmo.config import ShardedCheckpointerType, TrainConfig
 
 log = logging.getLogger(__name__)
@@ -989,7 +984,9 @@ def _unshard_checkpoints(
             log.info("Would unshard sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
         else:
             log.info("Unsharding sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
-            unsharding_succeeded = _unshard_checkpoint(sharded_checkpoint_directory, dest_directory, run_dir, config)
+            unsharding_succeeded = _unshard_checkpoint(
+                sharded_checkpoint_directory, dest_directory, run_dir, config
+            )
 
         if unsharding_succeeded and config.delete_sharded_checkpoints:
             assert run_dir == run_dir_or_archive
