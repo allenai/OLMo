@@ -687,6 +687,14 @@ class FSDPConfig(BaseConfig):
 
     precision: FSDPPrecision = FSDPPrecision.pure
 
+    hybrid_sharding_num_model_replicas: Optional[int] = None
+    """
+    The number of model instances, when using a hybrid sharding strategy.
+    If not ``None``, this must divide the total number of nodes. If ``None``, the default,
+    a model instance is used per node (as determined by ``get_world_size() // get_local_world_size()``).
+    PyTorch's default HSDP behavior matches this default behavior.
+    """
+
 
 class CheckpointType(StrEnum):
     sharded = "sharded"
