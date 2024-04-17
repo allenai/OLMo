@@ -1000,6 +1000,9 @@ class OLMo(nn.Module):
             get_causal_attention_bias(self.__cache, config.max_sequence_length, _non_meta_init_device(config))
             self.get_alibi_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
 
+        if self.config.embedding_ln:
+            self.transformer.update({"emb_ln": LayerNorm.build(config)})
+
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         self.activation_checkpointing_strategy = strategy
         if self.config.block_group_size != 1:
@@ -1028,6 +1031,8 @@ class OLMo(nn.Module):
         )
         if hasattr(self.transformer, "wpe"):
             init_weights(self.config, self.transformer.wpe, type_of_module=ModuleType.emb)  # type: ignore
+        if hasattr(self.transformer, "emb_ln"):
+            self.transformer.emb_ln.reset_parameters()
 
         # Top-level layer norm.
         self.transformer.ln_f.reset_parameters()  # type: ignore
@@ -1120,6 +1125,9 @@ class OLMo(nn.Module):
             # shape: (1, seq_len, d_model)
             pos_emb = self.transformer.wpe(pos)  # type: ignore
             x = pos_emb + x
+
+        if self.config.embedding_ln:
+            x = self.transformer.emb_ln(x)
 
         # Add input + positional embeddings and apply dropout.
         # shape: (batch_size, seq_len, d_model)

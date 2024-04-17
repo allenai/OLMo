@@ -217,6 +217,11 @@ class InitFnType(StrEnum):
     This is what metaseq calls "full megatron init". It is the init used for Llama 2.
     """
 
+    spike_no_more = "spike_no_more"
+    """
+    This is the method suggested in Takase et al., "Spike No More".
+    """
+
 
 @dataclass
 class ModelConfig(BaseConfig):
@@ -332,6 +337,11 @@ class ModelConfig(BaseConfig):
     embedding_dropout: float = 0.1
     """
     The dropout probability for embeddings.
+    """
+
+    embedding_ln: bool = False
+    """
+    Whether to run a layernorm on the embeddings.
     """
 
     layer_norm_type: LayerNormType = LayerNormType.default

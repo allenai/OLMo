@@ -83,6 +83,37 @@ def init_weights(
             a=-cutoff_factor * std,
             b=cutoff_factor * std,
         )
+    elif config.init_fn == InitFnType.spike_no_more:
+        std = std_factor * math.sqrt(2 / (5 * config.d_model))
+        if type_of_module == ModuleType.in_module:
+            # Takase at al. forgot about these weights, but they probably meant to do the same as full_megatron
+            # above, so that's what this does.
+            pass
+        elif type_of_module == ModuleType.out_module:
+            std /= math.sqrt(2 * config.n_layers)
+        elif type_of_module == ModuleType.emb:
+            if config.weight_tying:
+                if config.embedding_ln:
+                    pass
+                else:
+                    raise RuntimeError(
+                        "To make the spike_no_more initialization method work with weight tying, we have to implement scaling the embeddings by sqrt(config.d_model)."
+                    )
+            else:
+                std = 1.0
+        elif type_of_module == ModuleType.final_out:
+            # Takase at al. forgot about these weights, but the footnote in section 3.2 suggests that
+            # this should be initialized to the "small value" (i.e., `std`)
+            pass
+        else:
+            raise RuntimeError(f"Unknown module type '{type_of_module}'")
+        nn.init.trunc_normal_(
+            module.weight,
+            mean=0.0,
+            std=std,
+            a=-3 * std,
+            b=3 * std,
+        )
     else:
         raise NotImplementedError(config.init_fn)
 
