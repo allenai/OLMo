@@ -1,4 +1,3 @@
-import gc
 import io
 import logging
 import pickle
@@ -196,29 +195,45 @@ def load_fsdp_model_and_optim_state(
                 local_cache=None if local_cache is None else local_cache / MODEL_AND_OPTIM_FOLDER,
             ),
         )
+        # optim_state["optim"] = {
+        #    'state': { fqn: { 'grad_norm_exp_avg': Tensor, 'step': Tensor, 'exp_avg': ShardedTensor, 'exp_avg_sq': ShardedTensor } },
+        #    'param_groups': [{ 'param_names': [ fsdp_fqn, ... ], 'params': [ fqn, ... ], ... }],
+        # }
         del model_state
+
+        # Make sure tensors are on CPU! PyTorch puts them on GPU even though we have `offload_to_cpu=True`.
+        for state in optim_state["optim"]["state"].values():
+            for k in state.keys():
+                state[k] = state[k].cpu()
         gc_cuda()
+
         load_fsdp_optim_state(fsdp_model, optim, optim_state["optim"])
 
 
 def load_fsdp_optim_state(fsdp_model: FSDP, optim: Optimizer, optim_state: Dict[str, Any]):
     log.info("Flattening sharded optimizer state...")
+    # flattened_osd = {
+    #    'state': { id: { 'grad_norm_exp_avg': Tensor, 'step': Tensor, 'exp_avg': Tensor, 'exp_avg_sq': Tensor } },
+    #    'param_groups': [{ 'param_names': [ fsdp_fqn, ... ], 'params': [ id, ... ], ... }],
+    # }
     # NOTE: Careful! The order of the these arguments has changed from 2.0 to 2.1... ¯\_(ツ)_/¯
     if version.parse(torch.__version__) < version.parse("2.1.0"):
         flattened_osd = FSDP.optim_state_dict_to_load(optim_state, fsdp_model, optim)  # type: ignore
     else:
         flattened_osd = FSDP.optim_state_dict_to_load(fsdp_model, optim, optim_state)  # type: ignore
+
     del optim_state
-    gc.collect()
+    gc_cuda()
+
     log.info("Loading flattened optimizer state...")
+
     # Put optim state on CPU since `Optimizer.load_state_dict()` will create a deepcopy of the whole state dict,
     # which takes up unnecessary GPU memory.
     for state in flattened_osd["state"].values():
         for k in state.keys():
-            v = state[k]
-            if isinstance(v, torch.Tensor):
-                state[k] = v.to(device="cpu")
+            state[k] = state[k].cpu()
     gc_cuda()
+
     optim.load_state_dict(fix_optim_state_dict(optim, flattened_osd))
 
 
@@ -1673,11 +1688,12 @@ class OlmoCoreCheckpointer(Checkpointer):
 
         with self._temporary_wd(dir) as checkpoint_dir:
             log.info("Saving model and optim state...")
-            save_model_and_optim_state(checkpoint_dir, fsdp_model, optim, save_overwrite=self.cfg.save_overwrite)
-            if upload_to is not None and get_fs_local_rank() == 0:
-                for path in Path(checkpoint_dir).glob("**/*"):
-                    if not path.is_file():
-                        continue
+            local_files_created = save_model_and_optim_state(
+                checkpoint_dir, fsdp_model, optim, save_overwrite=self.cfg.save_overwrite
+            )
+            if upload_to is not None:
+                for path in local_files_created:
+                    path = Path(path)
                     upload_target = f"{upload_to.rstrip('/')}/{path.relative_to(checkpoint_dir)}"
                     log.info(f"Uploading {path} to {upload_target}...")
                     upload(path, upload_target, save_overwrite=self.cfg.save_overwrite)
@@ -1710,10 +1726,40 @@ class OlmoCoreCheckpointer(Checkpointer):
         load_model_and_optim_state(load_path, fsdp_model, optim if load_optimizer_state else None)
 
         log.info("Loading trainer state...")
-        trainer_state = load_state_dict(load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache)
+        try:
+            trainer_state = load_state_dict(
+                load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache
+            )
+        except FileNotFoundError:
+            # Fall back to rank 0 train state.
+            # This can happen when we're restoring a checkpoint with a different world size.
+            trainer_state = load_state_dict(load_path, "train/rank0.pt", local_cache=local_cache)
 
         barrier()
         return trainer_state
+
+    def unshard_checkpoint(
+        self,
+        load_path: PathOrStr,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+        load_optimizer_state: bool = True,
+        load_trainer_state: bool = True,
+        device: Optional[torch.device] = None,
+    ) -> Tuple[Dict[str, torch.Tensor], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        from olmo_core.distributed.checkpoint import (  # type: ignore
+            unshard_model_state,
+            unshard_optim_state,
+        )
+
+        model_state = unshard_model_state(load_path, device=device)
+        optim_state: Optional[Dict[str, Any]] = None
+        train_state: Optional[Dict[str, Any]] = None
+        if load_optimizer_state:
+            optim_state = cast(Dict[str, Any], unshard_optim_state(load_path, device=device))
+        if load_trainer_state:
+            train_state = load_state_dict(load_path, "train/rank0.pt", local_cache=local_cache)
+        return model_state, optim_state, train_state
 
 
 def build_sharded_checkpointer(
