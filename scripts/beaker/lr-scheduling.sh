@@ -26,4 +26,9 @@ torchrun \
       --run_name=lr-schedule-const-lr \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
       --load_path=/net/nfs.cirrascale/allennlp/shanea/checkpoints/lr-schedule-const-lr/step694500-unsharded \
+      --wandb.name=lr-linear-decay-step694500-40000steps \
+      --wandb.group=lr-linear-decay-step694500-40000steps \
+      --scheduler.t_warmup=694500 \
+      --scheduler.alpha_f=0.0 \
+      --max_duration=734500 \
       --save_overwrite
