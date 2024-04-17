@@ -28,6 +28,7 @@ torchrun \
       --load_path=/net/nfs.cirrascale/allennlp/shanea/checkpoints/lr-schedule-const-lr/step694500-unsharded \
       --wandb.name=lr-linear-decay-step694500-40000steps \
       --wandb.group=lr-linear-decay-step694500-40000steps \
+      --scheduler.name=linear_with_warmup \
       --scheduler.t_warmup=694500 \
       --scheduler.alpha_f=0.0 \
       --max_duration=734500 \
