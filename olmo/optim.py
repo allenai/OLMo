@@ -72,6 +72,10 @@ class Optimizer(OptimizerBase):
         per_param_avg_metric_names: List[str] = []
         per_param_norm_metric_names: List[str] = []
 
+        dst_rank = 0
+        if process_group is not None:
+            dst_rank = dist.get_global_rank(process_group, 0)
+
         # Collect metrics locally.
         for group in self.param_groups:
             if is_distributed():
@@ -147,12 +151,12 @@ class Optimizer(OptimizerBase):
             # Reduce mins.
             if per_param_min_metrics:
                 all_mins = torch.cat(per_param_min_metrics).to(device)
-                dist.reduce(all_mins, 0, op=dist.ReduceOp.MIN, group=process_group)
+                dist.reduce(all_mins, dst_rank, op=dist.ReduceOp.MIN, group=process_group)
                 per_param_min_metrics = all_mins.split(1)
             # Reduce maxs.
             if per_param_max_metrics:
                 all_maxs = torch.cat(per_param_max_metrics).to(device)
-                dist.reduce(all_maxs, 0, op=dist.ReduceOp.MAX, group=process_group)
+                dist.reduce(all_maxs, dst_rank, op=dist.ReduceOp.MAX, group=process_group)
                 per_param_max_metrics = all_maxs.split(1)
             # Reduce sums or just norms.
             all_norms = torch.cat(per_param_norm_metrics).to(device) ** 2.0
@@ -328,8 +332,10 @@ class Optimizer(OptimizerBase):
                 p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
         return num_grads_clipped
 
-    def get_post_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
-        del module
+    def get_post_step_metrics(
+        self, module: nn.Module, process_group: Optional[dist.ProcessGroup] = None
+    ) -> Dict[str, torch.Tensor]:
+        del module, process_group
         return {}
 
     def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
@@ -359,7 +365,9 @@ class LionW(Optimizer):
         self._update_total_norm: Optional[torch.Tensor] = None
         self._signed_update_total_norm: Optional[torch.Tensor] = None
 
-    def get_post_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
+    def get_post_step_metrics(
+        self, module: nn.Module, process_group: Optional[dist.ProcessGroup] = None
+    ) -> Dict[str, torch.Tensor]:
         update_total_dot_prod = self._update_total_dot_prod
         update_total_norm = self._update_total_norm
         signed_update_total_norm = self._signed_update_total_norm
@@ -373,7 +381,11 @@ class LionW(Optimizer):
             # Reduce all together to avoid multiple communication calls.
             all_together = torch.stack([update_total_dot_prod, update_total_norm, signed_update_total_norm])
             # Only need the final result on rank0, since that's where we log from.
-            dist.reduce(all_together, 0)
+            dist.reduce(
+                all_together,
+                0 if process_group is None else dist.get_global_rank(process_group, 0),
+                group=process_group,
+            )
             update_total_dot_prod, update_total_norm, signed_update_total_norm = all_together
             update_total_norm = update_total_norm**0.5
             signed_update_total_norm = signed_update_total_norm**0.5

@@ -746,7 +746,9 @@ class Trainer:
 
         # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:
-            optim_metrics = self.optim.get_post_step_metrics(self.fsdp_model)
+            optim_metrics = self.optim.get_post_step_metrics(
+                self.fsdp_model, process_group=self.fsdp_model.process_group
+            )
             for key, value in optim_metrics.items():
                 metrics[f"optim/{key}"] = value.item()
 
