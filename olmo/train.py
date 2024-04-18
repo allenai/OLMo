@@ -704,7 +704,11 @@ class Trainer:
         # Clip gradient norms and collect param/gradient/optim metrics.
         should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
         optim_metrics = self.optim.clip_grads_and_collect_metrics(
-            self.global_step, collect_param_metrics=should_log_optim_metrics_this_step
+            self.global_step,
+            collect_param_metrics=should_log_optim_metrics_this_step,
+            # passing this process group here ensures metrics are reduced correctly when we're using
+            # HYBRID sharding.
+            process_group=self.fsdp_model.process_group,
         )
 
         # Adjust the learning rate.
