@@ -6,7 +6,7 @@ NUM_NODES=2
 
 gantry run \
   --workspace ai2/shanea \
-  --task-name lr-schedule-const-lr \
+  --task-name lr-schedule-const-lr-7B \
   --description "Const learning rate schedule experiment on OLMo 7B" \
   --priority high \
   --beaker-image petew/olmo-torch2-gantry \
