@@ -687,6 +687,7 @@ class OLMoEBlock(OLMoBlock):
         moe_args = MoEArgs(
             activation_fn=F.silu if 'glu' in config.activation_type.lower() else self.act,
             mlp_type='glu' if 'glu' in config.activation_type.lower() else 'mlp',
+            # mlp_impl='grouped', # 4x slower on H100s
             hidden_size=config.d_model,
             ffn_hidden_size=int(self.act.output_multiplier * self.hidden_size),
             moe_num_experts=config.moe_num_experts,
