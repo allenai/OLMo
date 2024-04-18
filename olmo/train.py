@@ -152,6 +152,8 @@ class Trainer:
 
     def __post_init__(self):
         if self.cfg.fused_loss:
+            if self.model.config.block_type == BlockType.moe:
+                raise NotImplementedError("Fused loss is not implemented for MoE models.")
             from flash_attn.ops.triton.cross_entropy import (  # type: ignore
                 cross_entropy_loss,
             )
@@ -200,7 +202,7 @@ class Trainer:
                 ffn_hidden_size=self.model.config.d_model * 4,
                 moe_num_experts=self.model.config.moe_num_experts,
                 num_layers=self.model.config.n_layers,
-                # Not tested for nowe
+                # Not tested for now
                 moe_expert_model_parallelism=False,
                 moe_top_k=self.model.config.moe_top_k,
                 device=self.model.config.init_device,
@@ -695,9 +697,10 @@ class Trainer:
                     loss = ce_loss
 
                 if self.model.config.block_type == BlockType.moe:
-                    lb_batch_loss = batched_load_balancing_loss(self.moe_args)
+                    lb_loss = batched_load_balancing_loss(self.moe_args) / len(micro_batches)
                     clear_load_balancing_loss()
-                    loss += lb_batch_loss                
+                    loss += lb_loss
+                    lb_batch_loss += lb_loss.detach()
 
                 del logits
 
