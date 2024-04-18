@@ -8,7 +8,7 @@ scheduling:
   # max_retries: 10
 compute:
   cluster: r15z4
-  gpus: 608
+  gpus: 912
   gpu_type: h100_80gb
   instance: oci.bm.gpu.h100.8
   # node_names:
@@ -68,7 +68,7 @@ command: |-
     --load_path_sharded_checkpointer=olmo_core \
     --sharded_checkpointer=olmo_core \
     --global_train_batch_size=1824 \
-    --device_train_microbatch_size=3 \
+    --device_train_microbatch_size=2 \
     --time_limit=604800 \
     --save_overwrite
 
