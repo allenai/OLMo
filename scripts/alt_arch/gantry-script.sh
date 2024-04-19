@@ -8,7 +8,7 @@ gantry run \
   --workspace ai2/ananyaj \
   --task-name transformer-7B-baseline \
   --description "Experiments for next generation transformer architecture" \
-  --priority preemptible \
+  --priority high \
   --beaker-image petew/olmo-torch2-gantry \
   --cluster ai2/pluto-cirrascale \
   --gpus 8 \
