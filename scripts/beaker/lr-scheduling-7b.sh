@@ -18,6 +18,13 @@ export HF_DATASETS_OFFLINE=1
 # Disabling infiniband for jupiter as temp workaround
 export NCCL_IB_DISABLE=1
 
+# Install OLMo-core
+git clone git@github.com:allenai/OLMo-core.git
+cd OLMo-core
+pip install --no-cache-dir .[all]
+cd ..
+rm -rf OLMo-core
+
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
