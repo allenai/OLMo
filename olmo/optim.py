@@ -617,7 +617,7 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
                     no_decay.add(fpn)
             elif pn.endswith("weight") and isinstance(m, nn.Linear):
                 decay.add(fpn)
-            elif pn.endswith("weight") and isinstance(m, (LayerNormBase, nn.LayerNorm)):
+            elif pn.endswith("weight") and ('.norm.' in pn or isinstance(m, (LayerNormBase, nn.LayerNorm))):
                 if cfg.optimizer.decay_norm_and_bias:
                     decay.add(fpn)
                 else:
@@ -627,6 +627,10 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
                     decay.add(fpn)
                 else:
                     no_decay.add(fpn)
+            elif '.mixer.' in pn and isinstance(m, nn.Conv1d):
+                decay.add(fpn)   # add all mixer conv params to decay set
+            elif '.mixer.D' in pn or '.mixer.A_log' in pn:
+                no_decay.add(fpn)   # add all mixer SSM params to no decay
 
     # Validate that we've considered every parameter
     inter_params = decay & no_decay
