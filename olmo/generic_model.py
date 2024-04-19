@@ -166,7 +166,7 @@ class Mamba(GenericOLMoModel):
         """
         return
 
-    def forward(self, input_ids: torch.LongTensor) -> OLMoOutput:
+    def forward(self, input_ids: torch.LongTensor, **kwargs) -> OLMoOutput:
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
         """
