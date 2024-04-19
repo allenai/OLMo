@@ -1,4 +1,4 @@
-run_name: OLMo-300M
+run_name: Mamba-300M
 seed: 6198
 dry_run: false
 
@@ -7,35 +7,31 @@ wandb:
   project: alt_arch
 
 model:
+  model_name: mamba
   d_model: 1024
-  n_heads: 16
-  n_layers: 16
-  mlp_ratio: 8
-  weight_tying: false
-  alibi: false
-  rope: true
-  flash_attention: true  # not available on AMD
-  attention_dropout: 0.0
-  attention_layer_norm: false
-  multi_query_attention: true
-  n_kv_heads: 1
-  clip_qkv: 8.0
-  include_bias: false
-  block_type: sequential
-  layer_norm_type: default
-  layer_norm_with_affine: false
-  bias_for_layer_norm: false
-  attention_layer_norm_with_affine: false
-  activation_type: swiglu
-  residual_dropout: 0.0
-  embedding_dropout: 0.0
-  max_sequence_length: 2048
+  n_layers: 44
   vocab_size: 50280
   embedding_size: 50304
+  d_state: 16
+  d_conv: 4
+  mlp_ratio: 2
+  time_step_floor: 0.0001
+  time_step_init_scheme: random
+  time_step_max: 0.1
+  time_step_min: 0.001
+  time_step_rank: auto
+  time_step_scale: 1.0
+  conv_bias: true
+  include_bias: false
+  use_fast_path: true
+  layer_norm_type: rms
+  weight_tying: false
+  max_sequence_length: 2048
   eos_token_id: 50279
   pad_token_id: 1
+  init_std: 0.1
+  rescale_prenorm_residual: false
   init_device: meta
-  init_fn: mitchell
 
 compile: null  # causes instability on AMD GPUs
 

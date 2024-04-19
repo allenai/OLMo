@@ -53,6 +53,7 @@ elif sys.version_info.minor == 8:
 else:
     raise SystemExit("This script supports Python 3.8 or higher")
 
+# TODO: add modules here
 __all__ = [
     "LayerNormBase",
     "LayerNorm",
@@ -363,6 +364,62 @@ class SwiGLU(Activation):
     @property
     def output_multiplier(self) -> float:
         return 0.5
+
+
+# TODO:
+class RGLRU(nn.Module):
+    """
+    LRU from: https://arxiv.org/pdf/2303.06349.pdf
+        1. linear recurrence
+        2. diagonal linear RNN + parallel scan
+        3. exponential parameterization
+        4. post lru normalization
+
+    RG-LRU is a modification on the original LRU from Griffin: https://arxiv.org/pdf/2402.19427.pdf
+    """
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return x
+
+
+# TODO:
+class LRUActivation(nn.Module):
+    def __init__(self, config: ModelConfig):
+        super().__init__()
+        self.config = config
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x, gate = x.chunk(2, dim=-1)
+
+        return F.silu(gate) * x
+
+    @property
+    @abstractmethod
+    def output_multiplier(self) -> float:
+        raise NotImplementedError
+
+    @classmethod
+    def build(cls, config: ModelConfig) -> Activation:
+        if config.activation_type == ActivationType.gelu:
+            return cast(Activation, GELU(approximate="none"))
+        elif config.activation_type == ActivationType.relu:
+            return cast(Activation, ReLU(inplace=False))
+        elif config.activation_type == ActivationType.swiglu:
+            return SwiGLU(config)
+        else:
+            raise NotImplementedError(f"Unknown activation: '{config.activation_type}'")
+
+
+# TODO:
+class LRUSwiGLU(LRUActivation):
+    pass
+
+
+# TODO:
+class LRUGELU(LRUActivation):
+    pass
 
 
 def causal_attention_bias(seq_len: int, device: torch.device) -> torch.FloatTensor:
@@ -847,6 +904,8 @@ class OLMoLlamaBlock(OLMoBlock):
         return x, cache
 
 
+# TODO: add things in config.py
+# TODO: add configs for pure LRU and mix LRU
 class LRUBlock(nn.Module):
     """
     Linear Recurrent Unit block from the paper Griffin: https://arxiv.org/pdf/2402.19427.pdf
@@ -855,6 +914,105 @@ class LRUBlock(nn.Module):
     def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
         super().__init__()
 
+        # block setup
+        self.layer_id = layer_id
+        self.config = config
+        self.__cache = cache
+
+        self._activation_checkpoint_fn = None
+
+        # Dropout.
+        self.dropout = Dropout(config.residual_dropout)
+
+        # Activation function.
+        self.act = Activation.build(config)
+        assert (self.act.output_multiplier * self.hidden_size) % 1 == 0
+
+        # Layer Norms
+        self.temporal_mix_norm = LayerNorm.build(config)
+        self.ff_norm = LayerNorm.build(config)
+
+        # Temporal Mixing
+        # TODO: add temporal conv and LRU block + init (reset_parameters)
+        self.fused_dims = (config.d_rnn, config.d_rnn)
+
+        self.lru_proj = nn.Linear(
+            config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
+        )
+
+        self.lru_act = LRUActivation.build(config)
+        # TODO: assert
+
+        self.lru_out = nn.Linear(
+            config.d_rnn, config.d_model, bias=config.include_bias, device=config.init_device
+        )
+
+        # Gated MLP block
+        self.hidden_size = (
+            config.mlp_hidden_size if config.mlp_hidden_size is not None else config.mlp_ratio * config.d_model
+        )
+
+        self.ff_proj = nn.Linear(
+            config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device
+        )
+
+        self.ff_out = nn.Linear(
+            int(self.act.output_multiplier * self.hidden_size),
+            config.d_model,
+            bias=config.include_bias,
+            device=config.init_device,
+        )
+        self.ff_out._is_residual = True  # type: ignore
+
+        # Rotary embeddings.
+        if self.config.rope:
+            self.rotary_emb = RotaryEmbedding(config, self.__cache)
+
+    def reset_parameters(self):
+        super().reset_parameters()
+        self.temporal_mix_norm.reset_parameters()
+        self.ff_norm.reset_parameters()
+
+        self.lru_act.reset_parameters()
+
+        init_weights(
+            self.config,
+            self.lru_proj,
+            d=self.config.d_model,
+            layer_id=None,
+            type_of_module=ModuleType.in_module,
+        )
+
+        init_weights(
+            self.config,
+            self.lru_out,
+            d=self.config.d_rnn,
+            layer_id=self.layer_id,
+            type_of_module=ModuleType.out_module,
+        )
+
+        init_weights(
+            self.config,
+            self.ff_proj,
+            d=self.config.d_model,
+            layer_id=None,
+            type_of_module=ModuleType.in_module,
+        )
+
+        init_weights(
+            self.config,
+            self.ff_out,
+            d=self.ff_out.in_features,
+            layer_id=self.layer_id,
+            type_of_module=ModuleType.out_module,
+        )
+
+    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+        if strategy == ActivationCheckpointingStrategy.fine_grained:
+            self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
+        else:
+            self._activation_checkpoint_fn = None
+
     def forward(
         self,
         x: torch.Tensor,
@@ -862,7 +1020,41 @@ class LRUBlock(nn.Module):
         layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         use_cache: bool = False,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
-        return x, cache
+
+        # TODO: rotary embeddings
+        # pass through temporal mixing block
+        if self._activation_checkpoint_fn is not None:
+            tm_proj = self.lru_proj(self._activation_checkpoint_fn(self.temporal_mix_norm, x))
+        else:
+            tm_proj = self.lru_proj(self.temporal_mix_norm(x))
+
+        if self._activation_checkpoint_fn is not None:
+            tm = self.lru_out(self._activation_checkpoint_fn(self.lru_act, tm_proj))
+        else:
+            tm = self.lru_out(self.lru_act(tm_proj))
+
+        x = x + self.dropout(tm)
+
+        # pass through MLP block
+        # shape: (batch_size, seq_len, d_model)
+        og_x = x
+        if self._activation_checkpoint_fn is not None:
+            x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+        else:
+            x = self.ff_norm(x)
+
+        x = self.ff_proj(x)
+        if self._activation_checkpoint_fn is not None:
+            x = self._activation_checkpoint_fn(self.act, x)  # type: ignore
+        else:
+            x = self.act(x)
+
+        x = self.ff_out(x)
+        x = self.dropout(x)
+        x = og_x + x
+
+        # send None for cache
+        return x, None
 
 
 class OLMoOutput(NamedTuple):

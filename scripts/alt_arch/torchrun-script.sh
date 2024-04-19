@@ -26,5 +26,4 @@ torchrun \
       --run_name=mqa-transformer-300M-baseline \
       --device_train_microbatch_size=16 \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
-      --load_path=s3://allennlp-ananyaj/alt_arch/mqa-transformer-300M-baseline/step50000-unsharded/ \
       --save_overwrite

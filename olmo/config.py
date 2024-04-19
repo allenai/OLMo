@@ -221,15 +221,71 @@ class InitFnType(StrEnum):
 @dataclass
 class ModelConfig(BaseConfig):
     """
-    OLMo (model) configuration.
+    General model configuration.
     """
 
     # Note that the defaults for these attributes are equivalent to the base GPT2 model.
+
+    model_name: Optional[str] = None
+    """
+    The name of the model class to use, defaults to OLMo
+    """
 
     d_model: int = 768
     """
     The hidden size of the model.
     """
+
+    ###########################################################################
+    #                        Mamba/LRU related params                         #
+    ###########################################################################
+    d_rnn: int = 1024
+    """
+    The hidden size of linear recurrence block.
+    """
+
+    d_state: int = 16
+    """
+    The hidden size of state for SSMs.
+    """
+
+    d_conv: int = 4
+    """
+    Kernel size of conv layer in SSM.
+    """
+
+    time_step_floor: float = 0.0001
+    time_step_init_scheme: str = "random"
+    time_step_max: float = 0.1
+    time_step_min: float = 0.001
+    time_step_rank: Union[int, str] = "auto"
+    time_step_scale: float = 1.0
+    """
+    Poorly understood SSM config :p
+    """
+
+    conv_bias: bool = True
+    """
+    Bias for convolution layer.
+    """
+
+    use_fast_path: bool = True
+    """
+    Use fused kernel for conv + ssm (selective scan) ops.
+    """
+
+    rescale_prenorm_residual: bool = False
+    """
+    Reinitialize selected weights subject to the OpenAI GPT-2 Paper Scheme.
+
+    > A modified initialization which accounts for the accumulation on the residual path with model depth. Scale
+    > the weights of residual layers at initialization by a factor of 1/√N where N is the # of residual layers.
+    >   -- GPT-2 :: https://openai.com/blog/better-language-models/
+    """
+
+    ###########################################################################
+    #                        Mamba/LRU related params                         #
+    ###########################################################################
 
     n_heads: int = 12
     """
