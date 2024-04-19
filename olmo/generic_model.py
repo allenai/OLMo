@@ -179,7 +179,7 @@ class Mamba(GenericOLMoModel):
     def num_params(self, include_embedding: bool = True) -> int:
         params = (np for np in self.model.named_parameters())
         if not include_embedding:
-            params = filter(lambda np: ".embeddings." not in np[0], params)
+            params = filter(lambda np: ".embedding." not in np[0], params)
 
         return sum(p.numel() for _, p in params)
 
