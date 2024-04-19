@@ -627,7 +627,7 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
                     decay.add(fpn)
                 else:
                     no_decay.add(fpn)
-            elif '.mixer.' in pn and isinstance(m, nn.Conv1d):
+            elif '.mixer.conv' in pn:
                 decay.add(fpn)   # add all mixer conv params to decay set
             elif '.mixer.D' in pn or '.mixer.A_log' in pn:
                 no_decay.add(fpn)   # add all mixer SSM params to no decay
