@@ -24,6 +24,6 @@ torchrun \
   scripts/train_alt-arch.py \
     configs/alt_arch/mamba-300M.yaml \
       --run_name=mamba-300M-baseline \
-      --device_train_microbatch_size=16 \
+      --device_train_microbatch_size=8 \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
       --save_overwrite
