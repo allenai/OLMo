@@ -2,7 +2,7 @@
 
 set -ex
 
-NUM_NODES=2
+NUM_NODES=16
 
 gantry run \
   --workspace ai2/shanea \
@@ -10,7 +10,7 @@ gantry run \
   --description "Const learning rate schedule experiment on OLMo 7B" \
   --priority high \
   --beaker-image petew/olmo-torch2-gantry \
-  --cluster ai2/pluto-cirrascale \
+  --cluster ai2/jupiter-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
