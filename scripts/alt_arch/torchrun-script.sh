@@ -39,5 +39,5 @@ torchrun \
   scripts/train.py \
     configs/alt_arch/transformer_base-7B.yaml \
       --run_name=olmo-7B-baseline \
-      --device_train_microbatch_size=1 \
+      --device_train_microbatch_size=2 \
       --save_overwrite
