@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Makes it possible to read from http/https the same way we read from s3/r2.
 - Added MMLU multiple choice (A/B/C/D) 5-shot variant downstream tasks
 - Tokenizer patch
+- Added option to specify number of model replicas when using hybrid sharding.
 
 ### Changed
 
@@ -34,7 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed `tie_weights` method to a no-op as weight tying is handled in olmo/model.py
 - Fixed the size calculation for qk layer norm
 - Fixed pipeline test failure that occurs due to a bug in transformers version 4.39.1
-
 
 ## [v0.2.5](https://github.com/allenai/OLMo/releases/tag/v0.2.5) - 2024-03-06
 
