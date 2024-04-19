@@ -44,4 +44,4 @@ torchrun \
     --device_train_microbatch_size=2 \
     --global_train_batch_size=1024 \
     --save_overwrite \
-    '--load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step358000-unsharded'
+    '--load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step358000'
