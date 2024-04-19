@@ -16,7 +16,7 @@ gantry run \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
-  --mount secret://ssh-key=$HOME/.ssh/id_rsa \
+  --mount secret://ssh-key=$HOME/.ssh/id_ed25519 \
   --no-nfs \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
