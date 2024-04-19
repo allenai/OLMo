@@ -6,7 +6,7 @@ NUM_NODES=2
 
 gantry run \
   --workspace ai2/ananyaj \
-  --task-name mqa-transformer-300M-baseline \
+  --task-name mamba-300M-baseline \
   --description "Experiments for next generation transformer architecture" \
   --priority high \
   --beaker-image petew/olmo-torch2-gantry \

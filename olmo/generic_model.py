@@ -100,8 +100,6 @@ class GenericOLMoModel(nn.Module):
         pass
 
 
-# TODO: complete mamba class here
-# TODO: prepare run and gantry-scripts
 # TODO: test and run (check if batch size and LR are good for mamba)
 class Mamba(GenericOLMoModel):
     def __init__(self, config: ModelConfig, init_params: bool = True):
@@ -169,20 +167,16 @@ class Mamba(GenericOLMoModel):
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
         """
-        return self.model(input_ids)
+        return OLMoOutput(logits=self.model(input_ids))
 
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
-        # TODO
-        pass
+        if wrap_strategy is None:
+            return None
 
     def num_params(self, include_embedding: bool = True) -> int:
-        # TODO
-        params = (np for np in self.named_parameters())
+        params = (np for np in self.model.named_parameters())
         if not include_embedding:
-            params = filter(  # type: ignore
-                lambda np: ".embedding." not in np[0] and ".wpe." not in np[0],
-                params,
-            )
+            params = filter(lambda np: ".embeddings." not in np[0], params)
 
         return sum(p.numel() for _, p in params)
 

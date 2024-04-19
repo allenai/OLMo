@@ -21,9 +21,9 @@ torchrun \
   --rdzv_id=101 \
   --rdzv_backend=c10d \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
-  scripts/train.py \
-    configs/alt_arch/tranformer_base-300M.yaml \
-      --run_name=mqa-transformer-300M-baseline \
+  scripts/train_alt-arch.py \
+    configs/alt_arch/mamba-300M.yaml \
+      --run_name=mamba-300M-baseline \
       --device_train_microbatch_size=16 \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
       --save_overwrite
