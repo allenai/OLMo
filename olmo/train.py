@@ -56,7 +56,7 @@ __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
 log = logging.getLogger(__name__)
 
 try:
-    from megablocks.layers.moe import batched_load_balancing_loss, clear_load_balancing_loss
+    from megablocks.layers.moe import batched_load_balancing_loss, clear_load_balancing_loss, get_load_balancing_loss
     from megablocks.layers.arguments import Arguments as MoEArgs
 except ImportError:
     log.warning(f"Megablocks not installed. To train MoE, install with pip install megablocks.")
@@ -120,6 +120,72 @@ def cross_entropy_loss(
 
     return loss, z_loss
 
+def batched_load_balancing_loss_shared(args):
+    """Treat everything as 1 layer with more tokens"""
+    # tokens_per_expert[i].shape = (num_experts)
+    # expert_scores[i].shape = (tokens, num_experts)
+    tokens_per_expert, expert_scores = zip(*get_load_balancing_loss())
+    num_unique_layers = 1 # 1 layer of unique params
+
+    assert args.moe_lbl_in_fp32 is False
+
+    if args.moe_lbl_in_fp32:
+        expert_scores = torch.stack(expert_scores, dim=0).float().sum(dim=0).mean(dim=0)
+    else:
+        expert_scores = torch.stack(expert_scores, dim=0).sum(dim=0).mean(dim=0)
+    tokens_per_expert = torch.stack(tokens_per_expert, dim=0).sum(dim=0).to(expert_scores.dtype)
+    
+    num_layers_per_pipeline_stage = (num_unique_layers // args.pipeline_model_parallel_size)
+    if args.num_layers_per_virtual_pipeline_stage is not None:
+        num_layers_per_pipeline_stage = args.num_layers_per_virtual_pipeline_stage
+
+    if len(tokens_per_expert) != num_layers_per_pipeline_stage:
+        raise ValueError(
+            f"Expected {num_layers_per_pipeline_stage} token_per_experts "
+            f"but found {len(tokens_per_expert)}.\nnum_layers = "
+            f"{args.num_layers}\npipeline_model_parallel_size = "
+            f"{args.pipeline_model_parallel_size}\n"
+            "num_layers_per_virtual_pipeline_stage"
+            f" = {args.num_layers_per_virtual_pipeline_stage}")
+    if len(expert_scores) != num_layers_per_pipeline_stage:
+        raise ValueError(
+            f"Expected {num_layers_per_pipeline_stage} expert_scores "
+            f"but found {len(tokens_per_expert)}.\nnum_layers = "
+            f"{args.num_layers}\npipeline_model_parallel_size = "
+            f"{args.pipeline_model_parallel_size}\n"
+            "num_layers_per_virtual_pipeline_stage"
+            f" = {args.num_layers_per_virtual_pipeline_stage}")
+
+    # Verify the shape of the tokens_per_expert and expert_scores tensors.
+    assert all([
+        x.ndim == 1 and x.numel() == args.moe_num_experts
+        for x in tokens_per_expert
+    ])
+
+    tokens = expert_scores[0].shape[0]
+    assert all([
+        (x.ndim == 2 and x.shape[1] == args.moe_num_experts and
+         x.shape[0] == tokens) for x in expert_scores
+    ])
+
+    expected_values = num_layers_per_pipeline_stage * args.moe_num_experts
+    assert tokens_per_expert.numel() == expected_values
+    assert expert_scores.numel() == expected_values
+
+    # Calculate the total scale across all factors.
+    #
+    # loss_weight * num_experts / (num_layers * tokens * top_k)
+    scale_numerator = (
+        args.moe_num_experts *
+        args.moe_loss_weight
+    )
+    scale_denominator = (
+        num_unique_layers *
+        tokens *
+        args.moe_top_k
+    )
+    scale = scale_numerator / scale_denominator
+    return scale * torch.dot(tokens_per_expert, expert_scores)
 
 @dataclass
 class Trainer:
@@ -695,7 +761,10 @@ class Trainer:
                     loss = ce_loss
 
                 if self.model.config.block_type == BlockType.moe:
-                    lb_batch_loss = batched_load_balancing_loss(self.moe_args)
+                    if self.model.config.share_blocks:
+                        lb_batch_loss = batched_load_balancing_loss_shared(self.moe_args)
+                    else:
+                        lb_batch_loss = batched_load_balancing_loss(self.moe_args)
                     clear_load_balancing_loss()
                     loss += lb_batch_loss                
 

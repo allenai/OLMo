@@ -340,7 +340,7 @@ class Activation(nn.Module):
     @classmethod
     def build(cls, config: ModelConfig) -> Activation:
         if config.activation_type == ActivationType.gelu:
-            return cast(Activation, GELU(approximate="none"))
+            return cast(Activation, GELU(approximate="tanh"))
         elif config.activation_type == ActivationType.relu:
             return cast(Activation, ReLU(inplace=False))
         elif config.activation_type == ActivationType.swiglu:
@@ -685,7 +685,7 @@ class OLMoEBlock(OLMoBlock):
 
         # MoE Block
         moe_args = MoEArgs(
-            activation_fn=F.silu if 'glu' in config.activation_type.lower() else self.act,
+            #activation_fn=F.silu if 'glu' in config.activation_type.lower() else self.act,
             mlp_type='glu' if 'glu' in config.activation_type.lower() else 'mlp',
             hidden_size=config.d_model,
             ffn_hidden_size=int(self.act.output_multiplier * self.hidden_size),
@@ -701,7 +701,7 @@ class OLMoEBlock(OLMoBlock):
             # Handled by FSDP
             bf16=False,
             fp16=False,
-            init_method=partial(init_weights, config=config, d=config.d_model, layer_id=None, type_of_module=ModuleType.in_module),
+            #init_method=partial(init_weights, config=config, d=config.d_model, layer_id=None, type_of_module=ModuleType.in_module),
         )
         self.ffn = MoE(moe_args)
 
