@@ -170,7 +170,11 @@ class Mamba(GenericOLMoModel):
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
         """
-        return OLMoOutput(logits=self.model(input_ids))
+        return OLMoOutput(
+            logits=self.model(input_ids).logits,
+            attn_key_values=None,
+            hidden_states=None,
+        )
 
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
         if wrap_strategy is None:
