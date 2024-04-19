@@ -96,11 +96,14 @@ class GenericOLMoModel(nn.Module):
     def num_params(self, include_embedding: bool = True) -> int:
         pass
 
+    @classmethod
     def build(cls, config: ModelConfig, size: Optional[int] = None, **kwargs) -> GenericOLMoModel:
-        pass
+        if config.model.model_name == 'mamba':
+            return Mamba(config, **kwargs)
+        else:
+            raise NotImplementedError(f"Unknown model: '{config.model.model_name}'")
 
 
-# TODO: test and run (check if batch size and LR are good for mamba)
 class Mamba(GenericOLMoModel):
     def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__(config, init_params)
