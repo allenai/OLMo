@@ -114,7 +114,7 @@ def main(cfg: TrainConfig) -> None:
 
     # Initialize the model.
     log.info("Building model...")
-    model = GenericOLMoModel.build(cfg.model)
+    model = GenericOLMoModel.build(cfg.model, precision=cfg.precision)
 
     log.info(f"Total number of parameters: {model.num_params():,d}")
     log.info(f"Number of non-embedding parameters: {model.num_params(include_embedding=False):,d}")

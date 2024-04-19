@@ -98,31 +98,31 @@ class GenericOLMoModel(nn.Module):
 
     @classmethod
     def build(cls, config: ModelConfig, size: Optional[int] = None, **kwargs) -> GenericOLMoModel:
-        if config.model.model_name == 'mamba':
+        if config.model_name == 'mamba':
             return Mamba(config, **kwargs)
         else:
-            raise NotImplementedError(f"Unknown model: '{config.model.model_name}'")
+            raise NotImplementedError(f"Unknown model: '{config.model_name}'")
 
 
 class Mamba(GenericOLMoModel):
-    def __init__(self, config: ModelConfig, init_params: bool = True):
+    def __init__(self, config: ModelConfig, init_params: bool = True, precision: str = 'amp_bf16'):
         super().__init__(config, init_params)
 
         dtype = None
-        if config.precision == 'amp_bf16' or not config.precision:
+        if precision == 'amp_bf16':
             dtype = torch.bfloat16
-        elif config.precision == 'amp_fp16':
+        elif precision == 'amp_fp16':
             dtype = torch.float16
-        elif config.precision == 'fp32':
+        elif precision == 'fp32':
             dtype = torch.float32
 
         self.model = MambaLMHeadModel(
             config=self.adapt_olmo_config(config),
             initializer_cfg={
-                'initializer_range': config.model.init_std,
-                'rescale_prenorm_residual': config.model.rescale_prenorm_residual,
+                'initializer_range': config.init_std,
+                'rescale_prenorm_residual': config.rescale_prenorm_residual,
             },   # params to _init_weights function
-            device=config.model.init_device,
+            device=config.init_device,
             dtype=dtype,
         )
 
@@ -130,33 +130,33 @@ class Mamba(GenericOLMoModel):
         mamba_config = MambaConfig()
 
         # patch config
-        mamba_config.d_model = olmo_config.model.d_model
-        mamba_config.n_layer = olmo_config.model.n_layers
-        mamba_config.vocab_size = olmo_config.model.vocab_size
+        mamba_config.d_model = olmo_config.d_model
+        mamba_config.n_layer = olmo_config.n_layers
+        mamba_config.vocab_size = olmo_config.vocab_size
         mamba_config.ssm_cfg = {}
 
         # ssm_cfg in mamba layer
-        mamba_config.ssm_cfg["d_state"] = olmo_config.model.d_state
-        mamba_config.ssm_cfg["d_conv"] = olmo_config.model.d_conv
-        mamba_config.ssm_cfg["expand"] = olmo_config.model.mlp_ratio
+        mamba_config.ssm_cfg["d_state"] = olmo_config.d_state
+        mamba_config.ssm_cfg["d_conv"] = olmo_config.d_conv
+        mamba_config.ssm_cfg["expand"] = olmo_config.mlp_ratio
 
         # ssm ops config
-        mamba_config.ssm_cfg["dt_rank"] = olmo_config.model.time_step_rank
-        mamba_config.ssm_cfg["dt_min"] = olmo_config.model.time_step_min
-        mamba_config.ssm_cfg["dt_max"] = olmo_config.model.time_step_max
-        mamba_config.ssm_cfg["dt_init"] = olmo_config.model.time_step_init_scheme
-        mamba_config.ssm_cfg["dt_scale"] = olmo_config.model.time_step_scale
-        mamba_config.ssm_cfg["dt_init_floor"] = olmo_config.model.time_step_floor
+        mamba_config.ssm_cfg["dt_rank"] = olmo_config.time_step_rank
+        mamba_config.ssm_cfg["dt_min"] = olmo_config.time_step_min
+        mamba_config.ssm_cfg["dt_max"] = olmo_config.time_step_max
+        mamba_config.ssm_cfg["dt_init"] = olmo_config.time_step_init_scheme
+        mamba_config.ssm_cfg["dt_scale"] = olmo_config.time_step_scale
+        mamba_config.ssm_cfg["dt_init_floor"] = olmo_config.time_step_floor
 
-        mamba_config.ssm_cfg["conv_bias"] = olmo_config.model.conv_bias
-        mamba_config.ssm_cfg["bias"] = olmo_config.model.include_bias
-        mamba_config.ssm_cfg["use_fast_path"] = olmo_config.model.use_fast_path
+        mamba_config.ssm_cfg["conv_bias"] = olmo_config.conv_bias
+        mamba_config.ssm_cfg["bias"] = olmo_config.include_bias
+        mamba_config.ssm_cfg["use_fast_path"] = olmo_config.use_fast_path
 
-        mamba_config.rms_norm = True if olmo_config.model.layer_norm_type == LayerNormType.rms else False
+        mamba_config.rms_norm = True if olmo_config.layer_norm_type == LayerNormType.rms else False
         mamba_config.residual_in_fp32 = True
         mamba_config.fused_add_norm = True
-        mamba_config.pad_vocab_size_multiple = 128 if olmo_config.model.embedding_size > olmo_config.model.vocab_size else 0
-        mamba_config.tie_embeddings = olmo_config.model.weight_tying
+        mamba_config.pad_vocab_size_multiple = 128 if olmo_config.embedding_size > olmo_config.vocab_size else 0
+        mamba_config.tie_embeddings = olmo_config.weight_tying
 
         return mamba_config
 
