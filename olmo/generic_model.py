@@ -123,7 +123,7 @@ class Mamba(GenericOLMoModel):
                 'rescale_prenorm_residual': config.rescale_prenorm_residual,
             },   # params to _init_weights function
             device=config.init_device,
-            dtype=dtype,
+            dtype=torch.float32,
         )
 
     def adapt_olmo_config(self, olmo_config: ModelConfig) -> MambaConfig:
@@ -153,7 +153,7 @@ class Mamba(GenericOLMoModel):
         mamba_config.ssm_cfg["use_fast_path"] = olmo_config.use_fast_path
 
         mamba_config.rms_norm = True if olmo_config.layer_norm_type == LayerNormType.rms else False
-        mamba_config.residual_in_fp32 = False   # same dtype for fsdp
+        mamba_config.residual_in_fp32 = True   # same dtype for fsdp
         mamba_config.fused_add_norm = True
         mamba_config.pad_vocab_size_multiple = 128 if olmo_config.embedding_size > olmo_config.vocab_size else 0
         mamba_config.tie_embeddings = olmo_config.weight_tying
