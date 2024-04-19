@@ -19,7 +19,7 @@ export HF_DATASETS_OFFLINE=1
 export NCCL_IB_DISABLE=1
 
 mkdir -p /media/16TBNVME/data/shanea/mitchish7/step358000-unsharded
-aws s3 sync s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step358000-unsharded /media/16TBNVME/data/shanea/mitchish7/step358000-unsharded
+aws s3 sync --only-show-errors s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step358000-unsharded /media/16TBNVME/data/shanea/mitchish7/step358000-unsharded
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
