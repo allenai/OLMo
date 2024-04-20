@@ -19,7 +19,8 @@ RUN pip uninstall -y ai2-olmo
 
 # Install OLMo-core
 ENV HOME /
-COPY /home/shanea/.ssh/id_ed25519 /.ssh/id_ed25519
+RUN --mount=type=secret,id=SSH_KEY,target=/.ssh/id_ed25519 \
+    TOKEN=$(cat /run/secrets/mytoken)
 WORKDIR /
 RUN git clone git@github.com:allenai/OLMo-core.git
 WORKDIR /OLMo-core
