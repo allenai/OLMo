@@ -6,7 +6,7 @@ BEAKER_WORKSPACE = ai2/shanea
 BEAKER_USER = $(shell beaker account whoami --format=json | jq -r '.[0].name')
 GANTRY_IMAGE = $(shell beaker workspace images $(BEAKER_WORKSPACE) --format=json | jq -r -c '.[] | select( .name == "$(IMAGE_NAME_BASE)-gantry" ) | .fullName')
 TEST_IMAGE =  $(shell beaker workspace images $(BEAKER_WORKSPACE) --format=json | jq -r -c '.[] | select( .name == "$(IMAGE_NAME_BASE)-test" ) | .fullName')
-GITHUB_TOKEN = "test"
+GITHUB_TOKEN = $(shell beaker secret read GITHUB_TOKEN)
 
 .PHONY : run-checks
 run-checks :
@@ -32,7 +32,7 @@ base-image :
 .PHONY : gantry-image
 gantry-image :
 gantry-image :
-	@GITHUB_TOKEN=$(GITHUB_TOKEN) docker build -f docker/Dockerfile.gantry --secret id=GIT_AUTH_TOKEN,env=GITHUB_TOKEN,type=env -t $(IMAGE_NAME_BASE)-gantry .
+	@GIT_AUTH_TOKEN=$(GITHUB_TOKEN) docker build -f docker/Dockerfile.gantry --secret id=GIT_AUTH_TOKEN -t $(IMAGE_NAME_BASE)-gantry .
 	beaker image create $(IMAGE_NAME_BASE)-gantry --name $(IMAGE_NAME_BASE)-gantry-tmp --workspace $(BEAKER_WORKSPACE)
 	beaker image delete $(GANTRY_IMAGE) || true
 	beaker image rename $(BEAKER_USER)/$(IMAGE_NAME_BASE)-gantry-tmp $(IMAGE_NAME_BASE)-gantry
