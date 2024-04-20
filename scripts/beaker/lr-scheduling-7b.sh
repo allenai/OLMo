@@ -19,9 +19,10 @@ export HF_DATASETS_OFFLINE=1
 export NCCL_IB_DISABLE=1
 
 # Install OLMo-core
-git clone https://2015aroras:${GITHUB_TOKEN}@github.com/allenai/OLMo-core.git
+printenv SSH_KEY > ~/.ssh/id_ed25519
+git clone git@github.com:allenai/OLMo-core.git
 cd OLMo-core
-pip install --no-cache-dir .[all]
+pip install .[all]
 cd ..
 rm -rf OLMo-core
 
