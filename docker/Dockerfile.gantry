@@ -8,12 +8,13 @@ RUN conda install -y ninja pytorch==2.2.1 torchvision==0.17.1 torchaudio==2.2.1 
 RUN pip install --no-cache-dir flash-attn --no-build-isolation
 RUN conda clean -ay
 
-COPY pyproject.toml .
-RUN mkdir olmo
-RUN touch olmo/__init__.py
+# Install all of OLMo's dependencies
+RUN git clone https://github.com/allenai/OLMo.git
+RUN cd OLMo
 RUN pip install --no-cache-dir .[all]
+RUN cd ..
+RUN rm -rf OLMo
 RUN pip uninstall -y ai2-olmo
-RUN rm -rf olmo
 
 RUN cd /opt && \
     git clone git@github.com:allenai/OLMo-core.git && \
