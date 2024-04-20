@@ -16,7 +16,7 @@ popd
 export HF_DATASETS_OFFLINE=1
 
 # Disabling infiniband for jupiter as temp workaround
-export NCCL_IB_DISABLE=1
+# export NCCL_IB_DISABLE=1
 
 # Install OLMo-core
 printenv SSH_KEY > ~/.ssh/id_ed25519
