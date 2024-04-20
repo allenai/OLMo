@@ -17,7 +17,7 @@ RUN rm -rf OLMo
 RUN pip uninstall -y ai2-olmo
 
 # Install OLMo-core
-ADD https://github.com/allenai/OLMo-core.git /OLMo-core
+ADD git@github.com:allenai/OLMo-core.git /OLMo-core
 WORKDIR /OLMo-core
 RUN pip install --no-cache-dir .[all]
 WORKDIR /
