@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir flash-attn --no-build-isolation
 RUN conda clean -ay
 
 # Install all of OLMo's dependencies
-RUN mkdir -p ~/.ssh/known_hosts
+RUN mkdir -p ~/.ssh/
 RUN ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
 RUN --mount=type=ssh \
     git clone git@github.com:allenai/OLMo-core.git
