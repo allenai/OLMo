@@ -1,54 +1,25 @@
 from __future__ import annotations
 
-import logging
-import math
 import sys
 from abc import abstractmethod
-from collections import defaultdict
-from functools import partial
-from typing import (
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    NamedTuple,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    cast,
-)
+from typing import Optional
 
 import torch
 import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
-from torch import einsum
 
-from .aliases import PathOrStr
 from .config import (
     ActivationCheckpointingStrategy,
-    ActivationType,
-    BlockType,
-    CheckpointType,
     FSDPWrapStrategy,
     LayerNormType,
     ModelConfig,
 )
-from .exceptions import OLMoConfigurationError
-from .initialization import ModuleType, init_weights
-from .torch_util import ensure_finite_
 from .model import _non_meta_init_device, OLMoOutput
 
 from mamba_ssm import MambaLMHeadModel
+from mamba_ssm.modules.mamba_simple import Block
 from mamba_ssm.models.config_mamba import MambaConfig
-
-if sys.version_info.minor > 8:
-    from collections.abc import MutableMapping
-elif sys.version_info.minor == 8:
-    from typing import MutableMapping
-else:
-    raise SystemExit("This script supports Python 3.8 or higher")
 
 
 class GenericOLMoModel(nn.Module):
@@ -179,6 +150,18 @@ class Mamba(GenericOLMoModel):
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
         if wrap_strategy is None:
             return None
+        elif wrap_strategy == FSDPWrapStrategy.by_block:
+            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+                del nonwrapped_numel
+                wrap = isinstance(module, Block)
+                if recurse:
+                    return True
+                else:
+                    return wrap
+
+            return fsdp_wrap_fn
+        else:
+            raise NotImplementedError(wrap_strategy)
 
     def num_params(self, include_embedding: bool = True) -> int:
         params = (np for np in self.model.named_parameters())
