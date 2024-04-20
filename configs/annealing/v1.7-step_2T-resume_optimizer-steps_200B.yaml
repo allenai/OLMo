@@ -69,24 +69,14 @@ save_num_checkpoints_to_keep: -1
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
-# restore_dataloader: false
-# NOTE(davidw) Resumed this run in the middle; restore dataloader from checkopint.
-restore_dataloader: true
+restore_dataloader: false
 
 # 2T token checkpoint for new 7B model; we call this v1.7 to match the Dolma data.
-# load_path: s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step477000-unsharded
-
-# NOTE(davidw): Load from last available checkpoint
-load_path: s3://ai2-llm/checkpoints/davidw/annealing/v1.7-fix_redpajama-step_2T-resume_optimizer-steps_200B/step10500
-
+load_path: s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step477000-unsharded
 
 no_pre_train_checkpoint: true
-# reset_optimizer_state: false
-# reset_trainer_state: true
-
-# NOTE(davidw) : Set these both to false since resuming training.
 reset_optimizer_state: false
-reset_trainer_state: false
+reset_trainer_state: true
 
 max_duration: 200e9T
 global_train_batch_size: 1024

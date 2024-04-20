@@ -49,4 +49,4 @@ function launch {
 
 # launch v1.7-step_2T-resume_optimizer-steps_50B 8 ai2/pluto-cirrascale
 # launch v1.7-step_2.1T-resume_optimizer-steps_50B 8 ai2/pluto-cirrascale
-launch v1.7-step_2T-resume_optimizer-steps_200B 4 ai2/pluto-cirrascale
+launch v1.7-fix_redpajama-step_2T-resume_optimizer-steps_200B 4 ai2/pluto-cirrascale
