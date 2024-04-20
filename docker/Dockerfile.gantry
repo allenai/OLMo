@@ -19,7 +19,7 @@ RUN pip uninstall -y ai2-olmo
 
 # Install OLMo-core
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
-    echo /run/secrets/GIT_AUTH_TOKEN | xargs rm
+    cat /run/secrets/GIT_AUTH_TOKEN | xargs rm
 # ADD https://github.com/allenai/OLMo-core.git /OLMo-core
 WORKDIR /OLMo-core
 RUN pip install --no-cache-dir .[all]
