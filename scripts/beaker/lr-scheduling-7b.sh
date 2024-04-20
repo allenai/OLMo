@@ -21,6 +21,7 @@ export HF_DATASETS_OFFLINE=1
 # Install OLMo-core
 mkdir -p ~/.ssh
 printenv SSH_KEY > ~/.ssh/id_ed25519
+ls ~/.ssh/id_ed25519
 git clone git@github.com:allenai/OLMo-core.git
 cd OLMo-core
 pip install .[all]
