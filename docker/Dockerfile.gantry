@@ -18,13 +18,14 @@ RUN rm -rf OLMo
 RUN pip uninstall -y ai2-olmo
 
 # Install OLMo-core
-COPY ~/.ssh/id_ed25519 ~/.ssh/id_ed25519
+ENV HOME /
+COPY ~/.ssh/id_ed25519 /.ssh/id_ed25519
 WORKDIR /
 RUN git clone git@github.com:allenai/OLMo-core.git
 WORKDIR /OLMo-core
 RUN pip install --no-cache-dir .[all]
 WORKDIR /
 RUN rm -rf OLMo-core
-RUN rm ~/.ssh/id_ed25519
+RUN rm /.ssh/id_ed25519
 
 WORKDIR /app/olmo
