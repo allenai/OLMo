@@ -10,6 +10,8 @@ RUN conda clean -ay
 
 # Install all of OLMo's dependencies
 RUN --mount=type=ssh \
+    ssh -q -T git@github.com 2>&1 | tee /hello
+RUN --mount=type=ssh \
     git clone git@github.com:allenai/OLMo.git
 # ADD https://github.com/allenai/OLMo.git /OLMo
 WORKDIR /OLMo
