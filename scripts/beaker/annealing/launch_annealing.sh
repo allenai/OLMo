@@ -17,7 +17,7 @@ function launch {
     --workspace ai2/davidw-oe-annealing \
     --task-name ${CONFIG_NAME} \
     --description ${CONFIG_NAME} \
-    --priority high \
+    --priority preemptible \
     --beaker-image petew/olmo-torch2-gantry \
     --cluster $CLUSTER \
     --gpus 8 \
@@ -49,3 +49,4 @@ function launch {
 
 # launch v1.7-step_2T-resume_optimizer-steps_50B 8 ai2/pluto-cirrascale
 # launch v1.7-step_2.1T-resume_optimizer-steps_50B 8 ai2/pluto-cirrascale
+launch v1.7-step_2T-resume_optimizer-steps_200B 4 ai2/pluto-cirrascale
