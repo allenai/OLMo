@@ -9,8 +9,7 @@ RUN pip install --no-cache-dir flash-attn --no-build-isolation
 RUN conda clean -ay
 
 # Install all of OLMo's dependencies
-WORKDIR /
-RUN git clone https://github.com/allenai/OLMo.git
+ADD https://github.com/allenai/OLMo.git /OLMo
 WORKDIR /OLMo
 RUN pip install --no-cache-dir .[all]
 WORKDIR /
@@ -18,9 +17,7 @@ RUN rm -rf OLMo
 RUN pip uninstall -y ai2-olmo
 
 # Install OLMo-core
-RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
-    cat /run/secrets/GIT_AUTH_TOKEN | xargs rm
-# ADD https://github.com/allenai/OLMo-core.git /OLMo-core
+ADD https://github.com/allenai/OLMo-core.git /OLMo-core
 WORKDIR /OLMo-core
 RUN pip install --no-cache-dir .[all]
 WORKDIR /
