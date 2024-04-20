@@ -9,10 +9,11 @@ RUN pip install --no-cache-dir flash-attn --no-build-isolation
 RUN conda clean -ay
 
 COPY pyproject.toml .
-RUN mkdir olmo && touch olmo/__init__.py && \
-    pip install --no-cache-dir .[all] && \
-    pip uninstall -y ai2-olmo && \
-    rm -rf olmo/
+RUN mkdir olmo
+RUN touch olmo/__init__.py
+RUN pip install --no-cache-dir .[all]
+RUN pip uninstall -y ai2-olmo
+RUN rm -rf olmo
 
 RUN cd /opt && \
     git clone git@github.com:allenai/OLMo-core.git && \
