@@ -32,7 +32,7 @@ base-image :
 .PHONY : gantry-image
 gantry-image :
 	@export GITHUB_TOKEN=$(GITHUB_TOKEN)
-	docker build -f docker/Dockerfile.gantry --secret id=GIT_AUTH_TOKEN,src=GITHUB_TOKEN,type=env -t $(IMAGE_NAME_BASE)-gantry .
+	docker build -f docker/Dockerfile.gantry --secret id=GIT_AUTH_TOKEN,env=GITHUB_TOKEN,type=env -t $(IMAGE_NAME_BASE)-gantry .
 	beaker image create $(IMAGE_NAME_BASE)-gantry --name $(IMAGE_NAME_BASE)-gantry-tmp --workspace $(BEAKER_WORKSPACE)
 	beaker image delete $(GANTRY_IMAGE) || true
 	beaker image rename $(BEAKER_USER)/$(IMAGE_NAME_BASE)-gantry-tmp $(IMAGE_NAME_BASE)-gantry
