@@ -18,7 +18,7 @@ function launch {
     --task-name ${CONFIG_NAME} \
     --description ${CONFIG_NAME} \
     --priority preemptible \
-    --beaker-image petew/olmo-torch2-gantry \
+    --beaker-image shanea/olmo-torch2.2-gantry \
     --cluster $CLUSTER \
     --gpus 8 \
     --replicas "${NUM_NODES}" \
@@ -49,4 +49,5 @@ function launch {
 
 # launch v1.7-step_2T-resume_optimizer-steps_50B 8 ai2/pluto-cirrascale
 # launch v1.7-step_2.1T-resume_optimizer-steps_50B 8 ai2/pluto-cirrascale
-launch v1.7-fix_redpajama-step_2T-resume_optimizer-steps_200B 4 ai2/pluto-cirrascale
+launch v1.7-fix_redpajama-step_2T-resume_optimizer-steps_200B 4 ai2/jupiter-cirrascale
+launch v1.7-baseline-step_2T-resume_optimizer-steps_50B 4 ai2/jupiter-cirrascale
