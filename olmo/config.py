@@ -460,6 +460,11 @@ class ModelConfig(BaseConfig):
     If ``True``, share the same block across all layers.
     """
 
+    share_load_balance_across_layers: bool = False
+    """
+    If ``True``, load-balance at the model level rather than at the block level.
+    """
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:

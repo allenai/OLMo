@@ -340,7 +340,7 @@ class Activation(nn.Module):
     @classmethod
     def build(cls, config: ModelConfig) -> Activation:
         if config.activation_type == ActivationType.gelu:
-            return cast(Activation, GELU(approximate="tanh"))
+            return cast(Activation, GELU(approximate="none"))
         elif config.activation_type == ActivationType.relu:
             return cast(Activation, ReLU(inplace=False))
         elif config.activation_type == ActivationType.swiglu:
@@ -1167,10 +1167,9 @@ class OLMo(nn.Module):
             )
         )
 
-        ### MODIFIED ###
         if self.config.share_blocks:
             assert self.config.block_group_size == 1, "Block sharing is only supported with block_group_size=1"
-            blocks = [OLMoBlock.build(i, config, self.__cache)]
+            blocks = [OLMoBlock.build(0, config, self.__cache)]
         else:
             blocks = [OLMoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
 

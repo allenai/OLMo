@@ -765,10 +765,12 @@ class Trainer:
                     loss = ce_loss
 
                 if self.model.config.block_type == BlockType.moe:
-                    if self.model.config.share_blocks:
+                    if self.model.config.share_load_balance_across_layers:
                         lb_loss = batched_load_balancing_loss_shared(self.moe_args)
                     else:
                         lb_loss = batched_load_balancing_loss(self.moe_args)
+                    tokens_per_expert, _ = zip(*get_load_balancing_loss())
+                    expert_assignments += torch.stack(tokens_per_expert, dim=0).cpu()
                     clear_load_balancing_loss()
                     loss += lb_loss
                     lb_batch_loss += lb_loss.detach()
