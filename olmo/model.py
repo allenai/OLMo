@@ -684,7 +684,7 @@ class OLMoEBlock(OLMoBlock):
         )
 
         # MoE Block
-        moe_args = MoEArgs(
+        self.moe_args = MoEArgs(
             activation_fn=F.silu if 'glu' in config.activation_type.lower() else self.act,
             mlp_type='glu' if 'glu' in config.activation_type.lower() else 'mlp',
             # mlp_impl='grouped', # 4x slower on H100s
@@ -702,9 +702,8 @@ class OLMoEBlock(OLMoBlock):
             # Handled by FSDP
             bf16=False,
             fp16=False,
-            init_method=partial(init_weights, config=config, d=config.d_model, layer_id=None, type_of_module=ModuleType.in_module),
         )
-        self.ffn = MoE(moe_args)
+        self.ffn = MoE(self.moe_args)
 
         # Rotary embeddings.
         if self.config.rope:
@@ -738,6 +737,15 @@ class OLMoEBlock(OLMoBlock):
             self.k_norm.reset_parameters()
         if self.q_norm is not None:
             self.q_norm.reset_parameters()
+
+        # NOTE: the standard deviation for these weights does not depend on the layer.
+        init_weights(
+            self.att_proj, 
+            self.config, 
+            d=self.config.d_model, 
+            layer_id=None, 
+            type_of_module=ModuleType.in_module
+        )
         init_weights(
             self.attn_out,
             self.config,
@@ -747,9 +755,26 @@ class OLMoEBlock(OLMoBlock):
         )
         self.attn_norm.reset_parameters()
         self.ff_norm.reset_parameters()
-        # NOTE: the standard deviation for these weights does not depend on the layer.
         init_weights(
-            self.att_proj, self.config, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
+            self.ffn.experts.mlp.w1,
+            self.config,
+            d=self.config.d_model,
+            layer_id=None,
+            type_of_module=ModuleType.in_module,
+        )
+        init_weights(
+            self.ffn.experts.mlp.w2,
+            self.config,
+            d=int(self.act.output_multiplier * self.hidden_size),
+            layer_id=self.layer_id,
+            type_of_module=ModuleType.out_module,
+        )
+        init_weights(
+            self.ffn.router.layer,
+            self.config,
+            d=self.config.d_model,
+            layer_id=None,
+            type_of_module=ModuleType.out_module,
         )
 
     def forward(

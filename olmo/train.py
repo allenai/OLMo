@@ -56,7 +56,7 @@ __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
 log = logging.getLogger(__name__)
 
 try:
-    from megablocks.layers.moe import batched_load_balancing_loss, clear_load_balancing_loss
+    from megablocks.layers.moe import batched_load_balancing_loss, clear_load_balancing_loss, get_load_balancing_loss
     from megablocks.layers.arguments import Arguments as MoEArgs
 except ImportError:
     log.warning(f"Megablocks not installed. To train MoE, install with pip install megablocks.")
@@ -670,6 +670,8 @@ class Trainer:
         ce_batch_loss = torch.tensor(0.0, device=self.device)
         z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
         lb_batch_loss = None if self.model.config.block_type != BlockType.moe else torch.tensor(0.0, device=self.device)
+        # Keep this one on CPU to save memory
+        expert_assignments = None if self.model.config.block_type != BlockType.moe else torch.zeros((self.model.config.n_layers, self.model.config.moe_num_experts))
         for micro_batch in micro_batches:
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                 # Run forward pass.
@@ -698,6 +700,10 @@ class Trainer:
 
                 if self.model.config.block_type == BlockType.moe:
                     lb_loss = batched_load_balancing_loss(self.moe_args) / len(micro_batches)
+                    
+                    tokens_per_expert, _ = zip(*get_load_balancing_loss())
+                    expert_assignments += torch.stack(tokens_per_expert, dim=0).cpu()
+
                     clear_load_balancing_loss()
                     loss += lb_loss
                     lb_batch_loss += lb_loss.detach()
@@ -707,7 +713,7 @@ class Trainer:
             # Run backward pass.
             loss.backward()
 
-        return ce_batch_loss, z_batch_loss, lb_batch_loss
+        return ce_batch_loss, z_batch_loss, lb_batch_loss, expert_assignments
 
     def train_step(self, batch: Dict[str, Any], reduce_global_loss: bool = True) -> Dict[str, float]:
         metrics: Dict[str, float] = {}
@@ -724,7 +730,7 @@ class Trainer:
         batch = move_to_device(batch, self.device)
 
         # Run forward-backward pass.
-        ce_batch_loss, z_batch_loss, lb_batch_loss = self.train_batch(batch)
+        ce_batch_loss, z_batch_loss, lb_batch_loss, expert_assignments = self.train_batch(batch)
 
         # Collect loss, potentially reducing over all ranks.
         if reduce_global_loss:
@@ -779,6 +785,10 @@ class Trainer:
             metrics["train/ZLoss"] = z_batch_loss.item()
         if lb_batch_loss is not None:
             metrics["train/LoadBalancingLoss"] = lb_batch_loss.item()
+            # Log assignment metrics.
+            for layer_idx, expert_assignments_layer in enumerate(expert_assignments):
+                for expert_idx, expert_assignment in enumerate(expert_assignments_layer):
+                    metrics[f"train/LoadBalancing/layer{layer_idx}/expert{expert_idx}"] = expert_assignment.item()
 
         # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:
