@@ -218,6 +218,8 @@ class Trainer:
 
     def __post_init__(self):
         if self.cfg.fused_loss:
+            if self.model.config.block_type == BlockType.moe:
+                raise NotImplementedError("Fused loss is not implemented for MoE models.")
             from flash_attn.ops.triton.cross_entropy import (  # type: ignore
                 cross_entropy_loss,
             )
@@ -266,7 +268,7 @@ class Trainer:
                 ffn_hidden_size=self.model.config.d_model * 4,
                 moe_num_experts=self.model.config.moe_num_experts,
                 num_layers=self.model.config.n_layers,
-                # Not tested for nowe
+                # Not tested for now
                 moe_expert_model_parallelism=False,
                 moe_top_k=self.model.config.moe_top_k,
                 device=self.model.config.init_device,
@@ -734,6 +736,8 @@ class Trainer:
         ce_batch_loss = torch.tensor(0.0, device=self.device)
         z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
         lb_batch_loss = None if self.model.config.block_type != BlockType.moe else torch.tensor(0.0, device=self.device)
+        # Keep this one on CPU to save memory
+        expert_assignments = None if self.model.config.block_type != BlockType.moe else torch.zeros((self.model.config.n_layers, self.model.config.moe_num_experts))
         for micro_batch in micro_batches:
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                 # Run forward pass.
@@ -762,18 +766,19 @@ class Trainer:
 
                 if self.model.config.block_type == BlockType.moe:
                     if self.model.config.share_blocks:
-                        lb_batch_loss = batched_load_balancing_loss_shared(self.moe_args)
+                        lb_loss = batched_load_balancing_loss_shared(self.moe_args)
                     else:
-                        lb_batch_loss = batched_load_balancing_loss(self.moe_args)
+                        lb_loss = batched_load_balancing_loss(self.moe_args)
                     clear_load_balancing_loss()
-                    loss += lb_batch_loss                
+                    loss += lb_loss
+                    lb_batch_loss += lb_loss.detach()
 
                 del logits
 
             # Run backward pass.
             loss.backward()
 
-        return ce_batch_loss, z_batch_loss, lb_batch_loss
+        return ce_batch_loss, z_batch_loss, lb_batch_loss, expert_assignments
 
     def train_step(self, batch: Dict[str, Any], reduce_global_loss: bool = True) -> Dict[str, float]:
         metrics: Dict[str, float] = {}
@@ -790,7 +795,7 @@ class Trainer:
         batch = move_to_device(batch, self.device)
 
         # Run forward-backward pass.
-        ce_batch_loss, z_batch_loss, lb_batch_loss = self.train_batch(batch)
+        ce_batch_loss, z_batch_loss, lb_batch_loss, expert_assignments = self.train_batch(batch)
 
         # Collect loss, potentially reducing over all ranks.
         if reduce_global_loss:
@@ -845,6 +850,10 @@ class Trainer:
             metrics["train/ZLoss"] = z_batch_loss.item()
         if lb_batch_loss is not None:
             metrics["train/LoadBalancingLoss"] = lb_batch_loss.item()
+            # Log assignment metrics.
+            for layer_idx, expert_assignments_layer in enumerate(expert_assignments):
+                for expert_idx, expert_assignment in enumerate(expert_assignments_layer):
+                    metrics[f"train/LoadBalancing/layer{layer_idx}/expert{expert_idx}"] = expert_assignment.item()
 
         # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:
