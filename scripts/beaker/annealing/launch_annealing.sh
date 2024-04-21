@@ -8,6 +8,7 @@ function launch {
   CONFIG_NAME=$1
   NUM_NODES=$2
   CLUSTER=$3
+  PRIORITY=$4
 
   CONFIG_DIR=configs/annealing
   CONFIG_PATH=${CONFIG_DIR}/${CONFIG_NAME}.yaml
@@ -17,7 +18,7 @@ function launch {
     --workspace ai2/davidw-oe-annealing \
     --task-name ${CONFIG_NAME} \
     --description ${CONFIG_NAME} \
-    --priority preemptible \
+    --priority $PRIORITY \
     --beaker-image shanea/olmo-torch2.2-gantry \
     --cluster $CLUSTER \
     --gpus 8 \
@@ -41,13 +42,3 @@ function launch {
     --yes \
     -- /bin/bash -c "source scripts/beaker/warm_hf_cache.sh && torchrun --nnodes ${NUM_NODES}:${NUM_NODES} --nproc-per-node 8 --rdzv_id=101 --rdzv_backend=c10d --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 scripts/train.py ${CONFIG_PATH} --model.flash_attention=true --fsdp.wrapping_strategy=by_block_and_size --fsdp.sharding_strategy=SHARD_GRAD_OP --activation_checkpointing=fine_grained --fused_loss=true --device_train_microbatch_size=2 --global_train_batch_size=1024 --gen1_gc_interval=8"
 }
-
-
-################################################################################
-
-# Launch runs.
-
-# launch v1.7-step_2T-resume_optimizer-steps_50B 8 ai2/pluto-cirrascale
-# launch v1.7-step_2.1T-resume_optimizer-steps_50B 8 ai2/pluto-cirrascale
-launch v1.7-fix_redpajama-step_2T-resume_optimizer-steps_200B 4 ai2/jupiter-cirrascale
-launch v1.7-baseline-step_2T-resume_optimizer-steps_50B 4 ai2/jupiter-cirrascale
