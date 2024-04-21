@@ -787,8 +787,10 @@ class Trainer:
             metrics["train/LoadBalancingLoss"] = lb_batch_loss.item()
             # Log assignment metrics.
             for layer_idx, expert_assignments_layer in enumerate(expert_assignments):
+                total_tokens = expert_assignments_layer.sum().item()
                 for expert_idx, expert_assignment in enumerate(expert_assignments_layer):
-                    metrics[f"train/LoadBalancing/layer{layer_idx}/expert{expert_idx}"] = expert_assignment.item()
+                    metrics[f"train/TokensPercentage/layer{layer_idx}/expert{expert_idx}"] = (expert_assignment.item() / total_tokens) * 100
+                    metrics[f"train/TokensTotal/layer{layer_idx}/expert{expert_idx}"] = expert_assignment.item()
 
         # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:
