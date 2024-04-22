@@ -31,5 +31,6 @@ torchrun \
       --scheduler.name=linear_with_warmup \
       --scheduler.t_warmup=446000 \
       --scheduler.alpha_f=0.0 \
+      --optimizer.learning_rate=1.633e-4 \
       --max_duration=472025 \
       --save_overwrite
