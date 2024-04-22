@@ -702,6 +702,8 @@ class OLMoEBlock(OLMoBlock):
             # Handled by FSDP
             bf16=False,
             fp16=False,
+            bias=self.config.include_bias,
+            return_bias=False,
         )
         self.ffn = MoE(self.moe_args)
 
@@ -769,6 +771,8 @@ class OLMoEBlock(OLMoBlock):
             layer_id=self.layer_id,
             type_of_module=ModuleType.out_module,
         )
+        if self.ffn.experts.bias is not None:
+            torch.nn.init.zeros_(self.ffn.experts.bias)
         init_weights(
             self.ffn.router.layer,
             self.config,
@@ -822,9 +826,9 @@ class OLMoEBlock(OLMoBlock):
             x = self.ff_norm(x)
 
         if self._activation_checkpoint_fn is not None:
-            x, _ = self._activation_checkpoint_fn(self.ffn, x)  # type: ignore
+            x = self._activation_checkpoint_fn(self.ffn, x)  # type: ignore
         else:
-            x, _ = self.ffn(x)
+            x = self.ffn(x)
 
         x = self.dropout(x)
         x = og_x + x
