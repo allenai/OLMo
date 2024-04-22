@@ -96,7 +96,7 @@ class Mamba(GenericOLMoModel):
                 'rescale_prenorm_residual': config.rescale_prenorm_residual,
             },   # params to _init_weights function
             device=config.init_device,
-            dtype=dtype,
+            dtype=torch.float32,
         )
 
     def adapt_olmo_config(self, olmo_config: ModelConfig) -> MambaConfig:
