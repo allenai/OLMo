@@ -78,7 +78,7 @@ class GenericOLMoModel(nn.Module):
 
 
 class Mamba(GenericOLMoModel):
-    def __init__(self, config: ModelConfig, init_params: bool = True, precision: str = 'amp_bf16'):
+    def __init__(self, config: ModelConfig, init_params: bool = True, precision: str = 'fp32'):
         super().__init__(config, init_params)
 
         dtype = None
@@ -177,7 +177,7 @@ class Mamba(GenericOLMoModel):
 
 
 class Zamba(Mamba):
-    def __init__(self, config: ModelConfig, init_params: bool = True, precision: str = 'amp_bf16'):
+    def __init__(self, config: ModelConfig, init_params: bool = True, precision: str = 'fp32'):
         super().__init__(config, init_params, precision)
 
         # delete 4 mamba layers to substitute in 1 OLMoSequentialBlock
