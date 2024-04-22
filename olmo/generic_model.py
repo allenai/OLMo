@@ -143,6 +143,9 @@ class Mamba(GenericOLMoModel):
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
         """
+        import ipdb
+        ipdb.set_trace()
+
         return OLMoOutput(
             logits=self.model(input_ids).logits,
             attn_key_values=None,
