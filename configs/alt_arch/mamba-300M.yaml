@@ -24,7 +24,7 @@ model:
   conv_bias: true
   include_bias: false
   use_fast_path: true
-  layer_norm_type: rms
+  layer_norm_type: default
   weight_tying: false
   max_sequence_length: 2048
   eos_token_id: 50279
