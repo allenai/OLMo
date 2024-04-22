@@ -25,6 +25,7 @@ torchrun \
   configs/mitchish7-s3.yaml \
     --run_name=mitchish7-bigbatch \
     --wandb.name=mitchish7-bigbatch \
+    --wandb.group=mitchish7-bigbatch \
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
