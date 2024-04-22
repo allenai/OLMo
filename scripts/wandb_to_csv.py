@@ -1,7 +1,7 @@
 import logging
-from os import SEEK_END
 from pathlib import Path
-from typing import Union, Dict, Any, List
+from typing import Union, Dict, Any
+import time
 
 import click
 
@@ -13,7 +13,6 @@ def dump_run(run, output_file: Path):
     data: Dict[int, Dict[str, Any]] = {}
     if output_file.is_file():
         f = output_file.open("r+", encoding="UTF-8")
-        f.seek(0)
         lines = iter(f)
         try:
             columns = next(lines).rstrip("\n").split("\t")
@@ -28,12 +27,38 @@ def dump_run(run, output_file: Path):
                     column_name: line[i]
                     for i, column_name in enumerate(columns)
                 }
-        f.seek(0)
     else:
         f = output_file.open("x", encoding="UTF-8")
 
+    def write_out_results():
+        f.seek(0)
+
+        # find columns
+        columns = set()
+        for values in data.values():
+            columns |= values.keys()
+        columns = list(columns)
+        columns.sort()
+
+        # write data
+        ordered_data = list(data.items())
+        ordered_data.sort()
+
+        f.truncate()
+        f.write("\t".join(columns))
+        f.write("\n")
+
+        with click.progressbar(ordered_data) as bar:
+            for step, values in bar:
+                line_values = (values.get(column) for column in columns)
+                line_values = (str(v) if v is not None else "" for v in line_values)
+                line = "\t".join(line_values)
+                line += "\n"
+                f.write(line)
+
     # scan ranges of steps
     current_step = 0
+    last_write = time.time()
     while True:
         while current_step in data.keys():
             current_step += 1
@@ -47,28 +72,12 @@ def dump_run(run, output_file: Path):
             else:
                 break
 
-    # find columns
-    columns = set()
-    for values in data.values():
-        columns |= values.keys()
-    columns = list(columns)
-    columns.sort()
+            # If we've been reading for 10 minutes, write out results
+            if time.time() - last_write > 60 * 10:
+                write_out_results()
+                last_write = time.time()
 
-    # write data
-    ordered_data = list(data.items())
-    ordered_data.sort()
-
-    f.truncate()
-    f.write("\t".join(columns))
-    f.write("\n")
-
-    with click.progressbar(ordered_data) as bar:
-        for step, values in bar:
-            line_values = (values.get(column) for column in columns)
-            line_values = (str(v) if v is not None else "" for v in line_values)
-            line = "\t".join(line_values)
-            line += "\n"
-            f.write(line)
+    write_out_results()
 
     f.close()
 
