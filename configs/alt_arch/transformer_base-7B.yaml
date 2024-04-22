@@ -1,4 +1,4 @@
-run_name: mamba-300M
+run_name: OLMo-7B
 seed: 6198
 dry_run: false
 
@@ -7,39 +7,39 @@ wandb:
   project: alt_arch
 
 model:
-  model_name: mamba
-  d_model: 1024
-  n_layers: 36
+  d_model: 4096
+  n_heads: 32
+  n_layers: 32
+  mlp_hidden_size: 22016
+  weight_tying: false
+  alibi: false
+  rope: true
+  flash_attention: true
+  attention_dropout: 0.0
+  attention_layer_norm: false
+  multi_query_attention: false
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: default
+  layer_norm_with_affine: false
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 2048
   vocab_size: 50280
   embedding_size: 50304
-  d_state: 16
-  d_conv: 4
-  expand: 2
-  time_step_floor: 0.0001
-  time_step_init_scheme: random
-  time_step_max: 0.1
-  time_step_min: 0.001
-  time_step_rank: auto
-  time_step_scale: 1.0
-  conv_bias: true
-  include_bias: false
-  use_fast_path: true
-  layer_norm_type: rms
-  weight_tying: false
-  max_sequence_length: 2048
   eos_token_id: 50279
   pad_token_id: 1
-  init_std: 0.1
-  rescale_prenorm_residual: false
-  fused_add_norm: true
-  residual_in_fp32: true
-  init_device: cpu
+  init_device: meta
+  init_fn: mitchell
 
 compile: null  # causes instability on AMD GPUs
 
 optimizer:
   name: adamw
-  learning_rate: 6.0e-4
+  learning_rate: 3.0e-4
   weight_decay: 0.1
   betas:
   - 0.9
@@ -48,7 +48,7 @@ optimizer:
 
 scheduler:
   name: cosine_with_warmup
-  t_warmup: 2000
+  t_warmup: 5000
   alpha_f: 0.1
 
 tokenizer:
@@ -70,12 +70,12 @@ load_path: null
 max_duration: 100_000  # 419B tokens, this is for the scheduler
 stop_at: 100_000
 global_train_batch_size: 2048
-device_train_microbatch_size: 8
+device_train_microbatch_size: 2
 
 precision: amp_bf16
 
 fsdp:
-  wrapping_strategy: null
+  wrapping_strategy: by_block
   precision: mixed
 
 max_grad_norm: 1.0
@@ -169,10 +169,10 @@ evaluators:
 
 data:
   pad_direction: right
-  num_workers: 32
+  num_workers: 16
   drop_last: true
   pin_memory: true
-  prefetch_factor: 8
+  prefetch_factor: 2
   persistent_workers: true
   timeout: 0
   paths:
