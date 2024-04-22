@@ -15,7 +15,7 @@ from .config import (
     LayerNormType,
     ModelConfig,
 )
-from .model import _non_meta_init_device, OLMoOutput
+from .model import _non_meta_init_device, OLMoOutput, OLMoSequentialBlock
 
 from mamba_ssm import MambaLMHeadModel
 from mamba_ssm.modules.mamba_simple import Block
@@ -87,6 +87,7 @@ class Mamba(GenericOLMoModel):
         elif precision == 'fp32':
             dtype = torch.float32
 
+        # TODO: change fp32 later on to dtype
         self.model = MambaLMHeadModel(
             config=self.adapt_olmo_config(config),
             initializer_cfg={
@@ -124,8 +125,8 @@ class Mamba(GenericOLMoModel):
         mamba_config.ssm_cfg["use_fast_path"] = olmo_config.use_fast_path
 
         mamba_config.rms_norm = True if olmo_config.layer_norm_type == LayerNormType.rms else False
-        mamba_config.residual_in_fp32 = True   # same dtype for fsdp
-        mamba_config.fused_add_norm = True
+        mamba_config.residual_in_fp32 = olmo_config.residual_in_fp32
+        mamba_config.fused_add_norm = olmo_config.fused_add_norm
         mamba_config.pad_vocab_size_multiple = 128 if olmo_config.embedding_size > olmo_config.vocab_size else 0
         mamba_config.tie_embeddings = olmo_config.weight_tying
 
@@ -172,3 +173,67 @@ class Mamba(GenericOLMoModel):
 
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         self._activation_checkpoint_fn = None
+
+
+class Zamba(Mamba):
+    def __init__(self, config: ModelConfig, init_params: bool = True, precision: str = 'amp_bf16'):
+        super().__init__(config, init_params, precision)
+
+        # delete 4 mamba layers to substitute in 1 OLMoSequentialBlock
+        del self.model.backbone.layers[-4:]
+
+        self.attention_block = OLMoSequentialBlock(
+            layer_id=config.n_layers - 4,
+            config=config,
+            cache=None,
+        )
+
+    def forward(self, input_ids: torch.LongTensor, **kwargs) -> OLMoOutput:
+        """
+        Interleave single attention block between equally spaced out mamba-blocks
+        """
+        hidden_states = self.model.embedding(input_ids)
+
+        # 1st pass through attention block
+        hidden_states, _ = self.attention_block(hidden_states)
+        residual = None
+
+        # pass through half of the mamba layers
+        for layer in self.model.backbone.layers[:len(self.model.backbone.layers) // 2]:
+            hidden_states, residual = layer(
+                hidden_states, residual, inference_params=kwargs.get("inference_params")
+            )
+
+        # 2nd pass through attention block
+        # attention block has its own norm at the beginning of the block
+        residual = (hidden_states + residual) if residual is not None else hidden_states
+        hidden_states, _ = self.attention_block(hidden_states)
+        residual = None
+
+        # pass through the remaining mamba layers
+        for layer in self.model.backbone.layers[len(self.model.backbone.layers) // 2]:
+            hidden_states, residual = layer(
+                hidden_states, residual, inference_params=kwargs.get("inference_params")
+            )
+
+        # 3rd pass through attention block
+        residual = (hidden_states + residual) if residual is not None else hidden_states
+        hidden_states, _ = self.attention_block(hidden_states)
+        hidden_states = self.model.backbone.norm_f(hidden_states)
+
+        return OLMoOutput(
+            logits=self.model.lm_head(hidden_states),
+            attn_key_values=None,
+            hidden_states=None,
+        )
+
+    def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
+        if wrap_strategy is None:
+            return None
+
+    def reset_parameters(self):
+        """
+        Mamba has its own init weights method which is called in __init__
+        """
+        # NOTE: the standard deviation for these weights does not depend on the layer.
+        self.attention_block.reset_parameters()

@@ -283,6 +283,15 @@ class ModelConfig(BaseConfig):
     >   -- GPT-2 :: https://openai.com/blog/better-language-models/
     """
 
+    fused_add_norm: bool = True
+    """
+    Used triton fused kernel for adding residual connection back in
+    """
+
+    residual_in_fp32: bool = True
+    """
+    Use fp32 precision for residual branch
+    """
     ###########################################################################
     #                        Mamba/LRU related params                         #
     ###########################################################################

@@ -31,6 +31,8 @@ model:
   pad_token_id: 1
   init_std: 0.1
   rescale_prenorm_residual: false
+  fused_add_norm: true
+  residual_in_fp32: true
   init_device: cpu
 
 compile: null  # causes instability on AMD GPUs

@@ -51,8 +51,8 @@ torchrun \
   --rdzv_backend=c10d \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   scripts/train_alt-arch.py \
-    configs/alt_arch/zamba-300M.yaml \
-      --run_name=zamba-300M-baseline \
+    configs/alt_arch/mamba-300M.yaml \
+      --run_name=zamba1-300M-baseline \
       --device_train_microbatch_size=8 \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
       --save_overwrite
