@@ -81,6 +81,7 @@ class Mamba(GenericOLMoModel):
     def __init__(self, config: ModelConfig, init_params: bool = True, precision: str = 'fp32'):
         super().__init__(config, init_params)
 
+        # main training script sends precision at bf16
         dtype = None
         if precision == 'amp_bf16':
             dtype = torch.bfloat16
@@ -143,6 +144,8 @@ class Mamba(GenericOLMoModel):
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
         """
+        import ipdb
+        ipdb.set_trace()
         return OLMoOutput(
             logits=self.model(input_ids).logits,
             attn_key_values=None,
