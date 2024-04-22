@@ -53,6 +53,7 @@ torchrun \
   scripts/train_alt-arch.py \
     configs/alt_arch/mamba-300M.yaml \
       --run_name=zamba1-300M-baseline \
+      --model.model_name=zamba \
       --device_train_microbatch_size=8 \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
       --save_overwrite

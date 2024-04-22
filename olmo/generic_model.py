@@ -71,6 +71,8 @@ class GenericOLMoModel(nn.Module):
     def build(cls, config: ModelConfig, size: Optional[int] = None, **kwargs) -> GenericOLMoModel:
         if config.model_name == 'mamba':
             return Mamba(config, **kwargs)
+        elif config.model_name == 'zamba':
+            return Zamba(config, **kwargs)
         else:
             raise NotImplementedError(f"Unknown model: '{config.model_name}'")
 
