@@ -38,9 +38,10 @@ torchrun \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   scripts/train_alt-arch.py \
     configs/alt_arch/mamba-300M.yaml \
-      --run_name=mamba-300M-bf16-residual-param-layernorm \
+      --run_name=mamba-300M-baseline \
       --device_train_microbatch_size=8 \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
+      --load_path=s3://allennlp-ananyaj/alt_arch/mamba-300M-baseline/step35000/ \
       --save_overwrite
 
 # zamba-300M

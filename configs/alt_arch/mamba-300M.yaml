@@ -24,7 +24,7 @@ model:
   conv_bias: true
   include_bias: false
   use_fast_path: true
-  layer_norm_type: default
+  layer_norm_type: rms
   weight_tying: false
   max_sequence_length: 2048
   eos_token_id: 50279
@@ -32,7 +32,7 @@ model:
   init_std: 0.1
   rescale_prenorm_residual: false
   fused_add_norm: true
-  residual_in_fp32: false
+  residual_in_fp32: true
   init_device: cpu
 
 compile: null  # causes instability on AMD GPUs
