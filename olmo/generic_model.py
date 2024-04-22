@@ -206,6 +206,7 @@ class Zamba(Mamba):
 
         # 2nd pass through attention block
         # attention block has its own norm at the beginning of the block
+        # => only add residual and hidden
         residual = (hidden_states + residual) if residual is not None else hidden_states
         hidden_states, _ = self.attention_block(hidden_states)
         residual = None
@@ -217,6 +218,8 @@ class Zamba(Mamba):
             )
 
         # 3rd pass through attention block
+        # attention block has its own norm at the beginning of the block
+        # => only add residual and hidden
         residual = (hidden_states + residual) if residual is not None else hidden_states
         hidden_states, _ = self.attention_block(hidden_states)
         hidden_states = self.model.backbone.norm_f(hidden_states)
