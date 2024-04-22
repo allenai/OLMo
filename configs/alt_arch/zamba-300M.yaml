@@ -6,15 +6,32 @@ wandb:
   name: ${run_name}
   project: alt_arch
 
+# conflicts: mlp_ratio, layer_norm_type
+# run mamba with bf16, layernorm
 model:
   model_name: mamba
   d_model: 1024
   n_layers: 36
+  n_heads: 16
+  alibi: false
+  rope: true
+  flash_attention: true  # not available on AMD
+  attention_dropout: 0.0
+  attention_layer_norm: false
+  multi_query_attention: true
+  n_kv_heads: 1
+  clip_qkv: 8.0
+  layer_norm_with_affine: false
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
   vocab_size: 50280
   embedding_size: 50304
   d_state: 16
   d_conv: 4
-  expand: 2
+  mlp_ratio: 2
   time_step_floor: 0.0001
   time_step_init_scheme: random
   time_step_max: 0.1
@@ -24,7 +41,7 @@ model:
   conv_bias: true
   include_bias: false
   use_fast_path: true
-  layer_norm_type: rms
+  layer_norm_type: default
   weight_tying: false
   max_sequence_length: 2048
   eos_token_id: 50279
@@ -32,7 +49,7 @@ model:
   init_std: 0.1
   rescale_prenorm_residual: false
   fused_add_norm: true
-  residual_in_fp32: false
+  residual_in_fp32: true
   init_device: cpu
 
 compile: null  # causes instability on AMD GPUs

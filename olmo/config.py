@@ -283,6 +283,11 @@ class ModelConfig(BaseConfig):
     >   -- GPT-2 :: https://openai.com/blog/better-language-models/
     """
 
+    expand: int = 2
+    """
+    Expand ratio for mamba layers
+    """
+
     fused_add_norm: bool = True
     """
     Used triton fused kernel for adding residual connection back in

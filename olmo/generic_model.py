@@ -89,7 +89,6 @@ class Mamba(GenericOLMoModel):
         elif precision == 'fp32':
             dtype = torch.float32
 
-        # TODO: change fp32 later on to dtype
         self.model = MambaLMHeadModel(
             config=self.adapt_olmo_config(config),
             initializer_cfg={
@@ -97,7 +96,7 @@ class Mamba(GenericOLMoModel):
                 'rescale_prenorm_residual': config.rescale_prenorm_residual,
             },   # params to _init_weights function
             device=config.init_device,
-            dtype=torch.float32,
+            dtype=dtype,
         )
 
     def adapt_olmo_config(self, olmo_config: ModelConfig) -> MambaConfig:
@@ -112,7 +111,7 @@ class Mamba(GenericOLMoModel):
         # ssm_cfg in mamba layer
         mamba_config.ssm_cfg["d_state"] = olmo_config.d_state
         mamba_config.ssm_cfg["d_conv"] = olmo_config.d_conv
-        mamba_config.ssm_cfg["expand"] = olmo_config.mlp_ratio
+        mamba_config.ssm_cfg["expand"] = olmo_config.expand
 
         # ssm ops config
         mamba_config.ssm_cfg["dt_rank"] = olmo_config.time_step_rank
