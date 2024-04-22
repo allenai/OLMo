@@ -6,18 +6,17 @@ NUM_NODES=4
 
 gantry run \
   --workspace ai2/shanea \
-  --task-name lr-schedule-const-lr \
+  --task-name lr-schedule-const-lr-1B \
   --description "Const learning rate schedule experiment on OLMo 1B" \
   --priority high \
-  --beaker-image petew/olmo-torch2-gantry \
-  --cluster ai2/pluto-cirrascale \
+  --beaker-image shanea/olmo-torch2.2-gantry \
+  --cluster ai2/jupiter-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
-  --nfs \
-  --mount /net/nfs.cirrascale/allennlp/shanea/cache:/root/.cache \
+  --no-nfs \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
