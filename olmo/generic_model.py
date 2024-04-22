@@ -71,6 +71,8 @@ class GenericOLMoModel(nn.Module):
     def build(cls, config: ModelConfig, size: Optional[int] = None, **kwargs) -> GenericOLMoModel:
         if config.model_name == 'mamba':
             return Mamba(config, **kwargs)
+        elif config.model_name == 'mlp_mamba':
+            return MLPMamba(config, **kwargs)
         elif config.model_name == 'zamba':
             return Zamba(config, **kwargs)
         else:
@@ -144,8 +146,6 @@ class Mamba(GenericOLMoModel):
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
         """
-        import ipdb
-        ipdb.set_trace()
         return OLMoOutput(
             logits=self.model(input_ids).logits,
             attn_key_values=None,
@@ -177,6 +177,63 @@ class Mamba(GenericOLMoModel):
 
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         self._activation_checkpoint_fn = None
+
+
+class MLPMambaBlock(nn.Module):
+    def __init__(self, config: ModelConfig):
+        super().__init__(config)
+
+
+class MLPMamba(GenericOLMoModel):
+    def __init__(self, config: ModelConfig, init_params: bool = True, precision: str = 'fp32'):
+        super().__init__(config, init_params)
+
+    def adapt_olmo_config(self, olmo_config: ModelConfig) -> MambaConfig:
+        mamba_config = MambaConfig()
+
+    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+        self._activation_checkpoint_fn = None
+
+    def reset_parameters(self):
+        """
+        Mamba has its own init weights method which is called in __init__
+        """
+        return
+
+    def forward(self, input_ids: torch.LongTensor, **kwargs) -> OLMoOutput:
+        """
+        :param input_ids: A tensor of shape `(batch_size, seq_len)`.
+        """
+        logits = self.model(input_ids).logits
+
+        return OLMoOutput(
+            logits=logits,
+            attn_key_values=None,
+            hidden_states=None,
+        )
+
+    def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
+        if wrap_strategy is None:
+            return None
+        elif wrap_strategy == FSDPWrapStrategy.by_block:
+            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+                del nonwrapped_numel
+                wrap = isinstance(module, MLPMambaBlock)
+                if recurse:
+                    return True
+                else:
+                    return wrap
+
+            return fsdp_wrap_fn
+        else:
+            raise NotImplementedError(wrap_strategy)
+
+    def num_params(self, include_embedding: bool = True) -> int:
+        params = (np for np in self.model.named_parameters())
+        if not include_embedding:
+            params = filter(lambda np: ".embedding." not in np[0], params)
+
+        return sum(p.numel() for _, p in params)
 
 
 class Zamba(Mamba):
