@@ -54,7 +54,7 @@ else:
     raise SystemExit("This script supports Python 3.8 or higher")
 
 try:
-    from megablocks.layers.moe import MoE
+    from megablocks.layers.moe import MoE, dMoE
     from megablocks.layers.arguments import Arguments as MoEArgs
 except ImportError:
     log.warning("megablocks not installed, MoE layers will not be available.")
@@ -705,7 +705,10 @@ class OLMoEBlock(OLMoBlock):
             bias=self.config.include_bias,
             return_bias=False,
         )
-        self.ffn = MoE(self.moe_args)
+        if self.config.moe_dropless
+            self.ffn = dMoE(self.moe_args)
+        else:
+            self.ffn = MoE(self.moe_args)
 
         # Rotary embeddings.
         if self.config.rope:
