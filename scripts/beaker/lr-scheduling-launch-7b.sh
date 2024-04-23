@@ -27,6 +27,9 @@ gantry run \
   --env-secret R2_ACCESS_KEY_ID=R2_ACCESS_KEY_ID \
   --env-secret R2_SECRET_ACCESS_KEY=R2_SECRET_ACCESS_KEY \
   --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
+  --env-secret WEKA_ACCESS_KEY_ID=WEKA_ACCESS_KEY_ID \
+  --env-secret WEKA_SECRET_ACCESS_KEY=WEKA_SECRET_ACCESS_KEY \
+  --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
   --shared-memory 10GiB \
   --venv base \
   --yes \
