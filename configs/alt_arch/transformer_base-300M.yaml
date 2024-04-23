@@ -57,7 +57,7 @@ tokenizer:
   identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
   truncate_direction: right
 
-save_folder: /workspace/${run_name}  # doesn't matter since we'll upload to S3
+save_folder: workspace/${run_name}  # doesn't matter since we'll upload to S3
 remote_save_folder: s3://allennlp-ananyaj/alt_arch/${run_name}
 save_overwrite: false
 # Sharded checkpoints (best for restarts)
