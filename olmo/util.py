@@ -1,3 +1,4 @@
+import io
 import logging
 import os
 import re
@@ -11,12 +12,13 @@ from itertools import cycle, islice
 from pathlib import Path
 from queue import Queue
 from threading import Thread
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import boto3
 import botocore.exceptions as boto_exceptions
 import rich
 from botocore.config import Config
+from cached_path.schemes import SchemeClient, add_scheme_client
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.progress import Progress
@@ -328,7 +330,7 @@ def file_size(path: PathOrStr) -> int:
         parsed = urlparse(str(path))
         if parsed.scheme == "gs":
             return _gcs_file_size(parsed.netloc, parsed.path.strip("/"))
-        elif parsed.scheme in ("s3", "r2"):
+        elif parsed.scheme in ("s3", "r2", "weka"):
             return _s3_file_size(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return file_size(str(path).replace("file://", "", 1))
@@ -347,7 +349,7 @@ def upload(source: PathOrStr, target: str, save_overwrite: bool = False):
     parsed = urlparse(target)
     if parsed.scheme == "gs":
         _gcs_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
-    elif parsed.scheme in ("s3", "r2"):
+    elif parsed.scheme in ("s3", "r2", "weka"):
         _s3_upload(source, parsed.scheme, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
     else:
         raise NotImplementedError(f"Upload not implemented for '{parsed.scheme}' scheme")
@@ -360,7 +362,7 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
         parsed = urlparse(str(source))
         if parsed.scheme == "gs":
             return _gcs_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
-        elif parsed.scheme in ("s3", "r2"):
+        elif parsed.scheme in ("s3", "r2", "weka"):
             return _s3_get_bytes_range(
                 parsed.scheme, parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes
             )
@@ -381,7 +383,7 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
         parsed = urlparse(str(dir))
         if parsed.scheme == "gs":
             raise NotImplementedError
-        elif parsed.scheme in ("s3", "r2"):
+        elif parsed.scheme in ("s3", "r2", "weka"):
             return _s3_find_latest_checkpoint(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return find_latest_checkpoint(str(dir).replace("file://", "", 1))
@@ -453,6 +455,12 @@ def _get_s3_profile_name(scheme: str) -> Optional[str]:
             raise OLMoEnvironmentError(
                 "R2 profile name is not set. Did you forget to set the 'R2_PROFILE' env var?"
             )
+    if scheme == "weka":
+        profile_name = os.environ.get("WEKA_PROFILE")
+        if profile_name is None:
+            raise OLMoEnvironmentError(
+                "Weka profile name is not set. Did you forget to set the 'WEKA_PROFILE' env var?"
+            )
 
         return profile_name
 
@@ -470,6 +478,14 @@ def _get_s3_endpoint_url(scheme: str) -> Optional[str]:
             )
 
         return r2_endpoint_url
+    if scheme == "weka":
+        weka_endpoint_url = os.environ.get("WEKA_ENDPOINT_URL")
+        if weka_endpoint_url is None:
+            raise OLMoEnvironmentError(
+                "Weka endpoint url is not set. Did you forget to set the 'WEKA_ENDPOINT_URL' env var?"
+            )
+
+        return weka_endpoint_url
 
     raise NotImplementedError(f"Cannot get endpoint url for scheme {scheme}")
 
@@ -653,3 +669,89 @@ def roundrobin(*iterables):
             # Remove the iterator we just exhausted from the cycle.
             num_active -= 1
             nexts = cycle(islice(nexts, num_active))
+
+
+def add_cached_path_clients():
+    add_scheme_client(WekaClient)
+
+
+class WekaClient(SchemeClient):
+    recoverable_errors = SchemeClient.recoverable_errors + (
+        boto_exceptions.HTTPClientError,
+        boto_exceptions.ConnectionError,
+    )
+
+    scheme = "weka"
+
+    def __init__(self, resource: str) -> None:
+        SchemeClient.__init__(self, resource)
+        self.bucket_name, self.path = WekaClient._split_cloud_path(resource, "weka")
+
+        # find credentials
+        endpoint_url = os.environ.get("WEKA_ENDPOINT_URL")
+        if endpoint_url is None:
+            raise ValueError(
+                "Weka endpoint url is not set. Did you forget to set the 'WEKA_ENDPOINT_URL' env var?"
+            )
+        profile_name = os.environ.get("WEKA_PROFILE")
+        access_key_id = os.environ.get("WEKA_ACCESS_KEY_ID")
+        secret_access_key = os.environ.get("WEKA_SECRET_ACCESS_KEY")
+        if access_key_id is not None and secret_access_key is not None:
+            client_kwargs = {
+                "aws_access_key_id": access_key_id,
+                "aws_secret_access_key": secret_access_key,
+            }
+        elif profile_name is not None:
+            client_kwargs = {"profile_name": profile_name}
+        else:
+            raise ValueError(
+                "To authenticate for Weka, you either have to set the 'WEKA_PROFILE' env var and set up this profile, "
+                "or set WEKA_ACCESS_KEY_ID and WEKA_SECRET_ACCESS_KEY."
+            )
+
+        self.s3 = boto3.client(
+            service_name="s3",
+            endpoint_url=endpoint_url,
+            region_name="auto",
+            config=Config(retries={"max_attempts": 10, "mode": "standard"}),
+            **client_kwargs,
+        )
+        self.object_info = None
+
+    @staticmethod
+    def _split_cloud_path(url: str, provider: str) -> Tuple[str, str]:
+        """Split a full s3 path into the bucket name and path."""
+        from urllib.parse import urlparse
+
+        parsed = urlparse(url)
+        if not parsed.netloc or not parsed.path:
+            raise ValueError("bad {} path {}".format(provider, url))
+        bucket_name = parsed.netloc
+        provider_path = parsed.path
+        # Remove '/' at beginning of path.
+        if provider_path.startswith("/"):
+            provider_path = provider_path[1:]
+        return bucket_name, provider_path
+
+    def _ensure_object_info(self):
+        if self.object_info is None:
+            self.object_info = self.s3.head_object(Bucket=self.bucket_name, Key=self.path)
+
+    def get_etag(self) -> Optional[str]:
+        self._ensure_object_info()
+        assert self.object_info is not None
+        return self.object_info.get("ETag")
+
+    def get_size(self) -> Optional[int]:
+        self._ensure_object_info()
+        assert self.object_info is not None
+        return self.object_info.get("ContentLength")
+
+    def get_resource(self, temp_file: io.BufferedWriter) -> None:
+        self.s3.download_fileobj(Fileobj=temp_file, Bucket=self.bucket_name, Key=self.path)
+
+    def get_bytes_range(self, index: int, length: int) -> bytes:
+        response = self.s3.get_object(
+            Bucket=self.bucket_name, Key=self.path, Range=f"bytes={index}-{index+length-1}"
+        )
+        return response["Body"].read()

@@ -29,7 +29,7 @@ from olmo.torch_util import (
     seed_all,
 )
 from olmo.train import Trainer
-from olmo.util import clean_opt, log_extra_field, prepare_cli_environment
+from olmo.util import add_cached_path_clients, clean_opt, log_extra_field, prepare_cli_environment
 
 log = logging.getLogger("train")
 
@@ -251,6 +251,8 @@ if __name__ == "__main__":
     dist.init_process_group(backend="nccl")
 
     prepare_cli_environment()
+
+    add_cached_path_clients()
 
     log.info(f"multiprocessing start method set to '{mp.get_start_method()}'")
 
