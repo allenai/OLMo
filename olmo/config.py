@@ -465,6 +465,11 @@ class ModelConfig(BaseConfig):
     If ``True``, load-balance at the model level rather than at the block level.
     """
 
+    moe_expert_model_parallelism: Optional[bool] = False
+    """
+    Whether to use model parallelism for the MoE experts.
+    """
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:
