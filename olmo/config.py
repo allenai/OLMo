@@ -475,6 +475,11 @@ class ModelConfig(BaseConfig):
     Whether to use model parallelism for the MoE experts.
     """
 
+    moe_dropless: Optional[bool] = False
+    """
+    Whether to use dMoE (https://arxiv.org/abs/2211.15841)
+    """    
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:
