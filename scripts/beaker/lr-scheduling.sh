@@ -26,6 +26,7 @@ torchrun \
       --run_name=olmo-small-linear-decay-step446000-match40000steps \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
       --load_path=s3://ai2-llm/checkpoints/olmo-small-3T-lower-lr-tie/5076629/step446000-unsharded/ \
+      '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/1b/olmo-small-linear-decay-step446000-match40000steps/}' \
       --wandb.name=olmo-small-linear-decay-step446000-match40000steps \
       --wandb.group=olmo-small-linear-decay-step446000-match40000steps \
       --scheduler.name=linear_with_warmup \
