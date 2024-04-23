@@ -914,6 +914,7 @@ class Trainer:
                 # Finally, check if someone canceled the run from W&B by adding the 'cancel' / 'canceled' tag..
                 # We won't see it in the run object. So we have to use the import/export API to check.
                 from requests.exceptions import RequestException
+                from wandb.errors import CommError
 
                 try:
                     api = wandb.Api(api_key=api_key)
@@ -924,8 +925,8 @@ class Trainer:
                             cancel_reason = "Weights & Biases tag"
                             extra_steps = self.cfg.extra_steps_after_cancel
                             break
-                except RequestException:
-                    pass
+                except (RequestException, CommError):
+                    log.info("Failed to check if W&B run is cancelled, continuing run.")
 
         run_canceled = synchronize_flag(should_cancel, self.device)
         if run_canceled:
