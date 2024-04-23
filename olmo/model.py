@@ -687,14 +687,14 @@ class OLMoEBlock(OLMoBlock):
         self.moe_args = MoEArgs(
             activation_fn=F.silu if 'glu' in config.activation_type.lower() else self.act,
             mlp_type='glu' if 'glu' in config.activation_type.lower() else 'mlp',
-            # mlp_impl='grouped', # 4x slower on H100s
+            # Recommended for H100s by megablocks but found it 4x slower on H100s
+            # mlp_impl='grouped',
             hidden_size=config.d_model,
             ffn_hidden_size=int(self.act.output_multiplier * self.hidden_size),
             moe_num_experts=config.moe_num_experts,
             # Handled by FSDP (https://github.com/databricks/megablocks/issues/57#issuecomment-1854594483)
             moe_weight_parallelism=False,
-            # Not tested for now
-            moe_expert_model_parallelism=False,
+            moe_expert_model_parallelism=config.moe_expert_model_parallelism,
             moe_top_k=config.moe_top_k,
             moe_capacity_factor=config.moe_capacity_factor,
             moe_loss_weight=config.moe_loss_weight,
