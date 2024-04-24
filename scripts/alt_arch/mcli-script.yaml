@@ -2,6 +2,7 @@ name: mlp_mamba-gelu-300M-baseline
 image: mosaicml/llm-foundry:2.1.0_cu121_flash2-latest
 compute:
   cluster: r15z4
+  instance: oci.bm.gpu.h100.8
   gpus: 16
   gpu_type: h100_80gb
 integrations:
