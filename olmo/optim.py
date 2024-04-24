@@ -627,10 +627,10 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
                     decay.add(fpn)
                 else:
                     no_decay.add(fpn)
-            elif '.mixer.conv' in pn:
-                decay.add(fpn)   # add all mixer conv params to decay set
-            elif '.mixer.D' in pn or '.mixer.A_log' in pn:
-                no_decay.add(fpn)   # add all mixer SSM params to no decay
+            elif pn.endswith('.conv1d.weight'):
+                decay.add(fpn)   # add all conv weight params to decay set
+            elif pn.endswith('.D') or pn.endswith('.A_log'):
+                no_decay.add(fpn)   # add all SSM params to no decay
 
     # Validate that we've considered every parameter
     inter_params = decay & no_decay

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import logging
 from abc import abstractmethod
 from typing import Optional
 from functools import partial
@@ -10,7 +11,7 @@ import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .initialization import init_weights
+from .initialization import init_weights, ModuleType
 from .config import (
     ActivationCheckpointingStrategy,
     FSDPWrapStrategy,
@@ -23,13 +24,18 @@ from .model import (
     _non_meta_init_device,
     OLMoOutput,
     OLMoSequentialBlock,
-    Activation
+    Activation,
+    Dropout,
+    LayerNorm,
 )
 
 from mamba_ssm import MambaLMHeadModel
 from mamba_ssm.modules.mamba_simple import Block, Mamba
 from mamba_ssm.models.config_mamba import MambaConfig
 from mamba_ssm.models.mixer_seq_simple import _init_weights
+
+
+log = logging.getLogger(__name__)
 
 
 class GenericOLMoModel(nn.Module):
@@ -189,7 +195,7 @@ class OGMamba(GenericOLMoModel):
     def num_params(self, include_embedding: bool = True) -> int:
         params = (np for np in self.model.named_parameters())
         if not include_embedding:
-            params = filter(lambda np: ".embedding." not in np[0], params)
+            params = filter(lambda np: "embedding" not in np[0], params)
 
         return sum(p.numel() for _, p in params)
 
@@ -208,10 +214,6 @@ class MLPMambaBlock(nn.Module):
 
         # Dropout.
         self.dropout = Dropout(config.residual_dropout)
-
-        # Activation function.
-        self.act = Activation.build(config)
-        assert (self.act.output_multiplier * self.hidden_size) % 1 == 0
 
         # Layer Norms
         self.temporal_mix_norm = LayerNorm.build(config)
@@ -235,13 +237,16 @@ class MLPMambaBlock(nn.Module):
             use_fast_path=config.use_fast_path,
             layer_idx=layer_id,
             device=config.init_device,
-            dtype=torch.fp32,
+            dtype=torch.float32,
         )
 
         # Gated MLP block
         self.hidden_size = (
             config.mlp_hidden_size if config.mlp_hidden_size is not None else config.mlp_ratio * config.d_model
         )
+
+        self.act = Activation.build(config)
+        assert (self.act.output_multiplier * self.hidden_size) % 1 == 0
 
         self.ff_proj = nn.Linear(
             config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device
@@ -262,9 +267,9 @@ class MLPMambaBlock(nn.Module):
         self.mamba_block.apply(
             partial(
                 _init_weights,
-                n_layer=config.n_layers,
-                initializer_range=config.mamba_initializer_range,
-                rescale_prenorm_residual=config.rescale_prenorm_residual,
+                n_layer=self.config.n_layers,
+                initializer_range=self.config.mamba_initializer_range,
+                rescale_prenorm_residual=self.config.rescale_prenorm_residual,
             )
         )
 
@@ -441,8 +446,12 @@ class MLPMamba(GenericOLMoModel):
 
     def num_params(self, include_embedding: bool = True) -> int:
         params = (np for np in self.model.named_parameters())
+
+        import ipdb
+        ipdb.set_trace()
+
         if not include_embedding:
-            params = filter(lambda np: ".embedding." not in np[0], params)
+            params = filter(lambda np: "embedding" not in np[0], params)
 
         return sum(p.numel() for _, p in params)
 
