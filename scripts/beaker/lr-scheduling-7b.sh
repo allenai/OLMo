@@ -32,9 +32,10 @@ export HF_DATASETS_OFFLINE=1
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
-  --rdzv_id=101 \
+  --rdzv_id=12345 \
   --rdzv_backend=c10d \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
+  --rdzv_conf="read_timeout=420" \
   scripts/train.py \
   configs/lr-scheduling-7b-s3.yaml \
     --run_name=lr-schedule-const-lr-7B \
