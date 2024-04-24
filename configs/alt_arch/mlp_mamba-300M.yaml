@@ -9,7 +9,7 @@ wandb:
 model:
   model_name: mlp_mamba
   d_model: 1024
-  n_layers: 36
+  n_layers: 18
   vocab_size: 50280
   embedding_size: 50304
   mlp_ratio: 8
