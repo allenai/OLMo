@@ -23,15 +23,14 @@ torchrun \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   scripts/train.py \
     configs/lr-scheduling-s3.yaml \
-      --run_name=olmo-small-linear-decay-step446000-match40000steps \
+      --run_name=olmo-small-linear-decay-step730000-match40000steps \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
-      --load_path=s3://ai2-llm/checkpoints/olmo-small-3T-lower-lr-tie/5076629/step446000-unsharded/ \
-      '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/1b/olmo-small-linear-decay-step446000-match40000steps/}' \
-      --wandb.name=olmo-small-linear-decay-step446000-match40000steps \
-      --wandb.group=olmo-small-linear-decay-step446000-match40000steps \
+      --load_path=s3://ai2-llm/checkpoints/olmo-small-3T-lower-lr-tie/5076629/step730000-unsharded/ \
+      --wandb.name=olmo-small-linear-decay-step730000-match40000steps \
+      --wandb.group=olmo-small-linear-decay-step730000-match40000steps \
       --scheduler.name=linear_with_warmup \
-      --scheduler.t_warmup=446000 \
+      --scheduler.t_warmup=730000 \
       --scheduler.alpha_f=0.0 \
-      --optimizer.learning_rate=1.633e-4 \
-      --max_duration=472025 \
+      --optimizer.learning_rate=4.023e-5 \
+      --max_duration=736500 \
       --save_overwrite
