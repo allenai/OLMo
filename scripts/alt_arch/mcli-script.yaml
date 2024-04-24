@@ -1,0 +1,33 @@
+run_name: mlp_mamba-gelu-300M-baseline
+image: mosaicml/llm-foundry:2.1.0_cu121_flash2-latest
+cluster: r15z4
+gpu_num: 16
+gpu_type: h100_80gb
+integrations:
+  - integration_type: git_repo
+    git_repo: allenai/OLMo
+    git_branch: alt_arch
+    pip_install: -e .[all]
+    ssh_clone: true
+command: |-
+  mkdir -p /root/.cache
+  pushd /root/.cache
+  curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" | tar --keep-newer-files -xzf -
+  popd
+  export HF_DATASETS_OFFLINE=1
+
+  cd LLM
+
+  torchrun --master_addr $MASTER_ADDR \
+  --master_port $MASTER_PORT \
+  --nnodes $NUM_NODES \
+  --node_rank $NODE_RANK \
+  --nproc_per_node 8 \
+  scripts/train_alt-arch.py configs/alt_arch/mlp_mamba-300M.yaml \
+    --run_name=mlp_mamba-gelu-300M-baseline \
+    --device_train_microbatch_size=8 \
+    --fsdp.sharding_strategy=SHARD_GRAD_OP \
+    --model.activation_type=gelu \
+    --model.mlp_ratio=4 \
+    --model.n_layers=16 \
+    --save_overwrite
