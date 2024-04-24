@@ -23,6 +23,7 @@ gantry run \
   --env-secret WANDB_API_KEY=WANDB_API_KEY \
   --env-secret AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID \
   --env-secret AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY \
+  --env-secret GITHUB_TOKEN=GITHUB_TOKEN \
   --shared-memory 10GiB \
   --venv base \
   --propagate-failure \
