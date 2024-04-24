@@ -112,6 +112,8 @@ def dump_group_cli(wandb_project: str, wandb_group: str, output_dir: str):
     api = wandb.Api()
     runs = api.runs(f"ai2-llm/{wandb_project}", filters={"group": wandb_group}, order="created_at")
     for run in runs:
+        if run.state == "running":
+            continue
         filename = f"{run.path[-1]}.csv"
         log.info("Writing %s", filename)
         dump_run(run, output_dir / filename)
