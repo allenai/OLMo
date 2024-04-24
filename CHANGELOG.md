@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed `tie_weights` method to a no-op as weight tying is handled in olmo/model.py
 - Fixed the size calculation for qk layer norm
 - Fixed pipeline test failure that occurs due to a bug in transformers version 4.39.1
+- Make `hf_olmo` compatible with transformers versions >=4.40.0
 
 ## [v0.2.5](https://github.com/allenai/OLMo/releases/tag/v0.2.5) - 2024-03-06
 
