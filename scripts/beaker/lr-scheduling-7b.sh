@@ -48,5 +48,6 @@ torchrun \
     --device_train_microbatch_size=2 \
     --global_train_batch_size=1024 \
     --time_limit=null \
+    --max_duration=2ep \
     --save_overwrite \
     '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/7b/lr-schedule-const-lr-7B/}'
