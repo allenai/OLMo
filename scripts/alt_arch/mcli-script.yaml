@@ -25,9 +25,6 @@ command: |-
   --nnodes $NUM_NODES \
   --node_rank $NODE_RANK \
   --nproc_per_node 8 \
-  --rdzv_id=101 \
-  --rdzv_backend=c10d \
-  --rdzv_endpoint=$MASTER_PORT:29400 \
   scripts/train_alt-arch.py configs/alt_arch/mlp_mamba-300M.yaml \
     --run_name=mlp_mamba-gelu-300M-baseline \
     --device_train_microbatch_size=8 \
