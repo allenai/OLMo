@@ -283,6 +283,11 @@ class ModelConfig(BaseConfig):
     >   -- GPT-2 :: https://openai.com/blog/better-language-models/
     """
 
+    mamba_initializer_range: float = 0.1
+    """
+    Initializer range for mamba block
+    """
+
     expand: int = 2
     """
     Expand ratio for mamba layers
