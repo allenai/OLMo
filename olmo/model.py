@@ -53,12 +53,6 @@ elif sys.version_info.minor == 8:
 else:
     raise SystemExit("This script supports Python 3.8 or higher")
 
-try:
-    from megablocks.layers.moe import MoE, dMoE
-    from megablocks.layers.arguments import Arguments as MoEArgs
-except ImportError:
-    log.warning("megablocks not installed, MoE layers will not be available.")
-
 __all__ = [
     "LayerNormBase",
     "LayerNorm",
@@ -75,9 +69,24 @@ __all__ = [
     "OLMoGenerateOutput",
 ]
 
-
 log = logging.getLogger(__name__)
 
+try:
+    from megablocks.layers.dmoe import dMoE, ParallelDroplessMLP
+    from megablocks.layers.moe import MoE
+    from megablocks.layers.router import LearnedRouter
+    from megablocks.layers.arguments import Arguments as MoEArgs
+
+    class dSMoE(dMoE, torch.nn.Module):
+        def __init__(self, args: Arguments):
+            # Only super init torch.nn.Module
+            torch.nn.Module.__init__(self)
+            # Token router.
+            self.router = LearnedRouter(args)
+            # Do not init experts here but later
+
+except ImportError:
+    log.warning("megablocks not installed, MoE layers will not be available.")
 
 def activation_checkpoint_function(cfg: ModelConfig):
     preserve_rng_state = (
@@ -684,31 +693,36 @@ class OLMoEBlock(OLMoBlock):
         )
 
         # MoE Block
-        self.moe_args = MoEArgs(
-            activation_fn=F.silu if 'glu' in config.activation_type.lower() else self.act,
-            mlp_type='glu' if 'glu' in config.activation_type.lower() else 'mlp',
-            # Recommended for H100s by megablocks but found it 4x slower on H100s
-            # mlp_impl='grouped',
-            hidden_size=config.d_model,
-            ffn_hidden_size=int(self.act.output_multiplier * self.hidden_size),
-            moe_num_experts=config.moe_num_experts,
-            # Handled by FSDP (https://github.com/databricks/megablocks/issues/57#issuecomment-1854594483)
-            moe_weight_parallelism=False,
-            moe_expert_model_parallelism=config.moe_expert_model_parallelism,
-            moe_top_k=config.moe_top_k,
-            moe_capacity_factor=config.moe_capacity_factor,
-            moe_loss_weight=config.moe_loss_weight,
-            device=config.init_device,
-            # Handled by FSDP
-            bf16=False,
-            fp16=False,
-            bias=self.config.include_bias,
-            return_bias=False,
-        )
-        if self.config.moe_dropless
-            self.ffn = dMoE(self.moe_args)
-        else:
-            self.ffn = MoE(self.moe_args)
+        if not(self.config.share_moe and self.layer_id > 0):
+            self.moe_args = MoEArgs(
+                activation_fn=F.silu if 'glu' in config.activation_type.lower() else self.act,
+                mlp_type='glu' if 'glu' in config.activation_type.lower() else 'mlp',
+                # Recommended for H100s by megablocks but found it 4x slower on H100s
+                mlp_impl='grouped',
+                hidden_size=config.d_model,
+                ffn_hidden_size=int(self.act.output_multiplier * self.hidden_size),
+                moe_num_experts=config.moe_num_experts,
+                # Handled by FSDP (https://github.com/databricks/megablocks/issues/57#issuecomment-1854594483)
+                moe_weight_parallelism=False,
+                moe_expert_model_parallelism=config.moe_expert_model_parallelism,
+                moe_top_k=config.moe_top_k,
+                moe_capacity_factor=config.moe_capacity_factor,
+                moe_loss_weight=config.moe_loss_weight,
+                device=config.init_device,
+                # Handled by FSDP
+                bf16=False,
+                fp16=False,
+                bias=self.config.include_bias,
+                return_bias=False,
+            )
+            if self.config.share_experts:
+                self.ffn = dSMoE(self.moe_args)
+                if self.layer_id == 0:
+                    self.ffn.experts = ParallelDroplessMLP(self.moe_args)
+            elif self.config.moe_dropless:
+                self.ffn = dMoE(self.moe_args)
+            else:
+                self.ffn = MoE(self.moe_args)
 
         # Rotary embeddings.
         if self.config.rope:
@@ -760,29 +774,31 @@ class OLMoEBlock(OLMoBlock):
         )
         self.attn_norm.reset_parameters()
         self.ff_norm.reset_parameters()
-        init_weights(
-            self.ffn.experts.mlp.w1,
-            self.config,
-            d=self.config.d_model,
-            layer_id=None,
-            type_of_module=ModuleType.in_module,
-        )
-        init_weights(
-            self.ffn.experts.mlp.w2,
-            self.config,
-            d=int(self.act.output_multiplier * self.hidden_size),
-            layer_id=self.layer_id,
-            type_of_module=ModuleType.out_module,
-        )
-        if self.ffn.experts.bias is not None:
-            torch.nn.init.zeros_(self.ffn.experts.bias)
-        init_weights(
-            self.ffn.router.layer,
-            self.config,
-            d=self.config.d_model,
-            layer_id=None,
-            type_of_module=ModuleType.out_module,
-        )
+        if not(self.config.share_moe and self.layer_id > 0):
+            if not(self.config.share_experts and self.layer_id > 0):
+                init_weights(
+                    self.ffn.experts.mlp.w1,
+                    self.config,
+                    d=self.config.d_model,
+                    layer_id=None,
+                    type_of_module=ModuleType.in_module,
+                )
+                init_weights(
+                    self.ffn.experts.mlp.w2,
+                    self.config,
+                    d=int(self.act.output_multiplier * self.hidden_size),
+                    layer_id=self.layer_id,
+                    type_of_module=ModuleType.out_module,
+                )
+                if self.ffn.experts.bias is not None:
+                    torch.nn.init.zeros_(self.ffn.experts.bias)
+            init_weights(
+                self.ffn.router.layer,
+                self.config,
+                d=self.config.d_model,
+                layer_id=None,
+                type_of_module=ModuleType.out_module,
+            )
 
     def forward(
         self,
@@ -790,6 +806,7 @@ class OLMoEBlock(OLMoBlock):
         attention_bias: Optional[torch.Tensor] = None,
         layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         use_cache: bool = False,
+        ffn: Optional[torch.nn.Module] = None,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         # Get query, key, value projections.
         # shape:
@@ -829,10 +846,10 @@ class OLMoEBlock(OLMoBlock):
             x = self.ff_norm(x)
 
         if self._activation_checkpoint_fn is not None:
-            x = self._activation_checkpoint_fn(self.ffn, x)  # type: ignore
+            x = self._activation_checkpoint_fn(getattr(self, "ffn", ffn), x)  # type: ignore
         else:
-            x = self.ffn(x)
-
+            x = getattr(self, "ffn", ffn)(x)
+        #import pdb; pdb.set_trace()
         x = self.dropout(x)
         x = og_x + x
 
@@ -1258,6 +1275,15 @@ class OLMo(nn.Module):
             for block_group in self.transformer.block_groups:
                 block_group.reset_parameters()
 
+        if self.config.init_dense_router:
+            assert self.config.n_layers == self.config.moe_num_experts
+            for i, block in enumerate(self.transformer.blocks):
+                block.ffn.router.layer.weight.data.fill_(0.0)
+                # Set the layer id to 1.0
+                block.ffn.router.layer.weight.data[i, :] = 1.0
+
+            #import pdb; pdb.set_trace()
+
     def get_alibi_attention_bias(self, seq_len: int, device: torch.device) -> torch.Tensor:
         if (alibi_bias := self.__cache.get("alibi_attention_bias")) is not None and alibi_bias.shape[
             -1
@@ -1394,14 +1420,19 @@ class OLMo(nn.Module):
                     all_hidden_states.append(x)
                 layer_past = None if past_key_values is None else past_key_values[i]
                 block = self.transformer.blocks[0] if self.config.share_blocks else self.transformer.blocks[i]
+                kwargs = {"attention_bias": attention_bias, "layer_past": layer_past, "use_cache": use_cache}
+                if self.config.share_moe and i > 0:
+                    kwargs["ffn"] = self.transformer.blocks[0].ffn
+                if self.config.share_experts and i > 0:
+                    block.ffn.experts = self.transformer.blocks[0].ffn.experts
                 if should_checkpoint_block(self.activation_checkpointing_strategy, i):
                     # shape: (batch_size, seq_len, d_model)
                     x, cache = self._activation_checkpoint_fn(
-                        block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+                        block, x, **kwargs,
                     )
                 else:
                     # shape: (batch_size, seq_len, d_model)
-                    x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
+                    x, cache = block(x, **kwargs)
 
                 if attn_key_values is not None:
                     assert cache is not None
@@ -1543,7 +1574,7 @@ class OLMo(nn.Module):
         else:
             raise NotImplementedError(wrap_strategy)
 
-    def num_params(self, include_embedding: bool = True, include_inactivated_experts: bool = True) -> int:
+    def num_params(self, include_embedding: bool = True, include_inactivate_params: bool = True) -> int:
         """
         Get the total number of parameters.
         """
@@ -1553,14 +1584,29 @@ class OLMo(nn.Module):
                 lambda np: ".wte." not in np[0] and ".wpe." not in np[0],
                 params,
             )
-        if not include_inactivated_experts:
-            # Need to reduce blocks the number of experts that are selected
-            # e.g. 'transformer.blocks.0.ffn.experts.mlp.w1' has shape (total_experts, in_dim, out_dim)
+        if not include_inactivate_params:
+            # Need to reduce blocks to the number of experts that are selected
+            # If not dropless 'transformer.blocks.0.ffn.experts.mlp.w1' has shape (total_experts, in_dim, out_dim)
             # change to 'transformer.blocks.0.ffn.experts.mlp.w1' has shape (selected_experts, in_dim, out_dim)
+            # If dropless, the total_experts & out_dim are combined into one dimension
+            idx = self.config.moe_top_k
+            if self.config.moe_dropless:
+                idx *= self.transformer.blocks[0].moe_args.ffn_hidden_size
             params = [
-                (np[0], np[1][: self.config.moe_top_k] if "experts.mlp" in np[0] else np[1])
+                (np[0], np[1][: idx]) if "experts.mlp" in np[0] else np
                 for np in params
             ]
+            # Multiply block params by num layers if anything is shared
+            param_to_add = None
+            if self.config.share_blocks:
+                param_to_add = [(np[0], np[1]) for np in params if "blocks.0" in np[0]]
+            elif self.config.share_moe:
+                param_to_add = [(np[0], np[1]) for np in params if "ffn" in np[0]]
+            elif self.config.share_experts:
+                param_to_add = [(np[0], np[1]) for np in params if "experts.mlp" in np[0]]
+            if param_to_add is not None:
+                for _ in range(self.config.n_layers - 1):
+                    params.extend(param_to_add)
         return sum(p.numel() for _, p in params)
 
     @property

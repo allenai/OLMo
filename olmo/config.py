@@ -460,9 +460,24 @@ class ModelConfig(BaseConfig):
     If ``True``, share the same block across all layers.
     """
 
+    share_moe: bool = False
+    """
+    If ``True``, share the same experts across all layers.
+    """
+
     share_experts: bool = False
     """
     If ``True``, share the same experts across all layers.
+    """
+
+    init_dense_router: bool = False
+    """
+    If ``True``, initialize the MoE router as if it is a dense model.
+    """
+
+    load_balance: bool = True
+    """
+    If ``True``, use load-balance loss.
     """
 
     share_load_balance_across_layers: bool = False

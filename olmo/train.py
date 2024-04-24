@@ -743,7 +743,8 @@ class Trainer:
                     tokens_per_expert, _ = zip(*get_load_balancing_loss())
                     expert_assignments += torch.stack(tokens_per_expert, dim=0).cpu()
                     clear_load_balancing_loss()
-                    loss += lb_loss
+                    if self.model.config.load_balance:
+                        loss += lb_loss
                     lb_batch_loss += lb_loss.detach()
 
                 del logits
