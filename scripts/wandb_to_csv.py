@@ -62,7 +62,7 @@ def dump_run(run, output_file: Path):
     while True:
         while current_step in data.keys():
             current_step += 1
-        with click.progressbar(run.scan_history(min_step=current_step)) as bar:
+        with click.progressbar(run.scan_history(min_step=current_step, page_size=10000)) as bar:
             for s in bar:
                 step = s["_step"]
                 if step in data:
