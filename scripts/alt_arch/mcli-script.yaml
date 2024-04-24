@@ -18,7 +18,7 @@ command: |-
   popd
   export HF_DATASETS_OFFLINE=1
 
-  cd LLM
+  cd OLMo
 
   torchrun --master_addr $MASTER_ADDR \
   --master_port $MASTER_PORT \
