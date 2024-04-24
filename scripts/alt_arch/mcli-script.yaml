@@ -1,8 +1,9 @@
-run_name: mlp_mamba-gelu-300M-baseline
+name: mlp_mamba-gelu-300M-baseline
 image: mosaicml/llm-foundry:2.1.0_cu121_flash2-latest
-cluster: r15z4
-gpu_num: 16
-gpu_type: h100_80gb
+compute:
+  cluster: r15z4
+  gpus: 16
+  gpu_type: h100_80gb
 integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
