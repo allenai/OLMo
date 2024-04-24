@@ -24,6 +24,7 @@ __all__ = [
     "InvSqrtWithWarmup",
     "MaxScheduler",
     "ConstantScheduler",
+    "CosLinearEnvelope",
     "BoltOnWarmupScheduler",
     "build_optimizer",
     "build_scheduler",
@@ -586,6 +587,22 @@ class ConstantScheduler(Scheduler):
         return initial_lr
 
 
+@dataclass
+class CosLinearEnvelope(Scheduler):
+    "Pointwise product of cosine schedule and linear decay; useful during annealing."
+    t_max: Optional[int] = None
+
+    def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
+        eta_min = 0.0
+
+        if step >= max_steps:
+            return eta_min
+        else:
+            linear_envelope = initial_lr - (initial_lr - eta_min) * (step / max_steps)
+            cosine_schedule = (1 + cos(pi * step / max_steps)) / 2
+            return linear_envelope * cosine_schedule
+
+
 PARAM_GROUP_FIELDS = ("sharded", "max_grad_norm", "max_grad_norm_ratio", "param_names")
 
 
@@ -773,6 +790,15 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
             if sched_cfg.grad_clip_warmup_steps is None
             else int(sched_cfg.grad_clip_warmup_steps),
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
+            warmup_min_lr=sched_cfg.warmup_min_lr,
+        )
+    elif sched_cfg.name == SchedulerType.cosine_linear_envelope:
+        return CosLinearEnvelope(
+            grad_clip_warmup_steps=None
+            if sched_cfg.grad_clip_warmup_steps is None
+            else int(sched_cfg.grad_clip_warmup_steps),
+            grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
+            t_max=None if sched_cfg.t_max is None else int(sched_cfg.t_max),
             warmup_min_lr=sched_cfg.warmup_min_lr,
         )
     else:

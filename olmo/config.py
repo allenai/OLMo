@@ -504,6 +504,7 @@ class SchedulerType(StrEnum):
     inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
     max_scheduler = "max_scheduler"
     constant = "constant"
+    cosine_linear_envelope = "cosine_linear_envelope"
 
 
 class SchedulerUnits(StrEnum):
