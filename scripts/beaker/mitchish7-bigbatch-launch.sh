@@ -25,6 +25,7 @@ gantry run \
   --env-secret AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY \
   --shared-memory 10GiB \
   --venv base \
+  --propagate_failure \
   --yes \
   --timeout=-1 \
   -- /bin/bash -c "scripts/beaker/mitchish7-bigbatch.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES}"
