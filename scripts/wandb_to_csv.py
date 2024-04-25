@@ -66,7 +66,7 @@ def dump_run(run, output_file: Path):
         while current_step in data.keys():
             current_step += 1
         log.info("Downloading %s starting with step %d", run.path[-1], current_step)
-        for s in run.scan_history(min_step=current_step, page_size=100000):
+        for s in run.scan_history(min_step=current_step, page_size=10000):
             step = s["_step"]
             if step in data:
                 break
