@@ -125,54 +125,57 @@ def main(cfg: TrainConfig) -> None:
     olmo_model.set_activation_checkpointing(cfg.activation_checkpointing)
 
     # Wrap the model in FSDP.
-    log.info("Wrapping model with FDSP...")
-    wrap_policy = olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy)
+    if not cfg.fsdp.enabled:
+        log.info("Wrapping model with FDSP...")
+        wrap_policy = olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy)
 
-    if version.parse(torch.__version__) >= version.parse("2.1.0"):
-        # This prevents any parameters from being initialized twice
-        def dummy_init_fn(module: torch.nn.Module) -> None:
-            module.to_empty(device=get_default_device())
+        if version.parse(torch.__version__) >= version.parse("2.1.0"):
+            # This prevents any parameters from being initialized twice
+            def dummy_init_fn(module: torch.nn.Module) -> None:
+                module.to_empty(device=get_default_device())
 
-        param_init_fn = dummy_init_fn
-    else:
-        param_init_fn = None
+            param_init_fn = dummy_init_fn
+        else:
+            param_init_fn = None
 
-    # Set up device mesh for hybrid sharding in order to specify which nodes are assoicated to a given model replica
-    device_mesh: Optional[DeviceMesh] = None
-    if cfg.fsdp.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2):
-        if version.parse(torch.__version__) < version.parse("2.2.0"):
-            # Device mesh was not added to PyTorch until v2.2.0
-            raise OLMoConfigurationError(
-                "OLMo training does not correctly support hybrid sharding before torch 2.2.0"
+        # Set up device mesh for hybrid sharding in order to specify which nodes are assoicated to a given model replica
+        device_mesh: Optional[DeviceMesh] = None
+        if cfg.fsdp.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2):
+            if version.parse(torch.__version__) < version.parse("2.2.0"):
+                # Device mesh was not added to PyTorch until v2.2.0
+                raise OLMoConfigurationError(
+                    "OLMo training does not correctly support hybrid sharding before torch 2.2.0"
+                )
+
+            num_model_replicas = cfg.fsdp.hybrid_sharding_num_model_replicas or (
+                get_world_size() // get_local_world_size()
             )
 
-        num_model_replicas = cfg.fsdp.hybrid_sharding_num_model_replicas or (
-            get_world_size() // get_local_world_size()
+            if num_model_replicas <= 0:
+                raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must be a positive integer")
+
+            num_nodes = get_world_size() // get_local_world_size()
+            if num_nodes > 1 and num_nodes % num_model_replicas != 0:
+                raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must divide number of nodes")
+
+            device_mesh = init_device_mesh("cuda", (num_model_replicas, get_world_size() // num_model_replicas))
+
+        fsdp_model = FSDP(
+            olmo_model,
+            device_mesh=device_mesh,
+            sharding_strategy=cfg.fsdp.sharding_strategy,
+            mixed_precision=cfg.fsdp_precision,
+            auto_wrap_policy=wrap_policy,
+            use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
+            limit_all_gathers=True,
+            device_id=get_local_rank(),
+            param_init_fn=param_init_fn,
         )
-
-        if num_model_replicas <= 0:
-            raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must be a positive integer")
-
-        num_nodes = get_world_size() // get_local_world_size()
-        if num_nodes > 1 and num_nodes % num_model_replicas != 0:
-            raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must divide number of nodes")
-
-        device_mesh = init_device_mesh("cuda", (num_model_replicas, get_world_size() // num_model_replicas))
-
-    fsdp_model = FSDP(
-        olmo_model,
-        device_mesh=device_mesh,
-        sharding_strategy=cfg.fsdp.sharding_strategy,
-        mixed_precision=cfg.fsdp_precision,
-        auto_wrap_policy=wrap_policy,
-        use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
-        limit_all_gathers=True,
-        device_id=get_local_rank(),
-        param_init_fn=param_init_fn,
-    )
-    # when param_init_fn is None, FSDP will call reset_parameters() automatically
-    if param_init_fn is not None:
-        olmo_model.reset_parameters()
+        # when param_init_fn is None, FSDP will call reset_parameters() automatically
+        if param_init_fn is not None:
+            olmo_model.reset_parameters()
+    else:
+        fsdp_model = olmo_model
 
     log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory() or 0)}")
     log.info("Model:")

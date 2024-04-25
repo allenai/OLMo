@@ -118,7 +118,7 @@ def cross_entropy_loss(
 class Trainer:
     cfg: TrainConfig
     model: OLMo
-    fsdp_model: FSDP
+    fsdp_model: torch.nn.Module
     optim: Optimizer
     scheduler: Scheduler
     train_loader: DataLoader
@@ -708,7 +708,7 @@ class Trainer:
             collect_param_metrics=should_log_optim_metrics_this_step,
             # passing this process group here ensures metrics are reduced correctly when we're using
             # HYBRID sharding.
-            process_group=self.fsdp_model.process_group,
+            process_group=None,
         )
 
         # Adjust the learning rate.
@@ -747,7 +747,7 @@ class Trainer:
         # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:
             optim_metrics = self.optim.get_post_step_metrics(
-                self.fsdp_model, process_group=self.fsdp_model.process_group
+                self.fsdp_model, process_group=None
             )
             for key, value in optim_metrics.items():
                 metrics[f"optim/{key}"] = value.item()
