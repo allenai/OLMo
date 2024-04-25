@@ -15,7 +15,6 @@ gantry run \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
-  --propagate-failure \
   --budget ai2/oe-training \
   --no-nfs \
   --env LOG_FILTER_TYPE=local_rank0_only \
