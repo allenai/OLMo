@@ -5,11 +5,12 @@ set -ex
 NUM_NODES=4
 
 gantry run \
+  --allow-dirty \
   --workspace ai2/dirkg \
   --task-name mitchish7-bigbatch \
   --description "OLMo medium - 7B - bigbatch" \
   --priority high \
-  --beaker-image michaelw/olmo-torch2.2-gantry \
+  --beaker-image michaelw/olmo-torch2.2-gantry-static \
   --cluster ai2/jupiter-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \

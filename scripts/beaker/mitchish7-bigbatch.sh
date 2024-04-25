@@ -4,6 +4,7 @@ IFS=$'\n\t'
 
 BEAKER_LEADER_REPLICA_HOSTNAME=$1
 shift
+export RANK=$BEAKER_REPLICA_RANK
 
 NUM_NODES=$1
 shift
@@ -18,9 +19,9 @@ export HF_DATASETS_OFFLINE=1
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
-  --rdzv_id=101 \
-  --rdzv_backend=c10d \
-  --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
+  --rdzv_backend=static \
+  --master_addr=$BEAKER_LEADER_REPLICA_HOSTNAME \
+  --master_port=29400 \
   scripts/train.py \
   configs/mitchish7-s3.yaml \
     --run_name=mitchish7-bigbatch \
