@@ -68,10 +68,8 @@ def dump_run(run, output_file: Path):
         log.info("Downloading %s starting with step %d", run.path[-1], current_step)
         for s in run.scan_history(min_step=current_step, page_size=10000):
             step = s["_step"]
-            if step in data:
-                break
+            current_step = max(current_step, step + 1)
             data[step] = s
-            current_step = max(current_step, step)
         else:
             break
 
