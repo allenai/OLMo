@@ -9,7 +9,7 @@ gantry run \
   --task-name mitchish7-bigbatch \
   --description "OLMo medium - 7B - bigbatch" \
   --priority high \
-  --beaker-image shanea/olmo-torch2.2-gantry \
+  --beaker-image michaelw/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
@@ -23,7 +23,6 @@ gantry run \
   --env-secret WANDB_API_KEY=WANDB_API_KEY \
   --env-secret AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID \
   --env-secret AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY \
-  --env-secret GITHUB_TOKEN=GITHUB_TOKEN \
   --shared-memory 10GiB \
   --venv base \
   --propagate-failure \
