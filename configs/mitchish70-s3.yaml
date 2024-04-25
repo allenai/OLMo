@@ -45,7 +45,7 @@ optimizer:
   learning_rate: 1.5e-4
   weight_decay: 0.1
   decay_norm_and_bias: true
-  decay_embeddings: true
+  decay_embeddings: false
   betas:
   - 0.9
   - 0.95
