@@ -53,12 +53,6 @@ elif sys.version_info.minor == 8:
 else:
     raise SystemExit("This script supports Python 3.8 or higher")
 
-try:
-    from megablocks.layers.moe import MoE, dMoE
-    from megablocks.layers.arguments import Arguments as MoEArgs
-except ImportError:
-    log.warning("megablocks not installed, MoE layers will not be available.")
-
 __all__ = [
     "LayerNormBase",
     "LayerNorm",
@@ -75,9 +69,14 @@ __all__ = [
     "OLMoGenerateOutput",
 ]
 
-
 log = logging.getLogger(__name__)
 
+try:
+    from megablocks.layers.arguments import Arguments as MoEArgs
+    from megablocks.layers.dmoe import dMoE
+    from megablocks.layers.moe import MoE
+except ImportError:
+    log.warning("megablocks not installed, MoE layers will not be available.")
 
 def activation_checkpoint_function(cfg: ModelConfig):
     preserve_rng_state = (
@@ -705,7 +704,7 @@ class OLMoEBlock(OLMoBlock):
             bias=self.config.include_bias,
             return_bias=False,
         )
-        if self.config.moe_dropless
+        if self.config.moe_dropless:
             self.ffn = dMoE(self.moe_args)
         else:
             self.ffn = MoE(self.moe_args)
