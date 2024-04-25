@@ -425,10 +425,10 @@ class OLMoBlock(nn.Module):
         self.k_norm: Optional[LayerNormBase] = None
         self.q_norm: Optional[LayerNormBase] = None
         if config.attention_layer_norm:
-            assert config.n_kv_heads is not None
+            assert config.effective_n_kv_heads is not None
             self.k_norm = LayerNormBase.build(
                 config,
-                size=config.d_model // config.effective_n_kv_heads,
+                size=(config.d_model // config.n_heads) * config.effective_n_kv_heads,
                 elementwise_affine=config.attention_layer_norm_with_affine,
             )
             self.q_norm = LayerNormBase.build(config, elementwise_affine=config.attention_layer_norm_with_affine)

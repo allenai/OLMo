@@ -2,6 +2,8 @@
 OLMo configuration
 """
 
+import transformers
+from packaging import version
 from transformers import AutoConfig, PretrainedConfig
 from transformers.utils import logging
 
@@ -20,10 +22,7 @@ class OLMoConfig(PretrainedConfig):
         all_kwargs.update(kwargs)
         all_kwargs.update({"use_cache": use_cache})
         all_kwargs.update(
-            {
-                "architectures": all_kwargs.get("architectures", ["OLMoModelForCausalLM"])
-                or ["OLMoModelForCausalLM"]
-            }
+            {"architectures": all_kwargs.get("architectures", ["OLMoForCausalLM"]) or ["OLMoForCausalLM"]}
         )
         super().__init__(**all_kwargs)
 
@@ -40,5 +39,7 @@ class OLMoConfig(PretrainedConfig):
         return self.d_model
 
 
-# Register the config class so that it is available for transformer pipelines, auto-loading etc.
-AutoConfig.register("olmo", OLMoConfig)
+if version.parse(transformers.__version__) < version.parse("4.40.0"):
+    # Register the config class so that it is available for transformer pipelines, auto-loading etc.
+    # OLMo is integrated directly in transformers from v4.40.0 onwards
+    AutoConfig.register("olmo", OLMoConfig)

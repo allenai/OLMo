@@ -1181,6 +1181,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
         dataset_name=None,
         split="validation",
         prompt_variations=None,
+        mc_labels=False,
     ):
         dataset_names = []
         # Collect the relevant categories
@@ -1196,9 +1197,15 @@ class MMLU(ICLMultiChoiceTaskDataset):
                 if dataset_name in cats:
                     dataset_names.append(name)
         self.dev_set = {}
+        self.mc_labels = mc_labels
         prompts: List[Union[None, str]] = [None]
-        if prompt_variations == 1:
-            prompts = [None, "inst", "inst+1", "inst+2", "inst+3", "inst+4", "inst+5"]
+        if prompt_variations is not None:
+            if prompt_variations == 1:
+                prompts = [None, "inst", "inst+1", "inst+2", "inst+3", "inst+4", "inst+5"]
+            elif prompt_variations == 2:
+                prompts = ["inst+5"]
+            else:
+                raise ValueError(f"Unknown prompt variations: {prompt_variations}")
             # Need to grab the dev set for the few-shot prompts
             for name in dataset_names:
                 self.dev_set[name] = datasets.load_dataset(
@@ -1213,7 +1220,20 @@ class MMLU(ICLMultiChoiceTaskDataset):
         )
 
     def doc_to_text(self, doc):
-        output_text = "Question: " + doc["question"] + "\nAnswer:"
+        def format_example(doc, keys):
+            question_prefix = ""
+            if not self.mc_labels:
+                question_prefix = "Question: "  # To make context more clear
+            question = question_prefix + doc["question"].strip()
+            choices = ""
+            if self.mc_labels:
+                choices = "".join([f"{key}. {choice}\n" for key, choice in zip(keys, doc["choices"])])
+            prompt = f"{question}\n{choices}Answer:"
+            return prompt
+
+        keys = ["A", "B", "C", "D"]
+        output_text = format_example(doc, keys)
+
         if self.current_prompt is not None:
             prefix = ""
             if "inst" in self.current_prompt:
@@ -1226,13 +1246,18 @@ class MMLU(ICLMultiChoiceTaskDataset):
                 for idx, dev_doc in enumerate(dev_set):
                     if idx >= num_shots_int:
                         break
-                    answer = dev_doc["choices"][dev_doc["answer"]]
-                    prefix += "Question: " + dev_doc["question"] + "\nAnswer: " + answer + "\n\n"
+                    if self.mc_labels:
+                        answer = keys[dev_doc["answer"]]
+                    else:
+                        answer = dev_doc["choices"][dev_doc["answer"]]
+                    prefix += format_example(dev_doc, keys) + " " + answer + "\n\n"
             output_text = prefix + output_text
         return output_text
 
     def doc_to_continuations(self, doc):
         # add spaces in front of continuation
+        if self.mc_labels:
+            return [" A", " B", " C", " D"]
         return [" " + choice for choice in doc["choices"]]
 
     def doc_to_label(self, doc):
@@ -1346,4 +1371,27 @@ label_to_task_map = {
     "mmlu_humanities_var": (MMLU, {"dataset_name": "humanities", "prompt_variations": 1}),
     "mmlu_social_sciences_var": (MMLU, {"dataset_name": "social_sciences", "prompt_variations": 1}),
     "mmlu_other_var": (MMLU, {"dataset_name": "other", "prompt_variations": 1}),
+    "mmlu_stem_mc_5shot": (MMLU, {"dataset_name": "stem", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_humanities_mc_5shot": (MMLU, {"dataset_name": "humanities", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_social_sciences_mc_5shot": (
+        MMLU,
+        {"dataset_name": "social_sciences", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_other_mc_5shot": (MMLU, {"dataset_name": "other", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_stem_mc_5shot_test": (
+        MMLU,
+        {"dataset_name": "stem", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_humanities_mc_5shot_test": (
+        MMLU,
+        {"dataset_name": "humanities", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_social_sciences_mc_5shot_test": (
+        MMLU,
+        {"dataset_name": "social_sciences", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_other_mc_5shot_test": (
+        MMLU,
+        {"dataset_name": "other", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
 }
