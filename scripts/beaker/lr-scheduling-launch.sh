@@ -16,6 +16,7 @@ gantry run \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
+  --propagate-failure \
   --no-nfs \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
