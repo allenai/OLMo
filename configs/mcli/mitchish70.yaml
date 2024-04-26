@@ -67,7 +67,7 @@ command: |-
     '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
     --load_path_sharded_checkpointer=olmo_core \
     --sharded_checkpointer=olmo_core \
-    --global_train_batch_size=2700 \
+    --global_train_batch_size=2688 \
     --device_train_microbatch_size=3 \
     --fsdp.sharding_strategy=HYBRID_SHARD \
     --fsdp.hybrid_sharding_num_model_replicas=4 \
