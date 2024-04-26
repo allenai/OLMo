@@ -1,7 +1,7 @@
 name: olmo-70b
-# image: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
+image: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
 # image: public.ecr.aws/z0f8p3z5/olmo:pytorch2.2.1_cu121-python3.11-ubuntu20.04
-image: us-central1-docker.pkg.dev/ai2-olmo/olmo/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
+# image: us-central1-docker.pkg.dev/ai2-olmo/olmo/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
 scheduling:
   priority: auto
   # preemptible: true  # means it can be retried
