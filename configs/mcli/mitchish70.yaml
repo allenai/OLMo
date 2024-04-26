@@ -47,10 +47,10 @@ command: |-
 
   checkpoint=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step160500-unsharded-hacked
   mkdir /root/checkpoint-unsharded
-  aws s3 cp ${checkpoint}/config.yaml /root/checkpoint-unsharded/
-  aws s3 cp ${checkpoint}/train.pt /root/checkpoint-unsharded/
-  aws s3 cp ${checkpoint}/model.safetensors /root/checkpoint-unsharded/
-  aws s3 cp ${checkpoint}/optim.safetensors /root/checkpoint-unsharded/
+  aws s3 cp --no-progress ${checkpoint}/config.yaml /root/checkpoint-unsharded/
+  aws s3 cp --no-progress ${checkpoint}/train.pt /root/checkpoint-unsharded/
+  aws s3 cp --no-progress ${checkpoint}/model.safetensors /root/checkpoint-unsharded/
+  aws s3 cp --no-progress ${checkpoint}/optim.safetensors /root/checkpoint-unsharded/
 
   cd OLMo
 
