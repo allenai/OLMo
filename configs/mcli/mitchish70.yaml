@@ -63,7 +63,7 @@ command: |-
   --nproc_per_node 8 \
   scripts/train.py configs/mitchish70-s3.yaml \
     --run_name=mitchish70-clip1 \
-    --wandb.group=mitchish70-official \
+    --wandb.group=mitchish70-clip1 \
     '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
     --load_path_sharded_checkpointer=olmo_core \
     --sharded_checkpointer=olmo_core \
