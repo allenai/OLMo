@@ -1,3 +1,4 @@
+import gc
 import io
 import logging
 import pickle
@@ -54,7 +55,7 @@ from .torch_util import (
     gc_cuda,
     get_fs_local_rank,
     get_global_rank,
-    get_world_size,
+    get_world_size, get_local_world_size, get_local_rank,
 )
 from .util import (
     _get_s3_client,
@@ -731,7 +732,16 @@ class FullCheckpointer(Checkpointer):
                     optim_state_dict_to_load,
                     og_keys_to_new,
                 )
-                load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
+                gc.collect()
+                torch.cuda.empty_cache()
+                barrier()
+                for turn in range(get_local_world_size()):
+                    log.info("Loading optimizer state turn %d ...", turn)
+                    if turn == get_local_rank():
+                        load_fsdp_optim_state(fsdp_model, optim, optim_state_dict_to_load)
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                    barrier()
                 del optim_state_dict_to_load
 
             # Load other state.
