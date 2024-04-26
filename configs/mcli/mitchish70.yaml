@@ -45,12 +45,12 @@ command: |-
   popd
   export HF_DATASETS_OFFLINE=1
 
-  #checkpoint=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step35750-unsharded
-  #mkdir /root/checkpoint-unsharded
-  #aws s3 cp ${checkpoint}/config.yaml /root/checkpoint-unsharded/
-  #aws s3 cp ${checkpoint}/train.pt /root/checkpoint-unsharded/
-  #aws s3 cp ${checkpoint}/model.safetensors /root/checkpoint-unsharded/
-  #aws s3 cp ${checkpoint}/optim.safetensors /root/checkpoint-unsharded/
+  checkpoint=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step160500-unsharded-hacked
+  mkdir /root/checkpoint-unsharded
+  aws s3 cp ${checkpoint}/config.yaml /root/checkpoint-unsharded/
+  aws s3 cp ${checkpoint}/train.pt /root/checkpoint-unsharded/
+  aws s3 cp ${checkpoint}/model.safetensors /root/checkpoint-unsharded/
+  aws s3 cp ${checkpoint}/optim.safetensors /root/checkpoint-unsharded/
 
   cd OLMo
 
@@ -73,7 +73,7 @@ command: |-
     --fsdp.hybrid_sharding_num_model_replicas=4 \
     --time_limit=604800 \
     --save_overwrite \
-    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step160500
+    --load_path=/root/checkpoint-unsharded
 
 #
 # --fsdp.sharding_strategy=HYBRID_SHARD \
