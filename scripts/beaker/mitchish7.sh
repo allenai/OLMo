@@ -23,8 +23,9 @@ torchrun \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   scripts/train.py \
   configs/mitchish7-s3.yaml \
-    --run_name=mitchish7 \
-    --wandb.name=mitchish7 \
+    --run_name=mitchish7-find-spike \
+    --wandb.name=mitchish7-find-spike \
+    --wandb.group=mitchish7-find-spike \
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
@@ -33,5 +34,7 @@ torchrun \
     --fused_loss=true \
     --device_train_microbatch_size=2 \
     --global_train_batch_size=1024 \
-    --save_overwrite \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/}'
+    --save_interval=10 \
+    --stop_at=437150 \
+    --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7-find-spike/ \
+    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step47500-unsharded/
