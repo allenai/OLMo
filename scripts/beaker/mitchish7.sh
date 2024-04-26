@@ -38,4 +38,4 @@ torchrun \
     --save_interval_unsharded=1 \
     --stop_at=47670 \
     --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7-find-spike/ \
-    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step47660-unsharded/
+    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7-find-spike/step47660/
