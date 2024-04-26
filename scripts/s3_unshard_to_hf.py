@@ -31,6 +31,11 @@ def make_parser():
         help="S3 bucket to save the unsharded checkpoint.",
         type=str,
     )
+    parser.add_argument(
+        "--already_unsharded",
+        action="store_true",
+        help="If given, the checkpoint has already been unsharded; just convert to HF.",
+    )
     parser.add_argument("--hf_bucket", help="S3 bucket to save the HF-converted checkpoint.", type=str)
     parser.add_argument(
         "--tmp_dir",
@@ -65,21 +70,26 @@ def s3_unshard_to_hf(args):
     hf_dir = args.tmp_dir / "hf"
     hf_dir.mkdir()
 
-    # Download sharded checkpoint.
-    print("Downloading sharded checkpoint from S3.")
-    download_cmd = aws_copy(args.sharded_bucket, sharded_dir, args.quiet)
-    subprocess.run(download_cmd, shell=True, check=True)
+    # Either download the unsharded checkpoint, or download sharded and unshard.
+    if args.already_unsharded:
+        download_cmd = aws_copy(args.unsharded_bucket, unsharded_dir, args.quiet)
+        subprocess.run(download_cmd, shell=True, check=True)
+    else:
+        # Download sharded checkpoint.
+        print("Downloading sharded checkpoint from S3.")
+        download_cmd = aws_copy(args.sharded_bucket, sharded_dir, args.quiet)
+        subprocess.run(download_cmd, shell=True, check=True)
 
-    # Unshard.
-    print("Unsharding.")
-    unshard_cmd = f"python scripts/unshard.py {sharded_dir} {unsharded_dir}"
-    # Add a `--type` argument if given.
-    if args.type is not None:
-        unshard_cmd += f" --type {args.type}"
-    if args.model_only:
-        unshard_cmd += " --model-only"
+        # Unshard.
+        print("Unsharding.")
+        unshard_cmd = f"python scripts/unshard.py {sharded_dir} {unsharded_dir}"
+        # Add a `--type` argument if given.
+        if args.type is not None:
+            unshard_cmd += f" --type {args.type}"
+        if args.model_only:
+            unshard_cmd += " --model-only"
 
-    subprocess.run(unshard_cmd, shell=True, check=True)
+        subprocess.run(unshard_cmd, shell=True, check=True)
 
     # Convert to HF
     print("Converting to HF.")
@@ -97,9 +107,10 @@ def s3_unshard_to_hf(args):
         (unsharded_dir / fname).rename(hf_dir / fname)
 
     # Upload the unsharded and HF files back to S3.
-    print("Uploading unsharded and HF files back to S3.")
-    upload_unsharded_cmd = aws_copy(unsharded_dir, args.unsharded_bucket, args.quiet)
-    subprocess.run(upload_unsharded_cmd, shell=True, check=True)
+    print("Uploading files back to S3.")
+    if not args.already_unsharded:
+        upload_unsharded_cmd = aws_copy(unsharded_dir, args.unsharded_bucket, args.quiet)
+        subprocess.run(upload_unsharded_cmd, shell=True, check=True)
 
     upload_hf_cmd = aws_copy(hf_dir, args.hf_bucket, args.quiet)
     subprocess.run(upload_hf_cmd, shell=True, check=True)
