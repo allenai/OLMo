@@ -35,6 +35,7 @@ torchrun \
     --device_train_microbatch_size=2 \
     --global_train_batch_size=1024 \
     --save_interval=10 \
-    --stop_at=47680 \
+    --save_interval_unsharded=1 \
+    --stop_at=47670 \
     --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7-find-spike/ \
-    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step47500-unsharded/
+    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step47660-unsharded/
