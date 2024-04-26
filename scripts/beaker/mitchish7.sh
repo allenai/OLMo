@@ -36,5 +36,7 @@ torchrun \
     --global_train_batch_size=1024 \
     --save_interval=1 \
     --stop_at=47670 \
+    --optimizer.metrics_log_interval=1 \
     --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7-find-spike/ \
-    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7-find-spike/step47660/
+    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7-find-spike/step47660/ \
+    --save_overwrite
