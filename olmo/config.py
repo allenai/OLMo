@@ -531,6 +531,12 @@ class SchedulerConfig(BaseConfig):
     vs after the warmup period.
     """
 
+    warmup_min_lr: Optional[float] = None
+    """
+    The starting LR during the warmup period. If not set this defaults to 10% of
+    the target LR.
+    """
+
 
 class PaddingDirection(StrEnum):
     right = "right"
@@ -681,6 +687,14 @@ class FSDPConfig(BaseConfig):
 
     precision: FSDPPrecision = FSDPPrecision.pure
 
+    hybrid_sharding_num_model_replicas: Optional[int] = None
+    """
+    The number of model instances, when using a hybrid sharding strategy.
+    If not ``None``, this must divide the total number of nodes. If ``None``, the default,
+    a model instance is used per node (as determined by ``get_world_size() // get_local_world_size()``).
+    PyTorch's default HSDP behavior matches this default behavior.
+    """
+
 
 class CheckpointType(StrEnum):
     sharded = "sharded"
@@ -692,6 +706,7 @@ class ShardedCheckpointerType(StrEnum):
     torch_new = "torch_new"
     torch_legacy = "torch_legacy"
     local = "local"
+    olmo_core = "olmo_core"
 
 
 class ActivationCheckpointingStrategy(StrEnum):
@@ -985,6 +1000,12 @@ class TrainConfig(BaseConfig):
     console_log_interval: int = 1
     """
     How often to log to the console.
+    """
+
+    gen1_gc_interval: Optional[int] = 1
+    """
+    How often (in steps) to run generation 1 garbage collection.
+    Set to ``None`` to use automatic garbage collection (i.e. we don't mess with it).
     """
 
     compile: Optional[CompilerConfig] = None

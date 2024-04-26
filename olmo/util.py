@@ -330,6 +330,8 @@ def file_size(path: PathOrStr) -> int:
             return _gcs_file_size(parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme in ("s3", "r2"):
             return _s3_file_size(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
+        elif parsed.scheme in ("http", "https"):
+            return _http_file_size(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return file_size(str(path).replace("file://", "", 1))
         else:
@@ -364,10 +366,14 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
             return _s3_get_bytes_range(
                 parsed.scheme, parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes
             )
+        elif parsed.scheme in ("http", "https"):
+            return _http_get_bytes_range(
+                parsed.scheme, parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes
+            )
         elif parsed.scheme == "file":
             return get_bytes_range(str(source).replace("file://", "", 1), bytes_start, num_bytes)
         else:
-            raise NotImplementedError(f"file size not implemented for '{parsed.scheme}' files")
+            raise NotImplementedError(f"get bytes range not implemented for '{parsed.scheme}' files")
     else:
         with open(source, "rb") as f:
             f.seek(bytes_start)
@@ -511,12 +517,12 @@ def _s3_upload(
                 _wait_before_retry(attempt)
 
         if err is not None:
-            raise OLMoNetworkError("Failed to check object existence during s3 upload") from err
+            raise OLMoNetworkError(f"Failed to check object existence during {scheme} upload") from err
 
     try:
         _get_s3_client(scheme).upload_file(source, bucket_name, key)
     except boto_exceptions.ClientError as e:
-        raise OLMoNetworkError("Failed to upload to s3") from e
+        raise OLMoNetworkError(f"Failed to upload to {scheme}") from e
 
 
 def _s3_file_size(scheme: str, bucket_name: str, key: str, max_attempts: int = 3) -> int:
@@ -533,7 +539,7 @@ def _s3_file_size(scheme: str, bucket_name: str, key: str, max_attempts: int = 3
             log.warning("%s failed attempt %d with retriable error: %s", _s3_file_size.__name__, attempt, err)
             _wait_before_retry(attempt)
 
-    raise OLMoNetworkError("Failed to get s3 file size") from err
+    raise OLMoNetworkError(f"Failed to get {scheme} file size") from err
 
 
 def _s3_get_bytes_range(
@@ -551,7 +557,7 @@ def _s3_get_bytes_range(
             )
         except boto_exceptions.ClientError as e:
             if e.response["ResponseMetadata"]["HTTPStatusCode"] == 404:
-                raise FileNotFoundError(f"s3://{bucket_name}/{key}") from e
+                raise FileNotFoundError(f"{scheme}://{bucket_name}/{key}") from e
             err = e
         except (boto_exceptions.HTTPClientError, boto_exceptions.ConnectionError) as e:
             # ResponseStreamingError (subclass of HTTPClientError) can happen as
@@ -572,7 +578,7 @@ def _s3_get_bytes_range(
     # This can cause an irrelevant exception (e.g. KeyError: 'error'), resulting
     # in us losing the true exception info. To avoid this, we change the exception
     # to a type that has a single-parameter constructor.
-    raise OLMoNetworkError("Failed to get bytes range from s3") from err
+    raise OLMoNetworkError(f"Failed to get bytes range from {scheme}") from err
 
 
 def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Optional[str]:
@@ -600,8 +606,28 @@ def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Op
         # We prioritize sharded checkpoints over unsharded ones.
         if step > latest_step or (step == latest_step and not checkpoint_name.endswith("-unsharded")):
             latest_step = step
-            latest_checkpoint = f"s3://ai2-llm/{prefix}"
+            latest_checkpoint = f"{scheme}://ai2-llm/{prefix}"
     return latest_checkpoint
+
+
+def _http_file_size(scheme: str, host_name: str, path: str) -> int:
+    import requests
+
+    response = requests.head(f"{scheme}://{host_name}/{path}", allow_redirects=True)
+    return int(response.headers.get("content-length"))
+
+
+def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: int, num_bytes: int) -> bytes:
+    import requests
+
+    response = requests.get(
+        f"{scheme}://{host_name}/{path}", headers={"Range": f"bytes={bytes_start}-{bytes_start+num_bytes-1}"}
+    )
+    result = response.content
+    assert (
+        len(result) == num_bytes
+    ), f"expected {num_bytes} bytes, got {len(result)}"  # Some web servers silently ignore range requests and send everything
+    return result
 
 
 def default_thread_count() -> int:

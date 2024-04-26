@@ -62,7 +62,7 @@ jobs:
             task:
               name: Data pipeline
               run: |
-                python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/c4-sample.npy --validate
+                python scripts/prepare_memmap_dataset.py test_fixtures/*.json.gz -o /tmp/c4-sample.npy --validate --ack-deprecated
 
     steps:
       - uses: actions/checkout@v3

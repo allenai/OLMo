@@ -19,7 +19,7 @@ class ICLMetric(Metric):
     full_state_update: bool = False
 
     def __init__(self, metric_type="acc") -> None:
-        """metric_type: f1, acc, len_norm, pmi_dc"""
+        """metric_type: f1, acc, len_norm, pmi_dc, ce_loss"""
         super().__init__(sync_on_compute=True)
 
         self.metric_type = metric_type
@@ -65,10 +65,12 @@ class ICLMetric(Metric):
             elif self.metric_type == "acc" or self.metric_type == "f1":
                 # gather log-probs at continuation token indices
                 log_likelihood = torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum()
-            elif self.metric_type == "len_norm":
+            elif self.metric_type == "len_norm" or self.metric_type == "ce_loss":
                 log_likelihood = (
                     torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum() / batch["cont_str_len"][idx]
                 )
+                if self.metric_type == "ce_loss":
+                    log_likelihood = -log_likelihood
             else:
                 raise ValueError(self.metric_type)
 
@@ -123,8 +125,10 @@ class ICLMetric(Metric):
 
             if skip_document:
                 continue
-
-            correct.append(1.0 if torch.argmax(loglikelihoods).item() == label_dict[doc_id] else 0.0)
+            if self.metric_type == "ce_loss":
+                correct.append(loglikelihoods[0])  # Only one answer is scored
+            else:
+                correct.append(1.0 if torch.argmax(loglikelihoods).item() == label_dict[doc_id] else 0.0)
 
             if self.metric_type == "f1":
                 assert preds is not None
@@ -589,7 +593,7 @@ class OpenBookQA(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="openbookqa", dataset_name=None):
+    def __init__(self, tokenizer, dataset_path="openbookqa", dataset_name="main"):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -752,6 +756,20 @@ class ArcChallenge(ArcEasy):
             dataset_path=dataset_path,
             dataset_name=dataset_name,
         )
+
+
+class ArcEasyCELoss(ArcEasy):
+    """ArcEasyCELoss is ARCEasy using an alternate ce_loss metric"""
+
+    metric_type = "ce_loss"
+
+    def doc_to_continuations(self, doc):
+        # We only consider the correct answer for this metric
+        answer = doc["choices"]["text"][self.doc_to_label(doc)]
+        return [" " + answer]
+
+    def doc_to_label(self, doc):
+        return 0
 
 
 class BasicArithmetic(ArcEasy):
@@ -1163,6 +1181,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
         dataset_name=None,
         split="validation",
         prompt_variations=None,
+        mc_labels=False,
     ):
         dataset_names = []
         # Collect the relevant categories
@@ -1178,9 +1197,15 @@ class MMLU(ICLMultiChoiceTaskDataset):
                 if dataset_name in cats:
                     dataset_names.append(name)
         self.dev_set = {}
+        self.mc_labels = mc_labels
         prompts: List[Union[None, str]] = [None]
-        if prompt_variations == 1:
-            prompts = [None, "inst", "inst+1", "inst+2", "inst+3", "inst+4", "inst+5"]
+        if prompt_variations is not None:
+            if prompt_variations == 1:
+                prompts = [None, "inst", "inst+1", "inst+2", "inst+3", "inst+4", "inst+5"]
+            elif prompt_variations == 2:
+                prompts = ["inst+5"]
+            else:
+                raise ValueError(f"Unknown prompt variations: {prompt_variations}")
             # Need to grab the dev set for the few-shot prompts
             for name in dataset_names:
                 self.dev_set[name] = datasets.load_dataset(
@@ -1195,7 +1220,20 @@ class MMLU(ICLMultiChoiceTaskDataset):
         )
 
     def doc_to_text(self, doc):
-        output_text = "Question: " + doc["question"] + "\nAnswer:"
+        def format_example(doc, keys):
+            question_prefix = ""
+            if not self.mc_labels:
+                question_prefix = "Question: "  # To make context more clear
+            question = question_prefix + doc["question"].strip()
+            choices = ""
+            if self.mc_labels:
+                choices = "".join([f"{key}. {choice}\n" for key, choice in zip(keys, doc["choices"])])
+            prompt = f"{question}\n{choices}Answer:"
+            return prompt
+
+        keys = ["A", "B", "C", "D"]
+        output_text = format_example(doc, keys)
+
         if self.current_prompt is not None:
             prefix = ""
             if "inst" in self.current_prompt:
@@ -1208,17 +1246,93 @@ class MMLU(ICLMultiChoiceTaskDataset):
                 for idx, dev_doc in enumerate(dev_set):
                     if idx >= num_shots_int:
                         break
-                    answer = dev_doc["choices"][dev_doc["answer"]]
-                    prefix += "Question: " + dev_doc["question"] + "\nAnswer: " + answer + "\n\n"
+                    if self.mc_labels:
+                        answer = keys[dev_doc["answer"]]
+                    else:
+                        answer = dev_doc["choices"][dev_doc["answer"]]
+                    prefix += format_example(dev_doc, keys) + " " + answer + "\n\n"
             output_text = prefix + output_text
         return output_text
 
     def doc_to_continuations(self, doc):
         # add spaces in front of continuation
+        if self.mc_labels:
+            return [" A", " B", " C", " D"]
         return [" " + choice for choice in doc["choices"]]
 
     def doc_to_label(self, doc):
         return doc["answer"]
+
+    def doc_to_domain_conditional(self, doc):
+        del doc
+        return "Answer:"
+
+
+class TriviaQACELoss(ICLMultiChoiceTaskDataset):
+    """Sample TriviaQA entity with some fields suppressed. For CE Loss we only consider the "value"
+    field as the answer to score.
+
+    {
+        'question': 'Which Lloyd Webber musical premiered in the US on 10th December 1993?',
+        'question_id': 'tc_33',
+        'answer': {
+            'aliases': ['Sunset Blvd', ...],
+            'normalized_aliases': ['sunset boulevard', ...],
+            'normalized_value': 'sunset boulevard',
+            'value': 'Sunset Boulevard'
+        }
+    }
+    """
+
+    metric_type = "ce_loss"
+
+    def __init__(self, tokenizer, dataset_path="trivia_qa", dataset_name="rc.wikipedia.nocontext"):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+    def doc_to_text(self, doc):
+        return "\nQuestion: " + doc["question"] + "\nAnswer:"
+
+    def doc_to_continuations(self, doc):
+        return [" " + doc["answer"]["value"]]
+
+    def doc_to_label(self, doc):
+        return 0
+
+    def doc_to_domain_conditional(self, doc):
+        del doc
+        return "Answer:"
+
+
+class NaturalQuestionsCELoss(ICLMultiChoiceTaskDataset):
+    """Sample NaturalQuestions entity. For CE Loss we only consider the first answer entry to score.
+
+    {
+        'question': 'when was the last time anyone was on the moon',
+        'answer': ['14 December 1972 UTC', 'December 1972']
+    }
+    """
+
+    metric_type = "ce_loss"
+
+    def __init__(self, tokenizer, dataset_path="nq_open", dataset_name=None):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+    def doc_to_text(self, doc):
+        return "\nQuestion: " + doc["question"] + "\nAnswer:"
+
+    def doc_to_continuations(self, doc):
+        return [" " + doc["answer"][0]]
+
+    def doc_to_label(self, doc):
+        return 0
 
     def doc_to_domain_conditional(self, doc):
         del doc
@@ -1233,6 +1347,7 @@ label_to_task_map = {
     "boolq": BoolQ,
     "sciq": SciQ,
     "arc_easy": ArcEasy,
+    "arc_easy_ppl": ArcEasyCELoss,
     "arc_challenge": ArcChallenge,
     "basic_arithmetic": BasicArithmetic,
     "copa": COPA,
@@ -1242,6 +1357,8 @@ label_to_task_map = {
     "sst2": SST2,
     "commonsense_qa": CommonsenseQA,
     "social_iqa": SocialIQa,
+    "trivia_qa_wiki_ppl": TriviaQACELoss,
+    "natural_qs_open_ppl": NaturalQuestionsCELoss,
     "mmlu_stem_test": (MMLU, {"dataset_name": "stem", "split": "test"}),
     "mmlu_humanities_test": (MMLU, {"dataset_name": "humanities", "split": "test"}),
     "mmlu_social_sciences_test": (MMLU, {"dataset_name": "social_sciences", "split": "test"}),
@@ -1254,4 +1371,27 @@ label_to_task_map = {
     "mmlu_humanities_var": (MMLU, {"dataset_name": "humanities", "prompt_variations": 1}),
     "mmlu_social_sciences_var": (MMLU, {"dataset_name": "social_sciences", "prompt_variations": 1}),
     "mmlu_other_var": (MMLU, {"dataset_name": "other", "prompt_variations": 1}),
+    "mmlu_stem_mc_5shot": (MMLU, {"dataset_name": "stem", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_humanities_mc_5shot": (MMLU, {"dataset_name": "humanities", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_social_sciences_mc_5shot": (
+        MMLU,
+        {"dataset_name": "social_sciences", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_other_mc_5shot": (MMLU, {"dataset_name": "other", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_stem_mc_5shot_test": (
+        MMLU,
+        {"dataset_name": "stem", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_humanities_mc_5shot_test": (
+        MMLU,
+        {"dataset_name": "humanities", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_social_sciences_mc_5shot_test": (
+        MMLU,
+        {"dataset_name": "social_sciences", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_other_mc_5shot_test": (
+        MMLU,
+        {"dataset_name": "other", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
 }
