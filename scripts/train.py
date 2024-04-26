@@ -11,7 +11,6 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 import wandb
 from packaging import version
-from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import ShardingStrategy
 
@@ -138,13 +137,15 @@ def main(cfg: TrainConfig) -> None:
         param_init_fn = None
 
     # Set up device mesh for hybrid sharding in order to specify which nodes are assoicated to a given model replica
-    device_mesh: Optional[DeviceMesh] = None
+    device_mesh = None
     if cfg.fsdp.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2):
         if version.parse(torch.__version__) < version.parse("2.2.0"):
             # Device mesh was not added to PyTorch until v2.2.0
             raise OLMoConfigurationError(
                 "OLMo training does not correctly support hybrid sharding before torch 2.2.0"
             )
+
+        from torch.distributed.device_mesh import init_device_mesh
 
         num_model_replicas = cfg.fsdp.hybrid_sharding_num_model_replicas or (
             get_world_size() // get_local_world_size()
