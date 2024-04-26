@@ -73,6 +73,7 @@ torchrun \
       --model.activation_type=gelu \
       --model.mlp_ratio=4 \
       --model.n_layers=16 \
+      --load_path=s3://allennlp-ananyaj/alt_arch/mlp_mamba-gelu-300M-baseline/step35000/ \
       --save_overwrite
 
 # zamba-300M
