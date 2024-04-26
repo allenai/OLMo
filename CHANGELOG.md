@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+- Added original legacy unsharding implementation back, as the default. The new
+shared memory implementation can be used by passing `use_legacy_shared_mem_impl` to `unshard.py`.
+
 ## [v0.3.0](https://github.com/allenai/OLMo/releases/tag/v0.3.0) - 2024-04-25
 
 ### Added
