@@ -22,6 +22,7 @@ def main(
     sharded_checkpoint_type: ShardedCheckpointerType = ShardedCheckpointerType.torch_legacy,
     model_only: bool = False,
     safe_tensors: bool = False,
+    use_shared_mem_impl: bool = False,
 ) -> None:
     if isinstance(input_dir, str):
         input_dir = Path(input_dir)
@@ -32,7 +33,7 @@ def main(
     config = TrainConfig.load(input_dir / "config.yaml", validate_paths=False)
     checkpointer: Checkpointer
     if sharded_checkpoint_type == ShardedCheckpointerType.torch_legacy:
-        checkpointer = TorchLegacyShardedCheckpointer(config)
+        checkpointer = TorchLegacyShardedCheckpointer(config, use_shared_mem_impl=use_shared_mem_impl)
     elif sharded_checkpoint_type == ShardedCheckpointerType.local:
         checkpointer = LocalShardedCheckpointer(config)
     else:
@@ -99,6 +100,14 @@ if __name__ == "__main__":
         "--safe-tensors",
         action="store_true",
     )
+    parser.add_argument(
+        "--use-legacy-shared-mem-impl",
+        action="store_true",
+        help="""This ignored if type is not torch_legacy. For legacy sharded checkpoints,
+        use the shared memory implementation. This has high CPU, RAM and shared
+        memory requirements but can be significantly faster when the world size
+        is large (e.g. 1024).""",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -108,4 +117,5 @@ if __name__ == "__main__":
         sharded_checkpoint_type=args.type,
         model_only=args.model_only,
         safe_tensors=args.safe_tensors,
+        use_shared_mem_impl=args.use_legacy_shared_mem_impl,
     )

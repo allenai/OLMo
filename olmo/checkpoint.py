@@ -874,6 +874,10 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
     The world size must be kept consistent when using this checkpointer.
     """
 
+    def __init__(self, cfg: TrainConfig, thread_count: Optional[int] = None, use_shared_mem_impl: bool = False):
+        super().__init__(cfg, thread_count)
+        self.use_shared_mem_impl = use_shared_mem_impl
+
     def save_checkpoint(
         self,
         dir: PathOrStr,
@@ -1147,7 +1151,9 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
         finally:
             torch._tensor._rebuild_from_type_v2 = original_rebuild_from_type_v2
 
-    def _unshard_using_shared_memory(self, input_dir: PathOrStr, device: torch.device, skip_keys: Optional[Set[str]] = None):
+    def _unshard_using_shared_memory(
+        self, input_dir: PathOrStr, device: torch.device, skip_keys: Optional[Set[str]] = None
+    ):
         """
         This unsharding implementation consists of:
 
@@ -1215,6 +1221,9 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
         return self._unshard_using_sharded_mem(state, world_size, device, input_dir)
 
     def _unshard(self, input_dir: PathOrStr, device: torch.device, skip_keys: Optional[Set[str]] = None):
+        if self.use_shared_mem_impl:
+            return self._unshard_using_shared_memory(input_dir, device, skip_keys)
+
         input_dir = Path(input_dir)
         skip_keys = skip_keys or set()
 
