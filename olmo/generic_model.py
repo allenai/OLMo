@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import sys
+import math
 import logging
 from abc import abstractmethod
-from typing import Optional
+from typing import Optional, Callable
 from functools import partial
 
 import torch
@@ -12,6 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .initialization import init_weights, ModuleType
+from .exceptions import OLMoConfigurationError
 from .config import (
     ActivationCheckpointingStrategy,
     FSDPWrapStrategy,
@@ -453,68 +454,93 @@ class MLPMamba(GenericOLMoModel):
         return sum(p.numel() for _, p in params)
 
 
-class Zamba(OGMamba):
+# mamba and sequential blocks
+# Zamba class
+# config file
+# script
+class Zamba(GenericOLMoModel):
     def __init__(self, config: ModelConfig, init_params: bool = True, precision: str = 'fp32'):
-        super().__init__(config, init_params, precision)
+        super().__init__(config, init_params)
 
-        # delete 4 mamba layers to substitute in 1 OLMoSequentialBlock
-        del self.model.backbone.layers[-4:]
+        # Validate config.
+        if self.config.embedding_size is not None and self.config.embedding_size != self.config.vocab_size:
+            if self.config.embedding_size < self.config.vocab_size:
+                raise OLMoConfigurationError("embedding size should be at least as big as vocab size")
+            elif self.config.embedding_size % 128 != 0:
+                import warnings
 
-        self.attention_block = OLMoSequentialBlock(
-            layer_id=config.n_layers - 4,
-            config=config,
-            cache=None,
-        )
+                warnings.warn(
+                    "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
+                )
 
-    def forward(self, input_ids: torch.LongTensor, **kwargs) -> OLMoOutput:
-        """
-        Interleave single attention block between equally spaced out mamba-blocks
-        """
-        hidden_states = self.model.embedding(input_ids)
+        self.activation_checkpointing_strategy: Optional[ActivationCheckpointingStrategy] = None
+        self._activation_checkpoint_fn: Callable = activation_checkpoint_function(self.config)
 
-        # 1st pass through attention block
-        hidden_states, _ = self.attention_block(hidden_states)
-        residual = None
+        # 2 mamba blocks to start with
+        # then repeating patter of self-attention and 6 * mamba blocks
+        # weight shared between self-attention blocks
+        # 2 types of skip connections:
+        #     1) skip between each group of mamba blocks
+        #     2) skip from initial point to input of each self-attention block
+        # linear layer after each self-attention transformer block
 
-        # pass through half of the mamba layers
-        for layer in self.model.backbone.layers[:len(self.model.backbone.layers) // 2]:
-            hidden_states, residual = layer(
-                hidden_states, residual, inference_params=kwargs.get("inference_params")
-            )
-
-        # 2nd pass through attention block
-        # attention block has its own norm at the beginning of the block
-        # => only add residual and hidden
-        residual = (hidden_states + residual) if residual is not None else hidden_states
-        hidden_states, _ = self.attention_block(hidden_states)
-        residual = None
-
-        # pass through the remaining mamba layers
-        for layer in self.model.backbone.layers[len(self.model.backbone.layers) // 2]:
-            hidden_states, residual = layer(
-                hidden_states, residual, inference_params=kwargs.get("inference_params")
-            )
-
-        # 3rd pass through attention block
-        # attention block has its own norm at the beginning of the block
-        # => only add residual and hidden
-        residual = (hidden_states + residual) if residual is not None else hidden_states
-        hidden_states, _ = self.attention_block(hidden_states)
-        hidden_states = self.model.backbone.norm_f(hidden_states)
-
-        return OLMoOutput(
-            logits=self.model.lm_head(hidden_states),
-            attn_key_values=None,
-            hidden_states=None,
-        )
-
-    def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
-        if wrap_strategy is None:
-            return None
+        # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
+        if init_params and self.config.init_device != 'meta':
+            self.reset_parameters()
 
     def reset_parameters(self):
         """
         Mamba has its own init weights method which is called in __init__
         """
         # NOTE: the standard deviation for these weights does not depend on the layer.
-        self.attention_block.reset_parameters()
+        pass
+
+    def forward(self, input_ids: torch.LongTensor, **kwargs) -> OLMoOutput:
+        """
+        """
+        # TODO:
+
+        return OLMoOutput(
+            logits=None,
+            attn_key_values=None,
+            hidden_states=None,
+        )
+
+    @property
+    def device(self) -> torch.device:
+        device: torch.device = self.model.embedding.weight.device  # type: ignore
+        if device.type == "meta":
+            return _non_meta_init_device(self.config)
+        else:
+            return device
+
+    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+        # TODO: self._activation_checkpoint_fn is not set at a model level?
+        self.activation_checkpointing_strategy = strategy
+        for block in self.model.blocks:
+            block.set_activation_checkpointing(strategy)
+
+    def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
+        # TODO: different types of blocks here
+        if wrap_strategy is None:
+            return None
+        elif wrap_strategy == FSDPWrapStrategy.by_block:
+            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+                del nonwrapped_numel
+                wrap = isinstance(module, MLPMambaBlock)
+                if recurse:
+                    return True
+                else:
+                    return wrap
+
+            return fsdp_wrap_fn
+        else:
+            raise NotImplementedError(wrap_strategy)
+
+    def num_params(self, include_embedding: bool = True) -> int:
+        params = (np for np in self.model.named_parameters())
+
+        if not include_embedding:
+            params = filter(lambda np: "embedding" not in np[0], params)
+
+        return sum(p.numel() for _, p in params)
