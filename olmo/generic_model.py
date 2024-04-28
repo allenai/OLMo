@@ -33,7 +33,7 @@ from .model import (
 from mamba_ssm import MambaLMHeadModel
 from mamba_ssm.modules.mamba_simple import Block, Mamba
 from mamba_ssm.models.config_mamba import MambaConfig
-from mamba_ssm.models.mixer_seq_simple import _init_weights
+from mamba_ssm.models.mixer_seq_simple import _init_weights, create_block
 
 
 log = logging.getLogger(__name__)
@@ -412,13 +412,11 @@ class MLPMamba(GenericOLMoModel):
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
         """
-        batch_size, seq_len = input_ids.size()
-
         # shape: (batch_size, seq_len, d_model)
         x = self.model.embedding(input_ids)
         x = self.model.emb_drop(x)  # type: ignore
 
-        for block_idx, block in enumerate(self.model.blocks):
+        for _, block in enumerate(self.model.blocks):
             x = block(x)
 
         x = self.model.ln_f(x)  # type: ignore
@@ -454,10 +452,71 @@ class MLPMamba(GenericOLMoModel):
         return sum(p.numel() for _, p in params)
 
 
-# mamba and sequential blocks
-# Zamba class
-# config file
-# script
+class ZambaBlock(nn.Module):
+    def __init__(self, layer_id: int, config: ModelConfig):
+        super().__init__()
+
+        # block setup
+        self.config = config
+        self._activation_checkpoint_fn = None
+
+        self.mamba_blocks = nn.ModuleList(
+            [
+                create_block(
+                    d_model=self.config.d_model,
+                    ssm_cfg={
+                        "d_state": self.config.d_state,
+                        "d_conv": self.config.d_conv,
+                        "expand": self.config.expand,
+                        "dt_rank": self.config.time_step_rank,
+                        "dt_min": self.config.time_step_min,
+                        "dt_max": self.config.time_step_max,
+                        "dt_init": self.config.time_step_init_scheme,
+                        "dt_scale": self.config.time_step_scale,
+                        "dt_init_floor": self.config.time_step_floor,
+                        "conv_bias": self.config.conv_bias,
+                        "bias": self.config.include_bias,
+                        "use_fast_path": self.config.use_fast_path,
+                    },
+                    rms_norm=True if self.config.layer_norm_type == LayerNormType.rms else False,
+                    residual_in_fp32=self.config.residual_in_fp32,
+                    fused_add_norm=self.config.fused_add_norm,
+                    layer_idx=i * layer_id, # each ZambaBlock has 6 mamba blocks
+                    device=config.init_device,
+                    dtype=torch.float32,
+                ) for i in range(config.num_mamba_blocks_in_group)
+            ]
+        )
+
+    def reset_parameters(self):
+        for block in self.mamba_blocks:
+            block.apply(
+                partial(
+                    _init_weights,
+                    n_layer=self.config.n_layers,
+                    initializer_range=self.config.mamba_initializer_range,
+                    rescale_prenorm_residual=self.config.rescale_prenorm_residual,
+                )
+            )
+
+    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+        if strategy == ActivationCheckpointingStrategy.fine_grained:
+            self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
+        else:
+            self._activation_checkpoint_fn = None
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        The output of this block goes into a self-attention block
+        """
+        residual = None
+
+        for block in self.mamba_blocks:
+            x, residual = block(x, residual)
+
+        return x + residual
+
+
 class Zamba(GenericOLMoModel):
     def __init__(self, config: ModelConfig, init_params: bool = True, precision: str = 'fp32'):
         super().__init__(config, init_params)
@@ -473,38 +532,130 @@ class Zamba(GenericOLMoModel):
                     "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
                 )
 
+        assert self.config.n_layers % self.config.num_mamba_blocks_in_group == 0, \
+            "Total number of mamba blocks should be divisible by number of mamba blocks in a group"
+
         self.activation_checkpointing_strategy: Optional[ActivationCheckpointingStrategy] = None
         self._activation_checkpoint_fn: Callable = activation_checkpoint_function(self.config)
 
+        self.model = nn.ModuleDict(
+            dict(
+                embedding=nn.Embedding(
+                    config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
+                ),
+                emb_drop=Dropout(config.embedding_dropout),
+                ln_f=LayerNorm.build(config),
+            )
+        )
+
+        self.model.shared_attn = OLMoSequentialBlock(
+            layer_id=self.config.num_mamba_blocks_in_group, # this block is placed after the first group of mamba blocks
+            config=self.config,
+            cache=None,
+        )
+
+        blocks = [ZambaBlock(i, config) for i in range(config.n_layers // config.num_mamba_blocks_in_group)]
+        self.model.update({"blocks": nn.ModuleList(blocks)})
+
+        self.model.transition_layers = nn.ModuleList(
+            [
+                nn.Linear(config.d_model, config.d_model, bias=config.include_bias)
+                for _ in range(config.n_layers // config.num_mamba_blocks_in_group - 1)
+            ]
+        )
+
+        if not config.weight_tying:
+            self.model.update(
+                {
+                    "ff_out": nn.Linear(
+                        config.d_model,
+                        config.embedding_size or config.vocab_size,
+                        bias=config.include_bias,
+                        device=config.init_device,
+                    )
+                }
+            )
+
+        # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
+        if init_params and self.config.init_device != 'meta':
+            self.reset_parameters()
+
+    def forward(self, input_ids: torch.LongTensor, **kwargs) -> OLMoOutput:
+        """
+        """
         # 2 mamba blocks to start with
-        # then repeating patter of self-attention and 6 * mamba blocks
+        # then repeating pattern of self-attention and 6 * mamba blocks
         # weight shared between self-attention blocks
         # 2 types of skip connections:
         #     1) skip between each group of mamba blocks
         #     2) skip from initial point to input of each self-attention block
         # linear layer after each self-attention transformer block
 
-        # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
-        if init_params and self.config.init_device != 'meta':
-            self.reset_parameters()
+        # shape: (batch_size, seq_len, d_model)
+        x = self.model.embedding(input_ids)
+        x = self.model.emb_drop(x)  # type: ignore
+
+        # setup skip to all shared_attn block
+        shared_attn_skip = x
+
+        # setup skip between mamba blocks
+        mamba_skip = None
+
+        for i in range(len(self.model.blocks) - 1):
+            # mamba block
+            x = self.model.blocks[i](x + mamba_skip if mamba_skip is not None else x)
+            mamba_skip = x
+
+            # self-attention block (shared)
+            x, _ = self.model.shared_attn(x + shared_attn_skip)
+
+            # linear layer
+            x = self.model.transition_layers[i](x)
+
+        # apply final mamba block
+        x = self.model.blocks[-1](x)
+
+        x = self.model.ln_f(x)  # type: ignore
+        if self.config.weight_tying:
+            logits = F.linear(x, self.model.embedding.weight, None)  # type: ignore
+        else:
+            logits = self.model.ff_out(x)  # type: ignore
+
+        return OLMoOutput(logits=logits, attn_key_values=None, hidden_states=None)
 
     def reset_parameters(self):
-        """
-        Mamba has its own init weights method which is called in __init__
-        """
-        # NOTE: the standard deviation for these weights does not depend on the layer.
-        pass
-
-    def forward(self, input_ids: torch.LongTensor, **kwargs) -> OLMoOutput:
-        """
-        """
-        # TODO:
-
-        return OLMoOutput(
-            logits=None,
-            attn_key_values=None,
-            hidden_states=None,
+        log.info("Initializing model parameters...")
+        # Top-level embeddings / linear layers
+        init_weights(
+            self.config,
+            self.model.embedding,  # type: ignore
+            std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,
+            type_of_module=ModuleType.emb,
         )
+
+        # Top-level layer norm
+        self.model.ln_f.reset_parameters()  # type: ignore
+
+        # Output weights
+        if hasattr(self.model, "ff_out"):
+            init_weights(self.config, self.model.ff_out, type_of_module=ModuleType.final_out)  # type: ignore
+
+        # Shared attention block
+        self.model.shared_attn.reset_parameters()  # type: ignore
+
+        # Zamba blocks
+        for block in self.model.blocks:
+            block.reset_parameters()
+
+        # Transition layers
+        for layer in self.model.transition_layers:
+            init_weights(
+                self.config,
+                layer,
+                d=self.config.d_model,
+                layer_id=None,
+                type_of_module=ModuleType.in_module,
+            )  # type: ignore
 
     @property
     def device(self) -> torch.device:
@@ -521,13 +672,38 @@ class Zamba(GenericOLMoModel):
             block.set_activation_checkpointing(strategy)
 
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
-        # TODO: different types of blocks here
         if wrap_strategy is None:
             return None
-        elif wrap_strategy == FSDPWrapStrategy.by_block:
+
+        # The 'recurse' mode for the wrap function does not behave like you'd expect.
+        # Even if we return False, it may still recurse because PyTorch does what it wants,
+        # not what you want. This causes issues when, for example, we want to wrap 'ff_out' (a linear layer)
+        # but not other linear layers within a block.
+        # So we have to explicitly tell PyTorch which linear layers to wrap, and we also just
+        # return True in 'recurse' mode for simplicity.
+        size_based_module_to_wrap = {self.model.embedding}
+        for layer in self.model.transition_layers:
+            size_based_module_to_wrap.add(layer)
+
+        if hasattr(self.model, "ff_out"):
+            size_based_module_to_wrap.add(self.model.ff_out)
+
+        if wrap_strategy == FSDPWrapStrategy.by_block:
+
             def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
                 del nonwrapped_numel
-                wrap = isinstance(module, MLPMambaBlock)
+                wrap = isinstance(module, (ZambaBlock, OLMoSequentialBlock))
+                if recurse:
+                    return True
+                else:
+                    return wrap
+
+            return fsdp_wrap_fn
+        elif wrap_strategy == FSDPWrapStrategy.by_block_and_size:
+
+            def fsdp_wrap_fn(module, recurse: bool = True, nonwrapped_numel: int = 0):
+                del nonwrapped_numel
+                wrap = isinstance(module, (ZambaBlock, OLMoSequentialBlock)) or module in size_based_module_to_wrap
                 if recurse:
                     return True
                 else:

@@ -302,6 +302,11 @@ class ModelConfig(BaseConfig):
     """
     Use fp32 precision for residual branch
     """
+
+    num_mamba_blocks_in_group: int = 6
+    """
+    Number of mamba blocks clubbed together for zamba architecture
+    """
     ###########################################################################
     #                        Mamba/LRU related params                         #
     ###########################################################################

@@ -1,4 +1,4 @@
-run_name: mamba-300M
+run_name: zamba-300M
 seed: 6198
 dry_run: false
 
@@ -9,9 +9,10 @@ wandb:
 # conflicts: mlp_ratio, layer_norm_type
 # run mamba with bf16, layernorm
 model:
-  model_name: mamba
+  model_name: zamba
   d_model: 1024
-  n_layers: 36
+  n_layers: 32  # here n_layers is mamba blocks, since attn is shared
+  num_mamba_blocks_in_group: 4
   n_heads: 16
   alibi: false
   rope: true
@@ -21,7 +22,7 @@ model:
   multi_query_attention: true
   n_kv_heads: 1
   clip_qkv: 8.0
-  layer_norm_with_affine: false
+  layer_norm_with_affine: true
   bias_for_layer_norm: false
   attention_layer_norm_with_affine: false
   activation_type: swiglu
@@ -31,7 +32,8 @@ model:
   embedding_size: 50304
   d_state: 16
   d_conv: 4
-  mlp_ratio: 2
+  expand: 2
+  mlp_ratio: 8
   time_step_floor: 0.0001
   time_step_init_scheme: random
   time_step_max: 0.1
@@ -41,12 +43,12 @@ model:
   conv_bias: true
   include_bias: false
   use_fast_path: true
-  layer_norm_type: default
+  layer_norm_type: rms
   weight_tying: false
   max_sequence_length: 2048
   eos_token_id: 50279
   pad_token_id: 1
-  init_std: 0.1
+  mamba_initializer_range: 0.1
   rescale_prenorm_residual: false
   fused_add_norm: true
   residual_in_fp32: true
@@ -92,7 +94,7 @@ device_train_microbatch_size: 8
 precision: amp_bf16
 
 fsdp:
-  wrapping_strategy: null
+  wrapping_strategy: by_block_and_size
   precision: mixed
 
 max_grad_norm: 1.0
