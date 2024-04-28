@@ -23,6 +23,7 @@ from .model import (
     _non_meta_init_device,
     activation_checkpoint_function,
     _non_meta_init_device,
+    BufferCache,
     OLMoOutput,
     OLMoSequentialBlock,
     Activation,
@@ -520,6 +521,8 @@ class ZambaBlock(nn.Module):
 class Zamba(GenericOLMoModel):
     def __init__(self, config: ModelConfig, init_params: bool = True, precision: str = 'fp32'):
         super().__init__(config, init_params)
+        self.config = config
+        self.__cache = BufferCache()
 
         # Validate config.
         if self.config.embedding_size is not None and self.config.embedding_size != self.config.vocab_size:
@@ -551,7 +554,7 @@ class Zamba(GenericOLMoModel):
         self.model.shared_attn = OLMoSequentialBlock(
             layer_id=self.config.num_mamba_blocks_in_group, # this block is placed after the first group of mamba blocks
             config=self.config,
-            cache=None,
+            cache=self.__cache,
         )
 
         blocks = [ZambaBlock(i, config) for i in range(config.n_layers // config.num_mamba_blocks_in_group)]
