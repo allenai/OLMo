@@ -607,10 +607,18 @@ class Zamba(GenericOLMoModel):
         for i in range(len(self.model.blocks) - 1):
             # mamba block
             x = self.model.blocks[i](x + mamba_skip if mamba_skip is not None else x)
-            mamba_skip = x
+
+            # setup skips to None if no_skip is set
+            if self.config.no_skip:
+                mamba_skip = None
+                shared_attn_skip = None
+            else:
+                mamba_skip = x
 
             # self-attention block (shared)
-            x, _ = self.model.shared_attn(x + shared_attn_skip)
+            x, _ = self.model.shared_attn(
+                x + shared_attn_skip if shared_attn_skip is not None else x
+            )
 
             # linear layer
             x = self.model.transition_layers[i](x)

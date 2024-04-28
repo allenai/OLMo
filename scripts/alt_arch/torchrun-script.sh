@@ -86,7 +86,8 @@ torchrun \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   scripts/train_alt-arch.py \
     configs/alt_arch/zamba-300M.yaml \
-      --run_name=zamba-300M-baseline \
+      --run_name=zamba-noskip-300M-baseline \
+      --model.no_skip=true \
       --device_train_microbatch_size=8 \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
       --save_overwrite

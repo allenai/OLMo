@@ -307,6 +307,11 @@ class ModelConfig(BaseConfig):
     """
     Number of mamba blocks clubbed together for zamba architecture
     """
+
+    no_skip: bool = False
+    """
+    If set to true, don't add additional skip connections to zamba architecture
+    """
     ###########################################################################
     #                        Mamba/LRU related params                         #
     ###########################################################################
