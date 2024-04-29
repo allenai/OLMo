@@ -34,4 +34,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/lr-scheduling-7b.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES}"
+  -- /bin/bash -c "scripts/beaker/lr-scheduling-7b.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
