@@ -36,8 +36,9 @@ torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
   --rdzv_id=12345 \
-  --rdzv_backend=c10d \
+  --rdzv_backend=static \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
+  --node_rank=$BEAKER_REPLICA_RANK \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
   configs/lr-scheduling-7b-s3.yaml \
