@@ -90,6 +90,7 @@ torchrun \
       --model.no_skip=true \
       --device_train_microbatch_size=8 \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
+      --load_path=s3://allennlp-ananyaj/alt_arch/zamba-noskip-300M-baseline/step30000/ \
       --save_overwrite
 
 # 7B mamba or olmo
