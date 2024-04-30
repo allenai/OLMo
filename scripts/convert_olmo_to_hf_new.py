@@ -17,6 +17,7 @@ import json
 import os
 import shutil
 from pathlib import Path
+from typing import Any, Dict
 
 import torch
 import yaml
@@ -88,7 +89,7 @@ def write_model(model_path, input_base_path, tokenizer_path=None, safe_serializa
     loaded = torch.load(os.path.join(input_base_path, "model.pt"), map_location="cpu")
 
     param_count = 0
-    index_dict = {"weight_map": {}}
+    index_dict: Dict[str, Any] = {"weight_map": {}}
     for layer_i in range(n_layers):
         filename = f"pytorch_model-{layer_i + 1}-of-{n_layers + 1}.bin"
         # Unsharded
