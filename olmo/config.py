@@ -672,6 +672,11 @@ class FSDPPrecision(StrEnum):
 
 @dataclass
 class FSDPConfig(BaseConfig):
+    enabled: bool = True
+    """
+    If ``False``, don't use FSDP.
+    """
+
     use_orig_params: bool = True
     """
     This must be ``True`` if using ``compile`` or you want to track the parameter norm during training.

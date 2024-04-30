@@ -24,7 +24,7 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DataLoader
 
 from .aliases import PathOrStr
-from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
+from .checkpoint import Checkpointer, FullCheckpointer, OneGpuCheckpointer, build_sharded_checkpointer
 from .config import (
     CheckpointType,
     SchedulerUnits,
@@ -500,7 +500,7 @@ class Trainer:
         barrier()
 
     def save_unsharded_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
-        checkpointer = FullCheckpointer(self.cfg)
+        checkpointer = FullCheckpointer(self.cfg) if self.cfg.fsdp.enabled else OneGpuCheckpointer(self.cfg)
         result = self._save_checkpoint(checkpointer, CheckpointType.unsharded)
         self.last_unsharded_checkpoint_step = self.global_step
         return result
@@ -525,7 +525,7 @@ class Trainer:
     ):
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
-        checkpointer = FullCheckpointer(self.cfg)
+        checkpointer = FullCheckpointer(self.cfg) if self.cfg.fsdp.enabled else OneGpuCheckpointer(self.cfg)
         trainer_state = checkpointer.restore_checkpoint(
             load_path,
             self.fsdp_model,
@@ -708,7 +708,7 @@ class Trainer:
             collect_param_metrics=should_log_optim_metrics_this_step,
             # passing this process group here ensures metrics are reduced correctly when we're using
             # HYBRID sharding.
-            process_group=self.fsdp_model.process_group,
+            process_group=None,
         )
 
         # Adjust the learning rate.
@@ -747,7 +747,7 @@ class Trainer:
         # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:
             optim_metrics = self.optim.get_post_step_metrics(
-                self.fsdp_model, process_group=self.fsdp_model.process_group
+                self.fsdp_model, process_group=None
             )
             for key, value in optim_metrics.items():
                 metrics[f"optim/{key}"] = value.item()

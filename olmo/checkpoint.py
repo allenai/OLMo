@@ -582,6 +582,95 @@ class Checkpointer(metaclass=ABCMeta):
                 upload(config_path, upload_target, save_overwrite=self.cfg.save_overwrite)
 
 
+class OneGpuCheckpointer(Checkpointer):
+    """
+    A :class:`Checkpointer` that works for a model on a single GPU.
+    """
+
+    def save_checkpoint(
+        self,
+        dir: PathOrStr,
+        fsdp_model: FSDP,
+        optim: Optimizer,
+        trainer_state: Dict[str, Any],
+        *,
+        upload_to: Optional[str] = None,
+    ) -> None:
+        with self._temporary_wd(dir) as checkpoint_dir:
+            # We'll write the model and optimizer state dicts individually to reduce (CPU) memory consumption.
+            # First the model state.
+            model_state_dict = fsdp_model.state_dict()
+            log.info("Saving model state...")
+            save_state_dict(
+                checkpoint_dir,
+                "model.pt",
+                model_state_dict,
+                upload_to=upload_to,
+                save_overwrite=self.cfg.save_overwrite,
+                synchronize=False,
+            )
+            del model_state_dict
+            barrier()
+
+            # Then the optimizer state.
+            optim_state_dict = optim.state_dict()
+            if get_global_rank() == 0:
+                log.info("Saving optim state...")
+                save_state_dict(
+                    checkpoint_dir,
+                    "optim.pt",
+                    optim_state_dict,
+                    upload_to=upload_to,
+                    save_overwrite=self.cfg.save_overwrite,
+                    synchronize=False,
+                )
+            del optim_state_dict
+            barrier()
+
+            # Save trainer state.
+            log.info("Saving trainer state...")
+            save_state_dict(
+                checkpoint_dir,
+                "train.pt",
+                trainer_state,
+                upload_to=upload_to,
+                save_overwrite=self.cfg.save_overwrite,
+                synchronize=False,
+            )
+            # Save config.
+            self._save_config(checkpoint_dir, upload_to=upload_to)
+
+    def restore_checkpoint(
+        self,
+        load_path: PathOrStr,
+        fsdp_model: FSDP,
+        optim: Optimizer,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+        load_optimizer_state: bool = True,
+    ) -> Dict[str, Any]:
+        model_state_dict = load_state_dict(
+            load_path, "model.pt", local_cache=local_cache, map_location="cpu"
+        )
+        fsdp_model.load_state_dict(model_state_dict)
+
+        # Load optimizer state.
+        if load_optimizer_state:
+            optim_state_dict_to_load = load_state_dict(
+                load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
+            )
+            optim.load_state_dict(optim_state_dict_to_load)
+
+        # Load other state.
+        try:
+            trainer_state = load_state_dict(load_path, "train.pt", local_cache=local_cache)
+        except FileNotFoundError:
+            # for backwards compatibility
+            trainer_state = load_state_dict(load_path, "other.pt", local_cache=local_cache)
+        barrier()
+        return trainer_state
+
+
 class FullCheckpointer(Checkpointer):
     """
     A :class:`Checkpointer` that saves a single full model and optimizer state dictionary.
