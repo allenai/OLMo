@@ -603,6 +603,59 @@ class FullCheckpointer(Checkpointer):
     A :class:`Checkpointer` that saves a single full model and optimizer state dictionary.
     """
 
+    def _save_checkpoint_no_fsdp(
+        self,
+        dir: PathOrStr,
+        model: torch.nn.Module,
+        optim: Optimizer,
+        trainer_state: Dict[str, Any],
+        *,
+        upload_to: Optional[str] = None,
+    ) -> None:
+        with self._temporary_wd(dir) as checkpoint_dir:
+            # We'll write the model and optimizer state dicts individually to reduce (CPU) memory consumption.
+            # First the model state.
+            model_state_dict = model.state_dict()
+            log.info("Saving model state...")
+            save_state_dict(
+                checkpoint_dir,
+                "model.pt",
+                model_state_dict,
+                upload_to=upload_to,
+                save_overwrite=self.cfg.save_overwrite,
+                synchronize=False,
+            )
+            del model_state_dict
+            barrier()
+
+            # Then the optimizer state.
+            optim_state_dict = optim.state_dict()
+            if get_global_rank() == 0:
+                log.info("Saving optim state...")
+                save_state_dict(
+                    checkpoint_dir,
+                    "optim.pt",
+                    optim_state_dict,
+                    upload_to=upload_to,
+                    save_overwrite=self.cfg.save_overwrite,
+                    synchronize=False,
+                )
+            del optim_state_dict
+            barrier()
+
+            # Save trainer state.
+            log.info("Saving trainer state...")
+            save_state_dict(
+                checkpoint_dir,
+                "train.pt",
+                trainer_state,
+                upload_to=upload_to,
+                save_overwrite=self.cfg.save_overwrite,
+                synchronize=False,
+            )
+            # Save config.
+            self._save_config(checkpoint_dir, upload_to=upload_to)
+
     def save_checkpoint(
         self,
         dir: PathOrStr,
@@ -612,6 +665,9 @@ class FullCheckpointer(Checkpointer):
         *,
         upload_to: Optional[str] = None,
     ) -> None:
+        if not self.cfg.fsdp.enabled:
+            return self._save_checkpoint_no_fsdp(dir, fsdp_model, optim, trainer_state, upload_to=upload_to)
+
         with self._temporary_wd(dir) as checkpoint_dir:
             with FSDP.state_dict_type(
                 fsdp_model,
@@ -664,6 +720,40 @@ class FullCheckpointer(Checkpointer):
             # Save config.
             self._save_config(checkpoint_dir, upload_to=upload_to)
 
+    def _restore_checkpoint_no_fsdp(
+        self,
+        load_path: PathOrStr,
+        model: torch.nn.Module,
+        optim: Optimizer,
+        *,
+        local_cache: Optional[PathOrStr] = None,
+        load_optimizer_state: bool = True,
+    ) -> Dict[str, Any]:
+        model_state_dict = load_state_dict(
+            load_path, "model.pt", local_cache=local_cache, map_location="cpu"
+        )
+        (
+            model_state_dict,
+            _,
+        ) = model._make_state_dict_compatible(model_state_dict)
+        model.load_state_dict(model_state_dict)
+
+        # Load optimizer state.
+        if load_optimizer_state:
+            optim_state_dict_to_load = load_state_dict(
+                load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
+            )
+            optim.load_state_dict(optim_state_dict_to_load)
+
+        # Load other state.
+        try:
+            trainer_state = load_state_dict(load_path, "train.pt", local_cache=local_cache)
+        except FileNotFoundError:
+            # for backwards compatibility
+            trainer_state = load_state_dict(load_path, "other.pt", local_cache=local_cache)
+        barrier()
+        return trainer_state
+
     def restore_checkpoint(
         self,
         load_path: PathOrStr,
@@ -673,6 +763,9 @@ class FullCheckpointer(Checkpointer):
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
     ) -> Dict[str, Any]:
+        if not self.cfg.fsdp.enabled:
+            return self._restore_checkpoint_no_fsdp(load_path, fsdp_model, optim, local_cache=local_cache, load_optimizer_state=load_optimizer_state)
+
         with FSDP.state_dict_type(
             fsdp_model,
             state_dict_type=StateDictType.FULL_STATE_DICT,
@@ -694,7 +787,7 @@ class FullCheckpointer(Checkpointer):
                 (
                     state_dict_to_load,
                     og_keys_to_new,
-                ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(state_dict_to_load)
+                ) = fsdp_model._make_state_dict_compatible(state_dict_to_load)
 
                 for module_name, module in fsdp_model.named_modules():
                     if not isinstance(module, FSDP):
