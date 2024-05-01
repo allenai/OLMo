@@ -269,9 +269,6 @@ def main(cfg: TrainConfig) -> None:
 
 
 if __name__ == "__main__":
-    prepare_cli_environment()
-    log.info("CLI environment prepared")
-
     try:
         mp.set_start_method("spawn", force=True)
     except RuntimeError as e:
@@ -281,6 +278,9 @@ if __name__ == "__main__":
     # Initialize process group.
     dist.init_process_group(backend="nccl")
     log.info("Process group initialized")
+
+    prepare_cli_environment()
+    log.info("CLI environment prepared")
 
     try:
         yaml_path, args_list = sys.argv[1], sys.argv[2:]
