@@ -242,19 +242,22 @@ def main(cfg: TrainConfig) -> None:
 
 
 if __name__ == "__main__":
+    prepare_cli_environment()
+    log.info(f"Cli environment prepared")
+
     try:
         mp.set_start_method("spawn", force=True)
     except RuntimeError as e:
         print(f"failed to set multiprocessing start method: {e}")
 
+    log.info(f"multiprocessing start method set to '{mp.get_start_method()}'")
+
     # Initialize process group.
     dist.init_process_group(backend="nccl")
 
-    prepare_cli_environment()
+    log.info("Process group initialized")
 
     add_cached_path_clients()
-
-    log.info(f"multiprocessing start method set to '{mp.get_start_method()}'")
 
     try:
         yaml_path, args_list = sys.argv[1], sys.argv[2:]
