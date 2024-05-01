@@ -242,6 +242,8 @@ def main(cfg: TrainConfig) -> None:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
+
     try:
         mp.set_start_method("spawn", force=True)
     except RuntimeError as e:
