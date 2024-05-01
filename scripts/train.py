@@ -242,9 +242,6 @@ def main(cfg: TrainConfig) -> None:
 
 
 if __name__ == "__main__":
-    prepare_cli_environment()
-    log.info(f"Cli environment prepared")
-
     try:
         mp.set_start_method("spawn", force=True)
     except RuntimeError as e:
@@ -256,6 +253,9 @@ if __name__ == "__main__":
     dist.init_process_group(backend="nccl")
 
     log.info("Process group initialized")
+
+    prepare_cli_environment()
+    log.info("Cli environment prepared")
 
     add_cached_path_clients()
 
