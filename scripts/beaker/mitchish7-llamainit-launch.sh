@@ -10,7 +10,7 @@ gantry run \
   --description "OLMo medium - 7B - Llama Init" \
   --priority high \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/jupiter-cirrascale \
+  --cluster ai2/pluto-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
