@@ -29,6 +29,7 @@ torchrun \
   scripts/train.py \
   configs/mitchish7-llamainit-s3.yaml \
     --run_name=mitchish7-llamainit \
+    --remote_save_folder=null \
     --wandb.name=mitchish7-llamainit \
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
