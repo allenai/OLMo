@@ -24,7 +24,7 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DataLoader
 
 from .aliases import PathOrStr
-from .checkpoint import Checkpointer, FullCheckpointer, OneGpuCheckpointer, build_sharded_checkpointer
+from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
 from .config import (
     CheckpointType,
     SchedulerUnits,
@@ -500,7 +500,7 @@ class Trainer:
         barrier()
 
     def save_unsharded_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
-        checkpointer = FullCheckpointer(self.cfg) if self.cfg.fsdp.enabled else OneGpuCheckpointer(self.cfg)
+        checkpointer = FullCheckpointer(self.cfg)
         result = self._save_checkpoint(checkpointer, CheckpointType.unsharded)
         self.last_unsharded_checkpoint_step = self.global_step
         return result
@@ -525,7 +525,7 @@ class Trainer:
     ):
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
-        checkpointer = FullCheckpointer(self.cfg) if self.cfg.fsdp.enabled else OneGpuCheckpointer(self.cfg)
+        checkpointer = FullCheckpointer(self.cfg)
         trainer_state = checkpointer.restore_checkpoint(
             load_path,
             self.fsdp_model,

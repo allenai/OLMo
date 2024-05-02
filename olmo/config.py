@@ -712,6 +712,7 @@ class ShardedCheckpointerType(StrEnum):
     torch_legacy = "torch_legacy"
     local = "local"
     olmo_core = "olmo_core"
+    one_gpu = "one_gpu"
 
 
 class ActivationCheckpointingStrategy(StrEnum):

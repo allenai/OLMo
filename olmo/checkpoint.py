@@ -1952,5 +1952,7 @@ def build_sharded_checkpointer(
         return LocalShardedCheckpointer(cfg)
     elif name == ShardedCheckpointerType.olmo_core:
         return OlmoCoreCheckpointer(cfg)
+    elif name == ShardedCheckpointerType.one_gpu:
+        return OneGpuCheckpointer(cfg)
     else:
         raise NotImplementedError(name)
