@@ -147,21 +147,6 @@ def main(cfg: TrainConfig) -> None:
     else:
         param_init_fn = None
 
-    if cfg.deepspeed:
-        fsdp_model = olmo_model
-    else:
-        fsdp_model = FSDP(
-            olmo_model,
-            sharding_strategy=cfg.fsdp.sharding_strategy,
-            mixed_precision=cfg.fsdp_precision,
-            auto_wrap_policy=wrap_policy,
-            use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
-            limit_all_gathers=True,
-            device_id=get_local_rank(),
-            param_init_fn=param_init_fn,
-            **hybrid_sharding_fsdp_kwargs,
-        )
-
     # Set up device mesh for hybrid sharding in order to specify which nodes are assoicated to a given model replica
     device_mesh = None
     hybrid_sharding_fsdp_kwargs = {}
@@ -188,17 +173,21 @@ def main(cfg: TrainConfig) -> None:
         device_mesh = init_device_mesh("cuda", (num_model_replicas, get_world_size() // num_model_replicas))
         hybrid_sharding_fsdp_kwargs["device_mesh"] = device_mesh
 
-    fsdp_model = FSDP(
-        olmo_model,
-        sharding_strategy=cfg.fsdp.sharding_strategy,
-        mixed_precision=cfg.fsdp_precision,
-        auto_wrap_policy=wrap_policy,
-        use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
-        limit_all_gathers=True,
-        device_id=get_local_rank(),
-        param_init_fn=param_init_fn,
-        **hybrid_sharding_fsdp_kwargs,
-    )
+    if cfg.deepspeed:
+        fsdp_model = olmo_model
+    else:
+        fsdp_model = FSDP(
+            olmo_model,
+            sharding_strategy=cfg.fsdp.sharding_strategy,
+            mixed_precision=cfg.fsdp_precision,
+            auto_wrap_policy=wrap_policy,
+            use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
+            limit_all_gathers=True,
+            device_id=get_local_rank(),
+            param_init_fn=param_init_fn,
+            **hybrid_sharding_fsdp_kwargs,
+        )
+
     # when param_init_fn is None, FSDP will call reset_parameters() automatically
     if param_init_fn is not None:
         olmo_model.reset_parameters()
@@ -308,7 +297,7 @@ if __name__ == "__main__":
         print(f"failed to set multiprocessing start method: {e}")
 
     # Initialize process group.
-    dist.init_process_group(backend="nccl")
+    # dist.init_process_group(backend="nccl")
 
     prepare_cli_environment()
 
