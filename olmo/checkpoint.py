@@ -771,7 +771,7 @@ class FullCheckpointer(Checkpointer):
                 (
                     state_dict_to_load,
                     og_keys_to_new,
-                ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(state_dict_to_load)
+                ) = fsdp_model._make_state_dict_compatible(state_dict_to_load)
 
                 for module_name, module in fsdp_model.named_modules():
                     if not isinstance(module, FSDP):
