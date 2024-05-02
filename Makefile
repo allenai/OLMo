@@ -1,5 +1,5 @@
 # If you update this, also update BEAKER_IMAGE in .github/workflows/main.yml
-IMAGE_NAME_BASE = olmo-torch2.2
+IMAGE_NAME_BASE = olmo-torch2.3
 # If you update this, also update BEAKER_WORKSPACE in .github/workflows/main.yml
 BEAKER_WORKSPACE = ai2/shanea
 
