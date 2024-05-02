@@ -42,8 +42,9 @@ torchrun \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
   configs/lr-scheduling-7b-s3.yaml \
-    --run_name=lr-schedule-const-lr-7B \
-    --wandb.name=lr-schedule-const-lr-7B \
+    --run_name=const-lr-linear-decay-match-50B \
+    --wandb.name=const-lr-linear-decay-match-50B \
+    --wandb.group=const-lr-linear-decay-match-50B \
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
@@ -53,6 +54,8 @@ torchrun \
     --device_train_microbatch_size=2 \
     --global_train_batch_size=1024 \
     --time_limit=null \
+    --scheduler.alpha_f=0.0 \
+    --scheduler.t_warmup=1967128576000 \
     --max_duration=2ep \
     --save_overwrite \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/7b/lr-schedule-const-lr-7B/}'
+    --load_path=s3://ai2-llm/checkpoints/7b/lr-schedule-const-lr-7B/step469000/
