@@ -9,7 +9,7 @@ gantry run \
   --task-name lr-schedule-const-lr-7B \
   --description "Const learning rate schedule experiment on OLMo 7B" \
   --priority high \
-  --beaker-image shanea/olmo-torch2.3-gantry \
+  --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \

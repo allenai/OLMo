@@ -21,7 +21,7 @@ export HF_DATASETS_OFFLINE=1
 # Disabling infiniband for jupiter as temp workaround
 # export NCCL_IB_DISABLE=1
 
-# pip install nvidia-nccl-cu11==2.20.5
+pip install nvidia-nccl-cu11==2.20.5
 
 # # Install OLMo-core
 # mkdir -p ~/.ssh
