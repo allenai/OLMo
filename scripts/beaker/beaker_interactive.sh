@@ -49,4 +49,4 @@ gh repo clone allenai/LLM
 cd LLM
 
 # Install other dependencies.
-pip install -e '.[dev]'
+pip install -e '.[all]'

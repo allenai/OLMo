@@ -27,7 +27,7 @@ def main() -> None:
     lines.insert(insert_index, "\n")
     lines.insert(
         insert_index + 1,
-        f"## [v{VERSION}](https://github.com/allenai/LLM/releases/tag/v{VERSION}) - "
+        f"## [v{VERSION}](https://github.com/allenai/OLMo/releases/tag/v{VERSION}) - "
         f"{datetime.now().strftime('%Y-%m-%d')}\n",
     )
 

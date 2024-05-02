@@ -8,21 +8,24 @@ from typing import Optional, TextIO
 
 import torch
 import torch.distributed as dist
+import torch.multiprocessing as mp
 import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp import ShardingStrategy
 
 from olmo.config import CheckpointType, TrainConfig
 from olmo.data import build_train_dataloader
 from olmo.eval import build_evaluators
-from olmo.exceptions import OlmoCliError, OlmoConfigurationError
-from olmo.model import Olmo
+from olmo.exceptions import OLMoCliError, OLMoConfigurationError
+from olmo.model import OLMo
 from olmo.optim import BoltOnWarmupScheduler, build_optimizer, build_scheduler
 from olmo.torch_util import (
     barrier,
     get_default_device,
     get_global_rank,
     get_local_rank,
+    get_local_world_size,
     get_world_size,
     peak_gpu_memory,
     seed_all,
@@ -35,13 +38,13 @@ log = logging.getLogger("train")
 def main(cfg: TrainConfig) -> None:
     # Ensure run name set.
     if cfg.run_name is None:
-        raise OlmoConfigurationError("--run_name is required")
+        raise OLMoConfigurationError("--run_name is required")
     log_extra_field("run_name", cfg.run_name)
 
     # Sanity check
-    if cfg.reset_optimizer_state and cfg.load_path is None:
+    if (cfg.reset_optimizer_state or cfg.reset_trainer_state) and cfg.load_path is None:
         log.warning(
-            "You want to reset the optimizer state, but we're not loading from the checkpoint. The"
+            "You want to reset the optimizer or trainer state, but we're not loading from the checkpoint. The"
             "setting has no effect."
         )
 
@@ -58,6 +61,8 @@ def main(cfg: TrainConfig) -> None:
         dist.init_process_group(backend="nccl")
 
     barrier()
+
+    # Set CUDA device.
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
     device = torch.device("cuda")
 
@@ -85,7 +90,7 @@ def main(cfg: TrainConfig) -> None:
             # Save config.
             save_path = Path(cfg.save_folder) / "config.yaml"
             if save_path.is_file() and not cfg.save_overwrite:
-                raise OlmoConfigurationError(f"{save_path} already exists, use --save_overwrite to overwrite")
+                raise OLMoConfigurationError(f"{save_path} already exists, use --save_overwrite to overwrite")
             else:
                 log.info(f"Saving config to {save_path}")
                 save_path.parent.mkdir(exist_ok=True, parents=True)
@@ -122,7 +127,7 @@ def main(cfg: TrainConfig) -> None:
 
     # Initialize the model.
     log.info("Building model...")
-    olmo_model = Olmo(cfg.model)
+    olmo_model = OLMo(cfg.model)
     log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
     log.info(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
@@ -132,6 +137,7 @@ def main(cfg: TrainConfig) -> None:
     # Wrap the model in FSDP.
     log.info("Wrapping model with FDSP...")
     wrap_policy = olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy)
+
     if version.parse(torch.__version__) >= version.parse("2.1.0"):
         # This prevents any parameters from being initialized twice
         def dummy_init_fn(module: torch.nn.Module) -> None:
@@ -140,6 +146,7 @@ def main(cfg: TrainConfig) -> None:
         param_init_fn = dummy_init_fn
     else:
         param_init_fn = None
+
     if cfg.deepspeed:
         fsdp_model = olmo_model
     else:
@@ -152,7 +159,46 @@ def main(cfg: TrainConfig) -> None:
             limit_all_gathers=True,
             device_id=get_local_rank(),
             param_init_fn=param_init_fn,
+            **hybrid_sharding_fsdp_kwargs,
         )
+
+    # Set up device mesh for hybrid sharding in order to specify which nodes are assoicated to a given model replica
+    device_mesh = None
+    hybrid_sharding_fsdp_kwargs = {}
+    if cfg.fsdp.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2):
+        if version.parse(torch.__version__) < version.parse("2.2.0"):
+            # Device mesh was not added to PyTorch until v2.2.0
+            raise OLMoConfigurationError(
+                "OLMo training does not correctly support hybrid sharding before torch 2.2.0"
+            )
+
+        from torch.distributed.device_mesh import init_device_mesh
+
+        num_model_replicas = cfg.fsdp.hybrid_sharding_num_model_replicas or (
+            get_world_size() // get_local_world_size()
+        )
+
+        if num_model_replicas <= 0:
+            raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must be a positive integer")
+
+        num_nodes = get_world_size() // get_local_world_size()
+        if num_nodes > 1 and num_nodes % num_model_replicas != 0:
+            raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must divide number of nodes")
+
+        device_mesh = init_device_mesh("cuda", (num_model_replicas, get_world_size() // num_model_replicas))
+        hybrid_sharding_fsdp_kwargs["device_mesh"] = device_mesh
+
+    fsdp_model = FSDP(
+        olmo_model,
+        sharding_strategy=cfg.fsdp.sharding_strategy,
+        mixed_precision=cfg.fsdp_precision,
+        auto_wrap_policy=wrap_policy,
+        use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
+        limit_all_gathers=True,
+        device_id=get_local_rank(),
+        param_init_fn=param_init_fn,
+        **hybrid_sharding_fsdp_kwargs,
+    )
     # when param_init_fn is None, FSDP will call reset_parameters() automatically
     if param_init_fn is not None:
         olmo_model.reset_parameters()
@@ -174,13 +220,14 @@ def main(cfg: TrainConfig) -> None:
     if cfg.save_data_indices:
         indices_file_path = Path(cfg.save_folder) / f"data-indices/rank{get_global_rank()}.tsv.gz"
         if indices_file_path.exists() and not cfg.save_overwrite:
-            raise OlmoConfigurationError(f"{indices_file_path} already exists, use --save_overwrite to overwrite")
+            raise OLMoConfigurationError(f"{indices_file_path} already exists, use --save_overwrite to overwrite")
         indices_file_path.parent.mkdir(exist_ok=True, parents=True)
         indices_file = gzip.open(indices_file_path, "wt")
 
     # Consolidate components into `Trainer` object.
     with Trainer(
         cfg=cfg,
+        epoch=cfg.epoch,
         model=olmo_model,
         fsdp_model=fsdp_model,
         optim=optim,
@@ -217,16 +264,17 @@ def main(cfg: TrainConfig) -> None:
             trainer.restore_checkpoint(
                 cfg.load_path,
                 load_optimizer_state=not cfg.reset_optimizer_state,
+                load_trainer_state=not cfg.reset_trainer_state,
                 sharded_checkpointer=cfg.load_path_sharded_checkpointer,
             )
             log.info("Checkpoint successfully loaded")
 
             # If we have to, set a new scheduler:
-            if cfg.reset_optimizer_state:
+            if cfg.reset_optimizer_state and not cfg.reset_trainer_state:
                 trainer.scheduler = BoltOnWarmupScheduler.wrap(
                     trainer.scheduler,
                     trainer.global_step,
-                    trainer.global_step + cfg.scheduler.t_warmup,
+                    int(trainer.global_step + cfg.scheduler.t_warmup),
                 )
 
         if cfg.force_save_unsharded:
@@ -254,12 +302,22 @@ def main(cfg: TrainConfig) -> None:
 
 
 if __name__ == "__main__":
+    try:
+        mp.set_start_method("spawn", force=True)
+    except RuntimeError as e:
+        print(f"failed to set multiprocessing start method: {e}")
+
+    # Initialize process group.
+    dist.init_process_group(backend="nccl")
+
     prepare_cli_environment()
+
+    log.info(f"multiprocessing start method set to '{mp.get_start_method()}'")
 
     try:
         yaml_path, args_list = sys.argv[1], sys.argv[2:]
     except IndexError:
-        raise OlmoCliError(f"Usage: {sys.argv[0]} [CONFIG_PATH] [OPTIONS]")
+        raise OLMoCliError(f"Usage: {sys.argv[0]} [CONFIG_PATH] [OPTIONS]")
 
     cfg = TrainConfig.load(yaml_path, [clean_opt(s) for s in args_list])
     main(cfg)

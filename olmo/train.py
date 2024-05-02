@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import cProfile
+import gc
 import logging
 import math
 import os
@@ -12,7 +13,7 @@ from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
 from pstats import SortKey
-from typing import Any, Deque, Dict, List, Optional, TextIO, Tuple
+from typing import Any, Callable, Deque, Dict, List, Optional, TextIO, Tuple
 
 import numpy as np
 import torch
@@ -26,23 +27,26 @@ from .aliases import PathOrStr
 from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
 from .config import (
     CheckpointType,
+    SchedulerUnits,
     ShardedCheckpointerType,
     SpeedMonitorConfig,
     TrainConfig,
 )
 from .data import IterableDataset
 from .eval import Evaluator
-from .exceptions import OlmoConfigurationError
-from .model import Olmo
+from .exceptions import OLMoConfigurationError
+from .model import OLMo
 from .optim import Optimizer, Scheduler
 from .torch_util import (
     barrier,
+    gc_cuda,
     get_fs_local_rank,
     get_global_rank,
     get_world_size,
     move_to_device,
     peak_gpu_memory,
     synchronize_flag,
+    synchronize_value,
 )
 from .util import upload
 
@@ -91,41 +95,189 @@ class LRMonitor:
         return {f"optim/learning_rate_group{idx}": lr for idx, lr in enumerate(lrs)}
 
 
+def cross_entropy_loss(
+    logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False
+):
+    loss = F.cross_entropy(logits, labels, ignore_index=ignore_index, reduction=reduction)
+
+    if not compute_z_loss:
+        return loss, None
+
+    z_squared = logits.logsumexp(-1).pow(2)
+    if reduction == "mean":
+        z_squared = (z_squared * (labels != ignore_index)).mean()
+    elif reduction == "sum":
+        z_squared = (z_squared * (labels != ignore_index)).sum()
+
+    z_loss = 1e-4 * z_squared
+
+    return loss, z_loss
+
+
 @dataclass
 class Trainer:
     cfg: TrainConfig
-    model: Olmo
+    model: OLMo
     fsdp_model: FSDP
     optim: Optimizer
     scheduler: Scheduler
     train_loader: DataLoader
     device: torch.device
     evaluators: List[Evaluator]
+    epoch: Optional[int] = None
     global_step: int = 0
-    global_data_step: int = 0
-    """This is now redundant since adding 'global_train_examples_seen'."""
-    global_train_examples_seen: int = 0
-    """Tracks the global number of training examples seen for the purpose of restoring the dataset
-    position on restarts."""
+    global_train_examples_seen_this_epoch: int = 0
+    """Tracks the global number of training examples seen in the current epoch for the purpose of restoring
+    the data loader position on restarts."""
     global_train_tokens_seen: int = 0
     """Tracks the global total number of tokens trained on."""
     checkpoints: List[Path] = field(default_factory=list)
     unsharded_checkpoints: List[Path] = field(default_factory=list)
+    ephemeral_checkpoints: List[Path] = field(default_factory=list)
     min_train_loss: float = float("inf")
     cur_train_loss: float = float("inf")
     indices_file: Optional[TextIO] = None
     _start_time: float = 0.0
     is_deepspeed: bool = False
+    _gc_init_state: bool = True
+    loss_fn: Callable[..., torch.Tensor] = field(default_factory=lambda: cross_entropy_loss)  # type: ignore
+    last_sharded_checkpoint_step: Optional[int] = None
+    last_unsharded_checkpoint_step: Optional[int] = None
+
+    def __post_init__(self):
+        if self.cfg.fused_loss:
+            from flash_attn.ops.triton.cross_entropy import (  # type: ignore
+                cross_entropy_loss,
+            )
+
+            def fused_loss_fn(
+                logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False
+            ):
+                loss, z_loss = cross_entropy_loss(
+                    logits,
+                    labels,
+                    label_smoothing=0.0,
+                    logit_scale=1.0,
+                    lse_square_scale=0.0,
+                    ignored_index=ignore_index,
+                    inplace_backward=False,
+                    process_group=None,
+                )
+
+                mask = labels != ignore_index
+
+                if reduction == "mean":
+                    loss = loss.sum() / mask.sum()
+                elif reduction == "sum":
+                    loss = loss.sum()
+                else:
+                    loss = loss
+
+                if not compute_z_loss:
+                    return loss, None
+
+                if reduction == "mean":
+                    z_loss = z_loss.sum() / mask.sum()
+                elif reduction == "sum":
+                    z_loss = z_loss.sum()
+                else:
+                    z_loss = z_loss
+
+                return loss, z_loss
+
+            self.loss_fn = fused_loss_fn
+
+    @property
+    def dataset(self) -> IterableDataset:
+        assert isinstance(self.train_loader.dataset, IterableDataset)
+        return self.train_loader.dataset
+
+    @property
+    def tokens_per_batch(self) -> int:
+        return self.cfg.global_train_batch_size * self.cfg.model.max_sequence_length
+
+    @property
+    def batches_per_epoch(self) -> int:
+        return self.dataset.total_size // self.cfg.global_train_batch_size
+
+    @property
+    def max_epochs(self) -> int:
+        if isinstance(self.cfg.max_duration, str) and self.cfg.max_duration.endswith("ep"):
+            return int(self.cfg.max_duration[:-2].strip())
+        else:
+            return 1
+
+    @property
+    def max_steps(self) -> int:
+        if isinstance(self.cfg.max_duration, int):
+            return self.cfg.max_duration
+        elif isinstance(self.cfg.max_duration, str):
+            if self.cfg.max_duration.endswith("T"):
+                # convert to float *first* to handle scientific notation
+                max_tokens = int(float(self.cfg.max_duration[:-1].strip()))
+                tokens_remaining = max(max_tokens - self.global_train_tokens_seen, 0)
+                steps_remaining = tokens_remaining // self.tokens_per_batch
+                return self.global_step + steps_remaining
+            elif self.cfg.max_duration.endswith("ep"):
+                max_epochs = int(self.cfg.max_duration[:-2].strip())
+                return max_epochs * self.batches_per_epoch
+            else:
+                # convert to float *first* to handle scientific notation
+                return int(float(self.cfg.max_duration))
+        else:
+            raise TypeError(f"expected int or str for 'max_duration', found {type(self.cfg.max_duration)}")
+
+    @property
+    def max_tokens(self) -> int:
+        if isinstance(self.cfg.max_duration, int):
+            return (
+                self.global_train_tokens_seen
+                + max(self.cfg.max_duration - self.global_step, 0) * self.tokens_per_batch
+            )
+        elif isinstance(self.cfg.max_duration, str):
+            if self.cfg.max_duration.endswith("T"):
+                # convert to float *first* to handle scientific notation
+                return int(float(self.cfg.max_duration[:-1].strip()))
+            elif self.cfg.max_duration.endswith("ep"):
+                max_epochs = int(self.cfg.max_duration[:-2].strip())
+                return max_epochs * self.batches_per_epoch * self.tokens_per_batch
+            else:
+                # convert to float *first* to handle scientific notation
+                return (
+                    self.global_train_tokens_seen
+                    + max(int(float(self.cfg.max_duration)) - self.global_step, 0) * self.tokens_per_batch
+                )
+        else:
+            raise TypeError(f"expected int or str for 'max_duration', found {type(self.cfg.max_duration)}")
+
+    @property
+    def scheduler_current(self) -> int:
+        if self.cfg.scheduler.units == SchedulerUnits.steps:
+            return self.global_step
+        elif self.cfg.scheduler.units == SchedulerUnits.tokens:
+            return self.global_train_tokens_seen
+        else:
+            raise NotImplementedError(self.cfg.scheduler.units)
+
+    @property
+    def scheduler_max(self) -> int:
+        if self.cfg.scheduler.units == SchedulerUnits.steps:
+            return self.max_steps
+        elif self.cfg.scheduler.units == SchedulerUnits.tokens:
+            return self.max_tokens
+        else:
+            raise NotImplementedError(self.cfg.scheduler.units)
 
     def trainer_state_dict(self) -> Dict[str, Any]:
         return {
+            "epoch": self.epoch,
             "global_step": self.global_step,
-            "global_data_step": self.global_data_step,
-            "global_train_examples_seen": self.global_train_examples_seen,
+            "global_train_examples_seen_this_epoch": self.global_train_examples_seen_this_epoch,
             "global_train_tokens_seen": self.global_train_tokens_seen,
             "world_size": get_world_size(),
             "checkpoints": self.checkpoints,
             "unsharded_checkpoints": self.unsharded_checkpoints,
+            "ephemeral_checkpoints": self.ephemeral_checkpoints,
             "rng": {
                 "python": random.getstate(),
                 "numpy": np.random.get_state(),
@@ -146,47 +298,58 @@ class Trainer:
             for path in state_dict["unsharded_checkpoints"]
             if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
         ]
+        self.ephemeral_checkpoints = [
+            path
+            for path in state_dict.get("ephemeral_checkpoints", [])
+            if path.is_dir() and path.resolve().parent == Path(self.cfg.save_folder).resolve()
+        ]
 
         # Dataset / dataloader position.
+        checkpoint_epoch = state_dict.get("epoch", 0)
         self.global_step = state_dict["global_step"]
-        self.global_data_step = state_dict["global_data_step"]
-        self.global_train_examples_seen = state_dict.get(  # newer addition
-            "global_train_examples_seen", self.global_data_step * self.cfg.global_train_batch_size
+        self.global_train_examples_seen_this_epoch = state_dict.get(
+            "global_train_examples_seen_this_epoch",
+            state_dict.get(  # for backwards compatibility
+                "global_train_examples_seen",
+                state_dict.get("global_data_step", self.global_step) * self.cfg.global_train_batch_size,
+            ),
         )
-        self.global_train_tokens_seen = state_dict.get(  # newer addition
+        self.global_train_tokens_seen = state_dict.get(
             "global_train_tokens_seen",
-            self.global_data_step * self.cfg.global_train_batch_size * self.cfg.model.max_sequence_length,
+            state_dict.get("global_data_step", self.global_step)  # for backwards compatibility
+            * self.cfg.global_train_batch_size
+            * self.cfg.model.max_sequence_length,
         )
+
         if not self.cfg.restore_dataloader:
-            self.global_data_step = 0
-            self.global_train_examples_seen = 0
+            self.epoch = 0
             self.global_train_tokens_seen = 0
-        elif self.cfg.fast_forward_batches:
-            self.global_data_step += self.cfg.fast_forward_batches
+            self.global_train_examples_seen_this_epoch = 0
+        elif self.epoch is None:
+            self.epoch = checkpoint_epoch
+        elif checkpoint_epoch != self.epoch:
+            log.info(f"Starting new epoch (epoch = {self.epoch})")
+            self.global_train_examples_seen_this_epoch = 0
+
+        if self.cfg.fast_forward_batches:
+            log.info(f"Fast-forwarding data loader by {self.cfg.fast_forward_batches:,d} steps")
             # Technically we don't "see" these batches that we fast-forward through, but we use
             # this variable to update the position of the dataset so we need to include them here.
-            self.global_train_examples_seen += self.cfg.fast_forward_batches * self.cfg.global_train_batch_size
+            self.global_train_examples_seen_this_epoch += (
+                self.cfg.fast_forward_batches * self.cfg.global_train_batch_size
+            )
             # NOTE: on the other hand we don't add anything to 'self.global_train_tokens_seen' here because
             # that variable is meant to track the actual number of tokens trained on.
 
-        if self.global_data_step > 0:
-            if self.global_data_step > self.global_step:
-                log.info(
-                    f"Fast-forwarding data loader to step {self.global_step:,d}+{self.global_data_step-self.global_step:,d} "
-                    f"({self.global_train_examples_seen:,d} examples)"
-                )
-            else:
-                log.info(
-                    f"Fast-forwarding data loader to step {self.global_data_step:,d} "
-                    f"({self.global_train_examples_seen:,d} examples)"
-                )
-            assert isinstance(self.train_loader.dataset, IterableDataset)
-            self.train_loader.dataset.start_index = self.global_train_examples_seen
+        if self.global_train_examples_seen_this_epoch > 0:
+            assert isinstance(self.dataset, IterableDataset)
+            log.info(f"Data loader will start at instance index {self.global_train_examples_seen_this_epoch:,d}")
+            self.dataset.start_index = self.global_train_examples_seen_this_epoch
 
         # Reset learning rate and weight decay to the values from the config, not the checkpoint.
         log.info("Resetting learning rate...")
         new_learning_rate = self.scheduler.get_lr(
-            self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
+            self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
         )
         for group in self.optim.param_groups:
             group["lr"] = new_learning_rate
@@ -225,6 +388,11 @@ class Trainer:
             current_checkpoints = self.unsharded_checkpoints
             link_latest = get_global_rank() == 0
             num_checkpoints_to_keep = self.cfg.save_num_unsharded_checkpoints_to_keep
+        elif checkpoint_type == CheckpointType.sharded_ephemeral:
+            suffix = ""
+            current_checkpoints = self.ephemeral_checkpoints
+            link_latest = get_fs_local_rank() == 0
+            num_checkpoints_to_keep = 1
         else:
             raise NotImplementedError(checkpoint_type)
 
@@ -252,7 +420,7 @@ class Trainer:
                 upload_to=remote_checkpoint_dir,
             )
         except FileExistsError:
-            raise OlmoConfigurationError(
+            raise OLMoConfigurationError(
                 f"Checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
             )
 
@@ -283,10 +451,18 @@ class Trainer:
 
     def save_sharded_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
         checkpointer = build_sharded_checkpointer(self.cfg)
-        return self._save_checkpoint(checkpointer, CheckpointType.sharded)
+        result = self._save_checkpoint(checkpointer, CheckpointType.sharded)
+        self.last_sharded_checkpoint_step = self.global_step
+        return result
 
-    def remove_sharded_checkpoint(self, idx: int = 0):
-        oldest_checkpoint = self.checkpoints.pop(idx)
+    def save_ephemeral_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
+        checkpointer = build_sharded_checkpointer(self.cfg)
+        result = self._save_checkpoint(checkpointer, CheckpointType.sharded_ephemeral)
+        self.last_sharded_checkpoint_step = self.global_step
+        return result
+
+    def _remove_sharded_checkpoint(self, idx: int, checkpoints: List[Path]):
+        oldest_checkpoint = checkpoints.pop(idx)
         barrier()
         if get_fs_local_rank() == 0 and oldest_checkpoint.is_dir():
             shutil.rmtree(oldest_checkpoint, ignore_errors=True)
@@ -295,12 +471,19 @@ class Trainer:
                 latest_path.unlink()
         barrier()
 
+    def remove_sharded_checkpoint(self, idx: int = 0):
+        self._remove_sharded_checkpoint(idx, self.checkpoints)
+
+    def remove_ephemeral_checkpoint(self, idx: int = 0):
+        self._remove_sharded_checkpoint(idx, self.ephemeral_checkpoints)
+
     def restore_sharded_checkpoint(
         self,
         load_path: PathOrStr,
         local_cache: Optional[PathOrStr] = None,
         *,
         load_optimizer_state: bool = True,
+        load_trainer_state: bool = True,
         sharded_checkpointer: Optional[ShardedCheckpointerType] = None,
     ):
         # Zero-gradients to avoid gathering them.
@@ -313,12 +496,15 @@ class Trainer:
             local_cache=local_cache,
             load_optimizer_state=load_optimizer_state,
         )
-        self.load_trainer_state_dict(trainer_state)
+        if load_trainer_state:
+            self.load_trainer_state_dict(trainer_state)
         barrier()
 
     def save_unsharded_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
         checkpointer = FullCheckpointer(self.cfg)
-        return self._save_checkpoint(checkpointer, CheckpointType.unsharded)
+        result = self._save_checkpoint(checkpointer, CheckpointType.unsharded)
+        self.last_unsharded_checkpoint_step = self.global_step
+        return result
 
     def remove_unsharded_checkpoint(self, idx: int = 0):
         barrier()
@@ -331,7 +517,12 @@ class Trainer:
         barrier()
 
     def restore_unsharded_checkpoint(
-        self, load_path: PathOrStr, local_cache: Optional[PathOrStr] = None, *, load_optimizer_state: bool = True
+        self,
+        load_path: PathOrStr,
+        local_cache: Optional[PathOrStr] = None,
+        *,
+        load_optimizer_state: bool = True,
+        load_trainer_state: bool = True,
     ):
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
@@ -343,18 +534,25 @@ class Trainer:
             local_cache=local_cache,
             load_optimizer_state=load_optimizer_state,
         )
-        self.load_trainer_state_dict(trainer_state)
+        if load_trainer_state:
+            self.load_trainer_state_dict(trainer_state)
         barrier()
 
     def save_checkpoint(
         self, checkpoint_type: CheckpointType = CheckpointType.sharded
     ) -> Tuple[PathOrStr, Optional[PathOrStr]]:
+        result: Tuple[PathOrStr, Optional[PathOrStr]]
         if checkpoint_type == CheckpointType.sharded:
-            return self.save_sharded_checkpoint()
+            result = self.save_sharded_checkpoint()
         elif checkpoint_type == CheckpointType.unsharded:
-            return self.save_unsharded_checkpoint()
+            result = self.save_unsharded_checkpoint()
+        elif checkpoint_type == CheckpointType.sharded_ephemeral:
+            result = self.save_ephemeral_checkpoint()
         else:
             raise NotImplementedError(checkpoint_type)
+
+        gc_cuda()
+        return result
 
     def restore_checkpoint(
         self,
@@ -363,42 +561,57 @@ class Trainer:
         checkpoint_type: Optional[CheckpointType] = None,
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
+        load_trainer_state: bool = True,
         sharded_checkpointer: Optional[ShardedCheckpointerType] = None,
     ):
         if checkpoint_type == CheckpointType.unsharded or (
             checkpoint_type is None and str(load_path).rstrip("/").endswith("-unsharded")
         ):
             self.restore_unsharded_checkpoint(
-                load_path, local_cache=local_cache, load_optimizer_state=load_optimizer_state
+                load_path,
+                local_cache=local_cache,
+                load_optimizer_state=load_optimizer_state,
+                load_trainer_state=load_trainer_state,
             )
         elif checkpoint_type == CheckpointType.sharded or checkpoint_type is None:
             self.restore_sharded_checkpoint(
                 load_path,
                 local_cache=local_cache,
                 load_optimizer_state=load_optimizer_state,
+                load_trainer_state=load_trainer_state,
                 sharded_checkpointer=sharded_checkpointer,
             )
         elif checkpoint_type is not None:
             raise NotImplementedError(checkpoint_type)
+
+        gc_cuda()
 
     def remove_checkpoint(self, idx: int = 0, checkpoint_type: CheckpointType = CheckpointType.sharded):
         if checkpoint_type == CheckpointType.sharded:
             self.remove_sharded_checkpoint(idx=idx)
         elif checkpoint_type == CheckpointType.unsharded:
             self.remove_unsharded_checkpoint(idx=idx)
+        elif checkpoint_type == CheckpointType.sharded_ephemeral:
+            self.remove_ephemeral_checkpoint(idx=idx)
         else:
             raise NotImplementedError(checkpoint_type)
 
     def get_labels(self, batch: Dict[str, Any]) -> torch.Tensor:
         # Labels are just input IDs shifted to the left (first item is ignored).
-        labels, attention_mask = batch["input_ids"], batch.get("attention_mask")
+        labels, label_mask, attention_mask = (
+            batch["input_ids"].clone(),
+            batch.get("label_mask"),
+            batch.get("attention_mask"),
+        )
+        if label_mask is not None:
+            labels.masked_fill_(~label_mask, -100)
         if attention_mask is not None:
-            labels = labels.masked_fill(attention_mask == 0.0, -100)
+            labels.masked_fill_(attention_mask == 0.0, -100)
         return labels[..., 1:].contiguous()
 
     def model_forward(
-        self, batch: Dict[str, Any], loss_reduction: str = "mean"
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        self, batch: Dict[str, Any], loss_reduction: str = "mean", compute_z_loss: bool = False
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], torch.Tensor]:
         # shape: (batch_size, seq_len, vocab_size)
         logits = self.fsdp_model(
             input_ids=batch["input_ids"],
@@ -412,11 +625,15 @@ class Trainer:
         labels = self.get_labels(batch)
         # shape: (batch_size * seq_len,)
         labels = labels.view(-1)
-        ce_loss = F.cross_entropy(logits_for_loss, labels, ignore_index=-100, reduction=loss_reduction)
+        ce_loss, z_loss = self.loss_fn(
+            logits_for_loss, labels, ignore_index=-100, reduction=loss_reduction, compute_z_loss=compute_z_loss
+        )
         if loss_reduction == "none":
             # Reshape (batch_size * seq_len,) -> (batch_size, seq_len)
             ce_loss = ce_loss.view(batch["input_ids"].shape[0], -1)
-        return ce_loss, logits
+            if z_loss is not None:
+                z_loss = z_loss.view(batch["input_ids"].shape[0], -1)
+        return ce_loss, z_loss, logits
 
     def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Split into micro-batches.
@@ -430,7 +647,9 @@ class Trainer:
         for micro_batch in micro_batches:
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                 # Run forward pass.
-                ce_loss, logits = self.model_forward(micro_batch)
+                ce_loss, z_loss, logits = self.model_forward(
+                    micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss
+                )
                 ce_loss = ce_loss / len(micro_batches)
 
                 # In case this helps with memory utilization.
@@ -441,8 +660,9 @@ class Trainer:
 
                 # Get loss to optimize for.
                 if self.cfg.softmax_auxiliary_loss:
-                    z_squared = logits.logsumexp(-1).pow(2).mean()
-                    z_loss = 1e-4 * z_squared / len(micro_batches)
+                    assert z_loss is not None
+                    assert z_batch_loss is not None
+                    z_loss = z_loss / len(micro_batches)
                     loss = ce_loss + z_loss
 
                     # Update overall Z batch loss.
@@ -491,9 +711,29 @@ class Trainer:
         # Optimizer step, gradient clipping etc. is all handled in model.step()
         # https://github.com/microsoft/DeepSpeed/blob/2afa1c7f2f961ef18042a88467ff5d3373c22c07/deepspeed/runtime/bf16_optimizer.py#L244
         if not self.is_deepspeed:
+            # Clip gradient norms and collect param/gradient/optim metrics.
             should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
             optim_metrics = self.optim.clip_grads_and_collect_metrics(
-                self.global_step, collect_param_metrics=should_log_optim_metrics_this_step
+                self.global_step,
+                collect_param_metrics=should_log_optim_metrics_this_step,
+                # passing this process group here ensures metrics are reduced correctly when we're using
+                # HYBRID sharding.
+                process_group=self.fsdp_model.process_group,
+            )
+
+        # Adjust the learning rate.
+        for group in self.optim.param_groups:
+            # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
+            # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
+            # the corresponding values from `self.cfg`.
+            group["lr"] = self.scheduler.get_lr(
+                self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
+            )
+            group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
+                self.cfg.max_grad_norm, self.scheduler_current, self.scheduler_max
+            )
+            group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
+                self.cfg.max_grad_norm_ratio, self.scheduler_current, self.scheduler_max
             )
 
             # Adjust the learning rate.
@@ -532,7 +772,9 @@ class Trainer:
         # Maybe collect post-step optimizer-specific metrics.
         if not self.is_deepspeed:
             if should_log_optim_metrics_this_step:
-                optim_metrics = self.optim.get_post_step_metrics(self.fsdp_model)
+                optim_metrics = self.optim.get_post_step_metrics(
+                    self.fsdp_model, process_group=self.fsdp_model.process_group
+                )
                 for key, value in optim_metrics.items():
                     metrics[f"optim/{key}"] = value.item()
 
@@ -540,7 +782,7 @@ class Trainer:
 
     def eval_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
-            ce_loss, logits = self.model_forward(batch, loss_reduction="none")
+            ce_loss, _, logits = self.model_forward(batch, loss_reduction="none")
         return ce_loss.mean(dim=-1), logits
 
     def eval_step(self, batch: Dict[str, Any], evaluator: Evaluator) -> None:
@@ -676,14 +918,16 @@ class Trainer:
 
         return eval_metrics
 
-    def check_if_cancelled(self) -> bool:
+    def check_if_cancelled(self) -> Tuple[bool, int]:
         should_cancel = False
         cancel_reason: Optional[str] = None
+        extra_steps = 0
         if get_global_rank() == 0:
             if self.cfg.time_limit is not None and time.time() - self._start_time >= self.cfg.time_limit:
                 # First check if we've reached the training time limit.
                 should_cancel = True
                 cancel_reason = "time limit reached"
+                extra_steps = self.cfg.extra_steps_after_cancel
             elif (
                 self.cfg.early_stopping_factor is not None
                 and self.global_step > self.cfg.scheduler.t_warmup
@@ -696,6 +940,7 @@ class Trainer:
                 # Finally, check if someone canceled the run from W&B by adding the 'cancel' / 'canceled' tag..
                 # We won't see it in the run object. So we have to use the import/export API to check.
                 from requests.exceptions import RequestException
+                from wandb.errors import CommError
 
                 try:
                     api = wandb.Api(api_key=api_key)
@@ -704,17 +949,40 @@ class Trainer:
                         if tag.lower() in {"cancel", "canceled", "cancelled"}:
                             should_cancel = True
                             cancel_reason = "Weights & Biases tag"
+                            extra_steps = self.cfg.extra_steps_after_cancel
                             break
-                except RequestException:
-                    pass
+                except (RequestException, CommError):
+                    log.info("Failed to check if W&B run is cancelled, continuing run.")
 
         run_canceled = synchronize_flag(should_cancel, self.device)
-        if run_canceled and cancel_reason is not None:
-            log.warning(f"Run canceled due to {cancel_reason}")
-        return run_canceled
+        if run_canceled:
+            extra_steps = synchronize_value(extra_steps, self.device)
+            if cancel_reason is None:
+                if extra_steps > 0:
+                    log.warning(f"Run canceled, stopping in {extra_steps} more steps...")
+                else:
+                    log.warning("Run canceled")
+            else:
+                if extra_steps > 0:
+                    log.warning(f"Run canceled due to {cancel_reason}, stopping in {extra_steps} more steps...")
+                else:
+                    log.warning(f"Run canceled due to {cancel_reason}")
+
+        return run_canceled, extra_steps
 
     def fit(self):
+        if self.cfg.stop_after is not None:
+            if self.cfg.stop_at is None:
+                self.cfg.stop_at = self.global_step + self.cfg.stop_after
+            else:
+                self.cfg.stop_at = min(self.cfg.stop_at, self.global_step + self.cfg.stop_after)
+
         self._start_time = time.time()
+        self._gc_init_state = gc.isenabled()  # cache if garbage collection is enabled, reset on close.
+
+        # Disable automatic garbage collection, FSDP doesn't work well with it.
+        if self.cfg.gen1_gc_interval is not None:
+            gc.disable()
 
         if self.cfg.load_path is not None and self.global_step > 0 and self.cfg.eval_on_load:
             eval_metrics = self.eval()
@@ -746,7 +1014,7 @@ class Trainer:
         if self.cfg.torch_profiling and get_global_rank() == 0:
             from torch.profiler import schedule
 
-            profiling_schedule = schedule(wait=1, warmup=5, active=3)
+            profiling_schedule = schedule(wait=1, warmup=5, active=3, repeat=1)
 
             def on_trace_ready(p):
                 profiler_output_dir = Path(self.cfg.save_folder) / "profiler"
@@ -783,134 +1051,193 @@ class Trainer:
 
         # Train.
         first_batch: bool = True
-        canceled: bool = False
+        cancel_initiated: bool = False
+        stop_at: Optional[int] = self.cfg.stop_at
+        save_checkpoints: bool = True
 
         with torch_profiler as p:
-            for batch in self.train_loader:
-                # Bookkeeping.
-                # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
-                # batches see the same number of tokens, which should be the case for language model pre-training
-                # (at least when drop_last=True).
-                # Alternatively we'd have to use a distributed all reduce over seq_len here, but I don't want that
-                # overhead. So for now I'm putting these assertions here so if the assumption is violated it will
-                # fail loudly.
-                batch_size, seq_len = batch["input_ids"].shape
-                assert seq_len == self.cfg.model.max_sequence_length
-                assert batch_size == self.cfg.device_train_batch_size
-                global_batch_size = batch_size * get_world_size()  # assumes batch size equal across ranks
-                self.global_step += 1
-                self.global_data_step += 1
-                self.global_train_examples_seen += global_batch_size
-                self.global_train_tokens_seen += global_batch_size * seq_len
-                speed_monitor.batch_start(
-                    self.global_train_tokens_seen,
-                    batch_size * seq_len,  # num tokens in batch for this device
-                    # We start monitoring speed after the first batch since the first
-                    # batch might be an outlier due to compiling and other initialization overhead.
-                    record=not first_batch,
-                )
+            for epoch in range(self.epoch or 0, self.max_epochs):
+                for batch in self.train_loader:
+                    # Bookkeeping.
+                    # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
+                    # batches see the same number of tokens, which should be the case for language model pre-training
+                    # (at least when drop_last=True).
+                    # Alternatively we'd have to use a distributed all reduce over seq_len here, but I don't want that
+                    # overhead. So for now I'm putting these assertions here so if the assumption is violated it will
+                    # fail loudly.
+                    batch_size, seq_len = batch["input_ids"].shape
+                    assert seq_len == self.cfg.model.max_sequence_length
+                    assert batch_size == self.cfg.device_train_batch_size
+                    global_batch_size = batch_size * get_world_size()  # assumes batch size equal across ranks
+                    self.global_step += 1
+                    self.global_train_examples_seen_this_epoch += global_batch_size
+                    self.global_train_tokens_seen += global_batch_size * seq_len
+                    speed_monitor.batch_start(
+                        self.global_train_tokens_seen,
+                        batch_size * seq_len,  # num tokens in batch for this device
+                        # We start monitoring speed after the first batch since the first
+                        # batch might be an outlier due to compiling and other initialization overhead.
+                        record=not first_batch,
+                    )
 
-                should_log_this_step = self.should_log_this_step()
+                    should_log_this_step = self.should_log_this_step()
 
-                # Run train step on batch.
-                metrics = self.train_step(batch, reduce_global_loss=should_log_this_step)
+                    # Run train step on batch.
+                    metrics = self.train_step(batch, reduce_global_loss=should_log_this_step)
 
-                # Maybe collect other metrics.
-                if should_log_this_step:
-                    # Speed metrics.
-                    metrics.update(speed_monitor.check())
-                    # System metrics.
-                    metrics.update(self.system_metrics())
-                    # Learning rate metrics.
-                    metrics.update(lr_monitor.check())
+                    # Maybe collect other metrics.
+                    if should_log_this_step:
+                        # Speed metrics.
+                        metrics.update(speed_monitor.check())
+                        # System metrics.
+                        metrics.update(self.system_metrics())
+                        # Learning rate metrics.
+                        metrics.update(lr_monitor.check())
 
-                # Log metrics to console.
-                if self.global_step % self.cfg.console_log_interval == 0:
-                    self.log_metrics_to_console(f"[step={self.global_step}/{self.cfg.max_duration}]", metrics)
-
-                # Log metrics to W&B.
-                if (
-                    wandb.run is not None
-                    and self.cfg.wandb is not None
-                    and self.global_step % self.cfg.wandb.log_interval == 0
-                ):
-                    wandb.log(metrics, step=self.global_step)
-
-                # Check if run should be canceled.
-                if self.cfg.stop_at is not None and self.global_step >= self.cfg.stop_at:
-                    canceled = True
-                elif self.global_step % self.cfg.canceled_check_interval == 0:
-                    canceled = self.check_if_cancelled()
-
-                # Maybe save sharded checkpoint.
-                if canceled or (
-                    self.global_step % self.cfg.save_interval == 0 and self.cfg.save_num_checkpoints_to_keep != 0
-                ):
-                    log.info("Saving checkpoint...")
-                    checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
-                    log.info(f"Checkpoint saved to {checkpoint_path}")
-
-                    # Reset speed monitor so that we don't count the time taken to save checkpoints.
-                    speed_monitor.reset()
-
-                # Maybe save unsharded checkpoint.
-                if (
-                    not canceled  # we already save a sharded checkpoint when canceled
-                    and self.cfg.save_interval_unsharded is not None
-                    and self.global_step % self.cfg.save_interval_unsharded == 0
-                    and self.cfg.save_num_unsharded_checkpoints_to_keep != 0
-                ):
-                    log.info("Saving unsharded checkpoint...")
-                    checkpoint_path, _ = self.save_checkpoint(CheckpointType.unsharded)
-                    log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
-
-                    # Reset speed monitor so that we don't count the time taken to save checkpoints.
-                    speed_monitor.reset()
-
-                # Maybe run evaluations.
-                if not canceled and self.global_step % self.cfg.eval_interval == 0:
-                    eval_metrics = self.eval()
+                    # Log metrics to console.
+                    if self.global_step % self.cfg.console_log_interval == 0:
+                        if get_global_rank() == 0:
+                            self.log_metrics_to_console(f"[step={self.global_step}/{self.max_steps}]", metrics)
+                        else:
+                            log.info(f"[step={self.global_step}/{self.max_steps}]")
 
                     # Log metrics to W&B.
-                    if wandb.run is not None:
-                        wandb.log(eval_metrics, step=self.global_step)
+                    if (
+                        wandb.run is not None
+                        and self.cfg.wandb is not None
+                        and self.global_step % self.cfg.wandb.log_interval == 0
+                    ):
+                        wandb.log(metrics, step=self.global_step)
 
-                    # Reset speed monitor so that we don't count the time taken to run evaluations.
-                    speed_monitor.reset()
+                    # Check if/when run should be canceled.
+                    if not cancel_initiated and self.global_step % self.cfg.canceled_check_interval == 0:
+                        cancel_initiated, extra_steps = self.check_if_cancelled()
+                        if cancel_initiated:
+                            stop_at = (
+                                self.global_step + extra_steps
+                                if stop_at is None
+                                else min(self.global_step + extra_steps, stop_at)
+                            )
 
-                    # Reset model to 'train' mode.
-                    self.fsdp_model.train()
+                    # Maybe save sharded checkpoint.
+                    if save_checkpoints and (
+                        cancel_initiated
+                        or (
+                            self.global_step % self.cfg.save_interval == 0
+                            and self.cfg.save_num_checkpoints_to_keep != 0
+                        )
+                    ):
+                        log.info("Saving checkpoint...")
+                        checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
+                        log.info(f"Checkpoint saved to {checkpoint_path}")
 
-                # End of batch.
-                first_batch = False
-                if p is not None:
-                    p.step()
+                        # Remove any ephemeral checkpoints.
+                        while self.ephemeral_checkpoints:
+                            self.remove_ephemeral_checkpoint()
 
-                if canceled:
-                    break
+                        # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                        speed_monitor.reset()
 
-                # Python Profiler stuff
-                # We do this now, at the bottom of this loop, so we capture the work of getting the next batch.
-                if python_profiler is not None:
-                    if self.global_step == 5:
-                        python_profiler.enable()
-                    elif self.global_step == 8:
-                        python_profiler.disable()
-                        python_profiler.print_stats(sort=SortKey.CUMULATIVE)
-                        python_profiler = None
-            else:
-                log.info("Training loop complete")
+                        # If the run was just canceled this will be the final checkpoint.
+                        if cancel_initiated:
+                            save_checkpoints = False
+                    elif (
+                        self.cfg.save_interval_ephemeral is not None
+                        and self.global_step % self.cfg.save_interval_ephemeral == 0
+                    ):
+                        log.info("Saving ephemeral checkpoint...")
+                        checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded_ephemeral)
+                        log.info(f"Checkpoint saved to {checkpoint_path}")
 
-        # Save final unsharded model-only checkpoint.
-        if not canceled and self.cfg.save_interval_unsharded is not None:
-            log.info("Saving final unsharded model checkpoint...")
-            checkpoint_path, _ = self.save_checkpoint(CheckpointType.unsharded)
-            log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
+                        # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                        speed_monitor.reset()
+
+                    # Maybe save unsharded checkpoint.
+                    if (
+                        save_checkpoints
+                        and self.cfg.save_interval_unsharded is not None
+                        and self.global_step % self.cfg.save_interval_unsharded == 0
+                        and self.cfg.save_num_unsharded_checkpoints_to_keep != 0
+                    ):
+                        log.info("Saving unsharded checkpoint...")
+                        checkpoint_path, _ = self.save_checkpoint(CheckpointType.unsharded)
+                        log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
+
+                        # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                        speed_monitor.reset()
+
+                    # Maybe run evaluations.
+                    if not cancel_initiated and self.global_step % self.cfg.eval_interval == 0:
+                        eval_metrics = self.eval()
+
+                        # Log metrics to W&B.
+                        if wandb.run is not None:
+                            wandb.log(eval_metrics, step=self.global_step)
+
+                        # Reset speed monitor so that we don't count the time taken to run evaluations.
+                        speed_monitor.reset()
+
+                        # Reset model to 'train' mode.
+                        self.fsdp_model.train()
+
+                    # End of batch.
+                    first_batch = False
+                    if p is not None:
+                        p.step()
+
+                    if stop_at is not None and self.global_step >= stop_at:
+                        break
+
+                    # Run generation 1 garbage collection.
+                    if self.cfg.gen1_gc_interval is not None and self.global_step % self.cfg.gen1_gc_interval == 0:
+                        gc.collect(1)
+
+                    # Python Profiler stuff
+                    # We do this now, at the bottom of this loop, so we capture the work of getting the next batch.
+                    if python_profiler is not None:
+                        if self.global_step == 5:
+                            python_profiler.enable()
+                        elif self.global_step == 8:
+                            python_profiler.disable()
+                            python_profiler.print_stats(sort=SortKey.CUMULATIVE)
+                            python_profiler = None
+                else:
+                    log.info("Training epoch complete")
+                    self.epoch = epoch + 1
+                    self.global_train_examples_seen_this_epoch = 0
+                    if self.epoch < self.max_epochs:
+                        self.dataset.reshuffle()
+                    continue
+
+                break
+
+        # Save final checkpoint.
+        if save_checkpoints:
+            if (
+                self.cfg.save_interval_unsharded is not None
+                and self.last_unsharded_checkpoint_step != self.global_step
+            ):
+                log.info("Saving final unsharded model checkpoint...")
+                checkpoint_path, _ = self.save_checkpoint(CheckpointType.unsharded)
+                log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
+            elif (
+                self.cfg.save_num_checkpoints_to_keep != 0
+                and self.last_sharded_checkpoint_step != self.global_step
+            ):
+                log.info("Saving final checkpoint...")
+                checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
+                log.info(f"Checkpoint saved to {checkpoint_path}")
 
     def close(self, exit_code: int = 0) -> None:
+        gc_cuda()
+
         if self.indices_file is not None:
             self.indices_file.flush()
             self.indices_file.close()
+        if self._gc_init_state:
+            gc.enable()
+        else:
+            gc.disable()
         if wandb.run is not None:
             wandb.finish(exit_code=exit_code, quiet=True)
 

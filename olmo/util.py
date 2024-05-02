@@ -24,8 +24,19 @@ from rich.text import Text
 from rich.traceback import Traceback
 
 from .aliases import PathOrStr
-from .exceptions import OlmoCliError, OlmoError, OlmoNetworkError, OlmoThreadError
+from .exceptions import (
+    OLMoCliError,
+    OLMoEnvironmentError,
+    OLMoError,
+    OLMoNetworkError,
+    OLMoThreadError,
+)
 from .torch_util import get_global_rank, get_local_rank, get_node_rank, is_distributed
+
+try:
+    from functools import cache
+except ImportError:
+    from functools import lru_cache as cache
 
 
 class StrEnum(str, Enum):
@@ -48,6 +59,7 @@ log = logging.getLogger(__name__)
 class LogFilterType(StrEnum):
     rank0_only = "rank0_only"
     local_rank0_only = "local_rank0_only"
+    all_ranks = "all_ranks"
 
 
 def log_extra_field(field_name: str, field_value: Any) -> None:
@@ -115,26 +127,18 @@ def setup_logging(log_filter_type: LogFilterType = LogFilterType.rank0_only) -> 
         else:
             return 0
 
-    filter = None
     if log_filter_type == LogFilterType.rank0_only:
         filter = rank0_filter
     elif log_filter_type == LogFilterType.local_rank0_only:
         filter = local_rank0_filter  # type: ignore
+    elif log_filter_type == LogFilterType.all_ranks:
+        filter = None
     else:
         raise ValueError(log_filter_type)
 
     if filter is not None:
         handler.addFilter(filter)  # type: ignore
     logging.basicConfig(handlers=[handler], level=logging.INFO)
-
-    logzio_token = os.environ.get("LOGZIO_TOKEN", None)
-    if logzio_token:
-        from logzio.handler import LogzioHandler
-
-        logzio_handler = LogzioHandler(logzio_token)
-        if filter is not None:
-            logzio_handler.addFilter(filter)  # type: ignore
-        logging.getLogger().addHandler(logzio_handler)
 
     logging.captureWarnings(True)
     logging.getLogger("urllib3").setLevel(logging.ERROR)
@@ -146,9 +150,9 @@ def excepthook(exctype, value, traceback):
     """
     if issubclass(exctype, KeyboardInterrupt):
         sys.__excepthook__(exctype, value, traceback)
-    elif issubclass(exctype, OlmoCliError):
+    elif issubclass(exctype, OLMoCliError):
         rich.get_console().print(f"[yellow]{value}[/]", highlight=False)
-    elif issubclass(exctype, OlmoError):
+    elif issubclass(exctype, OLMoError):
         rich.get_console().print(Text(f"{exctype.__name__}:", style="red"), value, highlight=False)
     else:
         log.critical("Uncaught %s: %s", exctype.__name__, value, exc_info=(exctype, value, traceback))
@@ -324,8 +328,10 @@ def file_size(path: PathOrStr) -> int:
         parsed = urlparse(str(path))
         if parsed.scheme == "gs":
             return _gcs_file_size(parsed.netloc, parsed.path.strip("/"))
-        elif parsed.scheme == "s3":
-            return _s3_file_size(parsed.netloc, parsed.path.strip("/"))
+        elif parsed.scheme in ("s3", "r2"):
+            return _s3_file_size(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
+        elif parsed.scheme in ("http", "https"):
+            return _http_file_size(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return file_size(str(path).replace("file://", "", 1))
         else:
@@ -343,8 +349,8 @@ def upload(source: PathOrStr, target: str, save_overwrite: bool = False):
     parsed = urlparse(target)
     if parsed.scheme == "gs":
         _gcs_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
-    elif parsed.scheme == "s3":
-        _s3_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
+    elif parsed.scheme in ("s3", "r2"):
+        _s3_upload(source, parsed.scheme, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
     else:
         raise NotImplementedError(f"Upload not implemented for '{parsed.scheme}' scheme")
 
@@ -356,12 +362,18 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
         parsed = urlparse(str(source))
         if parsed.scheme == "gs":
             return _gcs_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
-        elif parsed.scheme == "s3":
-            return _s3_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
+        elif parsed.scheme in ("s3", "r2"):
+            return _s3_get_bytes_range(
+                parsed.scheme, parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes
+            )
+        elif parsed.scheme in ("http", "https"):
+            return _http_get_bytes_range(
+                parsed.scheme, parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes
+            )
         elif parsed.scheme == "file":
             return get_bytes_range(str(source).replace("file://", "", 1), bytes_start, num_bytes)
         else:
-            raise NotImplementedError(f"file size not implemented for '{parsed.scheme}' files")
+            raise NotImplementedError(f"get bytes range not implemented for '{parsed.scheme}' files")
     else:
         with open(source, "rb") as f:
             f.seek(bytes_start)
@@ -375,8 +387,8 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
         parsed = urlparse(str(dir))
         if parsed.scheme == "gs":
             raise NotImplementedError
-        elif parsed.scheme == "s3":
-            return _s3_find_latest_checkpoint(parsed.netloc, parsed.path.strip("/"))
+        elif parsed.scheme in ("s3", "r2"):
+            return _s3_find_latest_checkpoint(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return find_latest_checkpoint(str(dir).replace("file://", "", 1))
         else:
@@ -437,35 +449,65 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
     return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1)
 
 
-_s3_client = None
+def _get_s3_profile_name(scheme: str) -> Optional[str]:
+    if scheme == "s3":
+        # For backwards compatibility, we assume S3 uses the default profile if S3_PROFILE is not set.
+        return os.environ.get("S3_PROFILE")
+    if scheme == "r2":
+        profile_name = os.environ.get("R2_PROFILE")
+        if profile_name is None:
+            raise OLMoEnvironmentError(
+                "R2 profile name is not set. Did you forget to set the 'R2_PROFILE' env var?"
+            )
+
+        return profile_name
+
+    raise NotImplementedError(f"Cannot get profile name for scheme {scheme}")
 
 
-def _get_s3_client():
-    global _s3_client
-    if _s3_client is None:
-        _s3_client = boto3.client(
-            "s3",
-            config=Config(retries={"max_attempts": 10, "mode": "standard"}),
-            use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
-        )
-    return _s3_client
+def _get_s3_endpoint_url(scheme: str) -> Optional[str]:
+    if scheme == "s3":
+        return None
+    if scheme == "r2":
+        r2_endpoint_url = os.environ.get("R2_ENDPOINT_URL")
+        if r2_endpoint_url is None:
+            raise OLMoEnvironmentError(
+                "R2 endpoint url is not set. Did you forget to set the 'R2_ENDPOINT_URL' env var?"
+            )
+
+        return r2_endpoint_url
+
+    raise NotImplementedError(f"Cannot get endpoint url for scheme {scheme}")
+
+
+@cache
+def _get_s3_client(scheme: str):
+    session = boto3.Session(profile_name=_get_s3_profile_name(scheme))
+    return session.client(
+        "s3",
+        endpoint_url=_get_s3_endpoint_url(scheme),
+        config=Config(retries={"max_attempts": 10, "mode": "standard"}),
+        use_ssl=not int(os.environ.get("OLMO_NO_SSL", "0")),
+    )
 
 
 def _wait_before_retry(attempt: int):
     time.sleep(min(0.5 * 2**attempt, 3.0))
 
 
-def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False, max_attempts: int = 3):
+def _s3_upload(
+    source: Path, scheme: str, bucket_name: str, key: str, save_overwrite: bool = False, max_attempts: int = 3
+):
     err: Optional[Exception] = None
     if not save_overwrite:
         for attempt in range(1, max_attempts + 1):
             try:
-                _get_s3_client().head_object(Bucket=bucket_name, Key=key)
+                _get_s3_client(scheme).head_object(Bucket=bucket_name, Key=key)
                 raise FileExistsError(
                     f"s3://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it."
                 )
             except boto_exceptions.ClientError as e:
-                if int(e.response["Error"]["Code"]) == 404:
+                if e.response["ResponseMetadata"]["HTTPStatusCode"] == 404:
                     err = None
                     break
                 err = e
@@ -475,21 +517,21 @@ def _s3_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = 
                 _wait_before_retry(attempt)
 
         if err is not None:
-            raise OlmoNetworkError("Failed to check object existence during s3 upload") from err
+            raise OLMoNetworkError(f"Failed to check object existence during {scheme} upload") from err
 
     try:
-        _get_s3_client().upload_file(source, bucket_name, key)
+        _get_s3_client(scheme).upload_file(source, bucket_name, key)
     except boto_exceptions.ClientError as e:
-        raise OlmoNetworkError("Failed to upload to s3") from e
+        raise OLMoNetworkError(f"Failed to upload to {scheme}") from e
 
 
-def _s3_file_size(bucket_name: str, key: str, max_attempts: int = 3) -> int:
+def _s3_file_size(scheme: str, bucket_name: str, key: str, max_attempts: int = 3) -> int:
     err: Optional[Exception] = None
     for attempt in range(1, max_attempts + 1):
         try:
-            return _get_s3_client().head_object(Bucket=bucket_name, Key=key)["ContentLength"]
+            return _get_s3_client(scheme).head_object(Bucket=bucket_name, Key=key)["ContentLength"]
         except boto_exceptions.ClientError as e:
-            if int(e.response["Error"]["Code"]) == 404:
+            if e.response["ResponseMetadata"]["HTTPStatusCode"] == 404:
                 raise FileNotFoundError(f"s3://{bucket_name}/{key}") from e
             err = e
 
@@ -497,25 +539,25 @@ def _s3_file_size(bucket_name: str, key: str, max_attempts: int = 3) -> int:
             log.warning("%s failed attempt %d with retriable error: %s", _s3_file_size.__name__, attempt, err)
             _wait_before_retry(attempt)
 
-    raise OlmoNetworkError("Failed to get s3 file size") from err
+    raise OLMoNetworkError(f"Failed to get {scheme} file size") from err
 
 
 def _s3_get_bytes_range(
-    bucket_name: str, key: str, bytes_start: int, num_bytes: int, max_attempts: int = 3
+    scheme: str, bucket_name: str, key: str, bytes_start: int, num_bytes: int, max_attempts: int = 3
 ) -> bytes:
     err: Optional[Exception] = None
     for attempt in range(1, max_attempts + 1):
         try:
             return (
-                _get_s3_client()
+                _get_s3_client(scheme)
                 .get_object(
                     Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
                 )["Body"]
                 .read()
             )
         except boto_exceptions.ClientError as e:
-            if int(e.response["Error"]["Code"]) == 404:
-                raise FileNotFoundError(f"s3://{bucket_name}/{key}") from e
+            if e.response["ResponseMetadata"]["HTTPStatusCode"] == 404:
+                raise FileNotFoundError(f"{scheme}://{bucket_name}/{key}") from e
             err = e
         except (boto_exceptions.HTTPClientError, boto_exceptions.ConnectionError) as e:
             # ResponseStreamingError (subclass of HTTPClientError) can happen as
@@ -536,13 +578,13 @@ def _s3_get_bytes_range(
     # This can cause an irrelevant exception (e.g. KeyError: 'error'), resulting
     # in us losing the true exception info. To avoid this, we change the exception
     # to a type that has a single-parameter constructor.
-    raise OlmoNetworkError("Failed to get bytes range from s3") from err
+    raise OLMoNetworkError(f"Failed to get bytes range from {scheme}") from err
 
 
-def _s3_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
+def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Optional[str]:
     if not prefix.endswith("/"):
         prefix = f"{prefix}/"
-    response = _get_s3_client().list_objects(Bucket=bucket_name, Prefix=prefix, Delimiter="/")
+    response = _get_s3_client(scheme).list_objects(Bucket=bucket_name, Prefix=prefix, Delimiter="/")
     assert not response["IsTruncated"]  # need to handle this if it happens
     latest_step = 0
     latest_checkpoint: Optional[str] = None
@@ -555,11 +597,37 @@ def _s3_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
             step = int(checkpoint_name.replace("step", "").replace("-unsharded", ""))
         except ValueError:
             continue
+        # Make sure the checkpoint dir contains a config, otherwise the checkpoint is incomplete
+        # (upload might have have failed part way through).
+        try:
+            _s3_file_size(scheme, bucket_name, f"{prefix}/config.yaml")
+        except FileNotFoundError:
+            continue
         # We prioritize sharded checkpoints over unsharded ones.
         if step > latest_step or (step == latest_step and not checkpoint_name.endswith("-unsharded")):
             latest_step = step
-            latest_checkpoint = f"s3://ai2-llm/{prefix}"
+            latest_checkpoint = f"{scheme}://ai2-llm/{prefix}"
     return latest_checkpoint
+
+
+def _http_file_size(scheme: str, host_name: str, path: str) -> int:
+    import requests
+
+    response = requests.head(f"{scheme}://{host_name}/{path}", allow_redirects=True)
+    return int(response.headers.get("content-length"))
+
+
+def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: int, num_bytes: int) -> bytes:
+    import requests
+
+    response = requests.get(
+        f"{scheme}://{host_name}/{path}", headers={"Range": f"bytes={bytes_start}-{bytes_start+num_bytes-1}"}
+    )
+    result = response.content
+    assert (
+        len(result) == num_bytes
+    ), f"expected {num_bytes} bytes, got {len(result)}"  # Some web servers silently ignore range requests and send everything
+    return result
 
 
 def default_thread_count() -> int:
@@ -590,7 +658,7 @@ def threaded_generator(g, maxsize: int = 16, thread_name: Optional[str] = None):
 
     for x in iter(q.get, sentinel):
         if isinstance(x, Exception):
-            raise OlmoThreadError(f"generator thread {thread_name} failed") from x
+            raise OLMoThreadError(f"generator thread {thread_name} failed") from x
         else:
             yield x
 

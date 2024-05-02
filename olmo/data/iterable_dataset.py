@@ -13,7 +13,6 @@ from ..util import roundrobin, threaded_generator
 
 __all__ = ["IterableDataset"]
 
-
 log = logging.getLogger(__name__)
 
 
@@ -65,21 +64,26 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         assert global_batch_size % self.world_size == 0
         self.device_batch_size = global_batch_size // self.world_size
         self.global_indices_file: Optional[Path] = None
+        self.work_dir = work_dir
 
         if work_dir is not None:
-            self.global_indices_file = Path(work_dir) / "global_indices.npy"
-            if self.fs_local_rank == 0:
-                log.info("Saving global data order indices...")
-                self.global_indices_file.parent.mkdir(parents=True, exist_ok=True)
-                global_indices = self._build_global_indices()
-                global_indices_mmap = np.memmap(
-                    self.global_indices_file, dtype=np.uint32, mode="w+", shape=(len(global_indices),)
-                )
-                global_indices_mmap[:] = global_indices
-                global_indices_mmap.flush()
-                del global_indices_mmap
-                log.info("Global data order indices saved to '%s'", self.global_indices_file)
-            barrier()
+            self._build_and_save_global_indices()
+
+    def _build_and_save_global_indices(self):
+        assert self.work_dir is not None
+        self.global_indices_file = Path(self.work_dir) / "global_indices.npy"
+        if self.fs_local_rank == 0:
+            log.info("Saving global data order indices...")
+            self.global_indices_file.parent.mkdir(parents=True, exist_ok=True)
+            global_indices = self._build_global_indices()
+            global_indices_mmap = np.memmap(
+                self.global_indices_file, dtype=np.uint32, mode="w+", shape=(len(global_indices),)
+            )
+            global_indices_mmap[:] = global_indices
+            global_indices_mmap.flush()
+            del global_indices_mmap
+            log.info("Global data order indices saved to '%s'", self.global_indices_file)
+        barrier()
 
     def _build_global_indices(self) -> np.ndarray:
         assert len(self.dataset) < np.iinfo(np.uint32).max
@@ -111,6 +115,11 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             return np.memmap(self.global_indices_file, mode="r", dtype=np.uint32)  # type: ignore
         else:
             return self._build_global_indices()
+
+    def reshuffle(self):
+        self.seed += 1
+        if self.work_dir is not None:
+            self._build_and_save_global_indices()
 
     def __iter__(self) -> Iterator[Dict[str, Any]]:
         indices = self.get_global_indices()

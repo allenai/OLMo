@@ -26,6 +26,7 @@ class DataCollator:
         all_input_ids = []
         all_attention_mask = []
         all_attention_bias = []
+        all_label_mask = []
         all_indices = []
         all_metadata = []
         for x in items:
@@ -78,6 +79,19 @@ class DataCollator:
                     )
                 )
 
+            # Pad label mask.
+            label_mask = x.get("label_mask") if isinstance(x, dict) else None
+            if label_mask is not None:
+                if not isinstance(label_mask, torch.Tensor):
+                    label_mask = torch.tensor(label_mask)
+                all_label_mask.append(
+                    F.pad(
+                        label_mask.to(dtype=torch.bool),
+                        pad_shape,
+                        value=False,
+                    )
+                )
+
             # Indices.
             index = x.get("index") if isinstance(x, dict) else None
             if index is not None:
@@ -93,8 +107,11 @@ class DataCollator:
             out["attention_mask"] = torch.stack(all_attention_mask)
         if all_attention_bias:
             out["attention_bias"] = torch.stack(all_attention_bias)
+        if all_label_mask:
+            out["label_mask"] = torch.stack(all_label_mask)
         if all_indices:
             out["index"] = torch.stack(all_indices)
         if all_metadata:
             out["metadata"] = all_metadata
+
         return out

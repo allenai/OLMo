@@ -1,58 +1,33 @@
-import os
-
-# import warnings
+import logging
+from dataclasses import fields
 from typing import List, Optional, Tuple, Union
 
 import torch
+import transformers
+from packaging import version
 from transformers import PreTrainedModel
-
-# from transformers.generation.utils import (  # BaseStreamer,
-#     GenerateOutput,
-#     LogitsProcessorList,
-#     StoppingCriteriaList,
-# )
+from transformers.cache_utils import Cache
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.models.auto import AutoModelForCausalLM
 
 from olmo.config import ModelConfig
-from olmo.model import Olmo
+from olmo.model import OLMo
 
 from .configuration_olmo import OLMoConfig
 
-# from typing import Callable, Sequence
+log = logging.getLogger(__name__)
 
 
 def create_model_config_from_pretrained_config(config: OLMoConfig):
     """
     Utility function
     """
-    model_config = ModelConfig(
-        d_model=config.d_model,
-        n_heads=config.n_heads,
-        n_layers=config.n_layers,
-        mlp_ratio=config.mlp_ratio,
-        activation_type=config.activation_type,
-        block_type=config.block_type,
-        alibi=config.alibi,
-        alibi_bias_max=config.alibi_bias_max,
-        rope=config.rope,
-        flash_attention=config.flash_attention,
-        attention_dropout=config.attention_dropout,
-        attention_layer_norm=config.attention_layer_norm,
-        multi_query_attention=config.multi_query_attention,
-        residual_dropout=config.residual_dropout,
-        embedding_dropout=config.embedding_dropout,
-        layer_norm_type=config.layer_norm_type,
-        max_sequence_length=config.max_sequence_length,
-        include_bias=config.include_bias,
-        vocab_size=config.vocab_size,
-        embedding_size=config.embedding_size,
-        eos_token_id=config.eos_token_id,
-        pad_token_id=config.pad_token_id,
-        init_device=config.init_device,
-        init_std=config.init_std,
-        precision=config.precision,
-    )
+
+    kwargs = {}
+    for field in fields(ModelConfig):
+        kwargs[field.name] = getattr(config, field.name)
+
+    model_config = ModelConfig(**kwargs)
     return model_config
 
 
@@ -62,46 +37,57 @@ class OLMoForCausalLM(PreTrainedModel):
     """
 
     config_class = OLMoConfig
+    base_model_prefix = "model"
+    _no_split_modules = ["OLMoBlock"]
 
-    def __init__(self, config: OLMoConfig, model: Optional[Olmo] = None):
+    def __init__(self, config: OLMoConfig, model: Optional[OLMo] = None, init_params: bool = False):
         super().__init__(config)
 
         if not model:
             model_config = create_model_config_from_pretrained_config(config)
-            self.model = Olmo(model_config, init_params=True)
+            # Initialize model (always on CPU to start with so we don't run out of GPU memory).
+            model_config.init_device = "cpu"
+            self.model = OLMo(model_config, init_params=init_params)
         else:
             self.model = model
-
-    # def forward(self, *args, **kwargs):
-    #     # use_cache = self.config.use_cache or kwargs.pop("use_cache", False)
-    #     kwargs["use_cache"] = kwargs.pop("use_cache", self.config.use_cache)
-    #     return self.model.forward(*args, **kwargs)
 
     def forward(
         self,
         input_ids: torch.LongTensor = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
         attention_mask: Optional[torch.Tensor] = None,
+        attention_bias: Optional[torch.Tensor] = None,
         past_key_values: Optional[List[torch.FloatTensor]] = None,
         labels: Optional[torch.LongTensor] = None,
         use_cache: Optional[bool] = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
+        cache_position: Optional[
+            Cache
+        ] = None,  # This is a hack mitigation of an issue in transformers `4.39.x` https://github.com/huggingface/transformers/issues/29426
     ) -> Union[Tuple, CausalLMOutputWithPast]:
         if use_cache is None:
             use_cache = self.config.use_cache
+
+        if output_attentions:
+            raise ValueError("output_attentions is not yet supported in OLMo")
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
         outputs = self.model.forward(
             input_ids=input_ids,
+            input_embeddings=inputs_embeds,
             attention_mask=attention_mask,
+            attention_bias=attention_bias,
             past_key_values=past_key_values,
             use_cache=use_cache,
+            output_hidden_states=output_hidden_states,
         )
 
         logits = outputs.logits
+        hidden_states = outputs.hidden_states
 
         loss = None
         if labels is not None:
@@ -124,65 +110,11 @@ class OLMoForCausalLM(PreTrainedModel):
             loss=loss,
             logits=logits,
             past_key_values=outputs.attn_key_values,
+            hidden_states=hidden_states,
         )
 
     def can_generate(self) -> bool:
         return True
-
-    # Note (akshitab): This model does not use OLMo's generate() function as it does not support all the
-    # bells and whistles that HF's generation-compatible models do, such as `StoppingCriteria` or top-p sampling, etc.
-    # Instead, the model sets `can_generate` to True, and relies on HF's default `.generate()`, and implements
-    # supporting functions like `prepare_inputs_for_generation()`. This allows us to use HF's various generation
-    # options.
-
-    # def generate(
-    #     self,
-    #     input_ids: Optional[torch.Tensor] = None,
-    #     max_length: int = 20,
-    #     max_new_tokens: Optional[int] = None,
-    #     logits_processor: Optional[LogitsProcessorList] = None,
-    #     stopping_criteria: Optional[StoppingCriteriaList] = None,
-    #     prefix_allowed_tokens_fn: Optional[Callable[[int, torch.Tensor], List[int]]] = None,
-    #     synced_gpus: Optional[bool] = None,
-    #     assistant_model: Optional["PreTrainedModel"] = None,
-    #     streamer: Optional["BaseStreamer"] = None,
-    #     **kwargs,
-    # ) -> Union[GenerateOutput, torch.LongTensor]:
-    #
-    #     assert input_ids is not None
-    #
-    #     # TODO: use stopping_criteria, since it's being used by instruct-eval
-    #     if stopping_criteria is not None:
-    #         warnings.warn(
-    #             "OLMo's generate() function does not currently support `stopping_criteria`. "
-    #             "This will likely result in worse performance on tasks."
-    #         )
-    #
-    #     max_steps = max_new_tokens or max_length - input_ids.shape[1]
-    #     result = self.model.generate(
-    #         input_ids,
-    #         max_steps=max_steps,
-    #         beam_size=1,
-    #         **kwargs,
-    #     )
-    #
-    #     return torch.cat((input_ids, result.token_ids[:, 0]), dim=1)
-
-    @classmethod
-    def from_pretrained(
-        cls, pretrained_model_name_or_path: Optional[Union[str, os.PathLike]], *model_args, **kwargs
-    ):
-        assert pretrained_model_name_or_path is not None
-        if kwargs.get("device_map", "auto") == "auto":
-            device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        else:
-            device = "cpu"
-        model = Olmo.from_checkpoint(pretrained_model_name_or_path, device=device)
-        try:
-            config = OLMoConfig.from_pretrained(pretrained_model_name_or_path)
-        except FileNotFoundError:
-            config = OLMoConfig(use_cache=True, **model.config.asdict())
-        return cls(config, model)
 
     def prepare_inputs_for_generation(
         self, input_ids: torch.LongTensor, past_key_values: Optional[List[Tuple]] = None, **kwargs
@@ -206,6 +138,93 @@ class OLMoForCausalLM(PreTrainedModel):
     # def _reorder_cache(self, past_key_values, beam_idx):
     #     pass
 
+    def get_input_embeddings(self) -> torch.nn.Module:
+        return self.model.transformer.wte
 
-# Register the model so that it is available for transformer pipelines, auto-loading, etc.
-AutoModelForCausalLM.register(OLMoConfig, OLMoForCausalLM)
+    def set_input_embeddings(self, value: torch.nn.Module):
+        self.model.transformer.wte = value
+
+    def get_output_embeddings(self):
+        if self.config.weight_tying:
+            return self.model.transformer.wte
+        else:
+            return self.model.transformer.ff_out
+
+    def set_output_embeddings(self, value: torch.nn.Module):
+        if self.config.weight_tying:
+            self.model.transformer.wte = value
+        else:
+            self.model.transformer.ff_out = value
+
+    def tie_weights(self):
+        """
+        This function is intentionally left as a no-op.
+
+        Weight tying is handled as follows:
+        - When the model is initialized, the `ff_out` layer is conditionally defined based on the `weight_tying` configuration.
+        See: `if not config.weight_tying: self.transformer.update(...)` in `olmo/model.py`.
+        - When computing logits, the `wte` weights are used directly if `weight_tying` is enabled.
+        See: `if self.config.weight_tying: logits = F.linear(x, self.transformer.wte.weight, None)` in the `forward` method.
+
+        Therefore, there is no need to explicitly tie the weights in this function.
+        """
+        pass
+
+    def resize_token_embeddings(
+        self, new_num_tokens: Optional[int] = None, pad_to_multiple_of: Optional[int] = None
+    ) -> torch.nn.Embedding:
+        """
+        Resizes input token embeddings matrix of the model if `new_num_tokens != config.embedding_size`.
+
+        Takes care of tying weights embeddings afterwards if the model class has a `tie_weights()` method.
+
+        Arguments:
+            new_num_tokens (`int`, *optional*):
+                The new number of tokens in the embedding matrix. Increasing the size will add newly initialized
+                vectors at the end. Reducing the size will remove vectors from the end. If not provided or `None`, just
+                returns a pointer to the input tokens `torch.nn.Embedding` module of the model without doing anything.
+            pad_to_multiple_of (`int`, *optional*):
+                If set will pad the embedding matrix to a multiple of the provided value. If `new_num_tokens` is set to
+                `None` will just pad the embedding to a multiple of `pad_to_multiple_of`.
+
+                This is especially useful to enable the use of Tensor Cores on NVIDIA hardware with compute capability
+                `>= 7.5` (Volta), or on TPUs which benefit from having sequence lengths be a multiple of 128. For more
+                details about this, or help on choosing the correct value for resizing, refer to this guide:
+                https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#requirements-tc
+
+        Return:
+            `torch.nn.Embedding`: Pointer to the input tokens Embeddings Module of the model.
+
+        Note:
+            This method differs from the base class implementation by resizing the `embedding_size` attribute of the
+            model configuration instead of the `vocab_size`. It also includes a warning if the resized `embedding_size`
+            is less than the `vocab_size`. In OLMo, `embedding_size` refers to the dimensionality of the model's token
+            embeddings, while `vocab_size` refers to the number of unique tokens in the vocabulary.
+        """
+        model_embeds = self._resize_token_embeddings(new_num_tokens, pad_to_multiple_of)
+        if new_num_tokens is None and pad_to_multiple_of is None:
+            return model_embeds
+
+        # Update base model and current model config
+        self.config.embedding_size = model_embeds.weight.shape[0]
+        self.model.config.embedding_size = model_embeds.weight.shape[0]
+
+        # Check if the embedding size is less than the vocab size
+        if self.config.embedding_size < self.config.vocab_size:
+            warning_message = (
+                f"Resizing token embeddings to size {self.config.embedding_size}, which is less than the vocab size "
+                f"{self.config.vocab_size} defined in the model configuration. Make sure your tokenizer's vocabulary "
+                "size is less than or equal to the new token embedding size."
+            )
+            log.warning(warning_message)
+
+        # Tie weights again if needed
+        self.tie_weights()
+
+        return model_embeds
+
+
+if version.parse(transformers.__version__) < version.parse("4.40.0"):
+    # Register the model so that it is available for transformer pipelines, auto-loading, etc.
+    # OLMo is integrated directly in transformers from v4.40.0 onwards
+    AutoModelForCausalLM.register(OLMoConfig, OLMoForCausalLM)

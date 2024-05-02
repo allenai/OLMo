@@ -17,19 +17,19 @@ from typing import (
 )
 
 import torch
+from omegaconf import DictConfig, ListConfig
 from omegaconf import OmegaConf as om
 from omegaconf.errors import OmegaConfBaseException
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
 
 from .aliases import PathOrStr
-from .exceptions import OlmoConfigurationError
+from .exceptions import OLMoConfigurationError
 from .util import StrEnum
 
 __all__ = [
     "ActivationType",
     "ActivationCheckpointingStrategy",
     "BlockType",
-    "CompilerConfig",
     "LayerNormType",
     "InitFnType",
     "ModelConfig",
@@ -54,6 +54,7 @@ __all__ = [
 ]
 
 C = TypeVar("C", bound="BaseConfig")
+D = TypeVar("D", bound="DictConfig|ListConfig")
 
 
 class BaseConfig:
@@ -99,6 +100,13 @@ class BaseConfig:
         om.register_new_resolver("path.last_checkpoint", path_last_checkpoint, replace=True)
 
     @classmethod
+    def update_legacy_settings(cls, config: D) -> D:
+        """
+        Update the legacy config settings whose schemas have undergone backwards-incompatible changes.
+        """
+        return config
+
+    @classmethod
     def new(cls: Type[C], **kwargs) -> C:
         cls._register_resolvers()
         conf = om.structured(cls)
@@ -107,7 +115,7 @@ class BaseConfig:
                 conf = om.merge(conf, kwargs)
             return cast(C, om.to_object(conf))
         except OmegaConfBaseException as e:
-            raise OlmoConfigurationError(str(e))
+            raise OLMoConfigurationError(str(e))
 
     @classmethod
     def load(
@@ -124,12 +132,13 @@ class BaseConfig:
             raw = om.load(str(path))
             if key is not None:
                 raw = raw[key]  # type: ignore
+            raw = cls.update_legacy_settings(raw)
             conf = om.merge(schema, raw)
             if overrides:
                 conf = om.merge(conf, om.from_dotlist(overrides))
             return cast(C, om.to_object(conf))
         except OmegaConfBaseException as e:
-            raise OlmoConfigurationError(str(e))
+            raise OLMoConfigurationError(str(e))
 
     def save(self, path: PathOrStr) -> None:
         """Save to a YAML file."""
@@ -161,11 +170,6 @@ class LayerNormType(StrEnum):
     probably the fastest implementation.
     """
 
-    amd_compatible = "amd_compatible"
-    """
-    LayerNorm implemented manually to work around an issue with ROCm.
-    """
-
 
 class ActivationType(StrEnum):
     gelu = "gelu"
@@ -175,7 +179,6 @@ class ActivationType(StrEnum):
 
 class BlockType(StrEnum):
     sequential = "sequential"
-    parallel = "parallel"
 
     llama = "llama"
     """
@@ -231,6 +234,19 @@ class ModelConfig(BaseConfig):
     n_heads: int = 12
     """
     The number of self-attention heads.
+    """
+
+    n_kv_heads: Optional[int] = None
+    """
+    The number of heads to use for keys and values. Defaults to `n_heads`.
+    Set this to ``None`` or ``n_heads`` for normal multi-head attention.
+    Set this to 1 for multi-query attention.
+    Set it to some in-between value for Llama2-style grouped query attention.
+    """
+
+    clip_qkv: Optional[float] = None
+    """
+    Clip QKV to this value when set.
     """
 
     n_layers: int = 12
@@ -297,10 +313,9 @@ class ModelConfig(BaseConfig):
     The dropout probability within the attention modules.
     """
 
-    multi_query_attention: bool = False
+    multi_query_attention: Optional[bool] = None
     """
-    Use the Multi-Query formulation of attention used in PaLM. This reduces the number of parameters
-    and is more efficient during inference.
+    Deprecated. Use n_kv_heads instead.
     """
 
     attention_layer_norm: bool = False
@@ -418,6 +433,27 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
+    @property
+    def effective_n_kv_heads(self) -> int:
+        if self.n_kv_heads is None:
+            if self.multi_query_attention is True:
+                return 1
+            else:
+                return self.n_heads
+        else:
+            if self.multi_query_attention is None:
+                return self.n_kv_heads
+            if self.multi_query_attention:
+                n_kv_heads_should_be = 1
+            else:
+                n_kv_heads_should_be = self.n_heads
+            if self.n_kv_heads == n_kv_heads_should_be:
+                return n_kv_heads_should_be
+            else:
+                raise OLMoConfigurationError(
+                    "You can't set `multi_query_attention` and `n_kv_heads` at the same time."
+                )
+
 
 class OptimizerType(StrEnum):
     lionw = "lionw"
@@ -448,6 +484,19 @@ class OptimizerConfig(BaseConfig):
     def __post_init__(self):
         self.betas = tuple(self.betas)  # type: ignore[assignment]
 
+    @classmethod
+    def update_legacy_settings(cls, config: D) -> D:
+        new_config = config.copy()
+        if om.is_dict(new_config):
+            assert isinstance(new_config, DictConfig)
+
+            if hasattr(new_config, "name") and new_config.name == "decoupled_lionw":
+                new_config.name = "lionw"
+                if hasattr(new_config, "eps"):
+                    del new_config.eps
+
+        return new_config
+
 
 class SchedulerType(StrEnum):
     cosine_with_warmup = "cosine_with_warmup"
@@ -457,14 +506,20 @@ class SchedulerType(StrEnum):
     constant = "constant"
 
 
+class SchedulerUnits(StrEnum):
+    steps = "steps"
+    tokens = "tokens"
+
+
 @dataclass
 class SchedulerConfig(BaseConfig):
     name: SchedulerType = SchedulerType.cosine_with_warmup
-    t_warmup: int = 100
-    t_max: Optional[int] = None
+    units: SchedulerUnits = SchedulerUnits.steps
+    t_warmup: Union[int, float] = 100
+    t_max: Optional[Union[int, float]] = None
     alpha_f: float = 0.1
 
-    grad_clip_warmup_steps: Optional[int] = None
+    grad_clip_warmup_steps: Optional[Union[int, float]] = None
     """
     The warmup period for which the max grad norm (or norm ratio) will be set to its
     warmup value of `max_grad_norm * grad_clip_warmup_factor`.
@@ -474,6 +529,12 @@ class SchedulerConfig(BaseConfig):
     """
     The ratio of the max allowed gradient norm (or norm ratio) for clipping during the warmup period
     vs after the warmup period.
+    """
+
+    warmup_min_lr: Optional[float] = None
+    """
+    The starting LR during the warmup period. If not set this defaults to 10% of
+    the target LR.
     """
 
 
@@ -486,13 +547,16 @@ class PaddingDirection(StrEnum):
 class DataConfig(BaseConfig):
     paths: Optional[List[str]] = None
     datasets: Optional[Dict[str, List[str]]] = None
+    label_mask_paths: Optional[List[str]] = None
     pad_direction: PaddingDirection = PaddingDirection.right
+    generate_attention_mask: bool = False
     num_workers: int = 0
     drop_last: bool = False
     pin_memory: bool = False
     prefetch_factor: Optional[int] = None
     persistent_workers: bool = False
     timeout: int = 0
+    seed: Optional[int] = None
 
 
 class EvaluatorType(StrEnum):
@@ -623,24 +687,63 @@ class FSDPConfig(BaseConfig):
 
     precision: FSDPPrecision = FSDPPrecision.pure
 
+    hybrid_sharding_num_model_replicas: Optional[int] = None
+    """
+    The number of model instances, when using a hybrid sharding strategy.
+    If not ``None``, this must divide the total number of nodes. If ``None``, the default,
+    a model instance is used per node (as determined by ``get_world_size() // get_local_world_size()``).
+    PyTorch's default HSDP behavior matches this default behavior.
+    """
+
 
 class CheckpointType(StrEnum):
     sharded = "sharded"
     unsharded = "unsharded"
+    sharded_ephemeral = "sharded_ephemeral"
 
 
 class ShardedCheckpointerType(StrEnum):
     torch_new = "torch_new"
     torch_legacy = "torch_legacy"
     local = "local"
+    olmo_core = "olmo_core"
 
 
 class ActivationCheckpointingStrategy(StrEnum):
     whole_layer = "whole_layer"
+    """
+    Checkpoint every transformer layer.
+    """
+
     one_in_two = "one_in_two"
+    """
+    Checkpoint one in two transformer layers.
+    """
+
     one_in_three = "one_in_three"
+    """
+    Checkpoint one in three transformer layers.
+    """
+
     one_in_four = "one_in_four"
+    """
+    Checkpoint one in four transformer layers.
+    """
+
+    two_in_three = "two_in_three"
+    """
+    Checkpoint two out of every three transformer layers.
+    """
+
+    three_in_four = "three_in_four"
+    """
+    Checkpoint three out of four of every transformer layers.
+    """
+
     fine_grained = "fine_grained"
+    """
+    Focus checkpointing on where it is cheap to recompute and saves most memory.
+    """
 
 
 @dataclass
@@ -657,6 +760,11 @@ class TrainConfig(BaseConfig):
     seed: int = 6198
     """
     Used to seed all initial RNG states.
+    """
+
+    epoch: Optional[int] = None
+    """
+    Increment this when starting a new epoch.
     """
 
     dry_run: bool = False
@@ -734,19 +842,31 @@ class TrainConfig(BaseConfig):
 
     save_interval: int = 1000
     """
-    How often (in terms of batches) to save training state checkpoints that can be used for restarts.
+    How often (in terms of steps) to save sharded training state checkpoints.
     """
 
     save_interval_unsharded: Optional[int] = None
     """
-    How often (if at all) to save the unsharded state to a single file.
+    How often (if at all) to save unsharded training state checkpoint.
     For large models it can be costly to save these, so it usually makes sense to save
     these less often than regular (sharded) training checkpoints.
     """
 
+    save_interval_ephemeral: Optional[int] = None
+    """
+    How often (if at all) to save ephemeral sharded checkpoints. These checkpoints are the same
+    as those saved every `save_interval` except that at most only the most recent one of these is kept.
+    This is useful when you want to checkpoint often for restarts in case of failures, but don't
+    want to keep the majority of these checkpoints.
+
+    For example, suppose you want to keep your checkpoints at every 1000 steps, but you also want to save
+    a temporary checkpoint every 100 steps in case your job fails. In that case you would
+    set `save_interval=1000` and `save_interval_ephemeral=100`.
+    """
+
     save_num_checkpoints_to_keep: int = -1
     """
-    How many checkpoints to keep.
+    How many sharded checkpoints to keep.
     """
 
     save_num_unsharded_checkpoints_to_keep: int = -1
@@ -796,6 +916,11 @@ class TrainConfig(BaseConfig):
     curve (according to the current learning rate schedule settings), and continues from there.
     """
 
+    reset_trainer_state: bool = False
+    """
+    When this is set we don't restore the trainer state from a checkpoint.
+    """
+
     sharded_checkpointer: ShardedCheckpointerType = ShardedCheckpointerType.torch_legacy
     """
     The name of the sharded checkpointer to use to save (sharded) checkpoints throughout training.
@@ -806,9 +931,13 @@ class TrainConfig(BaseConfig):
     Deprecated. Use ``sharded_checkpointer`` instead.
     """
 
-    max_duration: int = 10000
+    max_duration: Union[int, str] = 10000
     """
-    Maximum number of batches to train for.
+    How long to train for.
+
+    If specified without a unit (the default), the units are assumed to be steps.
+    You can also specify this in terms of tokens, for example: `max_duration="2e12T"` means train until
+    2 trillion tokens.
     """
 
     global_train_batch_size: int = 512
@@ -878,6 +1007,12 @@ class TrainConfig(BaseConfig):
     How often to log to the console.
     """
 
+    gen1_gc_interval: Optional[int] = 1
+    """
+    How often (in steps) to run generation 1 garbage collection.
+    Set to ``None`` to use automatic garbage collection (i.e. we don't mess with it).
+    """
+
     compile: Optional[CompilerConfig] = None
     """
     Settings for compiling the model with ``torch.compile()``.
@@ -899,6 +1034,13 @@ class TrainConfig(BaseConfig):
     The maximum amount of time to train for before saving a checkpoint and ending early.
     On LUMI we have 48 hours max per job, so we default to just under 48 hours to give us time
     to write out a final checkpoint.
+    """
+
+    extra_steps_after_cancel: int = 10
+    """
+    Under certain conditions when a run is canceled we train for a few extra steps after saving
+    the final checkpoint so that when the run is restarted from the latest checkpoint we have some
+    overlap in metrics.
     """
 
     early_stopping_factor: Optional[float] = None
@@ -923,9 +1065,19 @@ class TrainConfig(BaseConfig):
     Stop at a specific step.
     """
 
+    stop_after: Optional[int] = None
+    """
+    Stop after a specific number of steps.
+    """
+
     activation_checkpointing: Optional[ActivationCheckpointingStrategy] = None
     """
     The activation checkpointing strategy to use.
+    """
+
+    fused_loss: Optional[bool] = None
+    """
+    Whether to use the fused CE loss function from `flash-attn`.
     """
 
     @property
@@ -955,3 +1107,20 @@ class TrainConfig(BaseConfig):
             )
         else:
             raise NotImplementedError(f"{self.fsdp.precision}")
+
+    @classmethod
+    def update_legacy_settings(cls, config: D) -> D:
+        new_config = config.copy()
+        if om.is_dict(new_config):
+            assert isinstance(new_config, DictConfig)
+
+            if hasattr(new_config, "activation_checkpointing"):
+                if new_config.activation_checkpointing is False:
+                    new_config.activation_checkpointing = None
+                if new_config.activation_checkpointing is True:
+                    new_config.activation_checkpointing = ActivationCheckpointingStrategy.whole_layer
+
+            if hasattr(new_config, "optimizer"):
+                new_config.optimizer = OptimizerConfig.update_legacy_settings(new_config.optimizer)
+
+        return new_config

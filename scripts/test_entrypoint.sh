@@ -29,7 +29,7 @@ git checkout --quiet "$COMMIT_SHA"
 
 # Install dependencies.
 pip install --upgrade pip
-pip install --no-cache-dir '.[dev]'
+pip install --no-cache-dir '.[all]'
 
 # Create directory for results.
 mkdir -p /results

@@ -1,3 +1,3 @@
 compression/dependencies/AutoGPTQ
 efficiency/dependencies/efficiency-pentathlon/
-hf_olmo @ git+ssh://git@github.com/allenai/LLM.git@main#subdirectory=hf_olmo
+hf_olmo @ git+ssh://git@github.com/allenai/OLMo.git@main#subdirectory=hf_olmo

@@ -1,20 +1,29 @@
 import pytest
 import torch
+import transformers
+from packaging import version
 
 from olmo import BlockType, Tokenizer, TrainConfig
 from olmo.data import DataCollator
-from olmo.model import Olmo
+from olmo.model import OLMo
+from olmo.torch_util import seed_all
 
 
+@pytest.mark.skipif(
+    version.parse(transformers.__version__) >= version.parse("4.40.0"),
+    reason="hf_olmo auto classes are not compatible with transformers >=v4.40.0",
+)
 def test_auto_hf_classes(model_path: str):
     from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
     from hf_olmo import OLMoConfig, OLMoForCausalLM, OLMoTokenizerFast
-    from hf_olmo.add_hf_config_to_olmo_checkpoint import write_config
+    from hf_olmo.convert_olmo_to_hf import write_config, write_model, write_tokenizer
 
     # model_path is an OLMo checkpoint.
     # Creates HF-compatible config.json
     write_config(model_path)
+    write_tokenizer(model_path)
+    write_model(model_path)
 
     config = AutoConfig.from_pretrained(model_path)
     assert isinstance(config, OLMoConfig)
@@ -31,16 +40,6 @@ def test_auto_hf_classes(model_path: str):
     [
         pytest.param(
             True, False, False, BlockType.sequential, False, False, torch.bfloat16, id="alibi-emb-cpu-bf16"
-        ),
-        pytest.param(
-            True,
-            False,
-            False,
-            BlockType.parallel,
-            False,
-            False,
-            torch.bfloat16,
-            id="alibi-emb-parallel-block-cpu-bf16",
         ),
         pytest.param(
             False, False, False, BlockType.sequential, False, False, torch.bfloat16, id="posit-emb-cpu-bf16"
@@ -64,20 +63,6 @@ def test_auto_hf_classes(model_path: str):
             True,
             torch.bfloat16,
             id="alibi-emb-cuda-bf16",
-            marks=(
-                pytest.mark.gpu,
-                pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
-            ),
-        ),
-        pytest.param(
-            True,
-            False,
-            False,
-            BlockType.parallel,
-            False,
-            True,
-            torch.bfloat16,
-            id="alibi-emb-parallel-block-cuda-bf16",
             marks=(
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
@@ -142,16 +127,6 @@ def test_auto_hf_classes(model_path: str):
         pytest.param(
             False, False, False, BlockType.sequential, True, False, torch.float32, id="posit-emb-mqattn-cpu-f32"
         ),
-        pytest.param(
-            False,
-            False,
-            False,
-            BlockType.parallel,
-            True,
-            False,
-            torch.float32,
-            id="posit-emb-parallel-block-mqattn-cpu-f32",
-        ),
     ],
 )
 def test_forward(
@@ -184,10 +159,13 @@ def test_forward(
 
     use_amp = dtype in {torch.float16, torch.bfloat16}
 
-    model = Olmo(train_config.model).eval()
+    seed_all(1234)
+    model = OLMo(train_config.model).eval()
 
     hf_config = OLMoConfig(**model.config.asdict())
-    hf_model = OLMoForCausalLM(hf_config, model=model)
+
+    seed_all(1234)
+    hf_model = OLMoForCausalLM(hf_config, init_params=True).eval()
 
     input1 = tokenizer.encode("My name is OLMo!")
     input2 = tokenizer.encode("I'm a delightful large open language model :)")
