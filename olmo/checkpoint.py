@@ -652,6 +652,10 @@ class OneGpuCheckpointer(Checkpointer):
         model_state_dict = load_state_dict(
             load_path, "model.pt", local_cache=local_cache, map_location="cpu"
         )
+        (
+            model_state_dict,
+            _,
+        ) = fsdp_model._make_state_dict_compatible(model_state_dict)
         fsdp_model.load_state_dict(model_state_dict)
 
         # Load optimizer state.
