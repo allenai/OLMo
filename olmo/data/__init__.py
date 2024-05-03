@@ -41,6 +41,7 @@ def build_memmap_dataset(
         pad_token_id=train_config.model.pad_token_id,
         generate_attention_mask=data_config.generate_attention_mask,
         label_mask_paths=cast(Optional[List[PathOrStr]], data_config.label_mask_paths),
+        instance_filter_config=data_config.instance_filter,
     )
 
 
