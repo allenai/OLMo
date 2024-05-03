@@ -721,37 +721,37 @@ class Trainer:
                 process_group=self.fsdp_model.process_group,
             )
 
-        # Adjust the learning rate.
-        for group in self.optim.param_groups:
-            # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
-            # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
-            # the corresponding values from `self.cfg`.
-            group["lr"] = self.scheduler.get_lr(
-                self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
-            )
-            group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
-                self.cfg.max_grad_norm, self.scheduler_current, self.scheduler_max
-            )
-            group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
-                self.cfg.max_grad_norm_ratio, self.scheduler_current, self.scheduler_max
-            )
-
             # Adjust the learning rate.
             for group in self.optim.param_groups:
                 # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
                 # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
                 # the corresponding values from `self.cfg`.
                 group["lr"] = self.scheduler.get_lr(
-                    self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
+                    self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
                 )
                 group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
-                    self.cfg.max_grad_norm, self.global_step, self.cfg.max_duration
+                    self.cfg.max_grad_norm, self.scheduler_current, self.scheduler_max
                 )
                 group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
-                    self.cfg.max_grad_norm_ratio, self.global_step, self.cfg.max_duration
+                    self.cfg.max_grad_norm_ratio, self.scheduler_current, self.scheduler_max
                 )
 
-            self.optim.step()
+                # Adjust the learning rate.
+                for group in self.optim.param_groups:
+                    # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
+                    # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
+                    # the corresponding values from `self.cfg`.
+                    group["lr"] = self.scheduler.get_lr(
+                        self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
+                    )
+                    group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
+                        self.cfg.max_grad_norm, self.global_step, self.cfg.max_duration
+                    )
+                    group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
+                        self.cfg.max_grad_norm_ratio, self.global_step, self.cfg.max_duration
+                    )
+
+                self.optim.step()
 
         # Collect metrics and check for NaN loss.
         # NOTE: this involves a bunch of host-device syncs so we wait until the last moment to do this.
@@ -1289,6 +1289,7 @@ class DeepSpeedTrainer(Trainer):
                         "warmup_max_lr": self.cfg.optimizer.learning_rate,
                         "warmup_num_steps": self.cfg.scheduler.t_warmup,
                         "warmup_type": "linear",
+                        "total_num_steps": int(self.cfg.scheduler.t_max),
                     },
                 },
                 "bf16": {
