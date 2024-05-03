@@ -218,6 +218,10 @@ data:
   prefetch_factor: 8
   persistent_workers: true
   timeout: 0
+  instance_filter:
+    repetition_max_period: 13
+    repetition_min_period: 1
+    repetition_max_count: 32
   paths:
     ######### NON WEB DATA #########
     # ~> GUTENBERG BOOKS (5.256 GT)
