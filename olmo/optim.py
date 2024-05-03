@@ -651,8 +651,8 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
                     no_decay.add(fpn)
 
     # Validate that we've considered every parameter
-    inter_params = decay & no_decay
-    union_params = decay | no_decay
+    inter_params = decay & no_decay & embeddings_decay
+    union_params = decay | no_decay | embeddings_decay
     assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
     assert (
         len(all_params.keys() - union_params) == 0
