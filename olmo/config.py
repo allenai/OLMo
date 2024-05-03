@@ -543,6 +543,11 @@ class PaddingDirection(StrEnum):
     left = "left"
 
 
+class InstanceFilterConfig(BaseConfig):
+    repetition_max_period: int = 13
+    repetition_min_period: int = 1
+
+
 @dataclass
 class DataConfig(BaseConfig):
     paths: Optional[List[str]] = None
@@ -557,6 +562,7 @@ class DataConfig(BaseConfig):
     persistent_workers: bool = False
     timeout: int = 0
     seed: Optional[int] = None
+    instance_filter: Optional[InstanceFilterConfig] = None
 
 
 class EvaluatorType(StrEnum):
