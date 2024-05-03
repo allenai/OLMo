@@ -19,9 +19,10 @@ import numpy as np
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
-import wandb
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DataLoader
+
+import wandb
 
 from .aliases import PathOrStr
 from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
@@ -597,15 +598,18 @@ class Trainer:
 
     def get_labels(self, batch: Dict[str, Any]) -> torch.Tensor:
         # Labels are just input IDs shifted to the left (first item is ignored).
-        labels, label_mask, attention_mask = (
+        labels, label_mask, attention_mask, instance_mask = (
             batch["input_ids"].clone(),
             batch.get("label_mask"),
             batch.get("attention_mask"),
+            batch.get("instance_mask"),
         )
         if label_mask is not None:
             labels.masked_fill_(~label_mask, -100)
         if attention_mask is not None:
             labels.masked_fill_(attention_mask == 0.0, -100)
+        if instance_mask is not None:
+            labels.masked_fill_(~instance_mask.unsqueeze(-1), value=-100)
         return labels[..., 1:].contiguous()
 
     def model_forward(
