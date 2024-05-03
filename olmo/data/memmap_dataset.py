@@ -11,6 +11,7 @@ from olmo.exceptions import OLMoEnvironmentError
 
 from ..aliases import PathOrStr
 from ..util import _get_s3_client, file_size, get_bytes_range
+from .util import find_periodic_sequences
 
 __all__ = ["MemMapDataset"]
 
@@ -177,7 +178,8 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
 
         # Read the data from file.
         input_ids = self._read_chunk_from_memmap(self._memmap_paths[memmap_index], memmap_local_index)
-        out: Dict[str, Any] = {"input_ids": input_ids}
+        instance_mask = self._validate_instance(input_ids)
+        out: Dict[str, Any] = {"input_ids": input_ids, "instance_mask": instance_mask}
 
         if self._label_mask_paths is not None:
             label_mask = self._read_chunk_from_memmap(
@@ -209,3 +211,10 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
             memmap_dtype=self.dtype,
             metadata=self._metadata + other._metadata,
         )
+
+    def _validate_instance(self, input_ids: torch.Tensor) -> bool:
+        # Check for too many repeated ngrams.
+        # TODO: update `max_period` per Luca's suggestion.
+        for _ in find_periodic_sequences(input_ids.numpy(), max_period=13, min_period=1):
+            return False
+        return True
