@@ -711,6 +711,9 @@ class Trainer:
             process_group=self.fsdp_model.process_group,
         )
 
+        # TODO: confirm
+        emb_decay_factor = 1.0 - optim_metrics["optim/param/transformer.wte.weight.norm"]
+
         # Adjust the learning rate.
         for group in self.optim.param_groups:
             # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
@@ -725,6 +728,9 @@ class Trainer:
             group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
                 self.cfg.max_grad_norm_ratio, self.scheduler_current, self.scheduler_max
             )
+
+            if group["name"] == "embedding_decay_group":
+                group["weight_decay"] *= emb_decay_factor
 
         # Optimizer step.
         self.optim.step()

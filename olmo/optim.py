@@ -617,6 +617,7 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
     # Separate out parameters that we don't want to apply weight decay to, like norms and biases.
     decay = set()
     no_decay = set()
+    embeddings_decay = set()
     all_params = {}
     for mn, m in model.named_modules():
         for pn, p in m.named_parameters():
@@ -644,6 +645,8 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
             elif pn.endswith("weight") and isinstance(m, nn.Embedding):
                 if cfg.optimizer.decay_embeddings:
                     decay.add(fpn)
+                elif cfg.optimizer.reverse_embedding_decay:
+                    embeddings_decay.add(fpn)
                 else:
                     no_decay.add(fpn)
 
@@ -658,12 +661,15 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
     # Create the pytorch optimizer groups.
     decay_sorted = sorted(list(decay))
     no_decay_sorted = sorted(list(no_decay))
+    embeddings_decay_sorted = sorted(list(embeddings_decay))
+
     param_groups = []
     if len(decay_sorted) > 0:
         param_groups.append(
             {
                 "params": [all_params[pn] for pn in decay_sorted],
                 "param_names": decay_sorted,
+                "name": "decay_group",
                 **param_group_defaults,
             }
         )
@@ -673,6 +679,17 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
                 "params": [all_params[pn] for pn in no_decay_sorted],
                 "param_names": no_decay_sorted,
                 "weight_decay": 0.0,
+                "name": "no_decay_group",
+                **param_group_defaults,
+            }
+        )
+    if len(embeddings_decay_sorted) > 0:
+        # the weight_decay value will be multiplied by emb_decay_factor in olmo/train.py
+        param_groups.append(
+            {
+                "params": [all_params[pn] for pn in embeddings_decay_sorted],
+                "param_names": embeddings_decay_sorted,
+                "name": "embedding_decay_group",
                 **param_group_defaults,
             }
         )
