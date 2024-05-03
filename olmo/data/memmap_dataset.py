@@ -220,10 +220,11 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         # Check for too many repeated ngrams.
         # TODO: update `max_period` per Luca's suggestion.
         if self.instance_filter_config is not None:
-            for _ in find_periodic_sequences(
+            for m in find_periodic_sequences(
                 input_ids.numpy(),
                 max_period=self.instance_filter_config.repetition_max_period,
                 min_period=self.instance_filter_config.repetition_min_period,
             ):
-                return False
+                if m.times >= self.instance_filter_config.repetition_max_count:
+                    return False
         return True
