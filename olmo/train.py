@@ -711,11 +711,9 @@ class Trainer:
             process_group=self.fsdp_model.process_group,
         )
 
-        # TODO: what to do otherwise?
-        if should_log_optim_metrics_this_step:
-            emb_decay_factor = 1.0 - optim_metrics["param/transformer.wte.weight.norm"]
-        else:
-            emb_decay_factor = 1.0
+        emb_norm = optim_metrics["param/transformer.wte.weight.norm"]
+        emb_std = math.sqrt(emb_norm^2 / (self.cfg.embedding_size * self.cfg.vocab_size))
+        emb_decay_factor = 1.0 - emb_std
 
         # Adjust the learning rate.
         for group in self.optim.param_groups:

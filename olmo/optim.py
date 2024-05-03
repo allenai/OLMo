@@ -232,7 +232,7 @@ class Optimizer(OptimizerBase):
             all_metrics["clipping_rate"] = clipping_rate
             return all_metrics
         else:
-            return {}
+            return all_metrics
 
     @torch.no_grad()
     def _do_adaptive_clipping(
