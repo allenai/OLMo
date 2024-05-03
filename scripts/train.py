@@ -30,7 +30,6 @@ from olmo.torch_util import (
     peak_gpu_memory,
     seed_all,
 )
-from olmo.train import Trainer
 from olmo.util import clean_opt, log_extra_field, prepare_cli_environment
 
 log = logging.getLogger("train")
@@ -48,6 +47,18 @@ def main(cfg: TrainConfig) -> None:
             "You want to reset the optimizer or trainer state, but we're not loading from the checkpoint. The"
             "setting has no effect."
         )
+
+    # Initialize process group and set device.
+    if cfg.deepspeed:
+        import deepspeed
+
+        from olmo.train import DeepSpeedTrainer as Trainer
+
+        deepspeed.init_distributed()
+    else:
+        from olmo.train import Trainer
+
+        dist.init_process_group(backend="nccl")
 
     barrier()
 
@@ -162,17 +173,21 @@ def main(cfg: TrainConfig) -> None:
         device_mesh = init_device_mesh("cuda", (num_model_replicas, get_world_size() // num_model_replicas))
         hybrid_sharding_fsdp_kwargs["device_mesh"] = device_mesh
 
-    fsdp_model = FSDP(
-        olmo_model,
-        sharding_strategy=cfg.fsdp.sharding_strategy,
-        mixed_precision=cfg.fsdp_precision,
-        auto_wrap_policy=wrap_policy,
-        use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
-        limit_all_gathers=True,
-        device_id=get_local_rank(),
-        param_init_fn=param_init_fn,
-        **hybrid_sharding_fsdp_kwargs,
-    )
+    if cfg.deepspeed:
+        fsdp_model = olmo_model
+    else:
+        fsdp_model = FSDP(
+            olmo_model,
+            sharding_strategy=cfg.fsdp.sharding_strategy,
+            mixed_precision=cfg.fsdp_precision,
+            auto_wrap_policy=wrap_policy,
+            use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
+            limit_all_gathers=True,
+            device_id=get_local_rank(),
+            param_init_fn=param_init_fn,
+            **hybrid_sharding_fsdp_kwargs,
+        )
+
     # when param_init_fn is None, FSDP will call reset_parameters() automatically
     if param_init_fn is not None:
         olmo_model.reset_parameters()
@@ -182,8 +197,12 @@ def main(cfg: TrainConfig) -> None:
     log.info(fsdp_model)
 
     # Construct optimizer and learning rate scheduler.
-    optim = build_optimizer(cfg, fsdp_model)
-    scheduler = build_scheduler(cfg)
+    if cfg.deepspeed:
+        optim = None
+        scheduler = None
+    else:
+        optim = build_optimizer(cfg, fsdp_model)
+        scheduler = build_scheduler(cfg)
 
     # Data indices file.
     indices_file: Optional[TextIO] = None
@@ -278,7 +297,7 @@ if __name__ == "__main__":
         print(f"failed to set multiprocessing start method: {e}")
 
     # Initialize process group.
-    dist.init_process_group(backend="nccl")
+    # dist.init_process_group(backend="nccl")
 
     prepare_cli_environment()
 

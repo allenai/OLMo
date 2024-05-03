@@ -138,6 +138,7 @@ class Trainer:
     cur_train_loss: float = float("inf")
     indices_file: Optional[TextIO] = None
     _start_time: float = 0.0
+    is_deepspeed: bool = False
     _gc_init_state: bool = True
     loss_fn: Callable[..., torch.Tensor] = field(default_factory=lambda: cross_entropy_loss)  # type: ignore
     last_sharded_checkpoint_step: Optional[int] = None
@@ -672,7 +673,12 @@ class Trainer:
                 del logits
 
             # Run backward pass.
-            loss.backward()
+            if self.is_deepspeed:
+                self.fsdp_model.backward(loss)
+                # Only steps if grad acc is complete.
+                self.fsdp_model.step()
+            else:
+                loss.backward()
 
         return ce_batch_loss, z_batch_loss
 
@@ -685,7 +691,8 @@ class Trainer:
             self.indices_file.write(f"{self.global_step}\t{indices}\n")
 
         # Zero-gradients.
-        self.optim.zero_grad(set_to_none=True)
+        if not self.is_deepspeed:
+            self.optim.zero_grad(set_to_none=True)
 
         # Move tensors to the right device.
         batch = move_to_device(batch, self.device)
@@ -701,33 +708,50 @@ class Trainer:
                 dist.reduce(z_batch_loss, 0)
                 z_batch_loss.div_(get_world_size())
 
-        # Clip gradient norms and collect param/gradient/optim metrics.
-        should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
-        optim_metrics = self.optim.clip_grads_and_collect_metrics(
-            self.global_step,
-            collect_param_metrics=should_log_optim_metrics_this_step,
-            # passing this process group here ensures metrics are reduced correctly when we're using
-            # HYBRID sharding.
-            process_group=self.fsdp_model.process_group,
-        )
-
-        # Adjust the learning rate.
-        for group in self.optim.param_groups:
-            # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
-            # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
-            # the corresponding values from `self.cfg`.
-            group["lr"] = self.scheduler.get_lr(
-                self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
-            )
-            group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
-                self.cfg.max_grad_norm, self.scheduler_current, self.scheduler_max
-            )
-            group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
-                self.cfg.max_grad_norm_ratio, self.scheduler_current, self.scheduler_max
+        # Optimizer step, gradient clipping etc. is all handled in model.step()
+        # https://github.com/microsoft/DeepSpeed/blob/2afa1c7f2f961ef18042a88467ff5d3373c22c07/deepspeed/runtime/bf16_optimizer.py#L244
+        if not self.is_deepspeed:
+            # Clip gradient norms and collect param/gradient/optim metrics.
+            should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
+            optim_metrics = self.optim.clip_grads_and_collect_metrics(
+                self.global_step,
+                collect_param_metrics=should_log_optim_metrics_this_step,
+                # passing this process group here ensures metrics are reduced correctly when we're using
+                # HYBRID sharding.
+                process_group=self.fsdp_model.process_group,
             )
 
-        # Optimizer step.
-        self.optim.step()
+            # Adjust the learning rate.
+            for group in self.optim.param_groups:
+                # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
+                # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
+                # the corresponding values from `self.cfg`.
+                group["lr"] = self.scheduler.get_lr(
+                    self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
+                )
+                group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
+                    self.cfg.max_grad_norm, self.scheduler_current, self.scheduler_max
+                )
+                group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
+                    self.cfg.max_grad_norm_ratio, self.scheduler_current, self.scheduler_max
+                )
+
+                # Adjust the learning rate.
+                for group in self.optim.param_groups:
+                    # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
+                    # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
+                    # the corresponding values from `self.cfg`.
+                    group["lr"] = self.scheduler.get_lr(
+                        self.cfg.optimizer.learning_rate, self.global_step, self.cfg.max_duration
+                    )
+                    group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
+                        self.cfg.max_grad_norm, self.global_step, self.cfg.max_duration
+                    )
+                    group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
+                        self.cfg.max_grad_norm_ratio, self.global_step, self.cfg.max_duration
+                    )
+
+                self.optim.step()
 
         # Collect metrics and check for NaN loss.
         # NOTE: this involves a bunch of host-device syncs so we wait until the last moment to do this.
@@ -735,8 +759,9 @@ class Trainer:
             raise ValueError("nan loss encountered")
         if z_batch_loss is not None and torch.isnan(z_batch_loss):
             raise ValueError("nan loss encountered")
-        for key, value in optim_metrics.items():
-            metrics[f"optim/{key}"] = value.item()
+        if not self.is_deepspeed:
+            for key, value in optim_metrics.items():
+                metrics[f"optim/{key}"] = value.item()
         self.cur_train_loss = ce_batch_loss.item()
         self.min_train_loss = min(self.min_train_loss, self.cur_train_loss)
         metrics["train/CrossEntropyLoss"] = self.cur_train_loss
@@ -745,12 +770,13 @@ class Trainer:
             metrics["train/ZLoss"] = z_batch_loss.item()
 
         # Maybe collect post-step optimizer-specific metrics.
-        if should_log_optim_metrics_this_step:
-            optim_metrics = self.optim.get_post_step_metrics(
-                self.fsdp_model, process_group=self.fsdp_model.process_group
-            )
-            for key, value in optim_metrics.items():
-                metrics[f"optim/{key}"] = value.item()
+        if not self.is_deepspeed:
+            if should_log_optim_metrics_this_step:
+                optim_metrics = self.optim.get_post_step_metrics(
+                    self.fsdp_model, process_group=self.fsdp_model.process_group
+                )
+                for key, value in optim_metrics.items():
+                    metrics[f"optim/{key}"] = value.item()
 
         return metrics
 
@@ -1221,3 +1247,55 @@ class Trainer:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         del exc_val, exc_tb
         self.close(0 if exc_type is None else 1)
+
+
+class DeepSpeedTrainer(Trainer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, is_deepspeed=True)
+        import deepspeed
+
+        if self.cfg.optimizer.name in {"lion", "lionw"}:
+            optimizer_name = "lion"  # Requires latest deepspeed
+        else:
+            optimizer_name = self.cfg.optimizer.name
+        assert (
+            self.cfg.scheduler.name == "linear_with_warmup"
+        ), "DeepSpeed only supports linear_with_warmup scheduler"
+        self.fsdp_model, self.optim, _, self.scheduler = deepspeed.initialize(
+            model=self.fsdp_model,
+            config={
+                "optimizer": {
+                    "type": optimizer_name,
+                    "params": {
+                        "lr": self.cfg.optimizer.learning_rate,
+                        "weight_decay": self.cfg.optimizer.weight_decay,
+                        "betas": self.cfg.optimizer.betas,
+                        "eps": 1e-5,
+                        "torch_adam": True,  # Fusing does not work due to some Permission error on LUMI
+                    },
+                },
+                "train_batch_size": self.cfg.global_train_batch_size,
+                "train_micro_batch_size_per_gpu": self.cfg.device_train_microbatch_size,
+                "zero_optimization": {
+                    "stage": 3,
+                    "cpu_offload": False,
+                    "contiguous_gradients": True,
+                    "overlap_comm": True,
+                },
+                "scheduler": {
+                    "type": "WarmupDecayLR",
+                    "params": {
+                        "warmup_min_lr": self.cfg.optimizer.learning_rate * 0.1,
+                        "warmup_max_lr": self.cfg.optimizer.learning_rate,
+                        "warmup_num_steps": self.cfg.scheduler.t_warmup,
+                        "warmup_type": "linear",
+                        "total_num_steps": int(self.cfg.scheduler.t_max),
+                    },
+                },
+                "bf16": {
+                    "enabled": self.cfg.precision == "amp_bf16",
+                },
+                "gradient_clipping": self.cfg.max_grad_norm,
+                # "activation_checkpointing": { # TODO
+            },
+        )
