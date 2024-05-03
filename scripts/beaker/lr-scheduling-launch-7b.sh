@@ -21,6 +21,7 @@ gantry run \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
+  --env NCCL_IB_HCA=^mlx5_bond_0 \
   --env-secret SSH_KEY=SSH_KEY \
   --env-secret WANDB_API_KEY=WANDB_API_KEY \
   --env-secret AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID \
