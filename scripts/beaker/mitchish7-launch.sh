@@ -16,8 +16,7 @@ gantry run \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
-  --nfs \
-  --mount /net/nfs.cirrascale/allennlp/petew/cache:/root/.cache \
+  --no-nfs \
   --propagate-failure \
   --synchronized-start-timeout 10m \
   --env LOG_FILTER_TYPE=local_rank0_only \
@@ -30,4 +29,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/mitchish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES}"
+  -- /bin/bash -c "scripts/beaker/mitchish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
