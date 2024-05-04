@@ -28,8 +28,8 @@ torchrun \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
   configs/mitchish7-s3.yaml \
-    --run_name=mitchish7 \
-    --wandb.name=mitchish7 \
+    --run_name=mitchish7-datafix \
+    --wandb.name=mitchish7-datafix \
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
