@@ -836,7 +836,7 @@ class Trainer:
                 [
                     f"    {name}={format_float(value)}"
                     for name, value in metrics.items()
-                    if not name.startswith("optim/")  # there's too many optimizer metrics
+                    if name == "optim/total_grad_norm" or not name.startswith("optim/")  # there's too many optimizer metrics
                 ]
             )
         )
