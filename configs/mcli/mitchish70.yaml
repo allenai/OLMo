@@ -15,7 +15,7 @@ compute:
 integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
-    git_branch: train-olmo-large
+    git_branch: epwalsh/train-olmo-large
     pip_install: -e .[train]
     ssh_clone: true
   - integration_type: git_repo
