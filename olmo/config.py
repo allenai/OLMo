@@ -544,6 +544,7 @@ class PaddingDirection(StrEnum):
     left = "left"
 
 
+@dataclass
 class InstanceFilterConfig(BaseConfig):
     repetition_max_period: int = 13
     repetition_min_period: int = 1
