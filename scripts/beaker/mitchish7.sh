@@ -35,5 +35,6 @@ torchrun \
     --fused_loss=true \
     --device_train_microbatch_size=2 \
     --global_train_batch_size=1024 \
+    --gen1_gc_interval=32 \
     --save_overwrite \
     '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/}'
