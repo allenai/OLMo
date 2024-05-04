@@ -67,12 +67,13 @@ command: |-
     '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
     --load_path_sharded_checkpointer=olmo_core \
     --sharded_checkpointer=olmo_core \
-    --global_train_batch_size=2688 \
-    --device_train_microbatch_size=3 \
+    --global_train_batch_size=3584 \
+    --device_train_microbatch_size=4 \
     --fsdp.sharding_strategy=HYBRID_SHARD \
     --fsdp.hybrid_sharding_num_model_replicas=4 \
     --time_limit=604800 \
-    --save_overwrite
+    --save_overwrite \
+    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-planb/step183000
 
 #
 # --fsdp.sharding_strategy=HYBRID_SHARD \
