@@ -9,7 +9,6 @@ gantry run \
   --task-name mitchish7 \
   --description "OLMo medium - 7B" \
   --priority high \
-  --stop-preemptible \
   --beaker-image petew/olmo-torch2-gantry \
   --cluster ai2/pluto-cirrascale \
   --gpus 8 \
@@ -19,6 +18,8 @@ gantry run \
   --budget ai2/oe-training \
   --nfs \
   --mount /net/nfs.cirrascale/allennlp/petew/cache:/root/.cache \
+  --propagate-failure \
+  --synchronized-start-timeout 10m \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
