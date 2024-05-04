@@ -641,6 +641,7 @@ class Trainer:
     def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
+        batch_size_in_tokens = batch['input_ids'].numel()
 
         # In case this helps with memory utilization.
         del batch
@@ -651,9 +652,11 @@ class Trainer:
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                 # Run forward pass.
                 ce_loss, z_loss, logits = self.model_forward(
-                    micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss
+                    micro_batch,
+                    compute_z_loss=self.cfg.softmax_auxiliary_loss,
+                    loss_reduction="sum"
                 )
-                ce_loss = ce_loss / len(micro_batches)
+                ce_loss = ce_loss / batch_size_in_tokens
 
                 # In case this helps with memory utilization.
                 del micro_batch
