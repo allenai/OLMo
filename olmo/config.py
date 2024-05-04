@@ -38,6 +38,7 @@ __all__ = [
     "SchedulerType",
     "SchedulerConfig",
     "DataConfig",
+    "InstanceFilterConfig",
     "EvaluatorConfig",
     "TokenizerConfig",
     "TrainConfig",
