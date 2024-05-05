@@ -72,8 +72,7 @@ command: |-
     --fsdp.sharding_strategy=HYBRID_SHARD \
     --fsdp.hybrid_sharding_num_model_replicas=4 \
     --time_limit=604800 \
-    --save_overwrite \
-    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-planb/step183000
+    --save_overwrite
 
 #
 # --fsdp.sharding_strategy=HYBRID_SHARD \
