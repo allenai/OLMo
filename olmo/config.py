@@ -181,6 +181,8 @@ class BlockType(StrEnum):
     sequential = "sequential"
 
     llama = "llama"
+
+    moe = "moe"
     """
     A block similar to the sequential block with slightly different
     implementations of operations like attention to imitate the behavior of Llama.
@@ -432,6 +434,66 @@ class ModelConfig(BaseConfig):
     Precision used to train/evaluate with. You shouldn't set this directly.
     See :data:`TrainConfig.precision` instead.
     """
+
+    moe_num_experts: Optional[int] = 8
+    """
+    The number of experts to use in the MoE block.
+    """
+
+    moe_top_k: Optional[int] = 2
+    """
+    The number of top experts to use in the MoE block.
+    """
+
+    moe_capacity_factor: Optional[float] = 1.25
+    """
+    The capacity factor to use in the MoE block.
+    """
+
+    moe_loss_weight: Optional[float] = 0.1
+    """
+    The weight to use for the MoE loss.
+    """
+
+    share_blocks: bool = False
+    """
+    If ``True``, share the same block across all layers.
+    """
+
+    share_moe: bool = False
+    """
+    If ``True``, share the same experts across all layers.
+    """
+
+    share_experts: bool = False
+    """
+    If ``True``, share the same experts across all layers.
+    """
+
+    init_dense_router: bool = False
+    """
+    If ``True``, initialize the MoE router as if it is a dense model.
+    """
+
+    load_balance: bool = True
+    """
+    If ``True``, use load-balance loss.
+    """
+
+    share_load_balance_across_layers: bool = False
+    """
+    If ``True``, load-balance at the model level rather than at the block level.
+    """
+
+    moe_expert_model_parallelism: Optional[bool] = False
+    """
+    Whether to use model parallelism for the MoE experts.
+    """
+
+    moe_dropless: Optional[bool] = False
+    """
+    Whether to use dMoE (https://arxiv.org/abs/2211.15841)
+    """    
 
     @property
     def effective_n_kv_heads(self) -> int:

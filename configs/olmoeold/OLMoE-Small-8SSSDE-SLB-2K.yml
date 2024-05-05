@@ -1,0 +1,147 @@
+run_name: OLMoE
+seed: 124
+dry_run: false
+
+wandb:
+  name: ${run_name}
+  project: olmoe
+  group: null
+
+model:
+  d_model: 512
+  n_heads: 8
+  n_layers: 8
+  mlp_ratio: 4 # 4 vs 8 (for swiglu)
+  weight_tying: false
+  alibi: false
+  rope: true
+  flash_attention: true
+  attention_dropout: 0.0
+  attention_layer_norm: false
+  multi_query_attention: false
+  include_bias: false
+  block_type: moe
+  layer_norm_type: default
+  layer_norm_with_affine: false
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: gelu # gelu vs swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 2048
+  vocab_size: 50280
+  embedding_size: 50304
+  eos_token_id: 50279
+  pad_token_id: 1
+  init_device: meta
+  init_fn: normal # mitchell vs normal
+  moe_top_k: 2
+  moe_num_experts: 8
+  share_experts: true
+  moe_dropless: true
+  share_load_balance_across_layers: true
+
+compile: null  # causes instability on AMD GPUs
+
+optimizer:
+  name: adamw
+  learning_rate: 2.0e-4
+  weight_decay: 0.1
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 10
+
+scheduler:
+  name: cosine_with_warmup
+  t_warmup: 191 # 19074 * 0.01
+  alpha_f: 0.1
+
+tokenizer:
+  identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
+  truncate_direction: right
+
+save_folder: /data/niklas/llm/OLMoE-Small-8SSSDE-SLB-2K-RE
+save_overwrite: false
+# Sharded checkpoints (best for restarts)
+save_interval: 1000
+save_num_checkpoints_to_keep: 9
+# Unsharded checkpoints (for final storage)
+save_interval_unsharded: 10000
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: null
+
+max_duration: 19074 # 10B tokens
+stop_at: 19074 # 10B / (2048 * 256)
+global_train_batch_size: 256
+device_train_microbatch_size: 16
+
+precision: amp_bf16
+
+fsdp:
+  wrapping_strategy: null
+  precision: mixed
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 20
+
+eval_interval: ${save_interval}
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators:
+  # lump all the small datasets together (we still get separate metrics).
+  - label: v3-small-ppl-validation
+    data:
+      num_workers: 0
+      drop_last: true
+      datasets:
+        v3-small-c4_en-validation:
+#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy
+          - /data/niklas/llm/c4_en/part-0-00000.npy
+        v3-small-pile-validation:
+#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy
+          - /data/niklas/llm/pile/part-0-00000.npy
+        v3-small-wikitext_103-validation:
+#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy
+          - /data/niklas/llm/wikitext_103/part-0-00000.npy
+        v3-small-dolma_books-validation:
+#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_books/val/part-0-00000.npy
+          - /data/niklas/llm/dolma_books/part-0-00000.npy
+        v3-small-dolma_common-crawl-validation:
+#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_common-crawl/val/part-0-00000.npy
+          - /data/niklas/llm/dolma_common-crawl/part-0-00000.npy
+        v3-small-dolma_pes2o-validation:
+#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_pes2o/val/part-0-00000.npy
+          - /data/niklas/llm/dolma_pes2o/part-0-00000.npy
+        v3-small-dolma_reddit-validation:
+#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_reddit/val/part-0-00000.npy
+          - /data/niklas/llm/dolma_reddit/part-0-00000.npy
+        v3-small-dolma_stack-validation:
+#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_stack/val/part-0-00000.npy
+          - /data/niklas/llm/dolma_stack/part-0-00000.npy
+        v3-small-dolma_wiki-validation:
+#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_wiki/val/part-0-00000.npy
+          - /data/niklas/llm/dolma_wiki/part-0-00000.npy
+
+data:
+  pad_direction: right
+  num_workers: 0
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 16
+  persistent_workers: true
+  timeout: 0
+  paths:
+  - /data/niklas/llm/data/part-000-00000.npy
+  - /data/niklas/llm/data/part-000-00001.npy
+  - /data/niklas/llm/data/part-001-00000.npy
+  - /data/niklas/llm/data/part-002-00000.npy
+  - /data/niklas/llm/data/part-003-00000.npy
+  - /data/niklas/llm/data/part-004-00000.npy
+  - /data/niklas/llm/data/part-004-00001.npy
+  - /data/niklas/llm/data/part-005-00000.npy
+  - /data/niklas/llm/data/part-005-00001.npy

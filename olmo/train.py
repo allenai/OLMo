@@ -26,6 +26,7 @@ from torch.utils.data import DataLoader
 from .aliases import PathOrStr
 from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
 from .config import (
+    BlockType,
     CheckpointType,
     SchedulerUnits,
     ShardedCheckpointerType,
@@ -53,6 +54,12 @@ from .util import upload
 __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
 
 log = logging.getLogger(__name__)
+
+try:
+    from megablocks.layers.moe import batched_load_balancing_loss, clear_load_balancing_loss, get_load_balancing_loss
+    from megablocks.layers.arguments import Arguments as MoEArgs
+except ImportError:
+    log.warning(f"Megablocks not installed. To train MoE, install with pip install megablocks.")
 
 
 @dataclass
@@ -113,6 +120,43 @@ def cross_entropy_loss(
 
     return loss, z_loss
 
+def batched_load_balancing_loss_shared(args):
+    """Treat everything as 1 layer with more tokens"""
+    # tokens_per_expert[i].shape = (num_experts)
+    # expert_scores[i].shape = (tokens, num_experts)
+    #import pdb; pdb.set_trace()
+    tokens_per_expert, expert_scores = zip(*get_load_balancing_loss())
+    tokens = expert_scores[0].shape[0]
+    num_unique_layers = 1 # 1 layer of unique params
+
+    assert args.moe_lbl_in_fp32 is False
+
+    if args.moe_lbl_in_fp32:
+        #expert_scores = torch.stack(expert_scores, dim=0).float().sum(dim=0).mean(dim=0)
+        expert_scores = torch.stack(expert_scores, dim=0).float().mean(dim=0).mean(dim=0)
+    else:
+        #expert_scores = torch.stack(expert_scores, dim=0).sum(dim=0).mean(dim=0)
+        expert_scores = torch.stack(expert_scores, dim=0).mean(dim=0).mean(dim=0)
+    #tokens_per_expert = torch.stack(tokens_per_expert, dim=0).sum(dim=0).to(expert_scores.dtype)
+    tokens_per_expert = torch.stack(tokens_per_expert, dim=0).to(expert_scores.dtype).mean(dim=0)
+    
+    num_layers_per_pipeline_stage = (num_unique_layers // args.pipeline_model_parallel_size)
+    if args.num_layers_per_virtual_pipeline_stage is not None:
+        num_layers_per_pipeline_stage = args.num_layers_per_virtual_pipeline_stage
+
+    # Calculate the total scale across all factors.
+    # loss_weight * num_experts / (num_layers * tokens * top_k)
+    scale_numerator = (
+        args.moe_num_experts *
+        args.moe_loss_weight
+    )
+    scale_denominator = (
+        num_unique_layers *
+        tokens *
+        args.moe_top_k
+    )
+    scale = scale_numerator / scale_denominator
+    return scale * torch.dot(tokens_per_expert, expert_scores)
 
 @dataclass
 class Trainer:
@@ -145,6 +189,8 @@ class Trainer:
 
     def __post_init__(self):
         if self.cfg.fused_loss:
+            if self.model.config.block_type == BlockType.moe:
+                raise NotImplementedError("Fused loss is not implemented for MoE models.")
             from flash_attn.ops.triton.cross_entropy import (  # type: ignore
                 cross_entropy_loss,
             )
@@ -185,6 +231,23 @@ class Trainer:
                 return loss, z_loss
 
             self.loss_fn = fused_loss_fn
+
+        if self.model.config.block_type == BlockType.moe:
+            # these MoEArgs are necessary for logging load balancing.
+            self.moe_args = MoEArgs(
+                hidden_size=self.model.config.d_model,
+                ffn_hidden_size=self.model.config.d_model * 4,
+                moe_num_experts=self.model.config.moe_num_experts,
+                num_layers=self.model.config.n_layers,
+                # Not tested for now
+                moe_expert_model_parallelism=False,
+                moe_top_k=self.model.config.moe_top_k,
+                device=self.model.config.init_device,
+                moe_capacity_factor=self.model.config.moe_capacity_factor,
+                moe_loss_weight=self.model.config.moe_loss_weight,
+                fp16=False,
+                bf16=False,
+            )
 
     @property
     def dataset(self) -> IterableDataset:
@@ -643,6 +706,9 @@ class Trainer:
 
         ce_batch_loss = torch.tensor(0.0, device=self.device)
         z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
+        lb_batch_loss = None if self.model.config.block_type != BlockType.moe else torch.tensor(0.0, device=self.device)
+        # Keep this one on CPU to save memory
+        expert_assignments = None if self.model.config.block_type != BlockType.moe else torch.zeros((self.model.config.n_layers, self.model.config.moe_num_experts))
         for micro_batch in micro_batches:
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                 # Run forward pass.
@@ -669,12 +735,24 @@ class Trainer:
                 else:
                     loss = ce_loss
 
+                if self.model.config.block_type == BlockType.moe:
+                    if self.model.config.share_load_balance_across_layers:
+                        lb_loss = batched_load_balancing_loss_shared(self.moe_args) / len(micro_batches)
+                    else:
+                        lb_loss = batched_load_balancing_loss(self.moe_args) / len(micro_batches)
+                    tokens_per_expert, _ = zip(*get_load_balancing_loss())
+                    expert_assignments += torch.stack(tokens_per_expert, dim=0).cpu()
+                    clear_load_balancing_loss()
+                    if self.model.config.load_balance:
+                        loss += lb_loss
+                    lb_batch_loss += lb_loss.detach()
+
                 del logits
 
             # Run backward pass.
             loss.backward()
 
-        return ce_batch_loss, z_batch_loss
+        return ce_batch_loss, z_batch_loss, lb_batch_loss, expert_assignments
 
     def train_step(self, batch: Dict[str, Any], reduce_global_loss: bool = True) -> Dict[str, float]:
         metrics: Dict[str, float] = {}
@@ -691,7 +769,7 @@ class Trainer:
         batch = move_to_device(batch, self.device)
 
         # Run forward-backward pass.
-        ce_batch_loss, z_batch_loss = self.train_batch(batch)
+        ce_batch_loss, z_batch_loss, lb_batch_loss, expert_assignments = self.train_batch(batch)
 
         # Collect loss, potentially reducing over all ranks.
         if reduce_global_loss:
@@ -700,15 +778,14 @@ class Trainer:
             if z_batch_loss is not None:
                 dist.reduce(z_batch_loss, 0)
                 z_batch_loss.div_(get_world_size())
+            if lb_batch_loss is not None:
+                dist.reduce(lb_batch_loss, 0)
+                lb_batch_loss.div_(get_world_size())
 
         # Clip gradient norms and collect param/gradient/optim metrics.
         should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
         optim_metrics = self.optim.clip_grads_and_collect_metrics(
-            self.global_step,
-            collect_param_metrics=should_log_optim_metrics_this_step,
-            # passing this process group here ensures metrics are reduced correctly when we're using
-            # HYBRID sharding.
-            process_group=self.fsdp_model.process_group,
+            self.global_step, collect_param_metrics=should_log_optim_metrics_this_step
         )
 
         # Adjust the learning rate.
@@ -732,9 +809,11 @@ class Trainer:
         # Collect metrics and check for NaN loss.
         # NOTE: this involves a bunch of host-device syncs so we wait until the last moment to do this.
         if torch.isnan(ce_batch_loss):
-            raise ValueError("nan loss encountered")
+            raise ValueError("nan ce loss encountered")
         if z_batch_loss is not None and torch.isnan(z_batch_loss):
-            raise ValueError("nan loss encountered")
+            raise ValueError("nan z loss encountered")
+        if lb_batch_loss is not None and torch.isnan(lb_batch_loss):
+            raise ValueError("nan lb loss encountered")
         for key, value in optim_metrics.items():
             metrics[f"optim/{key}"] = value.item()
         self.cur_train_loss = ce_batch_loss.item()
@@ -743,12 +822,18 @@ class Trainer:
         metrics["train/Perplexity"] = math.exp(self.cur_train_loss)
         if z_batch_loss is not None:
             metrics["train/ZLoss"] = z_batch_loss.item()
+        if lb_batch_loss is not None:
+            metrics["train/LoadBalancingLoss"] = lb_batch_loss.item()
+            # Log assignment metrics.
+            for layer_idx, expert_assignments_layer in enumerate(expert_assignments):
+                total_tokens = expert_assignments_layer.sum().item()
+                for expert_idx, expert_assignment in enumerate(expert_assignments_layer):
+                    metrics[f"train/TokensPercentage/layer{layer_idx}/expert{expert_idx}"] = (expert_assignment.item() / total_tokens) * 100
+                    metrics[f"train/TokensTotal/layer{layer_idx}/expert{expert_idx}"] = expert_assignment.item()
 
         # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:
-            optim_metrics = self.optim.get_post_step_metrics(
-                self.fsdp_model, process_group=self.fsdp_model.process_group
-            )
+            optim_metrics = self.optim.get_post_step_metrics(self.fsdp_model)
             for key, value in optim_metrics.items():
                 metrics[f"optim/{key}"] = value.item()
 

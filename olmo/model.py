@@ -69,9 +69,24 @@ __all__ = [
     "OLMoGenerateOutput",
 ]
 
-
 log = logging.getLogger(__name__)
 
+try:
+    from megablocks.layers.dmoe import dMoE, ParallelDroplessMLP
+    from megablocks.layers.moe import MoE
+    from megablocks.layers.router import LearnedRouter
+    from megablocks.layers.arguments import Arguments as MoEArgs
+
+    class dSMoE(dMoE, torch.nn.Module):
+        def __init__(self, args: Arguments):
+            # Only super init torch.nn.Module
+            torch.nn.Module.__init__(self)
+            # Token router.
+            self.router = LearnedRouter(args)
+            # Do not init experts here but later
+
+except ImportError:
+    log.warning("megablocks not installed, MoE layers will not be available.")
 
 def activation_checkpoint_function(cfg: ModelConfig):
     preserve_rng_state = (
@@ -474,15 +489,15 @@ class OLMoBlock(nn.Module):
         if self.q_norm is not None:
             self.q_norm.reset_parameters()
         init_weights(
-            self.config,
             self.attn_out,
+            self.config,
             d=self.config.d_model,
             layer_id=self.layer_id,
             type_of_module=ModuleType.out_module,
         )
         init_weights(
-            self.config,
             self.ff_out,
+            self.config,
             d=self.ff_out.in_features,
             layer_id=self.layer_id,
             type_of_module=ModuleType.out_module,
@@ -626,8 +641,219 @@ class OLMoBlock(nn.Module):
             return OLMoSequentialBlock(layer_id, config, cache)
         elif config.block_type == BlockType.llama:
             return OLMoLlamaBlock(layer_id, config, cache)
+        elif config.block_type == BlockType.moe:
+            return OLMoEBlock(layer_id, config, cache)
         else:
             raise NotImplementedError(f"Unknown block type: '{config.block_type}'")
+
+
+class OLMoEBlock(OLMoBlock):
+    """
+    This is a a transformer MoE block where the output is computed as ``MoE(LN(x + Attention(LN(x))))``
+    (plus another skip connection).
+    """
+    def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
+        nn.Module.__init__(self)
+        self.layer_id = layer_id
+        self.config = config
+        self.hidden_size = (
+            config.mlp_hidden_size if config.mlp_hidden_size is not None else config.mlp_ratio * config.d_model
+        )
+        self.__cache = cache
+        assert config.d_model % config.n_heads == 0
+
+        self._activation_checkpoint_fn = None
+
+        # Dropout.
+        self.dropout = Dropout(config.residual_dropout)
+
+        # Layer norms.
+        self.k_norm: Optional[LayerNormBase] = None
+        self.q_norm: Optional[LayerNormBase] = None
+        if config.attention_layer_norm:
+            assert config.effective_n_kv_heads is not None
+            self.k_norm = LayerNormBase.build(
+                config,
+                size=(config.d_model // config.n_heads) * config.effective_n_kv_heads,
+                elementwise_affine=config.attention_layer_norm_with_affine,
+            )
+            self.q_norm = LayerNormBase.build(config, elementwise_affine=config.attention_layer_norm_with_affine)
+
+        # Make sure QKV clip coefficient is positive, otherwise it's not well-defined.
+        if config.clip_qkv is not None:
+            assert config.clip_qkv > 0
+
+        # Activation function.
+        self.act = Activation.build(config)
+        assert (self.act.output_multiplier * self.hidden_size) % 1 == 0
+
+        # Attention output projection.
+        self.attn_out = nn.Linear(
+            config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
+        )
+
+        # MoE Block
+        if not(self.config.share_moe and self.layer_id > 0):
+            self.moe_args = MoEArgs(
+                activation_fn=F.silu if 'glu' in config.activation_type.lower() else self.act,
+                mlp_type='glu' if 'glu' in config.activation_type.lower() else 'mlp',
+                # Recommended for H100s by megablocks but found it 4x slower on H100s
+                mlp_impl='grouped',
+                hidden_size=config.d_model,
+                ffn_hidden_size=int(self.act.output_multiplier * self.hidden_size),
+                moe_num_experts=config.moe_num_experts,
+                # Handled by FSDP (https://github.com/databricks/megablocks/issues/57#issuecomment-1854594483)
+                moe_weight_parallelism=False,
+                moe_expert_model_parallelism=config.moe_expert_model_parallelism,
+                moe_top_k=config.moe_top_k,
+                moe_capacity_factor=config.moe_capacity_factor,
+                moe_loss_weight=config.moe_loss_weight,
+                device=config.init_device,
+                # Handled by FSDP
+                bf16=False,
+                fp16=False,
+                bias=self.config.include_bias,
+                return_bias=False,
+            )
+            if self.config.share_experts:
+                self.ffn = dSMoE(self.moe_args)
+                if self.layer_id == 0:
+                    self.ffn.experts = ParallelDroplessMLP(self.moe_args)
+            elif self.config.moe_dropless:
+                self.ffn = dMoE(self.moe_args)
+            else:
+                self.ffn = MoE(self.moe_args)
+
+        # Rotary embeddings.
+        if self.config.rope:
+            self.rotary_emb = RotaryEmbedding(config, self.__cache)
+
+        self.flash_attn_func = None
+        if config.flash_attention:
+            try:
+                from flash_attn import flash_attn_func  # type: ignore
+
+                self.flash_attn_func = flash_attn_func
+            except ModuleNotFoundError:
+                pass
+
+        self.attn_norm = LayerNorm.build(config)
+        self.ff_norm = LayerNorm.build(config)
+
+        # Attention input projection. Projects x -> (q, k, v)
+        head_dim = config.d_model // config.n_heads
+        self.fused_dims = (
+            config.d_model,
+            config.effective_n_kv_heads * head_dim,
+            config.effective_n_kv_heads * head_dim,
+        )
+        self.att_proj = nn.Linear(
+            config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
+        )
+
+    def reset_parameters(self):
+        if self.k_norm is not None:
+            self.k_norm.reset_parameters()
+        if self.q_norm is not None:
+            self.q_norm.reset_parameters()
+
+        # NOTE: the standard deviation for these weights does not depend on the layer.
+        init_weights(
+            self.att_proj, 
+            self.config, 
+            d=self.config.d_model, 
+            layer_id=None, 
+            type_of_module=ModuleType.in_module
+        )
+        init_weights(
+            self.attn_out,
+            self.config,
+            d=self.config.d_model,
+            layer_id=self.layer_id,
+            type_of_module=ModuleType.out_module,
+        )
+        self.attn_norm.reset_parameters()
+        self.ff_norm.reset_parameters()
+        if not(self.config.share_moe and self.layer_id > 0):
+            if not(self.config.share_experts and self.layer_id > 0):
+                init_weights(
+                    self.ffn.experts.mlp.w1,
+                    self.config,
+                    d=self.config.d_model,
+                    layer_id=None,
+                    type_of_module=ModuleType.in_module,
+                )
+                init_weights(
+                    self.ffn.experts.mlp.w2,
+                    self.config,
+                    d=int(self.act.output_multiplier * self.hidden_size),
+                    layer_id=self.layer_id,
+                    type_of_module=ModuleType.out_module,
+                )
+                if self.ffn.experts.bias is not None:
+                    torch.nn.init.zeros_(self.ffn.experts.bias)
+            init_weights(
+                self.ffn.router.layer,
+                self.config,
+                d=self.config.d_model,
+                layer_id=None,
+                type_of_module=ModuleType.out_module,
+            )
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        attention_bias: Optional[torch.Tensor] = None,
+        layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        use_cache: bool = False,
+        ffn: Optional[torch.nn.Module] = None,
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
+        # Get query, key, value projections.
+        # shape:
+        #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
+        #  - for multi-query attn q: (batch_size, seq_len, d_model)
+        #                      k, v: (batch_size, seq_len, d_model // n_heads)
+        #  - for group query attn q: (batch_size, seq_len, d_model)
+        #                      k, v: (batch_size, seq_len, d_model // n_kv_heads)
+        if self._activation_checkpoint_fn is not None:
+            qkv = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x))
+        else:
+            qkv = self.att_proj(self.attn_norm(x))
+
+        if self.config.clip_qkv is not None:
+            qkv.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+
+        q, k, v = qkv.split(self.fused_dims, dim=-1)
+
+        # Get attention scores.
+        if self._activation_checkpoint_fn is not None:
+            att, cache = self._activation_checkpoint_fn(  # type: ignore
+                self.attention, q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache
+            )
+        else:
+            att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
+
+        # Add attention scores.
+        # shape: (B, T, C)
+        x = x + self.dropout(att)
+
+        # Add feed-forward projection.
+        # shape: (batch_size, seq_len, d_model)
+        og_x = x
+        if self._activation_checkpoint_fn is not None:
+            x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+        else:
+            x = self.ff_norm(x)
+
+        if self._activation_checkpoint_fn is not None:
+            x = self._activation_checkpoint_fn(getattr(self, "ffn", ffn), x)  # type: ignore
+        else:
+            x = getattr(self, "ffn", ffn)(x)
+        #import pdb; pdb.set_trace()
+        x = self.dropout(x)
+        x = og_x + x
+
+        return x, cache
 
 
 class OLMoSequentialBlock(OLMoBlock):
@@ -663,10 +889,10 @@ class OLMoSequentialBlock(OLMoBlock):
         self.ff_norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
         init_weights(
-            self.config, self.att_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
+            self.att_proj, self.config, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
         )
         init_weights(
-            self.config, self.ff_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
+            self.ff_proj, self.config, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
         )
 
     def forward(
@@ -768,10 +994,10 @@ class OLMoLlamaBlock(OLMoBlock):
         self.attn_norm.reset_parameters()
         self.ff_norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
-        init_weights(self.config, self.q_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.k_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.v_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None)
+        init_weights(self.q_proj, self.config, d=self.config.d_model, layer_id=None)
+        init_weights(self.k_proj, self.config, d=self.config.d_model, layer_id=None)
+        init_weights(self.v_proj, self.config, d=self.config.d_model, layer_id=None)
+        init_weights(self.ff_proj, self.config, d=self.config.d_model, layer_id=None)
 
     def _scaled_dot_product_attention(
         self,
@@ -965,7 +1191,12 @@ class OLMo(nn.Module):
             )
         )
 
-        blocks = [OLMoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
+        if self.config.share_blocks:
+            assert self.config.block_group_size == 1, "Block sharing is only supported with block_group_size=1"
+            blocks = [OLMoBlock.build(0, config, self.__cache)]
+        else:
+            blocks = [OLMoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
+
         if self.config.block_group_size > 1:
             block_groups = [
                 OLMoBlockGroup(config, i, blocks[i : i + config.block_group_size])
@@ -1021,20 +1252,20 @@ class OLMo(nn.Module):
         log.info("Initializing model parameters...")
         # Top-level embeddings / linear layers.
         init_weights(
-            self.config,
             self.transformer.wte,  # type: ignore
+            self.config,
             std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,
             type_of_module=ModuleType.emb,
         )
         if hasattr(self.transformer, "wpe"):
-            init_weights(self.config, self.transformer.wpe, type_of_module=ModuleType.emb)  # type: ignore
+            init_weights(self.transformer.wpe, self.config, type_of_module=ModuleType.emb)  # type: ignore
 
         # Top-level layer norm.
         self.transformer.ln_f.reset_parameters()  # type: ignore
 
         # Output weights.
         if hasattr(self.transformer, "ff_out"):
-            init_weights(self.config, self.transformer.ff_out, type_of_module=ModuleType.final_out)  # type: ignore
+            init_weights(self.transformer.ff_out, self.config, type_of_module=ModuleType.final_out)  # type: ignore
 
         # Let the blocks handle themselves.
         if self.config.block_group_size == 1:
@@ -1043,6 +1274,15 @@ class OLMo(nn.Module):
         else:
             for block_group in self.transformer.block_groups:
                 block_group.reset_parameters()
+
+        if self.config.init_dense_router:
+            assert self.config.n_layers == self.config.moe_num_experts
+            for i, block in enumerate(self.transformer.blocks):
+                block.ffn.router.layer.weight.data.fill_(0.0)
+                # Set the layer id to 1.0
+                block.ffn.router.layer.weight.data[i, :] = 1.0
+
+            #import pdb; pdb.set_trace()
 
     def get_alibi_attention_bias(self, seq_len: int, device: torch.device) -> torch.Tensor:
         if (alibi_bias := self.__cache.get("alibi_attention_bias")) is not None and alibi_bias.shape[
@@ -1174,20 +1414,25 @@ class OLMo(nn.Module):
 
         # Apply blocks one-by-one.
         if self.config.block_group_size == 1:
-            for block_idx, block in enumerate(self.transformer.blocks):
+            for i in range(self.config.n_layers):
                 if output_hidden_states:
                     # add hidden states
                     all_hidden_states.append(x)
-
-                layer_past = None if past_key_values is None else past_key_values[block_idx]
-                if should_checkpoint_block(self.activation_checkpointing_strategy, block_idx):
+                layer_past = None if past_key_values is None else past_key_values[i]
+                block = self.transformer.blocks[0] if self.config.share_blocks else self.transformer.blocks[i]
+                kwargs = {"attention_bias": attention_bias, "layer_past": layer_past, "use_cache": use_cache}
+                if self.config.share_moe and i > 0:
+                    kwargs["ffn"] = self.transformer.blocks[0].ffn
+                if self.config.share_experts and i > 0:
+                    block.ffn.experts = self.transformer.blocks[0].ffn.experts
+                if should_checkpoint_block(self.activation_checkpointing_strategy, i):
                     # shape: (batch_size, seq_len, d_model)
                     x, cache = self._activation_checkpoint_fn(
-                        block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+                        block, x, **kwargs,
                     )
                 else:
                     # shape: (batch_size, seq_len, d_model)
-                    x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
+                    x, cache = block(x, **kwargs)
 
                 if attn_key_values is not None:
                     assert cache is not None
@@ -1329,7 +1574,7 @@ class OLMo(nn.Module):
         else:
             raise NotImplementedError(wrap_strategy)
 
-    def num_params(self, include_embedding: bool = True) -> int:
+    def num_params(self, include_embedding: bool = True, include_inactivate_params: bool = True) -> int:
         """
         Get the total number of parameters.
         """
@@ -1339,6 +1584,29 @@ class OLMo(nn.Module):
                 lambda np: ".wte." not in np[0] and ".wpe." not in np[0],
                 params,
             )
+        if not include_inactivate_params:
+            # Need to reduce blocks to the number of experts that are selected
+            # If not dropless 'transformer.blocks.0.ffn.experts.mlp.w1' has shape (total_experts, in_dim, out_dim)
+            # change to 'transformer.blocks.0.ffn.experts.mlp.w1' has shape (selected_experts, in_dim, out_dim)
+            # If dropless, the total_experts & out_dim are combined into one dimension
+            idx = self.config.moe_top_k
+            if self.config.moe_dropless:
+                idx *= self.transformer.blocks[0].moe_args.ffn_hidden_size
+            params = [
+                (np[0], np[1][: idx]) if "experts.mlp" in np[0] else np
+                for np in params
+            ]
+            # Multiply block params by num layers if anything is shared
+            param_to_add = None
+            if self.config.share_blocks:
+                param_to_add = [(np[0], np[1]) for np in params if "blocks.0" in np[0]]
+            elif self.config.share_moe:
+                param_to_add = [(np[0], np[1]) for np in params if "ffn" in np[0]]
+            elif self.config.share_experts:
+                param_to_add = [(np[0], np[1]) for np in params if "experts.mlp" in np[0]]
+            if param_to_add is not None:
+                for _ in range(self.config.n_layers - 1):
+                    params.extend(param_to_add)
         return sum(p.numel() for _, p in params)
 
     @property
