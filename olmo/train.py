@@ -746,7 +746,11 @@ class Trainer:
         # Clip gradient norms and collect param/gradient/optim metrics.
         should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
         optim_metrics = self.optim.clip_grads_and_collect_metrics(
-            self.global_step, collect_param_metrics=should_log_optim_metrics_this_step
+            self.global_step,
+            collect_param_metrics=should_log_optim_metrics_this_step,
+            # passing this process group here ensures metrics are reduced correctly when we're using
+            # HYBRID sharding.
+            process_group=self.fsdp_model.process_group,
         )
 
         # Adjust the learning rate.
@@ -794,7 +798,9 @@ class Trainer:
 
         # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:
-            optim_metrics = self.optim.get_post_step_metrics(self.fsdp_model)
+            optim_metrics = self.optim.get_post_step_metrics(
+                self.fsdp_model, process_group=self.fsdp_model.process_group
+            )
             for key, value in optim_metrics.items():
                 metrics[f"optim/{key}"] = value.item()
 
@@ -960,6 +966,7 @@ class Trainer:
                 # Finally, check if someone canceled the run from W&B by adding the 'cancel' / 'canceled' tag..
                 # We won't see it in the run object. So we have to use the import/export API to check.
                 from requests.exceptions import RequestException
+                from wandb.errors import CommError
 
                 try:
                     api = wandb.Api(api_key=api_key)
@@ -970,8 +977,8 @@ class Trainer:
                             cancel_reason = "Weights & Biases tag"
                             extra_steps = self.cfg.extra_steps_after_cancel
                             break
-                except RequestException:
-                    pass
+                except (RequestException, CommError):
+                    log.info("Failed to check if W&B run is cancelled, continuing run.")
 
         run_canceled = synchronize_flag(should_cancel, self.device)
         if run_canceled:
