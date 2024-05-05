@@ -68,7 +68,7 @@ save_folder: runs/${run_name}
 remote_save_folder: s3://ai2-llm/checkpoints/OLMo-large/${run_name}
 save_overwrite: false
 
-save_interval: 500
+save_interval: 250
 save_interval_ephemeral: null
 save_num_checkpoints_to_keep: -1
 sharded_checkpointer: local
@@ -96,7 +96,7 @@ max_grad_norm_ratio: null
 speed_monitor:
   window_size: 1
 
-eval_interval: 1000
+eval_interval: 500
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
