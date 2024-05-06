@@ -1,4 +1,4 @@
-run_name: OLMoE
+run_name: ${oc.env:SLURM_JOB_ID}
 seed: 6198
 dry_run: false
 no_pre_train_checkpoint: true
@@ -21,7 +21,7 @@ model:
   attention_layer_norm: false
   multi_query_attention: false
   include_bias: false
-  block_type: sequential
+  block_type: moe
   layer_norm_type: default
   layer_norm_with_affine: false
   bias_for_layer_norm: false
@@ -37,7 +37,7 @@ model:
   init_device: meta
   init_fn: normal # mitchell vs normal
   moe_top_k: 1
-  moe_num_experts: 8
+  moe_num_experts: 1
   moe_dropless: true
   moe_expert_model_parallelism: true
 
