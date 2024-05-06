@@ -23,7 +23,7 @@ shared memory implementation can be used by passing `use_legacy_shared_mem_impl`
 - Added MMLU multiple choice (A/B/C/D) 5-shot variant downstream tasks
 - Tokenizer patch
 - Added option to specify number of model replicas when using hybrid sharding.
-- Added reverse_embedding_decay option.
+- Added `regularize_embeddings` option.
 
 ### Changed
 
