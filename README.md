@@ -135,7 +135,7 @@ torchrun --nproc_per_node=8 scripts/train.py configs/official/OLMo-1B.yaml --loa
 
 ### Inspecting training data
 
-You may be interesting in inspecting the exact tokens that composed a particular batch during the training of one of the OLMo models.
+You may be interested in inspecting the exact tokens that composed a particular batch during the training of one of the OLMo models.
 We provide tools to do this, but first you'll need to download the data as above (unless you have an R2 API key) and update the corresponding config accordingly.
 
 Then take note of the URL of the data order file you want, which can be found in the [Models Overview](#models-overview) table. For example, the data order file for the first epoch of the OLMo-7B model is [https://olmo-checkpoints.org/ai2-llm/olmo-medium/wvc30anm/train_data/global_indices.npy](https://olmo-checkpoints.org/ai2-llm/olmo-small/46zc5fly/train_data/global_indices.npy).
