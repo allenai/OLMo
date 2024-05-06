@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added MMLU multiple choice (A/B/C/D) 5-shot variant downstream tasks
 - Tokenizer patch
 - Added option to specify number of model replicas when using hybrid sharding.
+- Added reverse_embedding_decay option.
 
 ### Changed
 
