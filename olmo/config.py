@@ -38,6 +38,7 @@ __all__ = [
     "SchedulerType",
     "SchedulerConfig",
     "DataConfig",
+    "InstanceFilterConfig",
     "EvaluatorConfig",
     "TokenizerConfig",
     "TrainConfig",
@@ -544,6 +545,13 @@ class PaddingDirection(StrEnum):
 
 
 @dataclass
+class InstanceFilterConfig(BaseConfig):
+    repetition_max_period: int = 13
+    repetition_min_period: int = 1
+    repetition_max_count: int = 32
+
+
+@dataclass
 class DataConfig(BaseConfig):
     paths: Optional[List[str]] = None
     datasets: Optional[Dict[str, List[str]]] = None
@@ -557,6 +565,7 @@ class DataConfig(BaseConfig):
     persistent_workers: bool = False
     timeout: int = 0
     seed: Optional[int] = None
+    instance_filter: Optional[InstanceFilterConfig] = None
 
 
 class EvaluatorType(StrEnum):
