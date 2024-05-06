@@ -786,7 +786,7 @@ class Trainer:
         should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
         if self.cfg.fsdp.sharding_strategy == torch.distriuted.fsdp.ShardingStrategy.NO_SHARD:
             total_norm = torch.nn.utils.clip_grad_norm_(self.fsdp_model.parameters(), self.cfg.max_grad_norm)
-            optim_metrics = {"total_grad_norm": total_norm}
+            optim_metrics = {"total_grad_norm": total_norm} if should_log_optim_metrics_this_step else {}
         else:
             optim_metrics = self.optim.clip_grads_and_collect_metrics(
                 self.global_step,
