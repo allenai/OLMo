@@ -9,16 +9,16 @@ gantry run \
   --task-name mitchish7 \
   --description "OLMo medium - 7B" \
   --priority high \
-  --stop-preemptible \
-  --beaker-image petew/olmo-torch2-gantry \
+  --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/pluto-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
-  --nfs \
-  --mount /net/nfs.cirrascale/allennlp/petew/cache:/root/.cache \
+  --no-nfs \
+  --propagate-failure \
+  --synchronized-start-timeout 10m \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
@@ -29,4 +29,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/mitchish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES}"
+  -- /bin/bash -c "scripts/beaker/mitchish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
