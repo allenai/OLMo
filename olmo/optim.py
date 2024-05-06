@@ -84,14 +84,14 @@ class Optimizer(OptimizerBase):
                 # with ReLoRa, for example.
                 assert group.get("sharded", True) is True
 
+            is_embedding_group = group["name"] == "embedding_decay_group"
             for name, p in zip(group["param_names"], group["params"]):
                 name = self._clean_param_name(name)
                 # Always need to collect the norm of gradients and parameters for clipping, even if we're not collecting
                 # other metrics.
                 tensors: List[Optional[torch.Tensor]] = [p.grad]
                 prefixes: List[str] = [f"grad/{name}"]
-                # TODO: only do this for the embedding group
-                if collect_param_metrics or reverse_embedding_decay:
+                if collect_param_metrics or (reverse_embedding_decay and is_embedding_group):
                     state = self.get_state_for_param(p)
                     sorted_state_keys = sorted([k for k in state.keys()])
                     tensors.extend([p] + [state[key] for key in sorted_state_keys])
