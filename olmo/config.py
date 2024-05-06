@@ -482,7 +482,7 @@ class OptimizerConfig(BaseConfig):
     If not set, defaults to the wandb `log_interval`.
     """
 
-    reverse_embedding_decay: bool = False
+    regularize_embeddings: bool = False
     """
     Applying weight decay to embeddings may make them too small, potentially causing spikes.
     Setting this parameter to true is a way of applying "reverse weight decay" to embeddings.

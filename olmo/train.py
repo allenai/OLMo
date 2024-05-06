@@ -719,7 +719,7 @@ class Trainer:
             # passing this process group here ensures metrics are reduced correctly when we're using
             # HYBRID sharding.
             process_group=self.fsdp_model.process_group,
-            reverse_embedding_decay=self.cfg.optimizer.reverse_embedding_decay,
+            regularize_embeddings=self.cfg.optimizer.regularize_embeddings,
         )
 
         emb_norm = optim_metrics["param/transformer.wte.weight.norm"]

@@ -43,7 +43,7 @@ class Optimizer(OptimizerBase):
         global_step: int,
         collect_param_metrics: bool = True,
         process_group: Optional[dist.ProcessGroup] = None,
-        reverse_embedding_decay: bool = False,
+        regularize_embeddings: bool = False,
     ) -> Dict[str, torch.Tensor]:
         """
         Clips gradients for every group that has the field `max_grad_norm`.
@@ -91,7 +91,7 @@ class Optimizer(OptimizerBase):
                 # other metrics.
                 tensors: List[Optional[torch.Tensor]] = [p.grad]
                 prefixes: List[str] = [f"grad/{name}"]
-                if collect_param_metrics or (reverse_embedding_decay and is_embedding_group):
+                if collect_param_metrics or (regularize_embeddings and is_embedding_group):
                     state = self.get_state_for_param(p)
                     sorted_state_keys = sorted([k for k in state.keys()])
                     tensors.extend([p] + [state[key] for key in sorted_state_keys])
@@ -647,7 +647,7 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
             elif pn.endswith("weight") and isinstance(m, nn.Embedding):
                 if cfg.optimizer.decay_embeddings:
                     decay.add(fpn)
-                elif cfg.optimizer.reverse_embedding_decay:
+                elif cfg.optimizer.regularize_embeddings:
                     embeddings_decay.add(fpn)
                 else:
                     no_decay.add(fpn)

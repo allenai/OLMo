@@ -22,7 +22,7 @@ model:
   init_std: 0.02
 optimizer:
   learning_rate: 0.001
-  reverse_embedding_decay: true
+  regularize_embeddings: true
   metrics_log_interval: 100
 scheduler:
   name: "cosine_with_warmup"
