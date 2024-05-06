@@ -276,13 +276,14 @@ if __name__ == "__main__":
         mp.set_start_method("spawn", force=True)
     except RuntimeError as e:
         print(f"failed to set multiprocessing start method: {e}")
+    log.info(f"Multiprocessing start method set to '{mp.get_start_method()}'")
 
     # Initialize process group.
     dist.init_process_group(backend="nccl")
+    log.info("Process group initialized")
 
     prepare_cli_environment()
-
-    log.info(f"multiprocessing start method set to '{mp.get_start_method()}'")
+    log.info("CLI environment prepared")
 
     try:
         yaml_path, args_list = sys.argv[1], sys.argv[2:]
