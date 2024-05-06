@@ -77,8 +77,8 @@ try:
     from megablocks.layers.router import LearnedRouter
     from megablocks.layers.arguments import Arguments as MoEArgs
 
-    class dSMoE(dMoE, torch.nn.Module):
-        def __init__(self, args: Arguments):
+    class dMoSE(dMoE, torch.nn.Module):
+        def __init__(self, args: MoEArgs):
             # Only super init torch.nn.Module
             torch.nn.Module.__init__(self)
             # Token router.
@@ -716,7 +716,7 @@ class OLMoEBlock(OLMoBlock):
                 return_bias=False,
             )
             if self.config.share_experts:
-                self.ffn = dSMoE(self.moe_args)
+                self.ffn = dMoSE(self.moe_args)
                 if self.layer_id == 0:
                     self.ffn.experts = ParallelDroplessMLP(self.moe_args)
             elif self.config.moe_dropless:
@@ -849,7 +849,6 @@ class OLMoEBlock(OLMoBlock):
             x = self._activation_checkpoint_fn(getattr(self, "ffn", ffn), x)  # type: ignore
         else:
             x = getattr(self, "ffn", ffn)(x)
-        #import pdb; pdb.set_trace()
         x = self.dropout(x)
         x = og_x + x
 
@@ -1276,13 +1275,12 @@ class OLMo(nn.Module):
                 block_group.reset_parameters()
 
         if self.config.init_dense_router:
+            raise NotImplementedError("init_dense_router is not working yet")
             assert self.config.n_layers == self.config.moe_num_experts
             for i, block in enumerate(self.transformer.blocks):
                 block.ffn.router.layer.weight.data.fill_(0.0)
                 # Set the layer id to 1.0
                 block.ffn.router.layer.weight.data[i, :] = 1.0
-
-            #import pdb; pdb.set_trace()
 
     def get_alibi_attention_bias(self, seq_len: int, device: torch.device) -> torch.Tensor:
         if (alibi_bias := self.__cache.get("alibi_attention_bias")) is not None and alibi_bias.shape[

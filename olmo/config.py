@@ -462,7 +462,7 @@ class ModelConfig(BaseConfig):
 
     share_moe: bool = False
     """
-    If ``True``, share the same experts across all layers.
+    If ``True``, share the full MoE across all layers.
     """
 
     share_experts: bool = False
