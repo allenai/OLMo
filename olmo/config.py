@@ -484,8 +484,7 @@ class OptimizerConfig(BaseConfig):
 
     regularize_embeddings: bool = False
     """
-    Applying weight decay to embeddings may make them too small, potentially causing spikes.
-    Setting this parameter to true is a way of applying "reverse weight decay" to embeddings.
+    Applies a regularizer to the embeddings that tries to pull them towards a standard deviation of 1.
     """
 
     def __post_init__(self):
