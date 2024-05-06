@@ -712,7 +712,7 @@ class Trainer:
         )
 
         emb_norm = optim_metrics["param/transformer.wte.weight.norm"]
-        emb_std = math.sqrt(emb_norm^2 / (self.cfg.model.embedding_size * self.cfg.model.vocab_size))
+        emb_std = math.sqrt(math.pow(emb_norm, 2) / (self.cfg.model.embedding_size * self.cfg.model.vocab_size))
         emb_decay_factor = 1.0 - emb_std
 
         # Adjust the learning rate.
