@@ -99,32 +99,23 @@ evaluators:
       drop_last: true
       datasets:
         v3-small-c4_en-validation:
-#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy
-          - /data/niklas/llm/c4_en/part-0-00000.npy
+          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy
         v3-small-pile-validation:
-#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy
-          - /data/niklas/llm/pile/part-0-00000.npy
+          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy
         v3-small-wikitext_103-validation:
-#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy
-          - /data/niklas/llm/wikitext_103/part-0-00000.npy
+          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy
         v3-small-dolma_books-validation:
-#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_books/val/part-0-00000.npy
-          - /data/niklas/llm/dolma_books/part-0-00000.npy
+          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_books/val/part-0-00000.npy
         v3-small-dolma_common-crawl-validation:
-#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_common-crawl/val/part-0-00000.npy
-          - /data/niklas/llm/dolma_common-crawl/part-0-00000.npy
+          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_common-crawl/val/part-0-00000.npy
         v3-small-dolma_pes2o-validation:
-#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_pes2o/val/part-0-00000.npy
-          - /data/niklas/llm/dolma_pes2o/part-0-00000.npy
+          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_pes2o/val/part-0-00000.npy
         v3-small-dolma_reddit-validation:
-#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_reddit/val/part-0-00000.npy
-          - /data/niklas/llm/dolma_reddit/part-0-00000.npy
+          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_reddit/val/part-0-00000.npy
         v3-small-dolma_stack-validation:
-#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_stack/val/part-0-00000.npy
-          - /data/niklas/llm/dolma_stack/part-0-00000.npy
+          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_stack/val/part-0-00000.npy
         v3-small-dolma_wiki-validation:
-#          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_wiki/val/part-0-00000.npy
-          - /data/niklas/llm/dolma_wiki/part-0-00000.npy
+          - https://olmo-data.org/eval-data/perplexity/v3_small_gptneox20b/dolma_wiki/val/part-0-00000.npy
 
 data:
   pad_direction: right
