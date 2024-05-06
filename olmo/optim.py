@@ -43,6 +43,7 @@ class Optimizer(OptimizerBase):
         global_step: int,
         collect_param_metrics: bool = True,
         process_group: Optional[dist.ProcessGroup] = None,
+        reverse_embedding_decay: bool = False,
     ) -> Dict[str, torch.Tensor]:
         """
         Clips gradients for every group that has the field `max_grad_norm`.
@@ -85,11 +86,12 @@ class Optimizer(OptimizerBase):
 
             for name, p in zip(group["param_names"], group["params"]):
                 name = self._clean_param_name(name)
-                # Always need to collect the norm of gradients for clipping, even if we're not collecting
+                # Always need to collect the norm of gradients and parameters for clipping, even if we're not collecting
                 # other metrics.
                 tensors: List[Optional[torch.Tensor]] = [p.grad]
                 prefixes: List[str] = [f"grad/{name}"]
-                if collect_param_metrics:
+                # TODO: only do this for the embedding group
+                if collect_param_metrics or reverse_embedding_decay:
                     state = self.get_state_for_param(p)
                     sorted_state_keys = sorted([k for k in state.keys()])
                     tensors.extend([p] + [state[key] for key in sorted_state_keys])

@@ -23,20 +23,21 @@ model:
 optimizer:
   learning_rate: 0.001
   reverse_embedding_decay: true
-  metrics_log_interval: 1
+  metrics_log_interval: 100
 scheduler:
   name: "cosine_with_warmup"
   t_warmup: 10
 data:
   paths:
-    - "test_fixtures/mup-sample-data/part-010-00002.npy"
+    - "/net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00000-00099.npy"
   persistent_workers: false
   num_workers: 0
   prefetch_factor: null
 tokenizer:
   identifier: "gpt2"
 save_overwrite: true
-max_duration: 4
+max_duration: 16
+stop_at: ${max_duration}
 global_train_batch_size: 8
 device_train_microbatch_size: 8
 precision: "fp32"
