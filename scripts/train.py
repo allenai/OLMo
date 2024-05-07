@@ -181,7 +181,7 @@ def main(cfg: TrainConfig) -> None:
             olmo_model,
             wrap_policy or [],  # type: ignore[arg-type]
             sharding_strategy=cfg.fsdp.sharding_strategy.olmo_core(),
-            mixed_precision=cfg.fsdp_precision,  # type: ignore[arg-type]
+            precision=cfg.fsdp_precision,  # type: ignore[arg-type]
             device_mesh=device_mesh,
         )
         fsdp_model.apply(lambda m: m.reset_parameters() if hasattr(m, "reset_parameters") else None)
