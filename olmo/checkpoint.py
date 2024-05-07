@@ -19,6 +19,7 @@ import numpy as np
 import torch
 import torch.distributed.checkpoint as dist_cp
 import torch.multiprocessing as mp
+import torch.nn as nn
 from packaging import version
 from torch.distributed import _remote_device
 from torch.distributed._shard._utils import narrow_tensor_by_index
@@ -55,7 +56,9 @@ from .torch_util import (
     gc_cuda,
     get_fs_local_rank,
     get_global_rank,
-    get_world_size, get_local_world_size, get_local_rank,
+    get_local_rank,
+    get_local_world_size,
+    get_world_size,
 )
 from .util import (
     _get_s3_client,
@@ -499,7 +502,7 @@ class Checkpointer(metaclass=ABCMeta):
     def save_checkpoint(
         self,
         dir: PathOrStr,
-        fsdp_model: FSDP,
+        fsdp_model: nn.Module,
         optim: Optimizer,
         train_state: Dict[str, Any],
         *,
@@ -511,7 +514,7 @@ class Checkpointer(metaclass=ABCMeta):
     def restore_checkpoint(
         self,
         load_path: PathOrStr,
-        fsdp_model: FSDP,
+        fsdp_model: nn.Module,
         optim: Optimizer,
         *,
         local_cache: Optional[PathOrStr] = None,
@@ -606,12 +609,13 @@ class FullCheckpointer(Checkpointer):
     def save_checkpoint(
         self,
         dir: PathOrStr,
-        fsdp_model: FSDP,
+        fsdp_model: nn.Module,
         optim: Optimizer,
         trainer_state: Dict[str, Any],
         *,
         upload_to: Optional[str] = None,
     ) -> None:
+        assert isinstance(fsdp_model, FSDP)
         with self._temporary_wd(dir) as checkpoint_dir:
             with FSDP.state_dict_type(
                 fsdp_model,
@@ -667,12 +671,13 @@ class FullCheckpointer(Checkpointer):
     def restore_checkpoint(
         self,
         load_path: PathOrStr,
-        fsdp_model: FSDP,
+        fsdp_model: nn.Module,
         optim: Optimizer,
         *,
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
     ) -> Dict[str, Any]:
+        assert isinstance(fsdp_model, FSDP)
         with FSDP.state_dict_type(
             fsdp_model,
             state_dict_type=StateDictType.FULL_STATE_DICT,
@@ -829,12 +834,13 @@ class TorchNewStyleShardedCheckpointer(Checkpointer):
     def save_checkpoint(
         self,
         dir: PathOrStr,
-        fsdp_model: FSDP,
+        fsdp_model: nn.Module,
         optim: Optimizer,
         trainer_state: Dict[str, Any],
         *,
         upload_to: Optional[str] = None,
     ) -> None:
+        assert isinstance(fsdp_model, FSDP)
         with self._temporary_wd(dir) as checkpoint_dir:
             # Save model and optim state.
             save_fsdp_model_and_optim_state(
@@ -861,12 +867,13 @@ class TorchNewStyleShardedCheckpointer(Checkpointer):
     def restore_checkpoint(
         self,
         load_path: PathOrStr,
-        fsdp_model: FSDP,
+        fsdp_model: nn.Module,
         optim: Optimizer,
         *,
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
     ) -> Dict[str, Any]:
+        assert isinstance(fsdp_model, FSDP)
         # Load model and optimizer state in place.
         log.info("Loading model and optimizer state...")
         load_fsdp_model_and_optim_state(
@@ -906,12 +913,13 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
     def save_checkpoint(
         self,
         dir: PathOrStr,
-        fsdp_model: FSDP,
+        fsdp_model: nn.Module,
         optim: Optimizer,
         trainer_state: Dict[str, Any],
         *,
         upload_to: Optional[str] = None,
     ) -> None:
+        assert isinstance(fsdp_model, FSDP)
         with self._temporary_wd(dir) as checkpoint_dir:
             with FSDP.state_dict_type(
                 fsdp_model,
@@ -938,12 +946,13 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
     def restore_checkpoint(
         self,
         load_path: PathOrStr,
-        fsdp_model: FSDP,
+        fsdp_model: nn.Module,
         optim: Optimizer,
         *,
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
     ) -> Dict[str, Any]:
+        assert isinstance(fsdp_model, FSDP)
         with FSDP.state_dict_type(
             fsdp_model,
             state_dict_type=StateDictType.SHARDED_STATE_DICT,
@@ -1500,12 +1509,13 @@ class LocalShardedCheckpointer(Checkpointer):
     def save_checkpoint(
         self,
         dir: PathOrStr,
-        fsdp_model: FSDP,
+        fsdp_model: nn.Module,
         optim: Optimizer,
         trainer_state: Dict[str, Any],
         *,
         upload_to: Optional[str] = None,
     ) -> None:
+        assert isinstance(fsdp_model, FSDP)
         with self._temporary_wd(dir) as checkpoint_dir:
             # Gather local FSDP flat params data to save.
             # We also save some flat param metadata like the corresponding fully qualified names (fqns)
@@ -1551,12 +1561,13 @@ class LocalShardedCheckpointer(Checkpointer):
     def restore_checkpoint(
         self,
         load_path: PathOrStr,
-        fsdp_model: FSDP,
+        fsdp_model: nn.Module,
         optim: Optimizer,
         *,
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
     ) -> Dict[str, Any]:
+        assert isinstance(fsdp_model, FSDP)
         # Load metadata and make sure checkpoint is compatible.
         metadata = self._load_metadata(load_path, local_cache=local_cache)
         assert metadata.world_size == get_world_size()
@@ -1821,7 +1832,7 @@ class OlmoCoreCheckpointer(Checkpointer):
     def save_checkpoint(
         self,
         dir: PathOrStr,
-        fsdp_model: FSDP,
+        fsdp_model: nn.Module,
         optim: Optimizer,
         trainer_state: Dict[str, Any],
         *,
@@ -1857,7 +1868,7 @@ class OlmoCoreCheckpointer(Checkpointer):
     def restore_checkpoint(
         self,
         load_path: PathOrStr,
-        fsdp_model: FSDP,
+        fsdp_model: nn.Module,
         optim: Optimizer,
         *,
         local_cache: Optional[PathOrStr] = None,

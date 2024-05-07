@@ -7,7 +7,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import torch
 import torch.distributed as dist
 import torch.nn as nn
-from torch.distributed.fsdp import FullyShardedDataParallel
+from olmo_core.distributed.fsdp import FSDP as OLMoCoreFSDP
+from torch.distributed.fsdp import FullyShardedDataParallel as TorchFSDP
 from torch.optim.optimizer import Optimizer as OptimizerBase
 
 from . import LayerNormBase
@@ -374,7 +375,7 @@ class LionW(Optimizer):
         if update_total_dot_prod is None or update_total_norm is None or signed_update_total_norm is None:
             return {}
 
-        if is_distributed() and isinstance(module, FullyShardedDataParallel):
+        if is_distributed() and isinstance(module, (TorchFSDP, OLMoCoreFSDP)):
             # Reduce total dot prod and norms across all ranks.
             update_total_norm = update_total_norm**2.0
             signed_update_total_norm = signed_update_total_norm**2.0
@@ -609,7 +610,7 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
     """
     param_groups: List[Dict[str, Any]]
     param_group_defaults = {
-        "sharded": isinstance(model, FullyShardedDataParallel),
+        "sharded": isinstance(model, (TorchFSDP, OLMoCoreFSDP)),
         "max_grad_norm": cfg.max_grad_norm,
         "max_grad_norm_ratio": cfg.max_grad_norm_ratio,
     }

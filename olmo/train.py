@@ -13,16 +13,16 @@ from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
 from pstats import SortKey
-from typing import Any, Callable, Deque, Dict, List, Optional, TextIO, Tuple
+from typing import Any, Callable, Deque, Dict, List, Optional, TextIO, Tuple, Union
 
 import numpy as np
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.utils.data import DataLoader
-
 import wandb
+from olmo_core.distributed.fsdp import FSDP
+from torch.distributed.fsdp import FullyShardedDataParallel as TorchFSDP
+from torch.utils.data import DataLoader
 
 from .aliases import PathOrStr
 from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
@@ -119,7 +119,7 @@ def cross_entropy_loss(
 class Trainer:
     cfg: TrainConfig
     model: OLMo
-    fsdp_model: FSDP
+    fsdp_model: Union[FSDP, TorchFSDP]
     optim: Optimizer
     scheduler: Scheduler
     train_loader: DataLoader
@@ -641,7 +641,7 @@ class Trainer:
     def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
-        batch_size_in_tokens = batch['input_ids'].numel()
+        batch_size_in_tokens = batch["input_ids"].numel()
 
         # In case this helps with memory utilization.
         del batch
@@ -652,9 +652,7 @@ class Trainer:
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                 # Run forward pass.
                 ce_loss, z_loss, logits = self.model_forward(
-                    micro_batch,
-                    compute_z_loss=self.cfg.softmax_auxiliary_loss,
-                    loss_reduction="sum"
+                    micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss, loss_reduction="sum"
                 )
                 ce_loss = ce_loss / batch_size_in_tokens
 
@@ -836,7 +834,8 @@ class Trainer:
                 [
                     f"    {name}={format_float(value)}"
                     for name, value in metrics.items()
-                    if name == "optim/total_grad_norm" or not name.startswith("optim/")  # there's too many optimizer metrics
+                    if name == "optim/total_grad_norm"
+                    or not name.startswith("optim/")  # there's too many optimizer metrics
                 ]
             )
         )

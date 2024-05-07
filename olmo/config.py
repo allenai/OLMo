@@ -17,10 +17,13 @@ from typing import (
 )
 
 import torch
+from olmo_core.distributed.fsdp import FSDPPrecision as OLMoCoreMixedPrecision
+from olmo_core.distributed.fsdp import FSDPShardingStrategy as OLMoCoreShardingStrategy
 from omegaconf import DictConfig, ListConfig
 from omegaconf import OmegaConf as om
 from omegaconf.errors import OmegaConfBaseException
-from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
+from torch.distributed.fsdp import MixedPrecision as TorchMixedPrecision
+from torch.distributed.fsdp import ShardingStrategy as TorchShardingStrategy
 
 from .aliases import PathOrStr
 from .exceptions import OLMoConfigurationError
@@ -48,8 +51,10 @@ __all__ = [
     "WandbConfig",
     "CompilerConfig",
     "WandbConfig",
+    "FSDPShardingStrategy",
     "FSDPPrecision",
     "FSDPWrapStrategy",
+    "FSDPType",
     "FSDPConfig",
     "CheckpointType",
 ]
@@ -679,14 +684,41 @@ class FSDPPrecision(StrEnum):
     """
 
 
+class FSDPType(StrEnum):
+    torch = "torch"
+    olmo_core = "olmo_core"
+
+
+class FSDPShardingStrategy(StrEnum):
+    FULL_SHARD = "FULL_SHARD"
+    HYBRID_SHARD = "HYBRID_SHARD"
+    NO_SHARD = "NO_SHARD"
+
+    def torch(self) -> TorchShardingStrategy:
+        return getattr(TorchShardingStrategy, self)
+
+    def olmo_core(self) -> OLMoCoreShardingStrategy:
+        if self == FSDPShardingStrategy.FULL_SHARD:
+            return OLMoCoreShardingStrategy.FULL_SHARD
+        elif self == FSDPShardingStrategy.HYBRID_SHARD:
+            return OLMoCoreShardingStrategy.HYBRID_SHARD
+        else:
+            raise NotImplementedError(self)
+
+
 @dataclass
 class FSDPConfig(BaseConfig):
+    name: FSDPType = FSDPType.torch
+    """
+    The FSDP implementation to use.
+    """
+
     use_orig_params: bool = True
     """
     This must be ``True`` if using ``compile`` or you want to track the parameter norm during training.
     """
 
-    sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD
+    sharding_strategy: FSDPShardingStrategy = FSDPShardingStrategy.FULL_SHARD
 
     wrapping_strategy: Optional[FSDPWrapStrategy] = None
     """
@@ -1094,21 +1126,37 @@ class TrainConfig(BaseConfig):
             raise ValueError(f"Unexpected precision type '{self.precision}'")
 
     @property
-    def fsdp_precision(self) -> MixedPrecision:
-        if self.fsdp.precision == FSDPPrecision.pure:
-            return MixedPrecision(
-                param_dtype=self.autocast_precision,
-                reduce_dtype=self.autocast_precision,
-                buffer_dtype=self.autocast_precision,
-            )
-        elif self.fsdp.precision == FSDPPrecision.mixed:
-            return MixedPrecision(
-                param_dtype=self.autocast_precision,
-                reduce_dtype=torch.float32,
-                buffer_dtype=self.autocast_precision,
-            )
+    def fsdp_precision(self) -> Union[TorchMixedPrecision, OLMoCoreMixedPrecision]:
+        if self.fsdp.name == FSDPType.torch:
+            if self.fsdp.precision == FSDPPrecision.pure:
+                return TorchMixedPrecision(
+                    param_dtype=self.autocast_precision,
+                    reduce_dtype=self.autocast_precision,
+                    buffer_dtype=self.autocast_precision,
+                )
+            elif self.fsdp.precision == FSDPPrecision.mixed:
+                return TorchMixedPrecision(
+                    param_dtype=self.autocast_precision,
+                    reduce_dtype=torch.float32,
+                    buffer_dtype=self.autocast_precision,
+                )
+            else:
+                raise NotImplementedError(f"{self.fsdp.precision}")
+        elif self.fsdp.name == FSDPType.olmo_core:
+            if self.fsdp.precision == FSDPPrecision.pure:
+                return OLMoCoreMixedPrecision(
+                    param_dtype=self.autocast_precision,
+                    reduce_dtype=self.autocast_precision,
+                )
+            elif self.fsdp.precision == FSDPPrecision.mixed:
+                return OLMoCoreMixedPrecision(
+                    param_dtype=self.autocast_precision,
+                    reduce_dtype=torch.float32,
+                )
+            else:
+                raise NotImplementedError(f"{self.fsdp.precision}")
         else:
-            raise NotImplementedError(f"{self.fsdp.precision}")
+            raise NotImplementedError(self.fsdp.name)
 
     @classmethod
     def update_legacy_settings(cls, config: D) -> D:
