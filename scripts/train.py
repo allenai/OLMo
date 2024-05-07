@@ -179,7 +179,7 @@ def main(cfg: TrainConfig) -> None:
     elif cfg.fsdp.name == FSDPType.olmo_core:
         fsdp_model = OLMoCoreFSDP.auto_wrap(
             olmo_model,
-            wrap_policy or [],  # type: ignore[arg-type]
+            lambda m: wrap_policy(m, recurse=False) if wrap_policy is not None else False,  # type: ignore
             sharding_strategy=cfg.fsdp.sharding_strategy.olmo_core(),
             precision=cfg.fsdp_precision,  # type: ignore[arg-type]
             device_mesh=device_mesh,
