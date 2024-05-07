@@ -2,6 +2,7 @@
 
 import gzip
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Optional, TextIO
@@ -280,8 +281,11 @@ if __name__ == "__main__":
     log.info(f"Multiprocessing start method set to '{mp.get_start_method()}'")
 
     # Initialize process group.
-    pg_options = ProcessGroupNCCL.Options()
-    pg_options.is_high_priority_stream = True
+    pg_options = None
+    if os.environ.get("USE_HIGH_PRIORITY_STREAMS"):
+        log.info("Enabling high priority streams")
+        pg_options = ProcessGroupNCCL.Options()
+        pg_options.is_high_priority_stream = True
     dist.init_process_group(backend="nccl", pg_options=pg_options)
     log.info("Process group initialized")
 
