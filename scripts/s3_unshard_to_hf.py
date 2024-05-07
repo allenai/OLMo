@@ -55,14 +55,17 @@ def make_parser():
         help="If given, don't show progress for AWS commands.",
     )
     parser.add_argument("--type", default=None, help="If given, pass this argument on to `unshard.py`.")
-    parser.add_argument("--model-only", action="store_true", help="If given, only unshard the model.")
+    parser.add_argument("--model_only", action="store_true", help="If given, only unshard the model.")
     return parser
 
 
-def aws_copy(src, dest, quiet):
-    base = "aws s3 cp --recursive"
-    if quiet:
+def aws_copy(src, dest, args):
+    base = "aws s3 sync"
+    if args.quiet:
         base += " --quiet"
+    if args.type == "olmo_core" and args.model_only:
+        # Don't copy optimizer and trainer state if we're only unsharding the model.
+        base += " --exclude optim/* --exclude train/*"
     cmd = f"{base} {src} {dest}"
 
     return cmd
@@ -73,17 +76,17 @@ def s3_unshard_to_hf(args):
     sharded_dir = args.tmp_dir / "sharded"
     unsharded_dir = args.tmp_dir / "unsharded"
     hf_dir = args.tmp_dir / "hf"
-    hf_dir.mkdir()
+    hf_dir.mkdir(exist_ok=True)
 
     # Either download the unsharded checkpoint, or download sharded and unshard.
     if args.already_unsharded:
-        download_cmd = aws_copy(args.unsharded_bucket, unsharded_dir, args.quiet)
+        download_cmd = aws_copy(args.unsharded_bucket, unsharded_dir, args)
         subprocess.run(download_cmd, shell=True, check=True)
     else:
         if not args.already_downloaded:
             # Download sharded checkpoint.
             print("Downloading sharded checkpoint from S3.")
-            download_cmd = aws_copy(args.sharded_bucket, sharded_dir, args.quiet)
+            download_cmd = aws_copy(args.sharded_bucket, sharded_dir, args)
             subprocess.run(download_cmd, shell=True, check=True)
 
         # Unshard.
@@ -115,19 +118,17 @@ def s3_unshard_to_hf(args):
     # Upload the unsharded and HF files back to S3.
     print("Uploading files back to S3.")
     if not args.already_unsharded:
-        upload_unsharded_cmd = aws_copy(unsharded_dir, args.unsharded_bucket, args.quiet)
+        upload_unsharded_cmd = aws_copy(unsharded_dir, args.unsharded_bucket, args)
         subprocess.run(upload_unsharded_cmd, shell=True, check=True)
 
-    upload_hf_cmd = aws_copy(hf_dir, args.hf_bucket, args.quiet)
+    upload_hf_cmd = aws_copy(hf_dir, args.hf_bucket, args)
     subprocess.run(upload_hf_cmd, shell=True, check=True)
 
 
 def main():
     parser = make_parser()
     args = parser.parse_args()
-    if args.tmp_dir.exists():
-        raise ValueError(f"Temporary directory {args.tmp_dir} already exists; refusing to write.")
-    args.tmp_dir.mkdir()
+    args.tmp_dir.mkdir(exist_ok=True)
 
     s3_unshard_to_hf(args)
 
