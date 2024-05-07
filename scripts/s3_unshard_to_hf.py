@@ -32,6 +32,11 @@ def make_parser():
         type=str,
     )
     parser.add_argument(
+        "--already_downloaded",
+        action="store_true",
+        help="Use this flag if the unsharded S3 checkpoint is already downloaded, but still needs to be unsharded.",
+    )
+    parser.add_argument(
         "--already_unsharded",
         action="store_true",
         help="If given, the checkpoint has already been unsharded; just convert to HF.",
@@ -75,10 +80,11 @@ def s3_unshard_to_hf(args):
         download_cmd = aws_copy(args.unsharded_bucket, unsharded_dir, args.quiet)
         subprocess.run(download_cmd, shell=True, check=True)
     else:
-        # Download sharded checkpoint.
-        print("Downloading sharded checkpoint from S3.")
-        download_cmd = aws_copy(args.sharded_bucket, sharded_dir, args.quiet)
-        subprocess.run(download_cmd, shell=True, check=True)
+        if not args.already_downloaded:
+            # Download sharded checkpoint.
+            print("Downloading sharded checkpoint from S3.")
+            download_cmd = aws_copy(args.sharded_bucket, sharded_dir, args.quiet)
+            subprocess.run(download_cmd, shell=True, check=True)
 
         # Unshard.
         print("Unsharding.")
