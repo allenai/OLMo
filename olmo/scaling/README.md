@@ -42,11 +42,11 @@ export RANK=0
 ```commandline
 python olmo/scaling/mup_coord_check.py test_fixtures/mup_train_tiny.yaml \
     --coord_check \
-    --lr 0.002  \
+    --lr 0.001  \
    --load_base_shapes tiny-olmo-base-shapes.bsh   \
    --coord_check_nsteps 5    \
    --coord_check_nseeds 3 \
    --cuda \
-   --batch_size 2 \
+   --batch_size 10 \
    --optimizer muadamw
 ```
