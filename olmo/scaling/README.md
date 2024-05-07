@@ -40,7 +40,7 @@ export RANK=0
 ```
 
 ```commandline
-python olmo/scaling/mup_coord_check.py test_fixtures/mup_train_tiny.yaml
+python olmo/scaling/mup_coord_check.py test_fixtures/mup_train_tiny.yaml \
     --coord_check \
     --lr 0.002  \
    --load_base_shapes tiny-olmo-base-shapes.bsh   \
