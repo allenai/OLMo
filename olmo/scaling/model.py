@@ -100,7 +100,7 @@ def mup_init_weights(
         raise NotImplementedError(config.init_fn)
 
     # don't do this for MuSharedReadout
-    if isinstance(module, MuReadout) and readout_zero_init:
+    if (isinstance(module, MuReadout) or type_of_module==ModuleType.final_out) and readout_zero_init:
         module.weight.data.zero_()
     elif isinstance(module, nn.Linear):
         if module.bias is not None:
@@ -459,6 +459,7 @@ class OLMoSequentialBlock(OLMoBlock):
         else:
             x = self.act(x)
         x = self.ff_out(x)
+        x = self.config.output_mult * x / self.ff_out.weight.infshape.width_mult()
         x = self.dropout(x)
         x = og_x + x
 
@@ -525,6 +526,7 @@ class MuOLMo(nn.Module):
                 {"wpe": nn.Embedding(config.max_sequence_length, config.d_model, device=config.init_device)}
             )
 
+        """
         if not config.weight_tying:
             # mUp: replace output nn.Linear layer with MuReadout
 
@@ -550,6 +552,18 @@ class MuOLMo(nn.Module):
                         bias=config.include_bias,
                         device=config.init_device,
                         output_mult=config.output_mult
+                    )
+                }
+            )
+        """
+        if not config.weight_tying:
+            self.transformer.update(
+                {
+                    "ff_out": nn.Linear(
+                        config.d_model,
+                        config.embedding_size or config.vocab_size,
+                        bias=config.include_bias,
+                        device=config.init_device,
                     )
                 }
             )
