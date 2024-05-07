@@ -13,9 +13,8 @@ import wandb
 from olmo_core.distributed.fsdp import FSDP as OLMoCoreFSDP
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as TorchFSDP
-from torch.distributed.fsdp import ShardingStrategy
 
-from olmo.config import CheckpointType, FSDPType, TrainConfig
+from olmo.config import CheckpointType, FSDPShardingStrategy, FSDPType, TrainConfig
 from olmo.data import build_train_dataloader
 from olmo.eval import build_evaluators
 from olmo.exceptions import OLMoCliError, OLMoConfigurationError
@@ -130,7 +129,7 @@ def main(cfg: TrainConfig) -> None:
 
     # Set up device mesh for hybrid sharding in order to specify which nodes are assoicated to a given model replica
     device_mesh = None
-    if cfg.fsdp.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2):
+    if cfg.fsdp.sharding_strategy in (FSDPShardingStrategy.HYBRID_SHARD,):
         if version.parse(torch.__version__) < version.parse("2.2.0"):
             # Device mesh was not added to PyTorch until v2.2.0
             raise OLMoConfigurationError(
@@ -165,8 +164,8 @@ def main(cfg: TrainConfig) -> None:
 
         fsdp_model = TorchFSDP(
             olmo_model,
-            sharding_strategy=cfg.fsdp.sharding_strategy,
-            mixed_precision=cfg.fsdp_precision,
+            sharding_strategy=cfg.fsdp.sharding_strategy.torch(),
+            mixed_precision=cfg.fsdp_precision,  # type: ignore[arg-type]
             auto_wrap_policy=wrap_policy,
             use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
             limit_all_gathers=True,
@@ -180,7 +179,9 @@ def main(cfg: TrainConfig) -> None:
     elif cfg.fsdp.name == FSDPType.olmo_core:
         fsdp_model = OLMoCoreFSDP.auto_wrap(
             olmo_model,
-            wrap_policy,  # type: ignore[arg-type]
+            wrap_policy or [],  # type: ignore[arg-type]
+            sharding_strategy=cfg.fsdp.sharding_strategy.olmo_core(),
+            mixed_precision=cfg.fsdp_precision,  # type: ignore[arg-type]
             device_mesh=device_mesh,
         )
         fsdp_model.apply(lambda m: m.reset_parameters() if hasattr(m, "reset_parameters") else None)
