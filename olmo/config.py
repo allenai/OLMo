@@ -435,6 +435,11 @@ class ModelConfig(BaseConfig):
 
     # muP parameters
 
+    mup_init_scale: float = 1.0
+    """
+    Initialization scale; all parameters are multiplied by this value.
+    """
+
     input_mult: float = 1.0
     """
     Scalar multiplier for the input embeddings. Defaults to 1.0.

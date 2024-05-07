@@ -89,11 +89,15 @@ def mup_init_weights(
             cutoff_value = config.init_cutoff_factor * std
             if hasattr(module.weight, "infshape"):
                 trunc_normal_(module.weight, mean=0.0, std=std, a=-cutoff_value, b=cutoff_value)
+                with torch.no_grad():
+                    module.weight.mul_(config.mup_init_scale)
             else:
                 nn.init.trunc_normal_(module.weight, mean=0.0, std=std, a=-cutoff_value, b=cutoff_value)
         else:
             if hasattr(module.weight, "infshape"):
                 normal_(module.weight, mean=0.0, std=std)
+                with torch.no_grad():
+                    module.weight.mul_(config.mup_init_scale)
             else:
                 nn.init.normal_(module.weight, mean=0.0, std=std)
     else:
