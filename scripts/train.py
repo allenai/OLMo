@@ -11,6 +11,7 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 import wandb
 from packaging import version
+from torch._C._distributed_c10d import ProcessGroupNCCL
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import ShardingStrategy
 
@@ -279,7 +280,9 @@ if __name__ == "__main__":
     log.info(f"Multiprocessing start method set to '{mp.get_start_method()}'")
 
     # Initialize process group.
-    dist.init_process_group(backend="nccl")
+    pg_options = ProcessGroupNCCL.Options()
+    pg_options.is_high_priority_stream = True
+    dist.init_process_group(backend="nccl", pg_options=pg_options)
     log.info("Process group initialized")
 
     prepare_cli_environment()
