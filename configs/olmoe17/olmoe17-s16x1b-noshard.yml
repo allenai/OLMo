@@ -36,7 +36,7 @@ model:
   init_device: meta
   init_fn: normal ###
   moe_top_k: 1
-  moe_num_experts: 8
+  moe_num_experts: 16
   moe_expert_model_parallelism: false
   moe_dropless: true
   share_experts: true

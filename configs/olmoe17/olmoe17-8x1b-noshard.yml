@@ -37,7 +37,7 @@ model:
   init_fn: normal ###
   moe_top_k: 1
   moe_num_experts: 8
-  moe_expert_model_parallelism: false
+  moe_expert_model_parallelism: true
   moe_dropless: true
   share_experts: true
   share_load_balance_across_layers: true
