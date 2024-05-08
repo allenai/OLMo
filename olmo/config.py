@@ -692,17 +692,16 @@ class FSDPType(StrEnum):
 class FSDPShardingStrategy(StrEnum):
     FULL_SHARD = "FULL_SHARD"
     HYBRID_SHARD = "HYBRID_SHARD"
+    SHARD_GRAD_OP = "SHARD_GRAD_OP"
     NO_SHARD = "NO_SHARD"
 
     def torch(self) -> TorchShardingStrategy:
         return getattr(TorchShardingStrategy, self)
 
     def olmo_core(self) -> OLMoCoreShardingStrategy:
-        if self == FSDPShardingStrategy.FULL_SHARD:
-            return OLMoCoreShardingStrategy.FULL_SHARD
-        elif self == FSDPShardingStrategy.HYBRID_SHARD:
-            return OLMoCoreShardingStrategy.HYBRID_SHARD
-        else:
+        try:
+            return getattr(FSDPShardingStrategy, self)
+        except AttributeError:
             raise NotImplementedError(self)
 
 
