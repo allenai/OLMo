@@ -48,7 +48,10 @@ class Optimizer(OptimizerBase):
 
     @torch.no_grad()
     def clip_grads_and_collect_metrics(
-        self, global_step: int, collect_param_metrics: bool = True
+        self,
+        global_step: int,
+        collect_param_metrics: bool = True,
+        process_group: Optional[dist.ProcessGroup] = None,
     ) -> Dict[str, torch.Tensor]:
         """
         Clips gradients for every group that has the field `max_grad_norm`.
@@ -77,6 +80,10 @@ class Optimizer(OptimizerBase):
         per_param_max_metric_names: List[str] = []
         per_param_avg_metric_names: List[str] = []
         per_param_norm_metric_names: List[str] = []
+
+        dst_rank = 0
+        if process_group is not None:
+            dst_rank = dist.get_global_rank(process_group, 0)
 
         # Collect metrics locally.
         for group in self.param_groups:
@@ -153,12 +160,12 @@ class Optimizer(OptimizerBase):
             # Reduce mins.
             if per_param_min_metrics:
                 all_mins = torch.cat(per_param_min_metrics).to(device)
-                dist.reduce(all_mins, 0, op=dist.ReduceOp.MIN)
+                dist.reduce(all_mins, dst_rank, op=dist.ReduceOp.MIN, group=process_group)
                 per_param_min_metrics = all_mins.split(1)
             # Reduce maxs.
             if per_param_max_metrics:
                 all_maxs = torch.cat(per_param_max_metrics).to(device)
-                dist.reduce(all_maxs, 0, op=dist.ReduceOp.MAX)
+                dist.reduce(all_maxs, dst_rank, op=dist.ReduceOp.MAX, group=process_group)
                 per_param_max_metrics = all_maxs.split(1)
             # Reduce sums or just norms.
             all_norms = torch.cat(per_param_norm_metrics).to(device) ** 2.0
@@ -168,14 +175,14 @@ class Optimizer(OptimizerBase):
                 all_sums_norms_numels = torch.cat(
                     [all_sums.unsqueeze(0), all_norms.unsqueeze(0), all_numels.unsqueeze(0)], dim=0
                 )
-                dist.all_reduce(all_sums_norms_numels, op=dist.ReduceOp.SUM)
+                dist.all_reduce(all_sums_norms_numels, op=dist.ReduceOp.SUM, group=process_group)
                 all_sums_norms_numels = all_sums_norms_numels / self.num_model_replicas
                 all_sums, all_norms, all_numels = all_sums_norms_numels.split(1)
                 # Get averages.
                 # NOTE: could get infs for non-rank0 processes but that's okay.
                 per_param_avg_metrics = (all_sums / all_numels).squeeze(0).split(1)
             else:
-                dist.all_reduce(all_norms, op=dist.ReduceOp.SUM)
+                dist.all_reduce(all_norms, op=dist.ReduceOp.SUM, group=process_group)
                 all_norms = all_norms / self.num_model_replicas
             grad_norm_metric_mask = torch.tensor(
                 [float(is_grad_norm_metric(n)) for n in per_param_norm_metric_names], device=all_norms.device
@@ -336,8 +343,10 @@ class Optimizer(OptimizerBase):
                 p.grad.detach().mul_(clip_coef_clamped.to(p.grad.device, p.grad.dtype))
         return num_grads_clipped
 
-    def get_post_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
-        del module
+    def get_post_step_metrics(
+        self, module: nn.Module, process_group: Optional[dist.ProcessGroup] = None
+    ) -> Dict[str, torch.Tensor]:
+        del module, process_group
         return {}
 
     def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
@@ -368,7 +377,9 @@ class LionW(Optimizer):
         self._update_total_norm: Optional[torch.Tensor] = None
         self._signed_update_total_norm: Optional[torch.Tensor] = None
 
-    def get_post_step_metrics(self, module: nn.Module) -> Dict[str, torch.Tensor]:
+    def get_post_step_metrics(
+        self, module: nn.Module, process_group: Optional[dist.ProcessGroup] = None
+    ) -> Dict[str, torch.Tensor]:
         update_total_dot_prod = self._update_total_dot_prod
         update_total_norm = self._update_total_norm
         signed_update_total_norm = self._signed_update_total_norm
@@ -382,7 +393,11 @@ class LionW(Optimizer):
             # Reduce all together to avoid multiple communication calls.
             all_together = torch.stack([update_total_dot_prod, update_total_norm, signed_update_total_norm])
             # Only need the final result on rank0, since that's where we log from.
-            dist.reduce(all_together, 0)
+            dist.reduce(
+                all_together,
+                0 if process_group is None else dist.get_global_rank(process_group, 0),
+                group=process_group,
+            )
             update_total_dot_prod, update_total_norm, signed_update_total_norm = all_together
             update_total_norm = update_total_norm**0.5
             signed_update_total_norm = signed_update_total_norm**0.5
@@ -470,6 +485,7 @@ class Scheduler(metaclass=ABCMeta):
     # about how the scheduler subclasses are defined.
     grad_clip_warmup_steps: Optional[int]
     grad_clip_warmup_factor: Optional[float]
+    warmup_min_lr: Optional[float]
 
     @abstractmethod
     def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
@@ -501,7 +517,9 @@ class Scheduler(metaclass=ABCMeta):
         return self._get_max_grad_norm_coeff(initial_max_grad_norm_ratio, step, max_steps)
 
     def _linear_warmup(self, initial_lr: float, step: int, warmup_steps: int = 2000) -> float:
-        return initial_lr * (0.1 + 0.9 * min(step, warmup_steps) / warmup_steps)
+        warmup_min_lr = self.warmup_min_lr if self.warmup_min_lr is not None else initial_lr * 0.10
+        assert 0 <= warmup_min_lr < initial_lr
+        return warmup_min_lr + (initial_lr - warmup_min_lr) * min(step, warmup_steps) / warmup_steps
 
 
 @dataclass
@@ -578,6 +596,7 @@ class BoltOnWarmupScheduler(Scheduler):
             inner=scheduler,
             warmup_start=warmup_start,
             warmup_end=warmup_end,
+            warmup_min_lr=None,
         )
 
     def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
@@ -753,6 +772,7 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
             warmup_steps=int(sched_cfg.t_warmup),
             alpha_f=sched_cfg.alpha_f,
             t_max=None if sched_cfg.t_max is None else int(sched_cfg.t_max),
+            warmup_min_lr=sched_cfg.warmup_min_lr,
         )
     elif sched_cfg.name == SchedulerType.linear_with_warmup:
         return LinearWithWarmup(
@@ -763,6 +783,7 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
             warmup_steps=int(sched_cfg.t_warmup),
             alpha_f=sched_cfg.alpha_f,
             t_max=None if sched_cfg.t_max is None else int(sched_cfg.t_max),
+            warmup_min_lr=sched_cfg.warmup_min_lr,
         )
     elif sched_cfg.name == SchedulerType.inverse_sqrt_with_warmup:
         return InvSqrtWithWarmup(
@@ -771,6 +792,7 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
             else int(sched_cfg.grad_clip_warmup_steps),
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             warmup_steps=int(sched_cfg.t_warmup),
+            warmup_min_lr=sched_cfg.warmup_min_lr,
         )
     elif sched_cfg.name == SchedulerType.max_scheduler:
         return MaxScheduler(
@@ -780,6 +802,7 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             sched1=build_scheduler(cfg, replace(sched_cfg, name=SchedulerType.cosine_with_warmup)),
             sched2=build_scheduler(cfg, replace(sched_cfg, name=SchedulerType.inverse_sqrt_with_warmup)),
+            warmup_min_lr=sched_cfg.warmup_min_lr,
         )
     elif sched_cfg.name == SchedulerType.constant:
         return ConstantScheduler(
@@ -787,6 +810,7 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
             if sched_cfg.grad_clip_warmup_steps is None
             else int(sched_cfg.grad_clip_warmup_steps),
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
+            warmup_min_lr=sched_cfg.warmup_min_lr,
         )
     else:
         raise NotImplementedError
