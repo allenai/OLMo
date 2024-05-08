@@ -33,6 +33,12 @@ doc/_build/
 .DS_Store
 
 
+# mup artifacts
+
+*.bsh
+coord_checks/
+*_coords.csv
+
 # python
 
 *.pyc
