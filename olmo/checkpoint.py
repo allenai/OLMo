@@ -202,7 +202,13 @@ def load_fsdp_model_and_optim_state(
             ),
         )
         del model_state
-        gc_cuda()
+
+        # Make sure tensors are on CPU.
+        for state in optim_state["state"].values():
+            for k in state.keys():
+                state[k] = state[k].cpu()
+
+        torch.cuda.empty_cache()
         load_fsdp_optim_state(fsdp_model, optim, optim_state["optim"])
 
 
