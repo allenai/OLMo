@@ -32,6 +32,10 @@ export HF_DATASETS_OFFLINE=1
 # cd ..
 # rm -rf OLMo-core
 
+# PyTorch debug logs
+export TORCH_CPP_LOG_LEVEL=INFO
+export TORCH_DISTRIBUTED_DEBUG=INFO
+
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
