@@ -1,14 +1,25 @@
 import argparse
 import os
+import time
 
 import numpy as np
 import torch
 from mup import MuAdam, MuSGD, get_shapes, make_base_shapes, set_base_shapes
 from torch.utils.data import DataLoader
 
+try:
+    from apex import amp
+except:
+    print("Failed to import apex. You can still train with --precision {float|double}.")
+
 from olmo.config import ModelConfig, TrainConfig
 from olmo.data import DataCollator, IterableDataset, build_memmap_dataset
-from olmo.scaling.coord_check import get_coord_data, plot_coord_data
+from olmo.scaling.coord_check import (
+    get_batch_loss,
+    get_coord_data,
+    get_labels,
+    plot_coord_data,
+)
 from olmo.scaling.model import MuOLMo
 from olmo.tokenizer import Tokenizer
 from olmo.torch_util import seed_all
@@ -74,7 +85,7 @@ def get_dataloader(cfg: TrainConfig, batch_size: int) -> DataLoader:
     return train_loader
 
 
-def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir="", legend=False):
+def coord_check(train_config, data_loader, mup, lr, optimizer, nsteps, nseeds, args, plotdir="", legend=False):
     def gen(d_model, standparam=False):
         def f():
             config = ModelConfig.load(args.config_path, key="model")
@@ -96,11 +107,6 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=""
     optimizer = optimizer.replace("mu", "")
     widths = 2 ** np.arange(7, 14)
     models = {w: gen(w, standparam=not mup) for w in widths}
-
-    train_config = TrainConfig.load(args.config_path)
-    # tokenizer = Tokenizer.from_train_config(train_config)
-
-    data_loader = get_dataloader(train_config, batch_size=batch_size)
 
     df = get_coord_data(
         models,
@@ -187,6 +193,9 @@ if __name__ == "__main__":
 
         sys.exit()
 
+    train_config = TrainConfig.load(args.config_path)
+    data_loader = get_dataloader(train_config, batch_size=args.batch_size)
+
     if args.coord_check:
         print("testing parametrization")
         import os
@@ -194,6 +203,8 @@ if __name__ == "__main__":
         os.makedirs("coord_checks", exist_ok=True)
         plotdir = "coord_checks"
         coord_check(
+            train_config,
+            data_loader,
             mup=True,
             lr=args.lr,
             optimizer=args.optimizer,
@@ -205,6 +216,8 @@ if __name__ == "__main__":
             legend=False,
         )
         coord_check(
+            train_config,
+            data_loader,
             mup=False,
             lr=args.lr,
             optimizer=args.optimizer,
@@ -219,4 +232,68 @@ if __name__ == "__main__":
 
         sys.exit()
 
+    criterion = cross_entropy_loss
+    compute_z_loss = train_config.softmax_auxiliary_loss
+
     # TODO: train and eval muP models.
+    def evaluate(dataloader):
+        # Turn on evaluation mode which disables dropout.
+        model.eval()
+        total_loss = 0.0
+        with torch.no_grad():
+            for batch_idx, batch in enumerate(dataloader, 1):
+                loss = get_batch_loss(model, batch, criterion, compute_z_loss)
+                total_loss += len(batch["input_ids"]) * loss
+        return total_loss / len(dataloader)
+
+    def train(dataloader, optimizer, epoch):
+        # Turn on training mode which enables dropout.
+        model.train()
+        total_loss = 0.0
+        epoch_loss = 0.0
+        start_time = time.time()
+        first_loss = None
+        for batch_idx, batch in enumerate(dataloader, 1):
+            optimizer.zero_grad()
+            loss = get_batch_loss(model, batch, criterion, compute_z_loss)
+            if torch.isnan(loss):
+                exit(0)
+            if args.precision == "half":
+                with amp.scale_loss(loss, optimizer) as scaled_loss:
+                    scaled_loss.backward()
+            else:
+                loss.backward()
+
+            if args.clip > 0:
+                # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
+                if args.precision == "half":
+                    torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.clip)
+                else:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+
+            optimizer.step()
+
+            total_loss += loss.item()
+            epoch_loss += len(batch["input_ids"]) * loss.item()
+
+            if batch % args.log_interval == 0 and batch > 0:
+                cur_loss = total_loss / args.log_interval
+                elapsed = time.time() - start_time
+                print(
+                    "| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.5f} | ms/batch {:5.2f} | "
+                    "loss {:5.2f} | ppl {:8.2f}".format(
+                        epoch,
+                        batch,
+                        len(dataloader) // args.bptt,
+                        args.lr,
+                        elapsed * 1000 / args.log_interval,
+                        cur_loss,
+                        np.exp(cur_loss),
+                    )
+                )
+                total_loss = 0
+                start_time = time.time()
+                if first_loss is None:
+                    first_loss = cur_loss
+
+        return epoch_loss / (len(dataloader) - 1), first_loss
