@@ -108,10 +108,7 @@ def _patch_config(cfg):
     return cfg
 
 
-def _naive_train_loop(model, optimizer, data_loader, max_iterations, max_norm=1.0, clip_grad=False):
-    """
-    if clip_grad=False, max_norm is irrelevant
-    """
+def _naive_train_loop(model, optimizer, data_loader, max_iterations, max_norm=1.0):
     len_dataloader = 3
     max_epochs = max_iterations // len_dataloader + 1
     norm_vector = []
@@ -119,6 +116,7 @@ def _naive_train_loop(model, optimizer, data_loader, max_iterations, max_norm=1.
     for epoch in range(max_epochs):
         for idx, batch in enumerate(data_loader):
             step_count = epoch * len_dataloader + idx
+            optimizer.zero_grad()
 
             logits = model(batch['input_ids'].to('cuda')).logits
 
@@ -127,11 +125,7 @@ def _naive_train_loop(model, optimizer, data_loader, max_iterations, max_norm=1.
             loss.backward()
 
             # clip grads
-            if clip_grad:
-                norm_vector.append(nn.utils.clip_grad_norm_(model.parameters(), max_norm))
-            else:
-                # get grad clip from optimizer
-                norm_vector.append(optimizer.clip_grads_and_collect_metrics(step_count)["total_grad_norm"])
+            norm_vector.append(nn.utils.clip_grad_norm_(model.parameters(), max_norm))
 
             optimizer.step()
 
@@ -143,12 +137,21 @@ def _naive_train_loop(model, optimizer, data_loader, max_iterations, max_norm=1.
     return norm_vector
 
 
+def _fsdp_no_shard_train_loop(model, optimizer, data_loader, max_iterations):
+    """
+    max_norm comes from cfg
+    """
+    norm_vector = []
+    step_count = 0
+    # norm_vector.append(optimizer.clip_grads_and_collect_metrics(step_count)["total_grad_norm"])
+    return norm_vector
+
+
 def _run_olmo_grad_norm_againt_torch_grad_norm(
         rank: int,
         world_size: int,
         max_iterations: int,
         max_norm: float,
-        sharding_strategy: str,
     ):
     # step 2: run 5 batches on GPU using no_shard fsdp strategy with olmo trainer and compare clipping
     # step 3: run this for other fsdp strategies
@@ -167,25 +170,26 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
     cfg = TrainConfig.load("test_fixtures/train_tiny.yaml")
     cfg = _patch_config(cfg)
 
+    # run on CPU
     model = OLMo(cfg.model).to('cuda')
     torch_optimizer = _init_torch_optim(cfg, model)
     data_loader = build_train_dataloader(cfg)
 
-    torch_optim_norms = _naive_train_loop(model, torch_optimizer, data_loader, max_iterations, max_norm, clip_grad=True)
+    torch_optim_norms = _naive_train_loop(model, torch_optimizer, data_loader, max_iterations, max_norm)
 
     del model
     del torch_optimizer
     del data_loader
+
+    print(torch_optim_norms)
+    print('################################')
+    assert False
     # use same model, data, optimizer, fsdp_model and send to trainer and compare gradient clip
 
     # olmo optimizer
     model = OLMo(cfg.model).to('cuda')
     olmo_optimizer = build_optimizer(cfg, model)
     data_loader = build_train_dataloader(cfg)
-
-    wrap_policy = model.get_fsdp_wrap_policy(
-        None if sharding_strategy == ShardingStrategy.NO_SHARD else 'by_block'
-    )
 
     if version.parse(torch.__version__) >= version.parse("2.1.0"):
         # This prevents any parameters from being initialized twice
@@ -199,13 +203,13 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
     # build fsdp config
     fsdp_model = FSDP(
         model,
-        sharding_strategy=sharding_strategy,
+        sharding_strategy=ShardingStrategy.NO_SHARD,
         mixed_precision=MixedPrecision(
-            param_dtype=torch.bfloat16,
+            param_dtype=torch.float32,
             reduce_dtype=torch.float32,
-            buffer_dtype=torch.bfloat16,
+            buffer_dtype=torch.float32,
         ),
-        auto_wrap_policy=wrap_policy,
+        auto_wrap_policy=None,
         use_orig_params=True,  # needed for compile and some of our optimizer/parameter metrics
         limit_all_gathers=True,
         device_id=get_local_rank(),
@@ -216,12 +220,23 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
     if param_init_fn is not None:
         model.reset_parameters()
 
-    olmo_optim_norms = _naive_train_loop(fsdp_model, olmo_optimizer, data_loader, max_iterations, clip_grad=False)
+    olmo_optim_norms = _fsdp_no_shard_train_loop(fsdp_model, olmo_optimizer, data_loader, max_iterations)
 
-    print('###############################################')
-    print(torch_optim_norms)
-    print(olmo_optim_norms)
-    print('###############################################')
+    # DDP
+    # GPU0: 1, 3, 5
+    # GPU1: 2, 4, 6
+    ddp_model.forward(batch['input_ids'])
+
+    # FSDP (GPU0: model/2 GPU1: model/2)
+    # reduce_scatter
+    # GPU0: 1, 3, 5
+    # GPU1: 2, 4, 6
+    fsdp_model.forward(batch['input_ids'])
+
+    # print('###############################################')
+    # print(torch_optim_norms)
+    # print(olmo_optim_norms)
+    # print('###############################################')
 
     # Shut down world pg
     dist.destroy_process_group()
@@ -232,12 +247,12 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
 
 @pytest.mark.gpu
 @pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires 2 or more CUDA devices")
-@pytest.mark.parametrize("max_iterations, max_norm, sharding_strategy", [pytest.param(10, 1.0, ShardingStrategy.NO_SHARD)])
-def test_local_sharded_checkpointer(max_iterations, max_norm, sharding_strategy):
+@pytest.mark.parametrize("max_iterations, max_norm", [pytest.param(5, 1.0)])
+def test_local_sharded_checkpointer(max_iterations, max_norm):
     world_size = torch.cuda.device_count()
     mp.spawn(
         _run_olmo_grad_norm_againt_torch_grad_norm,
-        args=(world_size, max_iterations, max_norm, sharding_strategy),
+        args=(world_size, max_iterations, max_norm),
         nprocs=world_size,
         join=True,
     )
