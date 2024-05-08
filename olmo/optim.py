@@ -7,12 +7,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import torch
 import torch.distributed as dist
 import torch.nn as nn
-from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
 from torch.optim.optimizer import Optimizer as OptimizerBase
 
 from . import LayerNormBase
 from .config import OptimizerType, SchedulerConfig, SchedulerType, TrainConfig
-from .torch_util import get_default_device, is_distributed
+from .torch_util import get_default_device, get_world_size, is_distributed
 
 __all__ = [
     "Optimizer",
@@ -34,15 +34,6 @@ log = logging.getLogger(__name__)
 
 
 class Optimizer(OptimizerBase):
-    def __init__(
-        self,
-        params,
-        defaults,
-        num_model_replicas: int = 1
-    ):
-        super().__init__(params, defaults)
-        self.num_model_replicas = num_model_replicas
-
     def _clean_param_name(self, name: str) -> str:
         return name.replace("_fsdp_wrapped_module.", "")
 
@@ -52,6 +43,7 @@ class Optimizer(OptimizerBase):
         global_step: int,
         collect_param_metrics: bool = True,
         process_group: Optional[dist.ProcessGroup] = None,
+        sharding_strategy: Optional[ShardingStrategy] = None,
     ) -> Dict[str, torch.Tensor]:
         """
         Clips gradients for every group that has the field `max_grad_norm`.
@@ -84,6 +76,7 @@ class Optimizer(OptimizerBase):
         dst_rank = 0
         if process_group is not None:
             dst_rank = dist.get_global_rank(process_group, 0)
+        replicas_per_pg = get_world_size() if sharding_strategy == ShardingStrategy.NO_SHARD else 1
 
         # Collect metrics locally.
         for group in self.param_groups:
@@ -176,14 +169,14 @@ class Optimizer(OptimizerBase):
                     [all_sums.unsqueeze(0), all_norms.unsqueeze(0), all_numels.unsqueeze(0)], dim=0
                 )
                 dist.all_reduce(all_sums_norms_numels, op=dist.ReduceOp.SUM, group=process_group)
-                all_sums_norms_numels = all_sums_norms_numels / self.num_model_replicas
+                all_sums_norms_numels = all_sums_norms_numels / replicas_per_pg
                 all_sums, all_norms, all_numels = all_sums_norms_numels.split(1)
                 # Get averages.
                 # NOTE: could get infs for non-rank0 processes but that's okay.
                 per_param_avg_metrics = (all_sums / all_numels).squeeze(0).split(1)
             else:
                 dist.all_reduce(all_norms, op=dist.ReduceOp.SUM, group=process_group)
-                all_norms = all_norms / self.num_model_replicas
+                all_norms = all_norms / replicas_per_pg
             grad_norm_metric_mask = torch.tensor(
                 [float(is_grad_norm_metric(n)) for n in per_param_norm_metric_names], device=all_norms.device
             )
@@ -365,12 +358,11 @@ class LionW(Optimizer):
         lr: float = 1e-4,
         betas: Tuple[float, float] = (0.9, 0.99),
         weight_decay: float = 0.0,
-        num_model_replicas: int = 1,
     ):
         assert lr > 0.0
         assert all([0.0 <= beta <= 1.0 for beta in betas])
         defaults = dict(lr=lr, betas=betas, weight_decay=weight_decay)
-        super().__init__(params, defaults, num_model_replicas=num_model_replicas)
+        super().__init__(params, defaults)
         for group in self.param_groups:
             group["initial_lr"] = group["lr"]
         self._update_total_dot_prod: Optional[torch.Tensor] = None
@@ -466,15 +458,6 @@ class LionW(Optimizer):
 
 
 class AdamW(torch.optim.AdamW, Optimizer):
-    def __init__(
-        self,
-        params,
-        num_model_replicas: int = 1,
-        **kwargs
-    ):
-        super().__init__(params, **kwargs)
-        Optimizer.__init__(self, params, kwargs, num_model_replicas=num_model_replicas)
-
     def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
         return {key: self.state[param].get(key) for key in ("exp_avg", "exp_avg_sq")}  # type: ignore
 
@@ -743,7 +726,6 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
     if cfg.optimizer.name == OptimizerType.lionw:
         return LionW(
             param_groups,
-            num_model_replicas=cfg.fsdp.num_model_replicas,
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,
@@ -751,7 +733,6 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
     elif cfg.optimizer.name == OptimizerType.adamw:
         return AdamW(
             param_groups,
-            num_model_replicas=cfg.fsdp.num_model_replicas,
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,

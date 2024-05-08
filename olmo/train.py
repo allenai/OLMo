@@ -720,6 +720,7 @@ class Trainer:
             # passing this process group here ensures metrics are reduced correctly when we're using
             # HYBRID sharding.
             process_group=self.fsdp_model.process_group,
+            sharding_strategy=self.fsdp_model.sharding_strategy,
         )
 
         # Adjust the learning rate.
