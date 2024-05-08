@@ -219,6 +219,33 @@ def get_labels(batch: Dict[str, Any]) -> torch.Tensor:
     return labels[..., 1:].contiguous()
 
 
+def get_batch_loss(model, batch, lossfn, compute_z_loss):
+    outputs = model(input_ids=batch["input_ids"])
+    logits = outputs.logits
+
+    logits_for_loss = logits[..., :-1, :].contiguous()
+    # shape: (batch_size * seq_len, vocab_size)
+    logits_for_loss = logits_for_loss.view(-1, logits_for_loss.size(-1))
+    # shape: (batch_size, seq_len)
+    labels = get_labels(batch)
+    # shape: (batch_size * seq_len,)
+    labels = labels.view(-1)
+    ce_loss, z_loss = lossfn(
+        logits_for_loss,
+        labels,
+        ignore_index=-100,
+        reduction="mean",
+        compute_z_loss=compute_z_loss,
+    )
+
+    if compute_z_loss:
+        assert z_loss is not None
+        loss = ce_loss + z_loss
+    else:
+        loss = ce_loss
+    return loss
+
+
 def _get_coord_data(
     models,
     dataloader,
@@ -321,9 +348,12 @@ def _get_coord_data(
 
         pbar = tqdm(total=nseeds * len(models))
 
-    for i in range(nseeds):
-        torch.manual_seed(i)
-        for width, model in models.items():
+    # for i in range(nseeds):
+    #     torch.manual_seed(i)
+    #     for width, model in models.items():
+    for width, model in models.items():
+        for i in range(nseeds):
+            torch.manual_seed(i)
             model = model()
             model = model.train()
             if cuda:
@@ -353,30 +383,8 @@ def _get_coord_data(
                         for k, v in batch.items():
                             if isinstance(v, torch.Tensor):
                                 batch[k] = v.cuda()
-                    outputs = model(input_ids=batch["input_ids"])
 
-                    logits = outputs.logits
-
-                    logits_for_loss = logits[..., :-1, :].contiguous()
-                    # shape: (batch_size * seq_len, vocab_size)
-                    logits_for_loss = logits_for_loss.view(-1, logits_for_loss.size(-1))
-                    # shape: (batch_size, seq_len)
-                    labels = get_labels(batch)
-                    # shape: (batch_size * seq_len,)
-                    labels = labels.view(-1)
-                    ce_loss, z_loss = lossfn(
-                        logits_for_loss,
-                        labels,
-                        ignore_index=-100,
-                        reduction=loss_reduction,
-                        compute_z_loss=compute_z_loss,
-                    )
-
-                    if compute_z_loss:
-                        assert z_loss is not None
-                        loss = ce_loss + z_loss
-                    else:
-                        loss = ce_loss
+                    loss = get_batch_loss(model, batch, lossfn, compute_z_loss)
 
                 else:
                     raise RuntimeError("OLMo model coord check needs dict_in_out")
