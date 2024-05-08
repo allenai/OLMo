@@ -704,12 +704,6 @@ class FSDPConfig(BaseConfig):
     PyTorch's default HSDP behavior matches this default behavior.
     """
 
-    num_model_replicas: Optional[int] = None
-    """
-    Don't set this manually. This captures the number of model instances. This will be set based on
-    the sharding strategy and, if the strategy is hybrid sharding, ``hybrid_sharding_num_model_replicas``.
-    """
-
 
 class CheckpointType(StrEnum):
     sharded = "sharded"
