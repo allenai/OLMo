@@ -181,14 +181,6 @@ def main(cfg: TrainConfig) -> None:
     log.info("Model:")
     log.info(fsdp_model)
 
-    num_model_replicas = 1
-    if fsdp_model.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2):
-        assert device_mesh is not None
-        num_model_replicas = device_mesh.shape[0]
-    if fsdp_model.sharding_strategy == ShardingStrategy.NO_SHARD:
-        num_model_replicas = get_world_size()
-    cfg.fsdp.num_model_replicas = num_model_replicas
-
     # Construct optimizer and learning rate scheduler.
     optim = build_optimizer(cfg, fsdp_model)
     scheduler = build_scheduler(cfg)
