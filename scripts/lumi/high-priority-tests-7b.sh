@@ -1,13 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=v1.5-mix-medium-mitch-ish
+#SBATCH --job-name=high-priority-streams
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
-#SBATCH --nodes=128             # Total number of nodes 
+#SBATCH --nodes=4             # Total number of nodes 
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
-#SBATCH --time=48:00:00
-#SBATCH --time-min=24:00:00
+#SBATCH --time=4:00:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
@@ -45,6 +44,7 @@ export CHECKPOINTS_PATH=$FLASH_DIR/checkpoints
 export EVAL_DATA_PATH=$SCRATCH_DIR/eval-data
 
 export USE_HIGH_PRIORITY_STREAMS=1
+export GPU_MAX_HW_QUEUES=2
 
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
@@ -60,12 +60,13 @@ srun \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $PROJECT_DIR/containers/$OLMO_CONTAINER \
     python scripts/train.py configs/v1_5-mix-medium-mitch-ish.yaml ${@} \
-      --run_name=baseline_${SLURM_JOB_ID} \
+      --run_name=hw_queues_2_init_proc_group_high_${SLURM_JOB_ID} \
       --activation_checkpointing=fine_grained \
       --fsdp.wrapping_strategy=one_in_four \
       --fsdp.sharding_strategy=FULL_SHARD \
       --sharded_checkpointer=local \
-      --wandb.group=lumi-high-priority-streams \
+      --wandb.group=lumi-high-priority-streams-4nodes \
       --save_interval=10000 \
       --save_interval_ephemeral=1000 \
-      --save_folder=${FLASH_DIR}/checkpoints/lumi-high-priority-streams
+      --save_folder=${FLASH_DIR}/checkpoints/lumi-high-priority-streams \
+      --save_overwrite
