@@ -104,7 +104,7 @@ def mup_init_weights(
         raise NotImplementedError(config.init_fn)
 
     # don't do this for MuSharedReadout
-    if (isinstance(module, MuReadout) or type_of_module==ModuleType.final_out) and readout_zero_init:
+    if (isinstance(module, MuReadout) or type_of_module == ModuleType.final_out) and readout_zero_init:
         module.weight.data.zero_()
     elif isinstance(module, nn.Linear):
         if module.bias is not None:
@@ -274,13 +274,7 @@ class OLMoBlock(nn.Module):
                 v = v.repeat_interleave(num_q_heads // num_kv_heads, dim=1, output_size=num_q_heads)
 
             return F.scaled_dot_product_attention(
-                q,
-                k,
-                v,
-                attn_mask=attn_mask,
-                dropout_p=dropout_p,
-                is_causal=is_causal,
-                scale=attn_scale
+                q, k, v, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal, scale=attn_scale
             )
 
     def attention(
