@@ -61,4 +61,4 @@ torchrun \
     --scheduler.t_warmup=1967128576000 \
     --max_duration=2ep \
     --save_overwrite \
-    --load_path=weka://oe-training-default/ai2-llm/checkpoints/7b/lr-schedule-const-lr-7B/step469000/
+    --load_path=s3://ai2-llm/checkpoints/7b/lr-schedule-const-lr-7B/step469000/
