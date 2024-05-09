@@ -33,7 +33,8 @@ torchrun \
     configs/lr-scheduling-s3.yaml \
       --run_name=lr-scheduling-low-const-lr \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
-      --load_path=r2://olmo-checkpoints/unsorted/6746551/step440000-unsharded/ \
+      --load_path=weka://oe-training-default/ai2-llm/checkpoints/unsorted/6746551/step440000-unsharded/ \
+      --remote_save_folder=weka://oe-training-default/ai2-llm/checkpoints/1b/lr-scheduling-low-const-lr \
       --wandb.name=lr-scheduling-low-const-lr \
       --wandb.group=lr-scheduling-low-const-lr \
       --scheduler.name=linear_with_warmup \
