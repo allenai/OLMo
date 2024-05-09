@@ -85,7 +85,7 @@ def get_dataloader(cfg: TrainConfig, batch_size: int) -> DataLoader:
     return train_loader
 
 
-def coord_check(train_config, data_loader, mup, lr, optimizer, nsteps, nseeds, args, plotdir="", legend=False):
+def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir="", legend=False):
     def gen(d_model, standparam=False):
         def f():
             config = ModelConfig.load(args.config_path, key="model")
@@ -107,6 +107,9 @@ def coord_check(train_config, data_loader, mup, lr, optimizer, nsteps, nseeds, a
     optimizer = optimizer.replace("mu", "")
     widths = 2 ** np.arange(7, 14)
     models = {w: gen(w, standparam=not mup) for w in widths}
+
+    train_config = TrainConfig.load(args.config_path)
+    data_loader = get_dataloader(train_config, batch_size=batch_size)
 
     df = get_coord_data(
         models,
@@ -203,8 +206,6 @@ if __name__ == "__main__":
         os.makedirs("coord_checks", exist_ok=True)
         plotdir = "coord_checks"
         coord_check(
-            train_config,
-            data_loader,
             mup=True,
             lr=args.lr,
             optimizer=args.optimizer,
@@ -216,8 +217,6 @@ if __name__ == "__main__":
             legend=False,
         )
         coord_check(
-            train_config,
-            data_loader,
             mup=False,
             lr=args.lr,
             optimizer=args.optimizer,

@@ -351,10 +351,10 @@ def _get_coord_data(
     # for i in range(nseeds):
     #     torch.manual_seed(i)
     #     for width, model in models.items():
-    for width, model in models.items():
+    for width, model_ in models.items():
         for i in range(nseeds):
             torch.manual_seed(i)
-            model = model()
+            model = model_()
             model = model.train()
             if cuda:
                 model = model.cuda()
