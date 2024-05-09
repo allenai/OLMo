@@ -25,8 +25,8 @@ gantry run \
   --env R2_PROFILE=R2 \
   --env S3_PROFILE=S3 \
   --env WEKA_PROFILE=WEKA \
-  --mount secret://AWS_CONFIG=$HOME/.aws/config \
-  --mount secret://AWS_CREDENTIALS=$HOME/.aws/credentials \
+  --mount secret://AWS_CONFIG=~/.aws/config \
+  --mount secret://AWS_CREDENTIALS=~/.aws/credentials \
   --env-secret WANDB_API_KEY=WANDB_API_KEY \
   --shared-memory 10GiB \
   --venv base \
