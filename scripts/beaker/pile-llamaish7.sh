@@ -44,4 +44,4 @@ torchrun \
     --optimizer.metrics_log_interval=1
 
     #--save_overwrite \
-    #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7/}'
+    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/pile-llamaish7/}'
