@@ -17,6 +17,7 @@ gantry run \
   --host-networking \
   --budget ai2/oe-training \
   --propagate-failure \
+  --synchronized-start-timeout "30m" \
   --no-nfs \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
