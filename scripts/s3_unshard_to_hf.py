@@ -8,7 +8,7 @@ python scripts/s3_unshard_to_hf.py \
     --unsharded_bucket s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step239000-unsharded \
     --hf_bucket s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step239000-huggingface \
     --type olmo_core \
-    --tmp_dir /net/nfs.cirrascale/allennlp/davidw/tmp/unshard
+    --local_dir /net/nfs.cirrascale/allennlp/davidw/tmp/unshard
 
 NOTE: For this to work, you need to install the `OLMo-core` repo as follows:
 - Clone https://github.com/allenai/OLMo-core
@@ -43,11 +43,17 @@ def make_parser():
     )
     parser.add_argument("--hf_bucket", help="S3 bucket to save the HF-converted checkpoint.", type=str)
     parser.add_argument(
-        "--tmp_dir",
-        help="""Temporary directory to store checkpoints locally. This will be deleted
-        if everything runs successfully, but will keep files around otherwise to avoid
-        re-downloads when possible.""",
+        "--local_dir",
+        help="""Directory to store checkpoints locally.""",
         type=pathlib.Path,
+    )
+    parser.add_argument(
+        "--cleanup_local_dir",
+        action="store_true",
+        help="If given, remove the local directory if everything runs successfully to free up space on NFS.",
+    )
+    parser.add_argument(
+        "--old_style_hf", action="store_true", help="If given, convert to 'old-style' HF checkpoint."
     )
     parser.add_argument(
         "--quiet",
@@ -73,9 +79,9 @@ def aws_copy(src, dest, args):
 
 def s3_unshard_to_hf(args):
     # Set directories
-    sharded_dir = args.tmp_dir / "sharded"
-    unsharded_dir = args.tmp_dir / "unsharded"
-    hf_dir = args.tmp_dir / "hf"
+    sharded_dir = args.local_dir / "sharded"
+    unsharded_dir = args.local_dir / "unsharded"
+    hf_dir = args.local_dir / "hf"
     hf_dir.mkdir(exist_ok=True)
 
     # Either download the unsharded checkpoint, or download sharded and unshard.
@@ -100,20 +106,29 @@ def s3_unshard_to_hf(args):
 
         subprocess.run(unshard_cmd, shell=True, check=True)
 
-    # Convert to HF
+    # Convert to HF.
     print("Converting to HF.")
-    hf_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir {unsharded_dir}"
-    subprocess.run(hf_cmd, shell=True, check=True)
-
-    # Move the HF files from the unsharded dir to their own.
-    for fname in [
-        "config.json",
-        "pytorch_model.bin",
-        "special_tokens_map.json",
-        "tokenizer.json",
-        "tokenizer_config.json",
-    ]:
-        (unsharded_dir / fname).rename(hf_dir / fname)
+    if args.old_style_hf:
+        # Convert to old-style checkpoint.
+        hf_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir {unsharded_dir}"
+        subprocess.run(hf_cmd, shell=True, check=True)
+        # Move the HF files from the unsharded dir to their own.
+        for fname in [
+            "config.json",
+            "pytorch_model.bin",
+            "special_tokens_map.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+        ]:
+            (unsharded_dir / fname).rename(hf_dir / fname)
+    else:
+        # Convert to new-style checkpoint.
+        hf_cmd = f"""python scripts/convert_olmo_to_hf_new.py \
+            --input_dir {unsharded_dir} \
+            --output_dir {hf_dir} \
+            --tokenizer_json_path tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json \
+            --safe_serialization True"""
+        subprocess.run(hf_cmd, shell=True, check=True)
 
     # Upload the unsharded and HF files back to S3.
     print("Uploading files back to S3.")
@@ -128,12 +143,13 @@ def s3_unshard_to_hf(args):
 def main():
     parser = make_parser()
     args = parser.parse_args()
-    args.tmp_dir.mkdir(exist_ok=True)
+    args.local_dir.mkdir(exist_ok=True)
 
     s3_unshard_to_hf(args)
 
-    # Clear out temp dir if we got here (everything ran without error).
-    shutil.rmtree(args.tmp_dir)
+    if args.cleanup_local_dir:
+        # Clear out temp dir if we got here (everything ran without error).
+        shutil.rmtree(args.tmp_dir)
 
 
 if __name__ == "__main__":
