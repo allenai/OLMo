@@ -16,6 +16,7 @@ gantry run \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
+  --propagate-failure \
   --synchronized-start-timeout "1h" \
   --no-nfs \
   --env LOG_FILTER_TYPE=local_rank0_only \
