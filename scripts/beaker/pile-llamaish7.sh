@@ -41,7 +41,5 @@ torchrun \
     --global_train_batch_size=1024 \
     --save_interval=50 \
     --eval_interval=50 \
-    --optimizer.metrics_log_interval=1
-
-    #--save_overwrite \
+    --optimizer.metrics_log_interval=1 \
     '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/pile-llamaish7/}'
