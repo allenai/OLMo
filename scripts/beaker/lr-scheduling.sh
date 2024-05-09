@@ -19,8 +19,9 @@ popd
 export HF_DATASETS_OFFLINE=1
 
 mkdir -p ~/.aws
-echo $AWS_CONFIG > ~/.aws/config
-echo $AWS_CREDENTIALS > ~/.aws/credentials
+export TEST=123
+printenv TEST > ~/.aws/config
+# printenv AWS_CREDENTIALS > ~/.aws/credentials
 
 # Force processes to synchronize at init_process_group
 export TORCH_DIST_INIT_BARRIER=1
