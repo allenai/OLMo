@@ -455,6 +455,8 @@ def _get_s3_profile_name(scheme: str) -> Optional[str]:
             raise OLMoEnvironmentError(
                 "R2 profile name is not set. Did you forget to set the 'R2_PROFILE' env var?"
             )
+
+        return profile_name
     if scheme == "weka":
         profile_name = os.environ.get("WEKA_PROFILE")
         if profile_name is None:
