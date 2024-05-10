@@ -36,8 +36,6 @@ doc/_build/
 # mup artifacts
 
 *.bsh
-coord_checks/
-*_coords.csv
 
 # python
 
