@@ -708,6 +708,7 @@ class WekaClient(SchemeClient):
 
     def _ensure_object_info(self):
         if self.object_info is None:
+            log.info("Bucket %s Key %s", self.bucket_name, self.path)
             self.object_info = self.s3.head_object(Bucket=self.bucket_name, Key=self.path)
 
     def get_etag(self) -> Optional[str]:
