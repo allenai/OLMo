@@ -6,8 +6,8 @@ NUM_NODES=8
 
 gantry run \
   --workspace ai2/dirkg \
-  --task-name mitchish7-noflash \
-  --description "OLMo medium - 7B - without flash" \
+  --task-name mitchish7-noflash-2 \
+  --description "OLMo medium - 7B - without flash - take 2" \
   --priority high \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/pluto-cirrascale \

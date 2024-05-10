@@ -28,8 +28,8 @@ torchrun \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
   configs/mitchish7-s3.yaml \
-    --run_name=mitchish7-noflash \
-    --wandb.name=mitchish7-noflash \
+    --run_name=mitchish7-noflash-2 \
+    --wandb.name=mitchish7-noflash-2 \
     --model.flash_attention=false \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
@@ -39,5 +39,5 @@ torchrun \
     --device_train_microbatch_size=2 \
     --global_train_batch_size=1024 \
     --save_overwrite \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/mitchish7-noflash/}' \
+    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/mitchish7-noflash-2/}' \
     --load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step614000/
