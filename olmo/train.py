@@ -651,11 +651,12 @@ class Trainer:
         for micro_batch in micro_batches:
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                 # Run forward pass.
-                ce_loss, z_loss, logits = self.model_forward(
-                    micro_batch,
-                    compute_z_loss=self.cfg.softmax_auxiliary_loss,
-                    loss_reduction="sum"
-                )
+                with torch.autograd.graph.save_on_cpu():
+                    ce_loss, z_loss, logits = self.model_forward(
+                        micro_batch,
+                        compute_z_loss=self.cfg.softmax_auxiliary_loss,
+                        loss_reduction="sum"
+                    )
                 ce_loss = ce_loss / batch_size_in_tokens
 
                 # In case this helps with memory utilization.
