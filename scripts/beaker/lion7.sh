@@ -41,6 +41,7 @@ torchrun \
     --device_train_microbatch_size=2 \
     --global_train_batch_size=1024 \
     --optimizer.metrics_log_interval=1 \
+    --gen1_gc_interval=1 \
     --save_interval=500 \
     --save_overwrite \
     --load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step0-unsharded/ \
