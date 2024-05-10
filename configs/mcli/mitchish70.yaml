@@ -183,7 +183,7 @@ command: |-
   scripts/train.py configs/mitchish70-s3.yaml \
     --run_name=mitchish70-pland \
     '--wandb.group=${run_name}' \
-    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-planc/step197000 \
+    '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
     --load_path_sharded_checkpointer=olmo_core \
     --sharded_checkpointer=olmo_core \
     --optimizer.learning_rate=0.000075 \
@@ -199,6 +199,7 @@ command: |-
 # --fsdp.hybrid_sharding_num_model_replicas=4 \
 # 
 #    '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
+#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-planc/step197000 \
 #    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step48950 \
 #    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step49000 \
 #    --load_path=/root/checkpoint-unsharded \
