@@ -688,36 +688,7 @@ class WekaClient(SchemeClient):
     def __init__(self, resource: str) -> None:
         SchemeClient.__init__(self, resource)
         self.bucket_name, self.path = WekaClient._split_cloud_path(resource, "weka")
-
-        # find credentials
-        endpoint_url = os.environ.get("WEKA_ENDPOINT_URL")
-        if endpoint_url is None:
-            raise ValueError(
-                "Weka endpoint url is not set. Did you forget to set the 'WEKA_ENDPOINT_URL' env var?"
-            )
-        profile_name = os.environ.get("WEKA_PROFILE")
-        access_key_id = os.environ.get("WEKA_ACCESS_KEY_ID")
-        secret_access_key = os.environ.get("WEKA_SECRET_ACCESS_KEY")
-        if access_key_id is not None and secret_access_key is not None:
-            client_kwargs = {
-                "aws_access_key_id": access_key_id,
-                "aws_secret_access_key": secret_access_key,
-            }
-        elif profile_name is not None:
-            client_kwargs = {"profile_name": profile_name}
-        else:
-            raise ValueError(
-                "To authenticate for Weka, you either have to set the 'WEKA_PROFILE' env var and set up this profile, "
-                "or set WEKA_ACCESS_KEY_ID and WEKA_SECRET_ACCESS_KEY."
-            )
-
-        self.s3 = boto3.client(
-            service_name="s3",
-            endpoint_url=endpoint_url,
-            region_name="auto",
-            config=Config(retries={"max_attempts": 10, "mode": "standard"}),
-            **client_kwargs,
-        )
+        self.s3 = _get_s3_client("weka")
         self.object_info = None
 
     @staticmethod
