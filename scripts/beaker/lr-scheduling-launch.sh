@@ -27,6 +27,8 @@ gantry run \
   --env WEKA_PROFILE=WEKA \
   --env-secret AWS_CONFIG=AWS_CONFIG \
   --env-secret AWS_CREDENTIALS=AWS_CREDENTIALS \
+  --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
+  --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
   --env-secret WANDB_API_KEY=WANDB_API_KEY \
   --shared-memory 10GiB \
   --venv base \
