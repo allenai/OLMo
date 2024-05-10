@@ -671,7 +671,7 @@ def example_plot_coord_check(
         dict_in_out=dict_in_out,
     )
 
-    prm = "μP" if mup else "SP"
+    prm = "muP" if mup else "SP"
     bn = "on" if batchnorm else "off"
     if lr is None:
         lr = 0.1 if optimizer == "sgd" else 1e-3
