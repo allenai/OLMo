@@ -411,6 +411,11 @@ class ModelConfig(BaseConfig):
     The torch device to use when initializing the model parameters, e.g. "cpu", "cuda:0", "meta".
     """
 
+    parallelize_model: bool = False
+    """
+    Model parallelism. Requires FSDP to be disabled.
+    """
+
     init_fn: InitFnType = InitFnType.normal
     """
     The weight initialization strategy.

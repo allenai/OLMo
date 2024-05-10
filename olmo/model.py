@@ -965,7 +965,10 @@ class OLMo(nn.Module):
             )
         )
 
-        blocks = [OLMoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
+        blocks = [
+            OLMoBlock.build(i, config, self.__cache).to(device=self._get_device_for_layer(i))
+            for i in range(config.n_layers)
+        ]
         if self.config.block_group_size > 1:
             block_groups = [
                 OLMoBlockGroup(config, i, blocks[i : i + config.block_group_size])
@@ -999,6 +1002,14 @@ class OLMo(nn.Module):
         if self.config.alibi:
             get_causal_attention_bias(self.__cache, config.max_sequence_length, _non_meta_init_device(config))
             self.get_alibi_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
+
+    def _get_device_for_layer(self, layer_idx: int) -> torch.device:
+        if self.config.parallelize_model:
+            device_idx = int(layer_idx / self.config.n_layers * torch.cuda.device_count())
+        else:
+            device_idx = torch.cuda.current_device()
+
+        return torch.device(f"cuda:{device_idx}")
 
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         self.activation_checkpointing_strategy = strategy
@@ -1183,11 +1194,20 @@ class OLMo(nn.Module):
                 if should_checkpoint_block(self.activation_checkpointing_strategy, block_idx):
                     # shape: (batch_size, seq_len, d_model)
                     x, cache = self._activation_checkpoint_fn(
-                        block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+                        block,
+                        x.to(device=self._get_device_for_layer(block_idx)),
+                        attention_bias=attention_bias,
+                        layer_past=layer_past,
+                        use_cache=use_cache,
                     )
                 else:
                     # shape: (batch_size, seq_len, d_model)
-                    x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
+                    x, cache = block(
+                        x.to(device=self._get_device_for_layer(block_idx)),
+                        attention_bias=attention_bias,
+                        layer_past=layer_past,
+                        use_cache=use_cache,
+                    )
 
                 if attn_key_values is not None:
                     assert cache is not None
@@ -1212,6 +1232,7 @@ class OLMo(nn.Module):
                     assert cache is not None
                     attn_key_values.extend(cache)
 
+        x = x.to(device=torch.device(f"cuda:{torch.cuda.current_device()}"))
         if last_logits_only:
             # shape: (batch_size, 1, d_model)
             x = x[:, -1, :].unsqueeze(1)
@@ -1232,7 +1253,11 @@ class OLMo(nn.Module):
         if self.config.scale_logits:
             logits.mul_(1 / math.sqrt(self.config.d_model))
 
-        return OLMoOutput(logits=logits, attn_key_values=attn_key_values, hidden_states=tuple(all_hidden_states) if output_hidden_states else None)  # type: ignore[arg-type]
+        return OLMoOutput(
+            logits=logits,
+            attn_key_values=attn_key_values,
+            hidden_states=tuple(all_hidden_states) if output_hidden_states else None,
+        )  # type: ignore[arg-type]
 
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
         if wrap_strategy is None:
