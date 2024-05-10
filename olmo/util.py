@@ -708,7 +708,6 @@ class WekaClient(SchemeClient):
 
     def _ensure_object_info(self):
         if self.object_info is None:
-            log.info("Bucket %s Key %s", self.bucket_name, self.path)
             try:
                 self.object_info = self.s3.head_object(Bucket=self.bucket_name, Key=self.path)
             except boto_exceptions.ClientError as e:
