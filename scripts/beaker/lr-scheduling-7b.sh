@@ -33,7 +33,7 @@ export HF_DATASETS_OFFLINE=1
 # rm -rf OLMo-core
 
 # PyTorch debug logs
-export NCCL_P2P_DISABLE=1
+# export NCCL_P2P_DISABLE=1
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
