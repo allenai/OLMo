@@ -709,7 +709,12 @@ class WekaClient(SchemeClient):
     def _ensure_object_info(self):
         if self.object_info is None:
             log.info("Bucket %s Key %s", self.bucket_name, self.path)
-            self.object_info = self.s3.head_object(Bucket=self.bucket_name, Key=self.path)
+            try:
+                self.object_info = self.s3.head_object(Bucket=self.bucket_name, Key=self.path)
+            except boto_exceptions.ClientError as e:
+                if e.response["ResponseMetadata"]["HTTPStatusCode"] == 404:
+                    raise FileNotFoundError(f"weka://{self.bucket_name}/{self.path}") from e
+                raise e
 
     def get_etag(self) -> Optional[str]:
         self._ensure_object_info()
