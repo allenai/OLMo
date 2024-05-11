@@ -618,7 +618,7 @@ def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Op
         # We prioritize sharded checkpoints over unsharded ones.
         if step > latest_step or (step == latest_step and not checkpoint_name.endswith("-unsharded")):
             latest_step = step
-            latest_checkpoint = f"{scheme}://ai2-llm/{prefix}"
+            latest_checkpoint = f"{scheme}://{bucket_name}/{prefix}"
     return latest_checkpoint
 
 
