@@ -28,4 +28,4 @@ gantry run \
   --propagate-failure \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/mitchish7-bigbatch.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES}"
+  -- /bin/bash -c "scripts/beaker/lc_7b.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES}"
