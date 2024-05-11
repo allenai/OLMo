@@ -27,10 +27,10 @@ torchrun \
   --node_rank=$BEAKER_REPLICA_RANK \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
-  configs/llamaish7-s3.yaml \
-    --run_name=llamaish7-detailed \
-    --wandb.name=llamaish7-detailed \
-    --wandb.group=llamaish7-detailed \
+  configs/pile-llamaish7-s3.yaml \
+    --run_name=pile-llamaish7 \
+    --wandb.name=pile-llamaish7 \
+    --wandb.group=pile-llamaish7 \
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
@@ -42,5 +42,4 @@ torchrun \
     --save_interval=50 \
     --eval_interval=50 \
     --optimizer.metrics_log_interval=1 \
-    --save_overwrite \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-detailed/}'
+    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/pile-llamaish7/}'
