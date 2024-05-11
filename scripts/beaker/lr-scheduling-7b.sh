@@ -59,6 +59,7 @@ torchrun \
     --time_limit=null \
     --scheduler.alpha_f=0.0 \
     --scheduler.t_warmup=1967128576000 \
+    --scheduler.t_max=2048917504000 \
     --scheduler.name=linear_with_warmup \
     --max_duration=2ep \
     --save_overwrite \
