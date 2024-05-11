@@ -49,11 +49,12 @@ command: |-
 
   echo "Launching train script..."
   torchrun \
-  --master_addr "$MASTER_ADDR" \
-  --master_port "$MASTER_PORT" \
-  --nnodes "$NUM_NODES" \
-  --node_rank "$NODE_RANK" \
   --nproc_per_node 8 \
+  --rdzv_id=21232 \
+  --rdzv_backend=static \
+  --rdzv_endpoint=$MASTER_ADDR:29400 \
+  --node_rank=$NODE_RANK \
+  --rdzv_conf="read_timeout=420" \
   scripts/train.py configs/annealing/olmo70b-from205000-100B.yaml \
     --load_path_sharded_checkpointer=olmo_core \
     --sharded_checkpointer=olmo_core \
