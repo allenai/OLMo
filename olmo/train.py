@@ -649,7 +649,6 @@ class Trainer:
         ce_batch_loss = torch.tensor(0.0, device=self.device)
         z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
         for micro_batch in micro_batches:
-            log.info("Starting batch")
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                 # Run forward pass.
                 ce_loss, z_loss, logits = self.model_forward(
@@ -680,7 +679,6 @@ class Trainer:
                 del logits
 
             # Run backward pass.
-            log.info("Starting backward")
             loss.backward()
 
         return ce_batch_loss, z_batch_loss
