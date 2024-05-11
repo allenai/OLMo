@@ -37,7 +37,7 @@ model:
   init_device: meta
   init_fn: normal ###
   moe_top_k: 1
-  moe_num_experts: 16
+  moe_num_experts: 8
   moe_expert_model_parallelism: false
   moe_dropless: true
   share_experts: false
@@ -84,14 +84,14 @@ load_path: null
 
 max_duration: 3e12T
 global_train_batch_size: 512
-device_train_microbatch_size: 2 # 8 oom
+device_train_microbatch_size: 1 # 8 oom
 
 precision: amp_bf16
 
 fsdp:
   wrapping_strategy: null
   precision: mixed
-  sharding_strategy: FULL_SHARD # SHARD_GRAD_OP
+  sharding_strategy: FULL_SHARD
 
 max_grad_norm: 1.0
 max_grad_norm_ratio: null

@@ -697,7 +697,7 @@ class OLMoEBlock(OLMoBlock):
             self.moe_args = MoEArgs(
                 activation_fn=F.silu if 'glu' in config.activation_type.lower() else self.act,
                 mlp_type='glu' if 'glu' in config.activation_type.lower() else 'mlp',
-                # Recommended for H100s by megablocks but found it 4x slower on H100s
+                # Recommended for H100s by megablocks & 2-3x faster:
                 mlp_impl='grouped',
                 hidden_size=config.d_model,
                 ffn_hidden_size=int(self.act.output_multiplier * self.hidden_size),

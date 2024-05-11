@@ -124,7 +124,6 @@ def batched_load_balancing_loss_shared(args):
     """Treat everything as 1 layer with more tokens"""
     # tokens_per_expert[i].shape = (num_experts)
     # expert_scores[i].shape = (tokens, num_experts)
-    #import pdb; pdb.set_trace()
     tokens_per_expert, expert_scores = zip(*get_load_balancing_loss())
     tokens = expert_scores[0].shape[0]
     num_unique_layers = 1 # 1 layer of unique params
@@ -786,15 +785,9 @@ class Trainer:
         should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
         if self.cfg.fsdp.sharding_strategy == torch.distributed.fsdp.ShardingStrategy.NO_SHARD:
             total_norm = torch.nn.utils.clip_grad_norm_(self.fsdp_model.parameters(), self.cfg.max_grad_norm)
-            optim_metrics = {"total_grad_norm": total_norm} if should_log_optim_metrics_this_step else {}
         else:
-            optim_metrics = self.optim.clip_grads_and_collect_metrics(
-                self.global_step,
-                collect_param_metrics=should_log_optim_metrics_this_step,
-                # passing this process group here ensures metrics are reduced correctly when we're using
-                # HYBRID sharding.
-                process_group=self.fsdp_model.process_group,
-            )
+            total_norm = self.fsdp_model.clip_grad_norm_(self.cfg.max_grad_norm)
+        optim_metrics = {"total_grad_norm": total_norm} if should_log_optim_metrics_this_step else {}
 
         # Adjust the learning rate.
         for group in self.optim.param_groups:
