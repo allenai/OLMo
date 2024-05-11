@@ -8,7 +8,7 @@ scheduling:
   # max_retries: 10
 compute:
   cluster: r15z4
-  gpus: 896
+  gpus: 896   # if you change this, change --nnodes below
   gpu_type: h100_80gb
   instance: oci.bm.gpu.h100.8
   # node_names:
@@ -50,6 +50,7 @@ command: |-
   echo "Launching train script..."
   torchrun \
   --nproc_per_node 8 \
+  --nnodes 112:112
   --rdzv_id=21232 \
   --rdzv_backend=static \
   --rdzv_endpoint=$MASTER_ADDR:29400 \
