@@ -63,4 +63,6 @@ torchrun \
     --scheduler.name=linear_with_warmup \
     --max_duration=2ep \
     --save_overwrite \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/7b/const-lr-linear-decay-match-50B/}'
+    --load_path=s3://ai2-llm/checkpoints/7b/lr-schedule-const-lr-7B/step469000/
+
+#'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/7b/const-lr-linear-decay-match-50B/}'
