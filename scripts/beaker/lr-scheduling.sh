@@ -37,12 +37,16 @@ torchrun \
     configs/lr-scheduling-s3.yaml \
       --run_name=lr-scheduling-low-const-lr \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
-      --load_path=weka://oe-training-default/ai2-llm/checkpoints/unsorted/6746551/step440000-unsharded/ \
+      '--load_path=${path.last_checkpoint:weka://oe-training-default/ai2-llm/checkpoints/1b/lr-scheduling-low-const-lr}' \
       --remote_save_folder=weka://oe-training-default/ai2-llm/checkpoints/1b/lr-scheduling-low-const-lr \
       --wandb.name=lr-scheduling-low-const-lr \
       --wandb.group=lr-scheduling-low-const-lr \
       --scheduler.name=linear_with_warmup \
       --scheduler.t_warmup=440000 \
-      --scheduler.alpha_f=0.0 \
-      --optimizer.learning_rate=5.07e-5 \
+      --scheduler.alpha_f=1.0 \
+      --optimizer.learning_rate=4.367e-5 \
       --save_overwrite
+
+
+#'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/7b/const-lr-linear-decay-match-50B/}'
+#--load_path=weka://oe-training-default/ai2-llm/checkpoints/unsorted/6746551/step440000-unsharded/
