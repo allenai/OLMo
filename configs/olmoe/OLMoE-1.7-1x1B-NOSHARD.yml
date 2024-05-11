@@ -1,6 +1,7 @@
 run_name: ${oc.env:SLURM_JOB_ID}
 seed: 6198
 dry_run: false
+no_pre_train_checkpoint: true
 
 wandb:
   name: ${run_name}
@@ -11,7 +12,7 @@ model:
   d_model: 2048
   n_heads: 16
   n_layers: 16
-  mlp_ratio: 4
+  mlp_ratio: 8
   weight_tying: false
   alibi: false
   rope: true
@@ -35,11 +36,8 @@ model:
   pad_token_id: 1
   init_device: meta
   init_fn: normal ###
-  moe_top_k: 1
-  moe_num_experts: 8
-  moe_expert_model_parallelism: true
+  moe_num_experts: 1
   moe_dropless: true
-  share_experts: false
 
 compile: null
 
@@ -68,7 +66,7 @@ tokenizer:
   truncate_direction: right
 
 save_folder: runs/${run_name}
-remote_save_folder: s3://ai2-llm/checkpoints/OLMoE/${run_name}
+remote_save_folder: s3://ai2-llm/checkpoints/OLMoE-1.7-8SSSDE/${run_name}
 save_overwrite: false
 
 save_interval: 1000
@@ -217,7 +215,7 @@ evaluators:
 
 data:
   pad_direction: right
-  num_workers: 16
+  num_workers: 0
   drop_last: true
   pin_memory: true
   prefetch_factor: 8
