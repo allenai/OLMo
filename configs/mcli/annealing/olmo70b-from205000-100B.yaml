@@ -50,7 +50,7 @@ command: |-
   echo "Launching train script..."
   torchrun \
   --nproc_per_node 8 \
-  --nnodes 112:112
+  --nnodes 112:112 \
   --rdzv_id=21232 \
   --rdzv_backend=static \
   --rdzv_endpoint=$MASTER_ADDR:29400 \
