@@ -5,7 +5,7 @@ set -ex
 NUM_NODES=8
 
 gantry run \
-  --workspace ai2/dirkg \
+  --workspace ai2/akshitab \
   --task-name mitchish7-fp32 \
   --description "OLMo medium - 7B - fp32" \
   --priority high \
