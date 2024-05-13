@@ -1,3 +1,4 @@
+import io
 import logging
 import os
 import re
@@ -11,7 +12,7 @@ from itertools import cycle, islice
 from pathlib import Path
 from queue import Queue
 from threading import Thread
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import boto3
 import botocore.exceptions as boto_exceptions
@@ -328,7 +329,7 @@ def file_size(path: PathOrStr) -> int:
         parsed = urlparse(str(path))
         if parsed.scheme == "gs":
             return _gcs_file_size(parsed.netloc, parsed.path.strip("/"))
-        elif parsed.scheme in ("s3", "r2"):
+        elif parsed.scheme in ("s3", "r2", "weka"):
             return _s3_file_size(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme in ("http", "https"):
             return _http_file_size(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
@@ -349,7 +350,7 @@ def upload(source: PathOrStr, target: str, save_overwrite: bool = False):
     parsed = urlparse(target)
     if parsed.scheme == "gs":
         _gcs_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
-    elif parsed.scheme in ("s3", "r2"):
+    elif parsed.scheme in ("s3", "r2", "weka"):
         _s3_upload(source, parsed.scheme, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
     else:
         raise NotImplementedError(f"Upload not implemented for '{parsed.scheme}' scheme")
@@ -362,7 +363,7 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
         parsed = urlparse(str(source))
         if parsed.scheme == "gs":
             return _gcs_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
-        elif parsed.scheme in ("s3", "r2"):
+        elif parsed.scheme in ("s3", "r2", "weka"):
             return _s3_get_bytes_range(
                 parsed.scheme, parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes
             )
@@ -387,7 +388,7 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
         parsed = urlparse(str(dir))
         if parsed.scheme == "gs":
             raise NotImplementedError
-        elif parsed.scheme in ("s3", "r2"):
+        elif parsed.scheme in ("s3", "r2", "weka"):
             return _s3_find_latest_checkpoint(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return find_latest_checkpoint(str(dir).replace("file://", "", 1))
@@ -461,6 +462,14 @@ def _get_s3_profile_name(scheme: str) -> Optional[str]:
             )
 
         return profile_name
+    if scheme == "weka":
+        profile_name = os.environ.get("WEKA_PROFILE")
+        if profile_name is None:
+            raise OLMoEnvironmentError(
+                "Weka profile name is not set. Did you forget to set the 'WEKA_PROFILE' env var?"
+            )
+
+        return profile_name
 
     raise NotImplementedError(f"Cannot get profile name for scheme {scheme}")
 
@@ -476,6 +485,14 @@ def _get_s3_endpoint_url(scheme: str) -> Optional[str]:
             )
 
         return r2_endpoint_url
+    if scheme == "weka":
+        weka_endpoint_url = os.environ.get("WEKA_ENDPOINT_URL")
+        if weka_endpoint_url is None:
+            raise OLMoEnvironmentError(
+                "Weka endpoint url is not set. Did you forget to set the 'WEKA_ENDPOINT_URL' env var?"
+            )
+
+        return weka_endpoint_url
 
     raise NotImplementedError(f"Cannot get endpoint url for scheme {scheme}")
 
@@ -626,7 +643,9 @@ def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: i
     result = response.content
     assert (
         len(result) == num_bytes
-    ), f"expected {num_bytes} bytes, got {len(result)}"  # Some web servers silently ignore range requests and send everything
+    ), (
+        f"expected {num_bytes} bytes, got {len(result)}"
+    )  # Some web servers silently ignore range requests and send everything
     return result
 
 
