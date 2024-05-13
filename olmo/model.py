@@ -1006,10 +1006,9 @@ class OLMo(nn.Module):
     def _get_device_for_layer(self, layer_idx: int) -> torch.device:
         if self.config.parallelize_model:
             device_idx = int(layer_idx / self.config.n_layers * torch.cuda.device_count())
-        else:
-            device_idx = torch.cuda.current_device()
+            return torch.device(f"cuda:{device_idx}")
 
-        return torch.device(f"cuda:{device_idx}")
+        return self.device
 
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         self.activation_checkpointing_strategy = strategy
