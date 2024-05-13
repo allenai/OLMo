@@ -516,6 +516,7 @@ class Checkpointer(metaclass=ABCMeta):
         *,
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
+        load_trainer_state: bool = True,
     ) -> Dict[str, Any]:
         """
         Restores a checkpoint to the model and optimizer. Returns the remaining trainer state.
@@ -672,6 +673,7 @@ class FullCheckpointer(Checkpointer):
         *,
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
+        load_trainer_state: bool = True,
     ) -> Dict[str, Any]:
         with FSDP.state_dict_type(
             fsdp_model,
@@ -745,11 +747,13 @@ class FullCheckpointer(Checkpointer):
                 del optim_state_dict_to_load
 
             # Load other state.
-            try:
-                trainer_state = load_state_dict(load_path, "train.pt", local_cache=local_cache)
-            except FileNotFoundError:
-                # for backwards compatibility
-                trainer_state = load_state_dict(load_path, "other.pt", local_cache=local_cache)
+            trainer_state = None
+            if load_trainer_state:
+                try:
+                    trainer_state = load_state_dict(load_path, "train.pt", local_cache=local_cache)
+                except FileNotFoundError:
+                    # for backwards compatibility
+                    trainer_state = load_state_dict(load_path, "other.pt", local_cache=local_cache)
         barrier()
         return trainer_state
 
@@ -866,6 +870,7 @@ class TorchNewStyleShardedCheckpointer(Checkpointer):
         *,
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
+        load_trainer_state: bool = True,
     ) -> Dict[str, Any]:
         # Load model and optimizer state in place.
         log.info("Loading model and optimizer state...")
@@ -879,14 +884,16 @@ class TorchNewStyleShardedCheckpointer(Checkpointer):
 
         # Load trainer state dict.
         log.info("Loading trainer state...")
-        try:
-            trainer_state = load_state_dict(
-                load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache
-            )
-        except FileNotFoundError:
-            # Fall back to rank 0 train state.
-            # This can happen when we're restoring a checkpoint with a different world size.
-            trainer_state = load_state_dict(load_path, "train/rank0.pt", local_cache=local_cache)
+        trainer_state = None
+        if load_trainer_state:        
+            try:
+                trainer_state = load_state_dict(
+                    load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache
+                )
+            except FileNotFoundError:
+                # Fall back to rank 0 train state.
+                # This can happen when we're restoring a checkpoint with a different world size.
+                trainer_state = load_state_dict(load_path, "train/rank0.pt", local_cache=local_cache)
         barrier()
         return trainer_state
 
@@ -943,6 +950,7 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
         *,
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
+        load_trainer_state: bool = True,
     ) -> Dict[str, Any]:
         with FSDP.state_dict_type(
             fsdp_model,
@@ -1556,6 +1564,7 @@ class LocalShardedCheckpointer(Checkpointer):
         *,
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
+        load_trainer_state: bool = True,
     ) -> Dict[str, Any]:
         # Load metadata and make sure checkpoint is compatible.
         metadata = self._load_metadata(load_path, local_cache=local_cache)
@@ -1593,7 +1602,9 @@ class LocalShardedCheckpointer(Checkpointer):
 
         # Load local trainer state.
         log.info("Loading local trainer state...")
-        trainer_state = load_state_dict(load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache)
+        trainer_state = None
+        if load_trainer_state:
+            trainer_state = load_state_dict(load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache)
         barrier()
         return trainer_state
 
@@ -1862,6 +1873,7 @@ class OlmoCoreCheckpointer(Checkpointer):
         *,
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
+        load_trainer_state: bool = True,
     ) -> Dict[str, Any]:
         from olmo_core.distributed.checkpoint import (  # type: ignore
             load_model_and_optim_state,
@@ -1871,14 +1883,16 @@ class OlmoCoreCheckpointer(Checkpointer):
         load_model_and_optim_state(load_path, fsdp_model, optim if load_optimizer_state else None)
 
         log.info("Loading trainer state...")
-        try:
-            trainer_state = load_state_dict(
-                load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache
-            )
-        except FileNotFoundError:
-            # Fall back to rank 0 train state.
-            # This can happen when we're restoring a checkpoint with a different world size.
-            trainer_state = load_state_dict(load_path, "train/rank0.pt", local_cache=local_cache)
+        trainer_state = None
+        if load_trainer_state:
+            try:
+                trainer_state = load_state_dict(
+                    load_path, f"train/rank{get_global_rank()}.pt", local_cache=local_cache
+                )
+            except FileNotFoundError:
+                # Fall back to rank 0 train state.
+                # This can happen when we're restoring a checkpoint with a different world size.
+                trainer_state = load_state_dict(load_path, "train/rank0.pt", local_cache=local_cache)
 
         barrier()
         return trainer_state
