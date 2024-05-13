@@ -144,7 +144,7 @@ jobs:
                 envVars:
                   - name: COMMIT_SHA
                     value: ${{ env.COMMIT_SHA }}
-                  - name: GITHUB_TOKEN
+                  - name: TMP_GITHUB_TOKEN
                     value: ${{ secrets.GITHUB_TOKEN }}
                   - name: CUDA_LAUNCH_BLOCKING
                     value: "1"

@@ -1,7 +1,7 @@
 # Defines a CUDA-enabled Docker image suitable for installing all dependencies
 # to this project.
 
-FROM ghcr.io/allenai/pytorch:2.0.0-cuda11.8-python3.10
+FROM ghcr.io/allenai/pytorch:2.2.2-cuda11.8-python3.11
 
 # Install flash attn (and triton dependency) from our pre-built wheel.
 # We need cuda dev for the old version of triton.
