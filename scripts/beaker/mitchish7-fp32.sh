@@ -37,7 +37,7 @@ torchrun \
     --fsdp.sharding_strategy=FULL_SHARD \
     --save_folder=runs/ \
     --activation_checkpointing=fine_grained \
-    --device_train_microbatch_size=2 \
+    --device_train_microbatch_size=1 \
     --global_train_batch_size=1024 \
     --save_interval=50 \
     --eval_interval=50 \
