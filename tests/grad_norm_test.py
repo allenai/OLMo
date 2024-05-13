@@ -103,8 +103,6 @@ def _patch_config(cfg):
     cfg.max_grad_norm = 1.
     cfg.seed = 6198
 
-    cfg.fsdp_precison = ''
-
     return cfg
 
 
@@ -230,9 +228,9 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
 
 @pytest.mark.gpu
 @pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires 1 CUDA device")
-@pytest.mark.parametrize("max_iterations, max_norm", [pytest.param(10, 1.0)])
+@pytest.mark.parametrize("max_iterations, max_norm", [pytest.param(100, 1.0)])
 def test_local_sharded_checkpointer(max_iterations, max_norm):
-    world_size = torch.cuda.device_count()
+    world_size = 1
     mp.spawn(
         _run_olmo_grad_norm_againt_torch_grad_norm,
         args=(world_size, max_iterations, max_norm),
