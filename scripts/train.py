@@ -11,7 +11,6 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 import wandb
 from packaging import version
-from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import ShardingStrategy
 
@@ -32,7 +31,12 @@ from olmo.torch_util import (
     seed_all,
 )
 from olmo.train import Trainer
-from olmo.util import clean_opt, log_extra_field, prepare_cli_environment
+from olmo.util import (
+    add_cached_path_clients,
+    clean_opt,
+    log_extra_field,
+    prepare_cli_environment,
+)
 
 log = logging.getLogger("train")
 
@@ -288,6 +292,8 @@ if __name__ == "__main__":
 
     prepare_cli_environment()
     log.info("CLI environment prepared")
+
+    add_cached_path_clients()
 
     try:
         yaml_path, args_list = sys.argv[1], sys.argv[2:]

@@ -19,10 +19,9 @@ import numpy as np
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
+import wandb
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DataLoader
-
-import wandb
 
 from .aliases import PathOrStr
 from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
@@ -641,7 +640,7 @@ class Trainer:
     def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
-        batch_size_in_tokens = batch['input_ids'].numel()
+        batch_size_in_tokens = batch["input_ids"].numel()
 
         # In case this helps with memory utilization.
         del batch
@@ -652,9 +651,7 @@ class Trainer:
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                 # Run forward pass.
                 ce_loss, z_loss, logits = self.model_forward(
-                    micro_batch,
-                    compute_z_loss=self.cfg.softmax_auxiliary_loss,
-                    loss_reduction="sum"
+                    micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss, loss_reduction="sum"
                 )
                 ce_loss = ce_loss / batch_size_in_tokens
 
@@ -836,7 +833,8 @@ class Trainer:
                 [
                     f"    {name}={format_float(value)}"
                     for name, value in metrics.items()
-                    if name == "optim/total_grad_norm" or not name.startswith("optim/")  # there's too many optimizer metrics
+                    if name == "optim/total_grad_norm"
+                    or not name.startswith("optim/")  # there's too many optimizer metrics
                 ]
             )
         )
@@ -925,6 +923,7 @@ class Trainer:
                 # Finally, check if someone canceled the run from W&B by adding the 'cancel' / 'canceled' tag..
                 # We won't see it in the run object. So we have to use the import/export API to check.
                 from requests.exceptions import RequestException
+                from wandb.errors import CommError
 
                 try:
                     api = wandb.Api(api_key=api_key)
@@ -935,8 +934,8 @@ class Trainer:
                             cancel_reason = "Weights & Biases tag"
                             extra_steps = self.cfg.extra_steps_after_cancel
                             break
-                except RequestException:
-                    pass
+                except (RequestException, CommError):
+                    log.info("Failed to check if W&B run is cancelled, continuing run.")
 
         run_canceled = synchronize_flag(should_cancel, self.device)
         if run_canceled:
