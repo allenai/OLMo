@@ -183,6 +183,7 @@ def main(cfg: TrainConfig) -> None:
             sharding_strategy=cfg.fsdp.sharding_strategy.olmo_core(),
             precision=cfg.fsdp_precision,  # type: ignore[arg-type]
             device_mesh=device_mesh,
+            max_prefetch_count=cfg.fsdp.max_prefetch_count,
         )
         fsdp_model.apply(lambda m: m.reset_parameters() if hasattr(m, "reset_parameters") else None)
     else:

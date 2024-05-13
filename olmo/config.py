@@ -735,6 +735,8 @@ class FSDPConfig(BaseConfig):
     PyTorch's default HSDP behavior matches this default behavior.
     """
 
+    max_prefetch_count: int = 1
+
 
 class CheckpointType(StrEnum):
     sharded = "sharded"
