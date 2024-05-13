@@ -1,6 +1,6 @@
-import pytest
-
 import os
+import math
+import pytest
 
 import torch
 import torch.nn as nn
@@ -12,8 +12,8 @@ from olmo import OLMo
 from olmo.train import Trainer
 from olmo.config import TrainConfig
 from olmo.model import LayerNormBase
-from olmo.optim import build_optimizer
 from olmo.data import build_train_dataloader
+from olmo.optim import build_optimizer, build_scheduler
 from olmo.torch_util import get_world_size, get_local_rank, get_default_device
 
 from packaging import version
@@ -89,7 +89,7 @@ def _init_torch_optim(cfg, model):
     return optimizer
 
 
-def _patch_config(cfg):
+def _patch_config(cfg, max_norm):
     # patch config
     cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
     cfg.data.paths = ["test_fixtures/c4-sample.01.json.gz", "test_fixtures/c4-sample.02.json.gz", "test_fixtures/c4-sample.03.json.gz"]
@@ -98,15 +98,21 @@ def _patch_config(cfg):
     cfg.model.weight_tying = False
     cfg.model.rope = True
 
-    cfg.optimizer.learning_rate = 1e-4
+    cfg.optimizer.name = "adamw"
+    cfg.optimizer.learning_rate = 1e-3
+    cfg.optimizer.weight_decay = 0.1
+    cfg.scheduler.name = "cosine_with_warmup"
+    cfg.scheduler.units = "steps"
     cfg.scheduler.t_warmup = 100
-    cfg.max_grad_norm = 1.
+    cfg.scheduler.t_max = 1000
+    cfg.scheduler.alpha_f = 0.  # our custom test scheduler decays to 0
+    cfg.max_grad_norm = max_norm
     cfg.seed = 6198
 
     return cfg
 
 
-def _naive_train_loop(model, optimizer, data_loader, max_iterations, max_norm=1.0, extern_clip=False):
+def _naive_train_loop(cfg, model, optimizer, scheduler, data_loader, max_iterations, max_norm=1.0, clip_grad=False):
     len_dataloader = 3
     max_epochs = max_iterations // len_dataloader + 1
     norm_vector = []
@@ -122,19 +128,21 @@ def _naive_train_loop(model, optimizer, data_loader, max_iterations, max_norm=1.
             loss = _lm_loss(logits, batch['input_ids'].to('cuda').clone())
             loss.backward()
 
-            # clip grads
-            if extern_clip:
+            if clip_grad:
                 norm_vector.append(nn.utils.clip_grad_norm_(model.parameters(), max_norm))
             else:
-
-                # 2 cases for no_shard FSDP, single GPU run and multi-GPU run
-                # how is the model like? how are the optimizer states?
-
                 norm_vector.append(optimizer.clip_grads_and_collect_metrics(step_count)["total_grad_norm"])
+
+            # apply scheduler
+            for group in optimizer.param_groups:
+                group["lr"] = scheduler.get_lr(cfg.optimizer.learning_rate, step_count, cfg.scheduler.t_max)
+                group["max_grad_norm"] = scheduler.get_max_grad_norm(cfg.max_grad_norm, step_count, cfg.scheduler.t_max)
+                group["max_grad_norm_ratio"] = scheduler.get_max_grad_norm(cfg.max_grad_norm_ratio, step_count, cfg.scheduler.t_max)
 
             optimizer.step()
 
-            print('Step: {:4d}, Loss: {:.4f}'.format(step_count, loss))
+            if step_count % 100 == 0:
+                print('Step: {:4d}, Loss: {:.4f}'.format(step_count, loss))
 
             if step_count == max_iterations:
                 break
@@ -163,17 +171,21 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
     torch.cuda.set_device(rank)
 
     cfg = TrainConfig.load("test_fixtures/train_tiny.yaml")
-    cfg = _patch_config(cfg)
+    cfg = _patch_config(cfg, max_norm)
+
+    print('pytorch optim, pytorch grad_clipping, no model wrapping...')
 
     # run on CPU
     model = OLMo(cfg.model).to('cuda')
     torch_optimizer = _init_torch_optim(cfg, model)
+    scheduler = build_scheduler(cfg)
     data_loader = build_train_dataloader(cfg)
 
-    torch_optim_norms = _naive_train_loop(model, torch_optimizer, data_loader, max_iterations, max_norm, extern_clip=True)
+    torch_optim_norms = _naive_train_loop(cfg, model, torch_optimizer, scheduler, data_loader, max_iterations, max_norm, clip_grad=True)
 
     del model
     del torch_optimizer
+    del scheduler
     del data_loader
 
     # use same model, data, optimizer, fsdp_model and send to trainer and compare gradient clip
@@ -182,6 +194,7 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
     model = OLMo(cfg.model).to('cuda')
     olmo_optimizer = build_optimizer(cfg, model)
     data_loader = build_train_dataloader(cfg)
+    scheduler = build_scheduler(cfg)
 
     if version.parse(torch.__version__) >= version.parse("2.1.0"):
         # This prevents any parameters from being initialized twice
@@ -212,7 +225,9 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
     if param_init_fn is not None:
         model.reset_parameters()
 
-    olmo_optim_norms = _naive_train_loop(fsdp_model, olmo_optimizer, data_loader, max_iterations)
+    print('olmo optim, olmo grad_clipping, fsdp no_shard wrapping...')
+
+    olmo_optim_norms = _naive_train_loop(cfg, fsdp_model, olmo_optimizer, scheduler, data_loader, max_iterations)
 
     # print('###############################################')
     # print(torch_optim_norms)
@@ -228,7 +243,7 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
 
 @pytest.mark.gpu
 @pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires 1 CUDA device")
-@pytest.mark.parametrize("max_iterations, max_norm", [pytest.param(100, 1.0)])
+@pytest.mark.parametrize("max_iterations, max_norm", [pytest.param(1000, 1.0)])
 def test_local_sharded_checkpointer(max_iterations, max_norm):
     world_size = 1
     mp.spawn(
