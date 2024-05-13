@@ -674,7 +674,7 @@ class FullCheckpointer(Checkpointer):
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
         load_trainer_state: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
         with FSDP.state_dict_type(
             fsdp_model,
             state_dict_type=StateDictType.FULL_STATE_DICT,
