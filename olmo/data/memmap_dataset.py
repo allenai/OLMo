@@ -101,6 +101,12 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
             # R2 might not be needed, so ignore this error. We will get an error
             # later if R2 is needed.
             pass
+        try:
+            _get_s3_client("weka")
+        except OLMoEnvironmentError:
+            # Weka might not be needed, so ignore this error. We will get an error
+            # later if Weka is needed.
+            pass
 
         if self._mmap_offsets is None:
             import concurrent.futures
