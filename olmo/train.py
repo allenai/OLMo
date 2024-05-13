@@ -19,9 +19,10 @@ import numpy as np
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
-import wandb
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DataLoader
+
+import wandb
 
 from .aliases import PathOrStr
 from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
@@ -597,15 +598,18 @@ class Trainer:
 
     def get_labels(self, batch: Dict[str, Any]) -> torch.Tensor:
         # Labels are just input IDs shifted to the left (first item is ignored).
-        labels, label_mask, attention_mask = (
+        labels, label_mask, attention_mask, instance_mask = (
             batch["input_ids"].clone(),
             batch.get("label_mask"),
             batch.get("attention_mask"),
+            batch.get("instance_mask"),
         )
         if label_mask is not None:
             labels.masked_fill_(~label_mask, -100)
         if attention_mask is not None:
             labels.masked_fill_(attention_mask == 0.0, -100)
+        if instance_mask is not None:
+            labels.masked_fill_(~instance_mask.unsqueeze(-1), value=-100)
         return labels[..., 1:].contiguous()
 
     def model_forward(
@@ -637,6 +641,7 @@ class Trainer:
     def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
+        batch_size_in_tokens = batch['input_ids'].numel()
 
         # In case this helps with memory utilization.
         del batch
@@ -647,9 +652,11 @@ class Trainer:
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                 # Run forward pass.
                 ce_loss, z_loss, logits = self.model_forward(
-                    micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss
+                    micro_batch,
+                    compute_z_loss=self.cfg.softmax_auxiliary_loss,
+                    loss_reduction="sum"
                 )
-                ce_loss = ce_loss / len(micro_batches)
+                ce_loss = ce_loss / batch_size_in_tokens
 
                 # In case this helps with memory utilization.
                 del micro_batch
@@ -683,6 +690,10 @@ class Trainer:
         if self.indices_file is not None and "index" in batch:
             indices = "\t".join(str(int(i)) for i in batch["index"])
             self.indices_file.write(f"{self.global_step}\t{indices}\n")
+
+        # Record how many instances are going to be skipped (masked out).
+        if (instance_mask := batch.get("instance_mask")) is not None:
+            metrics["train/masked_instances_local_rank"] = (~instance_mask).sum().item()
 
         # Zero-gradients.
         self.optim.zero_grad(set_to_none=True)
@@ -825,7 +836,7 @@ class Trainer:
                 [
                     f"    {name}={format_float(value)}"
                     for name, value in metrics.items()
-                    if not name.startswith("optim/")  # there's too many optimizer metrics
+                    if name == "optim/total_grad_norm" or not name.startswith("optim/")  # there's too many optimizer metrics
                 ]
             )
         )

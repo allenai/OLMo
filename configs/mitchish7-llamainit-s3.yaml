@@ -1,19 +1,18 @@
-run_name: mitchish70-001
+run_name: mitchish7-llamainit-001
 seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
-  project: olmo-large
-  group: mitchish70
+  project: olmo-medium
+  group: mitchish7-llamainit
 
 model:
-  d_model: 8192
-  n_heads: 64
-  n_kv_heads: 8
-  n_layers: 80
+  d_model: 4096
+  n_heads: 32
+  n_layers: 32
   # mlp_ratio: 6
-  mlp_hidden_size: 57344
+  mlp_hidden_size: 22016
   weight_tying: false
   alibi: false
   rope: true
@@ -33,19 +32,21 @@ model:
   max_sequence_length: 4096
   vocab_size: 50280
   embedding_size: 50304
-  eos_token_id: 50279
+  eos_token_id: 0
   pad_token_id: 1
   init_device: meta
-  init_fn: mitchell
+  init_fn: full_megatron
+  init_std: 0.006
+  init_cutoff_factor: 3
 
 compile: null
 
 optimizer:
   name: adamw
-  learning_rate: 1.5e-4
+  learning_rate: 3.0e-4
   weight_decay: 0.1
   decay_norm_and_bias: true
-  decay_embeddings: false
+  decay_embeddings: true
   betas:
   - 0.9
   - 0.95
@@ -65,20 +66,20 @@ tokenizer:
   truncate_direction: right
 
 save_folder: runs/${run_name}
-remote_save_folder: s3://ai2-llm/checkpoints/OLMo-large/${run_name}
+remote_save_folder: s3://ai2-llm/checkpoints/OLMo-medium/${run_name}
 save_overwrite: false
 
-save_interval: 250
+save_interval: 1000
 save_interval_ephemeral: null
 save_num_checkpoints_to_keep: -1
-sharded_checkpointer: local
+sharded_checkpointer: olmo_core
 
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 3e12T
+max_duration: 2ep
 global_train_batch_size: 512
 device_train_microbatch_size: 2
 
@@ -88,15 +89,13 @@ fsdp:
   wrapping_strategy: by_block_and_size
   precision: mixed
 
-activation_checkpointing: whole_layer
-
 max_grad_norm: 1.0
 max_grad_norm_ratio: null
 
 speed_monitor:
   window_size: 1
 
-eval_interval: 500
+eval_interval: 1000
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
@@ -201,18 +200,26 @@ evaluators:
   - label: mmlu_other_mc_5shot
     type: downstream
 
+  - label: mmlu_stem_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_humanities_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_social_sciences_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_other_mc_5shot_test
+    type: downstream
+
 data:
   pad_direction: right
-  num_workers: 8
+  num_workers: 32
   drop_last: true
   pin_memory: true
-  prefetch_factor: 2
+  prefetch_factor: 8
   persistent_workers: true
   timeout: 0
-  instance_filter:
-    repetition_max_period: 13
-    repetition_min_period: 1
-    repetition_max_count: 32
   paths:
     ######### NON WEB DATA #########
     # ~> GUTENBERG BOOKS (5.256 GT)
