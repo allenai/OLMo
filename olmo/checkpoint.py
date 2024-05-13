@@ -871,7 +871,7 @@ class TorchNewStyleShardedCheckpointer(Checkpointer):
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
         load_trainer_state: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
         # Load model and optimizer state in place.
         log.info("Loading model and optimizer state...")
         load_fsdp_model_and_optim_state(
