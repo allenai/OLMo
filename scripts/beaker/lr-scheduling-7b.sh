@@ -18,22 +18,10 @@ curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" 
 popd
 export HF_DATASETS_OFFLINE=1
 
-# Disabling infiniband for jupiter as temp workaround
-# export NCCL_IB_DISABLE=1
-
-# # Install OLMo-core
-# mkdir -p ~/.ssh
-# printenv SSH_KEY > ~/.ssh/id_ed25519
-# cat ~/.ssh/id_ed25519 | wc
-# ssh -T git@github.com
-# git clone git@github.com:allenai/OLMo-core.git
-# cd OLMo-core
-# pip install .[all]
-# cd ..
-# rm -rf OLMo-core
-
-# PyTorch debug logs
-# export NCCL_P2P_DISABLE=1
+# Move AWS credentials from env to relevant files
+mkdir -p ~/.aws
+printenv AWS_CONFIG > ~/.aws/config
+printenv AWS_CREDENTIALS > ~/.aws/credentials
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
