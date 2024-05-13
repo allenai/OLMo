@@ -1565,7 +1565,7 @@ class LocalShardedCheckpointer(Checkpointer):
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
         load_trainer_state: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
         # Load metadata and make sure checkpoint is compatible.
         metadata = self._load_metadata(load_path, local_cache=local_cache)
         assert metadata.world_size == get_world_size()
