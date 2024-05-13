@@ -103,14 +103,14 @@ class Optimizer(OptimizerBase):
                     if x is not None and x.numel() > 0:
                         if collect_param_metrics:
                             x_abs = x.abs()
-                            per_param_min_metrics.append(x_abs.min().unsqueeze(0).to(dtype=torch.float32))
-                            per_param_max_metrics.append(x_abs.max().unsqueeze(0).to(dtype=torch.float32))
-                            per_param_sum_metrics.append(x.sum().unsqueeze(0).to(dtype=torch.float32))
+                            per_param_min_metrics.append(x_abs.min().unsqueeze(0).to(device=device, dtype=torch.float32))
+                            per_param_max_metrics.append(x_abs.max().unsqueeze(0).to(device=device, dtype=torch.float32))
+                            per_param_sum_metrics.append(x.sum().unsqueeze(0).to(device=device, dtype=torch.float32))
                             per_param_numel_metrics.append(
                                 torch.tensor([x.numel()], device=device, dtype=torch.float32)
                             )
                         per_param_norm_metrics.append(
-                            torch.linalg.vector_norm(x, 2.0, dtype=torch.float32).unsqueeze(0)
+                            torch.linalg.vector_norm(x, 2.0, dtype=torch.float32, device=device).unsqueeze(0)
                         )
                     else:
                         if collect_param_metrics:
