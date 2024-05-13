@@ -517,7 +517,7 @@ class Checkpointer(metaclass=ABCMeta):
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
         load_trainer_state: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
         """
         Restores a checkpoint to the model and optimizer. Returns the remaining trainer state.
         """
