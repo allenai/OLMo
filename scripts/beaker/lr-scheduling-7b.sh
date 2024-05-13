@@ -45,9 +45,9 @@ torchrun \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
   configs/lr-scheduling-7b-s3.yaml \
-    --run_name=const-lr-linear-decay-match-50B \
-    --wandb.name=const-lr-linear-decay-match-50B \
-    --wandb.group=const-lr-linear-decay-match-50B \
+    --run_name=const-lr-linear-decay-baseline-50B \
+    --wandb.name=const-lr-linear-decay-baseline-50B \
+    --wandb.group=const-lr-linear-decay-baseline-50B \
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
@@ -63,6 +63,8 @@ torchrun \
     --scheduler.name=linear_with_warmup \
     --max_duration=2ep \
     --save_overwrite \
-    --load_path=s3://ai2-llm/checkpoints/7b/lr-schedule-const-lr-7B/step469000/
+    --load_path=weka://oe-training-default/ai2-llm/olmo-medium/0rdfxd6d/step477000-unsharded/
 
+
+#--load_path=s3://ai2-llm/checkpoints/7b/lr-schedule-const-lr-7B/step469000/
 #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/7b/const-lr-linear-decay-match-50B/}'
