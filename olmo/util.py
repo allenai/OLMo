@@ -644,9 +644,7 @@ def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: i
     result = response.content
     assert (
         len(result) == num_bytes
-    ), (
-        f"expected {num_bytes} bytes, got {len(result)}"
-    )  # Some web servers silently ignore range requests and send everything
+    ), f"expected {num_bytes} bytes, got {len(result)}"  # Some web servers silently ignore range requests and send everything
     return result
 
 
