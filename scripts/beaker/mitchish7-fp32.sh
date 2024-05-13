@@ -34,7 +34,7 @@ torchrun \
     --model.flash_attention=false \
     --fused_loss=false \
     --fsdp.wrapping_strategy=by_block_and_size \
-    --fsdp.sharding_strategy=SHARD_GRAD_OP \
+    --fsdp.sharding_strategy=FULL_SHARD \
     --save_folder=runs/ \
     --activation_checkpointing=fine_grained \
     --device_train_microbatch_size=1 \
