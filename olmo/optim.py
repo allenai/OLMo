@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import torch
 import torch.distributed as dist
 import torch.nn as nn
-from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
 from torch.optim.optimizer import Optimizer as OptimizerBase
 
 from . import LayerNormBase
@@ -76,13 +76,12 @@ class Optimizer(OptimizerBase):
         if process_group is not None:
             dst_rank = dist.get_global_rank(process_group, 0)
 
+        #######################################################################
+        # part 1: collect metrics locally
+        #######################################################################
+
         # Collect metrics locally.
         for group in self.param_groups:
-            if is_distributed():
-                # TODO (epwalsh): handle non-sharded params. We don't have any right now but we would
-                # with ReLoRa, for example.
-                assert group.get("sharded", True) is True
-
             for name, p in zip(group["param_names"], group["params"]):
                 name = self._clean_param_name(name)
                 # Always need to collect the norm of gradients for clipping, even if we're not collecting
@@ -141,10 +140,17 @@ class Optimizer(OptimizerBase):
         def is_grad_norm_metric(metric_name: str) -> bool:
             return metric_name.startswith("grad/") and metric_name.endswith(".norm")
 
+        #######################################################################
+        # part 2: reduce metrics
+        #######################################################################
+        param_group_sharded = False
+        for group in self.param_groups:
+            param_group_sharded = param_group_sharded or group.get("sharded", False)
+
         # Now reduce metrics over all ranks.
         total_grad_norm: torch.Tensor
         per_param_avg_metrics: List[torch.Tensor] = []
-        if is_distributed():  # TODO (epwalsh): skip for non-sharded params
+        if is_distributed() and param_group_sharded:
             # Reduce metrics across all ranks. Note that we can use a `reduce` for most cases
             # instead of an `all_reduce`, but we need `all_reduce` for norms so that all ranks
             # get the right value for gradient norms so they can clip correctly.
@@ -204,6 +210,10 @@ class Optimizer(OptimizerBase):
         for metric_name, metric in zip(per_param_norm_metric_names, per_param_norm_metrics):
             all_metrics[metric_name] = metric.squeeze(0)
         all_metrics["total_grad_norm"] = total_grad_norm
+
+        #######################################################################
+        # part 3: clip grads
+        #######################################################################
 
         # Clip gradients.
         num_grads_clipped = 0
@@ -609,7 +619,7 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
     """
     param_groups: List[Dict[str, Any]]
     param_group_defaults = {
-        "sharded": isinstance(model, FullyShardedDataParallel),
+        "sharded": isinstance(model, FullyShardedDataParallel) and cfg.fsdp.sharding_strategy != ShardingStrategy.NO_SHARD,
         "max_grad_norm": cfg.max_grad_norm,
         "max_grad_norm_ratio": cfg.max_grad_norm_ratio,
     }
