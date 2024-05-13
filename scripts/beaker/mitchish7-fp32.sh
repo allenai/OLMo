@@ -31,6 +31,8 @@ torchrun \
     --run_name=mitchish7-fp32 \
     --wandb.name=mitchish7-fp32 \
     --wandb.group=mitchish7-fp32 \
+    --model.flash_attention=false \
+    --fused_loss=false \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
     --save_folder=runs/ \
