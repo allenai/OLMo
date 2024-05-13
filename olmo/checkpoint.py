@@ -1874,7 +1874,7 @@ class OlmoCoreCheckpointer(Checkpointer):
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
         load_trainer_state: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
         from olmo_core.distributed.checkpoint import (  # type: ignore
             load_model_and_optim_state,
         )
