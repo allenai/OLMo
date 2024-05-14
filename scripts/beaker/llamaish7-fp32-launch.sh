@@ -5,7 +5,7 @@ set -ex
 NUM_NODES=8
 
 gantry run \
-  --workspace ai2/akshitab \
+  --workspace ai2/OLMo-training \
   --task-name llamaish7 \
   --description "OLMo medium - 7B - Llamaish - fp32" \
   --priority high \
