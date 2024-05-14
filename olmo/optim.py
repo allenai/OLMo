@@ -43,6 +43,7 @@ class Optimizer(OptimizerBase):
         global_step: int,
         collect_param_metrics: bool = True,
         process_group: Optional[dist.ProcessGroup] = None,
+        regularize_embeddings: bool = False,
     ) -> Dict[str, torch.Tensor]:
         """
         Clips gradients for every group that has the field `max_grad_norm`.
@@ -83,13 +84,14 @@ class Optimizer(OptimizerBase):
                 # with ReLoRa, for example.
                 assert group.get("sharded", True) is True
 
+            is_embedding_group = group["name"] == "embedding_decay_group"
             for name, p in zip(group["param_names"], group["params"]):
                 name = self._clean_param_name(name)
-                # Always need to collect the norm of gradients for clipping, even if we're not collecting
+                # Always need to collect the norm of gradients and parameters for clipping, even if we're not collecting
                 # other metrics.
                 tensors: List[Optional[torch.Tensor]] = [p.grad]
                 prefixes: List[str] = [f"grad/{name}"]
-                if collect_param_metrics:
+                if collect_param_metrics or (regularize_embeddings and is_embedding_group):
                     state = self.get_state_for_param(p)
                     sorted_state_keys = sorted([k for k in state.keys()])
                     tensors.extend([p] + [state[key] for key in sorted_state_keys])
@@ -232,7 +234,7 @@ class Optimizer(OptimizerBase):
             all_metrics["clipping_rate"] = clipping_rate
             return all_metrics
         else:
-            return {}
+            return all_metrics
 
     @torch.no_grad()
     def _do_adaptive_clipping(
@@ -617,6 +619,7 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
     # Separate out parameters that we don't want to apply weight decay to, like norms and biases.
     decay = set()
     no_decay = set()
+    embeddings_decay = set()
     all_params = {}
     for mn, m in model.named_modules():
         for pn, p in m.named_parameters():
@@ -644,12 +647,14 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
             elif pn.endswith("weight") and isinstance(m, nn.Embedding):
                 if cfg.optimizer.decay_embeddings:
                     decay.add(fpn)
+                elif cfg.optimizer.regularize_embeddings:
+                    embeddings_decay.add(fpn)
                 else:
                     no_decay.add(fpn)
 
     # Validate that we've considered every parameter
-    inter_params = decay & no_decay
-    union_params = decay | no_decay
+    inter_params = decay & no_decay & embeddings_decay
+    union_params = decay | no_decay | embeddings_decay
     assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
     assert (
         len(all_params.keys() - union_params) == 0
@@ -658,12 +663,15 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
     # Create the pytorch optimizer groups.
     decay_sorted = sorted(list(decay))
     no_decay_sorted = sorted(list(no_decay))
+    embeddings_decay_sorted = sorted(list(embeddings_decay))
+
     param_groups = []
     if len(decay_sorted) > 0:
         param_groups.append(
             {
                 "params": [all_params[pn] for pn in decay_sorted],
                 "param_names": decay_sorted,
+                "name": "decay_group",
                 **param_group_defaults,
             }
         )
@@ -673,6 +681,17 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
                 "params": [all_params[pn] for pn in no_decay_sorted],
                 "param_names": no_decay_sorted,
                 "weight_decay": 0.0,
+                "name": "no_decay_group",
+                **param_group_defaults,
+            }
+        )
+    if len(embeddings_decay_sorted) > 0:
+        # the weight_decay value will be multiplied by emb_decay_factor in olmo/train.py
+        param_groups.append(
+            {
+                "params": [all_params[pn] for pn in embeddings_decay_sorted],
+                "param_names": embeddings_decay_sorted,
+                "name": "embedding_decay_group",
                 **param_group_defaults,
             }
         )

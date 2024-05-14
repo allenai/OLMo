@@ -717,7 +717,13 @@ class Trainer:
             # passing this process group here ensures metrics are reduced correctly when we're using
             # HYBRID sharding.
             process_group=self.fsdp_model.process_group,
+            regularize_embeddings=self.cfg.optimizer.regularize_embeddings,
         )
+
+        emb_norm = optim_metrics["param/transformer.wte.weight.norm"]
+        emb_size = self.cfg.model.embedding_size or self.cfg.model.vocab_size
+        emb_std = math.sqrt(math.pow(emb_norm, 2) / float(emb_size * self.cfg.model.vocab_size))
+        emb_decay_factor = 1.0 - emb_std
 
         # Adjust the learning rate.
         for group in self.optim.param_groups:
@@ -733,6 +739,9 @@ class Trainer:
             group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
                 self.cfg.max_grad_norm_ratio, self.scheduler_current, self.scheduler_max
             )
+
+            if group["name"] == "embedding_decay_group":
+                group["weight_decay"] *= emb_decay_factor
 
         # Optimizer step.
         self.optim.step()

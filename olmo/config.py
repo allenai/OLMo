@@ -482,6 +482,11 @@ class OptimizerConfig(BaseConfig):
     If not set, defaults to the wandb `log_interval`.
     """
 
+    regularize_embeddings: bool = False
+    """
+    Applies a regularizer to the embeddings that tries to pull them towards a standard deviation of 1.
+    """
+
     def __post_init__(self):
         self.betas = tuple(self.betas)  # type: ignore[assignment]
 
