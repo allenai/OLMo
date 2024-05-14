@@ -230,9 +230,7 @@ class Optimizer(OptimizerBase):
             else:
                 clipping_rate = torch.tensor(0.0, device="cpu")
             all_metrics["clipping_rate"] = clipping_rate
-            return all_metrics
-        else:
-            return {}
+        return all_metrics
 
     @torch.no_grad()
     def _do_adaptive_clipping(
