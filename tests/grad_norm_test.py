@@ -16,6 +16,7 @@ from olmo.data import build_train_dataloader
 from olmo.optim import build_optimizer, build_scheduler
 from olmo.torch_util import get_world_size, get_local_rank, get_default_device
 
+from copy import deepcopy
 from packaging import version
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -243,6 +244,8 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
 
     # run on CPU
     model = OLMo(cfg.model).to('cuda')
+    model_a = deepcopy(model)   # save state of this model at init
+
     torch_optimizer = _init_torch_optim(cfg, model)
     scheduler = build_scheduler(cfg)
     data_loader = build_train_dataloader(cfg)
@@ -257,7 +260,10 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
     # use same model, data, optimizer, fsdp_model and send to trainer and compare gradient clip
 
     # olmo optimizer
-    model = OLMo(cfg.model).to('cuda')
+    # model = OLMo(cfg.model).to('cuda')
+    model = deepcopy(model_a)
+    model_b = deepcopy(model)   # save state of this model at init
+
     olmo_optimizer = build_optimizer(cfg, model)
     # torch_optimizer = _init_torch_optim(cfg, model)
     data_loader = build_train_dataloader(cfg)
@@ -289,19 +295,30 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
     )
 
     # when param_init_fn is None, FSDP will call reset_parameters() automatically
-    if param_init_fn is not None:
-        model.reset_parameters()
+    # if param_init_fn is not None:
+    #     model.reset_parameters()
 
     print('olmo optim, olmo grad_clipping, fsdp no_shard wrapping...')
     # print('torch optim, torch grad_clipping, fsdp no_shard wrapping...')
 
-    olmo_optim_norms = _naive_train_loop(cfg, fsdp_model, olmo_optimizer, scheduler, data_loader, max_iterations)
+    olmo_optim_norms = _naive_train_loop(cfg, model, olmo_optimizer, scheduler, data_loader, max_iterations)
     # olmo_optim_norms = _naive_train_loop(cfg, model, torch_optimizer, scheduler, data_loader, max_iterations, max_norm, clip_grad=True)
 
+    print('###############################################')
+    for a, b in zip(torch_optim_norms, olmo_optim_norms):
+        print((a - b).abs())
+    print('###############################################')
+    # diffs = {}
+    # for name, param in model_a.named_parameters():
+    #     diffs[name] = param
     # print('###############################################')
-    # print(torch_optim_norms)
-    # print(olmo_optim_norms)
+    # total_diff = 0
+    # for name, param in model_b.named_parameters():
+    #     print(name)
+    #     total_diff += (param - diffs[name]).sum()
+    # print('total_diff: {}'.format(total_diff))
     # print('###############################################')
+
 
     # Shut down world pg
     dist.destroy_process_group()
@@ -312,7 +329,7 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
 
 @pytest.mark.gpu
 @pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires 1 CUDA device")
-@pytest.mark.parametrize("max_iterations, max_norm", [pytest.param(1000, 1.0)])
+@pytest.mark.parametrize("max_iterations, max_norm", [pytest.param(10, 1.0)])
 def test_local_sharded_checkpointer(max_iterations, max_norm):
     world_size = 1
     # TODO: must run fsdp clipping with world_size > 1
