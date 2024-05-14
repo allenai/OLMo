@@ -28,9 +28,9 @@ torchrun \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
   configs/mitchish7-s3.yaml \
-    --run_name=mitchish7-fp32 \
-    --wandb.name=mitchish7-fp32 \
-    --wandb.group=mitchish7-fp32 \
+    --run_name=mitchish7-fp32-run2 \
+    --wandb.name=mitchish7-fp32-run2 \
+    --wandb.group=mitchish7-fp32-run2 \
     --model.flash_attention=false \
     --fused_loss=false \
     --fsdp.wrapping_strategy=by_block_and_size \
@@ -44,5 +44,5 @@ torchrun \
     --precision=fp32 \
     --fsdp.precision=pure \
     --save_overwrite \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/mitchish7-fp32/}' \
+    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/mitchish7-fp32-run2/}' \
     --load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step614000/

@@ -5,9 +5,9 @@ set -ex
 NUM_NODES=8
 
 gantry run \
-  --workspace ai2/akshitab \
-  --task-name mitchish7-fp32 \
-  --description "OLMo medium - 7B - fp32" \
+  --workspace ai2/OLMo-training \
+  --task-name mitchish7-fp32-run2 \
+  --description "OLMo medium - 7B - fp32 - run2" \
   --priority high \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/pluto-cirrascale \
