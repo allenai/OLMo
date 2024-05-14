@@ -1,6 +1,6 @@
 import os
-import math
 import pytest
+import functools
 
 import torch
 import torch.nn as nn
@@ -19,6 +19,7 @@ from olmo.torch_util import get_world_size, get_local_rank, get_default_device
 from packaging import version
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.utils._foreach_utils import _group_tensors_by_device_and_dtype, _has_foreach_support, _device_has_foreach_support
 
 
 def _lm_loss(logits, labels):
@@ -112,6 +113,70 @@ def _patch_config(cfg, max_norm):
     return cfg
 
 
+def _no_grad(func):
+    def _no_grad_wrapper(*args, **kwargs):
+        with torch.no_grad():
+            return func(*args, **kwargs)
+    functools.update_wrapper(_no_grad_wrapper, func)
+    return _no_grad_wrapper
+
+
+@_no_grad
+def clip_grad_norm_(
+        parameters, max_norm, norm_type=2.0, error_if_nonfinite=False, foreach=None) -> torch.Tensor:
+    if isinstance(parameters, torch.Tensor):
+        parameters = [parameters]
+    grads = [p.grad for p in parameters if p.grad is not None]
+    max_norm = float(max_norm)
+    norm_type = float(norm_type)
+
+    if len(grads) == 0:
+        return torch.tensor(0.)
+
+    first_device = grads[0].device
+    grouped_grads = _group_tensors_by_device_and_dtype([grads])  # type: ignore[assignment]
+
+    norms = []
+    for ((device, _), ([device_grads], _)) in grouped_grads.items():  # type: ignore[assignment]
+        if (
+            (foreach is None and _has_foreach_support(device_grads, device))
+            or (foreach and _device_has_foreach_support(device))
+        ):
+            norms.extend(torch._foreach_norm(device_grads, norm_type))
+        elif foreach:
+            raise RuntimeError(f'foreach=True was passed, but can\'t use the foreach API on {device.type} tensors')
+        else:
+            norms.extend([torch.linalg.vector_norm(g, norm_type) for g in device_grads])
+
+    total_norm = torch.linalg.vector_norm(torch.stack([norm.to(first_device) for norm in norms]), norm_type)
+
+    if error_if_nonfinite and torch.logical_or(total_norm.isnan(), total_norm.isinf()):
+        raise RuntimeError(
+            f'The total norm of order {norm_type} for gradients from '
+            '`parameters` is non-finite, so it cannot be clipped. To disable '
+            'this error and scale the gradients by the non-finite norm anyway, '
+            'set `error_if_nonfinite=False`')
+    clip_coef = max_norm / (total_norm + 1e-6)
+    # Note: multiplying by the clamped coef is redundant when the coef is clamped to 1, but doing so
+    # avoids a `if clip_coef < 1:` conditional which can require a CPU <=> device synchronization
+    # when the gradients do not reside in CPU memory.
+    clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
+    for ((device, _), ([device_grads], _)) in grouped_grads.items():  # type: ignore[assignment]
+        if (
+            (foreach is None and _has_foreach_support(device_grads, device))
+            or (foreach and _device_has_foreach_support(device))
+        ):
+            torch._foreach_mul_(device_grads, clip_coef_clamped.to(device))
+        elif foreach:
+            raise RuntimeError(f'foreach=True was passed, but can\'t use the foreach API on {device.type} tensors')
+        else:
+            clip_coef_clamped_device = clip_coef_clamped.to(device)
+            for g in device_grads:
+                g.mul_(clip_coef_clamped_device)
+
+    return total_norm
+
+
 def _naive_train_loop(cfg, model, optimizer, scheduler, data_loader, max_iterations, max_norm=1.0, clip_grad=False):
     len_dataloader = 3
     max_epochs = max_iterations // len_dataloader + 1
@@ -129,7 +194,8 @@ def _naive_train_loop(cfg, model, optimizer, scheduler, data_loader, max_iterati
             loss.backward()
 
             if clip_grad:
-                norm_vector.append(nn.utils.clip_grad_norm_(model.parameters(), max_norm))
+                # norm_vector.append(nn.utils.clip_grad_norm_(model.parameters(), max_norm))
+                norm_vector.append(clip_grad_norm_(model.parameters(), max_norm))
             else:
                 norm_vector.append(optimizer.clip_grads_and_collect_metrics(step_count)["total_grad_norm"])
 
@@ -193,6 +259,7 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
     # olmo optimizer
     model = OLMo(cfg.model).to('cuda')
     olmo_optimizer = build_optimizer(cfg, model)
+    # torch_optimizer = _init_torch_optim(cfg, model)
     data_loader = build_train_dataloader(cfg)
     scheduler = build_scheduler(cfg)
 
@@ -226,8 +293,10 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
         model.reset_parameters()
 
     print('olmo optim, olmo grad_clipping, fsdp no_shard wrapping...')
+    # print('torch optim, torch grad_clipping, fsdp no_shard wrapping...')
 
     olmo_optim_norms = _naive_train_loop(cfg, fsdp_model, olmo_optimizer, scheduler, data_loader, max_iterations)
+    # olmo_optim_norms = _naive_train_loop(cfg, model, torch_optimizer, scheduler, data_loader, max_iterations, max_norm, clip_grad=True)
 
     # print('###############################################')
     # print(torch_optim_norms)
@@ -246,6 +315,8 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
 @pytest.mark.parametrize("max_iterations, max_norm", [pytest.param(1000, 1.0)])
 def test_local_sharded_checkpointer(max_iterations, max_norm):
     world_size = 1
+    # TODO: must run fsdp clipping with world_size > 1
+    # world_size = torch.cuda.device_count()
     mp.spawn(
         _run_olmo_grad_norm_againt_torch_grad_norm,
         args=(world_size, max_iterations, max_norm),
