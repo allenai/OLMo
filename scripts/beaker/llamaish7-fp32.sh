@@ -44,5 +44,5 @@ torchrun \
     --precision=fp32 \
     --fsdp.precision=pure \
     --optimizer.metrics_log_interval=1 \
-    --save_overwrite \
+    --save_overwrite
     '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-fp32/}'
