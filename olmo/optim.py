@@ -110,7 +110,7 @@ class Optimizer(OptimizerBase):
                                 torch.tensor([x.numel()], device=device, dtype=torch.float32)
                             )
                         per_param_norm_metrics.append(
-                            torch.linalg.vector_norm(x, 2.0, dtype=torch.float32, device=device).unsqueeze(0)
+                            torch.linalg.vector_norm(x, 2.0, dtype=torch.float32).unsqueeze(0).to(device=device)
                         )
                     else:
                         if collect_param_metrics:
