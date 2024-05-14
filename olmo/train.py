@@ -721,7 +721,10 @@ class Trainer:
         )
         if self.cfg.use_torch_clipping:
             assert self.cfg.max_grad_norm is not None
-            total_norm = self.fsdp_model.clip_grad_norm_(self.cfg.max_grad_norm)
+            if self.cfg.fsdp.enabled:
+                total_norm = self.fsdp_model.clip_grad_norm_(self.cfg.max_grad_norm)
+            else:
+                total_norm = torch.nn.utils.clip_grad_norm_(self.fsdp_model.parameters(), self.cfg.max_grad_norm)
             optim_metrics["torch_total_grad_norm"] = total_norm
 
         # Adjust the learning rate.
