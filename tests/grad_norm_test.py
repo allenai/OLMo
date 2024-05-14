@@ -178,43 +178,64 @@ def clip_grad_norm_(
     return total_norm
 
 
-def _naive_train_loop(cfg, model, optimizer, scheduler, data_loader, max_iterations, max_norm=1.0, clip_grad=False):
+def _apply_scheduler(cfg, step_count, scheduler, optimizer):
+    for group in optimizer.param_groups:
+        group["lr"] = scheduler.get_lr(cfg.optimizer.learning_rate, step_count, cfg.scheduler.t_max)
+        group["max_grad_norm"] = scheduler.get_max_grad_norm(cfg.max_grad_norm, step_count, cfg.scheduler.t_max)
+        group["max_grad_norm_ratio"] = scheduler.get_max_grad_norm(cfg.max_grad_norm_ratio, step_count, cfg.scheduler.t_max)
+
+
+def _naive_train_loop(
+    cfg,
+    model_a,
+    model_b,
+    optimizer_a,
+    optimizer_b,
+    scheduler_a,
+    scheduler_b,
+    data_loader,
+    max_iterations,
+    max_norm=1.0,
+):
     len_dataloader = 3
     max_epochs = max_iterations // len_dataloader + 1
-    norm_vector = []
+    norm_vector_a = []
+    norm_vector_b = []
 
     for epoch in range(max_epochs):
         for idx, batch in enumerate(data_loader):
             step_count = epoch * len_dataloader + idx
-            optimizer.zero_grad()
 
-            logits = model(batch['input_ids'].to('cuda')).logits
+            optimizer_a.zero_grad()
+            optimizer_b.zero_grad()
 
-            # compute loss
-            loss = _lm_loss(logits, batch['input_ids'].to('cuda').clone())
-            loss.backward()
+            # send exact same batch to both models
+            logits_a = model_a(batch['input_ids'].to('cuda')).logits
+            logits_b = model_b(batch['input_ids'].to('cuda')).logits
 
-            if clip_grad:
-                # norm_vector.append(nn.utils.clip_grad_norm_(model.parameters(), max_norm))
-                norm_vector.append(clip_grad_norm_(model.parameters(), max_norm))
-            else:
-                norm_vector.append(optimizer.clip_grads_and_collect_metrics(step_count)["total_grad_norm"])
+            loss_a = _lm_loss(logits_a, batch['input_ids'].to('cuda').clone())
+            loss_b = _lm_loss(logits_b, batch['input_ids'].to('cuda').clone())
 
-            # apply scheduler
-            for group in optimizer.param_groups:
-                group["lr"] = scheduler.get_lr(cfg.optimizer.learning_rate, step_count, cfg.scheduler.t_max)
-                group["max_grad_norm"] = scheduler.get_max_grad_norm(cfg.max_grad_norm, step_count, cfg.scheduler.t_max)
-                group["max_grad_norm_ratio"] = scheduler.get_max_grad_norm(cfg.max_grad_norm_ratio, step_count, cfg.scheduler.t_max)
+            loss_a.backward()
+            loss_b.backward()
 
-            optimizer.step()
+            norm_vector_a.append(clip_grad_norm_(model_a.parameters(), max_norm))
+            norm_vector_b.append(optimizer_b.clip_grads_and_collect_metrics(step_count)["total_grad_norm"])
+
+            # apply olmo scheduler updates
+            _apply_scheduler(cfg, step_count, scheduler_a, optimizer_a)
+            _apply_scheduler(cfg, step_count, scheduler_b, optimizer_b)
+
+            optimizer_a.step()
+            optimizer_b.step()
 
             if step_count % 100 == 0:
-                print('Step: {:4d}, Loss: {:.4f}'.format(step_count, loss))
+                print('Step: {:4d}, Loss_a: {:.4f}, Loss_b: {:.4f}'.format(step_count, loss_a, loss_b))
 
             if step_count == max_iterations:
                 break
 
-    return norm_vector
+    return norm_vector_a, norm_vector_b
 
 
 def _run_olmo_grad_norm_againt_torch_grad_norm(
@@ -242,83 +263,28 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
 
     print('pytorch optim, pytorch grad_clipping, no model wrapping...')
 
-    # run on CPU
-    model = OLMo(cfg.model).to('cuda')
-    model_a = deepcopy(model)   # save state of this model at init
-
-    torch_optimizer = _init_torch_optim(cfg, model)
-    scheduler = build_scheduler(cfg)
+    model_a = OLMo(cfg.model).to('cuda')
+    torch_optimizer = _init_torch_optim(cfg, model_a)
+    scheduler_a = build_scheduler(cfg)
     data_loader = build_train_dataloader(cfg)
-
-    torch_optim_norms = _naive_train_loop(cfg, model, torch_optimizer, scheduler, data_loader, max_iterations, max_norm, clip_grad=True)
-
-    del model
-    del torch_optimizer
-    del scheduler
-    del data_loader
-
-    # use same model, data, optimizer, fsdp_model and send to trainer and compare gradient clip
 
     # olmo optimizer
-    # model = OLMo(cfg.model).to('cuda')
-    model = deepcopy(model_a)
-    model_b = deepcopy(model)   # save state of this model at init
+    model_b = deepcopy(model_a)
+    olmo_optimizer = build_optimizer(cfg, model_b)
+    scheduler_b = build_scheduler(cfg)
 
-    olmo_optimizer = build_optimizer(cfg, model)
-    # torch_optimizer = _init_torch_optim(cfg, model)
-    data_loader = build_train_dataloader(cfg)
-    scheduler = build_scheduler(cfg)
-
-    if version.parse(torch.__version__) >= version.parse("2.1.0"):
-        # This prevents any parameters from being initialized twice
-        def dummy_init_fn(module: torch.nn.Module) -> None:
-            module.to_empty(device=get_default_device())
-
-        param_init_fn = dummy_init_fn
-    else:
-        param_init_fn = None
-
-    # build fsdp config
-    fsdp_model = FSDP(
-        model,
-        sharding_strategy=ShardingStrategy.NO_SHARD,
-        mixed_precision=MixedPrecision(
-            param_dtype=torch.float32,
-            reduce_dtype=torch.float32,
-            buffer_dtype=torch.float32,
-        ),
-        auto_wrap_policy=None,
-        use_orig_params=True,  # needed for compile and some of our optimizer/parameter metrics
-        limit_all_gathers=True,
-        device_id=get_local_rank(),
-        param_init_fn=param_init_fn,
+    _naive_train_loop(
+        cfg=cfg,
+        model_a=model_a,
+        model_b=model_b,
+        optimizer_a=torch_optimizer,
+        optimizer_b=olmo_optimizer,
+        scheduler_a=scheduler_a,
+        scheduler_b=scheduler_b,
+        data_loader=data_loader,
+        max_iterations=max_iterations,
+        max_norm=1.0,
     )
-
-    # when param_init_fn is None, FSDP will call reset_parameters() automatically
-    # if param_init_fn is not None:
-    #     model.reset_parameters()
-
-    print('olmo optim, olmo grad_clipping, fsdp no_shard wrapping...')
-    # print('torch optim, torch grad_clipping, fsdp no_shard wrapping...')
-
-    olmo_optim_norms = _naive_train_loop(cfg, model, olmo_optimizer, scheduler, data_loader, max_iterations)
-    # olmo_optim_norms = _naive_train_loop(cfg, model, torch_optimizer, scheduler, data_loader, max_iterations, max_norm, clip_grad=True)
-
-    print('###############################################')
-    for a, b in zip(torch_optim_norms, olmo_optim_norms):
-        print((a - b).abs())
-    print('###############################################')
-    # diffs = {}
-    # for name, param in model_a.named_parameters():
-    #     diffs[name] = param
-    # print('###############################################')
-    # total_diff = 0
-    # for name, param in model_b.named_parameters():
-    #     print(name)
-    #     total_diff += (param - diffs[name]).sum()
-    # print('total_diff: {}'.format(total_diff))
-    # print('###############################################')
-
 
     # Shut down world pg
     dist.destroy_process_group()
@@ -327,9 +293,9 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
     assert False
 
 
-@pytest.mark.gpu
-@pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires 1 CUDA device")
-@pytest.mark.parametrize("max_iterations, max_norm", [pytest.param(10, 1.0)])
+# @pytest.mark.gpu
+# @pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires 1 CUDA device")
+# @pytest.mark.parametrize("max_iterations, max_norm", [pytest.param(10, 1.0)])
 def test_local_sharded_checkpointer(max_iterations, max_norm):
     world_size = 1
     # TODO: must run fsdp clipping with world_size > 1
@@ -340,3 +306,6 @@ def test_local_sharded_checkpointer(max_iterations, max_norm):
         nprocs=world_size,
         join=True,
     )
+
+if __name__ == "__main__":
+    test_local_sharded_checkpointer(1000, 1.0)
