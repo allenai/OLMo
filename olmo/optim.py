@@ -79,8 +79,6 @@ class Optimizer(OptimizerBase):
         #######################################################################
         # part 1: collect metrics locally
         #######################################################################
-
-        # Collect metrics locally.
         for group in self.param_groups:
             for name, p in zip(group["param_names"], group["params"]):
                 name = self._clean_param_name(name)
@@ -141,13 +139,12 @@ class Optimizer(OptimizerBase):
             return metric_name.startswith("grad/") and metric_name.endswith(".norm")
 
         #######################################################################
-        # part 2: reduce metrics
+        # part 2: reduce metrics over ranks
         #######################################################################
         param_group_sharded = False
         for group in self.param_groups:
             param_group_sharded = param_group_sharded or group.get("sharded", False)
 
-        # Now reduce metrics over all ranks.
         total_grad_norm: torch.Tensor
         per_param_avg_metrics: List[torch.Tensor] = []
         if is_distributed() and param_group_sharded:
@@ -201,12 +198,13 @@ class Optimizer(OptimizerBase):
 
         # Collect all metrics into a single dict.
         all_metrics: Dict[str, torch.Tensor] = {}
-        for metric_name, metric in zip(per_param_min_metric_names, per_param_min_metrics):
-            all_metrics[metric_name] = metric.squeeze(0)
-        for metric_name, metric in zip(per_param_max_metric_names, per_param_max_metrics):
-            all_metrics[metric_name] = metric.squeeze(0)
-        for metric_name, metric in zip(per_param_avg_metric_names, per_param_avg_metrics):
-            all_metrics[metric_name] = metric.squeeze(0)
+        if collect_param_metrics:
+            for metric_name, metric in zip(per_param_min_metric_names, per_param_min_metrics):
+                all_metrics[metric_name] = metric.squeeze(0)
+            for metric_name, metric in zip(per_param_max_metric_names, per_param_max_metrics):
+                all_metrics[metric_name] = metric.squeeze(0)
+            for metric_name, metric in zip(per_param_avg_metric_names, per_param_avg_metrics):
+                all_metrics[metric_name] = metric.squeeze(0)
         for metric_name, metric in zip(per_param_norm_metric_names, per_param_norm_metrics):
             all_metrics[metric_name] = metric.squeeze(0)
         all_metrics["total_grad_norm"] = total_grad_norm
@@ -214,19 +212,13 @@ class Optimizer(OptimizerBase):
         #######################################################################
         # part 3: clip grads
         #######################################################################
-
-        # Clip gradients.
         num_grads_clipped = 0
         num_eligible_grads = 0
         for group in self.param_groups:
             if (max_norm_ratio := group.get("max_grad_norm_ratio")) is not None:
-                num_clipped = self._do_adaptive_clipping(
-                    group, max_norm_ratio, global_step, all_metrics, collect_param_metrics=collect_param_metrics
-                )
+                num_clipped = self._do_adaptive_clipping(roup, max_norm_ratio, global_step, all_metrics, collect_param_metrics=True)
             elif (max_norm := group.get("max_grad_norm")) is not None:
-                num_clipped = self._do_global_fixed_clipping(
-                    group, max_norm, all_metrics, collect_param_metrics=collect_param_metrics
-                )
+                num_clipped = self._do_global_fixed_clipping(group, max_norm, all_metrics, collect_param_metrics=True)
             else:
                 # No clipping needed.
                 continue
@@ -234,15 +226,13 @@ class Optimizer(OptimizerBase):
             if num_clipped is not None:
                 num_grads_clipped += num_clipped
 
-        if collect_param_metrics:
-            if num_eligible_grads > 0:
-                clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
-            else:
-                clipping_rate = torch.tensor(0.0, device="cpu")
-            all_metrics["clipping_rate"] = clipping_rate
-            return all_metrics
+        if num_eligible_grads > 0:
+            clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
         else:
-            return {}
+            clipping_rate = torch.tensor(0.0, device="cpu")
+        all_metrics["clipping_rate"] = clipping_rate
+
+        return all_metrics
 
     @torch.no_grad()
     def _do_adaptive_clipping(
