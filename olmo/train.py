@@ -717,7 +717,12 @@ class Trainer:
             # passing this process group here ensures metrics are reduced correctly when we're using
             # HYBRID sharding.
             process_group=None,
+            do_clipping=not self.cfg.use_torch_clipping,
         )
+        if self.cfg.use_torch_clipping:
+            assert self.cfg.max_grad_norm is not None
+            total_norm = self.fsdp_model.clip_grad_norm_(self.cfg.max_grad_norm)
+            optim_metrics["torch_total_grad_norm"] = total_norm
 
         # Adjust the learning rate.
         for group in self.optim.param_groups:

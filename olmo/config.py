@@ -995,6 +995,11 @@ class TrainConfig(BaseConfig):
     Clip gradient norms to this value if set.
     """
 
+    use_torch_clipping: bool = False
+    """
+    If set, use torch's global grad clipping. Requires `max_grad_norm` to be set.
+    """
+
     max_grad_norm_ratio: Optional[float] = None
     """
     If set, gradient norms will be clipped to `max_grad_norm_ratio * exp_avg(norm(grad))`.

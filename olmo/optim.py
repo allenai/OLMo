@@ -43,6 +43,7 @@ class Optimizer(OptimizerBase):
         global_step: int,
         collect_param_metrics: bool = True,
         process_group: Optional[dist.ProcessGroup] = None,
+        do_clipping: bool = True,
     ) -> Dict[str, torch.Tensor]:
         """
         Clips gradients for every group that has the field `max_grad_norm`.
@@ -208,21 +209,22 @@ class Optimizer(OptimizerBase):
         # Clip gradients.
         num_grads_clipped = 0
         num_eligible_grads = 0
-        for group in self.param_groups:
-            if (max_norm_ratio := group.get("max_grad_norm_ratio")) is not None:
-                num_clipped = self._do_adaptive_clipping(
-                    group, max_norm_ratio, global_step, all_metrics, collect_param_metrics=collect_param_metrics
-                )
-            elif (max_norm := group.get("max_grad_norm")) is not None:
-                num_clipped = self._do_global_fixed_clipping(
-                    group, max_norm, all_metrics, collect_param_metrics=collect_param_metrics
-                )
-            else:
-                # No clipping needed.
-                continue
-            num_eligible_grads += len(group["params"])
-            if num_clipped is not None:
-                num_grads_clipped += num_clipped
+        if do_clipping:
+            for group in self.param_groups:
+                if (max_norm_ratio := group.get("max_grad_norm_ratio")) is not None:
+                        num_clipped = self._do_adaptive_clipping(
+                            group, max_norm_ratio, global_step, all_metrics, collect_param_metrics=collect_param_metrics
+                        )
+                elif (max_norm := group.get("max_grad_norm")) is not None:
+                    num_clipped = self._do_global_fixed_clipping(
+                        group, max_norm, all_metrics, collect_param_metrics=collect_param_metrics
+                    )
+                else:
+                    # No clipping needed.
+                    continue
+                num_eligible_grads += len(group["params"])
+                if num_clipped is not None:
+                    num_grads_clipped += num_clipped
 
         if collect_param_metrics:
             if num_eligible_grads > 0:
