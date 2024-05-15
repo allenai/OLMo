@@ -39,7 +39,7 @@ model:
   moe_top_k: 1
   moe_num_experts: 1
   moe_dropless: true
-  moe_expert_model_parallelism: true
+  moe_expert_model_parallelism: false
 
 compile: null
 

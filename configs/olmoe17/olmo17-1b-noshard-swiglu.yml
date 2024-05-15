@@ -11,7 +11,7 @@ model:
   d_model: 2048
   n_heads: 16
   n_layers: 16
-  mlp_ratio: 4
+  mlp_ratio: 8
   weight_tying: false
   alibi: false
   rope: true
@@ -20,12 +20,12 @@ model:
   attention_layer_norm: false
   clip_qkv: 8.0
   include_bias: false
-  block_type: moe
+  block_type: sequential
   layer_norm_type: default
   layer_norm_with_affine: false
   bias_for_layer_norm: false
   attention_layer_norm_with_affine: false
-  activation_type: gelu ###
+  activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
   max_sequence_length: 4096
@@ -35,11 +35,6 @@ model:
   pad_token_id: 1
   init_device: meta
   init_fn: normal ###
-  moe_top_k: 1
-  moe_num_experts: 8
-  moe_expert_model_parallelism: false
-  moe_dropless: true
-  share_experts: false
 
 compile: null
 

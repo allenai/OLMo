@@ -1,6 +1,7 @@
 run_name: ${oc.env:SLURM_JOB_ID}
 seed: 6198
 dry_run: false
+no_pre_train_checkpoint: true
 
 wandb:
   name: ${run_name}
@@ -8,17 +9,17 @@ wandb:
   group: null
 
 model:
-  d_model: 2048
-  n_heads: 16
-  n_layers: 16
-  mlp_ratio: 4
+  d_model: 512
+  n_heads: 8
+  n_layers: 8
+  mlp_ratio: 4 ###
   weight_tying: false
   alibi: false
   rope: true
   flash_attention: true
   attention_dropout: 0.0
   attention_layer_norm: false
-  clip_qkv: 8.0
+  #clip_qkv: 8.0 ###
   include_bias: false
   block_type: moe
   layer_norm_type: default
@@ -28,12 +29,12 @@ model:
   activation_type: gelu ###
   residual_dropout: 0.0
   embedding_dropout: 0.0
-  max_sequence_length: 4096
+  max_sequence_length: 2048
   vocab_size: 50280
   embedding_size: 50304
   eos_token_id: 0
   pad_token_id: 1
-  init_device: meta
+  init_device: cpu ### meta
   init_fn: normal ###
   moe_top_k: 1
   moe_num_experts: 8
@@ -83,14 +84,14 @@ load_path: null
 
 max_duration: 3e12T
 global_train_batch_size: 512
-device_train_microbatch_size: 4
+device_train_microbatch_size: 32
 
 precision: amp_bf16
 
 fsdp:
   wrapping_strategy: null
   precision: mixed
-  sharding_strategy: NO_SHARD
+  sharding_strategy: FULL_SHARD
 
 max_grad_norm: 1.0
 max_grad_norm_ratio: null

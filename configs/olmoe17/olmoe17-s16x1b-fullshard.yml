@@ -1,6 +1,7 @@
 run_name: ${oc.env:SLURM_JOB_ID}
 seed: 6198
 dry_run: false
+no_pre_train_checkpoint: true
 
 wandb:
   name: ${run_name}
@@ -11,7 +12,7 @@ model:
   d_model: 2048
   n_heads: 16
   n_layers: 16
-  mlp_ratio: 4
+  mlp_ratio: 4 ###
   weight_tying: false
   alibi: false
   rope: true
@@ -36,10 +37,12 @@ model:
   init_device: meta
   init_fn: normal ###
   moe_top_k: 1
-  moe_num_experts: 8
+  moe_num_experts: 16
   moe_expert_model_parallelism: false
   moe_dropless: true
-  share_experts: false
+  share_experts: true
+  share_load_balance_across_layers: true
+
 
 compile: null
 
@@ -90,7 +93,7 @@ precision: amp_bf16
 fsdp:
   wrapping_strategy: null
   precision: mixed
-  sharding_strategy: NO_SHARD
+  sharding_strategy: FULL_SHARD
 
 max_grad_norm: 1.0
 max_grad_norm_ratio: null

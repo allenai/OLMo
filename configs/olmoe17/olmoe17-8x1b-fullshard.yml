@@ -19,7 +19,7 @@ model:
   flash_attention: true
   attention_dropout: 0.0
   attention_layer_norm: false
-  clip_qkv: 8.0
+  #clip_qkv: 8.0 ###
   include_bias: false
   block_type: moe
   layer_norm_type: default
@@ -34,7 +34,7 @@ model:
   embedding_size: 50304
   eos_token_id: 0
   pad_token_id: 1
-  init_device: meta
+  init_device: meta ### meta
   init_fn: normal ###
   moe_top_k: 1
   moe_num_experts: 8
@@ -84,7 +84,7 @@ load_path: null
 
 max_duration: 3e12T
 global_train_batch_size: 512
-device_train_microbatch_size: 1 # 8 oom
+device_train_microbatch_size: 4 # 8 oom
 
 precision: amp_bf16
 
@@ -92,6 +92,7 @@ fsdp:
   wrapping_strategy: null
   precision: mixed
   sharding_strategy: FULL_SHARD
+  use_orig_params: false ###
 
 max_grad_norm: 1.0
 max_grad_norm_ratio: null
