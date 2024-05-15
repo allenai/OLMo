@@ -111,6 +111,10 @@ def _patch_config(cfg, max_norm):
     cfg.max_grad_norm = max_norm
     cfg.seed = 6198
 
+    cfg.model.attention_dropout = 0.
+    cfg.model.residual_dropout = 0.
+    cfg.model.embedding_dropou = 0.
+
     return cfg
 
 
@@ -185,6 +189,12 @@ def _apply_scheduler(cfg, step_count, scheduler, optimizer):
         group["max_grad_norm_ratio"] = scheduler.get_max_grad_norm(cfg.max_grad_norm_ratio, step_count, cfg.scheduler.t_max)
 
 
+# run on cpu
+# cuda_launch_blocking
+# deterministic-kernels
+# disable clipping
+# coefficient
+# step 0 should match
 def _naive_train_loop(
     cfg,
     model_a,
@@ -206,31 +216,47 @@ def _naive_train_loop(
         for idx, batch in enumerate(data_loader):
             step_count = epoch * len_dataloader + idx
 
-            optimizer_a.zero_grad()
             optimizer_b.zero_grad()
+            optimizer_a.zero_grad()
+
+            from olmo.torch_util import seed_all
+            seed_all(step_count)
 
             # send exact same batch to both models
-            logits_a = model_a(batch['input_ids'].to('cuda')).logits
             logits_b = model_b(batch['input_ids'].to('cuda')).logits
-
-            loss_a = _lm_loss(logits_a, batch['input_ids'].to('cuda').clone())
+            logits_a = model_a(batch['input_ids'].to('cuda')).logits
+            
             loss_b = _lm_loss(logits_b, batch['input_ids'].to('cuda').clone())
+            loss_a = _lm_loss(logits_a, batch['input_ids'].to('cuda').clone())
 
-            loss_a.backward()
             loss_b.backward()
+            loss_a.backward()
 
-            norm_vector_a.append(clip_grad_norm_(model_a.parameters(), max_norm))
-            norm_vector_b.append(optimizer_b.clip_grads_and_collect_metrics(step_count)["total_grad_norm"])
+            ##########################################################
+            # # deepcopy model_b and apply cliping at a param level
+            # model_b_params = []
+
+            # for name, param in model_b.named_parameters():
+            #     model_b_params.append(deepcopy(param))
+            #     model_b_params[-1].grad = deepcopy(param.grad)
+
+            # total_norm = clip_grad_norm_(model_b_params, max_norm=1.)
+            ##########################################################
+
+            # norm_vector_b.append(optimizer_b.clip_grads_and_collect_metrics(step_count)["total_grad_norm"])
+            # norm_vector_a.append(clip_grad_norm_(model_a.parameters(), max_norm))
+
+            # assert (total_norm - norm_vector_b[-1]).abs() < 1e-4
 
             # apply olmo scheduler updates
-            _apply_scheduler(cfg, step_count, scheduler_a, optimizer_a)
             _apply_scheduler(cfg, step_count, scheduler_b, optimizer_b)
+            _apply_scheduler(cfg, step_count, scheduler_a, optimizer_a)
 
-            optimizer_a.step()
             optimizer_b.step()
+            optimizer_a.step()
 
             if step_count % 100 == 0:
-                print('Step: {:4d}, Loss_a: {:.4f}, Loss_b: {:.4f}'.format(step_count, loss_a, loss_b))
+                print('Step: {:4d}, Loss_b: {:.4f}, Loss_a: {:.4f}'.format(step_count, loss_b, loss_a))
 
             if step_count == max_iterations:
                 break
@@ -261,8 +287,6 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
     cfg = TrainConfig.load("test_fixtures/train_tiny.yaml")
     cfg = _patch_config(cfg, max_norm)
 
-    print('pytorch optim, pytorch grad_clipping, no model wrapping...')
-
     model_a = OLMo(cfg.model).to('cuda')
     torch_optimizer = _init_torch_optim(cfg, model_a)
     scheduler_a = build_scheduler(cfg)
@@ -283,7 +307,7 @@ def _run_olmo_grad_norm_againt_torch_grad_norm(
         scheduler_b=scheduler_b,
         data_loader=data_loader,
         max_iterations=max_iterations,
-        max_norm=1.0,
+        max_norm=max_norm,
     )
 
     # Shut down world pg
