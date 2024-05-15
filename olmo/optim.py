@@ -652,7 +652,7 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
                     decay.add(fpn)
                 else:
                     no_decay.add(fpn)
-            elif megablocks_available and pn.endswith(("w1", "w2")) and (isinstance(m, MLP) or isinstance(m, SparseMLP)):
+            elif megablocks_available and pn.endswith(("w1", "w2", "v1")) and (isinstance(m, MLP) or isinstance(m, SparseMLP)):
                 decay.add(fpn)
 
     # Validate that we've considered every parameter
@@ -726,6 +726,13 @@ def fix_optim_state_dict(optimizer: Optimizer, state_dict: Dict[str, Any]) -> Di
 
 def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
     param_groups = get_param_groups(cfg, model)
+    #named_parameters = list(model.named_parameters())
+    #no_decay_params = []  # to be potentially used later
+    #params = [p for n, p in named_parameters if p.requires_grad]
+    #param_groups = [
+    #    {"params": no_decay_params, "weight_decay": 0.0},
+    #    {"params": params, "weight_decay": cfg.optimizer.weight_decay},
+    #]
     log.info(f"Constructing optimizer with {len(param_groups)} param groups")
     if cfg.optimizer.name == OptimizerType.lionw:
         return LionW(

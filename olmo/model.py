@@ -716,6 +716,7 @@ class OLMoEBlock(OLMoBlock):
                 return_bias=False,
             )
             if self.config.share_experts:
+                assert self.config.moe_dropless, "Only dropless is supported for shared experts"
                 self.ffn = dMoSE(self.moe_args)
                 if self.layer_id == 0:
                     self.ffn.experts = ParallelDroplessMLP(self.moe_args)
@@ -792,6 +793,14 @@ class OLMoEBlock(OLMoBlock):
                 )
                 if self.ffn.experts.bias is not None:
                     torch.nn.init.zeros_(self.ffn.experts.bias)
+                if hasattr(self.ffn.experts.mlp, "v1"):
+                    init_weights(
+                        self.ffn.experts.mlp.v1,
+                        self.config,
+                        d=self.config.d_model,
+                        layer_id=None,
+                        type_of_module=ModuleType.in_module,
+                    )
             init_weights(
                 self.ffn.router.layer,
                 self.config,
