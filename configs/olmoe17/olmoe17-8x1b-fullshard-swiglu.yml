@@ -2,7 +2,7 @@ run_name: ${oc.env:SLURM_JOB_ID}
 seed: 6198
 dry_run: false
 no_pre_train_checkpoint: true
-activation_checkpointing: whole_layer
+#activation_checkpointing: whole_layer
 
 wandb:
   name: ${run_name}
