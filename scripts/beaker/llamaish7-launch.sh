@@ -5,7 +5,7 @@ set -ex
 NUM_NODES=8
 
 gantry run \
-  --workspace ai2/OLMo-training \
+  --workspace ai2/dirkg \
   --task-name llamaish7-EmbInitFix \
   --description "OLMo medium - 7B - Llamaish - EmbInitFix" \
   --priority high \
