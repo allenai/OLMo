@@ -28,9 +28,9 @@ torchrun \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
   configs/llamaish7-s3.yaml \
-    --run_name=llamaish7-EmbInitFix \
-    --wandb.name=llamaish7-EmbInitFix \
-    --wandb.group=llamaish7-EmbInitFix \
+    --run_name=llamaish7-EmbInitFix-nogcwu \
+    --wandb.name=llamaish7-EmbInitFix-nogcwu \
+    --wandb.group=llamaish7-EmbInitFix-nogcwu \
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
@@ -40,8 +40,10 @@ torchrun \
     --device_train_microbatch_size=2 \
     --global_train_batch_size=1024 \
     --save_interval=250 \
-    --eval_interval=50 \
+    --eval_interval=250 \
     --optimizer.metrics_log_interval=1 \
+    --scheduler.grad_clip_warmup_steps=null \
+    --stop_after=10000 \
     --save_overwrite \
     --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded
     #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/}'
