@@ -41,6 +41,7 @@ torchrun \
     --global_train_batch_size=1024 \
     --save_interval=250 \
     --eval_interval=50 \
-    --optimizer.metrics_log_interval=1
-    #--save_overwrite \
+    --optimizer.metrics_log_interval=1 \
+    --save_overwrite \
+    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded
     #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/}'
