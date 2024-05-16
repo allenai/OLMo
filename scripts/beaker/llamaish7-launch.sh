@@ -8,7 +8,7 @@ gantry run \
   --workspace ai2/dirkg \
   --task-name llamaish7-EmbInitFix \
   --description "OLMo medium - 7B - Llamaish - EmbInitFix" \
-  --priority high \
+  --priority normal \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/pluto-cirrascale \
   --gpus 8 \
