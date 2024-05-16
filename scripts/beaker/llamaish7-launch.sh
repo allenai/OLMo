@@ -6,8 +6,8 @@ NUM_NODES=8
 
 gantry run \
   --workspace ai2/dirkg \
-  --task-name llamaish7-EmbInitFix-nogcwu \
-  --description "OLMo medium - 7B - Llamaish - EmbInitFix - No grad clipping warmup" \
+  --task-name llamaish7-EmbInitFix-nogcwu-0 \
+  --description "OLMo medium - 7B - Llamaish - EmbInitFix - No grad clipping warmup - start from 0 lr" \
   --priority normal \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale \

@@ -21,16 +21,16 @@ export HF_DATASETS_OFFLINE=1
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
-  --rdzv_id=19347 \
+  --rdzv_id=19747 \
   --rdzv_backend=static \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   --node_rank=$BEAKER_REPLICA_RANK \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
   configs/llamaish7-s3.yaml \
-    --run_name=llamaish7-EmbInitFix-nogcwu \
-    --wandb.name=llamaish7-EmbInitFix-nogcwu \
-    --wandb.group=llamaish7-EmbInitFix-nogcwu \
+    --run_name=llamaish7-EmbInitFix-nogcwu-0 \
+    --wandb.name=llamaish7-EmbInitFix-nogcwu-0 \
+    --wandb.group=llamaish7-EmbInitFix-nogcwu-0 \
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
@@ -43,6 +43,7 @@ torchrun \
     --eval_interval=250 \
     --optimizer.metrics_log_interval=1 \
     --scheduler.grad_clip_warmup_steps=null \
+    --scheduler.warmup_min_lr=0 \
     --stop_after=10000 \
     --save_overwrite \
     --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded
