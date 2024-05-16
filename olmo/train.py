@@ -151,12 +151,13 @@ class Trainer:
                 cross_entropy_loss,
             )
 
+            # The `ignored_index` parameter of `cross_entropy_loss` was changed to `ignore_index` in v2.5.8 with commit https://github.com/Dao-AILab/flash-attention/commit/ec6d22143b5d375e253b2ebfc563b26a43f43684
+            ce_loss_use_ignore_index_param = version.parse(flash_attn.__version__) >= version.parse("2.5.8")
+
             def fused_loss_fn(
                 logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False
             ):
-                ignore_index_kwarg = {}
-                if version.parse(flash_attn.__version__) >= version.parse("2.5.8"):
-                    # The parameter name was changed in v2.5.8 with commit https://github.com/Dao-AILab/flash-attention/commit/ec6d22143b5d375e253b2ebfc563b26a43f43684
+                if ce_loss_use_ignore_index_param:
                     ignore_index_kwarg = {"ignore_index": ignore_index}
                 else:
                     ignore_index_kwarg = {"ignored_index": ignore_index}
