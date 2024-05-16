@@ -70,7 +70,7 @@ def init_weights(
         elif type_of_module == ModuleType.emb:
             # positional embeddings (wpe)
             # token embeddings (wte)
-            std = config.init_std
+            std = config.init_std * math.sqrt(config.d_model)
         elif type_of_module == ModuleType.final_out:
             # final output (ff_out)
             std = config.d_model**-0.5
