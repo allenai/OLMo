@@ -38,7 +38,15 @@ jobs:
           - python: '3.10'
             task:
               name: Test
-              run: pytest -v --color=yes --durations=5 tests/
+              run: |
+                pytest -v --color=yes --durations=5 tests/ \
+                  --ignore-glob='tests/hf_olmo/*'
+
+          - python: '3.10'
+            task:
+              name: Test HF
+              run: |
+                pytest -v --color=yes --durations=5 tests/hf_olmo
 
           - python: '3.10'
             task:
