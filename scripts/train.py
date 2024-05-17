@@ -160,9 +160,8 @@ def main(cfg: TrainConfig) -> None:
         if num_model_replicas <= 0:
             raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must be a positive integer")
 
-        num_nodes = get_world_size() // get_local_world_size()
-        if num_nodes > 1 and num_nodes % num_model_replicas != 0:
-            raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must divide number of nodes")
+        if get_world_size() % num_model_replicas != 0:
+            raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must divide world size")
 
         device_mesh = init_device_mesh("cuda", (num_model_replicas, get_world_size() // num_model_replicas))
         hybrid_sharding_fsdp_kwargs["device_mesh"] = device_mesh
