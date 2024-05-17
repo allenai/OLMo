@@ -28,9 +28,9 @@ torchrun \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
   configs/pile-llamaish7-s3.yaml \
-    --run_name=pile-llamaish7 \
-    --wandb.name=pile-llamaish7 \
-    --wandb.group=pile-llamaish7 \
+    --run_name=pile-llamaish7-llama-toke \
+    --wandb.name=pile-llamaish7-llama-toke  \
+    --wandb.group=pile-llamaish7-llama  \
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
@@ -42,4 +42,4 @@ torchrun \
     --save_interval=50 \
     --eval_interval=50 \
     --optimizer.metrics_log_interval=1 \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/pile-llamaish7/}'
+    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/pile-llamaish7-llama/}'

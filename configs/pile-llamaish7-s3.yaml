@@ -1,11 +1,11 @@
-run_name: pile-llamaish7-001
+run_name: pile-llamaish7-llama-tokenizer-001
 seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-medium
-  group: pile-llamaish7
+  group: pile-llamaish7-llama-tokenizer-001
 
 model:
   d_model: 4096
@@ -30,10 +30,10 @@ model:
   residual_dropout: 0.0
   embedding_dropout: 0.0
   max_sequence_length: 4096
-  vocab_size: 50280
-  embedding_size: 50304
-  eos_token_id: 0
-  pad_token_id: 1
+  vocab_size: 32000
+  embedding_size: 32000
+  eos_token_id: 2
+  pad_token_id: null
   init_device: meta
   init_fn: full_megatron
   init_std: 0.006
@@ -62,7 +62,7 @@ scheduler:
   grad_clip_warmup_factor: 5
 
 tokenizer:
-  identifier: tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
+  identifier: tokenizers/nousresearch-llama-2-7b-hf.json
   truncate_direction: right
 
 save_folder: runs/${run_name}
@@ -130,87 +130,10 @@ evaluators:
   ##########################
   # Downstream evaluations #
   ##########################
-  - label: piqa
-    type: downstream
 
   - label: hellaswag
     type: downstream
 
-  - label: winogrande
-    type: downstream
-
-  - label: openbook_qa
-    type: downstream
-
-  - label: boolq
-    type: downstream
- 
-  - label: sciq
-    type: downstream
-
-  - label: arc_easy
-    type: downstream
-
-  - label: arc_challenge
-    type: downstream
-
-  - label: copa
-    type: downstream
-
-  #- label: rte
-  #  type: downstream
-
-  #- label: commitment_bank
-  #  type: downstream
-
-  #- label: sst2
-  #  type: downstream
-
-  - label: commonsense_qa
-    type: downstream
-
-  - label: social_iqa
-    type: downstream
-
-  # Doesn't work from cache.
-  # - label: basic_arithmetic
-  #   type: downstream
-
-  - label: mmlu_stem_var
-    type: downstream
-
-  - label: mmlu_humanities_var
-    type: downstream
-
-  - label: mmlu_social_sciences_var
-    type: downstream
-
-  - label: mmlu_other_var
-    type: downstream
-
-  - label: mmlu_stem_mc_5shot
-    type: downstream
-
-  - label: mmlu_humanities_mc_5shot
-    type: downstream
-
-  - label: mmlu_social_sciences_mc_5shot
-    type: downstream
-
-  - label: mmlu_other_mc_5shot
-    type: downstream
-
-  - label: mmlu_stem_mc_5shot_test
-    type: downstream
-
-  - label: mmlu_humanities_mc_5shot_test
-    type: downstream
-
-  - label: mmlu_social_sciences_mc_5shot_test
-    type: downstream
-
-  - label: mmlu_other_mc_5shot_test
-    type: downstream
 
 data:
   pad_direction: right
@@ -226,303 +149,44 @@ data:
     repetition_max_count: 32
   paths:
     ######### PILE #########
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-000-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-000-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-001-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-001-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-002-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-002-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-003-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-003-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-004-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-004-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-005-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-005-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-006-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-006-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-007-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-007-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-008-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-008-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-009-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-009-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-010-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-010-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-011-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-011-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-012-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-012-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-013-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-013-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-014-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-014-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-015-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-015-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-016-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-016-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-017-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-017-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-018-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-018-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-019-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-019-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-020-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-020-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-021-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-021-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-022-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-022-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-023-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-023-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-024-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-024-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-025-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-025-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-026-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-026-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-027-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-027-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-028-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-028-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-029-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-029-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-030-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-030-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-031-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-031-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-032-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-032-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-033-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-033-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-034-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-034-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-035-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-035-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-036-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-036-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-037-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-037-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-038-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-038-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-039-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-039-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-040-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-040-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-041-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-041-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-042-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-042-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-043-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-043-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-044-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-044-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-045-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-045-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-046-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-046-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-047-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-047-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-048-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-048-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-049-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-049-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-050-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-050-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-051-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-051-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-052-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-052-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-053-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-053-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-054-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-054-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-055-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-055-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-056-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-056-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-057-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-057-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-058-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-058-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-059-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-059-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-060-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-060-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-061-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-061-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-062-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-062-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-063-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-063-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-064-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-064-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-065-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-065-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-066-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-066-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-067-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-067-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-068-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-068-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-069-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-069-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-070-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-070-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-071-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-071-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-072-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-072-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-073-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-073-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-074-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-074-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-075-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-075-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-076-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-076-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-077-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-077-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-078-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-078-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-079-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-079-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-080-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-080-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-081-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-081-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-082-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-082-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-083-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-083-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-084-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-084-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-085-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-085-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-086-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-086-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-087-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-087-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-088-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-088-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-089-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-089-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-090-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-090-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-091-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-091-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-092-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-092-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-093-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-093-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-094-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-094-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-095-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-095-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-096-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-096-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-097-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-097-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-098-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-098-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-099-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-099-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-100-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-100-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-101-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-101-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-102-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-102-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-103-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-103-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-104-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-104-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-105-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-105-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-106-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-106-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-107-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-107-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-108-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-108-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-109-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-109-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-110-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-110-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-111-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-111-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-112-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-112-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-113-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-113-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-114-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-114-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-115-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-115-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-116-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-116-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-117-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-117-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-118-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-118-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-119-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-119-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-120-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-120-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-121-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-121-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-122-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-122-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-123-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-123-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-124-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-124-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-125-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-125-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-126-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-126-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-127-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-127-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-128-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-128-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-129-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-129-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-130-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-130-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-131-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-131-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-132-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-132-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-133-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-133-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-134-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-134-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-135-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-135-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-136-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-136-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-137-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-137-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-138-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-138-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-139-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-139-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-140-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-140-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-141-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-141-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-142-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-142-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-143-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-143-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-144-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-144-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-145-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-145-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-146-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-146-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-147-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-147-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-148-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-148-00001.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-149-00000.npy
-    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/gpt-neox-20b-pii-special/part-149-00001.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-00-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-01-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-02-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-03-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-04-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-05-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-06-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-07-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-08-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-09-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-10-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-11-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-12-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-13-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-14-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-15-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-16-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-17-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-18-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-19-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-20-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-21-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-22-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-23-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-24-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-25-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-26-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-27-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-28-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-29-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-30-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-31-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-32-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-33-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-34-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-35-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-36-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-37-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-38-00000.npy
+    - s3://ai2-llm/preprocessed/pile/v0_decon_ppl_suite_v3_fixed/nousresearch-llama-2-7b-hf/part-39-00000.npy
+
