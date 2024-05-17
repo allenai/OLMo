@@ -451,6 +451,11 @@ class ModelConfig(BaseConfig):
     The capacity factor to use in the MoE block.
     """
 
+    moe_mlp_impl: Optional[str] = "sparse"
+    """
+    Choose "grouped" for grouped GEMM installable via megablocks[gg]
+    """
+
     moe_loss_weight: Optional[float] = 0.1
     """
     The weight to use for the MoE loss.
