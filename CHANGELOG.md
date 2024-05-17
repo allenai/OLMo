@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added original legacy unsharding implementation back, as the default. The new
 shared memory implementation can be used by passing `use_legacy_shared_mem_impl` to `unshard.py`.
 
+### Fixed
+
+- Changed from `ignored_index` to `ignore_index` for `cross_entropy_loss` when `flash-attn>=2.5.8`.
+
 ## [v0.3.0](https://github.com/allenai/OLMo/releases/tag/v0.3.0) - 2024-04-25
 
 ### Added
