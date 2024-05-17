@@ -42,7 +42,7 @@ compile: null
 
 optimizer:
   name: adamw
-  learning_rate: 0.00002277  # This is the lr where the 100B config had the last grad norm spike.
+  learning_rate: 3.084e-05  # was safe in previous runs
   weight_decay: 0.1
   decay_norm_and_bias: true
   decay_embeddings: false
