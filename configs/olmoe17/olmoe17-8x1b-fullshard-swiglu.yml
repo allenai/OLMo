@@ -91,7 +91,7 @@ precision: amp_bf16
 fsdp:
   wrapping_strategy: null
   precision: mixed
-  sharding_strategy: NO_SHARD
+  sharding_strategy: FULL_SHARD
 
 max_grad_norm: 1.0
 max_grad_norm_ratio: null
