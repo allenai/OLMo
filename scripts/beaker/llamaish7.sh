@@ -28,10 +28,12 @@ torchrun \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
   configs/llamaish7-s3.yaml \
-    --run_name=llamaish7-EmbInitFix-nogcwu-0 \
-    --wandb.name=llamaish7-EmbInitFix-nogcwu-0 \
-    --wandb.group=llamaish7-EmbInitFix-nogcwu-0 \
-    --model.flash_attention=true \
+    --run_name=llamaish7-EmbInitFix-nogcwu-alibi \
+    --wandb.name=llamaish7-EmbInitFix-nogcwu-alibi \
+    --wandb.group=llamaish7-EmbInitFix-nogcwu-alibi \
+    --model.flash_attention=false \
+    --model.alibi=true \
+    --model.rope=false \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
     --save_folder=runs/ \
