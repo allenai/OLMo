@@ -697,7 +697,6 @@ class OLMoEBlock(OLMoBlock):
             self.moe_args = MoEArgs(
                 activation_fn=F.silu if 'glu' in config.activation_type.lower() else self.act,
                 mlp_type='glu' if 'glu' in config.activation_type.lower() else 'mlp',
-                # Recommended for H100s by megablocks & 2-3x faster:
                 mlp_impl=config.moe_mlp_impl,
                 hidden_size=config.d_model,
                 ffn_hidden_size=int(self.act.output_multiplier * self.hidden_size),
@@ -854,14 +853,8 @@ class OLMoEBlock(OLMoBlock):
         else:
             x = self.ff_norm(x)
 
-        if self._activation_checkpoint_fn is not None:
-            x = self._activation_checkpoint_fn(getattr(self, "ffn", ffn), x)  # type: ignore
-        else:
-            x = getattr(self, "ffn", ffn)(x)
-        x = self.dropout(x)
-        x = og_x + x
-
-        return x, cache
+        # Activation checkpointing for the MoE FFN is not supported
+        return og_x + self.dropout(getattr(self, "ffn", ffn)(x)), cache
 
 
 class OLMoSequentialBlock(OLMoBlock):
@@ -1418,7 +1411,6 @@ class OLMo(nn.Module):
 
         # decoder layers
         all_hidden_states = []
-
         # Apply blocks one-by-one.
         if self.config.block_group_size == 1:
             for i in range(self.config.n_layers):
