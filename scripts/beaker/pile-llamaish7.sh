@@ -42,4 +42,3 @@ torchrun \
     --save_interval=50 \
     --eval_interval=50 \
     --optimizer.metrics_log_interval=1 \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/pile-llamaish7-llama/}'
