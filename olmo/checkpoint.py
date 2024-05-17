@@ -695,7 +695,6 @@ class FullCheckpointer(Checkpointer):
                     state_dict_to_load,
                     og_keys_to_new,
                 ) = fsdp_model._fsdp_wrapped_module._make_state_dict_compatible(state_dict_to_load)
-
                 for module_name, module in fsdp_model.named_modules():
                     if not isinstance(module, FSDP):
                         continue
@@ -749,7 +748,7 @@ class FullCheckpointer(Checkpointer):
                 trainer_state = load_state_dict(load_path, "train.pt", local_cache=local_cache)
             except FileNotFoundError:
                 # for backwards compatibility
-                trainer_state = load_state_dict(load_path, "other.pt", local_cache=local_cache)
+                trainer_state = None#load_state_dict(load_path, "other.pt", local_cache=local_cache)
         barrier()
         return trainer_state
 
