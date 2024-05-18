@@ -2,6 +2,9 @@ run_name: ${oc.env:SLURM_JOB_ID}
 seed: 6198
 dry_run: false
 no_pre_train_checkpoint: true
+fast_forward_batches: 136153
+# 69710336 / 512 = 136153
+# 954000
 #activation_checkpointing: whole_layer
 
 wandb:
@@ -41,6 +44,7 @@ model:
   moe_num_experts: 8
   moe_expert_model_parallelism: false
   moe_dropless: true
+  moe_mlp_impl: grouped
 
 compile: null
 
@@ -82,7 +86,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 3e12T
+max_duration: 2ep
 global_train_batch_size: 512
 device_train_microbatch_size: 1
 

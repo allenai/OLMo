@@ -560,6 +560,13 @@ class Trainer:
         )
         if load_trainer_state:
             self.load_trainer_state_dict(trainer_state)
+        elif self.cfg.fast_forward_batches:
+            log.info(f"Fast-forwarding data loader by {self.cfg.fast_forward_batches:,d} steps")
+            self.global_train_examples_seen_this_epoch = (
+                self.cfg.fast_forward_batches * self.cfg.global_train_batch_size
+            )
+            log.info(f"Data loader will start at instance index {self.global_train_examples_seen_this_epoch:,d}")
+            self.dataset.start_index = self.global_train_examples_seen_this_epoch
         barrier()
 
     def save_unsharded_checkpoint(self) -> Tuple[PathOrStr, Optional[PathOrStr]]:
@@ -598,6 +605,13 @@ class Trainer:
         )
         if load_trainer_state:
             self.load_trainer_state_dict(trainer_state)
+        elif self.cfg.fast_forward_batches:
+            log.info(f"Fast-forwarding data loader by {self.cfg.fast_forward_batches:,d} steps")
+            self.global_train_examples_seen_this_epoch += (
+                self.cfg.fast_forward_batches * self.cfg.global_train_batch_size
+            )
+            log.info(f"Data loader will start at instance index {self.global_train_examples_seen_this_epoch:,d}")
+            self.dataset.start_index = self.global_train_examples_seen_this_epoch
         barrier()
 
     def save_checkpoint(
