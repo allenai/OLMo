@@ -1,11 +1,11 @@
-run_name: olmo70b-from205000-100B
+run_name: olmo70b-from205000-150B
 seed: 61394
 dry_run: false
 
 wandb:
   name: ${run_name}
-  project: olmo-annealing
-  group: olmo70b-from205000-100B
+  project: olmo-large
+  group: olmo70b-from205000-150BB
 
 model:
   d_model: 8192
