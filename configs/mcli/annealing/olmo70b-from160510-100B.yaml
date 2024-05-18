@@ -55,7 +55,7 @@ compute:
   - inst-kc1z1-r15z3-workers
   - inst-cm3ec-r15z3-workers
   - inst-xtbwa-r15z3-workers
-  - inst-lorl8-r15z3-workers
+  # - inst-lorl8-r15z3-workers
   - inst-aixwt-r15z3-workers
   - inst-i6mnk-r15z3-workers
   - inst-bktpo-r15z3-workers
@@ -125,7 +125,7 @@ compute:
   - inst-6tz4b-r15z3-workers
   - inst-jmxxa-r15z3-workers
   - inst-drkao-r15z3-workers
-  #- inst-lpz5k-r15z3-workers
+  - inst-lpz5k-r15z3-workers
   #- inst-bv9yy-r15z3-workers
   #- inst-pyzpn-r15z3-workers
   #- inst-ivjqi-r15z3-workers
