@@ -192,4 +192,4 @@ command: |-
     --time_limit=604800 \
     --load_path=s3://ai2-llm/checkpoints/davidw/annealing/olmo70b-from160510-100B/step750 \
     --restore_dataloader=true \
-    --reset_trainer_state=true
+    --reset_trainer_state=false
