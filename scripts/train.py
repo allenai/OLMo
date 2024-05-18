@@ -31,7 +31,12 @@ from olmo.torch_util import (
     seed_all,
 )
 from olmo.train import Trainer
-from olmo.util import clean_opt, log_extra_field, prepare_cli_environment
+from olmo.util import (
+    add_cached_path_clients,
+    clean_opt,
+    log_extra_field,
+    prepare_cli_environment,
+)
 
 log = logging.getLogger("train")
 
@@ -155,9 +160,8 @@ def main(cfg: TrainConfig) -> None:
         if num_model_replicas <= 0:
             raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must be a positive integer")
 
-        num_nodes = get_world_size() // get_local_world_size()
-        if num_nodes > 1 and num_nodes % num_model_replicas != 0:
-            raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must divide number of nodes")
+        if get_world_size() % num_model_replicas != 0:
+            raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must divide world size")
 
         device_mesh = init_device_mesh("cuda", (num_model_replicas, get_world_size() // num_model_replicas))
         hybrid_sharding_fsdp_kwargs["device_mesh"] = device_mesh
@@ -284,6 +288,8 @@ if __name__ == "__main__":
 
     prepare_cli_environment()
     log.info("CLI environment prepared")
+
+    add_cached_path_clients()
 
     try:
         yaml_path, args_list = sys.argv[1], sys.argv[2:]

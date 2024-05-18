@@ -55,7 +55,9 @@ from .torch_util import (
     gc_cuda,
     get_fs_local_rank,
     get_global_rank,
-    get_world_size, get_local_world_size, get_local_rank,
+    get_local_rank,
+    get_local_world_size,
+    get_world_size,
 )
 from .util import (
     _get_s3_client,
@@ -373,6 +375,8 @@ class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
                 _get_s3_client("s3")
             elif self.upload_to.startswith("r2://"):
                 _get_s3_client("r2")
+            elif self.upload_to.startswith("weka://"):
+                _get_s3_client("weka")
 
             with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
                 futures = []
@@ -436,6 +440,8 @@ class RemoteFileSystemReader(dist_cp.StorageReader):
                 _get_s3_client("s3")
             elif self.path.startswith("r2://"):
                 _get_s3_client("r2")
+            elif self.path.startswith("weka://"):
+                _get_s3_client("weka")
 
         with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
             read_item_content_futures = []

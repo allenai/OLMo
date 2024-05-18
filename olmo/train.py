@@ -19,10 +19,10 @@ import numpy as np
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
+import wandb
+from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DataLoader
-
-import wandb
 
 from .aliases import PathOrStr
 from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
@@ -146,22 +146,31 @@ class Trainer:
 
     def __post_init__(self):
         if self.cfg.fused_loss:
+            import flash_attn
             from flash_attn.ops.triton.cross_entropy import (  # type: ignore
                 cross_entropy_loss,
             )
 
+            # The `ignored_index` parameter of `cross_entropy_loss` was changed to `ignore_index` in v2.5.8 with commit https://github.com/Dao-AILab/flash-attention/commit/ec6d22143b5d375e253b2ebfc563b26a43f43684
+            ce_loss_use_ignore_index_param = version.parse(flash_attn.__version__) >= version.parse("2.5.8")
+
             def fused_loss_fn(
                 logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False
             ):
+                if ce_loss_use_ignore_index_param:
+                    ignore_index_kwarg = {"ignore_index": ignore_index}
+                else:
+                    ignore_index_kwarg = {"ignored_index": ignore_index}
+
                 loss, z_loss = cross_entropy_loss(
                     logits,
                     labels,
                     label_smoothing=0.0,
                     logit_scale=1.0,
                     lse_square_scale=0.0,
-                    ignored_index=ignore_index,
                     inplace_backward=False,
                     process_group=None,
+                    **ignore_index_kwarg,
                 )
 
                 mask = labels != ignore_index
@@ -641,7 +650,7 @@ class Trainer:
     def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
-        batch_size_in_tokens = batch['input_ids'].numel()
+        batch_size_in_tokens = batch["input_ids"].numel()
 
         # In case this helps with memory utilization.
         del batch
@@ -652,9 +661,7 @@ class Trainer:
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                 # Run forward pass.
                 ce_loss, z_loss, logits = self.model_forward(
-                    micro_batch,
-                    compute_z_loss=self.cfg.softmax_auxiliary_loss,
-                    loss_reduction="sum"
+                    micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss, loss_reduction="sum"
                 )
                 ce_loss = ce_loss / batch_size_in_tokens
 
@@ -836,7 +843,8 @@ class Trainer:
                 [
                     f"    {name}={format_float(value)}"
                     for name, value in metrics.items()
-                    if name == "optim/total_grad_norm" or not name.startswith("optim/")  # there's too many optimizer metrics
+                    if name == "optim/total_grad_norm"
+                    or not name.startswith("optim/")  # there's too many optimizer metrics
                 ]
             )
         )
