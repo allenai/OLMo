@@ -8,7 +8,7 @@ from safetensors.torch import save_file
 # llm/checkpoints/22315/step1000/model/rank_0.safetensors
 ckptpath = sys.argv[1]
 outpath = sys.argv[2]
-share_experts = True
+share_experts = False
 n_experts = 16
 
 metapath = ckptpath.replace("rank_0.safetensors", "metadata.json")
@@ -19,7 +19,6 @@ with safe_open(ckptpath, framework="pt", device="cpu") as f:
         print(key)
         tensors[key] = f.get_tensor(key)
         if "ff_proj.weight" in key:
-            #import pdb; pdb.set_trace()
             if share_experts:
                 t, b, _, _, _ = key.split(".") # transformer.blocks.9.ff_proj.weight
                 new_key = ".".join([t, b, "0", "ffn", "experts", "mlp", "w1"])
@@ -42,7 +41,6 @@ with safe_open(ckptpath, framework="pt", device="cpu") as f:
                 meta['tensors'][new_key] = meta['tensors'].pop(key)
 
         elif ("ff_out.weight" in key) and (key != 'transformer.ff_out.weight'):
-            #import pdb; pdb.set_trace()
             if share_experts:
                 t, b, _, _, _ = key.split(".") # transformer.blocks.9.ff_proj.weight
                 new_key = ".".join([t, b, "0", "ffn", "experts", "mlp", "w2"])
