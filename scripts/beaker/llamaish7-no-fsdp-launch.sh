@@ -3,7 +3,7 @@
 set -ex
 
 NUM_NODES=1
-GPUS_PER_NODE
+GPUS_PER_NODE=2
 PROCS_PER_NODE=1
 
 gantry run \
