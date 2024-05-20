@@ -14,7 +14,7 @@ There are 2 categories of OLMo checkpoints:
 - unsharded: a complete checkpoint in a standard form;
 - sharded: a checkpoint that has been broken down into smaller components, for easier use in our multi-node training.
 
-Unless otherwise specified, an OLMo checkpoint is assumed to be unsharded. OLMo sharded and unsharded checkpoints can run the pretraining and fine-tuning provided in this repo.
+Unless otherwise specified, an OLMo checkpoint is assumed to be unsharded. OLMo sharded and unsharded checkpoints can be used with the pretraining/fine-tuning script provided in this repo.
 
 #### Sharded OLMo Checkpoints
 
