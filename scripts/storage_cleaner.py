@@ -31,6 +31,7 @@ from olmo.checkpoint import (
     Checkpointer,
     LocalShardedCheckpointer,
     TorchLegacyShardedCheckpointer,
+    build_sharded_checkpointer,
 )
 from olmo.config import ShardedCheckpointerType, TrainConfig
 
@@ -890,13 +891,7 @@ def _unshard_checkpoint(
         # This is a hack, but decoupling unsharding for checkpoint saving/loading
         # seems like overkill.
         dummy_config = TrainConfig.new()
-        checkpointer: Checkpointer
-        if sharded_checkpoint_type == ShardedCheckpointerType.torch_legacy:
-            checkpointer = TorchLegacyShardedCheckpointer(dummy_config)
-        elif sharded_checkpoint_type == ShardedCheckpointerType.local:
-            checkpointer = LocalShardedCheckpointer(dummy_config)
-        else:
-            raise NotImplementedError(sharded_checkpoint_type)
+        checkpointer = build_sharded_checkpointer(dummy_config)
 
         model_state_dict, optim_state_dict, trainer_state_dict = checkpointer.unshard_checkpoint(
             sharding_input_dir
