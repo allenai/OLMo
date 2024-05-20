@@ -8,7 +8,7 @@ shift
 NUM_NODES=$1
 shift
 
-GPUS_PER_NODE=$1
+PROCS_PER_NODE=$1
 shift
 
 BEAKER_REPLICA_RANK=$1
@@ -28,7 +28,7 @@ printenv AWS_CREDENTIALS > ~/.aws/credentials
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
-  --nproc-per-node ${GPUS_PER_NODE} \
+  --nproc-per-node ${PROCS_PER_NODE} \
   --rdzv_id=12347 \
   --rdzv_backend=static \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \

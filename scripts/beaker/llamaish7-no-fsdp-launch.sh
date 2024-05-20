@@ -3,7 +3,8 @@
 set -ex
 
 NUM_NODES=1
-GPUS_PER_NODE=2
+GPUS_PER_NODE
+PROCS_PER_NODE=1
 
 gantry run \
   --workspace ai2/OLMo-training \
@@ -32,4 +33,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/llamaish7-no-fsdp.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${GPUS_PER_NODE} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/llamaish7-no-fsdp.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${PROCS_PER_NODE} \$BEAKER_REPLICA_RANK"
