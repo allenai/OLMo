@@ -9,7 +9,7 @@ gantry run \
   --workspace ai2/OLMo-training \
   --task-name llama-detailed-no-fdsp \
   --description "OLMo training stability run with no FSDP" \
-  --priority medium \
+  --priority normal \
   --beaker-image shanea/olmo-torch2.2-weka-gantry \
   --cluster ai2/pluto-cirrascale \
   --gpus "${GPUS_PER_NODE}" \
