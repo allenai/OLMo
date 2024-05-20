@@ -146,7 +146,7 @@ integrations:
     ssh_clone: true
   - integration_type: git_repo
     git_repo: allenai/OLMo-core
-    git_branch: main
+    git_branch: WorksTorch22
     pip_install: -e .
     ssh_clone: true
 env_variables:
