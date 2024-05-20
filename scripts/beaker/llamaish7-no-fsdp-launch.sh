@@ -6,10 +6,10 @@ NUM_NODES=1
 GPUS_PER_NODE=2
 
 gantry run \
-  --workspace ai2/shanea \
-  --task-name lr-schedule-const-lr-7B \
+  --workspace ai2/OLMo-training \
+  --task-name llama-detailed-no-fdsp \
   --description "OLMo training stability run with no FSDP" \
-  --priority high \
+  --priority medium \
   --beaker-image shanea/olmo-torch2.2-weka-gantry \
   --cluster ai2/pluto-cirrascale \
   --gpus "${GPUS_PER_NODE}" \
