@@ -5,12 +5,12 @@ set -ex
 NUM_NODES=8
 
 gantry run \
-  --workspace ai2/ananyaj \
-  --task-name llamaish7-EmbInitFix-nogcwu-alibi \
-  --description "OLMo medium - 7B - Llamaish - EmbInitFix - No grad clipping warmup - start from 0 lr - alibi" \
-  --priority normal \
+  --workspace ai2/OLMo-training \
+  --task-name llamaish7-EmbInitFix-nogcwu-0-rope-theta-500k \
+  --description "OLMo medium - 7B - Llamaish - EmbInitFix - No grad clipping warmup - start from 0 lr - rope - theta - 500k" \
+  --priority high \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/jupiter-cirrascale \
+  --cluster ai2/pluto-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
@@ -22,7 +22,7 @@ gantry run \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
-  --env-secret WANDB_API_KEY=WANDB_API_KEY \
+  --env-secret WANDB_API_KEY=ANANYA_WANDB_API_KEY \
   --env-secret AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID \
   --env-secret AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY \
   --shared-memory 10GiB \
