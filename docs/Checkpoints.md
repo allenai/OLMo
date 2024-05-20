@@ -19,10 +19,10 @@ Unless otherwise specified, an OLMo checkpoint is assumed to be unsharded. OLMo 
 #### Sharded OLMo Checkpoints
 
 There are currently 4 types of sharded checkpoints:
-- torch_legacy,
-- torch_new,
-- local,
-- olmo_core.
+- `torch_legacy`,
+- `torch_new`,
+- `local`,
+- and `olmo_core`.
 
 We are still working on improving sharded checkpointing and thus do not have any guidelines for using them at present. A sharded checkpoint can be converted to an unsharded checkpoint using [unshard.py](https://github.com/allenai/OLMo/blob/main/scripts/unshard.py).
 
