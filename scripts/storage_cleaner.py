@@ -28,7 +28,7 @@ from rich.progress import track
 from olmo import util
 from olmo.aliases import PathOrStr
 from olmo.checkpoint import build_sharded_checkpointer
-from olmo.config import ShardedCheckpointerType, TrainConfig
+from olmo.config import TrainConfig
 
 log = logging.getLogger(__name__)
 
@@ -877,8 +877,6 @@ def _unshard_checkpoint(
         if sharded_checkpoint_type_str == "legacy":
             # At some point, the enum string for ShardedCheckpointerType.torch_legacy was "legacy"
             sharded_checkpoint_type_str = "torch_legacy"
-
-        sharded_checkpoint_type = ShardedCheckpointerType[sharded_checkpoint_type_str]
 
         # The ShardedCheckpointers require a `TrainConfig` to be passed in, but
         # legacy configs are not all compatible with this class. None of the config
