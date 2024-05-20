@@ -52,6 +52,7 @@ torchrun \
     --model.init_device=cuda \
     --model.parallelize_model \
     --save_overwrite \
-    --load_path=weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/llamaish7-detailed/step2750
+    --load_path=/net/nfs.cirrascale/allennlp/shanea/checkpoints/llamaish7-detailed/step2750-unsharded
 
+# --load_path=weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/llamaish7-detailed/step2750
 # --load_path=/net/nfs.cirrascale/allennlp/shanea/checkpoints/llamaish7-detailed/step2800-unsharded
