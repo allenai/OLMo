@@ -902,6 +902,7 @@ def _unshard_checkpoint(
             sharding_input_dir,
             sharding_output_dir,
             e,
+            exc_info=True,
         )
 
         if training_config_added:
