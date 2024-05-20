@@ -855,7 +855,7 @@ def _add_training_config_to_checkpoint(local_checkpoint_dir: str, run_dir: str) 
 
 def _unshard_checkpoint(
     sharded_checkpoint_dir: str, dest_dir: str, run_dir: str, unsharding_config: UnshardCheckpointsConfig
-):
+) -> bool:
     local_storage = LocalFileSystemAdapter()
 
     # Download checkpoint to a temp dir if it is in cloud storage
@@ -909,7 +909,7 @@ def _unshard_checkpoint(
             local_storage.delete_path(str(Path(sharding_input_dir) / CONFIG_YAML))
 
         local_storage.delete_path(sharding_output_dir)
-        return
+        return False
 
     # model
     model_output = str(Path(sharding_output_dir) / "model.pt")
@@ -941,6 +941,7 @@ def _unshard_checkpoint(
 
     dest_storage = _get_storage_adapter_for_path(dest_dir)
     dest_storage.upload(sharding_output_dir, dest_dir)
+    return True
 
 
 def _unshard_checkpoints(
@@ -986,11 +987,12 @@ def _unshard_checkpoints(
 
         if config.dry_run:
             log.info("Would unshard sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
+            unsharding_suceeded = True
         else:
             log.info("Unsharding sharded checkpoint %s to %s", sharded_checkpoint_directory, dest_directory)
-            _unshard_checkpoint(sharded_checkpoint_directory, dest_directory, run_dir, config)
+            unsharding_suceeded = _unshard_checkpoint(sharded_checkpoint_directory, dest_directory, run_dir, config)
 
-        if config.delete_sharded_checkpoints:
+        if unsharding_suceeded and config.delete_sharded_checkpoints:
             assert run_dir == run_dir_or_archive
             if config.dry_run:
                 log.info("Would delete sharded checkpoint %s", sharded_checkpoint_directory)
