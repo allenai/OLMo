@@ -28,7 +28,7 @@ from rich.progress import track
 from olmo import util
 from olmo.aliases import PathOrStr
 from olmo.checkpoint import build_sharded_checkpointer
-from olmo.config import TrainConfig
+from olmo.config import ShardedCheckpointerType, TrainConfig
 
 log = logging.getLogger(__name__)
 
@@ -878,13 +878,15 @@ def _unshard_checkpoint(
             # At some point, the enum string for ShardedCheckpointerType.torch_legacy was "legacy"
             sharded_checkpoint_type_str = "torch_legacy"
 
+        sharded_checkpoint_type = ShardedCheckpointerType[sharded_checkpoint_type_str]
+
         # The ShardedCheckpointers require a `TrainConfig` to be passed in, but
         # legacy configs are not all compatible with this class. None of the config
         # settings are needed for unsharding, so we pass in a dummy config instead.
         # This is a hack, but decoupling unsharding for checkpoint saving/loading
         # seems like overkill.
         dummy_config = TrainConfig.new()
-        checkpointer = build_sharded_checkpointer(dummy_config)
+        checkpointer = build_sharded_checkpointer(dummy_config, name=sharded_checkpoint_type)
 
         model_state_dict, optim_state_dict, trainer_state_dict = checkpointer.unshard_checkpoint(
             sharding_input_dir
