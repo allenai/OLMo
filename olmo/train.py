@@ -247,6 +247,7 @@ class Trainer:
                 moe_loss_weight=self.model.config.moe_loss_weight,
                 fp16=False,
                 bf16=False,
+                shared_expert=self.model.config.moe_shared_expert,
             )
 
     @property

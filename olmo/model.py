@@ -713,6 +713,7 @@ class OLMoEBlock(OLMoBlock):
                 fp16=False,
                 bias=self.config.include_bias,
                 return_bias=False,
+                shared_expert=self.config.moe_shared_expert,
             )
             if self.config.share_experts:
                 assert self.config.moe_dropless, "Only dropless is supported for shared experts"
@@ -1169,6 +1170,13 @@ class OLMo(nn.Module):
                 warnings.warn(
                     "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
                 )
+
+        # Validate MoE-related restrictions
+        if self.config.block_type == BlockType.moe:
+            if self.config.moe_expert_model_parallelism:
+                raise OLMoConfigurationError("Expert model parallelism is currently not working with MoEs.")
+            #if "layer" in self.config.activation_checkpointing:
+            #    raise OLMoConfigurationError("Only fine_grained activation checkpointing is supported with MoEs.")
 
         self.activation_checkpointing_strategy: Optional[ActivationCheckpointingStrategy] = None
         self._activation_checkpoint_fn: Callable = activation_checkpoint_function(self.config)

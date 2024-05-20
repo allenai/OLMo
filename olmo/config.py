@@ -461,6 +461,11 @@ class ModelConfig(BaseConfig):
     The weight to use for the MoE loss.
     """
 
+    moe_shared_expert: Optional[bool] = False
+    """
+    Whether to have an always-used expert like in [DeepSeekMoE](https://arxiv.org/abs/2401.06066).
+    """
+
     share_blocks: bool = False
     """
     If ``True``, share the same block across all layers.
