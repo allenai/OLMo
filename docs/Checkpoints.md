@@ -29,7 +29,7 @@ We are still working on improving sharded checkpointing and thus do not have any
 Transformers Checkpoints
 ---
 
-These checkpoints can be used with the OLMo implementation in the Transformers library. Since the OLMo implementation is integrated into the library, OLMo models support most Transformers model functionality. These checkpoints cannot run the pretraining or fine-tuning provided in this repo.
+These checkpoints can be used with the OLMo implementation in the Transformers library. Since the OLMo implementation is integrated into the library, OLMo models support most Transformers model functionality. These checkpoints cannot be used with the pretraining/fine-tuning script provided in this repo.
 
 Transformers checkpoints can be found in HF Hub repos that end in `-hf` (e.g. [OLMo-1.7-7B-hf](https://huggingface.co/allenai/OLMo-1.7-7B-hf)). An OLMo checkpoint can be converted into its Transformers equivalent using [convert_olmo_to_hf_new.py](https://github.com/allenai/OLMo/blob/main/scripts/convert_olmo_to_hf_new.py).
 
