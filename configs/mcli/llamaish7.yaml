@@ -1,19 +1,20 @@
 name: llamaish7
-image: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
+# image: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
+image: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
 compute:
   cluster: r15z4
-  gpus: 48
+  gpus: 64
   gpu_type: h100_80gb
   instance: oci.bm.gpu.h100.8
-  node_names:
-    - inst-39dwb-r15z3-workers
-    - inst-97xv1-r15z3-workers
-    - inst-kc1z1-r15z3-workers
-    - inst-eigqe-r15z3-workers
-    - inst-aj1o1-r15z3-workers
-    - inst-uwdwd-r15z3-workers
-    # Bad nodes
-    # - inst-veyce-r15z3-workers
+  # node_names:
+  #   - inst-w4gwj-r15z3-workers
+  #   - inst-xalw1-r15z3-workers
+  #   - inst-uh5f4-r15z3-workers
+  #   - inst-bktpo-r15z3-workers
+  #   - inst-jhqyu-r15z3-workers
+  #   - inst-mrkck-r15z3-workers
+  #   - inst-8z7hr-r15z3-workers
+  #   - inst-kdqg8-r15z3-workers
 integrations:
   - integration_type: git_repo
     git_repo: allenai/OLMo
@@ -29,6 +30,7 @@ env_variables:
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
   OMP_NUM_THREADS: "8"
   LOG_FILTER_TYPE: local_rank0_only
+  # CUDA_LAUNCH_BLOCKING: "1"
 command: |-
   # Install AWS CLI (for download unsharded checkpoints).
   #apt-get update
@@ -39,7 +41,7 @@ command: |-
 
   # Make sure we have a recent flash-attn.
   # NOTE: only pinning flash-attn here to future proof it.
-  pip install flash-attn==2.5.3 --no-build-isolation
+  #pip install flash-attn==2.5.3 --no-build-isolation
 
   # Show packages for debugging.
   pip freeze
@@ -61,20 +63,26 @@ command: |-
   --node_rank "$NODE_RANK" \
   --nproc_per_node 8 \
   scripts/train.py configs/llamaish7-s3.yaml \
-    --run_name=llamaish7-torch-fsdp \
-    --wandb.group=llamaish7-fsdp-comp \
+    --run_name=llamaish7-rms \
     --model.flash_attention=false \
-    --fsdp.name=torch \
+    --model.layer_norm_type=rms \
+    --wandb.group=llamaish7-rms \
+    --fsdp.name=olmo_core \
     --fsdp.wrapping_strategy=by_block \
     --fsdp.sharding_strategy=FULL_SHARD \
+    --fsdp.max_prefetch_count=3 \
+    --activation_checkpointing=whole_layer \
     --fused_loss=false \
     --device_train_microbatch_size=2 \
-    --global_train_batch_size=768 \
+    --global_train_batch_size=1024 \
     --save_interval=1000 \
     --evaluators=[] \
     --optimizer.metrics_log_interval=5 \
+    --scheduler.warmup_min_lr=0.0 \
     --stop_at=5000 \
     --save_overwrite
 
+#    --wandb.group=llamaish7-fsdp-comp \
 #    --activation_checkpointing=whole_layer \
 #    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-torch-fsdp/step0 \
+#    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-torch-fsdp/step1000 \
