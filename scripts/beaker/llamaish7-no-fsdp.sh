@@ -21,6 +21,11 @@ curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" 
 popd
 export HF_DATASETS_OFFLINE=1
 
+# Move AWS credentials from env to relevant files
+mkdir -p ~/.aws
+printenv AWS_CONFIG > ~/.aws/config
+printenv AWS_CREDENTIALS > ~/.aws/credentials
+
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node ${GPUS_PER_NODE} \
