@@ -54,4 +54,7 @@ torchrun \
 # Complex RoPE:
 #      --model.complex_rope=true \
 #
+# Emb init fix:
+#      --model.scale_emb_init=true \
+#
 #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/}'

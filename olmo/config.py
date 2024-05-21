@@ -433,6 +433,11 @@ class ModelConfig(BaseConfig):
     as "normal". Setting this to None means values are not cutoff.
     """
 
+    scale_emb_init: bool = False
+    """
+    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization.
+    """
+
     precision: Optional[str] = None
     """
     Precision used to train/evaluate with. You shouldn't set this directly.

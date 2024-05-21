@@ -86,6 +86,10 @@ def init_weights(
     else:
         raise NotImplementedError(config.init_fn)
 
+    if config.scale_emb_init:
+        if type_of_module == ModuleType.emb:
+            module.weight.mul_(math.sqrt(config.d_model))
+
     if isinstance(module, nn.Linear):
         if module.bias is not None:
             nn.init.zeros_(module.bias)
