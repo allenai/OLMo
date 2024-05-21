@@ -78,7 +78,8 @@ restore_dataloader: true
 
 # NOTE(davidw): Load from last available checkpoint
 # load_path: s3://ai2-llm/checkpoints/davidw/annealing/v1.7-fix_redpajama-step_2T-resume_optimizer-steps_200B/step10500
-load_path: s3://ai2-llm/checkpoints/davidw/annealing/v1.7-fix_redpajama-step_2T-resume_optimizer-steps_200B/step16600
+# load_path: s3://ai2-llm/checkpoints/davidw/annealing/v1.7-fix_redpajama-step_2T-resume_optimizer-steps_200B/step16600
+load_path: s3://ai2-llm/checkpoints/davidw/annealing/v1.7-fix_redpajama-step_2T-resume_optimizer-steps_200B/step29000
 
 no_pre_train_checkpoint: true
 # reset_optimizer_state: false
