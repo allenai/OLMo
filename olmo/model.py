@@ -322,13 +322,6 @@ class ComplexRotaryEmbedding(RotaryEmbedding):
     An implementation of RoPE as a rotation in complex space.
     """
 
-    def __init__(self, config: ModelConfig, cache: BufferCache):
-        super().__init__(config, cache)
-        self.config = config
-        self.__cache = cache
-        # Warm up cache.
-        self.get_rotary_embedding(config.max_sequence_length, _non_meta_init_device(config))
-
     def get_rotary_embedding(self, seq_len: int, device: torch.device) -> torch.Tensor:
         if (freqs_cis := self.__cache.get("rope_freqs_cis")) is not None and freqs_cis.shape[-2] >= seq_len:
             if freqs_cis.device != device:
