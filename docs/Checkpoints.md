@@ -38,7 +38,7 @@ Transformers checkpoints can be found in HF Hub repos that end in `-hf` (e.g. [O
 HF OLMo checkpoints
 ---
 
-These checkpoints can be used with the Transformers-style OLMo implementation in the `hf_olmo` package. This implementation has only partial support for Transformers functionality. Consequently, we recommend using Transformers checkpoints over these if available. These checkpoints cannot be used with the pretraining/fine-tuning script provided in this repo.
+These checkpoints can be used with the Transformers-style OLMo implementation in the `hf_olmo` package. This implementation has only partial support for Transformers functionality. In particular, using "auto" methods like `AutoModelForCausalLM` with these checkpoints is not supported. Consequently, we recommend using Transformers checkpoints over these if available. These checkpoints cannot be used with the pretraining/fine-tuning script provided in this repo.
 
 The following checkpoints on HF Hub are HF OLMo checkpoints:
 - [OLMo-1.7-7B](https://huggingface.co/allenai/OLMo-1.7-7B)
