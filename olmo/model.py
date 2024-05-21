@@ -258,23 +258,23 @@ class RotaryEmbedding(nn.Module):
     def __init__(self, config: ModelConfig, cache: BufferCache):
         super().__init__()
         self.config = config
-        self.__cache = cache
+        self._cache = cache
         # Warm up cache.
         self.get_rotary_embedding(config.max_sequence_length, _non_meta_init_device(config))
 
     def get_rotary_embedding(self, seq_len: int, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
         if (
-            (pos_sin := self.__cache.get("rope_pos_sin")) is not None
-            and (pos_cos := self.__cache.get("rope_pos_cos")) is not None
+            (pos_sin := self._cache.get("rope_pos_sin")) is not None
+            and (pos_cos := self._cache.get("rope_pos_cos")) is not None
             and pos_sin.shape[-2] >= seq_len
             and pos_cos.shape[-2] >= seq_len
         ):
             if pos_sin.device != device:
                 pos_sin = pos_sin.to(device)
-                self.__cache["rope_pos_sin"] = pos_sin
+                self._cache["rope_pos_sin"] = pos_sin
             if pos_cos.device != device:
                 pos_cos = pos_cos.to(device)
-                self.__cache["rope_pos_cos"] = pos_cos
+                self._cache["rope_pos_cos"] = pos_cos
             return pos_sin[:, :, :seq_len, :], pos_cos[:, :, :seq_len, :]
 
         with torch.autocast(device.type, enabled=False):
@@ -284,8 +284,8 @@ class RotaryEmbedding(nn.Module):
             freqs = einsum("i , j -> i j", seq, inv_freq)
             positions = torch.cat((freqs, freqs), dim=-1)
             pos_sin, pos_cos = positions.sin()[None, None, :, :], positions.cos()[None, None, :, :]
-        self.__cache["rope_pos_sin"] = pos_sin
-        self.__cache["rope_pos_cos"] = pos_cos
+        self._cache["rope_pos_sin"] = pos_sin
+        self._cache["rope_pos_cos"] = pos_cos
         return pos_sin, pos_cos
 
     def rotate_half(self, x: torch.Tensor) -> torch.Tensor:
@@ -323,10 +323,10 @@ class ComplexRotaryEmbedding(RotaryEmbedding):
     """
 
     def get_rotary_embedding(self, seq_len: int, device: torch.device) -> torch.Tensor:
-        if (freqs_cis := self.__cache.get("rope_freqs_cis")) is not None and freqs_cis.shape[-2] >= seq_len:
+        if (freqs_cis := self._cache.get("rope_freqs_cis")) is not None and freqs_cis.shape[-2] >= seq_len:
             if freqs_cis.device != device:
                 freqs_cis = freqs_cis.to(device)
-                self.__cache["rope_freqs_cis"] = freqs_cis
+                self._cache["rope_freqs_cis"] = freqs_cis
             return freqs_cis[:seq_len, :]
 
         with torch.autocast(device.type, enabled=False):
@@ -337,7 +337,7 @@ class ComplexRotaryEmbedding(RotaryEmbedding):
             seq = torch.arange(seq_len, device=device, dtype=torch.float)
             freqs = einsum("i , j -> i j", seq, inv_freq)
             freqs_cis = torch.polar(torch.ones_like(freqs), freqs)
-        self.__cache["rope_freqs_cis"] = freqs_cis
+        self._cache["rope_freqs_cis"] = freqs_cis
         return freqs_cis
 
     def rotate_half(self, x: torch.Tensor) -> torch.Tensor:
