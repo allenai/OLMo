@@ -13,7 +13,7 @@ BEAKER_REPLICA_RANK=$1
 shift
 
 # Setup Python environment.
-conda activate base
+conda shell.bash activate base
 pip install git+https://github.com/allenai/OLMo-core.git@main
 pip install '.[train]'
 pip freeze

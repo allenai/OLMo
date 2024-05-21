@@ -2,10 +2,11 @@
 
 set -ex
 
-NUM_NODES=1
+NUM_NODES=2
 
 gantry run \
   --workspace ai2/OLMo-training \
+  --allow-dirty \
   --task-name train \
   --description "OLMo 7B stability experiments" \
   --priority high \
