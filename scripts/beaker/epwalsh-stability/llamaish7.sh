@@ -42,7 +42,7 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    configs/llamaish7-s3.yaml \
+    configs/llamaish7-weka.yaml \
       --run_name=baseline \
       --wandb=null
 

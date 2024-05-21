@@ -9,7 +9,7 @@ gantry run \
   --task-name train \
   --description "OLMo 7B stability experiments" \
   --priority high \
-  --beaker-image shanea/olmo-torch2.2-weka-gantry \
+  --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
