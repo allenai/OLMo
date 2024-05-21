@@ -5,7 +5,7 @@ set -ex
 NUM_NODES=8
 
 gantry run \
-  --workspace ai2/dirkg \
+  --workspace ai2/OLMo-training \
   --task-name mitchish70-from160510 \
   --description "OLMo large - 70B - from160510" \
   --priority high \
