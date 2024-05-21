@@ -11,6 +11,7 @@ gantry run \
   --priority normal \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale \
+  --cluster ai2/pluto-cirrascale \
   --preemptible \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
