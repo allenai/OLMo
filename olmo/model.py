@@ -347,7 +347,6 @@ class ComplexRotaryEmbedding(RotaryEmbedding):
         return torch.cat((-x2, x1), dim=-1)
 
     def apply_rotary_pos_emb(self, freqs_cis: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
-        assert freqs_cis.shape == (x.shape[-2], x.shape[-1])
         return torch.view_as_real(x * freqs_cis).flatten(3)
 
     def forward(self, q: torch.Tensor, k: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
