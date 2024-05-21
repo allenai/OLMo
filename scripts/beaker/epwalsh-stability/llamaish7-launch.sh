@@ -6,8 +6,8 @@ NUM_NODES=4
 
 gantry run \
   --workspace ai2/OLMo-training \
-  --task-name lr-schedule-const-lr-1B \
-  --description "Const learning rate schedule experiment on OLMo 1B" \
+  --task-name train \
+  --description "OLMo 7B stability experiments" \
   --priority high \
   --beaker-image shanea/olmo-torch2.2-weka-gantry \
   --cluster ai2/jupiter-cirrascale \
@@ -19,6 +19,7 @@ gantry run \
   --propagate-failure \
   --synchronized-start-timeout "30m" \
   --no-nfs \
+  --no-python \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
@@ -31,7 +32,6 @@ gantry run \
   --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
   --env-secret WANDB_API_KEY=PETEW_WANDB_API_KEY \
   --shared-memory 10GiB \
-  --venv base \
   --yes \
   --timeout=-1 \
   -- /bin/bash -c "scripts/beaker/epwalsh-stability/llamaish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"

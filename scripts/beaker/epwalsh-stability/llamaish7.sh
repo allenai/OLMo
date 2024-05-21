@@ -12,6 +12,12 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
+# Setup Python environment.
+conda activate base
+pip install git+https://github.com/allenai/OLMo-core.git@main
+pip install '.[train]'
+pip freeze
+
 # Warm HF cache
 # mkdir -p /root/.cache
 # pushd /root/.cache
