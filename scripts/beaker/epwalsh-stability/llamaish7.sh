@@ -43,7 +43,9 @@ torchrun \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
     configs/llamaish7-weka.yaml \
-      --run_name=llamaish7-baseline \
+      --run_name="${GANTRY_TASK_NAME}" \
+      --model.rope=false \
+      --model.alibi=true \
       --stop_at=5000
 
 #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/}'

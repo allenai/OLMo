@@ -7,7 +7,7 @@ NUM_NODES=2
 gantry run \
   --workspace ai2/OLMo-training \
   --allow-dirty \
-  --task-name train \
+  --task-name llamaish7-alibi \
   --description "OLMo 7B stability experiments" \
   --priority high \
   --preemptible \
