@@ -8,9 +8,10 @@ gantry run \
   --workspace ai2/OLMo-training \
   --task-name mitchish70-from160510 \
   --description "OLMo large - 70B - from160510" \
-  --priority high \
+  --priority normal \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale \
+  --preemptible \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
