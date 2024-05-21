@@ -298,6 +298,11 @@ class ModelConfig(BaseConfig):
     Use rotary positional embeddings (RoPE). Mutually exclusive with ``alibi``.
     """
 
+    complex_rope: bool = False
+    """
+    Use the complex numbers implementation of RoPE.
+    """
+
     rope_full_precision: bool = True
     """
     If ``True``, apply RoPE embeddings at full precision regardless of the input type. Otherwise,
