@@ -34,11 +34,13 @@ gantry run \
   --env R2_PROFILE=R2 \
   --env S3_PROFILE=S3 \
   --env WEKA_PROFILE=WEKA \
-  --env-secret AWS_CONFIG=PETEW_AWS_CONFIG \
-  --env-secret AWS_CREDENTIALS=PETEW_AWS_CREDENTIALS \
+  --env-secret AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID \
+  --env-secret AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY \
+  --env-secret R2_ACCESS_KEY_ID=R2_ACCESS_KEY_ID \
+  --env-secret R2_SECRET_ACCESS_KEY=R2_SECRET_ACCESS_KEY \
   --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
   --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
-  --env-secret WANDB_API_KEY=PETEW_WANDB_API_KEY \
+  --env-secret WANDB_API_KEY=WANDB_API_KEY \
   --shared-memory 10GiB \
   --venv base \
   --yes \
