@@ -38,7 +38,7 @@ FROM ghcr.io/allenai/pytorch:2.3.0-cuda12.1-python3.11
 COPY pyproject.toml .
 RUN mkdir olmo && \
     touch olmo/__init__.py && \
-    cat 'VERSION=0.1.0' > olmo/version.py && \
+    echo 'VERSION = "0.1.0"' > olmo/version.py && \
     pip install --no-cache-dir .[train] && \
     pip uninstall -y ai2-olmo && \
     rm -rf olmo/
