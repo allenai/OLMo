@@ -2,13 +2,14 @@
 
 set -ex
 
-NUM_NODES=4
+NUM_NODES=1
 
 gantry run \
   --workspace ai2/OLMo-training \
   --task-name train \
   --description "OLMo 7B stability experiments" \
   --priority high \
+  --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale \
   --gpus 8 \
