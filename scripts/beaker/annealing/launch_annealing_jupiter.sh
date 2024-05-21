@@ -27,7 +27,6 @@ gantry run \
   --host-networking \
   --budget ai2/oe-training \
   --no-nfs \
-  --no-python \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
