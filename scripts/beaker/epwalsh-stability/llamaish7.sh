@@ -44,8 +44,14 @@ torchrun \
   scripts/train.py \
     configs/llamaish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
-      --model.rope=false \
-      --model.alibi=true \
+      --model.complex_rope=true \
       --stop_at=5000
 
+# ALiBi:
+#      --model.rope=false \
+#      --model.alibi=true \
+#
+# Complex RoPE:
+#      --model.complex_rope=true \
+#
 #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/}'
