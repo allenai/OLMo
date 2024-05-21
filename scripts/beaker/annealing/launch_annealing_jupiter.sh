@@ -17,7 +17,7 @@ gantry run \
   --task-name ${CONFIG_NAME} \
   --description ${CONFIG_NAME} \
   --priority $PRIORITY \
-  --beaker-image petew/olmo-torch23-gantry \
+  --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster $CLUSTER \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
