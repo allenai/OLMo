@@ -74,6 +74,7 @@ sharded_checkpointer: olmo_core
 
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
+canceled_check_interval: 10
 
 load_path: null
 
