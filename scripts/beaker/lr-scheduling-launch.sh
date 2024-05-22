@@ -9,6 +9,7 @@ gantry run \
   --task-name lr-schedule-const-lr-1B \
   --description "Const learning rate schedule experiment on OLMo 1B" \
   --priority normal \
+  --preemptible \
   --beaker-image shanea/olmo-torch2.2-weka-gantry \
   --cluster ai2/jupiter-cirrascale \
   --gpus 8 \
