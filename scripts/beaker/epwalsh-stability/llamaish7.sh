@@ -59,4 +59,10 @@ torchrun \
 # Emb init fix:
 #      --model.scale_emb_init=true \
 #
+# RMS norm:
+#      --model.layer_norm_type=rms \
+#
+# Warmup from LR=0.0 \
+#      --scheduler.warmup_min_lr=0.0 \
+#
 #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/}'
