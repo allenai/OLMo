@@ -45,9 +45,14 @@ def inspect_data_without_device_data_indices(run_path: str, *steps: int, world_s
     cfg.data.num_workers = 1
 
     try:
-        trainer_state = load_state_dict(run_path, "train/rank0.pt", map_location="cpu")
+        trainer_state = load_state_dict(run_path, "latest/train/rank0.pt", map_location="cpu")
     except FileNotFoundError:
-        trainer_state = load_state_dict(run_path, "train.pt", map_location="cpu")
+        try:
+            trainer_state = load_state_dict(run_path, "latest/train.pt", map_location="cpu")
+        except FileNotFoundError:
+            # Legacy checkpointing
+            trainer_state = load_state_dict(run_path, "latest/rank0.pt", map_location="cpu")
+
 
     tokenizer = Tokenizer.from_train_config(cfg)
 
