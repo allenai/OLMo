@@ -44,10 +44,8 @@ torchrun \
   scripts/train.py \
     configs/llamaish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
-      --model.rope=false \
-      --model.alibi=true \
       --model.scale_emb_init=true \
-      --scheduler.warmup_min_lr=0.0 \
+      --model.layer_norm_type=rms \
       --stop_at=5000
 
 # ALiBi:
