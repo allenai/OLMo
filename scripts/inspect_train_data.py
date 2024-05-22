@@ -38,21 +38,21 @@ def get_global_train_examples_seen_at_step(step: int, trainer_state: dict, cfg: 
     return global_train_examples_seen_this_epoch
 
 
-def inspect_data_without_device_data_indices(run_path: str, *steps: int, world_size: int, ranks: List[int]):
+def inspect_data_without_device_data_indices(run_path: str, *steps: int, world_size: int, ranks: List[int], reference_step: int):
     cfg = TrainConfig.load(
-        cached_path(os.path.join(run_path, "config.yaml")), overrides=[clean_opt("--evaluators=[]"), clean_opt("--save_overwrite")]
+        cached_path(os.path.join(run_path, "config.yaml")),
+        overrides=[clean_opt("--evaluators=[]"), clean_opt("--save_overwrite")],
     )
     cfg.data.num_workers = 1
 
     try:
-        trainer_state = load_state_dict(run_path, "latest/train/rank0.pt", map_location="cpu")
+        trainer_state = load_state_dict(run_path, f"step{reference_step}/rank0.pt", map_location="cpu")
     except FileNotFoundError:
         try:
-            trainer_state = load_state_dict(run_path, "latest/train.pt", map_location="cpu")
+            trainer_state = load_state_dict(run_path, f"step{reference_step}/train.pt", map_location="cpu")
         except FileNotFoundError:
             # Legacy checkpointing
-            trainer_state = load_state_dict(run_path, "latest/rank0.pt", map_location="cpu")
-
+            trainer_state = load_state_dict(run_path, f"step{reference_step}/rank0.pt", map_location="cpu")
 
     tokenizer = Tokenizer.from_train_config(cfg)
 
@@ -74,12 +74,19 @@ def inspect_data_without_device_data_indices(run_path: str, *steps: int, world_s
                     print(f'[step={step}, rank={rank}, example={i}] "{example}"\n')
 
 
-def main(run_path: str, *steps: int, world_size: Optional[int] = None, rank: Optional[int] = None):
+def main(
+    run_path: str,
+    *steps: int,
+    world_size: Optional[int] = None,
+    rank: Optional[int] = None,
+    reference_step: Optional[int] = None,
+):
     save_folder = Path(run_path)
     if not (save_folder / "data-indices").is_dir():
         assert world_size is not None
+        assert reference_step is not None
         ranks = [rank] if rank is not None else list(range(world_size))
-        inspect_data_without_device_data_indices(run_path, *steps, world_size=world_size, ranks=ranks)
+        inspect_data_without_device_data_indices(run_path, *steps, world_size=world_size, ranks=ranks, reference_step=reference_step)
         return
 
     cfg = TrainConfig.load(save_folder / "config.yaml", overrides=[clean_opt("--evaluators=[]")])
@@ -121,13 +128,22 @@ if __name__ == "__main__":
     add_cached_path_clients()
 
     try:
-        run_path, world_size, rank, steps = (
+        run_path, world_size, rank, reference_step, steps = (
             sys.argv[1],
             int(sys.argv[2]),
             int(sys.argv[3]),
-            [int(i) for i in sys.argv[4:]],
+            int(sys.argv[4]),
+            [int(i) for i in sys.argv[5:]],
         )
     except (IndexError, ValueError):
-        raise OLMoCliError(f"Usage: {sys.argv[0]} [RUN_PATH] [WORLD_SIZE] [RANK] [STEP_NUMBER...]")
+        raise OLMoCliError(
+            f"Usage: {sys.argv[0]} [RUN_PATH] [WORLD_SIZE] [RANK] [REFERENCE_STEP] [STEP_NUMBER...]"
+        )
 
-    main(run_path, *steps, world_size=world_size, rank=rank if rank >= 0 else None)
+    main(
+        run_path,
+        *steps,
+        world_size=world_size,
+        rank=rank if rank >= 0 else None,
+        reference_step=reference_step if reference_step >= 0 else None,
+    )
