@@ -46,7 +46,7 @@ def inspect_data_without_device_data_indices(run_path: str, *steps: int, world_s
     cfg.data.num_workers = 1
 
     try:
-        trainer_state = load_state_dict(run_path, f"step{reference_step}/rank0.pt", map_location="cpu")
+        trainer_state = load_state_dict(run_path, f"step{reference_step}/train/rank0.pt", map_location="cpu")
     except FileNotFoundError:
         try:
             trainer_state = load_state_dict(run_path, f"step{reference_step}/train.pt", map_location="cpu")
