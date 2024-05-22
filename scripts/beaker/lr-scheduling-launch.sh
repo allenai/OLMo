@@ -2,13 +2,13 @@
 
 set -ex
 
-NUM_NODES=4
+NUM_NODES=2
 
 gantry run \
-  --workspace ai2/shanea \
+  --workspace ai2/OLMo-lr-scheduling \
   --task-name lr-schedule-const-lr-1B \
   --description "Const learning rate schedule experiment on OLMo 1B" \
-  --priority high \
+  --priority normal \
   --beaker-image shanea/olmo-torch2.2-weka-gantry \
   --cluster ai2/jupiter-cirrascale \
   --gpus 8 \
