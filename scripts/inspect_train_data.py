@@ -66,9 +66,9 @@ def inspect_data_without_device_data_indices(run_path: str, *steps: int, world_s
             for step in steps:
                 dataloader = build_train_dataloader(cfg, world_size=world_size)
                 assert isinstance(dataloader.dataset, IterableDataset)
-                dataloader.dataset.start_index = get_global_train_examples_seen_at_step(step, trainer_state, cfg)
+                # Subtract 1 from step because we want to be just before that step
+                dataloader.dataset.start_index = get_global_train_examples_seen_at_step(step - 1, trainer_state, cfg)
                 batch = next(dataloader.__iter__())
-                print(f"Step: {step}. Batch shape: {batch['input_ids'].shape}.")
                 for i, batch_entry in enumerate(batch["input_ids"].tolist()):
                     example = tokenizer.decode(batch_entry)
                     print(f'[step={step}, rank={rank}, example={i}] "{example}"\n')
