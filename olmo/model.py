@@ -714,6 +714,7 @@ class OLMoEBlock(OLMoBlock):
                 bias=self.config.include_bias,
                 return_bias=False,
                 shared_expert=self.config.moe_shared_expert,
+                moe_lbl_in_fp32=config.moe_lbl_in_fp32,
             )
             if self.config.share_experts:
                 assert self.config.moe_dropless, "Only dropless is supported for shared experts"

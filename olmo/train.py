@@ -248,6 +248,7 @@ class Trainer:
                 fp16=False,
                 bf16=False,
                 shared_expert=self.model.config.moe_shared_expert,
+                moe_lbl_in_fp32=self.model.config.moe_lbl_in_fp32,
             )
 
     @property

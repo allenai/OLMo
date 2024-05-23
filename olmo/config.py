@@ -466,6 +466,11 @@ class ModelConfig(BaseConfig):
     Whether to have an always-used expert like in [DeepSeekMoE](https://arxiv.org/abs/2401.06066).
     """
 
+    moe_lbl_in_fp32: Optional[bool] = False
+    """
+    Whether to perform load balancing in FP32.
+    """
+
     share_blocks: bool = False
     """
     If ``True``, share the same block across all layers.
