@@ -2,6 +2,7 @@
 Use this script to inspect the data in given batches from a training run.
 """
 
+import argparse
 import gzip
 import os
 import sys
@@ -83,7 +84,7 @@ def inspect_data_without_device_data_indices(
                     print(f'[step={step}, rank={rank}, example={i}] "{example}"\n')
 
 
-def inspect_train_data(
+def main(
     run_path: str,
     *steps: int,
     world_size: Optional[int] = None,
@@ -133,31 +134,44 @@ def inspect_train_data(
             f.close()
 
 
-def main():
-    try:
-        run_path, world_size, rank, reference_step, steps = (
-            sys.argv[1],
-            int(sys.argv[2]),
-            int(sys.argv[3]),
-            int(sys.argv[4]),
-            [int(i) for i in sys.argv[5:]],
-        )
-    except (IndexError, ValueError) as exc:
-        raise OLMoCliError(
-            f"Usage: {sys.argv[0]} [RUN_PATH] [WORLD_SIZE] [RANK] [REFERENCE_STEP] [STEP_NUMBER...]"
-        ) from exc
-
-    inspect_train_data(
-        run_path,
-        *steps,
-        world_size=world_size,
-        rank=rank if rank >= 0 else None,
-        reference_step=reference_step if reference_step >= 0 else None,
-    )
-
 if __name__ == "__main__":
     prepare_cli_environment()
 
     add_cached_path_clients()
 
-    main()
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("run_path", required=True, help="Path to run of which you want to inspect training data")
+    parser.add_argument(
+        "rank",
+        type=int,
+        required=True,
+        help="Device rank for which you want to see training data. Set to `-1` to get all ranks.",
+    )
+    parser.add_argument(
+        "steps", nargs="+", type=int, required=True, help="Steps of run for which you want to see training data"
+    )
+    parser.add_argument(
+        "--no_data_indices",
+        action="store_false",
+        dest="use_data_indices",
+        help="If set, this script acts as if data indices are not present.",
+    )
+    parser.add_argument(
+        "--checkpoint_num",
+        type=int,
+        help="Step number of checkpoint from which training state is to be obtained. Required when data indices are not present.",
+    )
+    parser.add_argument(
+        "--world_size", type=int, help="World size, for use (and required) when data indices are not present."
+    )
+
+    args = parser.parse_args()
+
+    main(
+        args.run_path,
+        *args.step,
+        world_size=args.world_size,
+        rank=args.rank if args.rank >= 0 else None,
+        reference_step=args.checkpoint_num if args.checkpoint_num >= 0 else None,
+    )
