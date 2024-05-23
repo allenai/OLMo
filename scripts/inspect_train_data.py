@@ -47,6 +47,10 @@ def inspect_data_without_device_data_indices(
     )
     cfg.data.num_workers = 1
 
+    if cfg.global_train_batch_size % world_size != 0:
+        raise ValueError(f"World size must divide global_train_batch_size {cfg.global_train_batch_size}")
+    cfg.device_train_batch_size = cfg.global_train_batch_size // world_size
+
     try:
         trainer_state = load_state_dict(run_path, f"step{reference_step}/train/rank0.pt", map_location="cpu")
     except FileNotFoundError:
