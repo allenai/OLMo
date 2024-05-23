@@ -58,15 +58,19 @@ def inspect_data_without_device_data_indices(
             # Legacy checkpointing
             trainer_state = load_state_dict(run_path, f"step{reference_step}/rank0.pt", map_location="cpu")
 
-    dataloader = build_train_dataloader(cfg, world_size=world_size)
     tokenizer = Tokenizer.from_train_config(cfg)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         cfg.save_folder = tmpdir
 
+        # Build dataloader in rank 0 to generate the indices file
+        os.environ["RANK"] = "0"
+        dataloader = build_train_dataloader(cfg, world_size=world_size)
+
         for rank in ranks:
-            # Set RANK env variable so that `get_local_rank()` returns the rank we want.
             os.environ["RANK"] = str(rank)
+            os.environ["FS_LOCAL_RANK"] = str(rank)
+            dataloader = build_train_dataloader(cfg, world_size=world_size)
 
             for step in steps:
                 assert isinstance(dataloader.dataset, IterableDataset)
