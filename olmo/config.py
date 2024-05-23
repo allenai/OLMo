@@ -427,6 +427,11 @@ class ModelConfig(BaseConfig):
     as "normal".
     """
 
+    emb_init_std: Optional[float] = None
+    """
+    Use this to override the initialization standard deviation for the embeddings only.
+    """
+
     init_cutoff_factor: Optional[float] = None
     """
     A positive factor used to scale the cutoff values when initializing weights with a "fixed distribution" ``init_fn``, such

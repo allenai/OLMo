@@ -70,7 +70,7 @@ def init_weights(
         elif type_of_module == ModuleType.emb:
             # positional embeddings (wpe)
             # token embeddings (wte)
-            std = config.init_std
+            std = config.emb_init_std if config.emb_init_std is not None else config.init_std
         elif type_of_module == ModuleType.final_out:
             # final output (ff_out)
             std = config.d_model**-0.5
@@ -87,8 +87,7 @@ def init_weights(
         raise NotImplementedError(config.init_fn)
 
     if config.scale_emb_init and type_of_module == ModuleType.emb:
-        with torch.no_grad():
-            module.weight.mul_(math.sqrt(config.d_model))
+        module.weight.mul_(math.sqrt(config.d_model))
 
     if isinstance(module, nn.Linear):
         if module.bias is not None:
