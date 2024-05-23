@@ -90,9 +90,10 @@ def main(
     world_size: Optional[int] = None,
     rank: Optional[int] = None,
     reference_step: Optional[int] = None,
+    use_data_indices: bool = True,
 ):
     save_folder = Path(run_path)
-    if not (save_folder / "data-indices").is_dir():
+    if not use_data_indices or not (save_folder / "data-indices").is_dir():
         assert world_size is not None
         assert reference_step is not None
         ranks = [rank] if rank is not None else list(range(world_size))
@@ -173,4 +174,5 @@ if __name__ == "__main__":
         world_size=args.world_size,
         rank=args.rank if args.rank >= 0 else None,
         reference_step=args.checkpoint_num if args.checkpoint_num >= 0 else None,
+        use_data_indices=args.use_data_indices,
     )
