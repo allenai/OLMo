@@ -129,7 +129,7 @@ def main(cfg: TrainConfig) -> None:
     olmo_model.set_activation_checkpointing(cfg.activation_checkpointing)
 
     # Wrap the model in FSDP.
-    log.info("Wrapping model with FDSP...")
+    log.info("Wrapping model with FSDP...")
     wrap_policy = olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy)
 
     if version.parse(torch.__version__) >= version.parse("2.1.0"):
