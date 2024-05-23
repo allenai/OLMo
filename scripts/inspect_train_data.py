@@ -141,15 +141,14 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("run_path", required=True, help="Path to run of which you want to inspect training data")
+    parser.add_argument("run_path", help="Path to run of which you want to inspect training data")
     parser.add_argument(
         "rank",
         type=int,
-        required=True,
         help="Device rank for which you want to see training data. Set to `-1` to get all ranks.",
     )
     parser.add_argument(
-        "steps", nargs="+", type=int, required=True, help="Steps of run for which you want to see training data"
+        "steps", nargs="+", type=int, help="Steps of run for which you want to see training data"
     )
     parser.add_argument(
         "--no_data_indices",
@@ -163,7 +162,7 @@ if __name__ == "__main__":
         help="Step number of checkpoint from which training state is to be obtained. Required when data indices are not present.",
     )
     parser.add_argument(
-        "--world_size", type=int, help="World size, for use (and required) when data indices are not present."
+        "--world_size", type=int, help="World size. Required when data indices are not present."
     )
 
     args = parser.parse_args()
