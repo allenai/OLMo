@@ -4,13 +4,83 @@ Use this script to inspect the data in given batches from a training run.
 
 import argparse
 import gzip
+import os
+import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
+from cached_path import cached_path
+
+from olmo.checkpoint import load_state_dict
 from olmo.config import TrainConfig
-from olmo.data import build_memmap_dataset
+from olmo.data import build_memmap_dataset, build_train_dataloader
+from olmo.data.iterable_dataset import IterableDataset
 from olmo.tokenizer import Tokenizer
 from olmo.util import clean_opt, prepare_cli_environment
+
+
+def get_global_train_examples_seen_before_step(step: int, trainer_state: dict, cfg: TrainConfig):
+    global_step = trainer_state["global_step"]
+
+    if global_step >= step:
+        raise ValueError(f"Step {step} must be after training first step {global_step}")
+
+    global_train_examples_seen_this_epoch = trainer_state.get(
+        "global_train_examples_seen_this_epoch",
+        trainer_state.get(  # for backwards compatibility
+            "global_train_examples_seen",
+            trainer_state.get("global_data_step", global_step) * cfg.global_train_batch_size,
+        ),
+    )
+
+    # Subtract 1 from step because we want to be just before that step
+    global_train_examples_seen_this_epoch += (step - 1 - global_step) * cfg.global_train_batch_size
+    return global_train_examples_seen_this_epoch
+
+
+def inspect_data_without_device_data_indices(
+    run_path: str, *steps: int, world_size: int, ranks: List[int], reference_step: int
+):
+    cfg = TrainConfig.load(
+        cached_path(os.path.join(run_path, f"step{reference_step}/config.yaml")),
+        overrides=[clean_opt("--evaluators=[]"), clean_opt("--save_overwrite")],
+    )
+    cfg.data.num_workers = 1
+
+    try:
+        trainer_state = load_state_dict(run_path, f"step{reference_step}/train/rank0.pt", map_location="cpu")
+    except FileNotFoundError:
+        try:
+            # Unsharded checkpointing
+            trainer_state = load_state_dict(run_path, f"step{reference_step}/train.pt", map_location="cpu")
+        except FileNotFoundError:
+            # Legacy checkpointing
+            trainer_state = load_state_dict(run_path, f"step{reference_step}/rank0.pt", map_location="cpu")
+
+    tokenizer = Tokenizer.from_train_config(cfg)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        cfg.save_folder = tmpdir
+
+        # Build dataloader in rank 0 to generate the indices file
+        os.environ["RANK"] = "0"
+        dataloader = build_train_dataloader(cfg, world_size=world_size)
+
+        for rank in ranks:
+            os.environ["RANK"] = str(rank)
+            # Set FS_LOCAL_RANK to a non-zero number so that global data indices are not rewritten
+            os.environ["FS_LOCAL_RANK"] = "1"
+
+            for step in steps:
+                dataloader = build_train_dataloader(cfg, world_size=world_size)
+                assert isinstance(dataloader.dataset, IterableDataset)
+                dataloader.dataset.start_index = get_global_train_examples_seen_before_step(
+                    step, trainer_state, cfg
+                )
+                batch = next(iter(dataloader))
+                for i, batch_entry in enumerate(batch["input_ids"].tolist()):
+                    example = tokenizer.decode(batch_entry)
+                    print(f'[step={step}, rank={rank}, example={i}] "{example}"\n')
 
 
 def main(
