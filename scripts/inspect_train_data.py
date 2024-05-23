@@ -40,7 +40,7 @@ def get_global_train_examples_seen_at_step(step: int, trainer_state: dict, cfg: 
 
 def inspect_data_without_device_data_indices(run_path: str, *steps: int, world_size: int, ranks: List[int], reference_step: int):
     cfg = TrainConfig.load(
-        cached_path(os.path.join(run_path, "config.yaml")),
+        cached_path(os.path.join(run_path, f"step{reference_step}/config.yaml")),
         overrides=[clean_opt("--evaluators=[]"), clean_opt("--save_overwrite")],
     )
     cfg.data.num_workers = 1
