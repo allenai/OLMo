@@ -70,7 +70,8 @@ def inspect_data_without_device_data_indices(
 
         for rank in ranks:
             os.environ["RANK"] = str(rank)
-            os.environ["FS_LOCAL_RANK"] = str(rank)
+            # Set FS_LOCAL_RANK to a non-zero number so that global data indices are not rewritten
+            os.environ["FS_LOCAL_RANK"] = "1"
             dataloader = build_train_dataloader(cfg, world_size=world_size)
 
             for step in steps:
