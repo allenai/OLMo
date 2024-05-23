@@ -155,3 +155,5 @@ if __name__ == "__main__":
     prepare_cli_environment()
 
     add_cached_path_clients()
+
+    main()
