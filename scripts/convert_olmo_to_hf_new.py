@@ -87,6 +87,8 @@ def write_model(model_path, input_base_path, tokenizer_path=None, safe_serializa
     # Not sharded
     # (The sharded implementation would also work, but this is simpler.)
     loaded = torch.load(os.path.join(input_base_path, "model.pt"), map_location="cpu")
+    # Trick to make this converter (hopefully) also be able to convert HF OLMo checkpoints to Transformers style. 
+    loaded = {key.removeprefix("model."): val for key, val in loaded.items()}
 
     param_count = 0
     index_dict: Dict[str, Any] = {"weight_map": {}}
