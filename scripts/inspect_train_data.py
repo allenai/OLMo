@@ -169,7 +169,7 @@ if __name__ == "__main__":
 
     main(
         args.run_path,
-        *args.step,
+        *args.steps,
         world_size=args.world_size,
         rank=args.rank if args.rank >= 0 else None,
         reference_step=args.checkpoint_num if args.checkpoint_num >= 0 else None,
