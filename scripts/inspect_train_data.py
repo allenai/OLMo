@@ -110,10 +110,13 @@ def main(
     tokenizer = Tokenizer.from_train_config(cfg)
 
     if rank is None:
-        world_size = len(list((save_folder / "data-indices").glob("*.tsv.gz")))
+        num_indices_files = len(list((save_folder / "data-indices").glob("*.tsv.gz")))
+        if world_size is not None and world_size != num_indices_files:
+            raise ValueError(f"World size {world_size} does not match number of indices files {num_indices_files}")
+
         indices_files = {
             rank: gzip.open(save_folder / "data-indices" / f"rank{rank}.tsv.gz", "rt")
-            for rank in range(world_size)
+            for rank in range(num_indices_files)
         }
     else:
         indices_files = {rank: gzip.open(save_folder / "data-indices" / f"rank{rank}.tsv.gz", "rt")}
