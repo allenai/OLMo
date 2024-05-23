@@ -92,6 +92,14 @@ def main(
     use_data_indices: bool = True,
 ):
     save_folder = Path(run_path)
+    if not use_data_indices or not (save_folder / "data-indices").is_dir():
+        assert world_size is not None
+        assert reference_step is not None
+        ranks = [rank] if rank is not None else list(range(world_size))
+        inspect_data_without_device_data_indices(
+            run_path, *steps, world_size=world_size, ranks=ranks, reference_step=reference_step
+        )
+        return
 
     cfg = TrainConfig.load(save_folder / "config.yaml", overrides=[clean_opt("--evaluators=[]")])
     dataset = build_memmap_dataset(cfg, cfg.data)
