@@ -44,7 +44,8 @@ torchrun \
   scripts/train.py \
     configs/llamaish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
-      --model.emb_init_std=1.0 \
+      --model.scale_emb_init=true \
+      '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}}' \
       --stop_at=5000
 
 # ALiBi:
@@ -66,4 +67,4 @@ torchrun \
 # Initialize embeddings with std=1.0
 #      --model.emb_init_std=1.0 \
 #
-#'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/}'
+#      '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}}' \
