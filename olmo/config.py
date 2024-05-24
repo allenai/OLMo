@@ -1082,6 +1082,11 @@ class TrainConfig(BaseConfig):
     Whether to use the fused CE loss function from `flash-attn`.
     """
 
+    downstream_eval_local_datasets_dir: Optional[str] = None
+    """
+    Path to instances of downstream eval datasets saved locally using `datasets.save_to_disk`.
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":
