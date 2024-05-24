@@ -68,15 +68,12 @@ save_num_checkpoints_to_keep: -1
 
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
+sharded_checkpointer: olmo_core
 
-# NOTE(davidw) restore to resume from last checkpoint.
-restore_dataloader: true
+restore_dataloader: false
 
 # 2T token checkpoint for new 7B model; we call this v1.7 to match the Dolma data.
-# load_path: s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step477000-unsharded
-
-# NOTE(davidw) Restart from checkpoint
-load_path: s3://ai2-llm/checkpoints/davidw/annealing/v1.7-step_2T-resume_optimizer-steps_50B-flan_downweight/step2500
+load_path: s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step477000-unsharded
 
 no_pre_train_checkpoint: true
 reset_optimizer_state: false
