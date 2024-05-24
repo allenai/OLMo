@@ -1285,7 +1285,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
                     dev_set = datasets.load_from_disk(local_dataset_path)
                 else:
                     dev_set = datasets.load_dataset(
-                        path=self.dataset_path,
+                        path=dataset_path,
                         name=name,
                         split=split,
                         trust_remote_code=True,
