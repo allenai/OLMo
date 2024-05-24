@@ -15,6 +15,26 @@ from ..tokenizer import Tokenizer
 log = logging.getLogger(__name__)
 
 
+def load_dataset(path, name, split, local_datasets_dir: Optional[str] = None):
+    local_dataset_path = None
+    if local_datasets_dir is not None:
+        local_dataset_path = os.path.join(local_datasets_dir, path, name or "none", split)
+        try:
+            return datasets.load_from_disk(local_dataset_path)
+        except FileNotFoundError:
+            pass
+
+    dataset = datasets.load_dataset(
+        path=path,
+        name=name,
+        split=split,
+        trust_remote_code=True,
+    )
+    if local_dataset_path is not None:
+        dataset.save_to_disk(local_dataset_path)
+    return dataset
+
+
 class ICLMetric(Metric):
     # update method does not require access to global metric state
     full_state_update: bool = False
@@ -182,17 +202,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
 
         dataset_list = []
         for ds_name in dataset_names:
-            if local_datasets_dir is not None:
-                local_dataset_path = os.path.join(local_datasets_dir, self.dataset_path, ds_name or "none", split)
-                dataset = datasets.load_from_disk(local_dataset_path)
-            else:
-                dataset = datasets.load_dataset(
-                    path=self.dataset_path,
-                    name=ds_name,
-                    split=split,
-                    trust_remote_code=True,
-                )
-
+            dataset = load_dataset(self.dataset_path, ds_name, split, local_datasets_dir)
             dataset_list.append(dataset)
         self.dataset = datasets.concatenate_datasets(dataset_list)
 
@@ -1279,17 +1289,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
                 raise ValueError(f"Unknown prompt variations: {prompt_variations}")
             # Need to grab the dev set for the few-shot prompts
             for name in dataset_names:
-                split = "dev"
-                if local_datasets_dir is not None:
-                    local_dataset_path = os.path.join(local_datasets_dir, dataset_path, name or "none", split)
-                    dev_set = datasets.load_from_disk(local_dataset_path)
-                else:
-                    dev_set = datasets.load_dataset(
-                        path=dataset_path,
-                        name=name,
-                        split=split,
-                        trust_remote_code=True,
-                    )
+                dev_set = load_dataset(dataset_path, name, "dev", local_datasets_dir)
                 self.dev_set[name] = dev_set
         super().__init__(
             tokenizer=tokenizer,
