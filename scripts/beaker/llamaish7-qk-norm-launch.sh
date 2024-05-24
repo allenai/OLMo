@@ -9,6 +9,7 @@ gantry run \
   --task-name llamaish7-qk-norm \
   --description "OLMo medium - 7B - Llamaish QK norm" \
   --priority high \
+  --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale \
   --gpus 8 \
