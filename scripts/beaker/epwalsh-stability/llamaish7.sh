@@ -45,6 +45,7 @@ torchrun \
     configs/llamaish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --model.scale_emb_init=true \
+      --scheduler.warmup_min_lr=0.0 \
       '--load_path=${path.last_checkpoint:weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}}' \
       --stop_at=5000
 
