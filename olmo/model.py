@@ -716,7 +716,7 @@ class OLMoSequentialBlock(OLMoBlock):
         # shape: (batch_size, seq_len, d_model)
         og_x = x
 
-        if self.norm_after:
+        if self.config.norm_after:
             x = self.ff_proj(x)
             if self._activation_checkpoint_fn is not None:
                 x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
