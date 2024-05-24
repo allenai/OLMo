@@ -76,6 +76,7 @@ def inspect_data_without_device_data_indices(
             os.environ["FS_LOCAL_RANK"] = "1"
 
             for step in steps:
+                # With the current implementation, this does not rebuild the global data indices if the FS local rank is non-zero
                 dataloader = build_train_dataloader(cfg, world_size=world_size)
                 assert isinstance(dataloader.dataset, IterableDataset)
                 dataloader.dataset.start_index = get_global_train_examples_seen_before_step(
