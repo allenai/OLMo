@@ -87,7 +87,8 @@ def init_weights(
         raise NotImplementedError(config.init_fn)
 
     if config.scale_emb_init and type_of_module == ModuleType.emb:
-        module.weight.mul_(math.sqrt(config.d_model))
+        with torch.no_grad():
+            module.weight.mul_(math.sqrt(config.d_model))
 
     if isinstance(module, nn.Linear):
         if module.bias is not None:
