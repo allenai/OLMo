@@ -434,6 +434,11 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
+    norm_after: bool = False
+    """
+    Apply norm after the attention/feedforward layers rather than before, as introduced in the Swin transformer paper (Liu et al).
+    """
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:

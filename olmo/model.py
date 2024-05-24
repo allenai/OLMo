@@ -633,7 +633,8 @@ class OLMoBlock(nn.Module):
 class OLMoSequentialBlock(OLMoBlock):
     """
     This is a typical transformer block where the output is computed as ``MLP(LN(x + Attention(LN(x))))``
-    (plus another skip connection).
+    (plus another skip connection). To compute it as ``LN(MLP(x + LN(Attention(x))))``,
+    use the flag `norm_after`.
     """
 
     def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
@@ -684,9 +685,15 @@ class OLMoSequentialBlock(OLMoBlock):
         #  - for group query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_kv_heads)
         if self._activation_checkpoint_fn is not None:
-            qkv = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x))
+            if self.config.norm_after:
+                qkv = self._activation_checkpoint_fn(self.att_norm, self.attn_proj(x))
+            else:
+                qkv = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x))
         else:
-            qkv = self.att_proj(self.attn_norm(x))
+            if self.config.norm_after:
+                qkv = self.att_norm(self.attn_proj(x))
+            else:
+                qkv = self.att_proj(self.attn_norm(x))
 
         if self.config.clip_qkv is not None:
             qkv.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
@@ -708,11 +715,19 @@ class OLMoSequentialBlock(OLMoBlock):
         # Add feed-forward projection.
         # shape: (batch_size, seq_len, d_model)
         og_x = x
-        if self._activation_checkpoint_fn is not None:
-            x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+
+        if self.norm_after:
+            x = self.ff_proj(x)
+            if self._activation_checkpoint_fn is not None:
+                x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+            else:
+                x = self.ff_norm(x)
         else:
-            x = self.ff_norm(x)
-        x = self.ff_proj(x)
+            if self._activation_checkpoint_fn is not None:
+                x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+            else:
+                x = self.ff_norm(x)
+            x = self.ff_proj(x)
         if self._activation_checkpoint_fn is not None:
             x = self._activation_checkpoint_fn(self.act, x)  # type: ignore
         else:
