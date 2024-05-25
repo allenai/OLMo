@@ -189,8 +189,6 @@ class Trainer:
 
     def __post_init__(self):
         if self.cfg.fused_loss:
-            if self.model.config.block_type == BlockType.moe:
-                raise NotImplementedError("Fused loss is not implemented for MoE models.")
             from flash_attn.ops.triton.cross_entropy import (  # type: ignore
                 cross_entropy_loss,
             )
