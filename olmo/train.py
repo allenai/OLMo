@@ -202,7 +202,7 @@ class Trainer:
                     label_smoothing=0.0,
                     logit_scale=1.0,
                     lse_square_scale=0.0,
-                    ignored_index=ignore_index,
+                    ignore_index=ignore_index,
                     inplace_backward=False,
                     process_group=None,
                 )
