@@ -29,6 +29,8 @@ gantry run \
   --env-secret AWS_CONFIG=AWS_CONFIG \
   --env-secret AWS_CREDENTIALS=AWS_CREDENTIALS \
   --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
+  --env-secret R2_ACCESS_KEY_ID=R2_ACCESS_KEY_ID \
+  --env-secret R2_SECRET_ACCESS_KEY=R2_SECRET_ACCESS_KEY \
   --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
   --env-secret WANDB_API_KEY=WANDB_API_KEY \
   --shared-memory 10GiB \
