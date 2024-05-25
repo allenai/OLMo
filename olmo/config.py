@@ -461,6 +461,11 @@ class ModelConfig(BaseConfig):
     The weight to use for the MoE loss.
     """
 
+    moe_log_expert_assignment: Optional[bool] = True
+    """
+    Whether to log the expert assignment.
+    """
+
     moe_shared_expert: Optional[bool] = False
     """
     Whether to have an always-used expert like in [DeepSeekMoE](https://arxiv.org/abs/2401.06066).

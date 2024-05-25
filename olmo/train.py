@@ -728,7 +728,7 @@ class Trainer:
         z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
         lb_batch_loss = None if self.model.config.block_type != BlockType.moe else torch.tensor(0.0, device=self.device)
         # Keep this one on CPU to save memory
-        expert_assignments = None if self.model.config.block_type != BlockType.moe else torch.zeros((self.model.config.n_layers, self.model.config.moe_num_experts))
+        expert_assignments = None if ((self.model.config.block_type != BlockType.moe) or (self.model.config.moe_log_expert_assignment is False)) else torch.zeros((self.model.config.n_layers, self.model.config.moe_num_experts))
         for micro_batch in micro_batches:
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                 # Run forward pass.
@@ -762,8 +762,9 @@ class Trainer:
                         lb_loss = batched_load_balancing_loss_shared(self.moe_args) / len(micro_batches)
                     else:
                         lb_loss = batched_load_balancing_loss(self.moe_args) / len(micro_batches)
-                    tokens_per_expert, _ = zip(*get_load_balancing_loss())
-                    expert_assignments += torch.stack(tokens_per_expert, dim=0).cpu()
+                    if self.model.config.moe_log_expert_assignment:
+                        tokens_per_expert, _ = zip(*get_load_balancing_loss())
+                        expert_assignments += torch.stack(tokens_per_expert, dim=0).cpu()
                     clear_load_balancing_loss()
                     if self.model.config.load_balance:
                         loss += lb_loss
@@ -853,11 +854,12 @@ class Trainer:
         if lb_batch_loss is not None:
             metrics["train/LoadBalancingLoss"] = lb_batch_loss.item()
             # Log assignment metrics.
-            for layer_idx, expert_assignments_layer in enumerate(expert_assignments):
-                total_tokens = expert_assignments_layer.sum().item()
-                for expert_idx, expert_assignment in enumerate(expert_assignments_layer):
-                    metrics[f"train/TokensPercentage/layer{layer_idx}/expert{expert_idx}"] = (expert_assignment.item() / total_tokens) * 100
-                    metrics[f"train/TokensTotal/layer{layer_idx}/expert{expert_idx}"] = expert_assignment.item()
+            if self.model.config.moe_log_expert_assignment:
+                for layer_idx, expert_assignments_layer in enumerate(expert_assignments):
+                    total_tokens = expert_assignments_layer.sum().item()
+                    for expert_idx, expert_assignment in enumerate(expert_assignments_layer):
+                        metrics[f"train/TokensPercentage/layer{layer_idx}/expert{expert_idx}"] = (expert_assignment.item() / total_tokens) * 100
+                        metrics[f"train/TokensTotal/layer{layer_idx}/expert{expert_idx}"] = expert_assignment.item()
 
         # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:
