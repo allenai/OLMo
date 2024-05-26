@@ -46,9 +46,7 @@ torchrun \
       --run_name="${GANTRY_TASK_NAME}" \
       --model.scale_emb_init=true \
       --scheduler.warmup_min_lr=0.0 \
-      --model.rope=false \
-      --model.alibi=true \
-      '--load_path=${path.last_checkpoint:weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}}' \
+      '--load_path=weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}/step3000' \
       --stop_at=5000
 
 # ALiBi:
@@ -70,4 +68,5 @@ torchrun \
 # Initialize embeddings with std=1.0
 #      --model.emb_init_std=1.0 \
 #
-#      '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}}' \
+#      '--load_path=${path.last_checkpoint:weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}}' \
+#      '--load_path=weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}/step3000' \
