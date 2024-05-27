@@ -686,12 +686,12 @@ class OLMoSequentialBlock(OLMoBlock):
         #                      k, v: (batch_size, seq_len, d_model // n_kv_heads)
         if self._activation_checkpoint_fn is not None:
             if self.config.norm_after:
-                qkv = self._activation_checkpoint_fn(self.attn_norm, self.attn_proj(x))
+                qkv = self._activation_checkpoint_fn(self.attn_norm, self.att_proj(x))
             else:
                 qkv = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x))
         else:
             if self.config.norm_after:
-                qkv = self.attn_norm(self.attn_proj(x))
+                qkv = self.attn_norm(self.att_proj(x))
             else:
                 qkv = self.att_proj(self.attn_norm(x))
 
