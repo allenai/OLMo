@@ -639,9 +639,6 @@ class OLMoSequentialBlock(OLMoBlock):
 
     def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
         super().__init__(layer_id, config, cache)
-        # Layer norms.
-        self.attn_norm = LayerNorm.build(config)
-        self.ff_norm = LayerNorm.build(config)
         # Attention input projection. Projects x -> (q, k, v)
 
         head_dim = config.d_model // config.n_heads
@@ -657,6 +654,17 @@ class OLMoSequentialBlock(OLMoBlock):
         self.ff_proj = nn.Linear(
             config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device
         )
+
+        # Layer norms.
+        if self.config.norm_after:
+            att_norm_shape = sum(self.fused_dims)
+            ff_norm_shape = self.hidden_size
+        else:
+            att_norm_shape = config.d_model
+            ff_norm_shape = config.d_model
+
+        self.attn_norm = LayerNorm.build(config, size=att_norm_shape)
+        self.ff_norm = LayerNorm.build(config, size=ff_norm_shape)
 
     def reset_parameters(self):
         super().reset_parameters()
