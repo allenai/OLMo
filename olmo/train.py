@@ -230,7 +230,7 @@ class Trainer:
 
             self.loss_fn = fused_loss_fn
 
-        if self.model.config.block_type == BlockType.moe:
+        if (self.model.config.block_type == BlockType.moe) and (self.model.config.moe_expert_choice is False):
             # these MoEArgs are necessary for logging load balancing.
             self.moe_args = MoEArgs(
                 hidden_size=self.model.config.d_model,
@@ -724,9 +724,9 @@ class Trainer:
 
         ce_batch_loss = torch.tensor(0.0, device=self.device)
         z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
-        lb_batch_loss = None if self.model.config.block_type != BlockType.moe else torch.tensor(0.0, device=self.device)
+        lb_batch_loss = None if ((self.model.config.block_type != BlockType.moe) or (self.model.config.moe_expert_choice is True)) else torch.tensor(0.0, device=self.device)
         # Keep this one on CPU to save memory
-        expert_assignments = None if ((self.model.config.block_type != BlockType.moe) or (self.model.config.moe_log_expert_assignment is False)) else torch.zeros((self.model.config.n_layers, self.model.config.moe_num_experts))
+        expert_assignments = None if ((self.model.config.block_type != BlockType.moe) or (self.model.config.moe_log_expert_assignment is False) or (self.model.config.moe_expert_choice is True)) else torch.zeros((self.model.config.n_layers, self.model.config.moe_num_experts))
         for micro_batch in micro_batches:
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                 # Run forward pass.
@@ -755,7 +755,7 @@ class Trainer:
                 else:
                     loss = ce_loss
 
-                if self.model.config.block_type == BlockType.moe:
+                if (self.model.config.block_type == BlockType.moe) and (self.model.config.moe_expert_choice is False):
                     if self.model.config.share_load_balance_across_layers:
                         lb_loss = batched_load_balancing_loss_shared(self.moe_args) / len(micro_batches)
                     else:

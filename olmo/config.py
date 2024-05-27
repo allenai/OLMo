@@ -514,7 +514,12 @@ class ModelConfig(BaseConfig):
     moe_dropless: Optional[bool] = False
     """
     Whether to use dMoE (https://arxiv.org/abs/2211.15841)
-    """    
+    """
+
+    moe_expert_choice: Optional[bool] = False
+    """
+    Whether to use the expert choice mechanism.
+    """
 
     @property
     def effective_n_kv_heads(self) -> int:
