@@ -44,8 +44,14 @@ torchrun \
   scripts/train.py \
     configs/llamaish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
-      --model.emb_init_std=1.0 \
-      --optimizer.eps=1e-8 \
+      --model.scale_emb_init=true \
+      --model.complex_rope=true \
+      --model.layer_norm_type=rms \
+      --model.layer_norm_with_affine=true \
+      --model.clip_qkv=null \
+      --scheduler.warmup_min_lr=0.0 \
+      --scheduler.t_warmup=8388608000 \
+      --scheduler.t_max=2e12 \
       --stop_at=5000
 
 # ALiBi:
@@ -58,14 +64,25 @@ torchrun \
 # Emb init fix:
 #      --model.scale_emb_init=true \
 #
-# RMS norm:
+# Non-parametric RMS norm:
 #      --model.layer_norm_type=rms \
+#
+# Parametric RMS norm:
+#      --model.layer_norm_type=rms \
+#      --model.layer_norm_with_affine=true \
+#
+# No QKV clipping:
+#      --model.clip_qkv=null \
+#
+# Initialize embeddings with std=1.0
+#      --model.emb_init_std=1.0 \
 #
 # Warmup from LR=0.0 \
 #      --scheduler.warmup_min_lr=0.0 \
 #
-# Initialize embeddings with std=1.0
-#      --model.emb_init_std=1.0 \
+# Llama 2 schedule
+#      --scheduler.t_warmup=8388608000 \
+#      --scheduler.t_max=2e12 \
 #
 # Using torch's default epsilon=1e-8 with AdamW
 #      --optimizer.eps=1e-8 \

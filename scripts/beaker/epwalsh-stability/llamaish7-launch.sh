@@ -6,7 +6,7 @@ NUM_NODES=4
 
 gantry run \
   --workspace ai2/OLMo-training \
-  --task-name llamaish7-emb-init-1-eps-1e-8 \
+  --task-name llamaish7-basically-llama \
   --description "OLMo 7B stability experiments" \
   --priority high \
   --preemptible \
