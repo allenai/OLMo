@@ -45,6 +45,7 @@ torchrun \
     configs/llamaish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --model.emb_init_std=1.0 \
+      --optimizer.eps=1e-8 \
       --stop_at=5000
 
 # ALiBi:
@@ -65,6 +66,9 @@ torchrun \
 #
 # Initialize embeddings with std=1.0
 #      --model.emb_init_std=1.0 \
+#
+# Using torch's default epsilon=1e-8 with AdamW
+#      --optimizer.eps=1e-8 \
 #
 #      '--load_path=${path.last_checkpoint:weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}}' \
 #      '--load_path=weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}/step3000' \
