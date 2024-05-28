@@ -482,6 +482,12 @@ class OptimizerConfig(BaseConfig):
     If not set, defaults to the wandb `log_interval`.
     """
 
+    record_update_metrics: bool = False
+    """
+    Whether to record detailed metrics about the optimizer's parameter updates, like the norm and max
+    of the update with AdamW.
+    """
+
     def __post_init__(self):
         self.betas = tuple(self.betas)  # type: ignore[assignment]
 
