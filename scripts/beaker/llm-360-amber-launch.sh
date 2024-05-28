@@ -2,21 +2,22 @@
 
 set -ex
 
-NUM_NODES=1
+NUM_NODES=8
 
 gantry run \
   --workspace ai2/OLMo-training  \
   --task-name llm-360-amber-data-repro \
-  --description "Reproduction of LLM 360 Amber 7B training run" \
+  --description "OLMO 7B LLM 360 Amber data" \
   --priority high \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/pluto-cirrascale \
+  --cluster ai2/jupiter-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
   --no-nfs \
+  --allow-dirty \
   --propagate-failure \
   --synchronized-start-timeout 20m \
   --env LOG_FILTER_TYPE=local_rank0_only \
