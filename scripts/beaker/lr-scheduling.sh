@@ -39,7 +39,6 @@ torchrun \
       --run_name=lr-linear-decay-step402000-40000steps \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
       --load_path=/net/nfs.cirrascale/allennlp/shanea/checkpoints/unsorted/6574511/step402000-unsharded/ \
-      --remote_save_folder=weka://oe-training-default/ai2-llm/checkpoints/1b/lr-linear-decay-step402000-40000steps \
       --wandb.name=lr-linear-decay-step402000-40000steps \
       --wandb.group=lr-linear-decay-step402000-40000steps \
       --scheduler.name=linear_with_warmup \
@@ -56,3 +55,5 @@ torchrun \
 # '--load_path=${path.last_checkpoint:weka://oe-training-default/ai2-llm/checkpoints/1b/lr-scheduling-low-const-lr}' \
 #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/7b/const-lr-linear-decay-match-50B/}'
 #--load_path=weka://oe-training-default/ai2-llm/checkpoints/unsorted/6746551/step440000-unsharded/
+
+# --remote_save_folder=weka://oe-training-default/ai2-llm/checkpoints/1b/lr-linear-decay-step402000-40000steps \
