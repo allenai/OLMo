@@ -31,7 +31,7 @@ torchrun \
     --run_name=llamaish7-qk-norm-reorder \
     --wandb.name=llamaish7-qk-norm-reorder \
     --wandb.group=llamaish7-qk-norm-reorder \
-    --model.flash_attention=true \
+    --model.flash_attention=false \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
     --save_folder=runs/ \
