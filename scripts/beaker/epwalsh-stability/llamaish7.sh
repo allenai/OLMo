@@ -50,8 +50,6 @@ torchrun \
       --model.layer_norm_with_affine=true \
       --model.clip_qkv=null \
       --scheduler.warmup_min_lr=0.0 \
-      --scheduler.t_warmup=8388608000 \
-      --scheduler.t_max=2e12 \
       --stop_at=5000
 
 # No data instance filtering
@@ -70,7 +68,7 @@ torchrun \
 # Non-parametric RMS norm:
 #      --model.layer_norm_type=rms \
 #
-# Parametric RMS norm:
+# (Parametric) RMS norm:
 #      --model.layer_norm_type=rms \
 #      --model.layer_norm_with_affine=true \
 #
