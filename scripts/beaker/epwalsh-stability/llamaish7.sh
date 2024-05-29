@@ -45,10 +45,8 @@ torchrun \
     configs/llamaish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --model.scale_emb_init=true \
-      --model.complex_rope=true \
-      --model.layer_norm_type=rms \
-      --model.layer_norm_with_affine=true \
-      --model.clip_qkv=null \
+      --model.rope=false \
+      --model.alibi=true \
       --scheduler.warmup_min_lr=0.0 \
       --stop_at=5000
 
