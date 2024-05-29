@@ -1,6 +1,8 @@
 import logging
 from pathlib import Path
 from typing import Dict
+
+import numpy as np
 from tqdm import tqdm
 
 import torch
@@ -55,14 +57,18 @@ def main(cfg: TrainConfig, output_dir: Path) -> None:
 
     batches_per_file = 1000
     batches_read = 0
-    name_to_batches: Dict[str, torch.Tensor] = {}
+    name_to_batches: Dict[str, np.array] = {}
 
     for batch_number, batch in enumerate(tqdm(train_loader)):
         for name, source_t in batch.items():
+            source_t = source_t.numpy()
+            if name == "input_ids":
+                assert source_t.max() <= 2**16
+                source_t = source_t.astype(np.uint16)
             try:
                 target_t = name_to_batches[name]
             except KeyError:
-                target_t = torch.zeros((batches_per_file,) + source_t.shape, dtype=source_t.dtype)
+                target_t = np.zeros((batches_per_file,) + source_t.shape, dtype=source_t.dtype)
                 name_to_batches[name] = target_t
             target_t[batches_read] = source_t
         batches_read += 1
@@ -71,8 +77,8 @@ def main(cfg: TrainConfig, output_dir: Path) -> None:
             file_start = batch_number - batches_per_file + 1
             file_end = batch_number + 1
             for name, t in name_to_batches.items():
-                filename = output_dir / f"{name}-{file_start}-{file_end}.pt"
-                torch.save(t[:batches_read], filename)
+                filename = output_dir / f"{name}-{file_start}-{file_end}.npy"
+                np.save(filename, t[:batches_read])
             batches_read = 0
 
 
