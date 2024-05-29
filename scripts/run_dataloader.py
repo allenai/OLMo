@@ -5,7 +5,6 @@ from typing import Dict
 import numpy as np
 from tqdm import tqdm
 
-import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.utils.data import DataLoader
