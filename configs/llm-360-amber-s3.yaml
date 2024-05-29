@@ -1,4 +1,4 @@
-run_name: llm-306-amber-data-repro-001
+run_name: llm-306-amber-data-hyper-init-repro-001
 seed: 6198
 dry_run: false
 
@@ -19,10 +19,10 @@ model:
   flash_attention: true
   attention_dropout: 0.0
   attention_layer_norm: false
-  clip_qkv: 8.0
+  clip_qkv: None
   include_bias: false
   block_type: sequential
-  layer_norm_type: default
+  layer_norm_type: rms
   layer_norm_with_affine: false
   bias_for_layer_norm: false
   attention_layer_norm_with_affine: false
@@ -55,10 +55,10 @@ optimizer:
 scheduler:
   name: cosine_with_warmup
   units: tokens
-  t_warmup: 20971520000
-  t_max: 3e12
+  t_warmup: 2000
+  t_max: 1.25e12
   alpha_f: 0.1
-  grad_clip_warmup_steps: 2097152000
+  grad_clip_warmup_steps: 1
   grad_clip_warmup_factor: 5
 
 tokenizer:
