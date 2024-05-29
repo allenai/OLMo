@@ -10,29 +10,58 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from torchmetrics import Metric
 
+from olmo.torch_util import barrier, get_fs_local_rank
+
 from ..tokenizer import Tokenizer
 
 log = logging.getLogger(__name__)
 
 
-def load_dataset(path, name, split, local_datasets_dir: Optional[str] = None):
-    local_dataset_path = None
-    if local_datasets_dir is not None:
-        local_dataset_path = os.path.join(local_datasets_dir, path, name or "none", split)
-        try:
-            return datasets.load_from_disk(local_dataset_path)
-        except FileNotFoundError:
-            pass
+def load_from_disk(path, name, split, local_datasets_dir: str):
+    local_dataset_path = os.path.join(local_datasets_dir, path, name or "none", split)
+    return datasets.load_from_disk(local_dataset_path)
 
-    dataset = datasets.load_dataset(
-        path=path,
-        name=name,
-        split=split,
-        trust_remote_code=True,
-    )
-    if local_dataset_path is not None:
-        dataset.save_to_disk(local_dataset_path)
-    return dataset
+
+def save_to_disk(dataset: datasets.DatasetDict | datasets.Dataset, path, name, split, local_datasets_dir: str):
+    local_dataset_path = os.path.join(local_datasets_dir, path, name or "none", split)
+    return dataset.save_to_disk(local_dataset_path)
+
+
+def load_dataset(path, name, split, local_datasets_dir: Optional[str] = None):
+    if local_datasets_dir is None:
+        return datasets.load_dataset(
+            path=path,
+            name=name,
+            split=split,
+            trust_remote_code=True,
+        )
+
+    try:
+        return load_from_disk(path, name, split, local_datasets_dir)
+    except FileNotFoundError:
+        log.info(
+            "Path %s name %s split %s not present in local dir %s, loading from online",
+            path,
+            name,
+            split,
+            local_datasets_dir,
+        )
+
+    barrier()
+    dataset = None
+    # Download and save the dataset (only once per FS)
+    if get_fs_local_rank() == 0:
+        dataset = datasets.load_dataset(
+            path=path,
+            name=name,
+            split=split,
+            trust_remote_code=True,
+        )
+        assert isinstance(dataset, (datasets.DatasetDict, datasets.Dataset))
+        save_to_disk(dataset, path, name, split, local_datasets_dir)
+    barrier()
+
+    return dataset or load_from_disk(path, name, split, local_datasets_dir)
 
 
 class ICLMetric(Metric):
