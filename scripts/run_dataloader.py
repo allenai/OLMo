@@ -69,8 +69,8 @@ def main(cfg: TrainConfig, output_dir: Path) -> None:
         batches_read += 1
 
         if batches_read >= batches_per_file:
-            file_start = batch_number - batches_per_file
-            file_end = batch_number
+            file_start = batch_number - batches_per_file + 1
+            file_end = batch_number + 1
             filename = output_dir / f"{file_start}-{file_end}.safetensors"
             truncated_tensors = {n: t[:batches_read] for n, t in name_to_batches.items()}
             safetensors.torch.save_file(truncated_tensors, filename)
