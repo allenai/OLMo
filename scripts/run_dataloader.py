@@ -3,11 +3,10 @@ from pathlib import Path
 from typing import Dict
 
 import numpy as np
-from tqdm import tqdm
-
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from olmo.config import TrainConfig
 from olmo.data import build_memmap_dataset
