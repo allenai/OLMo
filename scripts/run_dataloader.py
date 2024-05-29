@@ -1,7 +1,10 @@
 import logging
-import sys
-import time
+from pathlib import Path
+from typing import Dict
+from tqdm import tqdm
 
+import safetensors.torch
+import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.utils.data import DataLoader
@@ -10,24 +13,23 @@ from olmo.config import TrainConfig
 from olmo.data import build_memmap_dataset
 from olmo.data.collator import DataCollator
 from olmo.data.iterable_dataset import IterableDataset
-from olmo.exceptions import OLMoCliError
 from olmo.torch_util import seed_all
 from olmo.util import clean_opt, prepare_cli_environment
 
 log = logging.getLogger("run_dataloader")
 
 
-def main(cfg: TrainConfig) -> None:
-    # Set seed.
+def main(cfg: TrainConfig, output_dir: Path) -> None:
+    # Set seed
     seed_all(cfg.seed)
 
     # Set some additional settings
     if cfg.device_train_batch_size is None:
-        log.warning(
-            "device_train_batch_size is not set, so we're assuming we're running on 8 GPUs. "
-            "Set that value on the command line if this is not true."
-        )
-        cfg.device_train_batch_size = cfg.global_train_batch_size // 8
+        cfg.device_train_batch_size = cfg.global_train_batch_size
+    cfg.device_train_grad_accum = cfg.device_train_batch_size // cfg.device_train_microbatch_size
+    cfg.data.num_workers = 4
+    cfg.data.pin_memory = False
+    cfg.data.prefetch_factor = 4
 
     # Construct data loader.
     collator = DataCollator(pad_direction=cfg.data.pad_direction, pad_token_id=cfg.model.pad_token_id)
@@ -52,28 +54,39 @@ def main(cfg: TrainConfig) -> None:
         timeout=cfg.data.timeout,
     )
 
-    # Warm up the data loader
-    train_loader_iter = iter(train_loader)
-    next(train_loader_iter)
+    batches_per_file = 1000
+    batches_read = 0
+    name_to_batches: Dict[str, torch.Tensor] = {}
 
-    # Benchmark the dataloader
-    start_time = time.time()
-    last_log_time = start_time
-    batches_loaded = 0
-    for _ in train_loader_iter:
-        batches_loaded += 1
-        now = time.time()
-        if now - last_log_time > 1:
-            log.info(
-                "Read %d batches in %.2f seconds, %.2f batches per second",
-                batches_loaded,
-                now - start_time,
-                batches_loaded / (now - start_time),
-            )
-            last_log_time = now
+    for batch_number, batch in enumerate(tqdm(train_loader)):
+        for name, source_t in batch.items():
+            try:
+                target_t = name_to_batches[name]
+            except KeyError:
+                target_t = torch.zeros((batches_per_file,) + source_t.shape, dtype=source_t.dtype)
+                name_to_batches[name] = target_t
+            target_t[batches_read] = source_t
+        batches_read += 1
+
+        if batches_read >= batches_per_file:
+            file_start = batch_number - batches_per_file
+            file_end = batch_number
+            filename = output_dir / f"{file_start}-{file_end}.safetensors"
+            truncated_tensors = {n: t[:batches_read] for n, t in name_to_batches.items()}
+            safetensors.torch.save_file(truncated_tensors, filename)
+            batches_read = 0
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="replay the dataloader and write batches out to files")
+    parser.add_argument("-o", type=str, help="output directory")
+    parser.add_argument("config_file", type=str, help="config file")
+    args, other_args = parser.parse_known_args()
+    output_dir = Path(args.o)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     try:
         mp.set_start_method("spawn", force=True)
     except RuntimeError as e:
@@ -85,13 +98,14 @@ if __name__ == "__main__":
 
     log.info(f"multiprocessing start method set to '{mp.get_start_method()}'")
 
-    try:
-        yaml_path, args_list = sys.argv[1], sys.argv[2:]
-    except IndexError:
-        raise OLMoCliError(f"Usage: {sys.argv[0]} [CONFIG_PATH] [OPTIONS]")
-
-    args_list = [clean_opt(s) for s in args_list]
+    args_list = [clean_opt(s) for s in other_args]
     args_list.insert(0, "save_folder=runs/")
 
-    cfg = TrainConfig.load(yaml_path, args_list)
-    main(cfg)
+    cfg = TrainConfig.load(args.config_file, args_list)
+
+    # If you have the data downloaded locally, uncomment this and fix the path for a massive speedup.
+    # cfg.data.paths = [
+    #    p.replace("s3://", "/mnt/tank/") for p in cfg.data.paths
+    # ]
+
+    main(cfg, output_dir)
