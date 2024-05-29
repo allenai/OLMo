@@ -692,16 +692,15 @@ class OLMoSequentialBlock(OLMoBlock):
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
         #  - for group query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_kv_heads)
-        if self._activation_checkpoint_fn is not None:
-            if self.config.norm_after:
-                qkv = self._activation_checkpoint_fn(self.attn_norm, self.att_proj(x))
+
+        # apply norm before
+        if not self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                x = self._activation_checkpoint_fn(self.attn_norm, x)
             else:
-                qkv = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x))
-        else:
-            if self.config.norm_after:
-                qkv = self.attn_norm(self.att_proj(x))
-            else:
-                qkv = self.att_proj(self.attn_norm(x))
+                x = self.attn_norm(x)
+
+        qkv = self.att_proj(x)
 
         if self.config.clip_qkv is not None:
             qkv.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
@@ -715,6 +714,12 @@ class OLMoSequentialBlock(OLMoBlock):
             )
         else:
             att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
+
+        if self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                att = self._activation_checkpoint_fn(self.attn_norm, att)
+            else:
+                att = self.attn_norm(att)
 
         # Add attention scores.
         # shape: (B, T, C)
