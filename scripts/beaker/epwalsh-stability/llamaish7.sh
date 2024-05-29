@@ -44,7 +44,6 @@ torchrun \
   scripts/train.py \
     configs/llamaish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
-      --data.instance_filter=null \
       --model.scale_emb_init=true \
       --model.complex_rope=true \
       --model.layer_norm_type=rms \
