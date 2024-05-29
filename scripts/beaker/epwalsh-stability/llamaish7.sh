@@ -14,6 +14,7 @@ shift
 
 # Setup Python environment.
 conda shell.bash activate base
+pip install flash-attn
 pip install git+https://github.com/allenai/OLMo-core.git@main
 pip install '.[train]'
 pip freeze
@@ -48,9 +49,10 @@ torchrun \
       --model.rope=false \
       --model.alibi=true \
       --scheduler.warmup_min_lr=0.0 \
+      --fused_loss=true \
       --stop_at=5000
 
-# No data instance filtering
+# No data instance filtering:
 #      --data.instance_filter=null \
 #
 # ALiBi:
@@ -73,15 +75,18 @@ torchrun \
 # No QKV clipping:
 #      --model.clip_qkv=null \
 #
-# Initialize embeddings with std=1.0
+# Initialize embeddings with std=1.0:
 #      --model.emb_init_std=1.0 \
 #
-# Warmup from LR=0.0 \
+# Warmup from LR=0.0:
 #      --scheduler.warmup_min_lr=0.0 \
 #
-# Llama 2 schedule
+# Llama 2 schedule:
 #      --scheduler.t_warmup=8388608000 \
 #      --scheduler.t_max=2e12 \
+#
+# Fused loss:
+#      --fused_loss=true \
 #
 # Using torch's default epsilon=1e-8 with AdamW
 #      --optimizer.eps=1e-8 \
