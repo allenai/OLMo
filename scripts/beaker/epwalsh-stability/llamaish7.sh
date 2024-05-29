@@ -14,7 +14,8 @@ shift
 
 # Setup Python environment.
 conda shell.bash activate base
-pip install flash-attn
+pip install packaging ninja
+pip install flash-attn --no-build-isolation
 pip install git+https://github.com/allenai/OLMo-core.git@main
 pip install '.[train]'
 pip freeze
