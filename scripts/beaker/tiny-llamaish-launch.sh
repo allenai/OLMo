@@ -7,7 +7,7 @@ NUM_NODES=1
 gantry run \
   --workspace ai2/OLMo-training \
   --task-name tiny-llamaish \
-  --description "OLMo medium - 7B - Llamaish QK norm reorder" \
+  --description "OLMo tiny-llamaish test" \
   --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
@@ -29,5 +29,6 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
+  --allow-dirty \
   -- /bin/bash -c "scripts/beaker/tiny-llamaish.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
   #--synchronized-start-timeout 600m
