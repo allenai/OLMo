@@ -43,6 +43,7 @@ torchrun \
     --eval_interval=50 \
     --optimizer.metrics_log_interval=1 \
     --save_overwrite \
+    --scale_emb_init \
     --model.attention_layer_norm=true \
     --model.norm_after=true
     #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-qk-norm-reorder/}'
