@@ -36,7 +36,7 @@ Check the script at [`scripts/beaker/olmo-small-ablation-on-gantry.sh`](scripts/
 ```bash
 CONFIG_PATH=configs/choose_a_config.yml \
 LOAD_PATH=/optional/path/to/checkpoint/ \
-  bash scripts/olmo-small-ablation-on-gantry.sh
+  bash scripts/beaker/olmo-small-ablation-on-gantry.sh
 ```
 
 If `CONFIG_PATH` is not specified, the default config is `configs/olmo-small-ablation.yaml`. If `LOAD_PATH` is not specified, the training will start from scratch.

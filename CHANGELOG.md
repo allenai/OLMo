@@ -7,10 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+- Added original legacy unsharding implementation back, as the default. The new
+shared memory implementation can be used by passing `use_legacy_shared_mem_impl` to `unshard.py`.
+
+### Fixed
+
+- Changed from `ignored_index` to `ignore_index` for `cross_entropy_loss` when `flash-attn>=2.5.8`.
+
+## [v0.3.0](https://github.com/allenai/OLMo/releases/tag/v0.3.0) - 2024-04-25
+
 ### Added
 
 - Added support for Grouped Query Attention.
 - Added commonsense_qa and social_iqa downstream evaluation tasks
+- Added ce_loss metric, with TriviaQA and NaturalQuestions tasks
 - Makes it possible to read from http/https the same way we read from s3/r2.
 - Added MMLU multiple choice (A/B/C/D) 5-shot variant downstream tasks
 - Tokenizer patch
@@ -35,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed `tie_weights` method to a no-op as weight tying is handled in olmo/model.py
 - Fixed the size calculation for qk layer norm
 - Fixed pipeline test failure that occurs due to a bug in transformers version 4.39.1
+- Make `hf_olmo` compatible with transformers versions >=4.40.0
 
 ## [v0.2.5](https://github.com/allenai/OLMo/releases/tag/v0.2.5) - 2024-03-06
 
