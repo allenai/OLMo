@@ -434,6 +434,11 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
+    scale_emb_init: bool = False
+    """
+    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization.
+    """
+
     norm_after: bool = False
     """
     Apply norm after the attention/feedforward layers rather than before, as introduced in the Swin transformer paper (Liu et al).
