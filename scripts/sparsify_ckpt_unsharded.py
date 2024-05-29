@@ -12,7 +12,8 @@ sd = safetensors_file_to_state_dict(path)
 tensors = {}
 swiglu = True
 noise = False
-n_experts = 8
+share = False
+n_experts = 16
 D = 2048
 
 def noise_injection(weight, noise_ratio=0.5, init_std=0.02):
@@ -34,13 +35,22 @@ for key in list(sd.keys()):
             if noise:
                 tensors[new_key] = noise_injection(tensors[new_key])
                 tensors[new_key_v1] = noise_injection(tensors[new_key_v1])
+            if share:
+                share_key = new_key.replace("experts.mlp.w1", "shared_expert.up_proj.weight")
+                share_key_v1 = new_key_v1.replace("experts.mlp.v1", "shared_expert.gate_proj.weight")
+                tensors[share_key] = w1
+                tensors[share_key_v1] = v1
         else:
             tensors[new_key] = torch.cat([sd.pop(key)] * n_experts, dim=0)
     elif ("ff_out.weight" in key) and (key != 'transformer.ff_out.weight'):
         new_key = key.replace("ff_out.weight", "ffn.experts.mlp.w2")
-        tensors[new_key] = torch.cat([sd.pop(key).t()] * n_experts, dim=0)
+        w = sd.pop(key)
+        tensors[new_key] = torch.cat([w.t()] * n_experts, dim=0)
         if noise:
             tensors[new_key] = noise_injection(tensors[new_key])
+        if share:
+            share_key = new_key.replace("experts.mlp.w2", "shared_expert.down_proj.weight")
+            tensors[share_key] = w
         # Add router
         router_key = key.replace("ff_out.weight", "ffn.router.layer.weight")
         # tensors[router_key] = torch.ones((n_experts, D)).squeeze() # Worse perf
