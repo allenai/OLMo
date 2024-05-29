@@ -35,9 +35,9 @@ model:
   eos_token_id: 2
   pad_token_id: 2
   init_device: meta
-  init_fn: full_megatron
-  init_std: 0.006
-  init_cutoff_factor: 3
+  init_fn: normal
+  init_std: 0.02
+  init_cutoff_factor: None
 
 compile: null
 
@@ -143,10 +143,6 @@ data:
   prefetch_factor: 8
   persistent_workers: true
   timeout: 0
-  instance_filter:
-    repetition_max_period: 13
-    repetition_min_period: 1
-    repetition_max_count: 32
   paths:
     ######### Amber #########
     - s3://ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_000.npy
