@@ -55,7 +55,9 @@ from .torch_util import (
     gc_cuda,
     get_fs_local_rank,
     get_global_rank,
-    get_world_size, get_local_world_size, get_local_rank,
+    get_world_size,
+    get_local_world_size,
+    get_local_rank,
 )
 from .util import (
     _get_s3_client,
