@@ -19,7 +19,6 @@ gantry run \
   --budget ai2/oe-training \
   --no-nfs \
   --propagate-failure \
-  --synchronized-start-timeout 600m \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
@@ -31,3 +30,4 @@ gantry run \
   --yes \
   --timeout=-1 \
   -- /bin/bash -c "scripts/beaker/tiny-llamaish.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  #--synchronized-start-timeout 600m
