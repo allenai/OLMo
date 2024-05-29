@@ -657,7 +657,7 @@ class OLMoSequentialBlock(OLMoBlock):
 
         # Layer norms.
         if self.config.norm_after:
-            att_norm_shape = self.hidden_size #sum(self.fused_dims)
+            att_norm_shape = config.d_model #sum(self.fused_dims)
             ff_norm_shape = self.hidden_size
         else:
             att_norm_shape = config.d_model
