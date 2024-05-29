@@ -80,6 +80,8 @@ gantry-test :
 		--cluster ai2/s2-cirrascale \
 		--cluster ai2/general-cirrascale \
 		--cluster ai2/general-cirrascale-a100-80g-ib \
+		--cluster ai2/jupiter-cirrascale \
+		--cluster ai2/pluto-cirrascale \
 		--allow-dirty \
 		--venv base \
 		--timeout -1 \
@@ -96,6 +98,8 @@ gantry-run-ib :
 		--gpus 8 \
 		--description "LLM Beaker IB Cluster Run" \
 		--cluster ai2/general-cirrascale-a100-80g-ib \
+		--cluster ai2/jupiter-cirrascale \
+		--cluster ai2/pluto-cirrascale \
 		--nfs \
 		--env WORLD_SIZE=32 \
 		--env GPUS=8 \
