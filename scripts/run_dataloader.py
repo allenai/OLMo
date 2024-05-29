@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Dict
 from tqdm import tqdm
 
+import safetensors.torch
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
@@ -70,9 +71,9 @@ def main(cfg: TrainConfig, output_dir: Path) -> None:
         if batches_read >= batches_per_file:
             file_start = batch_number - batches_per_file + 1
             file_end = batch_number + 1
-            for name, t in name_to_batches.items():
-                filename = output_dir / f"{name}-{file_start}-{file_end}.pt"
-                torch.save(t[:batches_read], filename)
+            filename = output_dir / f"{file_start}-{file_end}.safetensors"
+            truncated_tensors = {n: t[:batches_read] for n, t in name_to_batches.items()}
+            safetensors.torch.save_file(truncated_tensors, filename)
             batches_read = 0
 
 
