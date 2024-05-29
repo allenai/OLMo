@@ -68,6 +68,7 @@ gantry-test :
 	gantry run \
 		--workspace "$(BEAKER_WORKSPACE)" \
 		--priority "normal" \
+		--preemptible \
 		--beaker-image "$(GANTRY_IMAGE)" \
 		--gpus 1 \
 		--description "Test run" \
@@ -90,6 +91,7 @@ gantry-run-ib :
 	gantry run \
 		--workspace "$(BEAKER_WORKSPACE)" \
 		--priority "normal" \
+		--preemptible \
 		--beaker-image "$(GANTRY_IMAGE)" \
 		--gpus 8 \
 		--description "LLM Beaker IB Cluster Run" \
