@@ -351,20 +351,3 @@ def test_olmo_optimizer_and_clipping_gpu(max_iterations, max_norm, device):
         nprocs=world_size,
         join=True,
     )
-
-
-# TODO: add DDP
-# TODO: verify DDP and FSDP are synced on grads
-# TODO: plot activations and updates
-# TODO: reorganize plotting
-# TODO: run 70M OLMo and Mamba to 25k steps without decaying LR all the way, decay stays at 1 epoch of dolma 1.7
-
-# if __name__ == "__main__":
-#     world_size = 1
-#     _run_olmo_optim_againt_torch_optim(
-#         rank=0,
-#         world_size=world_size,
-#         max_iterations=10,
-#         max_norm=1.0,
-#         device='cpu',
-#     )
