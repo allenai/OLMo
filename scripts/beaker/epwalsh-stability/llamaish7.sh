@@ -14,10 +14,11 @@ shift
 
 # Setup Python environment.
 conda shell.bash activate base
+# Install flash-attn
 #conda install -y -c nvidia cuda-python
-pip install packaging ninja
-export FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE
-pip install flash-attn --no-build-isolation
+#pip install packaging ninja
+#export FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE
+#pip install flash-attn --no-build-isolation
 pip install git+https://github.com/allenai/OLMo-core.git@main
 pip install '.[train]'
 pip freeze
@@ -52,7 +53,7 @@ torchrun \
       --model.rope=false \
       --model.alibi=true \
       --scheduler.warmup_min_lr=0.0 \
-      --fused_loss=true \
+      --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded \
       --stop_at=5000
 
 # No data instance filtering:
