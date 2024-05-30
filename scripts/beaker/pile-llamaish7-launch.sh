@@ -5,10 +5,10 @@ set -ex
 NUM_NODES=8
 
 gantry run \
-  --workspace ai2/dirkg \
-  --task-name mitchish7 \
-  --description "OLMo medium - 7B" \
-  --priority normal \
+  --workspace ai2/akshitab \
+  --task-name pile-llamaish7 \
+  --description "OLMo medium - 7B - Llamaish - Pile" \
+  --priority high \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale \
   --gpus 8 \
@@ -18,7 +18,7 @@ gantry run \
   --budget ai2/oe-training \
   --no-nfs \
   --propagate-failure \
-  --synchronized-start-timeout 10m \
+  --synchronized-start-timeout 20m \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
@@ -29,4 +29,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/mitchish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/pile-llamaish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"

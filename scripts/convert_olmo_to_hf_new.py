@@ -162,7 +162,7 @@ def write_model(model_path, input_base_path, tokenizer_path=None, safe_serializa
         pad_token_id=olmo_config["pad_token_id"],
         bos_token_id=None,
         eos_token_id=olmo_config["eos_token_id"],
-        tie_word_embeddings=olmo_config["weight_tying"],
+        tie_word_embeddings=olmo_config.get("weight_tying", True),
         rope_theta=base,
         clip_qkv=olmo_config.get("clip_qkv"),
     )
