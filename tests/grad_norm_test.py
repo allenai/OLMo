@@ -1,4 +1,3 @@
-import functools
 import os
 from copy import deepcopy
 
