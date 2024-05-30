@@ -1,5 +1,6 @@
-from olmo.config import ModelConfig
 import tempfile
+
+from olmo.config import ModelConfig
 
 
 def test_config_save(model_path: str):
