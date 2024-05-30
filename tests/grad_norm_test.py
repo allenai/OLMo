@@ -8,11 +8,7 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils._foreach_utils import (
-    _device_has_foreach_support,
-    _group_tensors_by_device_and_dtype,
-    _has_foreach_support,
-)  # type: ignore
+from torch.nn.utils import clip_grad_norm_
 
 from olmo import OLMo
 from olmo.config import TrainConfig
@@ -122,72 +118,6 @@ def _patch_config(cfg, max_norm):
     return cfg
 
 
-def _no_grad(func):
-    def _no_grad_wrapper(*args, **kwargs):
-        with torch.no_grad():
-            return func(*args, **kwargs)
-
-    functools.update_wrapper(_no_grad_wrapper, func)
-    return _no_grad_wrapper
-
-
-@_no_grad
-def clip_grad_norm_(parameters, max_norm, norm_type=2.0, error_if_nonfinite=False, foreach=None) -> torch.Tensor:
-    """
-    Clipping function taken from torch.
-    """
-    if isinstance(parameters, torch.Tensor):
-        parameters = [parameters]
-    grads = [p.grad for p in parameters if p.grad is not None]
-    max_norm = float(max_norm)
-    norm_type = float(norm_type)
-
-    if len(grads) == 0:
-        return torch.tensor(0.0)
-
-    first_device = grads[0].device
-    grouped_grads = _group_tensors_by_device_and_dtype([grads])  # type: ignore[assignment]
-
-    norms = []
-    for (device, _), ([device_grads], _) in grouped_grads.items():  # type: ignore[assignment]
-        if (foreach is None and _has_foreach_support(device_grads, device)) or (
-            foreach and _device_has_foreach_support(device)
-        ):
-            norms.extend(torch._foreach_norm(device_grads, norm_type))
-        elif foreach:
-            raise RuntimeError(f"foreach=True was passed, but can't use the foreach API on {device.type} tensors")
-        else:
-            norms.extend([torch.linalg.vector_norm(g, norm_type) for g in device_grads])
-
-    total_norm = torch.linalg.vector_norm(torch.stack([norm.to(first_device) for norm in norms]), norm_type)
-
-    if error_if_nonfinite and torch.logical_or(total_norm.isnan(), total_norm.isinf()):
-        raise RuntimeError(
-            f"The total norm of order {norm_type} for gradients from "
-            "`parameters` is non-finite, so it cannot be clipped. To disable "
-            "this error and scale the gradients by the non-finite norm anyway, "
-            "set `error_if_nonfinite=False`"
-        )
-    clip_coef = max_norm / (total_norm + 1e-6)
-    # Note: multiplying by the clamped coef is redundant when the coef is clamped to 1, but doing so
-    # avoids a `if clip_coef < 1:` conditional which can require a CPU <=> device synchronization
-    # when the gradients do not reside in CPU memory.
-    clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
-    for (device, _), ([device_grads], _) in grouped_grads.items():  # type: ignore[assignment]
-        if (foreach is None and _has_foreach_support(device_grads, device)) or (
-            foreach and _device_has_foreach_support(device)
-        ):
-            torch._foreach_mul_(device_grads, clip_coef_clamped.to(device))
-        elif foreach:
-            raise RuntimeError(f"foreach=True was passed, but can't use the foreach API on {device.type} tensors")
-        else:
-            clip_coef_clamped_device = clip_coef_clamped.to(device)
-            for g in device_grads:
-                g.mul_(clip_coef_clamped_device)
-
-    return total_norm, clip_coef
-
-
 def _apply_scheduler(cfg, step_count, scheduler, optimizer):
     """
     Apply scheduler according to OLMo style.
@@ -230,8 +160,6 @@ def _naive_train_loop(
     """
     len_dataloader = 3
     max_epochs = max_iterations // len_dataloader + 1
-    norm_vector_a = []
-    norm_vector_b = []
 
     model_a_init_state = get_state_with_grads(model_a)
     model_b_init_state = get_state_with_grads(model_b)
@@ -253,7 +181,7 @@ def _naive_train_loop(
             loss_a = _lm_loss(logits_a, batch["input_ids"].to(device).clone())
 
             loss_a.backward()
-            norm_vector_a.append(clip_grad_norm_(model_a.parameters(), max_norm))
+            torch_grad_norm = clip_grad_norm_(model_a.parameters(), max_norm)
 
             _apply_scheduler(cfg, step_count, scheduler_a, optimizer_a)
             optimizer_a.step()
@@ -267,8 +195,9 @@ def _naive_train_loop(
             loss_b = _lm_loss(logits_b, batch["input_ids"].to(device).clone())
 
             loss_b.backward()
-            clip_stats = optimizer_b.clip_grads_and_collect_metrics(step_count, device=torch.device(device))
-            norm_vector_b.append((clip_stats["total_grad_norm"], clip_stats["clipping_rate"]))
+            olmo_grad_norm = optimizer_b.clip_grads_and_collect_metrics(step_count, device=torch.device(device))[
+                "total_grad_norm"
+            ]
 
             _apply_scheduler(cfg, step_count, scheduler_b, optimizer_b)
             optimizer_b.step()
@@ -289,11 +218,12 @@ def _naive_train_loop(
             # params set by observing grads for the two cases on a cpu run
             assert total_grad_diff < 1e-4, "model gradients diverged during optimization"
             assert total_param_diff < 1e-2, "model parameters diverged during optimization"
+            assert (
+                torch.abs(torch_grad_norm - olmo_grad_norm) < 1e-6
+            ), "grad norms computed by torch and OLMo codebase are different"
 
             if step_count == max_iterations:
                 break
-
-    return norm_vector_a, norm_vector_b
 
 
 def _run_olmo_optim_againt_torch_optim(
