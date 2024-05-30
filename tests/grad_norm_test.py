@@ -1,23 +1,25 @@
-import os
-import pytest
 import functools
+import os
+from copy import deepcopy
 
+import pytest
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import torch.distributed as dist
 import torch.multiprocessing as mp
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils._foreach_utils import (  # type: ignore
+    _device_has_foreach_support,
+    _group_tensors_by_device_and_dtype,
+    _has_foreach_support,
+)
 
 from olmo import OLMo
-from olmo.torch_util import seed_all
 from olmo.config import TrainConfig
-from olmo.model import LayerNormBase
 from olmo.data import build_train_dataloader
+from olmo.model import LayerNormBase
 from olmo.optim import build_optimizer, build_scheduler
-from olmo.torch_util import get_world_size
-
-from copy import deepcopy
-from torch.utils._foreach_utils import _group_tensors_by_device_and_dtype, _has_foreach_support, _device_has_foreach_support
+from olmo.torch_util import get_world_size, seed_all
 
 
 def _lm_loss(logits, labels):
