@@ -92,7 +92,11 @@ def _init_torch_optim(cfg, model):
 def _patch_config(cfg, max_norm):
     # patch config
     cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
-    cfg.data.paths = ["test_fixtures/c4-sample.01.json.gz", "test_fixtures/c4-sample.02.json.gz", "test_fixtures/c4-sample.03.json.gz"]
+    cfg.data.paths = [
+        "test_fixtures/c4-sample.01.json.gz",
+        "test_fixtures/c4-sample.02.json.gz",
+        "test_fixtures/c4-sample.03.json.gz"
+    ]
     cfg.model.vocab_size = 2**16  # some tokens in sample files are upto 65k
     cfg.model.embedding_size = cfg.model.vocab_size # this gives an error without this
     cfg.model.weight_tying = False
@@ -126,7 +130,15 @@ def _no_grad(func):
 
 @_no_grad
 def clip_grad_norm_(
-        parameters, max_norm, norm_type=2.0, error_if_nonfinite=False, foreach=None) -> torch.Tensor:
+    parameters,
+    max_norm,
+    norm_type=2.0,
+    error_if_nonfinite=False,
+    foreach=None
+) -> torch.Tensor:
+    """
+    Clipping function taken from torch.
+    """
     if isinstance(parameters, torch.Tensor):
         parameters = [parameters]
     grads = [p.grad for p in parameters if p.grad is not None]
@@ -181,6 +193,9 @@ def clip_grad_norm_(
 
 
 def _apply_scheduler(cfg, step_count, scheduler, optimizer):
+    """
+    Apply scheduler according to OLMo style.
+    """
     for group in optimizer.param_groups:
         group["lr"] = scheduler.get_lr(cfg.optimizer.learning_rate, step_count, cfg.scheduler.t_max)
         group["max_grad_norm"] = scheduler.get_max_grad_norm(cfg.max_grad_norm, step_count, cfg.scheduler.t_max)
@@ -211,6 +226,9 @@ def _naive_train_loop(
     max_norm=1.0,
     device='cpu',
 ):
+    """
+    Naive torch training loop.
+    """
     len_dataloader = 3
     max_epochs = max_iterations // len_dataloader + 1
     norm_vector_a = []
