@@ -711,6 +711,85 @@ class Trainer:
         # Run forward-backward pass.
         ce_batch_loss, z_batch_loss = self.train_batch(batch)
 
+        #######################################################################
+        import functools
+        from torch.utils._foreach_utils import _group_tensors_by_device_and_dtype, _has_foreach_support, _device_has_foreach_support
+
+        def _no_grad(func):
+            def _no_grad_wrapper(*args, **kwargs):
+                with torch.no_grad():
+                    return func(*args, **kwargs)
+            functools.update_wrapper(_no_grad_wrapper, func)
+            return _no_grad_wrapper
+
+
+        @_no_grad
+        def clip_grad_norm_(
+                parameters, max_norm, norm_type=2.0, error_if_nonfinite=False, foreach=None) -> torch.Tensor:
+            if isinstance(parameters, torch.Tensor):
+                parameters = [parameters]
+            grads = [p.grad for p in parameters if p.grad is not None]
+            max_norm = float(max_norm)
+            norm_type = float(norm_type)
+
+            if len(grads) == 0:
+                return torch.tensor(0.)
+
+            first_device = grads[0].device
+            grouped_grads = _group_tensors_by_device_and_dtype([grads])  # type: ignore[assignment]
+
+            norms = []
+            for ((device, _), ([device_grads], _)) in grouped_grads.items():  # type: ignore[assignment]
+                if (
+                    (foreach is None and _has_foreach_support(device_grads, device))
+                    or (foreach and _device_has_foreach_support(device))
+                ):
+                    norms.extend(torch._foreach_norm(device_grads, norm_type))
+                elif foreach:
+                    raise RuntimeError(f'foreach=True was passed, but can\'t use the foreach API on {device.type} tensors')
+                else:
+                    norms.extend([torch.linalg.vector_norm(g, norm_type) for g in device_grads])
+
+            total_norm = torch.linalg.vector_norm(torch.stack([norm.to(first_device) for norm in norms]), norm_type)
+
+            if error_if_nonfinite and torch.logical_or(total_norm.isnan(), total_norm.isinf()):
+                raise RuntimeError(
+                    f'The total norm of order {norm_type} for gradients from '
+                    '`parameters` is non-finite, so it cannot be clipped. To disable '
+                    'this error and scale the gradients by the non-finite norm anyway, '
+                    'set `error_if_nonfinite=False`')
+            clip_coef = max_norm / (total_norm + 1e-6)
+            # Note: multiplying by the clamped coef is redundant when the coef is clamped to 1, but doing so
+            # avoids a `if clip_coef < 1:` conditional which can require a CPU <=> device synchronization
+            # when the gradients do not reside in CPU memory.
+            clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
+            for ((device, _), ([device_grads], _)) in grouped_grads.items():  # type: ignore[assignment]
+                if (
+                    (foreach is None and _has_foreach_support(device_grads, device))
+                    or (foreach and _device_has_foreach_support(device))
+                ):
+                    torch._foreach_mul_(device_grads, clip_coef_clamped.to(device))
+                elif foreach:
+                    raise RuntimeError(f'foreach=True was passed, but can\'t use the foreach API on {device.type} tensors')
+                else:
+                    clip_coef_clamped_device = clip_coef_clamped.to(device)
+                    for g in device_grads:
+                        g.mul_(clip_coef_clamped_device)
+
+            return total_norm
+
+        from copy import deepcopy
+        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+
+        params = []
+        with FSDP.summon_full_params(self.fsdp_model):
+            for name, param in self.fsdp_model.named_parameters():
+                params.append(deepcopy(param))
+                params[-1].grad = deepcopy(param.grad)
+
+        total_norm = clip_grad_norm_(params, max_norm=1.)
+        #######################################################################
+
         # Collect loss, potentially reducing over all ranks.
         if reduce_global_loss:
             dist.reduce(ce_batch_loss, 0)
