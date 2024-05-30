@@ -656,15 +656,8 @@ class OLMoSequentialBlock(OLMoBlock):
         )
 
         # Layer norms.
-        if self.config.norm_after:
-            att_norm_shape = config.d_model #sum(self.fused_dims)
-            ff_norm_shape = self.hidden_size
-        else:
-            att_norm_shape = config.d_model
-            ff_norm_shape = config.d_model
-
-        self.attn_norm = LayerNorm.build(config, size=att_norm_shape)
-        self.ff_norm = LayerNorm.build(config, size=ff_norm_shape)
+        self.attn_norm = LayerNorm.build(config, size=config.d_model)
+        self.ff_norm = LayerNorm.build(config, size=config.d_model)
 
     def reset_parameters(self):
         super().reset_parameters()
@@ -729,23 +722,26 @@ class OLMoSequentialBlock(OLMoBlock):
         # shape: (batch_size, seq_len, d_model)
         og_x = x
 
-        if self.config.norm_after:
-            x = self.ff_proj(x)
+        if not self.config.norm_after:
             if self._activation_checkpoint_fn is not None:
                 x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
             else:
                 x = self.ff_norm(x)
-        else:
-            if self._activation_checkpoint_fn is not None:
-                x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
-            else:
-                x = self.ff_norm(x)
-            x = self.ff_proj(x)
+
+        x = self.ff_proj(x)
+
         if self._activation_checkpoint_fn is not None:
             x = self._activation_checkpoint_fn(self.act, x)  # type: ignore
         else:
             x = self.act(x)
         x = self.ff_out(x)
+
+        if self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+            else:
+                x = self.ff_norm(x)
+
         x = self.dropout(x)
         x = og_x + x
 
