@@ -218,9 +218,13 @@ class Optimizer(OptimizerBase):
         num_eligible_grads = 0
         for group in self.param_groups:
             if (max_norm_ratio := group.get("max_grad_norm_ratio")) is not None:
-                num_clipped = self._do_adaptive_clipping(group, max_norm_ratio, global_step, all_metrics, collect_param_metrics=True)
+                num_clipped = self._do_adaptive_clipping(
+                    group, max_norm_ratio, global_step, all_metrics, collect_param_metrics=True
+                )
             elif (max_norm := group.get("max_grad_norm")) is not None:
-                num_clipped = self._do_global_fixed_clipping(group, max_norm, all_metrics, collect_param_metrics=True)
+                num_clipped = self._do_global_fixed_clipping(
+                    group, max_norm, all_metrics, collect_param_metrics=True
+                )
             else:
                 # No clipping needed.
                 continue
@@ -399,7 +403,8 @@ class LionW(Optimizer):
             signed_update_total_norm = signed_update_total_norm**0.5
 
         update_cos_sim = update_total_dot_prod / torch.max(
-            update_total_norm * signed_update_total_norm, torch.tensor(1e-8, device=get_default_device() if self._device is None else self._device)
+            update_total_norm * signed_update_total_norm,
+            torch.tensor(1e-8, device=get_default_device() if self._device is None else self._device),
         )
         return {"update_cos_sim": update_cos_sim}
 
@@ -448,7 +453,9 @@ class LionW(Optimizer):
                 signed_update_norms.append(torch.linalg.vector_norm(signed_update, 2.0, dtype=torch.float32))
 
         # Compute cosine similarity between update and signed update.
-        self._update_total_dot_prod = update_total_dot_prod.to(get_default_device() if self._device is None else self._device)
+        self._update_total_dot_prod = update_total_dot_prod.to(
+            get_default_device() if self._device is None else self._device
+        )
         self._update_total_norm = torch.linalg.vector_norm(
             torch.stack(update_norms),
             2.0,

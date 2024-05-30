@@ -8,11 +8,11 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils._foreach_utils import (  # type: ignore
+from torch.utils._foreach_utils import (
     _device_has_foreach_support,
     _group_tensors_by_device_and_dtype,
     _has_foreach_support,
-)
+)  # type: ignore
 
 from olmo import OLMo
 from olmo.config import TrainConfig
@@ -89,16 +89,17 @@ def _init_torch_optim(cfg, model):
 
     return optimizer
 
+
 def _patch_config(cfg, max_norm):
     # patch config
     cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
     cfg.data.paths = [
         "test_fixtures/c4-sample.01.json.gz",
         "test_fixtures/c4-sample.02.json.gz",
-        "test_fixtures/c4-sample.03.json.gz"
+        "test_fixtures/c4-sample.03.json.gz",
     ]
     cfg.model.vocab_size = 2**16  # some tokens in sample files are upto 65k
-    cfg.model.embedding_size = cfg.model.vocab_size # this gives an error without this
+    cfg.model.embedding_size = cfg.model.vocab_size  # this gives an error without this
     cfg.model.weight_tying = False
     cfg.model.rope = True
 
@@ -110,13 +111,13 @@ def _patch_config(cfg, max_norm):
     cfg.scheduler.units = "steps"
     cfg.scheduler.t_warmup = 100
     cfg.scheduler.t_max = 1000
-    cfg.scheduler.alpha_f = 0.  # our custom test scheduler decays to 0
+    cfg.scheduler.alpha_f = 0.0  # our custom test scheduler decays to 0
     cfg.max_grad_norm = max_norm
     cfg.seed = 6198
 
-    cfg.model.attention_dropout = 0.
-    cfg.model.residual_dropout = 0.
-    cfg.model.embedding_dropout = 0.
+    cfg.model.attention_dropout = 0.0
+    cfg.model.residual_dropout = 0.0
+    cfg.model.embedding_dropout = 0.0
 
     return cfg
 
@@ -125,17 +126,13 @@ def _no_grad(func):
     def _no_grad_wrapper(*args, **kwargs):
         with torch.no_grad():
             return func(*args, **kwargs)
+
     functools.update_wrapper(_no_grad_wrapper, func)
     return _no_grad_wrapper
 
+
 @_no_grad
-def clip_grad_norm_(
-    parameters,
-    max_norm,
-    norm_type=2.0,
-    error_if_nonfinite=False,
-    foreach=None
-) -> torch.Tensor:
+def clip_grad_norm_(parameters, max_norm, norm_type=2.0, error_if_nonfinite=False, foreach=None) -> torch.Tensor:
     """
     Clipping function taken from torch.
     """
@@ -146,20 +143,19 @@ def clip_grad_norm_(
     norm_type = float(norm_type)
 
     if len(grads) == 0:
-        return torch.tensor(0.)
+        return torch.tensor(0.0)
 
     first_device = grads[0].device
     grouped_grads = _group_tensors_by_device_and_dtype([grads])  # type: ignore[assignment]
 
     norms = []
-    for ((device, _), ([device_grads], _)) in grouped_grads.items():  # type: ignore[assignment]
-        if (
-            (foreach is None and _has_foreach_support(device_grads, device))
-            or (foreach and _device_has_foreach_support(device))
+    for (device, _), ([device_grads], _) in grouped_grads.items():  # type: ignore[assignment]
+        if (foreach is None and _has_foreach_support(device_grads, device)) or (
+            foreach and _device_has_foreach_support(device)
         ):
             norms.extend(torch._foreach_norm(device_grads, norm_type))
         elif foreach:
-            raise RuntimeError(f'foreach=True was passed, but can\'t use the foreach API on {device.type} tensors')
+            raise RuntimeError(f"foreach=True was passed, but can't use the foreach API on {device.type} tensors")
         else:
             norms.extend([torch.linalg.vector_norm(g, norm_type) for g in device_grads])
 
@@ -167,23 +163,23 @@ def clip_grad_norm_(
 
     if error_if_nonfinite and torch.logical_or(total_norm.isnan(), total_norm.isinf()):
         raise RuntimeError(
-            f'The total norm of order {norm_type} for gradients from '
-            '`parameters` is non-finite, so it cannot be clipped. To disable '
-            'this error and scale the gradients by the non-finite norm anyway, '
-            'set `error_if_nonfinite=False`')
+            f"The total norm of order {norm_type} for gradients from "
+            "`parameters` is non-finite, so it cannot be clipped. To disable "
+            "this error and scale the gradients by the non-finite norm anyway, "
+            "set `error_if_nonfinite=False`"
+        )
     clip_coef = max_norm / (total_norm + 1e-6)
     # Note: multiplying by the clamped coef is redundant when the coef is clamped to 1, but doing so
     # avoids a `if clip_coef < 1:` conditional which can require a CPU <=> device synchronization
     # when the gradients do not reside in CPU memory.
     clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
-    for ((device, _), ([device_grads], _)) in grouped_grads.items():  # type: ignore[assignment]
-        if (
-            (foreach is None and _has_foreach_support(device_grads, device))
-            or (foreach and _device_has_foreach_support(device))
+    for (device, _), ([device_grads], _) in grouped_grads.items():  # type: ignore[assignment]
+        if (foreach is None and _has_foreach_support(device_grads, device)) or (
+            foreach and _device_has_foreach_support(device)
         ):
             torch._foreach_mul_(device_grads, clip_coef_clamped.to(device))
         elif foreach:
-            raise RuntimeError(f'foreach=True was passed, but can\'t use the foreach API on {device.type} tensors')
+            raise RuntimeError(f"foreach=True was passed, but can't use the foreach API on {device.type} tensors")
         else:
             clip_coef_clamped_device = clip_coef_clamped.to(device)
             for g in device_grads:
@@ -199,9 +195,11 @@ def _apply_scheduler(cfg, step_count, scheduler, optimizer):
     for group in optimizer.param_groups:
         group["lr"] = scheduler.get_lr(cfg.optimizer.learning_rate, step_count, cfg.scheduler.t_max)
         group["max_grad_norm"] = scheduler.get_max_grad_norm(cfg.max_grad_norm, step_count, cfg.scheduler.t_max)
-        group["max_grad_norm_ratio"] = scheduler.get_max_grad_norm(cfg.max_grad_norm_ratio, step_count, cfg.scheduler.t_max)
+        group["max_grad_norm_ratio"] = scheduler.get_max_grad_norm(
+            cfg.max_grad_norm_ratio, step_count, cfg.scheduler.t_max
+        )
 
-    return optimizer.param_groups[0]['lr']
+    return optimizer.param_groups[0]["lr"]
 
 
 def get_state_with_grads(model):
@@ -212,6 +210,7 @@ def get_state_with_grads(model):
         state_dict[name].grad = deepcopy(param.grad)
 
     return state_dict
+
 
 def _naive_train_loop(
     cfg,
@@ -224,7 +223,7 @@ def _naive_train_loop(
     data_loader,
     max_iterations,
     max_norm=1.0,
-    device='cpu',
+    device="cpu",
 ):
     """
     Naive torch training loop.
@@ -241,7 +240,7 @@ def _naive_train_loop(
     for name in model_a_init_state.keys():
         total_param_diff += (model_a_init_state[name] - model_b_init_state[name]).abs().sum()
 
-    assert total_param_diff == 0., "models are not initialized correctly"
+    assert total_param_diff == 0.0, "models are not initialized correctly"
 
     for epoch in range(max_epochs):
         for idx, batch in enumerate(data_loader):
@@ -250,8 +249,8 @@ def _naive_train_loop(
             optimizer_a.zero_grad()
             seed_all(step_count)
 
-            logits_a = model_a(batch['input_ids'].to(device)).logits
-            loss_a = _lm_loss(logits_a, batch['input_ids'].to(device).clone())
+            logits_a = model_a(batch["input_ids"].to(device)).logits
+            loss_a = _lm_loss(logits_a, batch["input_ids"].to(device).clone())
 
             loss_a.backward()
             norm_vector_a.append(clip_grad_norm_(model_a.parameters(), max_norm))
@@ -264,12 +263,12 @@ def _naive_train_loop(
             optimizer_b.zero_grad()
             seed_all(step_count)
 
-            logits_b = model_b(batch['input_ids'].to(device)).logits
-            loss_b = _lm_loss(logits_b, batch['input_ids'].to(device).clone())
+            logits_b = model_b(batch["input_ids"].to(device)).logits
+            loss_b = _lm_loss(logits_b, batch["input_ids"].to(device).clone())
 
             loss_b.backward()
             clip_stats = optimizer_b.clip_grads_and_collect_metrics(step_count, device=torch.device(device))
-            norm_vector_b.append((clip_stats['total_grad_norm'], clip_stats['clipping_rate']))
+            norm_vector_b.append((clip_stats["total_grad_norm"], clip_stats["clipping_rate"]))
 
             _apply_scheduler(cfg, step_count, scheduler_b, optimizer_b)
             optimizer_b.step()
@@ -298,12 +297,12 @@ def _naive_train_loop(
 
 
 def _run_olmo_optim_againt_torch_optim(
-        rank: int,
-        world_size: int,
-        max_iterations: int,
-        max_norm: float,
-        device: str,
-    ):
+    rank: int,
+    world_size: int,
+    max_iterations: int,
+    max_norm: float,
+    device: str,
+):
     # minimal distributed env setup
     # Set up world pg
     os.environ["MASTER_ADDR"] = "localhost"
@@ -348,7 +347,7 @@ def _run_olmo_optim_againt_torch_optim(
     dist.destroy_process_group()
 
 
-@pytest.mark.parametrize("max_iterations, max_norm, device", [pytest.param(10, 1.0, 'cpu')])
+@pytest.mark.parametrize("max_iterations, max_norm, device", [pytest.param(10, 1.0, "cpu")])
 def test_olmo_optimizer_and_clipping_cpu(max_iterations, max_norm, device):
     world_size = 1
     mp.spawn(
@@ -361,7 +360,7 @@ def test_olmo_optimizer_and_clipping_cpu(max_iterations, max_norm, device):
 
 @pytest.mark.gpu
 @pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires 1 CUDA device")
-@pytest.mark.parametrize("max_iterations, max_norm, device", [pytest.param(10, 1.0, 'cuda')])
+@pytest.mark.parametrize("max_iterations, max_norm, device", [pytest.param(10, 1.0, "cuda")])
 def test_olmo_optimizer_and_clipping_gpu(max_iterations, max_norm, device):
     world_size = 1
     # world_size = torch.cuda.device_count()
