@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import torch
 import torch.distributed as dist
 import torch.nn as nn
-from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
 from torch.optim.optimizer import Optimizer as OptimizerBase
 
 from . import LayerNormBase
@@ -76,13 +76,10 @@ class Optimizer(OptimizerBase):
         if process_group is not None:
             dst_rank = dist.get_global_rank(process_group, 0)
 
-        # Collect metrics locally.
+        #######################################################################
+        # part 1: collect metrics locally
+        #######################################################################
         for group in self.param_groups:
-            if is_distributed():
-                # TODO (epwalsh): handle non-sharded params. We don't have any right now but we would
-                # with ReLoRa, for example.
-                assert group.get("sharded", True) is True
-
             for name, p in zip(group["param_names"], group["params"]):
                 name = self._clean_param_name(name)
                 # Always need to collect the norm of gradients for clipping, even if we're not collecting
@@ -141,10 +138,16 @@ class Optimizer(OptimizerBase):
         def is_grad_norm_metric(metric_name: str) -> bool:
             return metric_name.startswith("grad/") and metric_name.endswith(".norm")
 
-        # Now reduce metrics over all ranks.
+        #######################################################################
+        # part 2: reduce metrics over ranks
+        #######################################################################
+        param_group_sharded = False
+        for group in self.param_groups:
+            param_group_sharded = param_group_sharded or group.get("sharded", False)
+
         total_grad_norm: torch.Tensor
         per_param_avg_metrics: List[torch.Tensor] = []
-        if is_distributed():  # TODO (epwalsh): skip for non-sharded params
+        if is_distributed() and param_group_sharded:
             # Reduce metrics across all ranks. Note that we can use a `reduce` for most cases
             # instead of an `all_reduce`, but we need `all_reduce` for norms so that all ranks
             # get the right value for gradient norms so they can clip correctly.
@@ -195,28 +198,28 @@ class Optimizer(OptimizerBase):
 
         # Collect all metrics into a single dict.
         all_metrics: Dict[str, torch.Tensor] = {}
-        for metric_name, metric in zip(per_param_min_metric_names, per_param_min_metrics):
-            all_metrics[metric_name] = metric.squeeze(0)
-        for metric_name, metric in zip(per_param_max_metric_names, per_param_max_metrics):
-            all_metrics[metric_name] = metric.squeeze(0)
-        for metric_name, metric in zip(per_param_avg_metric_names, per_param_avg_metrics):
-            all_metrics[metric_name] = metric.squeeze(0)
+        if collect_param_metrics:
+            for metric_name, metric in zip(per_param_min_metric_names, per_param_min_metrics):
+                all_metrics[metric_name] = metric.squeeze(0)
+            for metric_name, metric in zip(per_param_max_metric_names, per_param_max_metrics):
+                all_metrics[metric_name] = metric.squeeze(0)
+            for metric_name, metric in zip(per_param_avg_metric_names, per_param_avg_metrics):
+                all_metrics[metric_name] = metric.squeeze(0)
+
         for metric_name, metric in zip(per_param_norm_metric_names, per_param_norm_metrics):
             all_metrics[metric_name] = metric.squeeze(0)
         all_metrics["total_grad_norm"] = total_grad_norm
 
-        # Clip gradients.
+        #######################################################################
+        # part 3: clip grads
+        #######################################################################
         num_grads_clipped = 0
         num_eligible_grads = 0
         for group in self.param_groups:
             if (max_norm_ratio := group.get("max_grad_norm_ratio")) is not None:
-                num_clipped = self._do_adaptive_clipping(
-                    group, max_norm_ratio, global_step, all_metrics, collect_param_metrics=collect_param_metrics
-                )
+                num_clipped = self._do_adaptive_clipping(group, max_norm_ratio, global_step, all_metrics, collect_param_metrics=True)
             elif (max_norm := group.get("max_grad_norm")) is not None:
-                num_clipped = self._do_global_fixed_clipping(
-                    group, max_norm, all_metrics, collect_param_metrics=collect_param_metrics
-                )
+                num_clipped = self._do_global_fixed_clipping(group, max_norm, all_metrics, collect_param_metrics=True)
             else:
                 # No clipping needed.
                 continue
@@ -224,15 +227,15 @@ class Optimizer(OptimizerBase):
             if num_clipped is not None:
                 num_grads_clipped += num_clipped
 
-        if collect_param_metrics:
-            if num_eligible_grads > 0:
-                clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
-            else:
-                clipping_rate = torch.tensor(0.0, device="cpu")
-            all_metrics["clipping_rate"] = clipping_rate
-            return all_metrics
+        if num_eligible_grads > 0:
+            clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
         else:
-            return {}
+            clipping_rate = torch.tensor(0.0, device="cpu")
+        all_metrics["clipping_rate"] = clipping_rate
+
+        # per_param_norm, clipping_rate and total_grad_norm are computed even without collect_param_metrics set to False
+        # return those values
+        return all_metrics
 
     @torch.no_grad()
     def _do_adaptive_clipping(
@@ -732,7 +735,7 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,
-            eps=1e-5,
+            eps=cfg.optimizer.eps,
         )
     else:
         raise NotImplementedError
