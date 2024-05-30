@@ -234,7 +234,7 @@ class Optimizer(OptimizerBase):
             clipping_rate = torch.tensor(0.0, device="cpu")
         all_metrics["clipping_rate"] = clipping_rate
 
-        # per_param_norm, clipping_rate and total_grad_norm are computed even without collect_param_metrics set to False
+        # per_param_norm, clipping_rate and total_grad_norm are computed even with collect_param_metrics set to False
         # return those values
         return all_metrics
 
