@@ -211,6 +211,7 @@ def _naive_train_loop(
     data_loader,
     max_iterations,
     max_norm=1.0,
+    device='cpu',
 ):
     len_dataloader = 3
     max_epochs = max_iterations // len_dataloader + 1
@@ -233,8 +234,8 @@ def _naive_train_loop(
             optimizer_a.zero_grad()
             seed_all(step_count)
 
-            logits_a = model_a(batch['input_ids'].to('cuda')).logits
-            loss_a = _lm_loss(logits_a, batch['input_ids'].to('cuda').clone())
+            logits_a = model_a(batch['input_ids'].to(device)).logits
+            loss_a = _lm_loss(logits_a, batch['input_ids'].to(device).clone())
 
             loss_a.backward()
             norm_vector_a.append(clip_grad_norm_(model_a.parameters(), max_norm))
@@ -247,11 +248,12 @@ def _naive_train_loop(
             optimizer_b.zero_grad()
             seed_all(step_count)
 
-            logits_b = model_b(batch['input_ids'].to('cuda')).logits
-            loss_b = _lm_loss(logits_b, batch['input_ids'].to('cuda').clone())
+            logits_b = model_b(batch['input_ids'].to(device)).logits
+            loss_b = _lm_loss(logits_b, batch['input_ids'].to(device).clone())
 
             loss_b.backward()
-            norm_vector_b.append(optimizer_b.clip_grads_and_collect_metrics(step_count))
+            clip_stats = optimizer_b.clip_grads_and_collect_metrics(step_count, device=torch.device(device))
+            norm_vector_b.append((clip_stats['total_grad_norm'], clip_stats['clipping_rate']))
 
             _apply_scheduler(cfg, step_count, scheduler_b, optimizer_b)
             optimizer_b.step()
@@ -269,7 +271,9 @@ def _naive_train_loop(
                 total_param_diff += param_diff
                 total_grad_diff += grad_diff
 
+            # params set by observing grads for the two cases on a cpu run
             assert total_grad_diff < 1e-4, "model gradients diverged during optimization"
+            assert total_param_diff < 1e-2, "model parameters diverged during optimization"
 
             if step_count == max_iterations:
                 break
@@ -282,6 +286,7 @@ def _run_olmo_optim_againt_torch_optim(
         world_size: int,
         max_iterations: int,
         max_norm: float,
+        device: str,
     ):
     # minimal distributed env setup
     # Set up world pg
@@ -299,7 +304,7 @@ def _run_olmo_optim_againt_torch_optim(
 
     seed_all(cfg.seed)
 
-    model_a = OLMo(cfg.model).to('cuda')
+    model_a = OLMo(cfg.model).to(device)
     torch_optimizer = _init_torch_optim(cfg, model_a)
     scheduler_a = build_scheduler(cfg)
     data_loader = build_train_dataloader(cfg)
@@ -320,21 +325,50 @@ def _run_olmo_optim_againt_torch_optim(
         data_loader=data_loader,
         max_iterations=max_iterations,
         max_norm=max_norm,
+        device=device,
     )
 
     # Shut down world pg
     dist.destroy_process_group()
 
 
+@pytest.mark.parametrize("max_iterations, max_norm, device", [pytest.param(10, 1.0, 'cpu')])
+def test_olmo_optimizer_and_clipping_cpu(max_iterations, max_norm, device):
+    world_size = 1
+    mp.spawn(
+        _run_olmo_optim_againt_torch_optim,
+        args=(world_size, max_iterations, max_norm, device),
+        nprocs=world_size,
+        join=True,
+    )
+
+
 @pytest.mark.gpu
 @pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires 1 CUDA device")
-@pytest.mark.parametrize("max_iterations, max_norm", [pytest.param(10, 1.0)])
-def test_olmo_optimizer_and_clipping(max_iterations, max_norm):
+@pytest.mark.parametrize("max_iterations, max_norm, device", [pytest.param(10, 1.0, 'cuda')])
+def test_olmo_optimizer_and_clipping_gpu(max_iterations, max_norm, device):
     world_size = 1
     # world_size = torch.cuda.device_count()
     mp.spawn(
         _run_olmo_optim_againt_torch_optim,
-        args=(world_size, max_iterations, max_norm),
+        args=(world_size, max_iterations, max_norm, device),
         nprocs=world_size,
         join=True,
     )
+
+
+# TODO: add DDP
+# TODO: verify DDP and FSDP are synced on grads
+# TODO: plot activations and updates
+# TODO: reorganize plotting
+# TODO: run 70M OLMo and Mamba to 25k steps without decaying LR all the way, decay stays at 1 epoch of dolma 1.7
+
+# if __name__ == "__main__":
+#     world_size = 1
+#     _run_olmo_optim_againt_torch_optim(
+#         rank=0,
+#         world_size=world_size,
+#         max_iterations=10,
+#         max_norm=1.0,
+#         device='cpu',
+#     )

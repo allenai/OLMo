@@ -43,12 +43,13 @@ class Optimizer(OptimizerBase):
         global_step: int,
         collect_param_metrics: bool = True,
         process_group: Optional[dist.ProcessGroup] = None,
+        device: Optional[torch.device] = None,
     ) -> Dict[str, torch.Tensor]:
         """
         Clips gradients for every group that has the field `max_grad_norm`.
         At the same time collect metrics for each parameter and its gradient.
         """
-        device = get_default_device()
+        device = get_default_device() if device is None else device
 
         # NOTE (epwalsh): during distributed training we're making an assumption that the order of
         # the param groups and the params within each group are the same across all ranks.
@@ -245,13 +246,14 @@ class Optimizer(OptimizerBase):
         global_step: int,
         all_metrics: Dict[str, torch.Tensor],
         collect_param_metrics: bool = True,
+        device: Optional[torch.device] = None,
     ) -> Optional[int]:
         """
         Do adaptive gradient clipping on a param group.
 
         If ``collect_param_metrics`` is ``True`` this will return the total number of gradients clipped.
         """
-        device = get_default_device()
+        device = get_default_device() if device is None else device
         num_grads_clipped = 0
         # We'll use the bigger of beta1 and beta2 to update the exponential average of the norm of
         # the gradient (a scalar), not to be confused with the exponential average of the gradient.
@@ -311,13 +313,14 @@ class Optimizer(OptimizerBase):
         max_norm: float,
         all_metrics: Dict[str, torch.Tensor],
         collect_param_metrics: bool = True,
+        device: Optional[torch.device] = None,
     ) -> Optional[int]:
         """
         Do global fixed gradient clipping on a param group.
 
         If ``collect_param_metrics`` is ``True`` this will return the total number of gradients clipped.
         """
-        device = get_default_device()
+        device = get_default_device() if device is None else device
         total_grad_norm = all_metrics["total_grad_norm"]
         clip_coef = max_norm / (total_grad_norm.to(device) + 1e-6)
         clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
@@ -357,6 +360,7 @@ class LionW(Optimizer):
         lr: float = 1e-4,
         betas: Tuple[float, float] = (0.9, 0.99),
         weight_decay: float = 0.0,
+        device: Optional[torch.device] = None,
     ):
         assert lr > 0.0
         assert all([0.0 <= beta <= 1.0 for beta in betas])
@@ -367,6 +371,7 @@ class LionW(Optimizer):
         self._update_total_dot_prod: Optional[torch.Tensor] = None
         self._update_total_norm: Optional[torch.Tensor] = None
         self._signed_update_total_norm: Optional[torch.Tensor] = None
+        self._device: Optional[torch.device] = device
 
     def get_post_step_metrics(
         self, module: nn.Module, process_group: Optional[dist.ProcessGroup] = None
@@ -394,7 +399,7 @@ class LionW(Optimizer):
             signed_update_total_norm = signed_update_total_norm**0.5
 
         update_cos_sim = update_total_dot_prod / torch.max(
-            update_total_norm * signed_update_total_norm, torch.tensor(1e-8, device=get_default_device())
+            update_total_norm * signed_update_total_norm, torch.tensor(1e-8, device=get_default_device() if self._device is None else self._device)
         )
         return {"update_cos_sim": update_cos_sim}
 
@@ -443,17 +448,17 @@ class LionW(Optimizer):
                 signed_update_norms.append(torch.linalg.vector_norm(signed_update, 2.0, dtype=torch.float32))
 
         # Compute cosine similarity between update and signed update.
-        self._update_total_dot_prod = update_total_dot_prod.to(get_default_device())
+        self._update_total_dot_prod = update_total_dot_prod.to(get_default_device() if self._device is None else self._device)
         self._update_total_norm = torch.linalg.vector_norm(
             torch.stack(update_norms),
             2.0,
             dtype=torch.float32,
-        ).to(get_default_device())
+        ).to(get_default_device() if self._device is None else self._device)
         self._signed_update_total_norm = torch.linalg.vector_norm(
             torch.stack(signed_update_norms),
             2.0,
             dtype=torch.float32,
-        ).to(get_default_device())
+        ).to(get_default_device() if self._device is None else self._device)
 
 
 class AdamW(torch.optim.AdamW, Optimizer):
