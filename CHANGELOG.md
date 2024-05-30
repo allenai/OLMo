@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Added clipping fix to `Optimizer` class to make it work with FSDP `no_shard` and DDP.
+- Added tests to compare grad norm differences between torch optimizer and clipping and OLMo optimizer and clipping on both CPU and GPU.
+
 ### Changed
 
 - Added original legacy unsharding implementation back, as the default. The new
