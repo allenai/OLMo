@@ -44,7 +44,10 @@ def get_local_world_size() -> int:
 
 
 def get_global_rank() -> int:
-    return int(os.environ.get("RANK") or dist.get_rank())
+    if is_distributed:
+        return int(os.environ.get("RANK") or dist.get_rank())
+    else:
+        return 0
 
 
 def get_local_rank() -> int:
