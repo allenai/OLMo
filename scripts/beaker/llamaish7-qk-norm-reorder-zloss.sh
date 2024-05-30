@@ -44,7 +44,9 @@ torchrun \
     --optimizer.metrics_log_interval=1 \
     --save_overwrite \
     --model.scale_emb_init \
+    --model.clip_qkv=null \
     --model.attention_layer_norm=true \
     --model.norm_after=true \
-    --softmax_auxiliary_loss=true
+    --softmax_auxiliary_loss=true \
+    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded
     #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-qk-norm-reorder-zloss/}'
