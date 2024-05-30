@@ -504,6 +504,7 @@ class Trainer:
             self.optim,
             local_cache=local_cache,
             load_optimizer_state=load_optimizer_state,
+            load_trainer_state=load_trainer_state,
         )
         if load_trainer_state:
             self.load_trainer_state_dict(trainer_state)
