@@ -54,7 +54,6 @@ torchrun \
       --model.layer_norm_with_affine=true \
       --model.rope=false \
       --model.alibi=true \
-      --scheduler.warmup_min_lr=0.0 \
       --stop_at=5000
 
 # No data instance filtering:
