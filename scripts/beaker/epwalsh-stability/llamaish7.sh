@@ -49,11 +49,10 @@ torchrun \
   scripts/train.py \
     configs/llamaish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
-      --model.scale_emb_init=true \
-      --model.rope=false \
-      --model.alibi=true \
+      --model.emb_init_std=1.0 \
+      --model.layer_norm_type=rms \
+      --model.layer_norm_with_affine=true \
       --scheduler.warmup_min_lr=0.0 \
-      --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded \
       --stop_at=5000
 
 # No data instance filtering:
