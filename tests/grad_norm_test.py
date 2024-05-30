@@ -355,13 +355,3 @@ def test_olmo_optimizer_and_clipping_gpu(max_iterations, max_norm, device):
         nprocs=world_size,
         join=True,
     )
-
-# if __name__ == "__main__":
-#     world_size = 1
-#     _run_olmo_optim_againt_torch_optim(
-#         rank=0,
-#         world_size=world_size,
-#         max_iterations=10,
-#         max_norm=1.0,
-#         device='cpu',
-#     )
