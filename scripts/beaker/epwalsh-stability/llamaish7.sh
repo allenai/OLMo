@@ -14,8 +14,9 @@ shift
 
 # Setup Python environment.
 conda shell.bash activate base
-conda install -y -c nvidia cuda-python
+#conda install -y -c nvidia cuda-python
 pip install packaging ninja
+export FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE
 pip install flash-attn --no-build-isolation
 pip install git+https://github.com/allenai/OLMo-core.git@main
 pip install '.[train]'
