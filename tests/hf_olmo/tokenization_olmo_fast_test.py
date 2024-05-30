@@ -1,15 +1,12 @@
 import tempfile
 
+from hf_olmo import OLMoTokenizerFast
 from olmo.tokenizer import Tokenizer
 
 
 def test_olmo_tokenizer(model_path: str):
-    from transformers import AutoTokenizer
-
-    from hf_olmo import OLMoTokenizerFast  # noqa: F401
-
     tok = Tokenizer.from_checkpoint(model_path)
-    hf_tok = AutoTokenizer.from_pretrained(model_path)
+    hf_tok = OLMoTokenizerFast.from_pretrained(model_path)
 
     input_str = "Hello, this is a test!"
 
@@ -26,11 +23,7 @@ def test_olmo_tokenizer(model_path: str):
 
 
 def test_save_pretrained(model_path: str):
-    from transformers import AutoTokenizer
-
-    from hf_olmo import OLMoTokenizerFast  # noqa: F401
-
-    hf_tok = AutoTokenizer.from_pretrained(model_path)
+    hf_tok = OLMoTokenizerFast.from_pretrained(model_path)
 
     input_str = "Hello, this is a test!"
 
@@ -40,7 +33,7 @@ def test_save_pretrained(model_path: str):
     with tempfile.TemporaryDirectory() as tmp_dir:
         hf_tok.save_pretrained(tmp_dir)
 
-        saved_hf_tok = AutoTokenizer.from_pretrained(tmp_dir)
+        saved_hf_tok = OLMoTokenizerFast.from_pretrained(tmp_dir)
         saved_hf_tokenized = saved_hf_tok.encode(input_str)
 
         assert hf_tokenized == saved_hf_tokenized
