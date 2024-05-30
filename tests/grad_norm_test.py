@@ -226,23 +226,10 @@ def _naive_train_loop(
 
 
 def _run_olmo_optim_againt_torch_optim(
-    rank: int,
-    world_size: int,
     max_iterations: int,
     max_norm: float,
     device: str,
 ):
-    # minimal distributed env setup
-    # Set up world pg
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12355"
-    os.environ["RANK"] = str(rank)
-    os.environ["LOCAL_RANK"] = str(rank)
-
-    # Initialize the process group
-    dist.init_process_group("cpu:gloo,cuda:nccl", rank=rank, world_size=world_size)
-    torch.cuda.set_device(rank)
-
     cfg = TrainConfig.load("test_fixtures/train_tiny.yaml")
     cfg = _patch_config(cfg, max_norm)
 
@@ -272,30 +259,14 @@ def _run_olmo_optim_againt_torch_optim(
         device=device,
     )
 
-    # Shut down world pg
-    dist.destroy_process_group()
-
 
 @pytest.mark.parametrize("max_iterations, max_norm, device", [pytest.param(10, 1.0, "cpu")])
 def test_olmo_optimizer_and_clipping_cpu(max_iterations, max_norm, device):
-    world_size = 1
-    mp.spawn(
-        _run_olmo_optim_againt_torch_optim,
-        args=(world_size, max_iterations, max_norm, device),
-        nprocs=world_size,
-        join=True,
-    )
+    _run_olmo_optim_againt_torch_optim(max_iterations, max_norm, device)
 
 
 @pytest.mark.gpu
 @pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires 1 CUDA device")
 @pytest.mark.parametrize("max_iterations, max_norm, device", [pytest.param(10, 1.0, "cuda")])
 def test_olmo_optimizer_and_clipping_gpu(max_iterations, max_norm, device):
-    world_size = 1
-    # world_size = torch.cuda.device_count()
-    mp.spawn(
-        _run_olmo_optim_againt_torch_optim,
-        args=(world_size, max_iterations, max_norm, device),
-        nprocs=world_size,
-        join=True,
-    )
+    _run_olmo_optim_againt_torch_optim(max_iterations, max_norm, device)
