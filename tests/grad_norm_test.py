@@ -9,18 +9,14 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 
 from olmo import OLMo
-from olmo.train import Trainer
 from olmo.torch_util import seed_all
 from olmo.config import TrainConfig
 from olmo.model import LayerNormBase
 from olmo.data import build_train_dataloader
 from olmo.optim import build_optimizer, build_scheduler
-from olmo.torch_util import get_world_size, get_local_rank, get_default_device
+from olmo.torch_util import get_world_size
 
 from copy import deepcopy
-from packaging import version
-from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils._foreach_utils import _group_tensors_by_device_and_dtype, _has_foreach_support, _device_has_foreach_support
 
 
@@ -258,8 +254,8 @@ def _naive_train_loop(
             _apply_scheduler(cfg, step_count, scheduler_b, optimizer_b)
             optimizer_b.step()
 
-            total_param_diff = 0.
-            total_grad_diff = 0.
+            total_param_diff = 0
+            total_grad_diff = 0
 
             model_a_state = get_state_with_grads(model_a)
             model_b_state = get_state_with_grads(model_b)
