@@ -20,6 +20,7 @@ shared memory implementation can be used by passing `use_legacy_shared_mem_impl`
 ### Fixed
 
 - Changed from `ignored_index` to `ignore_index` for `cross_entropy_loss` when `flash-attn>=2.5.8`.
+- Fixed host-device sync issue at each clipping step introduced in previous clipping PR merge.
 
 ## [v0.3.0](https://github.com/allenai/OLMo/releases/tag/v0.3.0) - 2024-04-25
 
