@@ -542,7 +542,6 @@ class Checkpointer(metaclass=ABCMeta):
 
         Note this is not marked abstract because child classes are not required to implemented this.
         """
-        del load_path, local_cache, load_optimizer_state, load_trainer_state, device
         raise NotImplementedError
 
     @contextmanager
