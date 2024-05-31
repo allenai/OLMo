@@ -22,11 +22,7 @@ torchrun \
   scripts/train.py \
   configs/llm-360-amber-s3.yaml \
     --model.flash_attention=true \
-    --fsdp.wrapping_strategy=by_block_and_size \
-    --fsdp.sharding_strategy=SHARD_GRAD_OP \
     --save_folder=runs/ \
     --activation_checkpointing=fine_grained \
     --fused_loss=true \
-    --device_train_microbatch_size=2 \
-    --global_train_batch_size=512 \
     --optimizer.metrics_log_interval=1 \
