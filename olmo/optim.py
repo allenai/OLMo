@@ -219,11 +219,11 @@ class Optimizer(OptimizerBase):
         for group in self.param_groups:
             if (max_norm_ratio := group.get("max_grad_norm_ratio")) is not None:
                 num_clipped = self._do_adaptive_clipping(
-                    group, max_norm_ratio, global_step, all_metrics, collect_param_metrics=True
+                    group, max_norm_ratio, global_step, all_metrics, collect_param_metrics=collect_param_metrics
                 )
             elif (max_norm := group.get("max_grad_norm")) is not None:
                 num_clipped = self._do_global_fixed_clipping(
-                    group, max_norm, all_metrics, collect_param_metrics=True
+                    group, max_norm, all_metrics, collect_param_metrics=collect_param_metrics
                 )
             else:
                 # No clipping needed.
@@ -232,14 +232,14 @@ class Optimizer(OptimizerBase):
             if num_clipped is not None:
                 num_grads_clipped += num_clipped
 
-        if num_eligible_grads > 0:
-            clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
-        else:
-            clipping_rate = torch.tensor(0.0, device="cpu")
-        all_metrics["clipping_rate"] = clipping_rate
+        if collect_param_metrics:
+            if num_eligible_grads > 0:
+                clipping_rate = torch.tensor(num_grads_clipped / num_eligible_grads, device="cpu")
+            else:
+                clipping_rate = torch.tensor(0.0, device="cpu")
+            all_metrics["clipping_rate"] = clipping_rate
 
-        # per_param_norm, clipping_rate and total_grad_norm are computed even with collect_param_metrics set to False
-        # return those values
+        # total_grad_norm is computed at all steps, even when collect_param_metrics is set to False
         return all_metrics
 
     @torch.no_grad()

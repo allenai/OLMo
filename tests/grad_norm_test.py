@@ -99,6 +99,7 @@ def _patch_config(cfg, max_norm):
     cfg.optimizer.learning_rate = 1e-3
     cfg.optimizer.weight_decay = 0.1
     cfg.optimizer.eps = 1e-8
+    cfg.optimizer.metrics_log_interval = 10
     cfg.scheduler.name = "constant"
     cfg.scheduler.units = "steps"
     cfg.scheduler.t_warmup = 100
