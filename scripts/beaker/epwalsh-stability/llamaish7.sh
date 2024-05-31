@@ -14,11 +14,13 @@ shift
 
 # Setup Python environment.
 conda shell.bash activate base
+
 # Install flash-attn
 #conda install -y -c nvidia cuda-python
 #pip install packaging ninja
 #export FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE
 #pip install flash-attn --no-build-isolation
+pip install aws-cli
 pip install git+https://github.com/allenai/OLMo-core.git@main
 pip install '.[train]'
 pip freeze
@@ -34,6 +36,11 @@ pip freeze
 mkdir -p ~/.aws
 printenv AWS_CONFIG > ~/.aws/config
 printenv AWS_CREDENTIALS > ~/.aws/credentials
+
+mkdir /root/checkpoint-unsharded
+aws s3 cp --recursive --profile=s3 \
+    s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded \
+    /root/checkpoint-unsharded
 
 # Force processes to synchronize at init_process_group
 export TORCH_DIST_INIT_BARRIER=1
@@ -53,8 +60,7 @@ torchrun \
       --model.rope=false \
       --model.alibi=true \
       --scheduler.warmup_min_lr=0.0 \
-      --load_path=weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/llamaish7-alibi-emb-init-fix-data-filter-wup0/step2500 \
-      --fast_forward_batches=300 \
+      --load_path=/root/checkpoint-unsharded \
       --stop_at=5000
 
 # No data instance filtering:
@@ -97,5 +103,10 @@ torchrun \
 #      --optimizer.eps=1e-8 \
 #
 #      '--load_path=${path.last_checkpoint:weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}}' \
+#
 #      '--load_path=weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}/step3000' \
-#      --load_path=weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/llamaish7-alibi-emb-init-fix-data-filter-wup0/step2500
+#
+#      --load_path=weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/llamaish7-alibi-emb-init-fix-data-filter-wup0/step2500 \
+#      --fast_forward_batches=300 \
+#
+#      --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded \
