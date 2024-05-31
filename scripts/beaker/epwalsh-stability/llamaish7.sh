@@ -38,7 +38,7 @@ printenv AWS_CONFIG > ~/.aws/config
 printenv AWS_CREDENTIALS > ~/.aws/credentials
 
 mkdir /root/checkpoint-unsharded
-aws s3 cp --recursive --profile=S3 \
+aws s3 cp --no-progress --recursive --profile=S3 \
     s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded \
     /root/checkpoint-unsharded
 
