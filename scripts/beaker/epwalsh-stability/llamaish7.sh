@@ -37,10 +37,10 @@ mkdir -p ~/.aws
 printenv AWS_CONFIG > ~/.aws/config
 printenv AWS_CREDENTIALS > ~/.aws/credentials
 
-mkdir /root/checkpoint-unsharded
-aws s3 cp --no-progress --recursive --profile=S3 \
-    s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded \
-    /root/checkpoint-unsharded
+# mkdir /root/checkpoint-unsharded
+# aws s3 cp --no-progress --recursive --profile=S3 \
+#     s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded \
+#     /root/checkpoint-unsharded
 
 # Force processes to synchronize at init_process_group
 export TORCH_DIST_INIT_BARRIER=1
@@ -57,10 +57,14 @@ torchrun \
     configs/llamaish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --model.scale_emb_init=true \
-      --model.rope=false \
-      --model.alibi=true \
+      --model.complex_rope=true \
+      --model.layer_norm_type=rms \
+      --model.layer_norm_with_affine=true \
+      --model.clip_qkv=null \
       --scheduler.warmup_min_lr=0.0 \
-      --load_path=/root/checkpoint-unsharded \
+      --scheduler.t_warmup=8388608000 \
+      --scheduler.t_max=2e12 \
+      --seed=18898 \
       --stop_at=5000
 
 # No data instance filtering:

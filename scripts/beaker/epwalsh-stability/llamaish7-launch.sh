@@ -6,7 +6,7 @@ NUM_NODES=4
 
 gantry run \
   --workspace ai2/OLMo-training \
-  --task-name llamaish7-alibi-ananya-init-data-filter-wup0 \
+  --task-name llamaish7-basically-llama-w-data-filter-2 \
   --description "OLMo 7B stability experiments" \
   --priority high \
   --preemptible \
