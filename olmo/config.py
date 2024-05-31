@@ -476,6 +476,11 @@ class ModelConfig(BaseConfig):
     Whether to perform load balancing in FP32.
     """
 
+    moe_interleave: Optional[bool] = False
+    """
+    Interleave sequential with MoE blocks starting with sequential.
+    """
+
     share_blocks: bool = False
     """
     If ``True``, share the same block across all layers.

@@ -2,7 +2,8 @@ run_name: ${oc.env:SLURM_JOB_ID}
 seed: 6198
 dry_run: false
 no_pre_train_checkpoint: true
-#fast_forward_batches: 136153
+activation_checkpointing: fine_grained
+fused_loss: true
 
 wandb:
   name: ${run_name}
@@ -41,7 +42,7 @@ model:
   moe_num_experts: 8
   moe_expert_model_parallelism: false
   moe_dropless: true
-  moe_mlp_impl: sparse
+  moe_mlp_impl: grouped
 
 compile: null
 

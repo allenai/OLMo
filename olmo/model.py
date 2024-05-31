@@ -1208,6 +1208,13 @@ class OLMo(nn.Module):
         if self.config.share_blocks:
             assert self.config.block_group_size == 1, "Block sharing is only supported with block_group_size=1"
             blocks = [OLMoBlock.build(0, config, self.__cache)]
+        elif self.config.moe_interleave:
+            blocks = []
+            for i in range(config.n_layers):
+                if i % 2 == 0:
+                    blocks.append(OLMoSequentialBlock(i, config, self.__cache))
+                else:
+                    blocks.append(OLMoEBlock(i, config, self.__cache))
         else:
             blocks = [OLMoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
 
