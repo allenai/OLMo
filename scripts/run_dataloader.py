@@ -75,7 +75,7 @@ def main(cfg: TrainConfig, output_dir: Path) -> None:
             file_start = batch_number - batches_per_file + 1
             file_end = batch_number + 1
             for name, t in name_to_batches.items():
-                filename = output_dir / f"{name}-{file_start}-{file_end}.npy"
+                filename = output_dir / f"{name}-{file_start:07}-{file_end:07}.npy"
                 np.save(filename, t[:batches_read])
             batches_read = 0
 
