@@ -229,7 +229,7 @@ class RMSLayerNorm(LayerNormBase):
         config: ModelConfig,
         size: Optional[int] = None,
         elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-5,
+        eps: float = 1e-6,
     ):
         super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
 

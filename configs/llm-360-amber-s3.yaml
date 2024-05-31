@@ -1,11 +1,11 @@
-run_name: llm-306-amber-data-hyper-init-repro-001
+run_name: llm-360-amber-data-hyper-init-repro-002
 seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-medium
-  group: llm-306-amber-data-repro
+  group: llm-360-amber-data-repro
 
 model:
   d_model: 4096
@@ -53,7 +53,7 @@ optimizer:
 scheduler:
   name: cosine_with_warmup
   units: tokens
-  t_warmup: 2000
+  t_warmup: 9175040000
   t_max: 1.25e12
   alpha_f: 0.1
   grad_clip_warmup_steps: 1
@@ -67,7 +67,7 @@ save_folder: runs/${run_name}
 remote_save_folder: s3://ai2-llm/checkpoints/OLMo-medium/${run_name}
 save_overwrite: false
 
-save_interval: 1000
+save_interval: 10000
 save_interval_ephemeral: null
 save_num_checkpoints_to_keep: -1
 sharded_checkpointer: olmo_core
@@ -78,7 +78,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 load_path: null
 
 max_duration: 2ep
-global_train_batch_size: 512
+global_train_batch_size: 2240
 device_train_microbatch_size: 2
 
 precision: amp_bf16

@@ -6,7 +6,7 @@ NUM_NODES=8
 
 gantry run \
   --workspace ai2/OLMo-training  \
-  --task-name llm-306-amber-data-hyper-init-repro\
+  --task-name llm-306-amber-data-hyper-init-repro-2\
   --description "OLMO 7B LLM 360 Amber data, init, and hyperparams" \
   --priority high \
   --preemptible \
