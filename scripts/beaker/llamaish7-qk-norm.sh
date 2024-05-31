@@ -43,5 +43,8 @@ torchrun \
     --eval_interval=50 \
     --optimizer.metrics_log_interval=1 \
     --save_overwrite \
-    --model.attention_layer_norm=true
+    --model.scale_emb_init \
+    --model.clip_qkv=null \
+    --model.attention_layer_norm=true \
+    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded
     # '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-qk-norm/}'
