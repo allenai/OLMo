@@ -20,7 +20,7 @@ conda shell.bash activate base
 #pip install packaging ninja
 #export FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE
 #pip install flash-attn --no-build-isolation
-pip install aws-cli
+pip install awscli
 pip install git+https://github.com/allenai/OLMo-core.git@main
 pip install '.[train]'
 pip freeze
