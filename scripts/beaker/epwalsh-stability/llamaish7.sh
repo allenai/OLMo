@@ -50,11 +50,11 @@ torchrun \
     configs/llamaish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --model.scale_emb_init=true \
-      --model.layer_norm_type=rms \
-      --model.layer_norm_with_affine=true \
       --model.rope=false \
       --model.alibi=true \
       --scheduler.warmup_min_lr=0.0 \
+      --load_path=weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/llamaish7-alibi-emb-init-fix-data-filter-wup0/step2500 \
+      --fast_forward_batches=300 \
       --stop_at=5000
 
 # No data instance filtering:
@@ -98,3 +98,4 @@ torchrun \
 #
 #      '--load_path=${path.last_checkpoint:weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}}' \
 #      '--load_path=weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}/step3000' \
+#      --load_path=weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/llamaish7-alibi-emb-init-fix-data-filter-wup0/step2500

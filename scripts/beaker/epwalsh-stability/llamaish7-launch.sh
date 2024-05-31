@@ -6,7 +6,7 @@ NUM_NODES=4
 
 gantry run \
   --workspace ai2/OLMo-training \
-  --task-name llamaish7-alibi-rms-emb-init-fix-data-filter-wup0 \
+  --task-name llamaish7-alibi-emb-init-fix-data-filter-wup0-rnd2 \
   --description "OLMo 7B stability experiments" \
   --priority high \
   --preemptible \
