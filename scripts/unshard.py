@@ -5,12 +5,7 @@ from typing import Union
 
 import torch
 
-from olmo.checkpoint import (
-    Checkpointer,
-    LocalShardedCheckpointer,
-    OlmoCoreCheckpointer,
-    TorchLegacyShardedCheckpointer,
-)
+from olmo.checkpoint import build_sharded_checkpointer
 from olmo.config import ShardedCheckpointerType, TrainConfig
 from olmo.safetensors_util import state_dict_to_safetensors_file
 
@@ -32,15 +27,9 @@ def main(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     config = TrainConfig.load(input_dir / "config.yaml", validate_paths=False)
-    checkpointer: Checkpointer
-    if sharded_checkpoint_type == ShardedCheckpointerType.torch_legacy:
-        checkpointer = TorchLegacyShardedCheckpointer(config, use_shared_mem_impl=use_shared_mem_impl)
-    elif sharded_checkpoint_type == ShardedCheckpointerType.local:
-        checkpointer = LocalShardedCheckpointer(config)
-    elif sharded_checkpoint_type == ShardedCheckpointerType.olmo_core:
-        checkpointer = OlmoCoreCheckpointer(config)
-    else:
-        raise NotImplementedError(sharded_checkpoint_type)
+    checkpointer = build_sharded_checkpointer(
+        config, name=sharded_checkpoint_type, use_shared_mem_impl=use_shared_mem_impl
+    )
 
     model_state_dict, optim_state_dict, trainer_state_dict = checkpointer.unshard_checkpoint(
         input_dir,
