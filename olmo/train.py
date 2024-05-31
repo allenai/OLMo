@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
 from pstats import SortKey
-from typing import Any, Callable, Deque, Dict, List, Optional, TextIO, Tuple
+from typing import Any, Callable, Deque, Dict, List, Optional, TextIO, Tuple, Union
 
 import numpy as np
 import torch
@@ -22,6 +22,7 @@ import torch.nn.functional as F
 import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 
 from .aliases import PathOrStr
@@ -119,7 +120,7 @@ def cross_entropy_loss(
 class Trainer:
     cfg: TrainConfig
     model: OLMo
-    fsdp_model: FSDP
+    dist_model: Union[DDP, FSDP]
     optim: Optimizer
     scheduler: Scheduler
     train_loader: DataLoader
@@ -421,6 +422,7 @@ class Trainer:
 
         # Save the checkpoint.
         try:
+            # TODO: update to dist_model
             checkpointer.save_checkpoint(
                 checkpoint_dir,
                 self.fsdp_model,
@@ -498,6 +500,7 @@ class Trainer:
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
         checkpointer = build_sharded_checkpointer(self.cfg, name=sharded_checkpointer)
+        # TODO: update to dist_model
         trainer_state = checkpointer.restore_checkpoint(
             load_path,
             self.fsdp_model,
@@ -536,6 +539,7 @@ class Trainer:
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
         checkpointer = FullCheckpointer(self.cfg)
+        # TODO: update to dist_model
         trainer_state = checkpointer.restore_checkpoint(
             load_path,
             self.fsdp_model,
@@ -625,7 +629,7 @@ class Trainer:
         self, batch: Dict[str, Any], loss_reduction: str = "mean", compute_z_loss: bool = False
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], torch.Tensor]:
         # shape: (batch_size, seq_len, vocab_size)
-        logits = self.fsdp_model(
+        logits = self.dist_model(
             input_ids=batch["input_ids"],
             attention_mask=batch.get("attention_mask"),
             attention_bias=batch.get("attention_bias"),
@@ -657,6 +661,7 @@ class Trainer:
 
         ce_batch_loss = torch.tensor(0.0, device=self.device)
         z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
+        # TODO: add sync context for DDP
         for micro_batch in micro_batches:
             with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                 # Run forward pass.
@@ -726,7 +731,7 @@ class Trainer:
             collect_param_metrics=should_log_optim_metrics_this_step,
             # passing this process group here ensures metrics are reduced correctly when we're using
             # HYBRID sharding.
-            process_group=self.fsdp_model.process_group,
+            process_group=self.dist_model.process_group,
         )
 
         # Adjust the learning rate.
@@ -763,9 +768,13 @@ class Trainer:
             metrics["train/ZLoss"] = z_batch_loss.item()
 
         # Maybe collect post-step optimizer-specific metrics.
+        # TODO (ananya): self.dist_model with DDP will not work with ``get_post_step_metrics`` of LionW
+        # while AdamW does not implement a custom version of ``get_post_step_metrics`` function. Since we do not use
+        # LionW anymore, we can skip fixing the interaction of DDP model and ``get_post_step_metrics`` function
+        # in LionW for the time being.
         if should_log_optim_metrics_this_step:
             optim_metrics = self.optim.get_post_step_metrics(
-                self.fsdp_model, process_group=self.fsdp_model.process_group
+                self.dist_model, process_group=self.dist_model.process_group
             )
             for key, value in optim_metrics.items():
                 metrics[f"optim/{key}"] = value.item()
@@ -872,7 +881,7 @@ class Trainer:
     def eval(self) -> Dict[str, Any]:
         # Zero gradients and set model to 'eval' mode.
         self.optim.zero_grad(set_to_none=True)
-        self.fsdp_model.eval()
+        self.dist_model.eval()
 
         eval_metrics = {}
         for evaluator in self.evaluators:
@@ -983,7 +992,7 @@ class Trainer:
                 wandb.log(eval_metrics, step=self.global_step)
 
         # Set model to 'train' mode.
-        self.fsdp_model.train()
+        self.dist_model.train()
 
         # Initialize monitors.
         assert self.cfg.device_train_batch_size is not None
@@ -1171,7 +1180,7 @@ class Trainer:
                         speed_monitor.reset()
 
                         # Reset model to 'train' mode.
-                        self.fsdp_model.train()
+                        self.dist_model.train()
 
                     # End of batch.
                     first_batch = False

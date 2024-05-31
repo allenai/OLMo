@@ -48,6 +48,7 @@ __all__ = [
     "WandbConfig",
     "CompilerConfig",
     "WandbConfig",
+    "DistributedStrategy",
     "FSDPPrecision",
     "FSDPWrapStrategy",
     "FSDPConfig",
@@ -633,6 +634,18 @@ class CompilerConfig(BaseConfig):
     """
 
 
+class DistributedStrategy(StrEnum):
+    ddp = "ddp"
+    """
+    Wrap OLMo in torch.nn.parallel.DistributedDataParallel to train across ranks.
+    """
+
+    fsdp = "fsdp"
+    """
+    Wrap OLMo in torch.distributed.fsdp.FullyShardedDataParallel to train across ranks.
+    """
+
+
 class FSDPWrapStrategy(StrEnum):
     by_block = "by_block"
     """
@@ -1021,6 +1034,11 @@ class TrainConfig(BaseConfig):
     compile: Optional[CompilerConfig] = None
     """
     Settings for compiling the model with ``torch.compile()``.
+    """
+
+    distributed_strategy: Optional[DistributedStrategy] = None
+    """
+    Distributed strategy for OLMo model (eg. single GPU, DDP, FSDP).
     """
 
     fsdp: FSDPConfig = field(default_factory=FSDPConfig)

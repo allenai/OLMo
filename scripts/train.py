@@ -13,8 +13,9 @@ import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import ShardingStrategy
+from torch.nn.parallel import DistributedDataParallel as DDP
 
-from olmo.config import CheckpointType, TrainConfig
+from olmo.config import CheckpointType, DistributedStrategy, TrainConfig
 from olmo.data import build_train_dataloader
 from olmo.eval import build_evaluators
 from olmo.exceptions import OLMoCliError, OLMoConfigurationError
@@ -166,27 +167,33 @@ def main(cfg: TrainConfig) -> None:
         device_mesh = init_device_mesh("cuda", (num_model_replicas, get_world_size() // num_model_replicas))
         hybrid_sharding_fsdp_kwargs["device_mesh"] = device_mesh
 
-    fsdp_model = FSDP(
-        olmo_model,
-        sharding_strategy=cfg.fsdp.sharding_strategy,
-        mixed_precision=cfg.fsdp_precision,
-        auto_wrap_policy=wrap_policy,
-        use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
-        limit_all_gathers=True,
-        device_id=get_local_rank(),
-        param_init_fn=param_init_fn,
-        **hybrid_sharding_fsdp_kwargs,
-    )
+    if cfg.distributed_strategy == DistributedStrategy.ddp:
+        dist_model = DDP(olmo_model)
+    elif cfg.distributed_strategy == DistributedStrategy.fsdp:
+        dist_model = FSDP(
+            olmo_model,
+            sharding_strategy=cfg.fsdp.sharding_strategy,
+            mixed_precision=cfg.fsdp_precision,
+            auto_wrap_policy=wrap_policy,
+            use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
+            limit_all_gathers=True,
+            device_id=get_local_rank(),
+            param_init_fn=param_init_fn,
+            **hybrid_sharding_fsdp_kwargs,
+        )
+    elif cfg.distributed_strategy is None:
+        raise NotImplementedError("Single accelerator training not implemented yet!")
+
     # when param_init_fn is None, FSDP will call reset_parameters() automatically
     if param_init_fn is not None:
         olmo_model.reset_parameters()
 
     log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory() or 0)}")
     log.info("Model:")
-    log.info(fsdp_model)
+    log.info(dist_model)
 
     # Construct optimizer and learning rate scheduler.
-    optim = build_optimizer(cfg, fsdp_model)
+    optim = build_optimizer(cfg, dist_model)
     scheduler = build_scheduler(cfg)
 
     # Data indices file.
@@ -203,7 +210,7 @@ def main(cfg: TrainConfig) -> None:
         cfg=cfg,
         epoch=cfg.epoch,
         model=olmo_model,
-        fsdp_model=fsdp_model,
+        dist_model=dist_model,
         optim=optim,
         scheduler=scheduler,
         train_loader=train_loader,
