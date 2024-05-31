@@ -1914,13 +1914,13 @@ class OlmoCoreCheckpointer(Checkpointer):
 
 
 def build_sharded_checkpointer(
-    cfg: TrainConfig, *, name: Optional[ShardedCheckpointerType] = None
+    cfg: TrainConfig, *, name: Optional[ShardedCheckpointerType] = None, use_shared_mem_impl: bool = False
 ) -> Checkpointer:
     name = name or cfg.sharded_checkpointer
     if name == ShardedCheckpointerType.torch_new:
         return TorchNewStyleShardedCheckpointer(cfg)
     elif name == ShardedCheckpointerType.torch_legacy:
-        return TorchLegacyShardedCheckpointer(cfg)
+        return TorchLegacyShardedCheckpointer(cfg, use_shared_mem_impl=use_shared_mem_impl)
     elif name == ShardedCheckpointerType.local:
         return LocalShardedCheckpointer(cfg)
     elif name == ShardedCheckpointerType.olmo_core:
