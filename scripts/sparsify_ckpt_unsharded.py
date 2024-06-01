@@ -11,7 +11,7 @@ path = sys.argv[1]
 sd = safetensors_file_to_state_dict(path)
 tensors = {}
 swiglu = True
-noise = False
+noise = True
 share = False
 n_experts = 16
 D = 2048
@@ -57,6 +57,5 @@ for key in list(sd.keys()):
         tensors[router_key] = torch.nn.init.normal_(torch.ones((n_experts, D)).squeeze(), std=0.02)
     else:
         tensors[key] = sd.pop(key)
-
 
 state_dict_to_safetensors_file(tensors, path.replace("model.safetensors", "model_sparse.safetensors"))
