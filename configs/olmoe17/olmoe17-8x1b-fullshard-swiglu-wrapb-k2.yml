@@ -42,7 +42,7 @@ model:
   moe_num_experts: 8
   moe_expert_model_parallelism: false
   moe_dropless: true
-  moe_mlp_impl: grouped
+  moe_mlp_impl: sparse
 
 compile: null
 
