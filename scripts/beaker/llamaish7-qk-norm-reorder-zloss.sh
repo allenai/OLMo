@@ -39,8 +39,8 @@ torchrun \
     --fused_loss=true \
     --device_train_microbatch_size=2 \
     --global_train_batch_size=1024 \
-    --save_interval=50 \
-    --eval_interval=50 \
+    --save_interval=250 \
+    --eval_interval=250 \
     --optimizer.metrics_log_interval=1 \
     --save_overwrite \
     --model.scale_emb_init \
@@ -48,5 +48,6 @@ torchrun \
     --model.attention_layer_norm=true \
     --model.norm_after=true \
     --softmax_auxiliary_loss=true \
-    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded
-    #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-qk-norm-reorder-zloss/}'
+    --save_num_checkpoints_to_keep=3 \
+    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-qk-norm-reorder-zloss/}'
+    #--load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded
