@@ -6,8 +6,8 @@ NUM_NODES=8
 
 gantry run \
   --workspace ai2/OLMo-training  \
-  --task-name llm-360-amber-data-repro \
-  --description "OLMO 7B LLM 360 Amber data" \
+  --task-name llm-360-amber-data-repro-match-dirk-baseline \
+  --description "OLMO 7B LLM 360 Amber data with congif matching Dirks baseline" \
   --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
