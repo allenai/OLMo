@@ -1043,6 +1043,11 @@ class TrainConfig(BaseConfig):
     normalizing term to be close to 0.
     """
 
+    auxiliary_loss_multiplier: Optional[float] = 1e-4
+    """
+    Used with `softmax_auxiliary_loss`. PaLM uses 1e-4, Chameleon uses 1e-5.
+    """
+
     time_limit: Optional[float] = None
     """
     The maximum amount of time to train for before saving a checkpoint and ending early.

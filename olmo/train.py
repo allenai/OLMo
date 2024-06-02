@@ -97,7 +97,7 @@ class LRMonitor:
 
 
 def cross_entropy_loss(
-    logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False
+    logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False, z_loss_multiplier: float = 1e-4
 ):
     loss = F.cross_entropy(logits, labels, ignore_index=ignore_index, reduction=reduction)
 
@@ -110,7 +110,7 @@ def cross_entropy_loss(
     elif reduction == "sum":
         z_squared = (z_squared * (labels != ignore_index)).sum()
 
-    z_loss = 1e-4 * z_squared
+    z_loss = z_loss_multiplier * z_squared
 
     return loss, z_loss
 
@@ -151,14 +151,14 @@ class Trainer:
             )
 
             def fused_loss_fn(
-                logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False
+                logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False, z_loss_multiplier: float = 1e-4
             ):
                 loss, z_loss = cross_entropy_loss(
                     logits,
                     labels,
                     label_smoothing=0.0,
                     logit_scale=1.0,
-                    lse_square_scale=0.0,
+                    lse_square_scale=z_loss_multiplier,
                     ignored_index=ignore_index,
                     inplace_backward=False,
                     process_group=None,
