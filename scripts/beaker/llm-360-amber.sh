@@ -26,5 +26,5 @@ torchrun \
     --activation_checkpointing=fine_grained \
     --fused_loss=true \
     --optimizer.metrics_log_interval=1 \
-    --save_overwrite 
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llm-360-amber-data-hyper-init-repro-3/}'
+    --save_overwrite \
+    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llm-360-amber-data-hyper-init-repro-3/step9000/
