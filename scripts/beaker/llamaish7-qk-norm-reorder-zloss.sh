@@ -48,6 +48,7 @@ torchrun \
     --model.attention_layer_norm=true \
     --model.norm_after=true \
     --softmax_auxiliary_loss=true \
+    --auxiliary_loss_multiplier=1e-5 \
     --save_num_checkpoints_to_keep=3 \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-qk-norm-reorder-zloss/}'
-    #--load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded
+    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded
+    # '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-qk-norm-reorder-zloss/}'
