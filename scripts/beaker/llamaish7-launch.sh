@@ -3,10 +3,11 @@
 set -ex
 
 NUM_NODES=8
+TASK_NAME=llamaish7-EmbInitFix-nogcwu-0-alibi-rerun
 
 gantry run \
   --workspace ai2/OLMo-training \
-  --task-name llamaish7-EmbInitFix-nogcwu-0-alibi-rerun \
+  --task-name ${TASK_NAME} \
   --description "OLMo medium - 7B - Llamaish - EmbInitFix - No grad clipping warmup - start from 0 lr - alibi" \
   --priority high \
   --preemptible \
@@ -30,4 +31,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/llamaish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/llamaish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK ${TASK_NAME}"

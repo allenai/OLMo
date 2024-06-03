@@ -11,6 +11,9 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
+TASK_NAME=$1
+shift
+
 # Warm HF cache
 mkdir -p /root/.cache
 pushd /root/.cache
@@ -28,9 +31,9 @@ torchrun \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
   configs/llamaish7-s3.yaml \
-    --run_name=llamaish7-EmbInitFix-nogcwu-0-rope-theta-500k \
-    --wandb.name=llamaish7-EmbInitFix-nogcwu-0-rope-theta-500k \
-    --wandb.group=llamaish7-EmbInitFix-nogcwu-0-rope-theta-500k \
+    --run_name=$TASK_NAME \
+    --wandb.name=$TASK_NAME \
+    --wandb.group=$TASK_NAME \
     --model.flash_attention=true \
     --model.alibi=false \
     --model.rope=true \
