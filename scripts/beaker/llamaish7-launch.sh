@@ -6,11 +6,11 @@ NUM_NODES=8
 
 gantry run \
   --workspace ai2/OLMo-training \
-  --task-name llamaish7-EmbInitFix-nogcwu-0-rope-theta-500k \
-  --description "OLMo medium - 7B - Llamaish - EmbInitFix - No grad clipping warmup - start from 0 lr - rope - theta - 500k" \
+  --task-name llamaish7-EmbInitFix-nogcwu-0-alibi-rerun \
+  --description "OLMo medium - 7B - Llamaish - EmbInitFix - No grad clipping warmup - start from 0 lr - alibi" \
   --priority high \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/pluto-cirrascale \
+  --cluster ai2/jupiter-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
