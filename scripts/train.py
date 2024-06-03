@@ -177,7 +177,6 @@ def main(cfg: TrainConfig) -> None:
     log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory() or 0)}")
     log.info("Model:")
     log.info(fsdp_model)
-    wandb.watch(fsdp_model, log='all')
 
     # Construct optimizer and learning rate scheduler.
     optim = build_optimizer(cfg, fsdp_model)
