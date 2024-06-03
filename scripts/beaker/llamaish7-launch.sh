@@ -10,7 +10,7 @@ gantry run \
   --description "OLMo medium - 7B - Llamaish - EmbInitFix - No grad clipping warmup - start from 0 lr - alibi" \
   --priority high \
   --preemptible \
-  --beaker-image petew/olmo-torch23-gantry \
+  --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
