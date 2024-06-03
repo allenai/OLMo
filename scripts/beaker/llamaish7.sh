@@ -34,9 +34,9 @@ torchrun \
     --run_name=$TASK_NAME \
     --wandb.name=$TASK_NAME \
     --wandb.group=$TASK_NAME \
-    --model.flash_attention=true \
-    --model.alibi=false \
-    --model.rope=true \
+    --model.flash_attention=false \
+    --model.alibi=true \
+    --model.rope=false \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
     --save_folder=runs/ \
