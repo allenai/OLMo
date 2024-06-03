@@ -9,6 +9,7 @@ gantry run \
   --task-name llamaish7-EmbInitFix-nogcwu-0-alibi-rerun \
   --description "OLMo medium - 7B - Llamaish - EmbInitFix - No grad clipping warmup - start from 0 lr - alibi" \
   --priority high \
+  --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale \
   --gpus 8 \
