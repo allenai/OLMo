@@ -27,4 +27,4 @@ torchrun \
     --fused_loss=true \
     --optimizer.metrics_log_interval=1 \
     --save_overwrite \
-    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llm-360-amber-data-hyper-init-repro-3/step9000/
+    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded/
