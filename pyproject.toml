@@ -109,7 +109,7 @@ extend_skip = ["pretrain_data", "tokenizer"]
 
 [tool.ruff]
 line-length = 115
-ignore = ["F403", "F405", "E501"]
+lint.ignore = ["F403", "F405", "E501"]
 exclude = [
     ".bzr",
     ".direnv",

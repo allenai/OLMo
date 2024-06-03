@@ -6,11 +6,11 @@ NUM_NODES=8
 
 gantry run \
   --workspace ai2/dirkg \
-  --task-name mitchish7 \
-  --description "OLMo medium - 7B" \
-  --priority normal \
+  --task-name llamaish7 \
+  --description "OLMo medium - 7B - Llamaish" \
+  --priority high \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/jupiter-cirrascale \
+  --cluster ai2/pluto-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
@@ -29,4 +29,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/mitchish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/llamaish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"

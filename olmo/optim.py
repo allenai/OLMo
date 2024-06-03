@@ -43,13 +43,14 @@ class Optimizer(OptimizerBase):
         global_step: int,
         collect_param_metrics: bool = True,
         process_group: Optional[dist.ProcessGroup] = None,
+        device: Optional[torch.device] = None,
     ) -> Dict[str, torch.Tensor]:
         """
         Clips gradients for every group that has the field `max_grad_norm`.
         At the same time collect metrics for each parameter and its gradient.
         """
         self._collecting_metrics = collect_param_metrics
-        device = get_default_device()
+        device = get_default_device() if device is None else device
 
         # NOTE (epwalsh): during distributed training we're making an assumption that the order of
         # the param groups and the params within each group are the same across all ranks.
@@ -77,13 +78,10 @@ class Optimizer(OptimizerBase):
         if process_group is not None:
             dst_rank = dist.get_global_rank(process_group, 0)
 
-        # Collect metrics locally.
+        #######################################################################
+        # part 1: collect metrics locally
+        #######################################################################
         for group in self.param_groups:
-            if is_distributed():
-                # TODO (epwalsh): handle non-sharded params. We don't have any right now but we would
-                # with ReLoRa, for example.
-                assert group.get("sharded", True) is True
-
             for name, p in zip(group["param_names"], group["params"]):
                 name = self._clean_param_name(name)
                 # Always need to collect the norm of gradients for clipping, even if we're not collecting
@@ -142,10 +140,16 @@ class Optimizer(OptimizerBase):
         def is_grad_norm_metric(metric_name: str) -> bool:
             return metric_name.startswith("grad/") and metric_name.endswith(".norm")
 
-        # Now reduce metrics over all ranks.
+        #######################################################################
+        # part 2: reduce metrics over ranks
+        #######################################################################
+        param_group_sharded = False
+        for group in self.param_groups:
+            param_group_sharded = param_group_sharded or group.get("sharded", False)
+
         total_grad_norm: torch.Tensor
         per_param_avg_metrics: List[torch.Tensor] = []
-        if is_distributed():  # TODO (epwalsh): skip for non-sharded params
+        if is_distributed() and param_group_sharded:
             # Reduce metrics across all ranks. Note that we can use a `reduce` for most cases
             # instead of an `all_reduce`, but we need `all_reduce` for norms so that all ranks
             # get the right value for gradient norms so they can clip correctly.
@@ -196,17 +200,21 @@ class Optimizer(OptimizerBase):
 
         # Collect all metrics into a single dict.
         all_metrics: Dict[str, torch.Tensor] = {}
-        for metric_name, metric in zip(per_param_min_metric_names, per_param_min_metrics):
-            all_metrics[metric_name] = metric.squeeze(0)
-        for metric_name, metric in zip(per_param_max_metric_names, per_param_max_metrics):
-            all_metrics[metric_name] = metric.squeeze(0)
-        for metric_name, metric in zip(per_param_avg_metric_names, per_param_avg_metrics):
-            all_metrics[metric_name] = metric.squeeze(0)
+        if collect_param_metrics:
+            for metric_name, metric in zip(per_param_min_metric_names, per_param_min_metrics):
+                all_metrics[metric_name] = metric.squeeze(0)
+            for metric_name, metric in zip(per_param_max_metric_names, per_param_max_metrics):
+                all_metrics[metric_name] = metric.squeeze(0)
+            for metric_name, metric in zip(per_param_avg_metric_names, per_param_avg_metrics):
+                all_metrics[metric_name] = metric.squeeze(0)
+
         for metric_name, metric in zip(per_param_norm_metric_names, per_param_norm_metrics):
             all_metrics[metric_name] = metric.squeeze(0)
         all_metrics["total_grad_norm"] = total_grad_norm
 
-        # Clip gradients.
+        #######################################################################
+        # part 3: clip grads
+        #######################################################################
         num_grads_clipped = 0
         num_eligible_grads = 0
         for group in self.param_groups:
@@ -231,9 +239,9 @@ class Optimizer(OptimizerBase):
             else:
                 clipping_rate = torch.tensor(0.0, device="cpu")
             all_metrics["clipping_rate"] = clipping_rate
-            return all_metrics
-        else:
-            return {}
+
+        # total_grad_norm is computed at all steps, even when collect_param_metrics is set to False
+        return all_metrics
 
     @torch.no_grad()
     def _do_adaptive_clipping(
@@ -243,13 +251,14 @@ class Optimizer(OptimizerBase):
         global_step: int,
         all_metrics: Dict[str, torch.Tensor],
         collect_param_metrics: bool = True,
+        device: Optional[torch.device] = None,
     ) -> Optional[int]:
         """
         Do adaptive gradient clipping on a param group.
 
         If ``collect_param_metrics`` is ``True`` this will return the total number of gradients clipped.
         """
-        device = get_default_device()
+        device = get_default_device() if device is None else device
         num_grads_clipped = 0
         # We'll use the bigger of beta1 and beta2 to update the exponential average of the norm of
         # the gradient (a scalar), not to be confused with the exponential average of the gradient.
@@ -309,13 +318,14 @@ class Optimizer(OptimizerBase):
         max_norm: float,
         all_metrics: Dict[str, torch.Tensor],
         collect_param_metrics: bool = True,
+        device: Optional[torch.device] = None,
     ) -> Optional[int]:
         """
         Do global fixed gradient clipping on a param group.
 
         If ``collect_param_metrics`` is ``True`` this will return the total number of gradients clipped.
         """
-        device = get_default_device()
+        device = get_default_device() if device is None else device
         total_grad_norm = all_metrics["total_grad_norm"]
         clip_coef = max_norm / (total_grad_norm.to(device) + 1e-6)
         clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
@@ -356,6 +366,7 @@ class LionW(Optimizer):
         betas: Tuple[float, float] = (0.9, 0.99),
         weight_decay: float = 0.0,
         record_update_metrics: bool = False,
+        device: Optional[torch.device] = None,
     ):
         assert lr > 0.0
         assert all([0.0 <= beta <= 1.0 for beta in betas])
@@ -368,6 +379,7 @@ class LionW(Optimizer):
         self._signed_update_total_norm: Optional[torch.Tensor] = None
         self._record_update_cos_sim = record_update_metrics
         self._collecting_metrics = False
+        self._device: Optional[torch.device] = device
 
     def get_post_step_metrics(
         self, module: nn.Module, process_group: Optional[dist.ProcessGroup] = None
@@ -399,7 +411,8 @@ class LionW(Optimizer):
             signed_update_total_norm = signed_update_total_norm**0.5
 
         update_cos_sim = update_total_dot_prod / torch.max(
-            update_total_norm * signed_update_total_norm, torch.tensor(1e-8, device=get_default_device())
+            update_total_norm * signed_update_total_norm,
+            torch.tensor(1e-8, device=get_default_device() if self._device is None else self._device),
         )
         return {"update_cos_sim": update_cos_sim}
 
@@ -458,17 +471,18 @@ class LionW(Optimizer):
 
         # Compute cosine similarity between update and signed update.
         if update_total_dot_prod is not None and update_norms is not None and signed_update_norms is not None:
-            self._update_total_dot_prod = update_total_dot_prod.to(get_default_device())
+            device = get_default_device() if self._device is None else self._device
+            self._update_total_dot_prod = update_total_dot_prod.to(device)
             self._update_total_norm = torch.linalg.vector_norm(
                 torch.stack(update_norms),
                 2.0,
                 dtype=torch.float32,
-            ).to(get_default_device())
+            ).to(device)
             self._signed_update_total_norm = torch.linalg.vector_norm(
                 torch.stack(signed_update_norms),
                 2.0,
                 dtype=torch.float32,
-            ).to(get_default_device())
+            ).to(device)
 
 
 class AdamW(torch.optim.AdamW, Optimizer):
@@ -881,8 +895,8 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,
-            eps=1e-5,
             record_update_metrics=cfg.optimizer.record_update_metrics,
+            eps=cfg.optimizer.eps,
         )
     else:
         raise NotImplementedError
