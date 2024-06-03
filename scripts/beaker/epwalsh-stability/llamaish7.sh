@@ -20,7 +20,7 @@ conda shell.bash activate base
 #pip install packaging ninja
 #export FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE
 #pip install flash-attn --no-build-isolation
-pip install awscli
+# pip install awscli
 pip install git+https://github.com/allenai/OLMo-core.git@main
 pip install '.[train]'
 pip freeze
@@ -57,14 +57,10 @@ torchrun \
     configs/llamaish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --model.scale_emb_init=true \
-      --model.complex_rope=true \
-      --model.layer_norm_type=rms \
-      --model.layer_norm_with_affine=true \
-      --model.clip_qkv=null \
+      --model.rope=false \
+      --model.alibi=true \
       --scheduler.warmup_min_lr=0.0 \
-      --scheduler.t_warmup=8388608000 \
-      --scheduler.t_max=2e12 \
-      --seed=18898 \
+      --load_path=weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/llamaish7-alibi-ananya-init-data-filter-wup0/step3000 \
       --stop_at=5000
 
 # No data instance filtering:
