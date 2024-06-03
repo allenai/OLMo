@@ -1040,8 +1040,6 @@ class Trainer:
         stop_at: Optional[int] = self.cfg.stop_at
         save_checkpoints: bool = True
 
-        wandb.watch(self.fsdp_model, log='all')
-
         with torch_profiler as p:
             for epoch in range(self.epoch or 0, self.max_epochs):
                 for batch in self.train_loader:
