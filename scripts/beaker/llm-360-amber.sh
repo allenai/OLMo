@@ -24,3 +24,4 @@ torchrun \
     --save_folder=runs/ \
     --activation_checkpointing=fine_grained \
     --fused_loss=true \
+    --save-overwrite
