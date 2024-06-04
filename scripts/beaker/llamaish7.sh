@@ -42,7 +42,7 @@ torchrun \
     --save_folder=runs/ \
     --activation_checkpointing=fine_grained \
     --fused_loss=true \
-    --device_train_microbatch_size=2 \
+    --device_train_microbatch_size=1 \
     --global_train_batch_size=1024 \
     --save_interval=250 \
     --eval_interval=250 \
