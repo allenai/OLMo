@@ -28,13 +28,26 @@ def flatten(dictionary, parent_key='', separator='.'):
     "right_run_path",
     type=str,
 )
+@click.option(
+    "--project",
+    type=str,
+    default="olmo-medium"
+)
+@click.option(
+    "--entity",
+    type=str,
+    default="ai2-llm"
+)
 def main(
     left_run_path: str,
     right_run_path: str,
+    project: str,
+    entity: str,
+
 ):
     import wandb
 
-    api = wandb.Api()
+    api = wandb.Api(overrides={'entity': entity, 'project': project})
     left_run = api.run(left_run_path)
     right_run = api.run(right_run_path)
 
