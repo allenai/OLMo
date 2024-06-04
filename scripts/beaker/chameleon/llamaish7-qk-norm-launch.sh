@@ -6,8 +6,8 @@ NUM_NODES=8
 
 gantry run \
   --workspace ai2/OLMo-training \
-  --task-name llamaish7-qk-norm-reorder \
-  --description "OLMo medium - 7B - Llamaish QK norm reorder" \
+  --task-name llamaish7-qk-norm \
+  --description "OLMo medium - 7B - Llamaish QK norm" \
   --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
@@ -30,4 +30,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/llamaish7-qk-norm-reorder.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/chameleon/llamaish7-qk-norm.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
