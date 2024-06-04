@@ -46,6 +46,7 @@ torchrun \
     --save_overwrite \
     --model.scale_emb_init \
     --model.clip_qkv=null \
+    --scheduler.grad_clip_warmup_steps=null \
     --model.attention_layer_norm=true \
     --model.norm_after=true \
     --softmax_auxiliary_loss=true \
