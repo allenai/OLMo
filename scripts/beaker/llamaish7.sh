@@ -50,6 +50,6 @@ torchrun \
     --scheduler.grad_clip_warmup_steps=null \
     --scheduler.warmup_min_lr=0 \
     --stop_after=10000 \
-    --save_overwrite \
-    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded
+    --save_overwrite
+    # --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded
     #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/}'
