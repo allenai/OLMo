@@ -34,6 +34,7 @@ torchrun \
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=NO_SHARD \
+    --gen1_gc_interval=null \
     --save_folder=runs/ \
     --activation_checkpointing=fine_grained \
     --fused_loss=true \
@@ -49,5 +50,5 @@ torchrun \
     --model.norm_after=true \
     --softmax_auxiliary_loss=true \
     --auxiliary_loss_multiplier=1e-5 \
-    --save_num_checkpoints_to_keep=3
-    # '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish1-qk-norm-reorder-zloss/}'
+    --save_num_checkpoints_to_keep=3 \
+    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-qk-norm-reorder-zloss/}'
