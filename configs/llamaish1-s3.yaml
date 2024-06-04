@@ -60,6 +60,7 @@ scheduler:
   alpha_f: 0.1
   grad_clip_warmup_steps: 2097152000
   grad_clip_warmup_factor: 5
+  warmup_min_lr: 0
 
 tokenizer:
   identifier: tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
