@@ -1,11 +1,11 @@
-run_name: llm-306-amber-data-repro-db-1
+run_name: llm-306-amber-data-repro-db-normal-init-1
 seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-medium
-  group: llm-306-amber-data-repro-match-dirk-baseline
+  group: llm-306-amber-data-repro-match-dirk-baseline-normal-init
 
 model:
   d_model: 4096
@@ -41,9 +41,9 @@ model:
   eos_token_id: 2
   pad_token_id: 2
   init_device: meta
-  init_fn: full_megatron
-  init_std: 0.006
-  init_cutoff_factor: 3.0
+  init_fn: normal
+  init_std: 0.02
+  init_cutoff_factor: null
 
 compile: null
 
