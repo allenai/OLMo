@@ -24,4 +24,3 @@ torchrun \
     --save_folder=runs/ \
     --activation_checkpointing=fine_grained \
     --fused_loss=true \
-    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-EmbInitFix/step0-unsharded/
