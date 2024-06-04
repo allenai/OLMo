@@ -51,5 +51,5 @@ torchrun \
     --model.norm_after=true \
     --softmax_auxiliary_loss=true \
     --auxiliary_loss_multiplier=1e-5 \
-    --save_num_checkpoints_to_keep=3 \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-qk-norm-reorder-zloss/}'
+    --save_num_checkpoints_to_keep=3
+    #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-qk-norm-reorder-zloss/}'
