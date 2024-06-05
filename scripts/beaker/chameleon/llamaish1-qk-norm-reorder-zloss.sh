@@ -33,8 +33,8 @@ torchrun \
     --wandb.group=llamaish1-qk-norm-reorder-zloss \
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
-    --fsdp.sharding_strategy=NO_SHARD \
-    --gen1_gc_interval=null \
+    --fsdp.sharding_strategy=SHARD_GRAD_OP \
+    --gen1_gc_interval=1 \
     --save_folder=runs/ \
     --activation_checkpointing=fine_grained \
     --fused_loss=true \
@@ -47,9 +47,9 @@ torchrun \
     --model.scale_emb_init \
     --model.clip_qkv=null \
     --scheduler.grad_clip_warmup_steps=null \
+    --save_num_checkpoints_to_keep=3 \
     --model.attention_layer_norm=true \
     --model.norm_after=true \
     --softmax_auxiliary_loss=true \
-    --auxiliary_loss_multiplier=1e-5 \
-    --save_num_checkpoints_to_keep=3
+    --auxiliary_loss_multiplier=1e-5
     #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-qk-norm-reorder-zloss/}'
