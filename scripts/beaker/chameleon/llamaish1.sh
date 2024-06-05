@@ -33,7 +33,7 @@ torchrun \
     --wandb.group=llamaish1 \
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
-    --fsdp.sharding_strategy=NO_SHARD \
+    --fsdp.sharding_strategy=SHARD_GRAD_OP \
     --gen1_gc_interval=null \
     --save_folder=runs/ \
     --activation_checkpointing=fine_grained \
@@ -44,10 +44,10 @@ torchrun \
     --eval_interval=250 \
     --optimizer.metrics_log_interval=1 \
     --save_overwrite \
+    --model.scale_emb_init \
     --model.clip_qkv=null \
     --save_num_checkpoints_to_keep=3 \
     --scheduler.grad_clip_warmup_steps=null
-    #--model.scale_emb_init \
     # --model.attention_layer_norm=true \
     # --model.norm_after=true \
     # --softmax_auxiliary_loss=true \
