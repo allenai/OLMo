@@ -2,7 +2,7 @@
 
 set -ex
 
-NUM_NODES=8
+NUM_NODES=4
 
 gantry run \
   --workspace ai2/OLMo-training \
@@ -11,7 +11,7 @@ gantry run \
   --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/jupiter-cirrascale \
+  --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
