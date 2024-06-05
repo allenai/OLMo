@@ -49,7 +49,8 @@ torchrun \
     --model.scale_emb_init \
     --model.clip_qkv=null \
     --save_num_checkpoints_to_keep=3 \
-    --scheduler.grad_clip_warmup_steps=null
+    --scheduler.grad_clip_warmup_steps=null \
+    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1/}'
     # --model.attention_layer_norm=true \
     # --model.norm_after=true \
     # --softmax_auxiliary_loss=true \
