@@ -12,7 +12,7 @@ gantry run \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
   --preemptible \
-  --gpus 448 \
+  --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
