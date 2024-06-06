@@ -26,4 +26,4 @@ torchrun \
     --model.flash_attention=true \
     # --save_folder=runs/ \
     # --save_overwrite \
-    --gen1_gc_interval=None
+    --gen1_gc_interval=null
