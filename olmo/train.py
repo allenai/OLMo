@@ -114,6 +114,44 @@ def cross_entropy_loss(
 
     return loss, z_loss
 
+def fused_loss_fn(
+    logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False, z_loss_multiplier: float = 1e-4
+):
+
+    from flash_attn.ops.triton.cross_entropy import (  # type: ignore
+        cross_entropy_loss,
+    )
+    loss, z_loss = cross_entropy_loss(
+        logits,
+        labels,
+        label_smoothing=0.0,
+        logit_scale=1.0,
+        lse_square_scale=z_loss_multiplier,
+        ignored_index=ignore_index,
+        inplace_backward=False,
+        process_group=None,
+    )
+
+    mask = labels != ignore_index
+
+    if reduction == "mean":
+        loss = loss.sum() / mask.sum()
+    elif reduction == "sum":
+        loss = loss.sum()
+    else:
+        loss = loss
+
+    if not compute_z_loss:
+        return loss, None
+
+    if reduction == "mean":
+        z_loss = z_loss.sum() / mask.sum()
+    elif reduction == "sum":
+        z_loss = z_loss.sum()
+    else:
+        z_loss = z_loss
+
+    return loss, z_loss
 
 @dataclass
 class Trainer:
@@ -146,45 +184,6 @@ class Trainer:
 
     def __post_init__(self):
         if self.cfg.fused_loss:
-            from flash_attn.ops.triton.cross_entropy import (  # type: ignore
-                cross_entropy_loss,
-            )
-
-            def fused_loss_fn(
-                logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False, z_loss_multiplier: float = 1e-4
-            ):
-                loss, z_loss = cross_entropy_loss(
-                    logits,
-                    labels,
-                    label_smoothing=0.0,
-                    logit_scale=1.0,
-                    lse_square_scale=z_loss_multiplier,
-                    ignored_index=ignore_index,
-                    inplace_backward=False,
-                    process_group=None,
-                )
-
-                mask = labels != ignore_index
-
-                if reduction == "mean":
-                    loss = loss.sum() / mask.sum()
-                elif reduction == "sum":
-                    loss = loss.sum()
-                else:
-                    loss = loss
-
-                if not compute_z_loss:
-                    return loss, None
-
-                if reduction == "mean":
-                    z_loss = z_loss.sum() / mask.sum()
-                elif reduction == "sum":
-                    z_loss = z_loss.sum()
-                else:
-                    z_loss = z_loss
-
-                return loss, z_loss
-
             self.loss_fn = fused_loss_fn
 
     @property
