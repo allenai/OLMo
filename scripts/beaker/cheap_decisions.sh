@@ -11,6 +11,8 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
+scripts/beaker/warm_hf_cache.sh
+
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
