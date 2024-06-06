@@ -11,6 +11,10 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
+# install correct version of OLMo-core
+pip uninstall ai2-olmo-core
+pip install https://storage.googleapis.com/dirkgr-public/ai2_olmo_core-0.1.0-py3-none-any.whl
+
 # Warm HF cache
 mkdir -p /root/.cache
 pushd /root/.cache
