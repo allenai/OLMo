@@ -542,7 +542,6 @@ class Checkpointer(metaclass=ABCMeta):
 
         Note this is not marked abstract because child classes are not required to implemented this.
         """
-        del load_path, local_cache, load_optimizer_state, load_trainer_state, device
         raise NotImplementedError
 
     @contextmanager
@@ -1914,13 +1913,13 @@ class OlmoCoreCheckpointer(Checkpointer):
 
 
 def build_sharded_checkpointer(
-    cfg: TrainConfig, *, name: Optional[ShardedCheckpointerType] = None
+    cfg: TrainConfig, *, name: Optional[ShardedCheckpointerType] = None, use_shared_mem_impl: bool = False
 ) -> Checkpointer:
     name = name or cfg.sharded_checkpointer
     if name == ShardedCheckpointerType.torch_new:
         return TorchNewStyleShardedCheckpointer(cfg)
     elif name == ShardedCheckpointerType.torch_legacy:
-        return TorchLegacyShardedCheckpointer(cfg)
+        return TorchLegacyShardedCheckpointer(cfg, use_shared_mem_impl=use_shared_mem_impl)
     elif name == ShardedCheckpointerType.local:
         return LocalShardedCheckpointer(cfg)
     elif name == ShardedCheckpointerType.olmo_core:
