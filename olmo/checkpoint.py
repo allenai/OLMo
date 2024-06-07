@@ -15,6 +15,7 @@ from multiprocessing import shared_memory
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple, cast
 
+import botocore.exceptions
 import numpy as np
 import torch
 import torch.distributed.checkpoint as dist_cp
@@ -307,7 +308,7 @@ def load_state_dict(
                 str(checkpoint_dir).rstrip("/"), fname[:-2] + "safetensors", local_cache=local_cache
             )
             return safetensors_file_to_state_dict(path, map_location=map_location)
-        except FileNotFoundError:
+        except (FileNotFoundError, botocore.exceptions.ClientError):
             pass
 
     path = resource_path(str(checkpoint_dir).rstrip("/"), fname, local_cache=local_cache)
