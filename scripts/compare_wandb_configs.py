@@ -8,7 +8,7 @@ from olmo.util import prepare_cli_environment
 log = logging.getLogger(__name__)
 
 
-def flatten(dictionary, parent_key='', separator='.'):
+def flatten(dictionary, parent_key="", separator="."):
     items = []
     for key, value in dictionary.items():
         new_key = parent_key + separator + key if parent_key else key
@@ -38,8 +38,8 @@ def main(
     left_run = api.run(left_run_path)
     right_run = api.run(right_run_path)
 
-    left_config = flatten(left_run._attrs['rawconfig'])
-    right_config = flatten(right_run._attrs['rawconfig'])
+    left_config = flatten(left_run._attrs["rawconfig"])
+    right_config = flatten(right_run._attrs["rawconfig"])
 
     left_only_keys = left_config.keys() - right_config.keys()
     if len(left_only_keys) > 0:
@@ -54,8 +54,7 @@ def main(
         print()
 
     keys_with_differences = {
-        k for k in left_config.keys() & right_config.keys()
-        if left_config[k] != right_config[k]
+        k for k in left_config.keys() & right_config.keys() if left_config[k] != right_config[k]
     }
     if len(keys_with_differences) > 0:
         if len(left_only_keys) > 0 or len(right_only_keys) > 0:
