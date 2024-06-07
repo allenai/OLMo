@@ -1,0 +1,227 @@
+name: olmo-70b-from160510
+image: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
+# image: public.ecr.aws/z0f8p3z5/olmo:pytorch2.2.1_cu121-python3.11-ubuntu20.04
+# image: us-central1-docker.pkg.dev/ai2-olmo/olmo/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
+scheduling:
+  priority: auto
+  # preemptible: true  # means it can be retried
+  # max_retries: 10
+compute:
+  cluster: r15z4
+  gpus: 896
+  gpu_type: h100_80gb
+  instance: oci.bm.gpu.h100.8
+  node_names:
+  - inst-ll38i-r15z3-workers
+  - inst-1nnph-r15z3-workers
+  - inst-edsue-r15z3-workers
+  - inst-kdmu6-r15z3-workers
+  - inst-tfi9t-r15z3-workers
+  - inst-vaqst-r15z3-workers
+  - inst-rpmhf-r15z3-workers
+  - inst-dpvjh-r15z3-workers
+  - inst-pfzsm-r15z3-workers
+  - inst-vvd97-r15z3-workers
+  - inst-entnk-r15z3-workers
+  - inst-awtjo-r15z3-workers
+  - inst-xdqqd-r15z3-workers
+  - inst-9hoiv-r15z3-workers
+  # - inst-mrkck-r15z3-workers  # bad
+  - inst-jhhcv-r15z3-workers
+  - inst-4ki3x-r15z3-workers
+  - inst-bsgg4-r15z3-workers
+  - inst-i9qwf-r15z3-workers
+  - inst-daiox-r15z3-workers
+  - inst-ijtgf-r15z3-workers
+  - inst-rymxc-r15z3-workers
+  - inst-uou7k-r15z3-workers
+  - inst-6yvq9-r15z3-workers
+  - inst-v8mxi-r15z3-workers
+  - inst-kx7fu-r15z3-workers
+  - inst-97xv1-r15z3-workers
+  - inst-vy0zb-r15z3-workers
+  - inst-csom5-r15z3-workers
+  - inst-jeel7-r15z3-workers
+  - inst-o186f-r15z3-workers
+  - inst-bluc6-r15z3-workers
+  - inst-toizy-r15z3-workers
+  - inst-vwwku-r15z3-workers
+  # - inst-ubbqk-r15z3-workers  # maybe bad
+  - inst-xalw1-r15z3-workers
+  - inst-grtmk-r15z3-workers
+  - inst-ytymh-r15z3-workers
+  - inst-e1ijl-r15z3-workers
+  - inst-vjsri-r15z3-workers
+  - inst-kc1z1-r15z3-workers
+  - inst-cm3ec-r15z3-workers
+  - inst-xtbwa-r15z3-workers
+  # - inst-lorl8-r15z3-workers  # bad
+  - inst-aixwt-r15z3-workers
+  - inst-i6mnk-r15z3-workers
+  - inst-bktpo-r15z3-workers
+  - inst-21fqf-r15z3-workers
+  - inst-ed8jl-r15z3-workers
+  - inst-5wqam-r15z3-workers
+  - inst-p1vaa-r15z3-workers
+  - inst-f0kqy-r15z3-workers
+  - inst-rnyqr-r15z3-workers
+  - inst-fdyxp-r15z3-workers
+  - inst-8jhc4-r15z3-workers
+  - inst-nv70l-r15z3-workers
+  # - inst-cupyv-r15z3-workers  # maybe bad
+  - inst-ij1rg-r15z3-workers
+  - inst-j3mfc-r15z3-workers
+  - inst-znfjw-r15z3-workers
+  - inst-5irk5-r15z3-workers
+  - inst-gn4hg-r15z3-workers
+  - inst-bn5zq-r15z3-workers
+  - inst-tw9i6-r15z3-workers
+  - inst-aj1o1-r15z3-workers
+  - inst-tturo-r15z3-workers
+  - inst-uwdwd-r15z3-workers
+  - inst-glcak-r15z3-workers
+  - inst-likvg-r15z3-workers
+  - inst-kxpsv-r15z3-workers
+  - inst-wrucg-r15z3-workers
+  - inst-xoiov-r15z3-workers
+  - inst-yg289-r15z3-workers
+  #- inst-kdqg8-r15z3-workers
+  - inst-0mf4w-r15z3-workers
+  - inst-o3fxl-r15z3-workers
+  - inst-fatfc-r15z3-workers
+  - inst-lduqx-r15z3-workers
+  - inst-v87vf-r15z3-workers
+  - inst-r01sx-r15z3-workers
+  - inst-i1ted-r15z3-workers
+  - inst-vzhyo-r15z3-workers
+  - inst-evbig-r15z3-workers
+  - inst-di0ri-r15z3-workers
+  - inst-w4gwj-r15z3-workers
+  - inst-pzgox-r15z3-workers
+  - inst-2oyig-r15z3-workers
+  - inst-rdvlq-r15z3-workers
+  - inst-tcttd-r15z3-workers
+  - inst-tg5bs-r15z3-workers
+  - inst-xh87c-r15z3-workers
+  - inst-rtaii-r15z3-workers
+  - inst-go2bm-r15z3-workers
+  - inst-8z7hr-r15z3-workers
+  - inst-ekaiy-r15z3-workers
+  - inst-ht0xx-r15z3-workers
+  - inst-bg14o-r15z3-workers
+  - inst-mrxmj-r15z3-workers
+  - inst-olazl-r15z3-workers
+  - inst-eigqe-r15z3-workers
+  - inst-vwnx8-r15z3-workers
+  - inst-hzzsd-r15z3-workers
+  - inst-gggd1-r15z3-workers
+  - inst-xmxc2-r15z3-workers
+  - inst-39dwb-r15z3-workers
+  - inst-jhqyu-r15z3-workers
+  - inst-pbivr-r15z3-workers
+  - inst-jgvhh-r15z3-workers
+  - inst-vv7fg-r15z3-workers
+  - inst-lwagu-r15z3-workers
+  - inst-6tz4b-r15z3-workers
+  - inst-jmxxa-r15z3-workers
+  - inst-drkao-r15z3-workers
+  - inst-lpz5k-r15z3-workers
+  - inst-bv9yy-r15z3-workers
+  - inst-pyzpn-r15z3-workers
+  - inst-ivjqi-r15z3-workers
+  #- inst-qc1pa-r15z3-workers
+  #- inst-hvw6t-r15z3-workers
+  #- inst-2iaxk-r15z3-workers
+  #- inst-dhjn2-r15z3-workers
+  #- inst-c6t2k-r15z3-workers
+  #- inst-ih7jm-r15z3-workers
+  #- inst-g5ojd-r15z3-workers
+  #- inst-irzic-r15z3-workers
+  #- inst-uh5f4-r15z3-workers
+integrations:
+  - integration_type: git_repo
+    git_repo: allenai/OLMo
+    git_branch: train-olmo-large
+    pip_install: -e .[train]
+    ssh_clone: true
+  - integration_type: git_repo
+    git_repo: allenai/OLMo-core
+    git_branch: WorksTorch22
+    pip_install: -e .
+    ssh_clone: true
+env_variables:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  OMP_NUM_THREADS: "8"
+  LOG_FILTER_TYPE: local_rank0_only
+command: |-
+  # Make sure we have a recent flash-attn.
+  # NOTE: only pinning flash-attn here to future proof it.
+  pip install flash-attn==2.5.3 --no-build-isolation
+  # Install AWS CLI (for pre-downloading unsharded checkpoints).
+  pip install awscli
+
+  # Show packages for debugging.
+  pip freeze
+
+  # Prepare environment.
+  mkdir -p /root/.cache/torch
+  # warm up huggingface cache
+  pushd /root/.cache
+  curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" | tar -xzf -
+  popd
+  export HF_DATASETS_OFFLINE=1
+
+  #checkpoint=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step160500-unsharded-hacked
+  #mkdir /root/checkpoint-unsharded
+  #aws s3 cp --no-progress ${checkpoint}/config.yaml /root/checkpoint-unsharded/
+  #aws s3 cp --no-progress ${checkpoint}/train.pt /root/checkpoint-unsharded/
+  #aws s3 cp --no-progress ${checkpoint}/model.safetensors /root/checkpoint-unsharded/
+  #aws s3 cp --no-progress ${checkpoint}/optim.safetensors /root/checkpoint-unsharded/
+
+  cd OLMo
+
+  echo "Launching train script..."
+  torchrun \
+  --nproc_per_node 8 \
+  --nnodes 112:112 \
+  --rdzv_id=22232 \
+  --rdzv_backend=static \
+  --rdzv_endpoint=$MASTER_ADDR:29400 \
+  --node_rank=$NODE_RANK \
+  --rdzv_conf="read_timeout=420" \
+  scripts/train.py configs/mitchish70-s3.yaml \
+    --run_name=mitchish70-from160510 \
+    '--wandb.group=${run_name}' \
+    '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
+    --load_path_sharded_checkpointer=olmo_core \
+    --sharded_checkpointer=olmo_core \
+    --global_train_batch_size=3584 \
+    --device_train_microbatch_size=4 \
+    --fsdp.sharding_strategy=HYBRID_SHARD \
+    --fsdp.hybrid_sharding_num_model_replicas=4 \
+    --time_limit=604800 \
+    --save_overwrite \
+    --optimizer.learning_rate=3.0e-05 \
+    --scheduler.alpha_f=1.0 \
+    --scheduler.t_warmup=0 \
+    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-planb/step160510
+
+#
+# --fsdp.sharding_strategy=HYBRID_SHARD \
+# --fsdp.hybrid_sharding_num_model_replicas=4 \
+# 
+#    '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
+#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-planc/step197000 \
+#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step48950 \
+#    --load_path=s3://ai2-llm/checkpoints/OLMo-large/mitchish70-002/step49000 \
+#    --load_path=/root/checkpoint-unsharded \
+#
+#  gpus: 256
+#    --global_train_batch_size=1536 \
+#  gpus: 384
+#    --global_train_batch_size=1536 \
+#    --device_train_microbatch_size=2 \
+#  gpus: 896
+#    --global_train_batch_size=1792 \
+#  gpus: 600  # (75 nodes)
+#    --global_train_batch_size=1800 \

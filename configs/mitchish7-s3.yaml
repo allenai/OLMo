@@ -77,7 +77,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 3e12T
+max_duration: 2ep
 global_train_batch_size: 512
 device_train_microbatch_size: 2
 
@@ -218,6 +218,10 @@ data:
   prefetch_factor: 8
   persistent_workers: true
   timeout: 0
+  instance_filter:
+    repetition_max_period: 13
+    repetition_min_period: 1
+    repetition_max_count: 32
   paths:
     ######### NON WEB DATA #########
     # ~> GUTENBERG BOOKS (5.256 GT)

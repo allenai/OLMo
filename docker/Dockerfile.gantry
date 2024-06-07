@@ -1,35 +1,43 @@
 # Defines a CUDA-enabled Docker image suitable for running this project's experiments
 # via beaker-gantry.
 
-FROM ghcr.io/allenai/cuda:11.8-ubuntu20.04
+FROM ubuntu:24.04
+
+ENV LC_ALL=C.UTF-8
+ENV LANG=C.UTF-8
+ENV NVIDIA_VISIBLE_DEVICES all
+ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
+ENV LD_LIBRARY_PATH /usr/local/nvidia/lib:/usr/local/nvidia/lib64
+ARG DEBIAN_FRONTEND="noninteractive"
+
+# Install conda
+RUN  apt-get update && \
+     apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        curl \
+        wget \
+        libxml2-dev \
+        jq \
+        git && \
+    rm -rf /var/lib/apt/lists/* && \
+    curl -fsSL -v -o ~/miniconda.sh -O  https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
+    chmod +x ~/miniconda.sh && \
+    ~/miniconda.sh -b -p /opt/conda && \
+    rm ~/miniconda.sh && \
+    apt-get clean
+ENV PATH /opt/conda/bin:$PATH
 
 # Install torch with flash attention
-# RUN conda install -y ninja pytorch torchvision torchaudio pytorch-cuda=11.8 cuda-nvcc cuda-python -c pytorch -c nvidia
-RUN conda install -y ninja pytorch==2.2.1 torchvision==0.17.1 torchaudio==2.2.1 pytorch-cuda=11.8 cuda-nvcc cuda-python -c pytorch -c nvidia
+RUN conda install -y ninja pytorch==2.2.2 torchvision torchaudio pytorch-cuda=11.8 cuda-nvcc cuda-python -c pytorch -c nvidia
+RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir flash-attn --no-build-isolation
 RUN conda clean -ay
 
-# Add github as known host
-RUN mkdir -p ~/.ssh/
-RUN ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
-
-# Install all of OLMo's dependencies
-RUN --mount=type=ssh \
-    git clone git@github.com:allenai/OLMo.git
-# ADD https://github.com/allenai/OLMo.git /OLMo
-WORKDIR /OLMo
-RUN pip install --no-cache-dir .[all]
-WORKDIR /
-RUN rm -rf OLMo
-RUN pip uninstall -y ai2-olmo
-
-# Install OLMo-core
-RUN --mount=type=ssh \
-    git clone git@github.com:allenai/OLMo-core.git
-# ADD git@github.com:allenai/OLMo-core.git /OLMo-core
-WORKDIR /OLMo-core
-RUN pip install --no-cache-dir .[all]
-WORKDIR /
-RUN rm -rf /OLMo-core
+COPY pyproject.toml .
+RUN mkdir olmo && touch olmo/__init__.py && \
+    pip install --no-cache-dir .[train] && \
+    pip uninstall -y ai2-olmo && \
+    rm -rf olmo/
 
 WORKDIR /app/olmo

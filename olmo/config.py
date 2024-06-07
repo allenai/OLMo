@@ -16,6 +16,7 @@ from typing import (
     cast,
 )
 
+import numpy as np
 import torch
 from omegaconf import DictConfig, ListConfig
 from omegaconf import OmegaConf as om
@@ -38,6 +39,7 @@ __all__ = [
     "SchedulerType",
     "SchedulerConfig",
     "DataConfig",
+    "InstanceFilterConfig",
     "EvaluatorConfig",
     "TokenizerConfig",
     "TrainConfig",
@@ -466,6 +468,7 @@ class OptimizerConfig(BaseConfig):
     learning_rate: float = 1.0e-4
     weight_decay: float = 0.01
     betas: Tuple[float, float] = (0.9, 0.95)
+    eps: float = 1e-5
 
     no_decay_norm_and_bias: Optional[bool] = None
     """
@@ -531,6 +534,12 @@ class SchedulerConfig(BaseConfig):
     vs after the warmup period.
     """
 
+    warmup_min_lr: Optional[float] = None
+    """
+    The starting LR during the warmup period. If not set this defaults to 10% of
+    the target LR.
+    """
+
 
 class PaddingDirection(StrEnum):
     right = "right"
@@ -538,8 +547,16 @@ class PaddingDirection(StrEnum):
 
 
 @dataclass
+class InstanceFilterConfig(BaseConfig):
+    repetition_max_period: int = 13
+    repetition_min_period: int = 1
+    repetition_max_count: int = 32
+
+
+@dataclass
 class DataConfig(BaseConfig):
     paths: Optional[List[str]] = None
+    memmap_dtype: str = "uint16"
     datasets: Optional[Dict[str, List[str]]] = None
     label_mask_paths: Optional[List[str]] = None
     pad_direction: PaddingDirection = PaddingDirection.right
@@ -551,6 +568,20 @@ class DataConfig(BaseConfig):
     persistent_workers: bool = False
     timeout: int = 0
     seed: Optional[int] = None
+    instance_filter: Optional[InstanceFilterConfig] = None
+
+    @property
+    def effective_memmap_dtype(self):
+        if self.memmap_dtype == "uint8":
+            return np.uint8
+        if self.memmap_dtype == "uint16":
+            return np.uint16
+        elif self.memmap_dtype == "uint32":
+            return np.uint32
+        elif self.memmap_dtype == "uint64":
+            return np.uint64
+        # default to uint16 if not set
+        return np.uint16
 
 
 class EvaluatorType(StrEnum):
@@ -680,6 +711,14 @@ class FSDPConfig(BaseConfig):
     """
 
     precision: FSDPPrecision = FSDPPrecision.pure
+
+    hybrid_sharding_num_model_replicas: Optional[int] = None
+    """
+    The number of model instances, when using a hybrid sharding strategy.
+    If not ``None``, this must divide the total number of nodes. If ``None``, the default,
+    a model instance is used per node (as determined by ``get_world_size() // get_local_world_size()``).
+    PyTorch's default HSDP behavior matches this default behavior.
+    """
 
 
 class CheckpointType(StrEnum):

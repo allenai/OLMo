@@ -1,5 +1,7 @@
 import pytest
 import torch
+import transformers
+from packaging import version
 
 from olmo import BlockType, Tokenizer, TrainConfig
 from olmo.data import DataCollator
@@ -7,6 +9,10 @@ from olmo.model import OLMo
 from olmo.torch_util import seed_all
 
 
+@pytest.mark.skipif(
+    version.parse(transformers.__version__) >= version.parse("4.40.0"),
+    reason="hf_olmo auto classes are not compatible with transformers >=v4.40.0",
+)
 def test_auto_hf_classes(model_path: str):
     from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
