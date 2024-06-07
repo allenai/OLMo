@@ -16,12 +16,12 @@ from typing import (
     cast,
 )
 
+import numpy as np
 import torch
 from omegaconf import DictConfig, ListConfig
 from omegaconf import OmegaConf as om
 from omegaconf.errors import OmegaConfBaseException
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
-import numpy as np
 
 from .aliases import PathOrStr
 from .exceptions import OLMoConfigurationError
@@ -582,6 +582,7 @@ class DataConfig(BaseConfig):
             return np.uint64
         # default to uint16 if not set
         return np.uint16
+
 
 class EvaluatorType(StrEnum):
     downstream = "downstream"
