@@ -218,4 +218,4 @@ data:
   persistent_workers: true
   timeout: 0
   paths:
-    - ai2-llm/preprocessed/olmo-mix/danyh-compiled-v1_7/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/*.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/danyh-compiled-v1_7/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/*.npy
