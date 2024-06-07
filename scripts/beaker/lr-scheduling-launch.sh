@@ -16,6 +16,7 @@ gantry run \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
+  --no-nfs \
   --budget ai2/oe-training \
   --propagate-failure \
   --synchronized-start-timeout "30m" \
