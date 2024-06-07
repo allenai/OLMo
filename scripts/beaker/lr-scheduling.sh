@@ -23,13 +23,13 @@ mkdir -p ~/.aws
 printenv AWS_CONFIG > ~/.aws/config
 printenv AWS_CREDENTIALS > ~/.aws/credentials
 
-# Force processes to synchronize at init_process_group
-export TORCH_DIST_INIT_BARRIER=1
+# # Force processes to synchronize at init_process_group
+# export TORCH_DIST_INIT_BARRIER=1
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
-  --rdzv_id=12347 \
+  --rdzv_id=123411 \
   --rdzv_backend=static \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   --node_rank=$BEAKER_REPLICA_RANK \
@@ -38,7 +38,7 @@ torchrun \
     configs/lr-scheduling-s3.yaml \
       --run_name=lr-linear-decay-step422000-20000steps \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
-      --load_path=/net/nfs.cirrascale/allennlp/shanea/checkpoints/unsorted/6655301/step422000-unsharded/ \
+      --load_path=r2://olmo-checkpoints/unsorted/6655301/step422000-unsharded/ \
       --wandb.name=lr-linear-decay-step422000-20000steps \
       --wandb.group=lr-linear-decay-step422000-20000steps \
       --scheduler.name=linear_with_warmup \
@@ -50,6 +50,7 @@ torchrun \
       --save_overwrite
 
 
+# --load_path=/net/nfs.cirrascale/allennlp/shanea/checkpoints/unsorted/6655301/step422000-unsharded/ \
 # --load_path=/net/nfs.cirrascale/allennlp/shanea/checkpoints/unsorted/6574511/step402000-unsharded/ \
 # --load_path=r2://olmo-checkpoints/unsorted/6574511/step402000-unsharded/ \
 # --load_path=weka://oe-training-default/ai2-llm/checkpoints/1b/lr-scheduling-low-const-lr/step574000/ \
