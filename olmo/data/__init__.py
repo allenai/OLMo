@@ -36,6 +36,7 @@ def build_memmap_dataset(
     return MemMapDataset(
         *paths,
         chunk_size=train_config.model.max_sequence_length,
+        memmap_dtype=data_config.effective_memmap_dtype,
         metadata=metadata,
         include_instance_metadata=include_instance_metadata,
         pad_token_id=train_config.model.pad_token_id,
