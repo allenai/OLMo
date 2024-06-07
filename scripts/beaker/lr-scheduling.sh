@@ -36,13 +36,13 @@ torchrun \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
     configs/lr-scheduling-s3.yaml \
-      --run_name=lr-linear-decay-step422000-20000steps \
+      --run_name=lr-linear-decay-step402000-20000steps \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
-      --load_path=r2://olmo-checkpoints/unsorted/6655301/step422000-unsharded/ \
-      --wandb.name=lr-linear-decay-step422000-20000steps \
-      --wandb.group=lr-linear-decay-step422000-20000steps \
+      --load_path=r2://olmo-checkpoints/unsorted/6574511/step402000-unsharded/ \
+      --wandb.name=lr-linear-decay-step402000-20000steps \
+      --wandb.group=lr-linear-decay-step402000-20000steps \
       --scheduler.name=linear_with_warmup \
-      --scheduler.t_warmup=422000 \
+      --scheduler.t_warmup=402000 \
       --scheduler.alpha_f=0.0 \
       --scheduler.t_max=442000 \
       --stop_at=445000 \
