@@ -512,7 +512,7 @@ class Scheduler(metaclass=ABCMeta):
 
     def _linear_warmup(self, initial_lr: float, step: int, warmup_steps: int = 2000) -> float:
         warmup_min_lr = self.warmup_min_lr if self.warmup_min_lr is not None else initial_lr * 0.10
-        assert 0 <= warmup_min_lr < initial_lr
+        assert warmup_min_lr < initial_lr
         return warmup_min_lr + (initial_lr - warmup_min_lr) * min(step, warmup_steps) / warmup_steps
 
 
