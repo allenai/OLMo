@@ -22,7 +22,7 @@ torchrun \
   --node_rank=$BEAKER_REPLICA_RANK \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
-  configs/mitchish1-s3-cheap-decisions.yaml \
+  mitchish1-s3-cheap-decisions-dolma-v1-7.yaml \ 
     --model.flash_attention=true \
     # --save_folder=runs/ \
     # --save_overwrite \
