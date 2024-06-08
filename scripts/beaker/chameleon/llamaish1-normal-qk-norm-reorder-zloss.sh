@@ -56,5 +56,5 @@ torchrun \
     --model.norm_after=true \
     --softmax_auxiliary_loss=true \
     --auxiliary_loss_multiplier=1e-5 \
-    --load_path=s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal/step0-unsharded
+    --load_path=s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal/step0
     #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-qk-norm-reorder-zloss/}'
