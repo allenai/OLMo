@@ -41,7 +41,7 @@ model:
   moe_expert_model_parallelism: false
   moe_dropless: false
   moe_expert_choice: true
-  moe_mlp_impl: grouped
+  moe_mlp_impl: sparse
   moe_interleave: true
 
 compile: null
