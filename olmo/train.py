@@ -202,7 +202,7 @@ class Trainer:
                     label_smoothing=0.0,
                     logit_scale=1.0,
                     lse_square_scale=0.0,
-                    ignore_index=ignore_index,
+                    ignored_index=ignore_index,
                     inplace_backward=False,
                     process_group=None,
                 )
@@ -232,11 +232,12 @@ class Trainer:
 
         if (self.model.config.block_type == BlockType.moe) and (self.model.config.moe_expert_choice is False):
             # these MoEArgs are necessary for logging load balancing.
+            num_layers = self.model.config.n_layers // 2 if self.model.config.moe_interleave else self.model.config.n_layers
             self.moe_args = MoEArgs(
                 hidden_size=self.model.config.d_model,
                 ffn_hidden_size=self.model.config.d_model * 4,
                 moe_num_experts=self.model.config.moe_num_experts,
-                num_layers=self.model.config.n_layers,
+                num_layers=num_layers,
                 # Not tested for now
                 moe_expert_model_parallelism=False,
                 moe_top_k=self.model.config.moe_top_k,

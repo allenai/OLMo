@@ -1610,7 +1610,7 @@ class OLMo(nn.Module):
             # If dropless, the total_experts & out_dim are combined into one dimension
             idx = self.config.moe_top_k
             if self.config.moe_dropless:
-                idx *= self.transformer.blocks[0].moe_args.ffn_hidden_size
+                idx *= self.transformer.blocks[1].moe_args.ffn_hidden_size
             params = [
                 (np[0], np[1][: idx]) if "experts.mlp" in np[0] else np
                 for np in params
@@ -1910,3 +1910,4 @@ class OLMo(nn.Module):
             og_keys_to_new[og_key].add(new_key)
 
         return state_dict, og_keys_to_new
+                                                                                                                
