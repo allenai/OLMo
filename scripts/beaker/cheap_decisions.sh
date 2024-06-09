@@ -22,8 +22,8 @@ torchrun \
   --node_rank=$BEAKER_REPLICA_RANK \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
-  configs/mitchish1-s3-cheap-decisions.yaml \ 
+  configs/mitchish1-s3-cheap-decisions.yaml \
     --model.flash_attention=true \
     # --save_folder=runs/ \
     # --save_overwrite \
-    --gen1_gc_interval=20
+    --gen1_gc_interval=10
