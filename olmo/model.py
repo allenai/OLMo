@@ -81,6 +81,7 @@ try:
         def __init__(self, args: MoEArgs):
             # Only super init torch.nn.Module
             torch.nn.Module.__init__(self)
+            self.shared_expert = None
             # Token router.
             self.router = LearnedRouter(args)
             # Do not init experts here but later
