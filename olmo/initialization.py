@@ -114,6 +114,6 @@ def init_weights(
         if module.bias is not None:
             nn.init.zeros_(module.bias)
 
-        if config.init_fn == InitFnType.normal and getattr(module, "_is_residual", False):
-            with torch.no_grad():
-                module.weight.div_(math.sqrt(2 * config.n_layers))
+        # if config.init_fn == InitFnType.normal and getattr(module, "_is_residual", False):
+        #     with torch.no_grad():
+        #         module.weight.div_(math.sqrt(2 * config.n_layers))
