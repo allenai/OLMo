@@ -815,26 +815,21 @@ class OLMoLlamaBlock(OLMoBlock):
         # NOTE: the standard deviation for these weights does not depend on the layer.
 
         if self.config.init_fn == InitFnType.normal:
-            init_normal(self.q_proj, self.config.init_std, self.config.init_cutoff_factor)
-            init_normal(self.k_proj, self.config.init_std, self.config.init_cutoff_factor)
-            init_normal(self.v_proj, self.config.init_std, self.config.init_cutoff_factor)
-            init_normal(self.ff_proj, self.config.init_std, self.config.init_cutoff_factor)
+            std = self.config.init_std
+            cutoff_factor = self.config.init_cutoff_factor
         elif self.config.init_fn == InitFnType.mitchell:
-            init_normal(self.q_proj, std=1 / math.sqrt(self.config.d_model), init_cutoff_factor=3.0)
-            init_normal(self.k_proj, std=1 / math.sqrt(self.config.d_model), init_cutoff_factor=3.0)
-            init_normal(self.v_proj, std=1 / math.sqrt(self.config.d_model), init_cutoff_factor=3.0)
-            init_normal(self.ff_proj, std=1 / math.sqrt(self.config.d_model), init_cutoff_factor=3.0)
+            std = 1 / math.sqrt(self.config.d_model)
+            cutoff_factor = 3.0
         elif self.config.init_fn == InitFnType.full_megatron:
+            std = self.config.init_std
             cutoff_factor = self.config.init_cutoff_factor or 3.0
-            init_normal(self.q_proj, self.config.init_std, cutoff_factor)
-            init_normal(self.k_proj, self.config.init_std, cutoff_factor)
-            init_normal(self.v_proj, self.config.init_std, cutoff_factor)
-            init_normal(self.ff_proj, self.config.init_std, cutoff_factor)
         else:
-            init_weights(self.config, self.q_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
-            init_weights(self.config, self.k_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
-            init_weights(self.config, self.v_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
-            init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
+            raise NotImplementedError(self.config.init_fn)
+
+        init_normal(self.q_proj, std, cutoff_factor)
+        init_normal(self.k_proj, std, cutoff_factor)
+        init_normal(self.v_proj, std, cutoff_factor)
+        init_normal(self.ff_proj, std, cutoff_factor)
 
     def _scaled_dot_product_attention(
         self,
@@ -1096,6 +1091,7 @@ class OLMo(nn.Module):
         elif self.config.init_fn == InitFnType.full_megatron:
             cutoff_factor = self.config.init_cutoff_factor or 3.0
             init_normal(self.transformer.wte, std=self.config.init_std, init_cutoff_factor=cutoff_factor)
+
         else:
             init_weights(
                 self.config,
