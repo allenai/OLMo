@@ -480,13 +480,11 @@ class OLMoBlock(nn.Module):
             cutoff_factor = self.config.init_cutoff_factor
 
         elif self.config.init_fn == InitFnType.mitchell:
-            # TODO: 3 is currently hardcoded; this should be using init_cutoff_factor instead.
             attn_out_std = 1 / (math.sqrt(2 * self.config.d_model * (self.layer_id + 1)))
             ff_out_std = 1 / (math.sqrt(2 * self.ff_out.in_features * (self.layer_id + 1)))
-            cutoff_factor = 3.0
+            cutoff_factor = self.config.init_cutoff_factor or 3.0
 
         elif self.config.init_fn == InitFnType.full_megatron:
-            # TODO: 3 is hardcoded as default value
             attn_out_std = ff_out_std = self.config.init_std / math.sqrt(2.0 * self.config.n_layers)
             cutoff_factor = self.config.init_cutoff_factor or 3.0
 
@@ -676,7 +674,7 @@ class OLMoSequentialBlock(OLMoBlock):
             cutoff_factor = self.config.init_cutoff_factor
         elif self.config.init_fn == InitFnType.mitchell:
             std = 1 / math.sqrt(self.config.d_model)
-            cutoff_factor = 3.0
+            cutoff_factor = self.config.init_cutoff_factor or 3.0
         elif self.config.init_fn == InitFnType.full_megatron:
             std = self.config.init_std
             cutoff_factor = self.config.init_cutoff_factor or 3.0
@@ -791,7 +789,7 @@ class OLMoLlamaBlock(OLMoBlock):
             cutoff_factor = self.config.init_cutoff_factor
         elif self.config.init_fn == InitFnType.mitchell:
             std = 1 / math.sqrt(self.config.d_model)
-            cutoff_factor = 3.0
+            cutoff_factor = self.config.init_cutoff_factor or 3.0
         elif self.config.init_fn == InitFnType.full_megatron:
             std = self.config.init_std
             cutoff_factor = self.config.init_cutoff_factor or 3.0
@@ -1059,7 +1057,7 @@ class OLMo(nn.Module):
         elif self.config.init_fn == InitFnType.mitchell:
             # TODO: this is buggy! std will always be 0.5 when scale_logits = True
             wte_std = emb_std_factor / math.sqrt(self.config.d_model)
-            wte_cutoff_factor = 3.0
+            wte_cutoff_factor = self.config.init_cutoff_factor or 3.0
         elif self.config.init_fn == InitFnType.full_megatron:
             wte_std = self.config.init_std
             wte_cutoff_factor = self.config.init_cutoff_factor or 3.0
@@ -1074,7 +1072,7 @@ class OLMo(nn.Module):
                 wpe_cutoff_factor = self.config.init_cutoff_factor
             elif self.config.init_fn == InitFnType.mitchell:
                 wpe_std = 1 / math.sqrt(self.config.d_model)
-                wpe_cutoff_factor = 3.0
+                wpe_cutoff_factor = self.config.init_cutoff_factor or 3.0
             elif self.config.init_fn == InitFnType.full_megatron:
                 wpe_std = self.config.init_std
                 wpe_cutoff_factor = self.config.init_cutoff_factor or 3.0
@@ -1093,7 +1091,7 @@ class OLMo(nn.Module):
                 ff_out_cutoff_factor = self.config.init_cutoff_factor
             elif self.config.init_fn == InitFnType.mitchell:
                 ff_out_std = 1 / math.sqrt(self.config.d_model)
-                ff_out_cutoff_factor = 3.0
+                ff_out_cutoff_factor = self.config.init_cutoff_factor or 3.0
             elif self.config.init_fn == InitFnType.full_megatron:
                 ff_out_std = 1 / math.sqrt(self.config.d_model)
                 ff_out_cutoff_factor = self.config.init_cutoff_factor or 3.0
