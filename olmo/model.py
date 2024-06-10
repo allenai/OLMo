@@ -807,10 +807,10 @@ class OLMoLlamaBlock(OLMoBlock):
             init_mitchell(self.config, self.v_proj, layer_id=None)
             init_mitchell(self.config, self.ff_proj, layer_id=None)
         else:
-            init_weights(self.config, self.q_proj, d=self.config.d_model, layer_id=None)
-            init_weights(self.config, self.k_proj, d=self.config.d_model, layer_id=None)
-            init_weights(self.config, self.v_proj, d=self.config.d_model, layer_id=None)
-            init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None)
+            init_weights(self.config, self.q_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
+            init_weights(self.config, self.k_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
+            init_weights(self.config, self.v_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
+            init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
 
     def _scaled_dot_product_attention(
         self,

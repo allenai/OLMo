@@ -54,6 +54,9 @@ def check_distribution(
         if min_val is not None:
             assert param.data.min() >= min_val
 
+#################################################################################
+################################### OLMoBlock ###################################
+#################################################################################
 
 @pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
 def test_olmo_block_init_normal(seed: int):
@@ -90,9 +93,8 @@ def test_olmo_block_init_normal(seed: int):
     check_distribution(block.attn_out, 0.00, 0.02, 3.0*0.02, -3.0*0.02, diff=1e-3)
     check_distribution(block.ff_out, 0.00, 0.02 / math.sqrt(2 * n_layers), 3.0*0.02, -3.0*0.02, diff=1e-3)
 
-    ## full_megatron init
-
     ## Scale embedding
+
 
 @pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
 def test_olmo_block_init_mitchell(seed: int):
@@ -116,6 +118,37 @@ def test_olmo_block_init_mitchell(seed: int):
         check_distribution(block.attn_out, 0.00, 1/(math.sqrt(2*d_model*(layer_id+1))), diff=1e-3)
         check_distribution(block.ff_out, 0.00, 1/(math.sqrt(2*block.ff_out.in_features*(layer_id+1))), diff=1e-3)
 
+
+@pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
+def test_olmo_block_init_full_megatron(seed: int):
+    seed_all(seed)
+
+    d_model = 1024
+    n_heads = 2
+    n_layers = 2
+
+    ################################################ Megatron init ################################################
+    cache = BufferCache()
+
+    for init_cutoff_factor in [None, 3]:
+        base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn="full_megatron", init_std=0.006, init_cutoff_factor=init_cutoff_factor)
+
+        for layer_id in [0, 4]:
+            block = OLMoBlock(layer_id=layer_id, config=base_config, cache=cache)
+            block.reset_parameters()
+
+            # TODO: default init cutoff factor is 3. Should be configurable right? Should it ever be None for megatron?
+            check_distribution(block.attn_out, 0.00, 0.006 / math.sqrt(2.0 * n_layers), 3.0 * 0.006, -3.0 * 0.006,
+                               diff=1e-3)
+            check_distribution(block.ff_out, 0.00, 0.006 / math.sqrt(2.0 * n_layers), 3.0 * 0.006, -3.0 * 0.006,
+                               diff=1e-3)
+
+    ## Scale embedding
+
+
+#################################################################################
+############################## OLMoSequentialBlock ##############################
+#################################################################################
 
 @pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
 def test_olmo_sequential_block_init_normal(seed: int):
@@ -168,6 +201,36 @@ def test_olmo_sequential_block_init_mitchell(seed: int):
         check_distribution(block.ff_norm, 1.00, 0.00)
 
 
+@pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
+def test_olmo_sequential_block_init_full_megatron(seed: int):
+    seed_all(seed)
+
+    d_model = 1024
+    n_heads = 2
+    n_layers = 2
+
+    ################################################ Megatron init ################################################
+    cache = BufferCache()
+    base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn="full_megatron", init_std=0.006)
+
+    for layer_id in [0, 4]:
+        block = OLMoSequentialBlock(layer_id=layer_id, config=base_config, cache=cache)
+        block.reset_parameters()
+
+        check_distribution(block.attn_out, 0.00, 0.006 / math.sqrt(2.0 * n_layers))
+        check_distribution(block.ff_out, 0.00, 0.006 / math.sqrt(2.0 * n_layers))
+
+        check_distribution(block.att_proj, 0.00, 0.006)
+        check_distribution(block.ff_proj, 0.00, 0.006)
+
+        # if parametric layer norm
+        check_distribution(block.attn_norm, 1.00, 0.00)
+        check_distribution(block.ff_norm, 1.00, 0.00)
+
+#################################################################################
+################################ OLMoLlamaBlock #################################
+#################################################################################
+
 
 @pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
 def test_olmo_llama_block_init_normal(seed: int):
@@ -215,6 +278,40 @@ def test_olmo_llama_block_init_mitchell(seed: int):
         # if parametric layer norm
         check_distribution(block.attn_norm, 1.00, 0.00)
         check_distribution(block.ff_norm, 1.00, 0.00)
+
+
+@pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
+def test_olmo_llama_block_init_full_megatron(seed: int):
+    seed_all(seed)
+
+    d_model = 1024
+    n_heads = 2
+    n_layers = 2
+
+    ################################################ Megatron init ################################################
+    cache = BufferCache()
+    base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn="full_megatron", init_std=0.006)
+
+    for layer_id in [0, 4]:
+        block = OLMoLlamaBlock(layer_id=layer_id, config=base_config, cache=cache)
+        block.reset_parameters()
+
+        check_distribution(block.attn_out, 0.00, 0.006 / math.sqrt(2.0 * n_layers))
+        check_distribution(block.ff_out, 0.00, 0.006 / math.sqrt(2.0 * n_layers))
+
+        check_distribution(block.q_proj, 0.00, 0.006)
+        check_distribution(block.k_proj, 0.00, 0.006)
+        check_distribution(block.v_proj, 0.00, 0.006)
+        check_distribution(block.ff_proj, 0.00, 0.006)
+
+        # if parametric layer norm
+        check_distribution(block.attn_norm, 1.00, 0.00)
+        check_distribution(block.ff_norm, 1.00, 0.00)
+
+
+#################################################################################
+##################################### OLMo ######################################
+#################################################################################
 
 @pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
 def test_olmo_init_normal(seed: int):
@@ -323,3 +420,56 @@ def test_olmo_init_mitchell(seed: int):
 
     # TODO: this seems buggy!! This will always be 0.5
     check_distribution(module.transformer.wte, 0.0, (0.5 * math.sqrt(d_model)) / math.sqrt(d_model), diff=1e-2)
+
+
+@pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
+def test_olmo_init_full_megatron(seed: int):
+    d_model = 1024
+    n_heads = 2
+    n_layers = 2
+
+    ################################################ Megatron init ################################################
+
+    base_config = ModelConfig(
+        d_model=d_model,
+        n_heads=n_heads,
+        n_layers=n_layers,
+        init_fn="full_megatron",
+        init_std=0.006,
+        scale_logits=False,
+        weight_tying=False,
+    )
+    module = OLMo(config=base_config, init_params=True)
+
+    for i in range(n_layers):
+        check_distribution(module.transformer.blocks[i].att_proj, 0.00, 0.006)
+        check_distribution(module.transformer.blocks[i].ff_proj, 0.00, 0.006)
+        check_distribution(module.transformer.blocks[i].attn_out, 0.00, 0.006 / math.sqrt(2 * n_layers))
+        check_distribution(module.transformer.blocks[i].ff_out, 0.00, 0.006 / math.sqrt(2 * n_layers))
+        check_distribution(module.transformer.blocks[i].attn_norm, 1.00, 0.00)
+        check_distribution(module.transformer.blocks[i].ff_norm, 1.00, 0.00)
+    check_distribution(module.transformer.ln_f, 1.00, 0.00)
+    check_distribution(module.transformer.ff_out, 0.00, d_model**-0.5, diff=1e-3)
+
+    # scale logits
+    base_config = ModelConfig(
+        d_model=d_model,
+        n_heads=n_heads,
+        n_layers=n_layers,
+        init_fn="full_megatron",
+        init_std=0.006,
+        scale_logits=True,
+        weight_tying=False,
+    )
+    module = OLMo(config=base_config, init_params=True)
+
+    for i in range(n_layers):
+        check_distribution(module.transformer.blocks[i].att_proj, 0.00, 0.006)
+        check_distribution(module.transformer.blocks[i].ff_proj, 0.00, 0.006)
+        check_distribution(module.transformer.blocks[i].attn_out, 0.00, 0.006 / math.sqrt(2 * n_layers))
+        check_distribution(module.transformer.blocks[i].ff_out, 0.00, 0.006 / math.sqrt(2 * n_layers))
+        check_distribution(module.transformer.blocks[i].attn_norm, 1.00, 0.00)
+        check_distribution(module.transformer.blocks[i].ff_norm, 1.00, 0.00)
+    check_distribution(module.transformer.ln_f, 1.00, 0.00)
+    check_distribution(module.transformer.ff_out, 0.00, d_model**-0.5, diff=1e-3)
+    check_distribution(module.transformer.wte, 0.0, 0.006, diff=1e-3)
