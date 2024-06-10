@@ -146,13 +146,15 @@ def test_olmo_llama_block_init(seed: int):
     cache = BufferCache()
     base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn="normal", init_std=0.02)
 
-    block = OLMoSequentialBlock(layer_id=0, config=base_config, cache=cache)
+    block = OLMoLlamaBlock(layer_id=0, config=base_config, cache=cache)
     block.reset_parameters()
 
     check_distribution(block.attn_out, 0.00, 0.02)
     check_distribution(block.ff_out, 0.00, 0.02 / math.sqrt(2 * n_layers))
 
-    check_distribution(block.att_proj, 0.00, 0.02)
+    check_distribution(block.q_proj, 0.00, 0.02)
+    check_distribution(block.k_proj, 0.00, 0.02)
+    check_distribution(block.v_proj, 0.00, 0.02)
     check_distribution(block.ff_proj, 0.00, 0.02)
 
     # if parametric layer norm
