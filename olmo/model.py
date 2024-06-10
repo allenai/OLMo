@@ -41,6 +41,7 @@ from .config import (
     FSDPWrapStrategy,
     LayerNormType,
     ModelConfig,
+    InitFnType,
 )
 from .exceptions import OLMoConfigurationError
 from .initialization import ModuleType, init_weights, init_normal
@@ -475,7 +476,7 @@ class OLMoBlock(nn.Module):
             self.q_norm.reset_parameters()
 
         # TOD0: move step by step
-        if self.config.init_fn == "normal":
+        if self.config.init_fn == InitFnType.normal:
             init_normal(self.config, self.attn_out)
             init_normal(self.config, self.ff_out)
 
@@ -678,24 +679,9 @@ class OLMoSequentialBlock(OLMoBlock):
         self.ff_norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
 
-        if self.config.init_fn == "normal":
+        if self.config.init_fn == InitFnType.normal:
             init_normal(self.config, self.att_proj)
             init_normal(self.config, self.ff_proj)
-            # # weights
-            # if self.config.init_cutoff_factor is not None:
-            #     cutoff_value = self.config.init_cutoff_factor * self.config.init_std
-            #     nn.init.trunc_normal_(self.att_proj.weight, mean=0.0, std=self.config.init_std, a=-cutoff_value,
-            #                           b=cutoff_value)
-            #     nn.init.trunc_normal_(self.ff_proj.weight, mean=0.0, std=self.config.init_std, a=-cutoff_value,
-            #                           b=cutoff_value)
-            # else:
-            #     nn.init.normal_(self.att_proj.weight, mean=0.0, std=self.config.init_std)
-            #     nn.init.normal_(self.ff_proj.weight, mean=0.0, std=self.config.init_std)
-            #
-            # # biases
-            # if self.config.include_bias:
-            #     nn.init.zeros_(self.att_proj.bias)
-            #     nn.init.zeros_(self.ff_proj.bias)
         else:
             init_weights(
                 self.config, self.att_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
@@ -804,7 +790,7 @@ class OLMoLlamaBlock(OLMoBlock):
         self.ff_norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
 
-        if self.config.init_fn == "normal":
+        if self.config.init_fn == InitFnType.normal:
             init_normal(self.config, self.q_proj)
             init_normal(self.config, self.k_proj)
             init_normal(self.config, self.v_proj)
