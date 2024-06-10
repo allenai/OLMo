@@ -475,7 +475,6 @@ class OLMoBlock(nn.Module):
         if self.q_norm is not None:
             self.q_norm.reset_parameters()
 
-        # TOD0: move step by step
         if self.config.init_fn == InitFnType.normal:
             init_normal(self.attn_out, std=self.config.init_std, init_cutoff_factor=self.config.init_cutoff_factor)
             init_normal(self.ff_out, std=self.config.init_std, init_cutoff_factor=self.config.init_cutoff_factor)

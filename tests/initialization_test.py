@@ -5,7 +5,7 @@ import pytest
 import torch.nn
 from torch.testing import assert_close
 
-from olmo.config import ModelConfig, InitFnType
+from olmo.config import InitFnType, ModelConfig
 from olmo.model import BufferCache, OLMo, OLMoBlock, OLMoLlamaBlock, OLMoSequentialBlock
 from olmo.torch_util import seed_all
 
@@ -70,7 +70,9 @@ def test_olmo_block_init_normal(seed: int):
 
     ################################################ Normal init ################################################
     cache = BufferCache()
-    base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn=InitFnType.normal, init_std=0.02)
+    base_config = ModelConfig(
+        d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn=InitFnType.normal, init_std=0.02
+    )
 
     for layer_id in [0, 4]:
         block = OLMoBlock(layer_id=layer_id, config=base_config, cache=cache)
@@ -174,7 +176,9 @@ def test_olmo_sequential_block_init_normal(seed: int):
 
     ################################################ Normal init ################################################
     cache = BufferCache()
-    base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn=InitFnType.normal, init_std=0.02)
+    base_config = ModelConfig(
+        d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn=InitFnType.normal, init_std=0.02
+    )
 
     for layer_id in [0, 4]:
         block = OLMoSequentialBlock(layer_id=layer_id, config=base_config, cache=cache)
@@ -260,13 +264,14 @@ def test_olmo_llama_block_init_normal(seed: int):
 
     ################################################ Normal init ################################################
     cache = BufferCache()
-    base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn=InitFnType.normal, init_std=0.02)
+    base_config = ModelConfig(
+        d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn=InitFnType.normal, init_std=0.02
+    )
 
     for layer_id in [0, 4]:
         block = OLMoLlamaBlock(layer_id=layer_id, config=base_config, cache=cache)
         block.reset_parameters()
 
-        # TODO
         check_distribution(block, 0.00, 0.02, ignore_params=["ff_out", "attn_norm", "ff_norm"])
         check_distribution(block.ff_out, 0.00, 0.02 / math.sqrt(2 * n_layers))
         # if parametric layer norm
