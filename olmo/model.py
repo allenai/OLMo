@@ -476,40 +476,25 @@ class OLMoBlock(nn.Module):
             self.q_norm.reset_parameters()
 
         if self.config.init_fn == InitFnType.normal:
-            init_normal(self.attn_out, std=self.config.init_std, init_cutoff_factor=self.config.init_cutoff_factor)
-            init_normal(self.ff_out, std=self.config.init_std, init_cutoff_factor=self.config.init_cutoff_factor)
-
-            # TODO: what is up with this extra divisor? We may not want this.
-            # TODO: This potentially came from trying to include full_megatron init.
-            # git blame rabbit hole:
-            #   https://github.com/allenai/OLMo/pull/239/commits/0c5b7b5ccac26c3e4729322520f1fdd5b0a4d54e#diff-14cdafe7342088f0c4851cc670185044902088ba6bc5ddcf0a464d698e4165fe
-            #   https://github.com/allenai/OLMo/commit/ba20a857fde0c2fb2e8dbcba07e3781fe088ba06
-            # This is for the case of ff_out._is_residual = True
-            with torch.no_grad():
-                self.ff_out.weight.div_(math.sqrt(2 * self.config.n_layers))
+            attn_out_std = ff_out_std = self.config.init_std
+            cutoff_factor = self.config.init_cutoff_factor
 
         elif self.config.init_fn == InitFnType.mitchell:
             # TODO: 3 is currently hardcoded; this should be using init_cutoff_factor instead.
-            init_normal(
-                self.attn_out,
-                std=1 / (math.sqrt(2 * self.config.d_model * (self.layer_id + 1))),
-                init_cutoff_factor=3.0,
-            )
-            init_normal(
-                self.ff_out,
-                std=1 / (math.sqrt(2 * self.ff_out.in_features * (self.layer_id + 1))),
-                init_cutoff_factor=3.0,
-            )
+            attn_out_std = 1 / (math.sqrt(2 * self.config.d_model * (self.layer_id + 1)))
+            ff_out_std = 1 / (math.sqrt(2 * self.ff_out.in_features * (self.layer_id + 1)))
+            cutoff_factor = 3.0
 
         elif self.config.init_fn == InitFnType.full_megatron:
             # TODO: 3 is hardcoded as default value
-            std = self.config.init_std / math.sqrt(2.0 * self.config.n_layers)
+            attn_out_std = ff_out_std = self.config.init_std / math.sqrt(2.0 * self.config.n_layers)
             cutoff_factor = self.config.init_cutoff_factor or 3.0
-            init_normal(self.attn_out, std=std, init_cutoff_factor=cutoff_factor)
-            init_normal(self.ff_out, std=std, init_cutoff_factor=cutoff_factor)
 
         else:
             raise NotImplementedError(self.config.init_fn)
+
+        init_normal(self.attn_out, std=attn_out_std, init_cutoff_factor=cutoff_factor)
+        init_normal(self.ff_out, std=ff_out_std, init_cutoff_factor=cutoff_factor)
 
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         if strategy == ActivationCheckpointingStrategy.fine_grained:

@@ -77,9 +77,7 @@ def test_olmo_block_init_normal(seed: int):
     for layer_id in [0, 4]:
         block = OLMoBlock(layer_id=layer_id, config=base_config, cache=cache)
         block.reset_parameters()
-        check_distribution(block.attn_out, 0.00, 0.02)
-        # TODO: confirm extra divisor; we may not want this.
-        check_distribution(block.ff_out, 0.00, 0.02 / math.sqrt(2 * n_layers))
+        check_distribution(block, 0.00, 0.02)
 
     ########################################### Truncated Normal init ###########################################
     base_config = ModelConfig(
@@ -93,11 +91,7 @@ def test_olmo_block_init_normal(seed: int):
     block = OLMoBlock(layer_id=0, config=base_config, cache=cache)
     block.reset_parameters()
 
-    # TODO: why is the diff higher?
-    check_distribution(block.attn_out, 0.00, 0.02, 3.0 * 0.02, -3.0 * 0.02, diff=1e-3)
-    check_distribution(block.ff_out, 0.00, 0.02 / math.sqrt(2 * n_layers), 3.0 * 0.02, -3.0 * 0.02, diff=1e-3)
-
-    ## Scale embedding
+    check_distribution(block, 0.00, 0.02, 3.0 * 0.02, -3.0 * 0.02, diff=1e-3)
 
 
 @pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
@@ -184,8 +178,7 @@ def test_olmo_sequential_block_init_normal(seed: int):
         block = OLMoSequentialBlock(layer_id=layer_id, config=base_config, cache=cache)
         block.reset_parameters()
 
-        check_distribution(block, 0.00, 0.02, ignore_params=["ff_out", "attn_norm", "ff_norm"])
-        check_distribution(block.ff_out, 0.00, 0.02 / math.sqrt(2 * n_layers))
+        check_distribution(block, 0.00, 0.02, ignore_params=["attn_norm", "ff_norm"])
         # if parametric layer norm
         check_distribution(block.attn_norm, 1.00, 0.00)
         check_distribution(block.ff_norm, 1.00, 0.00)
@@ -272,8 +265,7 @@ def test_olmo_llama_block_init_normal(seed: int):
         block = OLMoLlamaBlock(layer_id=layer_id, config=base_config, cache=cache)
         block.reset_parameters()
 
-        check_distribution(block, 0.00, 0.02, ignore_params=["ff_out", "attn_norm", "ff_norm"])
-        check_distribution(block.ff_out, 0.00, 0.02 / math.sqrt(2 * n_layers))
+        check_distribution(block, 0.00, 0.02, ignore_params=["attn_norm", "ff_norm"])
         # if parametric layer norm
         check_distribution(block.attn_norm, 1.00, 0.00)
         check_distribution(block.ff_norm, 1.00, 0.00)
@@ -363,13 +355,11 @@ def test_olmo_init_normal(seed: int):
     )
     module = OLMo(config=base_config, init_params=True)
 
-    check_distribution(module, 0.0, 0.02, ignore_params=["ff_out", "ln_f", "attn_norm", "ff_norm"])
+    check_distribution(module, 0.0, 0.02, ignore_params=["ln_f", "attn_norm", "ff_norm"])
     for i in range(n_layers):
-        check_distribution(module.transformer.blocks[i].ff_out, 0.00, 0.02 / math.sqrt(2 * n_layers))
         check_distribution(module.transformer.blocks[i].attn_norm, 1.00, 0.00)
         check_distribution(module.transformer.blocks[i].ff_norm, 1.00, 0.00)
     check_distribution(module.transformer.ln_f, 1.00, 0.00)
-    check_distribution(module.transformer.ff_out, 0.00, 0.02)
 
     # scale logits
     base_config = ModelConfig(
@@ -383,13 +373,11 @@ def test_olmo_init_normal(seed: int):
     )
     module = OLMo(config=base_config, init_params=True)
 
-    check_distribution(module, 0.0, 0.02, ignore_params=["ff_out", "ln_f", "attn_norm", "ff_norm", "wte"])
+    check_distribution(module, 0.0, 0.02, ignore_params=["ln_f", "attn_norm", "ff_norm", "wte"])
     for i in range(n_layers):
-        check_distribution(module.transformer.blocks[i].ff_out, 0.00, 0.02 / math.sqrt(2 * n_layers))
         check_distribution(module.transformer.blocks[i].attn_norm, 1.00, 0.00)
         check_distribution(module.transformer.blocks[i].ff_norm, 1.00, 0.00)
     check_distribution(module.transformer.ln_f, 1.00, 0.00)
-    check_distribution(module.transformer.ff_out, 0.00, 0.02)
     check_distribution(module.transformer.wte, 0.0, 0.02 * 0.5 * math.sqrt(d_model), diff=1e-3)
 
 
