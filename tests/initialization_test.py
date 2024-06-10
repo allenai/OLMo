@@ -5,7 +5,7 @@ import pytest
 import torch.nn
 from torch.testing import assert_close
 
-from olmo.config import ModelConfig
+from olmo.config import ModelConfig, InitFnType
 from olmo.model import BufferCache, OLMo, OLMoBlock, OLMoLlamaBlock, OLMoSequentialBlock
 from olmo.torch_util import seed_all
 
@@ -70,7 +70,7 @@ def test_olmo_block_init_normal(seed: int):
 
     ################################################ Normal init ################################################
     cache = BufferCache()
-    base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn="normal", init_std=0.02)
+    base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn=InitFnType.normal, init_std=0.02)
 
     for layer_id in [0, 4]:
         block = OLMoBlock(layer_id=layer_id, config=base_config, cache=cache)
@@ -84,7 +84,7 @@ def test_olmo_block_init_normal(seed: int):
         d_model=d_model,
         n_heads=n_heads,
         n_layers=n_layers,
-        init_fn="normal",
+        init_fn=InitFnType.normal,
         init_std=0.02,
         init_cutoff_factor=3.0,
     )
@@ -108,7 +108,7 @@ def test_olmo_block_init_mitchell(seed: int):
     ################################################ Mitchell init ################################################
 
     cache = BufferCache()
-    base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn="mitchell")
+    base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn=InitFnType.mitchell)
 
     # expected_std = 1/(math.sqrt(2*d*(layer_id+1))
 
@@ -139,7 +139,7 @@ def test_olmo_block_init_full_megatron(seed: int):
             d_model=d_model,
             n_heads=n_heads,
             n_layers=n_layers,
-            init_fn="full_megatron",
+            init_fn=InitFnType.full_megatron,
             init_std=0.006,
             init_cutoff_factor=init_cutoff_factor,
         )
@@ -174,7 +174,7 @@ def test_olmo_sequential_block_init_normal(seed: int):
 
     ################################################ Normal init ################################################
     cache = BufferCache()
-    base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn="normal", init_std=0.02)
+    base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn=InitFnType.normal, init_std=0.02)
 
     for layer_id in [0, 4]:
         block = OLMoSequentialBlock(layer_id=layer_id, config=base_config, cache=cache)
@@ -197,7 +197,7 @@ def test_olmo_sequential_block_init_mitchell(seed: int):
 
     ################################################ Mitchell init ################################################
     cache = BufferCache()
-    base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn="mitchell")
+    base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn=InitFnType.mitchell)
 
     for layer_id in [0, 4]:
         block = OLMoSequentialBlock(layer_id=layer_id, config=base_config, cache=cache)
@@ -227,7 +227,7 @@ def test_olmo_sequential_block_init_full_megatron(seed: int):
     ################################################ Megatron init ################################################
     cache = BufferCache()
     base_config = ModelConfig(
-        d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn="full_megatron", init_std=0.006
+        d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn=InitFnType.full_megatron, init_std=0.006
     )
 
     for layer_id in [0, 4]:
@@ -260,7 +260,7 @@ def test_olmo_llama_block_init_normal(seed: int):
 
     ################################################ Normal init ################################################
     cache = BufferCache()
-    base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn="normal", init_std=0.02)
+    base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn=InitFnType.normal, init_std=0.02)
 
     for layer_id in [0, 4]:
         block = OLMoLlamaBlock(layer_id=layer_id, config=base_config, cache=cache)
@@ -284,7 +284,7 @@ def test_olmo_llama_block_init_mitchell(seed: int):
     ################################################ Mitchell init ################################################
 
     cache = BufferCache()
-    base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn="mitchell")
+    base_config = ModelConfig(d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn=InitFnType.mitchell)
 
     for layer_id in [0, 4]:
         block = OLMoLlamaBlock(layer_id=layer_id, config=base_config, cache=cache)
@@ -314,7 +314,7 @@ def test_olmo_llama_block_init_full_megatron(seed: int):
     ################################################ Megatron init ################################################
     cache = BufferCache()
     base_config = ModelConfig(
-        d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn="full_megatron", init_std=0.006
+        d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn=InitFnType.full_megatron, init_std=0.006
     )
 
     for layer_id in [0, 4]:
@@ -351,7 +351,7 @@ def test_olmo_init_normal(seed: int):
         d_model=d_model,
         n_heads=n_heads,
         n_layers=n_layers,
-        init_fn="normal",
+        init_fn=InitFnType.normal,
         init_std=0.02,
         scale_logits=False,
         weight_tying=False,
@@ -371,7 +371,7 @@ def test_olmo_init_normal(seed: int):
         d_model=d_model,
         n_heads=n_heads,
         n_layers=n_layers,
-        init_fn="normal",
+        init_fn=InitFnType.normal,
         init_std=0.02,
         scale_logits=True,
         weight_tying=False,
@@ -400,7 +400,7 @@ def test_olmo_init_mitchell(seed: int):
         d_model=d_model,
         n_heads=n_heads,
         n_layers=n_layers,
-        init_fn="mitchell",
+        init_fn=InitFnType.mitchell,
         scale_logits=False,
         weight_tying=False,
     )
@@ -438,7 +438,7 @@ def test_olmo_init_mitchell(seed: int):
         d_model=d_model,
         n_heads=n_heads,
         n_layers=n_layers,
-        init_fn="mitchell",
+        init_fn=InitFnType.mitchell,
         scale_logits=True,
         weight_tying=False,
     )
@@ -486,7 +486,7 @@ def test_olmo_init_full_megatron(seed: int):
         d_model=d_model,
         n_heads=n_heads,
         n_layers=n_layers,
-        init_fn="full_megatron",
+        init_fn=InitFnType.full_megatron,
         init_std=0.006,
         scale_logits=False,
         weight_tying=False,
@@ -511,7 +511,7 @@ def test_olmo_init_full_megatron(seed: int):
         d_model=d_model,
         n_heads=n_heads,
         n_layers=n_layers,
-        init_fn="full_megatron",
+        init_fn=InitFnType.full_megatron,
         init_std=0.006,
         scale_logits=True,
         weight_tying=False,
