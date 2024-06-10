@@ -961,6 +961,12 @@ class OLMo(nn.Module):
         if self.config.alibi and self.config.rope:
             raise OLMoConfigurationError("ALiBi and RoPE are mutually exclusive")
 
+        if self.config.scale_logits:
+            if self.config.weight_tying:
+                raise OLMoConfigurationError("`scale_logits` and `weight_tying` are mutually exclusive")
+            if self.config.init_fn != InitFnType.normal:
+                raise OLMoConfigurationError("`scale_logits` can only be used with `normal` init.")
+
         if self.config.embedding_size is not None and self.config.embedding_size != self.config.vocab_size:
             if self.config.embedding_size < self.config.vocab_size:
                 raise OLMoConfigurationError("embedding size should be at least as big as vocab size")
@@ -1049,14 +1055,11 @@ class OLMo(nn.Module):
         log.info("Initializing model parameters...")
         # Top-level embeddings / linear layers.
 
-        # TODO: why are we scaling the emb if scale_logits is True?
-        emb_std_factor = (0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0
         if self.config.init_fn == InitFnType.normal:
-            wte_std = emb_std_factor * self.config.init_std
+            wte_std = self.config.init_std
             wte_cutoff_factor = self.config.init_cutoff_factor
         elif self.config.init_fn == InitFnType.mitchell:
-            # TODO: this is buggy! std will always be 0.5 when scale_logits = True
-            wte_std = emb_std_factor / math.sqrt(self.config.d_model)
+            wte_std = 1.0 / math.sqrt(self.config.d_model)
             wte_cutoff_factor = self.config.init_cutoff_factor or 3.0
         elif self.config.init_fn == InitFnType.full_megatron:
             wte_std = self.config.init_std
@@ -1087,7 +1090,10 @@ class OLMo(nn.Module):
         # Output weights.
         if hasattr(self.transformer, "ff_out"):
             if self.config.init_fn == InitFnType.normal:
-                ff_out_std = self.config.init_std
+                # we only do this with `normal` init since both other inits have a factor of 1 / sqrt(d_model) which
+                # will cancel out, making the std a constant 0.5.
+                ff_out_std_factor = (0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0
+                ff_out_std = ff_out_std_factor * self.config.init_std
                 ff_out_cutoff_factor = self.config.init_cutoff_factor
             elif self.config.init_fn == InitFnType.mitchell:
                 ff_out_std = 1 / math.sqrt(self.config.d_model)
