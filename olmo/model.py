@@ -44,7 +44,7 @@ from .config import (
     ModelConfig,
 )
 from .exceptions import OLMoConfigurationError
-from .initialization import ModuleType, init_normal, init_weights
+from .initialization import init_normal
 from .torch_util import ensure_finite_
 
 if sys.version_info.minor > 8:
@@ -510,20 +510,7 @@ class OLMoBlock(nn.Module):
             init_normal(self.ff_out, std=std, init_cutoff_factor=cutoff_factor)
 
         else:
-            init_weights(
-                self.config,
-                self.attn_out,
-                d=self.config.d_model,
-                layer_id=self.layer_id,
-                type_of_module=ModuleType.out_module,
-            )
-            init_weights(
-                self.config,
-                self.ff_out,
-                d=self.ff_out.in_features,
-                layer_id=self.layer_id,
-                type_of_module=ModuleType.out_module,
-            )
+            raise NotImplementedError(self.config.init_fn)
 
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         if strategy == ActivationCheckpointingStrategy.fine_grained:
@@ -701,30 +688,19 @@ class OLMoSequentialBlock(OLMoBlock):
         # NOTE: the standard deviation for these weights does not depend on the layer.
 
         if self.config.init_fn == InitFnType.normal:
-            init_normal(self.att_proj, self.config.init_std, self.config.init_cutoff_factor)
-            init_normal(self.ff_proj, self.config.init_std, self.config.init_cutoff_factor)
+            std = self.config.init_std
+            cutoff_factor = self.config.init_cutoff_factor
         elif self.config.init_fn == InitFnType.mitchell:
-            init_normal(self.att_proj, std=1 / math.sqrt(self.config.d_model), init_cutoff_factor=3.0)
-            init_normal(self.ff_proj, std=1 / math.sqrt(self.config.d_model), init_cutoff_factor=3.0)
+            std = 1 / math.sqrt(self.config.d_model)
+            cutoff_factor = 3.0
         elif self.config.init_fn == InitFnType.full_megatron:
+            std = self.config.init_std
             cutoff_factor = self.config.init_cutoff_factor or 3.0
-            init_normal(self.att_proj, std=self.config.init_std, init_cutoff_factor=cutoff_factor)
-            init_normal(self.ff_proj, std=self.config.init_std, init_cutoff_factor=cutoff_factor)
         else:
-            init_weights(
-                self.config,
-                self.att_proj,
-                d=self.config.d_model,
-                layer_id=None,
-                type_of_module=ModuleType.in_module,
-            )
-            init_weights(
-                self.config,
-                self.ff_proj,
-                d=self.config.d_model,
-                layer_id=None,
-                type_of_module=ModuleType.in_module,
-            )
+            raise NotImplementedError(self.config.init_fn)
+
+        init_normal(self.att_proj, std, cutoff_factor)
+        init_normal(self.ff_proj, std, cutoff_factor)
 
     def forward(
         self,
@@ -1094,29 +1070,34 @@ class OLMo(nn.Module):
         # TODO: why are we scaling the emb if scale_logits is True?
         emb_std_factor = (0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0
         if self.config.init_fn == InitFnType.normal:
-            init_normal(
-                self.transformer.wte, self.config.init_std * emb_std_factor, self.config.init_cutoff_factor
-            )
-
+            wte_std = emb_std_factor * self.config.init_std
+            wte_cutoff_factor = self.config.init_cutoff_factor
         elif self.config.init_fn == InitFnType.mitchell:
             # TODO: this is buggy! std will always be 0.5 when scale_logits = True
-            init_normal(
-                self.transformer.wte, std=emb_std_factor / math.sqrt(self.config.d_model), init_cutoff_factor=3.0
-            )
-
+            wte_std = emb_std_factor / math.sqrt(self.config.d_model)
+            wte_cutoff_factor = 3.0
         elif self.config.init_fn == InitFnType.full_megatron:
-            cutoff_factor = self.config.init_cutoff_factor or 3.0
-            init_normal(self.transformer.wte, std=self.config.init_std, init_cutoff_factor=cutoff_factor)
-
+            wte_std = self.config.init_std
+            wte_cutoff_factor = self.config.init_cutoff_factor or 3.0
         else:
-            init_weights(
-                self.config,
-                self.transformer.wte,  # type: ignore
-                std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,
-                type_of_module=ModuleType.emb,
-            )
+            raise NotImplementedError(self.config.init_fn)
+
+        init_normal(self.transformer.wte, std=wte_std, init_cutoff_factor=wte_cutoff_factor)
+
         if hasattr(self.transformer, "wpe"):
-            init_weights(self.config, self.transformer.wpe, type_of_module=ModuleType.emb)  # type: ignore
+            if self.config.init_fn == InitFnType.normal:
+                wpe_std = self.config.init_std
+                wpe_cutoff_factor = self.config.init_cutoff_factor
+            elif self.config.init_fn == InitFnType.mitchell:
+                wpe_std = 1 / math.sqrt(self.config.d_model)
+                wpe_cutoff_factor = 3.0
+            elif self.config.init_fn == InitFnType.full_megatron:
+                wpe_std = self.config.init_std
+                wpe_cutoff_factor = self.config.init_cutoff_factor or 3.0
+            else:
+                raise NotImplementedError(self.config.init_fn)
+
+            init_normal(self.transformer.wpe, std=wpe_std, init_cutoff_factor=wpe_cutoff_factor)
 
         # Top-level layer norm.
         self.transformer.ln_f.reset_parameters()  # type: ignore
@@ -1124,18 +1105,18 @@ class OLMo(nn.Module):
         # Output weights.
         if hasattr(self.transformer, "ff_out"):
             if self.config.init_fn == InitFnType.normal:
-                init_normal(self.transformer.ff_out, self.config.init_std, self.config.init_cutoff_factor)
+                ff_out_std = self.config.init_std
+                ff_out_cutoff_factor = self.config.init_cutoff_factor
             elif self.config.init_fn == InitFnType.mitchell:
-                init_normal(
-                    self.transformer.ff_out, std=1 / math.sqrt(self.config.d_model), init_cutoff_factor=3.0
-                )
+                ff_out_std = 1 / math.sqrt(self.config.d_model)
+                ff_out_cutoff_factor = 3.0
             elif self.config.init_fn == InitFnType.full_megatron:
-                cutoff_factor = self.config.init_cutoff_factor or 3.0
-                init_normal(
-                    self.transformer.ff_out, std=self.config.d_model**-0.5, init_cutoff_factor=cutoff_factor
-                )
+                ff_out_std = self.config.d_model**-0.5
+                ff_out_cutoff_factor = self.config.init_cutoff_factor or 3.0
             else:
-                init_weights(self.config, self.transformer.ff_out, type_of_module=ModuleType.final_out)  # type: ignore
+                raise NotImplementedError(self.config.init_fn)
+
+        init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor)
 
         # Let the blocks handle themselves.
         if self.config.block_group_size == 1:
