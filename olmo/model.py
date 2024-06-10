@@ -961,12 +961,6 @@ class OLMo(nn.Module):
         if self.config.alibi and self.config.rope:
             raise OLMoConfigurationError("ALiBi and RoPE are mutually exclusive")
 
-        if self.config.scale_logits:
-            if self.config.weight_tying:
-                raise OLMoConfigurationError("`scale_logits` and `weight_tying` are mutually exclusive")
-            if self.config.init_fn != InitFnType.normal:
-                raise OLMoConfigurationError("`scale_logits` can only be used with `normal` init.")
-
         if self.config.embedding_size is not None and self.config.embedding_size != self.config.vocab_size:
             if self.config.embedding_size < self.config.vocab_size:
                 raise OLMoConfigurationError("embedding size should be at least as big as vocab size")
@@ -1090,10 +1084,7 @@ class OLMo(nn.Module):
         # Output weights.
         if hasattr(self.transformer, "ff_out"):
             if self.config.init_fn == InitFnType.normal:
-                # we only do this with `normal` init since both other inits have a factor of 1 / sqrt(d_model) which
-                # will cancel out, making the std a constant 0.5.
-                ff_out_std_factor = (0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0
-                ff_out_std = ff_out_std_factor * self.config.init_std
+                ff_out_std = self.config.init_std
                 ff_out_cutoff_factor = self.config.init_cutoff_factor
             elif self.config.init_fn == InitFnType.mitchell:
                 ff_out_std = 1 / math.sqrt(self.config.d_model)
@@ -1299,8 +1290,6 @@ class OLMo(nn.Module):
             logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
         else:
             logits = self.transformer.ff_out(x)  # type: ignore
-        if self.config.scale_logits:
-            logits.mul_(1 / math.sqrt(self.config.d_model))
 
         return OLMoOutput(logits=logits, attn_key_values=attn_key_values, hidden_states=tuple(all_hidden_states) if output_hidden_states else None)  # type: ignore[arg-type]
 

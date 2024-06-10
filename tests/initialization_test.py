@@ -112,7 +112,6 @@ def test_olmo_block_init_mitchell(seed: int):
         block = OLMoBlock(layer_id=layer_id, config=base_config, cache=cache)
         block.reset_parameters()
 
-        # TODO: why is the diff higher?
         check_distribution(block.attn_out, 0.00, 1 / (math.sqrt(2 * d_model * (layer_id + 1))), diff=1e-3)
         check_distribution(
             block.ff_out, 0.00, 1 / (math.sqrt(2 * block.ff_out.in_features * (layer_id + 1))), diff=1e-3
@@ -144,15 +143,12 @@ def test_olmo_block_init_full_megatron(seed: int):
             block = OLMoBlock(layer_id=layer_id, config=base_config, cache=cache)
             block.reset_parameters()
 
-            # TODO: default init cutoff factor is 3. Should be configurable right? Should it ever be None for megatron?
             check_distribution(
                 block.attn_out, 0.00, 0.006 / math.sqrt(2.0 * n_layers), 3.0 * 0.006, -3.0 * 0.006, diff=1e-3
             )
             check_distribution(
                 block.ff_out, 0.00, 0.006 / math.sqrt(2.0 * n_layers), 3.0 * 0.006, -3.0 * 0.006, diff=1e-3
             )
-
-    ## Scale embedding
 
 
 #################################################################################
@@ -203,7 +199,6 @@ def test_olmo_sequential_block_init_mitchell(seed: int):
         check_distribution(block.att_proj, 0.0, 1 / math.sqrt(d_model), diff=1e-3)
         check_distribution(block.ff_proj, 0.0, 1 / math.sqrt(d_model), diff=1e-3)
 
-        # TODO: why is the diff higher?
         check_distribution(block.attn_out, 0.00, 1 / (math.sqrt(2 * d_model * (layer_id + 1))), diff=1e-3)
         check_distribution(
             block.ff_out, 0.00, 1 / (math.sqrt(2 * block.ff_out.in_features * (layer_id + 1))), diff=1e-3
@@ -287,7 +282,6 @@ def test_olmo_llama_block_init_mitchell(seed: int):
         block = OLMoLlamaBlock(layer_id=layer_id, config=base_config, cache=cache)
         block.reset_parameters()
 
-        # TODO: why is diff higher?
         check_distribution(
             block,
             0.00,
@@ -350,7 +344,6 @@ def test_olmo_init_normal(seed: int):
         n_layers=n_layers,
         init_fn=InitFnType.normal,
         init_std=0.02,
-        scale_logits=False,
         weight_tying=False,
     )
     module = OLMo(config=base_config, init_params=True)
@@ -360,25 +353,6 @@ def test_olmo_init_normal(seed: int):
         check_distribution(module.transformer.blocks[i].attn_norm, 1.00, 0.00)
         check_distribution(module.transformer.blocks[i].ff_norm, 1.00, 0.00)
     check_distribution(module.transformer.ln_f, 1.00, 0.00)
-
-    # scale logits
-    base_config = ModelConfig(
-        d_model=d_model,
-        n_heads=n_heads,
-        n_layers=n_layers,
-        init_fn=InitFnType.normal,
-        init_std=0.02,
-        scale_logits=True,
-        weight_tying=False,
-    )
-    module = OLMo(config=base_config, init_params=True)
-
-    check_distribution(module, 0.0, 0.02, ignore_params=["ln_f", "attn_norm", "ff_norm", "transformer.ff_out"])
-    for i in range(n_layers):
-        check_distribution(module.transformer.blocks[i].attn_norm, 1.00, 0.00)
-        check_distribution(module.transformer.blocks[i].ff_norm, 1.00, 0.00)
-    check_distribution(module.transformer.ln_f, 1.00, 0.00)
-    check_distribution(module.transformer.ff_out, 0.0, 0.02 * 0.5 * math.sqrt(d_model), diff=1e-3)
 
 
 @pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
@@ -394,7 +368,6 @@ def test_olmo_init_mitchell(seed: int):
         n_heads=n_heads,
         n_layers=n_layers,
         init_fn=InitFnType.mitchell,
-        scale_logits=False,
         weight_tying=False,
     )
     module = OLMo(config=base_config, init_params=True)
