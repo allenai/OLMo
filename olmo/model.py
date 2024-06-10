@@ -44,7 +44,7 @@ from .config import (
     InitFnType,
 )
 from .exceptions import OLMoConfigurationError
-from .initialization import ModuleType, init_weights, init_normal
+from .initialization import ModuleType, init_weights, init_normal, init_mitchell
 from .torch_util import ensure_finite_
 
 if sys.version_info.minor > 8:
@@ -488,6 +488,9 @@ class OLMoBlock(nn.Module):
             with torch.no_grad():
                 self.ff_out.weight.div_(math.sqrt(2 * self.config.n_layers))
 
+        elif self.config.init_fn == InitFnType.mitchell:
+            init_mitchell(self.config, self.attn_out, layer_id=self.layer_id, std_factor=1.0, d=self.config.d_model)
+            init_mitchell(self.config, self.ff_out, layer_id=self.layer_id, std_factor=1.0, d=self.ff_out.in_features)
         else:
             init_weights(
                 self.config,
@@ -682,6 +685,9 @@ class OLMoSequentialBlock(OLMoBlock):
         if self.config.init_fn == InitFnType.normal:
             init_normal(self.config, self.att_proj)
             init_normal(self.config, self.ff_proj)
+        elif self.config.init_fn == InitFnType.mitchell:
+            init_mitchell(self.config, self.att_proj)
+            init_mitchell(self.config, self.ff_proj)
         else:
             init_weights(
                 self.config, self.att_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
@@ -795,6 +801,11 @@ class OLMoLlamaBlock(OLMoBlock):
             init_normal(self.config, self.k_proj)
             init_normal(self.config, self.v_proj)
             init_normal(self.config, self.ff_proj)
+        elif self.config.init_fn == InitFnType.mitchell:
+            init_mitchell(self.config, self.q_proj, layer_id=None)
+            init_mitchell(self.config, self.k_proj, layer_id=None)
+            init_mitchell(self.config, self.v_proj, layer_id=None)
+            init_mitchell(self.config, self.ff_proj, layer_id=None)
         else:
             init_weights(self.config, self.q_proj, d=self.config.d_model, layer_id=None)
             init_weights(self.config, self.k_proj, d=self.config.d_model, layer_id=None)
@@ -1049,11 +1060,19 @@ class OLMo(nn.Module):
         log.info("Initializing model parameters...")
         # Top-level embeddings / linear layers.
 
-        if self.config.init_fn == "normal":
+        # TODO: why are we scaling the emb if scale_logits is True?
+        if self.config.init_fn == InitFnType.normal:
             init_normal(
                 self.config,
                 self.transformer.wte,
                 std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0)
+
+        elif self.config.init_fn == InitFnType.mitchell:
+            init_mitchell(
+                self.config,
+                self.transformer.wte,
+                std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,
+            )
         else:
             init_weights(
                 self.config,
@@ -1069,7 +1088,12 @@ class OLMo(nn.Module):
 
         # Output weights.
         if hasattr(self.transformer, "ff_out"):
-            init_weights(self.config, self.transformer.ff_out, type_of_module=ModuleType.final_out)  # type: ignore
+            if self.config.init_fn == InitFnType.normal:
+                init_normal(self.config, self.transformer.ff_out)
+            elif self.config.init_fn == InitFnType.mitchell:
+                init_mitchell(self.config, self.transformer.ff_out)
+            else:
+                init_weights(self.config, self.transformer.ff_out, type_of_module=ModuleType.final_out)  # type: ignore
 
         # Let the blocks handle themselves.
         if self.config.block_group_size == 1:
