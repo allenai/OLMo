@@ -233,22 +233,27 @@ class Trainer:
         if (self.model.config.block_type == BlockType.moe) and (self.model.config.moe_expert_choice is False):
             # these MoEArgs are necessary for logging load balancing.
             num_layers = self.model.config.n_layers // 2 if self.model.config.moe_interleave else self.model.config.n_layers
-            self.moe_args = MoEArgs(
-                hidden_size=self.model.config.d_model,
-                ffn_hidden_size=self.model.config.d_model * 4,
-                moe_num_experts=self.model.config.moe_num_experts,
-                num_layers=num_layers,
-                # Not tested for now
-                moe_expert_model_parallelism=False,
-                moe_top_k=self.model.config.moe_top_k,
-                device=self.model.config.init_device,
-                moe_capacity_factor=self.model.config.moe_capacity_factor,
-                moe_loss_weight=self.model.config.moe_loss_weight,
-                fp16=False,
-                bf16=False,
-                shared_expert=self.model.config.moe_shared_expert,
-                moe_lbl_in_fp32=self.model.config.moe_lbl_in_fp32,
-            )
+            kwargs = {
+                "hidden_size": self.model.config.d_model,
+                "ffn_hidden_size": self.model.config.d_model * 4,
+                "moe_num_experts": self.model.config.moe_num_experts,
+                "num_layers": num_layers,
+                "moe_expert_model_parallelism": False,
+                "moe_top_k": self.model.config.moe_top_k,
+                "device": self.model.config.init_device,
+                "moe_capacity_factor": self.model.config.moe_capacity_factor,
+                "moe_loss_weight": self.model.config.moe_loss_weight,
+                "fp16": False,
+                "bf16": False,
+                "shared_expert": self.model.config.moe_shared_expert,
+                "moe_lbl_in_fp32": self.model.config.moe_lbl_in_fp32,
+            }
+            if self.model.config.moe_expert_choice:
+                kwargs["moe_expert_choice"] = self.model.config.moe_expert_choice
+            if self.model.config.moe_zloss:
+                kwargs["moe_zloss_weight"] = self.model.config.moe_zloss_weight
+            
+            self.moe_args = MoEArgs(**kwargs)
 
     @property
     def dataset(self) -> IterableDataset:
@@ -765,7 +770,7 @@ class Trainer:
                         tokens_per_expert, _ = zip(*get_load_balancing_loss())
                         expert_assignments += torch.stack(tokens_per_expert, dim=0).cpu()
                     clear_load_balancing_loss()
-                    if self.model.config.load_balance:
+                    if self.model.config.moe_loss_weight > 0.0:
                         loss += lb_loss
                     lb_batch_loss += lb_loss.detach()
 

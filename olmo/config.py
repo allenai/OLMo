@@ -456,11 +456,6 @@ class ModelConfig(BaseConfig):
     Choose "grouped" for grouped GEMM installable via megablocks[gg]
     """
 
-    moe_loss_weight: Optional[float] = 0.1
-    """
-    The weight to use for the MoE loss.
-    """
-
     moe_log_expert_assignment: Optional[bool] = True
     """
     Whether to log the expert assignment.
@@ -501,9 +496,14 @@ class ModelConfig(BaseConfig):
     If ``True``, initialize the MoE router as if it is a dense model.
     """
 
-    load_balance: bool = True
+    moe_loss_weight: Optional[float] = 0.1
     """
-    If ``True``, use load-balance loss.
+    The weight to use for the MoE load balancing loss.
+    """
+
+    moe_zloss_weight: Optional[bool] = None
+    """
+    Weight for MoE zloss; None means no zloss. 0.001 is a common value
     """
 
     share_load_balance_across_layers: bool = False
