@@ -501,7 +501,7 @@ class ModelConfig(BaseConfig):
     The weight to use for the MoE load balancing loss.
     """
 
-    moe_zloss_weight: Optional[bool] = None
+    moe_zloss_weight: Optional[float] = None
     """
     Weight for MoE zloss; None means no zloss. 0.001 is a common value
     """
