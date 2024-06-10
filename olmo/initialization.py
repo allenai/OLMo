@@ -18,15 +18,13 @@ class ModuleType(StrEnum):
 
 
 def init_normal(
-    config: ModelConfig,
     module: Union[nn.Linear, nn.Embedding],
-    std_factor: float = 1.00,
+    std: float,
+    init_cutoff_factor: Optional[float] = None,
 ):
-    std = config.init_std * std_factor
-
     # weights
-    if config.init_cutoff_factor is not None:
-        cutoff_value = config.init_cutoff_factor * std
+    if init_cutoff_factor is not None:
+        cutoff_value = init_cutoff_factor * std
         nn.init.trunc_normal_(module.weight, mean=0.0, std=std, a=-cutoff_value, b=cutoff_value)
     else:
         nn.init.normal_(module.weight, mean=0.0, std=std)
@@ -35,27 +33,6 @@ def init_normal(
     if isinstance(module, nn.Linear) and module.bias is not None:
         nn.init.zeros_(module.bias)
 
-def init_mitchell(
-    config: ModelConfig,
-    module: Union[nn.Linear, nn.Embedding],
-    layer_id: Optional[int] = None,
-    std_factor: float = 1.00,
-    d: Optional[int] = None,
-):
-    # TODO: potentially roll into init_normal
-    # weights
-    d = d if d is not None else config.d_model
-    # std = 1/(math.sqrt(2*d*(layer_id+1))
-    std = std_factor / math.sqrt(d)
-    if layer_id is not None:
-        std = std / math.sqrt(2 * (layer_id + 1))
-
-    # TODO: 3 is currently hardcoded; this should be using init_cutoff_factor instead.
-    nn.init.trunc_normal_(module.weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
-
-    # biases
-    if isinstance(module, nn.Linear) and module.bias is not None:
-        nn.init.zeros_(module.bias)
 
 def init_weights(
     config: ModelConfig,

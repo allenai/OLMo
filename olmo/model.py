@@ -44,7 +44,7 @@ from .config import (
     InitFnType,
 )
 from .exceptions import OLMoConfigurationError
-from .initialization import ModuleType, init_weights, init_normal, init_mitchell
+from .initialization import ModuleType, init_weights, init_normal
 from .torch_util import ensure_finite_
 
 if sys.version_info.minor > 8:
@@ -477,10 +477,12 @@ class OLMoBlock(nn.Module):
 
         # TOD0: move step by step
         if self.config.init_fn == InitFnType.normal:
-            init_normal(self.config, self.attn_out)
-            init_normal(self.config, self.ff_out)
+
+            init_normal(self.attn_out, std=self.config.init_std, init_cutoff_factor=self.config.init_cutoff_factor)
+            init_normal(self.ff_out, std=self.config.init_std, init_cutoff_factor=self.config.init_cutoff_factor)
 
             # TODO: what is up with this extra divisor? We may not want this.
+            # TODO: This potentially came from trying to include full_megatron init.
             # git blame rabbit hole:
             #   https://github.com/allenai/OLMo/pull/239/commits/0c5b7b5ccac26c3e4729322520f1fdd5b0a4d54e#diff-14cdafe7342088f0c4851cc670185044902088ba6bc5ddcf0a464d698e4165fe
             #   https://github.com/allenai/OLMo/commit/ba20a857fde0c2fb2e8dbcba07e3781fe088ba06
@@ -489,8 +491,13 @@ class OLMoBlock(nn.Module):
                 self.ff_out.weight.div_(math.sqrt(2 * self.config.n_layers))
 
         elif self.config.init_fn == InitFnType.mitchell:
-            init_mitchell(self.config, self.attn_out, layer_id=self.layer_id, std_factor=1.0, d=self.config.d_model)
-            init_mitchell(self.config, self.ff_out, layer_id=self.layer_id, std_factor=1.0, d=self.ff_out.in_features)
+
+            # TODO: 3 is currently hardcoded; this should be using init_cutoff_factor instead.
+            init_normal(self.attn_out, std=1/(math.sqrt(2 * self.config.d_model * (self.layer_id + 1))),
+                        init_cutoff_factor=3.0)
+            init_normal(self.ff_out, std=1 / (math.sqrt(2 * self.ff_out.in_features * (self.layer_id + 1))),
+                        init_cutoff_factor=3.0)
+
         else:
             init_weights(
                 self.config,
@@ -683,11 +690,11 @@ class OLMoSequentialBlock(OLMoBlock):
         # NOTE: the standard deviation for these weights does not depend on the layer.
 
         if self.config.init_fn == InitFnType.normal:
-            init_normal(self.config, self.att_proj)
-            init_normal(self.config, self.ff_proj)
+            init_normal(self.att_proj, self.config.init_std, self.config.init_cutoff_factor)
+            init_normal(self.ff_proj, self.config.init_std, self.config.init_cutoff_factor)
         elif self.config.init_fn == InitFnType.mitchell:
-            init_mitchell(self.config, self.att_proj)
-            init_mitchell(self.config, self.ff_proj)
+            init_normal(self.att_proj, std=1 / math.sqrt(self.config.d_model), init_cutoff_factor=3.0)
+            init_normal(self.ff_proj, std=1 / math.sqrt(self.config.d_model), init_cutoff_factor=3.0)
         else:
             init_weights(
                 self.config, self.att_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
@@ -797,15 +804,15 @@ class OLMoLlamaBlock(OLMoBlock):
         # NOTE: the standard deviation for these weights does not depend on the layer.
 
         if self.config.init_fn == InitFnType.normal:
-            init_normal(self.config, self.q_proj)
-            init_normal(self.config, self.k_proj)
-            init_normal(self.config, self.v_proj)
-            init_normal(self.config, self.ff_proj)
+            init_normal(self.q_proj, self.config.init_std, self.config.init_cutoff_factor)
+            init_normal(self.k_proj, self.config.init_std, self.config.init_cutoff_factor)
+            init_normal(self.v_proj, self.config.init_std, self.config.init_cutoff_factor)
+            init_normal(self.ff_proj, self.config.init_std, self.config.init_cutoff_factor)
         elif self.config.init_fn == InitFnType.mitchell:
-            init_mitchell(self.config, self.q_proj, layer_id=None)
-            init_mitchell(self.config, self.k_proj, layer_id=None)
-            init_mitchell(self.config, self.v_proj, layer_id=None)
-            init_mitchell(self.config, self.ff_proj, layer_id=None)
+            init_normal(self.q_proj, std=1 / math.sqrt(self.config.d_model), init_cutoff_factor=3.0)
+            init_normal(self.k_proj, std=1 / math.sqrt(self.config.d_model), init_cutoff_factor=3.0)
+            init_normal(self.v_proj, std=1 / math.sqrt(self.config.d_model), init_cutoff_factor=3.0)
+            init_normal(self.ff_proj, std=1 / math.sqrt(self.config.d_model), init_cutoff_factor=3.0)
         else:
             init_weights(self.config, self.q_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
             init_weights(self.config, self.k_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module)
@@ -1061,18 +1068,13 @@ class OLMo(nn.Module):
         # Top-level embeddings / linear layers.
 
         # TODO: why are we scaling the emb if scale_logits is True?
+        emb_std_factor = (0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0
         if self.config.init_fn == InitFnType.normal:
-            init_normal(
-                self.config,
-                self.transformer.wte,
-                std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0)
+            init_normal(self.transformer.wte, self.config.init_std * emb_std_factor, self.config.init_cutoff_factor)
 
         elif self.config.init_fn == InitFnType.mitchell:
-            init_mitchell(
-                self.config,
-                self.transformer.wte,
-                std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,
-            )
+            # TODO: this is buggy! std will always be 0.5 when scale_logits = True
+            init_normal(self.transformer.wte, std=emb_std_factor / math.sqrt(self.config.d_model), init_cutoff_factor=3.0)
         else:
             init_weights(
                 self.config,
@@ -1089,9 +1091,9 @@ class OLMo(nn.Module):
         # Output weights.
         if hasattr(self.transformer, "ff_out"):
             if self.config.init_fn == InitFnType.normal:
-                init_normal(self.config, self.transformer.ff_out)
+                init_normal(self.transformer.ff_out, self.config.init_std, self.config.init_cutoff_factor)
             elif self.config.init_fn == InitFnType.mitchell:
-                init_mitchell(self.config, self.transformer.ff_out)
+                init_normal(self.transformer.ff_out, std=1 / math.sqrt(self.config.d_model), init_cutoff_factor=3.0)
             else:
                 init_weights(self.config, self.transformer.ff_out, type_of_module=ModuleType.final_out)  # type: ignore
 
