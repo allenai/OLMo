@@ -1110,7 +1110,7 @@ class OLMo(nn.Module):
                 ff_out_std = 1 / math.sqrt(self.config.d_model)
                 ff_out_cutoff_factor = 3.0
             elif self.config.init_fn == InitFnType.full_megatron:
-                ff_out_std = self.config.d_model**-0.5
+                ff_out_std = 1 / math.sqrt(self.config.d_model)
                 ff_out_cutoff_factor = self.config.init_cutoff_factor or 3.0
             else:
                 raise NotImplementedError(self.config.init_fn)
