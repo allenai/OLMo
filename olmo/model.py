@@ -1116,7 +1116,7 @@ class OLMo(nn.Module):
             else:
                 raise NotImplementedError(self.config.init_fn)
 
-        init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor)
+            init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor)
 
         # Let the blocks handle themselves.
         if self.config.block_group_size == 1:
