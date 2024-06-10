@@ -125,10 +125,8 @@ def test_olmo_sequential_block_init(seed: int):
 
     check_distribution(block.attn_out, 0.00, 0.02)
     check_distribution(block.ff_out, 0.00, 0.02 / math.sqrt(2 * n_layers))
-
     check_distribution(block.att_proj, 0.00, 0.02)
     check_distribution(block.ff_proj, 0.00, 0.02)
-
     # if parametric layer norm
     check_distribution(block.attn_norm, 1.00, 0.00)
     check_distribution(block.ff_norm, 1.00, 0.00)
@@ -151,12 +149,10 @@ def test_olmo_llama_block_init(seed: int):
 
     check_distribution(block.attn_out, 0.00, 0.02)
     check_distribution(block.ff_out, 0.00, 0.02 / math.sqrt(2 * n_layers))
-
     check_distribution(block.q_proj, 0.00, 0.02)
     check_distribution(block.k_proj, 0.00, 0.02)
     check_distribution(block.v_proj, 0.00, 0.02)
     check_distribution(block.ff_proj, 0.00, 0.02)
-
     # if parametric layer norm
     check_distribution(block.attn_norm, 1.00, 0.00)
     check_distribution(block.ff_norm, 1.00, 0.00)
@@ -168,7 +164,7 @@ def test_olmo_init(seed: int):
     n_heads = 2
     n_layers = 2
 
-    ## normal init
+    ################################################ Normal init ################################################
 
     base_config = ModelConfig(
         d_model=d_model,
@@ -182,12 +178,30 @@ def test_olmo_init(seed: int):
     module = OLMo(config=base_config, init_params=True)
 
     check_distribution(module, 0.0, 0.02, ignore_params=["ff_out", "ln_f", "attn_norm", "ff_norm"])
-
     for i in range(n_layers):
         check_distribution(module.transformer.blocks[i].ff_out, 0.00, 0.02 / math.sqrt(2 * n_layers))
         check_distribution(module.transformer.blocks[i].attn_norm, 1.00, 0.00)
         check_distribution(module.transformer.blocks[i].ff_norm, 1.00, 0.00)
-
     check_distribution(module.transformer.ln_f, 1.00, 0.00)
     check_distribution(module.transformer.ff_out, 0.00, 0.02)
-    # TODO: wpe, scale_logits, std_factor, etc.
+
+    # scale logits
+    base_config = ModelConfig(
+        d_model=d_model,
+        n_heads=n_heads,
+        n_layers=n_layers,
+        init_fn="normal",
+        init_std=0.02,
+        scale_logits=True,
+        weight_tying=False,
+    )
+    module = OLMo(config=base_config, init_params=True)
+
+    check_distribution(module, 0.0, 0.02, ignore_params=["ff_out", "ln_f", "attn_norm", "ff_norm", "wte"])
+    for i in range(n_layers):
+        check_distribution(module.transformer.blocks[i].ff_out, 0.00, 0.02 / math.sqrt(2 * n_layers))
+        check_distribution(module.transformer.blocks[i].attn_norm, 1.00, 0.00)
+        check_distribution(module.transformer.blocks[i].ff_norm, 1.00, 0.00)
+    check_distribution(module.transformer.ln_f, 1.00, 0.00)
+    check_distribution(module.transformer.ff_out, 0.00, 0.02)
+    check_distribution(module.transformer.wte, 0.0, 0.02*0.5 * math.sqrt(d_model))
