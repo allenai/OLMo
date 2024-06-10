@@ -376,7 +376,7 @@ class ModelConfig(BaseConfig):
 
     scale_logits: bool = False
     """
-    Deprecated. This is no longer supported.
+    If ``True``, scale the output logits by ``1 / sqrt(d_model)``.
     """
 
     vocab_size: int = 50257

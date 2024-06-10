@@ -1050,6 +1050,9 @@ class OLMo(nn.Module):
         # Top-level embeddings / linear layers.
 
         if self.config.init_fn == InitFnType.normal:
+            # Note: We may potentially want to multiply the std by a factor of sqrt(d) in case of `scale_logits`
+            # and `weight_tying`. However, we are currently not using either, and may need to rethink the init logic
+            # if/when we do want it.
             wte_std = self.config.init_std
             wte_cutoff_factor = self.config.init_cutoff_factor
         elif self.config.init_fn == InitFnType.mitchell:
@@ -1290,6 +1293,8 @@ class OLMo(nn.Module):
             logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
         else:
             logits = self.transformer.ff_out(x)  # type: ignore
+        if self.config.scale_logits:
+            logits.mul_(1 / math.sqrt(self.config.d_model))
 
         return OLMoOutput(logits=logits, attn_key_values=attn_key_values, hidden_states=tuple(all_hidden_states) if output_hidden_states else None)  # type: ignore[arg-type]
 
