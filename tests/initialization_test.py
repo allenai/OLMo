@@ -430,6 +430,8 @@ def test_olmo_init_mitchell(seed: int):
 
     check_distribution(module.transformer.ln_f, 1.00, 0.00)
     check_distribution(module.transformer.ff_out, 0.00, 1 / math.sqrt(d_model), diff=1e-3)
+    check_distribution(module.transformer.wte, 0.0, 1 / math.sqrt(d_model), diff=1e-3)
+    check_distribution(module.transformer.wpe, 0.0, 1 / math.sqrt(d_model), diff=1e-3)
 
     # # scale logits
     base_config = ModelConfig(
@@ -469,6 +471,7 @@ def test_olmo_init_mitchell(seed: int):
 
     # TODO: this seems buggy!! This will always be 0.5
     check_distribution(module.transformer.wte, 0.0, (0.5 * math.sqrt(d_model)) / math.sqrt(d_model), diff=1e-2)
+    check_distribution(module.transformer.wpe, 0.0, 1 / math.sqrt(d_model), diff=1e-2)
 
 
 @pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
@@ -500,6 +503,9 @@ def test_olmo_init_full_megatron(seed: int):
     check_distribution(module.transformer.ln_f, 1.00, 0.00)
     check_distribution(module.transformer.ff_out, 0.00, d_model**-0.5, diff=1e-3)
 
+    check_distribution(module.transformer.wte, 0.0, 0.006, diff=1e-3)
+    check_distribution(module.transformer.wpe, 0.0, 0.006)
+
     # scale logits
     base_config = ModelConfig(
         d_model=d_model,
@@ -522,3 +528,4 @@ def test_olmo_init_full_megatron(seed: int):
     check_distribution(module.transformer.ln_f, 1.00, 0.00)
     check_distribution(module.transformer.ff_out, 0.00, d_model**-0.5, diff=1e-3)
     check_distribution(module.transformer.wte, 0.0, 0.006, diff=1e-3)
+    check_distribution(module.transformer.wpe, 0.0, 0.006, diff=1e-3)
