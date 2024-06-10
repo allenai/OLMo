@@ -38,7 +38,7 @@ torchrun \
     configs/lr-scheduling-s3.yaml \
       --run_name=lr-scheduling-high-const-lr \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
-      --load_path=r2://olmo-checkpoints/unsorted/6720641/step430000-unsharded/ \
+      '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/1b/lr-scheduling-high-const-lr/}' \
       --wandb.name=lr-scheduling-high-const-lr \
       --wandb.group=lr-scheduling-high-const-lr \
       --scheduler.name=linear_with_warmup \
@@ -50,6 +50,7 @@ torchrun \
 
 
 
+# --load_path=r2://olmo-checkpoints/unsorted/6720641/step430000-unsharded/ \
 # --load_path=r2://olmo-checkpoints/unsorted/6655301/step422000-unsharded/ \
 # --load_path=/net/nfs.cirrascale/allennlp/shanea/checkpoints/unsorted/6655301/step422000-unsharded/ \
 # --load_path=/net/nfs.cirrascale/allennlp/shanea/checkpoints/unsorted/6574511/step402000-unsharded/ \
