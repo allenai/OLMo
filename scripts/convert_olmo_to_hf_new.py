@@ -203,7 +203,14 @@ def _write_tokenizer(
     if input_tokenizer_path is not None:
         base_tokenizer = Tokenizer.from_file(str(input_tokenizer_path))
     else:
-        base_tokenizer = Tokenizer.from_pretrained(checkpoint_dir)
+        config_path = Path(checkpoint_dir) / "config.yaml"
+        tokenizer_config = yaml.safe_load(config_path.read_text())["tokenizer"]
+
+        # Initialize tokenizer and validate vocab size.
+        if Path(tokenizer_config["identifier"]).is_file():
+            base_tokenizer = Tokenizer.from_file(tokenizer_config["identifier"])
+        else:
+            base_tokenizer = Tokenizer.from_pretrained(tokenizer_config["identifier"])
 
     eos_token_id = config.eos_token_id if config.eos_token_id is not None else base_tokenizer.get_vocab_size() - 1
     pad_token_id = config.pad_token_id if config.pad_token_id is not None else eos_token_id
