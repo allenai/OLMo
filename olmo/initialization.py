@@ -17,6 +17,24 @@ class ModuleType(StrEnum):
     final_out = "final_out"
 
 
+def init_normal(
+    config: ModelConfig,
+    module: Union[nn.Linear, nn.Embedding],
+    std_factor: float = 1.00,
+):
+    std = config.init_std * std_factor
+
+    # weights
+    if config.init_cutoff_factor is not None:
+        cutoff_value = config.init_cutoff_factor * std
+        nn.init.trunc_normal_(module.weight, mean=0.0, std=std, a=-cutoff_value, b=cutoff_value)
+    else:
+        nn.init.normal_(module.weight, mean=0.0, std=std)
+
+    # biases
+    if isinstance(module, nn.Linear) and module.bias is not None:
+        nn.init.zeros_(module.bias)
+
 def init_weights(
     config: ModelConfig,
     module: Union[nn.Linear, nn.Embedding],
