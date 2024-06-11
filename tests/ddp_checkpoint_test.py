@@ -13,12 +13,16 @@ from olmo.config import OptimizerConfig, OptimizerType, TrainConfig
 from olmo.optim import Optimizer, build_optimizer
 
 
+def opt_at(opt, idx, key):
+    return list(opt.state.values())[idx][key]
+
+
 def _init_model_and_optim(config: TrainConfig) -> Tuple[DDP, Optimizer]:
     model = DDP(torch.nn.Linear(4, 4).cuda(dist.get_rank()), find_unused_parameters=False)
     optim = build_optimizer(config, model)
 
     # update model
-    model(torch.rand(4, 4)).sum().backward()
+    model(torch.rand(4, 4).cuda(dist.get_rank())).sum().backward()
     optim.step()
 
     return model, optim
@@ -56,6 +60,11 @@ def _run_local_unsharded_checkpointer(rank: int, world_size: int, tmp_path: Path
     checkpointer.restore_checkpoint(checkpoint_dir, model_2, optim_2)
 
     # assert loaded model and optim state are same
+    for key, val in model_1.state_dict().items():
+        torch.testing.assert_close(torch.abs(model_2.state_dict()[key] - val).sum().item(), 0.)
+
+    torch.testing.assert_close(opt_at(optim_1, 0, "exp_avg"), opt_at(optim_2, 0, "exp_avg"))
+    torch.testing.assert_close(opt_at(optim_1, 0, "exp_avg_sq"), opt_at(optim_2, 0, "exp_avg_sq"))
 
     # Shut down world pg
     dist.destroy_process_group()
