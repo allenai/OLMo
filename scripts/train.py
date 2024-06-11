@@ -137,9 +137,9 @@ def main(cfg: TrainConfig) -> None:
     if cfg.distributed_strategy == DistributedStrategy.ddp:
         log.info("Wrapping model with DDP...")
         if cfg.ddp.find_unused_params is True:
-            assert cfg.ddp.grad_sync_mode == DDPGradSyncMode.micro_batch, log.info(
-                "`find_unused_params` is set to True. DDP needs to synchronize gradients for every micro-batch to avoid errors. Setting `grad_sync_mode` to `micro_batch`."
-            )
+            assert (
+                cfg.ddp.grad_sync_mode == DDPGradSyncMode.micro_batch
+            ), "`find_unused_params` is set to True. DDP needs to synchronize gradients for every micro-batch to avoid errors. Setting `grad_sync_mode` to `micro_batch`."
             cfg.ddp.grad_sync_mode = DDPGradSyncMode.micro_batch
 
         dist_model = DDP(olmo_model, find_unused_parameters=cfg.ddp.find_unused_params)

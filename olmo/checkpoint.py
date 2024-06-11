@@ -649,7 +649,7 @@ class FullCheckpointer(Checkpointer):
                 )
             else:
                 log.info(
-                    f"`FullCheckpointer.save_checkpoint` only supported for FSDP and DDP distributed strategies!"
+                    "`FullCheckpointer.save_checkpoint` only supported for FSDP and DDP distributed strategies!"
                 )
 
             # Save trainer state.
@@ -765,7 +765,7 @@ class FullCheckpointer(Checkpointer):
             barrier()
         else:
             log.info(
-                f"`FullCheckpointer.restore_checkpoint` only supported for FSDP and DDP distributed strategies!"
+                "`FullCheckpointer.restore_checkpoint` only supported for FSDP and DDP distributed strategies!"
             )
 
         # Load other state.
@@ -889,10 +889,9 @@ class TorchNewStyleShardedCheckpointer(Checkpointer):
         *,
         upload_to: Optional[str] = None,
     ) -> None:
-        assert isinstance(dist_model, FSDP), log.info(
-            f"{self.__class__.__name__} is being called to save a model where `distributed_strategy` is not FSDP."
-        )
-
+        assert isinstance(
+            dist_model, FSDP
+        ), f"{self.__class__.__name__} is being called to save a model where `distributed_strategy` is not FSDP."
         with self._temporary_wd(dir) as checkpoint_dir:
             # Save model and optim state.
             save_fsdp_model_and_optim_state(
@@ -923,9 +922,9 @@ class TorchNewStyleShardedCheckpointer(Checkpointer):
     ) -> Dict[str, Any]:
         # Load model and optimizer state in place.
         log.info("Loading model and optimizer state...")
-        assert isinstance(dist_model, FSDP), log.info(
-            f"{self.__class__.__name__} is being called to load a model where `distributed_strategy` is not FSDP."
-        )
+        assert isinstance(
+            dist_model, FSDP
+        ), f"{self.__class__.__name__} is being called to load a model where `distributed_strategy` is not FSDP."
 
         load_fsdp_model_and_optim_state(
             load_path, dist_model, optim, local_cache=local_cache, load_optimizer_state=load_optimizer_state,
@@ -966,10 +965,9 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
         *,
         upload_to: Optional[str] = None,
     ) -> None:
-        assert isinstance(dist_model, FSDP), log.info(
-            f"{self.__class__.__name__} is being called to save a model where `distributed_strategy` is not FSDP."
-        )
-
+        assert isinstance(
+            dist_model, FSDP
+        ), f"{self.__class__.__name__} is being called to save a model where `distributed_strategy` is not FSDP."
         with self._temporary_wd(dir) as checkpoint_dir:
             with FSDP.state_dict_type(
                 dist_model,
@@ -1002,10 +1000,9 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
         local_cache: Optional[PathOrStr] = None,
         load_optimizer_state: bool = True,
     ) -> Dict[str, Any]:
-        assert isinstance(dist_model, FSDP), log.info(
-            f"{self.__class__.__name__} is being called to load a model where `distributed_strategy` is not FSDP."
-        )
-
+        assert isinstance(
+            dist_model, FSDP
+        ), f"{self.__class__.__name__} is being called to load a model where `distributed_strategy` is not FSDP."
         with FSDP.state_dict_type(
             dist_model,
             state_dict_type=StateDictType.SHARDED_STATE_DICT,
@@ -1564,9 +1561,9 @@ class LocalShardedCheckpointer(Checkpointer):
         *,
         upload_to: Optional[str] = None,
     ) -> None:
-        assert isinstance(dist_model, FSDP), log.info(
-            f"{self.__class__.__name__} is being called to save a model where `distributed_strategy` is not FSDP."
-        )
+        assert isinstance(
+            dist_model, FSDP
+        ), f"{self.__class__.__name__} is being called to save a model where `distributed_strategy` is not FSDP."
 
         with self._temporary_wd(dir) as checkpoint_dir:
             # Gather local FSDP flat params data to save.
@@ -1625,9 +1622,9 @@ class LocalShardedCheckpointer(Checkpointer):
 
         # Load local FSDP flat param data.
         log.info("Loading local FSDP flat params data...")
-        assert isinstance(dist_model, FSDP), log.info(
-            f"{self.__class__.__name__} is being called to load a model where `distributed_strategy` is not FSDP."
-        )
+        assert isinstance(
+            dist_model, FSDP
+        ), f"{self.__class__.__name__} is being called to load a model where `distributed_strategy` is not FSDP."
 
         model_state = load_state_dict(
             load_path, f"model/rank{get_global_rank()}.pt", local_cache=local_cache, map_location="cpu"
@@ -1897,10 +1894,9 @@ class OlmoCoreCheckpointer(Checkpointer):
             save_model_and_optim_state,
         )
 
-        assert isinstance(dist_model, FSDP), log.info(
-            f"{self.__class__.__name__} is being called to save a model where `distributed_strategy` is not FSDP."
-        )
-
+        assert isinstance(
+            dist_model, FSDP
+        ), f"{self.__class__.__name__} is being called to save a model where `distributed_strategy` is not FSDP."
         with self._temporary_wd(dir) as checkpoint_dir:
             log.info("Saving model and optim state...")
             local_files_created = save_model_and_optim_state(
@@ -1937,10 +1933,9 @@ class OlmoCoreCheckpointer(Checkpointer):
             load_model_and_optim_state,
         )
 
-        assert isinstance(dist_model, FSDP), log.info(
-            f"{self.__class__.__name__} is being called to load a model where `distributed_strategy` is not FSDP."
-        )
-
+        assert isinstance(
+            dist_model, FSDP
+        ), f"{self.__class__.__name__} is being called to load a model where `distributed_strategy` is not FSDP."
         log.info("Loading model and optim state...")
         load_model_and_optim_state(load_path, dist_model, optim if load_optimizer_state else None)
 
