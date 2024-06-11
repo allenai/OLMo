@@ -42,26 +42,14 @@ class DataCollator:
             )
 
             # Pad input IDs.
-            all_input_ids.append(
-                F.pad(
-                    input_ids.to(dtype=torch.long),
-                    pad_shape,
-                    value=self.pad_token_id,
-                )
-            )
+            all_input_ids.append(F.pad(input_ids.to(dtype=torch.long), pad_shape, value=self.pad_token_id,))
 
             # Pad attention mask.
             attention_mask = x.get("attention_mask") if isinstance(x, dict) else None
             if attention_mask is not None:
                 if not isinstance(attention_mask, torch.Tensor):
                     attention_mask = torch.tensor(attention_mask)
-                all_attention_mask.append(
-                    F.pad(
-                        attention_mask.to(dtype=torch.float),
-                        pad_shape,
-                        value=0.0,
-                    )
-                )
+                all_attention_mask.append(F.pad(attention_mask.to(dtype=torch.float), pad_shape, value=0.0,))
 
             # Pad attention bias.
             attention_bias = x.get("attention_bias") if isinstance(x, dict) else None
@@ -72,26 +60,14 @@ class DataCollator:
                 while len(attention_bias.shape) < 3:
                     attention_bias = attention_bias.unsqueeze(0)
                 pad_value = False if attention_bias.dtype == torch.bool else float("-inf")
-                all_attention_bias.append(
-                    F.pad(
-                        attention_bias,
-                        pad_shape + pad_shape,
-                        value=pad_value,
-                    )
-                )
+                all_attention_bias.append(F.pad(attention_bias, pad_shape + pad_shape, value=pad_value,))
 
             # Pad label mask.
             label_mask = x.get("label_mask") if isinstance(x, dict) else None
             if label_mask is not None:
                 if not isinstance(label_mask, torch.Tensor):
                     label_mask = torch.tensor(label_mask)
-                all_label_mask.append(
-                    F.pad(
-                        label_mask.to(dtype=torch.bool),
-                        pad_shape,
-                        value=False,
-                    )
-                )
+                all_label_mask.append(F.pad(label_mask.to(dtype=torch.bool), pad_shape, value=False,))
 
             # Indices.
             index = x.get("index") if isinstance(x, dict) else None

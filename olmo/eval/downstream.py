@@ -27,9 +27,7 @@ class ICLMetric(Metric):
         self.add_state("loglikelihoods", default=[], dist_reduce_fx=None)
         self.add_state("labels", default=[], dist_reduce_fx=None)
 
-    def reset(
-        self,
-    ):
+    def reset(self,):
         self.loglikelihoods = []
         self.labels = []
 
@@ -181,12 +179,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         dataset_list = []
         for ds_name in dataset_names:
             dataset_list.append(
-                datasets.load_dataset(
-                    path=self.dataset_path,
-                    name=ds_name,
-                    split=split,
-                    trust_remote_code=True,
-                )
+                datasets.load_dataset(path=self.dataset_path, name=ds_name, split=split, trust_remote_code=True,)
             )
         self.dataset = datasets.concatenate_datasets(dataset_list)
 
@@ -404,9 +397,7 @@ class PIQA(ICLMultiChoiceTaskDataset):
 
     def __init__(self, tokenizer, dataset_path="piqa", dataset_name="plain_text"):
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
     def doc_to_text(self, doc):
@@ -442,9 +433,7 @@ class HellaSwag(ICLMultiChoiceTaskDataset):
 
     def __init__(self, tokenizer, dataset_path="hellaswag", dataset_name=None):
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
     @classmethod
@@ -501,9 +490,7 @@ class WinoGrande(ICLMultiChoiceTaskDataset):
     def __init__(self, tokenizer, dataset_path="winogrande", dataset_name="winogrande_xl"):
         # all winogrande datasets have same val set
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
     def prep_examples(self):
@@ -595,9 +582,7 @@ class OpenBookQA(ICLMultiChoiceTaskDataset):
 
     def __init__(self, tokenizer, dataset_path="openbookqa", dataset_name="main"):
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
     def doc_to_text(self, doc):
@@ -630,9 +615,7 @@ class BoolQ(ICLMultiChoiceTaskDataset):
 
     def __init__(self, tokenizer, dataset_path="boolq", dataset_name=None):
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
     def doc_to_text(self, doc):
@@ -675,9 +658,7 @@ class SciQ(ICLMultiChoiceTaskDataset):
 
     def __init__(self, tokenizer, dataset_path="sciq", dataset_name=None):
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
     def doc_to_text(self, doc):
@@ -717,9 +698,7 @@ class ArcEasy(ICLMultiChoiceTaskDataset):
 
     def __init__(self, tokenizer, dataset_path="ai2_arc", dataset_name="ARC-Easy"):
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
     def doc_to_text(self, doc):
@@ -752,9 +731,7 @@ class ArcChallenge(ArcEasy):
 
     def __init__(self, tokenizer, dataset_path="ai2_arc", dataset_name="ARC-Challenge"):
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
 
@@ -787,9 +764,7 @@ class BasicArithmetic(ArcEasy):
 
     def __init__(self, tokenizer, dataset_path="allenai/basic_arithmetic", dataset_name=None):
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
 
@@ -808,9 +783,7 @@ class CommonsenseQA(ArcEasy):
 
     def __init__(self, tokenizer, dataset_path="tau/commonsense_qa", dataset_name=None):
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
 
@@ -828,9 +801,7 @@ class SocialIQa(ICLMultiChoiceTaskDataset):
 
     def __init__(self, tokenizer, dataset_path="social_i_qa", dataset_name=None):
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
     def doc_to_text(self, doc):
@@ -875,9 +846,7 @@ class COPA(ICLMultiChoiceTaskDataset):
 
     def __init__(self, tokenizer, dataset_path="super_glue", dataset_name="copa"):
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
     def doc_to_text(self, doc):
@@ -917,9 +886,7 @@ class RTE(ICLMultiChoiceTaskDataset):
 
     def __init__(self, tokenizer, dataset_path="glue", dataset_name="rte"):
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
     def doc_to_text(self, doc):
@@ -956,9 +923,7 @@ class CommitmentBank(ICLMultiChoiceTaskDataset):
 
     def __init__(self, tokenizer, dataset_path="super_glue", dataset_name="cb"):
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
     def doc_to_text(self, doc):
@@ -993,9 +958,7 @@ class MRPC(ICLMultiChoiceTaskDataset):
 
     def __init__(self, tokenizer, dataset_path="glue", dataset_name="mrpc"):
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
     @classmethod
@@ -1058,9 +1021,7 @@ class SST2(ICLMultiChoiceTaskDataset):
 
     def __init__(self, tokenizer, dataset_path="glue", dataset_name="sst2"):
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
     @classmethod
@@ -1288,9 +1249,7 @@ class TriviaQACELoss(ICLMultiChoiceTaskDataset):
 
     def __init__(self, tokenizer, dataset_path="trivia_qa", dataset_name="rc.wikipedia.nocontext"):
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
     def doc_to_text(self, doc):
@@ -1320,9 +1279,7 @@ class NaturalQuestionsCELoss(ICLMultiChoiceTaskDataset):
 
     def __init__(self, tokenizer, dataset_path="nq_open", dataset_name=None):
         super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
+            tokenizer=tokenizer, dataset_path=dataset_path, dataset_name=dataset_name,
         )
 
     def doc_to_text(self, doc):

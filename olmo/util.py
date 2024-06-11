@@ -172,20 +172,14 @@ def filter_warnings():
         message="torch.distributed.*_base is a private function and will be deprecated.*",
     )
     warnings.filterwarnings(
-        action="ignore",
-        category=UserWarning,
-        message="TypedStorage is deprecated.*",
+        action="ignore", category=UserWarning, message="TypedStorage is deprecated.*",
     )
     warnings.filterwarnings(
-        action="ignore",
-        category=UserWarning,
-        message="Please use DTensor instead.*",
+        action="ignore", category=UserWarning, message="Please use DTensor instead.*",
     )
     # Torchvision warnings. We don't actually use torchvision.
     warnings.filterwarnings(
-        action="ignore",
-        message="failed to load.*",
-        module="torchvision.io.image",
+        action="ignore", message="failed to load.*", module="torchvision.io.image",
     )
 
 
@@ -218,11 +212,7 @@ class RichHandler(logging.Handler):
     """
 
     def __init__(
-        self,
-        *,
-        level: Union[int, str] = logging.NOTSET,
-        console: Optional[Console] = None,
-        markup: bool = False,
+        self, *, level: Union[int, str] = logging.NOTSET, console: Optional[Console] = None, markup: bool = False,
     ) -> None:
         super().__init__(level=level)
         self.console = console or rich.get_console()
@@ -510,7 +500,7 @@ def _get_s3_client(scheme: str):
 
 
 def _wait_before_retry(attempt: int):
-    time.sleep(min(0.5 * 2**attempt, 3.0))
+    time.sleep(min(0.5 * 2 ** attempt, 3.0))
 
 
 def _s3_upload(
