@@ -50,7 +50,9 @@ torchrun \
     --model.init_std=0.02 \
     --model.clip_qkv=null \
     --save_num_checkpoints_to_keep=3 \
-    --scheduler.grad_clip_warmup_steps=null
+    --scheduler.grad_clip_warmup_steps=null \
+    --scheduler.t_warmup=2000 \
+    --scheduler.units=steps
     #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-new/}'
     # --model.attention_layer_norm=true \
     # --model.norm_after=true \
