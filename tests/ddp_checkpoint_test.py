@@ -61,7 +61,7 @@ def _run_local_unsharded_checkpointer(rank: int, world_size: int, tmp_path: Path
 
     # assert loaded model and optim state are same
     for key, val in model_1.state_dict().items():
-        torch.testing.assert_close(torch.abs(model_2.state_dict()[key] - val).sum().item(), 0.)
+        torch.testing.assert_close(torch.abs(model_2.state_dict()[key] - val).sum().item(), 0.0)
 
     torch.testing.assert_close(opt_at(optim_1, 0, "exp_avg"), opt_at(optim_2, 0, "exp_avg"))
     torch.testing.assert_close(opt_at(optim_1, 0, "exp_avg_sq"), opt_at(optim_2, 0, "exp_avg_sq"))
