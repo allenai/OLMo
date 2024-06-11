@@ -667,7 +667,6 @@ class FullCheckpointer(Checkpointer):
             # Save config.
             self._save_config(checkpoint_dir, upload_to=upload_to)
 
-    # TODO: make ddp compatible (dist_model can be FSDP or DDP here)
     def restore_checkpoint(
         self,
         load_path: PathOrStr,

@@ -117,11 +117,6 @@ def cross_entropy_loss(
     return loss, z_loss
 
 
-# TODO: in fullcheckpointer, update param to dist_model
-# TODO: in OLMo core checkpointer, use fsdp_model in function but send dist_model from here
-# TODO: assert when using DDP, only unsharded checkpoint option is selected and sharded functions are not touched
-# TODO: 3 functions related to checkpointing: save, restore, remove
-# TODO: make sure DDP works well with init
 @dataclass
 class Trainer:
     cfg: TrainConfig
@@ -454,6 +449,7 @@ class Trainer:
                     raise
 
         # Remove old checkpoints.
+        # For DDP, checkpoint_type being passed to remove_checkpoint is always `unsharded`.
         if num_checkpoints_to_keep > 0:
             while len(current_checkpoints) > num_checkpoints_to_keep:
                 self.remove_checkpoint(0, checkpoint_type)
