@@ -18,7 +18,7 @@ curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" 
 popd
 export HF_DATASETS_OFFLINE=1
 
-export EXPERIMENT=llamaish1-normal-qk-norm-reorder-zloss
+export EXPERIMENT=llamaish1-normal-qk-norm-reorder-zloss-new
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
@@ -48,7 +48,6 @@ torchrun \
     --save_overwrite \
     --model.init_fn=normal \
     --model.init_std=0.02 \
-    --model.scale_emb_init \
     --model.clip_qkv=null \
     --scheduler.grad_clip_warmup_steps=null \
     --save_num_checkpoints_to_keep=3 \
@@ -56,5 +55,6 @@ torchrun \
     --model.norm_after=true \
     --softmax_auxiliary_loss=true \
     --auxiliary_loss_multiplier=1e-5 \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-qk-norm-reorder-zloss/}'
-    #--load_path=s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal/step0
+    --load_path=s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-new/step0
+    #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-qk-norm-reorder-zloss-new/}'
+

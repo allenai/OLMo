@@ -18,7 +18,7 @@ curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" 
 popd
 export HF_DATASETS_OFFLINE=1
 
-export EXPERIMENT=llamaish1-normal
+export EXPERIMENT=llamaish1-normal-new
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
@@ -48,11 +48,10 @@ torchrun \
     --save_overwrite \
     --model.init_fn=normal \
     --model.init_std=0.02 \
-    --model.scale_emb_init \
     --model.clip_qkv=null \
     --save_num_checkpoints_to_keep=3 \
-    --scheduler.grad_clip_warmup_steps=null \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal/}'
+    --scheduler.grad_clip_warmup_steps=null
+    #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-new/}'
     # --model.attention_layer_norm=true \
     # --model.norm_after=true \
     # --softmax_auxiliary_loss=true \

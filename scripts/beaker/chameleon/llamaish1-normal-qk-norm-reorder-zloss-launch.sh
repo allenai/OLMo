@@ -7,7 +7,7 @@ NUM_NODES=8
 gantry run \
   --workspace ai2/OLMo-training \
   --task-name llamaish1-normal-qk-norm-reorder-zloss \
-  --description "OLMo small - 1B - Llamaish Normal QK norm reorder zloss" \
+  --description "OLMo small - 1B - Llamaish Normal QK norm reorder zloss New" \
   --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
