@@ -11,7 +11,7 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
-
+source scripts/beaker/warm_hf_cache.sh
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
@@ -21,7 +21,6 @@ torchrun \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   --node_rank=$BEAKER_REPLICA_RANK \
   --rdzv_conf="read_timeout=420" \
-  scripts/beaker/warm_hf_cache.sh & \
   scripts/train.py \
   configs/mitchish1-s3-cheap-decisions-dolma-v1-7.yaml \
     --model.flash_attention=true \
