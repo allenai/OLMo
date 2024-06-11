@@ -57,7 +57,14 @@ def write_json(text, path):
         json.dump(text, f)
 
 
-def write_model(model_path, input_base_path, tokenizer_path=None, safe_serialization=True, fix_eos_token_id=True):
+def write_model(
+    model_path,
+    input_base_path,
+    include_tokenizer=True,
+    tokenizer_path=None,
+    safe_serialization=True,
+    fix_eos_token_id=True,
+):
     os.makedirs(model_path, exist_ok=True)
     tmp_model_path = os.path.join(model_path, "tmp")
     os.makedirs(tmp_model_path, exist_ok=True)
@@ -173,8 +180,8 @@ def write_model(model_path, input_base_path, tokenizer_path=None, safe_serializa
     del loaded
     gc.collect()
 
-    if tokenizer_path is not None:
-        _write_tokenizer(model_path, config, tokenizer_path)
+    if include_tokenizer:
+        _write_tokenizer(model_path, config, input_base_path, tokenizer_path)
 
     print("Loading the checkpoint in a OLMo model.")
     model = OlmoForCausalLM.from_pretrained(tmp_model_path, torch_dtype=torch.float32, low_cpu_mem_usage=True)
@@ -188,11 +195,22 @@ def write_model(model_path, input_base_path, tokenizer_path=None, safe_serializa
 def _write_tokenizer(
     output_path: Path,
     config: OlmoConfig,
-    input_tokenizer_path: Path,
+    checkpoint_dir: str,
+    input_tokenizer_path: Path | None,
 ) -> None:
     print(f"Saving a {GPTNeoXTokenizerFast.__name__} to {output_path}.")
 
-    base_tokenizer = Tokenizer.from_file(str(input_tokenizer_path))
+    if input_tokenizer_path is not None:
+        base_tokenizer = Tokenizer.from_file(str(input_tokenizer_path))
+    else:
+        config_path = Path(checkpoint_dir) / "config.yaml"
+        tokenizer_config = yaml.safe_load(config_path.read_text())["tokenizer"]
+
+        # Initialize tokenizer and validate vocab size.
+        if Path(tokenizer_config["identifier"]).is_file():
+            base_tokenizer = Tokenizer.from_file(tokenizer_config["identifier"])
+        else:
+            base_tokenizer = Tokenizer.from_pretrained(tokenizer_config["identifier"])
 
     eos_token_id = config.eos_token_id if config.eos_token_id is not None else base_tokenizer.get_vocab_size() - 1
     pad_token_id = config.pad_token_id if config.pad_token_id is not None else eos_token_id
@@ -216,9 +234,16 @@ def main():
         help="Location of OLMo weights, which contains config.yaml and model.pt.",
     )
     parser.add_argument(
+        "--no_tokenizer",
+        action="store_false",
+        dest="include_tokenizer",
+        help="If set, do not convert OLMo tokenizer to HF tokenizer.",
+    )
+    parser.add_argument(
         "--tokenizer_json_path",
+        type=Path,
         default=None,
-        help="Location of OLMo tokenizer json file.",
+        help="Location of OLMo tokenizer json file. Defaults to what is set in the config file.",
     )
     parser.add_argument(
         "--output_dir",
@@ -238,6 +263,7 @@ def main():
         model_path=args.output_dir,
         input_base_path=args.input_dir,
         safe_serialization=args.safe_serialization,
+        include_tokenizer=args.include_tokenizer,
         tokenizer_path=args.tokenizer_json_path,
         fix_eos_token_id=args.fix_eos_token_id,
     )
