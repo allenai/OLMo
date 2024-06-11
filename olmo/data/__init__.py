@@ -82,7 +82,12 @@ def build_eval_dataloader(
 
 
 def build_train_dataloader(
-    train_config: TrainConfig, world_size: Optional[int] = None, *, include_instance_metadata: bool = False
+    train_config: TrainConfig,
+    *,
+    world_size: Optional[int] = None,
+    rank: Optional[int] = None,
+    fs_local_rank: Optional[int] = None,
+    include_instance_metadata: bool = False,
 ) -> DataLoader:
     assert train_config.device_train_batch_size is not None
     collator = DataCollator(
@@ -109,6 +114,8 @@ def build_train_dataloader(
             shuffle=True,
             drop_last=train_config.data.drop_last,
             world_size=world_size,
+            rank=rank,
+            fs_local_rank=fs_local_rank,
             work_dir=work_dir,
         ),
         batch_size=train_config.device_train_batch_size,
