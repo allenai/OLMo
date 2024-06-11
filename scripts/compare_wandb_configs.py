@@ -1,4 +1,5 @@
 import logging
+import requests
 from collections.abc import MutableMapping
 
 import click
@@ -37,9 +38,15 @@ def main(
     api = wandb.Api()
     left_run = api.run(left_run_path)
     right_run = api.run(right_run_path)
-
     left_config = flatten(left_run._attrs["rawconfig"])
     right_config = flatten(right_run._attrs["rawconfig"])
+
+    metadata_left_url = f"https://api.wandb.ai/files/{left_run_path.replace('runs/', '')}/wandb-metadata.json"
+    metadata_right_url = f"https://api.wandb.ai/files/{right_run_path.replace('runs/', '')}/wandb-metadata.json"
+    metadata_left = requests.get(url=metadata_left_url).json()
+    metadata_right = requests.get(url=metadata_right_url).json()
+    left_config['git_ref'] = metadata_left['git']['commit'] 
+    right_config['git_ref'] = metadata_right['git']['commit'] 
 
     left_only_keys = left_config.keys() - right_config.keys()
     if len(left_only_keys) > 0:
