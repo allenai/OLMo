@@ -97,7 +97,12 @@ class LRMonitor:
 
 
 def cross_entropy_loss(
-    logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False, z_loss_multiplier: float = 1e-4
+    logits,
+    labels,
+    ignore_index: int = -100,
+    reduction: str = "mean",
+    compute_z_loss: bool = False,
+    z_loss_multiplier: float = 1e-4,
 ):
     loss = F.cross_entropy(logits, labels, ignore_index=ignore_index, reduction=reduction)
 
@@ -114,22 +119,35 @@ def cross_entropy_loss(
 
     return loss, z_loss
 
-def fused_loss_fn(
-    logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False, z_loss_multiplier: float = 1e-4
-):
 
-    from flash_attn.ops.triton.cross_entropy import (  # type: ignore
-        cross_entropy_loss,
-    )
+def fused_loss_fn(
+    logits,
+    labels,
+    ignore_index: int = -100,
+    reduction: str = "mean",
+    compute_z_loss: bool = False,
+    z_loss_multiplier: float = 1e-4,
+):
+    import flash_attn
+    from flash_attn.ops.triton.cross_entropy import cross_entropy_loss  # type: ignore
+
+    # The `ignored_index` parameter of `cross_entropy_loss` was changed to `ignore_index` in v2.5.8 with commit https://github.com/Dao-AILab/flash-attention/commit/ec6d22143b5d375e253b2ebfc563b26a43f43684
+    ce_loss_use_ignore_index_param = version.parse(flash_attn.__version__) >= version.parse("2.5.8")
+
+    if ce_loss_use_ignore_index_param:
+        ignore_index_kwarg = {"ignore_index": ignore_index}
+    else:
+        ignore_index_kwarg = {"ignored_index": ignore_index}
+
     loss, z_loss = cross_entropy_loss(
         logits,
         labels,
         label_smoothing=0.0,
         logit_scale=1.0,
         lse_square_scale=z_loss_multiplier,
-        ignored_index=ignore_index,
         inplace_backward=False,
         process_group=None,
+        **ignore_index_kwarg,
     )
 
     mask = labels != ignore_index
@@ -152,6 +170,7 @@ def fused_loss_fn(
         z_loss = z_loss
 
     return loss, z_loss
+
 
 @dataclass
 class Trainer:
