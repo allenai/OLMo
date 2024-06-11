@@ -37,6 +37,10 @@ model:
   init_device: meta
   init_fn: mitchell
 
+ddp:
+  grad_sync_mode: batch
+  find_unused_params: false
+
 compile: null  # causes instability on AMD GPUs
 
 optimizer:
