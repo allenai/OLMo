@@ -212,6 +212,18 @@ evaluators:
   - label: mmlu_other_mc_5shot_test
     type: downstream
 
+  - label: basic_arithmetic
+    type: downstream
+
+  - label: trivia_qa_wiki_ppl
+    type: downstream
+
+  - label: natural_qs_open_ppl
+    type: downstream
+
+  - label: arc_easy_ppl
+    type: downstream
+
 data:
   pad_direction: right
   num_workers: 32
