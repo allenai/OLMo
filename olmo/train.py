@@ -29,6 +29,7 @@ from .aliases import PathOrStr
 from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
 from .config import (
     CheckpointType,
+    DistributedStrategy,
     SchedulerUnits,
     ShardedCheckpointerType,
     SpeedMonitorConfig,
@@ -116,6 +117,11 @@ def cross_entropy_loss(
     return loss, z_loss
 
 
+# TODO: in fullcheckpointer, update param to dist_model
+# TODO: in OLMo core checkpointer, use fsdp_model in function but send dist_model from here
+# TODO: assert when using DDP, only unsharded checkpoint option is selected and sharded functions are not touched
+# TODO: 3 functions related to checkpointing: save, restore, remove
+# TODO: make sure DDP works well with init
 @dataclass
 class Trainer:
     cfg: TrainConfig
@@ -422,10 +428,9 @@ class Trainer:
 
         # Save the checkpoint.
         try:
-            # TODO: update to dist_model
             checkpointer.save_checkpoint(
                 checkpoint_dir,
-                self.fsdp_model,
+                self.dist_model,
                 self.optim,
                 self.trainer_state_dict(),
                 upload_to=remote_checkpoint_dir,
@@ -500,10 +505,9 @@ class Trainer:
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
         checkpointer = build_sharded_checkpointer(self.cfg, name=sharded_checkpointer)
-        # TODO: update to dist_model
         trainer_state = checkpointer.restore_checkpoint(
             load_path,
-            self.fsdp_model,
+            self.dist_model,
             self.optim,
             local_cache=local_cache,
             load_optimizer_state=load_optimizer_state,
@@ -539,10 +543,9 @@ class Trainer:
         # Zero-gradients to avoid gathering them.
         self.optim.zero_grad(set_to_none=True)
         checkpointer = FullCheckpointer(self.cfg)
-        # TODO: update to dist_model
         trainer_state = checkpointer.restore_checkpoint(
             load_path,
-            self.fsdp_model,
+            self.dist_model,
             self.optim,
             local_cache=local_cache,
             load_optimizer_state=load_optimizer_state,
@@ -1122,39 +1125,41 @@ class Trainer:
                             )
 
                     # Maybe save sharded checkpoint.
-                    if save_checkpoints and (
-                        cancel_initiated
-                        or (
-                            self.global_step % self.cfg.save_interval == 0
-                            and self.cfg.save_num_checkpoints_to_keep != 0
-                        )
-                    ):
-                        log.info("Saving checkpoint...")
-                        checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
-                        log.info(f"Checkpoint saved to {checkpoint_path}")
+                    if self.cfg.distributed_strategy != DistributedStrategy.ddp:
+                        if save_checkpoints and (
+                            cancel_initiated
+                            or (
+                                self.global_step % self.cfg.save_interval == 0
+                                and self.cfg.save_num_checkpoints_to_keep != 0
+                            )
+                        ):
+                            log.info("Saving checkpoint...")
+                            checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
+                            log.info(f"Checkpoint saved to {checkpoint_path}")
 
-                        # Remove any ephemeral checkpoints.
-                        while self.ephemeral_checkpoints:
-                            self.remove_ephemeral_checkpoint()
+                            # Remove any ephemeral checkpoints.
+                            while self.ephemeral_checkpoints:
+                                self.remove_ephemeral_checkpoint()
 
-                        # Reset speed monitor so that we don't count the time taken to save checkpoints.
-                        speed_monitor.reset()
+                            # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                            speed_monitor.reset()
 
-                        # If the run was just canceled this will be the final checkpoint.
-                        if cancel_initiated:
-                            save_checkpoints = False
-                    elif (
-                        self.cfg.save_interval_ephemeral is not None
-                        and self.global_step % self.cfg.save_interval_ephemeral == 0
-                    ):
-                        log.info("Saving ephemeral checkpoint...")
-                        checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded_ephemeral)
-                        log.info(f"Checkpoint saved to {checkpoint_path}")
+                            # If the run was just canceled this will be the final checkpoint.
+                            if cancel_initiated:
+                                save_checkpoints = False
+                        elif (
+                            self.cfg.save_interval_ephemeral is not None
+                            and self.global_step % self.cfg.save_interval_ephemeral == 0
+                        ):
+                            log.info("Saving ephemeral checkpoint...")
+                            checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded_ephemeral)
+                            log.info(f"Checkpoint saved to {checkpoint_path}")
 
-                        # Reset speed monitor so that we don't count the time taken to save checkpoints.
-                        speed_monitor.reset()
+                            # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                            speed_monitor.reset()
 
                     # Maybe save unsharded checkpoint.
+                    # This code snippet should always execute when running DDP.
                     if (
                         save_checkpoints
                         and self.cfg.save_interval_unsharded is not None

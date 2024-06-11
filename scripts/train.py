@@ -219,9 +219,30 @@ def main(cfg: TrainConfig) -> None:
         indices_file=indices_file,
     ) as trainer:
         if not cfg.dry_run and not cfg.no_pre_train_checkpoint and cfg.load_path is None:
-            checkpoint_type = (
-                CheckpointType.sharded if cfg.save_num_checkpoints_to_keep != 0 else CheckpointType.unsharded
-            )
+            if cfg.distributed_strategy == DistributedStrategy.ddp:
+                checkpoint_type = CheckpointType.unsharded
+
+                try:
+                    assert cfg.save_interval_unsharded is not None
+                except AssertionError:
+                    log.info(
+                        "DDP requires setting `save_interval_unsharded`. Using the value set for `save_interval`."
+                    )
+                    cfg.save_interval_unsharded = cfg.save_interval
+
+                try:
+                    assert cfg.save_num_unsharded_checkpoints_to_keep > 0
+                except AssertionError:
+                    log.info(
+                        "DDP requires setting `save_num_unsharded_checkpoints_to_keep`. Using the value set for `save_num_checkpoints_to_keep`."
+                    )
+                    cfg.save_num_unsharded_checkpoints_to_keep = cfg.save_num_checkpoints_to_keep
+            elif cfg.distributed_strategy == DistributedStrategy.fsdp:
+                checkpoint_type = (
+                    CheckpointType.sharded if cfg.save_num_checkpoints_to_keep != 0 else CheckpointType.unsharded
+                )
+            else:
+                log.info(f"Distributed strategy {cfg.distributed_strategy} not supported yet!")
 
             # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever).
             log.info("Saving pre-train checkpoint...")
@@ -253,12 +274,10 @@ def main(cfg: TrainConfig) -> None:
             # If we have to, set a new scheduler:
             if cfg.reset_optimizer_state and not cfg.reset_trainer_state:
                 trainer.scheduler = BoltOnWarmupScheduler.wrap(
-                    trainer.scheduler,
-                    trainer.global_step,
-                    int(trainer.global_step + cfg.scheduler.t_warmup),
+                    trainer.scheduler, trainer.global_step, int(trainer.global_step + cfg.scheduler.t_warmup),
                 )
 
-        if cfg.force_save_unsharded:
+        if cfg.force_save_unsharded and cfg.distributed_strategy != DistributedStrategy.ddp:
             log.info("Saving unsharded checkpoint...")
             checkpoint_path, _ = trainer.save_checkpoint(checkpoint_type=CheckpointType.unsharded)
             log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
