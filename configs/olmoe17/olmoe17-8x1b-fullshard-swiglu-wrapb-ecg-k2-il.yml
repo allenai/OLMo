@@ -2,8 +2,6 @@ run_name: ${oc.env:SLURM_JOB_ID}
 seed: 6198
 dry_run: false
 no_pre_train_checkpoint: true
-activation_checkpointing: fine_grained
-fused_loss: true
 
 wandb:
   name: ${run_name}
@@ -41,10 +39,10 @@ model:
   moe_top_k: 2
   moe_num_experts: 8
   moe_expert_model_parallelism: false
-  moe_dropless: true
-  moe_mlp_impl: sparse
+  moe_dropless: false
+  moe_expert_choice_grouped: true
+  moe_mlp_impl: grouped
   moe_interleave: true
-  moe_log_expert_assignment: false
 
 compile: null
 
@@ -86,7 +84,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 3e12T
+max_duration: 2ep
 global_train_batch_size: 512
 device_train_microbatch_size: 4
 

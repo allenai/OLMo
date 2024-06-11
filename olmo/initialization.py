@@ -35,6 +35,7 @@ def init_weights(
     :param layer_id: When set, the standard deviation for the "mitchell" method will be adjusted by
         ``1 / sqrt(2 * (layer_id + 1))``.
     """
+    print("INITING")
     d = d if d is not None else config.d_model
     if config.init_fn == InitFnType.normal:
         std = config.init_std * std_factor
@@ -113,7 +114,6 @@ def init_weights(
     if isinstance(module, nn.Linear):
         if module.bias is not None:
             nn.init.zeros_(module.bias)
-
-        # if config.init_fn == InitFnType.normal and getattr(module, "_is_residual", False):
-        #     with torch.no_grad():
-        #         module.weight.div_(math.sqrt(2 * config.n_layers))
+        if config.init_fn == InitFnType.normal and getattr(module, "_is_residual", False):
+            with torch.no_grad():
+                module.weight.div_(math.sqrt(2 * config.n_layers))

@@ -526,6 +526,11 @@ class ModelConfig(BaseConfig):
     Whether to use the expert choice mechanism.
     """
 
+    moe_expert_choice_grouped: Optional[bool] = False
+    """
+    Whether to use the expert choice mechanism.
+    """
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:

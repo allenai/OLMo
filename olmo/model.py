@@ -719,6 +719,8 @@ class OLMoEBlock(OLMoBlock):
             }
             if config.moe_expert_choice:
                 kwargs["moe_expert_choice"] = config.moe_expert_choice
+            elif config.moe_expert_choice_grouped:
+                kwargs["moe_expert_choice_grouped"] = config.moe_expert_choice_grouped
             if config.moe_zloss_weight:
                 kwargs["moe_zloss_weight"] = config.moe_zloss_weight
 
