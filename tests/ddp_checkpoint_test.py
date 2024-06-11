@@ -1,5 +1,3 @@
-# 2 tests: ddp checkpointing local, ddp checkpointing s3
-# in both cases, init model, optim state, trainer state, do 2 steps, dump checkpoint, init new model and optim state, check they are different, load the checkpoint, make sure the loaded checkpoint into new model and optim is same as model at step 2
 import os
 from pathlib import Path
 from typing import Dict, Tuple
