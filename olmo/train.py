@@ -663,7 +663,6 @@ class Trainer:
         # In case this helps with memory utilization.
         del micro_batch
 
-        z_loss = None
         # Get loss to optimize for.
         if self.cfg.softmax_auxiliary_loss:
             assert z_loss is not None
