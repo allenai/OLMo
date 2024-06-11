@@ -647,7 +647,9 @@ class Trainer:
                 z_loss = z_loss.view(batch["input_ids"].shape[0], -1)
         return ce_loss, z_loss, logits
 
-    def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    def train_batch(
+        self, batch: Dict[str, Any], backwards_hook: Optional[Callable[[torch.Tensor], None]] = None
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
         batch_size_in_tokens = batch["input_ids"].numel()
@@ -685,8 +687,19 @@ class Trainer:
 
                 del logits
 
+            assert isinstance(loss, torch.Tensor)
+
+            # Register backwards hook
+            backwards_hook_handle = None
+            if backwards_hook is not None:
+                backwards_hook_handle = loss.register_hook(backwards_hook)
+
             # Run backward pass.
             loss.backward()
+
+            # Remove backwards hook
+            if backwards_hook_handle is not None:
+                backwards_hook_handle.remove()
 
         return ce_batch_loss, z_batch_loss
 
@@ -708,8 +721,18 @@ class Trainer:
         # Move tensors to the right device.
         batch = move_to_device(batch, self.device)
 
+        should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
+
+        instances_squared_norm = torch.tensor(0.0, device=self.device)
+
+        def accumulate_squared_norm(grad: torch.Tensor) -> None:
+            nonlocal instances_squared_norm
+            instances_squared_norm += torch.pow(grad.detach(), 2).sum()
+
+        backwards_hook = accumulate_squared_norm if should_log_optim_metrics_this_step else None
+
         # Run forward-backward pass.
-        ce_batch_loss, z_batch_loss = self.train_batch(batch)
+        ce_batch_loss, z_batch_loss = self.train_batch(batch, backwards_hook=backwards_hook)
 
         # Collect loss, potentially reducing over all ranks.
         if reduce_global_loss:
@@ -720,7 +743,6 @@ class Trainer:
                 z_batch_loss.div_(get_world_size())
 
         # Clip gradient norms and collect param/gradient/optim metrics.
-        should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
         optim_metrics = self.optim.clip_grads_and_collect_metrics(
             self.global_step,
             collect_param_metrics=should_log_optim_metrics_this_step,
