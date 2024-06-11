@@ -250,7 +250,7 @@ class Trainer:
             }
             if self.model.config.moe_expert_choice:
                 kwargs["moe_expert_choice"] = self.model.config.moe_expert_choice
-            if self.model.config.moe_zloss:
+            if self.model.config.moe_zloss_weight:
                 kwargs["moe_zloss_weight"] = self.model.config.moe_zloss_weight
             
             self.moe_args = MoEArgs(**kwargs)
