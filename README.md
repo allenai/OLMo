@@ -58,17 +58,17 @@ URLs to checkpoints at intermediate steps of the models' trainings can be found 
 - `config.yaml`: the config at that training step.
 - `model.pt`, `optim.pt`, `train.pt`: model, optimizer and training state at that training step.
 
+Details about the other types of OLMo checkpoints (including OLMo HF Transformers checkpoints) can be found in [Checkpoints.md](https://github.com/allenai/OLMo/blob/main/docs/Checkpoints.md).
+
 ## Inference
 
-You can utilize our Hugging Face integration to run inference on the olmo checkpoints:
+You can utilize our Hugging Face integration to run inference on the OLMo Transformers checkpoints:
 
 ```python
-from hf_olmo import * # registers the Auto* classes
-
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-olmo = AutoModelForCausalLM.from_pretrained("allenai/OLMo-7B")
-tokenizer = AutoTokenizer.from_pretrained("allenai/OLMo-7B")
+olmo = AutoModelForCausalLM.from_pretrained("allenai/OLMo-1.7-7B-hf")
+tokenizer = AutoTokenizer.from_pretrained("allenai/OLMo-1.7-7B-hf")
 
 message = ["Language modeling is "]
 inputs = tokenizer(message, return_tensors='pt', return_token_type_ids=False)
@@ -80,22 +80,22 @@ Alternatively, with the Hugging Face pipeline abstraction:
 
 ```python
 from transformers import pipeline
-olmo_pipe = pipeline("text-generation", model="allenai/OLMo-7B")
+olmo_pipe = pipeline("text-generation", model="allenai/OLMo-1.7-7B-hf")
 print(olmo_pipe("Language modeling is"))
 ```
 
 ### Inference on finetuned checkpoints
 
-If you finetune the model using the code above, you can use the conversion script to convert a native OLMo checkpoint to a Hugging Face-compatible checkpoint
+If you finetune the model using the code in [Fine-tuning](#fine-tuning), you can use the conversion script to convert a native OLMo checkpoint to a Hugging Face-compatible checkpoint.
 
 ```bash
-python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir /path/to/checkpoint
+python scripts/convert_olmo_to_hf_new.py --input_dir /path/to/olmo/checkpoint --output_dir /path/to/hf/checkpoint/ --tokenizer_json_path tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
 ```
 
 ### Quantization
 
 ```python
-olmo = AutoModelForCausalLM.from_pretrained("allenai/OLMo-7B", torch_dtype=torch.float16, load_in_8bit=True)  # requires bitsandbytes
+olmo = AutoModelForCausalLM.from_pretrained("allenai/OLMo-1.7-7B-hf", torch_dtype=torch.float16, load_in_8bit=True)  # requires bitsandbytes
 ```
 
 The quantized model is more sensitive to typing / cuda, so it is recommended to pass the inputs as inputs.input_ids.to('cuda') to avoid potential issues.
@@ -135,7 +135,7 @@ torchrun --nproc_per_node=8 scripts/train.py configs/official/OLMo-1B.yaml --loa
 
 ### Inspecting training data
 
-You may be interesting in inspecting the exact tokens that composed a particular batch during the training of one of the OLMo models.
+You may be interested in inspecting the exact tokens that composed a particular batch during the training of one of the OLMo models.
 We provide tools to do this, but first you'll need to download the data as above (unless you have an R2 API key) and update the corresponding config accordingly.
 
 Then take note of the URL of the data order file you want, which can be found in the [Models Overview](#models-overview) table. For example, the data order file for the first epoch of the OLMo-7B model is [https://olmo-checkpoints.org/ai2-llm/olmo-medium/wvc30anm/train_data/global_indices.npy](https://olmo-checkpoints.org/ai2-llm/olmo-small/46zc5fly/train_data/global_indices.npy).

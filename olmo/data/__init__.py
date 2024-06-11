@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 from ..aliases import PathOrStr
 from ..config import DataConfig, TrainConfig
 from ..exceptions import OLMoConfigurationError
-from ..torch_util import barrier, get_global_rank, get_world_size
+from ..torch_util import barrier, get_global_rank, get_world_size, is_distributed
 from .collator import DataCollator
 from .iterable_dataset import IterableDataset
 from .memmap_dataset import MemMapDataset
@@ -36,6 +36,7 @@ def build_memmap_dataset(
     return MemMapDataset(
         *paths,
         chunk_size=train_config.model.max_sequence_length,
+        memmap_dtype=data_config.effective_memmap_dtype,
         metadata=metadata,
         include_instance_metadata=include_instance_metadata,
         pad_token_id=train_config.model.pad_token_id,
@@ -80,7 +81,7 @@ def build_eval_dataloader(
     )
 
 
-def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
+def build_train_dataloader(train_config: TrainConfig, world_size: Optional[int] = None) -> DataLoader:
     assert train_config.device_train_batch_size is not None
     collator = DataCollator(
         pad_direction=train_config.data.pad_direction, pad_token_id=train_config.model.pad_token_id
@@ -103,6 +104,7 @@ def build_train_dataloader(train_config: TrainConfig) -> DataLoader:
             seed=seed + (train_config.epoch or 0),
             shuffle=True,
             drop_last=train_config.data.drop_last,
+            world_size=world_size,
             work_dir=work_dir,
         ),
         batch_size=train_config.device_train_batch_size,

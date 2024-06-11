@@ -5,12 +5,14 @@ set -e
 set -o pipefail
 
 # Check that the environment variables have been set correctly
-for env_var in "$GITHUB_TOKEN" "$COMMIT_SHA"; do
+for env_var in "$TMP_GITHUB_TOKEN" "$COMMIT_SHA"; do
     if [[ -z "$env_var" ]]; then
         echo >&2 "error: required environment variable $env_var is empty"
         exit 1
     fi
 done
+
+export "GITHUB_TOKEN=${TMP_GITHUB_TOKEN}"
 
 # Initialize conda for bash.
 # See https://stackoverflow.com/a/58081608/4151392
