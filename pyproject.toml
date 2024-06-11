@@ -15,6 +15,7 @@ license = { file = "LICENSE" }
 dependencies = [
     "numpy",
     "torch>=2.1,<2.3",
+    "ai2-olmo-core==0.1.0",
     "omegaconf",
     "rich",
     "boto3",
