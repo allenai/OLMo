@@ -646,6 +646,44 @@ class DistributedStrategy(StrEnum):
     """
 
 
+class DDPGradSyncMode(StrEnum):
+    batch = "batch"
+    """
+    Synchronize gradients after computation at each bucket only at the last micro-batch.
+    This is slightly faster than gradient syncs across each micro-batch but will consume more memory.
+    Can use this mode only when `find_unused_params` is set to False.
+    """
+
+    micro_batch = "micro_batch"
+    """
+    Synchronize gradients after computation at each bucket per micro-batch.
+    This will be slightly slower than gradient sync at the last micro-batch, but will consume less memory.
+    Can use this mode with both option of `find_unused_params` but specifically recommended to use with `find_unused_params`
+    set to True, to prevent errors.
+    """
+
+
+@dataclass
+class DDPConfig(BaseConfig):
+    grad_sync_mode: DDPGradSyncMode = DDPGradSyncMode.batch
+    """
+    Gradient sync mode for DDP
+
+    Note: When `find_unused_params` is set, set `grad_sync_mode` to `micro_batch` as different micro-batches might activate
+    different parts of the model, ex- MOEs.
+    """
+
+    find_unused_params: bool = False
+    """
+    (from torch documentation)
+
+    This mode allows running backward on a subgraph of the model, and DDP finds out which parameters
+    are involved in the backward pass by traversing the autograd graph from the model output and marking
+    all unused parameters as ready for reduction. Note that traversing the autograd graph introduces extra overheads,
+    so applications should only set find_unused_parameters to True when necessary.
+    """
+
+
 class FSDPWrapStrategy(StrEnum):
     by_block = "by_block"
     """
@@ -1044,6 +1082,11 @@ class TrainConfig(BaseConfig):
     fsdp: FSDPConfig = field(default_factory=FSDPConfig)
     """
     Fully sharded data parallel settings.
+    """
+
+    ddp: DDPConfig = field(default_factory=DDPConfig)
+    """
+    DDP settings.
     """
 
     softmax_auxiliary_loss: bool = False

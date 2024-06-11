@@ -15,7 +15,12 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import ShardingStrategy
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from olmo.config import CheckpointType, DistributedStrategy, TrainConfig
+from olmo.config import (
+    CheckpointType,
+    DDPGradSyncMode,
+    DistributedStrategy,
+    TrainConfig,
+)
 from olmo.data import build_train_dataloader
 from olmo.eval import build_evaluators
 from olmo.exceptions import OLMoCliError, OLMoConfigurationError
@@ -125,51 +130,58 @@ def main(cfg: TrainConfig) -> None:
     olmo_model = OLMo(cfg.model)
     log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
-    log.info(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
+    log.info(f"Peak GPU Memory (MB) before {cfg.distributed_strategy}: {int(peak_gpu_memory() or 0)}")
 
     olmo_model.set_activation_checkpointing(cfg.activation_checkpointing)
 
-    # Wrap the model in FSDP.
-    log.info("Wrapping model with FSDP...")
-    wrap_policy = olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy)
+    if cfg.distributed_strategy == DistributedStrategy.ddp:
+        log.info("Wrapping model with DDP...")
+        if cfg.ddp.find_unused_params is True:
+            assert cfg.ddp.grad_sync_mode == DDPGradSyncMode.micro_batch, log.info(
+                "`find_unused_params` is set to True. DDP needs to synchronize gradients for every micro-batch to avoid errors. Setting `grad_sync_mode` to `micro_batch`."
+            )
+            cfg.ddp.grad_sync_mode = DDPGradSyncMode.micro_batch
 
-    if version.parse(torch.__version__) >= version.parse("2.1.0"):
-        # This prevents any parameters from being initialized twice
-        def dummy_init_fn(module: torch.nn.Module) -> None:
-            module.to_empty(device=get_default_device())
+        dist_model = DDP(olmo_model, find_unused_parameters=cfg.ddp.find_unused_params)
+    elif cfg.distributed_strategy == DistributedStrategy.fsdp:
+        # Wrap the model in FSDP.
+        log.info("Wrapping model with FSDP...")
+        wrap_policy = olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy)
 
-        param_init_fn = dummy_init_fn
-    else:
-        param_init_fn = None
+        if version.parse(torch.__version__) >= version.parse("2.1.0"):
+            # This prevents any parameters from being initialized twice
+            def dummy_init_fn(module: torch.nn.Module) -> None:
+                module.to_empty(device=get_default_device())
 
-    # Set up device mesh for hybrid sharding in order to specify which nodes are assoicated to a given model replica
-    device_mesh = None
-    hybrid_sharding_fsdp_kwargs = {}
-    if cfg.fsdp.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2):
-        if version.parse(torch.__version__) < version.parse("2.2.0"):
-            # Device mesh was not added to PyTorch until v2.2.0
-            raise OLMoConfigurationError(
-                "OLMo training does not correctly support hybrid sharding before torch 2.2.0"
+            param_init_fn = dummy_init_fn
+        else:
+            param_init_fn = None
+
+        # Set up device mesh for hybrid sharding in order to specify which nodes are assoicated to a given model replica
+        device_mesh = None
+        hybrid_sharding_fsdp_kwargs = {}
+        if cfg.fsdp.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2):
+            if version.parse(torch.__version__) < version.parse("2.2.0"):
+                # Device mesh was not added to PyTorch until v2.2.0
+                raise OLMoConfigurationError(
+                    "OLMo training does not correctly support hybrid sharding before torch 2.2.0"
+                )
+
+            from torch.distributed.device_mesh import init_device_mesh
+
+            num_model_replicas = cfg.fsdp.hybrid_sharding_num_model_replicas or (
+                get_world_size() // get_local_world_size()
             )
 
-        from torch.distributed.device_mesh import init_device_mesh
+            if num_model_replicas <= 0:
+                raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must be a positive integer")
 
-        num_model_replicas = cfg.fsdp.hybrid_sharding_num_model_replicas or (
-            get_world_size() // get_local_world_size()
-        )
+            if get_world_size() % num_model_replicas != 0:
+                raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must divide world size")
 
-        if num_model_replicas <= 0:
-            raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must be a positive integer")
+            device_mesh = init_device_mesh("cuda", (num_model_replicas, get_world_size() // num_model_replicas))
+            hybrid_sharding_fsdp_kwargs["device_mesh"] = device_mesh
 
-        if get_world_size() % num_model_replicas != 0:
-            raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must divide world size")
-
-        device_mesh = init_device_mesh("cuda", (num_model_replicas, get_world_size() // num_model_replicas))
-        hybrid_sharding_fsdp_kwargs["device_mesh"] = device_mesh
-
-    if cfg.distributed_strategy == DistributedStrategy.ddp:
-        dist_model = DDP(olmo_model)
-    elif cfg.distributed_strategy == DistributedStrategy.fsdp:
         dist_model = FSDP(
             olmo_model,
             sharding_strategy=cfg.fsdp.sharding_strategy,
@@ -185,10 +197,10 @@ def main(cfg: TrainConfig) -> None:
         raise NotImplementedError("Single accelerator training not implemented yet!")
 
     # when param_init_fn is None, FSDP will call reset_parameters() automatically
-    if param_init_fn is not None:
+    if param_init_fn is not None or cfg.distributed_strategy == DistributedStrategy.ddp:
         olmo_model.reset_parameters()
 
-    log.info(f"Peak GPU Memory (MB) after FSDP: {int(peak_gpu_memory() or 0)}")
+    log.info(f"Peak GPU Memory (MB) after {cfg.distributed_strategy}: {int(peak_gpu_memory() or 0)}")
     log.info("Model:")
     log.info(dist_model)
 

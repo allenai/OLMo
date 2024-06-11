@@ -9,6 +9,7 @@ import random
 import shutil
 import time
 from collections import deque
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
@@ -29,6 +30,7 @@ from .aliases import PathOrStr
 from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
 from .config import (
     CheckpointType,
+    DDPGradSyncMode,
     DistributedStrategy,
     SchedulerUnits,
     ShardedCheckpointerType,
@@ -650,6 +652,30 @@ class Trainer:
                 z_loss = z_loss.view(batch["input_ids"].shape[0], -1)
         return ce_loss, z_loss, logits
 
+    def train_micro_batch(
+        self, micro_batch: Dict[str, Any], batch_size_in_tokens: int, num_micro_batches: int
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        ce_loss, z_loss, logits = self.model_forward(
+            micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss, loss_reduction="sum"
+        )
+        ce_loss = ce_loss / batch_size_in_tokens
+
+        # In case this helps with memory utilization.
+        del micro_batch
+
+        z_loss = None
+        # Get loss to optimize for.
+        if self.cfg.softmax_auxiliary_loss:
+            assert z_loss is not None
+            z_loss = z_loss / num_micro_batches
+            loss = ce_loss + z_loss
+        else:
+            loss = ce_loss
+
+        del logits
+
+        return loss, ce_loss, z_loss
+
     def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
@@ -660,37 +686,35 @@ class Trainer:
 
         ce_batch_loss = torch.tensor(0.0, device=self.device)
         z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
-        # TODO: add sync context for DDP
-        for micro_batch in micro_batches:
-            with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
-                # Run forward pass.
-                ce_loss, z_loss, logits = self.model_forward(
-                    micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss, loss_reduction="sum"
-                )
-                ce_loss = ce_loss / batch_size_in_tokens
+        num_micro_batches = len(micro_batches)
 
-                # In case this helps with memory utilization.
-                del micro_batch
+        for micro_batch_idx, micro_batch in enumerate(micro_batches):
+            # setup sync context for DDP for all micro-batches except the last
+            ddp_context = nullcontext
+            if (
+                self.cfg.distributed_strategy == DistributedStrategy.ddp
+                and self.cfg.ddp.grad_sync_mode == DDPGradSyncMode.batch
+            ):
+                if micro_batch_idx != num_micro_batches - 1:
+                    ddp_context = self.dist_model.no_sync
 
-                # Update overall CE batch loss.
-                ce_batch_loss += ce_loss.detach()
+            with ddp_context():
+                with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
+                    # Run forward pass.
+                    loss, ce_loss, z_loss = self.train_micro_batch(
+                        micro_batch, batch_size_in_tokens, num_micro_batches
+                    )
 
-                # Get loss to optimize for.
-                if self.cfg.softmax_auxiliary_loss:
-                    assert z_loss is not None
-                    assert z_batch_loss is not None
-                    z_loss = z_loss / len(micro_batches)
-                    loss = ce_loss + z_loss
+                    # Update overall CE batch loss.
+                    ce_batch_loss += ce_loss.detach()
 
                     # Update overall Z batch loss.
-                    z_batch_loss += z_loss.detach()
-                else:
-                    loss = ce_loss
+                    if z_loss is not None:
+                        assert z_batch_loss is not None
+                        z_batch_loss += z_loss.detach()
 
-                del logits
-
-            # Run backward pass.
-            loss.backward()
+                # Run backward pass.
+                loss.backward()
 
         return ce_batch_loss, z_batch_loss
 
