@@ -55,4 +55,4 @@ torchrun \
     --scheduler.grad_clip_warmup_steps=null \
     --scheduler.units=steps \
     --scheduler.t_warmup=2000
-    #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-new/}'
+    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llm-306-amber-data-repro-db-normal-init-2}'
