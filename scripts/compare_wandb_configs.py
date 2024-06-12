@@ -22,7 +22,7 @@ def flatten(dictionary, parent_key="", separator="."):
 
 
 run_path_re = re.compile(r"^[^/]+/[^/]+/[^/]+$")
-run_path_url = re.compile(r"^https?://wandb.ai/([^/]+)/([^/]+)/runs/([^/]+)(\?.*)?$")
+run_path_url = re.compile(r"^https?://wandb.ai/([^/]+)/([^/]+)/runs/([^/]+)")
 
 
 def parse_run_path(run_path: str) -> str:
@@ -33,7 +33,7 @@ def parse_run_path(run_path: str) -> str:
 
     m = run_path_url.match(run_path)
     if m is not None:
-        entity, project, run_id, _ = m.groups()
+        entity, project, run_id = m.groups()
         return f"{entity}/{project}/{run_id}"
 
     raise ValueError(f"Could not parse '{run_path}'")
