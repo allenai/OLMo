@@ -3,7 +3,7 @@ seed: 6198
 dry_run: false
 
 wandb:
-  name: ${run_name}-1
+  name: ${run_name}-2
   project: cheap_decisions
   group: dolma-v1-7-1B-N-1T-D-mitchish1
 
