@@ -18,7 +18,7 @@ curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" 
 popd
 export HF_DATASETS_OFFLINE=1
 
-export EXPERIMENT=llamaish7-normal
+export EXPERIMENT=llamaish1-normal-new
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
@@ -29,18 +29,19 @@ torchrun \
   --node_rank=$BEAKER_REPLICA_RANK \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
-  configs/llamaish7-s3.yaml \
+  configs/llamaish1-s3.yaml \
     --run_name=$EXPERIMENT \
     --wandb.name=$EXPERIMENT \
     --wandb.group=$EXPERIMENT \
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
-    --fsdp.sharding_strategy=SHARD_GRAD_OP \
+    --fsdp.sharding_strategy=NO_SHARD \
+    --gen1_gc_interval=null \
     --save_folder=runs/ \
     --activation_checkpointing=fine_grained \
     --fused_loss=true \
-    --device_train_microbatch_size=2 \
-    --global_train_batch_size=1024 \
+    --device_train_microbatch_size=4 \
+    --global_train_batch_size=512 \
     --save_interval=250 \
     --eval_interval=250 \
     --optimizer.metrics_log_interval=1 \
@@ -50,6 +51,7 @@ torchrun \
     --model.init_cutoff_factor=3 \
     --model.clip_qkv=null \
     --save_num_checkpoints_to_keep=3 \
-    --scheduler.units=steps \
-    --scheduler.t_warmup=2000
-    # '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal/}'
+    --scheduler.grad_clip_warmup_steps=null \
+    --scheduler.t_warmup=2000 \
+    --scheduler.units=steps
+    #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-new/}'
