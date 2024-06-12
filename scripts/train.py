@@ -137,12 +137,14 @@ def main(cfg: TrainConfig) -> None:
     if cfg.distributed_strategy == DistributedStrategy.ddp:
         log.info("Wrapping model with DDP...")
 
-        # raise error instead of quite correcting, this will help maintain information across config yamls
+        # raise error instead of quite correcting, this will help maintain information across configs
         if cfg.model.init_device != "cuda":
             raise OLMoConfigurationError("DDP does not work with init_device set to anything other than `cuda`.")
 
         if cfg.ddp.find_unused_params is True and cfg.ddp.grad_sync_mode != DDPGradSyncMode.micro_batch:
-            raise OLMoConfigurationError("`find_unused_params` is set to True. DDP needs to synchronize gradients for every micro-batch to avoid errors. Set `grad_sync_mode` to `micro_batch`.")            
+            raise OLMoConfigurationError(
+                "`find_unused_params` is set to True. DDP needs to synchronize gradients for every micro-batch to avoid errors. Set `grad_sync_mode` to `micro_batch`."
+            )
 
         param_init_fn = None
 
@@ -240,11 +242,15 @@ def main(cfg: TrainConfig) -> None:
                 checkpoint_type = CheckpointType.unsharded
 
                 if cfg.save_interval_unsharded is None:
-                    log.warning("DDP requires setting `save_interval_unsharded`. Using the value set for `save_interval`.")
+                    log.warning(
+                        "DDP requires setting `save_interval_unsharded`. Using the value set for `save_interval`."
+                    )
                     cfg.save_interval_unsharded = cfg.save_interval
 
                 if cfg.save_num_unsharded_checkpoints_to_keep < 1:
-                    log.warning("DDP requires setting `save_num_unsharded_checkpoints_to_keep`. Using the value set for `save_num_checkpoints_to_keep`.")
+                    log.warning(
+                        "DDP requires setting `save_num_unsharded_checkpoints_to_keep`. Using the value set for `save_num_checkpoints_to_keep`."
+                    )
                     cfg.save_num_unsharded_checkpoints_to_keep = cfg.save_num_checkpoints_to_keep
             elif cfg.distributed_strategy == DistributedStrategy.fsdp:
                 checkpoint_type = (

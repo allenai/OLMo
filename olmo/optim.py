@@ -8,8 +8,8 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 from torch.distributed.fsdp import FullyShardedDataParallel
-from torch.optim.optimizer import Optimizer as OptimizerBase
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.optim.optimizer import Optimizer as OptimizerBase
 
 from . import LayerNormBase
 from .config import OptimizerType, SchedulerConfig, SchedulerType, TrainConfig
@@ -381,7 +381,9 @@ class LionW(Optimizer):
     def get_post_step_metrics(
         self, module: nn.Module, process_group: Optional[dist.ProcessGroup] = None
     ) -> Dict[str, torch.Tensor]:
-        assert isinstance(module, FSDP), "`get_post_step_metrics` expects module to be FSDP and will not work with other `distributed_strategy`."
+        assert isinstance(
+            module, FSDP
+        ), "`get_post_step_metrics` expects module to be FSDP and will not work with other `distributed_strategy`."
 
         update_total_dot_prod = self._update_total_dot_prod
         update_total_norm = self._update_total_norm
@@ -391,8 +393,8 @@ class LionW(Optimizer):
 
         if is_distributed() and isinstance(module, FullyShardedDataParallel):
             # Reduce total dot prod and norms across all ranks.
-            update_total_norm = update_total_norm**2.0
-            signed_update_total_norm = signed_update_total_norm**2.0
+            update_total_norm = update_total_norm ** 2.0
+            signed_update_total_norm = signed_update_total_norm ** 2.0
             # Reduce all together to avoid multiple communication calls.
             all_together = torch.stack([update_total_dot_prod, update_total_norm, signed_update_total_norm])
             # Only need the final result on rank0, since that's where we log from.
@@ -402,8 +404,8 @@ class LionW(Optimizer):
                 group=process_group,
             )
             update_total_dot_prod, update_total_norm, signed_update_total_norm = all_together
-            update_total_norm = update_total_norm**0.5
-            signed_update_total_norm = signed_update_total_norm**0.5
+            update_total_norm = update_total_norm ** 0.5
+            signed_update_total_norm = signed_update_total_norm ** 0.5
 
         update_cos_sim = update_total_dot_prod / torch.max(
             update_total_norm * signed_update_total_norm,
@@ -460,14 +462,10 @@ class LionW(Optimizer):
             get_default_device() if self._device is None else self._device
         )
         self._update_total_norm = torch.linalg.vector_norm(
-            torch.stack(update_norms),
-            2.0,
-            dtype=torch.float32,
+            torch.stack(update_norms), 2.0, dtype=torch.float32,
         ).to(get_default_device() if self._device is None else self._device)
         self._signed_update_total_norm = torch.linalg.vector_norm(
-            torch.stack(signed_update_norms),
-            2.0,
-            dtype=torch.float32,
+            torch.stack(signed_update_norms), 2.0, dtype=torch.float32,
         ).to(get_default_device() if self._device is None else self._device)
 
 
