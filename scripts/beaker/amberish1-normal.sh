@@ -29,11 +29,8 @@ torchrun \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
   configs/amberish1-s3.yaml \
-    --model.flash_attention=true \
     --gen1_gc_interval=null \
     --save_folder=runs/ \
-    --activation_checkpointing=fine_grained \
-    --fused_loss=false \
     --save_interval=250 \
     --eval_interval=250 \
     --optimizer.metrics_log_interval=1 \

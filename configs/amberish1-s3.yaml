@@ -41,6 +41,10 @@ model:
 
 compile: null
 
+fused_loss: false
+
+activation_checkpointing: fine_grained 
+
 optimizer:
   name: adamw
   learning_rate: 4.0e-4
