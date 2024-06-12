@@ -2,15 +2,15 @@
 
 set -ex
 
-NUM_NODES=2
+NUM_NODES=4
 
 gantry run \
   --workspace ai2/ananyaj \
   --task-name alt-arch-runs \
-  --description "Experiments for next generation transformer architecture" \
+  --description "DDP test for OLMo codebase" \
   --priority high \
   --beaker-image petew/olmo-torch2-gantry \
-  --cluster ai2/pluto-cirrascale \
+  --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \

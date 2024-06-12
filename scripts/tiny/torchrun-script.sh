@@ -15,7 +15,7 @@ curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" 
 popd
 export HF_DATASETS_OFFLINE=1
 
-mqa-transformer-300M
+# olmo-300M
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
@@ -23,8 +23,9 @@ torchrun \
   --rdzv_backend=c10d \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   scripts/train.py \
-    configs/alt_arch/transformer_base-300M.yaml \
-      --run_name=mqa-transformer-300M-baseline \
+    configs/tiny/OLMo-300M.yaml \
+      --run_name=OLMo-300M-ddp-test \
       --device_train_microbatch_size=16 \
-      --fsdp.sharding_strategy=SHARD_GRAD_OP \
+      --distributed_strategy=ddp \
+      --ddp.grad_sync_mode=batch \
       --save_overwrite
