@@ -230,7 +230,9 @@ class Optimizer(OptimizerBase):
             else:
                 clipping_rate = torch.tensor(0.0, device="cpu")
             all_metrics["clipping_rate"] = clipping_rate
-        return all_metrics
+            return all_metrics
+        else:
+            return {}
 
     @torch.no_grad()
     def _do_adaptive_clipping(
@@ -730,7 +732,7 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
             lr=cfg.optimizer.learning_rate,
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,
-            eps=1e-8,
+            eps=cfg.optimizer.eps,
         )
     else:
         raise NotImplementedError

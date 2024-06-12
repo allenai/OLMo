@@ -135,11 +135,10 @@ class LayerNormBase(nn.Module):
         *,
         size: Optional[int] = None,
         elementwise_affine: Optional[bool] = True,
-        eps: float = 1e-05,
     ):
         super().__init__()
         self.config = config
-        self.eps = eps
+        self.eps = config.layer_norm_eps
         self.normalized_shape = (size or config.d_model,)
         if elementwise_affine or (elementwise_affine is None and self.config.layer_norm_with_affine):
             self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
@@ -198,9 +197,8 @@ class LayerNorm(LayerNormBase):
         size: Optional[int] = None,
         low_precision: bool = False,
         elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-05,
     ):
-        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
+        super().__init__(config, size=size, elementwise_affine=elementwise_affine)
         self.low_precision = low_precision
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -229,9 +227,8 @@ class RMSLayerNorm(LayerNormBase):
         config: ModelConfig,
         size: Optional[int] = None,
         elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-6,
     ):
-        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
+        super().__init__(config, size=size, elementwise_affine=elementwise_affine)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         with torch.autocast(enabled=False, device_type=x.device.type):
