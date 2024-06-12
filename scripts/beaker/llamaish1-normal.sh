@@ -39,7 +39,7 @@ torchrun \
     --gen1_gc_interval=null \
     --save_folder=runs/ \
     --activation_checkpointing=fine_grained \
-    --fused_loss=true \
+    --fused_loss=false \
     --device_train_microbatch_size=4 \
     --global_train_batch_size=512 \
     --save_interval=250 \
