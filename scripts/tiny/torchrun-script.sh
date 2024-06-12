@@ -29,6 +29,7 @@ torchrun \
     configs/tiny/OLMo-300M.yaml \
       --run_name=$TASK_NAME \
       --wandb.name=$TASK_NAME \
+      --wandb.group=$TASK_NAME \
       --wandb.project=alt_arch \
       --device_train_microbatch_size=16 \
       --distributed_strategy=ddp \
