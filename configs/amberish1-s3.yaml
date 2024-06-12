@@ -47,6 +47,7 @@ optimizer:
   weight_decay: 0.1
   decay_norm_and_bias: true
   decay_embeddings: false
+  epsilon: 1.0E-08
   betas:
   - 0.9
   - 0.95
@@ -55,15 +56,15 @@ optimizer:
 scheduler:
   name: cosine_with_warmup
   units: tokens
-  t_warmup: 10485760000
-  t_max: 3e12
+  t_warmup: 4587520000
+  t_max: 1.25e12
   alpha_f: 0.1
-  grad_clip_warmup_steps: 2097152000
+  warmup_min_lr: 0
+  grad_clip_warmup_steps: null
   grad_clip_warmup_factor: 5
   warmup_min_lr: 0
 
 tokenizer:
-
   identifier: huggyllama/llama-7b
   truncate_direction: right
 
@@ -82,13 +83,14 @@ save_num_unsharded_checkpoints_to_keep: -1
 load_path: null
 
 max_duration: 2ep
-global_train_batch_size: 512
+global_train_batch_size: 1120
 device_train_microbatch_size: 4
 
 precision: amp_bf16
 
 fsdp:
   wrapping_strategy: by_block_and_size
+  sharding_strategy: SHARD_GRAD_OP
   precision: mixed
 
 max_grad_norm: 1.0
