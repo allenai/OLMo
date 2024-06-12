@@ -142,7 +142,8 @@ def main(cfg: TrainConfig) -> None:
             ), "`find_unused_params` is set to True. DDP needs to synchronize gradients for every micro-batch to avoid errors. Setting `grad_sync_mode` to `micro_batch`."
             cfg.ddp.grad_sync_mode = DDPGradSyncMode.micro_batch
 
-        dist_model = DDP(olmo_model, find_unused_parameters=cfg.ddp.find_unused_params)
+        # move to cuda before calling ddp
+        dist_model = DDP(olmo_model.to(device), find_unused_parameters=cfg.ddp.find_unused_params)
     elif cfg.distributed_strategy == DistributedStrategy.fsdp:
         # Wrap the model in FSDP.
         log.info("Wrapping model with FSDP...")
