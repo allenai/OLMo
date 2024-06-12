@@ -758,7 +758,7 @@ class FullCheckpointer(Checkpointer):
                 optim_state_dict_to_load = load_state_dict(
                     load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
                 )
-                optim.load_state_dict(optim_state_dict_to_load, strict=True)
+                optim.load_state_dict(optim_state_dict_to_load)
 
             gc.collect()
             torch.cuda.empty_cache()
