@@ -30,7 +30,7 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/epwalsh-stability/llm-360-amber.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/epwalsh-stability/llm-360-amber7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
 
   # --env R2_PROFILE=R2 \
   # --env S3_PROFILE=S3 \
