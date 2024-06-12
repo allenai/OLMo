@@ -1,4 +1,5 @@
 import logging
+import re
 from collections.abc import MutableMapping
 
 import click
@@ -19,6 +20,24 @@ def flatten(dictionary, parent_key="", separator="."):
     return d
 
 
+run_path_re = re.compile(r"^[^/]+/[^/]+/[^/]+$")
+run_path_url = re.compile(r"^https?://wandb.ai/([^/]+)/([^/]+)/runs/([^/]+)(\?.*)?$")
+
+
+def parse_run_path(run_path: str) -> str:
+    """For convenience, we allow run paths as well as URLs."""
+    run_path = run_path.strip("/")
+    if run_path_re.match(run_path):
+        return run_path
+
+    m = run_path_url.match(run_path)
+    if m is not None:
+        entity, project, run_id, _ = m.groups()
+        return f"{entity}/{project}/{run_id}"
+
+    raise ValueError(f"Could not parse '{run_path}'")
+
+
 @click.command()
 @click.argument(
     "left_run_path",
@@ -35,8 +54,8 @@ def main(
     import wandb
 
     api = wandb.Api()
-    left_run = api.run(left_run_path)
-    right_run = api.run(right_run_path)
+    left_run = api.run(parse_run_path(left_run_path))
+    right_run = api.run(parse_run_path(right_run_path))
 
     left_config = flatten(left_run._attrs["rawconfig"])
     right_config = flatten(right_run._attrs["rawconfig"])
