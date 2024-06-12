@@ -49,7 +49,7 @@ optimizer:
   weight_decay: 0.1
   decay_norm_and_bias: true
   decay_embeddings: false
-  epsilon: 1.0E-08
+  eps: 1.0E-08
   betas:
   - 0.9
   - 0.95
