@@ -19,7 +19,6 @@ from olmo.config import (
     CheckpointType,
     DDPGradSyncMode,
     DistributedStrategy,
-    InitFnType,
     TrainConfig,
 )
 from olmo.data import build_train_dataloader
