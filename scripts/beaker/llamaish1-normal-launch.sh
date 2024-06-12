@@ -24,6 +24,8 @@ gantry run \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
   --env-secret WANDB_API_KEY=AKSHITAB_WANDB_API_KEY \
+  --env-secret AWS_ACCESS_KEY_ID=AKSHITAB_AWS_ACCESS_KEY_ID \
+  --env-secret AWS_SECRET_ACCESS_KEY=AKSHITAB_AWS_SECRET_ACCESS_KEY \
   --env R2_PROFILE=R2 \
   --env S3_PROFILE=S3 \
   --env WEKA_PROFILE=WEKA \
