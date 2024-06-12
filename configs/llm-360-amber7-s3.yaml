@@ -39,6 +39,7 @@ model:
   init_device: meta
   init_fn: normal
   init_std: 0.02
+  init_cutoff_factor: 3
 
 compile: null
 
