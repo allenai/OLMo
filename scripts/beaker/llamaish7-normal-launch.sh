@@ -10,7 +10,7 @@ gantry run \
   --description "OLMo medium - 7B - Llamaish Normal" \
   --priority urgent \
   --preemptible \
-  --beaker-image shanea/olmo-torch2.3-gantry \
+  --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
