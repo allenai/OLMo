@@ -62,9 +62,6 @@ scheduler:
   t_max: 1.25e12
   alpha_f: 0.1
   warmup_min_lr: 0
-  grad_clip_warmup_steps: null
-  grad_clip_warmup_factor: 5
-  warmup_min_lr: 0
 
 tokenizer:
   identifier: huggyllama/llama-7b
