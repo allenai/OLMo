@@ -28,28 +28,26 @@ def save_to_disk(dataset: datasets.DatasetDict | datasets.Dataset, path, name, s
 
 
 def load_dataset(path, name, split, local_datasets_dir: Optional[str] = None):
-    if local_datasets_dir is None:
-        return datasets.load_dataset(
-            path=path,
-            name=name,
-            split=split,
-            trust_remote_code=True,
-        )
+    # Try get dataset from disk.
+    if local_datasets_dir is not None:
+        try:
+            return load_from_disk(path, name, split, local_datasets_dir)
+        except FileNotFoundError:
+            log.info(
+                "Path %s name %s split %s not present in local dir %s, loading from online",
+                path,
+                name,
+                split,
+                local_datasets_dir,
+            )
+        # Barrier here to stop the case where FS rank 0 saves the dataset to disk before some non-zero
+        # ranks try getting the dataset from disk. This would cause those non-zero ranks to bypass
+        # the next barrier and cause rank 0 to be stuck at that barrier.
+        barrier()
 
-    try:
-        return load_from_disk(path, name, split, local_datasets_dir)
-    except FileNotFoundError:
-        log.info(
-            "Path %s name %s split %s not present in local dir %s, loading from online",
-            path,
-            name,
-            split,
-            local_datasets_dir,
-        )
-
-    barrier()
     dataset = None
-    # Download and save the dataset (only once per FS)
+    # Download and save the dataset, only once per FS. When a local datasets dir is not set,
+    # this will hopefully cache the datasets for use in other FS ranks.
     if get_fs_local_rank() == 0:
         dataset = datasets.load_dataset(
             path=path,
@@ -58,10 +56,23 @@ def load_dataset(path, name, split, local_datasets_dir: Optional[str] = None):
             trust_remote_code=True,
         )
         assert isinstance(dataset, (datasets.DatasetDict, datasets.Dataset))
-        save_to_disk(dataset, path, name, split, local_datasets_dir)
+        if local_datasets_dir is not None:
+            save_to_disk(dataset, path, name, split, local_datasets_dir)
     barrier()
 
-    return dataset or load_from_disk(path, name, split, local_datasets_dir)
+    # Dataset is loaded in FS rank 0
+    if dataset is not None:
+        return dataset
+    
+    # Load dataset on non-zero FS ranks
+    if local_datasets_dir is not None:
+        return load_from_disk(path, name, split, local_datasets_dir)
+    return datasets.load_dataset(
+        path=path,
+        name=name,
+        split=split,
+        trust_remote_code=True,
+    )
 
 
 class ICLMetric(Metric):
