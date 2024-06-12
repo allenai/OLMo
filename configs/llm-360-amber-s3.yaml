@@ -5,7 +5,7 @@ dry_run: false
 wandb:
   name: ${run_name}
   project: olmo-medium
-  group: llm-360-amber-data-repro-2
+  group: ${run_name}
 
 model:
   d_model: 4096
@@ -58,20 +58,19 @@ scheduler:
   t_warmup: 9175040000
   t_max: 1.25e12
   alpha_f: 0.1
-  grad_clip_warmup_steps: 1
-  grad_clip_warmup_factor: 5
+  warmup_min_lr: 0.0
 
 tokenizer:
   identifier: tokenizers/nousresearch-llama-2-7b-hf.json
   truncate_direction: right
 
 save_folder: runs/${run_name}
-remote_save_folder: s3://ai2-llm/checkpoints/OLMo-medium/${run_name}
-save_overwrite: false
+remote_save_folder: s3://ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}
+save_overwrite: true
 
-save_interval: 1000
+save_interval: 250
 save_interval_ephemeral: null
-save_num_checkpoints_to_keep: -1
+save_num_checkpoints_to_keep: 2
 sharded_checkpointer: olmo_core
 
 save_interval_unsharded: null
