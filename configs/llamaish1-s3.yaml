@@ -1,11 +1,11 @@
-run_name: llamaish1-amber-data-001
+run_name: llamaish1-amber-data-sgo-001
 seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-small
-  group: llamaish1-amber-data
+  group: llamaish1-amber-data-sgo
 
 model:
   d_model: 2048

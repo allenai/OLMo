@@ -6,7 +6,7 @@ NUM_NODES=8
 
 gantry run \
   --workspace ai2/OLMo-training \
-  --task-name llamaish1-normal-amber-data \
+  --task-name llamaish1-normal-amber-data-sgo \
   --description "OLMo small - 1B - Llamaish Normal with Amber data" \
   --priority urgent \
   --preemptible \
