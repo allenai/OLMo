@@ -8,7 +8,7 @@ gantry run \
   --workspace ai2/OLMo-training  \
   --task-name llm-360-amber-baseline \
   --description "LLM 360 Amber 7B in the OLMo codebase" \
-  --priority high \
+  --priority urgent \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
