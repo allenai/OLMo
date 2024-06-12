@@ -18,6 +18,11 @@ curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" 
 popd
 export HF_DATASETS_OFFLINE=1
 
+# Move AWS credentials from env to relevant files
+mkdir -p ~/.aws
+printenv AWS_CONFIG > ~/.aws/config
+printenv AWS_CREDENTIALS > ~/.aws/credentials
+
 export EXPERIMENT=llamaish7-normal
 
 torchrun \
@@ -54,5 +59,5 @@ torchrun \
     --scheduler.grad_clip_warmup_steps=null \
     --scheduler.units=steps \
     --scheduler.t_warmup=2000 \
-    --data.num_workers=64
-    #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal/}'
+    --data.num_workers=64 \
+    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal/}'
