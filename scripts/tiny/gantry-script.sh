@@ -5,10 +5,11 @@ set -ex
 NUM_NODES=4
 
 gantry run \
-  --workspace ai2/ananyaj \
-  --task-name alt-arch-runs \
+  --workspace ai2/OLMo-training \
+  --task-name tiny-olmo \
   --description "DDP test for OLMo codebase" \
   --priority high \
+  --preemptible \
   --beaker-image petew/olmo-torch2-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
