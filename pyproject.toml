@@ -47,6 +47,7 @@ train = [
     "smashed[remote]>=0.21.1",
     "safetensors",
     "datasets",
+    "s3fs",
     "scikit-learn",
     "msgspec>=0.14.0",
 ]

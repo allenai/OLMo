@@ -11,34 +11,25 @@ from sklearn.metrics import f1_score
 from torchmetrics import Metric
 
 from olmo.torch_util import barrier, get_fs_local_rank
+from olmo.util import load_dataset_from_disk, save_dataset_to_disk
 
 from ..tokenizer import Tokenizer
 
 log = logging.getLogger(__name__)
 
 
-def load_from_disk(path, name, split, local_datasets_dir: str):
-    local_dataset_path = os.path.join(local_datasets_dir, path, name or "none", split)
-    return datasets.load_from_disk(local_dataset_path)
-
-
-def save_to_disk(dataset: datasets.DatasetDict | datasets.Dataset, path, name, split, local_datasets_dir: str):
-    local_dataset_path = os.path.join(local_datasets_dir, path, name or "none", split)
-    return dataset.save_to_disk(local_dataset_path)
-
-
-def load_dataset(path, name, split, local_datasets_dir: Optional[str] = None):
+def load_dataset(path, name, split, datasets_cache_dir: Optional[str] = None):
     # Try get dataset from disk.
-    if local_datasets_dir is not None:
+    if datasets_cache_dir is not None:
         try:
-            return load_from_disk(path, name, split, local_datasets_dir)
+            return load_dataset_from_disk(path, name, split, datasets_cache_dir)
         except FileNotFoundError:
             log.info(
                 "Path %s name %s split %s not present in local dir %s, loading from online",
                 path,
                 name,
                 split,
-                local_datasets_dir,
+                datasets_cache_dir,
             )
         # Barrier here to stop the case where FS rank 0 saves the dataset to disk before some non-zero
         # ranks try getting the dataset from disk. This would cause those non-zero ranks to bypass
@@ -56,17 +47,17 @@ def load_dataset(path, name, split, local_datasets_dir: Optional[str] = None):
             trust_remote_code=True,
         )
         assert isinstance(dataset, (datasets.DatasetDict, datasets.Dataset))
-        if local_datasets_dir is not None:
-            save_to_disk(dataset, path, name, split, local_datasets_dir)
+        if datasets_cache_dir is not None:
+            save_dataset_to_disk(dataset, path, name, split, datasets_cache_dir)
     barrier()
 
     # Dataset is loaded in FS rank 0
     if dataset is not None:
         return dataset
-    
+
     # Load dataset on non-zero FS ranks
-    if local_datasets_dir is not None:
-        return load_from_disk(path, name, split, local_datasets_dir)
+    if datasets_cache_dir is not None:
+        return load_dataset_from_disk(path, name, split, datasets_cache_dir)
     return datasets.load_dataset(
         path=path,
         name=name,
@@ -218,7 +209,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         tokenizer: Tokenizer,
         dataset_path: str,
         dataset_name: Union[str, Sequence[str], None] = None,
-        local_datasets_dir: Optional[str] = None,
+        datasets_cache_dir: Optional[str] = None,
         model_ctx_len: int = 2048,
         split="validation",
         prompts=[None],  # List of prompt variants to use
@@ -242,7 +233,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
 
         dataset_list = []
         for ds_name in dataset_names:
-            dataset = load_dataset(self.dataset_path, ds_name, split, local_datasets_dir)
+            dataset = load_dataset(self.dataset_path, ds_name, split, datasets_cache_dir)
             dataset_list.append(dataset)
         self.dataset = datasets.concatenate_datasets(dataset_list)
 
@@ -459,13 +450,13 @@ class PIQA(ICLMultiChoiceTaskDataset):
     metric_type = "len_norm"
 
     def __init__(
-        self, tokenizer, dataset_path="piqa", dataset_name="plain_text", local_datasets_dir: Optional[str] = None
+        self, tokenizer, dataset_path="piqa", dataset_name="plain_text", datasets_cache_dir: Optional[str] = None
     ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -500,13 +491,13 @@ class HellaSwag(ICLMultiChoiceTaskDataset):
     metric_type = "len_norm"
 
     def __init__(
-        self, tokenizer, dataset_path="hellaswag", dataset_name=None, local_datasets_dir: Optional[str] = None
+        self, tokenizer, dataset_path="hellaswag", dataset_name=None, datasets_cache_dir: Optional[str] = None
     ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     @classmethod
@@ -565,14 +556,14 @@ class WinoGrande(ICLMultiChoiceTaskDataset):
         tokenizer,
         dataset_path="winogrande",
         dataset_name="winogrande_xl",
-        local_datasets_dir: Optional[str] = None,
+        datasets_cache_dir: Optional[str] = None,
     ):
         # all winogrande datasets have same val set
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def prep_examples(self):
@@ -663,13 +654,13 @@ class OpenBookQA(ICLMultiChoiceTaskDataset):
     metric_type = "len_norm"
 
     def __init__(
-        self, tokenizer, dataset_path="openbookqa", dataset_name="main", local_datasets_dir: Optional[str] = None
+        self, tokenizer, dataset_path="openbookqa", dataset_name="main", datasets_cache_dir: Optional[str] = None
     ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -701,13 +692,13 @@ class BoolQ(ICLMultiChoiceTaskDataset):
     metric_type = "acc"
 
     def __init__(
-        self, tokenizer, dataset_path="boolq", dataset_name=None, local_datasets_dir: Optional[str] = None
+        self, tokenizer, dataset_path="boolq", dataset_name=None, datasets_cache_dir: Optional[str] = None
     ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -749,13 +740,13 @@ class SciQ(ICLMultiChoiceTaskDataset):
     metric_type = "acc"
 
     def __init__(
-        self, tokenizer, dataset_path="sciq", dataset_name=None, local_datasets_dir: Optional[str] = None
+        self, tokenizer, dataset_path="sciq", dataset_name=None, datasets_cache_dir: Optional[str] = None
     ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -794,13 +785,13 @@ class ArcEasy(ICLMultiChoiceTaskDataset):
     metric_type = "acc"
 
     def __init__(
-        self, tokenizer, dataset_path="ai2_arc", dataset_name="ARC-Easy", local_datasets_dir: Optional[str] = None
+        self, tokenizer, dataset_path="ai2_arc", dataset_name="ARC-Easy", datasets_cache_dir: Optional[str] = None
     ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -836,13 +827,13 @@ class ArcChallenge(ArcEasy):
         tokenizer,
         dataset_path="ai2_arc",
         dataset_name="ARC-Challenge",
-        local_datasets_dir: Optional[str] = None,
+        datasets_cache_dir: Optional[str] = None,
     ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
 
@@ -878,13 +869,13 @@ class BasicArithmetic(ArcEasy):
         tokenizer,
         dataset_path="allenai/basic_arithmetic",
         dataset_name=None,
-        local_datasets_dir: Optional[str] = None,
+        datasets_cache_dir: Optional[str] = None,
     ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
 
@@ -906,13 +897,13 @@ class CommonsenseQA(ArcEasy):
         tokenizer,
         dataset_path="tau/commonsense_qa",
         dataset_name=None,
-        local_datasets_dir: Optional[str] = None,
+        datasets_cache_dir: Optional[str] = None,
     ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
 
@@ -929,13 +920,13 @@ class SocialIQa(ICLMultiChoiceTaskDataset):
     metric_type = "len_norm"
 
     def __init__(
-        self, tokenizer, dataset_path="social_i_qa", dataset_name=None, local_datasets_dir: Optional[str] = None
+        self, tokenizer, dataset_path="social_i_qa", dataset_name=None, datasets_cache_dir: Optional[str] = None
     ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -979,13 +970,13 @@ class COPA(ICLMultiChoiceTaskDataset):
     metric_type = "acc"
 
     def __init__(
-        self, tokenizer, dataset_path="super_glue", dataset_name="copa", local_datasets_dir: Optional[str] = None
+        self, tokenizer, dataset_path="super_glue", dataset_name="copa", datasets_cache_dir: Optional[str] = None
     ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -1024,13 +1015,13 @@ class RTE(ICLMultiChoiceTaskDataset):
     metric_type = "len_norm"
 
     def __init__(
-        self, tokenizer, dataset_path="glue", dataset_name="rte", local_datasets_dir: Optional[str] = None
+        self, tokenizer, dataset_path="glue", dataset_name="rte", datasets_cache_dir: Optional[str] = None
     ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -1066,13 +1057,13 @@ class CommitmentBank(ICLMultiChoiceTaskDataset):
     metric_type = "acc"
 
     def __init__(
-        self, tokenizer, dataset_path="super_glue", dataset_name="cb", local_datasets_dir: Optional[str] = None
+        self, tokenizer, dataset_path="super_glue", dataset_name="cb", datasets_cache_dir: Optional[str] = None
     ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -1106,13 +1097,13 @@ class MRPC(ICLMultiChoiceTaskDataset):
     metric_type = "f1"
 
     def __init__(
-        self, tokenizer, dataset_path="glue", dataset_name="mrpc", local_datasets_dir: Optional[str] = None
+        self, tokenizer, dataset_path="glue", dataset_name="mrpc", datasets_cache_dir: Optional[str] = None
     ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     @classmethod
@@ -1174,13 +1165,13 @@ class SST2(ICLMultiChoiceTaskDataset):
     metric_type = "acc"
 
     def __init__(
-        self, tokenizer, dataset_path="glue", dataset_name="sst2", local_datasets_dir: Optional[str] = None
+        self, tokenizer, dataset_path="glue", dataset_name="sst2", datasets_cache_dir: Optional[str] = None
     ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     @classmethod
@@ -1302,7 +1293,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
         split="validation",
         prompt_variations=None,
         mc_labels=False,
-        local_datasets_dir: Optional[str] = None,
+        datasets_cache_dir: Optional[str] = None,
     ):
         dataset_names = []
         # Collect the relevant categories
@@ -1329,7 +1320,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
                 raise ValueError(f"Unknown prompt variations: {prompt_variations}")
             # Need to grab the dev set for the few-shot prompts
             for name in dataset_names:
-                dev_set = load_dataset(dataset_path, name, "dev", local_datasets_dir)
+                dev_set = load_dataset(dataset_path, name, "dev", datasets_cache_dir)
                 self.dev_set[name] = dev_set
         super().__init__(
             tokenizer=tokenizer,
@@ -1337,7 +1328,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
             dataset_name=dataset_names,
             split=split,
             prompts=prompts,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -1412,13 +1403,13 @@ class TriviaQACELoss(ICLMultiChoiceTaskDataset):
         tokenizer,
         dataset_path="trivia_qa",
         dataset_name="rc.wikipedia.nocontext",
-        local_datasets_dir: Optional[str] = None,
+        datasets_cache_dir: Optional[str] = None,
     ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -1447,13 +1438,13 @@ class NaturalQuestionsCELoss(ICLMultiChoiceTaskDataset):
     metric_type = "ce_loss"
 
     def __init__(
-        self, tokenizer, dataset_path="nq_open", dataset_name=None, local_datasets_dir: Optional[str] = None
+        self, tokenizer, dataset_path="nq_open", dataset_name=None, datasets_cache_dir: Optional[str] = None
     ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-            local_datasets_dir=local_datasets_dir,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
