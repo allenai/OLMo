@@ -1,6 +1,7 @@
 import logging
 import re
 from collections.abc import MutableMapping
+from typing import Any, Dict
 
 import click
 
@@ -10,7 +11,7 @@ log = logging.getLogger(__name__)
 
 
 def flatten(dictionary, parent_key="", separator="."):
-    d = {}
+    d: Dict[str, Any] = {}
     for key, value in dictionary.items():
         new_key = parent_key + separator + key if parent_key else key
         if isinstance(value, MutableMapping):
