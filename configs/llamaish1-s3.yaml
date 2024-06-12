@@ -1,4 +1,4 @@
-run_name: llamaish1-amber-data-sgo-001
+run_name: llamaish1-amber-data-sgo-002
 seed: 6198
 dry_run: false
 
@@ -64,7 +64,7 @@ scheduler:
 
 tokenizer:
 
-  identifier: NousResearch/Llama-2-7b-hf
+  identifier: huggyllama/llama-7b
   truncate_direction: right
 
 save_folder: runs/${run_name}

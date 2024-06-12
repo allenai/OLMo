@@ -18,7 +18,6 @@ curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" 
 popd
 export HF_DATASETS_OFFLINE=1
 
-export EXPERIMENT=llamaish1-normal-amber-data-sgo
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
@@ -30,9 +29,6 @@ torchrun \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
   configs/llamaish1-s3.yaml \
-    --run_name=$EXPERIMENT \
-    --wandb.name=$EXPERIMENT \
-    --wandb.group=$EXPERIMENT \
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
