@@ -4,7 +4,7 @@ dry_run: false
 
 wandb:
   name: ${run_name}
-  project: alt_arch
+  project: tiny_olmo
 
 model:
   d_model: 1024
@@ -34,8 +34,8 @@ model:
   embedding_size: 50304
   eos_token_id: 50279
   pad_token_id: 1
-  init_device: meta
-  init_fn: mitchell
+  init_device: cpu
+  init_fn: normal
 
 ddp:
   grad_sync_mode: batch
@@ -67,9 +67,9 @@ save_overwrite: false
 # Sharded checkpoints (best for restarts)
 save_interval: 5000
 save_num_checkpoints_to_keep: 3
-# Unsharded checkpoints (for final storage)
-save_interval_unsharded: 25000
-save_num_unsharded_checkpoints_to_keep: -1
+# Unsharded checkpoints (for ddp)
+save_interval_unsharded: 5000
+save_num_unsharded_checkpoints_to_keep: 3
 
 load_path: null
 

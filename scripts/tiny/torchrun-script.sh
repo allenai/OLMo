@@ -8,6 +8,9 @@ shift
 NUM_NODES=$1
 shift
 
+TASK_NAME=$1
+shift
+
 # Warm HF cache
 mkdir -p /root/.cache
 pushd /root/.cache
@@ -24,8 +27,11 @@ torchrun \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   scripts/train.py \
     configs/tiny/OLMo-300M.yaml \
-      --run_name=OLMo-300M-ddp-test \
+      --run_name=$TASK_NAME \
+      --wandb.name=$TASK_NAME \
+      --wandb.project=alt_arch \  # alt_arch for now for comparison
       --device_train_microbatch_size=16 \
       --distributed_strategy=ddp \
       --ddp.grad_sync_mode=batch \
+      --model.init_fn=normal \
       --save_overwrite
