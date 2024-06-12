@@ -63,7 +63,8 @@ scheduler:
   warmup_min_lr: 0
 
 tokenizer:
-  identifier: tokenizers/nousresearch-llama-2-7b-hf.json
+
+  identifier: NousResearch/Llama-2-7b-hf
   truncate_direction: right
 
 save_folder: runs/${run_name}
