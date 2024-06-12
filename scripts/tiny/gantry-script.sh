@@ -2,14 +2,14 @@
 
 set -ex
 
-NUM_NODES=4
+NUM_NODES=2
 TASK_NAME=tiny-olmo-300M
 
 gantry run \
   --workspace ai2/OLMo-training \
   --task-name ${TASK_NAME} \
   --description "DDP test for OLMo codebase" \
-  --priority high \
+  --priority urgent \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
