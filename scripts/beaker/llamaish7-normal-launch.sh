@@ -2,7 +2,7 @@
 
 set -ex
 
-NUM_NODES=32
+NUM_NODES=64
 
 gantry run \
   --workspace ai2/OLMo-training \
@@ -19,7 +19,7 @@ gantry run \
   --budget ai2/oe-training \
   --no-nfs \
   --propagate-failure \
-  --synchronized-start-timeout 15m \
+  --synchronized-start-timeout 60m \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
