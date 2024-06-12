@@ -3,7 +3,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
-from olmo.config import BaseConfig, StrEnum, TrainConfig
+import numpy
+
+from olmo.config import BaseConfig, DataConfig, StrEnum, TrainConfig
 
 
 @dataclass
@@ -46,3 +48,15 @@ def test_save_and_load(train_config: TrainConfig, tmp_path: Path):
 def test_new():
     config = TrainConfig.new(seed=2)
     assert config.seed == 2
+
+
+def test_data_config():
+    data_config = DataConfig.new()
+    assert data_config.memmap_dtype == "uint16"
+    assert data_config.effective_memmap_dtype == numpy.uint16
+    data_config.memmap_dtype = "uint32"
+    assert data_config.effective_memmap_dtype == numpy.uint32
+    data_config.memmap_dtype = "uint64"
+    assert data_config.effective_memmap_dtype == numpy.uint64
+    data_config.memmap_dtype = "unknown"
+    assert data_config.effective_memmap_dtype == numpy.uint16

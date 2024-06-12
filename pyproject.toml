@@ -14,7 +14,8 @@ requires-python = ">=3.8"
 license = { file = "LICENSE" }
 dependencies = [
     "numpy",
-    "torch>=2.0,<2.3",
+    "torch>=2.1,<2.3",
+    "ai2-olmo-core==0.1.0",
     "omegaconf",
     "rich",
     "boto3",
@@ -109,7 +110,7 @@ extend_skip = ["pretrain_data", "tokenizer"]
 
 [tool.ruff]
 line-length = 115
-ignore = ["F403", "F405", "E501"]
+lint.ignore = ["F403", "F405", "E501"]
 exclude = [
     ".bzr",
     ".direnv",
