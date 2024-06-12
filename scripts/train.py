@@ -19,8 +19,8 @@ from olmo.config import (
     CheckpointType,
     DDPGradSyncMode,
     DistributedStrategy,
-    TrainConfig,
     InitFnType,
+    TrainConfig,
 )
 from olmo.data import build_train_dataloader
 from olmo.eval import build_evaluators
@@ -137,7 +137,9 @@ def main(cfg: TrainConfig) -> None:
 
     if cfg.distributed_strategy == DistributedStrategy.ddp:
         log.info("Wrapping model with DDP...")
-        assert cfg.model.init_device == 'cuda', "DDP does not work with init_device set to anything other than `cuda`."
+        assert (
+            cfg.model.init_device == "cuda"
+        ), "DDP does not work with init_device set to anything other than `cuda`."
 
         if cfg.ddp.find_unused_params is True:
             assert (
