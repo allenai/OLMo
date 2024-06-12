@@ -5,10 +5,10 @@ set -ex
 NUM_NODES=8
 
 gantry run \
-  --workspace ai2/dustins \
-  --task-name pile-llamaish7-llama-tokenizer \
-  --description "OLMo medium - 7B - Llamaish - Pile - Llama tokenizer" \
-  --priority normal \
+  --workspace ai2/akshitab \
+  --task-name pile-llamaish7 \
+  --description "OLMo medium - 7B - Llamaish - Pile" \
+  --priority high \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale \
   --gpus 8 \
