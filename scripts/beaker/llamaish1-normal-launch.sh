@@ -8,7 +8,7 @@ gantry run \
   --workspace ai2/OLMo-training \
   --task-name llamaish1-normal \
   --description "OLMo small - 1B - Llamaish Normal New" \
-  --priority high \
+  --priority urgent \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
