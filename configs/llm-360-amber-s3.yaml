@@ -6,7 +6,8 @@ wandb:
   name: ${run_name}
   project: olmo-medium
   group: ${run_name}
-  tags: epwalsh-amberish-stability
+  tags:
+    - epwalsh-amberish-stability
 
 model:
   d_model: 4096
