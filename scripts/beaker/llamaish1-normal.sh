@@ -35,7 +35,7 @@ torchrun \
     --wandb.group=$EXPERIMENT \
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
-    --fsdp.sharding_strategy=NO_SHARD \
+    --fsdp.sharding_strategy=SHARD_GRAD_OP \
     --gen1_gc_interval=null \
     --save_folder=runs/ \
     --activation_checkpointing=fine_grained \
