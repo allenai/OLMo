@@ -6,7 +6,9 @@ __all__ = ["init_normal"]
 
 
 def init_normal(
-    module: Union[nn.Linear, nn.Embedding], std: float, init_cutoff_factor: Optional[float] = None,
+    module: Union[nn.Linear, nn.Embedding],
+    std: float,
+    init_cutoff_factor: Optional[float] = None,
 ):
     # weights
     if init_cutoff_factor is not None:

@@ -50,6 +50,7 @@ __all__ = [
     "CompilerConfig",
     "WandbConfig",
     "DistributedStrategy",
+    "DDPGradSyncMode",
     "FSDPPrecision",
     "FSDPWrapStrategy",
     "FSDPConfig",

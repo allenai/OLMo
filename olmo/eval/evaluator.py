@@ -64,7 +64,12 @@ class Evaluator:
         else:
             raise ValueError(f"Unexpected evaluator type '{self.type}'")
 
-    def update_metrics(self, batch: Dict[str, Any], ce_loss: torch.Tensor, logits: torch.Tensor,) -> None:
+    def update_metrics(
+        self,
+        batch: Dict[str, Any],
+        ce_loss: torch.Tensor,
+        logits: torch.Tensor,
+    ) -> None:
         if self.type == EvaluatorType.downstream:
             assert isinstance(self.eval_metric, ICLMetric)
             self.eval_metric.update(batch, logits)  # type: ignore

@@ -47,7 +47,10 @@ def build_memmap_dataset(
 
 
 def build_eval_dataloader(
-    train_config: TrainConfig, data_config: DataConfig, batch_size: int, shuffle: bool = True,
+    train_config: TrainConfig,
+    data_config: DataConfig,
+    batch_size: int,
+    shuffle: bool = True,
 ) -> DataLoader:
     dataset = build_memmap_dataset(train_config, data_config, include_instance_metadata=True)
     collator = DataCollator(pad_direction=data_config.pad_direction, pad_token_id=train_config.model.pad_token_id)

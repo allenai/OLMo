@@ -124,7 +124,11 @@ class MultinomialSampler(Sampler):
 
     """
 
-    def __init__(self, temperature: float = 1.0, with_replacement: bool = False,) -> None:
+    def __init__(
+        self,
+        temperature: float = 1.0,
+        with_replacement: bool = False,
+    ) -> None:
         self.temperature = temperature
         self.with_replacement = with_replacement
 
@@ -155,7 +159,10 @@ class TopKSampler(Sampler):
     """
 
     def __init__(
-        self, k: int = 1, temperature: float = 1.0, with_replacement: bool = False,
+        self,
+        k: int = 1,
+        temperature: float = 1.0,
+        with_replacement: bool = False,
     ):
         self.k = k
         self.temperature = temperature or 1.0
@@ -217,7 +224,10 @@ class TopPSampler(Sampler):
     """
 
     def __init__(
-        self, p: float = 0.9, temperature: float = 1.0, with_replacement: bool = False,
+        self,
+        p: float = 0.9,
+        temperature: float = 1.0,
+        with_replacement: bool = False,
     ):
         if p < 0.0 or p > 1.0:
             raise ValueError("p must be a positive float no greater than 1.0")
@@ -304,7 +314,10 @@ class GumbelSampler(Sampler):
         return {"G_phi_S": G_phi_S}
 
     def sample_nodes(
-        self, log_probs: torch.Tensor, per_node_beam_size: int, state: StateType,
+        self,
+        log_probs: torch.Tensor,
+        per_node_beam_size: int,
+        state: StateType,
     ) -> Tuple[torch.Tensor, torch.Tensor, StateType]:
         # First apply temperature coefficient:
         # shape: (batch_size * beam_size, num_classes)
@@ -341,7 +354,10 @@ class GumbelSampler(Sampler):
         return top_log_probs, top_indices, {"G_phi_S": top_G_phi_S_new}
 
     def sample_beams(
-        self, log_probs: torch.Tensor, beam_size: int, state: StateType,
+        self,
+        log_probs: torch.Tensor,
+        beam_size: int,
+        state: StateType,
     ) -> Tuple[torch.Tensor, torch.Tensor, StateType]:
         """
         Returns the beams with the highest perturbed log probabilities.
@@ -471,7 +487,7 @@ class LengthNormalizedSequenceLogProbabilityScorer(FinalSequenceScorer):
         lengths += is_end_token.long()
 
         # shape: (batch_size, beam_size)
-        average_log_probs = log_probabilities / (lengths ** self.length_penalty)
+        average_log_probs = log_probabilities / (lengths**self.length_penalty)
         return average_log_probs
 
 
@@ -517,11 +533,18 @@ class Constraint:
     """
 
     @abstractmethod
-    def init_state(self, batch_size: int,) -> ConstraintStateType:
+    def init_state(
+        self,
+        batch_size: int,
+    ) -> ConstraintStateType:
         raise NotImplementedError
 
     @abstractmethod
-    def apply(self, state: ConstraintStateType, class_log_probabilities: torch.Tensor,) -> torch.Tensor:
+    def apply(
+        self,
+        state: ConstraintStateType,
+        class_log_probabilities: torch.Tensor,
+    ) -> torch.Tensor:
         raise NotImplementedError
 
     @staticmethod
@@ -559,7 +582,11 @@ class Constraint:
         return self._update_state(new_state, last_prediction)
 
     @abstractmethod
-    def _update_state(self, state: ConstraintStateType, last_prediction: torch.Tensor,) -> ConstraintStateType:
+    def _update_state(
+        self,
+        state: ConstraintStateType,
+        last_prediction: torch.Tensor,
+    ) -> ConstraintStateType:
         raise NotImplementedError
 
 
@@ -568,10 +595,17 @@ class RepeatedNGramBlockingConstraint(Constraint):
         super().__init__(**kwargs)
         self.ngram_size = ngram_size
 
-    def init_state(self, batch_size: int,) -> ConstraintStateType:
+    def init_state(
+        self,
+        batch_size: int,
+    ) -> ConstraintStateType:
         return [[{"seen_ngrams": {}, "current_prefix": []}] for _ in range(batch_size)]
 
-    def apply(self, state: ConstraintStateType, class_log_probabilities: torch.Tensor,) -> torch.Tensor:
+    def apply(
+        self,
+        state: ConstraintStateType,
+        class_log_probabilities: torch.Tensor,
+    ) -> torch.Tensor:
         for i, batch in enumerate(state):
             for j, beam in enumerate(batch):
                 current_prefix = tuple(beam["current_prefix"])
@@ -587,7 +621,11 @@ class RepeatedNGramBlockingConstraint(Constraint):
                     pass
         return class_log_probabilities
 
-    def _update_state(self, state: ConstraintStateType, last_prediction: torch.Tensor,) -> ConstraintStateType:
+    def _update_state(
+        self,
+        state: ConstraintStateType,
+        last_prediction: torch.Tensor,
+    ) -> ConstraintStateType:
         for i, batch in enumerate(state):
             for j, beam in enumerate(batch):
                 prediction = last_prediction[i, j].item()
@@ -709,7 +747,10 @@ class BeamSearch:
         return reconstructed_predictions
 
     def search(
-        self, start_predictions: torch.Tensor, start_state: StateType, step: StepFunctionType,
+        self,
+        start_predictions: torch.Tensor,
+        start_state: StateType,
+        step: StepFunctionType,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Given a starting state and a step function, apply beam search to find the
@@ -770,7 +811,10 @@ class BeamSearch:
             return self._search(start_predictions, start_state, cast(StepFunctionTypeWithTimestep, step))
 
     def _search(
-        self, start_predictions: torch.Tensor, start_state: StateType, step: StepFunctionTypeWithTimestep,
+        self,
+        start_predictions: torch.Tensor,
+        start_state: StateType,
+        step: StepFunctionTypeWithTimestep,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_size = start_predictions.size()[0]
 
@@ -824,9 +868,11 @@ class BeamSearch:
 
         # Get the initial predicted classed and their log probabilities.
         # shape: (batch_size, beam_size), (batch_size, beam_size)
-        (start_top_log_probabilities, start_predicted_classes, sampler_state,) = self.sampler.sample_beams(
-            start_class_log_probabilities, self.beam_size, sampler_state
-        )
+        (
+            start_top_log_probabilities,
+            start_predicted_classes,
+            sampler_state,
+        ) = self.sampler.sample_beams(start_class_log_probabilities, self.beam_size, sampler_state)
 
         if self.beam_size == 1 and (start_predicted_classes == self._end_index).all():
             warnings.warn(
@@ -846,7 +892,8 @@ class BeamSearch:
         # Log probability tensor that mandates that the end token is selected.
         # shape: (batch_size * beam_size, num_classes)
         log_probs_after_end = start_class_log_probabilities.new_full(
-            (batch_size * self.beam_size, num_classes), torch.finfo(start_class_log_probabilities.dtype).min,
+            (batch_size * self.beam_size, num_classes),
+            torch.finfo(start_class_log_probabilities.dtype).min,
         )
         log_probs_after_end[:, self._end_index] = 0.0
 
@@ -898,7 +945,9 @@ class BeamSearch:
             # this timestep as well.
             # shape: (batch_size * beam_size, num_classes)
             cleaned_log_probabilities = torch.where(
-                last_predictions_expanded == self._end_index, log_probs_after_end, class_log_probabilities,
+                last_predictions_expanded == self._end_index,
+                log_probs_after_end,
+                class_log_probabilities,
             )
 
             # shape (both): (batch_size * beam_size, per_node_beam_size)
@@ -931,9 +980,11 @@ class BeamSearch:
 
             # Keep only the top `beam_size` beam indices.
             # shape (both): (batch_size, beam_size)
-            (restricted_beam_log_probs, restricted_beam_indices, sampler_state,) = self.sampler.sample_beams(
-                reshaped_summed, self.beam_size, sampler_state
-            )
+            (
+                restricted_beam_log_probs,
+                restricted_beam_indices,
+                sampler_state,
+            ) = self.sampler.sample_beams(reshaped_summed, self.beam_size, sampler_state)
 
             # Use the beam indices to extract the corresponding classes.
             # shape: (batch_size, beam_size)

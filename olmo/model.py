@@ -80,7 +80,11 @@ def activation_checkpoint_function(cfg: ModelConfig):
     )
     from torch.utils.checkpoint import checkpoint
 
-    return partial(checkpoint, preserve_rng_state=preserve_rng_state, use_reentrant=False,)
+    return partial(
+        checkpoint,
+        preserve_rng_state=preserve_rng_state,
+        use_reentrant=False,
+    )
 
 
 def should_checkpoint_block(strategy: Optional[ActivationCheckpointingStrategy], block_idx: int) -> bool:
@@ -363,7 +367,10 @@ class SwiGLU(Activation):
 
 
 def causal_attention_bias(seq_len: int, device: torch.device) -> torch.FloatTensor:
-    att_bias = torch.triu(torch.ones(seq_len, seq_len, device=device, dtype=torch.float), diagonal=1,)
+    att_bias = torch.triu(
+        torch.ones(seq_len, seq_len, device=device, dtype=torch.float),
+        diagonal=1,
+    )
     att_bias.masked_fill_(att_bias == 1, torch.finfo(att_bias.dtype).min)
     return att_bias.view(1, 1, seq_len, seq_len)  # type: ignore
 
@@ -537,7 +544,12 @@ class OLMoBlock(nn.Module):
                 v = v.repeat_interleave(num_q_heads // num_kv_heads, dim=1, output_size=num_q_heads)
 
             return F.scaled_dot_product_attention(
-                q, k, v, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal,
+                q,
+                k,
+                v,
+                attn_mask=attn_mask,
+                dropout_p=dropout_p,
+                is_causal=is_causal,
             )
 
     def attention(
@@ -1388,7 +1400,8 @@ class OLMo(nn.Module):
         params = (np for np in self.named_parameters())
         if not include_embedding:
             params = filter(  # type: ignore
-                lambda np: ".wte." not in np[0] and ".wpe." not in np[0], params,
+                lambda np: ".wte." not in np[0] and ".wpe." not in np[0],
+                params,
             )
         return sum(p.numel() for _, p in params)
 
@@ -1404,7 +1417,7 @@ class OLMo(nn.Module):
         params_flops_per_seq = params_flops_per_token * self.config.max_sequence_length
         # there are 2 FLOPS per mac; there is A=Q*K^T and out=A*V ops (ie mult by 2)
         attn_flops_per_seq = (
-            self.config.n_layers * 2 * 2 * (self.config.d_model * (self.config.max_sequence_length ** 2))
+            self.config.n_layers * 2 * 2 * (self.config.d_model * (self.config.max_sequence_length**2))
         )
         self.__num_fwd_flops = params_flops_per_seq + attn_flops_per_seq
         return self.__num_fwd_flops
