@@ -361,7 +361,11 @@ class RemoteFileSystemWriter(dist_cp.FileSystemWriter):
         self.upload_to = None if upload_to is None else upload_to.rstrip("/")
         self.save_overwrite = save_overwrite
 
-    def write_data(self, plan: dist_cp.SavePlan, planner: dist_cp.SavePlanner,) -> Future[List[WriteResult]]:
+    def write_data(
+        self,
+        plan: dist_cp.SavePlan,
+        planner: dist_cp.SavePlanner,
+    ) -> Future[List[WriteResult]]:
         fut = super().write_data(plan, planner)
         if self.upload_to is not None:
             files_to_upload = set()
@@ -733,7 +737,8 @@ class FullCheckpointer(Checkpointer):
                         load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
                     )
                     optim_state_dict_to_load = self._make_optim_state_dict_compatible(
-                        optim_state_dict_to_load, og_keys_to_new,
+                        optim_state_dict_to_load,
+                        og_keys_to_new,
                     )
                     gc.collect()
                     torch.cuda.empty_cache()
@@ -896,7 +901,11 @@ class TorchNewStyleShardedCheckpointer(Checkpointer):
         with self._temporary_wd(dir) as checkpoint_dir:
             # Save model and optim state.
             save_fsdp_model_and_optim_state(
-                checkpoint_dir, dist_model, optim, upload_to=upload_to, save_overwrite=self.cfg.save_overwrite,
+                checkpoint_dir,
+                dist_model,
+                optim,
+                upload_to=upload_to,
+                save_overwrite=self.cfg.save_overwrite,
             )
 
             # Save trainer state.
@@ -928,7 +937,11 @@ class TorchNewStyleShardedCheckpointer(Checkpointer):
         ), f"{self.__class__.__name__} is being called to load a model where `distributed_strategy` is not FSDP."
 
         load_fsdp_model_and_optim_state(
-            load_path, dist_model, optim, local_cache=local_cache, load_optimizer_state=load_optimizer_state,
+            load_path,
+            dist_model,
+            optim,
+            local_cache=local_cache,
+            load_optimizer_state=load_optimizer_state,
         )
 
         # Load trainer state dict.
@@ -1190,7 +1203,9 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
             out_narrow_view = out
             for dim in range(dims):
                 out_narrow_view = out_narrow_view.narrow(
-                    dim, shard_md.shard_offsets[dim], shard_md.shard_sizes[dim],
+                    dim,
+                    shard_md.shard_offsets[dim],
+                    shard_md.shard_sizes[dim],
                 )
 
             out_narrow_view.copy_(tensor)
@@ -1410,7 +1425,9 @@ class TorchLegacyShardedCheckpointer(Checkpointer):
             out_narrow_view = out
             for dim in range(dims):
                 out_narrow_view = out_narrow_view.narrow(
-                    dim, shard_md.shard_offsets[dim], shard_md.shard_sizes[dim],
+                    dim,
+                    shard_md.shard_offsets[dim],
+                    shard_md.shard_sizes[dim],
                 )
 
             out_narrow_view.copy_(tensor)

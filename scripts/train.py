@@ -289,7 +289,9 @@ def main(cfg: TrainConfig) -> None:
             # If we have to, set a new scheduler:
             if cfg.reset_optimizer_state and not cfg.reset_trainer_state:
                 trainer.scheduler = BoltOnWarmupScheduler.wrap(
-                    trainer.scheduler, trainer.global_step, int(trainer.global_step + cfg.scheduler.t_warmup),
+                    trainer.scheduler,
+                    trainer.global_step,
+                    int(trainer.global_step + cfg.scheduler.t_warmup),
                 )
 
         if cfg.force_save_unsharded and cfg.distributed_strategy != DistributedStrategy.ddp:

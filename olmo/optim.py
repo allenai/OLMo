@@ -393,8 +393,8 @@ class LionW(Optimizer):
 
         if is_distributed() and isinstance(module, FullyShardedDataParallel):
             # Reduce total dot prod and norms across all ranks.
-            update_total_norm = update_total_norm ** 2.0
-            signed_update_total_norm = signed_update_total_norm ** 2.0
+            update_total_norm = update_total_norm**2.0
+            signed_update_total_norm = signed_update_total_norm**2.0
             # Reduce all together to avoid multiple communication calls.
             all_together = torch.stack([update_total_dot_prod, update_total_norm, signed_update_total_norm])
             # Only need the final result on rank0, since that's where we log from.
@@ -404,8 +404,8 @@ class LionW(Optimizer):
                 group=process_group,
             )
             update_total_dot_prod, update_total_norm, signed_update_total_norm = all_together
-            update_total_norm = update_total_norm ** 0.5
-            signed_update_total_norm = signed_update_total_norm ** 0.5
+            update_total_norm = update_total_norm**0.5
+            signed_update_total_norm = signed_update_total_norm**0.5
 
         update_cos_sim = update_total_dot_prod / torch.max(
             update_total_norm * signed_update_total_norm,
@@ -462,10 +462,14 @@ class LionW(Optimizer):
             get_default_device() if self._device is None else self._device
         )
         self._update_total_norm = torch.linalg.vector_norm(
-            torch.stack(update_norms), 2.0, dtype=torch.float32,
+            torch.stack(update_norms),
+            2.0,
+            dtype=torch.float32,
         ).to(get_default_device() if self._device is None else self._device)
         self._signed_update_total_norm = torch.linalg.vector_norm(
-            torch.stack(signed_update_norms), 2.0, dtype=torch.float32,
+            torch.stack(signed_update_norms),
+            2.0,
+            dtype=torch.float32,
         ).to(get_default_device() if self._device is None else self._device)
 
 
@@ -758,9 +762,9 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
     sched_cfg = sched_cfg if sched_cfg is not None else cfg.scheduler
     if sched_cfg.name == SchedulerType.cosine_with_warmup:
         return CosWithWarmup(
-            grad_clip_warmup_steps=None
-            if sched_cfg.grad_clip_warmup_steps is None
-            else int(sched_cfg.grad_clip_warmup_steps),
+            grad_clip_warmup_steps=(
+                None if sched_cfg.grad_clip_warmup_steps is None else int(sched_cfg.grad_clip_warmup_steps)
+            ),
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             warmup_steps=int(sched_cfg.t_warmup),
             alpha_f=sched_cfg.alpha_f,
@@ -769,9 +773,9 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
         )
     elif sched_cfg.name == SchedulerType.linear_with_warmup:
         return LinearWithWarmup(
-            grad_clip_warmup_steps=None
-            if sched_cfg.grad_clip_warmup_steps is None
-            else int(sched_cfg.grad_clip_warmup_steps),
+            grad_clip_warmup_steps=(
+                None if sched_cfg.grad_clip_warmup_steps is None else int(sched_cfg.grad_clip_warmup_steps)
+            ),
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             warmup_steps=int(sched_cfg.t_warmup),
             alpha_f=sched_cfg.alpha_f,
@@ -780,18 +784,18 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
         )
     elif sched_cfg.name == SchedulerType.inverse_sqrt_with_warmup:
         return InvSqrtWithWarmup(
-            grad_clip_warmup_steps=None
-            if sched_cfg.grad_clip_warmup_steps is None
-            else int(sched_cfg.grad_clip_warmup_steps),
+            grad_clip_warmup_steps=(
+                None if sched_cfg.grad_clip_warmup_steps is None else int(sched_cfg.grad_clip_warmup_steps)
+            ),
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             warmup_steps=int(sched_cfg.t_warmup),
             warmup_min_lr=sched_cfg.warmup_min_lr,
         )
     elif sched_cfg.name == SchedulerType.max_scheduler:
         return MaxScheduler(
-            grad_clip_warmup_steps=None
-            if sched_cfg.grad_clip_warmup_steps is None
-            else int(sched_cfg.grad_clip_warmup_steps),
+            grad_clip_warmup_steps=(
+                None if sched_cfg.grad_clip_warmup_steps is None else int(sched_cfg.grad_clip_warmup_steps)
+            ),
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             sched1=build_scheduler(cfg, replace(sched_cfg, name=SchedulerType.cosine_with_warmup)),
             sched2=build_scheduler(cfg, replace(sched_cfg, name=SchedulerType.inverse_sqrt_with_warmup)),
@@ -799,9 +803,9 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
         )
     elif sched_cfg.name == SchedulerType.constant:
         return ConstantScheduler(
-            grad_clip_warmup_steps=None
-            if sched_cfg.grad_clip_warmup_steps is None
-            else int(sched_cfg.grad_clip_warmup_steps),
+            grad_clip_warmup_steps=(
+                None if sched_cfg.grad_clip_warmup_steps is None else int(sched_cfg.grad_clip_warmup_steps)
+            ),
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             warmup_min_lr=sched_cfg.warmup_min_lr,
         )
