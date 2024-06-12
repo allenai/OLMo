@@ -51,7 +51,8 @@ torchrun \
     --model.init_cutoff_factor=3 \
     --model.clip_qkv=null \
     --save_num_checkpoints_to_keep=3 \
+    --scheduler.warmup_min_lr=0 \
     --scheduler.grad_clip_warmup_steps=null \
-    --scheduler.t_warmup=2000 \
-    --scheduler.units=steps
+    --scheduler.units=steps \
+    --scheduler.t_warmup=2000
     #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-new/}'
