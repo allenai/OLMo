@@ -6,7 +6,7 @@ NUM_NODES=64
 
 gantry run \
   --workspace ai2/OLMo-training \
-  --task-name llamaish7-normal-qk-norm-reorder-zloss \
+  --task-name llamaish7-normal \
   --description "OLMo medium - 7B - Llamaish Normal" \
   --priority urgent \
   --preemptible \
