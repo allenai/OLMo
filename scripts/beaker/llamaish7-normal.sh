@@ -59,5 +59,5 @@ torchrun \
     --scheduler.grad_clip_warmup_steps=null \
     --scheduler.units=steps \
     --scheduler.t_warmup=2000 \
-    --data.num_workers=64 \
+    --data.num_workers=32 \
     '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal/}'
