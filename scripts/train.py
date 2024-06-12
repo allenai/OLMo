@@ -136,15 +136,13 @@ def main(cfg: TrainConfig) -> None:
 
     if cfg.distributed_strategy == DistributedStrategy.ddp:
         log.info("Wrapping model with DDP...")
-        assert (
-            cfg.model.init_device == "cuda"
-        ), "DDP does not work with init_device set to anything other than `cuda`."
 
-        if cfg.ddp.find_unused_params is True:
-            assert (
-                cfg.ddp.grad_sync_mode == DDPGradSyncMode.micro_batch
-            ), "`find_unused_params` is set to True. DDP needs to synchronize gradients for every micro-batch to avoid errors. Setting `grad_sync_mode` to `micro_batch`."
-            cfg.ddp.grad_sync_mode = DDPGradSyncMode.micro_batch
+        # raise error instead of quite correcting, this will help maintain information across config yamls
+        if cfg.model.init_device != "cuda":
+            raise OLMoConfigurationError("DDP does not work with init_device set to anything other than `cuda`.")
+
+        if cfg.ddp.find_unused_params is True and cfg.ddp.grad_sync_mode != DDPGradSyncMode.micro_batch:
+            raise OLMoConfigurationError("`find_unused_params` is set to True. DDP needs to synchronize gradients for every micro-batch to avoid errors. Set `grad_sync_mode` to `micro_batch`.")            
 
         param_init_fn = None
 
@@ -241,27 +239,19 @@ def main(cfg: TrainConfig) -> None:
             if cfg.distributed_strategy == DistributedStrategy.ddp:
                 checkpoint_type = CheckpointType.unsharded
 
-                try:
-                    assert cfg.save_interval_unsharded is not None
-                except AssertionError:
-                    log.info(
-                        "DDP requires setting `save_interval_unsharded`. Using the value set for `save_interval`."
-                    )
+                if cfg.save_interval_unsharded is None:
+                    log.warning("DDP requires setting `save_interval_unsharded`. Using the value set for `save_interval`.")
                     cfg.save_interval_unsharded = cfg.save_interval
 
-                try:
-                    assert cfg.save_num_unsharded_checkpoints_to_keep > 0
-                except AssertionError:
-                    log.info(
-                        "DDP requires setting `save_num_unsharded_checkpoints_to_keep`. Using the value set for `save_num_checkpoints_to_keep`."
-                    )
+                if cfg.save_num_unsharded_checkpoints_to_keep < 1:
+                    log.warning("DDP requires setting `save_num_unsharded_checkpoints_to_keep`. Using the value set for `save_num_checkpoints_to_keep`.")
                     cfg.save_num_unsharded_checkpoints_to_keep = cfg.save_num_checkpoints_to_keep
             elif cfg.distributed_strategy == DistributedStrategy.fsdp:
                 checkpoint_type = (
                     CheckpointType.sharded if cfg.save_num_checkpoints_to_keep != 0 else CheckpointType.unsharded
                 )
             else:
-                log.info(f"Distributed strategy {cfg.distributed_strategy} not supported yet!")
+                raise NotImplementedError(f"Distributed strategy {cfg.distributed_strategy} not supported yet!")
 
             # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever).
             log.info("Saving pre-train checkpoint...")

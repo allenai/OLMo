@@ -636,6 +636,7 @@ class FullCheckpointer(Checkpointer):
                         optim_state_dict, checkpoint_dir, upload_to, save_overwrite=self.cfg.save_overwrite
                     )
             elif isinstance(dist_model, DDP):
+                # _write_model_dict and _write_optim_dict only write checkpoints for rank 0
                 # First, get the model state dict from DDP wrapped model
                 model_state_dict = dist_model.module.state_dict()
                 self._write_model_dict(
@@ -764,7 +765,7 @@ class FullCheckpointer(Checkpointer):
             torch.cuda.empty_cache()
             barrier()
         else:
-            log.info(
+            raise NotImplementedError(
                 "`FullCheckpointer.restore_checkpoint` only supported for FSDP and DDP distributed strategies!"
             )
 

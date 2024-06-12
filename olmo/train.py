@@ -790,10 +790,6 @@ class Trainer:
             metrics["train/ZLoss"] = z_batch_loss.item()
 
         # Maybe collect post-step optimizer-specific metrics.
-        # TODO (ananya): self.dist_model with DDP will not work with ``get_post_step_metrics`` of LionW
-        # while AdamW does not implement a custom version of ``get_post_step_metrics`` function. Since we do not use
-        # LionW anymore, we can skip fixing the interaction of DDP model and ``get_post_step_metrics`` function
-        # in LionW for the time being.
         if should_log_optim_metrics_this_step:
             optim_metrics = self.optim.get_post_step_metrics(
                 self.dist_model, process_group=self.dist_model.process_group

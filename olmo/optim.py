@@ -9,6 +9,7 @@ import torch.distributed as dist
 import torch.nn as nn
 from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.optim.optimizer import Optimizer as OptimizerBase
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 from . import LayerNormBase
 from .config import OptimizerType, SchedulerConfig, SchedulerType, TrainConfig
@@ -380,6 +381,8 @@ class LionW(Optimizer):
     def get_post_step_metrics(
         self, module: nn.Module, process_group: Optional[dist.ProcessGroup] = None
     ) -> Dict[str, torch.Tensor]:
+        assert isinstance(module, FSDP), "`get_post_step_metrics` expects module to be FSDP and will not work with other `distributed_strategy`."
+
         update_total_dot_prod = self._update_total_dot_prod
         update_total_norm = self._update_total_norm
         signed_update_total_norm = self._signed_update_total_norm
