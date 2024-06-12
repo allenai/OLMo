@@ -18,7 +18,7 @@ curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" 
 popd
 export HF_DATASETS_OFFLINE=1
 
-export EXPERIMENT=llamaish1-normal-new
+export EXPERIMENT=llamaish1-normal-amber-data
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
