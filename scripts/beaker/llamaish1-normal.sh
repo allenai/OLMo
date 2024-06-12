@@ -18,7 +18,7 @@ curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" 
 popd
 export HF_DATASETS_OFFLINE=1
 
-export EXPERIMENT=llamaish1-normal-new
+export EXPERIMENT=llamaish1-normal-shard
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
@@ -35,8 +35,8 @@ torchrun \
     --wandb.group=$EXPERIMENT \
     --model.flash_attention=true \
     --fsdp.wrapping_strategy=by_block_and_size \
-    --fsdp.sharding_strategy=NO_SHARD \
-    --gen1_gc_interval=null \
+    --fsdp.sharding_strategy=SHARD_GRAD_OP \
+    --gen1_gc_interval=1 \
     --save_folder=runs/ \
     --activation_checkpointing=fine_grained \
     --fused_loss=false \
@@ -54,5 +54,5 @@ torchrun \
     --scheduler.warmup_min_lr=0 \
     --scheduler.grad_clip_warmup_steps=null \
     --scheduler.units=steps \
-    --scheduler.t_warmup=2000 \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-new/}'
+    --scheduler.t_warmup=2000
+    #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-shard/}'
