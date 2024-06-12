@@ -33,7 +33,7 @@ def build_downstream_evaluator(
     if isinstance(task_class, tuple):
         task_class, task_kwargs = task_class
     ds_eval_dataset = task_class(
-        tokenizer=tokenizer, local_datasets_dir=train_config.downstream_eval_local_datasets_dir, **task_kwargs
+        tokenizer=tokenizer, datasets_cache_dir=train_config.downstream_eval_datasets_cache_dir, **task_kwargs
     )  # type: ignore
     data_config = eval_cfg.data
     if is_unit_test:

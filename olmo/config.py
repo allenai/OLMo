@@ -1098,7 +1098,7 @@ class TrainConfig(BaseConfig):
     Whether to use the fused CE loss function from `flash-attn`.
     """
 
-    downstream_eval_local_datasets_dir: Optional[str] = None
+    downstream_eval_datasets_cache_dir: Optional[str] = None
     """
     Path to instances of downstream eval datasets saved locally using `datasets.save_to_disk`.
     """
