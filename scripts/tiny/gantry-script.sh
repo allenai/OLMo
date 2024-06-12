@@ -3,22 +3,24 @@
 set -ex
 
 NUM_NODES=4
+TASK_NAME=tiny-olmo-300M
 
 gantry run \
   --workspace ai2/OLMo-training \
-  --task-name tiny-olmo \
+  --task-name ${TASK_NAME} \
   --description "DDP test for OLMo codebase" \
   --priority high \
   --preemptible \
-  --beaker-image petew/olmo-torch2-gantry \
+  --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
-  --nfs \
-  --mount /net/nfs.cirrascale/allennlp/petew/cache:/root/.cache \
+  --no-nfs \
+  --propagate-failure \
+  --synchronized-start-timeout 30m \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
@@ -29,4 +31,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/alt_arch/torchrun-script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES}"
+  -- /bin/bash -c "scripts/alt_arch/torchrun-script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${TASK_NAME}"
