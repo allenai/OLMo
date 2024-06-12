@@ -28,7 +28,7 @@ torchrun \
   --node_rank=$BEAKER_REPLICA_RANK \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
-  configs/amberish1-s3.yaml \
+  configs/llm-360-amber1.yaml \
     --gen1_gc_interval=null \
     --save_folder=runs/ \
     --save_interval=250 \
