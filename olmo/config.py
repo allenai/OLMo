@@ -1096,12 +1096,12 @@ class TrainConfig(BaseConfig):
     Distributed strategy for OLMo model (eg. single GPU, DDP, FSDP).
     """
 
-    fsdp: FSDPConfig = field(default_factory=FSDPConfig)
+    fsdp: Optional[FSDPConfig] = field(default_factory=FSDPConfig)
     """
     Fully sharded data parallel settings.
     """
 
-    ddp: DDPConfig = field(default_factory=DDPConfig)
+    ddp: Optional[DDPConfig] = None
     """
     DDP settings.
     """

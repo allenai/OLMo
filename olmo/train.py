@@ -689,15 +689,15 @@ class Trainer:
 
         for micro_batch_idx, micro_batch in enumerate(micro_batches):
             # setup sync context for DDP for all micro-batches except the last
-            ddp_context = nullcontext
+            grad_sync_context = nullcontext
             if (
                 self.cfg.distributed_strategy == DistributedStrategy.ddp
                 and self.cfg.ddp.grad_sync_mode == DDPGradSyncMode.batch
             ):
                 if micro_batch_idx != num_micro_batches - 1:
-                    ddp_context = self.dist_model.no_sync
+                    grad_sync_context = self.dist_model.no_sync
 
-            with ddp_context():
+            with grad_sync_context():
                 with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                     # Run forward pass.
                     loss, ce_loss, z_loss = self.train_micro_batch(
