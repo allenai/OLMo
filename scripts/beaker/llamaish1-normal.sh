@@ -50,5 +50,6 @@ torchrun \
     --scheduler.warmup_min_lr=0 \
     --scheduler.grad_clip_warmup_steps=null \
     --scheduler.units=steps \
-    --scheduler.t_warmup=2000
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llm-306-amber-data-repro-db-normal-init-2}'
+    --scheduler.t_warmup=2000 \
+    --save_num_checkpoints_to_keep=3 \
+    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-amber-data-sgo-002/}'
