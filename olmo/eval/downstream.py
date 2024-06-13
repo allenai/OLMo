@@ -17,7 +17,7 @@ from ..tokenizer import Tokenizer
 log = logging.getLogger(__name__)
 
 
-def load_dataset(path, name, split, datasets_cache_dir: Optional[str] = None):
+def load_dataset(path: str, name: Optional[str], split: str, datasets_cache_dir: Optional[str] = None):
     dataset = None
 
     # First try to load dataset on only FS rank 0, to avoid unnecessary network load.
