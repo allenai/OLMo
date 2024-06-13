@@ -9,9 +9,60 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from torchmetrics import Metric
 
+from olmo.torch_util import barrier, get_fs_local_rank
+from olmo.util import load_dataset_from_disk, save_dataset_to_disk
+
 from ..tokenizer import Tokenizer
 
 log = logging.getLogger(__name__)
+
+
+def load_dataset(path, name, split, datasets_cache_dir: Optional[str] = None):
+    # Try get dataset from disk.
+    if datasets_cache_dir is not None:
+        try:
+            return load_dataset_from_disk(path, name, split, datasets_cache_dir)
+        except FileNotFoundError:
+            log.info(
+                "Path %s name %s split %s not present in local dir %s, loading from online",
+                path,
+                name,
+                split,
+                datasets_cache_dir,
+            )
+        # Barrier here to stop the case where FS rank 0 saves the dataset to disk before some non-zero
+        # ranks try getting the dataset from disk. This would cause those non-zero ranks to bypass
+        # the next barrier and cause rank 0 to be stuck at that barrier.
+        barrier()
+
+    dataset = None
+    # Download and save the dataset, only once per FS. When a local datasets dir is not set,
+    # this will hopefully cache the datasets for use in other FS ranks.
+    if get_fs_local_rank() == 0:
+        dataset = datasets.load_dataset(
+            path=path,
+            name=name,
+            split=split,
+            trust_remote_code=True,
+        )
+        assert isinstance(dataset, (datasets.DatasetDict, datasets.Dataset))
+        if datasets_cache_dir is not None:
+            save_dataset_to_disk(dataset, path, name, split, datasets_cache_dir)
+    barrier()
+
+    # Dataset is loaded in FS rank 0
+    if dataset is not None:
+        return dataset
+
+    # Load dataset on non-zero FS ranks
+    if datasets_cache_dir is not None:
+        return load_dataset_from_disk(path, name, split, datasets_cache_dir)
+    return datasets.load_dataset(
+        path=path,
+        name=name,
+        split=split,
+        trust_remote_code=True,
+    )
 
 
 class ICLMetric(Metric):
