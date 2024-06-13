@@ -48,6 +48,7 @@ torchrun \
       --optimizer.learning_rate=4.0e-4 \
       --hf_datasets_cache_dir=/net/weka/reviz/hf_datasets_cache \
       --remote_save_folder=null \
+      --eval_interval=10 \
       --save_overwrite
 
 
