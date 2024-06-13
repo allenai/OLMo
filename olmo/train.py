@@ -692,7 +692,8 @@ class Trainer:
             grad_sync_context = nullcontext
             if (
                 self.cfg.distributed_strategy == DistributedStrategy.ddp
-                and self.cfg.ddp is not None and self.cfg.ddp.grad_sync_mode == DDPGradSyncMode.batch
+                and self.cfg.ddp is not None
+                and self.cfg.ddp.grad_sync_mode == DDPGradSyncMode.batch
             ):
                 if micro_batch_idx != num_micro_batches - 1:
                     grad_sync_context = self.dist_model.no_sync
