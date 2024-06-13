@@ -24,7 +24,7 @@ printenv AWS_CONFIG > ~/.aws/config
 printenv AWS_CREDENTIALS > ~/.aws/credentials
 
 
-export EXPERIMENT=llamaish1-normal-shard
+export EXPERIMENT=llamaish1-normal-final
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
@@ -59,6 +59,6 @@ torchrun \
     --save_num_checkpoints_to_keep=3 \
     --scheduler.warmup_min_lr=0 \
     --scheduler.grad_clip_warmup_steps=null \
-    --scheduler.units=steps \
-    --scheduler.t_warmup=2000
-    #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-shard/}'
+    --scheduler.units=tokens \
+    --scheduler.t_warmup=10485760000 \
+    --load_path=s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-shard/step2000

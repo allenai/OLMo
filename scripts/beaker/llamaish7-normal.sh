@@ -23,7 +23,7 @@ mkdir -p ~/.aws
 printenv AWS_CONFIG > ~/.aws/config
 printenv AWS_CREDENTIALS > ~/.aws/credentials
 
-export EXPERIMENT=llamaish7-normal
+export EXPERIMENT=llamaish7-normal-final
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
@@ -57,7 +57,7 @@ torchrun \
     --save_num_checkpoints_to_keep=3 \
     --scheduler.warmup_min_lr=0 \
     --scheduler.grad_clip_warmup_steps=null \
-    --scheduler.units=steps \
-    --scheduler.t_warmup=2000 \
+    --scheduler.units=tokens \
+    --scheduler.t_warmup=8388608000 \
     --data.num_workers=64 \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal/}'
+    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal/step2000
