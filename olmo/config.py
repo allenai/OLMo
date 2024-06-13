@@ -1174,20 +1174,23 @@ class TrainConfig(BaseConfig):
 
     @property
     def fsdp_precision(self) -> MixedPrecision:
-        if self.fsdp.precision == FSDPPrecision.pure:
-            return MixedPrecision(
-                param_dtype=self.autocast_precision,
-                reduce_dtype=self.autocast_precision,
-                buffer_dtype=self.autocast_precision,
-            )
-        elif self.fsdp.precision == FSDPPrecision.mixed:
-            return MixedPrecision(
-                param_dtype=self.autocast_precision,
-                reduce_dtype=torch.float32,
-                buffer_dtype=self.autocast_precision,
-            )
+        if self.fsdp is not None:
+            if self.fsdp.precision == FSDPPrecision.pure:
+                return MixedPrecision(
+                    param_dtype=self.autocast_precision,
+                    reduce_dtype=self.autocast_precision,
+                    buffer_dtype=self.autocast_precision,
+                )
+            elif self.fsdp.precision == FSDPPrecision.mixed:
+                return MixedPrecision(
+                    param_dtype=self.autocast_precision,
+                    reduce_dtype=torch.float32,
+                    buffer_dtype=self.autocast_precision,
+                )
+            else:
+                raise NotImplementedError(f"{self.fsdp.precision}")
         else:
-            raise NotImplementedError(f"{self.fsdp.precision}")
+            raise ValueError("self.fsdp is None!")
 
     @classmethod
     def update_legacy_settings(cls, config: D) -> D:
