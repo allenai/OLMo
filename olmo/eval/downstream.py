@@ -208,6 +208,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         tokenizer: Tokenizer,
         dataset_path: str,
         dataset_name: Union[str, Sequence[str], None] = None,
+        datasets_cache_dir: Optional[str] = None,
         model_ctx_len: int = 2048,
         split="validation",
         prompts=[None],  # List of prompt variants to use
@@ -231,14 +232,8 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
 
         dataset_list = []
         for ds_name in dataset_names:
-            dataset_list.append(
-                datasets.load_dataset(
-                    path=self.dataset_path,
-                    name=ds_name,
-                    split=split,
-                    trust_remote_code=True,
-                )
-            )
+            dataset = load_dataset(self.dataset_path, ds_name, split, datasets_cache_dir)
+            dataset_list.append(dataset)
         self.dataset = datasets.concatenate_datasets(dataset_list)
 
         # prep examples
@@ -453,11 +448,14 @@ class PIQA(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="piqa", dataset_name="plain_text"):
+    def __init__(
+        self, tokenizer, dataset_path="piqa", dataset_name="plain_text", datasets_cache_dir: Optional[str] = None
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -491,11 +489,14 @@ class HellaSwag(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="hellaswag", dataset_name=None):
+    def __init__(
+        self, tokenizer, dataset_path="hellaswag", dataset_name=None, datasets_cache_dir: Optional[str] = None
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     @classmethod
@@ -549,12 +550,19 @@ class WinoGrande(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="winogrande", dataset_name="winogrande_xl"):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="winogrande",
+        dataset_name="winogrande_xl",
+        datasets_cache_dir: Optional[str] = None,
+    ):
         # all winogrande datasets have same val set
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def prep_examples(self):
@@ -644,11 +652,14 @@ class OpenBookQA(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="openbookqa", dataset_name="main"):
+    def __init__(
+        self, tokenizer, dataset_path="openbookqa", dataset_name="main", datasets_cache_dir: Optional[str] = None
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -679,11 +690,14 @@ class BoolQ(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="boolq", dataset_name=None):
+    def __init__(
+        self, tokenizer, dataset_path="boolq", dataset_name=None, datasets_cache_dir: Optional[str] = None
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -724,11 +738,14 @@ class SciQ(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="sciq", dataset_name=None):
+    def __init__(
+        self, tokenizer, dataset_path="sciq", dataset_name=None, datasets_cache_dir: Optional[str] = None
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -766,11 +783,14 @@ class ArcEasy(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="ai2_arc", dataset_name="ARC-Easy"):
+    def __init__(
+        self, tokenizer, dataset_path="ai2_arc", dataset_name="ARC-Easy", datasets_cache_dir: Optional[str] = None
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -801,11 +821,18 @@ class ArcChallenge(ArcEasy):
 
     metric_type = "len_norm"  # Ideally "pmi_dc"
 
-    def __init__(self, tokenizer, dataset_path="ai2_arc", dataset_name="ARC-Challenge"):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="ai2_arc",
+        dataset_name="ARC-Challenge",
+        datasets_cache_dir: Optional[str] = None,
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
 
@@ -836,11 +863,18 @@ class BasicArithmetic(ArcEasy):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="allenai/basic_arithmetic", dataset_name=None):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="allenai/basic_arithmetic",
+        dataset_name=None,
+        datasets_cache_dir: Optional[str] = None,
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
 
@@ -857,11 +891,18 @@ class CommonsenseQA(ArcEasy):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="tau/commonsense_qa", dataset_name=None):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="tau/commonsense_qa",
+        dataset_name=None,
+        datasets_cache_dir: Optional[str] = None,
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
 
@@ -877,11 +918,14 @@ class SocialIQa(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="social_i_qa", dataset_name=None):
+    def __init__(
+        self, tokenizer, dataset_path="social_i_qa", dataset_name=None, datasets_cache_dir: Optional[str] = None
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -924,11 +968,14 @@ class COPA(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="super_glue", dataset_name="copa"):
+    def __init__(
+        self, tokenizer, dataset_path="super_glue", dataset_name="copa", datasets_cache_dir: Optional[str] = None
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -966,11 +1013,14 @@ class RTE(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="glue", dataset_name="rte"):
+    def __init__(
+        self, tokenizer, dataset_path="glue", dataset_name="rte", datasets_cache_dir: Optional[str] = None
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -1005,11 +1055,14 @@ class CommitmentBank(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="super_glue", dataset_name="cb"):
+    def __init__(
+        self, tokenizer, dataset_path="super_glue", dataset_name="cb", datasets_cache_dir: Optional[str] = None
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -1042,11 +1095,14 @@ class MRPC(ICLMultiChoiceTaskDataset):
 
     metric_type = "f1"
 
-    def __init__(self, tokenizer, dataset_path="glue", dataset_name="mrpc"):
+    def __init__(
+        self, tokenizer, dataset_path="glue", dataset_name="mrpc", datasets_cache_dir: Optional[str] = None
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     @classmethod
@@ -1107,11 +1163,14 @@ class SST2(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="glue", dataset_name="sst2"):
+    def __init__(
+        self, tokenizer, dataset_path="glue", dataset_name="sst2", datasets_cache_dir: Optional[str] = None
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     @classmethod
@@ -1233,6 +1292,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
         split="validation",
         prompt_variations=None,
         mc_labels=False,
+        datasets_cache_dir: Optional[str] = None,
     ):
         dataset_names = []
         # Collect the relevant categories
@@ -1259,15 +1319,15 @@ class MMLU(ICLMultiChoiceTaskDataset):
                 raise ValueError(f"Unknown prompt variations: {prompt_variations}")
             # Need to grab the dev set for the few-shot prompts
             for name in dataset_names:
-                self.dev_set[name] = datasets.load_dataset(
-                    path=dataset_path, name=name, split="dev", trust_remote_code=True
-                )
+                dev_set = load_dataset(dataset_path, name, "dev", datasets_cache_dir)
+                self.dev_set[name] = dev_set
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_names,
             split=split,
             prompts=prompts,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -1337,11 +1397,18 @@ class TriviaQACELoss(ICLMultiChoiceTaskDataset):
 
     metric_type = "ce_loss"
 
-    def __init__(self, tokenizer, dataset_path="trivia_qa", dataset_name="rc.wikipedia.nocontext"):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="trivia_qa",
+        dataset_name="rc.wikipedia.nocontext",
+        datasets_cache_dir: Optional[str] = None,
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
@@ -1369,11 +1436,14 @@ class NaturalQuestionsCELoss(ICLMultiChoiceTaskDataset):
 
     metric_type = "ce_loss"
 
-    def __init__(self, tokenizer, dataset_path="nq_open", dataset_name=None):
+    def __init__(
+        self, tokenizer, dataset_path="nq_open", dataset_name=None, datasets_cache_dir: Optional[str] = None
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
+            datasets_cache_dir=datasets_cache_dir,
         )
 
     def doc_to_text(self, doc):
