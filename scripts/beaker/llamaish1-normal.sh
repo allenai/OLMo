@@ -60,5 +60,5 @@ torchrun \
     --scheduler.warmup_min_lr=0 \
     --scheduler.grad_clip_warmup_steps=null \
     --scheduler.units=tokens \
-    --scheduler.t_warmup=10485760000 \
+    --scheduler.t_warmup=4194304000 \
     --load_path=s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-shard/step2000
