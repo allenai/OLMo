@@ -18,7 +18,6 @@ import boto3
 import botocore.exceptions as boto_exceptions
 import datasets
 import rich
-from aiobotocore.session import AioSession
 from botocore.config import Config
 from cached_path.schemes import SchemeClient, add_scheme_client
 from rich.console import Console, ConsoleRenderable
@@ -650,34 +649,9 @@ def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: i
     return result
 
 
-@cache
-def _get_filesystem_storage_options(scheme: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    if scheme in ("s3", "r2", "weka"):
-        return {
-            "session": AioSession(profile=_get_s3_profile_name(scheme)),
-            "endpoint_url": _get_s3_endpoint_url(scheme),
-            "config_kwargs": {"retries": {"max_attempts": 10, "mode": "standard"}},
-            "use_ssl": not int(os.environ.get("OLMO_NO_SSL", "0")),
-        }
-    elif scheme == "file" or scheme is None:
-        return None
-    else:
-        raise NotImplementedError(f"file system storage options not implemented for '{scheme}' files")
-
-
 def load_dataset_from_disk(hf_path: str, name: Optional[str], split: str, datasets_dir: str):
-    storage_options = None
-    if is_url(datasets_dir):
-        from urllib.parse import urlparse
-
-        parsed = urlparse(str(datasets_dir))
-
-        storage_options = _get_filesystem_storage_options(parsed.scheme)
-        # Strip scheme to deal with cases like weka and r2 using s3 storage
-        datasets_dir = parsed.netloc + "/" + parsed.path.strip("/")
-
     dataset_path = os.path.join(datasets_dir, hf_path, name or "none", split)
-    return datasets.load_from_disk(dataset_path, storage_options=storage_options)
+    return datasets.load_from_disk(dataset_path)
 
 
 def save_dataset_to_disk(
@@ -687,18 +661,8 @@ def save_dataset_to_disk(
     split: str,
     datasets_dir: str,
 ):
-    storage_options = None
-    if is_url(datasets_dir):
-        from urllib.parse import urlparse
-
-        parsed = urlparse(str(datasets_dir))
-
-        storage_options = _get_filesystem_storage_options(parsed.scheme)
-        # Strip scheme to deal with cases like weka and r2 using s3 storage
-        datasets_dir = parsed.netloc + "/" + parsed.path.strip("/")
-
     dataset_path = os.path.join(datasets_dir, hf_path, name or "none", split)
-    return dataset.save_to_disk(dataset_path, storage_options=storage_options)
+    return dataset.save_to_disk(dataset_path)
 
 
 def default_thread_count() -> int:
