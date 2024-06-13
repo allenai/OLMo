@@ -55,6 +55,5 @@ torchrun \
   scripts/train.py \
     configs/amberish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
-      --optimizer.metrics_log_interval=1
-
-#      '--load_path=${path.last_checkpoint:${remote_save_folder}}'
+      --optimizer.metrics_log_interval=1 \
+     '--load_path=${path.last_checkpoint:${remote_save_folder}}'
