@@ -36,10 +36,10 @@ torchrun \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
     configs/lr-scheduling-s3.yaml \
-      --run_name=hf-cache-test-no-cache \
+      --run_name=hf-cache-test-cache \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
       '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/1b/lr-scheduling-high-const-lr/}' \
-      --wandb.name=treatment-no-cache \
+      --wandb.name=treatment-cache \
       --wandb.group=hf-cache-test \
       --scheduler.name=linear_with_warmup \
       --scheduler.t_warmup=442000 \
