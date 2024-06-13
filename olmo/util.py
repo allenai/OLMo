@@ -16,6 +16,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import boto3
 import botocore.exceptions as boto_exceptions
+import datasets
 import rich
 from botocore.config import Config
 from cached_path.schemes import SchemeClient, add_scheme_client
@@ -646,6 +647,22 @@ def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: i
         len(result) == num_bytes
     ), f"expected {num_bytes} bytes, got {len(result)}"  # Some web servers silently ignore range requests and send everything
     return result
+
+
+def load_dataset_from_disk(hf_path: str, name: Optional[str], split: str, datasets_dir: str):
+    dataset_path = os.path.join(datasets_dir, hf_path, name or "none", split)
+    return datasets.load_from_disk(dataset_path)
+
+
+def save_dataset_to_disk(
+    dataset: datasets.DatasetDict | datasets.Dataset,
+    hf_path: str,
+    name: Optional[str],
+    split: str,
+    datasets_dir: str,
+):
+    dataset_path = os.path.join(datasets_dir, hf_path, name or "none", split)
+    return dataset.save_to_disk(dataset_path)
 
 
 def default_thread_count() -> int:
