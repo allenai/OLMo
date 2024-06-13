@@ -24,6 +24,7 @@ model:
   block_type: sequential
   layer_norm_type: rms
   layer_norm_with_affine: false
+  layer_norm_eps: 1e-6
   bias_for_layer_norm: false
   attention_layer_norm_with_affine: false
   activation_type: swiglu
@@ -40,8 +41,6 @@ model:
   init_cutoff_factor: 3
 
 compile: null
-
-fused_loss: false
 
 optimizer:
   name: adamw
