@@ -689,6 +689,9 @@ class Trainer:
 
         for micro_batch_idx, micro_batch in enumerate(micro_batches):
             # setup sync context for DDP for all micro-batches except the last
+            if self.cfg.distributed_strategy == DistributedStrategy.ddp:
+                assert self.cfg.ddp is not None, "DistributedStrategy ddp needs cfg.ddp to be set!"
+
             grad_sync_context = nullcontext
             if (
                 self.cfg.distributed_strategy == DistributedStrategy.ddp

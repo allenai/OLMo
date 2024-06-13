@@ -154,6 +154,7 @@ def main(cfg: TrainConfig) -> None:
     elif cfg.distributed_strategy == DistributedStrategy.fsdp:
         # Wrap the model in FSDP.
         log.info("Wrapping model with FSDP...")
+        assert cfg.fsdp is not None, "DistributedStrategy fsdp needs cfg.fsdp to be set!"
         wrap_policy = olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy)
 
         if version.parse(torch.__version__) >= version.parse("2.1.0"):
