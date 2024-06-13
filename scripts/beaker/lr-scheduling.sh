@@ -13,10 +13,10 @@ shift
 
 # Warm HF cache
 mkdir -p /root/.cache
-pushd /root/.cache
-curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" | tar --keep-newer-files -xzf -
-popd
-export HF_DATASETS_OFFLINE=1
+# pushd /root/.cache
+# curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" | tar --keep-newer-files -xzf -
+# popd
+# export HF_DATASETS_OFFLINE=1
 
 # Move AWS credentials from env to relevant files
 mkdir -p ~/.aws
