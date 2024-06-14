@@ -60,7 +60,8 @@ torchrun \
       --run_name="${GANTRY_TASK_NAME}" \
       --optimizer.metrics_log_interval=1 \
       --global_train_batch_size=2304 \
-      --device_train_microbatch_size=4
+      --device_train_microbatch_size=4 \
+      '--load_path=/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}/step500'
 
 #      '--load_path=/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}/step2250'
 #      '--load_path=${path.last_checkpoint:${save_folder}}'
