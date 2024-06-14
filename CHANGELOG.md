@@ -7,10 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Added clipping fix to `Optimizer` class to make it work with FSDP `no_shard` and DDP.
+- Added tests to compare grad norm differences between torch optimizer and clipping and OLMo optimizer and clipping on both CPU and GPU.
+- Expose memmap dtype in data config 
+
 ### Changed
 
 - Added original legacy unsharding implementation back, as the default. The new
 shared memory implementation can be used by passing `use_legacy_shared_mem_impl` to `unshard.py`.
+- Refactor weight initialization. IMPORTANT: this does not maintain backwards-compatibility with older configs; the jobs will still run, but may produce different outputs.
 
 ### Fixed
 
