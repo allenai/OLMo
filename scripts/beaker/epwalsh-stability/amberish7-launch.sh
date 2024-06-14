@@ -18,6 +18,7 @@ gantry run \
   --host-networking \
   --budget ai2/oe-training \
   --no-nfs \
+  --weka oe-training-default:/weka/oe-training-default \
   --propagate-failure \
   --synchronized-start-timeout 30m \
   --no-python \
