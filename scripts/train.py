@@ -138,7 +138,6 @@ def main(cfg: TrainConfig) -> None:
         log.info("Wrapping model with DDP...")
         assert cfg.ddp is not None, "DistributedStrategy ddp needs cfg.ddp to be set!"
 
-        # raise error instead of quite correcting, this will help maintain information across configs
         if cfg.model.init_device != "cuda":
             raise OLMoConfigurationError("DDP does not work with init_device set to anything other than `cuda`.")
 
