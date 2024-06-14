@@ -71,9 +71,9 @@ save_folder: runs/${run_name}
 remote_save_folder: s3://ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}
 save_overwrite: true
 
-save_interval: 1000
-save_interval_ephemeral: 250
-save_num_checkpoints_to_keep: -1
+save_interval: 250
+save_interval_ephemeral: null
+save_num_checkpoints_to_keep: 2
 sharded_checkpointer: olmo_core
 
 save_interval_unsharded: null
