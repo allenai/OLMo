@@ -34,7 +34,7 @@ torchrun \
   --node_rank=$BEAKER_REPLICA_RANK \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
-  configs/llamaish7-normal-s3.yaml \
+  configs/llamaish7-normal-weka.yaml \
     --run_name=$EXPERIMENT \
     --wandb.name=$EXPERIMENT \
     --wandb.group=$EXPERIMENT \
@@ -50,4 +50,5 @@ torchrun \
     --save_overwrite \
     --save_num_checkpoints_to_keep=3 \
     --data.num_workers=64 \
-    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal/step2000
+    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal-final/}'
+    #--load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal/step2000
