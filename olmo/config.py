@@ -49,6 +49,9 @@ __all__ = [
     "WandbConfig",
     "CompilerConfig",
     "WandbConfig",
+    "DDPConfig",
+    "DistributedStrategy",
+    "DDPGradSyncMode",
     "FSDPPrecision",
     "FSDPWrapStrategy",
     "FSDPConfig",
@@ -648,6 +651,56 @@ class CompilerConfig(BaseConfig):
     """
 
 
+class DistributedStrategy(StrEnum):
+    ddp = "ddp"
+    """
+    Wrap OLMo in torch.nn.parallel.DistributedDataParallel to train across ranks.
+    """
+
+    fsdp = "fsdp"
+    """
+    Wrap OLMo in torch.distributed.fsdp.FullyShardedDataParallel to train across ranks.
+    """
+
+
+class DDPGradSyncMode(StrEnum):
+    batch = "batch"
+    """
+    Synchronize gradients after computation at each bucket only at the last micro-batch.
+    This is slightly faster than gradient syncs across each micro-batch but will consume more memory.
+    Can use this mode only when `find_unused_params` is set to False.
+    """
+
+    micro_batch = "micro_batch"
+    """
+    Synchronize gradients after computation at each bucket per micro-batch.
+    This will be slightly slower than gradient sync at the last micro-batch, but will consume less memory.
+    Can use this mode with both option of `find_unused_params` but specifically recommended to use with `find_unused_params`
+    set to True, to prevent errors.
+    """
+
+
+@dataclass
+class DDPConfig(BaseConfig):
+    grad_sync_mode: DDPGradSyncMode = DDPGradSyncMode.batch
+    """
+    Gradient sync mode for DDP
+
+    Note: When `find_unused_params` is set, set `grad_sync_mode` to `micro_batch` as different micro-batches might activate
+    different parts of the model, ex- MOEs.
+    """
+
+    find_unused_params: bool = False
+    """
+    (from torch documentation)
+
+    This mode allows running backward on a subgraph of the model, and DDP finds out which parameters
+    are involved in the backward pass by traversing the autograd graph from the model output and marking
+    all unused parameters as ready for reduction. Note that traversing the autograd graph introduces extra overheads,
+    so applications should only set find_unused_parameters to True when necessary.
+    """
+
+
 class FSDPWrapStrategy(StrEnum):
     by_block = "by_block"
     """
@@ -1038,9 +1091,19 @@ class TrainConfig(BaseConfig):
     Settings for compiling the model with ``torch.compile()``.
     """
 
-    fsdp: FSDPConfig = field(default_factory=FSDPConfig)
+    distributed_strategy: Optional[DistributedStrategy] = None
+    """
+    Distributed strategy for OLMo model (eg. single GPU, DDP, FSDP).
+    """
+
+    fsdp: Optional[FSDPConfig] = field(default_factory=FSDPConfig)
     """
     Fully sharded data parallel settings.
+    """
+
+    ddp: Optional[DDPConfig] = None
+    """
+    DDP settings.
     """
 
     softmax_auxiliary_loss: bool = False
@@ -1116,20 +1179,23 @@ class TrainConfig(BaseConfig):
 
     @property
     def fsdp_precision(self) -> MixedPrecision:
-        if self.fsdp.precision == FSDPPrecision.pure:
-            return MixedPrecision(
-                param_dtype=self.autocast_precision,
-                reduce_dtype=self.autocast_precision,
-                buffer_dtype=self.autocast_precision,
-            )
-        elif self.fsdp.precision == FSDPPrecision.mixed:
-            return MixedPrecision(
-                param_dtype=self.autocast_precision,
-                reduce_dtype=torch.float32,
-                buffer_dtype=self.autocast_precision,
-            )
+        if self.fsdp is not None:
+            if self.fsdp.precision == FSDPPrecision.pure:
+                return MixedPrecision(
+                    param_dtype=self.autocast_precision,
+                    reduce_dtype=self.autocast_precision,
+                    buffer_dtype=self.autocast_precision,
+                )
+            elif self.fsdp.precision == FSDPPrecision.mixed:
+                return MixedPrecision(
+                    param_dtype=self.autocast_precision,
+                    reduce_dtype=torch.float32,
+                    buffer_dtype=self.autocast_precision,
+                )
+            else:
+                raise NotImplementedError(f"{self.fsdp.precision}")
         else:
-            raise NotImplementedError(f"{self.fsdp.precision}")
+            raise ValueError("self.fsdp is None!")
 
     @classmethod
     def update_legacy_settings(cls, config: D) -> D:

@@ -9,11 +9,12 @@ import random
 import shutil
 import time
 from collections import deque
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
 from pstats import SortKey
-from typing import Any, Callable, Deque, Dict, List, Optional, TextIO, Tuple
+from typing import Any, Callable, Deque, Dict, List, Optional, TextIO, Tuple, Union
 
 import numpy as np
 import torch
@@ -22,12 +23,15 @@ import torch.nn.functional as F
 import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 
 from .aliases import PathOrStr
 from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
 from .config import (
     CheckpointType,
+    DDPGradSyncMode,
+    DistributedStrategy,
     SchedulerUnits,
     ShardedCheckpointerType,
     SpeedMonitorConfig,
@@ -119,7 +123,7 @@ def cross_entropy_loss(
 class Trainer:
     cfg: TrainConfig
     model: OLMo
-    fsdp_model: FSDP
+    dist_model: Union[DDP, FSDP]
     optim: Optimizer
     scheduler: Scheduler
     train_loader: DataLoader
@@ -423,7 +427,7 @@ class Trainer:
         try:
             checkpointer.save_checkpoint(
                 checkpoint_dir,
-                self.fsdp_model,
+                self.dist_model,
                 self.optim,
                 self.trainer_state_dict(),
                 upload_to=remote_checkpoint_dir,
@@ -447,6 +451,7 @@ class Trainer:
                     raise
 
         # Remove old checkpoints.
+        # For DDP, checkpoint_type being passed to remove_checkpoint is always `unsharded`.
         if num_checkpoints_to_keep > 0:
             while len(current_checkpoints) > num_checkpoints_to_keep:
                 self.remove_checkpoint(0, checkpoint_type)
@@ -500,7 +505,7 @@ class Trainer:
         checkpointer = build_sharded_checkpointer(self.cfg, name=sharded_checkpointer)
         trainer_state = checkpointer.restore_checkpoint(
             load_path,
-            self.fsdp_model,
+            self.dist_model,
             self.optim,
             local_cache=local_cache,
             load_optimizer_state=load_optimizer_state,
@@ -538,7 +543,7 @@ class Trainer:
         checkpointer = FullCheckpointer(self.cfg)
         trainer_state = checkpointer.restore_checkpoint(
             load_path,
-            self.fsdp_model,
+            self.dist_model,
             self.optim,
             local_cache=local_cache,
             load_optimizer_state=load_optimizer_state,
@@ -625,7 +630,7 @@ class Trainer:
         self, batch: Dict[str, Any], loss_reduction: str = "mean", compute_z_loss: bool = False
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], torch.Tensor]:
         # shape: (batch_size, seq_len, vocab_size)
-        logits = self.fsdp_model(
+        logits = self.dist_model(
             input_ids=batch["input_ids"],
             attention_mask=batch.get("attention_mask"),
             attention_bias=batch.get("attention_bias"),
@@ -647,6 +652,29 @@ class Trainer:
                 z_loss = z_loss.view(batch["input_ids"].shape[0], -1)
         return ce_loss, z_loss, logits
 
+    def train_micro_batch(
+        self, micro_batch: Dict[str, Any], batch_size_in_tokens: int, num_micro_batches: int
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        ce_loss, z_loss, logits = self.model_forward(
+            micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss, loss_reduction="sum"
+        )
+        ce_loss = ce_loss / batch_size_in_tokens
+
+        # In case this helps with memory utilization.
+        del micro_batch
+
+        # Get loss to optimize for.
+        if self.cfg.softmax_auxiliary_loss:
+            assert z_loss is not None
+            z_loss = z_loss / num_micro_batches
+            loss = ce_loss + z_loss
+        else:
+            loss = ce_loss
+
+        del logits
+
+        return loss, ce_loss, z_loss
+
     def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
@@ -657,36 +685,36 @@ class Trainer:
 
         ce_batch_loss = torch.tensor(0.0, device=self.device)
         z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
-        for micro_batch in micro_batches:
-            with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
-                # Run forward pass.
-                ce_loss, z_loss, logits = self.model_forward(
-                    micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss, loss_reduction="sum"
-                )
-                ce_loss = ce_loss / batch_size_in_tokens
+        num_micro_batches = len(micro_batches)
 
-                # In case this helps with memory utilization.
-                del micro_batch
+        for micro_batch_idx, micro_batch in enumerate(micro_batches):
+            # setup sync context for DDP for all micro-batches except the last
+            grad_sync_context = nullcontext
+            if (
+                self.cfg.distributed_strategy == DistributedStrategy.ddp
+                and self.cfg.ddp is not None
+                and self.cfg.ddp.grad_sync_mode == DDPGradSyncMode.batch
+            ):
+                if micro_batch_idx != num_micro_batches - 1:
+                    grad_sync_context = self.dist_model.no_sync
 
-                # Update overall CE batch loss.
-                ce_batch_loss += ce_loss.detach()
+            with grad_sync_context():
+                with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
+                    # Run forward pass.
+                    loss, ce_loss, z_loss = self.train_micro_batch(
+                        micro_batch, batch_size_in_tokens, num_micro_batches
+                    )
 
-                # Get loss to optimize for.
-                if self.cfg.softmax_auxiliary_loss:
-                    assert z_loss is not None
-                    assert z_batch_loss is not None
-                    z_loss = z_loss / len(micro_batches)
-                    loss = ce_loss + z_loss
+                    # Update overall CE batch loss.
+                    ce_batch_loss += ce_loss.detach()
 
                     # Update overall Z batch loss.
-                    z_batch_loss += z_loss.detach()
-                else:
-                    loss = ce_loss
+                    if z_loss is not None:
+                        assert z_batch_loss is not None
+                        z_batch_loss += z_loss.detach()
 
-                del logits
-
-            # Run backward pass.
-            loss.backward()
+                # Run backward pass.
+                loss.backward()
 
         return ce_batch_loss, z_batch_loss
 
@@ -726,7 +754,7 @@ class Trainer:
             collect_param_metrics=should_log_optim_metrics_this_step,
             # passing this process group here ensures metrics are reduced correctly when we're using
             # HYBRID sharding.
-            process_group=self.fsdp_model.process_group,
+            process_group=self.dist_model.process_group,
         )
 
         # Adjust the learning rate.
@@ -765,7 +793,7 @@ class Trainer:
         # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:
             optim_metrics = self.optim.get_post_step_metrics(
-                self.fsdp_model, process_group=self.fsdp_model.process_group
+                self.dist_model, process_group=self.dist_model.process_group
             )
             for key, value in optim_metrics.items():
                 metrics[f"optim/{key}"] = value.item()
@@ -872,7 +900,7 @@ class Trainer:
     def eval(self) -> Dict[str, Any]:
         # Zero gradients and set model to 'eval' mode.
         self.optim.zero_grad(set_to_none=True)
-        self.fsdp_model.eval()
+        self.dist_model.eval()
 
         eval_metrics = {}
         for evaluator in self.evaluators:
@@ -983,7 +1011,7 @@ class Trainer:
                 wandb.log(eval_metrics, step=self.global_step)
 
         # Set model to 'train' mode.
-        self.fsdp_model.train()
+        self.dist_model.train()
 
         # Initialize monitors.
         assert self.cfg.device_train_batch_size is not None
@@ -1113,39 +1141,41 @@ class Trainer:
                             )
 
                     # Maybe save sharded checkpoint.
-                    if save_checkpoints and (
-                        cancel_initiated
-                        or (
-                            self.global_step % self.cfg.save_interval == 0
-                            and self.cfg.save_num_checkpoints_to_keep != 0
-                        )
-                    ):
-                        log.info("Saving checkpoint...")
-                        checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
-                        log.info(f"Checkpoint saved to {checkpoint_path}")
+                    if self.cfg.distributed_strategy != DistributedStrategy.ddp:
+                        if save_checkpoints and (
+                            cancel_initiated
+                            or (
+                                self.global_step % self.cfg.save_interval == 0
+                                and self.cfg.save_num_checkpoints_to_keep != 0
+                            )
+                        ):
+                            log.info("Saving checkpoint...")
+                            checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
+                            log.info(f"Checkpoint saved to {checkpoint_path}")
 
-                        # Remove any ephemeral checkpoints.
-                        while self.ephemeral_checkpoints:
-                            self.remove_ephemeral_checkpoint()
+                            # Remove any ephemeral checkpoints.
+                            while self.ephemeral_checkpoints:
+                                self.remove_ephemeral_checkpoint()
 
-                        # Reset speed monitor so that we don't count the time taken to save checkpoints.
-                        speed_monitor.reset()
+                            # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                            speed_monitor.reset()
 
-                        # If the run was just canceled this will be the final checkpoint.
-                        if cancel_initiated:
-                            save_checkpoints = False
-                    elif (
-                        self.cfg.save_interval_ephemeral is not None
-                        and self.global_step % self.cfg.save_interval_ephemeral == 0
-                    ):
-                        log.info("Saving ephemeral checkpoint...")
-                        checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded_ephemeral)
-                        log.info(f"Checkpoint saved to {checkpoint_path}")
+                            # If the run was just canceled this will be the final checkpoint.
+                            if cancel_initiated:
+                                save_checkpoints = False
+                        elif (
+                            self.cfg.save_interval_ephemeral is not None
+                            and self.global_step % self.cfg.save_interval_ephemeral == 0
+                        ):
+                            log.info("Saving ephemeral checkpoint...")
+                            checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded_ephemeral)
+                            log.info(f"Checkpoint saved to {checkpoint_path}")
 
-                        # Reset speed monitor so that we don't count the time taken to save checkpoints.
-                        speed_monitor.reset()
+                            # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                            speed_monitor.reset()
 
                     # Maybe save unsharded checkpoint.
+                    # This code snippet should always execute when running DDP.
                     if (
                         save_checkpoints
                         and self.cfg.save_interval_unsharded is not None
@@ -1171,7 +1201,7 @@ class Trainer:
                         speed_monitor.reset()
 
                         # Reset model to 'train' mode.
-                        self.fsdp_model.train()
+                        self.dist_model.train()
 
                     # End of batch.
                     first_batch = False
