@@ -565,6 +565,8 @@ class Checkpointer(metaclass=ABCMeta):
             shutil.rmtree(checkpoint_dir_tmp, ignore_errors=True)
             checkpoint_dir_tmp.mkdir(exist_ok=True, parents=True)
 
+        wait_for(lambda: checkpoint_dir_tmp.exists(), "Waiting for checkpoint directory", timeout=10.0)
+
         barrier()
 
         # Yield temporary directory for `.save_checkpoint()` to use.
