@@ -45,6 +45,8 @@ printenv AWS_CREDENTIALS > ~/.aws/credentials
 # Force processes to synchronize at init_process_group
 export TORCH_DIST_INIT_BARRIER=1
 
+export NCCL_DEBUG=1
+
 torchrun \
   --nnodes "${NUM_NODES}:${NUM_NODES}" \
   --nproc-per-node 8 \
@@ -56,6 +58,7 @@ torchrun \
   scripts/train.py \
     configs/amberish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
+      --wandb=null \
       --optimizer.metrics_log_interval=1 \
       --global_train_batch_size=2304 \
       --device_train_microbatch_size=4 \
