@@ -45,6 +45,8 @@ printenv AWS_CREDENTIALS > ~/.aws/credentials
 # Force processes to synchronize at init_process_group
 export TORCH_DIST_INIT_BARRIER=1
 
+export OLMO_SHARED_FS=1
+
 # export NCCL_DEBUG=INFO
 
 torchrun \
