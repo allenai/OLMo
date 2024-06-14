@@ -9,59 +9,11 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from torchmetrics import Metric
 
-from olmo.torch_util import barrier, get_fs_local_rank
-from olmo.util import load_dataset_from_disk, save_dataset_to_disk
+from olmo.util import load_hf_dataset
 
 from ..tokenizer import Tokenizer
 
 log = logging.getLogger(__name__)
-
-
-def load_dataset(path: str, name: Optional[str], split: str, datasets_cache_dir: Optional[str] = None):
-    dataset = None
-
-    # First try to load dataset on only FS rank 0, to avoid unnecessary network load.
-    # This will hopefully cache the dataset for use in other FS ranks.
-    if get_fs_local_rank() == 0:
-        # Try get dataset from disk.
-        if datasets_cache_dir is not None:
-            try:
-                dataset = load_dataset_from_disk(path, name, split, datasets_cache_dir)
-            except FileNotFoundError:
-                log.info(
-                    "Path %s name %s split %s not present in local dir %s, loading from online",
-                    path,
-                    name,
-                    split,
-                    datasets_cache_dir,
-                )
-
-        # Get dataset from online if not available on disk
-        if dataset is None:
-            dataset = datasets.load_dataset(
-                path=path,
-                name=name,
-                split=split,
-                trust_remote_code=True,
-            )
-            assert isinstance(dataset, (datasets.DatasetDict, datasets.Dataset))
-            if datasets_cache_dir is not None:
-                save_dataset_to_disk(dataset, path, name, split, datasets_cache_dir)
-    barrier()
-
-    # Dataset is loaded in FS rank 0
-    if dataset is not None:
-        return dataset
-
-    # Load dataset on non-zero FS ranks
-    if datasets_cache_dir is not None:
-        return load_dataset_from_disk(path, name, split, datasets_cache_dir)
-    return datasets.load_dataset(
-        path=path,
-        name=name,
-        split=split,
-        trust_remote_code=True,
-    )
 
 
 class ICLMetric(Metric):
@@ -231,7 +183,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
 
         dataset_list = []
         for ds_name in dataset_names:
-            dataset = load_dataset(self.dataset_path, ds_name, split, datasets_cache_dir)
+            dataset = load_hf_dataset(self.dataset_path, ds_name, split, datasets_cache_dir)
             dataset_list.append(dataset)
         self.dataset = datasets.concatenate_datasets(dataset_list)
 
@@ -1318,7 +1270,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
                 raise ValueError(f"Unknown prompt variations: {prompt_variations}")
             # Need to grab the dev set for the few-shot prompts
             for name in dataset_names:
-                dev_set = load_dataset(dataset_path, name, "dev", datasets_cache_dir)
+                dev_set = load_hf_dataset(dataset_path, name, "dev", datasets_cache_dir)
                 self.dev_set[name] = dev_set
         super().__init__(
             tokenizer=tokenizer,
