@@ -1912,9 +1912,6 @@ class OlmoCoreCheckpointer(Checkpointer):
             save_model_and_optim_state,
         )
 
-        assert isinstance(
-            dist_model, FSDP
-        ), f"{self.__class__.__name__} is being called to save a model where `distributed_strategy` is not FSDP."
         with self._temporary_wd(dir) as checkpoint_dir:
             log.info("Saving model and optim state...")
             local_files_created = save_model_and_optim_state(
