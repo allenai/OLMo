@@ -57,8 +57,9 @@ torchrun \
     configs/llm-360-amber7-s3.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --optimizer.metrics_log_interval=1 \
-      --global_train_batch_size=640 \
-      --scheduler.t_warmup=2621440000
+      --global_train_batch_size=2304 \
+      --device_train_microbatch_size=4 \
+      '--load_path=${path.last_checkpoint:${remote_save_folder}}'
 
 #      '--load_path=${path.last_checkpoint:${remote_save_folder}}'
 #      --activation_checkpointing=fine_grained \
