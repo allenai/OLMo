@@ -349,6 +349,8 @@ class ModelConfig(BaseConfig):
     to ``False``.
     """
 
+    layer_norm_eps: float = 1e-05
+
     attention_layer_norm_with_affine: bool = True
     """
     Toggle affine transform for the QK norms.
