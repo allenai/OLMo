@@ -1951,9 +1951,6 @@ class OlmoCoreCheckpointer(Checkpointer):
             load_model_and_optim_state,
         )
 
-        assert isinstance(
-            dist_model, FSDP
-        ), f"{self.__class__.__name__} is being called to load a model where `distributed_strategy` is not FSDP."
         log.info("Loading model and optim state...")
         load_model_and_optim_state(load_path, dist_model, optim if load_optimizer_state else None)
 
