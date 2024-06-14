@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added clipping fix to `Optimizer` class to make it work with FSDP `no_shard` and DDP.
 - Added tests to compare grad norm differences between torch optimizer and clipping and OLMo optimizer and clipping on both CPU and GPU.
-- Expose memmap dtype in data config 
+- Expose memmap dtype in data config
+- Added caching to disk of HF datasets used in downstream evals
 
 ### Changed
 
