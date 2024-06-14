@@ -1840,9 +1840,7 @@ class OlmoCoreCheckpointer(Checkpointer):
 
         with self._temporary_wd(dir) as checkpoint_dir:
             log.info("Saving model and optim state...")
-            local_files_created = save_model_and_optim_state(
-                checkpoint_dir, fsdp_model, optim, save_overwrite=self.cfg.save_overwrite
-            )
+            local_files_created = save_model_and_optim_state(checkpoint_dir, fsdp_model, optim)
             if upload_to is not None:
                 for path in local_files_created:
                     path = Path(path)
@@ -1855,7 +1853,6 @@ class OlmoCoreCheckpointer(Checkpointer):
                 checkpoint_dir,
                 f"train/rank{get_global_rank()}.pt",
                 trainer_state,
-                save_overwrite=self.cfg.save_overwrite,
                 upload_to=upload_to,
             )
 
