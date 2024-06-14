@@ -58,10 +58,9 @@ torchrun \
   scripts/train.py \
     configs/amberish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
-      --wandb=null \
       --optimizer.metrics_log_interval=1 \
       --global_train_batch_size=2304 \
-      --device_train_microbatch_size=8 \
+      --device_train_microbatch_size=4 \
       '--load_path=/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}/step2250'
 
 #      '--load_path=/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}/step2250'
