@@ -1098,6 +1098,11 @@ class TrainConfig(BaseConfig):
     Whether to use the fused CE loss function from `flash-attn`.
     """
 
+    hf_datasets_cache_dir: Optional[str] = None
+    """
+    Path to cache directory of HF datasets saved with `datasets.save_to_disk`.
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":
