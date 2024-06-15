@@ -14,7 +14,7 @@ shift
 # Warm HF cache
 mkdir -p /root/.cache
 pushd /root/.cache
-curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" | tar --keep-newer-files -xzf -
+curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v4.tar.gz" | tar --keep-newer-files -xzf -
 popd
 export HF_DATASETS_OFFLINE=1
 
@@ -31,9 +31,9 @@ torchrun \
   configs/llm-360-amber1.yaml \
     --gen1_gc_interval=null \
     --save_folder=runs/ \
-    --save_interval=250 \
-    --eval_interval=250 \
+    --save_interval=1000 \
+    --eval_interval=1000 \
     --optimizer.metrics_log_interval=1 \
     --save_overwrite \
     --save_num_checkpoints_to_keep=3 \
-    # '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llm-306-amber-data-repro-db-normal-init-2}'
+    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/amberish1-base/}'
