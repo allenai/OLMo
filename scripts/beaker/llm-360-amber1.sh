@@ -36,4 +36,4 @@ torchrun \
     --optimizer.metrics_log_interval=1 \
     --save_overwrite \
     --save_num_checkpoints_to_keep=3 \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/amberish1-base/}'
+    '--load_path=s3://ai2-llm/checkpoints/OLMo-small/${run_name}/step69750/'
