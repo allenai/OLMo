@@ -66,8 +66,8 @@ tokenizer:
   identifier: huggyllama/llama-7b
   truncate_direction: right
 
-save_folder: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/dustins-stability/${run_name}
-# remote_save_folder:/weka/ai2-llm/checkpoints/OLMo-small/${run_name}
+save_folder:  /weka//oe-training-default/ai2-llm/checkpoints/OLMo-medium/dustins-stability/${run_name}
+# remote_save_folder: /weka//ai2-llm/checkpoints/OLMo-small/${run_name}
 save_overwrite: true
 
 save_interval: 1000
@@ -107,27 +107,27 @@ evaluators:
   #     drop_last: true
   #     datasets:
   #       c4_en-validation:
-  #         -/weka/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy
+  #         - /weka//ai2-llm/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy
   #       dolma_books-validation:
-  #         -/weka/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_books/val/part-0-00000.npy
+  #         - /weka//ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_books/val/part-0-00000.npy
   #       dolma_common-crawl-validation:
-  #         -/weka/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_common-crawl/val/part-0-00000.npy
+  #         - /weka//ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_common-crawl/val/part-0-00000.npy
   #       dolma_pes2o-validation:
-  #         -/weka/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_pes2o/val/part-0-00000.npy
+  #         - /weka//ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_pes2o/val/part-0-00000.npy
   #       dolma_reddit-validation:
-  #         -/weka/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_reddit/val/part-0-00000.npy
+  #         - /weka//ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_reddit/val/part-0-00000.npy
   #       dolma_stack-validation:
-  #         -/weka/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_stack/val/part-0-00000.npy
+  #         - /weka//ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_stack/val/part-0-00000.npy
   #       dolma_wiki-validation:
-  #         -/weka/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_wiki/val/part-0-00000.npy
+  #         - /weka//ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_wiki/val/part-0-00000.npy
   #       ice-validation:
-  #         -/weka/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/ice/val/part-0-00000.npy
+  #         - /weka//ai2-llm/eval-data/perplexity/v3_small_gptneox20b/ice/val/part-0-00000.npy
   #       m2d2_s2orc-validation:
-  #         -/weka/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/m2d2_s2orc/val/part-0-00000.npy
+  #         - /weka//ai2-llm/eval-data/perplexity/v3_small_gptneox20b/m2d2_s2orc/val/part-0-00000.npy
   #       pile-validation:
-  #       -/weka/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy
+  #       - /weka//ai2-llm/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy
   #       wikitext_103-validation:
-  #         -/weka/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy
+  #         - /weka//ai2-llm/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy
 
   ##########################
   # Downstream evaluations #
@@ -236,363 +236,363 @@ data:
   timeout: 0
   paths:
     ######### Amber #########
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_000.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_001.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_002.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_003.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_004.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_005.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_006.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_007.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_008.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_009.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_010.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_011.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_012.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_013.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_014.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_015.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_016.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_017.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_018.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_019.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_020.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_021.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_022.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_023.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_024.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_025.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_026.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_027.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_028.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_029.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_030.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_031.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_032.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_033.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_034.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_035.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_036.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_037.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_038.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_039.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_040.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_041.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_042.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_043.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_044.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_045.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_046.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_047.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_048.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_049.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_050.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_051.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_052.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_053.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_054.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_055.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_056.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_057.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_058.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_059.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_060.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_061.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_062.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_063.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_064.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_065.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_066.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_067.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_068.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_069.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_070.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_071.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_072.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_073.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_074.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_075.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_076.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_077.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_078.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_079.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_080.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_081.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_082.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_083.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_084.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_085.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_086.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_087.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_088.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_089.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_090.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_091.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_092.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_093.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_094.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_095.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_096.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_097.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_098.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_099.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_100.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_101.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_102.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_103.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_104.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_105.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_106.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_107.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_108.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_109.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_110.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_111.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_112.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_113.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_114.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_115.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_116.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_117.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_118.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_119.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_120.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_121.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_122.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_123.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_124.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_125.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_126.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_127.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_128.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_129.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_130.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_131.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_132.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_133.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_134.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_135.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_136.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_137.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_138.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_139.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_140.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_141.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_142.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_143.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_144.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_145.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_146.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_147.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_148.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_149.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_150.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_151.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_152.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_153.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_154.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_155.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_156.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_157.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_158.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_159.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_160.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_161.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_162.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_163.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_164.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_165.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_166.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_167.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_168.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_169.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_170.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_171.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_172.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_173.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_174.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_175.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_176.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_177.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_178.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_179.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_180.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_181.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_182.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_183.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_184.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_185.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_186.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_187.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_188.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_189.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_190.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_191.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_192.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_193.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_194.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_195.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_196.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_197.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_198.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_199.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_200.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_201.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_202.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_203.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_204.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_205.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_206.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_207.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_208.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_209.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_210.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_211.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_212.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_213.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_214.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_215.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_216.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_217.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_218.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_219.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_220.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_221.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_222.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_223.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_224.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_225.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_226.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_227.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_228.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_229.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_230.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_231.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_232.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_233.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_234.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_235.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_236.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_237.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_238.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_239.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_240.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_241.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_242.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_243.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_244.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_245.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_246.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_247.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_248.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_249.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_250.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_251.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_252.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_253.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_254.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_255.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_256.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_257.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_258.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_259.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_260.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_261.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_262.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_263.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_264.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_265.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_266.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_267.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_268.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_269.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_270.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_271.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_272.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_273.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_274.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_275.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_276.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_277.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_278.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_279.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_280.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_281.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_282.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_283.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_284.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_285.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_286.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_287.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_288.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_289.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_290.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_291.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_292.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_293.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_294.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_295.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_296.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_297.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_298.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_299.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_300.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_301.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_302.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_303.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_304.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_305.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_306.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_307.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_308.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_309.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_310.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_311.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_312.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_313.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_314.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_315.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_316.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_317.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_318.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_319.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_320.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_321.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_322.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_323.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_324.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_325.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_326.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_327.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_328.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_329.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_330.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_331.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_332.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_333.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_334.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_335.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_336.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_337.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_338.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_339.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_340.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_341.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_342.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_343.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_344.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_345.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_346.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_347.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_348.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_349.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_350.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_351.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_352.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_353.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_354.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_355.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_356.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_357.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_358.npy
-    -/weka/ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_359.npy
+    - /weka///ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_000.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_001.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_002.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_003.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_004.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_005.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_006.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_007.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_008.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_009.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_010.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_011.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_012.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_013.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_014.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_015.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_016.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_017.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_018.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_019.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_020.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_021.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_022.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_023.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_024.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_025.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_026.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_027.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_028.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_029.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_030.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_031.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_032.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_033.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_034.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_035.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_036.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_037.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_038.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_039.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_040.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_041.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_042.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_043.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_044.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_045.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_046.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_047.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_048.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_049.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_050.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_051.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_052.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_053.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_054.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_055.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_056.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_057.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_058.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_059.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_060.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_061.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_062.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_063.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_064.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_065.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_066.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_067.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_068.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_069.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_070.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_071.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_072.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_073.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_074.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_075.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_076.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_077.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_078.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_079.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_080.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_081.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_082.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_083.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_084.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_085.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_086.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_087.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_088.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_089.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_090.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_091.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_092.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_093.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_094.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_095.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_096.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_097.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_098.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_099.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_100.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_101.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_102.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_103.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_104.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_105.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_106.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_107.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_108.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_109.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_110.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_111.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_112.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_113.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_114.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_115.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_116.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_117.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_118.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_119.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_120.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_121.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_122.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_123.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_124.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_125.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_126.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_127.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_128.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_129.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_130.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_131.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_132.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_133.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_134.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_135.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_136.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_137.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_138.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_139.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_140.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_141.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_142.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_143.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_144.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_145.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_146.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_147.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_148.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_149.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_150.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_151.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_152.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_153.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_154.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_155.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_156.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_157.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_158.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_159.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_160.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_161.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_162.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_163.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_164.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_165.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_166.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_167.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_168.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_169.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_170.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_171.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_172.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_173.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_174.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_175.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_176.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_177.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_178.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_179.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_180.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_181.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_182.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_183.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_184.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_185.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_186.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_187.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_188.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_189.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_190.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_191.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_192.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_193.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_194.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_195.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_196.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_197.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_198.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_199.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_200.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_201.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_202.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_203.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_204.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_205.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_206.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_207.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_208.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_209.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_210.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_211.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_212.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_213.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_214.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_215.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_216.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_217.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_218.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_219.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_220.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_221.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_222.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_223.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_224.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_225.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_226.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_227.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_228.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_229.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_230.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_231.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_232.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_233.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_234.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_235.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_236.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_237.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_238.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_239.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_240.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_241.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_242.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_243.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_244.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_245.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_246.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_247.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_248.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_249.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_250.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_251.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_252.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_253.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_254.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_255.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_256.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_257.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_258.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_259.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_260.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_261.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_262.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_263.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_264.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_265.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_266.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_267.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_268.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_269.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_270.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_271.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_272.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_273.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_274.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_275.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_276.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_277.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_278.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_279.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_280.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_281.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_282.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_283.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_284.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_285.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_286.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_287.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_288.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_289.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_290.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_291.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_292.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_293.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_294.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_295.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_296.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_297.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_298.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_299.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_300.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_301.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_302.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_303.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_304.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_305.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_306.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_307.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_308.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_309.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_310.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_311.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_312.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_313.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_314.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_315.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_316.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_317.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_318.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_319.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_320.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_321.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_322.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_323.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_324.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_325.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_326.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_327.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_328.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_329.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_330.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_331.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_332.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_333.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_334.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_335.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_336.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_337.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_338.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_339.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_340.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_341.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_342.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_343.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_344.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_345.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_346.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_347.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_348.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_349.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_350.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_351.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_352.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_353.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_354.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_355.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_356.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_357.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_358.npy
+    - /weka//ai2-llm/preprocessed/llm-360-amber-datasets/olmo_npy/train_359.npy
