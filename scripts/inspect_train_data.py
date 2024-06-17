@@ -7,7 +7,7 @@ import gzip
 import os
 import tempfile
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from cached_path import cached_path
 
@@ -38,14 +38,41 @@ def get_global_train_examples_seen_before_step(step: int, trainer_state: dict, c
     return global_train_examples_seen_this_epoch
 
 
+def _revert_data_mounts(cfg: TrainConfig, mounts: List[Tuple[str, str]]):
+    if cfg.data.paths is None:
+        return
+
+    new_paths = []
+    for path in cfg.data.paths:
+        new_path = path
+
+        # "Revert" the first mount that matches
+        for source, target in mounts:
+            if path.startswith(target):
+                new_path = source + path[len(target) :]
+                break
+
+        new_paths.append(new_path)
+
+    cfg.data.paths = new_paths
+
+
 def inspect_data_without_device_data_indices(
-    run_path: str, *steps: int, world_size: int, ranks: List[int], reference_step: int
+    run_path: str,
+    *steps: int,
+    world_size: int,
+    ranks: List[int],
+    reference_step: int,
+    mounts: Optional[List[Tuple[str, str]]] = None,
 ):
     cfg = TrainConfig.load(
         cached_path(os.path.join(run_path, f"step{reference_step}/config.yaml")),
         overrides=[clean_opt("--evaluators=[]"), clean_opt("--save_overwrite")],
     )
     cfg.data.num_workers = 1
+
+    if mounts is not None:
+        _revert_data_mounts(cfg, mounts)
 
     if cfg.global_train_batch_size % world_size != 0:
         raise ValueError(f"World size must divide global_train_batch_size {cfg.global_train_batch_size}")
@@ -98,6 +125,7 @@ def main(
     rank: Optional[int] = None,
     reference_step: Optional[int] = None,
     use_data_indices: bool = True,
+    mounts: Optional[List[Tuple[str, str]]] = None,
 ):
     save_folder = Path(run_path)
     if not use_data_indices or not (save_folder / "data-indices").is_dir():
@@ -105,7 +133,12 @@ def main(
         assert reference_step is not None
         ranks = [rank] if rank is not None else list(range(world_size))
         inspect_data_without_device_data_indices(
-            run_path, *steps, world_size=world_size, ranks=ranks, reference_step=reference_step
+            run_path,
+            *steps,
+            world_size=world_size,
+            ranks=ranks,
+            reference_step=reference_step,
+            mounts=mounts,
         )
         return
 
@@ -168,6 +201,14 @@ if __name__ == "__main__":
         help="Step number of checkpoint from which training state is to be obtained. Required when data indices are not present.",
     )
     parser.add_argument("--world_size", type=int, help="World size. Required when data indices are not present.")
+    parser.add_argument(
+        "--mount",
+        default=[],
+        nargs=2,
+        action="append",
+        dest="mounts",
+        help="Directory mounts used in the original run. Example: to indicate that 'weka://' was mounted to '/weka/', pass weka:// /weka/",
+    )
 
     args = parser.parse_args()
 
@@ -178,4 +219,5 @@ if __name__ == "__main__":
         rank=args.rank if args.rank >= 0 else None,
         reference_step=args.checkpoint_num if args.checkpoint_num >= 0 else None,
         use_data_indices=args.use_data_indices,
+        mounts=args.mounts,
     )
