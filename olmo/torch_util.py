@@ -59,7 +59,10 @@ def get_fs_local_rank() -> int:
     if all ranks share the same filesystem then `get_fs_local_rank()` will be equivalent to `get_global_rank()`,
     but if nodes do not share the same filesystem then `get_fs_local_rank()` will be equivalent to `get_local_rank()`.
     """
-    return int(os.environ.get("FS_LOCAL_RANK") or get_local_rank())
+    if os.environ.get("OLMO_SHARED_FS"):
+        return int(os.environ.get("FS_LOCAL_RANK") or get_global_rank())
+    else:
+        return int(os.environ.get("FS_LOCAL_RANK") or get_local_rank())
 
 
 def move_to_device(o: T, device: torch.device) -> T:
