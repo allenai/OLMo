@@ -1920,9 +1920,6 @@ class OlmoCoreCheckpointer(Checkpointer):
 
         with self._temporary_wd(dir) as checkpoint_dir:
             log.info("Saving model and optim state...")
-<<<<<<< HEAD
-            local_files_created = save_model_and_optim_state(checkpoint_dir, dist_model, optim)
-=======
             if get_fs_local_rank() == 0:
                 (checkpoint_dir / "model").mkdir(exist_ok=True, parents=True)
                 (checkpoint_dir / "optim").mkdir(exist_ok=True, parents=True)
@@ -1938,8 +1935,7 @@ class OlmoCoreCheckpointer(Checkpointer):
                 lambda: (checkpoint_dir / "train").exists(), "Waiting for checkpoint train directory", timeout=10.0
             )
 
-            local_files_created = save_model_and_optim_state(checkpoint_dir, fsdp_model, optim)
->>>>>>> 642d04e8 (clean up)
+            local_files_created = save_model_and_optim_state(checkpoint_dir, dist_model, optim)
             if upload_to is not None:
                 for path in local_files_created:
                     path = Path(path)
