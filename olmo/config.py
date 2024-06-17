@@ -712,7 +712,7 @@ class FSDPConfig(BaseConfig):
     FSDP instance.
     """
 
-    precision: FSDPPrecision = FSDPPrecision.pure
+    precision: Optional[FSDPPrecision] = FSDPPrecision.pure
 
     hybrid_sharding_num_model_replicas: Optional[int] = None
     """
@@ -1112,8 +1112,10 @@ class TrainConfig(BaseConfig):
             raise ValueError(f"Unexpected precision type '{self.precision}'")
 
     @property
-    def fsdp_precision(self) -> MixedPrecision:
-        if self.fsdp.precision == FSDPPrecision.pure:
+    def fsdp_precision(self) -> Optional[MixedPrecision]:
+        if self.fsdp.precision is None:
+            return None
+        elif self.fsdp.precision == FSDPPrecision.pure:
             return MixedPrecision(
                 param_dtype=self.autocast_precision,
                 reduce_dtype=self.autocast_precision,
