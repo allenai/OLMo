@@ -83,9 +83,12 @@ def inspect_data_without_device_data_indices(
                     step, trainer_state, cfg
                 )
                 batch = next(iter(dataloader))
-                for i, batch_entry in enumerate(batch["input_ids"].tolist()):
+                for i, (batch_entry, instance_mask) in enumerate(
+                    zip(batch["input_ids"].tolist(), batch["instance_mask"].tolist())
+                ):
+                    masked_instance = not instance_mask
                     example = tokenizer.decode(batch_entry)
-                    print(f'[step={step}, rank={rank}, example={i}] "{example}"\n')
+                    print(f'[step={step}, rank={rank}, example={i}, masked={masked_instance}] "{example}"\n')
 
 
 def main(
