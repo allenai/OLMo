@@ -6,7 +6,7 @@ NUM_NODES=8
 
 gantry run \
   --workspace ai2/OLMo-training  \
-  --task-name amberish7-baseline \
+  --task-name amberish7-baseline2 \
   --description "Amberish 7B train ablation" \
   --priority urgent \
   --preemptible \

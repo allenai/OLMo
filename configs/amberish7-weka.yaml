@@ -24,7 +24,7 @@ model:
   include_bias: false
   block_type: sequential
   layer_norm_type: rms
-  layer_norm_with_affine: false
+  layer_norm_with_affine: true
   layer_norm_eps: 1e-6
   bias_for_layer_norm: false
   attention_layer_norm_with_affine: false
@@ -107,9 +107,99 @@ evaluators:
   ##########################
   # Downstream evaluations #
   ##########################
+  - label: piqa
+    type: downstream
 
   - label: hellaswag
     type: downstream
+
+  - label: winogrande
+    type: downstream
+
+  - label: openbook_qa
+    type: downstream
+
+  - label: boolq
+    type: downstream
+ 
+  - label: sciq
+    type: downstream
+
+  - label: arc_easy
+    type: downstream
+
+  - label: arc_challenge
+    type: downstream
+
+  - label: copa
+    type: downstream
+
+  #- label: rte
+  #  type: downstream
+
+  #- label: commitment_bank
+  #  type: downstream
+
+  #- label: sst2
+  #  type: downstream
+
+  - label: commonsense_qa
+    type: downstream
+
+  - label: social_iqa
+    type: downstream
+
+  # Doesn't work from cache.
+  # - label: basic_arithmetic
+  #   type: downstream
+
+  - label: mmlu_stem_var
+    type: downstream
+
+  - label: mmlu_humanities_var
+    type: downstream
+
+  - label: mmlu_social_sciences_var
+    type: downstream
+
+  - label: mmlu_other_var
+    type: downstream
+
+  - label: mmlu_stem_mc_5shot
+    type: downstream
+
+  - label: mmlu_humanities_mc_5shot
+    type: downstream
+
+  - label: mmlu_social_sciences_mc_5shot
+    type: downstream
+
+  - label: mmlu_other_mc_5shot
+    type: downstream
+
+  - label: mmlu_stem_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_humanities_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_social_sciences_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_other_mc_5shot_test
+    type: downstream
+
+  # - label: basic_arithmetic
+  #   type: downstream
+
+  # - label: trivia_qa_wiki_ppl
+  #   type: downstream
+
+  # - label: natural_qs_open_ppl
+  #   type: downstream
+
+  # - label: arc_easy_ppl
+  #   type: downstream
 
 data:
   pad_direction: right

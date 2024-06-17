@@ -33,9 +33,9 @@ popd
 export HF_DATASETS_OFFLINE=1
 
 # Move AWS credentials from env to relevant files
-# mkdir -p ~/.aws
-# printenv AWS_CONFIG > ~/.aws/config
-# printenv AWS_CREDENTIALS > ~/.aws/credentials
+mkdir -p ~/.aws
+printenv AWS_CONFIG > ~/.aws/config
+printenv AWS_CREDENTIALS > ~/.aws/credentials
 
 # mkdir /root/checkpoint-unsharded
 # aws s3 cp --no-progress --recursive --profile=S3 \
@@ -44,6 +44,10 @@ export HF_DATASETS_OFFLINE=1
 
 # Force processes to synchronize at init_process_group
 export TORCH_DIST_INIT_BARRIER=1
+
+export OLMO_SHARED_FS=1
+
+export NCCL_DEBUG=INFO
 
 torchrun \
   --nnodes "${NUM_NODES}:${NUM_NODES}" \
@@ -58,8 +62,7 @@ torchrun \
       --run_name="${GANTRY_TASK_NAME}" \
       --optimizer.metrics_log_interval=1 \
       --global_train_batch_size=2304 \
-      --device_train_microbatch_size=4 \
-      '--load_path=${path.last_checkpoint:${remote_save_folder}}'
+      --device_train_microbatch_size=4
 
 #      '--load_path=${path.last_checkpoint:${remote_save_folder}}'
 #      --activation_checkpointing=fine_grained \

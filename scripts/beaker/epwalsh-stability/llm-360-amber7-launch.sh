@@ -6,7 +6,7 @@ NUM_NODES=8
 
 gantry run \
   --workspace ai2/OLMo-training  \
-  --task-name llm-360-amber-baseline \
+  --task-name llm-360-amber-baseline2 \
   --description "LLM 360 Amber 7B in the OLMo codebase" \
   --priority urgent \
   --preemptible \
@@ -18,24 +18,25 @@ gantry run \
   --host-networking \
   --budget ai2/oe-training \
   --no-nfs \
+  --weka oe-training-default:/weka/oe-training-default \
   --propagate-failure \
   --synchronized-start-timeout 30m \
   --no-python \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
-  --env-secret AWS_ACCESS_KEY_ID=DUSTINS_AWS_ACCESS_KEY_ID \
-  --env-secret AWS_SECRET_ACCESS_KEY=DUSTINS_AWS_SECRET_ACCESS_KEY \
+  --env R2_PROFILE=R2 \
+  --env S3_PROFILE=S3 \
+  --env WEKA_PROFILE=WEKA \
+  --env-secret AWS_CONFIG=PETEW_AWS_CONFIG \
+  --env-secret AWS_CREDENTIALS=PETEW_AWS_CREDENTIALS \
+  --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
+  --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
   --env-secret WANDB_API_KEY=PETEW_WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
   -- /bin/bash -c "scripts/beaker/epwalsh-stability/llm-360-amber7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
 
-  # --env R2_PROFILE=R2 \
-  # --env S3_PROFILE=S3 \
-  # --env WEKA_PROFILE=WEKA \
-  # --env-secret AWS_CONFIG=PETEW_AWS_CONFIG \
-  # --env-secret AWS_CREDENTIALS=PETEW_AWS_CREDENTIALS \
-  # --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
-  # --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
+  # --env-secret AWS_ACCESS_KEY_ID=DUSTINS_AWS_ACCESS_KEY_ID \
+  # --env-secret AWS_SECRET_ACCESS_KEY=DUSTINS_AWS_SECRET_ACCESS_KEY \
