@@ -61,7 +61,7 @@ torchrun \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
     configs/llm-360-amber7-weka.yaml \
-      --run_name="${GANTRY_TASK_NAME}-seed${17519}" \
+      --run_name="${GANTRY_TASK_NAME}-seed${seed}" \
       --optimizer.metrics_log_interval=1 \
       --global_train_batch_size=2304 \
       --device_train_microbatch_size=4 \
