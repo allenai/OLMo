@@ -30,9 +30,6 @@ gantry run \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
-  --env R2_PROFILE=R2 \
-  --env S3_PROFILE=S3 \
-  --env WEKA_PROFILE=WEKA \
   --env-secret AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID \
   --env-secret AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY \
   --env-secret R2_ACCESS_KEY_ID=R2_ACCESS_KEY_ID \
