@@ -23,6 +23,8 @@ gantry run \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
+  --propagate-failure \
+  --synchronized-start-timeout "30m" \
   --host-networking \
   --nfs \
   --mount /net/nfs.cirrascale/allennlp/petew/cache:/root/.cache \
