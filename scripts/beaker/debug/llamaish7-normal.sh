@@ -51,4 +51,3 @@ torchrun \
     --save_num_checkpoints_to_keep=3 \
     --data.num_workers=64 \
     --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal-final/step96750
-    # '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal-final/}'
