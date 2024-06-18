@@ -49,8 +49,6 @@ export OLMO_SHARED_FS=1
 
 export NCCL_DEBUG=INFO
 
-seed=17519
-
 torchrun \
   --nnodes "${NUM_NODES}:${NUM_NODES}" \
   --nproc-per-node 8 \
@@ -61,13 +59,13 @@ torchrun \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
     configs/llm-360-amber7-weka.yaml \
-      --run_name="${GANTRY_TASK_NAME}-seed${seed}" \
+      --run_name="${GANTRY_TASK_NAME}" \
       --optimizer.metrics_log_interval=1 \
       --global_train_batch_size=2304 \
       --device_train_microbatch_size=4 \
       --fsdp.precision=null \
       --activation_checkpointing=whole_layer \
-      --seed="${seed}"
+      --scheduler.t_warmup=28311552000
 
 #      '--load_path=${path.last_checkpoint:${remote_save_folder}}'
 #      --activation_checkpointing=fine_grained \
