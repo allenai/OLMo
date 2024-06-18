@@ -1,11 +1,11 @@
-run_name: v1.7-step_2.6T-resume_optimizer-steps_50B
+run_name: mitchish7-anneal-from616350-50B
 seed: 61394
 dry_run: false
 
 wandb:
   name: ${run_name}
-  project: olmo-annealing
-  group: v1.7-step_2.6T-resume_optimizer-steps_50B
+  project: olmo-medium
+  group: mitchish7-anneal-from616350-50B
 
 model:
   d_model: 4096
@@ -59,7 +59,7 @@ tokenizer:
   identifier: tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
   truncate_direction: right
 
-save_folder: /data
+save_folder: runs/
 save_overwrite: false
 remote_save_folder: s3://ai2-llm/checkpoints/davidw/annealing/${run_name}
 # Sharded checkpoints (best for restarts)
