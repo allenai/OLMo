@@ -45,7 +45,7 @@ compile: null  # causes instability on AMD GPUs
 
 optimizer:
   name: adamw
-  learning_rate: 1.0e-3
+  learning_rate: 6.0e-4
   weight_decay: 0.1
   decay_norm_and_bias: true
   decay_embeddings: false
