@@ -7,9 +7,9 @@ wandb:
   project: tiny_olmo
 
 model:
-  d_model: 1024
-  n_heads: 16
-  n_layers: 24
+  d_model: 512
+  n_heads: 8
+  n_layers: 6
   mlp_ratio: 8
   weight_tying: false
   alibi: false
