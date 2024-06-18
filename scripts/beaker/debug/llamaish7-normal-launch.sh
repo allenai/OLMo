@@ -6,7 +6,7 @@ NUM_NODES=32
 
 gantry run \
   --workspace ai2/OLMo-training \
-  --task-name llamaish7-normal \
+  --task-name llamaish7-normal-spike-debug \
   --description "OLMo medium - 7B - Llamaish Normal Spike Debug" \
   --priority urgent \
   --preemptible \

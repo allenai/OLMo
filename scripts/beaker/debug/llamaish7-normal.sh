@@ -23,7 +23,7 @@ mkdir -p ~/.aws
 printenv AWS_CONFIG > ~/.aws/config
 printenv AWS_CREDENTIALS > ~/.aws/credentials
 
-export EXPERIMENT=llamaish7-normal-final-spike-rerun-1
+export EXPERIMENT=llamaish7-normal-final-spike-rerun-2
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
@@ -50,4 +50,5 @@ torchrun \
     --save_overwrite \
     --save_num_checkpoints_to_keep=3 \
     --data.num_workers=64 \
+    --fast_forward_batches=1 \
     --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal-final/step96750
