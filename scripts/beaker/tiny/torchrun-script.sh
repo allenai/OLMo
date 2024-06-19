@@ -30,5 +30,5 @@ torchrun \
       --run_name=$TASK_NAME \
       --wandb.name=$TASK_NAME \
       --wandb.group=$TASK_NAME \
-      --wandb.project=tiny_olmo \
+      --wandb.project=olmo-tiny \
       --save_overwrite
