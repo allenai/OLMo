@@ -25,6 +25,7 @@ printenv AWS_CREDENTIALS > ~/.aws/credentials
 
 export EXPERIMENT=llamaish7-normal-final
 # export NCCL_IB_HCA=^mlx5_bond
+export NCCL_DEBUG=TRACE
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
@@ -50,6 +51,6 @@ torchrun \
     --optimizer.metrics_log_interval=1 \
     --save_overwrite \
     --save_num_checkpoints_to_keep=3 \
-    --data.num_workers=32 \
+    --data.num_workers=64 \
     '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal-final/}'
     #--load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal/step2000
