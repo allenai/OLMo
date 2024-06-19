@@ -79,7 +79,7 @@ load_path: null
 max_duration: 2ep
 stop_at: 400_000
 global_train_batch_size: 1024
-device_train_microbatch_size: 16
+device_train_microbatch_size: 8
 
 precision: amp_bf16
 distributed_strategy: ddp
