@@ -2,7 +2,7 @@
 
 set -ex
 
-NUM_NODES=2
+NUM_NODES=4
 TASK_NAME=tiny-olmo-60M
 
 gantry run \
