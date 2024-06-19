@@ -9,7 +9,7 @@ wandb:
 model:
   d_model: 1024
   n_heads: 16
-  n_layers: 24
+  n_layers: 16
   mlp_ratio: 8
   weight_tying: false
   alibi: false
