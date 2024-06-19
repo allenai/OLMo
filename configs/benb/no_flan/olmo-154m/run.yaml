@@ -1,0 +1,57 @@
+budget: ai2/oe-training
+description: no_flan_olmo-154m
+tasks:
+- arguments:
+  - /bin/bash
+  - -c
+  - source scripts/beaker/warm_hf_cache.sh && torchrun --nnodes 1 --nproc-per-node
+    2 --rdzv_id=101 --rdzv_backend=c10d scripts/train.py configs/tain/no_flan/olmo-154m/config.yaml
+  command:
+  - bash
+  - /gantry/entrypoint.sh
+  constraints:
+    cluster:
+    - ai2/pluto-cirrascale
+    - ai2/general-cirrascale-a100-80g-ib
+  context:
+    preemptible: true
+    priority: normal
+  datasets:
+  - mountPath: /gantry
+    source:
+      beaker: 01HSPK3SGRT8CNQZBF9ENHRSX1
+  - mountPath: /net/nfs.cirrascale
+    source:
+      hostPath: /net/nfs.cirrascale
+  - mountPath: /root/.cache
+    source:
+      hostPath: /net/nfs.cirrascale/allennlp/petew/cache
+  envVars:
+  - name: GANTRY_VERSION
+    value: 0.22.2
+  - name: GITHUB_REPO
+    value: allenai/OLMo
+  - name: GIT_REF
+    value: 06d1792652a8f75b1a8d508018fdf843d1f0ddeb
+  - name: LOG_FILTER_TYPE
+    value: local_rank0_only
+  - name: OMP_NUM_THREADS
+    value: '8'
+  - name: OLMO_TASK
+    value: model
+  - name: WANDB_API_KEY
+    secret: WANDB_API_KEY
+  - name: PYTHON_VERSION
+    value: '3.12'
+  - name: VENV_NAME
+    value: base
+  hostNetworking: true
+  image:
+    beaker: petew/olmo-torch2-gantry
+  name: null
+  resources:
+    gpuCount: 1
+    sharedMemory: 10 GiB
+  result:
+    path: /results
+version: v2

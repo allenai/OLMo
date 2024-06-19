@@ -671,7 +671,7 @@ model:
   include_bias: false
   init_device: meta
   init_fn: mitchell
-  layer_norm_type: low_precision
+  layer_norm_type: default
   max_sequence_length: 2048
   mlp_ratio: 8
   multi_query_attention: false
@@ -691,13 +691,13 @@ optimizer:
   name: adamw
   weight_decay: 0.1
 precision: amp_bf16
-remote_save_folder: ''
+remote_save_folder: null
 reset_optimizer_state: false
 reset_trainer_state: false
 restore_dataloader: false
 run_name: no_code_olmo-411m
-save_folder: tai_save_folder
-save_interval: 500
+save_folder: /data/tain
+save_interval: 1000
 save_interval_unsharded: 5000
 save_num_checkpoints_to_keep: 9
 save_num_unsharded_checkpoints_to_keep: -1
@@ -707,6 +707,7 @@ scheduler:
   name: linear_with_warmup
   t_warmup: 2000
 seed: 61394
+sharded_checkpointer: olmo_core
 speed_monitor:
   window_size: 1
 stop_at: 11931
