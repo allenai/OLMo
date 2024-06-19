@@ -56,9 +56,7 @@ optimizer:
 
 scheduler:
   name: cosine_with_warmup
-  units: tokens
-  t_warmup: 4194304000
-  t_max: 3e12
+  t_warmup: 5000
   alpha_f: 0.1
   warmup_min_lr: 0
 
@@ -76,7 +74,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 2ep
+max_duration: 1ep
 stop_at: 406_934
 global_train_batch_size: 1024
 device_train_microbatch_size: 16
@@ -205,7 +203,7 @@ evaluators:
 
 data:
   pad_direction: right
-  num_workers: 64
+  num_workers: 32
   drop_last: true
   pin_memory: true
   prefetch_factor: 16

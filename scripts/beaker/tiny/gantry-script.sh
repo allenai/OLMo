@@ -2,7 +2,7 @@
 
 set -ex
 
-NUM_NODES=4
+NUM_NODES=2
 TASK_NAME=tiny-olmo-20M
 
 gantry run \
@@ -12,7 +12,7 @@ gantry run \
   --priority urgent \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/jupiter-cirrascale-2 \
+  --cluster ai2/pluto-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
