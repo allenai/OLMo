@@ -2,8 +2,8 @@
 
 set -ex
 
-NUM_NODES=8
-TASK_NAME=tiny-olmo-150M
+NUM_NODES=16
+TASK_NAME=tiny-olmo-300M
 
 gantry run \
   --workspace ai2/OLMo-training \
