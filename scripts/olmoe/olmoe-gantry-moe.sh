@@ -52,23 +52,29 @@ set -ex
 #CONFIG_PATH=configs/olmoe17/olmoe17-8x1b-fullshard-swiglu-wrapb-k2-init-qknorm.yml
 #ARGS='--load_path=s3://ai2-llm/checkpoints/OLMoE/olmoe17-8x1b-fullshard-swiglu-wrapb-k2-init-qknorm/step155000/ --run_name=olmoe17-8x1b-fullshard-swiglu-wrapb-k2-init-qknorm'
 
-CONFIG_PATH=configs/olmoe17/olmoe17-8x1b-fullshard-swiglu-wrapb-k2-qknorm-zloss.yml
-ARGS='--run_name=olmoe17-8x1b-fullshard-swiglu-wrapb-k2-qknorm-zloss-scratch --save_overwrite'
+#CONFIG_PATH=configs/olmoe17/olmoe17-8x1b-fullshard-swiglu-wrapb-k2-qknorm-zloss.yml
+#ARGS='--run_name=olmoe17-8x1b-fullshard-swiglu-wrapb-k2-qknorm-zloss-scratch --save_overwrite'
 
-CONFIG_PATH=configs/olmoe17/olmoe17-8x1b-fullshard-swiglu-wrapb-k2-init-zloss.yml
-ARGS='--run_name=olmoe17-8x1b-fullshard-swiglu-wrapb-k2-init-zloss-scratch --save_overwrite'
 
+#CONFIG_PATH=configs/olmoe17/olmoe17-8x1b-fullshard-swiglu-wrapb-k2-init-zloss.yml
+#ARGS='--run_name=olmoe17-8x1b-fullshard-swiglu-wrapb-k2-init-zloss-scratch --save_overwrite'
+
+#CONFIG_PATH=configs/olmoe17/olmoe17-8x1b-fullshard-swiglu-wrapb-k2-init-zloss-paths.yml
+#ARGS='--run_name=olmoe17-8x1b-fullshard-swiglu-wrapb-k2-init-zloss-scratch-paths --save_overwrite'
+
+
+CONFIG_PATH=configs/olmoe17/olmoe17-8x1b-final.yml
+ARGS='--run_name=olmoe17-8x1b-final --save_overwrite'
 
 #CONFIG_PATH=configs/olmoe17/olmoe17-8x1b-fullshard-swiglu-wrapb-k2-zloss-final.yml
 
-CONFIG_PATH=configs/olmoe17/olmoe17-8x1b-final.yml
 #ARGS='--run_name=olmoe17-8x1b-final --save_overwrite --fsdp.sharding_strategy=SHARD_GRAD_OP --fused_loss=true --activation_checkpointing=fine_grained'
-ARGS='--run_name=olmoe17-8x1b-final --save_overwrite'
+#ARGS='--run_name=olmoe17-8x1b-final --save_overwrite'
 # --fused_loss=true --activation_checkpointing=fine_grained'
 # --fused_loss=true --activation_checkpointing=fine_grained'
 # --fsdp.sharding_strategy=SHARD_GRAD_OP'
 
-NUM_NODES=16
+NUM_NODES=8
 BEAKER_REPLICA_RANK=0
 
 #ARGS='--load_path=s3://ai2-llm/checkpoints/OLMoE/8x1b-954000-unsharded/ --reset_optimizer_state=True --reset_trainer_state=True --run_name=olmoe17-8x1b-fullshard-swiglu-wrapb-s1k1'
