@@ -718,7 +718,7 @@ class Trainer:
         z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
         lb_batch_loss = None if self.model.config.block_type != BlockType.moe else torch.tensor(0.0, device=self.device)
         moe_z_batch_loss = None if not self.model.config.moe_zloss_weight else torch.tensor(0.0, device=self.device)
-
+        expert_assignments = None if ((self.model.config.block_type != BlockType.moe) or (self.model.config.moe_log_expert_assignment is False)) else torch.zeros((self.model.config.n_layers, self.model.config.moe_num_experts), device=self.device)
         num_micro_batches = len(micro_batches)
 
         for micro_batch_idx, micro_batch in enumerate(micro_batches):
@@ -759,7 +759,7 @@ class Trainer:
                             tokens_per_expert, _, _ = zip(*get_load_balancing_loss())
                         else:
                             tokens_per_expert, _ = zip(*get_load_balancing_loss())
-                        expert_assignments += torch.stack(tokens_per_expert, dim=0).cpu()
+                        expert_assignments += torch.stack(tokens_per_expert, dim=0)
                     clear_load_balancing_loss()
                     if self.model.config.moe_loss_weight > 0.0:
                         loss += lb_loss
@@ -771,7 +771,7 @@ class Trainer:
                 # Run backward pass.
                 loss.backward()
 
-        return ce_batch_loss, z_batch_loss
+        return ce_batch_loss, z_batch_loss, lb_batch_loss, moe_z_batch_loss, expert_assignments
 
     def train_step(self, batch: Dict[str, Any], reduce_global_loss: bool = True) -> Dict[str, float]:
         metrics: Dict[str, float] = {}
