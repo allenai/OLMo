@@ -6,7 +6,7 @@ NUM_NODES=8
 
 gantry run \
   --workspace ai2/OLMo-training  \
-  --task-name amberish7-baseline2 \
+  --task-name amberish7-4096 \
   --description "Amberish 7B train ablation" \
   --priority urgent \
   --preemptible \
@@ -37,4 +37,3 @@ gantry run \
   --yes \
   --timeout=-1 \
   -- /bin/bash -c "scripts/beaker/epwalsh-stability/amberish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
-
