@@ -690,34 +690,33 @@ class OLMoEBlock(OLMoBlock):
         )
 
         # MoE Block
-        if not(self.config.share_moe and self.layer_id > 0):
-            kwargs = {
-                "activation_fn": F.silu if 'glu' in config.activation_type.lower() else self.act,
-                "mlp_type": 'glu' if 'glu' in config.activation_type.lower() else 'mlp',
-                "mlp_impl": config.moe_mlp_impl,
-                "hidden_size": config.d_model,
-                "ffn_hidden_size": int(self.act.output_multiplier * self.hidden_size),
-                "moe_num_experts": config.moe_num_experts,
-                # Handled by FSDP (https://github.com/databricks/megablocks/issues/57#issuecomment-1854594483)
-                "moe_weight_parallelism": False,
-                "moe_expert_model_parallelism": False,
-                "moe_top_k": config.moe_top_k,
-                "moe_capacity_factor": config.moe_capacity_factor,
-                "moe_loss_weight": config.moe_loss_weight,
-                "device": config.init_device,
-                # Handled by FSDP
-                "bf16": False,
-                "fp16": False,
-                "bias": self.config.include_bias,
-                "return_bias": False,
-                "shared_expert": self.config.moe_shared_expert,
-                "moe_lbl_in_fp32": config.moe_lbl_in_fp32,
-            }
-            if config.moe_zloss_weight:
-                kwargs["moe_zloss_weight"] = config.moe_zloss_weight
+        kwargs = {
+            "activation_fn": F.silu if 'glu' in config.activation_type.lower() else self.act,
+            "mlp_type": 'glu' if 'glu' in config.activation_type.lower() else 'mlp',
+            "mlp_impl": config.moe_mlp_impl,
+            "hidden_size": config.d_model,
+            "ffn_hidden_size": int(self.act.output_multiplier * self.hidden_size),
+            "moe_num_experts": config.moe_num_experts,
+            # Handled by FSDP (https://github.com/databricks/megablocks/issues/57#issuecomment-1854594483)
+            "moe_weight_parallelism": False,
+            "moe_expert_model_parallelism": False,
+            "moe_top_k": config.moe_top_k,
+            "moe_capacity_factor": config.moe_capacity_factor,
+            "moe_loss_weight": config.moe_loss_weight,
+            "device": config.init_device,
+            # Handled by FSDP
+            "bf16": False,
+            "fp16": False,
+            "bias": self.config.include_bias,
+            "return_bias": False,
+            "shared_expert": self.config.moe_shared_expert,
+            "moe_lbl_in_fp32": config.moe_lbl_in_fp32,
+        }
+        if config.moe_zloss_weight:
+            kwargs["moe_zloss_weight"] = config.moe_zloss_weight
 
-            self.moe_args = MoEArgs(**kwargs)
-            self.ffn = dMoE(self.moe_args) if self.config.moe_dropless else MoE(self.moe_args)
+        self.moe_args = MoEArgs(**kwargs)
+        self.ffn = dMoE(self.moe_args) if self.config.moe_dropless else MoE(self.moe_args)
 
         # Rotary embeddings.
         if self.config.rope:
