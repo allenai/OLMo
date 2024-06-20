@@ -731,6 +731,7 @@ class Trainer:
         ce_batch_loss = torch.tensor(0.0, device=self.device)
         z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
         lb_batch_loss = None if ((self.model.config.block_type != BlockType.moe) or (self.model.config.moe_expert_choice is True) or (self.model.config.moe_expert_choice_grouped is True)) else torch.tensor(0.0, device=self.device)
+        moe_z_batch_loss = None if not self.model.config.moe_zloss_weight else torch.tensor(0.0, device=self.device)
         # Keep this one on CPU to save memory
         expert_assignments = None if ((self.model.config.block_type != BlockType.moe) or (self.model.config.moe_log_expert_assignment is False) or (self.model.config.moe_expert_choice is True) or (self.model.config.moe_expert_choice_grouped is True)) else torch.zeros((self.model.config.n_layers, self.model.config.moe_num_experts))
         for micro_batch in micro_batches:
@@ -765,7 +766,12 @@ class Trainer:
                     if self.model.config.share_load_balance_across_layers:
                         lb_loss = batched_load_balancing_loss_shared(self.moe_args) / len(micro_batches)
                     else:
-                        lb_loss = batched_load_balancing_loss(self.moe_args) / len(micro_batches)
+                        if self.model.config.moe_zloss_weight is not None:
+                            lb_loss, moe_z_loss = batched_load_balancing_loss(self.moe_args)
+                            lb_loss = lb_loss / len(micro_batches)
+                            moe_z_loss = moe_z_loss / len(micro_batches)
+                        else:
+                            lb_loss = batched_load_balancing_loss(self.moe_args) / len(micro_batches)
                     if self.model.config.moe_log_expert_assignment:
                         if self.model.config.moe_zloss_weight:
                             tokens_per_expert, _, _ = zip(*get_load_balancing_loss())
@@ -775,14 +781,17 @@ class Trainer:
                     clear_load_balancing_loss()
                     if self.model.config.moe_loss_weight > 0.0:
                         loss += lb_loss
+                    if self.model.config.moe_zloss_weight is not None:
+                        loss += moe_z_loss
                     lb_batch_loss += lb_loss.detach()
+                    moe_z_batch_loss += moe_z_loss.detach()
 
                 del logits
 
             # Run backward pass.
             loss.backward()
 
-        return ce_batch_loss, z_batch_loss, lb_batch_loss, expert_assignments
+        return ce_batch_loss, z_batch_loss, lb_batch_loss, moe_z_batch_loss, expert_assignments
 
     def train_step(self, batch: Dict[str, Any], reduce_global_loss: bool = True) -> Dict[str, float]:
         metrics: Dict[str, float] = {}
@@ -803,7 +812,7 @@ class Trainer:
         batch = move_to_device(batch, self.device)
 
         # Run forward-backward pass.
-        ce_batch_loss, z_batch_loss, lb_batch_loss, expert_assignments = self.train_batch(batch)
+        ce_batch_loss, z_batch_loss, lb_batch_loss, moe_z_batch_loss, expert_assignments = self.train_batch(batch)
 
         # Collect loss, potentially reducing over all ranks.
         if reduce_global_loss:
@@ -867,6 +876,8 @@ class Trainer:
                     for expert_idx, expert_assignment in enumerate(expert_assignments_layer):
                         metrics[f"train/TokensPercentage/layer{layer_idx}/expert{expert_idx}"] = (expert_assignment.item() / total_tokens) * 100
                         metrics[f"train/TokensTotal/layer{layer_idx}/expert{expert_idx}"] = expert_assignment.item()
+        if moe_z_batch_loss is not None:
+            metrics["train/MoEZLoss"] = moe_z_batch_loss.item()
 
         # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:
