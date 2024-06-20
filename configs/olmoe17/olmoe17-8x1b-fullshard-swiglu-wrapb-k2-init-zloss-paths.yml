@@ -229,6 +229,10 @@ data:
   prefetch_factor: 8
   persistent_workers: true
   timeout: 0
+  instance_filter:
+      repetition_max_period: 13
+      repetition_min_period: 1
+      repetition_max_count: 32
   paths:
     - s3://ai2-llm/preprocessed/olmo-mix/danyh-compiled-v1_7/algebraic-stack/allenai/gpt-neox-olmo-dolma-v1_5/part-00-00000.npy
     - s3://ai2-llm/preprocessed/olmo-mix/danyh-compiled-v1_7/algebraic-stack/allenai/gpt-neox-olmo-dolma-v1_5/part-01-00000.npy
