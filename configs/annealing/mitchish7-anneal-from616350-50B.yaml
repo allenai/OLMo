@@ -69,14 +69,22 @@ save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 sharded_checkpointer: olmo_core
 
-restore_dataloader: false
 
-# 2.6T token final checkpoint for new 7B model.
-load_path: s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step616350
+# # 2.6T token final checkpoint for new 7B model.
+# load_path: s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step616350
+# NOTE(davidw) restart from failed checkpoint
+load_path: s3://ai2-llm/checkpoints/davidw/annealing/mitchish7-anneal-from616350-50B/step1000
 
+# restore_dataloader: false
+# no_pre_train_checkpoint: true
+# reset_optimizer_state: false
+# reset_trainer_state: true
+
+restore_dataloader: true
 no_pre_train_checkpoint: true
 reset_optimizer_state: false
-reset_trainer_state: true
+reset_trainer_state: false
+
 
 max_duration: 50e9T
 stop_at: 11931                  # round(50e9 / (1024 * 4096)) + 10
