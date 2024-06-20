@@ -191,6 +191,12 @@ class BlockType(StrEnum):
     implementations of operations like attention to imitate the behavior of Llama.
     """
 
+    moe = "moe"
+    """
+    A block similar to the sequential block with slightly different
+    implementations of operations like attention to imitate the behavior of Llama.
+    """
+
 
 class InitFnType(StrEnum):
     mitchell = "mitchell"
@@ -436,6 +442,61 @@ class ModelConfig(BaseConfig):
     """
     Precision used to train/evaluate with. You shouldn't set this directly.
     See :data:`TrainConfig.precision` instead.
+    """
+
+    moe_num_experts: Optional[int] = 8
+    """
+    The number of experts to use in the MoE block.
+    """
+
+    moe_top_k: Optional[int] = 2
+    """
+    The number of top experts to use in the MoE block.
+    """
+
+    moe_mlp_impl: Optional[str] = "sparse"
+    """
+    Choose "grouped" for grouped GEMM installable via megablocks[gg]
+    """
+
+    moe_log_expert_assignment: Optional[bool] = True
+    """
+    Whether to log the expert assignment.
+    """
+
+    moe_shared_expert: Optional[bool] = False
+    """
+    Whether to have an always-used expert like in [DeepSeekMoE](https://arxiv.org/abs/2401.06066).
+    """
+
+    moe_lbl_in_fp32: Optional[bool] = False
+    """
+    Whether to perform load balancing in FP32.
+    """
+
+    moe_interleave: Optional[bool] = False
+    """
+    Interleave sequential with MoE blocks starting with sequential.
+    """
+
+    moe_loss_weight: Optional[float] = 0.1
+    """
+    The weight to use for the MoE load balancing loss.
+    """
+
+    moe_zloss_weight: Optional[float] = None
+    """
+    Weight for MoE zloss; None means no zloss. 0.001 is a common value
+    """
+
+    moe_dropless: Optional[bool] = True
+    """
+    Whether to use dMoE (https://arxiv.org/abs/2211.15841)
+    """
+
+    moe_capacity_factor: Optional[float] = 1.25
+    """
+    The capacity factor to use in the MoE block. Only applies if not using dMoE.
     """
 
     @property
