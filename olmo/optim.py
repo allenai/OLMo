@@ -15,6 +15,12 @@ from . import LayerNormBase
 from .config import OptimizerType, SchedulerConfig, SchedulerType, TrainConfig
 from .torch_util import get_default_device, is_distributed
 
+try:
+    from megablocks.layers.mlp import MLP, SparseMLP
+    megablocks_available = True
+except ImportError:
+    megablocks_available = False
+
 __all__ = [
     "Optimizer",
     "LionW",
@@ -666,6 +672,8 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
                     decay.add(fpn)
                 else:
                     no_decay.add(fpn)
+            elif megablocks_available and pn.endswith(("w1", "w2", "v1")) and (isinstance(m, MLP) or isinstance(m, SparseMLP)):
+                decay.add(fpn)                    
 
     # Validate that we've considered every parameter
     inter_params = decay & no_decay
