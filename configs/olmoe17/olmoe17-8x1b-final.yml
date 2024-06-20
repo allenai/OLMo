@@ -40,7 +40,6 @@ model:
   init_cutoff_factor: 3
   moe_top_k: 2
   moe_num_experts: 8
-  moe_expert_model_parallelism: false
   moe_dropless: true
   moe_mlp_impl: sparse
   moe_zloss_weight: 0.001
