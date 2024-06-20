@@ -6,8 +6,8 @@ NUM_NODES=8
 
 gantry run \
   --workspace ai2/cheap_decisions  \
-  --task-name cheap-decisions-test-mitchish1-001\
-  --description "OLMO 1B LLM 1T tokens on dolma 1.7" \
+  --task-name cheap-decisions-dolma-v1-6-and-sources-baseline-1B-N-1T-D-mitchish1\
+  --description "OLMO 1B LLM 1T tokens on dolma 1.6 with baseline sources" \
   --priority normal \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \

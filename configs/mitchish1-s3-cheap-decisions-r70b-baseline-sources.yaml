@@ -1,12 +1,12 @@
 # run_name: dolma-v1-6-and-sources-baseline-1B-N-1T-D-mitchish1-001
-run_name: test-dolma-v1-6-and-sources-baseline-1B-N-1T-D-mitchish1-001
+run_name: dolma-v1-6-and-sources-baseline-1B-N-1T-D-mitchish1-001
 seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: cheap_decisions
-  group: test-dolma-v1-6-and-sources-baseline-1B-N-1T-D-mitchish1
+  group: dolma-v1-6-and-sources-baseline-1B-N-1T-D-mitchish1
 
 model:
   d_model: 2048
@@ -227,7 +227,49 @@ data:
     - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/books/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-2-00000.npy
     - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/books/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-2-00001.npy
     # ~> PES2O STEM PAPERS (57.21 GT)
-
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-03-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-21-00001.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-11-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-12-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-04-00001.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-10-00001.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-09-00001.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-22-00001.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-06-00001.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-12-00001.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-17-00001.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-25-00001.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-16-00001.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-23-00001.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-14-00001.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-00-00001.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-24-00001.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-01-00001.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-11-00001.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-20-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-05-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-08-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-13-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-02-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-18-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-19-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-07-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-15-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-10-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-06-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-04-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-14-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-22-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-09-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-23-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-00-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-24-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-25-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-01-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-21-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-17-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-16-00000.npy
+    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-03-00001.npy
     # ~> WIKIPEDIA & WIKIBOOKS (3.689 GT)
     - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/wiki/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-0-00000.npy
     - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/wiki/gpt-neox-olmo-dolma-v1_5-tokenizers-0-19-1/part-0-00001.npy
