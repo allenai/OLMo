@@ -26,9 +26,10 @@ torchrun \
   --rdzv_backend=c10d \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   scripts/train.py \
-    configs/tiny/OLMo-300M.yaml \
+    configs/tiny/OLMo-20M.yaml \
       --run_name=$TASK_NAME \
       --wandb.name=$TASK_NAME \
       --wandb.group=$TASK_NAME \
       --wandb.project=olmo-tiny \
+      --max_grad_norm=2.0 \
       --save_overwrite
