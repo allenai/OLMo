@@ -13,9 +13,15 @@ def init_normal(
     # weights
     if init_cutoff_factor is not None:
         cutoff_value = init_cutoff_factor * std
-        nn.init.trunc_normal_(module.weight, mean=0.0, std=std, a=-cutoff_value, b=cutoff_value)
+        if hasattr(module, "weight"):
+            nn.init.trunc_normal_(module.weight, mean=0.0, std=std, a=-cutoff_value, b=cutoff_value)
+        else:
+            nn.init.trunc_normal_(module.weight, mean=0.0, std=std, a=-cutoff_value, b=cutoff_value)
     else:
-        nn.init.normal_(module.weight, mean=0.0, std=std)
+        if hasattr(module, "weight"):
+            nn.init.normal_(module.weight, mean=0.0, std=std)
+        else:
+            nn.init.normal_(module.weight, mean=0.0, std=std)
 
     # biases
     if isinstance(module, nn.Linear) and module.bias is not None:
