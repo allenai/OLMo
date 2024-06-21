@@ -73,7 +73,7 @@ sharded_checkpointer: olmo_core
 # # 2.6T token final checkpoint for new 7B model.
 # load_path: s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step616350
 # NOTE(davidw) restart from failed checkpoint
-load_path: s3://ai2-llm/checkpoints/davidw/annealing/mitchish7-anneal-from616350-50B/step1000
+load_path: s3://ai2-llm/checkpoints/davidw/annealing/mitchish7-anneal-from616350-50B/step2000
 
 # restore_dataloader: false
 # no_pre_train_checkpoint: true
