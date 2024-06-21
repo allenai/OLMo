@@ -807,6 +807,7 @@ class Trainer:
                 moe_z_batch_loss.div_(get_world_size())                
 
         # Clip gradient norms and collect param/gradient/optim metrics.
+        """
         should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
         optim_metrics = self.optim.clip_grads_and_collect_metrics(
             self.global_step,
@@ -815,6 +816,12 @@ class Trainer:
             # HYBRID sharding.
             process_group=self.dist_model.process_group,
         )
+        """
+        if self.cfg.fsdp.sharding_strategy == torch.distributed.fsdp.ShardingStrategy.NO_SHARD:
+            total_norm = torch.nn.utils.clip_grad_norm_(self.fsdp_model.parameters(), self.cfg.max_grad_norm)
+        else:
+            total_norm = self.fsdp_model.clip_grad_norm_(self.cfg.max_grad_norm)
+        optim_metrics = {"total_grad_norm": total_norm} # if should_log_optim_metrics_this_step else {}        
 
         # Adjust the learning rate.
         for group in self.optim.param_groups:

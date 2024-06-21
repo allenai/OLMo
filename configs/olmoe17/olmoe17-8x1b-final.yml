@@ -23,8 +23,8 @@ model:
   attention_layer_norm: true
   include_bias: false
   block_type: moe
-  layer_norm_type: rms
-  layer_norm_with_affine: true
+  layer_norm_type: default
+  layer_norm_with_affine: false
   bias_for_layer_norm: false
   attention_layer_norm_with_affine: false
   activation_type: swiglu
@@ -56,7 +56,7 @@ optimizer:
   betas:
   - 0.9
   - 0.95
-  metrics_log_interval: 10
+  metrics_log_interval: 1000
 
 scheduler:
   name: cosine_with_warmup
