@@ -799,6 +799,12 @@ class Trainer:
             if z_batch_loss is not None:
                 dist.reduce(z_batch_loss, 0)
                 z_batch_loss.div_(get_world_size())
+            if lb_batch_loss is not None:
+                dist.reduce(lb_batch_loss, 0)
+                lb_batch_loss.div_(get_world_size())
+            if moe_z_batch_loss is not None:
+                dist.reduce(moe_z_batch_loss, 0)
+                moe_z_batch_loss.div_(get_world_size())                
 
         # Clip gradient norms and collect param/gradient/optim metrics.
         should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()

@@ -673,7 +673,7 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
                 else:
                     no_decay.add(fpn)
             elif megablocks_available and pn.endswith(("w1", "w2", "v1")) and (isinstance(m, MLP) or isinstance(m, SparseMLP)):
-                decay.add(fpn)                    
+                decay.add(fpn)
 
     # Validate that we've considered every parameter
     inter_params = decay & no_decay
