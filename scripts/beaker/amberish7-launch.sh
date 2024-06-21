@@ -20,6 +20,7 @@ gantry run \
   --no-nfs \
   --weka oe-training-default:/weka/oe-training-default \
   --propagate-failure \
+  --propagate-preemption \
   --synchronized-start-timeout 30m \
   --no-python \
   --env LOG_FILTER_TYPE=local_rank0_only \
