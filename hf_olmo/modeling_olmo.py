@@ -224,7 +224,7 @@ class OLMoForCausalLM(PreTrainedModel):
         return model_embeds
 
 
-if version.parse(transformers.__version__) < version.parse("4.40.0"):
-    # Register the model so that it is available for transformer pipelines, auto-loading, etc.
-    # OLMo is integrated directly in transformers from v4.40.0 onwards
-    AutoModelForCausalLM.register(OLMoConfig, OLMoForCausalLM)
+# Register the model so that it is available for transformer pipelines, auto-loading, etc.
+# OLMo is integrated directly in transformers from v4.40.0 onwards, but the version in transformers
+# may not support the newest architectures we create.
+AutoModelForCausalLM.register(OLMoConfig, OLMoForCausalLM)
