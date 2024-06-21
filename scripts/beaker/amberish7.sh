@@ -63,6 +63,5 @@ torchrun \
     configs/amberish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --optimizer.metrics_log_interval=1 \
-      --save_overwrite
-
-#      '--load_path=${path.last_checkpoint:${save_folder}}'
+      --save_overwrite \
+      '--load_path=${path.last_checkpoint:${save_folder}}'
