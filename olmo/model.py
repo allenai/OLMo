@@ -768,12 +768,12 @@ class OLMoEBlock(OLMoBlock):
 
         init_normal(self.att_proj, std=in_std, init_cutoff_factor=cutoff_factor)
         init_normal(self.attn_out, std=attn_out_std, init_cutoff_factor=cutoff_factor)
+        self.attn_norm.reset_parameters()
+        self.ff_norm.reset_parameters()
         init_normal(self.ffn.experts.mlp.w1, std=in_std, init_cutoff_factor=cutoff_factor)
         init_normal(self.ffn.experts.mlp.w2, std=ff_out_std, init_cutoff_factor=cutoff_factor)
         if hasattr(self.ffn.experts.mlp, "v1"):
             init_normal(self.ffn.experts.mlp.v1, std=in_std, init_cutoff_factor=cutoff_factor)
-        self.attn_norm.reset_parameters()
-        self.ff_norm.reset_parameters()
         if self.ffn.experts.bias is not None:
             torch.nn.init.zeros_(self.ffn.experts.bias)
         init_normal(self.ffn.router.layer, std=in_std, init_cutoff_factor=cutoff_factor)
