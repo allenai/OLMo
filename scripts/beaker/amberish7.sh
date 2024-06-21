@@ -45,8 +45,10 @@ printenv AWS_CREDENTIALS > ~/.aws/credentials
 # Force processes to synchronize at init_process_group
 export TORCH_DIST_INIT_BARRIER=1
 
+# Tell OLMo all ranks share the same filesystem for checkpoints.
 export OLMO_SHARED_FS=1
 
+# Log info from NCCL.
 export NCCL_DEBUG=INFO
 
 torchrun \
@@ -58,14 +60,9 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    configs/llm-360-amber7-weka.yaml \
+    configs/amberish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --optimizer.metrics_log_interval=1 \
-      --global_train_batch_size=2304 \
-      --device_train_microbatch_size=4 \
-      --fsdp.precision=null \
-      --activation_checkpointing=whole_layer \
-      --scheduler.t_warmup=28311552000
+      --save_overwrite
 
-#      '--load_path=${path.last_checkpoint:${remote_save_folder}}'
-#      --activation_checkpointing=fine_grained \
+#      '--load_path=${path.last_checkpoint:${save_folder}}'

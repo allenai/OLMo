@@ -6,14 +6,11 @@ wandb:
   name: ${run_name}
   project: olmo-medium
   group: ${run_name}
-  tags:
-    - epwalsh-amberish-stability
 
 model:
   d_model: 4096
   n_heads: 32
   n_layers: 32
-  # mlp_ratio: 6
   mlp_hidden_size: 22016
   weight_tying: false
   alibi: false
@@ -31,8 +28,7 @@ model:
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
-  # max_sequence_length: 4096
-  max_sequence_length: 2048
+  max_sequence_length: 4096
   vocab_size: 50280
   embedding_size: 50304
   eos_token_id: 0
@@ -59,8 +55,8 @@ optimizer:
 scheduler:
   name: cosine_with_warmup
   units: tokens
-  t_warmup: 9175040000
-  t_max: 1.25e12
+  t_warmup: 8388608000
+  t_max: 3e12
   alpha_f: 0.1
   warmup_min_lr: 0.0
 
@@ -68,9 +64,9 @@ tokenizer:
   identifier: tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
   truncate_direction: right
 
-save_folder: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}
-# remote_save_folder: weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/epwalsh-stability/${run_name}
-save_overwrite: true
+save_folder: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/${run_name}
+# remote_save_folder: weka://oe-training-default/ai2-llm/checkpoints/OLMo-medium/${run_name}
+save_overwrite: false
 
 save_interval: 1000
 save_interval_ephemeral: 250
@@ -83,7 +79,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 load_path: null
 
 max_duration: 2ep
-global_train_batch_size: 2240
+global_train_batch_size: 1024
 device_train_microbatch_size: 2
 
 precision: amp_bf16

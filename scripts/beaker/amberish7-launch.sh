@@ -2,12 +2,12 @@
 
 set -ex
 
-NUM_NODES=8
+NUM_NODES=16
 
 gantry run \
   --workspace ai2/OLMo-training  \
-  --task-name llm-360-amber-baseline4 \
-  --description "LLM 360 Amber 7B in the OLMo codebase" \
+  --task-name amberish7 \
+  --description "Amberish 7B train" \
   --priority urgent \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
@@ -36,7 +36,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/epwalsh-stability/llm-360-amber7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
-
-  # --env-secret AWS_ACCESS_KEY_ID=DUSTINS_AWS_ACCESS_KEY_ID \
-  # --env-secret AWS_SECRET_ACCESS_KEY=DUSTINS_AWS_SECRET_ACCESS_KEY \
+  -- /bin/bash -c "scripts/beaker/amberish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
