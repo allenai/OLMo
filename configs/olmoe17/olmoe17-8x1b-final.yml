@@ -23,8 +23,8 @@ model:
   attention_layer_norm: true
   include_bias: false
   block_type: moe
-  layer_norm_type: default
-  layer_norm_with_affine: false
+  layer_norm_type: rms
+  layer_norm_with_affine: true
   bias_for_layer_norm: false
   attention_layer_norm_with_affine: false
   activation_type: swiglu
