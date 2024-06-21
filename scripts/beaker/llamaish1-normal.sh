@@ -24,7 +24,7 @@ printenv AWS_CONFIG > ~/.aws/config
 printenv AWS_CREDENTIALS > ~/.aws/credentials
 
 
-export EXPERIMENT=llamaish1-normal-final
+export EXPERIMENT=llamaish1-normal-ddp
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
@@ -39,15 +39,17 @@ torchrun \
     --run_name=$EXPERIMENT \
     --wandb.name=$EXPERIMENT \
     --wandb.group=$EXPERIMENT \
-    --fsdp.wrapping_strategy=by_block_and_size \
-    --fsdp.sharding_strategy=SHARD_GRAD_OP \
+    --ddp.grad_sync_mode=batch \
+    --ddp.find_unused_params=false \
     --save_folder=runs/ \
-    --device_train_microbatch_size=4 \
+    --device_train_microbatch_size=2 \
     --global_train_batch_size=512 \
     --save_interval=250 \
     --eval_interval=250 \
     --optimizer.metrics_log_interval=1 \
     --save_overwrite \
-    --save_num_checkpoints_to_keep=3 \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-final/}'
+    --save_num_checkpoints_to_keep=3
+    # --fsdp.wrapping_strategy=by_block_and_size \
+    # --fsdp.sharding_strategy=SHARD_GRAD_OP \
+    #'--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-final/}'
     #--load_path=s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-shard/step2000

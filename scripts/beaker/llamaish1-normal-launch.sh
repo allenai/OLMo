@@ -7,7 +7,7 @@ NUM_NODES=8
 gantry run \
   --workspace ai2/OLMo-training \
   --task-name llamaish1-normal \
-  --description "OLMo small - 1B - Llamaish Normal Weka" \
+  --description "OLMo small - 1B - Llamaish Normal DDP test" \
   --priority urgent \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
