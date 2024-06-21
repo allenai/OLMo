@@ -39,6 +39,7 @@ torchrun \
     --run_name=$EXPERIMENT \
     --wandb.name=$EXPERIMENT \
     --wandb.group=$EXPERIMENT \
+    --distributed_strategy=ddp \
     --ddp.grad_sync_mode=batch \
     --ddp.find_unused_params=false \
     --save_folder=runs/ \
