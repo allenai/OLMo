@@ -32,7 +32,9 @@ def build_downstream_evaluator(
     task_class = label_to_task_map[eval_cfg.label]
     if isinstance(task_class, tuple):
         task_class, task_kwargs = task_class
-    ds_eval_dataset = task_class(tokenizer=tokenizer, **task_kwargs)  # type: ignore
+    ds_eval_dataset = task_class(
+        tokenizer=tokenizer, datasets_cache_dir=train_config.hf_datasets_cache_dir, **task_kwargs
+    )  # type: ignore
     data_config = eval_cfg.data
     if is_unit_test:
         ds_eval_sampler = None
