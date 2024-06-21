@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from cached_path import cached_path
-import torch
 
 from olmo.checkpoint import load_state_dict
 from olmo.config import TrainConfig
@@ -115,7 +114,6 @@ def inspect_data_without_device_data_indices(
                     zip(batch["input_ids"].tolist(), batch["instance_mask"].tolist())
                 ):
                     masked_instance = not instance_mask
-                    print(sum(torch.tensor(batch_entry) == 50279))
                     example = tokenizer.decode(batch_entry)
                     print(f'[step={step}, rank={rank}, example={i}, masked={masked_instance}] "{example}"\n')
 
