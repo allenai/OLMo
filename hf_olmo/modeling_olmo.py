@@ -3,8 +3,6 @@ from dataclasses import fields
 from typing import List, Optional, Tuple, Union
 
 import torch
-import transformers
-from packaging import version
 from transformers import PreTrainedModel
 from transformers.cache_utils import Cache
 from transformers.modeling_outputs import CausalLMOutputWithPast
