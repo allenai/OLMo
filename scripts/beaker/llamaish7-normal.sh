@@ -26,6 +26,7 @@ printenv AWS_CREDENTIALS > ~/.aws/credentials
 export EXPERIMENT=llamaish7-normal-final
 # export NCCL_IB_HCA=^mlx5_bond
 export NCCL_DEBUG=TRACE
+export NCCL_IB_HCA=mlx5_0:1,mlx5_1:1,mlx5_2:1,mlx5_3:1,mlx5_4:1,mlx5_5:1,mlx5_6:1,mlx5_7:1
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
