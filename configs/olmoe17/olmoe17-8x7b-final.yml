@@ -91,7 +91,7 @@ precision: amp_bf16
 distributed_strategy: fsdp
 
 fsdp:
-  wrapping_strategy: by_block
+  wrapping_strategy: by_block_and_size
   precision: mixed
   sharding_strategy: FULL_SHARD
 
