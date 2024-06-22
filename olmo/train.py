@@ -628,13 +628,15 @@ class Trainer:
 
     def model_forward(
         self, batch: Dict[str, Any], loss_reduction: str = "mean", compute_z_loss: bool = False
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], torch.Tensor]:
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], torch.Tensor, List[torch.Tensor]]:
         # shape: (batch_size, seq_len, vocab_size)
-        logits = self.dist_model(
+        olmo_output = self.dist_model(
             input_ids=batch["input_ids"],
             attention_mask=batch.get("attention_mask"),
             attention_bias=batch.get("attention_bias"),
-        ).logits
+            output_hidden_states=True
+        )
+        logits = olmo_output.logits
         logits_for_loss = logits[..., :-1, :].contiguous()
         # shape: (batch_size * seq_len, vocab_size)
         logits_for_loss = logits_for_loss.view(-1, logits_for_loss.size(-1))
@@ -650,12 +652,12 @@ class Trainer:
             ce_loss = ce_loss.view(batch["input_ids"].shape[0], -1)
             if z_loss is not None:
                 z_loss = z_loss.view(batch["input_ids"].shape[0], -1)
-        return ce_loss, z_loss, logits
+        return ce_loss, z_loss, logits, olmo_output.hidden_states
 
     def train_micro_batch(
         self, micro_batch: Dict[str, Any], batch_size_in_tokens: int, num_micro_batches: int
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        ce_loss, z_loss, logits = self.model_forward(
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[torch.Tensor]]:
+        ce_loss, z_loss, logits, hidden_states = self.model_forward(
             micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss, loss_reduction="sum"
         )
         ce_loss = ce_loss / batch_size_in_tokens
@@ -673,9 +675,9 @@ class Trainer:
 
         del logits
 
-        return loss, ce_loss, z_loss
+        return loss, ce_loss, z_loss, hidden_states
 
-    def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
         batch_size_in_tokens = batch["input_ids"].numel()
@@ -685,6 +687,11 @@ class Trainer:
 
         ce_batch_loss = torch.tensor(0.0, device=self.device)
         z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
+        hidden_state_mins = None
+        hidden_state_maxs = None
+        hidden_state_norms = None
+        hidden_state_avgs = None
+        elements_in_hidden_state_avgs = 0
         num_micro_batches = len(micro_batches)
 
         for micro_batch_idx, micro_batch in enumerate(micro_batches):
@@ -701,7 +708,7 @@ class Trainer:
             with grad_sync_context():
                 with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                     # Run forward pass.
-                    loss, ce_loss, z_loss = self.train_micro_batch(
+                    loss, ce_loss, z_loss, hidden_states = self.train_micro_batch(
                         micro_batch, batch_size_in_tokens, num_micro_batches
                     )
 
@@ -713,10 +720,53 @@ class Trainer:
                         assert z_batch_loss is not None
                         z_batch_loss += z_loss.detach()
 
+                    # Update overall statistics on hidden states
+                    # Dimensions are (layer, batch, hidden_dim)
+                    hidden_states = torch.stack([x.detach() for x in hidden_states])
+
+                    micro_batch_hidden_state_mins, _ = hidden_states.view(hidden_states.size(0), -1).min(1)
+                    micro_batch_hidden_state_maxs, _ = hidden_states.view(hidden_states.size(0), -1).max(1)
+                    micro_batch_hidden_state_norms = torch.linalg.vector_norm(
+                        hidden_states,
+                        2.0,
+                        dim=2,
+                        dtype=torch.float32
+                    ).sum(dim=1)
+                    micro_batch_hidden_state_avgs = hidden_states.sum(dim=(1, 2), dtype=torch.float32)
+                    elements_in_hidden_state_avgs += hidden_states.size(1) * hidden_states.size(2)
+
+                    if hidden_state_mins is None:
+                        hidden_state_mins = micro_batch_hidden_state_mins
+                    else:
+                        hidden_state_mins = torch.minimum(hidden_state_mins, micro_batch_hidden_state_mins)
+
+                    if hidden_state_maxs is None:
+                        hidden_state_maxs = micro_batch_hidden_state_maxs
+                    else:
+                        hidden_state_maxs = torch.maximum(hidden_state_maxs, micro_batch_hidden_state_maxs)
+
+                    if hidden_state_norms is None:
+                        hidden_state_norms = micro_batch_hidden_state_norms
+                    else:
+                        hidden_state_norms += micro_batch_hidden_state_norms
+
+                    if hidden_state_avgs is None:
+                        hidden_state_avgs = micro_batch_hidden_state_avgs
+                    else:
+                        hidden_state_avgs += micro_batch_hidden_state_avgs
+
                 # Run backward pass.
                 loss.backward()
 
-        return ce_batch_loss, z_batch_loss
+        hidden_state_norms /= num_micro_batches
+        hidden_state_avgs /= elements_in_hidden_state_avgs
+
+        return ce_batch_loss, z_batch_loss, (
+            hidden_state_mins,
+            hidden_state_maxs,
+            hidden_state_norms,
+            hidden_state_avgs,
+        )
 
     def train_step(self, batch: Dict[str, Any], reduce_global_loss: bool = True) -> Dict[str, float]:
         metrics: Dict[str, float] = {}
@@ -737,7 +787,7 @@ class Trainer:
         batch = move_to_device(batch, self.device)
 
         # Run forward-backward pass.
-        ce_batch_loss, z_batch_loss = self.train_batch(batch)
+        ce_batch_loss, z_batch_loss, hidden_state_stats = self.train_batch(batch)
 
         # Collect loss, potentially reducing over all ranks.
         if reduce_global_loss:
@@ -746,6 +796,20 @@ class Trainer:
             if z_batch_loss is not None:
                 dist.reduce(z_batch_loss, 0)
                 z_batch_loss.div_(get_world_size())
+
+        # Reduce hidden state stats
+        hidden_state_mins, hidden_state_maxs, hidden_state_norms, hidden_state_avgs = hidden_state_stats
+        dist.reduce(hidden_state_mins, dst=0, op=dist.ReduceOp.MIN)
+        dist.reduce(hidden_state_maxs, dst=0, op=dist.ReduceOp.MAX)
+        dist.reduce(hidden_state_norms, dst=0, op=dist.ReduceOp.AVG)
+        dist.reduce(hidden_state_avgs, dst=0, op=dist.ReduceOp.AVG)
+        for i, (hs_min, hs_max, hs_norm, hs_avg) in enumerate(zip(*hidden_state_stats)):
+            metrics[f"hidden_states/{i}/min"] = hs_min.item()
+            metrics[f"hidden_states/{i}/max"] = hs_max.item()
+            metrics[f"hidden_states/{i}/norm"] = hs_norm.item()
+            metrics[f"hidden_states/{i}/avg"] = hs_avg.item()
+        # TODO: we need absolute values before min and max
+        # TODO: add l1 norm
 
         # Clip gradient norms and collect param/gradient/optim metrics.
         should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
