@@ -10,7 +10,9 @@ from torch.utils.data import Dataset
 from olmo.exceptions import OLMoEnvironmentError
 
 from ..aliases import PathOrStr
+from ..config import InstanceFilterConfig
 from ..util import _get_s3_client, file_size, get_bytes_range
+from .util import find_periodic_sequences
 
 __all__ = ["MemMapDataset"]
 
@@ -51,6 +53,7 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         generate_attention_mask: bool = False,
         pad_token_id: Optional[int] = None,
         label_mask_paths: Optional[List[PathOrStr]] = None,
+        instance_filter_config: Optional[InstanceFilterConfig] = None,
     ):
         if not paths:
             raise ValueError("At least one path is required")
@@ -77,6 +80,7 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         self._include_instance_metadata = include_instance_metadata
         self._generate_attention_mask = generate_attention_mask
         self._pad_token_id = pad_token_id
+        self.instance_filter_config = instance_filter_config
 
     @property
     def chunk_size(self) -> int:
@@ -96,6 +100,12 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         except OLMoEnvironmentError:
             # R2 might not be needed, so ignore this error. We will get an error
             # later if R2 is needed.
+            pass
+        try:
+            _get_s3_client("weka")
+        except OLMoEnvironmentError:
+            # Weka might not be needed, so ignore this error. We will get an error
+            # later if Weka is needed.
             pass
 
         if self._mmap_offsets is None:
@@ -178,6 +188,8 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         # Read the data from file.
         input_ids = self._read_chunk_from_memmap(self._memmap_paths[memmap_index], memmap_local_index)
         out: Dict[str, Any] = {"input_ids": input_ids}
+        if self.instance_filter_config is not None:
+            out["instance_mask"] = self._validate_instance(input_ids)
 
         if self._label_mask_paths is not None:
             label_mask = self._read_chunk_from_memmap(
@@ -209,3 +221,16 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
             memmap_dtype=self.dtype,
             metadata=self._metadata + other._metadata,
         )
+
+    def _validate_instance(self, input_ids: torch.Tensor) -> bool:
+        # Check for too many repeated ngrams.
+        # TODO: update `max_period` per Luca's suggestion.
+        if self.instance_filter_config is not None:
+            for m in find_periodic_sequences(
+                input_ids.numpy(),
+                max_period=self.instance_filter_config.repetition_max_period,
+                min_period=self.instance_filter_config.repetition_min_period,
+            ):
+                if m.times >= self.instance_filter_config.repetition_max_count:
+                    return False
+        return True

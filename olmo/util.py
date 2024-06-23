@@ -1,3 +1,4 @@
+import io
 import logging
 import os
 import re
@@ -11,12 +12,14 @@ from itertools import cycle, islice
 from pathlib import Path
 from queue import Queue
 from threading import Thread
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import boto3
 import botocore.exceptions as boto_exceptions
+import datasets
 import rich
 from botocore.config import Config
+from cached_path.schemes import SchemeClient, add_scheme_client
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.progress import Progress
@@ -31,7 +34,14 @@ from .exceptions import (
     OLMoNetworkError,
     OLMoThreadError,
 )
-from .torch_util import get_global_rank, get_local_rank, get_node_rank, is_distributed
+from .torch_util import (
+    barrier,
+    get_fs_local_rank,
+    get_global_rank,
+    get_local_rank,
+    get_node_rank,
+    is_distributed,
+)
 
 try:
     from functools import cache
@@ -328,8 +338,10 @@ def file_size(path: PathOrStr) -> int:
         parsed = urlparse(str(path))
         if parsed.scheme == "gs":
             return _gcs_file_size(parsed.netloc, parsed.path.strip("/"))
-        elif parsed.scheme in ("s3", "r2"):
+        elif parsed.scheme in ("s3", "r2", "weka"):
             return _s3_file_size(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
+        elif parsed.scheme in ("http", "https"):
+            return _http_file_size(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return file_size(str(path).replace("file://", "", 1))
         else:
@@ -347,7 +359,7 @@ def upload(source: PathOrStr, target: str, save_overwrite: bool = False):
     parsed = urlparse(target)
     if parsed.scheme == "gs":
         _gcs_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
-    elif parsed.scheme in ("s3", "r2"):
+    elif parsed.scheme in ("s3", "r2", "weka"):
         _s3_upload(source, parsed.scheme, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
     else:
         raise NotImplementedError(f"Upload not implemented for '{parsed.scheme}' scheme")
@@ -360,14 +372,18 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
         parsed = urlparse(str(source))
         if parsed.scheme == "gs":
             return _gcs_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
-        elif parsed.scheme in ("s3", "r2"):
+        elif parsed.scheme in ("s3", "r2", "weka"):
             return _s3_get_bytes_range(
+                parsed.scheme, parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes
+            )
+        elif parsed.scheme in ("http", "https"):
+            return _http_get_bytes_range(
                 parsed.scheme, parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes
             )
         elif parsed.scheme == "file":
             return get_bytes_range(str(source).replace("file://", "", 1), bytes_start, num_bytes)
         else:
-            raise NotImplementedError(f"file size not implemented for '{parsed.scheme}' files")
+            raise NotImplementedError(f"get bytes range not implemented for '{parsed.scheme}' files")
     else:
         with open(source, "rb") as f:
             f.seek(bytes_start)
@@ -381,7 +397,7 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
         parsed = urlparse(str(dir))
         if parsed.scheme == "gs":
             raise NotImplementedError
-        elif parsed.scheme in ("s3", "r2"):
+        elif parsed.scheme in ("s3", "r2", "weka"):
             return _s3_find_latest_checkpoint(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
             return find_latest_checkpoint(str(dir).replace("file://", "", 1))
@@ -455,6 +471,14 @@ def _get_s3_profile_name(scheme: str) -> Optional[str]:
             )
 
         return profile_name
+    if scheme == "weka":
+        profile_name = os.environ.get("WEKA_PROFILE")
+        if profile_name is None:
+            raise OLMoEnvironmentError(
+                "Weka profile name is not set. Did you forget to set the 'WEKA_PROFILE' env var?"
+            )
+
+        return profile_name
 
     raise NotImplementedError(f"Cannot get profile name for scheme {scheme}")
 
@@ -470,6 +494,14 @@ def _get_s3_endpoint_url(scheme: str) -> Optional[str]:
             )
 
         return r2_endpoint_url
+    if scheme == "weka":
+        weka_endpoint_url = os.environ.get("WEKA_ENDPOINT_URL")
+        if weka_endpoint_url is None:
+            raise OLMoEnvironmentError(
+                "Weka endpoint url is not set. Did you forget to set the 'WEKA_ENDPOINT_URL' env var?"
+            )
+
+        return weka_endpoint_url
 
     raise NotImplementedError(f"Cannot get endpoint url for scheme {scheme}")
 
@@ -511,12 +543,12 @@ def _s3_upload(
                 _wait_before_retry(attempt)
 
         if err is not None:
-            raise OLMoNetworkError("Failed to check object existence during s3 upload") from err
+            raise OLMoNetworkError(f"Failed to check object existence during {scheme} upload") from err
 
     try:
         _get_s3_client(scheme).upload_file(source, bucket_name, key)
     except boto_exceptions.ClientError as e:
-        raise OLMoNetworkError("Failed to upload to s3") from e
+        raise OLMoNetworkError(f"Failed to upload to {scheme}") from e
 
 
 def _s3_file_size(scheme: str, bucket_name: str, key: str, max_attempts: int = 3) -> int:
@@ -533,7 +565,7 @@ def _s3_file_size(scheme: str, bucket_name: str, key: str, max_attempts: int = 3
             log.warning("%s failed attempt %d with retriable error: %s", _s3_file_size.__name__, attempt, err)
             _wait_before_retry(attempt)
 
-    raise OLMoNetworkError("Failed to get s3 file size") from err
+    raise OLMoNetworkError(f"Failed to get {scheme} file size") from err
 
 
 def _s3_get_bytes_range(
@@ -551,7 +583,7 @@ def _s3_get_bytes_range(
             )
         except boto_exceptions.ClientError as e:
             if e.response["ResponseMetadata"]["HTTPStatusCode"] == 404:
-                raise FileNotFoundError(f"s3://{bucket_name}/{key}") from e
+                raise FileNotFoundError(f"{scheme}://{bucket_name}/{key}") from e
             err = e
         except (boto_exceptions.HTTPClientError, boto_exceptions.ConnectionError) as e:
             # ResponseStreamingError (subclass of HTTPClientError) can happen as
@@ -572,7 +604,7 @@ def _s3_get_bytes_range(
     # This can cause an irrelevant exception (e.g. KeyError: 'error'), resulting
     # in us losing the true exception info. To avoid this, we change the exception
     # to a type that has a single-parameter constructor.
-    raise OLMoNetworkError("Failed to get bytes range from s3") from err
+    raise OLMoNetworkError(f"Failed to get bytes range from {scheme}") from err
 
 
 def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Optional[str]:
@@ -600,8 +632,91 @@ def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Op
         # We prioritize sharded checkpoints over unsharded ones.
         if step > latest_step or (step == latest_step and not checkpoint_name.endswith("-unsharded")):
             latest_step = step
-            latest_checkpoint = f"s3://ai2-llm/{prefix}"
+            latest_checkpoint = f"{scheme}://{bucket_name}/{prefix}"
     return latest_checkpoint
+
+
+def _http_file_size(scheme: str, host_name: str, path: str) -> int:
+    import requests
+
+    response = requests.head(f"{scheme}://{host_name}/{path}", allow_redirects=True)
+    return int(response.headers.get("content-length"))
+
+
+def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: int, num_bytes: int) -> bytes:
+    import requests
+
+    response = requests.get(
+        f"{scheme}://{host_name}/{path}", headers={"Range": f"bytes={bytes_start}-{bytes_start+num_bytes-1}"}
+    )
+    result = response.content
+    assert (
+        len(result) == num_bytes
+    ), f"expected {num_bytes} bytes, got {len(result)}"  # Some web servers silently ignore range requests and send everything
+    return result
+
+
+def _load_hf_dataset_from_disk(hf_path: str, name: Optional[str], split: str, datasets_dir: str):
+    dataset_path = os.path.join(datasets_dir, hf_path, name or "none", split)
+    return datasets.load_from_disk(dataset_path)
+
+
+def _save_hf_dataset_to_disk(
+    dataset: datasets.DatasetDict | datasets.Dataset,
+    hf_path: str,
+    name: Optional[str],
+    split: str,
+    datasets_dir: str,
+):
+    dataset_path = os.path.join(datasets_dir, hf_path, name or "none", split)
+    return dataset.save_to_disk(dataset_path)
+
+
+def load_hf_dataset(path: str, name: Optional[str], split: str, datasets_cache_dir: Optional[str] = None):
+    dataset = None
+
+    # First try to load dataset on only FS rank 0, to avoid unnecessary network load.
+    # This will hopefully cache the dataset for use in other FS ranks.
+    if get_fs_local_rank() == 0:
+        # Try get dataset from disk.
+        if datasets_cache_dir is not None:
+            try:
+                dataset = _load_hf_dataset_from_disk(path, name, split, datasets_cache_dir)
+            except FileNotFoundError:
+                log.info(
+                    "Path %s name %s split %s not present in local dir %s, loading from online",
+                    path,
+                    name,
+                    split,
+                    datasets_cache_dir,
+                )
+
+        # Get dataset from online if not available on disk
+        if dataset is None:
+            dataset = datasets.load_dataset(
+                path=path,
+                name=name,
+                split=split,
+                trust_remote_code=True,
+            )
+            assert isinstance(dataset, (datasets.DatasetDict, datasets.Dataset))
+            if datasets_cache_dir is not None:
+                _save_hf_dataset_to_disk(dataset, path, name, split, datasets_cache_dir)
+    barrier()
+
+    # Dataset is loaded in FS rank 0
+    if dataset is not None:
+        return dataset
+
+    # Load dataset on non-zero FS ranks
+    if datasets_cache_dir is not None:
+        return _load_hf_dataset_from_disk(path, name, split, datasets_cache_dir)
+    return datasets.load_dataset(
+        path=path,
+        name=name,
+        split=split,
+        trust_remote_code=True,
+    )
 
 
 def default_thread_count() -> int:
@@ -653,3 +768,65 @@ def roundrobin(*iterables):
             # Remove the iterator we just exhausted from the cycle.
             num_active -= 1
             nexts = cycle(islice(nexts, num_active))
+
+
+def add_cached_path_clients():
+    add_scheme_client(WekaClient)
+
+
+class WekaClient(SchemeClient):
+    recoverable_errors = SchemeClient.recoverable_errors + (
+        boto_exceptions.HTTPClientError,
+        boto_exceptions.ConnectionError,
+    )
+
+    scheme = "weka"
+
+    def __init__(self, resource: str) -> None:
+        SchemeClient.__init__(self, resource)
+        self.bucket_name, self.path = WekaClient._split_cloud_path(resource, "weka")
+        self.s3 = _get_s3_client("weka")
+        self.object_info = None
+
+    @staticmethod
+    def _split_cloud_path(url: str, provider: str) -> Tuple[str, str]:
+        """Split a full s3 path into the bucket name and path."""
+        from urllib.parse import urlparse
+
+        parsed = urlparse(url)
+        if not parsed.netloc or not parsed.path:
+            raise ValueError("bad {} path {}".format(provider, url))
+        bucket_name = parsed.netloc
+        provider_path = parsed.path
+        # Remove '/' at beginning of path.
+        if provider_path.startswith("/"):
+            provider_path = provider_path[1:]
+        return bucket_name, provider_path
+
+    def _ensure_object_info(self):
+        if self.object_info is None:
+            try:
+                self.object_info = self.s3.head_object(Bucket=self.bucket_name, Key=self.path)
+            except boto_exceptions.ClientError as e:
+                if e.response["ResponseMetadata"]["HTTPStatusCode"] == 404:
+                    raise FileNotFoundError(f"weka://{self.bucket_name}/{self.path}") from e
+                raise e
+
+    def get_etag(self) -> Optional[str]:
+        self._ensure_object_info()
+        assert self.object_info is not None
+        return self.object_info.get("ETag")
+
+    def get_size(self) -> Optional[int]:
+        self._ensure_object_info()
+        assert self.object_info is not None
+        return self.object_info.get("ContentLength")
+
+    def get_resource(self, temp_file: io.BufferedWriter) -> None:
+        self.s3.download_fileobj(Fileobj=temp_file, Bucket=self.bucket_name, Key=self.path)
+
+    def get_bytes_range(self, index: int, length: int) -> bytes:
+        response = self.s3.get_object(
+            Bucket=self.bucket_name, Key=self.path, Range=f"bytes={index}-{index+length-1}"
+        )
+        return response["Body"].read()

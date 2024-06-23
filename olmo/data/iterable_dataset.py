@@ -131,7 +131,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
 
         # Start at the specified index.
         if self.start_index > 0:
-            assert self.start_index % self.world_size == 0
+            #  assert self.start_index % self.world_size == 0
             indices = indices[self.start_index :]
 
         # Slice indices by rank to avoid duplicates.

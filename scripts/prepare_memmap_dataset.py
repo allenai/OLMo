@@ -317,7 +317,7 @@ def make_source_and_target(
     if paths_per_worker > 1:
         assert (
             len(exploded_src) >= paths_per_worker
-        ), f"Number of paths ({len(exploded_src)}) must be <= paths_per_worker ({paths_per_worker})"
+        ), f"Number of paths ({len(exploded_src)}) must be >= paths_per_worker ({paths_per_worker})"
 
         # group the paths into chunks of paths_per_worker
         exploded_src = [
@@ -374,6 +374,7 @@ def make_source_and_target(
     "--safe-mode/--fast-mode", default=False, help="Safe mode caches locally and decompresses using gzip.open"
 )
 @click.option("-j", "--workers", "max_workers", type=int, default=1, help="Defaults to number of CPUs")
+@click.option("--ack-deprecated", is_flag=True, help="Acknowledge that this command is deprecated")
 def main(
     src: Tuple[str, ...],
     output: str,
@@ -389,7 +390,20 @@ def main(
     paths_per_worker: int = 1,
     max_workers: int = 1,
     cache_dir: Optional[str] = None,
+    ack_deprecated: bool = False,
 ):
+    print("WARNING: THIS SCRIPT IS DEPRECATED!!!")
+    print(
+        "Consider using the tokenization tool in the Dolma toolkit: "
+        "https://github.com/allenai/dolma/blob/main/docs/tokenize.md"
+    )
+
+    if not ack_deprecated:
+        continue_question = input("Do you want to continue? [y/N]: ")
+        if not (c := continue_question.lower().strip()) or c != "y":
+            print("Aborting.")
+            return
+
     print("=== CONFIGURATION ===")
     print(f"src:              {src}")
     print(f"output:           {output}")
