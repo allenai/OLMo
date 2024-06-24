@@ -3,6 +3,7 @@ from typing import List, Optional
 
 import pytest
 import torch.nn
+from mup import set_base_shapes
 from torch.testing import assert_close
 
 from olmo.config import InitFnType, ModelConfig
@@ -55,6 +56,11 @@ def check_distribution(
             assert param.data.min() >= min_val
 
 
+def check_infshape(module: torch.nn.Module):
+    for name, param in module.named_parameters():
+        assert hasattr(param, "infshape")
+
+
 #################################################################################
 ################################### OLMoBlock ###################################
 #################################################################################
@@ -90,6 +96,29 @@ def test_olmo_block_init_normal(seed: int):
     )
     block = OLMoBlock(layer_id=0, config=base_config, cache=cache)
     block.reset_parameters()
+
+    check_distribution(block, 0.00, 0.02, 3.0 * 0.02, -3.0 * 0.02, diff=1e-3)
+
+    # with muP
+
+    base_config = ModelConfig(
+        d_model=d_model,
+        n_heads=n_heads,
+        n_layers=n_layers,
+        init_fn=InitFnType.normal,
+        init_std=0.02,
+        init_cutoff_factor=3.0,
+        use_mup=True,
+    )
+    block = OLMoBlock(layer_id=0, config=base_config, cache=cache)
+
+    # set_base_shapes has not been called
+    with pytest.raises(AssertionError):
+        block.reset_parameters()
+
+    set_base_shapes(block, base=None)
+    block.reset_parameters()
+    check_infshape(module=block)
 
     check_distribution(block, 0.00, 0.02, 3.0 * 0.02, -3.0 * 0.02, diff=1e-3)
 
@@ -172,6 +201,26 @@ def test_olmo_sequential_block_init_normal(seed: int):
 
     for layer_id in [0, 4]:
         block = OLMoSequentialBlock(layer_id=layer_id, config=base_config, cache=cache)
+        block.reset_parameters()
+
+        check_distribution(block, 0.00, 0.02, ignore_params=["attn_norm", "ff_norm"])
+        # if parametric layer norm
+        check_distribution(block.attn_norm, 1.00, 0.00)
+        check_distribution(block.ff_norm, 1.00, 0.00)
+
+    # with muP
+
+    base_config = ModelConfig(
+        d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn=InitFnType.normal, init_std=0.02, use_mup=True
+    )
+
+    for layer_id in [0, 4]:
+        block = OLMoSequentialBlock(layer_id=layer_id, config=base_config, cache=cache)
+        # set_base_shapes has not been called
+        with pytest.raises(AssertionError):
+            block.reset_parameters()
+
+        set_base_shapes(block, base=None)
         block.reset_parameters()
 
         check_distribution(block, 0.00, 0.02, ignore_params=["attn_norm", "ff_norm"])
@@ -265,6 +314,26 @@ def test_olmo_llama_block_init_normal(seed: int):
         check_distribution(block.attn_norm, 1.00, 0.00)
         check_distribution(block.ff_norm, 1.00, 0.00)
 
+    # with muP
+
+    base_config = ModelConfig(
+        d_model=d_model, n_heads=n_heads, n_layers=n_layers, init_fn=InitFnType.normal, init_std=0.02, use_mup=True
+    )
+
+    for layer_id in [0, 4]:
+        block = OLMoLlamaBlock(layer_id=layer_id, config=base_config, cache=cache)
+        # set_base_shapes has not been called
+        with pytest.raises(AssertionError):
+            block.reset_parameters()
+
+        set_base_shapes(block, base=None)
+        block.reset_parameters()
+
+        check_distribution(block, 0.00, 0.02, ignore_params=["attn_norm", "ff_norm"])
+        # if parametric layer norm
+        check_distribution(block.attn_norm, 1.00, 0.00)
+        check_distribution(block.ff_norm, 1.00, 0.00)
+
 
 @pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
 def test_olmo_llama_block_init_mitchell(seed: int):
@@ -346,6 +415,46 @@ def test_olmo_init_normal(seed: int):
         init_std=0.02,
         weight_tying=False,
     )
+    module = OLMo(config=base_config, init_params=True)
+
+    check_distribution(module, 0.0, 0.02, ignore_params=["ln_f", "attn_norm", "ff_norm"])
+    for i in range(n_layers):
+        check_distribution(module.transformer.blocks[i].attn_norm, 1.00, 0.00)
+        check_distribution(module.transformer.blocks[i].ff_norm, 1.00, 0.00)
+    check_distribution(module.transformer.ln_f, 1.00, 0.00)
+
+    # with muP
+
+    base_config = ModelConfig(
+        d_model=d_model,
+        n_heads=n_heads,
+        n_layers=n_layers,
+        init_fn=InitFnType.normal,
+        init_std=0.02,
+        weight_tying=False,
+        use_mup=True,
+    )
+
+    # For the main module, reset_parameters is called during init, and set_base_shapes is called there.
+    module = OLMo(config=base_config, init_params=True)
+
+    check_distribution(module, 0.0, 0.02, ignore_params=["ln_f", "attn_norm", "ff_norm"])
+    for i in range(n_layers):
+        check_distribution(module.transformer.blocks[i].attn_norm, 1.00, 0.00)
+        check_distribution(module.transformer.blocks[i].ff_norm, 1.00, 0.00)
+    check_distribution(module.transformer.ln_f, 1.00, 0.00)
+
+    base_config = ModelConfig(
+        d_model=d_model,
+        n_heads=n_heads,
+        n_layers=n_layers,
+        init_fn=InitFnType.normal,
+        init_std=0.02,
+        weight_tying=True,
+        use_mup=True,
+    )
+
+    # For the main module, reset_parameters is called during init, and set_base_shapes is called there.
     module = OLMo(config=base_config, init_params=True)
 
     check_distribution(module, 0.0, 0.02, ignore_params=["ln_f", "attn_norm", "ff_norm"])

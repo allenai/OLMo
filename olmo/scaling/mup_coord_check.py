@@ -22,6 +22,7 @@ from olmo.scaling.coord_check import (
 )
 from olmo.scaling.model import MuOLMo
 from olmo.tokenizer import Tokenizer
+from olmo.model import OLMo
 from olmo.torch_util import seed_all
 from olmo.train import cross_entropy_loss
 
@@ -39,8 +40,8 @@ def set_precision(t, precision):
 
 
 def load_mu_model(config: ModelConfig):
-    config.mup = True
-    model = MuOLMo(config, init_params=False)
+    config.use_mup = True
+    model = OLMo(config, init_params=False)
     return model
 
 
@@ -99,7 +100,7 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=""
                 assert args.load_base_shapes, "load_base_shapes needs to be nonempty"
                 set_base_shapes(model, args.load_base_shapes)
 
-            model.reset_parameters()  # to apply mup init TODO: confirm
+            model.reset_parameters()  # to apply mup init
             return model
 
         return f
@@ -126,7 +127,7 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=""
         show_progress=True,
     )
 
-    prm = "μP" if mup else "SP"
+    prm = "muP" if mup else "SP"
     coords_file = os.path.join(plotdir, f"{prm.lower()}_trsfmr_{optimizer}_coord.csv")
     df.to_csv(coords_file, index=False)
     return plot_coord_data(
