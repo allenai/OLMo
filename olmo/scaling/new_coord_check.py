@@ -39,7 +39,6 @@ def _get_coord_data(
     dataloader,
     optcls,
     nsteps=3,
-    dict_in_out=False,
     flatten_input=False,
     flatten_output=False,
     output_name="loss",
@@ -78,9 +77,6 @@ def _get_coord_data(
             the model.
         nsteps:
             number of steps to train the model
-        dict_in_out:
-            whether the data loader contains Huggingface-style dict input and
-            output. Default: False
         flatten_input:
             if not `dict_in_out`, reshape the input to be
             `input.view(input.shape[0], -1)`. Typically used for testing MLPs.
@@ -166,16 +162,13 @@ def _get_coord_data(
                             )
                         )
                     )
-                if dict_in_out:
-                    if cuda:
-                        for k, v in batch.items():
-                            if isinstance(v, torch.Tensor):
-                                batch[k] = v.cuda()
+                if cuda:
+                    for k, v in batch.items():
+                        if isinstance(v, torch.Tensor):
+                            batch[k] = v.cuda()
 
                     loss = get_batch_loss(model, batch, lossfn, compute_z_loss)
 
-                else:
-                    raise RuntimeError("OLMo model coord check needs dict_in_out")
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -230,9 +223,6 @@ def get_coord_data(
             whose name yields True will be trained.
         nsteps:
             number of steps to train the model
-        dict_in_out:
-            whether the data loader contains Huggingface-style dict input and
-            output. Default: False
         flatten_input:
             if not `dict_in_out`, reshape the input to be
             `input.view(input.shape[0], -1)`. Typically used for testing MLPs.

@@ -76,7 +76,6 @@ def coord_check(
         mup=mup,
         lr=lr,
         optimizer=optimizer,
-        dict_in_out=True,
         nseeds=nseeds,
         nsteps=nsteps,
         lossfn=cross_entropy_loss,
