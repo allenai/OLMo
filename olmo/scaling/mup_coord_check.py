@@ -55,9 +55,9 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=""
         return f
 
     optimizer = optimizer.replace("mu", "")
-    # widths = 2 ** np.arange(7, 14)
+    widths = 2 ** np.arange(7, 14)
     # widths = 2 ** np.arange(7, 9)
-    widths = 2 ** np.arange(6, 8)
+    # widths = 2 ** np.arange(6, 8)
     models = {width: model_generator(width, standparam=not mup) for width in widths}
 
     train_config = TrainConfig.load(args.config_path)
@@ -78,13 +78,13 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=""
         show_progress=True,
     )
 
-    prm = "muP" if mup else "SP"
-    coords_file = os.path.join(plotdir, f"{prm.lower()}_trsfmr_{optimizer}_coord.csv")
+    prm = "mup" if mup else "sp"
+    coords_file = os.path.join(plotdir, f"{prm}_olmo_{optimizer}_coord.csv")
     df.to_csv(coords_file, index=False)
     return plot_coord_data(
         df,
         legend=legend,
-        save_to=os.path.join(plotdir, f"{prm.lower()}_trsfmr_{optimizer}_coord.png"),
+        save_to=os.path.join(plotdir, f"{prm}_olmo_{optimizer}_coord.png"),
         suptitle=f"{prm} Transformer {optimizer} lr={lr} nseeds={nseeds}",
         face_color="xkcd:light grey" if not mup else None,
     )
