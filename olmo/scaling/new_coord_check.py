@@ -3,7 +3,7 @@ from typing import Any, Dict
 from mup.coord_check import *
 from mup.coord_check import _record_coords
 
-from olmo.train import get_labels, Trainer
+from olmo.train import Trainer, get_labels
 
 
 def get_batch_loss(model, batch, lossfn, compute_z_loss):
