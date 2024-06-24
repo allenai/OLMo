@@ -3,7 +3,7 @@
 set -ex
 
 NUM_NODES=4
-TASK_NAME=tiny-olmo-20M-grad-norm-2
+TASK_NAME=tiny-olmo-20M
 
 gantry run \
   --workspace ai2/OLMo-training \

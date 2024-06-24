@@ -31,5 +31,4 @@ torchrun \
       --wandb.name=$TASK_NAME \
       --wandb.group=$TASK_NAME \
       --wandb.project=olmo-tiny \
-      --max_grad_norm=2.0 \
       --save_overwrite
