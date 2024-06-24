@@ -65,7 +65,7 @@ def coord_check(
     train_config = TrainConfig.load(config_path)
     optimizer = train_config.optimizer.name.replace("mu", "")
     lr = train_config.optimizer.learning_rate
-    
+
     models = {width: model_generator(width, standparam=not mup) for width in widths}
 
     data_loader = get_dataloader(train_config, batch_size=batch_size)

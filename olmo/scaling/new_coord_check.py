@@ -127,7 +127,7 @@ def _get_coord_data(
         behavior by setting `one_hot_target=True`.
 
     """
-    df = []
+    coordinates = []
     if fix_data:
         batch = next(iter(dataloader))
         dataloader = [batch] * nsteps
@@ -156,7 +156,7 @@ def _get_coord_data(
                     remove_hooks.append(
                         module.register_forward_hook(
                             _record_coords(
-                                df,
+                                coordinates,
                                 width,
                                 name,
                                 batch_idx,
@@ -191,7 +191,7 @@ def _get_coord_data(
                 pbar.update(1)
     if show_progress:
         pbar.close()
-    return pd.DataFrame(df)
+    return pd.DataFrame(coordinates)
 
 
 def get_coord_data(
