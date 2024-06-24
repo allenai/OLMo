@@ -74,11 +74,14 @@ ARGS='--run_name=olmoe17-8x1b-final --save_overwrite'
 # --fused_loss=true --activation_checkpointing=fine_grained'
 # --fsdp.sharding_strategy=SHARD_GRAD_OP'
 
+#CONFIG_PATH=configs/olmoe17/olmoe17-8x1b-fullshard-swiglu-wrapb-k2-zloss.yml
+#ARGS='--run_name=olmoe17-8x1b-fullshard-swiglu-wrapb-k2-zloss --load_path=s3://ai2-llm/checkpoints/OLMoE/olmoe17-8x1b-fullshard-swiglu-wrapb-k2-zloss/step40000/ --save_overwrite --fused_loss=true --activation_checkpointing=fine_grained --device_train_microbatch_size=4'
+
 CONFIG_PATH=configs/olmoe17/olmoe17-8x1b-fullshard-swiglu-wrapb-k2-zloss.yml
-ARGS='--run_name=olmoe17-8x1b-fullshard-swiglu-wrapb-k2-zloss --load_path=s3://ai2-llm/checkpoints/OLMoE/olmoe17-8x1b-fullshard-swiglu-wrapb-k2-zloss/step40000/ --save_overwrite --fused_loss=true --activation_checkpointing=fine_grained --device_train_microbatch_size=4'
+ARGS='--run_name=olmoe17-8x1b-fullshard-swiglu-wrapb-k2-zloss --load_path=s3://ai2-llm/checkpoints/OLMoE/olmoe17-8x1b-fullshard-swiglu-wrapb-k2-zloss/step115000/ --save_overwrite --fused_loss=true --activation_checkpointing=fine_grained --device_train_microbatch_size=4'
 
 
-NUM_NODES=8
+NUM_NODES=16
 BEAKER_REPLICA_RANK=0
 
 #ARGS='--load_path=s3://ai2-llm/checkpoints/OLMoE/8x1b-954000-unsharded/ --reset_optimizer_state=True --reset_trainer_state=True --run_name=olmoe17-8x1b-fullshard-swiglu-wrapb-s1k1'
