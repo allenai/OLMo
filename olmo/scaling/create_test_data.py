@@ -1,6 +1,5 @@
-import argparse
-
 import numpy as np
+import argparse
 
 
 def create_sample_data(vocab_size: int = 50257, data_size: int = 2048 * 64, path: str = "sample-tokens.npy"):
