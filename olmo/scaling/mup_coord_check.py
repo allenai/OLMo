@@ -40,7 +40,7 @@ def coord_check(
     nsteps: int,
     nseeds: int,
     cuda: bool = False,
-    plotdir: str = "",
+    output_dir: str = "",
     load_base_shapes: str = None,
     legend: bool = False,
     plot: bool = True,
@@ -86,13 +86,14 @@ def coord_check(
     )
 
     prm = "mup" if mup else "sp"
-    coords_file = os.path.join(plotdir, f"{prm}_olmo_{optimizer}_coord.csv")
+    os.makedirs(output_dir, exist_ok=True)
+    coords_file = os.path.join(output_dir, f"{prm}_olmo_{optimizer}_coord.csv")
     df.to_csv(coords_file, index=False)
     if plot:
         plot_coord_data(
             df,
             legend=legend,
-            save_to=os.path.join(plotdir, f"{prm}_olmo_{optimizer}_coord.png"),
+            save_to=os.path.join(output_dir, f"{prm}_olmo_{optimizer}_coord.png"),
             suptitle=f"{prm} Transformer {optimizer} lr={lr} nseeds={nseeds}",
             face_color="xkcd:light grey" if not mup else None,
         )
@@ -180,7 +181,7 @@ if __name__ == "__main__":
                 nsteps=args.coord_check_nsteps,
                 nseeds=args.coord_check_nseeds,
                 cuda=args.cuda,
-                plotdir=args.coord_check_save_path,
+                output_dir=args.coord_check_save_path,
                 legend=False,
                 load_base_shapes=args.load_base_shapes,
             )
