@@ -32,7 +32,19 @@ def get_dataloader(cfg: TrainConfig, batch_size: int) -> DataLoader:
     return train_loader
 
 
-def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir="", legend=False, plot: bool = True):
+def coord_check(
+    mup: bool,
+    widths: List,
+    lr: float,
+    optimizer: str,
+    batch_size: int,
+    nsteps: int,
+    nseeds: int,
+    args: dict,
+    plotdir: str = "",
+    legend: bool = False,
+    plot: bool = True,
+):
     def model_generator(d_model, standparam=False):
         def f():
             config = ModelConfig.load(args.config_path, key="model")
@@ -51,7 +63,7 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=""
         return f
 
     optimizer = optimizer.replace("mu", "")
-    widths = 2 ** np.arange(7, 14)
+    # widths = 2 ** np.arange(7, 14)
     # widths = 2 ** np.arange(7, 9)
     # widths = 2 ** np.arange(6, 8)
     models = {width: model_generator(width, standparam=not mup) for width in widths}
@@ -163,6 +175,7 @@ if __name__ == "__main__":
         for use_mup in [True, False]:
             coord_check(
                 mup=use_mup,
+                widths=2 ** np.arange(7, 14),
                 lr=train_config.optimizer.learning_rate,
                 optimizer=train_config.optimizer.name,
                 batch_size=args.batch_size,
