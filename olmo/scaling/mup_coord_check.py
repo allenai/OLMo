@@ -35,40 +35,39 @@ def get_dataloader(cfg: TrainConfig, batch_size: int) -> DataLoader:
 def coord_check(
     mup: bool,
     widths: List,
-    lr: float,
-    optimizer: str,
+    config_path: str,
     batch_size: int,
     nsteps: int,
     nseeds: int,
-    args: dict,
+    cuda: bool = False,
     plotdir: str = "",
+    load_base_shapes: str = None,
     legend: bool = False,
     plot: bool = True,
 ):
     def model_generator(d_model, standparam=False):
         def f():
-            config = ModelConfig.load(args.config_path, key="model")
+            config = ModelConfig.load(config_path, key="model")
             config.d_model = d_model
-            model = load_mu_model(config)  # .to(args.device)
+            model = load_mu_model(config)
 
             if standparam:
                 set_base_shapes(model, None)
             else:
-                assert args.load_base_shapes, "load_base_shapes needs to be nonempty"
-                set_base_shapes(model, args.load_base_shapes)
+                assert load_base_shapes, "load_base_shapes needs to be nonempty"
+                set_base_shapes(model, load_base_shapes)
 
             model.reset_parameters()  # to apply mup init
             return model
 
         return f
 
-    optimizer = optimizer.replace("mu", "")
-    # widths = 2 ** np.arange(7, 14)
-    # widths = 2 ** np.arange(7, 9)
-    # widths = 2 ** np.arange(6, 8)
+    train_config = TrainConfig.load(config_path)
+    optimizer = train_config.optimizer.name.replace("mu", "")
+    lr = train_config.optimizer.learning_rate
+    
     models = {width: model_generator(width, standparam=not mup) for width in widths}
 
-    train_config = TrainConfig.load(args.config_path)
     data_loader = get_dataloader(train_config, batch_size=batch_size)
 
     df = get_coord_data(
@@ -81,7 +80,7 @@ def coord_check(
         nseeds=nseeds,
         nsteps=nsteps,
         lossfn=cross_entropy_loss,
-        cuda=args.cuda,
+        cuda=cuda,
         compute_z_loss=train_config.softmax_auxiliary_loss,
         show_progress=True,
     )
@@ -176,12 +175,12 @@ if __name__ == "__main__":
             coord_check(
                 mup=use_mup,
                 widths=2 ** np.arange(7, 14),
-                lr=train_config.optimizer.learning_rate,
-                optimizer=train_config.optimizer.name,
+                config_path=args.config_path,
                 batch_size=args.batch_size,
                 nsteps=args.coord_check_nsteps,
                 nseeds=args.coord_check_nseeds,
-                args=args,
+                cuda=args.cuda,
                 plotdir=args.coord_check_save_path,
                 legend=False,
+                load_base_shapes=args.load_base_shapes,
             )
