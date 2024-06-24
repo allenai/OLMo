@@ -1022,6 +1022,7 @@ class OLMo(nn.Module):
         if init_params and self.config.init_device != "meta":
             self.reset_parameters()
         self.__num_fwd_flops: Optional[int] = None
+        self.__num_bck_flops: Optional[int] = None
 
         # Warm up cache.
         if self.config.alibi:
@@ -1409,7 +1410,9 @@ class OLMo(nn.Module):
     def num_fwd_flops(self):
         if self.__num_fwd_flops:
             return self.__num_fwd_flops
-        n_params = self.num_params()
+        
+        # mebedding table is just a lookup during forward pass
+        n_params = self.num_params(include_embedding=False)
         # the number of parameters is approximately the number of multiply-accumulates (MAC) in the network
         # each MAC has 2 FLOPs - we multiply by 2 ie 2 * n_param
         # this gets us FLOPs / token
@@ -1421,6 +1424,23 @@ class OLMo(nn.Module):
         )
         self.__num_fwd_flops = params_flops_per_seq + attn_flops_per_seq
         return self.__num_fwd_flops
+
+    @property
+    def num_bck_flops(self):
+        if self.__num_bck_flops:
+            return self.__num_bck_flops
+
+        # during backward pass, embedding table is updated with gradients
+        n_params = self.num_params()
+        params_flops_per_token = 4 * n_params
+        params_flops_per_seq = params_flops_per_token * self.config.max_sequence_length
+
+        attn_flops_per_seq = (
+            self.config.n_layers * 8 * (self.config.d_model * (self.config.max_sequence_length**2))
+        )
+
+        self.__num_bck_flops = params_flops_per_seq + attn_flops_per_seq
+        return self.__num_bck_flops
 
     def generate(
         self,
