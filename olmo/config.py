@@ -440,31 +440,43 @@ class ModelConfig(BaseConfig):
 
     # muP parameters
 
-    mup_init_scale: float = 1.0
+    use_mup: bool = False
     """
-    Initialization scale; all parameters are multiplied by this value.
-    """
-
-    input_mult: float = 1.0
-    """
-    Scalar multiplier for the input embeddings. Defaults to 1.0.
+    Whether the model is being parametrized in mup or standard parametrization.
     """
 
-    output_mult: float = 1.0
+    # TODO: decide upon format; may require cached_path, etc.
+    mup_base_shapes: Optional[str] = None
     """
-    Scalar multiplier for the output logits. Defaults to 1.0.
-    """
-
-    attn_mult: Optional[float] = 1.0
-    """
-    Optional multiplier for attention. If set to None, it defaults to 1/sqrt(width);
-    i.e., the standard attention multipler.
+    Optional path to base shapes in case of muP.
+    # TODO: improve description
     """
 
-    mup: bool = False
-    """
-    Whether the model is being parametrized in mup or standard parametrization. 
-    """
+    # mup_init_scale: float = 1.0
+    # """
+    # Initialization scale; all parameters are multiplied by this value.
+    # """
+    #
+    # input_mult: float = 1.0
+    # """
+    # Scalar multiplier for the input embeddings. Defaults to 1.0.
+    # """
+    #
+    # output_mult: float = 1.0
+    # """
+    # Scalar multiplier for the output logits. Defaults to 1.0.
+    # """
+    #
+    # attn_mult: Optional[float] = 1.0
+    # """
+    # Optional multiplier for attention. If set to None, it defaults to 1/sqrt(width);
+    # i.e., the standard attention multipler.
+    # """
+    #
+    # mup: bool = False
+    # """
+    # Whether the model is being parametrized in mup or standard parametrization.
+    # """
 
     @property
     def effective_n_kv_heads(self) -> int:
