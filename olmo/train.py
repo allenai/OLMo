@@ -97,8 +97,8 @@ class SpeedMonitor:
         metrics: Dict[str, float] = {"throughput/total_tokens": self.global_total_tokens}
 
         # plot flops related metrics
-        metrics["throughput/total_training_Gflops"] = self.total_training_Gflops
-        metrics["throughput/total_training_log_Gflops"] = math.log(self.total_training_Gflops)
+        metrics["throughput/Gflops"] = self.total_training_Gflops
+        metrics["throughput/log_Gflops"] = math.log(self.total_training_Gflops)
 
         if self.start_times:
             interval_seconds = time.monotonic() - self.start_times[0]
