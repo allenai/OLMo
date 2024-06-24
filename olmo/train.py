@@ -69,14 +69,14 @@ class SpeedMonitor:
     device_interval_tokens: Deque[int] = field(default_factory=lambda: deque([]))
 
     def batch_start(
-            self,
-            global_total_tokens: int,
-            device_batch_num_tokens: int,
-            global_batch_size: int,
-            num_fwd_flops: int,
-            num_bck_flops: int,
-            record: bool = True
-        ) -> None:
+        self,
+        global_total_tokens: int,
+        device_batch_num_tokens: int,
+        global_batch_size: int,
+        num_fwd_flops: int,
+        num_bck_flops: int,
+        record: bool = True,
+    ) -> None:
         self.global_total_tokens = global_total_tokens
         # num_fwd_flops and num_bck_flops property of the OLMo model computes flops per sequence
         # converting to GFLOPs here prevents numerical issues while logging
@@ -1117,8 +1117,8 @@ class Trainer:
                         # We start monitoring speed after the first batch since the first
                         # batch might be an outlier due to compiling and other initialization overhead.
                         global_batch_size=self.cfg.global_train_batch_size,
-                        num_fwd_flops=self.model.num_fwd_flops, # this is per sequence
-                        num_bck_flops=self.model.num_bck_flops, # this is per sequence
+                        num_fwd_flops=self.model.num_fwd_flops,  # this is per sequence
+                        num_bck_flops=self.model.num_bck_flops,  # this is per sequence
                         record=not first_batch,
                     )
 

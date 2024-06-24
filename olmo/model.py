@@ -1410,7 +1410,7 @@ class OLMo(nn.Module):
     def num_fwd_flops(self):
         if self.__num_fwd_flops:
             return self.__num_fwd_flops
-        
+
         # mebedding table is just a lookup during forward pass
         n_params = self.num_params(include_embedding=False)
         # the number of parameters is approximately the number of multiply-accumulates (MAC) in the network
