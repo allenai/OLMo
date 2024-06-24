@@ -66,4 +66,7 @@ torchrun \
       --run_name="${GANTRY_TASK_NAME}" \
       --optimizer.metrics_log_interval=1 \
       --save_overwrite \
+      --save_interval_ephemeral=500 \
+      --fsdp.sharding_strategy=HYBRID_SHARD \
+      --fsdp.hybrid_sharding_num_model_replicas=8 \
       '--load_path=${path.last_checkpoint:${save_folder}}'
