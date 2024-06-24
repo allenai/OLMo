@@ -1,8 +1,10 @@
+run_name: "mup-test"
+precision: "fp32"
 save_folder: "/tmp/olmo-train-tiny"
 model:
-  d_model: 128
-  n_heads: 4
-  n_layers: 2
+  d_model: 16
+  n_heads: 2
+  n_layers: 1
   mlp_ratio: 1
   alibi: false
   rope: true
@@ -12,9 +14,9 @@ model:
   residual_dropout: 0.1
   embedding_dropout: 0.1
   max_sequence_length: 2048
-  vocab_size: 50257
-  eos_token_id: 50256
-  pad_token_id: 50256
+  vocab_size: 128
+  eos_token_id: 127
+  pad_token_id: 127
   init_device: null
   init_fn: "normal"
   init_std: 0.02
@@ -25,7 +27,7 @@ scheduler:
   t_warmup: 10
 data:
   paths:
-    - "/net/nfs.cirrascale/allennlp/llm-data/c4/en/c4-train.00000-00099.npy"
+    - "test_fixtures/sample-tokens.npy"
   persistent_workers: false
   num_workers: 0
   prefetch_factor: null

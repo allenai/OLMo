@@ -20,7 +20,7 @@ from olmo.scaling.coord_check import (
     get_labels,
     plot_coord_data,
 )
-from olmo.scaling.model import MuOLMo
+# from olmo.scaling.model import MuOLMo
 from olmo.tokenizer import Tokenizer
 from olmo.model import OLMo
 from olmo.torch_util import seed_all
@@ -106,7 +106,8 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=""
         return f
 
     optimizer = optimizer.replace("mu", "")
-    widths = 2 ** np.arange(7, 14)
+    # widths = 2 ** np.arange(7, 14)
+    widths = 2 ** np.arange(7, 9)
     models = {w: gen(w, standparam=not mup) for w in widths}
 
     train_config = TrainConfig.load(args.config_path)
