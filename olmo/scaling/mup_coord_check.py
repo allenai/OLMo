@@ -148,28 +148,16 @@ if __name__ == "__main__":
         import os
 
         os.makedirs(args.coord_check_save_path, exist_ok=True)
-        coord_check(
-            mup=True,
-            lr=train_config.optimizer.learning_rate,
-            optimizer=train_config.optimizer.name,
-            batch_size=args.batch_size,
-            nsteps=args.coord_check_nsteps,
-            nseeds=args.coord_check_nseeds,
-            args=args,
-            plotdir=args.coord_check_save_path,
-            legend=False,
-        )
-        coord_check(
-            mup=False,
-            lr=train_config.optimizer.learning_rate,
-            optimizer=train_config.optimizer.name,
-            batch_size=args.batch_size,
-            nsteps=args.coord_check_nsteps,
-            nseeds=args.coord_check_nseeds,
-            args=args,
-            plotdir=args.coord_check_save_path,
-            legend=False,
-        )
-        import sys
 
-        sys.exit()
+        for use_mup in [True, False]:
+            coord_check(
+                mup=use_mup,
+                lr=train_config.optimizer.learning_rate,
+                optimizer=train_config.optimizer.name,
+                batch_size=args.batch_size,
+                nsteps=args.coord_check_nsteps,
+                nseeds=args.coord_check_nseeds,
+                args=args,
+                plotdir=args.coord_check_save_path,
+                legend=False,
+            )
