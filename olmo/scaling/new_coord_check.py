@@ -3,7 +3,7 @@ from typing import Any, Dict
 from mup.coord_check import *
 from mup.coord_check import _record_coords
 
-from olmo.train import get_labels
+from olmo.train import get_labels, Trainer
 
 
 def get_batch_loss(model, batch, lossfn, compute_z_loss):
@@ -34,26 +34,56 @@ def get_batch_loss(model, batch, lossfn, compute_z_loss):
     return loss
 
 
+def register_coord_check_hooks(
+    model,
+    coordinates,
+    width,
+    batch_idx,
+    filter_module_by_name=None,
+    output_fdict=None,
+    input_fdict=None,
+    param_fdict=None,
+):
+    remove_hooks = []
+    # add hooks
+    for name, module in model.named_modules():
+        if filter_module_by_name and not filter_module_by_name(name):
+            continue
+        remove_hooks.append(
+            module.register_forward_hook(
+                _record_coords(
+                    coordinates,
+                    width,
+                    name,
+                    batch_idx,
+                    output_fdict=output_fdict,
+                    input_fdict=input_fdict,
+                    param_fdict=param_fdict,
+                )
+            )
+        )
+
+    return remove_hooks
+
+
+def _prep_input_batch(batch, cuda: bool):
+    if cuda:
+        for k, v in batch.items():
+            if isinstance(v, torch.Tensor):
+                batch[k] = v.cuda()
+    return batch
+
+
 def _get_coord_data(
     models,
     dataloader,
     optcls,
     nsteps=3,
-    dict_in_out=False,
-    flatten_input=False,
-    flatten_output=False,
-    output_name="loss",
     lossfn="xent",
     filter_module_by_name=None,
-    fix_data=True,
     cuda=True,
     nseeds=1,
-    output_fdict=None,
-    input_fdict=None,
-    param_fdict=None,
     show_progress=True,
-    one_hot_target=False,
-    loss_reduction="mean",
     compute_z_loss=False,
 ):
     """Inner method for `get_coord_data`.
@@ -78,25 +108,6 @@ def _get_coord_data(
             the model.
         nsteps:
             number of steps to train the model
-        dict_in_out:
-            whether the data loader contains Huggingface-style dict input and
-            output. Default: False
-        flatten_input:
-            if not `dict_in_out`, reshape the input to be
-            `input.view(input.shape[0], -1)`. Typically used for testing MLPs.
-        flatten_output:
-            if not `dict_in_out`, reshape the label to be `label.view(-1,
-            input.shape[-1])`.
-        output_name:
-            if `dict_in_out`, this is the key for the loss value if the output
-            is a dict. If the output is not a dict, then we assume the first
-            element of the output is the loss.
-        lossfn:
-            loss function to use if not `dict_in_out`. Can be either a string from
-            [`xent`, 'mse', 'nll', 'l1'] or a python `callable` such that
-            `lossfn(output, target)` returns the loss value. Examples of valid
-            `callable`s are `F.cross_entropy`, `F.mse_loss`, etc, where `F` is
-            `torch.nn.functional`. Default: 'xent'
         filter_module_by_name:
             a function that returns a bool given module names (from
             `model.named_modules()`), or None. If not None, then only modules
@@ -110,10 +121,6 @@ def _get_coord_data(
             is computed for output activations of each module.
         show_progress:
             show progress using tqdm. Default: True
-        one_hot_target:
-            convert target label into a one-hot vector. This typically is only
-            used for `'mse'` or `'l1'` losses in classification tasks.
-            Default: False
     Output:
         a pandas DataFrame containing recorded results. The column names are
         `'width', 'module', 't'` as well as names of statistics recorded, such
@@ -127,10 +134,10 @@ def _get_coord_data(
         behavior by setting `one_hot_target=True`.
 
     """
-    df = []
-    if fix_data:
-        batch = next(iter(dataloader))
-        dataloader = [batch] * nsteps
+    coordinates = []
+    # if fix_data:
+    #     batch = next(iter(dataloader))
+    #     dataloader = [batch] * nsteps
     if show_progress:
         from tqdm import tqdm
 
@@ -148,34 +155,17 @@ def _get_coord_data(
                 model = model.cuda()
             optimizer = optcls(model)
             for batch_idx, batch in enumerate(dataloader, 1):
-                remove_hooks = []
-                # add hooks
-                for name, module in model.named_modules():
-                    if filter_module_by_name and not filter_module_by_name(name):
-                        continue
-                    remove_hooks.append(
-                        module.register_forward_hook(
-                            _record_coords(
-                                df,
-                                width,
-                                name,
-                                batch_idx,
-                                output_fdict=output_fdict,
-                                input_fdict=input_fdict,
-                                param_fdict=param_fdict,
-                            )
-                        )
-                    )
-                if dict_in_out:
-                    if cuda:
-                        for k, v in batch.items():
-                            if isinstance(v, torch.Tensor):
-                                batch[k] = v.cuda()
+                remove_hooks = register_coord_check_hooks(
+                    model,
+                    coordinates,
+                    width,
+                    batch_idx,
+                    filter_module_by_name=filter_module_by_name,
+                )
 
-                    loss = get_batch_loss(model, batch, lossfn, compute_z_loss)
+                batch = _prep_input_batch(batch, cuda)
 
-                else:
-                    raise RuntimeError("OLMo model coord check needs dict_in_out")
+                loss = get_batch_loss(model, batch, lossfn, compute_z_loss)
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -191,7 +181,7 @@ def _get_coord_data(
                 pbar.update(1)
     if show_progress:
         pbar.close()
-    return pd.DataFrame(df)
+    return pd.DataFrame(coordinates)
 
 
 def get_coord_data(

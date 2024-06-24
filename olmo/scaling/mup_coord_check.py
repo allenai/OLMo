@@ -1,28 +1,25 @@
 import argparse
 import os
-import time
+import sys
+from typing import List, Optional
 
 import numpy as np
-import torch
-from mup import MuAdam, MuSGD, get_shapes, make_base_shapes, set_base_shapes
+from mup import get_shapes, make_base_shapes, set_base_shapes
 from torch.utils.data import DataLoader
 
 from olmo.config import ModelConfig, TrainConfig
-from olmo.scaling.new_coord_check import (
-    get_coord_data,
-    plot_coord_data,
-)
-
 from olmo.data import build_train_dataloader
-
 from olmo.model import OLMo
+from olmo.scaling.new_coord_check import get_coord_data, plot_coord_data
 from olmo.torch_util import seed_all
 from olmo.train import cross_entropy_loss
 
 
 def load_mu_model(config: ModelConfig):
+    orig_use_mup = config.use_mup
     config.use_mup = True
     model = OLMo(config, init_params=False)
+    config.use_mup = orig_use_mup
     return model
 
 
@@ -36,31 +33,42 @@ def get_dataloader(cfg: TrainConfig, batch_size: int) -> DataLoader:
     return train_loader
 
 
-def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir="", legend=False):
+def coord_check(
+    mup: bool,
+    train_config: TrainConfig,
+    widths: List,
+    batch_size: int,
+    nsteps: int,
+    nseeds: int,
+    output_dir: str = "",
+    legend=False,
+    load_base_shapes: str = None,
+    cuda: bool = False,
+    plot: bool = True,
+):
     def model_generator(d_model, standparam=False):
         def f():
-            config = ModelConfig.load(args.config_path, key="model")
+            config = train_config.model
             config.d_model = d_model
-            model = load_mu_model(config)  # .to(args.device)
+            model = load_mu_model(config)
 
             if standparam:
                 set_base_shapes(model, None)
             else:
-                assert args.load_base_shapes, "load_base_shapes needs to be nonempty"
-                set_base_shapes(model, args.load_base_shapes)
+                assert load_base_shapes, "load_base_shapes needs to be nonempty"
+                set_base_shapes(model, load_base_shapes)
 
             model.reset_parameters()  # to apply mup init
             return model
 
         return f
 
+    optimizer = train_config.optimizer.name
+    lr = train_config.optimizer.learning_rate
     optimizer = optimizer.replace("mu", "")
-    # widths = 2 ** np.arange(7, 14)
-    # widths = 2 ** np.arange(7, 9)
-    widths = 2 ** np.arange(6, 8)
+
     models = {width: model_generator(width, standparam=not mup) for width in widths}
 
-    train_config = TrainConfig.load(args.config_path)
     data_loader = get_dataloader(train_config, batch_size=batch_size)
 
     df = get_coord_data(
@@ -69,25 +77,47 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=""
         mup=mup,
         lr=lr,
         optimizer=optimizer,
-        dict_in_out=True,
         nseeds=nseeds,
         nsteps=nsteps,
         lossfn=cross_entropy_loss,
-        cuda=args.cuda,
+        cuda=cuda,
         compute_z_loss=train_config.softmax_auxiliary_loss,
         show_progress=True,
     )
 
-    prm = "muP" if mup else "SP"
-    coords_file = os.path.join(plotdir, f"{prm.lower()}_trsfmr_{optimizer}_coord.csv")
+    prm = "mup" if mup else "sp"
+    os.makedirs(output_dir, exist_ok=True)
+    coords_file = os.path.join(output_dir, f"{prm}_olmo_{optimizer}_coord.csv")
     df.to_csv(coords_file, index=False)
-    return plot_coord_data(
-        df,
-        legend=legend,
-        save_to=os.path.join(plotdir, f"{prm.lower()}_trsfmr_{optimizer}_coord.png"),
-        suptitle=f"{prm} Transformer {optimizer} lr={lr} nseeds={nseeds}",
-        face_color="xkcd:light grey" if not mup else None,
-    )
+
+    if plot:
+        plot_coord_data(
+            df,
+            legend=legend,
+            save_to=os.path.join(output_dir, f"{prm.lower()}_trsfmr_{optimizer}_coord.png"),
+            suptitle=f"{prm} Transformer {optimizer} lr={lr} nseeds={nseeds}",
+            face_color="xkcd:light grey" if not mup else None,
+        )
+
+
+def save_base_shapes(config_path: str, output_path: str, dims_to_scale: Optional[List] = None):
+    if dims_to_scale is None:
+        dims_to_scale = ["d_model"]
+
+    print(f"saving base shapes at {output_path}")
+
+    config = ModelConfig.load(config_path, key="model")
+    base_shapes = get_shapes(load_mu_model(config))
+
+    # just need to change whatever dimension(s) we are scaling
+    # currently only scaling width, but may scale depth also
+    # width scaling by d_model, but can also be done based on num_heads, etc.
+
+    for dim in dims_to_scale:
+        setattr(config, dim, getattr(config, dim) * 2)
+
+    delta_shapes = get_shapes(load_mu_model(config))
+    make_base_shapes(base_shapes, delta_shapes, savefile=output_path)
 
 
 if __name__ == "__main__":
@@ -117,27 +147,19 @@ if __name__ == "__main__":
         help="number of seeds for testing correctness of μ parametrization",
     )
 
-    parser.add_argument("--coord_check_save_path", type=str, default="coord_checks", help="dir location for saving coord check plots")
+    parser.add_argument(
+        "--coord_check_save_path",
+        type=str,
+        default="coord_checks",
+        help="dir location for saving coord check plots",
+    )
 
     args = parser.parse_args()
     print(args)
 
     if args.save_base_shapes:
-        print(f"saving base shapes at {args.save_base_shapes}")
-
-        config = ModelConfig.load(args.config_path, key="model")
-        model = load_mu_model(config)
-        base_shapes = get_shapes(load_mu_model(config))
-
-        # just need to change whatever dimension(s) we are scaling
-        # currently only scaling width, but may scale depth also
-        # width scaling by d_model, but can also be done based on num_heads, etc.
-        config.d_model = config.d_model * 2
-        delta_shapes = get_shapes(load_mu_model(config))
-        make_base_shapes(base_shapes, delta_shapes, savefile=args.save_base_shapes)
+        save_base_shapes(args.config_path)
         print("done and exit")
-        import sys
-
         sys.exit()
 
     train_config = TrainConfig.load(args.config_path)
@@ -145,31 +167,20 @@ if __name__ == "__main__":
 
     if args.coord_check:
         print("testing parametrization")
-        import os
 
         os.makedirs(args.coord_check_save_path, exist_ok=True)
-        coord_check(
-            mup=True,
-            lr=train_config.optimizer.learning_rate,
-            optimizer=train_config.optimizer.name,
-            batch_size=args.batch_size,
-            nsteps=args.coord_check_nsteps,
-            nseeds=args.coord_check_nseeds,
-            args=args,
-            plotdir=args.coord_check_save_path,
-            legend=False,
-        )
-        coord_check(
-            mup=False,
-            lr=train_config.optimizer.learning_rate,
-            optimizer=train_config.optimizer.name,
-            batch_size=args.batch_size,
-            nsteps=args.coord_check_nsteps,
-            nseeds=args.coord_check_nseeds,
-            args=args,
-            plotdir=args.coord_check_save_path,
-            legend=False,
-        )
-        import sys
 
-        sys.exit()
+        for mup in [True, False]:
+            coord_check(
+                mup=mup,
+                train_config=train_config,
+                # widths=2 ** np.arange(7, 14),
+                widths=2 ** np.arange(4, 6),
+                batch_size=args.batch_size,
+                nsteps=args.coord_check_nsteps,
+                nseeds=args.coord_check_nseeds,
+                output_dir=args.coord_check_save_path,
+                legend=False,
+                load_base_shapes=args.load_base_shapes,
+                cuda=args.cuda,
+            )
