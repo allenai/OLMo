@@ -158,7 +158,7 @@ if __name__ == "__main__":
     print(args)
 
     if args.save_base_shapes:
-        save_base_shapes(args.config_path, args.save_base_shapes)
+        save_base_shapes(args.config_path)
         print("done and exit")
         sys.exit()
 

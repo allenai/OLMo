@@ -1053,7 +1053,6 @@ class OLMo(nn.Module):
             # In case of muP, we need to have called set_base_shapes beforehand
             if self.config.use_mup:
                 from mup import set_base_shapes
-
                 # TODO: make sure that fsdp plays nice with this
                 set_base_shapes(self, self.config.mup_base_shapes)
             self.reset_parameters()
