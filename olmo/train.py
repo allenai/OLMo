@@ -119,6 +119,23 @@ def cross_entropy_loss(
     return loss, z_loss
 
 
+def get_labels(batch: Dict[str, Any]) -> torch.Tensor:
+    # Labels are just input IDs shifted to the left (first item is ignored).
+    labels, label_mask, attention_mask, instance_mask = (
+        batch["input_ids"].clone(),
+        batch.get("label_mask"),
+        batch.get("attention_mask"),
+        batch.get("instance_mask"),
+    )
+    if label_mask is not None:
+        labels.masked_fill_(~label_mask, -100)
+    if attention_mask is not None:
+        labels.masked_fill_(attention_mask == 0.0, -100)
+    if instance_mask is not None:
+        labels.masked_fill_(~instance_mask.unsqueeze(-1), value=-100)
+    return labels[..., 1:].contiguous()
+
+
 @dataclass
 class Trainer:
     cfg: TrainConfig
@@ -610,22 +627,6 @@ class Trainer:
         else:
             raise NotImplementedError(checkpoint_type)
 
-    def get_labels(self, batch: Dict[str, Any]) -> torch.Tensor:
-        # Labels are just input IDs shifted to the left (first item is ignored).
-        labels, label_mask, attention_mask, instance_mask = (
-            batch["input_ids"].clone(),
-            batch.get("label_mask"),
-            batch.get("attention_mask"),
-            batch.get("instance_mask"),
-        )
-        if label_mask is not None:
-            labels.masked_fill_(~label_mask, -100)
-        if attention_mask is not None:
-            labels.masked_fill_(attention_mask == 0.0, -100)
-        if instance_mask is not None:
-            labels.masked_fill_(~instance_mask.unsqueeze(-1), value=-100)
-        return labels[..., 1:].contiguous()
-
     def model_forward(
         self, batch: Dict[str, Any], loss_reduction: str = "mean", compute_z_loss: bool = False
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], torch.Tensor]:
@@ -639,7 +640,7 @@ class Trainer:
         # shape: (batch_size * seq_len, vocab_size)
         logits_for_loss = logits_for_loss.view(-1, logits_for_loss.size(-1))
         # shape: (batch_size, seq_len)
-        labels = self.get_labels(batch)
+        labels = get_labels(batch)
         # shape: (batch_size * seq_len,)
         labels = labels.view(-1)
         ce_loss, z_loss = self.loss_fn(

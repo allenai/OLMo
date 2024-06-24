@@ -3,20 +3,7 @@ from typing import Any, Dict
 from mup.coord_check import *
 from mup.coord_check import _record_coords
 
-
-def get_labels(batch: Dict[str, Any]) -> torch.Tensor:
-    # TODO: import instead
-    # Labels are just input IDs shifted to the left (first item is ignored).
-    labels, label_mask, attention_mask = (
-        batch["input_ids"].clone(),
-        batch.get("label_mask"),
-        batch.get("attention_mask"),
-    )
-    if label_mask is not None:
-        labels.masked_fill_(~label_mask, -100)
-    if attention_mask is not None:
-        labels.masked_fill_(attention_mask == 0.0, -100)
-    return labels[..., 1:].contiguous()
+from olmo.train import get_labels
 
 
 def get_batch_loss(model, batch, lossfn, compute_z_loss):

@@ -21,7 +21,17 @@ model:
   init_fn: "normal"
   init_std: 0.02
 optimizer:
-  learning_rate: 0.001
+  name: adamw
+  learning_rate: 3.0e-4
+  weight_decay: 0.1
+  eps: 1e-8
+  decay_norm_and_bias: true
+  decay_embeddings: false
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 1
+
 scheduler:
   name: "cosine_with_warmup"
   t_warmup: 10
