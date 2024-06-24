@@ -2,6 +2,7 @@ import argparse
 import os
 import time
 
+from typing import List, Optional
 import numpy as np
 import torch
 from mup import MuAdam, MuSGD, get_shapes, make_base_shapes, set_base_shapes
@@ -89,6 +90,25 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=""
         face_color="xkcd:light grey" if not mup else None,
     )
 
+def save_base_shapes(config_path: str, output_path: str, dims_to_scale: Optional[List] = None):
+    if dims_to_scale is None:
+        dims_to_scale = ["d_model"]
+
+    print(f"saving base shapes at {output_path}")
+
+    config = ModelConfig.load(config_path, key="model")
+    base_shapes = get_shapes(load_mu_model(config))
+
+    # just need to change whatever dimension(s) we are scaling
+    # currently only scaling width, but may scale depth also
+    # width scaling by d_model, but can also be done based on num_heads, etc.
+
+    for dim in dims_to_scale:
+        setattr(config, dim, getattr(config, dim) * 2)
+
+    delta_shapes = get_shapes(load_mu_model(config))
+    make_base_shapes(base_shapes, delta_shapes, savefile=output_path)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -123,18 +143,7 @@ if __name__ == "__main__":
     print(args)
 
     if args.save_base_shapes:
-        print(f"saving base shapes at {args.save_base_shapes}")
-
-        config = ModelConfig.load(args.config_path, key="model")
-        model = load_mu_model(config)
-        base_shapes = get_shapes(load_mu_model(config))
-
-        # just need to change whatever dimension(s) we are scaling
-        # currently only scaling width, but may scale depth also
-        # width scaling by d_model, but can also be done based on num_heads, etc.
-        config.d_model = config.d_model * 2
-        delta_shapes = get_shapes(load_mu_model(config))
-        make_base_shapes(base_shapes, delta_shapes, savefile=args.save_base_shapes)
+        save_base_shapes(args.config_path, args.save_base_shapes)
         print("done and exit")
         import sys
 
