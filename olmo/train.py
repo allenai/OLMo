@@ -72,15 +72,14 @@ class SpeedMonitor:
         self,
         global_total_tokens: int,
         device_batch_num_tokens: int,
-        global_batch_size: int,
         num_fwd_flops: int,
         num_bck_flops: int,
         record: bool = True,
     ) -> None:
         self.global_total_tokens = global_total_tokens
-        # num_fwd_flops and num_bck_flops property of the OLMo model computes flops per sequence
+        # num_fwd_flops and num_bck_flops from the OLMo model computes flops per token
         # converting to GFLOPs here prevents numerical issues while logging
-        self.total_training_Gflops += (num_fwd_flops + num_bck_flops) / 1e9 * global_batch_size
+        self.total_training_Gflops = (num_fwd_flops + num_bck_flops) * global_total_tokens / 1e9
 
         if record:
             if len(self.start_times) >= self.cfg.window_size:
@@ -97,8 +96,8 @@ class SpeedMonitor:
         metrics: Dict[str, float] = {"throughput/total_tokens": self.global_total_tokens}
 
         # plot flops related metrics
-        metrics["throughput/Gflops"] = self.total_training_Gflops
-        metrics["throughput/log_Gflops"] = math.log(self.total_training_Gflops)
+        metrics["throughput/total_training_Gflops"] = self.total_training_Gflops
+        metrics["throughput/total_training_log_Gflops"] = math.log(self.total_training_Gflops)
 
         if self.start_times:
             interval_seconds = time.monotonic() - self.start_times[0]
@@ -1116,7 +1115,6 @@ class Trainer:
                         device_batch_num_tokens=batch_size * seq_len,  # num tokens in batch for this device
                         # We start monitoring speed after the first batch since the first
                         # batch might be an outlier due to compiling and other initialization overhead.
-                        global_batch_size=self.cfg.global_train_batch_size,
                         num_fwd_flops=self.model.num_fwd_flops,  # this is per sequence
                         num_bck_flops=self.model.num_bck_flops,  # this is per sequence
                         record=not first_batch,
