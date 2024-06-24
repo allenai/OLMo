@@ -1,22 +1,17 @@
 import argparse
 import os
 import time
-
 from typing import List, Optional
+
 import numpy as np
 import torch
 from mup import MuAdam, MuSGD, get_shapes, make_base_shapes, set_base_shapes
 from torch.utils.data import DataLoader
 
 from olmo.config import ModelConfig, TrainConfig
-from olmo.scaling.new_coord_check import (
-    get_coord_data,
-    plot_coord_data,
-)
-
 from olmo.data import build_train_dataloader
-
 from olmo.model import OLMo
+from olmo.scaling.new_coord_check import get_coord_data, plot_coord_data
 from olmo.torch_util import seed_all
 from olmo.train import cross_entropy_loss
 
@@ -37,7 +32,7 @@ def get_dataloader(cfg: TrainConfig, batch_size: int) -> DataLoader:
     return train_loader
 
 
-def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir="", legend=False):
+def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir="", legend=False, plot: bool = True):
     def model_generator(d_model, standparam=False):
         def f():
             config = ModelConfig.load(args.config_path, key="model")
@@ -82,13 +77,15 @@ def coord_check(mup, lr, optimizer, batch_size, nsteps, nseeds, args, plotdir=""
     prm = "mup" if mup else "sp"
     coords_file = os.path.join(plotdir, f"{prm}_olmo_{optimizer}_coord.csv")
     df.to_csv(coords_file, index=False)
-    return plot_coord_data(
-        df,
-        legend=legend,
-        save_to=os.path.join(plotdir, f"{prm}_olmo_{optimizer}_coord.png"),
-        suptitle=f"{prm} Transformer {optimizer} lr={lr} nseeds={nseeds}",
-        face_color="xkcd:light grey" if not mup else None,
-    )
+    if plot:
+        plot_coord_data(
+            df,
+            legend=legend,
+            save_to=os.path.join(plotdir, f"{prm}_olmo_{optimizer}_coord.png"),
+            suptitle=f"{prm} Transformer {optimizer} lr={lr} nseeds={nseeds}",
+            face_color="xkcd:light grey" if not mup else None,
+        )
+
 
 def save_base_shapes(config_path: str, output_path: str, dims_to_scale: Optional[List] = None):
     if dims_to_scale is None:
@@ -137,7 +134,12 @@ if __name__ == "__main__":
         help="number of seeds for testing correctness of μ parametrization",
     )
 
-    parser.add_argument("--coord_check_save_path", type=str, default="coord_checks", help="dir location for saving coord check plots")
+    parser.add_argument(
+        "--coord_check_save_path",
+        type=str,
+        default="coord_checks",
+        help="dir location for saving coord check plots",
+    )
 
     args = parser.parse_args()
     print(args)
