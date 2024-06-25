@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from olmo.config import ModelConfig, TrainConfig
 from olmo.data import build_train_dataloader
 from olmo.model import OLMo
-from olmo.scaling.new_coord_check import get_coord_data, plot_coord_data
+from olmo.scaling.mup_olmo.coord_check import get_coord_data, plot_coord_data
 from olmo.torch_util import seed_all
 from olmo.train import cross_entropy_loss
 

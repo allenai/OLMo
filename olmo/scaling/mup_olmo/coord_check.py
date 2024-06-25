@@ -1,4 +1,3 @@
-from typing import Any, Dict
 
 from mup.coord_check import *
 from mup.coord_check import _record_coords
