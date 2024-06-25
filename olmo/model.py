@@ -1421,6 +1421,7 @@ class OLMo(nn.Module):
         self.__num_fwd_flops = params_flops_per_token + attn_flops_per_token
         return self.__num_fwd_flops
 
+    @property
     def num_bck_flops(self):
         if self.__num_bck_flops:
             return self.__num_bck_flops
