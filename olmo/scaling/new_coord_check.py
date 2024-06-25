@@ -143,7 +143,7 @@ def _get_coord_data(
                         if isinstance(v, torch.Tensor):
                             batch[k] = v.cuda()
 
-                    loss = get_batch_loss(model, batch, lossfn, compute_z_loss)
+                loss = get_batch_loss(model, batch, lossfn, compute_z_loss)
 
 
                 optimizer.zero_grad()
