@@ -39,9 +39,6 @@ def _get_coord_data(
     dataloader,
     optcls,
     nsteps=3,
-    flatten_input=False,
-    flatten_output=False,
-    output_name="loss",
     lossfn="xent",
     filter_module_by_name=None,
     fix_data=True,
@@ -51,7 +48,6 @@ def _get_coord_data(
     input_fdict=None,
     param_fdict=None,
     show_progress=True,
-    one_hot_target=False,
     loss_reduction="mean",
     compute_z_loss=False,
 ):
@@ -77,16 +73,6 @@ def _get_coord_data(
             the model.
         nsteps:
             number of steps to train the model
-        flatten_input:
-            if not `dict_in_out`, reshape the input to be
-            `input.view(input.shape[0], -1)`. Typically used for testing MLPs.
-        flatten_output:
-            if not `dict_in_out`, reshape the label to be `label.view(-1,
-            input.shape[-1])`.
-        output_name:
-            if `dict_in_out`, this is the key for the loss value if the output
-            is a dict. If the output is not a dict, then we assume the first
-            element of the output is the loss.
         lossfn:
             loss function to use if not `dict_in_out`. Can be either a string from
             [`xent`, 'mse', 'nll', 'l1'] or a python `callable` such that
@@ -106,21 +92,11 @@ def _get_coord_data(
             is computed for output activations of each module.
         show_progress:
             show progress using tqdm. Default: True
-        one_hot_target:
-            convert target label into a one-hot vector. This typically is only
-            used for `'mse'` or `'l1'` losses in classification tasks.
-            Default: False
     Output:
         a pandas DataFrame containing recorded results. The column names are
         `'width', 'module', 't'` as well as names of statistics recorded, such
         as `'l1'` (see `FDICT` for other premade statistics that can be
         collected).
-
-    Breaking Changes:
-        In v1.0.0, when `lossfn=='mse'`, the target is automatically converted
-        to a one hot vector before loss computation. Starting in v1.1.0, this
-        behavior is turned off, and the user needs to explicitly turn on this
-        behavior by setting `one_hot_target=True`.
 
     """
     coordinates = []
@@ -223,16 +199,6 @@ def get_coord_data(
             whose name yields True will be trained.
         nsteps:
             number of steps to train the model
-        flatten_input:
-            if not `dict_in_out`, reshape the input to be
-            `input.view(input.shape[0], -1)`. Typically used for testing MLPs.
-        flatten_output:
-            if not `dict_in_out`, reshape the label to be `label.view(-1,
-            input.shape[-1])`.
-        output_name:
-            if `dict_in_out`, this is the key for the loss value if the output
-            is a dict. If the output is not a dict, then we assume the first
-            element of the output is the loss.
         lossfn:
             loss function to use if not `dict_in_out`. Can be either a string from
             [`xent`, 'mse', 'nll', 'l1'] or a python `callable` such that
@@ -252,21 +218,12 @@ def get_coord_data(
             is computed for output activations of each module.
         show_progress:
             show progress using tqdm. Default: True
-        one_hot_target:
-            convert target label into a one-hot vector. This typically is only
-            used for `'mse'` or `'l1'` losses in classification tasks.
-            Default: False
     Output:
         a pandas DataFrame containing recorded results. The column names are
         `'width', 'module', 't'` as well as names of statistics recorded, such
         as `'l1'` (see `FDICT` for other premade statistics that can be
         collected).
 
-    Breaking Changes:
-        In v1.0.0, when `lossfn=='mse'`, the target is automatically converted
-        to a one hot vector before loss computation. Starting in v1.1.0, this
-        behavior is turned off, and the user needs to explicitly turn on this
-        behavior by setting `one_hot_target=True`.
     """
     if lr is None:
         lr = 0.1 if optimizer == "sgd" else 1e-3
