@@ -8,7 +8,7 @@
 2. Replace torch.nn.init.normal_ with mup.init.normal_
 3. Scale attention weights by 1/d instead of q/sqrt(d).
 
-Other updates: Added input, output, attn multipliers.
+Other updates (TBD): Added input, output, attn multipliers.
 
 #### Implementation references
 
@@ -29,7 +29,7 @@ aws s3 cp --endpoint-url=https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflares
 2. Save base shapes:
 
 ```commandline
- python olmo/scaling/mup_coord_check.py test_fixtures/mup_train_tiny.yaml --save_base_shapes tiny-olmo-base-shapes.bsh
+ python olmo/scaling/mup_olmo/mup_coord_check.py test_fixtures/mup_train_tiny.yaml --save_base_shapes tiny-olmo-base-shapes.bsh
 ```
 
 3. Run coord check:
@@ -40,7 +40,7 @@ export RANK=0
 ```
 
 ```commandline
-python olmo/scaling/mup_coord_check.py test_fixtures/mup_train_tiny.yaml \
+python olmo/scaling/mup_olmo/mup_coord_check.py test_fixtures/mup_train_tiny.yaml \
     --coord_check \
     --lr 0.001  \
    --load_base_shapes tiny-olmo-base-shapes.bsh   \
