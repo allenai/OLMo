@@ -78,7 +78,7 @@ ARGS='--run_name=olmoe17-8x1b-final --save_overwrite'
 #ARGS='--run_name=olmoe17-8x1b-fullshard-swiglu-wrapb-k2-zloss --load_path=s3://ai2-llm/checkpoints/OLMoE/olmoe17-8x1b-fullshard-swiglu-wrapb-k2-zloss/step40000/ --save_overwrite --fused_loss=true --activation_checkpointing=fine_grained --device_train_microbatch_size=4'
 
 CONFIG_PATH=configs/olmoe17/olmoe17-8x1b-fullshard-swiglu-wrapb-k2-zloss.yml
-ARGS='--run_name=olmoe17-8x1b-fullshard-swiglu-wrapb-k2-zloss --load_path=s3://ai2-llm/checkpoints/OLMoE/olmoe17-8x1b-fullshard-swiglu-wrapb-k2-zloss/step115000/ --save_overwrite --fused_loss=true --activation_checkpointing=fine_grained --device_train_microbatch_size=4'
+ARGS='--run_name=olmoe17-8x1b-fullshard-swiglu-wrapb-k2-zloss --load_path=s3://ai2-llm/checkpoints/OLMoE/olmoe17-8x1b-fullshard-swiglu-wrapb-k2-zloss/step120000/ --save_overwrite --fused_loss=true --activation_checkpointing=fine_grained --device_train_microbatch_size=4'
 
 
 NUM_NODES=16
@@ -163,6 +163,7 @@ gantry run \
   --synchronized-start-timeout 30m \
   -- /bin/bash -c "pip install --upgrade torch==2.3.0; pip install git+https://github.com/Muennighoff/megablocks.git@zloss; mkdir -p /root/.cache; pushd /root/.cache; curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" | tar --keep-newer-files -xzf -; popd; export HF_DATASETS_OFFLINE=1; SLURM_JOB_ID=${BEAKER_JOB_ID} torchrun --nnodes ${NUM_NODES}:${NUM_NODES} --nproc-per-node 8 --rdzv_id=12347 --rdzv_backend=c10d --rdzv_conf='read_timeout=420' --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 scripts/train.py ${CONFIG_PATH} ${ARGS}"
 
+#export TORCH_DIST_INIT_BARRIER=1; export OLMO_SHARED_FS=1; export NCCL_IB_HCA=^=mlx5_bond_0;
 #conda install nvidia/label/cuda-11.8.0::cuda; 
 #pip install --upgrade torch; 
 #; export NCCL_DEBUG=TRACE
