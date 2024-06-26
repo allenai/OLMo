@@ -8,7 +8,7 @@ gantry run \
   --workspace ai2/cheap_decisions  \
   --task-name cheap-decisions-test-mitchish1-001\
   --description "OLMO 1B LLM 1T tokens on dolma 1.7" \
-  --priority normal \
+  --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
