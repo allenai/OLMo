@@ -1,3 +1,4 @@
+import gc
 import logging
 import math
 import os
@@ -183,8 +184,9 @@ def main(cfg: TrainConfig) -> None:
             for micro_batch_idx, micro_batch in enumerate(micro_batches):
                 # Reset grads
                 for p in model.parameters():
-                    if p.grad is not None:
-                        p.grad.zero_()
+                    p.grad = None
+                gc.collect()
+                torch.cuda.empty_cache()
 
                 micro_batch = move_to_device(micro_batch, torch.device(_device_name()))
 
@@ -247,9 +249,13 @@ def main(cfg: TrainConfig) -> None:
                     l1_norm += grad.abs().sum()
                     l2_norm += (grad ** 2).sum()
                 l2_norm = torch.sqrt(l2_norm)
+                del grad
 
                 # print output
-                print(f"{global_step}\t{micro_batch_idx}\t{l1_norm.item()}\t{l2_norm.item()}")
+                print(f"{global_step}\t{micro_batch_idx}\t{loss.item()}\t{l1_norm.item()}\t{l2_norm.item()}")
+                del l1_norm
+                del l2_norm
+                del loss
 
 
 if __name__ == "__main__":
