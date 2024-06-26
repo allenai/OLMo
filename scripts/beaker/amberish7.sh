@@ -51,8 +51,7 @@ export OLMO_SHARED_FS=1
 export NCCL_DEBUG=INFO
 export NCCL_IB_HCA="^=mlx5_bond_0"
 export NCCL_IB_GID_INDEX=0
-# export NCCL_IB_HCA=mlx5_0:1,mlx5_1:1,mlx5_2:1,mlx5_3:1,mlx5_4:1,mlx5_5:1,mlx5_6:1,mlx5_7:1
-# export NCCL_IB_TIMEOUT=20
+export NCCL_SOCKET_IFNAME=ib
 
 torchrun \
   --nnodes "${NUM_NODES}:${NUM_NODES}" \
