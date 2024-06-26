@@ -13,6 +13,7 @@ CONFIG_DIR=configs/annealing
 CONFIG_PATH=${CONFIG_DIR}/${CONFIG_NAME}.yaml
 
 gantry run \
+  --preemptible \
   --allow-dirty \
   --workspace ai2/davidw-oe-annealing \
   --task-name ${CONFIG_NAME} \
