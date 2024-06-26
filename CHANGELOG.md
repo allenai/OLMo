@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expose memmap dtype in data config 
 - Added support for DDP training.
 - Added caching to disk of HF datasets used in downstream evals
+- Added FLOPs logging
+- Added configs for OLMo tiny set of models
 
 ### Changed
 

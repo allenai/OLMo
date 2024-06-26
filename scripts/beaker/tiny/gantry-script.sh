@@ -2,17 +2,17 @@
 
 set -ex
 
-NUM_NODES=2
-TASK_NAME=tiny-olmo-300M
+NUM_NODES=4
+TASK_NAME=tiny-olmo-60M-rms-norm-adam-eps-1e-8
 
 gantry run \
   --workspace ai2/OLMo-training \
   --task-name ${TASK_NAME} \
-  --description "DDP test for OLMo codebase" \
+  --description "Tiny OLMo runs" \
   --priority urgent \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/jupiter-cirrascale-2 \
+  --cluster ai2/pluto-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
@@ -31,4 +31,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/tiny/torchrun-script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${TASK_NAME}"
+  -- /bin/bash -c "scripts/beaker/tiny/torchrun-script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${TASK_NAME}"
