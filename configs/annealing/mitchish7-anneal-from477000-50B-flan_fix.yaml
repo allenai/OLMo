@@ -1,11 +1,11 @@
-run_name: mitchish7-anneal-from477000-50B
+run_name: mitchish7-anneal-from477000-50B-flan_fix
 seed: 61394
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-medium
-  group: mitchish7-anneal-from477000-50B
+  group: mitchish7-anneal-from477000-50B-flan_fix
 
 model:
   d_model: 4096
