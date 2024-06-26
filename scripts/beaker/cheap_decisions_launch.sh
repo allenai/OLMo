@@ -28,6 +28,8 @@ gantry run \
   --env-secret AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY \
   --shared-memory 10GiB \
   --venv base \
+  --weka oe-eval-default:/weka/oe-eval-default \
+  --weka oe-training-default:/weka/oe-training-default \
   --yes \
   --timeout=-1 \
   -- /bin/bash -c "scripts/beaker/cheap_decisions.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
