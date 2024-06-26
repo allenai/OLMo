@@ -94,7 +94,7 @@ if __name__ == "__main__":
     try:
         mp.set_start_method("spawn", force=True)
     except RuntimeError as e:
-        print(f"failed to set multiprocessing start method: {e}")
+        log.warning(f"failed to set multiprocessing start method: {e}")
 
     dist.init_process_group(backend="gloo", world_size=1, rank=0, store=dist.HashStore())
 
