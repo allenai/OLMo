@@ -16,6 +16,9 @@ source scripts/beaker/warm_hf_cache.sh
 # from https://github.com/allenai/OLMo/blob/ebad588147d817197d3af74f4ae235e5330a44db/scripts/beaker/amberish7.sh#L52 per people in the know 
 export NCCL_IB_HCA="^=mlx5_bond_0"
 
+# per Sam for debugging the cluster
+export NCCL_DEBUG=INFO
+
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
