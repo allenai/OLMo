@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 from typing import Dict
 
@@ -15,7 +16,7 @@ from olmo.data.iterable_dataset import IterableDataset
 from olmo.torch_util import seed_all
 from olmo.util import clean_opt, prepare_cli_environment
 
-log = logging.getLogger("run_dataloader")
+log = logging.getLogger(os.path.basename(__file__))
 
 
 def main(cfg: TrainConfig, output_dir: Path) -> None:
