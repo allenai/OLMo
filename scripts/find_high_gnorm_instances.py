@@ -47,6 +47,15 @@ def _split_batch(batch: Dict[str, Any]) -> List[Dict[str, Any]]:
     ]
 
 
+def tensor_checksum(t: torch.Tensor) -> int:
+    r = t.clone().to(torch.int32)
+    for i in range(13):
+        r *= (i + 1)
+        t = t.roll(i)
+        r.bitwise_xor_(t)
+    return r.sum().item()
+
+
 def main(cfg: TrainConfig) -> None:
     cfg.save_folder = "/tmp"        # should not be used
 
@@ -179,15 +188,15 @@ def main(cfg: TrainConfig) -> None:
             del batch
 
             for micro_batch_idx, micro_batch in enumerate(micro_batches):
+                instance_checksum = tensor_checksum(micro_batch["input_ids"])
+                batch_size_in_tokens = micro_batch["input_ids"].numel()
+                micro_batch = move_to_device(micro_batch, torch.device(_device_name()))
+
                 # Reset grads
                 for p in model.parameters():
                     p.grad = None
                 gc.collect()
                 torch.cuda.empty_cache()
-
-                micro_batch = move_to_device(micro_batch, torch.device(_device_name()))
-                instance_checksum = micro_batch["input_ids"].to(torch.int64).sum().item()
-                batch_size_in_tokens = micro_batch["input_ids"].numel()
 
                 with torch.autocast(_device_name(), enabled=True, dtype=cfg.autocast_precision):
                     # Run forward pass.
