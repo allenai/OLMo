@@ -176,8 +176,6 @@ def main(cfg: TrainConfig) -> None:
             global_train_examples_seen_this_epoch += batch_size
 
             micro_batches = _split_batch(batch)
-            num_micro_batches = len(micro_batches)
-            batch_size_in_tokens = batch["input_ids"].numel()
             del batch
 
             for micro_batch_idx, micro_batch in enumerate(micro_batches):
@@ -188,6 +186,8 @@ def main(cfg: TrainConfig) -> None:
                 torch.cuda.empty_cache()
 
                 micro_batch = move_to_device(micro_batch, torch.device(_device_name()))
+                instance_checksum = micro_batch["input_ids"].to(torch.int64).sum().item()
+                batch_size_in_tokens = micro_batch["input_ids"].numel()
 
                 with torch.autocast(_device_name(), enabled=True, dtype=cfg.autocast_precision):
                     # Run forward pass.
@@ -229,7 +229,7 @@ def main(cfg: TrainConfig) -> None:
                     # Get loss to optimize for.
                     if cfg.softmax_auxiliary_loss:
                         assert z_loss is not None
-                        z_loss = z_loss / num_micro_batches
+                        z_loss = z_loss / batch_size_in_tokens
                         loss = ce_loss + z_loss
                     else:
                         loss = ce_loss
@@ -251,7 +251,14 @@ def main(cfg: TrainConfig) -> None:
                 del grad
 
                 # print output
-                print(f"{global_step}\t{micro_batch_idx}\t{loss.item()}\t{l1_norm.item()}\t{l2_norm.item()}")
+                print("\t".join(map(str, [
+                    global_step,
+                    instance_checksum,
+                    micro_batch_idx,
+                    loss.item(),
+                    l1_norm.item(),
+                    l2_norm.item()
+                ])))
                 del l1_norm
                 del l2_norm
                 del loss
