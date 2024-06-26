@@ -68,7 +68,7 @@ CONFIG_PATH=configs/olmoe17/olmoe17-8x1b-final-nodecnorm.yml
 ARGS='--run_name=olmoe17-8x1b-final-nodecnorm --save_overwrite --device_train_microbatch_size=4'
 
 CONFIG_PATH=configs/olmoe17/olmoe17-8x1b-final-decemb.yml
-ARGS='--run_name=olmoe17-8x1b-final-decemb --save_overwrite --device_train_microbatch_size=2'
+ARGS='--run_name=olmoe17-8x1b-final-decemb --save_overwrite --device_train_microbatch_size=2 --load_path=s3://ai2-llm/checkpoints/OLMoE/olmoe17-8x1b-final-decemb/step5000/'
 
 #CONFIG_PATH=configs/olmoe17/olmoe17-8x1b-final-fine.yml
 #ARGS='--run_name=olmoe17-8x1b-final-fine --save_overwrite --device_train_microbatch_size=2 --activation_checkpointing=fine_grained'
@@ -161,7 +161,7 @@ BEAKER_REPLICA_RANK=0
 
 gantry run \
   --allow-dirty \
-  --priority high \
+  --priority normal \
   --preemptible \
   --workspace ai2/olmoe \
   --task-name olmoe \
