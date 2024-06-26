@@ -653,8 +653,8 @@ class Trainer:
         return ce_loss, z_loss, logits
 
     def train_micro_batch(
-        self, micro_batch: Dict[str, Any], batch_size_in_tokens: int, num_micro_batches: int
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        self, micro_batch: Dict[str, Any], batch_size_in_tokens: int
+    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
         ce_loss, z_loss, logits = self.model_forward(
             micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss, loss_reduction="sum"
         )
@@ -666,7 +666,7 @@ class Trainer:
         # Get loss to optimize for.
         if self.cfg.softmax_auxiliary_loss:
             assert z_loss is not None
-            z_loss = z_loss / num_micro_batches
+            z_loss = z_loss / batch_size_in_tokens
             loss = ce_loss + z_loss
         else:
             loss = ce_loss
@@ -701,9 +701,7 @@ class Trainer:
             with grad_sync_context():
                 with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                     # Run forward pass.
-                    loss, ce_loss, z_loss = self.train_micro_batch(
-                        micro_batch, batch_size_in_tokens, num_micro_batches
-                    )
+                    loss, ce_loss, z_loss = self.train_micro_batch(micro_batch, batch_size_in_tokens)
 
                     # Update overall CE batch loss.
                     ce_batch_loss += ce_loss.detach()
