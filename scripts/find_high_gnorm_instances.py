@@ -249,7 +249,7 @@ def main(cfg: TrainConfig) -> None:
                 l2_norm = torch.sqrt(l2_norm)
 
                 # print output
-                print(f"{global_step}\t{micro_batch_idx}\t{l1_norm.item()}\r{l2_norm.item()}")
+                print(f"{global_step}\t{micro_batch_idx}\t{l1_norm.item()}\t{l2_norm.item()}")
 
 
 if __name__ == "__main__":
