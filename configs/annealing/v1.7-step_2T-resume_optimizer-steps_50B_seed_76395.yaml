@@ -1,11 +1,11 @@
-run_name: v1.7-step_2T-resume_optimizer-steps_50B
+run_name: v1.7-step_2T-resume_optimizer-steps_50B_seed_76395
 seed: 76395
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-annealing
-  group: v1.7-step_2T-resume_optimizer-steps_50B
+  group: v1.7-step_2T-resume_optimizer-steps_50B_seed_76395
 
 model:
   d_model: 4096
