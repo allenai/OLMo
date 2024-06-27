@@ -48,6 +48,7 @@ def _split_batch(batch: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def tensor_checksum(t: torch.Tensor) -> int:
+    t = t.flatten()
     r = t.clone().to(torch.int32)
     for i in range(13):
         r *= (i + 1)
