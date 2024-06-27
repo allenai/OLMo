@@ -263,8 +263,8 @@ def main(cfg: TrainConfig) -> None:
                 # print output
                 print("\t".join(map(str, [
                     global_step,
-                    instance_checksum,
                     micro_batch_idx,
+                    instance_checksum,
                     loss.item(),
                     l1_norm.item(),
                     l2_norm.item()
