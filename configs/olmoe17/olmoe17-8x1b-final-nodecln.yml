@@ -50,6 +50,7 @@ compile: null
 optimizer:
   name: adamw
   learning_rate: 4.0e-4
+  eps: 1.0e-8
   weight_decay: 0.1
   decay_norm_and_bias: false
   decay_embeddings: true
