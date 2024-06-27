@@ -86,6 +86,7 @@ time_limit: null
 
 precision: amp_bf16
 
+distributed_strategy: fsdp
 fsdp:
   wrapping_strategy: by_block_and_size
   precision: mixed
