@@ -26,7 +26,7 @@ torchrun \
   --rdzv_backend=c10d \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   scripts/train.py \
-    configs/tiny/OLMo-150M.yaml \
+    configs/tiny/OLMo-300M.yaml \
       --run_name=$TASK_NAME \
       --wandb.name=$TASK_NAME \
       --wandb.group=$TASK_NAME \
