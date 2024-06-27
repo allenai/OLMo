@@ -42,7 +42,7 @@ ddp:
   grad_sync_mode: batch
   find_unused_params: false
 
-compile: null  # causes instability on AMD GPUs
+compile: null
 
 optimizer:
   name: adamw
