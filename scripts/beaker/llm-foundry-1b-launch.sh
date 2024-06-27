@@ -9,6 +9,7 @@ gantry run \
   --task-name llm-foundry-mpt-1B \
   --description "LLM Foundry - MPT 1B" \
   --priority normal \
+  --preemptible \
   --beaker-image shanea/llm-foundry-torch2.3 \
   --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
