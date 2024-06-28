@@ -1,11 +1,8 @@
 import argparse
-import os
-import time
 from typing import List, Optional
 
 import numpy as np
-import torch
-from mup import MuAdam, MuSGD, get_shapes, make_base_shapes, set_base_shapes
+from mup import get_shapes, make_base_shapes, set_base_shapes
 from torch.utils.data import DataLoader
 
 from olmo.config import ModelConfig, TrainConfig

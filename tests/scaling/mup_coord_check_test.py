@@ -4,8 +4,7 @@ import tempfile
 import numpy as np
 from mup.shape import load_base_shapes
 
-from olmo.config import TrainConfig
-from olmo.scaling.mup_coord_check import coord_check, save_base_shapes
+from olmo.scaling.mup_olmo.mup_coord_check import coord_check, save_base_shapes
 
 
 def test_save_base_shapes():
@@ -24,8 +23,6 @@ def test_coord_check():
         output_path = os.path.join(temp_dir, "base-shapes.bsh")
         save_base_shapes(config_path, output_path)
 
-        train_config = TrainConfig.load(config_path)
-        # train_config.data.paths = ["../../test_fixtures/sample-tokens.npy"]
         coord_check(
             mup=True,
             config_path=config_path,

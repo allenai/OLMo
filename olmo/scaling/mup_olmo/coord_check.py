@@ -1,4 +1,3 @@
-
 from mup.coord_check import *
 from mup.coord_check import _record_coords
 
@@ -144,7 +143,6 @@ def _get_coord_data(
 
                 loss = get_batch_loss(model, batch, lossfn, compute_z_loss)
 
-
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
@@ -243,11 +241,11 @@ def get_coord_data(
         return params
 
     if optimizer == "sgd":
-        optcls = lambda model: SGD(get_trainable(model), lr=lr)
+        optcls = lambda model: SGD(get_trainable(model), lr=lr)  # noqa: E731
     elif optimizer == "adam":
-        optcls = lambda model: Adam(get_trainable(model), lr=lr)
+        optcls = lambda model: Adam(get_trainable(model), lr=lr)  # noqa: E731
     elif optimizer == "adamw":
-        optcls = lambda model: AdamW(get_trainable(model), lr=lr)
+        optcls = lambda model: AdamW(get_trainable(model), lr=lr)  # noqa: E731
     elif optimizer is None:
         raise ValueError("optimizer should be sgd|adam|adamw or a custom function")
 
