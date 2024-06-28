@@ -602,9 +602,6 @@ class AdamW(torch.optim.AdamW, Optimizer):
             assert param_names is not None
             assert step_size_norms is not None
             assert step_size_maxs is not None
-            self._step_size_param_names = None
-            self._step_size_norms = None
-            self._step_size_maxs = None
 
             # Reduce metrics if needed.
             if is_distributed() and isinstance(module, FullyShardedDataParallel):
@@ -619,9 +616,13 @@ class AdamW(torch.optim.AdamW, Optimizer):
                 step_size_maxs = all_maxs.split(1)
 
             metrics = {}
-            for param_name, step_size_norm, step_size_max in zip(param_names, step_size_norms, step_size_maxs):
+            for param_name, step_size_norm, step_size_max in zip(param_names, step_size_norms, step_size_maxs):  # type: ignore[arg-type]
                 metrics[f"step/{param_name}.norm"] = step_size_norm.squeeze(0)
                 metrics[f"step/{param_name}.max"] = step_size_max.squeeze(0)
+
+            self._step_size_param_names = None
+            self._step_size_norms = None
+            self._step_size_maxs = None
             return metrics
 
 
