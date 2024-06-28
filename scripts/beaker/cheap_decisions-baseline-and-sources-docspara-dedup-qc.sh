@@ -13,10 +13,18 @@ shift
 
 source scripts/beaker/warm_hf_cache.sh
 
-# from https://github.com/allenai/OLMo/blob/ebad588147d817197d3af74f4ae235e5330a44db/scripts/beaker/amberish7.sh#L52 per people in the know 
+# Use all interfaces starting with `ib`. This selects the IB cards and avoids 
+# interfaces with names like bond0 and enp0, which are usually ethernet devices.
+# Ethernet networks are not robust/fast enough for most distributed training workloads.
+# https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-socket-ifname
+export NCCL_SOCKET_IFNAME=ib
+
+# Don't use the IB bond (which uses the attached ethernet cards) for the same reason.
+# https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-ib-hca
 export NCCL_IB_HCA="^=mlx5_bond_0"
 
-# per Sam for debugging the cluster
+# Enable additional NCCL output for debugging.
+# https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-debug
 export NCCL_DEBUG=INFO
 
 torchrun \
@@ -29,7 +37,7 @@ torchrun \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
   configs/mitchish1-s3-cheap-decisions-r70b-dedupe-docspara-qc-01.yaml \
-    # --load_path='${path.last_checkpoint:s3://ai2-llm/checkpoints/cheap_decisions/dolma-v1-6-and-sources-baseline-docspara-dedup-qc-01-1B-N-1T-D-mitchish1-001}'
+    --load_path='${path.last_checkpoint:s3://ai2-llm/checkpoints/cheap_decisions/dolma-v1-6-and-sources-baseline-docspara-dedup-qc-01-1B-N-1T-D-mitchish1-001}'
     --model.flash_attention=true \
     # --save_folder=runs/ \
     # --save_overwrite \
