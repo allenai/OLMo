@@ -1115,9 +1115,8 @@ class Trainer:
                         device_batch_num_tokens=batch_size * seq_len,  # num tokens in batch for this device
                         # We start monitoring speed after the first batch since the first
                         # batch might be an outlier due to compiling and other initialization overhead.
-                        num_fwd_flops=self.model.num_fwd_flops,  # this is per sequence
-                        num_bck_flops=self.model.num_bck_flops,  # this is per sequence
-                        record=not first_batch,
+                        num_fwd_flops=self.model.num_fwd_flops,  # this is per token
+                        num_bck_flops=self.model.num_bck_flops,  # this is per token
                     )
 
                     should_log_this_step = self.should_log_this_step()
