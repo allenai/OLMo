@@ -16,6 +16,7 @@ from typing import (
     cast,
 )
 
+import numpy as np
 import torch
 from omegaconf import DictConfig, ListConfig
 from omegaconf import OmegaConf as om
@@ -48,6 +49,9 @@ __all__ = [
     "WandbConfig",
     "CompilerConfig",
     "WandbConfig",
+    "DDPConfig",
+    "DistributedStrategy",
+    "DDPGradSyncMode",
     "FSDPPrecision",
     "FSDPWrapStrategy",
     "FSDPConfig",
@@ -348,6 +352,8 @@ class ModelConfig(BaseConfig):
     to ``False``.
     """
 
+    layer_norm_eps: float = 1e-05
+
     attention_layer_norm_with_affine: bool = True
     """
     Toggle affine transform for the QK norms.
@@ -561,6 +567,7 @@ class InstanceFilterConfig(BaseConfig):
 @dataclass
 class DataConfig(BaseConfig):
     paths: Optional[List[str]] = None
+    memmap_dtype: str = "uint16"
     datasets: Optional[Dict[str, List[str]]] = None
     label_mask_paths: Optional[List[str]] = None
     pad_direction: PaddingDirection = PaddingDirection.right
@@ -573,6 +580,19 @@ class DataConfig(BaseConfig):
     timeout: int = 0
     seed: Optional[int] = None
     instance_filter: Optional[InstanceFilterConfig] = None
+
+    @property
+    def effective_memmap_dtype(self):
+        if self.memmap_dtype == "uint8":
+            return np.uint8
+        if self.memmap_dtype == "uint16":
+            return np.uint16
+        elif self.memmap_dtype == "uint32":
+            return np.uint32
+        elif self.memmap_dtype == "uint64":
+            return np.uint64
+        # default to uint16 if not set
+        return np.uint16
 
 
 class EvaluatorType(StrEnum):
@@ -636,6 +656,56 @@ class CompilerConfig(BaseConfig):
     backend: str = "inductor"
     """
     The backend to use.
+    """
+
+
+class DistributedStrategy(StrEnum):
+    ddp = "ddp"
+    """
+    Wrap OLMo in torch.nn.parallel.DistributedDataParallel to train across ranks.
+    """
+
+    fsdp = "fsdp"
+    """
+    Wrap OLMo in torch.distributed.fsdp.FullyShardedDataParallel to train across ranks.
+    """
+
+
+class DDPGradSyncMode(StrEnum):
+    batch = "batch"
+    """
+    Synchronize gradients after computation at each bucket only at the last micro-batch.
+    This is slightly faster than gradient syncs across each micro-batch but will consume more memory.
+    Can use this mode only when `find_unused_params` is set to False.
+    """
+
+    micro_batch = "micro_batch"
+    """
+    Synchronize gradients after computation at each bucket per micro-batch.
+    This will be slightly slower than gradient sync at the last micro-batch, but will consume less memory.
+    Can use this mode with both option of `find_unused_params` but specifically recommended to use with `find_unused_params`
+    set to True, to prevent errors.
+    """
+
+
+@dataclass
+class DDPConfig(BaseConfig):
+    grad_sync_mode: DDPGradSyncMode = DDPGradSyncMode.batch
+    """
+    Gradient sync mode for DDP
+
+    Note: When `find_unused_params` is set, set `grad_sync_mode` to `micro_batch` as different micro-batches might activate
+    different parts of the model, ex- MOEs.
+    """
+
+    find_unused_params: bool = False
+    """
+    (from torch documentation)
+
+    This mode allows running backward on a subgraph of the model, and DDP finds out which parameters
+    are involved in the backward pass by traversing the autograd graph from the model output and marking
+    all unused parameters as ready for reduction. Note that traversing the autograd graph introduces extra overheads,
+    so applications should only set find_unused_parameters to True when necessary.
     """
 
 
@@ -1029,9 +1099,19 @@ class TrainConfig(BaseConfig):
     Settings for compiling the model with ``torch.compile()``.
     """
 
-    fsdp: FSDPConfig = field(default_factory=FSDPConfig)
+    distributed_strategy: Optional[DistributedStrategy] = None
+    """
+    Distributed strategy for OLMo model (eg. single GPU, DDP, FSDP).
+    """
+
+    fsdp: Optional[FSDPConfig] = field(default_factory=FSDPConfig)
     """
     Fully sharded data parallel settings.
+    """
+
+    ddp: Optional[DDPConfig] = None
+    """
+    DDP settings.
     """
 
     softmax_auxiliary_loss: bool = False
@@ -1089,6 +1169,11 @@ class TrainConfig(BaseConfig):
     Whether to use the fused CE loss function from `flash-attn`.
     """
 
+    hf_datasets_cache_dir: Optional[str] = None
+    """
+    Path to cache directory of HF datasets saved with `datasets.save_to_disk`.
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":
@@ -1102,20 +1187,23 @@ class TrainConfig(BaseConfig):
 
     @property
     def fsdp_precision(self) -> MixedPrecision:
-        if self.fsdp.precision == FSDPPrecision.pure:
-            return MixedPrecision(
-                param_dtype=self.autocast_precision,
-                reduce_dtype=self.autocast_precision,
-                buffer_dtype=self.autocast_precision,
-            )
-        elif self.fsdp.precision == FSDPPrecision.mixed:
-            return MixedPrecision(
-                param_dtype=self.autocast_precision,
-                reduce_dtype=torch.float32,
-                buffer_dtype=self.autocast_precision,
-            )
+        if self.fsdp is not None:
+            if self.fsdp.precision == FSDPPrecision.pure:
+                return MixedPrecision(
+                    param_dtype=self.autocast_precision,
+                    reduce_dtype=self.autocast_precision,
+                    buffer_dtype=self.autocast_precision,
+                )
+            elif self.fsdp.precision == FSDPPrecision.mixed:
+                return MixedPrecision(
+                    param_dtype=self.autocast_precision,
+                    reduce_dtype=torch.float32,
+                    buffer_dtype=self.autocast_precision,
+                )
+            else:
+                raise NotImplementedError(f"{self.fsdp.precision}")
         else:
-            raise NotImplementedError(f"{self.fsdp.precision}")
+            raise ValueError("self.fsdp is None!")
 
     @classmethod
     def update_legacy_settings(cls, config: D) -> D:

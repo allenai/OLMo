@@ -1,8 +1,19 @@
 {
+  "added_tokens_decoder": {
+    "50256": {
+      "content": "<|endoftext|>",
+      "lstrip": false,
+      "normalized": true,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    }
+  },
   "clean_up_tokenization_spaces": true,
   "eos_token": "<|endoftext|>",
   "max_length": null,
   "model_max_length": 1000000000000000019884624838656,
+  "pad_token": "<|endoftext|>",
   "tokenizer_class": "OLMoTokenizer",
   "truncation": "right"
 }

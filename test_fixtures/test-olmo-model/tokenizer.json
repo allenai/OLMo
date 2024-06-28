@@ -40,6 +40,7 @@
     "end_of_word_suffix": "",
     "fuse_unk": false,
     "byte_fallback": false,
+    "ignore_merges": false,
     "vocab": {
       "!": 0,
       "\"": 1,
