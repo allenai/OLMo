@@ -367,6 +367,7 @@ class LionW(Optimizer):
         betas: Tuple[float, float] = (0.9, 0.99),
         weight_decay: float = 0.0,
         record_update_metrics: bool = False,
+        selective_updates: bool = False,
         device: Optional[torch.device] = None,
     ):
         assert lr > 0.0
@@ -375,6 +376,7 @@ class LionW(Optimizer):
         super().__init__(params, defaults)
         for group in self.param_groups:
             group["initial_lr"] = group["lr"]
+        self._selective_updates = selective_updates
         self._update_total_dot_prod: Optional[torch.Tensor] = None
         self._update_total_norm: Optional[torch.Tensor] = None
         self._signed_update_total_norm: Optional[torch.Tensor] = None
@@ -437,14 +439,19 @@ class LionW(Optimizer):
 
         for group in self.param_groups:
             for p in group["params"]:
-                if p.grad is None:
+                grad = p.grad
+                if grad is None:
                     continue
 
-                # Perform step weight decay
-                p.data.mul_(1 - group["lr"] * group["weight_decay"])
-
-                grad = p.grad
                 state = self.state[p]
+
+                # Perform step weight decay
+                mask: Optional[torch.Tensor] = None
+                if self._selective_updates:
+                    mask = grad != 0
+                    p.data.mul_(1 - mask * (group["lr"] * group["weight_decay"]))
+                else:
+                    p.data.mul_(1 - group["lr"] * group["weight_decay"])
 
                 # State initialization
                 if len(state) == 0:
@@ -456,11 +463,16 @@ class LionW(Optimizer):
 
                 # Weight update
                 update = exp_avg * beta1 + grad * (1 - beta1)
+                if mask is not None:
+                    update.mul_(mask)
                 signed_update = torch.sign(update)
                 p.add_(signed_update, alpha=-group["lr"])
 
                 # Decay the momentum running average coefficient
-                exp_avg.mul_(beta2).add_(grad, alpha=1 - beta2)
+                if mask is not None:
+                    exp_avg.mul_(1 - mask * (1 - beta2)).add_(grad, alpha=1 - beta2)
+                else:
+                    exp_avg.mul_(beta2).add_(grad, alpha=1 - beta2)
 
                 # Track dot product and norms of update vs signed update in order to calculate
                 # their cosine similarity.
@@ -491,9 +503,10 @@ class LionW(Optimizer):
 
 
 class AdamW(torch.optim.AdamW, Optimizer):
-    def __init__(self, *args, record_update_metrics: bool = False, **kwargs):
+    def __init__(self, *args, record_update_metrics: bool = False, selective_updates: bool = False, **kwargs):
         super().__init__(*args, **kwargs)
         self._record_step_size = record_update_metrics
+        self._selective_updates = selective_updates
         self._step_size_param_names: Optional[List[str]] = None
         self._step_size_norms: Optional[List[torch.Tensor]] = None
         self._step_size_maxs: Optional[List[torch.Tensor]] = None
@@ -501,7 +514,7 @@ class AdamW(torch.optim.AdamW, Optimizer):
 
     @torch.no_grad()
     def step(self, closure=None) -> None:
-        if not (self._record_step_size and self._collecting_metrics):
+        if not (self._record_step_size and self._collecting_metrics) and not self._selective_updates:
             return super().step(closure=closure)
 
         device = get_default_device()
@@ -547,11 +560,20 @@ class AdamW(torch.optim.AdamW, Optimizer):
                 step_t += 1
 
                 # Perform step weight decay.
-                param.mul_(1 - lr * weight_decay)
+                mask: Optional[torch.Tensor] = None
+                if self._selective_updates:
+                    mask = grad != 0
+                    param.mul_(1 - mask * (lr * weight_decay))
+                else:
+                    param.mul_(1 - lr * weight_decay)
 
                 # Decay the first and second moment running average coefficient.
-                exp_avg.lerp_(grad, 1 - beta1)
-                exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+                if mask is not None:
+                    exp_avg.lerp_(grad, mask * (1 - beta1))
+                    exp_avg_sq.mul_(1 - mask * (1 - beta2)).addcmul_(grad, grad, value=1 - beta2)
+                else:
+                    exp_avg.lerp_(grad, 1 - beta1)
+                    exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
 
                 step = step_t.item()
 
@@ -573,6 +595,8 @@ class AdamW(torch.optim.AdamW, Optimizer):
                     denom = (exp_avg_sq.sqrt() / bias_correction2_sqrt).add_(eps)
 
                 update = -step_size * torch.div(exp_avg, denom)
+                if mask is not None:
+                    update.mul_(mask)
                 param.add_(update)
                 step_size_norms.append(torch.linalg.vector_norm(update, 2.0, dtype=torch.float32).unsqueeze(0))
                 step_size_maxs.append(update.abs().max().unsqueeze(0))
