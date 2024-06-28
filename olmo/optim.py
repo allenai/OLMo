@@ -916,6 +916,7 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,
             record_update_metrics=cfg.optimizer.record_update_metrics,
+            selective_updates=cfg.optimizer.selective_updates,
         )
     elif cfg.optimizer.name == OptimizerType.adamw:
         return AdamW(
@@ -924,6 +925,7 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
             betas=cfg.optimizer.betas,
             weight_decay=cfg.optimizer.weight_decay,
             record_update_metrics=cfg.optimizer.record_update_metrics,
+            selective_updates=cfg.optimizer.selective_updates,
             eps=cfg.optimizer.eps,
         )
     else:
