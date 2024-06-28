@@ -54,7 +54,7 @@ all = [
     "ai2-olmo[dev,train]",
 ]
 scaling = [
-    "mup"
+    "mup@git+https://github.com/microsoft/mup#egg=19814971934ef91dd546f88e913fc963e096d11c"
 ]
 
 [project.urls]
