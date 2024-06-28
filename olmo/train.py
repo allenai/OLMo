@@ -1115,6 +1115,7 @@ class Trainer:
                         # batch might be an outlier due to compiling and other initialization overhead.
                         num_fwd_flops=self.model.num_fwd_flops,  # this is per token
                         num_bck_flops=self.model.num_bck_flops,  # this is per token
+                        record=not first_batch,
                     )
 
                     should_log_this_step = self.should_log_this_step()
