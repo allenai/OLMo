@@ -606,12 +606,12 @@ class AdamW(torch.optim.AdamW, Optimizer):
             # Reduce metrics if needed.
             if is_distributed() and isinstance(module, FullyShardedDataParallel):
                 # Reduce norms.
-                all_norms = torch.cat(step_size_norms).to(device) ** 2.0
+                all_norms = torch.cat(step_size_norms or [torch.tensor(0.0)]).to(device) ** 2.0
                 dist.reduce(all_norms, dst_rank, op=dist.ReduceOp.SUM, group=process_group)
                 step_size_norms = (all_norms ** (0.5)).squeeze(0).split(1)
 
                 # Reduce maxs.
-                all_maxs = torch.cat(step_size_maxs).to(device)
+                all_maxs = torch.cat(step_size_maxs or [torch.tensor(0.0)]).to(device)
                 dist.reduce(all_maxs, dst_rank, op=dist.ReduceOp.MAX, group=process_group)
                 step_size_maxs = all_maxs.split(1)
 
