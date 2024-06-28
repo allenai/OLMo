@@ -26,7 +26,7 @@ gantry run \
   --env-secret WANDB_API_KEY=SHANEA_WANDB_API_KEY \
   --env-secret AWS_CONFIG=SHANEA_AWS_CONFIG \
   --env-secret AWS_CREDENTIALS=SHANEA_AWS_CREDENTIALS \
-  --shared-memory 10GiB \
+  --shared-memory 20GiB \
   --venv base \
   --yes \
   --timeout=-1 \
