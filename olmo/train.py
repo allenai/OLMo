@@ -65,10 +65,22 @@ class SpeedMonitor:
     cfg: SpeedMonitorConfig
     start_times: Deque[float] = field(default_factory=lambda: deque([]))
     global_total_tokens: int = 0
+    total_training_Gflops: float = 0
     device_interval_tokens: Deque[int] = field(default_factory=lambda: deque([]))
 
-    def batch_start(self, global_total_tokens: int, device_batch_num_tokens: int, record: bool = True) -> None:
+    def batch_start(
+        self,
+        global_total_tokens: int,
+        device_batch_num_tokens: int,
+        num_fwd_flops: int,
+        num_bck_flops: int,
+        record: bool = True,
+    ) -> None:
         self.global_total_tokens = global_total_tokens
+        # num_fwd_flops and num_bck_flops from the OLMo model computes flops per token
+        # converting to GFLOPs here prevents numerical issues while logging
+        self.total_training_Gflops = (num_fwd_flops + num_bck_flops) * global_total_tokens / 1e9
+
         if record:
             if len(self.start_times) >= self.cfg.window_size:
                 self.start_times.popleft()
@@ -82,6 +94,11 @@ class SpeedMonitor:
 
     def check(self) -> Dict[str, float]:
         metrics: Dict[str, float] = {"throughput/total_tokens": self.global_total_tokens}
+
+        # plot flops related metrics
+        metrics["throughput/total_training_Gflops"] = self.total_training_Gflops
+        metrics["throughput/total_training_log_Gflops"] = math.log(self.total_training_Gflops)
+
         if self.start_times:
             interval_seconds = time.monotonic() - self.start_times[0]
             interval_batches = len(self.start_times)
@@ -1092,10 +1109,12 @@ class Trainer:
                     self.global_train_examples_seen_this_epoch += global_batch_size
                     self.global_train_tokens_seen += global_batch_size * seq_len
                     speed_monitor.batch_start(
-                        self.global_train_tokens_seen,
-                        batch_size * seq_len,  # num tokens in batch for this device
+                        global_total_tokens=self.global_train_tokens_seen,
+                        device_batch_num_tokens=batch_size * seq_len,  # num tokens in batch for this device
                         # We start monitoring speed after the first batch since the first
                         # batch might be an outlier due to compiling and other initialization overhead.
+                        num_fwd_flops=self.model.num_fwd_flops,  # this is per token
+                        num_bck_flops=self.model.num_bck_flops,  # this is per token
                         record=not first_batch,
                     )
 
