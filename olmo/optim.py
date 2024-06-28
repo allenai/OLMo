@@ -526,8 +526,6 @@ class AdamW(torch.optim.AdamW, Optimizer):
                 state = self.state[param]
                 # init state if needed
                 if len(state) == 0:
-                    # note(crcrpar): Deliberately host `step` on CPU if both capturable and fused are off.
-                    # This is because kernel launches are costly on CUDA and XLA.
                     state["step"] = (
                         torch.zeros((), dtype=torch.float32, device=param.device)
                         if group["capturable"] or group["fused"]
@@ -545,13 +543,13 @@ class AdamW(torch.optim.AdamW, Optimizer):
                 exp_avg_sq = state["exp_avg_sq"]
                 step_t = state["step"]
 
-                # update step
+                # Update step.
                 step_t += 1
 
-                # Perform stepweight decay
+                # Perform step weight decay.
                 param.mul_(1 - lr * weight_decay)
 
-                # Decay the first and second moment running average coefficient
+                # Decay the first and second moment running average coefficient.
                 exp_avg.lerp_(grad, 1 - beta1)
                 exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
 
