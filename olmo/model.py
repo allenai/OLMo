@@ -137,11 +137,10 @@ class LayerNormBase(nn.Module):
         *,
         size: Optional[int] = None,
         elementwise_affine: Optional[bool] = True,
-        eps: float = 1e-05,
     ):
         super().__init__()
         self.config = config
-        self.eps = eps
+        self.eps = config.layer_norm_eps
         self.normalized_shape = (size or config.d_model,)
         if elementwise_affine or (elementwise_affine is None and self.config.layer_norm_with_affine):
             self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
@@ -200,9 +199,8 @@ class LayerNorm(LayerNormBase):
         size: Optional[int] = None,
         low_precision: bool = False,
         elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-05,
     ):
-        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
+        super().__init__(config, size=size, elementwise_affine=elementwise_affine)
         self.low_precision = low_precision
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -231,9 +229,8 @@ class RMSLayerNorm(LayerNormBase):
         config: ModelConfig,
         size: Optional[int] = None,
         elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-5,
     ):
-        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
+        super().__init__(config, size=size, elementwise_affine=elementwise_affine)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         with torch.autocast(enabled=False, device_type=x.device.type):
@@ -1058,6 +1055,7 @@ class OLMo(nn.Module):
                 set_base_shapes(self, self.config.mup_base_shapes)
             self.reset_parameters()
         self.__num_fwd_flops: Optional[int] = None
+        self.__num_bck_flops: Optional[int] = None
 
         # Warm up cache.
         if self.config.alibi:
@@ -1452,18 +1450,30 @@ class OLMo(nn.Module):
     def num_fwd_flops(self):
         if self.__num_fwd_flops:
             return self.__num_fwd_flops
-        n_params = self.num_params()
+
+        # embedding table is just a lookup in the forward pass
+        n_params = self.num_params(include_embedding=False)
         # the number of parameters is approximately the number of multiply-accumulates (MAC) in the network
         # each MAC has 2 FLOPs - we multiply by 2 ie 2 * n_param
         # this gets us FLOPs / token
         params_flops_per_token = 2 * n_params
-        params_flops_per_seq = params_flops_per_token * self.config.max_sequence_length
         # there are 2 FLOPS per mac; there is A=Q*K^T and out=A*V ops (ie mult by 2)
-        attn_flops_per_seq = (
-            self.config.n_layers * 2 * 2 * (self.config.d_model * (self.config.max_sequence_length**2))
+        attn_flops_per_token = (
+            self.config.n_layers * 2 * 2 * (self.config.d_model * self.config.max_sequence_length)
         )
-        self.__num_fwd_flops = params_flops_per_seq + attn_flops_per_seq
+        self.__num_fwd_flops = params_flops_per_token + attn_flops_per_token
         return self.__num_fwd_flops
+
+    @property
+    def num_bck_flops(self):
+        if self.__num_bck_flops:
+            return self.__num_bck_flops
+
+        n_params = self.num_params()
+        params_flops_per_token = 4 * n_params
+        attn_flops_per_token = self.config.n_layers * 8 * (self.config.d_model * self.config.max_sequence_length)
+        self.__num_bck_flops = params_flops_per_token + attn_flops_per_token
+        return self.__num_bck_flops
 
     def generate(
         self,
