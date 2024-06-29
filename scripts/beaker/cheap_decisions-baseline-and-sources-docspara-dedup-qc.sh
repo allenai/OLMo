@@ -37,7 +37,7 @@ torchrun \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
   configs/mitchish1-s3-cheap-decisions-r70b-dedupe-docspara-qc-01.yaml \
-    --load_path='${path.last_checkpoint:s3://ai2-llm/checkpoints/cheap_decisions/dolma-v1-6-and-sources-baseline-docspara-dedup-qc-01-1B-N-1T-D-mitchish1-001}'
+    --load_path='${path.last_checkpoint:s3://ai2-llm/checkpoints/cheap_decisions/dolma-v1-6-and-sources-baseline-docspara-dedup-qc-01-1B-N-1T-D-mitchish1-001}' \
     --model.flash_attention=true \
     # --save_folder=runs/ \
     --save_overwrite \
