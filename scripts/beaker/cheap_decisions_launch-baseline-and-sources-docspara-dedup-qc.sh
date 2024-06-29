@@ -30,6 +30,7 @@ gantry run \
   --venv base \
   --weka oe-eval-default:/weka/oe-eval-default \
   --weka oe-training-default:/weka/oe-training-default \
+  --mount /data:/data \
   --yes \
   --timeout=-1 \
   -- /bin/bash -c "scripts/beaker/cheap_decisions-baseline-and-sources-docspara-dedup-qc.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
