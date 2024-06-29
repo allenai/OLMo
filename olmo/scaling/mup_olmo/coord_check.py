@@ -1,4 +1,5 @@
-from mup.coord_check import *
+from typing import List
+
 from mup.coord_check import _record_coords
 
 from olmo.train import get_labels
@@ -46,7 +47,6 @@ def _get_coord_data(
     input_fdict=None,
     param_fdict=None,
     show_progress=True,
-    loss_reduction="mean",
     compute_z_loss=False,
 ):
     """Inner method for `get_coord_data`.
@@ -97,7 +97,7 @@ def _get_coord_data(
         collected).
 
     """
-    coordinates = []
+    coordinates: List = []
     if fix_data:
         batch = next(iter(dataloader))
         dataloader = [batch] * nsteps
@@ -105,6 +105,8 @@ def _get_coord_data(
         from tqdm import tqdm
 
         pbar = tqdm(total=nseeds * len(models))
+
+    import torch
 
     # for i in range(nseeds):
     #     torch.manual_seed(i)
@@ -157,6 +159,8 @@ def _get_coord_data(
                 pbar.update(1)
     if show_progress:
         pbar.close()
+    import pandas as pd
+
     return pd.DataFrame(coordinates)
 
 

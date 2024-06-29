@@ -1,14 +1,16 @@
 import argparse
+import os
 from typing import List, Optional
 
 import numpy as np
 from mup import get_shapes, make_base_shapes, set_base_shapes
+from mup.coord_check import plot_coord_data
 from torch.utils.data import DataLoader
 
 from olmo.config import ModelConfig, TrainConfig
 from olmo.data import build_train_dataloader
 from olmo.model import OLMo
-from olmo.scaling.mup_olmo.coord_check import get_coord_data, plot_coord_data
+from olmo.scaling.mup_olmo.coord_check import get_coord_data
 from olmo.torch_util import seed_all
 from olmo.train import cross_entropy_loss
 
@@ -38,7 +40,7 @@ def coord_check(
     nseeds: int,
     cuda: bool = False,
     output_dir: str = "",
-    load_base_shapes: str = None,
+    load_base_shapes: Optional[str] = None,
     legend: bool = False,
     plot: bool = True,
 ):
