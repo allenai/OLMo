@@ -53,12 +53,13 @@ optimizer:
   metrics_log_interval: 10
 
 # Cx1: t_max = 1.3B params * 20 = 26e9
-# Cx3: t_max = 1.3B params * 20 = 78e9
+# Cx2: t_max = 1.3B params * 40 = 52e9
+# Cx3: t_max = 1.3B params * 60 = 78e9
 scheduler:
   name: cosine_with_warmup
   units: tokens
   t_warmup: 8388608000
-  t_max: 78e9
+  t_max: 52e9
   alpha_f: 0.1
 
 tokenizer:
@@ -79,7 +80,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 2ep
+max_duration: 1ep
 global_train_batch_size: 1024
 device_train_microbatch_size: 4
 
