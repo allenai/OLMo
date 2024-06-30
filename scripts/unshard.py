@@ -38,6 +38,7 @@ def main(
     elif sharded_checkpoint_type == ShardedCheckpointerType.local:
         checkpointer = LocalShardedCheckpointer(config)
     elif sharded_checkpoint_type == ShardedCheckpointerType.olmo_core:
+        print("USING OLMO CORE")
         checkpointer = OlmoCoreCheckpointer(config)
     else:
         raise NotImplementedError(sharded_checkpoint_type)
@@ -92,7 +93,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--type",
         choices=list(ShardedCheckpointerType),
-        default=ShardedCheckpointerType.torch_legacy,
+        default=ShardedCheckpointerType.olmo_core,
         help="""The sharded checkpoint type.""",
     )
     parser.add_argument(
