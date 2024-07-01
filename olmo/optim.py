@@ -1,5 +1,6 @@
 import logging
 from abc import ABCMeta, abstractmethod
+from collections import defaultdict
 from dataclasses import dataclass, replace
 from math import cos, pi, sqrt
 from typing import Any, Dict, List, Optional, Tuple
@@ -479,7 +480,43 @@ class AdamW(torch.optim.AdamW, Optimizer):
         return {key: self.state[param].get(key) for key in ("exp_avg", "exp_avg_sq")}  # type: ignore
 
 
-class MuAdamW(mup.MuAdamW, Optimizer):
+class MuAdamW(AdamW):
+    def __init__(self, params, decoupled_wd: bool = False, **kwargs):
+        # Modified from mup.optim.MuAdam
+        from mup.optim import process_param_groups
+
+        new_param_groups = []
+        for param_group in process_param_groups(params, **kwargs):
+            # For every existing param group, we split into several new groups
+            def new_group():
+                new_g = {k: v for k, v in param_group.items() if k != "params"}
+                new_g["params"] = []
+                return new_g
+
+            # The matrix-like weights might need multiple groups since weights
+            # might have different width multipliers
+            matrix_like_p = defaultdict(new_group)  # key is width_mult
+            vector_like_p = new_group()
+            for p in param_group["params"]:
+                assert hasattr(p, "infshape"), (
+                    f"A parameter with shape {p.shape} does not have `infshape` attribute. "
+                    "Did you forget to call `mup.set_base_shapes` on the model?"
+                )
+                if p.infshape.ninf() == 2:
+                    matrix_like_p[p.infshape.width_mult()]["params"].append(p)
+                elif p.infshape.ninf() > 2:
+                    raise NotImplementedError("more than 2 inf dimensions")
+                else:
+                    vector_like_p["params"].append(p)
+            for width_mult, group in matrix_like_p.items():
+                # Scale learning rate and weight decay accordingly
+                group["lr"] /= width_mult
+                if not decoupled_wd:
+                    group["weight_decay"] *= width_mult
+            new_param_groups.extend(list(matrix_like_p.values()) + [vector_like_p])
+
+        super().__init__(new_param_groups, **kwargs)
+
     def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
         return {key: self.state[param].get(key) for key in ("exp_avg", "exp_avg_sq")}  # type: ignore
 
