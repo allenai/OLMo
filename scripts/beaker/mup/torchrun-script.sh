@@ -8,7 +8,7 @@ shift
 NUM_NODES=$1
 shift
 
-TASK_NAME=$1
+BEAKER_REPLICA_RANK=$1
 shift
 
 # Warm HF cache
@@ -25,6 +25,7 @@ torchrun \
   --rdzv_id=101 \
   --rdzv_backend=c10d \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
+  --node_rank=$BEAKER_REPLICA_RANK \
   scripts/train.py \
     configs/mup/base-olmo.yaml \
       --run_name="sp_olmo_128" \
@@ -40,6 +41,7 @@ torchrun \
   --rdzv_id=101 \
   --rdzv_backend=c10d \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
+  --node_rank=$BEAKER_REPLICA_RANK \
   scripts/train.py \
     configs/mup/base-olmo.yaml \
       --run_name="mup_olmo_128" \
