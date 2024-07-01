@@ -43,7 +43,7 @@ pip install mup@git+https://github.com/microsoft/mup#egg=19814971934ef91dd546f88
 #      --model.d_model=128
 
 
-for width in 128 256 512 1024 2048 4096;
+for WIDTH in 128 256 512 1024 2048 4096;
 do
   torchrun \
     --nnodes ${NUM_NODES}:${NUM_NODES} \
