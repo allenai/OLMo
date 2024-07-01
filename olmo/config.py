@@ -794,7 +794,7 @@ class FSDPPrecision(StrEnum):
 class FSDPConfig(BaseConfig):
     use_orig_params: bool = True
     """
-    This must be ``True`` if using ``compile`` or you want to track the parameter norm during training.
+    This must be ``True`` if using ``compile``, or ``mup`` or you want to track the parameter norm during training.
     """
 
     sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD
