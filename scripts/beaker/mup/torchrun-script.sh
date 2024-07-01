@@ -58,7 +58,7 @@ do
         --wandb.name="mup_olmo_$WIDTH" \
         --wandb.group="mup_olmo" \
         --wandb.project=olmo-mup \
-        --stop_at=10 \
+        --stop_at=5000 \
         --model.use_mup \
         --model.d_model=$WIDTH
 done
