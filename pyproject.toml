@@ -68,7 +68,7 @@ olmo = ["py.typed"]
 version = { attr = "olmo.version.VERSION" }
 
 [tool.setuptools.packages.find]
-include = ["olmo*", "hf_olmo*"]
+include = ["olmo*", "hf_olmo*", "data*"]
 exclude = [
     "*.tests",
     "*.tests.*",
