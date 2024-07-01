@@ -161,9 +161,6 @@ if __name__ == "__main__":
 
         sys.exit()
 
-    train_config = TrainConfig.load(args.config_path)
-    data_loader = get_dataloader(train_config, batch_size=args.batch_size)
-
     if args.coord_check:
         print("testing parametrization")
         import os
