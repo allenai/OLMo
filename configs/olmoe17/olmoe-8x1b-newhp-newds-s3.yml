@@ -18,7 +18,7 @@ model:
   rope: true
   flash_attention: true
   attention_dropout: 0.0
-  attention_layer_norm: true
+  attention_layer_norm: false
   include_bias: false
   block_type: moe
   layer_norm_type: rms
@@ -35,6 +35,7 @@ model:
   pad_token_id: 1
   init_device: meta
   init_fn: normal
+  init_std: 0.02
   init_cutoff_factor: 3
   moe_top_k: 1
   moe_num_experts: 8
@@ -48,6 +49,7 @@ compile: null
 optimizer:
   name: adamw
   learning_rate: 4.0e-4
+  eps: 1.0e-8
   weight_decay: 0.1
   decay_norm_and_bias: true
   decay_embeddings: true

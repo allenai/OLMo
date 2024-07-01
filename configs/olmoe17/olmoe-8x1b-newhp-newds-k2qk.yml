@@ -18,7 +18,7 @@ model:
   rope: true
   flash_attention: true
   attention_dropout: 0.0
-  attention_layer_norm: false
+  attention_layer_norm: true
   include_bias: false
   block_type: moe
   layer_norm_type: rms
@@ -37,7 +37,7 @@ model:
   init_fn: normal
   init_std: 0.02
   init_cutoff_factor: 3
-  moe_top_k: 1
+  moe_top_k: 2
   moe_num_experts: 8
   moe_dropless: true
   moe_mlp_impl: sparse
@@ -83,7 +83,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 52e9T
+max_duration: 5e12T
 global_train_batch_size: 1024
 device_train_microbatch_size: 4
 
