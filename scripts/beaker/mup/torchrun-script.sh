@@ -35,7 +35,7 @@ torchrun \
       --wandb.name="sp_olmo_128" \
       --wandb.group="sp_olmo" \
       --wandb.project=olmo-mup \
-      --model.width=128
+      --model.d_model=128
 
 
 torchrun \
@@ -52,4 +52,4 @@ torchrun \
       --wandb.group="mup_olmo" \
       --wandb.project=olmo-mup \
       --model.use_mup \
-      --model.width=128
+      --model.d_model=128
