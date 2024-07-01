@@ -2,8 +2,6 @@ run_name: ${oc.env:SLURM_JOB_ID}
 seed: 6198
 dry_run: false
 no_pre_train_checkpoint: true
-# fused_loss: true
-# activation_checkpointing: fine_grained
 
 wandb:
   name: ${run_name}
@@ -38,7 +36,7 @@ model:
   init_device: meta
   init_fn: normal
   init_cutoff_factor: 3
-  moe_top_k: 2
+  moe_top_k: 1
   moe_num_experts: 8
   moe_dropless: true
   moe_mlp_impl: sparse
@@ -61,8 +59,8 @@ optimizer:
 scheduler:
   name: cosine_with_warmup
   units: tokens
-  t_warmup: 10485760000
-  t_max: 3e12
+  t_warmup: 8388608000
+  t_max: 52e9
   alpha_f: 0.1
 
 tokenizer:
@@ -83,7 +81,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 2ep
+max_duration: 52e9T
 global_train_batch_size: 1024
 device_train_microbatch_size: 4
 
