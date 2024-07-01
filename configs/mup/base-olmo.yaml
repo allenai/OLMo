@@ -7,7 +7,7 @@ wandb:
   project: olmo-mup
 
 model:
-  use_mup: true
+  use_mup: false  # set in the calling script
   d_model: 256
   n_heads: 2
   n_layers: 2
@@ -78,7 +78,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 load_path: null
 
 max_duration: 1ep
-stop_at: 5
+stop_at: 5000
 global_train_batch_size: 1024
 device_train_microbatch_size: 16
 
