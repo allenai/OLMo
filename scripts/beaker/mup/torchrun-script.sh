@@ -58,8 +58,8 @@ do
         --wandb.name="mup_olmo_$WIDTH" \
         --wandb.group="mup_olmo" \
         --wandb.project=olmo-mup \
-        --scheduler.t_warmup=0 \
-        --stop_at=5000 \
+        --stop_at=500 \
         --model.use_mup \
+	--model.mup_base_shapes=scripts/beaker/mup/base_olmo_shapes.bsh
         --model.d_model=$WIDTH
 done
