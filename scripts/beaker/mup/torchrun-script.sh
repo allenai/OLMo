@@ -28,8 +28,8 @@ torchrun \
   scripts/train.py \
     configs/mup/base-olmo.yaml \
       --run_name="sp_olmo_128" \
-      --wandb.name=$TASK_NAME \
-      --wandb.group=$TASK_NAME \
+      --wandb.name="sp_olmo_128" \
+      --wandb.group="sp_olmo" \
       --wandb.project=olmo-mup \
       --model.width=128
 
@@ -43,8 +43,8 @@ torchrun \
   scripts/train.py \
     configs/mup/base-olmo.yaml \
       --run_name="mup_olmo_128" \
-      --wandb.name=$TASK_NAME \
-      --wandb.group=$TASK_NAME \
+      --wandb.name="mup_olmo_128" \
+      --wandb.group="mup_olmo" \
       --wandb.project=olmo-mup \
       --model.use_mup \
       --model.width=128
