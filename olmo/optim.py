@@ -489,30 +489,38 @@ class MuAdamW(AdamW):
         for param_group in process_param_groups(params, **kwargs):
             # For every existing param group, we split into several new groups
             def new_group():
-                new_g = {k: v for k, v in param_group.items() if k != "params"}
+                new_g = {k: v for k, v in param_group.items() if k not in ["params", "param_names"]}
                 new_g["params"] = []
+                new_g["param_names"] = []
                 return new_g
 
             # The matrix-like weights might need multiple groups since weights
             # might have different width multipliers
             matrix_like_p = defaultdict(new_group)  # key is width_mult
             vector_like_p = new_group()
-            for p in param_group["params"]:
+            for i, p in enumerate(param_group["params"]):
                 assert hasattr(p, "infshape"), (
                     f"A parameter with shape {p.shape} does not have `infshape` attribute. "
                     "Did you forget to call `mup.set_base_shapes` on the model?"
                 )
                 if p.infshape.ninf() == 2:
-                    matrix_like_p[p.infshape.width_mult()]["params"].append(p)
+                    width_mult_ = p.infshape.width_mult()
+                    matrix_like_p[width_mult_]["params"].append(p)
+                    matrix_like_p[width_mult_]["param_names"].append(param_group["param_names"][i])
+                    matrix_like_p[width_mult_]["group_name"] = param_group["group_name"] + "_mup_matrix"
                 elif p.infshape.ninf() > 2:
                     raise NotImplementedError("more than 2 inf dimensions")
                 else:
                     vector_like_p["params"].append(p)
+                    vector_like_p["param_names"].append(param_group["param_names"][i])
+                    vector_like_p["group_name"] = param_group["group_name"] + "_mup_vector"
             for width_mult, group in matrix_like_p.items():
                 # Scale learning rate and weight decay accordingly
                 group["lr"] /= width_mult
                 if not decoupled_wd:
                     group["weight_decay"] *= width_mult
+                group["mup_lr"] = group["lr"]
+                group["mup_weight_decay"] = group["weight_decay"]
             new_param_groups.extend(list(matrix_like_p.values()) + [vector_like_p])
 
         super().__init__(new_param_groups, **kwargs)
@@ -727,6 +735,7 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
             {
                 "params": [all_params[pn] for pn in decay_sorted],
                 "param_names": decay_sorted,
+                "group_name": "decay",
                 **param_group_defaults,
             }
         )
@@ -736,6 +745,7 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
                 "params": [all_params[pn] for pn in no_decay_sorted],
                 "param_names": no_decay_sorted,
                 "weight_decay": 0.0,
+                "group_name": "no_decay",
                 **param_group_defaults,
             }
         )
