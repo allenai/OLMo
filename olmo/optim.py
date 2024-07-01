@@ -790,7 +790,7 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
             weight_decay=cfg.optimizer.weight_decay,
         )
     elif cfg.optimizer.name == OptimizerType.adamw:
-        if cfg.use_mup:
+        if cfg.model.use_mup:
             return MuAdamW(
                 param_groups,
                 lr=cfg.optimizer.learning_rate,
