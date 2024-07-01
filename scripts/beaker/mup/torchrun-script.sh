@@ -18,6 +18,9 @@ curl "https://storage.googleapis.com/hf-cache/huggingface_cache_v4.tar.gz" | tar
 popd
 export HF_DATASETS_OFFLINE=1
 
+# Temporary, since it is not part of the image yet.
+pip install mup@git+https://github.com/microsoft/mup#egg=19814971934ef91dd546f88e913fc963e096d11c
+
 # base-olmo
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
