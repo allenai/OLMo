@@ -2,7 +2,12 @@ run_name: base-olmo
 seed: 6198
 dry_run: false
 
+wandb:
+  name: ${run_name}
+  project: olmo-mup
+
 model:
+  use_mup: true
   d_model: 256
   n_heads: 2
   n_layers: 2
