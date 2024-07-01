@@ -20,7 +20,6 @@ gantry run \
   --no-nfs \
   --weka oe-training-default:/weka/oe-training-default \
   --propagate-failure \
-  --synchronized-start-timeout 30m \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
