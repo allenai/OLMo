@@ -2,11 +2,11 @@
 
 set -ex
 
-NUM_NODES=16
-TASK_NAME=tiny-olmo-300M-rms-norm-adam-eps-1e-8
+NUM_NODES=8
+TASK_NAME=tiny-olmo-150M-rms-norm-adam-eps-1e-8
 
 gantry run \
-  --workspace ai2/OLMo-training \
+  --workspace ai2/OLMo-tiny \
   --task-name ${TASK_NAME} \
   --description "Tiny OLMo runs" \
   --priority high \
