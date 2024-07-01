@@ -8,7 +8,7 @@ gantry run \
   --workspace ai2/OLMo-training \
   --task-name mup-olmo \
   --description "Check if wider is better with mup" \
-  --priority high \
+  --priority normal \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
