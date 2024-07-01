@@ -60,6 +60,6 @@ do
         --wandb.project=olmo-mup \
         --stop_at=500 \
         --model.use_mup \
-	--model.mup_base_shapes=scripts/beaker/mup/base_olmo_shapes.bsh
+	      --model.mup_base_shapes=scripts/beaker/mup/base_olmo_shapes.bsh \
         --model.d_model=$WIDTH
 done
