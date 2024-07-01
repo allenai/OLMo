@@ -692,6 +692,9 @@ class OLMoSequentialBlock(OLMoBlock):
         init_normal(self.att_proj, std, cutoff_factor, use_mup=self.config.use_mup)
         init_normal(self.ff_proj, std, cutoff_factor, use_mup=self.config.use_mup)
 
+        if self.config.use_mup and self.config.mup_query_zero_init:
+            self.att_proj.weight.data[:, : self.config.d_model] = 0  # just the query part
+
     def forward(
         self,
         x: torch.Tensor,
@@ -1025,12 +1028,14 @@ class OLMo(nn.Module):
         if not config.weight_tying:
             # muP: replace output nn.Linear layer with MuReadout
             layer_func = MuReadout if config.use_mup else nn.Linear
+            kwargs = {"readout_zero_init": True} if config.use_mup else {}
 
             ff_out = layer_func(
                 config.d_model,
                 config.embedding_size or config.vocab_size,
                 bias=config.include_bias,
                 device=config.init_device,
+                **kwargs,
             )
             self.transformer.update({"ff_out": ff_out})
         else:

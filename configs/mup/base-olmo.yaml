@@ -8,6 +8,7 @@ wandb:
 
 model:
   use_mup: false  # set in the calling script
+  mup_query_zero_init: true
   d_model: 128
   n_heads: 2
   n_layers: 2

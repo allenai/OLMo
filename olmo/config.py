@@ -454,6 +454,8 @@ class ModelConfig(BaseConfig):
     # TODO: improve description
     """
 
+    mup_query_zero_init: bool = False
+
     # mup_init_scale: float = 1.0
     # """
     # Initialization scale; all parameters are multiplied by this value.
