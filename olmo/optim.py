@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from math import cos, pi, sqrt
 from typing import Any, Dict, List, Optional, Tuple
 
+import mup
 import torch
 import torch.distributed as dist
 import torch.nn as nn
@@ -478,6 +479,11 @@ class AdamW(torch.optim.AdamW, Optimizer):
         return {key: self.state[param].get(key) for key in ("exp_avg", "exp_avg_sq")}  # type: ignore
 
 
+class MuAdamW(mup.MuAdamW, Optimizer):
+    def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
+        return {key: self.state[param].get(key) for key in ("exp_avg", "exp_avg_sq")}  # type: ignore
+
+
 @dataclass
 class Scheduler(metaclass=ABCMeta):
     # NOTE: these fields are not given default values because otherwise dataclasses complains
@@ -747,13 +753,22 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
             weight_decay=cfg.optimizer.weight_decay,
         )
     elif cfg.optimizer.name == OptimizerType.adamw:
-        return AdamW(
-            param_groups,
-            lr=cfg.optimizer.learning_rate,
-            betas=cfg.optimizer.betas,
-            weight_decay=cfg.optimizer.weight_decay,
-            eps=cfg.optimizer.eps,
-        )
+        if cfg.use_mup:
+            return MuAdamW(
+                param_groups,
+                lr=cfg.optimizer.learning_rate,
+                betas=cfg.optimizer.betas,
+                weight_decay=cfg.optimizer.weight_decay,
+                eps=cfg.optimizer.eps,
+            )
+        else:
+            return AdamW(
+                param_groups,
+                lr=cfg.optimizer.learning_rate,
+                betas=cfg.optimizer.betas,
+                weight_decay=cfg.optimizer.weight_decay,
+                eps=cfg.optimizer.eps,
+            )
     else:
         raise NotImplementedError
 
