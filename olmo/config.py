@@ -440,6 +440,48 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
+    # muP parameters
+
+    use_mup: bool = False
+    """
+    Whether the model is being parametrized in mup or standard parametrization.
+    """
+
+    # TODO: decide upon format; may require cached_path, etc.
+    mup_base_shapes: Optional[str] = None
+    """
+    Optional path to base shapes in case of muP.
+    # TODO: improve description
+    """
+
+    mup_query_zero_init: bool = False
+
+    # mup_init_scale: float = 1.0
+    # """
+    # Initialization scale; all parameters are multiplied by this value.
+    # """
+    #
+    # input_mult: float = 1.0
+    # """
+    # Scalar multiplier for the input embeddings. Defaults to 1.0.
+    # """
+    #
+    # output_mult: float = 1.0
+    # """
+    # Scalar multiplier for the output logits. Defaults to 1.0.
+    # """
+    #
+    # attn_mult: Optional[float] = 1.0
+    # """
+    # Optional multiplier for attention. If set to None, it defaults to 1/sqrt(width);
+    # i.e., the standard attention multipler.
+    # """
+    #
+    # mup: bool = False
+    # """
+    # Whether the model is being parametrized in mup or standard parametrization.
+    # """
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:
@@ -754,7 +796,7 @@ class FSDPPrecision(StrEnum):
 class FSDPConfig(BaseConfig):
     use_orig_params: bool = True
     """
-    This must be ``True`` if using ``compile`` or you want to track the parameter norm during training.
+    This must be ``True`` if using ``compile``, or ``mup`` or you want to track the parameter norm during training.
     """
 
     sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD

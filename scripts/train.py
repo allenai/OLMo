@@ -195,7 +195,7 @@ def main(cfg: TrainConfig) -> None:
             sharding_strategy=cfg.fsdp.sharding_strategy,
             mixed_precision=cfg.fsdp_precision,
             auto_wrap_policy=wrap_policy,
-            use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
+            use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile, mup and some of our optimizer/parameter metrics
             limit_all_gathers=True,
             device_id=get_local_rank(),
             param_init_fn=param_init_fn,

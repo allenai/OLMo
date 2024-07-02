@@ -1,25 +1,37 @@
-run_name: "train-tiny"
+run_name: "mup-test"
 precision: "fp32"
 save_folder: "/tmp/olmo-train-tiny"
 model:
-  d_model: 128
-  n_heads: 4
-  n_layers: 4
-  mlp_ratio: 4
+  d_model: 16
+  n_heads: 2
+  n_layers: 1
+  mlp_ratio: 1
   alibi: false
+  rope: true
   alibi_bias_max: 8.0
   attention_dropout: 0.1
   attention_layer_norm: false
   residual_dropout: 0.1
   embedding_dropout: 0.1
-  max_sequence_length: 512
-  vocab_size: 50257
-  eos_token_id: 50256
-  pad_token_id: 50256
+  max_sequence_length: 2048
+  vocab_size: 128
+  eos_token_id: 127
+  pad_token_id: 127
   init_device: null
+  init_fn: "normal"
   init_std: 0.02
 optimizer:
-  learning_rate: 0.001
+  name: adamw
+  learning_rate: 3.0e-4
+  weight_decay: 0.1
+  eps: 1e-8
+  decay_norm_and_bias: true
+  decay_embeddings: false
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 1
+
 scheduler:
   name: "cosine_with_warmup"
   t_warmup: 10
@@ -33,10 +45,5 @@ tokenizer:
   identifier: "gpt2"
 save_overwrite: true
 max_duration: 4
-global_train_batch_size: 8
+global_train_batch_size: 4
 device_train_microbatch_size: 4
-distributed_strategy: fsdp
-
-fsdp:
-  wrapping_strategy: by_block
-  precision: mixed
