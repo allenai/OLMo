@@ -62,7 +62,7 @@ scheduler:
   name: cosine_with_warmup
   units: tokens
   t_warmup: 8388608000
-  t_max: 130e9T
+  t_max: 130e9
   alpha_f: 0.1
 
 tokenizer:
