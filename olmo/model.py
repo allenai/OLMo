@@ -1144,7 +1144,9 @@ class OLMo(nn.Module):
             else:
                 raise NotImplementedError(self.config.init_fn)
 
-            init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor, use_mup=self.config.use_mup)
+            if not self.config.use_mup:
+                # if mup, don't reset readout weights.
+                init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor, use_mup=self.config.use_mup)
 
         # Let the blocks handle themselves.
         if self.config.block_group_size == 1:
