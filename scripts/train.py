@@ -3,6 +3,7 @@
 import gzip
 import logging
 import sys
+from datetime import timedelta
 from pathlib import Path
 from typing import Optional, TextIO
 
@@ -327,7 +328,7 @@ if __name__ == "__main__":
     log.info(f"Multiprocessing start method set to '{mp.get_start_method()}'")
 
     # Initialize process group.
-    dist.init_process_group(backend="nccl")
+    dist.init_process_group(backend="nccl", timeout=timedelta(minutes=30))
     log.info("Process group initialized")
 
     prepare_cli_environment()
