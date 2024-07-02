@@ -20,7 +20,7 @@ model:
   attention_dropout: 0.0
   attention_layer_norm: false
   include_bias: false
-  block_type: sequential
+  block_type: moe
   layer_norm_type: rms
   layer_norm_with_affine: true
   bias_for_layer_norm: false
@@ -37,6 +37,12 @@ model:
   init_fn: normal
   init_std: 0.02
   init_cutoff_factor: 3
+  moe_top_k: 1
+  moe_num_experts: 8
+  moe_dropless: true
+  moe_mlp_impl: sparse
+  moe_zloss_weight: 0.001
+  moe_loss_weight: 0.01
 
 compile: null
 
@@ -46,15 +52,12 @@ optimizer:
   eps: 1.0e-8
   weight_decay: 0.1
   decay_norm_and_bias: true
-  decay_embeddings: false
+  decay_embeddings: true
   betas:
   - 0.9
   - 0.95
   metrics_log_interval: 10
 
-# Cx1: t_max = 1.3B params * 20 = 26e9
-# Cx2: t_max = 1.3B params * 40 = 52e9
-# Cx3: t_max = 1.3B params * 60 = 78e9
 scheduler:
   name: cosine_with_warmup
   units: tokens
@@ -80,10 +83,10 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 52e9T
-stop_at: 12398
+max_duration: 130e9T
+stop_at: 30995
 global_train_batch_size: 1024
-device_train_microbatch_size: 4
+device_train_microbatch_size: 8
 
 precision: amp_bf16
 distributed_strategy: fsdp
@@ -109,27 +112,27 @@ evaluators:
       drop_last: true
       datasets:
         c4_en-validation:
-          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy
+          - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy
         dolma_books-validation:
-          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_books/val/part-0-00000.npy
+          - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_books/val/part-0-00000.npy
         dolma_common-crawl-validation:
-          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_common-crawl/val/part-0-00000.npy
+          - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_common-crawl/val/part-0-00000.npy
         dolma_pes2o-validation:
-          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_pes2o/val/part-0-00000.npy
+          - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_pes2o/val/part-0-00000.npy
         dolma_reddit-validation:
-          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_reddit/val/part-0-00000.npy
+          - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_reddit/val/part-0-00000.npy
         dolma_stack-validation:
-          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_stack/val/part-0-00000.npy
+          - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_stack/val/part-0-00000.npy
         dolma_wiki-validation:
-          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_wiki/val/part-0-00000.npy
+          - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/dolma_wiki/val/part-0-00000.npy
         ice-validation:
-          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/ice/val/part-0-00000.npy
+          - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/ice/val/part-0-00000.npy
         m2d2_s2orc-validation:
-          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/m2d2_s2orc/val/part-0-00000.npy
+          - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/m2d2_s2orc/val/part-0-00000.npy
         pile-validation:
-          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy
+        - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy
         wikitext_103-validation:
-          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy
+          - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy
 
   ##########################
   # Downstream evaluations #
