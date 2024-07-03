@@ -1,0 +1,22 @@
+version: v2
+budget: {{.Env.BUDGET}}
+description: Sync contents of S3 bucket "{{.Env.S3_BUCKET}}" to WEKA bucket "{{.Env.WEKA_BUCKET}}"
+tasks:
+  - name: sync_s3_to_weka
+    image:
+      beaker: ai2/cuda11.8-ubuntu20.04
+    command: ['aws', 's3', 'sync', '--exclude', '*', '--include', '{{.Env.SYNC_INCLUDE}}', 's3://{{.Env.S3_BUCKET}}/{{.Env.S3_PREFIX}}', '/{{.Env.WEKA_BUCKET}}/{{.Env.WEKA_PREFIX}}']
+    datasets:
+      - mountPath: /{{.Env.WEKA_BUCKET}}
+        source:
+          weka: {{.Env.WEKA_BUCKET}}
+    envVars:
+      - name: AWS_ACCESS_KEY_ID
+        secret: aws-key
+      - name: AWS_SECRET_ACCESS_KEY
+        secret: aws-secret
+    context:
+      preemptible: true
+    constraints:
+      cluster:
+        - ai2/jupiter-cirrascale-2
