@@ -2,7 +2,7 @@
 
 set -ex
 
-NUM_NODES=16
+NUM_NODES=8
 TASK_NAME=tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-1e-3
 
 gantry run \
