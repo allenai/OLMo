@@ -130,7 +130,7 @@ evaluators:
         m2d2_s2orc-validation:
           - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/m2d2_s2orc/val/part-0-00000.npy
         pile-validation:
-        - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy
+          - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy
         wikitext_103-validation:
           - s3://ai2-llm/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy
 
