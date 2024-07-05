@@ -249,7 +249,7 @@ def main(cfg: TrainConfig) -> None:
                     )
                     cfg.save_interval_unsharded = cfg.save_interval
 
-                if cfg.save_num_unsharded_checkpoints_to_keep < 1:
+                if cfg.save_num_unsharded_checkpoints_to_keep == 0:
                     log.warning(
                         "DDP requires setting `save_num_unsharded_checkpoints_to_keep`. Using the value set for `save_num_checkpoints_to_keep`."
                     )

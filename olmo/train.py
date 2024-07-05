@@ -65,10 +65,22 @@ class SpeedMonitor:
     cfg: SpeedMonitorConfig
     start_times: Deque[float] = field(default_factory=lambda: deque([]))
     global_total_tokens: int = 0
+    total_training_Gflops: float = 0
     device_interval_tokens: Deque[int] = field(default_factory=lambda: deque([]))
 
-    def batch_start(self, global_total_tokens: int, device_batch_num_tokens: int, record: bool = True) -> None:
+    def batch_start(
+        self,
+        global_total_tokens: int,
+        device_batch_num_tokens: int,
+        num_fwd_flops: int,
+        num_bck_flops: int,
+        record: bool = True,
+    ) -> None:
         self.global_total_tokens = global_total_tokens
+        # num_fwd_flops and num_bck_flops from the OLMo model computes flops per token
+        # converting to GFLOPs here prevents numerical issues while logging
+        self.total_training_Gflops = (num_fwd_flops + num_bck_flops) * global_total_tokens / 1e9
+
         if record:
             if len(self.start_times) >= self.cfg.window_size:
                 self.start_times.popleft()
@@ -82,6 +94,11 @@ class SpeedMonitor:
 
     def check(self) -> Dict[str, float]:
         metrics: Dict[str, float] = {"throughput/total_tokens": self.global_total_tokens}
+
+        # plot flops related metrics
+        metrics["throughput/total_training_Gflops"] = self.total_training_Gflops
+        metrics["throughput/total_training_log_Gflops"] = math.log(self.total_training_Gflops)
+
         if self.start_times:
             interval_seconds = time.monotonic() - self.start_times[0]
             interval_batches = len(self.start_times)
@@ -653,8 +670,8 @@ class Trainer:
         return ce_loss, z_loss, logits
 
     def train_micro_batch(
-        self, micro_batch: Dict[str, Any], batch_size_in_tokens: int, num_micro_batches: int
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        self, micro_batch: Dict[str, Any], batch_size_in_tokens: int
+    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
         ce_loss, z_loss, logits = self.model_forward(
             micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss, loss_reduction="sum"
         )
@@ -666,7 +683,7 @@ class Trainer:
         # Get loss to optimize for.
         if self.cfg.softmax_auxiliary_loss:
             assert z_loss is not None
-            z_loss = z_loss / num_micro_batches
+            z_loss = z_loss / batch_size_in_tokens
             loss = ce_loss + z_loss
         else:
             loss = ce_loss
@@ -701,9 +718,7 @@ class Trainer:
             with grad_sync_context():
                 with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                     # Run forward pass.
-                    loss, ce_loss, z_loss = self.train_micro_batch(
-                        micro_batch, batch_size_in_tokens, num_micro_batches
-                    )
+                    loss, ce_loss, z_loss = self.train_micro_batch(micro_batch, batch_size_in_tokens)
 
                     # Update overall CE batch loss.
                     ce_batch_loss += ce_loss.detach()
@@ -1094,10 +1109,12 @@ class Trainer:
                     self.global_train_examples_seen_this_epoch += global_batch_size
                     self.global_train_tokens_seen += global_batch_size * seq_len
                     speed_monitor.batch_start(
-                        self.global_train_tokens_seen,
-                        batch_size * seq_len,  # num tokens in batch for this device
+                        global_total_tokens=self.global_train_tokens_seen,
+                        device_batch_num_tokens=batch_size * seq_len,  # num tokens in batch for this device
                         # We start monitoring speed after the first batch since the first
                         # batch might be an outlier due to compiling and other initialization overhead.
+                        num_fwd_flops=self.model.num_fwd_flops,  # this is per token
+                        num_bck_flops=self.model.num_bck_flops,  # this is per token
                         record=not first_batch,
                     )
 
