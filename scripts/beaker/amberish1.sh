@@ -64,6 +64,7 @@ torchrun \
   scripts/train.py \
     configs/amberish1-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
+      --wandb=null \
       --save_overwrite
 
       # '--load_path=${path.last_checkpoint:${save_folder}}'
