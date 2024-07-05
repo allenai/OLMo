@@ -30,6 +30,5 @@ torchrun \
       --wandb.name=$TASK_NAME \
       --wandb.group=$TASK_NAME \
       --wandb.project=olmo-tiny \
-      --optimizer.learning_rate=1.0e-3 \
       --optimizer.decay_embeddings=true \
       --save_overwrite
