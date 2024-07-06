@@ -18,7 +18,7 @@ model:
   rope: true
   flash_attention: true
   attention_dropout: 0.0
-  attention_layer_norm: false
+  attention_layer_norm: true
   include_bias: false
   block_type: moe
   layer_norm_type: rms
