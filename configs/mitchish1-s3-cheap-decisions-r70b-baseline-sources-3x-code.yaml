@@ -63,7 +63,7 @@ tokenizer:
   identifier: tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
   truncate_direction: right
 
-save_folder: /data/ianm/ai2-llm/checkpoints/cheap_decisions/${run_name}
+save_folder: /data/ianm/ai2-llm/checkpoints/cheap_decisions/${run_name}-fix
 remote_save_folder: s3://ai2-llm/checkpoints/cheap_decisions/${run_name}
 save_overwrite: false
 
