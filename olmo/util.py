@@ -663,15 +663,38 @@ def save_hf_dataset_to_disk(
     hf_path: str,
     name: Optional[str],
     split: str,
-    datasets_dir: str,
+    datasets_dir: PathOrStr,
 ):
-    dataset_path = os.path.join(datasets_dir, hf_path, name or "none", split)
-    return dataset.save_to_disk(dataset_path)
+    """
+    Saves a HF dataset to disk under the `datasets_dir`. It can be used to add a HF dataset
+    to `olmo_data` as follows:
+
+    ```
+    import datasets
+
+    from olmo.util import save_hf_dataset_to_disk
+
+    path, name, split = ...
+
+    dataset = datasets.load_dataset(path, name=name, split=split)
+    save_hf_dataset_to_disk(dataset, path, name, split, "olmo_data/hf_datasets")
+    ```
+    """
+    dataset_path = Path(datasets_dir) / hf_path / (name or "none") / split
+    return dataset.save_to_disk(str(dataset_path))
 
 
 def load_hf_dataset(path: str, name: Optional[str], split: str):
+    """
+    Loads a HuggingFace dataset. The dataset is assumed to be saved using
+    `save_hf_dataset_to_disk` and located in `olmo_data/hf_datasets`.
+    """
     dataset_rel_path = os.path.join("hf_datasets", path, name or "none", split)
     with get_data_path(dataset_rel_path) as dataset_path:
+        if not dataset_path.is_dir():
+            raise NotADirectoryError(
+                f"HF dataset {path} name {name} split {split} not found in directory {dataset_rel_path}"
+            )
         return datasets.load_from_disk(str(dataset_path))
 
 
