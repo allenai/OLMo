@@ -48,7 +48,7 @@ class ICLMetric(Metric):
             # batch['input_ids'][idx] -> ctx + cont + padding
             # -1 in both indices: lm_logits will be left shited 1 pos as 0th pos in input generates next token in the 0th pos of lm_logits
             lm_cont_logits = lm_logits[idx][
-                batch["ctx_len"][idx] - 1 : batch["ctx_len"][idx] + batch["cont_len"][idx] - 1
+                batch["ctx_len"][idx]: batch["ctx_len"][idx] + batch["cont_len"][idx]
             ]
 
             log_likelihood: torch.Tensor
@@ -226,18 +226,18 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
                     )
 
                 for cont_id, continuation_str in enumerate(continuations):
-                    cont_str_len = len(continuation_str) - 1  # continuation contain leading blank
+                    cont_str_len = len(continuation_str)
                     continuation = self.token_encode(continuation_str)
 
                     # query, remove last token from continuation, truncate from left is longer than model ctx length
-                    query = ctx + continuation[:-1]
+                    query = ctx + continuation
                     query = query[-self.model_ctx_len :]
                     # this will be different from len(ctx) when truncated by model_ctx_len
                     actual_ctx_len = len(query) - len(continuation) + 1
 
                     # get domain conditional query
                     # we don't expect this to be longer than self.model_ctx_len and it won't make sense to truncate from left
-                    dc_query = dc + continuation[:-1]
+                    dc_query = dc + continuation
 
                     # form a sample
                     self.samples.append(
