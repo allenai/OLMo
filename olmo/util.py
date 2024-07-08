@@ -26,6 +26,8 @@ from rich.progress import Progress
 from rich.text import Text
 from rich.traceback import Traceback
 
+from olmo_data.data import get_data_path
+
 from .aliases import PathOrStr
 from .exceptions import (
     OLMoCliError,
@@ -656,12 +658,7 @@ def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: i
     return result
 
 
-def _load_hf_dataset_from_disk(hf_path: str, name: Optional[str], split: str, datasets_dir: str):
-    dataset_path = os.path.join(datasets_dir, hf_path, name or "none", split)
-    return datasets.load_from_disk(dataset_path)
-
-
-def _save_hf_dataset_to_disk(
+def save_hf_dataset_to_disk(
     dataset: datasets.DatasetDict | datasets.Dataset,
     hf_path: str,
     name: Optional[str],
@@ -672,51 +669,10 @@ def _save_hf_dataset_to_disk(
     return dataset.save_to_disk(dataset_path)
 
 
-def load_hf_dataset(path: str, name: Optional[str], split: str, datasets_cache_dir: Optional[str] = None):
-    dataset = None
-
-    # First try to load dataset on only FS rank 0, to avoid unnecessary network load.
-    # This will hopefully cache the dataset for use in other FS ranks.
-    if get_fs_local_rank() == 0:
-        # Try get dataset from disk.
-        if datasets_cache_dir is not None:
-            try:
-                dataset = _load_hf_dataset_from_disk(path, name, split, datasets_cache_dir)
-            except FileNotFoundError:
-                log.info(
-                    "Path %s name %s split %s not present in local dir %s, loading from online",
-                    path,
-                    name,
-                    split,
-                    datasets_cache_dir,
-                )
-
-        # Get dataset from online if not available on disk
-        if dataset is None:
-            dataset = datasets.load_dataset(
-                path=path,
-                name=name,
-                split=split,
-                trust_remote_code=True,
-            )
-            assert isinstance(dataset, (datasets.DatasetDict, datasets.Dataset))
-            if datasets_cache_dir is not None:
-                _save_hf_dataset_to_disk(dataset, path, name, split, datasets_cache_dir)
-    barrier()
-
-    # Dataset is loaded in FS rank 0
-    if dataset is not None:
-        return dataset
-
-    # Load dataset on non-zero FS ranks
-    if datasets_cache_dir is not None:
-        return _load_hf_dataset_from_disk(path, name, split, datasets_cache_dir)
-    return datasets.load_dataset(
-        path=path,
-        name=name,
-        split=split,
-        trust_remote_code=True,
-    )
+def load_hf_dataset(path: str, name: Optional[str], split: str):
+    dataset_rel_path = os.path.join("hf_datasets", path, name or "none", split)
+    with get_data_path(dataset_rel_path) as dataset_path:
+        return datasets.load_from_disk(str(dataset_path))
 
 
 def default_thread_count() -> int:
