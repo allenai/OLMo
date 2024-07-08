@@ -1245,6 +1245,7 @@ class Trainer:
                     log.info("Training epoch complete")
                     self.epoch = epoch + 1
                     self.global_train_examples_seen_this_epoch = 0
+                    self.dataset.start_index = 0
                     if self.epoch < self.max_epochs:
                         self.dataset.reshuffle()
                     continue

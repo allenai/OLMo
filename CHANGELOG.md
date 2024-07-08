@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added caching to disk of HF datasets used in downstream evals
 - Added FLOPs logging
 - Added configs for OLMo tiny set of models
+- Added configuration field `optimizer.record_update_metrics`, which defaults to `False`, but when set to True will trigger AdamW to collect the step size norm and absolute max for each parameter.
 - Added `olmo_data`, a package holding data files like tokenizers.
 - Added ability to load tokenizers from `olmo_data` package data.
 
@@ -24,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added original legacy unsharding implementation back, as the default. The new
 shared memory implementation can be used by passing `use_legacy_shared_mem_impl` to `unshard.py`.
 - Refactor weight initialization. IMPORTANT: this does not maintain backwards-compatibility with older configs; the jobs will still run, but may produce different outputs.
+- Changed the behavior of the Lion optimizer to only record the update cosine similarity when `optimizer.record_update_metrics` is `True` in order to be consistent with the API.
 - Added HF datasets into `olmo_data`, and changed downstream eval to load from the package.
 
 ### Fixed
