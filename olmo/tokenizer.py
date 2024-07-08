@@ -6,10 +6,11 @@ from typing import List, Optional, Union
 
 from tokenizers import Tokenizer as BaseTokenizer
 
+from olmo_data import get_data_path, is_data_file
+
 from .aliases import PathOrStr
 from .config import ModelConfig, TokenizerConfig, TrainConfig, TruncationDirection
 from .exceptions import OLMoConfigurationError
-from olmo_data import get_data_path, is_data_file
 
 __all__ = ["Tokenizer"]
 

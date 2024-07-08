@@ -1,9 +1,9 @@
 from contextlib import contextmanager
-from importlib_resources.abc import Traversable
 from pathlib import Path
 from typing import Iterator
 
 import importlib_resources
+from importlib_resources.abc import Traversable
 
 
 def _get_data_traversable(data_rel_path: str) -> Traversable:
