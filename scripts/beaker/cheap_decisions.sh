@@ -39,6 +39,6 @@ torchrun \
   configs/mitchish1-s3-cheap-decisions-dolma-v1-7.yaml \
     --load_path='${path.last_checkpoint:s3://ai2-llm/checkpoints/cheap_decisions/dolma-v1-7-1B-N-1T-D-mitchish1-006}' \
     --model.flash_attention=true \
-    # --save_folder=runs/ \
     --save_overwrite=true \
     --gen1_gc_interval=10
+    # --save_folder=runs/ \
