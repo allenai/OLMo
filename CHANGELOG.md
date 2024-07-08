@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added original legacy unsharding implementation back, as the default. The new
 shared memory implementation can be used by passing `use_legacy_shared_mem_impl` to `unshard.py`.
 - Refactor weight initialization. IMPORTANT: this does not maintain backwards-compatibility with older configs; the jobs will still run, but may produce different outputs.
+- Added HF datasets into `olmo_data`, and changed downstream eval to load from the package.
 
 ### Fixed
 
