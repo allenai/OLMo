@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added caching to disk of HF datasets used in downstream evals
 - Added FLOPs logging
 - Added configs for OLMo tiny set of models
+- Added `olmo_data`, a package holding data files like tokenizers.
+- Added ability to load tokenizers from `olmo_data` package data.
 
 ### Changed
 
