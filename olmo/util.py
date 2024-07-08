@@ -36,14 +36,7 @@ from .exceptions import (
     OLMoNetworkError,
     OLMoThreadError,
 )
-from .torch_util import (
-    barrier,
-    get_fs_local_rank,
-    get_global_rank,
-    get_local_rank,
-    get_node_rank,
-    is_distributed,
-)
+from .torch_util import get_global_rank, get_local_rank, get_node_rank, is_distributed
 
 try:
     from functools import cache
