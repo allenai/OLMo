@@ -2,7 +2,7 @@
 
 set -ex
 
-NUM_NODES=64
+NUM_NODES=8
 
 gantry run \
   --workspace ai2/OLMo-pretraining-stability \
