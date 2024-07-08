@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
+from typing import Generator
 
 import importlib_resources
 from importlib_resources.abc import Traversable
@@ -19,7 +19,7 @@ def is_data_file(data_rel_path: str) -> bool:
 
 
 @contextmanager
-def get_data_path(data_rel_path: str) -> Iterator[Path]:
+def get_data_path(data_rel_path: str) -> Generator[Path, None, None]:
     try:
         with importlib_resources.as_file(_get_data_traversable(data_rel_path)) as path:
             yield path
