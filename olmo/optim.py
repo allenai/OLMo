@@ -35,6 +35,11 @@ log = logging.getLogger(__name__)
 
 
 class Optimizer(OptimizerBase):
+    def __init__(self, *args, record_update_metrics: bool = False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._record_update_metrics = record_update_metrics
+        self._collecting_metrics = False
+
     def _clean_param_name(self, name: str) -> str:
         return name.replace("_fsdp_wrapped_module.", "")
 
@@ -372,14 +377,12 @@ class LionW(Optimizer):
         assert lr > 0.0
         assert all([0.0 <= beta <= 1.0 for beta in betas])
         defaults = dict(lr=lr, betas=betas, weight_decay=weight_decay)
-        super().__init__(params, defaults)
+        super().__init__(params, defaults, record_update_metrics=record_update_metrics)
         for group in self.param_groups:
             group["initial_lr"] = group["lr"]
         self._update_total_dot_prod: Optional[torch.Tensor] = None
         self._update_total_norm: Optional[torch.Tensor] = None
         self._signed_update_total_norm: Optional[torch.Tensor] = None
-        self._record_update_cos_sim = record_update_metrics
-        self._collecting_metrics = False
         self._device: Optional[torch.device] = device
 
     def get_post_step_metrics(
@@ -430,7 +433,7 @@ class LionW(Optimizer):
         update_total_dot_prod: Optional[torch.Tensor] = None
         update_norms: Optional[List[torch.Tensor]] = None
         signed_update_norms: Optional[List[torch.Tensor]] = None
-        if self._collecting_metrics and self._record_update_cos_sim:
+        if self._collecting_metrics and self._record_update_metrics:
             update_total_dot_prod = torch.tensor(0.0, dtype=torch.float32)
             update_norms = []
             signed_update_norms = []
@@ -493,15 +496,19 @@ class LionW(Optimizer):
 class AdamW(torch.optim.AdamW, Optimizer):
     def __init__(self, *args, record_update_metrics: bool = False, **kwargs):
         super().__init__(*args, **kwargs)
-        self._record_step_size = record_update_metrics
+
+        # Need to set these here just like in our base `Optimizer` class since our `Optimizer.__init__`
+        # won't be called.
+        self._record_update_metrics = record_update_metrics
+        self._collecting_metrics = False
+
         self._step_size_param_names: Optional[List[str]] = None
         self._step_size_norms: Optional[List[torch.Tensor]] = None
         self._step_size_maxs: Optional[List[torch.Tensor]] = None
-        self._collecting_metrics = False
 
     @torch.no_grad()
     def step(self, closure=None) -> None:
-        if not (self._record_step_size and self._collecting_metrics):
+        if not (self._record_update_metrics and self._collecting_metrics):
             return super().step(closure=closure)
 
         device = get_default_device()
@@ -587,7 +594,7 @@ class AdamW(torch.optim.AdamW, Optimizer):
     def get_post_step_metrics(
         self, module: nn.Module, process_group: Optional[dist.ProcessGroup] = None
     ) -> Dict[str, torch.Tensor]:
-        if not (self._record_step_size and self._collecting_metrics):
+        if not (self._record_update_metrics and self._collecting_metrics):
             return {}
         else:
             device = get_default_device()
