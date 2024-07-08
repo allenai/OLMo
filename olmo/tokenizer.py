@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import List, Optional, Union
 
+import importlib_resources
 from tokenizers import Tokenizer as BaseTokenizer
 
 from .aliases import PathOrStr
@@ -99,6 +100,20 @@ class Tokenizer:
         return cls(base_tokenizer, eos_token_id, **kwargs)
 
     @classmethod
+    def from_str(cls, tokenizer_str: str, **kwargs) -> Tokenizer:
+        """
+        Initialize a tokenizer from a string.
+
+        You can create a file containing such a string with ``BaseTokenizer.save()``.
+
+        :param tokenizer_str: A valid JSON string representing the Tokenizer
+        :param kwargs: Other key word arguments passed to :class:`Tokenizer`.
+        """
+        base_tokenizer = BaseTokenizer.from_str(tokenizer_str)
+        eos_token_id = kwargs.pop("eos_token_id", base_tokenizer.get_vocab_size() - 1)
+        return cls(base_tokenizer, eos_token_id, **kwargs)
+
+    @classmethod
     def from_checkpoint(cls, checkpoint_dir: PathOrStr) -> Tokenizer:
         """
         Load a tokenizer from a checkpoint.
@@ -114,6 +129,13 @@ class Tokenizer:
         if Path(tokenizer_config.identifier).is_file():
             tokenizer = cls.from_file(
                 tokenizer_config.identifier,
+                eos_token_id=model_config.eos_token_id,
+                pad_token_id=model_config.pad_token_id,
+            )
+        # Try interpreting the tokenizer identifer as a file within the package
+        elif importlib_resources.files("olmo_data").joinpath(tokenizer_config.identifier).is_file():
+            tokenizer = cls.from_str(
+                importlib_resources.files("olmo_data").joinpath(tokenizer_config.identifier).read_text(),
                 eos_token_id=model_config.eos_token_id,
                 pad_token_id=model_config.pad_token_id,
             )
