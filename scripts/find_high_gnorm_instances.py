@@ -2,8 +2,11 @@ import gc
 import logging
 import math
 import os
+import sys
+from pathlib import Path
+
 from packaging import version
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 import torch
 import torch.distributed as dist
@@ -11,6 +14,7 @@ import torch.multiprocessing as mp
 from torch.utils.data import DataLoader
 
 from olmo import TrainConfig, OLMo
+from olmo.aliases import PathOrStr
 from olmo.checkpoint import load_state_dict
 from olmo.data import DataCollator, build_memmap_dataset, IterableDataset
 from olmo.torch_util import seed_all, move_to_device
@@ -57,7 +61,12 @@ def tensor_checksum(t: torch.Tensor) -> int:
     return r.sum().item()
 
 
-def main(cfg: TrainConfig) -> None:
+def main(
+    cfg: TrainConfig,
+    output_file: Optional[PathOrStr],
+    skip_batches: Optional[int],
+    stop_after_batches: Optional[int]
+) -> None:
     cfg.save_folder = "/tmp"        # should not be used
 
     cfg.model.precision = cfg.precision
@@ -71,6 +80,12 @@ def main(cfg: TrainConfig) -> None:
     cfg.model.init_device = _device_name()
 
     seed_all(cfg.seed)
+
+    if output_file is None:
+        output_file_stream = sys.stdout
+    else:
+        output_file = Path(output_file)
+        output_file_stream = output_file.open("wt", encoding="UTF-8")
 
     # make dataloader
     collator = DataCollator(pad_direction=cfg.data.pad_direction, pad_token_id=cfg.model.pad_token_id)
@@ -103,7 +118,9 @@ def main(cfg: TrainConfig) -> None:
     except FileNotFoundError:
         # for backwards compatibility
         trainer_state = load_state_dict(cfg.load_path, "other.pt")
-    checkpoint_epoch = trainer_state.get("epoch", 0)
+    checkpoint_epoch = trainer_state.get("epoch")
+    if checkpoint_epoch is None:
+        checkpoint_epoch = 0
     global_step = trainer_state["global_step"]
     global_train_examples_seen_this_epoch = trainer_state.get(
         "global_train_examples_seen_this_epoch",
@@ -114,8 +131,15 @@ def main(cfg: TrainConfig) -> None:
     )
     if global_train_examples_seen_this_epoch > 0:
         assert isinstance(train_loader.dataset, IterableDataset)
-        log.info(f"Data loader will start at instance index {global_train_examples_seen_this_epoch:,d}")
         train_loader.dataset.start_index = global_train_examples_seen_this_epoch
+    if skip_batches is not None:
+        train_loader.dataset.start_index += skip_batches * cfg.global_train_batch_size
+    log.info(f"Data loader will start at instance index {global_train_examples_seen_this_epoch:,d}")
+
+    if stop_after_batches is None:
+        end_global_step = None
+    else:
+        end_global_step = global_step + stop_after_batches
 
     # make model
     model = OLMo(cfg.model)
@@ -177,13 +201,14 @@ def main(cfg: TrainConfig) -> None:
         loss_fn = fused_loss_fn
 
     # run instances one by one
-    for epoch in range(checkpoint_epoch or 0, max_epochs):
+    for epoch in range(checkpoint_epoch, max_epochs):
+        if end_global_step is not None and global_step >= end_global_step:
+            break
+
         for batch in train_loader:
             batch_size, seq_len = batch["input_ids"].shape
             assert seq_len == cfg.model.max_sequence_length
             assert batch_size == cfg.device_train_batch_size
-            global_step += 1
-            global_train_examples_seen_this_epoch += batch_size
 
             micro_batches = _split_batch(batch)
             del batch
@@ -225,7 +250,6 @@ def main(cfg: TrainConfig) -> None:
                         labels.masked_fill_(~instance_mask.unsqueeze(-1), value=-100)
                     labels = labels[..., 1:].contiguous()
                     labels = labels.view(-1)
-                    del micro_batch
 
                     ce_loss, z_loss = loss_fn(
                         logits_for_loss,
@@ -248,30 +272,51 @@ def main(cfg: TrainConfig) -> None:
                 loss.backward()
 
                 # Calculate grad norm
-                l1_norm = torch.tensor(0.0, dtype=torch.float32)
-                l2_norm = torch.tensor(0.0, dtype=torch.float32)
+                l1_gnorm = torch.tensor(0.0, dtype=torch.float32)
+                l2_gnorm = torch.tensor(0.0, dtype=torch.float32)
+                wte_gnorm = torch.tensor(0.0, dtype=torch.float32)
                 for pname, p in model.named_parameters():
                     if p.grad is None:
                         log.warning("Parameter %s has no grad!", pname)
                         continue
                     grad = p.grad.to(torch.float32)
-                    l1_norm += grad.abs().sum()
-                    l2_norm += (grad ** 2).sum()
-                l2_norm = torch.sqrt(l2_norm)
-                del grad
+                    l1_gnorm += grad.abs().sum()
+                    grad_squared_sum = (grad ** 2).sum()
+                    l2_gnorm += grad_squared_sum
+                    if pname == "transformer.wte.weight":
+                        wte_gnorm = grad_squared_sum
+                    del grad_squared_sum
+                l2_gnorm = torch.sqrt(l2_gnorm)
+                wte_gnorm = torch.sqrt(wte_gnorm)
+
+                # Calculate norm of activated embeddings
+                with torch.no_grad():
+                    activated_embeddings_norm = \
+                        torch.linalg.vector_norm(model.transformer.wte(micro_batch["input_ids"]))
 
                 # print output
-                print("\t".join(map(str, [
+                output_line = "\t".join(map(str, [
                     global_step,
                     micro_batch_idx,
                     instance_checksum,
                     loss.item(),
-                    l1_norm.item(),
-                    l2_norm.item()
-                ])))
-                del l1_norm
-                del l2_norm
-                del loss
+                    l1_gnorm.item(),
+                    l2_gnorm.item(),
+                    wte_gnorm.item(),
+                    activated_embeddings_norm.item()
+                ]))
+                output_file_stream.write(output_line)
+                output_file_stream.write("\n")
+                output_file_stream.flush()
+                if output_file is not None:
+                    log.info(output_line)
+
+            global_step += 1
+            if end_global_step is not None and global_step >= end_global_step:
+                break
+
+    if output_file is not None:
+        output_file_stream.close()
 
 
 if __name__ == "__main__":
@@ -280,6 +325,9 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="run over a bunch of instances and record the grad norm of each of them")
+    parser.add_argument("-o", type=str, help="output to file")
+    parser.add_argument("--skip-batches", type=int, help="if specified, skip this many batches before starting")
+    parser.add_argument("--stop-after-batches", type=int, help="if specified, stop after this many batches")
     parser.add_argument("config_file", type=str, help="config file")
     args, other_args = parser.parse_known_args()
 
@@ -298,9 +346,4 @@ if __name__ == "__main__":
     args_list = [clean_opt(s) for s in other_args]
     cfg = TrainConfig.load(args.config_file, args_list)
 
-    # If you have the data downloaded locally, uncomment this and fix the path for a massive speedup.
-    # cfg.data.paths = [
-    #    p.replace("s3://", "/mnt/tank/") for p in cfg.data.paths
-    # ]
-
-    main(cfg)
+    main(cfg, args.o, args.skip_batches, args.stop_after_batches)
