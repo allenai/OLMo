@@ -2,6 +2,7 @@
 run_name: dolma-v1-6-and-sources-baseline-1B-N-1T-D-mitchish1-001
 seed: 6198
 dry_run: false
+stop_at: 476837
 
 wandb:
   name: ${run_name}
