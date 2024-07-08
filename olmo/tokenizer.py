@@ -95,7 +95,7 @@ class Tokenizer:
         :param filename: The name of a file containing a tokenizer specification.
         :param kwargs: Other key word arguments passed to :class:`Tokenizer`.
         """
-        base_tokenizer = BaseTokenizer.from_file(filename)
+        base_tokenizer = BaseTokenizer.from_file(str(filename))
         eos_token_id = kwargs.pop("eos_token_id", base_tokenizer.get_vocab_size() - 1)
         return cls(base_tokenizer, eos_token_id, **kwargs)
 
