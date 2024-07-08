@@ -65,6 +65,7 @@ torchrun \
     configs/amberish1-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --device_train_microbatch_size=4 \
+      '--load_path=${path.last_checkpoint:${save_folder}}' \
       --save_overwrite
 
-      # '--load_path=${path.last_checkpoint:${save_folder}}'
+     # '--load_path=${path.last_checkpoint:${save_folder}}' \
