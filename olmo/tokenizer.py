@@ -63,6 +63,14 @@ class Tokenizer:
                 eos_token_id=config.model.eos_token_id,
                 pad_token_id=config.model.pad_token_id,
             )
+        # Try interpreting the tokenizer identifer as a file within the package
+        elif is_data_file(tokenizer_identifier):
+            with get_data_path(tokenizer_identifier) as tokenizer_path:
+                tokenizer = cls.from_file(
+                    tokenizer_path,
+                    eos_token_id=config.model.eos_token_id,
+                    pad_token_id=config.model.pad_token_id,
+                )
         else:
             tokenizer = cls.from_pretrained(
                 tokenizer_identifier,
