@@ -2,7 +2,7 @@ import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, replace
 from math import cos, pi, sqrt
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.distributed as dist
@@ -453,12 +453,8 @@ class LionW(Optimizer):
                 state = self.state[p]
 
                 # Perform step weight decay
-                mask: Optional[torch.Tensor] = None
-                if self._selective_updates:
-                    mask = grad != 0
-                    p.data.mul_(1 - mask * (group["lr"] * group["weight_decay"]))
-                else:
-                    p.data.mul_(1 - group["lr"] * group["weight_decay"])
+                mask: Union[torch.Tensor, int] = grad != 0 if self._selective_updates else 1
+                p.data.mul_(1 - mask * (group["lr"] * group["weight_decay"]))
 
                 # State initialization
                 if len(state) == 0:
@@ -470,16 +466,15 @@ class LionW(Optimizer):
 
                 # Weight update
                 update = exp_avg * beta1 + grad * (1 - beta1)
-                if mask is not None:
+                if isinstance(mask, torch.Tensor):
+                    # When mask isn't a tensor it's just a literal `1` (python int), so there's
+                    # no point in calling this op.
                     update.mul_(mask)
                 signed_update = torch.sign(update)
                 p.add_(signed_update, alpha=-group["lr"])
 
                 # Decay the momentum running average coefficient
-                if mask is not None:
-                    exp_avg.mul_(1 - mask * (1 - beta2)).add_(grad, alpha=1 - beta2)
-                else:
-                    exp_avg.mul_(beta2).add_(grad, alpha=1 - beta2)
+                exp_avg.mul_(1 - mask * (1 - beta2)).add_(grad, alpha=1 - beta2)
 
                 # Track dot product and norms of update vs signed update in order to calculate
                 # their cosine similarity.
@@ -571,20 +566,12 @@ class AdamW(torch.optim.AdamW, Optimizer):
                 step_t += 1
 
                 # Perform step weight decay.
-                mask: Optional[torch.Tensor] = None
-                if self._selective_updates:
-                    mask = grad != 0
-                    param.mul_(1 - mask * (lr * weight_decay))
-                else:
-                    param.mul_(1 - lr * weight_decay)
+                mask: Union[torch.Tensor, int] = grad != 0 if self._selective_updates else 1
+                param.mul_(1 - mask * (lr * weight_decay))
 
                 # Decay the first and second moment running average coefficient.
-                if mask is not None:
-                    exp_avg.lerp_(grad, mask * (1 - beta1))
-                    exp_avg_sq.mul_(1 - mask * (1 - beta2)).addcmul_(grad, grad, value=1 - beta2)
-                else:
-                    exp_avg.lerp_(grad, 1 - beta1)
-                    exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+                exp_avg.lerp_(grad, mask * (1 - beta1))
+                exp_avg_sq.mul_(1 - mask * (1 - beta2)).addcmul_(grad, grad, value=1 - beta2)
 
                 step = step_t.item()
 
@@ -606,7 +593,9 @@ class AdamW(torch.optim.AdamW, Optimizer):
                     denom = (exp_avg_sq.sqrt() / bias_correction2_sqrt).add_(eps)
 
                 update = -step_size * torch.div(exp_avg, denom)
-                if mask is not None:
+                if isinstance(mask, torch.Tensor):
+                    # When mask isn't a tensor it's just a literal `1` (python int), so there's
+                    # no point in calling this op.
                     update.mul_(mask)
                 param.add_(update)
                 step_size_norms.append(torch.linalg.vector_norm(update, 2.0, dtype=torch.float32).unsqueeze(0))
