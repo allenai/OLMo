@@ -5,7 +5,7 @@ set -Euo pipefail
 
 path=$1
 
-checkpoints_needing_conversion=$(python scripts/find_all_checkpoints_needing_conversion.py --path $path)
+checkpoints_needing_conversion=($(python scripts/find_all_checkpoints_needing_conversion.py --path $path))
 echo "Converting the following checkpoints: $checkpoints_needing_conversion"
 
 len=${#checkpoints_needing_conversion[@]}
