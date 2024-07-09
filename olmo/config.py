@@ -480,6 +480,11 @@ class OptimizerConfig(BaseConfig):
     Deprecated. Use ``decay_norm_and_bias`` and ``decay_embeddings`` instead.
     """
 
+    selective_updates: bool = False
+    """
+    If ``True``, optimizer parameter and state updates are skipped when the corresponding gradient is 0.
+    """
+
     decay_norm_and_bias: bool = False
     decay_embeddings: bool = False
     metrics_log_interval: Optional[int] = None
