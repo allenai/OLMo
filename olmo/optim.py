@@ -387,8 +387,6 @@ class LionW(Optimizer):
         self._update_total_dot_prod: Optional[torch.Tensor] = None
         self._update_total_norm: Optional[torch.Tensor] = None
         self._signed_update_total_norm: Optional[torch.Tensor] = None
-        self._record_update_cos_sim = record_update_metrics
-        self._collecting_metrics = False
         self._device: Optional[torch.device] = device
 
     def get_post_step_metrics(
