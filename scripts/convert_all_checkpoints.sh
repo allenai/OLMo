@@ -16,5 +16,4 @@ for checkpoint in $checkpoints_needing_conversion; do
     echo "Converting $progress / $len $checkpoint"
     python scripts/convert_olmo_to_hf_new.py --input_dir $path${checkpoint} --output_dir $path${checkpoint}-hf --tokenizer_json_path tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
     progress=$((progress+1))
-    break
 done
