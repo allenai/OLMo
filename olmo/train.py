@@ -1162,7 +1162,8 @@ class Trainer:
                         if save_checkpoints and (
                             cancel_initiated
                             or (
-                                self.global_step % self.cfg.save_interval == 0
+                                self.cfg.save_interval is not None
+                                and self.global_step % self.cfg.save_interval == 0
                                 and self.cfg.save_num_checkpoints_to_keep != 0
                             )
                         ):

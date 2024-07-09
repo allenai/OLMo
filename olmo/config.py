@@ -915,7 +915,7 @@ class TrainConfig(BaseConfig):
     How often (in batches) to check if the run has been canceled or reached its time limit.
     """
 
-    save_interval: int = 1000
+    save_interval: Optional[int] = 1000
     """
     How often (in terms of steps) to save sharded training state checkpoints.
     """
