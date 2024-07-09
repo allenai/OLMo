@@ -5,6 +5,8 @@ set -Euo pipefail
 
 path=$1
 
+pip install accelerate
+
 checkpoints_needing_conversion=($(python scripts/find_all_checkpoints_needing_conversion.py --path $path))
 echo "Converting the following checkpoints: $checkpoints_needing_conversion"
 
