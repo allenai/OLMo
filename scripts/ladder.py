@@ -99,7 +99,7 @@ def train_cmd(args: argparse.Namespace):
 
     model_config = MODEL_CONFIGS[args.model]
 
-    model_size, model_size_unit = _number_unit_re.match(args.model).groups()
+    model_size, model_size_unit = _number_unit_re.match(args.model).groups()  # type: ignore
     model_size = int(model_size)
     if model_size_unit == "K":
         model_size *= 1000
@@ -111,7 +111,7 @@ def train_cmd(args: argparse.Namespace):
         raise ValueError(f"Could not parse model name '{args.model}'")
     del model_size_unit
 
-    length_in_tokens, length_unit = _number_unit_re.match(args.length.strip().upper()).groups()
+    length_in_tokens, length_unit = _number_unit_re.match(args.length.strip().upper()).groups()  # type: ignore
     length_in_tokens = int(length_in_tokens)
     if length_unit == "C" or length_unit == "XC":
         length_in_tokens *= 20 * model_size
