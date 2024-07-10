@@ -207,6 +207,7 @@ def train_cmd(args: argparse.Namespace):
         device_train_microbatch_size=device_batch_size,
         precision="amp_bf16",
         distributed_strategy=distributed_strategy,
+        fused_loss=True,
         max_grad_norm=1.0,
         speed_monitor=SpeedMonitorConfig(window_size=1),
         eval_interval=save_interval,
