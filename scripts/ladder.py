@@ -209,6 +209,7 @@ def train_cmd(args: argparse.Namespace):
         precision="amp_bf16",
         distributed_strategy=distributed_strategy,
         fused_loss=True,
+        gen1_gc_interval=2,
         max_grad_norm=1.0,
         speed_monitor=SpeedMonitorConfig(window_size=1),
         eval_interval=save_interval,
