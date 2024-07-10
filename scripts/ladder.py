@@ -99,7 +99,7 @@ def train_cmd(args: argparse.Namespace):
     permanent_data_prefix.rstrip("/")
     if args.write_location is None:
         if permanent_data_prefix.startswith("s3://"):
-            save_folder = "runs/"
+            save_folder = f"runs/{run_name}"
             remote_save_folder = f"{permanent_data_prefix}/checkpoints/OLMo-ladder/{run_name}"
         else:
             save_folder = f"{permanent_data_prefix}/checkpoints/OLMo-ladder/{run_name}"
