@@ -352,6 +352,8 @@ class ModelConfig(BaseConfig):
     to ``False``.
     """
 
+    layer_norm_eps: float = 1e-05
+
     attention_layer_norm_with_affine: bool = True
     """
     Toggle affine transform for the QK norms.
@@ -478,6 +480,11 @@ class OptimizerConfig(BaseConfig):
     Deprecated. Use ``decay_norm_and_bias`` and ``decay_embeddings`` instead.
     """
 
+    selective_updates: bool = False
+    """
+    If ``True``, optimizer parameter and state updates are skipped when the corresponding gradient is 0.
+    """
+
     decay_norm_and_bias: bool = False
     decay_embeddings: bool = False
     metrics_log_interval: Optional[int] = None
@@ -485,6 +492,12 @@ class OptimizerConfig(BaseConfig):
     The interval with which to collect and log detailed parameter-specific metrics.
     This only applies when logging to W&B, since these metrics won't be logged to the console.
     If not set, defaults to the wandb `log_interval`.
+    """
+
+    record_update_metrics: bool = False
+    """
+    Whether to record detailed metrics about the optimizer's parameter updates, like the norm and max
+    of the update with AdamW.
     """
 
     def __post_init__(self):

@@ -24,6 +24,7 @@ dependencies = [
     "packaging",
     "cached_path>=1.6.2",
     "transformers",
+    "importlib_resources",
 ]
 
 [project.optional-dependencies]
@@ -63,12 +64,13 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 olmo = ["py.typed"]
+olmo_data = ["**"]
 
 [tool.setuptools.dynamic]
 version = { attr = "olmo.version.VERSION" }
 
 [tool.setuptools.packages.find]
-include = ["olmo*", "hf_olmo*"]
+include = ["olmo*", "hf_olmo*", "olmo_data*"]
 exclude = [
     "*.tests",
     "*.tests.*",
