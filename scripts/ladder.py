@@ -2,7 +2,6 @@ import argparse
 import logging
 import os
 import re
-import sys
 
 import torch.distributed as dist
 import torch.multiprocessing as mp
@@ -35,7 +34,6 @@ from olmo.config import (
     FSDPPrecision,
 )
 from olmo.data import named_data_mixes
-from olmo.exceptions import OLMoCliError
 from olmo.util import prepare_cli_environment, add_cached_path_clients
 
 log = logging.getLogger("train")
@@ -127,7 +125,6 @@ def train_cmd(args: argparse.Namespace):
         length_in_tokens *= 1000000000000
     else:
         raise ValueError(f"Could not parse length '{args.length}'")
-    length_in_c = length_in_tokens / (20 * model_size)
     del length_unit
 
     # calculate batch size according to
