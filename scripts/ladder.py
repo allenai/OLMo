@@ -8,10 +8,32 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.distributed.fsdp import ShardingStrategy
 
-from olmo import ModelConfig, LayerNormType, ActivationType, InitFnType, TrainConfig, WandbConfig, DDPConfig, \
-    OptimizerConfig, OptimizerType, SchedulerConfig, SchedulerType, TokenizerConfig
-from olmo.config import ShardedCheckpointerType, DistributedStrategy, SpeedMonitorConfig, EvaluatorConfig, \
-    DataConfig, EvaluatorType, InstanceFilterConfig, FSDPConfig, FSDPWrapStrategy, FSDPPrecision
+from olmo import (
+    ModelConfig,
+    LayerNormType,
+    ActivationType,
+    InitFnType,
+    TrainConfig,
+    WandbConfig,
+    DDPConfig,
+    OptimizerConfig,
+    OptimizerType,
+    SchedulerConfig,
+    SchedulerType,
+    TokenizerConfig,
+)
+from olmo.config import (
+    ShardedCheckpointerType,
+    DistributedStrategy,
+    SpeedMonitorConfig,
+    EvaluatorConfig,
+    DataConfig,
+    EvaluatorType,
+    InstanceFilterConfig,
+    FSDPConfig,
+    FSDPWrapStrategy,
+    FSDPPrecision,
+)
 from olmo.data import named_data_mixes
 from olmo.exceptions import OLMoCliError
 from olmo.util import prepare_cli_environment, add_cached_path_clients
@@ -51,32 +73,12 @@ MODEL_CONFIG_150M = ModelConfig(
 
 MODEL_CONFIGS = {
     "150M": MODEL_CONFIG_150M,
-    "300M": MODEL_CONFIG_150M.update_with(
-        d_model=1024,
-        n_heads=16,
-        n_layers=16,
-        mlp_ratio=8
-    ),
-    "750M": MODEL_CONFIG_150M.update_with(
-        d_model=1536,
-        n_heads=16,
-        n_layers=16,
-        mlp_ratio=8
-    ),
-    "1B": MODEL_CONFIG_150M.update_with(
-        d_model=2048,
-        n_heads=16,
-        n_layers=16,
-        mlp_ratio=8
-    ),
+    "300M": MODEL_CONFIG_150M.update_with(d_model=1024, n_heads=16, n_layers=16, mlp_ratio=8),
+    "750M": MODEL_CONFIG_150M.update_with(d_model=1536, n_heads=16, n_layers=16, mlp_ratio=8),
+    "1B": MODEL_CONFIG_150M.update_with(d_model=2048, n_heads=16, n_layers=16, mlp_ratio=8),
     "7B": MODEL_CONFIG_150M.update_with(
-        d_model=4096,
-        n_heads=32,
-        n_layers=32,
-        mlp_ratio=None,
-        mlp_hidden_size=22016,
-        init_device="meta"
-    )
+        d_model=4096, n_heads=32, n_layers=32, mlp_ratio=None, mlp_hidden_size=22016, init_device="meta"
+    ),
 }
 
 
@@ -132,7 +134,7 @@ def train_cmd(args: argparse.Namespace):
     # https://www.semanticscholar.org/reader/5585191b1b479346ecf173be3b35c8313b77d457
     # holds only for a sequence length of 2048 (but could probably be easily adapted)
     assert model_config.max_sequence_length == 2048
-    global_batch_size = 160*(model_size/108000000)**(2/3)
+    global_batch_size = 160 * (model_size / 108000000) ** (2 / 3)
     global_batch_size /= 8 * 4  # 8 GPUs per node, microbatch size 4
     global_batch_size = round(global_batch_size)
     global_batch_size *= 8 * 4
@@ -147,30 +149,25 @@ def train_cmd(args: argparse.Namespace):
     assert global_batch_size % device_batch_size == 0
 
     # calculate the learning rate according to the same paper
-    lr = 0.0047*(model_size/108000000)**(-1/3)
+    lr = 0.0047 * (model_size / 108000000) ** (-1 / 3)
 
     save_interval = {
         "1B": 2500,
         "7B": 1000,
     }.get(args.model, 5000)
 
-    distributed_strategy = {
-        "7B": DistributedStrategy.fsdp
-    }.get(args.model, DistributedStrategy.ddp)
+    distributed_strategy = {"7B": DistributedStrategy.fsdp}.get(args.model, DistributedStrategy.ddp)
 
     cfg = TrainConfig(
         run_name=run_name,
         seed=6198,
-        wandb=None if not args.wandb else WandbConfig(
-            name=run_name,
-            project="olmo-ladder"
-        ),
+        wandb=None if not args.wandb else WandbConfig(name=run_name, project="olmo-ladder"),
         model=model_config,
         ddp=DDPConfig(),  # defaults are fine
         fsdp=FSDPConfig(
             sharding_strategy=ShardingStrategy.SHARD_GRAD_OP,
             wrapping_strategy=FSDPWrapStrategy.by_block_and_size,
-            precision=FSDPPrecision.mixed
+            precision=FSDPPrecision.mixed,
         ),
         optimizer=OptimizerConfig(
             name=OptimizerType.adamw,
@@ -180,13 +177,13 @@ def train_cmd(args: argparse.Namespace):
             decay_norm_and_bias=True,
             decay_embeddings=True,
             betas=(0.9, 0.95),
-            metrics_log_interval=10
+            metrics_log_interval=10,
         ),
         scheduler=SchedulerConfig(
             name=SchedulerType.cosine_with_warmup,
             alpha_f=0.01,
             warmup_min_lr=0.0,
-            t_warmup=round(model_size / (global_batch_size * model_config.max_sequence_length))
+            t_warmup=round(model_size / (global_batch_size * model_config.max_sequence_length)),
         ),
         max_duration=f"{length_in_tokens}T",
         global_train_batch_size=global_batch_size,
@@ -210,19 +207,41 @@ def train_cmd(args: argparse.Namespace):
                 data=DataConfig(
                     drop_last=True,
                     datasets={
-                        "c4_en-validation": [f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy"],
-                        "dolma_books-validation": [f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_books/val/part-0-00000.npy"],
-                        "dolma_common-crawl-validation": [f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_common-crawl/val/part-0-00000.npy"],
-                        "dolma_pes2o-validation": [f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_pes2o/val/part-0-00000.npy"],
-                        "dolma_reddit-validation": [f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_reddit/val/part-0-00000.npy"],
-                        "dolma_stack-validation": [f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_stack/val/part-0-00000.npy"],
-                        "dolma_wiki-validation": [f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_wiki/val/part-0-00000.npy"],
-                        "ice-validation": [f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/ice/val/part-0-00000.npy"],
-                        "m2d2_s2orc-validation": [f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/m2d2_s2orc/val/part-0-00000.npy"],
-                        "pile-validation": [f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy"],
-                        "wikitext_103-validation": [f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy"],
-                    }
-                )
+                        "c4_en-validation": [
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy"
+                        ],
+                        "dolma_books-validation": [
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_books/val/part-0-00000.npy"
+                        ],
+                        "dolma_common-crawl-validation": [
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_common-crawl/val/part-0-00000.npy"
+                        ],
+                        "dolma_pes2o-validation": [
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_pes2o/val/part-0-00000.npy"
+                        ],
+                        "dolma_reddit-validation": [
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_reddit/val/part-0-00000.npy"
+                        ],
+                        "dolma_stack-validation": [
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_stack/val/part-0-00000.npy"
+                        ],
+                        "dolma_wiki-validation": [
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_wiki/val/part-0-00000.npy"
+                        ],
+                        "ice-validation": [
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/ice/val/part-0-00000.npy"
+                        ],
+                        "m2d2_s2orc-validation": [
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/m2d2_s2orc/val/part-0-00000.npy"
+                        ],
+                        "pile-validation": [
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy"
+                        ],
+                        "wikitext_103-validation": [
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy"
+                        ],
+                    },
+                ),
             ),
             EvaluatorConfig(label="piqa", type=EvaluatorType.downstream),
             EvaluatorConfig(label="hellaswag", type=EvaluatorType.downstream),
@@ -258,9 +277,9 @@ def train_cmd(args: argparse.Namespace):
             pin_memory=True,
             prefetch_factor=8,
             persistent_workers=True,
-            instance_filter=InstanceFilterConfig(),      # defaults are fine
-            paths=[f"{permanent_data_prefix}/{path}" for path in named_data_mixes.DATA_PATHS[args.data]]
-        )
+            instance_filter=InstanceFilterConfig(),  # defaults are fine
+            paths=[f"{permanent_data_prefix}/{path}" for path in named_data_mixes.DATA_PATHS[args.data]],
+        ),
     )
 
     # Do a bunch of initialization
@@ -273,6 +292,7 @@ def train_cmd(args: argparse.Namespace):
     add_cached_path_clients()
 
     from train import main
+
     main(cfg)
 
 
@@ -292,12 +312,11 @@ if __name__ == "__main__":
         "--s3",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="read data from S3, write checkpoints to S3")
+        help="read data from S3, write checkpoints to S3",
+    )
     train_parser.add_argument(
-        "--wandb",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="create a run in wandb")
+        "--wandb", action=argparse.BooleanOptionalAction, default=True, help="create a run in wandb"
+    )
     train_parser.set_defaults(func=train_cmd)
 
     args = parser.parse_args()
