@@ -1,0 +1,66 @@
+{
+  "builder_name": "super_glue",
+  "citation": "@article{de marneff_simons_tonhauser_2019,\n  title={The CommitmentBank: Investigating projection in naturally occurring discourse},\n  journal={proceedings of Sinn und Bedeutung 23},\n  author={De Marneff, Marie-Catherine and Simons, Mandy and Tonhauser, Judith},\n  year={2019}\n}\n@article{wang2019superglue,\n  title={SuperGLUE: A Stickier Benchmark for General-Purpose Language Understanding Systems},\n  author={Wang, Alex and Pruksachatkun, Yada and Nangia, Nikita and Singh, Amanpreet and Michael, Julian and Hill, Felix and Levy, Omer and Bowman, Samuel R},\n  journal={arXiv preprint arXiv:1905.00537},\n  year={2019}\n}\n\nNote that each SuperGLUE dataset has its own citation. Please see the source to\nget the correct citation for each contained dataset.\n",
+  "config_name": "cb",
+  "dataset_name": "super_glue",
+  "dataset_size": 202393,
+  "description": "SuperGLUE (https://super.gluebenchmark.com/) is a new benchmark styled after\nGLUE with a new set of more difficult language understanding tasks, improved\nresources, and a new public leaderboard.\n\nThe CommitmentBank (De Marneffe et al., 2019) is a corpus of short texts in which at least\none sentence contains an embedded clause. Each of these embedded clauses is annotated with the\ndegree to which we expect that the person who wrote the text is committed to the truth of the clause.\nThe resulting task framed as three-class textual entailment on examples that are drawn from the Wall\nStreet Journal, fiction from the British National Corpus, and Switchboard. Each example consists\nof a premise containing an embedded clause and the corresponding hypothesis is the extraction of\nthat clause. We use a subset of the data that had inter-annotator agreement above 0.85. The data is\nimbalanced (relatively fewer neutral examples), so we evaluate using accuracy and F1, where for\nmulti-class F1 we compute the unweighted average of the F1 per class.",
+  "download_checksums": {
+    "https://dl.fbaipublicfiles.com/glue/superglue/data/v2/CB.zip": {
+      "num_bytes": 75482,
+      "checksum": null
+    }
+  },
+  "download_size": 75482,
+  "features": {
+    "premise": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "hypothesis": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "idx": {
+      "dtype": "int32",
+      "_type": "Value"
+    },
+    "label": {
+      "names": [
+        "entailment",
+        "contradiction",
+        "neutral"
+      ],
+      "_type": "ClassLabel"
+    }
+  },
+  "homepage": "https://github.com/mcdm/CommitmentBank",
+  "license": "",
+  "size_in_bytes": 277875,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 87050,
+      "num_examples": 250,
+      "dataset_name": "super_glue"
+    },
+    "validation": {
+      "name": "validation",
+      "num_bytes": 21851,
+      "num_examples": 56,
+      "dataset_name": "super_glue"
+    },
+    "test": {
+      "name": "test",
+      "num_bytes": 93492,
+      "num_examples": 250,
+      "dataset_name": "super_glue"
+    }
+  },
+  "version": {
+    "version_str": "1.0.3",
+    "major": 1,
+    "minor": 0,
+    "patch": 3
+  }
+}
