@@ -31,7 +31,7 @@ from olmo.config import (
     FSDPWrapStrategy,
     InstanceFilterConfig,
     ShardedCheckpointerType,
-    SpeedMonitorConfig, CompilerConfig,
+    SpeedMonitorConfig,
 )
 from olmo.data import named_data_mixes
 from olmo.util import add_cached_path_clients, prepare_cli_environment
@@ -208,7 +208,6 @@ def train_cmd(args: argparse.Namespace):
         precision="amp_bf16",
         distributed_strategy=distributed_strategy,
         fused_loss=True,
-        compile=CompilerConfig(fullgraph=True),
         max_grad_norm=1.0,
         speed_monitor=SpeedMonitorConfig(window_size=1),
         eval_interval=save_interval,
