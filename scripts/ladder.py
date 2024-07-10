@@ -151,7 +151,8 @@ def train_cmd(args: argparse.Namespace):
     # device batch size based on the hardware we're running on.
     device_batch_size = {
         "150M": 32,
-        "300M": 32,
+        "300M": 16,
+        "750M": 8,
         "1B": 2,
         "7B": 2,
     }.get(args.model, 4)
