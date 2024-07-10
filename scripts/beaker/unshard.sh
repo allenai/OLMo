@@ -16,9 +16,16 @@ mkdir -p ~/.aws
 printenv AWS_CONFIG > ~/.aws/config
 printenv AWS_CREDENTIALS > ~/.aws/credentials
 
-checkpoint=/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/amberish7/step477850
+checkpoint=ai2-llm/checkpoints/OLMo-medium/amberish7/step477850
 
-# python scripts/unshard.py "${checkpoint}" "${checkpoint}-unsharded" --type=olmo_core
+echo "Unsharding..."
+python scripts/unshard.py "/weka/oe-training-default/${checkpoint}" \
+    "/weka/oe-training-default/${checkpoint}-unsharded" \
+    --type=olmo_core
+
+echo "Uploading to S3..."
 aws s3 cp --no-progress --recursive --profile=S3 \
-    "${checkpoint}-unsharded" \
-    s3://ai2-llm/checkpoints/OLMo-medium/amberish7/step477850-unsharded
+    "/weka/oe-training-default/${checkpoint}-unsharded" \
+    "s3://${checkpoint}-unsharded"
+
+echo "Done!"
