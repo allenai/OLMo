@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from glob import glob
 from pathlib import Path
@@ -156,6 +157,12 @@ class BaseConfig:
                 if name in out:
                     del out[name]
         return out
+
+    def update_with(self, **kwargs):
+        result = deepcopy(self)
+        for key, value in kwargs.items():
+            setattr(result, key, value)
+        return result
 
 
 class LayerNormType(StrEnum):
