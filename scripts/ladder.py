@@ -314,7 +314,7 @@ if __name__ == "__main__":
     train_parser.add_argument(
         "--wandb", action=argparse.BooleanOptionalAction, default=True, help="create a run in wandb"
     )
-    train_parser.add_argument("--write-location", type=str, default=None)
+    train_parser.add_argument("--write_location", type=str, default=None)
     train_parser.add_argument("--save_overwrite", action="store_true")
     train_parser.set_defaults(func=train_cmd)
 
