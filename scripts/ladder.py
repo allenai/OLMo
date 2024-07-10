@@ -91,11 +91,22 @@ def train_cmd(args: argparse.Namespace):
     # Construct a config
     args.model = args.model.strip().upper()
     run_name = f"{args.name}-{args.model}-{args.length}"
+    assert "/" not in run_name
 
     permanent_data_prefix = "/weka/oe-training-default/ai2-llm"
     if args.s3:
         permanent_data_prefix = "s3://ai2-llm"
     permanent_data_prefix.rstrip("/")
+    if args.write_location is None:
+        if permanent_data_prefix.startswith("s3://"):
+            save_folder = "runs/"
+            remote_save_folder = f"{permanent_data_prefix}/checkpoints/OLMo-ladder/{run_name}"
+        else:
+            save_folder = f"{permanent_data_prefix}/checkpoints/OLMo-ladder/{run_name}"
+            remote_save_folder = None
+    else:
+        save_folder = args.write_location
+        remote_save_folder = None
 
     model_config = MODEL_CONFIGS[args.model]
 
@@ -185,7 +196,8 @@ def train_cmd(args: argparse.Namespace):
         max_duration=f"{length_in_tokens}T",
         global_train_batch_size=global_batch_size,
         tokenizer=TokenizerConfig(identifier="tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json"),
-        save_folder=args.write_location if args.write_location is not None else f"{permanent_data_prefix}/checkpoints/OLMo-ladder/{run_name}",
+        save_folder=save_folder,
+        remote_save_folder=remote_save_folder,
         save_overwrite=args.save_overwrite,
         save_interval_unsharded=save_interval,
         save_num_unsharded_checkpoints_to_keep=-1,
