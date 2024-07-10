@@ -6,6 +6,8 @@ from typing import List, Optional, Union
 
 from tokenizers import Tokenizer as BaseTokenizer
 
+from olmo_data import get_data_path, is_data_file
+
 from .aliases import PathOrStr
 from .config import ModelConfig, TokenizerConfig, TrainConfig, TruncationDirection
 from .exceptions import OLMoConfigurationError
@@ -61,6 +63,14 @@ class Tokenizer:
                 eos_token_id=config.model.eos_token_id,
                 pad_token_id=config.model.pad_token_id,
             )
+        # Try interpreting the tokenizer identifer as a file within the package
+        elif is_data_file(tokenizer_identifier):
+            with get_data_path(tokenizer_identifier) as tokenizer_path:
+                tokenizer = cls.from_file(
+                    tokenizer_path,
+                    eos_token_id=config.model.eos_token_id,
+                    pad_token_id=config.model.pad_token_id,
+                )
         else:
             tokenizer = cls.from_pretrained(
                 tokenizer_identifier,
@@ -94,7 +104,7 @@ class Tokenizer:
         :param filename: The name of a file containing a tokenizer specification.
         :param kwargs: Other key word arguments passed to :class:`Tokenizer`.
         """
-        base_tokenizer = BaseTokenizer.from_file(filename)
+        base_tokenizer = BaseTokenizer.from_file(str(filename))
         eos_token_id = kwargs.pop("eos_token_id", base_tokenizer.get_vocab_size() - 1)
         return cls(base_tokenizer, eos_token_id, **kwargs)
 
@@ -117,6 +127,14 @@ class Tokenizer:
                 eos_token_id=model_config.eos_token_id,
                 pad_token_id=model_config.pad_token_id,
             )
+        # Try interpreting the tokenizer identifer as a file within the package
+        elif is_data_file(tokenizer_config.identifier):
+            with get_data_path(tokenizer_config.identifier) as tokenizer_path:
+                tokenizer = cls.from_file(
+                    tokenizer_path,
+                    eos_token_id=model_config.eos_token_id,
+                    pad_token_id=model_config.pad_token_id,
+                )
         else:
             tokenizer = cls.from_pretrained(
                 tokenizer_config.identifier,
