@@ -139,6 +139,7 @@ def train_cmd(args: argparse.Namespace):
     # We don't want the global batch size depend on the device batch size, because we might have to change the
     # device batch size based on the hardware we're running on.
     device_batch_size = {
+        "150M": 16,
         "1B": 2,
         "7B": 2,
     }.get(args.model, 4)
