@@ -186,7 +186,7 @@ def train_cmd(args: argparse.Namespace):
         global_train_batch_size=global_batch_size,
         tokenizer=TokenizerConfig(identifier="tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json"),
         save_folder=args.write_location if args.write_location is not None else f"{permanent_data_prefix}/checkpoints/OLMo-ladder/{run_name}",
-        save_overwrite=False,
+        save_overwrite=args.save_overwrite,
         save_interval_unsharded=save_interval,
         save_num_unsharded_checkpoints_to_keep=-1,
         save_interval=None,
@@ -315,6 +315,7 @@ if __name__ == "__main__":
         "--wandb", action=argparse.BooleanOptionalAction, default=True, help="create a run in wandb"
     )
     train_parser.add_argument("--write-location", type=str, default=None)
+    train_parser.add_argument("--save_overwrite", action="store_true")
     train_parser.set_defaults(func=train_cmd)
 
     args = parser.parse_args()
