@@ -18,4 +18,6 @@ printenv AWS_CREDENTIALS > ~/.aws/credentials
 
 checkpoint=/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/amberish7/step477850
 
-python scripts/unshard.py "${checkpoint}" "${checkpoint}-unsharded" --type=olmo_core
+# python scripts/unshard.py "${checkpoint}" "${checkpoint}-unsharded" --type=olmo_core
+python scripts/unshard.py --help
+echo "Done!"
