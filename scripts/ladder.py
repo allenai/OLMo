@@ -195,6 +195,7 @@ def train_cmd(args: argparse.Namespace):
         save_interval_unsharded=save_interval,
         save_num_unsharded_checkpoints_to_keep=-1,
         save_interval=None,
+        load_path=args.load_path,
         sharded_checkpointer=ShardedCheckpointerType.olmo_core,
         device_train_microbatch_size=device_batch_size,
         precision="amp_bf16",
@@ -323,6 +324,7 @@ if __name__ == "__main__":
     )
     train_parser.add_argument("--write_location", type=str, default=None)
     train_parser.add_argument("--save_overwrite", action="store_true")
+    train_parser.add_argument("--load_path", type=str)
     train_parser.set_defaults(func=train_cmd)
 
     args = parser.parse_args()
