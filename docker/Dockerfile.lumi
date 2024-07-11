@@ -95,8 +95,10 @@ RUN cd /opt && \
 
 # Install more dependencies
 COPY pyproject.toml .
-RUN mkdir olmo && touch olmo/__init__.py && \
-    pip install --no-cache-dir .[all] && \
+RUN mkdir olmo && \
+    touch olmo/__init__.py && \
+    echo 'VERSION = "0.1.0"' > olmo/version.py && \
+    pip install --no-cache-dir .[train] && \
     pip uninstall -y ai2-olmo && \
     rm -rf olmo/
 
