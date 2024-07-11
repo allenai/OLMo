@@ -56,6 +56,9 @@ class CurveFitConfig:
     """
 
 
+# Power Law functions
+
+
 def openai_fit(x, a, b, c):
     return (a / x + c) ** b
 
@@ -92,7 +95,7 @@ def get_data(config: CurveFitConfig):
     return train_xs, train_ys, eval_xs, eval_ys
 
 
-def get_coeffs(train_xs, train_ys, fitting_func, p0=[1e5, -0.5, 2.0]):
+def get_coefficients(train_xs, train_ys, fitting_func, p0):
     coeffs = scipy.optimize.curve_fit(fitting_func, train_xs, train_ys, p0=p0, maxfev=50000)[0]
     coeffs_string = ", ".join([chr(ord("a") + i) + f" = {coeffs[i]:.2f}" for i in range(len(coeffs))])
     print(f"{fitting_func.__name__}: {coeffs_string}")
@@ -102,10 +105,8 @@ def get_coeffs(train_xs, train_ys, fitting_func, p0=[1e5, -0.5, 2.0]):
 def plot_scaling(
     train_xs, train_ys, eval_xs, fitting_func, final_loss_tokens, p0=[1e16, 0.1, 0], predict=False, **plot_kwargs
 ):
-    # get coeffs
-    coefficients = get_coeffs(train_xs, train_ys, fitting_func, p0=p0)
+    coefficients = get_coefficients(train_xs, train_ys, fitting_func, p0=p0)
 
-    # plot fitted curve
     plt.plot(
         train_xs + eval_xs,
         fitting_func(np.array(train_xs + eval_xs), *coefficients),
@@ -113,13 +114,9 @@ def plot_scaling(
     )
 
     if predict:
-        # plot predicted value
         final_ce_loss = chinchilla_fit(final_loss_tokens, *coefficients)
+        plt.plot(final_loss_tokens, final_ce_loss, "x", color=plot_kwargs.get("color", "red"))
 
-        # todo: assert color is present
-        plt.plot(final_loss_tokens, final_ce_loss, "x", color=plot_kwargs["color"])
-
-        # predicted value in text
         plt.text(
             0.2,
             0.63,
