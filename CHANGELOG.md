@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [v0.4.0](https://github.com/allenai/OLMo/releases/tag/v0.4.0) - 2024-07-11
+
 ### Added
 
 - Added clipping fix to `Optimizer` class to make it work with FSDP `no_shard` and DDP.
