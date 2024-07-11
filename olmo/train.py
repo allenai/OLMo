@@ -256,8 +256,26 @@ class Trainer:
 
     @property
     def max_tokens(self) -> int:
-        # It should be noted that this math rounds up the number of tokens to be a multiple of the batch size.
-        return self.max_steps * self.tokens_per_batch
+        if isinstance(self.cfg.max_duration, int):
+            return (
+                self.global_train_tokens_seen
+                + max(self.cfg.max_duration - self.global_step, 0) * self.tokens_per_batch
+            )
+        elif isinstance(self.cfg.max_duration, str):
+            if self.cfg.max_duration.endswith("T"):
+                # convert to float *first* to handle scientific notation
+                return int(float(self.cfg.max_duration[:-1].strip()))
+            elif self.cfg.max_duration.endswith("ep"):
+                max_epochs = int(self.cfg.max_duration[:-2].strip())
+                return max_epochs * self.batches_per_epoch * self.tokens_per_batch
+            else:
+                # convert to float *first* to handle scientific notation
+                return (
+                    self.global_train_tokens_seen
+                    + max(int(float(self.cfg.max_duration)) - self.global_step, 0) * self.tokens_per_batch
+                )
+        else:
+            raise TypeError(f"expected int or str for 'max_duration', found {type(self.cfg.max_duration)}")
 
     @property
     def scheduler_current(self) -> int:
