@@ -1,4 +1,5 @@
 import argparse
+import os
 from typing import Dict
 
 import matplotlib.pyplot as plt
@@ -14,60 +15,7 @@ from olmo.scaling.scaling_laws.curve_fit import (
     plot_scaling,
 )
 
-validation = [
-    "c4_en-validation",
-    "dolma_books-validation",
-    "dolma_common-crawl-validation",
-    "dolma_pes2o-validation",
-    "dolma_reddit-validation",
-    "dolma_stack-validation",
-    "dolma_wiki-validation",
-    "ice-validation",
-    "m2d2_s2orc-validation",
-    "pile-validation",
-    "wikitext_103-validation",
-]
-
-v3_validation = [
-    "v3-small-c4_en-validation",
-    "v3-small-dolma_books-validation",
-    "v3-small-dolma_common-crawl-validation",
-    "v3-small-dolma_pes2o-validation",
-    "v3-small-dolma_reddit-validation",
-    "v3-small-dolma_stack-validation",
-    "v3-small-dolma_wiki-validation",
-    "v3-small-ice-validation",
-    "v3-small-m2d2_s2orc-validation",
-    #'v3-small-pile-validation',
-    "v3-small-wikitext_103-validation",
-]
-
-downstream = [
-    "hellaswag_len_norm",
-    "winogrande_acc",
-    "piqa_len_norm",
-    "social_iqa_len_norm",
-    "openbook_qa_len_norm",
-    "commonsense_qa_len_norm",
-    "boolq_acc",
-    "copa_acc",
-    "arc_easy_acc",
-    "arc_challenge_len_norm",
-    "sciq_acc",
-    "mmlu_social_sciences_var_len_norm",
-    "mmlu_humanities_var_len_norm",
-    "mmlu_other_var_len_norm",
-    "mmlu_stem_mc_5shot_test_len_norm",
-    "mmlu_humanities_mc_5shot_len_norm",
-    "mmlu_social_sciences_mc_5shot_len_norm",
-    "mmlu_stem_var_len_norm",
-    "mmlu_other_mc_5shot_test_len_norm",
-    "mmlu_humanities_mc_5shot_test_len_norm",
-    "mmlu_stem_mc_5shot_len_norm",
-    "mmlu_social_sciences_mc_5shot_test_len_norm",
-    "mmlu_other_mc_5shot_len_norm",
-]
-
+# from olmo.scaling.scaling_laws.utils import validation
 
 CONFIGS = {
     "mup-olmo-128-train": {
@@ -159,7 +107,7 @@ def fit_curves(
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-o", "--output-path", type=str, required=True, help="Output file")
+    parser.add_argument("-o", "--output-path", type=str, required=True, help="Output folder")
     parser.add_argument(
         "-m", "--mode", type=str, required=False, default="default", help="Options: [default, contaminated, all]"
     )
@@ -171,6 +119,7 @@ def main():
     args = parse_args()
     configs = {key: CurveFitConfig(**value) for key, value in CONFIGS.items()}
 
+    os.makedirs(args.output_path, exist_ok=True)
     fit_curves(configs, args.output_path, args.mode)
 
 

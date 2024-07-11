@@ -1,6 +1,7 @@
 import argparse
 import csv
 import json
+import os.path
 import re
 from typing import List
 
@@ -73,8 +74,10 @@ def main():
     wb_runs = get_runs(args.wandb_names)
 
     print("Downloading the data from the following wandb runs:\n", "\n".join([str(run) for run in wb_runs]))
-    print(wb_runs)
 
+    dirname = os.path.dirname(args.output_path)
+    if dirname:
+        os.makedirs(dirname, exist_ok=True)
     with open(args.output_path, "w") as file_ref:
         writer = csv.DictWriter(file_ref, fieldnames=[args.x_axis] + args.y_axis + ["batch_size_in_tokens"])
         writer.writeheader()
