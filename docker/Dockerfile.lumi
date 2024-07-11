@@ -110,14 +110,14 @@ RUN mkdir olmo && \
 RUN pip install --no-cache-dir py-spy
 RUN pip install --no-cache-dir wandb --upgrade
 
+# # Install flash attention (for MI200 series!)
+# RUN cd /opt && \
+#     git clone --recursive https://github.com/ROCm/flash-attention.git && \
+#     cd flash-attention && \
+#     GPU_ARCHS="gfx90a" pip install .
+
 # Cleanup
 RUN apt-get autoremove
 RUN rm -rf /opt/mpich-3.1.4 /opt/aws-ofi-rccl /opt/DeepSpeed
 RUN apt-get clean
 RUN pip cache purge
-
-# Install flash attention (for MI200 series!)
-RUN cd /opt && \
-    git clone --recursive https://github.com/ROCm/flash-attention.git && \
-    cd flash-attention && \
-    GPU_ARCHS="gfx90a" pip install .
