@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import re
+from typing import Set
 
 import torch.distributed as dist
 import torch.multiprocessing as mp
@@ -284,7 +285,24 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     )
 
 
-def dump_config(args: argparse.Namespace):
+def _factors(n: int) -> Set[int]:
+    return {f for i in range(1, int(n**0.5)+1) if n % i == 0 for f in [i, n//i]}
+
+
+def nodecounts_cmd(args: argparse.Namespace):
+    cfg = config_from_args(args)
+    if cfg.global_train_batch_size % cfg.device_train_microbatch_size != 0:
+        raise ValueError("Microbatchsize must divide global batch size evenly.")
+    num_gpus = cfg.global_train_batch_size // cfg.device_train_microbatch_size
+    if num_gpus % args.gpus_per_node != 0:
+        raise ValueError(f"With {cfg.global_train_batch_size} bz, {cfg.device_train_microbatch_size} mbz, and {args.gpus_per_node} GPUs per node, it's impossible to allocate whole nodes.")
+    max_num_nodes = num_gpus // args.gpus_per_node
+
+    for factor in reversed(list(_factors(max_num_nodes))):
+        print(factor)
+
+
+def dump_cmd(args: argparse.Namespace):
     cfg = config_from_args(args)
     cfg = cfg.asdict()
     if not args.dump_evaluators:
@@ -315,8 +333,22 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(os.path.basename(__file__))
     subparsers = parser.add_subparsers(required=True)
 
+    nodecounts_parser = subparsers.add_parser("nodecounts")
+    nodecounts_parser.set_defaults(
+        func=nodecounts_cmd,
+        data="dolma17",
+        length="1xC",
+        name="nodecounts",
+        s3=False,
+        wandb=False,
+        save_overwrite=False,
+        load_path=None
+    )
+    nodecounts_parser.add_argument("--gpus-per-node", type=int, default=8)
+    nodecounts_parser.add_argument("--model", type=str, required=True)
+
     dump_parser = subparsers.add_parser("dump")
-    dump_parser.set_defaults(func=dump_config)
+    dump_parser.set_defaults(func=dump_cmd)
     dump_parser.add_argument("--dump_evaluators", action=argparse.BooleanOptionalAction, default=False, help="Dump evaluator config")
     dump_parser.add_argument("--dump_data", action=argparse.BooleanOptionalAction, default=False, help="Dump data config")
 
