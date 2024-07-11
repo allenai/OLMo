@@ -6,16 +6,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 
-from olmo.util import StrEnum
-
-
-class CurveFitMode(StrEnum):
-    default: str = "default"
-
-    contaminated: str = "contaminated"
-
-    all: str = "all"
-
 
 @dataclass
 class CurveFitConfig:

@@ -7,13 +7,13 @@ import matplotlib.pyplot as plt
 from olmo.aliases import PathOrStr
 from olmo.scaling.scaling_laws.curve_fit import (
     CurveFitConfig,
-    CurveFitMode,
     chinchilla_contaminated_fit,
     chinchilla_fit,
     get_data,
     openai_fit,
     plot_scaling,
 )
+from olmo.util import StrEnum
 
 # from olmo.scaling.scaling_laws.utils import validation
 
@@ -41,6 +41,14 @@ CONFIGS = {
         "title": "mup-OLMo-256M, train loss",
     },
 }
+
+
+class CurveFitMode(StrEnum):
+    default: str = "default"
+
+    contaminated: str = "contaminated"
+
+    all: str = "all"
 
 
 def fit_curves(
