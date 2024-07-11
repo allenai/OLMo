@@ -11,7 +11,7 @@ gantry run \
   --description "OLMo ladder with $*" \
   --priority normal \
   --preemptible \
-  --beaker-image shanea/olmo-torch2.2-gantry \
+  --beaker-image shanea/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
   --cluster ai2/pluto-cirrascale \
   --cluster ai2/general-cirrascale-a100-80g-ib \
