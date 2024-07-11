@@ -11,6 +11,8 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
+pip install flash_attn
+
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
