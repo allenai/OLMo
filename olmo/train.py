@@ -232,10 +232,7 @@ class Trainer:
 
     @property
     def max_epochs(self) -> int:
-        if isinstance(self.cfg.max_duration, str) and self.cfg.max_duration.endswith("ep"):
-            return int(self.cfg.max_duration[:-2].strip())
-        else:
-            return 1
+        return math.ceil(self.max_steps / self.batches_per_epoch)
 
     @property
     def max_steps(self) -> int:
@@ -246,7 +243,7 @@ class Trainer:
                 # convert to float *first* to handle scientific notation
                 max_tokens = int(float(self.cfg.max_duration[:-1].strip()))
                 tokens_remaining = max(max_tokens - self.global_train_tokens_seen, 0)
-                steps_remaining = tokens_remaining // self.tokens_per_batch
+                steps_remaining = math.ceil(tokens_remaining / self.tokens_per_batch)
                 return self.global_step + steps_remaining
             elif self.cfg.max_duration.endswith("ep"):
                 max_epochs = int(self.cfg.max_duration[:-2].strip())
@@ -259,26 +256,8 @@ class Trainer:
 
     @property
     def max_tokens(self) -> int:
-        if isinstance(self.cfg.max_duration, int):
-            return (
-                self.global_train_tokens_seen
-                + max(self.cfg.max_duration - self.global_step, 0) * self.tokens_per_batch
-            )
-        elif isinstance(self.cfg.max_duration, str):
-            if self.cfg.max_duration.endswith("T"):
-                # convert to float *first* to handle scientific notation
-                return int(float(self.cfg.max_duration[:-1].strip()))
-            elif self.cfg.max_duration.endswith("ep"):
-                max_epochs = int(self.cfg.max_duration[:-2].strip())
-                return max_epochs * self.batches_per_epoch * self.tokens_per_batch
-            else:
-                # convert to float *first* to handle scientific notation
-                return (
-                    self.global_train_tokens_seen
-                    + max(int(float(self.cfg.max_duration)) - self.global_step, 0) * self.tokens_per_batch
-                )
-        else:
-            raise TypeError(f"expected int or str for 'max_duration', found {type(self.cfg.max_duration)}")
+        # It should be noted that this math rounds up the number of tokens to be a multiple of the batch size.
+        return self.max_steps * self.tokens_per_batch
 
     @property
     def scheduler_current(self) -> int:
@@ -1012,6 +991,8 @@ class Trainer:
                 self.cfg.stop_at = self.global_step + self.cfg.stop_after
             else:
                 self.cfg.stop_at = min(self.cfg.stop_at, self.global_step + self.cfg.stop_after)
+        if self.cfg.stop_at is None:
+            self.cfg.stop_at = self.max_steps + 10
 
         self._start_time = time.time()
         self._gc_init_state = gc.isenabled()  # cache if garbage collection is enabled, reset on close.
@@ -1088,7 +1069,7 @@ class Trainer:
         # Train.
         first_batch: bool = True
         cancel_initiated: bool = False
-        stop_at: Optional[int] = self.cfg.stop_at
+        stop_at: int = self.cfg.stop_at
         save_checkpoints: bool = True
 
         with torch_profiler as p:
@@ -1151,11 +1132,7 @@ class Trainer:
                     if not cancel_initiated and self.global_step % self.cfg.canceled_check_interval == 0:
                         cancel_initiated, extra_steps = self.check_if_cancelled()
                         if cancel_initiated:
-                            stop_at = (
-                                self.global_step + extra_steps
-                                if stop_at is None
-                                else min(self.global_step + extra_steps, stop_at)
-                            )
+                            stop_at = min(stop_at, self.global_step + extra_steps)
 
                     # Maybe save sharded checkpoint.
                     if self.cfg.distributed_strategy != DistributedStrategy.ddp:
@@ -1226,7 +1203,7 @@ class Trainer:
                     if p is not None:
                         p.step()
 
-                    if stop_at is not None and self.global_step >= stop_at:
+                    if self.global_step >= stop_at:
                         break
 
                     # Run generation 1 garbage collection.
