@@ -13,6 +13,7 @@ gantry run \
   --preemptible \
   --beaker-image shanea/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
+  --weka=oe-training-default:/weka/oe-training-default \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
