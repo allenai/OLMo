@@ -34,7 +34,7 @@ from olmo.config import (
     SpeedMonitorConfig,
 )
 from olmo.data import named_data_mixes
-from olmo.util import add_cached_path_clients, prepare_cli_environment
+from olmo.util import add_cached_path_clients, prepare_cli_environment, flatten_dict
 
 log = logging.getLogger("train")
 
@@ -83,11 +83,7 @@ MODEL_CONFIGS = {
 _number_unit_re = re.compile(r"^([0-9]+)([a-zA-Z]+)$")
 
 
-def size_cmd(args: argparse.Namespace):
-    raise NotImplementedError()
-
-
-def train_cmd(args: argparse.Namespace):
+def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # Construct a config
     args.model = args.model.strip().upper()
     run_name = f"{args.name}-{args.model}-{args.length}"
@@ -159,7 +155,7 @@ def train_cmd(args: argparse.Namespace):
 
     distributed_strategy = {"7B": DistributedStrategy.fsdp}.get(args.model, DistributedStrategy.ddp)
 
-    cfg = TrainConfig(
+    return TrainConfig(
         run_name=run_name,
         seed=6198,
         wandb=None if not args.wandb else WandbConfig(name=run_name, project="olmo-ladder"),
@@ -287,7 +283,21 @@ def train_cmd(args: argparse.Namespace):
         ),
     )
 
-    # Do a bunch of initialization
+
+def dump_config(args: argparse.Namespace):
+    cfg = config_from_args(args)
+    cfg = cfg.asdict()
+    if not args.dump_evaluators:
+        del cfg['evaluators']
+    if not args.dump_data:
+        del cfg['data']
+    for key, value in sorted(flatten_dict(cfg).items()):
+        print(f"{key}: {value}")
+
+
+def train_cmd(args: argparse.Namespace):
+    cfg = config_from_args(args)
+
     try:
         mp.set_start_method("spawn", force=True)
     except RuntimeError as e:
@@ -305,27 +315,31 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(os.path.basename(__file__))
     subparsers = parser.add_subparsers(required=True)
 
-    size_parser = subparsers.add_parser("size")
-    size_parser.set_defaults(func=size_cmd)
+    dump_parser = subparsers.add_parser("dump")
+    dump_parser.set_defaults(func=dump_config)
+    dump_parser.add_argument("--dump_evaluators", action=argparse.BooleanOptionalAction, default=False, help="Dump evaluator config")
+    dump_parser.add_argument("--dump_data", action=argparse.BooleanOptionalAction, default=False, help="Dump data config")
 
     train_parser = subparsers.add_parser("train")
-    train_parser.add_argument("--model", type=str, required=True)
-    train_parser.add_argument("--data", type=str, required=True)
-    train_parser.add_argument("--length", type=str, default="2xC")
-    train_parser.add_argument("--name", type=str, required=True)
-    train_parser.add_argument(
-        "--s3",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="read data from S3, write checkpoints to S3",
-    )
-    train_parser.add_argument(
-        "--wandb", action=argparse.BooleanOptionalAction, default=True, help="create a run in wandb"
-    )
-    train_parser.add_argument("--write_location", type=str, default=None)
-    train_parser.add_argument("--save_overwrite", action="store_true")
-    train_parser.add_argument("--load_path", type=str)
     train_parser.set_defaults(func=train_cmd)
+
+    for subparser in [dump_parser, train_parser]:
+        subparser.add_argument("--model", type=str, required=True)
+        subparser.add_argument("--data", type=str, required=True)
+        subparser.add_argument("--length", type=str, default="2xC")
+        subparser.add_argument("--name", type=str, required=True)
+        subparser.add_argument(
+            "--s3",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+            help="read data from S3, write checkpoints to S3",
+        )
+        subparser.add_argument(
+            "--wandb", action=argparse.BooleanOptionalAction, default=True, help="create a run in wandb"
+        )
+        subparser.add_argument("--write_location", type=str, default=None)
+        subparser.add_argument("--save_overwrite", action="store_true")
+        subparser.add_argument("--load_path", type=str)
 
     args = parser.parse_args()
     args.func(args)

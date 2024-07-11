@@ -12,7 +12,7 @@ from itertools import cycle, islice
 from pathlib import Path
 from queue import Queue
 from threading import Thread
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union, MutableMapping
 
 import boto3
 import botocore.exceptions as boto_exceptions
@@ -802,3 +802,14 @@ class WekaClient(SchemeClient):
             Bucket=self.bucket_name, Key=self.path, Range=f"bytes={index}-{index+length-1}"
         )
         return response["Body"].read()
+
+
+def flatten_dict(dictionary, parent_key="", separator="."):
+    d: Dict[str, Any] = {}
+    for key, value in dictionary.items():
+        new_key = parent_key + separator + key if parent_key else key
+        if isinstance(value, MutableMapping):
+            d.update(**flatten_dict(value, new_key, separator=separator))
+        else:
+            d[new_key] = value
+    return d
