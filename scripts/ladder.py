@@ -193,6 +193,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         save_num_unsharded_checkpoints_to_keep=-1,
         save_interval=None,
         load_path=args.load_path,
+        eval_on_load=args.eval_on_load,
         sharded_checkpointer=ShardedCheckpointerType.olmo_core,
         device_train_microbatch_size=device_batch_size,
         precision="amp_bf16",
@@ -372,6 +373,7 @@ if __name__ == "__main__":
         subparser.add_argument("--write_location", type=str, default=None)
         subparser.add_argument("--save_overwrite", action="store_true")
         subparser.add_argument("--load_path", type=str)
+        subparser.add_argument("--eval_on_load", action="store_true")
 
     args = parser.parse_args()
     args.func(args)
