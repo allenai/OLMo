@@ -65,7 +65,7 @@ torchrun \
     configs/amberish1-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --device_train_microbatch_size=4 \
-      --model.embedding_layer_norm=true \
+      --model.emb_init_std=1.0 \
       --save_overwrite
 
      # '--load_path=${path.last_checkpoint:${save_folder}}' \

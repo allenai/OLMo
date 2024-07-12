@@ -37,4 +37,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/amberish1-emb-ln.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/amberish1-emb-init-1.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
