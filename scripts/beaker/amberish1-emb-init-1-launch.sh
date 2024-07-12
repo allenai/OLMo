@@ -6,8 +6,8 @@ NUM_NODES=8
 
 gantry run \
   --workspace ai2/OLMo-pretraining-stability \
-  --task-name amberish1-emb-ln \
-  --description "Amberish 1B train with embedding layer norm" \
+  --task-name amberish1-emb-init-1 \
+  --description "Amberish 1B train with embedding init of 1" \
   --priority urgent \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
