@@ -1,0 +1,78 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "default",
+  "dataset_name": "sciq",
+  "dataset_size": 7664230,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/sciq@2c94ad3e1aafab77146f384e23536f97a4849815/data/train-00000-of-00001.parquet": {
+      "num_bytes": 3993099,
+      "checksum": null
+    },
+    "hf://datasets/sciq@2c94ad3e1aafab77146f384e23536f97a4849815/data/validation-00000-of-00001.parquet": {
+      "num_bytes": 338503,
+      "checksum": null
+    },
+    "hf://datasets/sciq@2c94ad3e1aafab77146f384e23536f97a4849815/data/test-00000-of-00001.parquet": {
+      "num_bytes": 342808,
+      "checksum": null
+    }
+  },
+  "download_size": 4674410,
+  "features": {
+    "question": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "distractor3": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "distractor1": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "distractor2": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "correct_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "support": {
+      "dtype": "string",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 12338640,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 6546183,
+      "num_examples": 11679,
+      "dataset_name": "sciq"
+    },
+    "validation": {
+      "name": "validation",
+      "num_bytes": 554120,
+      "num_examples": 1000,
+      "dataset_name": "sciq"
+    },
+    "test": {
+      "name": "test",
+      "num_bytes": 563927,
+      "num_examples": 1000,
+      "dataset_name": "sciq"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}

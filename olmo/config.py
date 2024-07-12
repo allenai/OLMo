@@ -1177,6 +1177,8 @@ class TrainConfig(BaseConfig):
 
     hf_datasets_cache_dir: Optional[str] = None
     """
+    Deprecated, HF datasets are now stored in `olmo_data.hf_datasets`.
+
     Path to cache directory of HF datasets saved with `datasets.save_to_disk`.
     """
 
