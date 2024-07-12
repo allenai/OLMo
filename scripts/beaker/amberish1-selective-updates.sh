@@ -64,7 +64,6 @@ torchrun \
   scripts/train.py \
     configs/amberish1-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
-      --optimizer.decay_embeddings=true \
       --optimizer.selective_updates=true \
       --device_train_microbatch_size=4 \
       --save_overwrite

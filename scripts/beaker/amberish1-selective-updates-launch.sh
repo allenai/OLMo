@@ -2,12 +2,12 @@
 
 set -ex
 
-NUM_NODES=8
+NUM_NODES=16
 
 gantry run \
   --workspace ai2/OLMo-pretraining-stability \
   --task-name amberish1-selective-updates \
-  --description "Amberish 1B train with WD everywhere but selective updates" \
+  --description "Amberish 1B train with selective updates" \
   --priority urgent \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
