@@ -8,9 +8,9 @@ gantry run \
   --workspace ai2/dirkg \
   --task-name mitchish7 \
   --description "OLMo medium - 7B" \
-  --priority high \
+  --priority normal \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/pluto-cirrascale \
+  --cluster ai2/jupiter-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \

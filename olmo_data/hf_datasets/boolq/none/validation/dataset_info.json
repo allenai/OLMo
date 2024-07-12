@@ -1,0 +1,56 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "default",
+  "dataset_name": "boolq",
+  "dataset_size": 7827766,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/boolq@35b264d03638db9f4ce671b711558bf7ff0f80d5/data/train-00000-of-00001.parquet": {
+      "num_bytes": 3685146,
+      "checksum": null
+    },
+    "hf://datasets/boolq@35b264d03638db9f4ce671b711558bf7ff0f80d5/data/validation-00000-of-00001.parquet": {
+      "num_bytes": 1257630,
+      "checksum": null
+    }
+  },
+  "download_size": 4942776,
+  "features": {
+    "question": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "answer": {
+      "dtype": "bool",
+      "_type": "Value"
+    },
+    "passage": {
+      "dtype": "string",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 12770542,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 5829584,
+      "num_examples": 9427,
+      "dataset_name": "boolq"
+    },
+    "validation": {
+      "name": "validation",
+      "num_bytes": 1998182,
+      "num_examples": 3270,
+      "dataset_name": "boolq"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}
