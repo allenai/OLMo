@@ -63,7 +63,7 @@ save_folder: /data
 save_overwrite: false
 remote_save_folder: s3://ai2-llm/checkpoints/dustins/long-contexts/${run_name}
 # Sharded checkpoints (best for restarts)
-save_interval: 500
+save_interval: 119
 save_num_checkpoints_to_keep: -1
 
 save_interval_unsharded: null
@@ -78,8 +78,8 @@ no_pre_train_checkpoint: true
 reset_optimizer_state: false
 reset_trainer_state: true
 
-max_duration: 1e9T
-stop_at: 119
+max_duration: 5e9T
+stop_at: 595
 global_train_batch_size: 512
 device_train_microbatch_size: 1
 time_limit: null
@@ -106,31 +106,31 @@ evaluators:
       drop_last: true
       datasets:
         4chan-validation:
-       - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
         c4_100_domains-validation:
-       - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/c4_100_domains/val.npy
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/c4_100_domains/val.npy
         c4_en-validation:
-       - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/c4_en/val.npy
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/c4_en/val.npy
         gab-validation:
-       - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/gab/val.npy
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/gab/val.npy
         ice-validation:
-       - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/ice/val.npy
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/ice/val.npy
         m2d2_s2orc-validation:
-       - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/m2d2_s2orc/val.npy
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/m2d2_s2orc/val.npy
         m2d2_wiki-validation:
-       - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/m2d2_wiki/val.npy
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/m2d2_wiki/val.npy
         manosphere-validation:
-       - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/manosphere/val.npy
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/manosphere/val.npy
         mc4_en-validation:
-       - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/mc4_en/val.npy
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/mc4_en/val.npy
         pile-validation:
-       - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/pile/val.npy
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/pile/val.npy
         ptb-validation:
-       - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/ptb/val.npy
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/ptb/val.npy
         twitterAEE-validation:
-       - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
         wikitext_103-validation:
-       - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/wikitext_103/val.npy
+        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/wikitext_103/val.npy
 
  ##########################
   # Downstream evaluations #
@@ -221,19 +221,19 @@ data:
   timeout: 0
   paths:
     # ~> Long-context subset (50 GT)
-   - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-01-00000.npy
-   - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-02-00000.npy
-   - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-03-00000.npy
-   - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-04-00000.npy
-   - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-06-00000.npy
-   - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-05-00000.npy
-   - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-07-00000.npy
-   - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-08-00000.npy
-   - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-09-00000.npy
-   - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-10-00000.npy
-   - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-11-00000.npy
-   - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-12-00000.npy
-   - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-13-00000.npy
-   - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-14-00000.npy
-   - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-15-00000.npy
-   - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-20-00000.npy
+    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-01-00000.npy
+    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-02-00000.npy
+    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-03-00000.npy
+    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-04-00000.npy
+    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-06-00000.npy
+    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-05-00000.npy
+    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-07-00000.npy
+    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-08-00000.npy
+    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-09-00000.npy
+    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-10-00000.npy
+    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-11-00000.npy
+    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-12-00000.npy
+    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-13-00000.npy
+    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-14-00000.npy
+    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-15-00000.npy
+    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-20-00000.npy

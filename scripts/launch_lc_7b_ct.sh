@@ -10,7 +10,7 @@ gantry run \
   --description "OLMo medium - 7B - long context continued pretraining" \
   --priority normal \
   --beaker-image petew/olmo-torch23-gantry \
-  --cluster ai2/jupiter-cirrascale-2 \
+  --cluster ai2/pluto\
   --gpus 8 \
   --preemptible \
   --replicas "${NUM_NODES}" \
