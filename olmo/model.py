@@ -1015,6 +1015,9 @@ class OLMo(nn.Module):
                     )
                 }
             )
+        if config.embedding_layer_norm:
+            self.transformer.update({"emb_norm": LayerNorm.build(config)})
+
         # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
         if init_params and self.config.init_device != "meta":
             self.reset_parameters()
@@ -1051,13 +1054,13 @@ class OLMo(nn.Module):
             # Note: We may potentially want to multiply the std by a factor of sqrt(d) in case of `scale_logits`
             # and `weight_tying`. However, we are currently not using either, and may need to rethink the init logic
             # if/when we do want it.
-            wte_std = self.config.init_std
+            wte_std = self.config.emb_init_std or self.config.init_std
             wte_cutoff_factor = self.config.init_cutoff_factor
         elif self.config.init_fn == InitFnType.mitchell:
-            wte_std = 1.0 / math.sqrt(self.config.d_model)
+            wte_std = self.config.emb_init_std or 1.0 / math.sqrt(self.config.d_model)
             wte_cutoff_factor = self.config.init_cutoff_factor or 3.0
         elif self.config.init_fn == InitFnType.full_megatron:
-            wte_std = self.config.init_std
+            wte_std = self.config.emb_init_std or self.config.init_std
             wte_cutoff_factor = self.config.init_cutoff_factor or 3.0
         else:
             raise NotImplementedError(self.config.init_fn)
@@ -1175,6 +1178,10 @@ class OLMo(nn.Module):
         # shape: (batch_size, seq_len, d_model)
         x = self.transformer.wte(input_ids) if input_embeddings is None else input_embeddings  # type: ignore
 
+        # Apply embedding layer norm.
+        if self.config.embedding_layer_norm:
+            x = self.transformer.emb_norm(x)
+
         if not (self.config.alibi or self.config.rope):
             # Get positional embeddings.
             # shape: (1, seq_len)
@@ -1183,7 +1190,7 @@ class OLMo(nn.Module):
             pos_emb = self.transformer.wpe(pos)  # type: ignore
             x = pos_emb + x
 
-        # Add input + positional embeddings and apply dropout.
+        # Apply dropout.
         # shape: (batch_size, seq_len, d_model)
         x = self.transformer.emb_drop(x)  # type: ignore
 

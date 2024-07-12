@@ -339,6 +339,11 @@ class ModelConfig(BaseConfig):
     The dropout probability for embeddings.
     """
 
+    embedding_layer_norm: bool = False
+    """
+    Apply layer norm directly to the embeddings.
+    """
+
     layer_norm_type: LayerNormType = LayerNormType.default
     """
     The layernorm implementation to use.
@@ -426,6 +431,11 @@ class ModelConfig(BaseConfig):
     """
     The standard deviation to use when initializing weights with a "fixed distribution" ``init_fn``, such
     as "normal".
+    """
+
+    emb_init_std: Optional[float] = None
+    """
+    The standard deviation to use when initializing the embedding weights only.
     """
 
     init_cutoff_factor: Optional[float] = None
