@@ -5,7 +5,7 @@ set -ex
 NUM_NODES=4
 
 gantry run \
-  --workspace ai2/dustins \
+  --workspace ai2/OLMo-training \
   --task-name long_contexts_7B_anneal \
   --description "OLMo medium - 7B - long context continued pretraining" \
   --priority high \
