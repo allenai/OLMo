@@ -2,7 +2,7 @@
 
 set -ex
 
-NUM_NODES=1
+NUM_NODES=4
 
 gantry run \
   --workspace ai2/OLMo-training \
@@ -21,6 +21,9 @@ gantry run \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
+  --env NCCL_SOCKET_IFNAME=ib \
+  --env NCCL_IB_HCA="^=mlx5_bond_0" \
+  --env NCCL_DEBUG=INFO \
   --no-nfs \
   --env-secret WANDB_API_KEY=DUSTINS_WANDB_API_KEY \
   --env-secret AWS_ACCESS_KEY_ID=DUSTINS_AWS_ACCESS_KEY_ID \
