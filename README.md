@@ -89,7 +89,7 @@ print(olmo_pipe("Language modeling is"))
 If you finetune the model using the code in [Fine-tuning](#fine-tuning), you can use the conversion script to convert a native OLMo checkpoint to a Hugging Face-compatible checkpoint.
 
 ```bash
-python scripts/convert_olmo_to_hf_new.py --input_dir=/path/to/olmo/checkpoint --output_dir=/path/to/hf/checkpoint/ --tokenizer_json_path=tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
+python scripts/convert_olmo_to_hf_new.py --input_dir /path/to/olmo/checkpoint --output_dir /path/to/hf/checkpoint/ --tokenizer_json_path tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
 ```
 
 ### Quantization
