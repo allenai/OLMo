@@ -2,7 +2,7 @@
 
 set -ex
 
-NUM_NODES=1
+NUM_NODES=4
 
 gantry run \
   --workspace ai2/OLMo-training \
