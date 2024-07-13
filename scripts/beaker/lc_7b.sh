@@ -8,6 +8,9 @@ shift
 NUM_NODES=$1
 shift
 
+BEAKER_REPLICA_RANK=$1
+shift
+
 # Warm HF cache
 mkdir -p /root/.cache
 pushd /root/.cache

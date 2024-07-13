@@ -2,7 +2,7 @@
 
 set -ex
 
-NUM_NODES=4
+NUM_NODES=2
 
 gantry run \
   --workspace ai2/OLMo-training \
@@ -30,4 +30,4 @@ gantry run \
   --propagate-failure \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/lc_7b.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES}"
+  -- /bin/bash -c "scripts/beaker/lc_7b.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
