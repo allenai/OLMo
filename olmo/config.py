@@ -56,6 +56,7 @@ __all__ = [
     "FSDPWrapStrategy",
     "FSDPConfig",
     "CheckpointType",
+    "SkipType",
 ]
 
 C = TypeVar("C", bound="BaseConfig")
@@ -189,6 +190,22 @@ class BlockType(StrEnum):
     """
     A block similar to the sequential block with slightly different
     implementations of operations like attention to imitate the behavior of Llama.
+    """
+
+
+class SkipType(StrEnum):
+    """
+    This only works with DDP and block_group_size = 1
+    """
+
+    dist_zero = "dist_zero"
+    """
+    distribute the tokens + embedding representations being input to the model to deeper layers
+    """
+
+    aggregate_n = "aggregate_n"
+    """
+    aggregate activations from previous layers into the final skip connection
     """
 
 
@@ -395,6 +412,16 @@ class ModelConfig(BaseConfig):
     to ``vocab_size``. If ``vocab_size`` is not a multiple of 128, setting this to the
     next multiple of 128 that's greater than ``vocab_size`` can improve throughput
     substantially.
+    """
+
+    skip_type: SkipType = SkipType.dist_zero
+    """
+    Type of skip connection to use.
+    """
+
+    skip_ratio: int = 4
+    """
+    number of layers between skip connections
     """
 
     weight_tying: bool = True

@@ -42,6 +42,7 @@ from .config import (
     InitFnType,
     LayerNormType,
     ModelConfig,
+    SkipType,
 )
 from .exceptions import OLMoConfigurationError
 from .initialization import init_normal
@@ -1234,6 +1235,10 @@ class OLMo(nn.Module):
         # decoder layers
         all_hidden_states = []
 
+        aggregate_activation = None
+        if self.config.skip_type == SkipType.dist_zero:
+            zero_activation = x
+
         # Apply blocks one-by-one.
         if self.config.block_group_size == 1:
             for block_idx, block in enumerate(self.transformer.blocks):
@@ -1250,6 +1255,14 @@ class OLMo(nn.Module):
                 else:
                     # shape: (batch_size, seq_len, d_model)
                     x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
+
+                    if self.config.skip_type == SkipType.dist_zero and (block_idx + 1) % self.config.skip_ratio == 0:
+                        x = x + zero_activation 
+                    elif self.config.skip_type == SkipType.aggregate_n and (block_idx + 1) % self.config.skip_ratio == 0:
+                        if aggregate_activation is None:
+                            aggregate_activation = x
+                        else:
+                            aggregate_activation = aggregate_activation + x
 
                 if attn_key_values is not None:
                     assert cache is not None
@@ -1273,6 +1286,9 @@ class OLMo(nn.Module):
                 if attn_key_values is not None:
                     assert cache is not None
                     attn_key_values.extend(cache)
+
+        if aggregate_activation is not None:
+            x = x + aggregate_activation
 
         if last_logits_only:
             # shape: (batch_size, 1, d_model)
