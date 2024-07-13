@@ -66,8 +66,8 @@ torchrun \
       --run_name="${GANTRY_TASK_NAME}" \
       --device_train_microbatch_size=4 \
       --softmax_auxiliary_loss=true \
-      --fsdp.sharding_strategy=HYBRID_SHARD \
-      --fsdp.hybrid_sharding_num_model_replicas=2 \
       --save_overwrite
 
      # '--load_path=${path.last_checkpoint:${save_folder}}' \
+     # --fsdp.sharding_strategy=HYBRID_SHARD \
+     # --fsdp.hybrid_sharding_num_model_replicas=2 \
