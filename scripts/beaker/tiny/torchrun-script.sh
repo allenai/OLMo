@@ -30,5 +30,5 @@ torchrun \
       --wandb.name=$TASK_NAME \
       --wandb.group=$TASK_NAME \
       --wandb.project=olmo-tiny \
-      --model.skip_type="dist_zero" \
+      --model.skip_type="aggregate_n" \
       --save_overwrite

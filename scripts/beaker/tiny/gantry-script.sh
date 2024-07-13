@@ -3,7 +3,7 @@
 set -ex
 
 NUM_NODES=4
-TASK_NAME=tiny-olmo-150M-rms-norm-adam-eps-1e-8-skip-dist-zero
+TASK_NAME=tiny-olmo-150M-rms-norm-adam-eps-1e-8-skip-aggregate-n
 
 gantry run \
   --workspace ai2/OLMo-tiny \
@@ -12,7 +12,7 @@ gantry run \
   --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/pluto-cirrascale \
+  --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
