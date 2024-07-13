@@ -86,9 +86,13 @@ time_limit: null
 
 precision: amp_bf16
 
+distributed_strategy: fsdp
+
 fsdp:
   wrapping_strategy: by_block_and_size
+  sharding_strategy: SHARD_GRAD_OP
   precision: mixed
+
 
 max_grad_norm: 1.0
 max_grad_norm_ratio: null
