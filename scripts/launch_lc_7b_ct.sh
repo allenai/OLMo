@@ -2,11 +2,11 @@
 
 set -ex
 
-NUM_NODES=4
+NUM_NODES=1
 
 gantry run \
   --workspace ai2/OLMo-training \
-  --task-name long_contexts_7B_anneal \
+  --task-name long_contexts_7B_cont_train \
   --description "OLMo medium - 7B - long context continued pretraining" \
   --priority normal \
   --beaker-image petew/olmo-torch23-gantry \
@@ -30,4 +30,4 @@ gantry run \
   --propagate-failure \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/lc_7b.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/lc_7b.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES}"
