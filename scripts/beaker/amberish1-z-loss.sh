@@ -68,7 +68,6 @@ torchrun \
       --softmax_auxiliary_loss=true \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas=4 \
-      '--load_path=${path.last_checkpoint:${save_folder}}' \
       --save_overwrite
 
      # '--load_path=${path.last_checkpoint:${save_folder}}' \
