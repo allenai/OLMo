@@ -25,10 +25,11 @@ torchrun \
   --rdzv_backend=c10d \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   scripts/train.py \
-    configs/tiny/OLMo-150M.yaml \
+    configs/tiny/OLMo-20M.yaml \
       --run_name=$TASK_NAME \
       --wandb.name=$TASK_NAME \
       --wandb.group=$TASK_NAME \
       --wandb.project=olmo-tiny \
-      --model.skip_type="aggregate_n" \
+      --optimizer.learning_rate=6e-4 \
+      --optimizer.decay_embeddings=true \
       --save_overwrite

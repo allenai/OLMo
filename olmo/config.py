@@ -414,7 +414,7 @@ class ModelConfig(BaseConfig):
     substantially.
     """
 
-    skip_type: SkipType = SkipType.dist_zero
+    skip_type: Optional[SkipType] = None
     """
     Type of skip connection to use.
     """
