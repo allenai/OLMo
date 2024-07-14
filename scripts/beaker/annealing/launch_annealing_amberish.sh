@@ -14,7 +14,7 @@ CONFIG_PATH=${CONFIG_DIR}/${CONFIG_NAME}.yaml
 gantry run \
   --preemptible \
   --allow-dirty \
-  --workspace ai2/davidw-oe-annealing \
+  --workspace ai2/OLMo-pretraining-stability \
   --task-name ${CONFIG_NAME} \
   --description ${CONFIG_NAME} \
   --priority $PRIORITY \
@@ -27,7 +27,6 @@ gantry run \
   --synchronized-start-timeout "30m" \
   --host-networking \
   --nfs \
-  --mount /net/nfs.cirrascale/allennlp/petew/cache:/root/.cache \
   --budget ai2/oe-training \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
