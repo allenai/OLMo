@@ -84,20 +84,8 @@ MODEL_CONFIGS = {
 _number_unit_re = re.compile(r"^([0-9]+)([a-zA-Z]+)$")
 
 
-def config_from_args(args: argparse.Namespace) -> TrainConfig:
-    # Construct a config
-    args.model = args.model.strip().upper()
-    run_name = f"{args.name}-{args.model}-{args.length}"
-    assert "/" not in run_name
-
-    permanent_data_prefix = "/weka/oe-training-default/ai2-llm"
-    if args.s3:
-        permanent_data_prefix = "s3://ai2-llm"
-    permanent_data_prefix.rstrip("/")
-
-    model_config = MODEL_CONFIGS[args.model]
-
-    model_size, model_size_unit = _number_unit_re.match(args.model).groups()  # type: ignore
+def parse_size(size: str) -> int:
+    model_size, model_size_unit = _number_unit_re.match(size.strip().upper()).groups()  # type: ignore
     model_size = int(model_size)
     if model_size_unit == "K":
         model_size *= 1000
@@ -107,9 +95,11 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         model_size *= 1000000000
     else:
         raise ValueError(f"Could not parse model name '{args.model}'")
-    del model_size_unit
+    return model_size
 
-    length_in_tokens, length_unit = _number_unit_re.match(args.length.strip().upper()).groups()  # type: ignore
+
+def parse_length(length: str, model_size: int) -> int:
+    length_in_tokens, length_unit = _number_unit_re.match(length.strip().upper()).groups()  # type: ignore
     length_in_tokens = int(length_in_tokens)
     if length_unit == "C" or length_unit == "XC":
         length_in_tokens *= 20 * model_size
@@ -123,7 +113,23 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         length_in_tokens *= 1000000000000
     else:
         raise ValueError(f"Could not parse length '{args.length}'")
-    del length_unit
+    return length_in_tokens
+
+
+def config_from_args(args: argparse.Namespace) -> TrainConfig:
+    # Construct a config
+    args.model = args.model.strip().upper()
+    run_name = f"{args.name}-{args.model}-{args.length}"
+    assert "/" not in run_name
+
+    permanent_data_prefix = "/weka/oe-training-default/ai2-llm"
+    if args.s3:
+        permanent_data_prefix = "s3://ai2-llm"
+    permanent_data_prefix.rstrip("/")
+
+    model_config = MODEL_CONFIGS[args.model]
+    model_size = parse_size(args.model)
+    length_in_tokens = parse_length(args.length, model_size)
 
     # calculate batch size according to
     # https://www.semanticscholar.org/reader/5585191b1b479346ecf173be3b35c8313b77d457
