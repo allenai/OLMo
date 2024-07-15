@@ -1203,7 +1203,9 @@ class Trainer:
                         speed_monitor.reset()
 
                     # Maybe run evaluations.
-                    if not cancel_initiated and self.global_step % self.cfg.eval_interval == 0:
+                    if not cancel_initiated and (
+                        self.global_step % self.cfg.eval_interval == 0 or self.global_step >= stop_at
+                    ):
                         eval_metrics = self.eval()
 
                         # Log metrics to W&B.
