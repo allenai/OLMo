@@ -1104,7 +1104,7 @@ class TrainConfig(BaseConfig):
     Settings for compiling the model with ``torch.compile()``.
     """
 
-    distributed_strategy: Optional[DistributedStrategy] = None
+    distributed_strategy: Optional[DistributedStrategy] = DistributedStrategy.fsdp
     """
     Distributed strategy for OLMo model (eg. single GPU, DDP, FSDP).
     """
