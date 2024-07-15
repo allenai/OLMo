@@ -197,7 +197,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         save_num_unsharded_checkpoints_to_keep=-1,
         save_interval=None,
         load_path=args.load_path,
-        eval_on_load=args.eval_on_load,
+        eval_on_load=False,
         sharded_checkpointer=ShardedCheckpointerType.olmo_core,
         device_train_microbatch_size=device_batch_size,
         precision="amp_bf16",
