@@ -2,7 +2,8 @@ import argparse
 import logging
 import os
 import re
-from typing import Set
+from copy import deepcopy
+from typing import Set, Tuple, Union
 
 import torch.distributed as dist
 import torch.multiprocessing as mp
@@ -313,6 +314,33 @@ def nodecounts_cmd(args: argparse.Namespace):
         print(factor)
 
 
+def size_for_model(model_config: Union[ModelConfig, str]) -> Tuple[int, int]:
+    if isinstance(model_config, str):
+        model_config = MODEL_CONFIGS[model_config]
+    model_config = deepcopy(model_config)
+    model_config.init_device = "cpu"
+
+    n_layers = model_config.n_layers
+    model_config.n_layers = 1
+
+    from olmo import OLMo
+    single_layer_model = OLMo(model_config)
+    block = single_layer_model.transformer.blocks[0]  # type: ignore
+    params_per_block = sum(p.numel() for p in block.parameters())  # type: ignore
+
+    return (
+        single_layer_model.num_params() + (params_per_block * (n_layers - 1)),
+        single_layer_model.num_params(include_embedding=False) + (params_per_block * (n_layers - 1))
+    )
+
+
+def size_cmd(args: argparse.Namespace):
+    cfg = config_from_args(args)
+    with_embeddings, without_embeddings = size_for_model(cfg.model)
+    print(with_embeddings)
+    print(without_embeddings)
+
+
 def dump_cmd(args: argparse.Namespace):
     cfg = config_from_args(args)
     cfg = cfg.asdict()
@@ -344,9 +372,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(os.path.basename(__file__))
     subparsers = parser.add_subparsers(required=True)
 
-    nodecounts_parser = subparsers.add_parser("nodecounts")
-    nodecounts_parser.set_defaults(
-        func=nodecounts_cmd,
+    no_train_defaults = dict(
         data="dolma17",
         length="1xC",
         name="nodecounts",
@@ -356,8 +382,15 @@ if __name__ == "__main__":
         load_path=None,
         eval_on_load=False
     )
+
+    nodecounts_parser = subparsers.add_parser("nodecounts")
+    nodecounts_parser.set_defaults(func=nodecounts_cmd, **no_train_defaults)
     nodecounts_parser.add_argument("--gpus-per-node", type=int, default=8)
     nodecounts_parser.add_argument("--model", type=str, required=True)
+
+    size_parser = subparsers.add_parser("size")
+    size_parser.set_defaults(func=size_cmd, **no_train_defaults)
+    size_parser.add_argument("--model", type=str, required=True)
 
     dump_parser = subparsers.add_parser("dump")
     dump_parser.set_defaults(func=dump_cmd)
