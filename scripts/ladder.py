@@ -353,7 +353,8 @@ if __name__ == "__main__":
         s3=False,
         wandb=False,
         save_overwrite=False,
-        load_path=None
+        load_path=None,
+        eval_on_load=False
     )
     nodecounts_parser.add_argument("--gpus-per-node", type=int, default=8)
     nodecounts_parser.add_argument("--model", type=str, required=True)
