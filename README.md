@@ -130,7 +130,7 @@ To resume training from a checkpoint, you can pass its path (local or URL)
 to `scripts/train.py` with the `--load_path` arguments. For example, to resume training from step 1000 of the OLMo 1B run:
 
 ```bash
-torchrun --nproc_per_node=8 scripts/train.py configs/official/OLMo-1B.yaml --load_path https://olmo-checkpoints.org/ai2-llm/olmo-small/w1r5xfzt/step1000-unsharded
+torchrun --nproc_per_node=8 scripts/train.py configs/official/OLMo-1B.yaml --load_path=https://olmo-checkpoints.org/ai2-llm/olmo-small/w1r5xfzt/step1000-unsharded
 ```
 
 ### Inspecting training data
