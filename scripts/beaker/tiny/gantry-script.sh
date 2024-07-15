@@ -3,7 +3,7 @@
 set -ex
 
 NUM_NODES=4
-TASK_NAME=tiny-olmo-20M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd
+TASK_NAME=tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd
 
 gantry run \
   --workspace ai2/OLMo-tiny \
