@@ -144,7 +144,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # device batch size based on the hardware we're running on.
     device_batch_size = {
         "150M": 32,
-        "300M": 16,
+        "300M": 10,
         "750M": 8,
         "1B": 2,
         "7B": 2,
