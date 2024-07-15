@@ -1,0 +1,79 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "ARC-Challenge",
+  "dataset_name": "ai2_arc",
+  "dataset_size": 821931,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/ai2_arc@210d026faf9955653af8916fad021475a3f00453/ARC-Challenge/train-00000-of-00001.parquet": {
+      "num_bytes": 189909,
+      "checksum": null
+    },
+    "hf://datasets/ai2_arc@210d026faf9955653af8916fad021475a3f00453/ARC-Challenge/test-00000-of-00001.parquet": {
+      "num_bytes": 203808,
+      "checksum": null
+    },
+    "hf://datasets/ai2_arc@210d026faf9955653af8916fad021475a3f00453/ARC-Challenge/validation-00000-of-00001.parquet": {
+      "num_bytes": 55743,
+      "checksum": null
+    }
+  },
+  "download_size": 449460,
+  "features": {
+    "id": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "question": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "choices": {
+      "feature": {
+        "text": {
+          "dtype": "string",
+          "_type": "Value"
+        },
+        "label": {
+          "dtype": "string",
+          "_type": "Value"
+        }
+      },
+      "_type": "Sequence"
+    },
+    "answerKey": {
+      "dtype": "string",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 1271391,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 349760,
+      "num_examples": 1119,
+      "dataset_name": "ai2_arc"
+    },
+    "test": {
+      "name": "test",
+      "num_bytes": 375511,
+      "num_examples": 1172,
+      "dataset_name": "ai2_arc"
+    },
+    "validation": {
+      "name": "validation",
+      "num_bytes": 96660,
+      "num_examples": 299,
+      "dataset_name": "ai2_arc"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}

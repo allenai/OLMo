@@ -1,0 +1,73 @@
+{
+  "builder_name": "super_glue",
+  "citation": "@inproceedings{roemmele2011choice,\n  title={Choice of plausible alternatives: An evaluation of commonsense causal reasoning},\n  author={Roemmele, Melissa and Bejan, Cosmin Adrian and Gordon, Andrew S},\n  booktitle={2011 AAAI Spring Symposium Series},\n  year={2011}\n}\n@article{wang2019superglue,\n  title={SuperGLUE: A Stickier Benchmark for General-Purpose Language Understanding Systems},\n  author={Wang, Alex and Pruksachatkun, Yada and Nangia, Nikita and Singh, Amanpreet and Michael, Julian and Hill, Felix and Levy, Omer and Bowman, Samuel R},\n  journal={arXiv preprint arXiv:1905.00537},\n  year={2019}\n}\n\nNote that each SuperGLUE dataset has its own citation. Please see the source to\nget the correct citation for each contained dataset.\n",
+  "config_name": "copa",
+  "dataset_name": "super_glue",
+  "dataset_size": 121558,
+  "description": "SuperGLUE (https://super.gluebenchmark.com/) is a new benchmark styled after\nGLUE with a new set of more difficult language understanding tasks, improved\nresources, and a new public leaderboard.\n\nThe Choice Of Plausible Alternatives (COPA, Roemmele et al., 2011) dataset is a causal\nreasoning task in which a system is given a premise sentence and two possible alternatives. The\nsystem must choose the alternative which has the more plausible causal relationship with the premise.\nThe method used for the construction of the alternatives ensures that the task requires causal reasoning\nto solve. Examples either deal with alternative possible causes or alternative possible effects of the\npremise sentence, accompanied by a simple question disambiguating between the two instance\ntypes for the model. All examples are handcrafted and focus on topics from online blogs and a\nphotography-related encyclopedia. Following the recommendation of the authors, we evaluate using\naccuracy.",
+  "download_checksums": {
+    "https://dl.fbaipublicfiles.com/glue/superglue/data/v2/COPA.zip": {
+      "num_bytes": 43986,
+      "checksum": null
+    }
+  },
+  "download_size": 43986,
+  "features": {
+    "premise": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "choice1": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "choice2": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "question": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "idx": {
+      "dtype": "int32",
+      "_type": "Value"
+    },
+    "label": {
+      "names": [
+        "choice1",
+        "choice2"
+      ],
+      "_type": "ClassLabel"
+    }
+  },
+  "homepage": "http://people.ict.usc.edu/~gordon/copa.html",
+  "license": "",
+  "size_in_bytes": 165544,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 49233,
+      "num_examples": 400,
+      "dataset_name": "super_glue"
+    },
+    "validation": {
+      "name": "validation",
+      "num_bytes": 12479,
+      "num_examples": 100,
+      "dataset_name": "super_glue"
+    },
+    "test": {
+      "name": "test",
+      "num_bytes": 59846,
+      "num_examples": 500,
+      "dataset_name": "super_glue"
+    }
+  },
+  "version": {
+    "version_str": "1.0.3",
+    "major": 1,
+    "minor": 0,
+    "patch": 3
+  }
+}

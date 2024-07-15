@@ -1,0 +1,73 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "rte",
+  "dataset_name": "glue",
+  "dataset_size": 1913545,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/glue@bcdcba79d07bc864c1c254ccfcedcce55bcc9a8c/rte/train-00000-of-00001.parquet": {
+      "num_bytes": 583976,
+      "checksum": null
+    },
+    "hf://datasets/glue@bcdcba79d07bc864c1c254ccfcedcce55bcc9a8c/rte/validation-00000-of-00001.parquet": {
+      "num_bytes": 69020,
+      "checksum": null
+    },
+    "hf://datasets/glue@bcdcba79d07bc864c1c254ccfcedcce55bcc9a8c/rte/test-00000-of-00001.parquet": {
+      "num_bytes": 621413,
+      "checksum": null
+    }
+  },
+  "download_size": 1274409,
+  "features": {
+    "sentence1": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "sentence2": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "label": {
+      "names": [
+        "entailment",
+        "not_entailment"
+      ],
+      "_type": "ClassLabel"
+    },
+    "idx": {
+      "dtype": "int32",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 3187954,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 847944,
+      "num_examples": 2490,
+      "dataset_name": "glue"
+    },
+    "validation": {
+      "name": "validation",
+      "num_bytes": 90798,
+      "num_examples": 277,
+      "dataset_name": "glue"
+    },
+    "test": {
+      "name": "test",
+      "num_bytes": 974803,
+      "num_examples": 3000,
+      "dataset_name": "glue"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}

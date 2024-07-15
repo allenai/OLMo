@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [v0.4.0](https://github.com/allenai/OLMo/releases/tag/v0.4.0) - 2024-07-11
+
 ### Added
 
 - Added clipping fix to `Optimizer` class to make it work with FSDP `no_shard` and DDP.
@@ -28,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 shared memory implementation can be used by passing `use_legacy_shared_mem_impl` to `unshard.py`.
 - Refactor weight initialization. IMPORTANT: this does not maintain backwards-compatibility with older configs; the jobs will still run, but may produce different outputs.
 - Changed the behavior of the Lion optimizer to only record the update cosine similarity when `optimizer.record_update_metrics` is `True` in order to be consistent with the API.
+- Added HF datasets into `olmo_data`, and changed downstream eval to load from the package.
 
 ### Fixed
 
