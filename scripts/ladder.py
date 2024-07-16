@@ -36,7 +36,7 @@ from olmo.config import (
     SpeedMonitorConfig,
 )
 from olmo.data import named_data_mixes
-from olmo.util import add_cached_path_clients, prepare_cli_environment, flatten_dict
+from olmo.util import add_cached_path_clients, prepare_cli_environment, flatten_dict, find_latest_checkpoint
 
 log = logging.getLogger("train")
 
@@ -128,6 +128,11 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         permanent_data_prefix = "s3://ai2-llm"
     permanent_data_prefix.rstrip("/")
 
+    remote_save_folder = f"s3://ai2-llm/checkpoints/OLMo-ladder/{run_name}"
+    load_path = args.load_path
+    if load_path is None:
+        load_path = find_latest_checkpoint(remote_save_folder)
+
     model_config = MODEL_CONFIGS[args.model]
     model_size = parse_size(args.model)
     length_in_tokens = parse_length(args.length, model_size)
@@ -198,12 +203,12 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         global_train_batch_size=global_batch_size,
         tokenizer=TokenizerConfig(identifier="tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json"),
         save_folder=f"runs/{run_name}",
-        remote_save_folder=f"s3://ai2-llm/checkpoints/OLMo-ladder/{run_name}",
+        remote_save_folder=remote_save_folder,
         save_overwrite=args.save_overwrite,
         save_interval_unsharded=save_interval,
         save_num_unsharded_checkpoints_to_keep=-1,
         save_interval=None,
-        load_path=args.load_path,
+        load_path=load_path,
         eval_on_load=args.eval_on_load,
         sharded_checkpointer=ShardedCheckpointerType.olmo_core,
         device_train_microbatch_size=device_batch_size,
