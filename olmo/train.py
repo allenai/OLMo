@@ -741,6 +741,35 @@ class Trainer:
                 if micro_batch_idx != num_micro_batches - 1:
                     grad_sync_context = self.dist_model.no_sync
 
+            # Register output hooks on first micro batch
+            output_hooks = []
+            if (
+                micro_batch_idx == 0
+                and self.cfg.module_output_trace_steps_range is not None
+                and self.cfg.module_output_trace_steps_range[0] <= self.global_step
+                and self.global_step <= self.cfg.module_output_trace_steps_range[1]
+                and get_global_rank() == 0
+            ):
+
+                def trace_outputs_hook(
+                    module_name: str, _: torch.nn.Module, args: Tuple[torch.Tensor, ...], output: torch.Tensor
+                ) -> None:
+                    if len(args) == 0:
+                        log.info("No input args for module %s, output %s", module_name, output)
+
+                    module_input = args[0] if len(args) > 0 else torch.tensor(())
+                    trace_save_folder = Path(self.cfg.save_folder) / f"traces/step{self.global_step}"
+                    trace_save_folder.mkdir(parents=True, exist_ok=True)
+
+                    module_input_filepath = trace_save_folder / f"{module_name}_input.pt"
+                    torch.save(module_input, module_input_filepath)
+
+                    module_output_filepath = trace_save_folder / f"{module_name}_output.pt"
+                    torch.save(output, module_output_filepath)
+
+                for module_name, module in self.model.named_modules(prefix="model"):
+                    output_hooks.append(module.register_forward_hook(functools.partial(trace_outputs_hook, module_name)))
+
             with grad_sync_context():
                 with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                     # Run forward pass.
@@ -756,6 +785,10 @@ class Trainer:
 
                 # Run backward pass.
                 loss.backward()
+
+            # Remove output hooks
+            for hook in output_hooks:
+                hook.remove()
 
         return ce_batch_loss, z_batch_loss
 
@@ -1112,35 +1145,6 @@ class Trainer:
             import contextlib
 
             torch_profiler = contextlib.nullcontext()
-
-        # Register output hooks
-        if self.cfg.module_output_trace_steps_range is not None and get_global_rank() == 0:
-
-            def trace_outputs_hook(
-                module_name: str, _: torch.nn.Module, args: Tuple[torch.Tensor, ...], output: torch.Tensor
-            ) -> None:
-                assert self.cfg.module_output_trace_steps_range is not None
-                if (
-                    self.global_step < self.cfg.module_output_trace_steps_range[0]
-                    or self.cfg.module_output_trace_steps_range[1] > self.global_step
-                ):
-                    return
-
-                if len(args) == 0:
-                    log.info("No input args for module %s, output %s", module_name, output)
-
-                module_input = args[0] if len(args) > 0 else torch.tensor(())
-                trace_save_folder = Path(self.cfg.save_folder) / f"traces/step{self.global_step}"
-                trace_save_folder.mkdir(parents=True, exist_ok=True)
-
-                module_input_filepath = trace_save_folder / f"{module_name}_input.pt"
-                torch.save(module_input, module_input_filepath)
-
-                module_output_filepath = trace_save_folder / f"{module_name}_output.pt"
-                torch.save(output, module_output_filepath)
-
-            for module_name, module in self.model.named_modules(prefix="model"):
-                module.register_forward_hook(functools.partial(trace_outputs_hook, module_name))
 
         # Train.
         first_batch: bool = True
