@@ -64,9 +64,8 @@ torchrun \
   scripts/train.py \
     configs/amberish70-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
+      --fsdp.sharding_strategy=HYBRID_SHARD \
+      --fsdp.hybrid_sharding_num_model_replicas=8 \
+      --device_train_microbatch_size=4 \
+      --global_train_batch_size=$((NUM_NODES * 8 * 4)) \
       --save_overwrite
-
-      # --optimizer.metrics_log_interval=1 \
-      # '--load_path=${save_folder}/step409000'
-      # --fsdp.sharding_strategy=HYBRID_SHARD \
-      # --fsdp.hybrid_sharding_num_model_replicas=8 \
