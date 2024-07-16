@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import cProfile
+import functools
 import gc
 import logging
 import math
@@ -1084,6 +1085,30 @@ class Trainer:
             import contextlib
 
             torch_profiler = contextlib.nullcontext()
+
+        # Register output hooks
+        if self.cfg.module_output_trace_steps_range is not None and get_global_rank() == 0:
+
+            def trace_outputs_hook(
+                module_name: str, _: torch.nn.Module, args: Tuple[torch.Tensor, ...], output: torch.Tensor
+            ) -> None:
+                assert self.cfg.module_output_trace_steps_range is not None
+                if (
+                    self.global_step < self.cfg.module_output_trace_steps_range[0]
+                    or self.cfg.module_output_trace_steps_range[1] > self.global_step
+                ):
+                    return
+
+                module_input = args[0]
+
+                module_input_filepath = Path(self.cfg.save_folder) / f"{module_name}_input.pt"
+                torch.save(module_input, module_input_filepath)
+
+                module_output_filepath = Path(self.cfg.save_folder) / f"{module_name}_output.pt"
+                torch.save(output, module_output_filepath)
+
+            for module_name, module in self.model.named_modules():
+                module.register_forward_hook(functools.partial(trace_outputs_hook, module_name))
 
         # Train.
         first_batch: bool = True
