@@ -1,3 +1,5 @@
+import scipy
+
 validation = [
     "c4_en-validation",
     "dolma_books-validation",
@@ -51,3 +53,25 @@ downstream = [
     "mmlu_social_sciences_mc_5shot_test_len_norm",
     "mmlu_other_mc_5shot_len_norm",
 ]
+
+
+# Power Law functions
+
+
+def openai_fit(x, a, b, c):
+    return (a / x + c) ** b
+
+
+def chinchilla_fit(x, a, b, c):
+    return a * x**b + c
+
+
+def chinchilla_contaminated_fit(x, a, b, c, d):
+    return (a * x**b + c) * (1 - x / d)
+
+
+def get_coefficients(train_xs, train_ys, fitting_func, p0):
+    coeffs = scipy.optimize.curve_fit(fitting_func, train_xs, train_ys, p0=p0, maxfev=50000)[0]
+    coeffs_string = ", ".join([chr(ord("a") + i) + f" = {coeffs[i]:.2f}" for i in range(len(coeffs))])
+    print(f"{fitting_func.__name__}: {coeffs_string}")
+    return coeffs

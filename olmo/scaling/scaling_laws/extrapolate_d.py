@@ -4,11 +4,12 @@ from typing import List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy
+
+from .utils import chinchilla_fit, get_coefficients
 
 
 @dataclass
-class CurveFitConfig:
+class ExtrapolateDConfig:
     path: str
     """
     Path containing the W&B downloaded data and metadata.
@@ -42,7 +43,7 @@ class CurveFitConfig:
     eval_step_max: Optional[int] = None
     """
     Upper bound for the prediction validation period using the scaling coefficients.
-    Lower bound is `train_step_max`. 
+    Lower bound is `train_step_max`.
     """
 
     final_loss_tokens: Optional[int] = None
@@ -56,22 +57,7 @@ class CurveFitConfig:
     """
 
 
-# Power Law functions
-
-
-def openai_fit(x, a, b, c):
-    return (a / x + c) ** b
-
-
-def chinchilla_fit(x, a, b, c):
-    return a * x**b + c
-
-
-def chinchilla_contaminated_fit(x, a, b, c, d):
-    return (a * x**b + c) * (1 - x / d)
-
-
-def get_data(config: CurveFitConfig):
+def get_data_at_n(config: ExtrapolateDConfig):
     train_xs, train_ys = [], []
     eval_xs, eval_ys = [], []
 
@@ -95,14 +81,7 @@ def get_data(config: CurveFitConfig):
     return train_xs, train_ys, eval_xs, eval_ys
 
 
-def get_coefficients(train_xs, train_ys, fitting_func, p0):
-    coeffs = scipy.optimize.curve_fit(fitting_func, train_xs, train_ys, p0=p0, maxfev=50000)[0]
-    coeffs_string = ", ".join([chr(ord("a") + i) + f" = {coeffs[i]:.2f}" for i in range(len(coeffs))])
-    print(f"{fitting_func.__name__}: {coeffs_string}")
-    return coeffs
-
-
-def plot_scaling(
+def plot_d_scaling_at_n(
     train_xs, train_ys, eval_xs, fitting_func, final_loss_tokens, p0=[1e16, 0.1, 0], predict=False, **plot_kwargs
 ):
     coefficients = get_coefficients(train_xs, train_ys, fitting_func, p0=p0)

@@ -5,17 +5,21 @@ from typing import Dict
 import matplotlib.pyplot as plt
 
 from olmo.aliases import PathOrStr
-from olmo.scaling.scaling_laws.curve_fit import (
-    CurveFitConfig,
+from olmo.scaling.scaling_laws.extrapolate_d import (
+    ExtrapolateDConfig,
+    get_data_at_n,
+    plot_d_scaling_at_n,
+)
+from olmo.scaling.scaling_laws.utils import (
+    validation,
     chinchilla_contaminated_fit,
     chinchilla_fit,
-    get_data,
     openai_fit,
-    plot_scaling,
 )
 from olmo.util import StrEnum
 
-# from olmo.scaling.scaling_laws.utils import validation
+
+VAL_KEYS = [f'eval/{val}/CrossEntropyLoss' for val in validation]
 
 CONFIGS = {
     "mup-olmo-128-train": {
@@ -41,6 +45,63 @@ CONFIGS = {
         "title": "mup-OLMo-256M, train loss",
     },
 }
+CONFIGS = {
+    'ananya-20m_val-all': {
+        'path': 'wandb/tiny-olmo-20M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
+        'keys': VAL_KEYS,
+        'train_step_min': 10000,
+        'train_step_max': 200000,
+        'eval_step_max': 407000,
+        'final_loss_tokens': 1698693120000,
+        'outlier_threshold': None,
+        'dot_size': 5.0,
+        'title': 'ananya 20m, val-all',
+    },
+    'ananya-60m_val-all': {
+        'path': 'wandb/tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
+        'keys': VAL_KEYS,
+        'train_step_min': 10000,
+        'train_step_max': 200000,
+        'eval_step_max': 407000,
+        'final_loss_tokens': 1698693120000,
+        'outlier_threshold': None,
+        'dot_size': 5.0,
+        'title': 'ananya 60m, val-all',
+    },
+    'ananya-150m_val-all': {
+        'path': 'wandb/tiny-olmo-150M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
+        'keys': VAL_KEYS,
+        'train_step_min': 10000,
+        'train_step_max': 200000,
+        'eval_step_max': 407000,
+        'final_loss_tokens': 1698693120000,
+        'outlier_threshold': None,
+        'dot_size': 5.0,
+        'title': 'ananya 150m, val-all',
+    },
+    # 'ananya-300m_val-all': {
+    #     'path': 'wandb/ananya-300m-lr6e-4_val-all.csv',
+    #     'keys': VAL_KEYS,
+    #     'train_step_min': 10000,
+    #     'train_step_max': 200000,
+    #     'eval_step_max': 407000,
+    #     'final_loss_tokens': 1698693120000,
+    #     'outlier_threshold': None,
+    #     'dot_size': 5.0,
+    #     'title': 'ananya 300m, val-all',
+    # },
+    'ananya-700m_val-all': {
+        'path': 'wandb/tiny-olmo-700M-rms-norm-adam-eps-1e-8-emb-wd_val-all.csv',
+        'keys': VAL_KEYS,
+        'train_step_min': 10000,
+        'train_step_max': 200000,
+        'eval_step_max': 407000,
+        'final_loss_tokens': 1698693120000,
+        'outlier_threshold': None,
+        'dot_size': 5.0,
+        'title': 'ananya 700m, val-all',
+    },
+}
 
 
 class CurveFitMode(StrEnum):
@@ -52,10 +113,10 @@ class CurveFitMode(StrEnum):
 
 
 def fit_curves(
-    configs: Dict[str, CurveFitConfig], output_path: PathOrStr, mode: CurveFitMode = CurveFitMode.default
+    configs: Dict[str, ExtrapolateDConfig], output_path: PathOrStr, mode: CurveFitMode = CurveFitMode.default
 ):
     for name, config in configs.items():
-        train_xs, train_ys, eval_xs, eval_ys = get_data(config)
+        train_xs, train_ys, eval_xs, eval_ys = get_data_at_n(config)
 
         plt.figure()
 
@@ -67,7 +128,7 @@ def fit_curves(
             legends.append("Actual Points (eval)")
 
         if mode in [CurveFitMode.default, CurveFitMode.all]:
-            plot_scaling(
+            plot_d_scaling_at_n(
                 train_xs,
                 train_ys,
                 eval_xs,
@@ -79,7 +140,7 @@ def fit_curves(
             )
             legends.append("Fitted Curve, y = (a / x + c)^b (OpenAI)")
 
-            plot_scaling(
+            plot_d_scaling_at_n(
                 train_xs,
                 train_ys,
                 eval_xs,
@@ -94,7 +155,7 @@ def fit_curves(
             legends.append("Predicted Point (Chinchilla)")
 
         if mode in [CurveFitMode.contaminated, CurveFitMode.all]:
-            plot_scaling(
+            plot_d_scaling_at_n(
                 train_xs,
                 train_ys,
                 eval_xs,
@@ -125,7 +186,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    configs = {key: CurveFitConfig(**value) for key, value in CONFIGS.items()}
+    configs = {key: ExtrapolateDConfig(**value) for key, value in CONFIGS.items()}
 
     os.makedirs(args.output_path, exist_ok=True)
     fit_curves(configs, args.output_path, args.mode)

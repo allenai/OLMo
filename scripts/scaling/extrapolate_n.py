@@ -5,54 +5,58 @@ from typing import Dict
 import matplotlib.pyplot as plt
 
 from olmo.aliases import PathOrStr
-from olmo.scaling.scaling_laws.curve_fit import (
-    chinchilla_fit,
-)
 from olmo.scaling.scaling_laws.extrapolate_n import (
-    CurveFitConfig,
+    ExtrapolateNConfig,
     get_data_at_d,
     plot_n_scaling_at_d,
 )
-from olmo.scaling.scaling_laws.utils import validation
+from olmo.scaling.scaling_laws.utils import validation, chinchilla_fit
+
 
 VAL_KEYS = [f'eval/{val}/CrossEntropyLoss' for val in validation]
 
+# Mapping from N (model size; non-embedding parameter count) to config
 CONFIG_BY_N = {
     21266432: {
-        'path': '../hc-law/wandb/ananya-20m_val-all.csv',
+        'path': 'wandb/tiny-olmo-20M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
         'keys': VAL_KEYS,
-        'n': 21266432,
         'mode': 'train',
+        'label': '20m',
+        'color': 'red',
     },
     59310080: {
-        'path': '../hc-law/wandb/ananya-60m_val-all.csv',
+        'path': 'wandb/tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
         'keys': VAL_KEYS,
-        'n': 59310080,
         'mode': 'train',
+        'label': '60m',
+        'color': 'orange',
     },
     151879680: {
-        'path': '../hc-law/wandb/ananya-150m_val-all.csv',
+        'path': 'wandb/tiny-olmo-150M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
         'keys': VAL_KEYS,
-        'n': 151879680,
         'mode': 'train',
+        'label': '150m',
+        'color': 'yellow',
     },
-    319980544: {
-        'path': '../hc-law/wandb/ananya-300m-lr6e-4_val-all.csv',
-        'keys': VAL_KEYS,
-        'n': 319980544,
-        'mode': 'train',
-    },
+    # 319980544: {
+    #     'path': '../hc-law/wandb/ananya-300m-lr6e-4_val-all.csv',
+    #     'keys': VAL_KEYS,
+    #     'mode': 'train',
+    #     'label': '300m',
+    #     'color': 'blue',
+    # },
     758564352: {
-        'path': '../hc-law/wandb/ananya-700m-lr6e-4_val-all.csv',
+        'path': 'wandb/tiny-olmo-700M-rms-norm-adam-eps-1e-8-emb-wd_val-all.csv',
         'keys': VAL_KEYS,
-        'n': 758564352,
-        'mode': 'eval',
+        'mode': 'train',
+        'label': '700m',
+        'color': 'green',
     },
 }
 
 
 def fit_curves(
-    config_by_n: Dict[int, CurveFitConfig], output_path: PathOrStr, d: int,
+    config_by_n: Dict[int, ExtrapolateNConfig], output_path: PathOrStr, d: int,
 ):
     train_ns, train_ys, eval_ns, eval_ys = get_data_at_d(config_by_n, d)
 
@@ -94,7 +98,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    configs = {n: CurveFitConfig(**config) for n, config in CONFIG_BY_N.items()}
+    configs = {n: ExtrapolateNConfig(**config) for n, config in CONFIG_BY_N.items()}
 
     os.makedirs(args.output_path, exist_ok=True)
     fit_curves(configs, args.output_path, args.d)
