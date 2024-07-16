@@ -442,7 +442,7 @@ class ModelConfig(BaseConfig):
 
     scale_emb_init: bool = False
     """
-    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization.
+    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization. To be used with `full_megatron` init.
     """
 
     norm_after: bool = False
