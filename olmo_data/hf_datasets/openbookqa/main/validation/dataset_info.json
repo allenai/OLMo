@@ -1,0 +1,79 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "main",
+  "dataset_name": "openbookqa",
+  "dataset_size": 1082573,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/openbookqa@388097ea7776314e93a529163e0fea805b8a6454/main/train-00000-of-00001.parquet": {
+      "num_bytes": 495845,
+      "checksum": null
+    },
+    "hf://datasets/openbookqa@388097ea7776314e93a529163e0fea805b8a6454/main/validation-00000-of-00001.parquet": {
+      "num_bytes": 58233,
+      "checksum": null
+    },
+    "hf://datasets/openbookqa@388097ea7776314e93a529163e0fea805b8a6454/main/test-00000-of-00001.parquet": {
+      "num_bytes": 55535,
+      "checksum": null
+    }
+  },
+  "download_size": 609613,
+  "features": {
+    "id": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "question_stem": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "choices": {
+      "feature": {
+        "text": {
+          "dtype": "string",
+          "_type": "Value"
+        },
+        "label": {
+          "dtype": "string",
+          "_type": "Value"
+        }
+      },
+      "_type": "Sequence"
+    },
+    "answerKey": {
+      "dtype": "string",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 1692186,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 895386,
+      "num_examples": 4957,
+      "dataset_name": "openbookqa"
+    },
+    "validation": {
+      "name": "validation",
+      "num_bytes": 95428,
+      "num_examples": 500,
+      "dataset_name": "openbookqa"
+    },
+    "test": {
+      "name": "test",
+      "num_bytes": 91759,
+      "num_examples": 500,
+      "dataset_name": "openbookqa"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}
