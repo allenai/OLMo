@@ -141,9 +141,13 @@ def cross_entropy_loss(
     return loss, z_loss
 
 
+fused_loss_fn: Optional[Callable]
+
 try:
     import flash_attn
-    from flash_attn.ops.triton.cross_entropy import cross_entropy_loss as flash_cross_entropy_loss # type: ignore
+    from flash_attn.ops.triton.cross_entropy import (
+        cross_entropy_loss as flash_cross_entropy_loss,  # type: ignore
+    )
 
     def fused_loss_fn(
         logits,
@@ -194,7 +198,7 @@ try:
         return loss, z_loss
 
 except ImportError:
-    pass
+    fused_loss_fn = None
 
 
 @dataclass
@@ -228,9 +232,9 @@ class Trainer:
 
     def __post_init__(self):
         if self.cfg.fused_loss:
-            try:
+            if fused_loss_fn is not None:
                 self.loss_fn = fused_loss_fn
-            except NameError:
+            else:
                 raise NameError("`fused_loss_fn` is not defined. Please ensure that `flash_attn` is installed.")
 
     @property
