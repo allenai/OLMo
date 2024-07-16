@@ -1127,7 +1127,7 @@ class Trainer:
                     return
 
                 if len(args) == 0:
-                    log.info("No input args for module %s", module_name)
+                    log.info("No input args for module %s, output %s", module_name, output)
 
                 module_input = args[0] if len(args) > 0 else torch.tensor(())
                 trace_save_folder = Path(self.cfg.save_folder) / f"traces/step{self.global_step}"
