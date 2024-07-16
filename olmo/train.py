@@ -143,7 +143,7 @@ def cross_entropy_loss(
 
 try:
     import flash_attn
-    from flash_attn.ops.triton.cross_entropy import cross_entropy_loss  # type: ignore
+    from flash_attn.ops.triton.cross_entropy import cross_entropy_loss as flash_cross_entropy_loss # type: ignore
 
     def fused_loss_fn(
         logits,
@@ -161,7 +161,7 @@ try:
         else:
             ignore_index_kwarg = {"ignored_index": ignore_index}
 
-        loss, z_loss = cross_entropy_loss(
+        loss, z_loss = flash_cross_entropy_loss(
             logits,
             labels,
             label_smoothing=0.0,
