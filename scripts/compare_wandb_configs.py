@@ -1,5 +1,7 @@
 import logging
+import re
 from collections.abc import MutableMapping
+from typing import Any, Dict
 
 import click
 
@@ -8,15 +10,33 @@ from olmo.util import prepare_cli_environment
 log = logging.getLogger(__name__)
 
 
-def flatten(dictionary, parent_key='', separator='.'):
-    items = []
+def flatten(dictionary, parent_key="", separator="."):
+    d: Dict[str, Any] = {}
     for key, value in dictionary.items():
         new_key = parent_key + separator + key if parent_key else key
         if isinstance(value, MutableMapping):
-            items.extend(flatten(value, new_key, separator=separator).items())
+            d.update(**flatten(value, new_key, separator=separator))
         else:
-            items.append((new_key, value))
-    return dict(items)
+            d[new_key] = value
+    return d
+
+
+run_path_re = re.compile(r"^[^/]+/[^/]+/[^/]+$")
+run_path_url = re.compile(r"^https?://wandb.ai/([^/]+)/([^/]+)/runs/([^/]+)")
+
+
+def parse_run_path(run_path: str) -> str:
+    """For convenience, we allow run paths as well as URLs."""
+    run_path = run_path.strip("/")
+    if run_path_re.match(run_path):
+        return run_path
+
+    m = run_path_url.match(run_path)
+    if m is not None:
+        entity, project, run_id = m.groups()
+        return f"{entity}/{project}/{run_id}"
+
+    raise ValueError(f"Could not parse '{run_path}'")
 
 
 @click.command()
@@ -35,11 +55,11 @@ def main(
     import wandb
 
     api = wandb.Api()
-    left_run = api.run(left_run_path)
-    right_run = api.run(right_run_path)
+    left_run = api.run(parse_run_path(left_run_path))
+    right_run = api.run(parse_run_path(right_run_path))
 
-    left_config = flatten(left_run._attrs['rawconfig'])
-    right_config = flatten(right_run._attrs['rawconfig'])
+    left_config = flatten(left_run._attrs["rawconfig"])
+    right_config = flatten(right_run._attrs["rawconfig"])
 
     left_only_keys = left_config.keys() - right_config.keys()
     if len(left_only_keys) > 0:

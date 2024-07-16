@@ -1,0 +1,66 @@
+{
+  "builder_name": "json",
+  "citation": "",
+  "config_name": "default",
+  "dataset_name": "basic_arithmetic",
+  "dataset_size": 354087,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/allenai/basic_arithmetic@2d2dd39418ba88d2d4c8dbe6619050229ed4fe2f/validation.jsonl": {
+      "num_bytes": 564087,
+      "checksum": null
+    }
+  },
+  "download_size": 564087,
+  "features": {
+    "id": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "question": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "choices": {
+      "text": {
+        "feature": {
+          "dtype": "string",
+          "_type": "Value"
+        },
+        "_type": "Sequence"
+      },
+      "label": {
+        "feature": {
+          "dtype": "string",
+          "_type": "Value"
+        },
+        "_type": "Sequence"
+      }
+    },
+    "answerKey": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "type_tag": {
+      "dtype": "string",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 918174,
+  "splits": {
+    "validation": {
+      "name": "validation",
+      "num_bytes": 354087,
+      "num_examples": 3000,
+      "dataset_name": "basic_arithmetic"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}

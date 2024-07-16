@@ -14,7 +14,8 @@ requires-python = ">=3.8"
 license = { file = "LICENSE" }
 dependencies = [
     "numpy",
-    "torch>=2.1,<2.3",
+    "torch>=2.1,<2.4",
+    "ai2-olmo-core==0.1.0",
     "omegaconf",
     "rich",
     "boto3",
@@ -23,6 +24,7 @@ dependencies = [
     "packaging",
     "cached_path>=1.6.2",
     "transformers",
+    "importlib_resources",
 ]
 
 [project.optional-dependencies]
@@ -62,12 +64,13 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 olmo = ["py.typed"]
+olmo_data = ["**"]
 
 [tool.setuptools.dynamic]
 version = { attr = "olmo.version.VERSION" }
 
 [tool.setuptools.packages.find]
-include = ["olmo*", "hf_olmo*"]
+include = ["olmo*", "hf_olmo*", "olmo_data*"]
 exclude = [
     "*.tests",
     "*.tests.*",

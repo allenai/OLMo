@@ -2,8 +2,6 @@
 OLMo configuration
 """
 
-import transformers
-from packaging import version
 from transformers import AutoConfig, PretrainedConfig
 from transformers.utils import logging
 
@@ -13,7 +11,7 @@ logger = logging.get_logger(__name__)
 
 
 class OLMoConfig(PretrainedConfig):
-    model_type = "olmo"
+    model_type = "hf_olmo"
     keys_to_ignore_at_inference = ["past_key_values"]  # TODO: confirm
 
     def __init__(self, use_cache: bool = False, **kwargs):
@@ -39,7 +37,7 @@ class OLMoConfig(PretrainedConfig):
         return self.d_model
 
 
-if version.parse(transformers.__version__) < version.parse("4.40.0"):
-    # Register the config class so that it is available for transformer pipelines, auto-loading etc.
-    # OLMo is integrated directly in transformers from v4.40.0 onwards
-    AutoConfig.register("olmo", OLMoConfig)
+# Register the config class so that it is available for transformer pipelines, auto-loading etc.
+# OLMo is integrated directly in transformers from v4.40.0 onwards, but the version in transformers
+# may not support the newest architectures we create.
+AutoConfig.register("hf_olmo", OLMoConfig)

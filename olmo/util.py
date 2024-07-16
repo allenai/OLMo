@@ -16,6 +16,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import boto3
 import botocore.exceptions as boto_exceptions
+import datasets
 import rich
 from botocore.config import Config
 from cached_path.schemes import SchemeClient, add_scheme_client
@@ -24,6 +25,8 @@ from rich.highlighter import NullHighlighter
 from rich.progress import Progress
 from rich.text import Text
 from rich.traceback import Traceback
+
+from olmo_data.data import get_data_path
 
 from .aliases import PathOrStr
 from .exceptions import (
@@ -646,6 +649,46 @@ def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: i
         len(result) == num_bytes
     ), f"expected {num_bytes} bytes, got {len(result)}"  # Some web servers silently ignore range requests and send everything
     return result
+
+
+def save_hf_dataset_to_disk(
+    dataset: datasets.DatasetDict | datasets.Dataset,
+    hf_path: str,
+    name: Optional[str],
+    split: str,
+    datasets_dir: PathOrStr,
+):
+    """
+    Saves a HF dataset to disk under the `datasets_dir`. It can be used to add a HF dataset
+    to `olmo_data` as follows:
+
+    ```
+    import datasets
+
+    from olmo.util import save_hf_dataset_to_disk
+
+    path, name, split = ...
+
+    dataset = datasets.load_dataset(path, name=name, split=split)
+    save_hf_dataset_to_disk(dataset, path, name, split, "olmo_data/hf_datasets")
+    ```
+    """
+    dataset_path = Path(datasets_dir) / hf_path / (name or "none") / split
+    return dataset.save_to_disk(str(dataset_path))
+
+
+def load_hf_dataset(path: str, name: Optional[str], split: str):
+    """
+    Loads a HuggingFace dataset. The dataset is assumed to be saved using
+    `save_hf_dataset_to_disk` and located in `olmo_data/hf_datasets`.
+    """
+    dataset_rel_path = os.path.join("hf_datasets", path, name or "none", split)
+    with get_data_path(dataset_rel_path) as dataset_path:
+        if not dataset_path.is_dir():
+            raise NotADirectoryError(
+                f"HF dataset {path} name {name} split {split} not found in directory {dataset_rel_path}"
+            )
+        return datasets.load_from_disk(str(dataset_path))
 
 
 def default_thread_count() -> int:
