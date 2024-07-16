@@ -1099,7 +1099,10 @@ class Trainer:
                 ):
                     return
 
-                module_input = args[0]
+                if len(args) == 0:
+                    log.info("No input args for module %s", module_name)
+
+                module_input = args[0] if len(args) > 0 else torch.tensor(())
 
                 module_input_filepath = Path(self.cfg.save_folder) / f"{module_name}_input.pt"
                 torch.save(module_input, module_input_filepath)
