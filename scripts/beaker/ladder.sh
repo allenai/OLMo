@@ -14,6 +14,7 @@ shift
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
+  --save_overwrite \
   --rdzv_id=12347 \
   --rdzv_backend=static \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
