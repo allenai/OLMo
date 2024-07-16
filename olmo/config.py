@@ -1188,6 +1188,12 @@ class TrainConfig(BaseConfig):
     Path to cache directory of HF datasets saved with `datasets.save_to_disk`.
     """
 
+    module_output_trace_steps_range: Optional[Tuple[int, int]] = None
+    """
+    If set, outputs of model submodules are saved during steps between
+    the given start and end step (inclusive).
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":
