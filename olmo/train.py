@@ -1112,7 +1112,7 @@ class Trainer:
                 module_output_filepath = trace_save_folder / f"{module_name}_output.pt"
                 torch.save(output, module_output_filepath)
 
-            for module_name, module in self.model.named_modules():
+            for module_name, module in self.model.named_modules(prefix="model"):
                 module.register_forward_hook(functools.partial(trace_outputs_hook, module_name))
 
         # Train.
