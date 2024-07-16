@@ -74,8 +74,7 @@ def main(
         print()
 
     keys_with_differences = {
-        k for k in left_config.keys() & right_config.keys()
-        if left_config[k] != right_config[k]
+        k for k in left_config.keys() & right_config.keys() if left_config[k] != right_config[k]
     }
     if len(keys_with_differences) > 0:
         if len(left_only_keys) > 0 or len(right_only_keys) > 0:
