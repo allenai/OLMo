@@ -90,7 +90,8 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     run_name = f"{args.name}-{args.model}-{args.length}"
     assert "/" not in run_name
 
-    permanent_data_prefix = "/weka/oe-training-default/ai2-llm"
+    # permanent_data_prefix = "/weka/oe-training-default/ai2-llm"
+    permanent_data_prefix = "s3://ai2-llm/"
     if args.s3:
         permanent_data_prefix = "s3://ai2-llm"
     permanent_data_prefix.rstrip("/")
