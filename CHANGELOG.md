@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added config options for `norm_after` and `auxiliary_loss_multiplier` (used with zloss).
+- Added config options for `model.norm_after`, `model.scale_emb_init`, and `auxiliary_loss_multiplier` (used with zloss).
 - Added scripts for running experiments on qk_norm, norm reordering, and zloss.
 
 ### Changed
