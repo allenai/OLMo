@@ -1102,11 +1102,13 @@ class Trainer:
                     log.info("No input args for module %s", module_name)
 
                 module_input = args[0] if len(args) > 0 else torch.tensor(())
+                trace_save_folder = Path(self.cfg.save_folder) / f"traces/step{self.global_step}"
+                trace_save_folder.mkdir(parents=True, exist_ok=True)
 
-                module_input_filepath = Path(self.cfg.save_folder) / f"{module_name}_input.pt"
+                module_input_filepath = trace_save_folder / f"{module_name}_input.pt"
                 torch.save(module_input, module_input_filepath)
 
-                module_output_filepath = Path(self.cfg.save_folder) / f"{module_name}_output.pt"
+                module_output_filepath = trace_save_folder / f"{module_name}_output.pt"
                 torch.save(output, module_output_filepath)
 
             for module_name, module in self.model.named_modules():
