@@ -40,7 +40,9 @@ def build_memmap_dataset(
         metadata=metadata,
         include_instance_metadata=include_instance_metadata,
         pad_token_id=train_config.model.pad_token_id,
+        eos_token_id=train_config.model.eos_token_id,
         generate_attention_mask=data_config.generate_attention_mask,
+        generate_cu_doc_lengths=data_config.generate_cu_doc_lengths,
         label_mask_paths=cast(Optional[List[PathOrStr]], data_config.label_mask_paths),
         instance_filter_config=data_config.instance_filter,
     )

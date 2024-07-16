@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Added support for document masking via flash-attn during training with `--data.generate_doc_lengths`.
+
 ### Changed
 
 - Changed default distributed training strategy from single-GPU to FSDP

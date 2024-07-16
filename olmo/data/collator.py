@@ -30,6 +30,8 @@ class DataCollator:
         all_indices = []
         all_metadata = []
         all_instance_mask = []
+        all_doc_lens = []
+
         for x in items:
             input_ids = x["input_ids"] if isinstance(x, dict) else x
             if not isinstance(input_ids, torch.Tensor):
@@ -103,6 +105,11 @@ class DataCollator:
             if instance_mask is not None:
                 all_instance_mask.append(torch.tensor(instance_mask))
 
+            # Cumulative document lengths.
+            doc_lens = x.get("doc_lens") if isinstance(x, dict) else None
+            if doc_lens is not None:
+                all_doc_lens.append(doc_lens)
+
             # Metadata.
             metadata = x.get("metadata") if isinstance(x, dict) else None
             if metadata is not None:
@@ -119,6 +126,16 @@ class DataCollator:
             out["index"] = torch.stack(all_indices)
         if all_instance_mask:
             out["instance_mask"] = torch.stack(all_instance_mask)
+        if all_doc_lens:
+            # Transform into cumulative document lengths.
+            batch_doc_lens = torch.cat(all_doc_lens)
+            out["max_doc_len"] = batch_doc_lens.max().item()
+            out["cu_doc_lens"] = torch.cat(
+                [
+                    torch.tensor([0], dtype=batch_doc_lens.dtype),
+                    torch.cumsum(batch_doc_lens, 0, dtype=torch.int32),
+                ]
+            )
         if all_metadata:
             out["metadata"] = all_metadata
 
