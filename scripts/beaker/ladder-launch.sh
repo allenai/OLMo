@@ -9,7 +9,7 @@ if [[ $NUM_NODES -eq 1 ]]; then
   MULTI_NODE_ARGS=""
   COMMAND="scripts/beaker/ladder.sh localhost ${NUM_NODES} 0 $*"
 else
-  MULTI_NODE_ARGS="--replicas ${NUM_NODES} --leader-selection --host-networking --propagate-failure --synchronized-start-timeout 10m"
+  MULTI_NODE_ARGS="--replicas ${NUM_NODES} --leader-selection --host-networking --propagate-failure --propagate-preemption --synchronized-start-timeout 10m"
   COMMAND="scripts/beaker/ladder.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK $*"
 fi
 
