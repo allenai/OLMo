@@ -2,7 +2,8 @@
 
 set -ex
 
-NUM_NODES=120  # 960 GPUs
+# NUM_NODES=120  # 960 GPUs
+NUM_NODES=112  # 896 GPUs
 
 gantry run \
   --workspace ai2/OLMo-pretraining-stability \

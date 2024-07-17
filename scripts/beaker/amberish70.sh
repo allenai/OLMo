@@ -52,6 +52,8 @@ export NCCL_IB_HCA="^=mlx5_bond_0"
 export NCCL_SOCKET_IFNAME=ib
 # export NCCL_IB_GID_INDEX=0
 
+mbz=3
+
 torchrun \
   --nnodes "${NUM_NODES}:${NUM_NODES}" \
   --nproc-per-node 8 \
@@ -64,9 +66,9 @@ torchrun \
     configs/amberish70-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --fsdp.sharding_strategy=HYBRID_SHARD \
-      --fsdp.hybrid_sharding_num_model_replicas=8 \
-      --device_train_microbatch_size=4 \
-      --global_train_batch_size=$((NUM_NODES * 8 * 4)) \
+      --fsdp.hybrid_sharding_num_model_replicas=4 \
+      --device_train_microbatch_size="${mbz}" \
+      --global_train_batch_size=$((NUM_NODES * 8 * mbz)) \
       --no_pre_train_checkpoint=true \
       --model.layer_norm_type=default \
       --model.layer_norm_with_affine=false \
