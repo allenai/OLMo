@@ -1,7 +1,5 @@
 import logging
 import re
-from collections.abc import MutableMapping
-from typing import Any, Dict
 
 import click
 
