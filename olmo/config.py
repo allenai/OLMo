@@ -447,6 +447,16 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
+    scale_emb_init: bool = False
+    """
+    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization. To be used with `full_megatron` init.
+    """
+
+    norm_after: bool = False
+    """
+    Apply norm after the attention/feedforward layers rather than before, as introduced in the Swin transformer paper (Liu et al).
+    """
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:
@@ -1127,6 +1137,11 @@ class TrainConfig(BaseConfig):
     """
     If ``True``, we add the auxiliary loss function from PaLM that encourages the softmax
     normalizing term to be close to 0.
+    """
+
+    auxiliary_loss_multiplier: Optional[float] = 1e-4
+    """
+    Used with `softmax_auxiliary_loss`. PaLM uses 1e-4, Chameleon uses 1e-5.
     """
 
     time_limit: Optional[float] = None
