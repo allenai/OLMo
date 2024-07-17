@@ -146,4 +146,3 @@ def test_collate_with_instance_filter(train_config, pad_direction):
         assert batch["input_ids"][1][-1] == train_config.model.pad_token_id
     else:
         assert batch["input_ids"][1][0] == train_config.model.pad_token_id
-

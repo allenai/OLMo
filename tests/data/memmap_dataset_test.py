@@ -112,10 +112,12 @@ def test_concat_mmap_datasets(tmp_path: Path):
 def test_instance_filter(tmp_path: Path):
     # Write some bad data to disk.
     mmap = np.memmap(tmp_path / "bad_tokens.npy", dtype=np.uint16, mode="w+", shape=(128,))
-    mmap[:] = list(np.ones(31)) + list(range(64-31)) + list(np.ones(32)) + list(range(64-32))
+    mmap[:] = list(np.ones(31)) + list(range(64 - 31)) + list(np.ones(32)) + list(range(64 - 32))
     mmap.flush()
 
-    instance_filter_config = InstanceFilterConfig(repetition_min_period=1, repetition_max_period=13, repetition_max_count=32)
+    instance_filter_config = InstanceFilterConfig(
+        repetition_min_period=1, repetition_max_period=13, repetition_max_count=32
+    )
     ds = MemMapDataset(tmp_path / "bad_tokens.npy", chunk_size=64, instance_filter_config=instance_filter_config)
 
     out = ds[0]

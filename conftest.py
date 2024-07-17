@@ -5,13 +5,13 @@ import pytest
 from olmo.config import (
     DataConfig,
     InitFnType,
+    InstanceFilterConfig,
     ModelConfig,
     OptimizerConfig,
     PaddingDirection,
     SchedulerConfig,
     TokenizerConfig,
     TrainConfig,
-    InstanceFilterConfig,
 )
 from olmo.tokenizer import Tokenizer
 
@@ -73,8 +73,9 @@ def train_config(tmp_path, model_config) -> TrainConfig:
                 "test_fixtures/c4-sample.03.json.gz",
             ],
             pad_direction=PaddingDirection.right,
-            instance_filter=InstanceFilterConfig(repetition_max_period=3, repetition_min_period=1,
-                                                        repetition_max_count=3),
+            instance_filter=InstanceFilterConfig(
+                repetition_max_period=3, repetition_min_period=1, repetition_max_count=3
+            ),
         ),
         tokenizer=TokenizerConfig(identifier=TEST_MODEL),
         save_folder=str(tmp_path / "checkpoints"),
