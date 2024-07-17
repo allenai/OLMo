@@ -284,7 +284,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             num_workers=32,
             drop_last=True,
             pin_memory=True,
-            memmap_dtype="uint16",
+            memmap_dtype="uint32",
             prefetch_factor=8,
             persistent_workers=True,
             instance_filter=InstanceFilterConfig(),  # defaults are fine
