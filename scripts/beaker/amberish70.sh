@@ -68,6 +68,10 @@ torchrun \
       --fsdp.hybrid_sharding_num_model_replicas=8 \
       --device_train_microbatch_size=4 \
       --global_train_batch_size=$((NUM_NODES * 8 * 4)) \
+      --no_pre_train_checkpoint=true \
+      --model.layer_norm_type=default \
+      --model.layer_norm_with_affine=false \
+      --wandb=null \
       --save_overwrite
 
       # --model.layer_norm_type=default \
