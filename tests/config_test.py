@@ -2,6 +2,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List
+from unittest import TestCase
 
 import numpy
 
@@ -50,13 +51,18 @@ def test_new():
     assert config.seed == 2
 
 
-def test_data_config():
-    data_config = DataConfig.new()
-    assert data_config.memmap_dtype == "uint16"
-    assert data_config.effective_memmap_dtype == numpy.uint16
-    data_config.memmap_dtype = "uint32"
-    assert data_config.effective_memmap_dtype == numpy.uint32
-    data_config.memmap_dtype = "uint64"
-    assert data_config.effective_memmap_dtype == numpy.uint64
-    data_config.memmap_dtype = "unknown"
-    assert data_config.effective_memmap_dtype == numpy.uint16
+class TestDataConfig(TestCase):
+    def test_data_config(self):
+        data_config = DataConfig.new()
+        self.assertEqual(data_config.memmap_dtype, "uint16")
+        self.assertEqual(data_config.effective_memmap_dtype, numpy.uint16)
+
+        data_config.memmap_dtype = "uint32"
+        self.assertEqual(data_config.effective_memmap_dtype, numpy.uint32)
+
+        data_config.memmap_dtype = "uint64"
+        self.assertEqual(data_config.effective_memmap_dtype, numpy.uint64)
+
+        data_config.memmap_dtype = "unknown"
+        with self.assertRaises(TypeError):
+            data_config.effective_memmap_dtype
