@@ -322,6 +322,7 @@ def nodecounts_cmd(args: argparse.Namespace):
 def size_for_model(model_config: Union[ModelConfig, str]) -> Tuple[int, int]:
     if isinstance(model_config, str):
         model_config = MODEL_CONFIGS[model_config]
+    assert isinstance(model_config, ModelConfig)
     model_config = deepcopy(model_config)
     model_config.init_device = "cpu"
 
@@ -347,8 +348,7 @@ def size_cmd(args: argparse.Namespace):
 
 
 def dump_cmd(args: argparse.Namespace):
-    cfg = config_from_args(args)
-    cfg = cfg.asdict()
+    cfg = config_from_args(args).asdict()
     if not args.dump_evaluators:
         del cfg['evaluators']
     if not args.dump_data:
