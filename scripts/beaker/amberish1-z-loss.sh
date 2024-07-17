@@ -66,6 +66,7 @@ torchrun \
       --run_name="${GANTRY_TASK_NAME}" \
       --device_train_microbatch_size=4 \
       --softmax_auxiliary_loss=true \
+      '--load_path=${path.last_checkpoint:${save_folder}}' \
       --save_overwrite
 
      # '--load_path=${path.last_checkpoint:${save_folder}}' \
