@@ -65,7 +65,7 @@ torchrun \
       --run_name="${GANTRY_TASK_NAME}" \
       --optimizer.metrics_log_interval=1 \
       --save_overwrite \
-      --save_interval_ephemeral=250 \
+      --save_interval_ephemeral=500 \
       --epoch=1 \
       --evaluators=[] \
       '--load_path=${path.last_checkpoint:${save_folder}}'
