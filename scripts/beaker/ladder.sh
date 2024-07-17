@@ -11,10 +11,6 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
-export NCCL_DEBUG=INFO
-export NCCL_IB_HCA="^=mlx5_1,mlx5_2"
-export NCCL_SOCKET_IFNAME=ib
-
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
