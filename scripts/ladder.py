@@ -176,11 +176,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     return TrainConfig(
         run_name=run_name,
         seed=6198,
-        wandb=None if not args.wandb else WandbConfig(
-            name=run_name,
-            group=run_name,
-            project="olmo-ladder"
-        ),
+        wandb=None if not args.wandb else WandbConfig(name=run_name, group=run_name, project="olmo-ladder"),
         model=model_config,
         ddp=DDPConfig(),  # defaults are fine
         fsdp=FSDPConfig(
@@ -308,7 +304,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
 
 
 def _factors(n: int) -> Set[int]:
-    return {f for i in range(1, int(n**0.5)+1) if n % i == 0 for f in [i, n//i]}
+    return {f for i in range(1, int(n**0.5) + 1) if n % i == 0 for f in [i, n // i]}
 
 
 def nodecounts_cmd(args: argparse.Namespace):
@@ -317,7 +313,9 @@ def nodecounts_cmd(args: argparse.Namespace):
         raise ValueError("Microbatchsize must divide global batch size evenly.")
     num_gpus = cfg.global_train_batch_size // cfg.device_train_microbatch_size
     if num_gpus % args.gpus_per_node != 0:
-        raise ValueError(f"With {cfg.global_train_batch_size} bz, {cfg.device_train_microbatch_size} mbz, and {args.gpus_per_node} GPUs per node, it's impossible to allocate whole nodes.")
+        raise ValueError(
+            f"With {cfg.global_train_batch_size} bz, {cfg.device_train_microbatch_size} mbz, and {args.gpus_per_node} GPUs per node, it's impossible to allocate whole nodes."
+        )
     max_num_nodes = num_gpus // args.gpus_per_node
 
     for factor in reversed(list(_factors(max_num_nodes))):
@@ -335,13 +333,14 @@ def size_for_model(model_config: Union[ModelConfig, str]) -> Tuple[int, int]:
     model_config.n_layers = 1
 
     from olmo import OLMo
+
     single_layer_model = OLMo(model_config)
     block = single_layer_model.transformer.blocks[0]  # type: ignore
     params_per_block = sum(p.numel() for p in block.parameters())  # type: ignore
 
     return (
         single_layer_model.num_params() + (params_per_block * (n_layers - 1)),
-        single_layer_model.num_params(include_embedding=False) + (params_per_block * (n_layers - 1))
+        single_layer_model.num_params(include_embedding=False) + (params_per_block * (n_layers - 1)),
     )
 
 
@@ -355,9 +354,9 @@ def size_cmd(args: argparse.Namespace):
 def dump_cmd(args: argparse.Namespace):
     cfg = config_from_args(args).asdict()
     if not args.dump_evaluators:
-        del cfg['evaluators']
+        del cfg["evaluators"]
     if not args.dump_data:
-        del cfg['data']
+        del cfg["data"]
     for key, value in sorted(flatten_dict(cfg).items()):
         print(f"{key}: {value}")
 
@@ -390,7 +389,7 @@ if __name__ == "__main__":
         wandb=False,
         save_overwrite=False,
         load_path=None,
-        eval_on_load=False
+        eval_on_load=False,
     )
 
     nodecounts_parser = subparsers.add_parser("nodecounts")
@@ -404,8 +403,12 @@ if __name__ == "__main__":
 
     dump_parser = subparsers.add_parser("dump")
     dump_parser.set_defaults(func=dump_cmd)
-    dump_parser.add_argument("--dump_evaluators", action=argparse.BooleanOptionalAction, default=False, help="Dump evaluator config")
-    dump_parser.add_argument("--dump_data", action=argparse.BooleanOptionalAction, default=False, help="Dump data config")
+    dump_parser.add_argument(
+        "--dump_evaluators", action=argparse.BooleanOptionalAction, default=False, help="Dump evaluator config"
+    )
+    dump_parser.add_argument(
+        "--dump_data", action=argparse.BooleanOptionalAction, default=False, help="Dump data config"
+    )
 
     train_parser = subparsers.add_parser("train")
     train_parser.set_defaults(func=train_cmd)
