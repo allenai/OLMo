@@ -589,10 +589,12 @@ class DataConfig(BaseConfig):
     @property
     def effective_memmap_dtype(self):
         try:
-            return np.dtype(self.memmap_dtype)
-        except TypeError as e:
+            # getattr will check this is part of numpy module, while np.dtype will check
+            # if this is a valid numpy dtype.
+            np.dtype(dtype := getattr(np, self.memmap_dtype))
+        except (AttributeError, TypeError) as e:
             raise TypeError(f"Value {self.memmap_dtype} is not a valid numpy type") from e
-        return np.uint16
+        return dtype
 
 
 class EvaluatorType(StrEnum):
