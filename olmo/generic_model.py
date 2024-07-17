@@ -32,7 +32,8 @@ from .model import (
 )
 
 from mamba_ssm import MambaLMHeadModel
-from mamba_ssm.modules.mamba_simple import Block, Mamba
+from mamba_ssm.modules.block import Block
+from mamba_ssm.modules.mamba2_simple import Mamba2Simple
 from mamba_ssm.models.config_mamba import MambaConfig
 from mamba_ssm.models.mixer_seq_simple import _init_weights, create_block
 
@@ -223,20 +224,16 @@ class MLPMambaBlock(nn.Module):
 
         # mamba block
         # fp32 is used in original mamba implementation
-        self.mamba_block = Mamba(
+        self.mamba_block = Mamba2Simple(
             d_model=config.d_model,
             d_state=config.d_state,
             d_conv=config.d_conv,
             expand=config.expand,
-            dt_rank=config.time_step_rank,
             dt_min=config.time_step_min,
             dt_max=config.time_step_max,
-            dt_init=config.time_step_init_scheme,
-            dt_scale=config.time_step_scale,
             dt_init_floor=config.time_step_floor,
             conv_bias=config.conv_bias,
             bias=config.include_bias,
-            use_fast_path=config.use_fast_path,
             layer_idx=layer_id,
             device=config.init_device,
             dtype=torch.float32,
