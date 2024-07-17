@@ -49,6 +49,9 @@ __all__ = [
     "WandbConfig",
     "CompilerConfig",
     "WandbConfig",
+    "DDPConfig",
+    "DistributedStrategy",
+    "DDPGradSyncMode",
     "FSDPPrecision",
     "FSDPWrapStrategy",
     "FSDPConfig",
@@ -349,6 +352,8 @@ class ModelConfig(BaseConfig):
     to ``False``.
     """
 
+    layer_norm_eps: float = 1e-05
+
     attention_layer_norm_with_affine: bool = True
     """
     Toggle affine transform for the QK norms.
@@ -435,6 +440,16 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
+    scale_emb_init: bool = False
+    """
+    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization. To be used with `full_megatron` init.
+    """
+
+    norm_after: bool = False
+    """
+    Apply norm after the attention/feedforward layers rather than before, as introduced in the Swin transformer paper (Liu et al).
+    """
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:
@@ -475,6 +490,11 @@ class OptimizerConfig(BaseConfig):
     Deprecated. Use ``decay_norm_and_bias`` and ``decay_embeddings`` instead.
     """
 
+    selective_updates: bool = False
+    """
+    If ``True``, optimizer parameter and state updates are skipped when the corresponding gradient is 0.
+    """
+
     decay_norm_and_bias: bool = False
     decay_embeddings: bool = False
     metrics_log_interval: Optional[int] = None
@@ -482,6 +502,12 @@ class OptimizerConfig(BaseConfig):
     The interval with which to collect and log detailed parameter-specific metrics.
     This only applies when logging to W&B, since these metrics won't be logged to the console.
     If not set, defaults to the wandb `log_interval`.
+    """
+
+    record_update_metrics: bool = False
+    """
+    Whether to record detailed metrics about the optimizer's parameter updates, like the norm and max
+    of the update with AdamW.
     """
 
     def __post_init__(self):
@@ -572,16 +598,13 @@ class DataConfig(BaseConfig):
 
     @property
     def effective_memmap_dtype(self):
-        if self.memmap_dtype == "uint8":
-            return np.uint8
-        if self.memmap_dtype == "uint16":
-            return np.uint16
-        elif self.memmap_dtype == "uint32":
-            return np.uint32
-        elif self.memmap_dtype == "uint64":
-            return np.uint64
-        # default to uint16 if not set
-        return np.uint16
+        try:
+            # getattr will check this is part of numpy module, while np.dtype will check
+            # if this is a valid numpy dtype.
+            np.dtype(dtype := getattr(np, self.memmap_dtype))
+        except (AttributeError, TypeError) as e:
+            raise TypeError(f"Value {self.memmap_dtype} is not a valid numpy type") from e
+        return dtype
 
 
 class EvaluatorType(StrEnum):
@@ -645,6 +668,56 @@ class CompilerConfig(BaseConfig):
     backend: str = "inductor"
     """
     The backend to use.
+    """
+
+
+class DistributedStrategy(StrEnum):
+    ddp = "ddp"
+    """
+    Wrap OLMo in torch.nn.parallel.DistributedDataParallel to train across ranks.
+    """
+
+    fsdp = "fsdp"
+    """
+    Wrap OLMo in torch.distributed.fsdp.FullyShardedDataParallel to train across ranks.
+    """
+
+
+class DDPGradSyncMode(StrEnum):
+    batch = "batch"
+    """
+    Synchronize gradients after computation at each bucket only at the last micro-batch.
+    This is slightly faster than gradient syncs across each micro-batch but will consume more memory.
+    Can use this mode only when `find_unused_params` is set to False.
+    """
+
+    micro_batch = "micro_batch"
+    """
+    Synchronize gradients after computation at each bucket per micro-batch.
+    This will be slightly slower than gradient sync at the last micro-batch, but will consume less memory.
+    Can use this mode with both option of `find_unused_params` but specifically recommended to use with `find_unused_params`
+    set to True, to prevent errors.
+    """
+
+
+@dataclass
+class DDPConfig(BaseConfig):
+    grad_sync_mode: DDPGradSyncMode = DDPGradSyncMode.batch
+    """
+    Gradient sync mode for DDP
+
+    Note: When `find_unused_params` is set, set `grad_sync_mode` to `micro_batch` as different micro-batches might activate
+    different parts of the model, ex- MOEs.
+    """
+
+    find_unused_params: bool = False
+    """
+    (from torch documentation)
+
+    This mode allows running backward on a subgraph of the model, and DDP finds out which parameters
+    are involved in the backward pass by traversing the autograd graph from the model output and marking
+    all unused parameters as ready for reduction. Note that traversing the autograd graph introduces extra overheads,
+    so applications should only set find_unused_parameters to True when necessary.
     """
 
 
@@ -1038,15 +1111,30 @@ class TrainConfig(BaseConfig):
     Settings for compiling the model with ``torch.compile()``.
     """
 
-    fsdp: FSDPConfig = field(default_factory=FSDPConfig)
+    distributed_strategy: Optional[DistributedStrategy] = DistributedStrategy.fsdp
+    """
+    Distributed strategy for OLMo model (eg. single GPU, DDP, FSDP).
+    """
+
+    fsdp: Optional[FSDPConfig] = field(default_factory=FSDPConfig)
     """
     Fully sharded data parallel settings.
+    """
+
+    ddp: Optional[DDPConfig] = None
+    """
+    DDP settings.
     """
 
     softmax_auxiliary_loss: bool = False
     """
     If ``True``, we add the auxiliary loss function from PaLM that encourages the softmax
     normalizing term to be close to 0.
+    """
+
+    auxiliary_loss_multiplier: Optional[float] = 1e-4
+    """
+    Used with `softmax_auxiliary_loss`. PaLM uses 1e-4, Chameleon uses 1e-5.
     """
 
     time_limit: Optional[float] = None
@@ -1098,6 +1186,13 @@ class TrainConfig(BaseConfig):
     Whether to use the fused CE loss function from `flash-attn`.
     """
 
+    hf_datasets_cache_dir: Optional[str] = None
+    """
+    Deprecated, HF datasets are now stored in `olmo_data.hf_datasets`.
+
+    Path to cache directory of HF datasets saved with `datasets.save_to_disk`.
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":
@@ -1111,20 +1206,23 @@ class TrainConfig(BaseConfig):
 
     @property
     def fsdp_precision(self) -> MixedPrecision:
-        if self.fsdp.precision == FSDPPrecision.pure:
-            return MixedPrecision(
-                param_dtype=self.autocast_precision,
-                reduce_dtype=self.autocast_precision,
-                buffer_dtype=self.autocast_precision,
-            )
-        elif self.fsdp.precision == FSDPPrecision.mixed:
-            return MixedPrecision(
-                param_dtype=self.autocast_precision,
-                reduce_dtype=torch.float32,
-                buffer_dtype=self.autocast_precision,
-            )
+        if self.fsdp is not None:
+            if self.fsdp.precision == FSDPPrecision.pure:
+                return MixedPrecision(
+                    param_dtype=self.autocast_precision,
+                    reduce_dtype=self.autocast_precision,
+                    buffer_dtype=self.autocast_precision,
+                )
+            elif self.fsdp.precision == FSDPPrecision.mixed:
+                return MixedPrecision(
+                    param_dtype=self.autocast_precision,
+                    reduce_dtype=torch.float32,
+                    buffer_dtype=self.autocast_precision,
+                )
+            else:
+                raise NotImplementedError(f"{self.fsdp.precision}")
         else:
-            raise NotImplementedError(f"{self.fsdp.precision}")
+            raise ValueError("self.fsdp is None!")
 
     @classmethod
     def update_legacy_settings(cls, config: D) -> D:

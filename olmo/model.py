@@ -136,11 +136,10 @@ class LayerNormBase(nn.Module):
         *,
         size: Optional[int] = None,
         elementwise_affine: Optional[bool] = True,
-        eps: float = 1e-05,
     ):
         super().__init__()
         self.config = config
-        self.eps = eps
+        self.eps = config.layer_norm_eps
         self.normalized_shape = (size or config.d_model,)
         if elementwise_affine or (elementwise_affine is None and self.config.layer_norm_with_affine):
             self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
@@ -199,9 +198,8 @@ class LayerNorm(LayerNormBase):
         size: Optional[int] = None,
         low_precision: bool = False,
         elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-05,
     ):
-        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
+        super().__init__(config, size=size, elementwise_affine=elementwise_affine)
         self.low_precision = low_precision
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -230,9 +228,8 @@ class RMSLayerNorm(LayerNormBase):
         config: ModelConfig,
         size: Optional[int] = None,
         elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-5,
     ):
-        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
+        super().__init__(config, size=size, elementwise_affine=elementwise_affine)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         with torch.autocast(enabled=False, device_type=x.device.type):
@@ -639,14 +636,12 @@ class OLMoBlock(nn.Module):
 class OLMoSequentialBlock(OLMoBlock):
     """
     This is a typical transformer block where the output is computed as ``MLP(LN(x + Attention(LN(x))))``
-    (plus another skip connection).
+    (plus another skip connection). To compute it as ``LN(MLP(x + LN(Attention(x))))``,
+    use the flag `norm_after`.
     """
 
     def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
         super().__init__(layer_id, config, cache)
-        # Layer norms.
-        self.attn_norm = LayerNorm.build(config)
-        self.ff_norm = LayerNorm.build(config)
         # Attention input projection. Projects x -> (q, k, v)
 
         head_dim = config.d_model // config.n_heads
@@ -662,6 +657,10 @@ class OLMoSequentialBlock(OLMoBlock):
         self.ff_proj = nn.Linear(
             config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device
         )
+
+        # Layer norms.
+        self.attn_norm = LayerNorm.build(config, size=config.d_model)
+        self.ff_norm = LayerNorm.build(config, size=config.d_model)
 
     def reset_parameters(self):
         super().reset_parameters()
@@ -698,10 +697,15 @@ class OLMoSequentialBlock(OLMoBlock):
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
         #  - for group query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_kv_heads)
-        if self._activation_checkpoint_fn is not None:
-            qkv = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x))
-        else:
-            qkv = self.att_proj(self.attn_norm(x))
+
+        # apply norm before
+        if not self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                x = self._activation_checkpoint_fn(self.attn_norm, x)
+            else:
+                x = self.attn_norm(x)
+
+        qkv = self.att_proj(x)
 
         if self.config.clip_qkv is not None:
             qkv.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
@@ -716,6 +720,12 @@ class OLMoSequentialBlock(OLMoBlock):
         else:
             att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
 
+        if self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                att = self._activation_checkpoint_fn(self.attn_norm, att)
+            else:
+                att = self.attn_norm(att)
+
         # Add attention scores.
         # shape: (B, T, C)
         x = x + self.dropout(att)
@@ -723,16 +733,27 @@ class OLMoSequentialBlock(OLMoBlock):
         # Add feed-forward projection.
         # shape: (batch_size, seq_len, d_model)
         og_x = x
-        if self._activation_checkpoint_fn is not None:
-            x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
-        else:
-            x = self.ff_norm(x)
+
+        if not self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+            else:
+                x = self.ff_norm(x)
+
         x = self.ff_proj(x)
+
         if self._activation_checkpoint_fn is not None:
             x = self._activation_checkpoint_fn(self.act, x)  # type: ignore
         else:
             x = self.act(x)
         x = self.ff_out(x)
+
+        if self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+            else:
+                x = self.ff_norm(x)
+
         x = self.dropout(x)
         x = og_x + x
 
@@ -1022,6 +1043,7 @@ class OLMo(nn.Module):
         if init_params and self.config.init_device != "meta":
             self.reset_parameters()
         self.__num_fwd_flops: Optional[int] = None
+        self.__num_bck_flops: Optional[int] = None
 
         # Warm up cache.
         if self.config.alibi:
@@ -1060,6 +1082,8 @@ class OLMo(nn.Module):
             wte_cutoff_factor = self.config.init_cutoff_factor or 3.0
         elif self.config.init_fn == InitFnType.full_megatron:
             wte_std = self.config.init_std
+            if self.config.scale_emb_init:
+                wte_std *= math.sqrt(self.config.d_model)
             wte_cutoff_factor = self.config.init_cutoff_factor or 3.0
         else:
             raise NotImplementedError(self.config.init_fn)
@@ -1409,18 +1433,30 @@ class OLMo(nn.Module):
     def num_fwd_flops(self):
         if self.__num_fwd_flops:
             return self.__num_fwd_flops
-        n_params = self.num_params()
+
+        # embedding table is just a lookup in the forward pass
+        n_params = self.num_params(include_embedding=False)
         # the number of parameters is approximately the number of multiply-accumulates (MAC) in the network
         # each MAC has 2 FLOPs - we multiply by 2 ie 2 * n_param
         # this gets us FLOPs / token
         params_flops_per_token = 2 * n_params
-        params_flops_per_seq = params_flops_per_token * self.config.max_sequence_length
         # there are 2 FLOPS per mac; there is A=Q*K^T and out=A*V ops (ie mult by 2)
-        attn_flops_per_seq = (
-            self.config.n_layers * 2 * 2 * (self.config.d_model * (self.config.max_sequence_length**2))
+        attn_flops_per_token = (
+            self.config.n_layers * 2 * 2 * (self.config.d_model * self.config.max_sequence_length)
         )
-        self.__num_fwd_flops = params_flops_per_seq + attn_flops_per_seq
+        self.__num_fwd_flops = params_flops_per_token + attn_flops_per_token
         return self.__num_fwd_flops
+
+    @property
+    def num_bck_flops(self):
+        if self.__num_bck_flops:
+            return self.__num_bck_flops
+
+        n_params = self.num_params()
+        params_flops_per_token = 4 * n_params
+        attn_flops_per_token = self.config.n_layers * 8 * (self.config.d_model * self.config.max_sequence_length)
+        self.__num_bck_flops = params_flops_per_token + attn_flops_per_token
+        return self.__num_bck_flops
 
     def generate(
         self,
