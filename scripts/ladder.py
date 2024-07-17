@@ -60,8 +60,8 @@ MODEL_CONFIG_150M = ModelConfig(
     residual_dropout=0.0,
     embedding_dropout=0.0,
     max_sequence_length=2048,
-    vocab_size=100278,
-    embedding_size=100352,
+    vocab_size=50280,
+    embedding_size=50304,
     eos_token_id=0,
     pad_token_id=1,
     init_device="cuda",
@@ -191,7 +191,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         max_duration=f"{length_in_tokens}T",
         global_train_batch_size=global_batch_size,
         # tokenizer=TokenizerConfig(identifier="tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json"),
-        tokenizer=TokenizerConfig(identifier="tokenizers/dolma2-test-tokenizer.json"),
+        tokenizer=TokenizerConfig(identifier="allenai/dolma2-tokenizer"),
         save_folder=f"runs/{run_name}",
         remote_save_folder=f"s3://ai2-llm/checkpoints/OLMo-ladder/{run_name}",
         save_overwrite=args.save_overwrite,
@@ -217,37 +217,37 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
                     drop_last=True,
                     datasets={
                         "c4_en-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy"
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy"
                         ],
                         "dolma_books-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy"
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_books/val/part-0-00000.npy"
                         ],
                         "dolma_common-crawl-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy"
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_common-crawl/val/part-0-00000.npy"
                         ],
                         "dolma_pes2o-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy"
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_pes2o/val/part-0-00000.npy"
                         ],
                         "dolma_reddit-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy"
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_reddit/val/part-0-00000.npy"
                         ],
                         "dolma_stack-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_stack/val/part-0-00000.npy"
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_stack/val/part-0-00000.npy"
                         ],
                         "dolma_wiki-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_wiki/val/part-0-00000.npy"
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_wiki/val/part-0-00000.npy"
                         ],
                         "ice-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy"
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/ice/val/part-0-00000.npy"
                         ],
                         "m2d2_s2orc-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy"
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/m2d2_s2orc/val/part-0-00000.npy"
                         ],
                         "pile-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy"
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy"
                         ],
                         "wikitext_103-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy"
+                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy"
                         ],
                     },
                 ),
