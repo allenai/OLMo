@@ -1,0 +1,63 @@
+{
+  "builder_name": "winogrande",
+  "citation": "@InProceedings{ai2:winogrande,\ntitle = {WinoGrande: An Adversarial Winograd Schema Challenge at Scale},\nauthors={Keisuke, Sakaguchi and Ronan, Le Bras and Chandra, Bhagavatula and Yejin, Choi\n},\nyear={2019}\n}\n",
+  "config_name": "winogrande_xl",
+  "dataset_name": "winogrande",
+  "dataset_size": 5577568,
+  "description": "WinoGrande is a new collection of 44k problems, inspired by Winograd Schema Challenge (Levesque, Davis, and Morgenstern\n 2011), but adjusted to improve the scale and robustness against the dataset-specific bias. Formulated as a\nfill-in-a-blank task with binary options, the goal is to choose the right option for a given sentence which requires\ncommonsense reasoning.\n",
+  "download_checksums": {
+    "https://storage.googleapis.com/ai2-mosaic/public/winogrande/winogrande_1.1.zip": {
+      "num_bytes": 3395492,
+      "checksum": null
+    }
+  },
+  "download_size": 3395492,
+  "features": {
+    "sentence": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "option1": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "option2": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "answer": {
+      "dtype": "string",
+      "_type": "Value"
+    }
+  },
+  "homepage": "https://leaderboard.allenai.org/winogrande/submissions/get-started",
+  "license": "",
+  "size_in_bytes": 8973060,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 5185752,
+      "num_examples": 40398,
+      "dataset_name": "winogrande"
+    },
+    "test": {
+      "name": "test",
+      "num_bytes": 227633,
+      "num_examples": 1767,
+      "dataset_name": "winogrande"
+    },
+    "validation": {
+      "name": "validation",
+      "num_bytes": 164183,
+      "num_examples": 1267,
+      "dataset_name": "winogrande"
+    }
+  },
+  "version": {
+    "version_str": "1.1.0",
+    "description": "",
+    "major": 1,
+    "minor": 1,
+    "patch": 0
+  }
+}

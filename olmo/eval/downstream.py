@@ -9,6 +9,8 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from torchmetrics import Metric
 
+from olmo.util import load_hf_dataset
+
 from ..tokenizer import Tokenizer
 
 log = logging.getLogger(__name__)
@@ -19,7 +21,7 @@ class ICLMetric(Metric):
     full_state_update: bool = False
 
     def __init__(self, metric_type="acc") -> None:
-        """metric_type: f1, acc, len_norm, pmi_dc"""
+        """metric_type: f1, acc, len_norm, pmi_dc, ce_loss"""
         super().__init__(sync_on_compute=True)
 
         self.metric_type = metric_type
@@ -65,10 +67,12 @@ class ICLMetric(Metric):
             elif self.metric_type == "acc" or self.metric_type == "f1":
                 # gather log-probs at continuation token indices
                 log_likelihood = torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum()
-            elif self.metric_type == "len_norm":
+            elif self.metric_type == "len_norm" or self.metric_type == "ce_loss":
                 log_likelihood = (
                     torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum() / batch["cont_str_len"][idx]
                 )
+                if self.metric_type == "ce_loss":
+                    log_likelihood = -log_likelihood
             else:
                 raise ValueError(self.metric_type)
 
@@ -123,8 +127,10 @@ class ICLMetric(Metric):
 
             if skip_document:
                 continue
-
-            correct.append(1.0 if torch.argmax(loglikelihoods).item() == label_dict[doc_id] else 0.0)
+            if self.metric_type == "ce_loss":
+                correct.append(loglikelihoods[0])  # Only one answer is scored
+            else:
+                correct.append(1.0 if torch.argmax(loglikelihoods).item() == label_dict[doc_id] else 0.0)
 
             if self.metric_type == "f1":
                 assert preds is not None
@@ -176,14 +182,8 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
 
         dataset_list = []
         for ds_name in dataset_names:
-            dataset_list.append(
-                datasets.load_dataset(
-                    path=self.dataset_path,
-                    name=ds_name,
-                    split=split,
-                    trust_remote_code=True,
-                )
-            )
+            dataset = load_hf_dataset(self.dataset_path, ds_name, split)
+            dataset_list.append(dataset)
         self.dataset = datasets.concatenate_datasets(dataset_list)
 
         # prep examples
@@ -398,7 +398,12 @@ class PIQA(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="piqa", dataset_name=None):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="piqa",
+        dataset_name="plain_text",
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -436,7 +441,12 @@ class HellaSwag(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="hellaswag", dataset_name=None):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="hellaswag",
+        dataset_name=None,
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -494,7 +504,12 @@ class WinoGrande(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="winogrande", dataset_name="winogrande_xl"):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="winogrande",
+        dataset_name="winogrande_xl",
+    ):
         # all winogrande datasets have same val set
         super().__init__(
             tokenizer=tokenizer,
@@ -589,7 +604,12 @@ class OpenBookQA(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="openbookqa", dataset_name="main"):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="openbookqa",
+        dataset_name="main",
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -624,7 +644,12 @@ class BoolQ(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="boolq", dataset_name=None):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="boolq",
+        dataset_name=None,
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -669,7 +694,12 @@ class SciQ(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="sciq", dataset_name=None):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="sciq",
+        dataset_name=None,
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -711,7 +741,12 @@ class ArcEasy(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="ai2_arc", dataset_name="ARC-Easy"):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="ai2_arc",
+        dataset_name="ARC-Easy",
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -746,12 +781,31 @@ class ArcChallenge(ArcEasy):
 
     metric_type = "len_norm"  # Ideally "pmi_dc"
 
-    def __init__(self, tokenizer, dataset_path="ai2_arc", dataset_name="ARC-Challenge"):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="ai2_arc",
+        dataset_name="ARC-Challenge",
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
         )
+
+
+class ArcEasyCELoss(ArcEasy):
+    """ArcEasyCELoss is ARCEasy using an alternate ce_loss metric"""
+
+    metric_type = "ce_loss"
+
+    def doc_to_continuations(self, doc):
+        # We only consider the correct answer for this metric
+        answer = doc["choices"]["text"][self.doc_to_label(doc)]
+        return [" " + answer]
+
+    def doc_to_label(self, doc):
+        return 0
 
 
 class BasicArithmetic(ArcEasy):
@@ -767,7 +821,12 @@ class BasicArithmetic(ArcEasy):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="allenai/basic_arithmetic", dataset_name=None):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="allenai/basic_arithmetic",
+        dataset_name=None,
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -788,7 +847,12 @@ class CommonsenseQA(ArcEasy):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="tau/commonsense_qa", dataset_name=None):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="tau/commonsense_qa",
+        dataset_name=None,
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -808,7 +872,12 @@ class SocialIQa(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="social_i_qa", dataset_name=None):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="social_i_qa",
+        dataset_name=None,
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -855,7 +924,12 @@ class COPA(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="super_glue", dataset_name="copa"):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="super_glue",
+        dataset_name="copa",
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -897,7 +971,12 @@ class RTE(ICLMultiChoiceTaskDataset):
 
     metric_type = "len_norm"
 
-    def __init__(self, tokenizer, dataset_path="glue", dataset_name="rte"):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="glue",
+        dataset_name="rte",
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -936,7 +1015,12 @@ class CommitmentBank(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="super_glue", dataset_name="cb"):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="super_glue",
+        dataset_name="cb",
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -973,7 +1057,12 @@ class MRPC(ICLMultiChoiceTaskDataset):
 
     metric_type = "f1"
 
-    def __init__(self, tokenizer, dataset_path="glue", dataset_name="mrpc"):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="glue",
+        dataset_name="mrpc",
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -1038,7 +1127,12 @@ class SST2(ICLMultiChoiceTaskDataset):
 
     metric_type = "acc"
 
-    def __init__(self, tokenizer, dataset_path="glue", dataset_name="sst2"):
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="glue",
+        dataset_name="sst2",
+    ):
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -1190,9 +1284,8 @@ class MMLU(ICLMultiChoiceTaskDataset):
                 raise ValueError(f"Unknown prompt variations: {prompt_variations}")
             # Need to grab the dev set for the few-shot prompts
             for name in dataset_names:
-                self.dev_set[name] = datasets.load_dataset(
-                    path=dataset_path, name=name, split="dev", trust_remote_code=True
-                )
+                dev_set = load_hf_dataset(dataset_path, name, "dev")
+                self.dev_set[name] = dev_set
         super().__init__(
             tokenizer=tokenizer,
             dataset_path=dataset_path,
@@ -1250,6 +1343,87 @@ class MMLU(ICLMultiChoiceTaskDataset):
         return "Answer:"
 
 
+class TriviaQACELoss(ICLMultiChoiceTaskDataset):
+    """Sample TriviaQA entity with some fields suppressed. For CE Loss we only consider the "value"
+    field as the answer to score.
+
+    {
+        'question': 'Which Lloyd Webber musical premiered in the US on 10th December 1993?',
+        'question_id': 'tc_33',
+        'answer': {
+            'aliases': ['Sunset Blvd', ...],
+            'normalized_aliases': ['sunset boulevard', ...],
+            'normalized_value': 'sunset boulevard',
+            'value': 'Sunset Boulevard'
+        }
+    }
+    """
+
+    metric_type = "ce_loss"
+
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="trivia_qa",
+        dataset_name="rc.wikipedia.nocontext",
+    ):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+    def doc_to_text(self, doc):
+        return "\nQuestion: " + doc["question"] + "\nAnswer:"
+
+    def doc_to_continuations(self, doc):
+        return [" " + doc["answer"]["value"]]
+
+    def doc_to_label(self, doc):
+        return 0
+
+    def doc_to_domain_conditional(self, doc):
+        del doc
+        return "Answer:"
+
+
+class NaturalQuestionsCELoss(ICLMultiChoiceTaskDataset):
+    """Sample NaturalQuestions entity. For CE Loss we only consider the first answer entry to score.
+
+    {
+        'question': 'when was the last time anyone was on the moon',
+        'answer': ['14 December 1972 UTC', 'December 1972']
+    }
+    """
+
+    metric_type = "ce_loss"
+
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="nq_open",
+        dataset_name=None,
+    ):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+    def doc_to_text(self, doc):
+        return "\nQuestion: " + doc["question"] + "\nAnswer:"
+
+    def doc_to_continuations(self, doc):
+        return [" " + doc["answer"][0]]
+
+    def doc_to_label(self, doc):
+        return 0
+
+    def doc_to_domain_conditional(self, doc):
+        del doc
+        return "Answer:"
+
+
 label_to_task_map = {
     "piqa": PIQA,
     "hellaswag": HellaSwag,
@@ -1258,6 +1432,7 @@ label_to_task_map = {
     "boolq": BoolQ,
     "sciq": SciQ,
     "arc_easy": ArcEasy,
+    "arc_easy_ppl": ArcEasyCELoss,
     "arc_challenge": ArcChallenge,
     "basic_arithmetic": BasicArithmetic,
     "copa": COPA,
@@ -1267,6 +1442,8 @@ label_to_task_map = {
     "sst2": SST2,
     "commonsense_qa": CommonsenseQA,
     "social_iqa": SocialIQa,
+    "trivia_qa_wiki_ppl": TriviaQACELoss,
+    "natural_qs_open_ppl": NaturalQuestionsCELoss,
     "mmlu_stem_test": (MMLU, {"dataset_name": "stem", "split": "test"}),
     "mmlu_humanities_test": (MMLU, {"dataset_name": "humanities", "split": "test"}),
     "mmlu_social_sciences_test": (MMLU, {"dataset_name": "social_sciences", "split": "test"}),

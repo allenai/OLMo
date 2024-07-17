@@ -9,24 +9,29 @@ import random
 import shutil
 import time
 from collections import deque
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
 from pstats import SortKey
-from typing import Any, Callable, Deque, Dict, List, Optional, TextIO, Tuple
+from typing import Any, Callable, Deque, Dict, List, Optional, TextIO, Tuple, Union
 
 import numpy as np
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 import wandb
+from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 
 from .aliases import PathOrStr
 from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
 from .config import (
     CheckpointType,
+    DDPGradSyncMode,
+    DistributedStrategy,
     SchedulerUnits,
     ShardedCheckpointerType,
     SpeedMonitorConfig,
@@ -60,10 +65,22 @@ class SpeedMonitor:
     cfg: SpeedMonitorConfig
     start_times: Deque[float] = field(default_factory=lambda: deque([]))
     global_total_tokens: int = 0
+    total_training_Gflops: float = 0
     device_interval_tokens: Deque[int] = field(default_factory=lambda: deque([]))
 
-    def batch_start(self, global_total_tokens: int, device_batch_num_tokens: int, record: bool = True) -> None:
+    def batch_start(
+        self,
+        global_total_tokens: int,
+        device_batch_num_tokens: int,
+        num_fwd_flops: int,
+        num_bck_flops: int,
+        record: bool = True,
+    ) -> None:
         self.global_total_tokens = global_total_tokens
+        # num_fwd_flops and num_bck_flops from the OLMo model computes flops per token
+        # converting to GFLOPs here prevents numerical issues while logging
+        self.total_training_Gflops = (num_fwd_flops + num_bck_flops) * global_total_tokens / 1e9
+
         if record:
             if len(self.start_times) >= self.cfg.window_size:
                 self.start_times.popleft()
@@ -77,6 +94,11 @@ class SpeedMonitor:
 
     def check(self) -> Dict[str, float]:
         metrics: Dict[str, float] = {"throughput/total_tokens": self.global_total_tokens}
+
+        # plot flops related metrics
+        metrics["throughput/total_training_Gflops"] = self.total_training_Gflops
+        metrics["throughput/total_training_log_Gflops"] = math.log(self.total_training_Gflops)
+
         if self.start_times:
             interval_seconds = time.monotonic() - self.start_times[0]
             interval_batches = len(self.start_times)
@@ -118,7 +140,7 @@ def cross_entropy_loss(
 class Trainer:
     cfg: TrainConfig
     model: OLMo
-    fsdp_model: FSDP
+    dist_model: Union[DDP, FSDP]
     optim: Optimizer
     scheduler: Scheduler
     train_loader: DataLoader
@@ -145,22 +167,31 @@ class Trainer:
 
     def __post_init__(self):
         if self.cfg.fused_loss:
+            import flash_attn
             from flash_attn.ops.triton.cross_entropy import (  # type: ignore
                 cross_entropy_loss,
             )
 
+            # The `ignored_index` parameter of `cross_entropy_loss` was changed to `ignore_index` in v2.5.8 with commit https://github.com/Dao-AILab/flash-attention/commit/ec6d22143b5d375e253b2ebfc563b26a43f43684
+            ce_loss_use_ignore_index_param = version.parse(flash_attn.__version__) >= version.parse("2.5.8")
+
             def fused_loss_fn(
                 logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False
             ):
+                if ce_loss_use_ignore_index_param:
+                    ignore_index_kwarg = {"ignore_index": ignore_index}
+                else:
+                    ignore_index_kwarg = {"ignored_index": ignore_index}
+
                 loss, z_loss = cross_entropy_loss(
                     logits,
                     labels,
                     label_smoothing=0.0,
                     logit_scale=1.0,
                     lse_square_scale=0.0,
-                    ignored_index=ignore_index,
                     inplace_backward=False,
                     process_group=None,
+                    **ignore_index_kwarg,
                 )
 
                 mask = labels != ignore_index
@@ -413,7 +444,7 @@ class Trainer:
         try:
             checkpointer.save_checkpoint(
                 checkpoint_dir,
-                self.fsdp_model,
+                self.dist_model,
                 self.optim,
                 self.trainer_state_dict(),
                 upload_to=remote_checkpoint_dir,
@@ -437,6 +468,7 @@ class Trainer:
                     raise
 
         # Remove old checkpoints.
+        # For DDP, checkpoint_type being passed to remove_checkpoint is always `unsharded`.
         if num_checkpoints_to_keep > 0:
             while len(current_checkpoints) > num_checkpoints_to_keep:
                 self.remove_checkpoint(0, checkpoint_type)
@@ -490,7 +522,7 @@ class Trainer:
         checkpointer = build_sharded_checkpointer(self.cfg, name=sharded_checkpointer)
         trainer_state = checkpointer.restore_checkpoint(
             load_path,
-            self.fsdp_model,
+            self.dist_model,
             self.optim,
             local_cache=local_cache,
             load_optimizer_state=load_optimizer_state,
@@ -528,7 +560,7 @@ class Trainer:
         checkpointer = FullCheckpointer(self.cfg)
         trainer_state = checkpointer.restore_checkpoint(
             load_path,
-            self.fsdp_model,
+            self.dist_model,
             self.optim,
             local_cache=local_cache,
             load_optimizer_state=load_optimizer_state,
@@ -597,22 +629,25 @@ class Trainer:
 
     def get_labels(self, batch: Dict[str, Any]) -> torch.Tensor:
         # Labels are just input IDs shifted to the left (first item is ignored).
-        labels, label_mask, attention_mask = (
+        labels, label_mask, attention_mask, instance_mask = (
             batch["input_ids"].clone(),
             batch.get("label_mask"),
             batch.get("attention_mask"),
+            batch.get("instance_mask"),
         )
         if label_mask is not None:
             labels.masked_fill_(~label_mask, -100)
         if attention_mask is not None:
             labels.masked_fill_(attention_mask == 0.0, -100)
+        if instance_mask is not None:
+            labels.masked_fill_(~instance_mask.unsqueeze(-1), value=-100)
         return labels[..., 1:].contiguous()
 
     def model_forward(
         self, batch: Dict[str, Any], loss_reduction: str = "mean", compute_z_loss: bool = False
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], torch.Tensor]:
         # shape: (batch_size, seq_len, vocab_size)
-        logits = self.fsdp_model(
+        logits = self.dist_model(
             input_ids=batch["input_ids"],
             attention_mask=batch.get("attention_mask"),
             attention_bias=batch.get("attention_bias"),
@@ -634,45 +669,67 @@ class Trainer:
                 z_loss = z_loss.view(batch["input_ids"].shape[0], -1)
         return ce_loss, z_loss, logits
 
+    def train_micro_batch(
+        self, micro_batch: Dict[str, Any], batch_size_in_tokens: int
+    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
+        ce_loss, z_loss, logits = self.model_forward(
+            micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss, loss_reduction="sum"
+        )
+        ce_loss = ce_loss / batch_size_in_tokens
+
+        # In case this helps with memory utilization.
+        del micro_batch
+
+        # Get loss to optimize for.
+        if self.cfg.softmax_auxiliary_loss:
+            assert z_loss is not None
+            z_loss = z_loss / batch_size_in_tokens
+            loss = ce_loss + z_loss
+        else:
+            loss = ce_loss
+
+        del logits
+
+        return loss, ce_loss, z_loss
+
     def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
+        batch_size_in_tokens = batch["input_ids"].numel()
 
         # In case this helps with memory utilization.
         del batch
 
         ce_batch_loss = torch.tensor(0.0, device=self.device)
         z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
-        for micro_batch in micro_batches:
-            with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
-                # Run forward pass.
-                ce_loss, z_loss, logits = self.model_forward(
-                    micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss
-                )
-                ce_loss = ce_loss / len(micro_batches)
+        num_micro_batches = len(micro_batches)
 
-                # In case this helps with memory utilization.
-                del micro_batch
+        for micro_batch_idx, micro_batch in enumerate(micro_batches):
+            # setup sync context for DDP for all micro-batches except the last
+            grad_sync_context = nullcontext
+            if (
+                self.cfg.distributed_strategy == DistributedStrategy.ddp
+                and self.cfg.ddp is not None
+                and self.cfg.ddp.grad_sync_mode == DDPGradSyncMode.batch
+            ):
+                if micro_batch_idx != num_micro_batches - 1:
+                    grad_sync_context = self.dist_model.no_sync
 
-                # Update overall CE batch loss.
-                ce_batch_loss += ce_loss.detach()
+            with grad_sync_context():
+                with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
+                    # Run forward pass.
+                    loss, ce_loss, z_loss = self.train_micro_batch(micro_batch, batch_size_in_tokens)
 
-                # Get loss to optimize for.
-                if self.cfg.softmax_auxiliary_loss:
-                    assert z_loss is not None
-                    assert z_batch_loss is not None
-                    z_loss = z_loss / len(micro_batches)
-                    loss = ce_loss + z_loss
+                    # Update overall CE batch loss.
+                    ce_batch_loss += ce_loss.detach()
 
                     # Update overall Z batch loss.
-                    z_batch_loss += z_loss.detach()
-                else:
-                    loss = ce_loss
+                    if z_loss is not None:
+                        assert z_batch_loss is not None
+                        z_batch_loss += z_loss.detach()
 
-                del logits
-
-            # Run backward pass.
-            loss.backward()
+                # Run backward pass.
+                loss.backward()
 
         return ce_batch_loss, z_batch_loss
 
@@ -683,6 +740,10 @@ class Trainer:
         if self.indices_file is not None and "index" in batch:
             indices = "\t".join(str(int(i)) for i in batch["index"])
             self.indices_file.write(f"{self.global_step}\t{indices}\n")
+
+        # Record how many instances are going to be skipped (masked out).
+        if (instance_mask := batch.get("instance_mask")) is not None:
+            metrics["train/masked_instances_local_rank"] = (~instance_mask).sum().item()
 
         # Zero-gradients.
         self.optim.zero_grad(set_to_none=True)
@@ -708,7 +769,7 @@ class Trainer:
             collect_param_metrics=should_log_optim_metrics_this_step,
             # passing this process group here ensures metrics are reduced correctly when we're using
             # HYBRID sharding.
-            process_group=self.fsdp_model.process_group,
+            process_group=self.dist_model.process_group,
         )
 
         # Adjust the learning rate.
@@ -747,7 +808,7 @@ class Trainer:
         # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:
             optim_metrics = self.optim.get_post_step_metrics(
-                self.fsdp_model, process_group=self.fsdp_model.process_group
+                self.dist_model, process_group=self.dist_model.process_group
             )
             for key, value in optim_metrics.items():
                 metrics[f"optim/{key}"] = value.item()
@@ -825,7 +886,8 @@ class Trainer:
                 [
                     f"    {name}={format_float(value)}"
                     for name, value in metrics.items()
-                    if not name.startswith("optim/")  # there's too many optimizer metrics
+                    if name == "optim/total_grad_norm"
+                    or not name.startswith("optim/")  # there's too many optimizer metrics
                 ]
             )
         )
@@ -853,7 +915,7 @@ class Trainer:
     def eval(self) -> Dict[str, Any]:
         # Zero gradients and set model to 'eval' mode.
         self.optim.zero_grad(set_to_none=True)
-        self.fsdp_model.eval()
+        self.dist_model.eval()
 
         eval_metrics = {}
         for evaluator in self.evaluators:
@@ -964,7 +1026,7 @@ class Trainer:
                 wandb.log(eval_metrics, step=self.global_step)
 
         # Set model to 'train' mode.
-        self.fsdp_model.train()
+        self.dist_model.train()
 
         # Initialize monitors.
         assert self.cfg.device_train_batch_size is not None
@@ -1047,10 +1109,12 @@ class Trainer:
                     self.global_train_examples_seen_this_epoch += global_batch_size
                     self.global_train_tokens_seen += global_batch_size * seq_len
                     speed_monitor.batch_start(
-                        self.global_train_tokens_seen,
-                        batch_size * seq_len,  # num tokens in batch for this device
+                        global_total_tokens=self.global_train_tokens_seen,
+                        device_batch_num_tokens=batch_size * seq_len,  # num tokens in batch for this device
                         # We start monitoring speed after the first batch since the first
                         # batch might be an outlier due to compiling and other initialization overhead.
+                        num_fwd_flops=self.model.num_fwd_flops,  # this is per token
+                        num_bck_flops=self.model.num_bck_flops,  # this is per token
                         record=not first_batch,
                     )
 
@@ -1094,39 +1158,41 @@ class Trainer:
                             )
 
                     # Maybe save sharded checkpoint.
-                    if save_checkpoints and (
-                        cancel_initiated
-                        or (
-                            self.global_step % self.cfg.save_interval == 0
-                            and self.cfg.save_num_checkpoints_to_keep != 0
-                        )
-                    ):
-                        log.info("Saving checkpoint...")
-                        checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
-                        log.info(f"Checkpoint saved to {checkpoint_path}")
+                    if self.cfg.distributed_strategy != DistributedStrategy.ddp:
+                        if save_checkpoints and (
+                            cancel_initiated
+                            or (
+                                self.global_step % self.cfg.save_interval == 0
+                                and self.cfg.save_num_checkpoints_to_keep != 0
+                            )
+                        ):
+                            log.info("Saving checkpoint...")
+                            checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
+                            log.info(f"Checkpoint saved to {checkpoint_path}")
 
-                        # Remove any ephemeral checkpoints.
-                        while self.ephemeral_checkpoints:
-                            self.remove_ephemeral_checkpoint()
+                            # Remove any ephemeral checkpoints.
+                            while self.ephemeral_checkpoints:
+                                self.remove_ephemeral_checkpoint()
 
-                        # Reset speed monitor so that we don't count the time taken to save checkpoints.
-                        speed_monitor.reset()
+                            # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                            speed_monitor.reset()
 
-                        # If the run was just canceled this will be the final checkpoint.
-                        if cancel_initiated:
-                            save_checkpoints = False
-                    elif (
-                        self.cfg.save_interval_ephemeral is not None
-                        and self.global_step % self.cfg.save_interval_ephemeral == 0
-                    ):
-                        log.info("Saving ephemeral checkpoint...")
-                        checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded_ephemeral)
-                        log.info(f"Checkpoint saved to {checkpoint_path}")
+                            # If the run was just canceled this will be the final checkpoint.
+                            if cancel_initiated:
+                                save_checkpoints = False
+                        elif (
+                            self.cfg.save_interval_ephemeral is not None
+                            and self.global_step % self.cfg.save_interval_ephemeral == 0
+                        ):
+                            log.info("Saving ephemeral checkpoint...")
+                            checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded_ephemeral)
+                            log.info(f"Checkpoint saved to {checkpoint_path}")
 
-                        # Reset speed monitor so that we don't count the time taken to save checkpoints.
-                        speed_monitor.reset()
+                            # Reset speed monitor so that we don't count the time taken to save checkpoints.
+                            speed_monitor.reset()
 
                     # Maybe save unsharded checkpoint.
+                    # This code snippet should always execute when running DDP.
                     if (
                         save_checkpoints
                         and self.cfg.save_interval_unsharded is not None
@@ -1152,7 +1218,7 @@ class Trainer:
                         speed_monitor.reset()
 
                         # Reset model to 'train' mode.
-                        self.fsdp_model.train()
+                        self.dist_model.train()
 
                     # End of batch.
                     first_batch = False
@@ -1179,6 +1245,7 @@ class Trainer:
                     log.info("Training epoch complete")
                     self.epoch = epoch + 1
                     self.global_train_examples_seen_this_epoch = 0
+                    self.dataset.start_index = 0
                     if self.epoch < self.max_epochs:
                         self.dataset.reshuffle()
                     continue

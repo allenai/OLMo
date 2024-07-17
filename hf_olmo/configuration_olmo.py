@@ -11,7 +11,7 @@ logger = logging.get_logger(__name__)
 
 
 class OLMoConfig(PretrainedConfig):
-    model_type = "olmo"
+    model_type = "hf_olmo"
     keys_to_ignore_at_inference = ["past_key_values"]  # TODO: confirm
 
     def __init__(self, use_cache: bool = False, **kwargs):
@@ -38,4 +38,6 @@ class OLMoConfig(PretrainedConfig):
 
 
 # Register the config class so that it is available for transformer pipelines, auto-loading etc.
-AutoConfig.register("olmo", OLMoConfig)
+# OLMo is integrated directly in transformers from v4.40.0 onwards, but the version in transformers
+# may not support the newest architectures we create.
+AutoConfig.register("hf_olmo", OLMoConfig)

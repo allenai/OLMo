@@ -1,0 +1,70 @@
+{
+  "builder_name": "mmlu_no_train",
+  "citation": "@article{hendryckstest2021,\n      title={Measuring Massive Multitask Language Understanding},\n      author={Dan Hendrycks and Collin Burns and Steven Basart and Andy Zou and Mantas Mazeika and Dawn Song and Jacob Steinhardt},\n      journal={Proceedings of the International Conference on Learning Representations (ICLR)},\n      year={2021}\n    }\n",
+  "config_name": "medical_genetics",
+  "dataset_name": "mmlu_no_train",
+  "dataset_size": 27242,
+  "description": "This is a massive multitask test consisting of multiple-choice questions from various branches of knowledge, covering 57 tasks including elementary mathematics, US history, computer science, law, and more.\n",
+  "download_checksums": {
+    "https://huggingface.co/datasets/cais/mmlu/resolve/main/data.tar": {
+      "num_bytes": 166184960,
+      "checksum": null
+    }
+  },
+  "download_size": 166184960,
+  "features": {
+    "question": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "subject": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "choices": {
+      "feature": {
+        "dtype": "string",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    },
+    "answer": {
+      "names": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "_type": "ClassLabel"
+    }
+  },
+  "homepage": "https://github.com/hendrycks/test",
+  "license": "",
+  "size_in_bytes": 166212202,
+  "splits": {
+    "test": {
+      "name": "test",
+      "num_bytes": 22852,
+      "num_examples": 100,
+      "dataset_name": "mmlu_no_train"
+    },
+    "validation": {
+      "name": "validation",
+      "num_bytes": 3213,
+      "num_examples": 11,
+      "dataset_name": "mmlu_no_train"
+    },
+    "dev": {
+      "name": "dev",
+      "num_bytes": 1177,
+      "num_examples": 5,
+      "dataset_name": "mmlu_no_train"
+    }
+  },
+  "version": {
+    "version_str": "1.0.0",
+    "major": 1,
+    "minor": 0,
+    "patch": 0
+  }
+}

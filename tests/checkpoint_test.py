@@ -20,7 +20,7 @@ def opt_at(opt, idx, key):
 def _init_model_and_optim(config: TrainConfig) -> Tuple[FSDP, Optimizer]:
     model = FSDP(torch.nn.Linear(4, 4).cuda(dist.get_rank()), use_orig_params=True)
     optim = build_optimizer(config, model)
-    model(torch.rand(4, 4)).sum().backward()
+    model(torch.rand(4, 4).cuda(dist.get_rank())).sum().backward()
     optim.step()
     return model, optim
 
