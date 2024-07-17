@@ -75,6 +75,3 @@ torchrun \
       --wandb=null \
       --evaluators=[] \
       --save_overwrite
-
-      # --model.layer_norm_type=default \
-      # --model.layer_norm_with_affine=false \
