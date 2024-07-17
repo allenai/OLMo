@@ -115,7 +115,7 @@ jobs:
     timeout-minutes: 8
     env:
       BEAKER_TOKEN: ${{ secrets.BEAKER_TOKEN }}
-      BEAKER_IMAGE: olmo-torch2-test
+      BEAKER_IMAGE: petew/olmo-torch23-gantry
       BEAKER_WORKSPACE: ai2/llm-testing
     steps:
       - name: Determine current commit SHA (pull request)
@@ -127,11 +127,6 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           echo "COMMIT_SHA=$GITHUB_SHA" >> $GITHUB_ENV
-
-      - name: Install flash attn
-        if: github.event_name == 'pull_request'
-        run: |
-            pip install --no-cache-dir triton==2.0.0 https://storage.googleapis.com/ai2-python-wheels/flash_attn/flash_attn-0.2.8%2Bcu118torch2.0.0-cp310-cp310-linux_x86_64.whl
 
       - name: GPU Tests
         uses: allenai/beaker-run-action@v1.2
