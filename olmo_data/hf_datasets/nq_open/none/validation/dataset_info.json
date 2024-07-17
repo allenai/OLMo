@@ -1,0 +1,55 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "nq_open",
+  "dataset_name": "nq_open",
+  "dataset_size": 6965065,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/nq_open@5dd9790a83002ad084ddeb7c420dc716852c6f28/nq_open/train-00000-of-00001.parquet": {
+      "num_bytes": 4464642,
+      "checksum": null
+    },
+    "hf://datasets/nq_open@5dd9790a83002ad084ddeb7c420dc716852c6f28/nq_open/validation-00000-of-00001.parquet": {
+      "num_bytes": 213603,
+      "checksum": null
+    }
+  },
+  "download_size": 4678245,
+  "features": {
+    "question": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "answer": {
+      "feature": {
+        "dtype": "string",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 11643310,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 6651236,
+      "num_examples": 87925,
+      "dataset_name": "nq_open"
+    },
+    "validation": {
+      "name": "validation",
+      "num_bytes": 313829,
+      "num_examples": 3610,
+      "dataset_name": "nq_open"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}

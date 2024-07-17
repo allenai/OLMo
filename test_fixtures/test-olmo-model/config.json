@@ -3,7 +3,7 @@
   "alibi": false,
   "alibi_bias_max": 8.0,
   "architectures": [
-    "OLMoModelForCausalLM"
+    "OLMoForCausalLM"
   ],
   "attention_dropout": 0.1,
   "attention_layer_norm": false,
@@ -11,6 +11,7 @@
   "bias_for_layer_norm": null,
   "block_group_size": 1,
   "block_type": "sequential",
+  "clip_qkv": null,
   "d_model": 32,
   "embedding_dropout": 0.1,
   "embedding_size": 50304,
@@ -26,9 +27,10 @@
   "max_sequence_length": 1024,
   "mlp_hidden_size": null,
   "mlp_ratio": 4,
-  "model_type": "olmo",
+  "model_type": "hf_olmo",
   "multi_query_attention": false,
   "n_heads": 1,
+  "n_kv_heads": null,
   "n_layers": 1,
   "pad_token_id": 50256,
   "precision": null,
@@ -36,7 +38,7 @@
   "rope": false,
   "rope_full_precision": true,
   "scale_logits": false,
-  "transformers_version": "4.29.0",
+  "transformers_version": "4.40.2",
   "use_cache": true,
   "vocab_size": 50257,
   "weight_tying": true

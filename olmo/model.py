@@ -39,11 +39,12 @@ from .config import (
     BlockType,
     CheckpointType,
     FSDPWrapStrategy,
+    InitFnType,
     LayerNormType,
     ModelConfig,
 )
 from .exceptions import OLMoConfigurationError
-from .initialization import ModuleType, init_weights
+from .initialization import init_normal
 from .torch_util import ensure_finite_
 
 if sys.version_info.minor > 8:
@@ -136,11 +137,10 @@ class LayerNormBase(nn.Module):
         *,
         size: Optional[int] = None,
         elementwise_affine: Optional[bool] = True,
-        eps: float = 1e-05,
     ):
         super().__init__()
         self.config = config
-        self.eps = eps
+        self.eps = config.layer_norm_eps
         self.normalized_shape = (size or config.d_model,)
         if elementwise_affine or (elementwise_affine is None and self.config.layer_norm_with_affine):
             self.weight = nn.Parameter(torch.ones(self.normalized_shape, device=config.init_device))
@@ -199,9 +199,8 @@ class LayerNorm(LayerNormBase):
         size: Optional[int] = None,
         low_precision: bool = False,
         elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-05,
     ):
-        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
+        super().__init__(config, size=size, elementwise_affine=elementwise_affine)
         self.low_precision = low_precision
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -230,9 +229,8 @@ class RMSLayerNorm(LayerNormBase):
         config: ModelConfig,
         size: Optional[int] = None,
         elementwise_affine: Optional[bool] = None,
-        eps: float = 1e-5,
     ):
-        super().__init__(config, size=size, elementwise_affine=elementwise_affine, eps=eps)
+        super().__init__(config, size=size, elementwise_affine=elementwise_affine)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         with torch.autocast(enabled=False, device_type=x.device.type):
@@ -530,20 +528,25 @@ class OLMoBlock(nn.Module):
             self.k_norm.reset_parameters()
         if self.q_norm is not None:
             self.q_norm.reset_parameters()
-        init_weights(
-            self.config,
-            self.attn_out,
-            d=self.config.d_model,
-            layer_id=self.layer_id,
-            type_of_module=ModuleType.out_module,
-        )
-        init_weights(
-            self.config,
-            self.ff_out,
-            d=self.ff_out.in_features,
-            layer_id=self.layer_id,
-            type_of_module=ModuleType.out_module,
-        )
+
+        if self.config.init_fn == InitFnType.normal:
+            attn_out_std = ff_out_std = self.config.init_std
+            cutoff_factor = self.config.init_cutoff_factor
+
+        elif self.config.init_fn == InitFnType.mitchell:
+            attn_out_std = 1 / (math.sqrt(2 * self.config.d_model * (self.layer_id + 1)))
+            ff_out_std = 1 / (math.sqrt(2 * self.ff_out.in_features * (self.layer_id + 1)))
+            cutoff_factor = self.config.init_cutoff_factor or 3.0
+
+        elif self.config.init_fn == InitFnType.full_megatron:
+            attn_out_std = ff_out_std = self.config.init_std / math.sqrt(2.0 * self.config.n_layers)
+            cutoff_factor = self.config.init_cutoff_factor or 3.0
+
+        else:
+            raise NotImplementedError(self.config.init_fn)
+
+        init_normal(self.attn_out, std=attn_out_std, init_cutoff_factor=cutoff_factor)
+        init_normal(self.ff_out, std=ff_out_std, init_cutoff_factor=cutoff_factor)
 
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         if strategy == ActivationCheckpointingStrategy.fine_grained:
@@ -719,12 +722,21 @@ class OLMoSequentialBlock(OLMoBlock):
         self.attn_norm.reset_parameters()
         self.ff_norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
-        init_weights(
-            self.config, self.att_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
-        )
-        init_weights(
-            self.config, self.ff_proj, d=self.config.d_model, layer_id=None, type_of_module=ModuleType.in_module
-        )
+
+        if self.config.init_fn == InitFnType.normal:
+            std = self.config.init_std
+            cutoff_factor = self.config.init_cutoff_factor
+        elif self.config.init_fn == InitFnType.mitchell:
+            std = 1 / math.sqrt(self.config.d_model)
+            cutoff_factor = self.config.init_cutoff_factor or 3.0
+        elif self.config.init_fn == InitFnType.full_megatron:
+            std = self.config.init_std
+            cutoff_factor = self.config.init_cutoff_factor or 3.0
+        else:
+            raise NotImplementedError(self.config.init_fn)
+
+        init_normal(self.att_proj, std, cutoff_factor)
+        init_normal(self.ff_proj, std, cutoff_factor)
 
     def forward(
         self,
@@ -825,10 +837,23 @@ class OLMoLlamaBlock(OLMoBlock):
         self.attn_norm.reset_parameters()
         self.ff_norm.reset_parameters()
         # NOTE: the standard deviation for these weights does not depend on the layer.
-        init_weights(self.config, self.q_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.k_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.v_proj, d=self.config.d_model, layer_id=None)
-        init_weights(self.config, self.ff_proj, d=self.config.d_model, layer_id=None)
+
+        if self.config.init_fn == InitFnType.normal:
+            std = self.config.init_std
+            cutoff_factor = self.config.init_cutoff_factor
+        elif self.config.init_fn == InitFnType.mitchell:
+            std = 1 / math.sqrt(self.config.d_model)
+            cutoff_factor = self.config.init_cutoff_factor or 3.0
+        elif self.config.init_fn == InitFnType.full_megatron:
+            std = self.config.init_std
+            cutoff_factor = self.config.init_cutoff_factor or 3.0
+        else:
+            raise NotImplementedError(self.config.init_fn)
+
+        init_normal(self.q_proj, std, cutoff_factor)
+        init_normal(self.k_proj, std, cutoff_factor)
+        init_normal(self.v_proj, std, cutoff_factor)
+        init_normal(self.ff_proj, std, cutoff_factor)
 
     def _scaled_dot_product_attention(
         self,
@@ -1204,6 +1229,7 @@ class OLMo(nn.Module):
         if init_params and self.config.init_device != "meta":
             self.reset_parameters()
         self.__num_fwd_flops: Optional[int] = None
+        self.__num_bck_flops: Optional[int] = None
 
         # Warm up cache.
         if self.config.alibi:
@@ -1230,21 +1256,57 @@ class OLMo(nn.Module):
     def reset_parameters(self):
         log.info("Initializing model parameters...")
         # Top-level embeddings / linear layers.
-        init_weights(
-            self.config,
-            self.transformer.wte,  # type: ignore
-            std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,
-            type_of_module=ModuleType.emb,
-        )
+
+        if self.config.init_fn == InitFnType.normal:
+            # Note: We may potentially want to multiply the std by a factor of sqrt(d) in case of `scale_logits`
+            # and `weight_tying`. However, we are currently not using either, and may need to rethink the init logic
+            # if/when we do want it.
+            wte_std = self.config.init_std
+            wte_cutoff_factor = self.config.init_cutoff_factor
+        elif self.config.init_fn == InitFnType.mitchell:
+            wte_std = 1.0 / math.sqrt(self.config.d_model)
+            wte_cutoff_factor = self.config.init_cutoff_factor or 3.0
+        elif self.config.init_fn == InitFnType.full_megatron:
+            wte_std = self.config.init_std
+            wte_cutoff_factor = self.config.init_cutoff_factor or 3.0
+        else:
+            raise NotImplementedError(self.config.init_fn)
+
+        init_normal(self.transformer.wte, std=wte_std, init_cutoff_factor=wte_cutoff_factor)
+
         if hasattr(self.transformer, "wpe"):
-            init_weights(self.config, self.transformer.wpe, type_of_module=ModuleType.emb)  # type: ignore
+            if self.config.init_fn == InitFnType.normal:
+                wpe_std = self.config.init_std
+                wpe_cutoff_factor = self.config.init_cutoff_factor
+            elif self.config.init_fn == InitFnType.mitchell:
+                wpe_std = 1 / math.sqrt(self.config.d_model)
+                wpe_cutoff_factor = self.config.init_cutoff_factor or 3.0
+            elif self.config.init_fn == InitFnType.full_megatron:
+                wpe_std = self.config.init_std
+                wpe_cutoff_factor = self.config.init_cutoff_factor or 3.0
+            else:
+                raise NotImplementedError(self.config.init_fn)
+
+            init_normal(self.transformer.wpe, std=wpe_std, init_cutoff_factor=wpe_cutoff_factor)
 
         # Top-level layer norm.
         self.transformer.ln_f.reset_parameters()  # type: ignore
 
         # Output weights.
         if hasattr(self.transformer, "ff_out"):
-            init_weights(self.config, self.transformer.ff_out, type_of_module=ModuleType.final_out)  # type: ignore
+            if self.config.init_fn == InitFnType.normal:
+                ff_out_std = self.config.init_std
+                ff_out_cutoff_factor = self.config.init_cutoff_factor
+            elif self.config.init_fn == InitFnType.mitchell:
+                ff_out_std = 1 / math.sqrt(self.config.d_model)
+                ff_out_cutoff_factor = self.config.init_cutoff_factor or 3.0
+            elif self.config.init_fn == InitFnType.full_megatron:
+                ff_out_std = 1 / math.sqrt(self.config.d_model)
+                ff_out_cutoff_factor = self.config.init_cutoff_factor or 3.0
+            else:
+                raise NotImplementedError(self.config.init_fn)
+
+            init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor)
 
         # Let the blocks handle themselves.
         if self.config.block_group_size == 1:
@@ -1555,18 +1617,30 @@ class OLMo(nn.Module):
     def num_fwd_flops(self):
         if self.__num_fwd_flops:
             return self.__num_fwd_flops
-        n_params = self.num_params()
+
+        # embedding table is just a lookup in the forward pass
+        n_params = self.num_params(include_embedding=False)
         # the number of parameters is approximately the number of multiply-accumulates (MAC) in the network
         # each MAC has 2 FLOPs - we multiply by 2 ie 2 * n_param
         # this gets us FLOPs / token
         params_flops_per_token = 2 * n_params
-        params_flops_per_seq = params_flops_per_token * self.config.max_sequence_length
         # there are 2 FLOPS per mac; there is A=Q*K^T and out=A*V ops (ie mult by 2)
-        attn_flops_per_seq = (
-            self.config.n_layers * 2 * 2 * (self.config.d_model * (self.config.max_sequence_length**2))
+        attn_flops_per_token = (
+            self.config.n_layers * 2 * 2 * (self.config.d_model * self.config.max_sequence_length)
         )
-        self.__num_fwd_flops = params_flops_per_seq + attn_flops_per_seq
+        self.__num_fwd_flops = params_flops_per_token + attn_flops_per_token
         return self.__num_fwd_flops
+
+    @property
+    def num_bck_flops(self):
+        if self.__num_bck_flops:
+            return self.__num_bck_flops
+
+        n_params = self.num_params()
+        params_flops_per_token = 4 * n_params
+        attn_flops_per_token = self.config.n_layers * 8 * (self.config.d_model * self.config.max_sequence_length)
+        self.__num_bck_flops = params_flops_per_token + attn_flops_per_token
+        return self.__num_bck_flops
 
     def generate(
         self,

@@ -7,12 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+- Changed default distributed training strategy from single-GPU to FSDP
+- Fixed behavior of `effective_memmap_dtype` to prevent unrecognized dtypes to be parsed as `uint16`. 
+
+## [v0.4.0](https://github.com/allenai/OLMo/releases/tag/v0.4.0) - 2024-07-11
+
+### Added
+
+- Added clipping fix to `Optimizer` class to make it work with FSDP `no_shard` and DDP.
+- Added tests to compare grad norm differences between torch optimizer and clipping and OLMo optimizer and clipping on both CPU and GPU.
+- Expose memmap dtype in data config
+- Added support for DDP training.
+- Added caching to disk of HF datasets used in downstream evals
+- Added FLOPs logging
+- Added configs for OLMo tiny set of models
+- Added configuration field `optimizer.record_update_metrics`, which defaults to `False`, but when set to `True` will trigger AdamW to collect the step size norm and absolute max for each parameter.
+- Added configuration field `optimizer.selective_updates`, which defaults to `False`, but when set to `True` will tell the optimizer to skip updating the parameter and state when the corresponding gradient is 0.
+- Added configuration field `optimizer.record_update_metrics`, which defaults to `False`, but when set to True will trigger AdamW to collect the step size norm and absolute max for each parameter.
+- Added `olmo_data`, a package holding data files like tokenizers.
+- Added ability to load tokenizers from `olmo_data` package data.
+
+### Changed
+
+- Added original legacy unsharding implementation back, as the default. The new
+shared memory implementation can be used by passing `use_legacy_shared_mem_impl` to `unshard.py`.
+- Refactor weight initialization. IMPORTANT: this does not maintain backwards-compatibility with older configs; the jobs will still run, but may produce different outputs.
+- Changed the behavior of the Lion optimizer to only record the update cosine similarity when `optimizer.record_update_metrics` is `True` in order to be consistent with the API.
+- Added HF datasets into `olmo_data`, and changed downstream eval to load from the package.
+
+### Fixed
+
+- Changed from `ignored_index` to `ignore_index` for `cross_entropy_loss` when `flash-attn>=2.5.8`.
+- Make `hf_olmo` support `AutoModelForCasualLM` and similar HF methods again.
+
+## [v0.3.0](https://github.com/allenai/OLMo/releases/tag/v0.3.0) - 2024-04-25
+
 ### Added
 
 - Added support for Grouped Query Attention.
 - Added commonsense_qa and social_iqa downstream evaluation tasks
+- Added ce_loss metric, with TriviaQA and NaturalQuestions tasks
 - Makes it possible to read from http/https the same way we read from s3/r2.
 - Added MMLU multiple choice (A/B/C/D) 5-shot variant downstream tasks
+- Tokenizer patch
+- Added option to specify number of model replicas when using hybrid sharding.
 
 ### Changed
 
@@ -33,7 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed `tie_weights` method to a no-op as weight tying is handled in olmo/model.py
 - Fixed the size calculation for qk layer norm
 - Fixed pipeline test failure that occurs due to a bug in transformers version 4.39.1
-
+- Make `hf_olmo` compatible with transformers versions >=4.40.0
 
 ## [v0.2.5](https://github.com/allenai/OLMo/releases/tag/v0.2.5) - 2024-03-06
 
