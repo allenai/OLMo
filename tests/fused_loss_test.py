@@ -6,6 +6,7 @@ from olmo.train import cross_entropy_loss, fused_loss_fn
 
 
 @pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device")
+@pytest.mark.gpu
 @pytest.mark.parametrize("batch_size", (16, 64))
 @pytest.mark.parametrize("seq_len", (57, 300))
 @pytest.mark.parametrize("vocab_size", (100, 200))
