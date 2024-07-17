@@ -26,6 +26,11 @@ class ExtrapolateNConfig:
     Whether this model is used for fitting the curve ('train') or evaluating the fit ('eval').
     """
 
+    n: int
+    """
+    The model size (non-embedding parameter count).
+    """
+
     label: str
     """
     A short label for this curve.
@@ -37,13 +42,21 @@ class ExtrapolateNConfig:
     """
 
 
-def get_data_at_d(config_by_n: Dict[int, ExtrapolateNConfig], d: int):
+def get_config_by_n(configs: Dict[str, ExtrapolateNConfig], n: int):
+    for config in configs.values():
+        if config.n == n:
+            return config
+    raise ValueError(f"Could not find config for n={n}")
+
+
+def get_data_at_d(configs: Dict[str, ExtrapolateNConfig], d: int):
     """
     d: If its value is string "last", then loss from the last ckpt is used.
        If its value is an integer, then loss from the first ckpt with at least d tokens is used.
     """
     train_ns, train_ys, eval_ns, eval_ys = [], [], [], []
-    for n, config in config_by_n.items():
+    for name, config in configs.items():
+        n = config.n
         with open(config.path) as file_ref:
             reader = csv.DictReader(file_ref)
             y = None
@@ -75,10 +88,11 @@ def plot_n_scaling_at_d(train_ns, train_ys, eval_ns, fitting_func, p0=[20, -0.1,
     )
 
 
-def get_data_forall_d(config_by_n: Dict[int, ExtrapolateNConfig]):
+def get_data_forall_d(configs: Dict[str, ExtrapolateNConfig]):
     data_by_d = defaultdict(lambda: {'train_ns': [], 'train_ys': [], 'eval_ns': [], 'eval_ys': []})
     data_by_n = defaultdict(lambda: {'ds': [], 'ys': []})
-    for n, config in config_by_n.items():
+    for name, config in configs.items():
+        n = config.n
         with open(config.path) as file_ref:
             reader = csv.DictReader(file_ref)
             for row in reader:
@@ -95,9 +109,9 @@ def get_data_forall_d(config_by_n: Dict[int, ExtrapolateNConfig]):
     return data_by_d, data_by_n
 
 
-def plot_n_scaling_forall_d(data_by_d, data_by_n, config_by_n, fitting_func, p0=[20, -0.1, 0.0], **plot_kwargs):
+def plot_n_scaling_forall_d(data_by_d, data_by_n, configs, fitting_func, p0=[20, -0.1, 0.0], **plot_kwargs):
     for n, data in data_by_n.items():
-        config = config_by_n[n]
+        config = get_config_by_n(configs, n)
         plt.plot(data['ds'], data['ys'], color=config.color, linestyle='-', label=config.label, **plot_kwargs)
 
     predicted_data_by_n = defaultdict(lambda: {'ds': [], 'ys': []})
@@ -111,5 +125,5 @@ def plot_n_scaling_forall_d(data_by_d, data_by_n, config_by_n, fitting_func, p0=
             predicted_data_by_n[n]['ys'].append(fitting_func(n, *coefficients))
 
     for n, data in predicted_data_by_n.items():
-        config = config_by_n[n]
+        config = get_config_by_n(configs, n)
         plt.plot(data['ds'], data['ys'], color=config.color, linestyle='--', label=f'{config.label} (predicted)', **plot_kwargs)

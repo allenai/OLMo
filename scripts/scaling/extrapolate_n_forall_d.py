@@ -14,40 +14,44 @@ from olmo.scaling.scaling_laws.utils import validation, chinchilla_fit
 
 VAL_KEYS = [f'eval/{val}/CrossEntropyLoss' for val in validation]
 
-# Mapping from N (model size; non-embedding parameter count) to config
-CONFIG_BY_N = {
-    21266432: {
+CONFIGS = {
+    '20m': {
         'path': 'wandb/tiny-olmo-20M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
         'keys': VAL_KEYS,
         'mode': 'train',
+        'n': 21266432,
         'label': '20m',
         'color': 'red',
     },
-    59310080: {
+    '60m': {
         'path': 'wandb/tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
         'keys': VAL_KEYS,
         'mode': 'train',
+        'n': 59310080,
         'label': '60m',
         'color': 'orange',
     },
-    151879680: {
+    '150m': {
         'path': 'wandb/tiny-olmo-150M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
         'keys': VAL_KEYS,
         'mode': 'train',
+        'n': 151879680,
         'label': '150m',
         'color': 'yellow',
     },
-    # 319980544: {
+    # '300m': {
     #     'path': '../hc-law/wandb/ananya-300m-lr6e-4_val-all.csv',
     #     'keys': VAL_KEYS,
     #     'mode': 'eval',
+    #     'n': 319980544,
     #     'label': '300m',
     #     'color': 'blue',
     # },
-    758564352: {
+    '700m': {
         'path': 'wandb/tiny-olmo-700M-rms-norm-adam-eps-1e-8-emb-wd_val-all.csv',
         'keys': VAL_KEYS,
         'mode': 'eval',
+        'n': 758564352,
         'label': '700m',
         'color': 'green',
     },
@@ -86,10 +90,10 @@ def parse_args():
 
 def main():
     args = parse_args()
-    config_by_n = {n: ExtrapolateNConfig(**config) for n, config in CONFIG_BY_N.items()}
+    configs = {name: ExtrapolateNConfig(**config) for name, config in CONFIGS.items()}
 
     os.makedirs(args.output_path, exist_ok=True)
-    fit_curves(config_by_n, args.output_path)
+    fit_curves(configs, args.output_path)
 
 
 if __name__ == "__main__":
