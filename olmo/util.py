@@ -609,7 +609,7 @@ def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Op
     assert not response["IsTruncated"]  # need to handle this if it happens
     latest_step = 0
     latest_checkpoint: Optional[str] = None
-    for item in response["CommonPrefixes"]:
+    for item in response.get("CommonPrefixes", []):
         prefix = item["Prefix"].strip("/")
         checkpoint_name = os.path.split(prefix)[-1]
         if not checkpoint_name.startswith("step"):
