@@ -4,8 +4,6 @@ import os
 import re
 from typing import Set
 
-from numpy import uint32
-
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.distributed.fsdp import ShardingStrategy
@@ -286,7 +284,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             num_workers=32,
             drop_last=True,
             pin_memory=True,
-            memmap_dtype=uint32,
+            memmap_dtype="uint32",
             prefetch_factor=8,
             persistent_workers=True,
             instance_filter=InstanceFilterConfig(),  # defaults are fine
