@@ -65,10 +65,22 @@ class SpeedMonitor:
     cfg: SpeedMonitorConfig
     start_times: Deque[float] = field(default_factory=lambda: deque([]))
     global_total_tokens: int = 0
+    total_training_Gflops: float = 0
     device_interval_tokens: Deque[int] = field(default_factory=lambda: deque([]))
 
-    def batch_start(self, global_total_tokens: int, device_batch_num_tokens: int, record: bool = True) -> None:
+    def batch_start(
+        self,
+        global_total_tokens: int,
+        device_batch_num_tokens: int,
+        num_fwd_flops: int,
+        num_bck_flops: int,
+        record: bool = True,
+    ) -> None:
         self.global_total_tokens = global_total_tokens
+        # num_fwd_flops and num_bck_flops from the OLMo model computes flops per token
+        # converting to GFLOPs here prevents numerical issues while logging
+        self.total_training_Gflops = (num_fwd_flops + num_bck_flops) * global_total_tokens / 1e9
+
         if record:
             if len(self.start_times) >= self.cfg.window_size:
                 self.start_times.popleft()
@@ -82,6 +94,11 @@ class SpeedMonitor:
 
     def check(self) -> Dict[str, float]:
         metrics: Dict[str, float] = {"throughput/total_tokens": self.global_total_tokens}
+
+        # plot flops related metrics
+        metrics["throughput/total_training_Gflops"] = self.total_training_Gflops
+        metrics["throughput/total_training_log_Gflops"] = math.log(self.total_training_Gflops)
+
         if self.start_times:
             interval_seconds = time.monotonic() - self.start_times[0]
             interval_batches = len(self.start_times)
@@ -101,7 +118,12 @@ class LRMonitor:
 
 
 def cross_entropy_loss(
-    logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False
+    logits,
+    labels,
+    ignore_index: int = -100,
+    reduction: str = "mean",
+    compute_z_loss: bool = False,
+    z_loss_multiplier: float = 1e-4,
 ):
     loss = F.cross_entropy(logits, labels, ignore_index=ignore_index, reduction=reduction)
 
@@ -114,9 +136,69 @@ def cross_entropy_loss(
     elif reduction == "sum":
         z_squared = (z_squared * (labels != ignore_index)).sum()
 
-    z_loss = 1e-4 * z_squared
+    z_loss = z_loss_multiplier * z_squared
 
     return loss, z_loss
+
+
+fused_loss_fn: Optional[Callable]
+
+try:
+    import flash_attn
+    from flash_attn.ops.triton.cross_entropy import (
+        cross_entropy_loss as flash_cross_entropy_loss,  # type: ignore
+    )
+
+    def fused_loss_fn(
+        logits,
+        labels,
+        ignore_index: int = -100,
+        reduction: str = "mean",
+        compute_z_loss: bool = False,
+        z_loss_multiplier: float = 1e-4,
+    ):
+        # The `ignored_index` parameter of `cross_entropy_loss` was changed to `ignore_index` in v2.5.8 with commit https://github.com/Dao-AILab/flash-attention/commit/ec6d22143b5d375e253b2ebfc563b26a43f43684
+        ce_loss_use_ignore_index_param = version.parse(flash_attn.__version__) >= version.parse("2.5.8")
+
+        if ce_loss_use_ignore_index_param:
+            ignore_index_kwarg = {"ignore_index": ignore_index}
+        else:
+            ignore_index_kwarg = {"ignored_index": ignore_index}
+
+        loss, z_loss = flash_cross_entropy_loss(
+            logits,
+            labels,
+            label_smoothing=0.0,
+            logit_scale=1.0,
+            lse_square_scale=z_loss_multiplier,
+            inplace_backward=False,
+            process_group=None,
+            **ignore_index_kwarg,
+        )
+
+        mask = labels != ignore_index
+
+        if reduction == "mean":
+            loss = loss.sum() / mask.sum()
+        elif reduction == "sum":
+            loss = loss.sum()
+        else:
+            loss = loss
+
+        if not compute_z_loss:
+            return loss, None
+
+        if reduction == "mean":
+            z_loss = z_loss.sum() / mask.sum()
+        elif reduction == "sum":
+            z_loss = z_loss.sum()
+        else:
+            z_loss = z_loss
+
+        return loss, z_loss
+
+except ImportError:
+    fused_loss_fn = None
 
 
 @dataclass
@@ -150,55 +232,10 @@ class Trainer:
 
     def __post_init__(self):
         if self.cfg.fused_loss:
-            import flash_attn
-            from flash_attn.ops.triton.cross_entropy import (  # type: ignore
-                cross_entropy_loss,
-            )
-
-            # The `ignored_index` parameter of `cross_entropy_loss` was changed to `ignore_index` in v2.5.8 with commit https://github.com/Dao-AILab/flash-attention/commit/ec6d22143b5d375e253b2ebfc563b26a43f43684
-            ce_loss_use_ignore_index_param = version.parse(flash_attn.__version__) >= version.parse("2.5.8")
-
-            def fused_loss_fn(
-                logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False
-            ):
-                if ce_loss_use_ignore_index_param:
-                    ignore_index_kwarg = {"ignore_index": ignore_index}
-                else:
-                    ignore_index_kwarg = {"ignored_index": ignore_index}
-
-                loss, z_loss = cross_entropy_loss(
-                    logits,
-                    labels,
-                    label_smoothing=0.0,
-                    logit_scale=1.0,
-                    lse_square_scale=0.0,
-                    inplace_backward=False,
-                    process_group=None,
-                    **ignore_index_kwarg,
-                )
-
-                mask = labels != ignore_index
-
-                if reduction == "mean":
-                    loss = loss.sum() / mask.sum()
-                elif reduction == "sum":
-                    loss = loss.sum()
-                else:
-                    loss = loss
-
-                if not compute_z_loss:
-                    return loss, None
-
-                if reduction == "mean":
-                    z_loss = z_loss.sum() / mask.sum()
-                elif reduction == "sum":
-                    z_loss = z_loss.sum()
-                else:
-                    z_loss = z_loss
-
-                return loss, z_loss
-
-            self.loss_fn = fused_loss_fn
+            if fused_loss_fn is not None:
+                self.loss_fn = fused_loss_fn
+            else:
+                raise NameError("`fused_loss_fn` is not defined. Please ensure that `flash_attn` is installed.")
 
     @property
     def dataset(self) -> IterableDataset:
@@ -653,8 +690,8 @@ class Trainer:
         return ce_loss, z_loss, logits
 
     def train_micro_batch(
-        self, micro_batch: Dict[str, Any], batch_size_in_tokens: int, num_micro_batches: int
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        self, micro_batch: Dict[str, Any], batch_size_in_tokens: int
+    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
         ce_loss, z_loss, logits = self.model_forward(
             micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss, loss_reduction="sum"
         )
@@ -666,7 +703,7 @@ class Trainer:
         # Get loss to optimize for.
         if self.cfg.softmax_auxiliary_loss:
             assert z_loss is not None
-            z_loss = z_loss / num_micro_batches
+            z_loss = z_loss / batch_size_in_tokens
             loss = ce_loss + z_loss
         else:
             loss = ce_loss
@@ -701,9 +738,7 @@ class Trainer:
             with grad_sync_context():
                 with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                     # Run forward pass.
-                    loss, ce_loss, z_loss = self.train_micro_batch(
-                        micro_batch, batch_size_in_tokens, num_micro_batches
-                    )
+                    loss, ce_loss, z_loss = self.train_micro_batch(micro_batch, batch_size_in_tokens)
 
                     # Update overall CE batch loss.
                     ce_batch_loss += ce_loss.detach()
@@ -1094,10 +1129,12 @@ class Trainer:
                     self.global_train_examples_seen_this_epoch += global_batch_size
                     self.global_train_tokens_seen += global_batch_size * seq_len
                     speed_monitor.batch_start(
-                        self.global_train_tokens_seen,
-                        batch_size * seq_len,  # num tokens in batch for this device
+                        global_total_tokens=self.global_train_tokens_seen,
+                        device_batch_num_tokens=batch_size * seq_len,  # num tokens in batch for this device
                         # We start monitoring speed after the first batch since the first
                         # batch might be an outlier due to compiling and other initialization overhead.
+                        num_fwd_flops=self.model.num_fwd_flops,  # this is per token
+                        num_bck_flops=self.model.num_bck_flops,  # this is per token
                         record=not first_batch,
                     )
 
@@ -1228,6 +1265,7 @@ class Trainer:
                     log.info("Training epoch complete")
                     self.epoch = epoch + 1
                     self.global_train_examples_seen_this_epoch = 0
+                    self.dataset.start_index = 0
                     if self.epoch < self.max_epochs:
                         self.dataset.reshuffle()
                     continue
@@ -1246,6 +1284,7 @@ class Trainer:
             elif (
                 self.cfg.save_num_checkpoints_to_keep != 0
                 and self.last_sharded_checkpoint_step != self.global_step
+                and self.cfg.distributed_strategy == DistributedStrategy.fsdp
             ):
                 log.info("Saving final checkpoint...")
                 checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)

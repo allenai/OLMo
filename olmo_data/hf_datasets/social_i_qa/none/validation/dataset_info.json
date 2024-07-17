@@ -1,0 +1,64 @@
+{
+  "builder_name": "social_i_qa",
+  "citation": "\n",
+  "config_name": "default",
+  "dataset_name": "social_i_qa",
+  "dataset_size": 6700024,
+  "description": "We introduce Social IQa: Social Interaction QA, a new question-answering benchmark for testing social commonsense intelligence. Contrary to many prior benchmarks that focus on physical or taxonomic knowledge, Social IQa focuses on reasoning about people\u2019s actions and their social implications. For example, given an action like \"Jesse saw a concert\" and a question like \"Why did Jesse do this?\", humans can easily infer that Jesse wanted \"to see their favorite performer\" or \"to enjoy the music\", and not \"to see what's happening inside\" or \"to see if it works\". The actions in Social IQa span a wide variety of social situations, and answer candidates contain both human-curated answers and adversarially-filtered machine-generated candidates. Social IQa contains over 37,000 QA pairs for evaluating models\u2019 abilities to reason about the social implications of everyday events and situations. (Less)\n",
+  "download_checksums": {
+    "https://storage.googleapis.com/ai2-mosaic/public/socialiqa/socialiqa-train-dev.zip": {
+      "num_bytes": 2198056,
+      "checksum": null
+    }
+  },
+  "download_size": 2198056,
+  "features": {
+    "context": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "question": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "answerA": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "answerB": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "answerC": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "label": {
+      "dtype": "string",
+      "_type": "Value"
+    }
+  },
+  "homepage": "https://leaderboard.allenai.org/socialiqa/submissions/get-started",
+  "license": "",
+  "size_in_bytes": 8898080,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 6327209,
+      "num_examples": 33410,
+      "dataset_name": "social_i_qa"
+    },
+    "validation": {
+      "name": "validation",
+      "num_bytes": 372815,
+      "num_examples": 1954,
+      "dataset_name": "social_i_qa"
+    }
+  },
+  "version": {
+    "version_str": "0.1.0",
+    "major": 0,
+    "minor": 1,
+    "patch": 0
+  }
+}
