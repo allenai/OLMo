@@ -28,9 +28,6 @@ gantry run \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
-  --env NCCL_SOCKET_IFNAME=ib \
-  --env NCCL_IB_HCA="^=mlx5_1,mlx5_2" \
-  --env NCCL_DEBUG=INFO \
   --env-secret WANDB_API_KEY=DUSTINS_WANDB_API_KEY \
   --env-secret AWS_ACCESS_KEY_ID=DUSTINS_AWS_ACCESS_KEY_ID \
   --env-secret AWS_SECRET_ACCESS_KEY=DUSTINS_AWS_SECRET_ACCESS_KEY \
