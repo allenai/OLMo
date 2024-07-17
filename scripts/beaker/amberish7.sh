@@ -25,11 +25,11 @@ pip install '.[train]'
 pip freeze
 
 # Warm HF cache
-# mkdir -p /root/.cache
-# pushd /root/.cache
-# curl "https://storage.googleapis.com/hf-cache/huggingface_cache_v4.tar.gz" | tar --keep-newer-files -xzf -
-# popd
-# export HF_DATASETS_OFFLINE=1
+mkdir -p /root/.cache
+pushd /root/.cache
+curl "https://storage.googleapis.com/hf-cache/huggingface_cache_v4.tar.gz" | tar --keep-newer-files -xzf -
+popd
+export HF_DATASETS_OFFLINE=1
 
 # Move AWS credentials from env to relevant files
 mkdir -p ~/.aws
@@ -64,19 +64,11 @@ torchrun \
     configs/amberish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_overwrite \
-      --save_interval_ephemeral=null \
-      --fsdp.sharding_strategy=HYBRID_SHARD \
-      --fsdp.hybrid_sharding_num_model_replicas=4 \
-      --evaluators=[] \
-      --wandb=null \
-      --optimizer.metrics_log_interval=20 \
-      --global_train_batch_size=1920 \
-      --no_pre_train_checkpoint=true
+      --save_interval_ephemeral=500 \
+      --optimizer.metrics_log_interval=1 \
+      --epoch=1 \
+      '--load_path=${path.last_checkpoint:${save_folder}}'
 
       # '--load_path=${save_folder}/step409000'
       # --fsdp.sharding_strategy=HYBRID_SHARD \
-      # --fsdp.hybrid_sharding_num_model_replicas=8 \
-      #
-      # '--load_path=${path.last_checkpoint:${save_folder}}'
-      # --epoch=1 \
-      # --optimizer.metrics_log_interval=1 \
+      # --fsdp.hybrid_sharding_num_model_replicas=4 \
