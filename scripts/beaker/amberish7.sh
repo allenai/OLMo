@@ -66,7 +66,7 @@ torchrun \
       --save_overwrite \
       --save_interval_ephemeral=null \
       --fsdp.sharding_strategy=HYBRID_SHARD \
-      --fsdp.hybrid_sharding_num_model_replicas=2 \
+      --fsdp.hybrid_sharding_num_model_replicas=4 \
       --evaluators=[] \
       --wandb=null \
       --optimizer.metrics_log_interval=20 \
