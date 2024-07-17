@@ -7,8 +7,8 @@ NUM_NODES=112  # 896 GPUs
 
 gantry run \
   --workspace ai2/OLMo-pretraining-stability \
-  --task-name amberish70 \
-  --description "Amberish 70B train" \
+  --task-name acceptance-test \
+  --description "70B acceptance test" \
   --priority urgent \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
