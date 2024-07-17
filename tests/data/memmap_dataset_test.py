@@ -3,6 +3,7 @@ from typing import List
 
 import numpy as np
 
+from olmo.config import InstanceFilterConfig
 from olmo.data.memmap_dataset import MemMapDataset
 from olmo.tokenizer import Tokenizer
 
@@ -106,3 +107,21 @@ def test_concat_mmap_datasets(tmp_path: Path):
     # Should get the same with negative index.
     assert ds[-1]["input_ids"].tolist() == [3, 4, 5]
     assert ds[-1]["metadata"]["label"] == "test2"
+
+
+def test_instance_filter(tmp_path: Path):
+    # Write some bad data to disk.
+    mmap = np.memmap(tmp_path / "bad_tokens.npy", dtype=np.uint16, mode="w+", shape=(128,))
+    mmap[:] = list(np.ones(31)) + list(range(64 - 31)) + list(np.ones(32)) + list(range(64 - 32))
+    mmap.flush()
+
+    instance_filter_config = InstanceFilterConfig(
+        repetition_min_period=1, repetition_max_period=13, repetition_max_count=32
+    )
+    ds = MemMapDataset(tmp_path / "bad_tokens.npy", chunk_size=64, instance_filter_config=instance_filter_config)
+
+    out = ds[0]
+    assert out["instance_mask"] is True
+
+    out = ds[1]
+    assert out["instance_mask"] is False

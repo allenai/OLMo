@@ -129,3 +129,20 @@ def test_collate_with_label_mask(train_config, pad_direction):
                 [[True, False, True, True], [False, True, True, False]],
             )
         ).all()
+
+
+@pytest.mark.parametrize(
+    "pad_direction",
+    [pytest.param(PaddingDirection.right, id="pad-right"), pytest.param(PaddingDirection.left, id="pad-left")],
+)
+def test_collate_with_instance_filter(train_config, pad_direction):
+    train_config.data.pad_direction = pad_direction
+    collator = DataCollator.from_train_config(train_config)
+
+    inputs = [torch.tensor([0, 0, 2, 3]), torch.tensor([1, 1, 1])]
+    batch = collator(inputs)
+    assert batch["input_ids"].shape == (2, 4)
+    if pad_direction == "right":
+        assert batch["input_ids"][1][-1] == train_config.model.pad_token_id
+    else:
+        assert batch["input_ids"][1][0] == train_config.model.pad_token_id
