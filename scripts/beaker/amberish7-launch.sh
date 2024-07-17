@@ -2,11 +2,11 @@
 
 set -ex
 
-NUM_NODES=64
+NUM_NODES=120
 
 gantry run \
   --workspace ai2/OLMo-pretraining-stability \
-  --task-name amberish7 \
+  --task-name amberish7-acceptance-test \
   --description "Amberish 7B train" \
   --priority urgent \
   --preemptible \

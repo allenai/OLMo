@@ -63,15 +63,20 @@ torchrun \
   scripts/train.py \
     configs/amberish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
-      --optimizer.metrics_log_interval=1 \
       --save_overwrite \
       --save_interval_ephemeral=null \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas=2 \
-      --epoch=1 \
       --evaluators=[] \
-      '--load_path=${path.last_checkpoint:${save_folder}}'
+      --wandb=null \
+      --optimizer.metrics_log_interval=20 \
+      --global_train_batch_size=1920 \
+      --no_pre_train_checkpoint=true
 
       # '--load_path=${save_folder}/step409000'
       # --fsdp.sharding_strategy=HYBRID_SHARD \
       # --fsdp.hybrid_sharding_num_model_replicas=8 \
+      #
+      # '--load_path=${path.last_checkpoint:${save_folder}}'
+      # --epoch=1 \
+      # --optimizer.metrics_log_interval=1 \
