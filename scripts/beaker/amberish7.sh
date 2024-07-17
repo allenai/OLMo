@@ -67,6 +67,8 @@ torchrun \
       --optimizer.metrics_log_interval=1 \
       --save_overwrite \
       --save_interval_ephemeral=250 \
+      --fsdp.sharding_strategy=HYBRID_SHARD \
+      --fsdp.hybrid_sharding_num_model_replicas=4 \
       --epoch=1 \
       '--load_path=${path.last_checkpoint:${save_folder}}'
 
