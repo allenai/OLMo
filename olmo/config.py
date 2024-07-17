@@ -588,15 +588,10 @@ class DataConfig(BaseConfig):
 
     @property
     def effective_memmap_dtype(self):
-        if self.memmap_dtype == "uint8":
-            return np.uint8
-        if self.memmap_dtype == "uint16":
-            return np.uint16
-        elif self.memmap_dtype == "uint32":
-            return np.uint32
-        elif self.memmap_dtype == "uint64":
-            return np.uint64
-        # default to uint16 if not set
+        try:
+            return np.dtype(self.memmap_dtype)
+        except TypeError as e:
+            raise TypeError(f"Value {self.memmap_dtype} is not a valid numpy type") from e
         return np.uint16
 
 
