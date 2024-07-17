@@ -12,7 +12,7 @@ from itertools import cycle, islice
 from pathlib import Path
 from queue import Queue
 from threading import Thread
-from typing import Any, Callable, Dict, Optional, Tuple, Union, MutableMapping
+from typing import Any, Callable, Dict, MutableMapping, Optional, Tuple, Union
 
 import boto3
 import botocore.exceptions as boto_exceptions

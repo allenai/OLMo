@@ -36,7 +36,12 @@ from olmo.config import (
     SpeedMonitorConfig,
 )
 from olmo.data import named_data_mixes
-from olmo.util import add_cached_path_clients, prepare_cli_environment, flatten_dict, find_latest_checkpoint
+from olmo.util import (
+    add_cached_path_clients,
+    find_latest_checkpoint,
+    flatten_dict,
+    prepare_cli_environment,
+)
 
 log = logging.getLogger("train")
 

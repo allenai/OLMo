@@ -3,7 +3,7 @@ import re
 
 import click
 
-from olmo.util import prepare_cli_environment, flatten_dict
+from olmo.util import flatten_dict, prepare_cli_environment
 
 log = logging.getLogger(__name__)
 run_path_re = re.compile(r"^[^/]+/[^/]+/[^/]+$")
