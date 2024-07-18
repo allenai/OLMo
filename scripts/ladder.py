@@ -128,10 +128,13 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     run_name = f"{args.name}-{args.model}-{args.length}"
     assert "/" not in run_name
 
-    permanent_data_prefix = "/weka/oe-training-default/ai2-llm"
-    if args.s3:
-        permanent_data_prefix = "s3://ai2-llm"
-    permanent_data_prefix.rstrip("/")
+    read_location = args.read_location
+    if read_location is None:
+        if args.s3:
+            read_location = "s3://ai2-llm"
+        else:
+            read_location = "/weka/oe-training-default/ai2-llm"
+    read_location.rstrip("/")
 
     remote_save_folder = f"s3://ai2-llm/checkpoints/OLMo-ladder/{run_name}"
     load_path = args.load_path
@@ -228,37 +231,37 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
                     drop_last=True,
                     datasets={
                         "c4_en-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy"
                         ],
                         "dolma_books-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_books/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_books/val/part-0-00000.npy"
                         ],
                         "dolma_common-crawl-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_common-crawl/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_common-crawl/val/part-0-00000.npy"
                         ],
                         "dolma_pes2o-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_pes2o/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_pes2o/val/part-0-00000.npy"
                         ],
                         "dolma_reddit-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_reddit/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_reddit/val/part-0-00000.npy"
                         ],
                         "dolma_stack-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_stack/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_stack/val/part-0-00000.npy"
                         ],
                         "dolma_wiki-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_wiki/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_wiki/val/part-0-00000.npy"
                         ],
                         "ice-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/ice/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/ice/val/part-0-00000.npy"
                         ],
                         "m2d2_s2orc-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/m2d2_s2orc/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/m2d2_s2orc/val/part-0-00000.npy"
                         ],
                         "pile-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy"
                         ],
                         "wikitext_103-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy"
                         ],
                     },
                 ),
@@ -298,7 +301,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             prefetch_factor=8,
             persistent_workers=True,
             instance_filter=InstanceFilterConfig(),  # defaults are fine
-            paths=[f"{permanent_data_prefix}/{path}" for path in named_data_mixes.DATA_PATHS[args.data]],
+            paths=[f"{read_location}/{path}" for path in named_data_mixes.DATA_PATHS[args.data]],
         ),
     )
 
@@ -427,6 +430,7 @@ if __name__ == "__main__":
         subparser.add_argument(
             "--wandb", action=argparse.BooleanOptionalAction, default=True, help="create a run in wandb"
         )
+        subparser.add_argument("--read_location", type=str, default=None)
         subparser.add_argument("--write_location", type=str, default=None)
         subparser.add_argument("--save_overwrite", action="store_true")
         subparser.add_argument("--load_path", type=str)
