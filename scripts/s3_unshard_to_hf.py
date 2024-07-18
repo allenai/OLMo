@@ -144,7 +144,7 @@ def s3_unshard_to_hf(args):
 def main():
     parser = make_parser()
     args = parser.parse_args()
-    args.local_dir.mkdir(exist_ok=True)
+    args.local_dir.mkdir(exist_ok=True, parents=True)
 
     s3_unshard_to_hf(args)
 
