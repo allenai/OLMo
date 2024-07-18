@@ -33,7 +33,8 @@ from .model import (
 
 from mamba_ssm import MambaLMHeadModel
 from mamba_ssm.modules.block import Block
-from mamba_ssm.modules.mamba2_simple import Mamba2Simple
+# from mamba_ssm.modules.mamba2_simple import Mamba2Simple
+from mamba_ssm.modules.mamba2 import Mamba2
 from mamba_ssm.models.config_mamba import MambaConfig
 from mamba_ssm.models.mixer_seq_simple import _init_weights, create_block
 
@@ -255,7 +256,8 @@ class MLPMambaBlock(nn.Module):
 
         # mamba block
         # fp32 is used in original mamba implementation
-        self.mamba_block = Mamba2Simple(
+        # self.mamba_block = Mamba2Simple(
+        self.mamba_block = Mamba2(
             d_model=config.d_model,
             d_state=config.d_state,
             d_conv=config.d_conv,
