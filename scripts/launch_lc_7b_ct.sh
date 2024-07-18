@@ -4,7 +4,7 @@ set -ex
 
 export NCCL_DEBUG=INFO NCCL_SOCKET_IFNAME=ib NCCL_IB_HCA="^=mlx5_bond_0"
 
-NUM_NODES=1
+NUM_NODES=4
 
 gantry run \
   --workspace ai2/OLMo-training \
