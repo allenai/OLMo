@@ -1081,6 +1081,7 @@ class OLMo(nn.Module):
                 from mup import set_base_shapes
 
                 # TODO: make sure that fsdp/ddp plays nice with this
+                # TODO: add cached_path
                 set_base_shapes(self, self.config.mup_base_shapes)
             self.reset_parameters()
         self.__num_fwd_flops: Optional[int] = None
