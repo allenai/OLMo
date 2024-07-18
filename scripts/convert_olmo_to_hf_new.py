@@ -63,7 +63,7 @@ def write_model(
     tokenizer_path=None,
     safe_serialization=True,
     fix_eos_token_id=True,
-    tmp_cleanup=True
+    tmp_cleanup=True,
 ):
     os.makedirs(model_path, exist_ok=True)
     tmp_model_path = os.path.join(model_path, "tmp")
@@ -263,7 +263,7 @@ def main():
         "--no_tmp_cleanup",
         action="store_false",
         dest="tmp_cleanup",
-        help="If passed, don't remove temp dir at end of HF conversion."
+        help="If passed, don't remove temp dir at end of HF conversion.",
     )
     parser.add_argument("--safe_serialization", type=bool, help="Whether or not to save using `safetensors`.")
     # Different OLMo versions used different default values for max_position_embeddings, hence the need to be able to specify which version is being used.
@@ -275,7 +275,7 @@ def main():
         include_tokenizer=args.include_tokenizer,
         tokenizer_path=args.tokenizer_json_path,
         fix_eos_token_id=args.fix_eos_token_id,
-        tmp_cleanup=args.tmp_cleanup
+        tmp_cleanup=args.tmp_cleanup,
     )
 
 
