@@ -317,7 +317,7 @@ class Trainer:
 
     def trainer_state_dict(self) -> Dict[str, Any]:
         return {
-            "epoch": self.epoch,
+            "epoch": self.epoch or 0,
             "global_step": self.global_step,
             "global_train_examples_seen_this_epoch": self.global_train_examples_seen_this_epoch,
             "global_train_tokens_seen": self.global_train_tokens_seen,
@@ -352,7 +352,7 @@ class Trainer:
         ]
 
         # Dataset / dataloader position.
-        checkpoint_epoch = state_dict.get("epoch", 0)
+        checkpoint_epoch = state_dict.get("epoch") or 0
         self.global_step = state_dict["global_step"]
         self.global_train_examples_seen_this_epoch = state_dict.get(
             "global_train_examples_seen_this_epoch",
@@ -377,6 +377,12 @@ class Trainer:
         elif checkpoint_epoch != self.epoch:
             log.info(f"Starting new epoch (epoch = {self.epoch})")
             self.global_train_examples_seen_this_epoch = 0
+
+        assert self.epoch is not None
+        # Reshuffle dataset if needed.
+        if self.dataset.epoch != self.epoch:
+            log.info(f"Reshuffling data loader for epoch {self.epoch}...")
+            self.dataset.reshuffle(self.epoch)
 
         if self.cfg.fast_forward_batches:
             log.info(f"Fast-forwarding data loader by {self.cfg.fast_forward_batches:,d} steps")
@@ -1268,7 +1274,8 @@ class Trainer:
                     self.global_train_examples_seen_this_epoch = 0
                     self.dataset.start_index = 0
                     if self.epoch < self.max_epochs:
-                        self.dataset.reshuffle()
+                        log.info(f"Reshuffling data loader for epoch {self.epoch}...")
+                        self.dataset.reshuffle(self.epoch)
                     continue
 
                 break
