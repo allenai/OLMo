@@ -83,26 +83,38 @@ def s3_unshard_to_hf(args):
 
     # Convert to HF
     print("Converting to HF.")
-    hf_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir {unsharded_dir}"
-    subprocess.run(hf_cmd, shell=True, check=True)
+    if args.old_style_hf:
+        # Convert to old-style checkpoint.
+        hf_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir {unsharded_dir}"
+        subprocess.run(hf_cmd, shell=True, check=True)
+        # Move the HF files from the unsharded dir to their own.
+        for fname in [
+            "config.json",
+            "pytorch_model.bin",
+            "special_tokens_map.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+        ]:
+            (unsharded_dir / fname).rename(hf_dir / fname)
+    else:
+        # Convert to new-style checkpoint.
+        hf_cmd = f"""python scripts/convert_olmo_to_hf_new.py \
+            --input_dir {unsharded_dir} \
+            --output_dir {hf_dir} \
+            --safe_serialization True \
+            --tokenizer_json_path olmo_data/tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json \
+            --safe_serialization True \
+            --no_tmp_cleanup"""
+        subprocess.run(hf_cmd, shell=True, check=True)
 
-    # Move the HF files from the unsharded dir to their own.
-    for fname in [
-        "config.json",
-        "pytorch_model.bin",
-        "special_tokens_map.json",
-        "tokenizer.json",
-        "tokenizer_config.json",
-    ]:
-        (unsharded_dir / fname).rename(hf_dir / fname)
+    # # Upload the unsharded and HF files back to S3.
+    # print("Uploading files back to S3.")
+    # if not args.already_unsharded:
+    #     upload_unsharded_cmd = aws_copy(unsharded_dir, args.unsharded_bucket, args)
+    #     subprocess.run(upload_unsharded_cmd, shell=True, check=True)
 
-    # Upload the unsharded and HF files back to S3.
-    print("Uploading unsharded and HF files back to S3.")
-    upload_unsharded_cmd = aws_copy(unsharded_dir, args.unsharded_bucket, args.quiet)
-    subprocess.run(upload_unsharded_cmd, shell=True, check=True)
-
-    upload_hf_cmd = aws_copy(hf_dir, args.hf_bucket, args.quiet)
-    subprocess.run(upload_hf_cmd, shell=True, check=True)
+    # upload_hf_cmd = aws_copy(hf_dir, args.hf_bucket, args)
+    # subprocess.run(upload_hf_cmd, shell=True, check=True)
 
 
 def main():
