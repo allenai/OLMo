@@ -142,18 +142,16 @@ class OGMamba(GenericOLMoModel):
         mamba_config.ssm_cfg["d_state"] = olmo_config.d_state
         mamba_config.ssm_cfg["d_conv"] = olmo_config.d_conv
         mamba_config.ssm_cfg["expand"] = olmo_config.expand
+        mamba_config.ssm_cfg["headdim"] = olmo_config.headdim
+        mamba_config.ssm_cfg["ngroups"] = olmo_config.ngroups
 
         # ssm ops config
-        mamba_config.ssm_cfg["dt_rank"] = olmo_config.time_step_rank
         mamba_config.ssm_cfg["dt_min"] = olmo_config.time_step_min
         mamba_config.ssm_cfg["dt_max"] = olmo_config.time_step_max
-        mamba_config.ssm_cfg["dt_init"] = olmo_config.time_step_init_scheme
-        mamba_config.ssm_cfg["dt_scale"] = olmo_config.time_step_scale
         mamba_config.ssm_cfg["dt_init_floor"] = olmo_config.time_step_floor
 
         mamba_config.ssm_cfg["conv_bias"] = olmo_config.conv_bias
         mamba_config.ssm_cfg["bias"] = olmo_config.include_bias
-        mamba_config.ssm_cfg["use_fast_path"] = olmo_config.use_fast_path
 
         mamba_config.rms_norm = True if olmo_config.layer_norm_type == LayerNormType.rms else False
         mamba_config.residual_in_fp32 = olmo_config.residual_in_fp32
@@ -229,14 +227,27 @@ class MLPMambaBlock(nn.Module):
             d_state=config.d_state,
             d_conv=config.d_conv,
             expand=config.expand,
-            dt_min=config.time_step_min,
-            dt_max=config.time_step_max,
-            dt_init_floor=config.time_step_floor,
-            conv_bias=config.conv_bias,
-            bias=config.include_bias,
+            headdim=config.headdim,
+            ngroups=config.ngroups,
+            # dt_min=config.time_step_min,
+            # dt_max=config.time_step_max,
+            # dt_init_floor=config.time_step_floor,
+            # conv_bias=config.conv_bias,
+            # bias=config.include_bias,
             layer_idx=layer_id,
             device=config.init_device,
             dtype=torch.float32,
+            #         activation="swish", # use gelu
+
+            # # new params:
+            # conv_init=None,
+            # A_init_range=(1, 16),
+            # dt_limit=(0.0, float("inf")),
+            # learnable_init_states=False,
+            # activation="swish",
+            # # Fused kernel and sharding options
+            # chunk_size=256,
+            # use_mem_eff_path=True,
         )
 
         # Gated MLP block
@@ -466,15 +477,13 @@ class ZambaBlock(nn.Module):
                         "d_state": self.config.d_state,
                         "d_conv": self.config.d_conv,
                         "expand": self.config.expand,
-                        "dt_rank": self.config.time_step_rank,
-                        "dt_min": self.config.time_step_min,
-                        "dt_max": self.config.time_step_max,
-                        "dt_init": self.config.time_step_init_scheme,
-                        "dt_scale": self.config.time_step_scale,
-                        "dt_init_floor": self.config.time_step_floor,
-                        "conv_bias": self.config.conv_bias,
-                        "bias": self.config.include_bias,
-                        "use_fast_path": self.config.use_fast_path,
+                        "headdim": self.config.headdim,
+                        "ngroups": self.config.ngroups,
+                        # "dt_min": self.config.time_step_min,
+                        # "dt_max": self.config.time_step_max,
+                        # "dt_init_floor": self.config.time_step_floor,
+                        # "conv_bias": self.config.conv_bias,
+                        # "bias": self.config.include_bias,
                     },
                     rms_norm=True if self.config.layer_norm_type == LayerNormType.rms else False,
                     residual_in_fp32=self.config.residual_in_fp32,
