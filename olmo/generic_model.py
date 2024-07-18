@@ -142,9 +142,9 @@ class OGMamba(GenericOLMoModel):
         mamba_config.ssm_cfg["d_state"] = olmo_config.d_state
         mamba_config.ssm_cfg["d_conv"] = olmo_config.d_conv
         mamba_config.ssm_cfg["expand"] = olmo_config.expand
-        mamba_config.ssm_cfg["headdim"] = olmo_config.headdim
-        mamba_config.ssm_cfg["ngroups"] = olmo_config.ngroups
-        mamba_config.ssm_cfg["init_std"] = olmo_config.init_std
+        # mamba_config.ssm_cfg["headdim"] = olmo_config.headdim
+        # mamba_config.ssm_cfg["ngroups"] = olmo_config.ngroups
+        # mamba_config.ssm_cfg["init_std"] = olmo_config.init_std
 
         # ssm ops config
         mamba_config.ssm_cfg["dt_min"] = olmo_config.time_step_min
