@@ -252,10 +252,7 @@ class Trainer:
 
     @property
     def max_epochs(self) -> int:
-        if isinstance(self.cfg.max_duration, str) and self.cfg.max_duration.endswith("ep"):
-            return int(self.cfg.max_duration[:-2].strip())
-        else:
-            return 1
+        return math.ceil(self.max_steps / self.batches_per_epoch)
 
     @property
     def max_steps(self) -> int:
@@ -266,7 +263,7 @@ class Trainer:
                 # convert to float *first* to handle scientific notation
                 max_tokens = int(float(self.cfg.max_duration[:-1].strip()))
                 tokens_remaining = max(max_tokens - self.global_train_tokens_seen, 0)
-                steps_remaining = tokens_remaining // self.tokens_per_batch
+                steps_remaining = math.ceil(tokens_remaining / self.tokens_per_batch)
                 return self.global_step + steps_remaining
             elif self.cfg.max_duration.endswith("ep"):
                 max_epochs = int(self.cfg.max_duration[:-2].strip())
@@ -1032,6 +1029,8 @@ class Trainer:
                 self.cfg.stop_at = self.global_step + self.cfg.stop_after
             else:
                 self.cfg.stop_at = min(self.cfg.stop_at, self.global_step + self.cfg.stop_after)
+        if self.cfg.stop_at is None:
+            self.cfg.stop_at = self.max_steps + 10
 
         self._start_time = time.time()
         self._gc_init_state = gc.isenabled()  # cache if garbage collection is enabled, reset on close.
@@ -1108,7 +1107,7 @@ class Trainer:
         # Train.
         first_batch: bool = True
         cancel_initiated: bool = False
-        stop_at: Optional[int] = self.cfg.stop_at
+        stop_at: int = self.cfg.stop_at
         save_checkpoints: bool = True
 
         with torch_profiler as p:
@@ -1155,9 +1154,12 @@ class Trainer:
                     # Log metrics to console.
                     if self.global_step % self.cfg.console_log_interval == 0:
                         if get_global_rank() == 0:
-                            self.log_metrics_to_console(f"[step={self.global_step}/{self.max_steps}]", metrics)
+                            self.log_metrics_to_console(
+                                f"[step={self.global_step}/{self.max_steps},epoch={epoch}/{self.max_epochs}]",
+                                metrics,
+                            )
                         else:
-                            log.info(f"[step={self.global_step}/{self.max_steps}]")
+                            log.info(f"[step={self.global_step}/{self.max_steps},epoch={epoch}/{self.max_epochs}]")
 
                     # Log metrics to W&B.
                     if (
@@ -1171,18 +1173,15 @@ class Trainer:
                     if not cancel_initiated and self.global_step % self.cfg.canceled_check_interval == 0:
                         cancel_initiated, extra_steps = self.check_if_cancelled()
                         if cancel_initiated:
-                            stop_at = (
-                                self.global_step + extra_steps
-                                if stop_at is None
-                                else min(self.global_step + extra_steps, stop_at)
-                            )
+                            stop_at = min(stop_at, self.global_step + extra_steps)
 
                     # Maybe save sharded checkpoint.
                     if self.cfg.distributed_strategy != DistributedStrategy.ddp:
                         if save_checkpoints and (
                             cancel_initiated
                             or (
-                                self.global_step % self.cfg.save_interval == 0
+                                self.cfg.save_interval is not None
+                                and self.global_step % self.cfg.save_interval == 0
                                 and self.cfg.save_num_checkpoints_to_keep != 0
                             )
                         ):
@@ -1227,7 +1226,9 @@ class Trainer:
                         speed_monitor.reset()
 
                     # Maybe run evaluations.
-                    if not cancel_initiated and self.global_step % self.cfg.eval_interval == 0:
+                    if not cancel_initiated and (
+                        self.global_step % self.cfg.eval_interval == 0 or self.global_step >= stop_at
+                    ):
                         eval_metrics = self.eval()
 
                         # Log metrics to W&B.
@@ -1245,7 +1246,7 @@ class Trainer:
                     if p is not None:
                         p.step()
 
-                    if stop_at is not None and self.global_step >= stop_at:
+                    if self.global_step >= stop_at:
                         break
 
                     # Run generation 1 garbage collection.
