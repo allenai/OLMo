@@ -12,7 +12,7 @@ gantry run \
   --description "OLMo medium - 7B - long context continued pretraining" \
   --priority normal \
   --beaker-image petew/olmo-torch23-gantry \
-  --cluster ai2/pluto-cirrascale\
+  --cluster ai2/jupiter-cirrascale-2\
   --gpus 8 \
   --preemptible \
   --replicas "${NUM_NODES}" \
@@ -20,6 +20,8 @@ gantry run \
   --host-networking \
   --budget ai2/oe-training \
   --no-nfs \
+  --weka oe-training-default:/weka/oe-training-default \
+  --env WEKA_PROFILE=WEKA \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
