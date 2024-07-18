@@ -120,6 +120,8 @@ class OGMamba(GenericOLMoModel):
         # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
         if init_params and self.config.init_device != "meta":
             self.reset_parameters()
+        self.__num_fwd_flops: Optional[int] = None
+        self.__num_bck_flops: Optional[int] = None
 
     @property
     def device(self) -> torch.device:
@@ -200,6 +202,25 @@ class OGMamba(GenericOLMoModel):
             params = filter(lambda np: "embedding" not in np[0], params)
 
         return sum(p.numel() for _, p in params)
+
+    # TODO: from olmo
+    @property
+    def num_fwd_flops(self):
+        if self.__num_fwd_flops:
+            return self.__num_fwd_flops
+
+        # embedding table is just a lookup in the forward pass
+        n_params = self.num_params(include_embedding=False)
+        # the number of parameters is approximately the number of multiply-accumulates (MAC) in the network
+        # each MAC has 2 FLOPs - we multiply by 2 ie 2 * n_param
+        # this gets us FLOPs / token
+        params_flops_per_token = 2 * n_params
+        # there are 2 FLOPS per mac; there is A=Q*K^T and out=A*V ops (ie mult by 2)
+        attn_flops_per_token = (
+            self.config.n_layers * 2 * 2 * (self.config.d_model * self.config.max_sequence_length)
+        )
+        self.__num_fwd_flops = params_flops_per_token + attn_flops_per_token
+        return self.__num_fwd_flops
 
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         self._activation_checkpoint_fn = None
