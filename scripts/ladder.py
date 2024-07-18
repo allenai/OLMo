@@ -392,6 +392,9 @@ if __name__ == "__main__":
         s3=False,
         wandb=False,
         save_overwrite=False,
+        read_location=None,
+        write_location=None,
+        temp_write_location="runs/",
         load_path=None,
         eval_on_load=False,
     )
