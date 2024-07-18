@@ -126,7 +126,7 @@ def s3_unshard_to_hf(args):
         hf_cmd = f"""python scripts/convert_olmo_to_hf_new.py \
             --input_dir {unsharded_dir} \
             --output_dir {hf_dir} \
-            --tokenizer_json_path tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json \
+            --tokenizer_json_path olmo_data/tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json \
             --safe_serialization True \
             --no_tmp_cleanup"""
         subprocess.run(hf_cmd, shell=True, check=True)
