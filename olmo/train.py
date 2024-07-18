@@ -157,6 +157,7 @@ def get_labels(batch: Dict[str, Any]) -> torch.Tensor:
         labels.masked_fill_(~instance_mask.unsqueeze(-1), value=-100)
     return labels[..., 1:].contiguous()
 
+
 fused_loss_fn: Optional[Callable]
 
 try:

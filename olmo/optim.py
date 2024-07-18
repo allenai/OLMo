@@ -5,7 +5,6 @@ from dataclasses import dataclass, replace
 from math import cos, pi, sqrt
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import mup
 import torch
 import torch.distributed as dist
 import torch.nn as nn
@@ -664,7 +663,7 @@ class MuAdamW(AdamW):
 
             # The matrix-like weights might need multiple groups since weights
             # might have different width multipliers
-            matrix_like_p = defaultdict(new_group)  # key is width_mult
+            matrix_like_p: defaultdict = defaultdict(new_group)  # key is width_mult
             vector_like_p = new_group()
             for i, p in enumerate(param_group["params"]):
                 assert hasattr(p, "infshape"), (
