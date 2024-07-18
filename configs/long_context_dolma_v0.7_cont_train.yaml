@@ -110,31 +110,31 @@ evaluators:
       drop_last: true
       datasets:
         4chan-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
+        - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/4chan/val.npy
         c4_100_domains-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/c4_100_domains/val.npy
+        - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/c4_100_domains/val.npy
         c4_en-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/c4_en/val.npy
+        - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/c4_en/val.npy
         gab-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/gab/val.npy
+        - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/gab/val.npy
         ice-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/ice/val.npy
+        - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/ice/val.npy
         m2d2_s2orc-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/m2d2_s2orc/val.npy
+        - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/m2d2_s2orc/val.npy
         m2d2_wiki-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/m2d2_wiki/val.npy
+        - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/m2d2_wiki/val.npy
         manosphere-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/manosphere/val.npy
+        - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/manosphere/val.npy
         mc4_en-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/mc4_en/val.npy
+        - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/mc4_en/val.npy
         pile-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/pile/val.npy
+        - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/pile/val.npy
         ptb-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/ptb/val.npy
+        - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/ptb/val.npy
         twitterAEE-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
+        - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/twitterAEE/val.npy
         wikitext_103-validation:
-        - s3://ai2-llm/eval-data/perplexity/v2_small_gptneox20b/wikitext_103/val.npy
+        - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v2_small_gptneox20b/wikitext_103/val.npy
 
  ##########################
   # Downstream evaluations #
@@ -225,42 +225,42 @@ data:
   timeout: 0
   paths:
     # ~> Long-context subset (50 GT)
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-01-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-02-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-03-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-04-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-06-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-05-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-07-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-08-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-09-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-10-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-11-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-12-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-13-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-14-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-15-00000.np
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-16-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-17-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-18-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-19-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-20-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-21-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-22-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-23-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-24-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-25-00000.np
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-26-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-27-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-28-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-29-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-30-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-31-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-32-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-33-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-34-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-35-00000.np
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-36-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-37-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-38-00000.npy
-    - s3://ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-39-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-10-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-11-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-12-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-13-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-14-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-15-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-16-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-17-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-18-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-19-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-20-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-21-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-22-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-23-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-24-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-25-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-26-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-27-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-28-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-29-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-30-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-31-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-32-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-33-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-34-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-35-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-36-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-37-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-38-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-39-00000.npy
