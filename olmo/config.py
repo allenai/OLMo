@@ -316,6 +316,8 @@ class ModelConfig(BaseConfig):
     no_skip: bool = False
 
     ngroups: int = 8
+
+    headdim: int = 64
     """
     If set to true, don't add additional skip connections to zamba architecture
     """
