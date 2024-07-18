@@ -28,7 +28,7 @@ torchrun \
   --rdzv_backend=static \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   scripts/train.py \
-  configs/long_context_dolma_v0.5_cont_train.yaml \
+  configs/long_context_dolma_v0.7_cont_train.yaml \
     --gen1_gc_interval=null \
     --wandb.group=long_contexts_dolma_v0.7\
     --save_overwrite \
