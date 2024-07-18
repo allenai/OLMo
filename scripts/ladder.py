@@ -207,7 +207,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         max_duration=f"{length_in_tokens}T",
         global_train_batch_size=global_batch_size,
         tokenizer=TokenizerConfig(identifier="tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json"),
-        save_folder=f"runs/{run_name}",
+        save_folder=f"{args.temp_write_location.rstrip('/')}/{run_name}",
         remote_save_folder=remote_save_folder,
         save_overwrite=args.save_overwrite,
         save_interval_unsharded=save_interval,
@@ -433,6 +433,7 @@ if __name__ == "__main__":
         )
         subparser.add_argument("--read_location", type=str, default=None)
         subparser.add_argument("--write_location", type=str, default=None)
+        subparser.add_argument("--temp_write_location", type=str, default="runs/")
         subparser.add_argument("--save_overwrite", action="store_true")
         subparser.add_argument("--load_path", type=str)
         subparser.add_argument("--eval_on_load", action="store_true")
