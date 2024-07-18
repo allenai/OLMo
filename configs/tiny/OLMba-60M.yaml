@@ -32,6 +32,7 @@ model:
   fused_add_norm: true
   residual_in_fp32: true
   init_device: cuda # matches olmo
+  init_std: 0.02
 
 ddp:
   grad_sync_mode: batch

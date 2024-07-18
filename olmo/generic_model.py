@@ -11,7 +11,7 @@ import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .initialization import init_weights, ModuleType
+from .initialization import init_normal, ModuleType
 from .exceptions import OLMoConfigurationError
 from .config import (
     ActivationCheckpointingStrategy,
@@ -144,6 +144,7 @@ class OGMamba(GenericOLMoModel):
         mamba_config.ssm_cfg["expand"] = olmo_config.expand
         mamba_config.ssm_cfg["headdim"] = olmo_config.headdim
         mamba_config.ssm_cfg["ngroups"] = olmo_config.ngroups
+        mamba_config.ssm_cfg["init_std"] = olmo_config.init_std
 
         # ssm ops config
         mamba_config.ssm_cfg["dt_min"] = olmo_config.time_step_min
@@ -283,21 +284,23 @@ class MLPMambaBlock(nn.Module):
             )
         )
 
-        init_weights(
-            self.config,
-            self.ff_proj,
-            d=self.config.d_model,
-            layer_id=None,
-            type_of_module=ModuleType.in_module,
-        )
+        # init_weights(
+        #     self.config,
+        #     self.ff_proj,
+        #     d=self.config.d_model,
+        #     layer_id=None,
+        #     type_of_module=ModuleType.in_module,
+        # )
+        init_normal(self.ff_proj, self.config.init_std)
 
-        init_weights(
-            self.config,
-            self.ff_out,
-            d=self.ff_out.in_features,
-            layer_id=self.layer_id,
-            type_of_module=ModuleType.out_module,
-        )
+        # init_weights(
+        #     self.config,
+        #     self.ff_out,
+        #     d=self.ff_out.in_features,
+        #     layer_id=self.layer_id,
+        #     type_of_module=ModuleType.out_module,
+        # )
+        init_normal(self.ff_out, self.config.init_std)
 
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         if strategy == ActivationCheckpointingStrategy.fine_grained:
@@ -399,19 +402,21 @@ class MLPMamba(GenericOLMoModel):
     def reset_parameters(self):
         log.info("Initializing model parameters...")
         # Top-level embeddings / linear layers
-        init_weights(
-            self.config,
-            self.model.embedding,  # type: ignore
-            std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,
-            type_of_module=ModuleType.emb,
-        )
+        # init_weights(
+        #     self.config,
+        #     self.model.embedding,  # type: ignore
+        #     std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,
+        #     type_of_module=ModuleType.emb,
+        # )
+        init_normal(self.model.embedding, self.config.init_std)
 
         # Top-level layer norm
         self.model.ln_f.reset_parameters()  # type: ignore
 
         # Output weights
         if hasattr(self.model, "ff_out"):
-            init_weights(self.config, self.model.ff_out, type_of_module=ModuleType.final_out)  # type: ignore
+            # init_weights(self.config, self.model.ff_out, type_of_module=ModuleType.final_out)  # type: ignore
+            init_normal(self.model.ff_out, self.config.init_std)
 
         # MLPMamba blocks init
         for block in self.model.blocks:
@@ -643,19 +648,21 @@ class Zamba(GenericOLMoModel):
     def reset_parameters(self):
         log.info("Initializing model parameters...")
         # Top-level embeddings / linear layers
-        init_weights(
-            self.config,
-            self.model.embedding,  # type: ignore
-            std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,
-            type_of_module=ModuleType.emb,
-        )
+        # init_weights(
+        #     self.config,
+        #     self.model.embedding,  # type: ignore
+        #     std_factor=(0.5 * math.sqrt(self.config.d_model)) if self.config.scale_logits else 1.0,
+        #     type_of_module=ModuleType.emb,
+        # )
+        init_normal(self.model.embedding, self.config.init_std)
 
         # Top-level layer norm
         self.model.ln_f.reset_parameters()  # type: ignore
 
         # Output weights
         if hasattr(self.model, "ff_out"):
-            init_weights(self.config, self.model.ff_out, type_of_module=ModuleType.final_out)  # type: ignore
+            # init_weights(self.config, self.model.ff_out, type_of_module=ModuleType.final_out)  # type: ignore
+            init_normal(self.model.ff_out, self.config.init_std)
 
         # Shared attention block
         self.model.shared_attn.reset_parameters()  # type: ignore
@@ -666,13 +673,14 @@ class Zamba(GenericOLMoModel):
 
         # Transition layers
         for layer in self.model.transition_layers:
-            init_weights(
-                self.config,
-                layer,
-                d=self.config.d_model,
-                layer_id=None,
-                type_of_module=ModuleType.in_module,
-            )  # type: ignore
+            # init_weights(
+            #     self.config,
+            #     layer,
+            #     d=self.config.d_model,
+            #     layer_id=None,
+            #     type_of_module=ModuleType.in_module,
+            # )  # type: ignore
+            init_normal(layer, self.config.init_std)
 
     @property
     def device(self) -> torch.device:
