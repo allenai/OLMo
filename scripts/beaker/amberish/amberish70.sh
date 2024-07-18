@@ -25,11 +25,11 @@ pip install '.[train]'
 pip freeze
 
 # Warm HF cache
-# mkdir -p /root/.cache
-# pushd /root/.cache
-# curl "https://storage.googleapis.com/hf-cache/huggingface_cache_v4.tar.gz" | tar --keep-newer-files -xzf -
-# popd
-# export HF_DATASETS_OFFLINE=1
+mkdir -p /root/.cache
+pushd /root/.cache
+curl "https://storage.googleapis.com/hf-cache/huggingface_cache_v4.tar.gz" | tar --keep-newer-files -xzf -
+popd
+export HF_DATASETS_OFFLINE=1
 
 # Move AWS credentials from env to relevant files
 mkdir -p ~/.aws
@@ -69,9 +69,4 @@ torchrun \
       --fsdp.hybrid_sharding_num_model_replicas=8 \
       --device_train_microbatch_size="${mbz}" \
       --global_train_batch_size=$((NUM_NODES * 8 * mbz)) \
-      --no_pre_train_checkpoint=true \
-      --model.layer_norm_type=default \
-      --model.layer_norm_with_affine=false \
-      --wandb=null \
-      --evaluators=[] \
       --save_overwrite
