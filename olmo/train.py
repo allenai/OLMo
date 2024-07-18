@@ -198,11 +198,11 @@ def get_fused_loss_fn() -> Optional[Callable]:
 
         return fused_loss_fn_tridao
     except ImportError:
-        pass
+        log.info("Failed to get fused loss from Tridao")
 
     try:
         import flash_attn
-        from flash_attn.losses import (
+        from flash_attn.losses.cross_entropy import (
             CrossEntropyLoss,  # type: ignore
         )
 
@@ -246,7 +246,7 @@ def get_fused_loss_fn() -> Optional[Callable]:
 
         return fused_loss_fn_rocm
     except ImportError:
-        pass
+        log.info("Failed to get fused loss from ROCm")
 
     return None
 
