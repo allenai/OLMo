@@ -12,7 +12,15 @@ BEAKER_REPLICA_RANK=$1
 shift
 
 # Temporary, since it is not part of the image yet.
+
+## Install mup
 pip install mup@git+https://github.com/microsoft/mup#egg=19814971934ef91dd546f88e913fc963e096d11c
+
+## Install flash attn
+pip install packaging ninja
+export FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE
+pip install flash-attn==2.5.9.post1 --no-build-isolation
+pip install '.[train]'
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
