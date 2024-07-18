@@ -15,7 +15,7 @@ model:
   d_state: 128
   d_conv: 4
   expand: 2
-  ngroups: 8
+  ngroups: 1 # make bigger for bigger models
   headdim: 64
   layer_norm_type: rms
   weight_tying: false
