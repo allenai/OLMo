@@ -141,64 +141,117 @@ def cross_entropy_loss(
     return loss, z_loss
 
 
-fused_loss_fn: Optional[Callable]
-
-try:
-    import flash_attn
-    from flash_attn.ops.triton.cross_entropy import (
-        cross_entropy_loss as flash_cross_entropy_loss,  # type: ignore
-    )
-
-    def fused_loss_fn(
-        logits,
-        labels,
-        ignore_index: int = -100,
-        reduction: str = "mean",
-        compute_z_loss: bool = False,
-        z_loss_multiplier: float = 1e-4,
-    ):
-        # The `ignored_index` parameter of `cross_entropy_loss` was changed to `ignore_index` in v2.5.8 with commit https://github.com/Dao-AILab/flash-attention/commit/ec6d22143b5d375e253b2ebfc563b26a43f43684
-        ce_loss_use_ignore_index_param = version.parse(flash_attn.__version__) >= version.parse("2.5.8")
-
-        if ce_loss_use_ignore_index_param:
-            ignore_index_kwarg = {"ignore_index": ignore_index}
-        else:
-            ignore_index_kwarg = {"ignored_index": ignore_index}
-
-        loss, z_loss = flash_cross_entropy_loss(
-            logits,
-            labels,
-            label_smoothing=0.0,
-            logit_scale=1.0,
-            lse_square_scale=z_loss_multiplier,
-            inplace_backward=False,
-            process_group=None,
-            **ignore_index_kwarg,
+def get_fused_loss_fn() -> Optional[Callable]:
+    try:
+        import flash_attn
+        from flash_attn.ops.triton.cross_entropy import (
+            cross_entropy_loss as flash_cross_entropy_loss,  # type: ignore
         )
 
-        mask = labels != ignore_index
+        def fused_loss_fn_tridao(
+            logits,
+            labels,
+            ignore_index: int = -100,
+            reduction: str = "mean",
+            compute_z_loss: bool = False,
+            z_loss_multiplier: float = 1e-4,
+        ):
+            # The `ignored_index` parameter of `cross_entropy_loss` was changed to `ignore_index` in v2.5.8 with commit https://github.com/Dao-AILab/flash-attention/commit/ec6d22143b5d375e253b2ebfc563b26a43f43684
+            ce_loss_use_ignore_index_param = version.parse(flash_attn.__version__) >= version.parse("2.5.8")
 
-        if reduction == "mean":
-            loss = loss.sum() / mask.sum()
-        elif reduction == "sum":
-            loss = loss.sum()
-        else:
-            loss = loss
+            if ce_loss_use_ignore_index_param:
+                ignore_index_kwarg = {"ignore_index": ignore_index}
+            else:
+                ignore_index_kwarg = {"ignored_index": ignore_index}
 
-        if not compute_z_loss:
-            return loss, None
+            loss, z_loss = flash_cross_entropy_loss(
+                logits,
+                labels,
+                label_smoothing=0.0,
+                logit_scale=1.0,
+                lse_square_scale=z_loss_multiplier,
+                inplace_backward=False,
+                process_group=None,
+                **ignore_index_kwarg,
+            )
 
-        if reduction == "mean":
-            z_loss = z_loss.sum() / mask.sum()
-        elif reduction == "sum":
-            z_loss = z_loss.sum()
-        else:
-            z_loss = z_loss
+            mask = labels != ignore_index
 
-        return loss, z_loss
+            if reduction == "mean":
+                loss = loss.sum() / mask.sum()
+            elif reduction == "sum":
+                loss = loss.sum()
+            else:
+                loss = loss
 
-except ImportError:
-    fused_loss_fn = None
+            if not compute_z_loss:
+                return loss, None
+
+            if reduction == "mean":
+                z_loss = z_loss.sum() / mask.sum()
+            elif reduction == "sum":
+                z_loss = z_loss.sum()
+            else:
+                z_loss = z_loss
+
+            return loss, z_loss
+
+        return fused_loss_fn_tridao
+    except ImportError:
+        pass
+
+    try:
+        import flash_attn
+        from flash_attn.losses import (
+            CrossEntropyLoss,  # type: ignore
+        )
+
+        def fused_loss_fn_rocm(
+            logits,
+            labels,
+            ignore_index: int = -100,
+            reduction: str = "mean",
+            compute_z_loss: bool = False,
+            z_loss_multiplier: float = 1e-4,
+        ):
+            loss = CrossEntropyLoss(
+                label_smoothing=0.0,
+                reduction="none",
+                inplace_backward=False,
+                process_group=None,
+                ignore_index=ignore_index,
+            )(logits, labels)
+
+            mask = labels != ignore_index
+
+            if reduction == "mean":
+                loss = loss.sum() / mask.sum()
+            elif reduction == "sum":
+                loss = loss.sum()
+            else:
+                loss = loss
+
+            if not compute_z_loss:
+                return loss, None
+            
+            z_squared = logits.logsumexp(-1).pow(2)
+            if reduction == "mean":
+                z_squared = (z_squared * (labels != ignore_index)).mean()
+            elif reduction == "sum":
+                z_squared = (z_squared * (labels != ignore_index)).sum()
+
+            z_loss = z_loss_multiplier * z_squared
+
+            return loss, z_loss
+
+        return fused_loss_fn_rocm
+    except ImportError:
+        pass
+
+    return None
+
+
+fused_loss_fn: Optional[Callable] = get_fused_loss_fn()
 
 
 @dataclass
