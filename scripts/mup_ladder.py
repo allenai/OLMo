@@ -48,9 +48,12 @@ from olmo.scaling.mup_olmo.mup_utils import save_base_shapes
 log = logging.getLogger("train")
 
 MODEL_CONFIG_150M = ModelConfig(
-    d_model=480,
-    n_heads=16,
-    n_layers=32,
+    # d_model=480,
+    # n_heads=16,
+    # n_layers=32,
+    d_model=768,
+    n_heads=12,
+    n_layers=12,
     mlp_ratio=8,
     weight_tying=False,
     alibi=False,
