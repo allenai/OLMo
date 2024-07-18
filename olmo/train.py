@@ -1269,7 +1269,7 @@ class Trainer:
                             python_profiler.print_stats(sort=SortKey.CUMULATIVE)
                             python_profiler = None
                 else:
-                    log.info(f"Epoch {epoch} complete")
+                    log.info("Training epoch complete")
                     self.epoch = epoch + 1
                     self.global_train_examples_seen_this_epoch = 0
                     self.dataset.start_index = 0
