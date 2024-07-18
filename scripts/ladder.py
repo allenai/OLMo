@@ -100,7 +100,7 @@ def parse_size(size: str) -> int:
     elif model_size_unit == "B":
         model_size *= 1000000000
     else:
-        raise ValueError(f"Could not parse model name '{args.model}'")
+        raise ValueError(f"Could not parse model size unit '{model_size_unit}'")
     return model_size
 
 
