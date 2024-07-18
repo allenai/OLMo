@@ -7,9 +7,9 @@ wandb:
   project: olmo-tiny
 
 # for fixed n_layers and mlp_ratio
-# width values: 20M - 128, 60M - 256, 150M - 464, 300M - 672, 750M - 1120, 1B - 1312, 7B - 3616
+# width values: 20M - 128, 60M - 256, 150M - 464, 300M - 672, 750M - 1120, 1B - 1312, 7B - 3648
 model:
-  d_model: 3616
+  d_model: 3648
   n_heads: 16
   n_layers: 32
   mlp_ratio: 8
