@@ -2,12 +2,12 @@
 
 set -ex
 
-NUM_NODES=8
+NUM_NODES=32
 
 gantry run \
   --workspace ai2/OLMo-pretraining-stability \
-  --task-name amberish1-emb-init-1 \
-  --description "Amberish 1B train with embedding init of 1" \
+  --task-name amberish1-z-loss \
+  --description "Amberish 1B train with z-loss" \
   --priority urgent \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
@@ -37,4 +37,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/amberish1-emb-init-1.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/amberish/amberish1-z-loss.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"

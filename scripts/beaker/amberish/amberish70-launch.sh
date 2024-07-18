@@ -2,12 +2,13 @@
 
 set -ex
 
-NUM_NODES=32
+# NUM_NODES=120  # 960 GPUs
+NUM_NODES=112  # 896 GPUs
 
 gantry run \
   --workspace ai2/OLMo-pretraining-stability \
-  --task-name amberish1-z-loss \
-  --description "Amberish 1B train with z-loss" \
+  --task-name acceptance-test \
+  --description "70B acceptance test" \
   --priority urgent \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
@@ -37,4 +38,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/amberish1-z-loss.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/amberish/amberish70.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"

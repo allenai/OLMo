@@ -6,8 +6,8 @@ NUM_NODES=16
 
 gantry run \
   --workspace ai2/OLMo-pretraining-stability \
-  --task-name amberish7 \
-  --description "Amberish 7B train" \
+  --task-name amberish1-selective-updates \
+  --description "Amberish 1B train with selective updates" \
   --priority urgent \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
@@ -37,4 +37,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/amberish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/amberish/amberish1-selective-updates.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"

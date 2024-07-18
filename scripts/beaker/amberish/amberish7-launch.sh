@@ -2,13 +2,12 @@
 
 set -ex
 
-# NUM_NODES=120  # 960 GPUs
-NUM_NODES=112  # 896 GPUs
+NUM_NODES=16
 
 gantry run \
   --workspace ai2/OLMo-pretraining-stability \
-  --task-name acceptance-test \
-  --description "70B acceptance test" \
+  --task-name amberish7 \
+  --description "Amberish 7B train" \
   --priority urgent \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
@@ -38,4 +37,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/amberish70.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/amberish/amberish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
