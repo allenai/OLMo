@@ -221,6 +221,17 @@ class OGMamba(GenericOLMoModel):
         )
         self.__num_fwd_flops = params_flops_per_token + attn_flops_per_token
         return self.__num_fwd_flops
+    
+    @property
+    def num_bck_flops(self):
+        if self.__num_bck_flops:
+            return self.__num_bck_flops
+
+        n_params = self.num_params()
+        params_flops_per_token = 4 * n_params
+        attn_flops_per_token = self.config.n_layers * 8 * (self.config.d_model * self.config.max_sequence_length)
+        self.__num_bck_flops = params_flops_per_token + attn_flops_per_token
+        return self.__num_bck_flops
 
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         self._activation_checkpoint_fn = None
