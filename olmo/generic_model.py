@@ -11,7 +11,7 @@ import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .initialization import init_normal, ModuleType
+from .initialization import init_normal
 from .exceptions import OLMoConfigurationError
 from .config import (
     ActivationCheckpointingStrategy,
