@@ -115,7 +115,8 @@ class OGMamba(GenericOLMoModel):
                 'rescale_prenorm_residual': config.rescale_prenorm_residual,
             },   # params to _init_weights function
             device=config.init_device,
-            dtype=torch.float32,
+            # dtype=torch.float32,
+            dtype=dtype,
         )
 
         # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
