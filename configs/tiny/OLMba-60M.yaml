@@ -8,30 +8,25 @@ wandb:
 
 model:
   model_name: mamba
-  d_model: 512 ### need to mess with this to make param #s match
-  n_layers: 12 ### need to mess with this to make param #s match
+  d_model: 512
+  n_layers: 12
   vocab_size: 50280
   embedding_size: 50304
-  d_state: 128 # matches nvidia
-  d_conv: 4 # matches nvidia
-  expand: 2 # matches nvidia
-  ngroups: 8 # matches nvidia
-  headdim: 64 # matches nvidia
-  # time_step_floor: 0.0001
-  # time_step_max: 0.1
-  # time_step_min: 0.001
-  # conv_bias: true
-  # include_bias: false
-  layer_norm_type: rms # matches nvidia
+  d_state: 128
+  d_conv: 4
+  expand: 2
+  ngroups: 8
+  headdim: 64
+  layer_norm_type: rms
   weight_tying: false
-  max_sequence_length: 4096 # matches olmo
-  eos_token_id: 0 # matches olmo
-  pad_token_id: 1 # matches olmo
+  max_sequence_length: 4096
+  eos_token_id: 0
+  pad_token_id: 1
   mamba_initializer_range: 0.1
   rescale_prenorm_residual: false
   fused_add_norm: true
   residual_in_fp32: true
-  init_device: cuda # matches olmo
+  init_device: cuda
   init_std: 0.02
 
 ddp:
