@@ -1,24 +1,17 @@
 import argparse
-import os
 from typing import List, Optional
 
 import numpy as np
-from mup import get_shapes, make_base_shapes, set_base_shapes
+from mup import set_base_shapes
 from mup.coord_check import plot_coord_data
 from torch.utils.data import DataLoader
 
 from olmo.config import ModelConfig, TrainConfig
 from olmo.data import build_train_dataloader
-from olmo.model import OLMo
 from olmo.scaling.mup_olmo.coord_check import get_coord_data
+from olmo.scaling.mup_olmo.mup_utils import load_mu_model, save_base_shapes
 from olmo.torch_util import seed_all
 from olmo.train import cross_entropy_loss
-
-
-def load_mu_model(config: ModelConfig):
-    config.use_mup = True
-    model = OLMo(config, init_params=False)
-    return model
 
 
 def get_dataloader(cfg: TrainConfig, batch_size: int) -> DataLoader:
@@ -95,26 +88,6 @@ def coord_check(
             suptitle=f"{prm} Transformer {optimizer} lr={lr} nseeds={nseeds}",
             face_color="xkcd:light grey" if not mup else None,
         )
-
-
-def save_base_shapes(config_path: str, output_path: str, dims_to_scale: Optional[List] = None):
-    if dims_to_scale is None:
-        dims_to_scale = ["d_model"]
-
-    print(f"saving base shapes at {output_path}")
-
-    config = ModelConfig.load(config_path, key="model")
-    base_shapes = get_shapes(load_mu_model(config))
-
-    # just need to change whatever dimension(s) we are scaling
-    # currently only scaling width, but may scale depth also
-    # width scaling by d_model, but can also be done based on num_heads, etc.
-
-    for dim in dims_to_scale:
-        setattr(config, dim, getattr(config, dim) * 2)
-
-    delta_shapes = get_shapes(load_mu_model(config))
-    make_base_shapes(base_shapes, delta_shapes, savefile=output_path)
 
 
 if __name__ == "__main__":
