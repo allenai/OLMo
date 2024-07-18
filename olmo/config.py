@@ -440,6 +440,16 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
+    scale_emb_init: bool = False
+    """
+    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization. To be used with `full_megatron` init.
+    """
+
+    norm_after: bool = False
+    """
+    Apply norm after the attention/feedforward layers rather than before, as introduced in the Swin transformer paper (Liu et al).
+    """
+
     # muP parameters
 
     use_mup: bool = False
@@ -455,32 +465,6 @@ class ModelConfig(BaseConfig):
     """
 
     mup_query_zero_init: bool = False
-
-    # mup_init_scale: float = 1.0
-    # """
-    # Initialization scale; all parameters are multiplied by this value.
-    # """
-    #
-    # input_mult: float = 1.0
-    # """
-    # Scalar multiplier for the input embeddings. Defaults to 1.0.
-    # """
-    #
-    # output_mult: float = 1.0
-    # """
-    # Scalar multiplier for the output logits. Defaults to 1.0.
-    # """
-    #
-    # attn_mult: Optional[float] = 1.0
-    # """
-    # Optional multiplier for attention. If set to None, it defaults to 1/sqrt(width);
-    # i.e., the standard attention multipler.
-    # """
-    #
-    # mup: bool = False
-    # """
-    # Whether the model is being parametrized in mup or standard parametrization.
-    # """
 
     @property
     def effective_n_kv_heads(self) -> int:
@@ -522,6 +506,11 @@ class OptimizerConfig(BaseConfig):
     Deprecated. Use ``decay_norm_and_bias`` and ``decay_embeddings`` instead.
     """
 
+    selective_updates: bool = False
+    """
+    If ``True``, optimizer parameter and state updates are skipped when the corresponding gradient is 0.
+    """
+
     decay_norm_and_bias: bool = False
     decay_embeddings: bool = False
     metrics_log_interval: Optional[int] = None
@@ -529,6 +518,12 @@ class OptimizerConfig(BaseConfig):
     The interval with which to collect and log detailed parameter-specific metrics.
     This only applies when logging to W&B, since these metrics won't be logged to the console.
     If not set, defaults to the wandb `log_interval`.
+    """
+
+    record_update_metrics: bool = False
+    """
+    Whether to record detailed metrics about the optimizer's parameter updates, like the norm and max
+    of the update with AdamW.
     """
 
     def __post_init__(self):
@@ -619,16 +614,13 @@ class DataConfig(BaseConfig):
 
     @property
     def effective_memmap_dtype(self):
-        if self.memmap_dtype == "uint8":
-            return np.uint8
-        if self.memmap_dtype == "uint16":
-            return np.uint16
-        elif self.memmap_dtype == "uint32":
-            return np.uint32
-        elif self.memmap_dtype == "uint64":
-            return np.uint64
-        # default to uint16 if not set
-        return np.uint16
+        try:
+            # getattr will check this is part of numpy module, while np.dtype will check
+            # if this is a valid numpy dtype.
+            np.dtype(dtype := getattr(np, self.memmap_dtype))
+        except (AttributeError, TypeError) as e:
+            raise TypeError(f"Value {self.memmap_dtype} is not a valid numpy type") from e
+        return dtype
 
 
 class EvaluatorType(StrEnum):
@@ -1135,7 +1127,7 @@ class TrainConfig(BaseConfig):
     Settings for compiling the model with ``torch.compile()``.
     """
 
-    distributed_strategy: Optional[DistributedStrategy] = None
+    distributed_strategy: Optional[DistributedStrategy] = DistributedStrategy.fsdp
     """
     Distributed strategy for OLMo model (eg. single GPU, DDP, FSDP).
     """
@@ -1154,6 +1146,11 @@ class TrainConfig(BaseConfig):
     """
     If ``True``, we add the auxiliary loss function from PaLM that encourages the softmax
     normalizing term to be close to 0.
+    """
+
+    auxiliary_loss_multiplier: Optional[float] = 1e-4
+    """
+    Used with `softmax_auxiliary_loss`. PaLM uses 1e-4, Chameleon uses 1e-5.
     """
 
     time_limit: Optional[float] = None
@@ -1207,6 +1204,8 @@ class TrainConfig(BaseConfig):
 
     hf_datasets_cache_dir: Optional[str] = None
     """
+    Deprecated, HF datasets are now stored in `olmo_data.hf_datasets`.
+
     Path to cache directory of HF datasets saved with `datasets.save_to_disk`.
     """
 
