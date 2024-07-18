@@ -26,7 +26,7 @@ torchrun \
   --rdzv_backend=c10d \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   scripts/train_alt-arch.py \
-    configs/tiny/OLMba-60M.yaml \
+    configs/tiny/OLMba-150M.yaml \
       --run_name=$TASK_NAME \
       --wandb.name=$TASK_NAME \
       --wandb.group=$TASK_NAME \

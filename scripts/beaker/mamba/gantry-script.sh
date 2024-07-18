@@ -2,8 +2,8 @@
 
 set -ex
 
-NUM_NODES=16
-TASK_NAME=tiny-mamba-60M-rms-norm-adam-eps-1e-8
+NUM_NODES=2
+TASK_NAME=tiny-mamba-150M-rms-norm-adam-eps-1e-8
 
 gantry run \
   --workspace ai2/OLMo-training \
