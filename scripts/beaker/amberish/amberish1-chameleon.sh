@@ -60,7 +60,6 @@ torchrun \
       --softmax_auxiliary_loss=true \
       --auxiliary_loss_multiplier=1e-5 \
       --model.attention_layer_norm=true \
-      --model.norm_after=true \
       --save_overwrite
 
      # '--load_path=${path.last_checkpoint:${save_folder}}' \
