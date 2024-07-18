@@ -444,16 +444,6 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
-<<<<<<< Updated upstream
-    scale_emb_init: bool = False
-    """
-    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization. To be used with `full_megatron` init.
-    """
-
-    norm_after: bool = False
-    """
-    Apply norm after the attention/feedforward layers rather than before, as introduced in the Swin transformer paper (Liu et al).
-=======
     moe_num_experts: Optional[int] = 8
     """
     The number of experts to use in the MoE block.
@@ -507,7 +497,6 @@ class ModelConfig(BaseConfig):
     moe_capacity_factor: Optional[float] = 1.25
     """
     The capacity factor to use in the MoE block. Only applies if not using dMoE.
->>>>>>> Stashed changes
     """
 
     @property
