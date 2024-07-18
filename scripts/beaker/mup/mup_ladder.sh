@@ -11,6 +11,9 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
+# Temporary, since it is not part of the image yet.
+pip install mup@git+https://github.com/microsoft/mup#egg=19814971934ef91dd546f88e913fc963e096d11c
+
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
