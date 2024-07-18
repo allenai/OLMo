@@ -381,6 +381,7 @@ class Trainer:
         assert self.epoch is not None
         # Reshuffle dataset if needed.
         if self.dataset.epoch != self.epoch:
+            log.info(f"Reshuffling data loader for epoch {self.epoch}...")
             self.dataset.reshuffle(self.epoch)
 
         if self.cfg.fast_forward_batches:
@@ -1268,11 +1269,12 @@ class Trainer:
                             python_profiler.print_stats(sort=SortKey.CUMULATIVE)
                             python_profiler = None
                 else:
-                    log.info("Training epoch complete")
+                    log.info(f"Epoch {epoch} complete")
                     self.epoch = epoch + 1
                     self.global_train_examples_seen_this_epoch = 0
                     self.dataset.start_index = 0
                     if self.epoch < self.max_epochs:
+                        log.info(f"Reshuffling data loader for epoch {self.epoch}...")
                         self.dataset.reshuffle(self.epoch)
                     continue
 
