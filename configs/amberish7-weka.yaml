@@ -24,7 +24,7 @@ model:
   layer_norm_with_affine: true
   layer_norm_eps: 1e-6
   bias_for_layer_norm: false
-  attention_layer_norm_with_affine: false
+  attention_layer_norm_with_affine: true
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
