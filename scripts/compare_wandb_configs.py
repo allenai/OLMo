@@ -1,26 +1,11 @@
 import logging
 import re
-from collections.abc import MutableMapping
-from typing import Any, Dict
 
 import click
 
-from olmo.util import prepare_cli_environment
+from olmo.util import flatten_dict, prepare_cli_environment
 
 log = logging.getLogger(__name__)
-
-
-def flatten(dictionary, parent_key="", separator="."):
-    d: Dict[str, Any] = {}
-    for key, value in dictionary.items():
-        new_key = parent_key + separator + key if parent_key else key
-        if isinstance(value, MutableMapping):
-            d.update(**flatten(value, new_key, separator=separator))
-        else:
-            d[new_key] = value
-    return d
-
-
 run_path_re = re.compile(r"^[^/]+/[^/]+/[^/]+$")
 run_path_url = re.compile(r"^https?://wandb.ai/([^/]+)/([^/]+)/runs/([^/]+)")
 
@@ -58,8 +43,8 @@ def main(
     left_run = api.run(parse_run_path(left_run_path))
     right_run = api.run(parse_run_path(right_run_path))
 
-    left_config = flatten(left_run._attrs["rawconfig"])
-    right_config = flatten(right_run._attrs["rawconfig"])
+    left_config = flatten_dict(left_run._attrs["rawconfig"])
+    right_config = flatten_dict(right_run._attrs["rawconfig"])
 
     left_only_keys = left_config.keys() - right_config.keys()
     if len(left_only_keys) > 0:
