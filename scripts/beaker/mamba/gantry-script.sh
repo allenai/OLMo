@@ -6,7 +6,7 @@ NUM_NODES=1
 TASK_NAME=tiny-mamba-60M-rms-norm-adam-eps-1e-8
 
 gantry run \
-  --workspace ai2/tulu-3-dev-jacobm \
+  --workspace ai2/OLMo-training \
   --task-name ${TASK_NAME} \
   --description "Tiny mamba runs" \
   --priority high \
