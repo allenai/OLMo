@@ -22,6 +22,7 @@ from olmo import (
     TokenizerConfig,
     TrainConfig,
     WandbConfig,
+    train,
 )
 from olmo.config import (
     DataConfig,
@@ -218,7 +219,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         device_train_microbatch_size=device_batch_size,
         precision="amp_bf16",
         distributed_strategy=distributed_strategy,
-        fused_loss=True,
+        fused_loss=train.fused_loss_fn is not None,
         gen1_gc_interval=2,
         max_grad_norm=1.0,
         speed_monitor=SpeedMonitorConfig(window_size=1),
