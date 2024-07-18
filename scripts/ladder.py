@@ -394,6 +394,7 @@ if __name__ == "__main__":
         save_overwrite=False,
         read_location=None,
         write_location=None,
+        temp_write_location="runs/",
         load_path=None,
         eval_on_load=False,
     )
