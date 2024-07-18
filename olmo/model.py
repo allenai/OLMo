@@ -665,14 +665,12 @@ class OLMoBlock(nn.Module):
 class OLMoSequentialBlock(OLMoBlock):
     """
     This is a typical transformer block where the output is computed as ``MLP(LN(x + Attention(LN(x))))``
-    (plus another skip connection).
+    (plus another skip connection). To compute it as ``LN(MLP(x + LN(Attention(x))))``,
+    use the flag `norm_after`.
     """
 
     def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
         super().__init__(layer_id, config, cache)
-        # Layer norms.
-        self.attn_norm = LayerNorm.build(config)
-        self.ff_norm = LayerNorm.build(config)
         # Attention input projection. Projects x -> (q, k, v)
 
         head_dim = config.d_model // config.n_heads
@@ -688,6 +686,10 @@ class OLMoSequentialBlock(OLMoBlock):
         self.ff_proj = nn.Linear(
             config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device
         )
+
+        # Layer norms.
+        self.attn_norm = LayerNorm.build(config, size=config.d_model)
+        self.ff_norm = LayerNorm.build(config, size=config.d_model)
 
     def reset_parameters(self):
         super().reset_parameters()
@@ -726,10 +728,15 @@ class OLMoSequentialBlock(OLMoBlock):
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
         #  - for group query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_kv_heads)
-        if self._activation_checkpoint_fn is not None:
-            qkv = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x))
-        else:
-            qkv = self.att_proj(self.attn_norm(x))
+
+        # apply norm before
+        if not self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                x = self._activation_checkpoint_fn(self.attn_norm, x)
+            else:
+                x = self.attn_norm(x)
+
+        qkv = self.att_proj(x)
 
         if self.config.clip_qkv is not None:
             qkv.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
@@ -761,6 +768,12 @@ class OLMoSequentialBlock(OLMoBlock):
                 cu_doc_lens=cu_doc_lens,
             )
 
+        if self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                att = self._activation_checkpoint_fn(self.attn_norm, att)
+            else:
+                att = self.attn_norm(att)
+
         # Add attention scores.
         # shape: (B, T, C)
         x = x + self.dropout(att)
@@ -768,16 +781,27 @@ class OLMoSequentialBlock(OLMoBlock):
         # Add feed-forward projection.
         # shape: (batch_size, seq_len, d_model)
         og_x = x
-        if self._activation_checkpoint_fn is not None:
-            x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
-        else:
-            x = self.ff_norm(x)
+
+        if not self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+            else:
+                x = self.ff_norm(x)
+
         x = self.ff_proj(x)
+
         if self._activation_checkpoint_fn is not None:
             x = self._activation_checkpoint_fn(self.act, x)  # type: ignore
         else:
             x = self.act(x)
         x = self.ff_out(x)
+
+        if self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+            else:
+                x = self.ff_norm(x)
+
         x = self.dropout(x)
         x = og_x + x
 
@@ -1139,6 +1163,8 @@ class OLMo(nn.Module):
             wte_cutoff_factor = self.config.init_cutoff_factor or 3.0
         elif self.config.init_fn == InitFnType.full_megatron:
             wte_std = self.config.init_std
+            if self.config.scale_emb_init:
+                wte_std *= math.sqrt(self.config.d_model)
             wte_cutoff_factor = self.config.init_cutoff_factor or 3.0
         else:
             raise NotImplementedError(self.config.init_fn)

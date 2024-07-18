@@ -440,6 +440,16 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
+    scale_emb_init: bool = False
+    """
+    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization. To be used with `full_megatron` init.
+    """
+
+    norm_after: bool = False
+    """
+    Apply norm after the attention/feedforward layers rather than before, as introduced in the Swin transformer paper (Liu et al).
+    """
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:
@@ -589,16 +599,13 @@ class DataConfig(BaseConfig):
 
     @property
     def effective_memmap_dtype(self):
-        if self.memmap_dtype == "uint8":
-            return np.uint8
-        if self.memmap_dtype == "uint16":
-            return np.uint16
-        elif self.memmap_dtype == "uint32":
-            return np.uint32
-        elif self.memmap_dtype == "uint64":
-            return np.uint64
-        # default to uint16 if not set
-        return np.uint16
+        try:
+            # getattr will check this is part of numpy module, while np.dtype will check
+            # if this is a valid numpy dtype.
+            np.dtype(dtype := getattr(np, self.memmap_dtype))
+        except (AttributeError, TypeError) as e:
+            raise TypeError(f"Value {self.memmap_dtype} is not a valid numpy type") from e
+        return dtype
 
 
 class EvaluatorType(StrEnum):
@@ -1124,6 +1131,11 @@ class TrainConfig(BaseConfig):
     """
     If ``True``, we add the auxiliary loss function from PaLM that encourages the softmax
     normalizing term to be close to 0.
+    """
+
+    auxiliary_loss_multiplier: Optional[float] = 1e-4
+    """
+    Used with `softmax_auxiliary_loss`. PaLM uses 1e-4, Chameleon uses 1e-5.
     """
 
     time_limit: Optional[float] = None
