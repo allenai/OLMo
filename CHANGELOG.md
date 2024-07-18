@@ -9,9 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added config options for `model.norm_after`, `model.scale_emb_init`, and `auxiliary_loss_multiplier` (used with zloss).
+- Added scripts for running experiments on qk_norm, norm reordering, and zloss.
+
+### Changed
+
+- Changed default distributed training strategy from single-GPU to FSDP
+- Fixed behavior of `effective_memmap_dtype` to prevent unrecognized dtypes to be parsed as `uint16`. 
+
+## [v0.4.0](https://github.com/allenai/OLMo/releases/tag/v0.4.0) - 2024-07-11
+
+### Added
+
 - Added clipping fix to `Optimizer` class to make it work with FSDP `no_shard` and DDP.
 - Added tests to compare grad norm differences between torch optimizer and clipping and OLMo optimizer and clipping on both CPU and GPU.
-- Expose memmap dtype in data config 
+- Expose memmap dtype in data config
 - Added support for DDP training.
 - Added caching to disk of HF datasets used in downstream evals
 - Added FLOPs logging
@@ -28,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 shared memory implementation can be used by passing `use_legacy_shared_mem_impl` to `unshard.py`.
 - Refactor weight initialization. IMPORTANT: this does not maintain backwards-compatibility with older configs; the jobs will still run, but may produce different outputs.
 - Changed the behavior of the Lion optimizer to only record the update cosine similarity when `optimizer.record_update_metrics` is `True` in order to be consistent with the API.
+- Added HF datasets into `olmo_data`, and changed downstream eval to load from the package.
 
 ### Fixed
 

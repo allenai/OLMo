@@ -433,11 +433,6 @@ class ModelConfig(BaseConfig):
     as "normal".
     """
 
-    emb_init_std: Optional[float] = None
-    """
-    The standard deviation to use when initializing the embedding weights only.
-    """
-
     init_cutoff_factor: Optional[float] = None
     """
     A positive factor used to scale the cutoff values when initializing weights with a "fixed distribution" ``init_fn``, such
@@ -448,6 +443,22 @@ class ModelConfig(BaseConfig):
     """
     Precision used to train/evaluate with. You shouldn't set this directly.
     See :data:`TrainConfig.precision` instead.
+    """
+
+    scale_emb_init: bool = False
+    """
+    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization.
+    Currently this is only used with `full_megatron` init when ``emb_init_std`` is unset.
+    """
+
+    emb_init_std: Optional[float] = None
+    """
+    Override the standard deviation to use when initializing the embedding weights.
+    """
+
+    norm_after: bool = False
+    """
+    Apply norm after the attention/feedforward layers rather than before, as introduced in the Swin transformer paper (Liu et al).
     """
 
     @property
@@ -598,16 +609,13 @@ class DataConfig(BaseConfig):
 
     @property
     def effective_memmap_dtype(self):
-        if self.memmap_dtype == "uint8":
-            return np.uint8
-        if self.memmap_dtype == "uint16":
-            return np.uint16
-        elif self.memmap_dtype == "uint32":
-            return np.uint32
-        elif self.memmap_dtype == "uint64":
-            return np.uint64
-        # default to uint16 if not set
-        return np.uint16
+        try:
+            # getattr will check this is part of numpy module, while np.dtype will check
+            # if this is a valid numpy dtype.
+            np.dtype(dtype := getattr(np, self.memmap_dtype))
+        except (AttributeError, TypeError) as e:
+            raise TypeError(f"Value {self.memmap_dtype} is not a valid numpy type") from e
+        return dtype
 
 
 class EvaluatorType(StrEnum):
@@ -1135,6 +1143,11 @@ class TrainConfig(BaseConfig):
     normalizing term to be close to 0.
     """
 
+    auxiliary_loss_multiplier: Optional[float] = 1e-4
+    """
+    Used with `softmax_auxiliary_loss`. PaLM uses 1e-4, Chameleon uses 1e-5.
+    """
+
     time_limit: Optional[float] = None
     """
     The maximum amount of time to train for before saving a checkpoint and ending early.
@@ -1186,6 +1199,8 @@ class TrainConfig(BaseConfig):
 
     hf_datasets_cache_dir: Optional[str] = None
     """
+    Deprecated, HF datasets are now stored in `olmo_data.hf_datasets`.
+
     Path to cache directory of HF datasets saved with `datasets.save_to_disk`.
     """
 
