@@ -2491,6 +2491,21 @@ DATA_PATHS = {
 
         # ProofPile 2: Open Web Math Data
 
+        
+        "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-00-00000.npy",
+        "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-01-00000.npy",
+        "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-02-00000.npy",
+        "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-03-00000.npy",
+        "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-04-00000.npy",
+        "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-05-00000.npy",
+        "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-06-00000.npy",
+        "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-07-00000.npy",
+        "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-08-00000.npy",
+        "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-09-00000.npy",
+        "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-10-00000.npy",
+        "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-11-00000.npy",
+        "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-12-00000.npy",
+
         # Pes2o Data
         "preprocessed/pes2o/allenai/dolma2-tokenizer/part-00-00000.npy",
         "preprocessed/pes2o/allenai/dolma2-tokenizer/part-01-00000.npy",
