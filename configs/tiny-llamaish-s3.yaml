@@ -1,16 +1,16 @@
-run_name: llamaish7-001
+run_name: tiny-llamaish-001
 seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-medium
-  group: llamaish7
+  group: tiny-llamaish
 
 model:
-  d_model: 4096
-  n_heads: 32
-  n_layers: 32
+  d_model: 256
+  n_heads: 2
+  n_layers: 2
   # mlp_ratio: 6
   mlp_hidden_size: 22016
   weight_tying: false
@@ -210,18 +210,6 @@ evaluators:
     type: downstream
 
   - label: mmlu_other_mc_5shot_test
-    type: downstream
-
-  - label: basic_arithmetic
-    type: downstream
-
-  - label: trivia_qa_wiki_ppl
-    type: downstream
-
-  - label: natural_qs_open_ppl
-    type: downstream
-
-  - label: arc_easy_ppl
     type: downstream
 
 data:
