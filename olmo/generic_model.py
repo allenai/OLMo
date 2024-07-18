@@ -115,7 +115,6 @@ class OGMamba(GenericOLMoModel):
                 'rescale_prenorm_residual': config.rescale_prenorm_residual,
             },   # params to _init_weights function
             device=config.init_device,
-            # dtype=torch.float32,
             dtype=dtype,
         )
 
@@ -272,7 +271,7 @@ class MLPMambaBlock(nn.Module):
             # bias=config.include_bias,
             layer_idx=layer_id,
             device=config.init_device,
-            dtype=torch.float32,
+            dtype=torch.bfloat16,
             #         activation="swish", # use gelu
 
             # # new params:
@@ -530,7 +529,7 @@ class ZambaBlock(nn.Module):
                     fused_add_norm=self.config.fused_add_norm,
                     layer_idx=i * layer_id, # each ZambaBlock has 6 mamba blocks
                     device=config.init_device,
-                    dtype=torch.float32,
+                    dtype=torch.bfloat16,
                 ) for i in range(config.num_mamba_blocks_in_group)
             ]
         )
