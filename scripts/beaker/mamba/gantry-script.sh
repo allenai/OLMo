@@ -9,7 +9,7 @@ gantry run \
   --workspace ai2/OLMo-training \
   --task-name ${TASK_NAME} \
   --description "Tiny mamba runs" \
-  --priority high \
+  --priority normal \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
