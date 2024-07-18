@@ -2,7 +2,7 @@
 
 set -ex
 
-NUM_NODES=2
+NUM_NODES=8
 TASK_NAME=tiny-mamba-60M-rms-norm-adam-eps-1e-8
 
 gantry run \
