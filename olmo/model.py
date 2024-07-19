@@ -984,7 +984,7 @@ class OLMoBlockGroup(nn.ModuleList):
 
 
 class OLMo(nn.Module):
-    def __init__(self, config: ModelConfig, init_params: bool = True):
+    def __init__(self, config: ModelConfig, init_params: bool = True, mup_rescale_params: bool = True):
         super().__init__()
         self.config = config
         self.__cache = BufferCache()
@@ -1082,7 +1082,7 @@ class OLMo(nn.Module):
 
                 # TODO: make sure that fsdp/ddp plays nice with this
                 # TODO: add cached_path
-                set_base_shapes(self, self.config.mup_base_shapes)
+                set_base_shapes(self, self.config.mup_base_shapes, rescale_params=mup_rescale_params)
             self.reset_parameters()
         self.__num_fwd_flops: Optional[int] = None
         self.__num_bck_flops: Optional[int] = None
@@ -1662,7 +1662,7 @@ class OLMo(nn.Module):
         if checkpoint_type == CheckpointType.unsharded:
             # Initialize model (always on CPU to start with so we don't run out of GPU memory).
             model_config.init_device = "cpu"
-            model = OLMo(model_config)
+            model = OLMo(model_config, mup_rescale_params=False)
 
             # Load state dict directly to target device.
             state_dict_path = resource_path(checkpoint_dir, "model.pt")
@@ -1675,7 +1675,7 @@ class OLMo(nn.Module):
             # Initialize model on target device. In this case the state dict is loaded in-place
             # so it's not necessary to start on CPU if the target device is a GPU.
             model_config.init_device = device
-            model = OLMo(model_config)
+            model = OLMo(model_config, mup_rescale_params=False)
 
             # Load state dict in place.
             load_model_state(checkpoint_dir, model)
