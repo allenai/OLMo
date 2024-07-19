@@ -51,9 +51,9 @@ MODEL_CONFIG_150M = ModelConfig(
     # d_model=480,
     # n_heads=16,
     # n_layers=32,
-    d_model=512,
+    d_model=480,
     n_heads=16,
-    n_layers=24,
+    n_layers=32,
     mlp_ratio=8,
     weight_tying=False,
     alibi=False,
@@ -85,7 +85,9 @@ MODEL_CONFIG_150M = ModelConfig(
 BASE_SHAPES = "configs/mup/ladder_base_shapes_150m.bsh"
 if not os.path.exists(BASE_SHAPES):
     os.makedirs(os.path.dirname(BASE_SHAPES), exist_ok=True)
-    save_base_shapes(model_config=MODEL_CONFIG_150M, output_path=BASE_SHAPES)
+    save_base_shapes(model_config=MODEL_CONFIG_150M.update_with(init_device="cpu"), output_path=BASE_SHAPES)
+    import sys
+    sys.exit()
 
 
 MODEL_CONFIGS = {
@@ -195,7 +197,8 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         "7B": 1000,
     }.get(args.model, 5000)
 
-    distributed_strategy = {"7B": DistributedStrategy.fsdp}.get(args.model, DistributedStrategy.ddp)
+    #distributed_strategy = {"7B": DistributedStrategy.fsdp}.get(args.model, DistributedStrategy.ddp)
+    distributed_strategy = DistributedStrategy.fsdp
 
     return TrainConfig(
         run_name=run_name,
