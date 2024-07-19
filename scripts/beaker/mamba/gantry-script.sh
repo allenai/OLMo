@@ -2,8 +2,8 @@
 
 set -ex
 
-NUM_NODES=16
-TASK_NAME=vanilla-mamba2-60M-d_state-16-mbsz_16-groups_8-fp32
+NUM_NODES=2
+TASK_NAME=vanilla-mamba2-150M-d_state-16
 
 gantry run \
   --workspace ai2/OLMo-training \
