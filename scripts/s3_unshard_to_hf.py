@@ -81,7 +81,10 @@ def s3_unshard_to_hf(args):
     # Set directories
     sharded_dir = args.local_dir / "sharded"
     unsharded_dir = args.local_dir / "unsharded"
-    hf_dir = args.local_dir / "hf"
+    if args.old_style_hf:
+        hf_dir = args.local_dir / "hf-olmo"
+    else:
+        hf_dir = args.local_dir / "hf"
     hf_dir.mkdir(exist_ok=True)
 
     # Either download the unsharded checkpoint, or download sharded and unshard.
