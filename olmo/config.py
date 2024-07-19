@@ -198,12 +198,6 @@ class BlockType(StrEnum):
     implementations of operations like attention to imitate the behavior of Llama.
     """
 
-    moe = "moe"
-    """
-    A block similar to the sequential block with slightly different
-    implementations of operations like attention to imitate the behavior of Llama.
-    """
-
 
 class InitFnType(StrEnum):
     mitchell = "mitchell"
@@ -365,6 +359,8 @@ class ModelConfig(BaseConfig):
     to ``False``.
     """
 
+    layer_norm_eps: float = 1e-05
+
     attention_layer_norm_with_affine: bool = True
     """
     Toggle affine transform for the QK norms.
@@ -451,59 +447,14 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
-    moe_num_experts: Optional[int] = 8
+    scale_emb_init: bool = False
     """
-    The number of experts to use in the MoE block.
-    """
-
-    moe_top_k: Optional[int] = 2
-    """
-    The number of top experts to use in the MoE block.
+    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization. To be used with `full_megatron` init.
     """
 
-    moe_mlp_impl: Optional[str] = "sparse"
+    norm_after: bool = False
     """
-    Choose "grouped" for grouped GEMM installable via megablocks[gg]
-    """
-
-    moe_log_expert_assignment: Optional[bool] = True
-    """
-    Whether to log the expert assignment.
-    """
-
-    moe_shared_expert: Optional[bool] = False
-    """
-    Whether to have an always-used expert like in [DeepSeekMoE](https://arxiv.org/abs/2401.06066).
-    """
-
-    moe_lbl_in_fp32: Optional[bool] = False
-    """
-    Whether to perform load balancing in FP32.
-    """
-
-    moe_interleave: Optional[bool] = False
-    """
-    Interleave sequential with MoE blocks starting with sequential.
-    """
-
-    moe_loss_weight: Optional[float] = 0.1
-    """
-    The weight to use for the MoE load balancing loss.
-    """
-
-    moe_zloss_weight: Optional[float] = None
-    """
-    Weight for MoE zloss; None means no zloss. 0.001 is a common value
-    """
-
-    moe_dropless: Optional[bool] = True
-    """
-    Whether to use dMoE (https://arxiv.org/abs/2211.15841)
-    """
-
-    moe_capacity_factor: Optional[float] = 1.25
-    """
-    The capacity factor to use in the MoE block. Only applies if not using dMoE.
+    Apply norm after the attention/feedforward layers rather than before, as introduced in the Swin transformer paper (Liu et al).
     """
 
     @property
@@ -546,6 +497,11 @@ class OptimizerConfig(BaseConfig):
     Deprecated. Use ``decay_norm_and_bias`` and ``decay_embeddings`` instead.
     """
 
+    selective_updates: bool = False
+    """
+    If ``True``, optimizer parameter and state updates are skipped when the corresponding gradient is 0.
+    """
+
     decay_norm_and_bias: bool = False
     decay_embeddings: bool = False
     metrics_log_interval: Optional[int] = None
@@ -553,6 +509,12 @@ class OptimizerConfig(BaseConfig):
     The interval with which to collect and log detailed parameter-specific metrics.
     This only applies when logging to W&B, since these metrics won't be logged to the console.
     If not set, defaults to the wandb `log_interval`.
+    """
+
+    record_update_metrics: bool = False
+    """
+    Whether to record detailed metrics about the optimizer's parameter updates, like the norm and max
+    of the update with AdamW.
     """
 
     def __post_init__(self):
@@ -1157,7 +1119,7 @@ class TrainConfig(BaseConfig):
     Settings for compiling the model with ``torch.compile()``.
     """
 
-    distributed_strategy: Optional[DistributedStrategy] = None
+    distributed_strategy: Optional[DistributedStrategy] = DistributedStrategy.fsdp
     """
     Distributed strategy for OLMo model (eg. single GPU, DDP, FSDP).
     """
@@ -1234,6 +1196,8 @@ class TrainConfig(BaseConfig):
 
     hf_datasets_cache_dir: Optional[str] = None
     """
+    Deprecated, HF datasets are now stored in `olmo_data.hf_datasets`.
+
     Path to cache directory of HF datasets saved with `datasets.save_to_disk`.
     """
 
