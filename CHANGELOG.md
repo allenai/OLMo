@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added support for document masking via flash-attn during training with `--data.generate_doc_lengths`.
 - Added config options for `model.norm_after`, `model.scale_emb_init`, and `auxiliary_loss_multiplier` (used with zloss).
 - Added scripts for running experiments on qk_norm, norm reordering, and zloss.
 
