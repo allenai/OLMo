@@ -51,8 +51,11 @@ train = [
     "scikit-learn",
     "msgspec>=0.14.0",
 ]
+scaling = [
+    "mup@git+https://github.com/microsoft/mup#egg=19814971934ef91dd546f88e913fc963e096d11c",
+]
 all = [
-    "ai2-olmo[dev,train]",
+    "ai2-olmo[dev,train,scaling]",
 ]
 
 [project.urls]

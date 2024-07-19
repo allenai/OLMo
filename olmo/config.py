@@ -457,6 +457,22 @@ class ModelConfig(BaseConfig):
     Apply norm after the attention/feedforward layers rather than before, as introduced in the Swin transformer paper (Liu et al).
     """
 
+    # muP parameters
+
+    use_mup: bool = False
+    """
+    Whether the model is being parametrized in mup or standard parametrization.
+    """
+
+    # TODO: decide upon format; may require cached_path, etc.
+    mup_base_shapes: Optional[str] = None
+    """
+    Optional path to base shapes in case of muP.
+    # TODO: improve description
+    """
+
+    mup_query_zero_init: bool = False
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:
@@ -779,7 +795,7 @@ class FSDPPrecision(StrEnum):
 class FSDPConfig(BaseConfig):
     use_orig_params: bool = True
     """
-    This must be ``True`` if using ``compile`` or you want to track the parameter norm during training.
+    This must be ``True`` if using ``compile``, or ``mup`` or you want to track the parameter norm during training.
     """
 
     sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD

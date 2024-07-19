@@ -141,6 +141,23 @@ def cross_entropy_loss(
     return loss, z_loss
 
 
+def get_labels(batch: Dict[str, Any]) -> torch.Tensor:
+    # Labels are just input IDs shifted to the left (first item is ignored).
+    labels, label_mask, attention_mask, instance_mask = (
+        batch["input_ids"].clone(),
+        batch.get("label_mask"),
+        batch.get("attention_mask"),
+        batch.get("instance_mask"),
+    )
+    if label_mask is not None:
+        labels.masked_fill_(~label_mask, -100)
+    if attention_mask is not None:
+        labels.masked_fill_(attention_mask == 0.0, -100)
+    if instance_mask is not None:
+        labels.masked_fill_(~instance_mask.unsqueeze(-1), value=-100)
+    return labels[..., 1:].contiguous()
+
+
 fused_loss_fn: Optional[Callable]
 
 try:
@@ -401,14 +418,14 @@ class Trainer:
 
         # Reset learning rate and weight decay to the values from the config, not the checkpoint.
         log.info("Resetting learning rate...")
-        new_learning_rate = self.scheduler.get_lr(
-            self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
-        )
         for group in self.optim.param_groups:
+            new_learning_rate = self.scheduler.get_lr(
+                group.get("mup_lr", self.cfg.optimizer.learning_rate), self.scheduler_current, self.scheduler_max
+            )
             group["lr"] = new_learning_rate
-            group["initial_lr"] = self.cfg.optimizer.learning_rate
+            group["initial_lr"] = group.get("mup_lr", self.cfg.optimizer.learning_rate)
             if "weight_decay" in group and group["weight_decay"] > 0.0:
-                group["weight_decay"] = self.cfg.optimizer.weight_decay
+                group["weight_decay"] = group.get("mup_weight_decay", self.cfg.optimizer.weight_decay)
 
         # RNG states.
         if "rng" in state_dict and state_dict.get("world_size", get_world_size()) == get_world_size():
@@ -650,22 +667,6 @@ class Trainer:
         else:
             raise NotImplementedError(checkpoint_type)
 
-    def get_labels(self, batch: Dict[str, Any]) -> torch.Tensor:
-        # Labels are just input IDs shifted to the left (first item is ignored).
-        labels, label_mask, attention_mask, instance_mask = (
-            batch["input_ids"].clone(),
-            batch.get("label_mask"),
-            batch.get("attention_mask"),
-            batch.get("instance_mask"),
-        )
-        if label_mask is not None:
-            labels.masked_fill_(~label_mask, -100)
-        if attention_mask is not None:
-            labels.masked_fill_(attention_mask == 0.0, -100)
-        if instance_mask is not None:
-            labels.masked_fill_(~instance_mask.unsqueeze(-1), value=-100)
-        return labels[..., 1:].contiguous()
-
     def model_forward(
         self, batch: Dict[str, Any], loss_reduction: str = "mean", compute_z_loss: bool = False
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], torch.Tensor]:
@@ -679,7 +680,7 @@ class Trainer:
         # shape: (batch_size * seq_len, vocab_size)
         logits_for_loss = logits_for_loss.view(-1, logits_for_loss.size(-1))
         # shape: (batch_size, seq_len)
-        labels = self.get_labels(batch)
+        labels = get_labels(batch)
         # shape: (batch_size * seq_len,)
         labels = labels.view(-1)
         ce_loss, z_loss = self.loss_fn(
@@ -800,9 +801,7 @@ class Trainer:
             # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
             # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
             # the corresponding values from `self.cfg`.
-            group["lr"] = self.scheduler.get_lr(
-                self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
-            )
+            group["lr"] = self.scheduler.get_lr(group["initial_lr"], self.scheduler_current, self.scheduler_max)
             group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
                 self.cfg.max_grad_norm, self.scheduler_current, self.scheduler_max
             )

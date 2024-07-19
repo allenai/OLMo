@@ -1,0 +1,43 @@
+# This is a base shape file encoded in yaml
+# - `null` indicates a dimension is "finite", i.e. a non-"width" dimension
+# - a number indicates the base dimension of an "infinite" dimension, i.e. some notion of "width"
+transformer.blocks.0.att_proj.weight:
+- 384
+- 128
+transformer.blocks.0.attn_norm.weight:
+- 128
+transformer.blocks.0.attn_out.weight:
+- 128
+- 128
+transformer.blocks.0.ff_norm.weight:
+- 128
+transformer.blocks.0.ff_out.weight:
+- 128
+- 64
+transformer.blocks.0.ff_proj.weight:
+- 128
+- 128
+transformer.blocks.1.att_proj.weight:
+- 384
+- 128
+transformer.blocks.1.attn_norm.weight:
+- 128
+transformer.blocks.1.attn_out.weight:
+- 128
+- 128
+transformer.blocks.1.ff_norm.weight:
+- 128
+transformer.blocks.1.ff_out.weight:
+- 128
+- 64
+transformer.blocks.1.ff_proj.weight:
+- 128
+- 128
+transformer.ff_out.weight:
+- null
+- 128
+transformer.ln_f.weight:
+- 128
+transformer.wte.weight:
+- null
+- 128

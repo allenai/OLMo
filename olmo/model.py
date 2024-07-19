@@ -29,6 +29,7 @@ import torch
 import torch.backends.cuda
 import torch.nn as nn
 import torch.nn.functional as F
+from mup import MuReadout, MuSharedReadout
 from torch import einsum
 
 from .aliases import PathOrStr
@@ -488,8 +489,9 @@ class OLMoBlock(nn.Module):
         else:
             raise NotImplementedError(self.config.init_fn)
 
-        init_normal(self.attn_out, std=attn_out_std, init_cutoff_factor=cutoff_factor)
-        init_normal(self.ff_out, std=ff_out_std, init_cutoff_factor=cutoff_factor)
+        # TODO: we don't know how mup plays with mitchell init, etc.
+        init_normal(self.attn_out, std=attn_out_std, init_cutoff_factor=cutoff_factor, use_mup=self.config.use_mup)
+        init_normal(self.ff_out, std=ff_out_std, init_cutoff_factor=cutoff_factor, use_mup=self.config.use_mup)
 
     def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
         if strategy == ActivationCheckpointingStrategy.fine_grained:
@@ -525,9 +527,17 @@ class OLMoBlock(nn.Module):
         Computes scaled dot product attention on query, key and value tensors, using an optional
         attention mask if passed, and applying dropout if a probability greater than 0.0 is specified.
         """
+        # muP: Scale attention weights by 1/d instead of q/sqrt(d)
+        attn_scale = 1 / q.size(-1) if self.config.use_mup else 1 / math.sqrt(q.size(-1))
+
         if self.flash_attn_func is not None and attn_mask is None:
             r = self.flash_attn_func(
-                q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), dropout_p=dropout_p, causal=is_causal
+                q.transpose(1, 2),
+                k.transpose(1, 2),
+                v.transpose(1, 2),
+                dropout_p=dropout_p,
+                causal=is_causal,
+                softmax_scale=attn_scale,
             )
             return r.transpose(1, 2)
         else:
@@ -547,6 +557,7 @@ class OLMoBlock(nn.Module):
                 attn_mask=attn_mask,
                 dropout_p=dropout_p,
                 is_causal=is_causal,
+                scale=attn_scale,
             )
 
     def attention(
@@ -680,8 +691,11 @@ class OLMoSequentialBlock(OLMoBlock):
         else:
             raise NotImplementedError(self.config.init_fn)
 
-        init_normal(self.att_proj, std, cutoff_factor)
-        init_normal(self.ff_proj, std, cutoff_factor)
+        init_normal(self.att_proj, std, cutoff_factor, use_mup=self.config.use_mup)
+        init_normal(self.ff_proj, std, cutoff_factor, use_mup=self.config.use_mup)
+
+        if self.config.use_mup and self.config.mup_query_zero_init:
+            self.att_proj.weight.data[:, : self.config.d_model] = 0  # just the query part
 
     def forward(
         self,
@@ -817,10 +831,10 @@ class OLMoLlamaBlock(OLMoBlock):
         else:
             raise NotImplementedError(self.config.init_fn)
 
-        init_normal(self.q_proj, std, cutoff_factor)
-        init_normal(self.k_proj, std, cutoff_factor)
-        init_normal(self.v_proj, std, cutoff_factor)
-        init_normal(self.ff_proj, std, cutoff_factor)
+        init_normal(self.q_proj, std, cutoff_factor, use_mup=self.config.use_mup)
+        init_normal(self.k_proj, std, cutoff_factor, use_mup=self.config.use_mup)
+        init_normal(self.v_proj, std, cutoff_factor, use_mup=self.config.use_mup)
+        init_normal(self.ff_proj, std, cutoff_factor, use_mup=self.config.use_mup)
 
     def _scaled_dot_product_attention(
         self,
@@ -992,6 +1006,13 @@ class OLMo(nn.Module):
                     "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
                 )
 
+        if self.config.use_mup and self.config.mup_base_shapes is None:
+            import warnings
+
+            warnings.warn(
+                "`use_mup` is True, but `mup_base_shapes` is not specified; standard parametrization will be applied."
+            )
+
         self.activation_checkpointing_strategy: Optional[ActivationCheckpointingStrategy] = None
         self._activation_checkpoint_fn: Callable = activation_checkpoint_function(self.config)
 
@@ -1029,18 +1050,39 @@ class OLMo(nn.Module):
                 {"wpe": nn.Embedding(config.max_sequence_length, config.d_model, device=config.init_device)}
             )
         if not config.weight_tying:
-            self.transformer.update(
-                {
-                    "ff_out": nn.Linear(
-                        config.d_model,
-                        config.embedding_size or config.vocab_size,
-                        bias=config.include_bias,
-                        device=config.init_device,
-                    )
-                }
+            # muP: replace output nn.Linear layer with MuReadout
+            layer_func = MuReadout if config.use_mup else nn.Linear
+            kwargs = {"readout_zero_init": True} if config.use_mup else {}
+
+            ff_out = layer_func(
+                config.d_model,
+                config.embedding_size or config.vocab_size,
+                bias=config.include_bias,
+                device=config.init_device,
+                **kwargs,
             )
+            self.transformer.update({"ff_out": ff_out})
+        else:
+            # muP: replace output nn.Linear layer with MuSharedReadout
+            # (weight tying means the output layer will be the same as the embedding layer).
+            # TODO: confirm this is actually used in forward
+            if config.use_mup:
+                ff_out = MuSharedReadout(
+                    self.transformer.wte.weight,
+                    bias=config.include_bias,
+                    device=config.init_device,
+                )
+                self.transformer.update({"ff_out": ff_out})
+
         # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
         if init_params and self.config.init_device != "meta":
+            # In case of muP, we need to have called set_base_shapes beforehand
+            if self.config.use_mup:
+                from mup import set_base_shapes
+
+                # TODO: make sure that fsdp/ddp plays nice with this
+                # TODO: add cached_path
+                set_base_shapes(self, self.config.mup_base_shapes)
             self.reset_parameters()
         self.__num_fwd_flops: Optional[int] = None
         self.__num_bck_flops: Optional[int] = None
@@ -1088,7 +1130,9 @@ class OLMo(nn.Module):
         else:
             raise NotImplementedError(self.config.init_fn)
 
-        init_normal(self.transformer.wte, std=wte_std, init_cutoff_factor=wte_cutoff_factor)
+        init_normal(
+            self.transformer.wte, std=wte_std, init_cutoff_factor=wte_cutoff_factor, use_mup=self.config.use_mup
+        )
 
         if hasattr(self.transformer, "wpe"):
             if self.config.init_fn == InitFnType.normal:
@@ -1103,7 +1147,12 @@ class OLMo(nn.Module):
             else:
                 raise NotImplementedError(self.config.init_fn)
 
-            init_normal(self.transformer.wpe, std=wpe_std, init_cutoff_factor=wpe_cutoff_factor)
+            init_normal(
+                self.transformer.wpe,
+                std=wpe_std,
+                init_cutoff_factor=wpe_cutoff_factor,
+                use_mup=self.config.use_mup,
+            )
 
         # Top-level layer norm.
         self.transformer.ln_f.reset_parameters()  # type: ignore
@@ -1122,7 +1171,9 @@ class OLMo(nn.Module):
             else:
                 raise NotImplementedError(self.config.init_fn)
 
-            init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor)
+            if not self.config.use_mup:
+                # if mup, don't reset readout weights.
+                init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor, use_mup=self.config.use_mup)
 
         # Let the blocks handle themselves.
         if self.config.block_group_size == 1:
