@@ -177,7 +177,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # We don't want the global batch size depend on the device batch size, because we might have to change the
     # device batch size based on the hardware we're running on.
     device_batch_size = {
-        "150M": 32,
+        "150M": 16,
         "300M": 10,
         "750M": 8,
         "1B": 2,
@@ -197,8 +197,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         "7B": 1000,
     }.get(args.model, 5000)
 
-    #distributed_strategy = {"7B": DistributedStrategy.fsdp}.get(args.model, DistributedStrategy.ddp)
-    distributed_strategy = DistributedStrategy.fsdp
+    distributed_strategy = {"7B": DistributedStrategy.fsdp}.get(args.model, DistributedStrategy.ddp)
 
     return TrainConfig(
         run_name=run_name,
