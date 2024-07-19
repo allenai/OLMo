@@ -90,7 +90,6 @@ distributed_strategy: fsdp
 
 fsdp:
   wrapping_strategy: by_block_and_size
-  sharding_strategy: SHARD_GRAD_OP
   precision: mixed
 
 
