@@ -66,7 +66,11 @@ def make_parser():
 
 
 def aws_copy(src, dest, args):
+<<<<<<< HEAD
     base = "aws s3 sync"
+=======
+    base = "aws s3 sync --exclude tmp/*"
+>>>>>>> s3_unshard_to_hf
     if args.quiet:
         base += " --quiet"
     if args.type == "olmo_core" and args.model_only:
@@ -81,7 +85,14 @@ def s3_unshard_to_hf(args):
     # Set directories
     sharded_dir = args.local_dir / "sharded"
     unsharded_dir = args.local_dir / "unsharded"
+<<<<<<< HEAD
     hf_dir = args.local_dir / "hf"
+=======
+    if args.old_style_hf:
+        hf_dir = args.local_dir / "hf-olmo"
+    else:
+        hf_dir = args.local_dir / "hf"
+>>>>>>> s3_unshard_to_hf
     hf_dir.mkdir(exist_ok=True)
 
     # Either download the unsharded checkpoint, or download sharded and unshard.
@@ -126,8 +137,14 @@ def s3_unshard_to_hf(args):
         hf_cmd = f"""python scripts/convert_olmo_to_hf_new.py \
             --input_dir {unsharded_dir} \
             --output_dir {hf_dir} \
+<<<<<<< HEAD
             --tokenizer_json_path tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json \
             --safe_serialization True"""
+=======
+            --tokenizer_json_path olmo_data/tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json \
+            --safe_serialization True \
+            --no_tmp_cleanup"""
+>>>>>>> s3_unshard_to_hf
         subprocess.run(hf_cmd, shell=True, check=True)
 
     # Upload the unsharded and HF files back to S3.
@@ -143,7 +160,11 @@ def s3_unshard_to_hf(args):
 def main():
     parser = make_parser()
     args = parser.parse_args()
+<<<<<<< HEAD
     args.local_dir.mkdir(exist_ok=True)
+=======
+    args.local_dir.mkdir(exist_ok=True, parents=True)
+>>>>>>> s3_unshard_to_hf
 
     s3_unshard_to_hf(args)
 
