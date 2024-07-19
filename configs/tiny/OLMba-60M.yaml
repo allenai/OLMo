@@ -12,7 +12,7 @@ model:
   n_layers: 18
   vocab_size: 50280
   embedding_size: 50304
-  d_state: 64 # default 128
+  d_state: 128 # default 128
   d_conv: 4
   expand: 2
   ngroups: 1 # make bigger for bigger models

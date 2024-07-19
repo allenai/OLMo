@@ -3,7 +3,7 @@
 set -ex
 
 NUM_NODES=4
-TASK_NAME=vanilla-mamba2-60M-d_state-64
+TASK_NAME=vanilla-mamba2-60M-d_state-128
 
 gantry run \
   --workspace ai2/OLMo-training \
