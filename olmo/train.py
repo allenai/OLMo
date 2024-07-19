@@ -252,10 +252,7 @@ class Trainer:
 
     @property
     def max_epochs(self) -> int:
-        if isinstance(self.cfg.max_duration, str) and self.cfg.max_duration.endswith("ep"):
-            return int(self.cfg.max_duration[:-2].strip())
-        else:
-            return 1
+        return math.ceil(self.max_steps / self.batches_per_epoch)
 
     @property
     def max_steps(self) -> int:
@@ -266,7 +263,7 @@ class Trainer:
                 # convert to float *first* to handle scientific notation
                 max_tokens = int(float(self.cfg.max_duration[:-1].strip()))
                 tokens_remaining = max(max_tokens - self.global_train_tokens_seen, 0)
-                steps_remaining = tokens_remaining // self.tokens_per_batch
+                steps_remaining = math.ceil(tokens_remaining / self.tokens_per_batch)
                 return self.global_step + steps_remaining
             elif self.cfg.max_duration.endswith("ep"):
                 max_epochs = int(self.cfg.max_duration[:-2].strip())
@@ -320,7 +317,7 @@ class Trainer:
 
     def trainer_state_dict(self) -> Dict[str, Any]:
         return {
-            "epoch": self.epoch,
+            "epoch": self.epoch or 0,
             "global_step": self.global_step,
             "global_train_examples_seen_this_epoch": self.global_train_examples_seen_this_epoch,
             "global_train_tokens_seen": self.global_train_tokens_seen,
@@ -355,7 +352,7 @@ class Trainer:
         ]
 
         # Dataset / dataloader position.
-        checkpoint_epoch = state_dict.get("epoch", 0)
+        checkpoint_epoch = state_dict.get("epoch") or 0
         self.global_step = state_dict["global_step"]
         self.global_train_examples_seen_this_epoch = state_dict.get(
             "global_train_examples_seen_this_epoch",
@@ -380,6 +377,12 @@ class Trainer:
         elif checkpoint_epoch != self.epoch:
             log.info(f"Starting new epoch (epoch = {self.epoch})")
             self.global_train_examples_seen_this_epoch = 0
+
+        assert self.epoch is not None
+        # Reshuffle dataset if needed.
+        if self.dataset.epoch != self.epoch:
+            log.info(f"Reshuffling data loader for epoch {self.epoch}...")
+            self.dataset.reshuffle(self.epoch)
 
         if self.cfg.fast_forward_batches:
             log.info(f"Fast-forwarding data loader by {self.cfg.fast_forward_batches:,d} steps")
@@ -671,6 +674,8 @@ class Trainer:
             input_ids=batch["input_ids"],
             attention_mask=batch.get("attention_mask"),
             attention_bias=batch.get("attention_bias"),
+            doc_lens=batch.get("doc_lens"),
+            max_doc_lens=batch.get("max_doc_lens"),
         ).logits
         logits_for_loss = logits[..., :-1, :].contiguous()
         # shape: (batch_size * seq_len, vocab_size)
@@ -1032,6 +1037,8 @@ class Trainer:
                 self.cfg.stop_at = self.global_step + self.cfg.stop_after
             else:
                 self.cfg.stop_at = min(self.cfg.stop_at, self.global_step + self.cfg.stop_after)
+        if self.cfg.stop_at is None:
+            self.cfg.stop_at = self.max_steps + 10
 
         self._start_time = time.time()
         self._gc_init_state = gc.isenabled()  # cache if garbage collection is enabled, reset on close.
@@ -1108,7 +1115,7 @@ class Trainer:
         # Train.
         first_batch: bool = True
         cancel_initiated: bool = False
-        stop_at: Optional[int] = self.cfg.stop_at
+        stop_at: int = self.cfg.stop_at
         save_checkpoints: bool = True
 
         with torch_profiler as p:
@@ -1155,9 +1162,12 @@ class Trainer:
                     # Log metrics to console.
                     if self.global_step % self.cfg.console_log_interval == 0:
                         if get_global_rank() == 0:
-                            self.log_metrics_to_console(f"[step={self.global_step}/{self.max_steps}]", metrics)
+                            self.log_metrics_to_console(
+                                f"[step={self.global_step}/{self.max_steps},epoch={epoch}]",
+                                metrics,
+                            )
                         else:
-                            log.info(f"[step={self.global_step}/{self.max_steps}]")
+                            log.info(f"[step={self.global_step}/{self.max_steps},epoch={epoch}]")
 
                     # Log metrics to W&B.
                     if (
@@ -1171,18 +1181,15 @@ class Trainer:
                     if not cancel_initiated and self.global_step % self.cfg.canceled_check_interval == 0:
                         cancel_initiated, extra_steps = self.check_if_cancelled()
                         if cancel_initiated:
-                            stop_at = (
-                                self.global_step + extra_steps
-                                if stop_at is None
-                                else min(self.global_step + extra_steps, stop_at)
-                            )
+                            stop_at = min(stop_at, self.global_step + extra_steps)
 
                     # Maybe save sharded checkpoint.
                     if self.cfg.distributed_strategy != DistributedStrategy.ddp:
                         if save_checkpoints and (
                             cancel_initiated
                             or (
-                                self.global_step % self.cfg.save_interval == 0
+                                self.cfg.save_interval is not None
+                                and self.global_step % self.cfg.save_interval == 0
                                 and self.cfg.save_num_checkpoints_to_keep != 0
                             )
                         ):
@@ -1227,7 +1234,9 @@ class Trainer:
                         speed_monitor.reset()
 
                     # Maybe run evaluations.
-                    if not cancel_initiated and self.global_step % self.cfg.eval_interval == 0:
+                    if not cancel_initiated and (
+                        self.global_step % self.cfg.eval_interval == 0 or self.global_step >= stop_at
+                    ):
                         eval_metrics = self.eval()
 
                         # Log metrics to W&B.
@@ -1245,7 +1254,7 @@ class Trainer:
                     if p is not None:
                         p.step()
 
-                    if stop_at is not None and self.global_step >= stop_at:
+                    if self.global_step >= stop_at:
                         break
 
                     # Run generation 1 garbage collection.
@@ -1267,7 +1276,8 @@ class Trainer:
                     self.global_train_examples_seen_this_epoch = 0
                     self.dataset.start_index = 0
                     if self.epoch < self.max_epochs:
-                        self.dataset.reshuffle()
+                        log.info(f"Reshuffling data loader for epoch {self.epoch}...")
+                        self.dataset.reshuffle(self.epoch)
                     continue
 
                 break

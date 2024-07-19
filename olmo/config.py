@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from glob import glob
 from pathlib import Path
@@ -156,6 +157,12 @@ class BaseConfig:
                 if name in out:
                     del out[name]
         return out
+
+    def update_with(self, **kwargs):
+        result = deepcopy(self)
+        for key, value in kwargs.items():
+            setattr(result, key, value)
+        return result
 
 
 class LayerNormType(StrEnum):
@@ -625,6 +632,7 @@ class DataConfig(BaseConfig):
     label_mask_paths: Optional[List[str]] = None
     pad_direction: PaddingDirection = PaddingDirection.right
     generate_attention_mask: bool = False
+    generate_doc_lengths: bool = False
     num_workers: int = 0
     drop_last: bool = False
     pin_memory: bool = False
@@ -971,7 +979,7 @@ class TrainConfig(BaseConfig):
     How often (in batches) to check if the run has been canceled or reached its time limit.
     """
 
-    save_interval: int = 1000
+    save_interval: Optional[int] = 1000
     """
     How often (in terms of steps) to save sharded training state checkpoints.
     """

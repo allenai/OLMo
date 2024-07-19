@@ -45,7 +45,7 @@ from .config import (
 )
 from .exceptions import OLMoConfigurationError
 from .initialization import init_normal
-from .torch_util import ensure_finite_
+from .torch_util import ensure_finite_, get_cumulative_document_lengths
 
 if sys.version_info.minor > 8:
     from collections.abc import MutableMapping
@@ -458,11 +458,16 @@ class OLMoBlock(nn.Module):
             self.rotary_emb = RotaryEmbedding(config, self.__cache)
 
         self.flash_attn_func = None
+        self.flash_attn_varlen_func = None
         if config.flash_attention:
             try:
-                from flash_attn import flash_attn_func  # type: ignore
+                from flash_attn import (  # type: ignore
+                    flash_attn_func,
+                    flash_attn_varlen_func,
+                )
 
                 self.flash_attn_func = flash_attn_func
+                self.flash_attn_varlen_func = flash_attn_varlen_func
             except ModuleNotFoundError:
                 pass
 
@@ -520,12 +525,31 @@ class OLMoBlock(nn.Module):
         attn_mask: Optional[torch.Tensor] = None,
         dropout_p: float = 0.0,
         is_causal: bool = False,
+        max_doc_len: Optional[int] = None,
+        cu_doc_lens: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """
         Computes scaled dot product attention on query, key and value tensors, using an optional
         attention mask if passed, and applying dropout if a probability greater than 0.0 is specified.
         """
-        if self.flash_attn_func is not None and attn_mask is None:
+        if max_doc_len is not None and cu_doc_lens is not None:
+            assert self.flash_attn_varlen_func is not None, "flash-attn is required for document masking"
+            assert attn_mask is None, "attn-mask is currently not supported with document masking"
+            assert self.training, "document masking is only supported for training, not inference"
+            B, T, D = q.size(0), q.size(2), q.size(3)
+            r = self.flash_attn_varlen_func(
+                q.transpose(1, 2).view(B * T, -1, D),
+                k.transpose(1, 2).view(B * T, -1, D),
+                v.transpose(1, 2).view(B * T, -1, D),
+                cu_doc_lens,
+                cu_doc_lens,
+                max_doc_len,
+                max_doc_len,
+                dropout_p=dropout_p,
+                causal=is_causal,
+            )
+            return r.view(B, T, -1, D).transpose(1, 2)
+        elif self.flash_attn_func is not None and attn_mask is None:
             r = self.flash_attn_func(
                 q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), dropout_p=dropout_p, causal=is_causal
             )
@@ -557,6 +581,8 @@ class OLMoBlock(nn.Module):
         attention_bias: Optional[torch.Tensor] = None,
         layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         use_cache: bool = False,
+        max_doc_len: Optional[int] = None,
+        cu_doc_lens: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         B, T, C = q.size()  # batch size, sequence length, d_model
         dtype = k.dtype
@@ -605,6 +631,8 @@ class OLMoBlock(nn.Module):
             attn_mask=attention_bias,
             dropout_p=0.0 if not self.training else self.config.attention_dropout,
             is_causal=attention_bias is None,
+            max_doc_len=max_doc_len,
+            cu_doc_lens=cu_doc_lens,
         )
 
         # Re-assemble all head outputs side-by-side.
@@ -620,6 +648,8 @@ class OLMoBlock(nn.Module):
         attention_bias: Optional[torch.FloatTensor] = None,
         layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         use_cache: bool = False,
+        max_doc_len: Optional[int] = None,
+        cu_doc_lens: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         raise NotImplementedError
 
@@ -689,6 +719,8 @@ class OLMoSequentialBlock(OLMoBlock):
         attention_bias: Optional[torch.Tensor] = None,
         layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         use_cache: bool = False,
+        max_doc_len: Optional[int] = None,
+        cu_doc_lens: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         # Get query, key, value projections.
         # shape:
@@ -715,10 +747,27 @@ class OLMoSequentialBlock(OLMoBlock):
         # Get attention scores.
         if self._activation_checkpoint_fn is not None:
             att, cache = self._activation_checkpoint_fn(  # type: ignore
-                self.attention, q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache
+                self.attention,
+                q,
+                k,
+                v,
+                attention_bias,
+                layer_past=layer_past,
+                use_cache=use_cache,
+                max_doc_len=max_doc_len,
+                cu_doc_lens=cu_doc_lens,
             )
         else:
-            att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
+            att, cache = self.attention(
+                q,
+                k,
+                v,
+                attention_bias,
+                layer_past=layer_past,
+                use_cache=use_cache,
+                max_doc_len=max_doc_len,
+                cu_doc_lens=cu_doc_lens,
+            )
 
         if self.config.norm_after:
             if self._activation_checkpoint_fn is not None:
@@ -830,7 +879,14 @@ class OLMoLlamaBlock(OLMoBlock):
         attn_mask: Optional[torch.Tensor] = None,
         dropout_p: float = 0.0,
         is_causal: bool = False,
+        max_doc_len: Optional[int] = None,
+        cu_doc_lens: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
+        if max_doc_len is not None or cu_doc_lens is not None:
+            raise NotImplementedError(
+                f"attention document masking is not implemented for {self.__class__.__name__}"
+            )
+
         attn_weights = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(q.size(-1))
 
         if is_causal:
@@ -854,6 +910,8 @@ class OLMoLlamaBlock(OLMoBlock):
         attention_bias: Optional[torch.Tensor] = None,
         layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         use_cache: bool = False,
+        max_doc_len: Optional[int] = None,
+        cu_doc_lens: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         # Get query, key, value projections.
         # shape:
@@ -871,7 +929,16 @@ class OLMoLlamaBlock(OLMoBlock):
             v.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
 
         # Get attention scores.
-        att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
+        att, cache = self.attention(
+            q,
+            k,
+            v,
+            attention_bias,
+            layer_past=layer_past,
+            use_cache=use_cache,
+            max_doc_len=max_doc_len,
+            cu_doc_lens=cu_doc_lens,
+        )
 
         # Add attention scores.
         # shape: (B, T, C)
@@ -941,6 +1008,8 @@ class OLMoBlockGroup(nn.ModuleList):
         attention_bias: Optional[torch.FloatTensor] = None,
         layers_past: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None,
         use_cache: bool = False,
+        max_doc_len: Optional[int] = None,
+        cu_doc_lens: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Optional[List[Tuple[torch.Tensor, torch.Tensor]]]]:
         attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
         for block_idx, block in enumerate(self):
@@ -949,11 +1018,24 @@ class OLMoBlockGroup(nn.ModuleList):
             if should_checkpoint_block(self.activation_checkpointing_strategy, block_idx):
                 # shape: (batch_size, seq_len, d_model)
                 x, cache = self._activation_checkpoint_fn(  # type: ignore
-                    block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+                    block,
+                    x,
+                    attention_bias=attention_bias,
+                    layer_past=layer_past,
+                    use_cache=use_cache,
+                    max_doc_len=max_doc_len,
+                    cu_doc_lens=cu_doc_lens,
                 )
             else:
                 # shape: (batch_size, seq_len, d_model)
-                x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
+                x, cache = block(
+                    x,
+                    attention_bias=attention_bias,
+                    layer_past=layer_past,
+                    use_cache=use_cache,
+                    max_doc_len=max_doc_len,
+                    cu_doc_lens=cu_doc_lens,
+                )
             if attn_key_values is not None:
                 assert cache is not None
                 attn_key_values.append(cache)
@@ -1155,6 +1237,8 @@ class OLMo(nn.Module):
         use_cache: bool = False,
         last_logits_only: bool = False,
         output_hidden_states: Optional[bool] = None,
+        doc_lens: Optional[torch.Tensor] = None,
+        max_doc_lens: Optional[Sequence[int]] = None,
     ) -> OLMoOutput:
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
@@ -1185,6 +1269,9 @@ class OLMo(nn.Module):
         :param use_cache: If `True`, return key and value tensors for each block.
         :param last_logits_only: If `True`, only compute the logits for the last token of each sequence.
             This can speed up decoding when you only care about the next token.
+        :param doc_lens: Document lengths to use in attention for intra-document masking.
+            Shape `(batch_size, max_docs)`.
+        :param max_doc_lens: Maximum document length for each instance in the batch.
         """
         output_hidden_states = output_hidden_states if output_hidden_states is not None else False
 
@@ -1196,6 +1283,12 @@ class OLMo(nn.Module):
             past_length = 0
         else:
             past_length = past_key_values[0][0].size(-2)
+
+        max_doc_len: Optional[int] = None
+        cu_doc_lens: Optional[torch.Tensor] = None
+        if doc_lens is not None and max_doc_lens is not None:
+            max_doc_len = max(max_doc_lens)
+            cu_doc_lens = get_cumulative_document_lengths(doc_lens)
 
         # Get embeddings of input.
         # shape: (batch_size, seq_len, d_model)
@@ -1271,11 +1364,24 @@ class OLMo(nn.Module):
                 if should_checkpoint_block(self.activation_checkpointing_strategy, block_idx):
                     # shape: (batch_size, seq_len, d_model)
                     x, cache = self._activation_checkpoint_fn(
-                        block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+                        block,
+                        x,
+                        attention_bias=attention_bias,
+                        layer_past=layer_past,
+                        use_cache=use_cache,
+                        max_doc_len=max_doc_len,
+                        cu_doc_lens=cu_doc_lens,
                     )
                 else:
                     # shape: (batch_size, seq_len, d_model)
-                    x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
+                    x, cache = block(
+                        x,
+                        attention_bias=attention_bias,
+                        layer_past=layer_past,
+                        use_cache=use_cache,
+                        max_doc_len=max_doc_len,
+                        cu_doc_lens=cu_doc_lens,
+                    )
 
                 if attn_key_values is not None:
                     assert cache is not None
@@ -1294,7 +1400,12 @@ class OLMo(nn.Module):
                     ]
                 )
                 x, cache = block_group(
-                    x, attention_bias=attention_bias, layers_past=layers_past, use_cache=use_cache
+                    x,
+                    attention_bias=attention_bias,
+                    layers_past=layers_past,
+                    use_cache=use_cache,
+                    max_doc_len=max_doc_len,
+                    cu_doc_lens=cu_doc_lens,
                 )
                 if attn_key_values is not None:
                     assert cache is not None

@@ -30,6 +30,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         global_batch_size: int,
         *,
         seed: int = 0,
+        epoch: int = 0,
         start_index: int = 0,
         max_examples: Optional[int] = None,
         shuffle: bool = True,
@@ -42,6 +43,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
     ):
         self.dataset = dataset
         self.seed = seed
+        self.epoch = epoch
         self.start_index = start_index
         self.max_examples = max_examples
         self.shuffle = shuffle
@@ -91,7 +93,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         if self.shuffle:
             # Deterministically shuffle based on epoch and seed
             # Torch built-in randomness is not very random, so we use numpy.
-            rng = np.random.Generator(np.random.PCG64(seed=self.seed))
+            rng = np.random.Generator(np.random.PCG64(seed=self.seed + self.epoch))
             rng.shuffle(indices)
 
         if not self.drop_last:
@@ -116,8 +118,8 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         else:
             return self._build_global_indices()
 
-    def reshuffle(self):
-        self.seed += 1
+    def reshuffle(self, epoch: int):
+        self.epoch = epoch
         if self.work_dir is not None:
             self._build_and_save_global_indices()
 
