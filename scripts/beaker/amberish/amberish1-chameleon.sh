@@ -63,4 +63,3 @@ torchrun \
       --fused_loss=true \
       '--load_path=${path.last_checkpoint:${save_folder}}' \
       --save_overwrite
-
