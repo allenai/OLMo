@@ -32,6 +32,7 @@ gantry run \
   --env-secret AWS_ACCESS_KEY_ID=DUSTINS_AWS_ACCESS_KEY_ID \
   --env-secret AWS_SECRET_ACCESS_KEY=DUSTINS_AWS_SECRET_ACCESS_KEY \
   --shared-memory 10GiB \
+  --venv base \
   --yes \
   --timeout=-1 \
   -- /bin/bash -c " scripts/beaker/lc_7b.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
