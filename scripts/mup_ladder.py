@@ -52,8 +52,8 @@ MODEL_CONFIG_150M = ModelConfig(
     # n_heads=16,
     # n_layers=32,
     d_model=480,
-    n_heads=12,
-    n_layers=32,
+    n_heads=16,
+    n_layers=16,
     mlp_ratio=8,
     weight_tying=False,
     alibi=False,
@@ -79,7 +79,7 @@ MODEL_CONFIG_150M = ModelConfig(
     init_fn=InitFnType.normal,
     init_std=0.02,
     init_cutoff_factor=3,
-    use_mup=False,
+    use_mup=True,
 )
 
 BASE_SHAPES = "configs/mup/ladder_base_shapes_150m.bsh"
