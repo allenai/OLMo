@@ -45,7 +45,7 @@ from .config import (
 )
 from .exceptions import OLMoConfigurationError
 from .initialization import init_normal
-from .torch_util import ensure_finite_
+from .torch_util import ensure_finite_, get_cumulative_document_lengths
 
 if sys.version_info.minor > 8:
     from collections.abc import MutableMapping
@@ -1288,6 +1288,7 @@ class OLMo(nn.Module):
         cu_doc_lens: Optional[torch.Tensor] = None
         if doc_lens is not None and max_doc_lens is not None:
             max_doc_len = max(max_doc_lens)
+            cu_doc_lens = get_cumulative_document_lengths(doc_lens)
 
         # Get embeddings of input.
         # shape: (batch_size, seq_len, d_model)
