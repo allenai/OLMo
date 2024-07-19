@@ -6,7 +6,7 @@ NUM_NODES=8
 
 gantry run \
   --workspace ai2/OLMo-pretraining-stability \
-  --task-name amberish1-chameleon \
+  --task-name amberish1-chameleon2 \
   --description "Amberish 1B with Chameleon stability settings" \
   --priority urgent \
   --preemptible \
