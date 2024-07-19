@@ -1161,11 +1161,11 @@ class Trainer:
                     if self.global_step % self.cfg.console_log_interval == 0:
                         if get_global_rank() == 0:
                             self.log_metrics_to_console(
-                                f"[step={self.global_step}/{self.max_steps},epoch={epoch}/{self.max_epochs}]",
+                                f"[step={self.global_step}/{self.max_steps},epoch={epoch}]",
                                 metrics,
                             )
                         else:
-                            log.info(f"[step={self.global_step}/{self.max_steps},epoch={epoch}/{self.max_epochs}]")
+                            log.info(f"[step={self.global_step}/{self.max_steps},epoch={epoch}]")
 
                     # Log metrics to W&B.
                     if (
