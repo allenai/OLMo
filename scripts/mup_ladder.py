@@ -48,9 +48,6 @@ from olmo.scaling.mup_olmo.mup_utils import save_base_shapes
 log = logging.getLogger("train")
 
 MODEL_CONFIG_150M = ModelConfig(
-    # d_model=480,
-    # n_heads=16,
-    # n_layers=32,
     d_model=480,
     n_heads=16,
     n_layers=32,
@@ -190,7 +187,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # lr = 0.0047 * (model_size / 108000000) ** (-1 / 3)
     # TODO: HP search with smaller model first.
     # lr = 1e-3
-    lr = args.lr
+    lr = args.lr  # 3e-4, 1e-3, 4e-3, 2e-2, 3e-2
 
     save_interval = {
         "1B": 2500,
