@@ -20,9 +20,9 @@ curl "https://storage.googleapis.com/hf-cache/huggingface_cache_v4.tar.gz" | tar
 popd
 export HF_DATASETS_OFFLINE=1
 
-# export NCCL_DEBUG=INFO
-# export NCCL_IB_HCA="^=mlx5_bond_0"
-# export NCCL_SOCKET_IFNAME=ib
+export NCCL_DEBUG=INFO
+export NCCL_IB_HCA="^=mlx5_bond_0"
+export NCCL_SOCKET_IFNAME=ib
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
