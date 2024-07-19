@@ -548,7 +548,7 @@ class OLMoBlock(nn.Module):
                 dropout_p=dropout_p,
                 causal=is_causal,
             )
-            return r.view(B, T, -1).transpose(1, 2)
+            return r.view(B, T, -1, 1).transpose(1, 2)
         elif self.flash_attn_func is not None and attn_mask is None:
             r = self.flash_attn_func(
                 q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), dropout_p=dropout_p, causal=is_causal
