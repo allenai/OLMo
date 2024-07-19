@@ -9,13 +9,13 @@ wandb:
 model:
   model_name: mamba
   d_model: 512
-  n_layers: 18
+  n_layers: 20
   vocab_size: 50280
   embedding_size: 50304
-  d_state: 32 # default 128
+  d_state: 16
   d_conv: 4
   expand: 2
-  ngroups: 1 # make bigger for bigger models
+  ngroups: 8
   headdim: 64
   layer_norm_type: rms
   weight_tying: false
