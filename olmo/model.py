@@ -536,11 +536,11 @@ class OLMoBlock(nn.Module):
             assert self.flash_attn_varlen_func is not None, "flash-attn is required for document masking"
             assert attn_mask is None, "attn-mask is currently not supported with document masking"
             assert self.training, "document masking is only supported for training, not inference"
-            B, T = q.size(0), q.size(2)
+            B, T, D = q.size(0), q.size(2), q.size(3)
             r = self.flash_attn_varlen_func(
-                q.transpose(1, 2).view(B * T, -1, -1),
-                k.transpose(1, 2).view(B * T, -1, -1),
-                v.transpose(1, 2).view(B * T, -1, -1),
+                q.transpose(1, 2).view(B * T, -1, D),
+                k.transpose(1, 2).view(B * T, -1, D),
+                v.transpose(1, 2).view(B * T, -1, D),
                 cu_doc_lens,
                 cu_doc_lens,
                 max_doc_len,
@@ -548,7 +548,7 @@ class OLMoBlock(nn.Module):
                 dropout_p=dropout_p,
                 causal=is_causal,
             )
-            return r.view(B, T, -1, 1).transpose(1, 2)
+            return r.view(B, T, -1, D).transpose(1, 2)
         elif self.flash_attn_func is not None and attn_mask is None:
             r = self.flash_attn_func(
                 q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), dropout_p=dropout_p, causal=is_causal
