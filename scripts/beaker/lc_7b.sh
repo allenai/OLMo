@@ -2,7 +2,6 @@
 set -exuo pipefail
 IFS=$'\n\t'
 
-export NCCL_DEBUG=INFO NCCL_SOCKET_IFNAME=ib NCCL_IB_HCA="^=mlx5_bond_0"
 
 
 BEAKER_LEADER_REPLICA_HOSTNAME=$1
@@ -21,6 +20,10 @@ curl "https://storage.googleapis.com/hf-cache/huggingface_cache_v4.tar.gz" | tar
 popd
 export HF_DATASETS_OFFLINE=1
 
+export NCCL_DEBUG=INFO
+export NCCL_IB_HCA="^=mlx5_bond_0"
+export NCCL_SOCKET_IFNAME=ib
+
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
@@ -29,7 +32,6 @@ torchrun \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   scripts/train.py \
   configs/long_context_dolma_v0.7_cont_train.yaml \
-    --gen1_gc_interval=null \
     --wandb.group=long_contexts_dolma_v0.7\
     --save_overwrite \
     --save_folder=runs/ \
