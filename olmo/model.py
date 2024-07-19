@@ -536,10 +536,11 @@ class OLMoBlock(nn.Module):
             assert self.flash_attn_varlen_func is not None, "flash-attn is required for document masking"
             assert attn_mask is None, "attn-mask is currently not supported with document masking"
             assert self.training, "document masking is only supported for training, not inference"
+            B, T = q.size(0), q.size(2)
             r = self.flash_attn_varlen_func(
-                q.transpose(1, 2),
-                k.transpose(1, 2),
-                v.transpose(1, 2),
+                q.transpose(1, 2).view(B * T, -1, -1),
+                k.transpose(1, 2).view(B * T, -1, -1),
+                v.transpose(1, 2).view(B * T, -1, -1),
                 cu_doc_lens,
                 cu_doc_lens,
                 max_doc_len,
@@ -547,7 +548,7 @@ class OLMoBlock(nn.Module):
                 dropout_p=dropout_p,
                 causal=is_causal,
             )
-            return r.transpose(1, 2)
+            return r.view(B, T, -1).transpose(1, 2)
         elif self.flash_attn_func is not None and attn_mask is None:
             r = self.flash_attn_func(
                 q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), dropout_p=dropout_p, causal=is_causal
@@ -1236,8 +1237,8 @@ class OLMo(nn.Module):
         use_cache: bool = False,
         last_logits_only: bool = False,
         output_hidden_states: Optional[bool] = None,
-        max_doc_len: Optional[int] = None,
-        cu_doc_lens: Optional[torch.Tensor] = None,
+        doc_lens: Optional[torch.Tensor] = None,
+        max_doc_lens: Optional[Sequence[int]] = None,
     ) -> OLMoOutput:
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
@@ -1268,9 +1269,9 @@ class OLMo(nn.Module):
         :param use_cache: If `True`, return key and value tensors for each block.
         :param last_logits_only: If `True`, only compute the logits for the last token of each sequence.
             This can speed up decoding when you only care about the next token.
-        :param max_doc_len: The maximum document length in the batch, used in attention to mask documents.
-        :param cu_doc_lens: Cumulative document lengths, a tensor of shape `(batch_size+1,)`. The first
-            item should always be 0. Used in attention to mask documents.
+        :param doc_lens: Document lengths to use in attention for intra-document masking.
+            Shape `(batch_size, max_docs)`.
+        :param max_doc_lens: Maximum document length for each instance in the batch.
         """
         output_hidden_states = output_hidden_states if output_hidden_states is not None else False
 
@@ -1282,6 +1283,11 @@ class OLMo(nn.Module):
             past_length = 0
         else:
             past_length = past_key_values[0][0].size(-2)
+
+        max_doc_len: Optional[int] = None
+        cu_doc_lens: Optional[torch.Tensor] = None
+        if doc_lens is not None and max_doc_lens is not None:
+            max_doc_len = max(max_doc_lens)
 
         # Get embeddings of input.
         # shape: (batch_size, seq_len, d_model)

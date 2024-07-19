@@ -144,7 +144,10 @@ def test_collate_with_document_lengths(train_config):
     ]
     inputs = [{"input_ids": x, "doc_lens": get_document_lengths(x, eos_token_id)} for x in input_ids]
     batch = collator(inputs)  # type: ignore
-    assert "max_doc_len" in batch
-    assert "cu_doc_lens" in batch
-    assert batch["max_doc_len"] == 5
-    assert batch["cu_doc_lens"].tolist() == [0, 1, 6, 9, 11, 16, 19, 22]
+    assert "doc_lens" in batch
+    assert "max_doc_lens" in batch
+    assert batch["doc_lens"].tolist() == [
+        [1, 5, 3, 2],
+        [5, 3, 3, 0],
+    ]
+    assert batch["max_doc_lens"] == [5, 5]

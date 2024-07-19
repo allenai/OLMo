@@ -31,6 +31,8 @@ class DataCollator:
         all_metadata = []
         all_instance_mask = []
         all_doc_lens = []
+        all_max_doc_lens = []
+        max_docs = max((len(x["doc_lens"]) if isinstance(x, dict) and "doc_lens" in x else 0 for x in items))
 
         for x in items:
             input_ids = x["input_ids"] if isinstance(x, dict) else x
@@ -105,10 +107,12 @@ class DataCollator:
             if instance_mask is not None:
                 all_instance_mask.append(torch.tensor(instance_mask))
 
-            # Cumulative document lengths.
+            # Document lengths.
             doc_lens = x.get("doc_lens") if isinstance(x, dict) else None
             if doc_lens is not None:
-                all_doc_lens.append(doc_lens)
+                doc_pad_shape = (0, max_docs - len(doc_lens))
+                all_doc_lens.append(F.pad(doc_lens, doc_pad_shape, value=0))
+                all_max_doc_lens.append(int(doc_lens.max()))
 
             # Metadata.
             metadata = x.get("metadata") if isinstance(x, dict) else None
@@ -127,15 +131,9 @@ class DataCollator:
         if all_instance_mask:
             out["instance_mask"] = torch.stack(all_instance_mask)
         if all_doc_lens:
-            # Transform into cumulative document lengths.
-            batch_doc_lens = torch.cat(all_doc_lens)
-            out["max_doc_len"] = batch_doc_lens.max().item()
-            out["cu_doc_lens"] = torch.cat(
-                [
-                    torch.tensor([0], dtype=batch_doc_lens.dtype),
-                    torch.cumsum(batch_doc_lens, 0, dtype=torch.int32),
-                ]
-            )
+            out["doc_lens"] = torch.stack(all_doc_lens)
+        if all_max_doc_lens:
+            out["max_doc_lens"] = all_max_doc_lens
         if all_metadata:
             out["metadata"] = all_metadata
 
