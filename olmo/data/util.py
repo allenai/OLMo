@@ -1,6 +1,7 @@
 from typing import Generator, List, NamedTuple
 
 import numpy as np
+import torch
 
 
 def find_end_first_consecutive_true(arr: np.ndarray) -> int:
@@ -116,3 +117,14 @@ def find_periodic_sequences(
                 # cannot accurately determine the period of a sequence that repeats
                 # less than 3 times with this algorithm
                 yield out
+
+
+def get_document_lengths(input_ids: torch.Tensor, eos_token_id: int) -> torch.Tensor:
+    doc_boundaries = torch.cat(
+        [
+            torch.tensor([-1], dtype=torch.int32),
+            (input_ids == eos_token_id).nonzero(as_tuple=True)[0].to(dtype=torch.int32),
+            torch.tensor([] if input_ids[-1] == eos_token_id else [input_ids.shape[0] - 1], dtype=torch.int32),
+        ]
+    )
+    return doc_boundaries[1:] - doc_boundaries[:-1]
