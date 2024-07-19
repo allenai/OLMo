@@ -192,7 +192,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     save_interval = {
         "1B": 2500,
         "7B": 1000,
-    }.get(args.model, 500)
+    }.get(args.model, 1000)
 
     distributed_strategy = {"7B": DistributedStrategy.fsdp}.get(args.model, DistributedStrategy.ddp)
 
