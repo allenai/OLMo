@@ -27,9 +27,10 @@ export NCCL_SOCKET_IFNAME=ib
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
-  --rdzv_id=12347 \
-  --rdzv_backend=static \
-  --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
+  --rdzv_id 12347 \
+  --rdzv_backend static \
+  --rdzv_endpoint $BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
+  --node_rank "${BEAKER_REPLICA_RANK}" \
   scripts/train.py \
   configs/long_context_dolma_v0.7_cont_train.yaml \
     --wandb.group=long_contexts_dolma_v0.7\
