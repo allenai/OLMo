@@ -56,6 +56,14 @@ CONFIGS = {
         'label': '700m',
         'color': 'green',
     },
+    '7b': {
+        'path': 'wandb/amberish7.csv',
+        'keys': VAL_KEYS,
+        'mode': 'eval',
+        'n': 7000000000, # approximate
+        'label': '7b',
+        'color': 'cyan',
+    }
 }
 
 

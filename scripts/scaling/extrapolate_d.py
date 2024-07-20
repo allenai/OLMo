@@ -51,7 +51,7 @@ CONFIGS = {
         'keys': VAL_KEYS,
         'train_step_min': 10000,
         'train_step_max': 200000,
-        'eval_step_max': 407000,
+        'eval_step_max': 404100,
         'final_loss_tokens': 1698693120000,
         'outlier_threshold': None,
         'dot_size': 5.0,
@@ -62,7 +62,7 @@ CONFIGS = {
         'keys': VAL_KEYS,
         'train_step_min': 10000,
         'train_step_max': 200000,
-        'eval_step_max': 407000,
+        'eval_step_max': 404100,
         'final_loss_tokens': 1698693120000,
         'outlier_threshold': None,
         'dot_size': 5.0,
@@ -73,7 +73,7 @@ CONFIGS = {
         'keys': VAL_KEYS,
         'train_step_min': 10000,
         'train_step_max': 200000,
-        'eval_step_max': 407000,
+        'eval_step_max': 404100,
         'final_loss_tokens': 1698693120000,
         'outlier_threshold': None,
         'dot_size': 5.0,
@@ -95,13 +95,37 @@ CONFIGS = {
         'keys': VAL_KEYS,
         'train_step_min': 10000,
         'train_step_max': 200000,
-        'eval_step_max': 407000,
+        'eval_step_max': 404100,
         'final_loss_tokens': 1698693120000,
         'outlier_threshold': None,
         'dot_size': 5.0,
         'title': 'ananya 700m, val-all',
     },
+    'amberish7_val-all': {
+        'path': 'wandb/amberish7.csv',
+        'keys': VAL_KEYS,
+        'train_step_min': 10000,
+        'train_step_max': 200000,
+        'eval_step_max': 404100,
+        'final_loss_tokens': 1698693120000,
+        'outlier_threshold': None,
+        'dot_size': 5.0,
+        'title': 'amberish7, val-all',
+    }
 }
+# CONFIGS = {
+#     'amber': {
+#         'path': 'wandb/amber.csv',
+#         'keys': ['eval/all/CrossEntropyLoss'],
+#         'train_step_min': 1,
+#         'train_step_max': 177,
+#         'eval_step_max': 354,
+#         'final_loss_tokens': 354,
+#         'outlier_threshold': None,
+#         'dot_size': 5.0,
+#         'title': 'amber',
+#     }
+# }
 
 
 class CurveFitMode(StrEnum):

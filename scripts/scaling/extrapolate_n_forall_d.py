@@ -50,25 +50,33 @@ CONFIGS = {
     '700m': {
         'path': 'wandb/tiny-olmo-700M-rms-norm-adam-eps-1e-8-emb-wd_val-all.csv',
         'keys': VAL_KEYS,
-        'mode': 'eval',
+        'mode': 'train',
         'n': 758564352,
         'label': '700m',
         'color': 'green',
     },
+    '7b': {
+        'path': 'wandb/amberish7.csv',
+        'keys': VAL_KEYS,
+        'mode': 'eval',
+        'n': 7000000000, # approximate
+        'label': '7b',
+        'color': 'cyan',
+    }
 }
 
 
 def fit_curves(
-    config_by_n: Dict[int, ExtrapolateNConfig], output_path: PathOrStr,
+    configs: Dict[str, ExtrapolateNConfig], output_path: PathOrStr,
 ):
-    data_by_d, data_by_n = get_data_forall_d(config_by_n)
+    data_by_d, data_by_n = get_data_forall_d(configs)
 
     plt.figure()
 
     plot_n_scaling_forall_d(
         data_by_d,
         data_by_n,
-        config_by_n,
+        configs,
         chinchilla_fit,
         p0=[1e5, -0.5, 2.0],
     )

@@ -109,4 +109,5 @@ if __name__ == "__main__":
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-tiny/tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd' -y eval/all-validation/CrossEntropyLoss -o wandb/tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-tiny/tiny-olmo-150M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd' -y eval/all-validation/CrossEntropyLoss -o wandb/tiny-olmo-150M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-tiny/tiny-olmo-700M-rms-norm-adam-eps-1e-8-emb-wd' -y eval/all-validation/CrossEntropyLoss -o wandb/tiny-olmo-700M-rms-norm-adam-eps-1e-8-emb-wd_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/amberish7' -y eval/all-validation/CrossEntropyLoss -o wandb/amberish7.csv
     main()
