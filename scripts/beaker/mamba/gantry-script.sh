@@ -2,7 +2,7 @@
 
 set -ex
 
-NUM_NODES=16
+NUM_NODES=8
 TASK_NAME=vanilla-mamba2-150M-d_state-16
 
 gantry run \
