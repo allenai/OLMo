@@ -6,7 +6,7 @@ NUM_NODES=8
 
 gantry run \
   --workspace ai2/OLMo-pretraining-stability \
-  --task-name amberish1-8k \
+  --task-name amberish1-8k-doc-mask \
   --description "Amberish 1B with 8k context length" \
   --priority urgent \
   --preemptible \

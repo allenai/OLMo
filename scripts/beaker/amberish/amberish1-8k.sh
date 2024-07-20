@@ -55,6 +55,7 @@ torchrun \
       --device_train_microbatch_size=2 \
       --global_train_batch_size=512 \
       --fused_loss=true \
+      --data.generate_doc_lengths=true \
       --save_overwrite
 
      # '--load_path=${path.last_checkpoint:${save_folder}}' \
