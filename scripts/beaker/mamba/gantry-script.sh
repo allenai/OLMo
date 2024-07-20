@@ -2,7 +2,7 @@
 
 set -ex
 
-NUM_NODES=2
+NUM_NODES=8
 TASK_NAME=vanilla-mamba2-300M-d_state-32
 
 gantry run \
@@ -12,7 +12,7 @@ gantry run \
   --priority normal \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/pluto-cirrascale \
+  --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
