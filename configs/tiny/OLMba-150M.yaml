@@ -9,10 +9,10 @@ wandb:
 model:
   model_name: mamba
   d_model: 768
-  n_layers: 30
+  n_layers: 26
   vocab_size: 50280
   embedding_size: 50304
-  d_state: 16
+  d_state: 128
   d_conv: 4
   expand: 2
   ngroups: 8
