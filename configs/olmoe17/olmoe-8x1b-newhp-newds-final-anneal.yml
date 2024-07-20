@@ -2,6 +2,9 @@ run_name: olmoe-8x1b-newhp-newds-final
 seed: 42
 dry_run: false
 no_pre_train_checkpoint: true
+reset_optimizer_state: false
+reset_trainer_state: true
+restore_dataloader: false
 
 wandb:
   name: ${run_name}
