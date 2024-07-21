@@ -2,12 +2,12 @@
 
 set -ex
 
-NUM_NODES=8
+NUM_NODES=16
 
 gantry run \
   --workspace ai2/OLMo-pretraining-stability \
-  --task-name amberish1-8k-doc-mask \
-  --description "Amberish 1B with 8k context length" \
+  --task-name amberish1-8k-doc-mask-cham \
+  --description "Amberish 1B with 8k context length, doc masking, and chameleon fixes" \
   --priority urgent \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
