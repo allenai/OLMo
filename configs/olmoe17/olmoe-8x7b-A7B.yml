@@ -9,9 +9,12 @@ wandb:
   project: olmoe
   group: null
 
+#   mlp_hidden_size: 2752
+# Does not work as needs to be divisible by 128 for megablocks self.blocking
+
 model:
   d_model: 4096
-  mlp_hidden_size: 2752
+  mlp_hidden_size: 2688
   n_heads: 32
   n_layers: 32
   weight_tying: false
