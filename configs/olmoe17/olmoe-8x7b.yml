@@ -11,7 +11,7 @@ wandb:
 
 model:
   d_model: 4096
-  mlp_hidden_size: 2048
+  mlp_hidden_size: 4096
   n_heads: 32
   n_layers: 32
   weight_tying: false
@@ -38,8 +38,8 @@ model:
   init_fn: normal
   init_std: 0.02
   init_cutoff_factor: 3
-  moe_top_k: 8
-  moe_num_experts: 64
+  moe_top_k: 4
+  moe_num_experts: 32
   moe_dropless: true
   moe_mlp_impl: sparse
   moe_zloss_weight: 0.001
