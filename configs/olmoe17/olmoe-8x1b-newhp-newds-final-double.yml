@@ -12,7 +12,7 @@ model:
   d_model: 2048
   n_heads: 16
   n_layers: 24
-  mlp_hidden_size: 1536
+  mlp_hidden_size: 3072
   weight_tying: false
   alibi: false
   rope: true
