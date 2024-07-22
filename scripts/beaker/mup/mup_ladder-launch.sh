@@ -23,6 +23,7 @@ gantry run \
   --cluster ai2/jupiter-cirrascale-2 \
   --cluster ai2/pluto-cirrascale \
   --cluster ai2/allennlp-cirrascale \
+  --synchronized-start-timeout 60m \
   --gpus 8 \
   $MULTI_NODE_ARGS \
   --budget ai2/oe-training \
