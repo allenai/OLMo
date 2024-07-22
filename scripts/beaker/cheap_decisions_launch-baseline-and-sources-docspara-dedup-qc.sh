@@ -8,7 +8,7 @@ gantry run \
   --workspace ai2/cheap_decisions  \
   --task-name cheap-decisions-dolma-v1-6-and-sources-baseline-docspara-dedup-qc-01-1B-N-1T-D-mitchish1-001\
   --description "OLMO 1B LLM 1T tokens on dolma 1.6 with baseline sources document and paragraph deduplicated with qc filter and 0.01 thresh" \
-  --priority normal \
+  --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
