@@ -156,7 +156,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
 
     model_config = MODEL_CONFIGS[args.model]
 
-    model_config["use_mup"] = not args.sp
+    model_config.update_with(use_mup=not args.sp)
     model_size = parse_size(args.model)
     length_in_tokens = parse_length(args.length, model_size)
 
