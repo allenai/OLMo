@@ -6,8 +6,8 @@ NUM_NODES=16
 
 gantry run \
   --workspace ai2/OLMo-pretraining-stability \
-  --task-name amberish1 \
-  --description "Amberish 1B train" \
+  --task-name amberish1-doc-mask \
+  --description "Amberish 1B with document masking" \
   --priority urgent \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
