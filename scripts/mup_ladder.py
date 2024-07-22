@@ -155,6 +155,8 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         load_path = find_latest_checkpoint(remote_save_folder)
 
     model_config = MODEL_CONFIGS[args.model]
+
+    model_config["use_mup"] = not args.sp
     model_size = parse_size(args.model)
     length_in_tokens = parse_length(args.length, model_size)
 
@@ -457,6 +459,7 @@ if __name__ == "__main__":
         subparser.add_argument("--save_overwrite", action="store_true")
         subparser.add_argument("--load_path", type=str)
         subparser.add_argument("--eval_on_load", action="store_true")
+        subparser.add_argument("--sp", action="store_true")
 
     args = parser.parse_args()
     args.func(args)
