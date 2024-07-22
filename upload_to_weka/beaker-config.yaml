@@ -2,7 +2,7 @@ version: v2
 budget: {{.Env.BUDGET}}
 description: Sync contents of S3 bucket "{{.Env.S3_BUCKET}}" to WEKA bucket "{{.Env.WEKA_BUCKET}}"
 tasks:
-  - name: sync_s3_to_weka
+  - name: sync_s3_to_weka_ianm
     image:
       beaker: ai2/cuda11.8-ubuntu20.04
     command: ['aws', 's3', 'sync', '--exclude', '*', '--include', '{{.Env.SYNC_INCLUDE}}', '--include', '{{.Env.SYNC_INCLUDE_2}}', 's3://{{.Env.S3_BUCKET}}/{{.Env.S3_PREFIX}}', '/{{.Env.WEKA_BUCKET}}/{{.Env.WEKA_PREFIX}}']
