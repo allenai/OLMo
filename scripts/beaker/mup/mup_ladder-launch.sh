@@ -17,7 +17,7 @@ gantry run \
   --workspace ai2/OLMo-training \
   --task-name mup-ladder \
   --description "OLMo mup ladder with $*" \
-  --priority normal \
+  --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
