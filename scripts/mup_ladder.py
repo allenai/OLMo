@@ -76,7 +76,7 @@ MODEL_CONFIG_150M = ModelConfig(
     init_fn=InitFnType.normal,
     init_std=0.02,
     init_cutoff_factor=3,
-    use_mup=True,
+    use_mup=False,
 )
 
 BASE_SHAPES = "configs/mup/ladder_base_shapes_150m.bsh"
