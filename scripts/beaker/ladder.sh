@@ -20,4 +20,5 @@ torchrun \
   --node_rank=$BEAKER_REPLICA_RANK \
   --rdzv_conf="read_timeout=420" \
   scripts/ladder.py train "$@" \
-    --save_overwrite
+    --save_overwrite \
+    --data.generate_doc_lengths=true
