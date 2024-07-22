@@ -36,10 +36,10 @@ do
     --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
     --node_rank=$BEAKER_REPLICA_RANK \
     scripts/train.py \
-      configs/mup/base-olmo.yaml \
-        --run_name="new_mup_olmo_$WIDTH" \
-        --wandb.name="new_mup_olmo_$WIDTH" \
-        --wandb.group="new_mup_olmo" \
+      configs/mup/base-olmo-cosine.yaml \
+        --run_name="cosine_mup_olmo_$WIDTH" \
+        --wandb.name="cosine_mup_olmo_$WIDTH" \
+        --wandb.group="cosine_mup_olmo" \
         --wandb.project=olmo-mup \
         --stop_at=1000 \
         --model.use_mup \
