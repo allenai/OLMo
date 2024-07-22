@@ -9,7 +9,7 @@ if [[ $NUM_NODES -eq 1 ]]; then
   MULTI_NODE_ARGS=""
   COMMAND="scripts/beaker/mup/mup_ladder.sh localhost ${NUM_NODES} 0 $*"
 else
-  MULTI_NODE_ARGS="--replicas ${NUM_NODES} --leader-selection --host-networking --propagate-failure --propagate-preemption --synchronized-start-timeout 10m"
+  MULTI_NODE_ARGS="--replicas ${NUM_NODES} --leader-selection --host-networking --propagate-failure --propagate-preemption --synchronized-start-timeout 60m"
   COMMAND="scripts/beaker/mup/mup_ladder.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK $*"
 fi
 
@@ -23,7 +23,6 @@ gantry run \
   --cluster ai2/jupiter-cirrascale-2 \
   --cluster ai2/pluto-cirrascale \
   --cluster ai2/allennlp-cirrascale \
-  --synchronized-start-timeout 60m \
   --gpus 8 \
   $MULTI_NODE_ARGS \
   --budget ai2/oe-training \
