@@ -44,7 +44,8 @@ do
         --stop_at=1000 \
         --model.use_mup \
 	      --model.mup_base_shapes=scripts/beaker/mup/base_olmo_shapes.bsh \
-        --model.d_model=$WIDTH
+        --model.d_model=$WIDTH \
+        --scheduler.t_warmup=$((3 * $WIDTH / 128))
 done
 
 #for WIDTH in 128 256 512 1024 2048 4096;

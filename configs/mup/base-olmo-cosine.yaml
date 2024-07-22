@@ -60,7 +60,7 @@ optimizer:
 
 scheduler:
   name: cosine_with_warmup
-  t_warmup: 3 * ${model.d_model} / 128  # assuming current model size (128 = 13M)
+  # t_warmup: 3 * ${model.d_model} / 128  # assuming current model size (128 = 13M)
   alpha_f: 0.01
   warmup_min_lr: 0.0
 
