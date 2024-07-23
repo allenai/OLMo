@@ -14,7 +14,7 @@ len=${#checkpoints_needing_conversion[@]}
 progress=0
 for checkpoint in "${checkpoints_needing_conversion[@]}"; do
     echo "Converting $progress / $len $checkpoint"
-    cp "$path$checkpoint" "$path$checkpoint-hf"
+    cp -r "$path$checkpoint" "$path$checkpoint-hf"
     python hf_olmo/convert_olmo_to_hf.py --ignore-olmo-compatibility --checkpoint-dir "$path$checkpoint"
     progress=$((progress+1))
 done
