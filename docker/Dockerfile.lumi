@@ -88,11 +88,11 @@ RUN apt-get install -y libfabric-dev
 #     make -j && \
 #     make install && \
 #     ldconfig
-ENV AWS_OFI_RCCL_VERSION="1.9.2"
+ENV AWS_OFI_RCCL_VERSION="1.6.0"
 RUN cd /opt && \
-    wget https://github.com/aws/aws-ofi-nccl/releases/download/v${AWS_OFI_RCCL_VERSION}-aws/aws-ofi-nccl-${AWS_OFI_RCCL_VERSION}-aws.tar.gz && \
-    tar xf aws-ofi-nccl-${AWS_OFI_RCCL_VERSION}-aws.tar.gz && \
-    cd aws-ofi-nccl-${AWS_OFI_RCCL_VERSION}-aws && \
+    wget https://github.com/aws/aws-ofi-nccl/releases/download/v${AWS_OFI_RCCL_VERSION}/aws-ofi-nccl-${AWS_OFI_RCCL_VERSION}.tar.gz && \
+    tar xf aws-ofi-nccl-${AWS_OFI_RCCL_VERSION}.tar.gz && \
+    cd aws-ofi-nccl-${AWS_OFI_RCCL_VERSION} && \
     ./autogen.sh && \
     ./configure && \
     make -j && \
