@@ -107,6 +107,7 @@ evaluators:
     data:
       num_workers: 0
       drop_last: true
+      generate_doc_lengths: true
       datasets:
         c4_en-validation:
           - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy
