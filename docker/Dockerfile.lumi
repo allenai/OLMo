@@ -73,7 +73,7 @@ ENV ROCM_PATH=/opt/rocm
 #     make -j install && \
 #     ldconfig && \
 #     rm /opt/mpich-4.2.2.tar.gz
-RUN apt-get install -y mpich
+RUN apt-get install -y mpich libopenmpi-dev
 
 # Install aws-ofi-rccl
 RUN apt-get install -y libfabric-dev
