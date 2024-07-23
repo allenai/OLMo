@@ -76,9 +76,6 @@ def main(checkpoint_path: str, eval_configs: List[EvaluatorConfig]):
 
     evaluators = [build_downstream_evaluator(cfg, eval_config, tokenizer, device) for eval_config in eval_configs]
 
-    # TODO: temporary, remove
-    cfg = cfg.update_with(eval_subset_num_batches=10)
-
     eval_metrics = {}
     for evaluator in evaluators:
         log.info(f"Running evaluation for '{evaluator.label}'...")
