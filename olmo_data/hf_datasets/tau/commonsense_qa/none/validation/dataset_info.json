@@ -1,0 +1,83 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "default",
+  "dataset_name": "commonsense_qa",
+  "dataset_size": 2739484,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/tau/commonsense_qa@94630fe30dad47192a8546eb75f094926d47e155/data/train-00000-of-00001.parquet": {
+      "num_bytes": 1247103,
+      "checksum": null
+    },
+    "hf://datasets/tau/commonsense_qa@94630fe30dad47192a8546eb75f094926d47e155/data/validation-00000-of-00001.parquet": {
+      "num_bytes": 160240,
+      "checksum": null
+    },
+    "hf://datasets/tau/commonsense_qa@94630fe30dad47192a8546eb75f094926d47e155/data/test-00000-of-00001.parquet": {
+      "num_bytes": 151227,
+      "checksum": null
+    }
+  },
+  "download_size": 1558570,
+  "features": {
+    "id": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "question": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "question_concept": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "choices": {
+      "feature": {
+        "label": {
+          "dtype": "string",
+          "_type": "Value"
+        },
+        "text": {
+          "dtype": "string",
+          "_type": "Value"
+        }
+      },
+      "_type": "Sequence"
+    },
+    "answerKey": {
+      "dtype": "string",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 4298054,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 2207794,
+      "num_examples": 9741,
+      "dataset_name": "commonsense_qa"
+    },
+    "validation": {
+      "name": "validation",
+      "num_bytes": 273848,
+      "num_examples": 1221,
+      "dataset_name": "commonsense_qa"
+    },
+    "test": {
+      "name": "test",
+      "num_bytes": 257842,
+      "num_examples": 1140,
+      "dataset_name": "commonsense_qa"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}

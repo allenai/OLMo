@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 from ..aliases import PathOrStr
 from ..config import DataConfig, TrainConfig
 from ..exceptions import OLMoConfigurationError
-from ..torch_util import barrier, get_global_rank, get_world_size, is_distributed
+from ..torch_util import barrier, get_global_rank, get_world_size
 from .collator import DataCollator
 from .iterable_dataset import IterableDataset
 from .memmap_dataset import MemMapDataset
@@ -40,7 +40,9 @@ def build_memmap_dataset(
         metadata=metadata,
         include_instance_metadata=include_instance_metadata,
         pad_token_id=train_config.model.pad_token_id,
+        eos_token_id=train_config.model.eos_token_id,
         generate_attention_mask=data_config.generate_attention_mask,
+        generate_doc_lengths=data_config.generate_doc_lengths,
         label_mask_paths=cast(Optional[List[PathOrStr]], data_config.label_mask_paths),
         instance_filter_config=data_config.instance_filter,
     )
@@ -110,7 +112,8 @@ def build_train_dataloader(
         IterableDataset(
             dataset,  # type: ignore
             train_config.global_train_batch_size,
-            seed=seed + (train_config.epoch or 0),
+            seed=seed,
+            epoch=train_config.epoch or 0,
             shuffle=True,
             drop_last=train_config.data.drop_last,
             world_size=world_size,

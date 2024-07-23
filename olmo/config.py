@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from glob import glob
 from pathlib import Path
@@ -156,6 +157,12 @@ class BaseConfig:
                 if name in out:
                     del out[name]
         return out
+
+    def update_with(self, **kwargs):
+        result = deepcopy(self)
+        for key, value in kwargs.items():
+            setattr(result, key, value)
+        return result
 
 
 class LayerNormType(StrEnum):
@@ -358,6 +365,8 @@ class ModelConfig(BaseConfig):
     to ``False``.
     """
 
+    layer_norm_eps: float = 1e-05
+
     attention_layer_norm_with_affine: bool = True
     """
     Toggle affine transform for the QK norms.
@@ -499,6 +508,16 @@ class ModelConfig(BaseConfig):
     The capacity factor to use in the MoE block. Only applies if not using dMoE.
     """
 
+    scale_emb_init: bool = False
+    """
+    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization. To be used with `full_megatron` init.
+    """
+
+    norm_after: bool = False
+    """
+    Apply norm after the attention/feedforward layers rather than before, as introduced in the Swin transformer paper (Liu et al).
+    """
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:
@@ -539,6 +558,11 @@ class OptimizerConfig(BaseConfig):
     Deprecated. Use ``decay_norm_and_bias`` and ``decay_embeddings`` instead.
     """
 
+    selective_updates: bool = False
+    """
+    If ``True``, optimizer parameter and state updates are skipped when the corresponding gradient is 0.
+    """
+
     decay_norm_and_bias: bool = False
     decay_embeddings: bool = False
     metrics_log_interval: Optional[int] = None
@@ -546,6 +570,12 @@ class OptimizerConfig(BaseConfig):
     The interval with which to collect and log detailed parameter-specific metrics.
     This only applies when logging to W&B, since these metrics won't be logged to the console.
     If not set, defaults to the wandb `log_interval`.
+    """
+
+    record_update_metrics: bool = False
+    """
+    Whether to record detailed metrics about the optimizer's parameter updates, like the norm and max
+    of the update with AdamW.
     """
 
     def __post_init__(self):
@@ -625,6 +655,7 @@ class DataConfig(BaseConfig):
     label_mask_paths: Optional[List[str]] = None
     pad_direction: PaddingDirection = PaddingDirection.right
     generate_attention_mask: bool = False
+    generate_doc_lengths: bool = False
     num_workers: int = 0
     drop_last: bool = False
     pin_memory: bool = False
@@ -636,16 +667,13 @@ class DataConfig(BaseConfig):
 
     @property
     def effective_memmap_dtype(self):
-        if self.memmap_dtype == "uint8":
-            return np.uint8
-        if self.memmap_dtype == "uint16":
-            return np.uint16
-        elif self.memmap_dtype == "uint32":
-            return np.uint32
-        elif self.memmap_dtype == "uint64":
-            return np.uint64
-        # default to uint16 if not set
-        return np.uint16
+        try:
+            # getattr will check this is part of numpy module, while np.dtype will check
+            # if this is a valid numpy dtype.
+            np.dtype(dtype := getattr(np, self.memmap_dtype))
+        except (AttributeError, TypeError) as e:
+            raise TypeError(f"Value {self.memmap_dtype} is not a valid numpy type") from e
+        return dtype
 
 
 class EvaluatorType(StrEnum):
@@ -974,7 +1002,7 @@ class TrainConfig(BaseConfig):
     How often (in batches) to check if the run has been canceled or reached its time limit.
     """
 
-    save_interval: int = 1000
+    save_interval: Optional[int] = 1000
     """
     How often (in terms of steps) to save sharded training state checkpoints.
     """
@@ -1152,7 +1180,7 @@ class TrainConfig(BaseConfig):
     Settings for compiling the model with ``torch.compile()``.
     """
 
-    distributed_strategy: Optional[DistributedStrategy] = None
+    distributed_strategy: Optional[DistributedStrategy] = DistributedStrategy.fsdp
     """
     Distributed strategy for OLMo model (eg. single GPU, DDP, FSDP).
     """
@@ -1171,6 +1199,11 @@ class TrainConfig(BaseConfig):
     """
     If ``True``, we add the auxiliary loss function from PaLM that encourages the softmax
     normalizing term to be close to 0.
+    """
+
+    auxiliary_loss_multiplier: Optional[float] = 1e-4
+    """
+    Used with `softmax_auxiliary_loss`. PaLM uses 1e-4, Chameleon uses 1e-5.
     """
 
     time_limit: Optional[float] = None
@@ -1224,6 +1257,8 @@ class TrainConfig(BaseConfig):
 
     hf_datasets_cache_dir: Optional[str] = None
     """
+    Deprecated, HF datasets are now stored in `olmo_data.hf_datasets`.
+
     Path to cache directory of HF datasets saved with `datasets.save_to_disk`.
     """
 
