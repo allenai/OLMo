@@ -648,7 +648,7 @@ class OLMoEBlock(OLMoBlock):
             from megablocks.layers.moe import MoE
             from megablocks.layers.arguments import Arguments as MoEArgs
         except ImportError:
-            raise ImportError("To use train MoEs, you need to install the 'megablocks' package.")
+            raise ImportError("To train MoEs, you need to install the 'megablocks' package.")
 
         nn.Module.__init__(self)
         self.layer_id = layer_id
