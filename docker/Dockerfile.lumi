@@ -64,15 +64,16 @@ ENV ROCM_HOME=/opt/rocm
 ENV ROCM_PATH=/opt/rocm
 
 # Install MPICH
-ENV MPICH_VERSION="4.2.2"
-RUN cd /opt && \
-    wget https://www.mpich.org/static/downloads/${MPICH_VERSION}/mpich-${MPICH_VERSION}.tar.gz && \
-    tar xf mpich-${MPICH_VERSION}.tar.gz && \
-    cd mpich-${MPICH_VERSION} && \
-    ./configure --disable-fortran --enable-fast=all,O3 --prefix=/usr && \
-    make -j install && \
-    ldconfig && \
-    rm /opt/mpich-4.2.2.tar.gz
+# ENV MPICH_VERSION="4.2.2"
+# RUN cd /opt && \
+#     wget https://www.mpich.org/static/downloads/${MPICH_VERSION}/mpich-${MPICH_VERSION}.tar.gz && \
+#     tar xf mpich-${MPICH_VERSION}.tar.gz && \
+#     cd mpich-${MPICH_VERSION} && \
+#     ./configure --disable-fortran --enable-fast=all,O3 --prefix=/usr && \
+#     make -j install && \
+#     ldconfig && \
+#     rm /opt/mpich-4.2.2.tar.gz
+RUN apt-get install -y mpich
 
 # Install aws-ofi-rccl
 RUN apt-get install -y libfabric-dev
