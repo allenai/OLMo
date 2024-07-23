@@ -820,10 +820,13 @@ class OLMoEBlock(OLMoBlock):
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
         #  - for group query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_kv_heads)
-        if self._activation_checkpoint_fn is not None:
-            qkv = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x))
+        if not self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                qkv = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x))
+            else:
+                qkv = self.att_proj(self.attn_norm(x))
         else:
-            qkv = self.att_proj(self.attn_norm(x))
+            qkv = self.att_proj(x)
 
         if self.config.clip_qkv is not None:
             qkv.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
@@ -838,6 +841,12 @@ class OLMoEBlock(OLMoBlock):
         else:
             att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
 
+        if self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                att = self._activation_checkpoint_fn(self.attn_norm, att)
+            else:
+                att = self.attn_norm(att)
+                
         # Add attention scores.
         # shape: (B, T, C)
         x = x + self.dropout(att)
@@ -845,13 +854,21 @@ class OLMoEBlock(OLMoBlock):
         # Add feed-forward projection.
         # shape: (batch_size, seq_len, d_model)
         og_x = x
-        if self._activation_checkpoint_fn is not None:
-            x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
-        else:
-            x = self.ff_norm(x)
 
-        # Activation checkpointing for the MoE FFN is not supported
-        return og_x + self.dropout(getattr(self, "ffn", ffn)(x)), cache
+        if self.config.norm_after:
+            x = getattr(self, "ffn", ffn)(x)
+            if self._activation_checkpoint_fn is not None:
+                x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+            else:
+                x = self.ff_norm(x)
+            return og_x + self.dropout(x), cache
+        else:
+            if self._activation_checkpoint_fn is not None:
+                x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+            else:
+                x = self.ff_norm(x)
+            # Activation checkpointing for the MoE FFN is not supported
+            return og_x + self.dropout(getattr(self, "ffn", ffn)(x)), cache
 
 
 class OLMoSequentialBlock(OLMoBlock):
