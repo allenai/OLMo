@@ -284,6 +284,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             drop_last=True,
             pin_memory=True,
             prefetch_factor=8,
+            generate_doc_lengths=True,
             persistent_workers=True,
             instance_filter=InstanceFilterConfig(),  # defaults are fine
             paths=[f"{permanent_data_prefix}/{path}" for path in named_data_mixes.DATA_PATHS[args.data]],

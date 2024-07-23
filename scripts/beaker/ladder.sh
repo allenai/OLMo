@@ -21,4 +21,3 @@ torchrun \
   --rdzv_conf="read_timeout=420" \
   scripts/ladder.py train "$@" \
     --save_overwrite \
-    --data.generate_doc_lengths=true
