@@ -535,7 +535,6 @@ class OLMoBlock(nn.Module):
         if max_doc_len is not None and cu_doc_lens is not None:
             assert self.flash_attn_varlen_func is not None, "flash-attn is required for document masking"
             assert attn_mask is None, "attn-mask is currently not supported with document masking"
-            assert self.training, "document masking is only supported for training, not inference"
             B, T, D = q.size(0), q.size(2), q.size(3)
             r = self.flash_attn_varlen_func(
                 q.transpose(1, 2).view(B * T, -1, D),

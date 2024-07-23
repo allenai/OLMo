@@ -56,6 +56,7 @@ torchrun \
       --global_train_batch_size=512 \
       --fused_loss=true \
       --data.generate_doc_lengths=true \
+      --evaluators.0.data.generate_doc_lengths=true \
       --softmax_auxiliary_loss=true \
       --auxiliary_loss_multiplier=1e-5 \
       --model.attention_layer_norm=true \
