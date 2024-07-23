@@ -43,7 +43,6 @@ model:
   moe_mlp_impl: sparse
   moe_zloss_weight: 0.001
   moe_loss_weight: 0.01
-  norm_after: true
 
 compile: null
 
@@ -215,6 +214,7 @@ data:
   prefetch_factor: 8
   persistent_workers: true
   timeout: 0
+  generate_doc_lengths: true
   instance_filter:
       repetition_max_period: 13
       repetition_min_period: 1
