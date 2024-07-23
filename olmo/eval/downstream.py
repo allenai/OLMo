@@ -834,6 +834,32 @@ class BasicArithmetic(ArcEasy):
         )
 
 
+class BasicAlgebra(ArcEasy):
+    """This is a basic algebra task follows the same prompt format as ArcEasy.
+    Example:
+    {"id": "q793_max1d_max4",
+    "question": "a = 4; b = 4; c = 9; d = 7; y = a - b + c - d; print(y);",
+    "choices": {"text": ["-23","2","18","-15"],
+    "label": ["A", "B", "C", "D"]},
+    "answerKey": "B", "type_tag": "medium"}
+
+    """
+
+    metric_type = "acc"
+
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="allenai/basic_algebra",
+        dataset_name=None,
+    ):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+
 class CommonsenseQA(ArcEasy):
     """CommonsenseQA
     Example:
@@ -1435,6 +1461,7 @@ label_to_task_map = {
     "arc_easy_ppl": ArcEasyCELoss,
     "arc_challenge": ArcChallenge,
     "basic_arithmetic": BasicArithmetic,
+    "basic_algebra": BasicAlgebra,
     "copa": COPA,
     "rte": RTE,
     "commitment_bank": CommitmentBank,
