@@ -750,11 +750,16 @@ class OLMoEBlock(OLMoBlock):
             self.rotary_emb = RotaryEmbedding(config, self.__cache)
 
         self.flash_attn_func = None
+        self.flash_attn_varlen_func = None
         if config.flash_attention:
             try:
-                from flash_attn import flash_attn_func  # type: ignore
+                from flash_attn import (  # type: ignore
+                    flash_attn_func,
+                    flash_attn_varlen_func,
+                )
 
                 self.flash_attn_func = flash_attn_func
+                self.flash_attn_varlen_func = flash_attn_varlen_func
             except ModuleNotFoundError:
                 pass
 
