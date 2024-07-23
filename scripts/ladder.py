@@ -131,9 +131,9 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # holds only for a sequence length of 2048 (but could probably be easily adapted)
     # assert model_config.max_sequence_length == 2048
     global_batch_size = 160 * (model_size / 108000000) ** (2 / 3) / 4
-    global_batch_size /= 8 * 4  # 8 GPUs per node, microbatch size 4
+    global_batch_size /= 8 * 1  # 8 GPUs per node, microbatch size 4
     global_batch_size = round(global_batch_size)
-    global_batch_size *= 8 * 4
+    global_batch_size *= 8 * 1
 
     # We don't want the global batch size depend on the device batch size, because we might have to change the
     # device batch size based on the hardware we're running on.
@@ -141,7 +141,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         "150M": 32,
         "300M": 16,
         "750M": 8,
-        "1B": 2,
+        "1B": 1,
         "7B": 2,
     }.get(args.model, 4)
 
