@@ -129,8 +129,8 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # calculate batch size according to
     # https://www.semanticscholar.org/reader/5585191b1b479346ecf173be3b35c8313b77d457
     # holds only for a sequence length of 2048 (but could probably be easily adapted)
-    assert model_config.max_sequence_length == 2048
-    global_batch_size = 160 * (model_size / 108000000) ** (2 / 3)
+    # assert model_config.max_sequence_length == 2048
+    global_batch_size = 160 * (model_size / 108000000) ** (2 / 3) / 4
     global_batch_size /= 8 * 4  # 8 GPUs per node, microbatch size 4
     global_batch_size = round(global_batch_size)
     global_batch_size *= 8 * 4
