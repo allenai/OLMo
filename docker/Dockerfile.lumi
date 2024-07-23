@@ -72,14 +72,9 @@ RUN cd /opt && \
     ./configure --disable-fortran --enable-fast=all,O3 --prefix=/usr && \
     make -j install && \
     ldconfig && \
-    rm /opt/mpich-4.2.2.tar.gz
-# RUN apt-get install -y mpich libopenmpi-dev
-RUN pip install --no-cache-dir mpi4py
-
-
+    rm /opt/mpich-${MPICH_VERSION}.tar.gz
 
 # Install aws-ofi-rccl
-RUN ldconfig
 RUN apt-get install -y libfabric-dev
 RUN cd /opt && \
     git clone https://github.com/ROCmSoftwarePlatform/aws-ofi-rccl && \
@@ -89,17 +84,6 @@ RUN cd /opt && \
     make -j && \
     make install && \
     ldconfig
-# ENV AWS_OFI_RCCL_VERSION="1.6.0"
-# RUN cd /opt && \
-#     wget https://github.com/aws/aws-ofi-nccl/releases/download/v${AWS_OFI_RCCL_VERSION}/aws-ofi-nccl-${AWS_OFI_RCCL_VERSION}.tar.gz && \
-#     tar xf aws-ofi-nccl-${AWS_OFI_RCCL_VERSION}.tar.gz && \
-#     cd aws-ofi-nccl-${AWS_OFI_RCCL_VERSION} && \
-#     ./autogen.sh && \
-#     ./configure && \
-#     make -j && \
-#     make install && \
-#     ldconfig && \
-#     rm /opt/mpich-4.2.2.tar.gz
 ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # Install torch
@@ -107,6 +91,7 @@ RUN pip install --upgrade pip
 RUN pip install --no-cache-dir torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/rocm6.0
 
 # Install DeepSpeed
+RUN pip install --no-cache-dir mpi4py
 RUN cd /opt && \
     git clone https://github.com/microsoft/DeepSpeed && \
     cd DeepSpeed && \
