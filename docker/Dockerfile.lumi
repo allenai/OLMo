@@ -79,6 +79,7 @@ RUN pip install --no-cache-dir mpi4py
 
 
 # Install aws-ofi-rccl
+RUN ldconfig
 RUN apt-get install -y libfabric-dev
 # RUN cd /opt && \
 #     git clone https://github.com/ROCmSoftwarePlatform/aws-ofi-rccl && \
