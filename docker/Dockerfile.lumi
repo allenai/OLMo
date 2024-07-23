@@ -101,6 +101,7 @@ RUN cd /opt && \
 # Install more dependencies
 COPY pyproject.toml .
 RUN mkdir -p OLMo/olmo && \
+    mv pyproject.toml OLMo && \
     cd OLMo && \
     touch olmo/__init__.py && \
     echo 'VERSION = "0.1.0"' > olmo/version.py && \
