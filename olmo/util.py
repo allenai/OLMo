@@ -12,7 +12,7 @@ from itertools import cycle, islice
 from pathlib import Path
 from queue import Queue
 from threading import Thread
-from typing import Any, Callable, Dict, Optional, Tuple, Union, MutableMapping
+from typing import Any, Callable, Dict, MutableMapping, Optional, Tuple, Union
 
 import boto3
 import botocore.exceptions as boto_exceptions
@@ -609,7 +609,7 @@ def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Op
     assert not response["IsTruncated"]  # need to handle this if it happens
     latest_step = 0
     latest_checkpoint: Optional[str] = None
-    for item in response["CommonPrefixes"]:
+    for item in response.get("CommonPrefixes", []):
         prefix = item["Prefix"].strip("/")
         checkpoint_name = os.path.split(prefix)[-1]
         if not checkpoint_name.startswith("step"):

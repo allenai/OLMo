@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import torch
@@ -12,7 +12,7 @@ from olmo.exceptions import OLMoEnvironmentError
 from ..aliases import PathOrStr
 from ..config import InstanceFilterConfig
 from ..util import _get_s3_client, file_size, get_bytes_range
-from .util import find_periodic_sequences
+from .util import find_periodic_sequences, get_document_lengths
 
 __all__ = ["MemMapDataset"]
 
@@ -47,19 +47,24 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         self,
         *paths: PathOrStr,
         chunk_size: int = 1024,
-        memmap_dtype=np.uint16,
+        memmap_dtype: Union[Type[np.uint8], Type[np.uint16], Type[np.uint32], Type[np.uint64]] = np.uint16,
         metadata: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None,
         include_instance_metadata: bool = True,
         generate_attention_mask: bool = False,
+        generate_doc_lengths: bool = False,
         pad_token_id: Optional[int] = None,
+        eos_token_id: Optional[int] = None,
         label_mask_paths: Optional[List[PathOrStr]] = None,
         instance_filter_config: Optional[InstanceFilterConfig] = None,
     ):
         if not paths:
             raise ValueError("At least one path is required")
 
-        if generate_attention_mask and not pad_token_id:
+        if generate_attention_mask and pad_token_id is None:
             raise ValueError("'pad_token_id' is required for 'generate_attention_mask'")
+
+        if generate_doc_lengths and eos_token_id is None:
+            raise ValueError("'eos_token_id' is required for 'generate_cu_doc_lengths'")
 
         if label_mask_paths and len(label_mask_paths) != len(paths):
             raise ValueError("There must be the same number of 'label_mask_paths' as there are 'paths'")
@@ -79,7 +84,9 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         self.dtype = memmap_dtype
         self._include_instance_metadata = include_instance_metadata
         self._generate_attention_mask = generate_attention_mask
+        self._generate_doc_lengths = generate_doc_lengths
         self._pad_token_id = pad_token_id
+        self._eos_token_id = eos_token_id
         self.instance_filter_config = instance_filter_config
 
     @property
@@ -206,6 +213,10 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
             attn_mask = torch.ones_like(input_ids)
             attn_mask.masked_fill_(input_ids == self._pad_token_id, 0)
             out["attention_mask"] = attn_mask
+
+        if self._generate_doc_lengths:
+            assert self._eos_token_id is not None
+            out["doc_lens"] = get_document_lengths(input_ids, self._eos_token_id)
 
         return out
 

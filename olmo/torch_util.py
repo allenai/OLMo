@@ -143,3 +143,16 @@ def gc_cuda():
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
+
+
+def get_cumulative_document_lengths(doc_lens: torch.Tensor) -> torch.Tensor:
+    """
+    Transform a batched tensor of document lengths into a 1D tensor of cumulative document
+    lengths for the whole batch.
+    """
+    return torch.cat(
+        [
+            torch.tensor([0], dtype=torch.int32, device=doc_lens.device),
+            torch.cumsum(doc_lens.masked_select(doc_lens != 0), 0, dtype=torch.int32),
+        ]
+    )

@@ -190,8 +190,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         ),
         max_duration=f"{length_in_tokens}T",
         global_train_batch_size=global_batch_size,
-        # tokenizer=TokenizerConfig(identifier="tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json"),
-        tokenizer=TokenizerConfig(identifier="tokenizers/dolma2-test-tokenizer.json"),
+        tokenizer=TokenizerConfig(identifier="tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json"),
         save_folder=f"runs/{run_name}",
         remote_save_folder=f"s3://ai2-llm/checkpoints/OLMo-ladder/{run_name}",
         save_overwrite=args.save_overwrite,
@@ -199,7 +198,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         save_num_unsharded_checkpoints_to_keep=-1,
         save_interval=None,
         load_path=args.load_path,
-        eval_on_load=False,
+        eval_on_load=args.eval_on_load,
         sharded_checkpointer=ShardedCheckpointerType.olmo_core,
         device_train_microbatch_size=device_batch_size,
         precision="amp_bf16",
@@ -215,7 +214,6 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
                 label="all-small-ppl-validation",
                 data=DataConfig(
                     drop_last=True,
-                    memmap_dtype="uint32",
                     datasets={
                         "c4_en-validation": [
                             f"{permanent_data_prefix}/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy"
@@ -285,7 +283,6 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             num_workers=32,
             drop_last=True,
             pin_memory=True,
-            memmap_dtype="uint32",
             prefetch_factor=8,
             persistent_workers=True,
             instance_filter=InstanceFilterConfig(),  # defaults are fine
