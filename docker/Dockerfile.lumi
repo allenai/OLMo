@@ -74,6 +74,7 @@ ENV ROCM_PATH=/opt/rocm
 #     ldconfig && \
 #     rm /opt/mpich-4.2.2.tar.gz
 RUN apt-get install -y mpich libopenmpi-dev
+RUN pip install --no-cache-dir mpi4py
 
 # Install aws-ofi-rccl
 RUN apt-get install -y libfabric-dev
@@ -92,7 +93,6 @@ RUN pip install --upgrade pip
 RUN pip install --no-cache-dir torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/rocm6.0
 
 # Install DeepSpeed
-RUN pip install --no-cache-dir mpi4py
 RUN cd /opt && \
     git clone https://github.com/microsoft/DeepSpeed && \
     cd DeepSpeed && \
