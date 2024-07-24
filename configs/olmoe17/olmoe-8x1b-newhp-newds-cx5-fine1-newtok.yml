@@ -29,8 +29,8 @@ model:
   residual_dropout: 0.0
   embedding_dropout: 0.0
   max_sequence_length: 4096
-  vocab_size: 50280
-  embedding_size: 50304
+  vocab_size: 100277
+  embedding_size: 100352
   eos_token_id: 0
   pad_token_id: 1
   init_device: meta
@@ -207,6 +207,7 @@ evaluators:
     type: downstream
 
 data:
+  memmap_dtype: uint32
   pad_direction: right
   num_workers: 16
   drop_last: true
