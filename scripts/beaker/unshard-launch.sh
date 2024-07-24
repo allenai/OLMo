@@ -29,4 +29,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/unshard.sh"
+  -- /bin/bash -c "scripts/beaker/unshard.sh $*"
