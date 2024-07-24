@@ -64,6 +64,13 @@ RUN mkdir --parents --mode=0755 /etc/apt/keyrings && \
 ENV ROCM_HOME=/opt/rocm
 ENV ROCM_PATH=/opt/rocm
 
+# Attempt to fix memory accounting error in ROCm 5.6.1
+COPY docker/memgetinfo-fix.cpp $ROCM_PATH/lib
+RUN cd $ROCM_PATH/lib && \
+  mv memgetinfo-fix.cpp preload-me.cpp && \
+  bash preload-me.cpp && \
+  rm -rf preload-me.cpp
+
 # Install MPICH
 ENV MPICH_VERSION="4.0.3"
 RUN cd /opt && \
