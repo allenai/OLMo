@@ -2,8 +2,8 @@
 
 set -ex
 
-NUM_NODES=1
-TASK_NAME=tiny-olmo-300M-benchmark
+NUM_NODES=4
+TASK_NAME=tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd
 
 gantry run \
   --allow-dirty \
@@ -13,7 +13,7 @@ gantry run \
   --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/s2-cirrascale-l40 \
+  --cluster ai2/pluto-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
