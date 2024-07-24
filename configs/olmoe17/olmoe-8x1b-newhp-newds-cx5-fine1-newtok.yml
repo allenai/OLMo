@@ -29,10 +29,10 @@ model:
   residual_dropout: 0.0
   embedding_dropout: 0.0
   max_sequence_length: 4096
-  vocab_size: 100277
+  vocab_size: 100278
   embedding_size: 100352
-  eos_token_id: 0
-  pad_token_id: 1
+  eos_token_id: 100257
+  pad_token_id: 100277
   init_device: meta
   init_fn: normal
   init_std: 0.02
