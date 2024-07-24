@@ -315,6 +315,11 @@ class ModelConfig(BaseConfig):
     apply RoPE at the precision of the input.
     """
 
+    rope_theta: int = 10_000
+    """
+    The theta setting for RoPE.
+    """
+
     flash_attention: bool = False
     """
     If ``True``, use ``FlashAttention``.
