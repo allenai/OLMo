@@ -1235,7 +1235,7 @@ class TrainConfig(BaseConfig):
             raise ValueError(f"Unexpected precision type '{self.precision}'")
 
     @property
-    def fsdp_precision(self) -> MixedPrecision:
+    def fsdp_precision(self) -> Optional[MixedPrecision]:
         if self.fsdp is not None:
             if self.fsdp.precision is None:
                 return None
