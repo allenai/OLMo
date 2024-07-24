@@ -71,7 +71,6 @@ tokenizer:
   truncate_direction: right
 
 save_folder: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/${run_name}
-# remote_save_folder: weka://oe-training-default/ai2-llm/checkpoints/OLMo-small/${run_name}
 save_overwrite: false
 
 save_interval: 1000
@@ -247,6 +246,7 @@ data:
     repetition_min_period: 1
     repetition_max_count: 32
   paths:
+    # ProofPile 2: Algebraic Stack Data
     - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-00-00000.npy
     - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-01-00000.npy
     - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-02-00000.npy
