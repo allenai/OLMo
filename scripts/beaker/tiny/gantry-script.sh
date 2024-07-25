@@ -10,7 +10,7 @@ gantry run \
   --workspace ai2/OLMo-tiny \
   --task-name ${TASK_NAME} \
   --description "Tiny OLMo runs" \
-  --priority high \
+  --priority urgent \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
