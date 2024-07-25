@@ -123,7 +123,7 @@ RUN pip install --no-cache-dir wandb --upgrade
 RUN cd /opt && git clone --recursive https://github.com/Dao-AILab/flash-attention.git
 # # Install flash attention (for MI200 series!)
 RUN cd /opt/flash-attention && \
-    python setup.py install
+    GPU_ARCHS="gfx90a" python setup.py install
 
 # Cleanup
 RUN apt-get autoremove
