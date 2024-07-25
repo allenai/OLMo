@@ -67,7 +67,7 @@ scheduler:
   warmup_min_lr: 0.0
 
 tokenizer:
-  identifier: allenai/dolma2-tokenizer
+  identifier: tokenizers/allenai_dolma2.json
   truncate_direction: right
 
 save_folder: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/${run_name}
