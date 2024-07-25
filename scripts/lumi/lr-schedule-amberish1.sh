@@ -10,12 +10,12 @@
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
-# salloc --job-name=hf-cache-test --account=project_462000229 --nodes=1 --ntasks-per-node=8 --gpus-per-node=8 --cpus-per-task=6 --time=2:00:00  --mem=0 --partition=dev-g
-
 module load LUMI/23.09 partition/G
 
-export OLMO_CONTAINER=llm-lumi-torch23_latest.sif
+export OLMO_CONTAINER=llm-lumi-torch22_latest.sif
+
 export CACHED_PATH_CACHE_ROOT=${SCRATCH_DIR}/tmp/${USER}
+export SIF_CONTAINER=$PROJECT_DIR/containers/$OLMO_CONTAINER
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
@@ -35,6 +35,7 @@ export FI_CXI_DEFAULT_CQ_SIZE=131072
 export PYTHONPATH=.:${PYTHONPATH}
 export ROCM_PATH=/opt/rocm
 export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64
+export SINGULARITYENV_TORCH_DIST_INIT_BARRIER=1
 
 # Try playing with max_split_size_mb if you run into OOM errors.
 #export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:128
@@ -57,7 +58,7 @@ srun \
     -B /opt/cray:/opt/cray \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
-    $PROJECT_DIR/containers/$OLMO_CONTAINER \
+    $SIF_CONTAINER \
     python scripts/train.py configs/amberish1-s3.yaml ${@} \
       --run_name=const-lr-amberish1_${SLURM_JOB_ID} \
       --wandb.name=const-lr-amberish1_${SLURM_JOB_ID} \
@@ -66,4 +67,7 @@ srun \
       '--load_path=${path.last_checkpoint:${save_folder}}' \
       --scheduler.name=linear_with_warmup \
       --optimizer.learning_rate=2.2e-4 \
-      --scheduler.alpha_f=1.0
+      --scheduler.alpha_f=1.0 \
+      --data.num_workers=$SLURM_CPUS_PER_TASK \
+      --model.flash_attention=false \
+      --save_overwrite
