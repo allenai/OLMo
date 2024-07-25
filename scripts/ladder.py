@@ -211,9 +211,9 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         save_folder=f"{args.temp_write_location.rstrip('/')}/{run_name}",
         remote_save_folder=remote_save_folder,
         save_overwrite=args.save_overwrite,
-        save_interval_unsharded=save_interval,
+        save_interval_unsharded=None if args.sharded_checkpoints else save_interval,
         save_num_unsharded_checkpoints_to_keep=-1,
-        save_interval=None,
+        save_interval=save_interval if args.sharded_checkpoints else None,
         load_path=load_path,
         eval_on_load=args.eval_on_load,
         sharded_checkpointer=ShardedCheckpointerType.olmo_core,
@@ -398,6 +398,7 @@ if __name__ == "__main__":
         temp_write_location="runs/",
         load_path=None,
         eval_on_load=False,
+        sharded_checkpoints=False
     )
 
     nodecounts_parser = subparsers.add_parser("nodecounts")
@@ -441,6 +442,7 @@ if __name__ == "__main__":
         subparser.add_argument("--save_overwrite", action="store_true")
         subparser.add_argument("--load_path", type=str)
         subparser.add_argument("--eval_on_load", action="store_true")
+        subparser.add_argument("--sharded_checkpoints", action="store_true")
 
     args = parser.parse_args()
     args.func(args)
