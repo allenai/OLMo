@@ -169,6 +169,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
 
     # calculate the learning rate according to the same paper
     lr = 0.0047 * (model_size / 108000000) ** (-1 / 3)
+    lr /= 2  # We find that at 7B the above formula is too aggressive, so we scale it back.
 
     save_interval = {
         "1B": 2500,
