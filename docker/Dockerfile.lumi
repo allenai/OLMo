@@ -50,7 +50,7 @@ RUN apt-get update
 RUN apt-get install -y google-cloud-cli
 
 # Install ROCm
-ENV ROCM_VERSION="5.7.1"
+ENV ROCM_VERSION="5.6.1"
 RUN mkdir --parents --mode=0755 /etc/apt/keyrings && \
     wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | gpg --dearmor | tee /etc/apt/keyrings/rocm.gpg > /dev/null && \
     echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/${ROCM_VERSION}/ubuntu jammy main" >> /etc/apt/sources.list.d/amdgpu.list && \
@@ -64,12 +64,12 @@ RUN mkdir --parents --mode=0755 /etc/apt/keyrings && \
 ENV ROCM_HOME=/opt/rocm
 ENV ROCM_PATH=/opt/rocm
 
-# Attempt to fix memory accounting error in ROCm 5.6.1
-COPY docker/memgetinfo-fix.cpp $ROCM_PATH/lib
-RUN cd $ROCM_PATH/lib && \
-  mv memgetinfo-fix.cpp preload-me.cpp && \
-  bash preload-me.cpp && \
-  rm -rf preload-me.cpp
+# # Attempt to fix memory accounting error in ROCm 5.6.1
+# COPY docker/memgetinfo-fix.cpp $ROCM_PATH/lib
+# RUN cd $ROCM_PATH/lib && \
+#   mv memgetinfo-fix.cpp preload-me.cpp && \
+#   bash preload-me.cpp && \
+#   rm -rf preload-me.cpp
 
 # Install MPICH
 ENV MPICH_VERSION="4.0.3"
@@ -96,7 +96,7 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # Install torch
 RUN pip install --upgrade pip
-RUN pip install --no-cache-dir torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/rocm5.7
+RUN pip install --no-cache-dir torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 --index-url https://download.pytorch.org/whl/rocm5.6
 
 # Install DeepSpeed
 RUN pip install --no-cache-dir mpi4py
