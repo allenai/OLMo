@@ -127,6 +127,7 @@ COPY docker/hipify_patch.patch /opt/flash-attention
 RUN cd /opt/flash-attention && \
     PYTHON_SITE_PACKAGES=$(python -c 'import site; print(site.getsitepackages()[0])') &&  \
     patch "${PYTHON_SITE_PACKAGES}/torch/utils/hipify/hipify_python.py" hipify_patch.patch && \
+    export FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE && \
     GPU_ARCHS="gfx90a" pip install .
 
 # Cleanup
