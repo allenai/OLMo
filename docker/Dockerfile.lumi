@@ -121,16 +121,14 @@ RUN mkdir -p OLMo/olmo && \
 RUN pip install --no-cache-dir py-spy
 RUN pip install --no-cache-dir wandb --upgrade
 
+ENV GPU_ARCHS "gfx90a"
+ENV PYTHON_SITE_PACKAGES $(python -c 'import site; print(site.getsitepackages()[0])')
 # Install flash attention (for MI200 series!)
 RUN cd /opt && \
     git clone --recursive https://github.com/ROCm/flash-attention.git && \
     cd flash-attention && \
-    export GPU_ARCHS="gfx90a" && \
-    export PYTHON_SITE_PACKAGES=$(python -c 'import site; print(site.getsitepackages()[0])') \
     patch "${PYTHON_SITE_PACKAGES}/torch/utils/hipify/hipify_python.py" hipify_patch.patch && \
-    pip install . && \
-    unset GPU_ARCHS && \
-    unset PYTHON_SITE_PACKAGES
+    pip install .
 
 # Cleanup
 RUN apt-get autoremove
