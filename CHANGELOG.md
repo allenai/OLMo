@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added support for document masking via flash-attn during training with `--data.generate_doc_lengths`.
 - Added config options for `model.norm_after`, `model.scale_emb_init`, and `auxiliary_loss_multiplier` (used with zloss).
 - Added scripts for running experiments on qk_norm, norm reordering, and zloss.
 
@@ -16,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Changed default distributed training strategy from single-GPU to FSDP
 - Fixed behavior of `effective_memmap_dtype` to prevent unrecognized dtypes to be parsed as `uint16`. 
+
+### Fixed
+
+- Fixed restarting a training run in later epochs so that we no longer need to set the flag `--epoch=INT`. 
 
 ## [v0.4.0](https://github.com/allenai/OLMo/releases/tag/v0.4.0) - 2024-07-11
 

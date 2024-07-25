@@ -317,7 +317,7 @@ class Trainer:
 
     def trainer_state_dict(self) -> Dict[str, Any]:
         return {
-            "epoch": self.epoch,
+            "epoch": self.epoch or 0,
             "global_step": self.global_step,
             "global_train_examples_seen_this_epoch": self.global_train_examples_seen_this_epoch,
             "global_train_tokens_seen": self.global_train_tokens_seen,
@@ -352,7 +352,7 @@ class Trainer:
         ]
 
         # Dataset / dataloader position.
-        checkpoint_epoch = state_dict.get("epoch", 0)
+        checkpoint_epoch = state_dict.get("epoch") or 0
         self.global_step = state_dict["global_step"]
         self.global_train_examples_seen_this_epoch = state_dict.get(
             "global_train_examples_seen_this_epoch",
@@ -377,6 +377,12 @@ class Trainer:
         elif checkpoint_epoch != self.epoch:
             log.info(f"Starting new epoch (epoch = {self.epoch})")
             self.global_train_examples_seen_this_epoch = 0
+
+        assert self.epoch is not None
+        # Reshuffle dataset if needed.
+        if self.dataset.epoch != self.epoch:
+            log.info(f"Reshuffling data loader for epoch {self.epoch}...")
+            self.dataset.reshuffle(self.epoch)
 
         if self.cfg.fast_forward_batches:
             log.info(f"Fast-forwarding data loader by {self.cfg.fast_forward_batches:,d} steps")
@@ -668,6 +674,8 @@ class Trainer:
             input_ids=batch["input_ids"],
             attention_mask=batch.get("attention_mask"),
             attention_bias=batch.get("attention_bias"),
+            doc_lens=batch.get("doc_lens"),
+            max_doc_lens=batch.get("max_doc_lens"),
         ).logits
         logits_for_loss = logits[..., :-1, :].contiguous()
         # shape: (batch_size * seq_len, vocab_size)
@@ -1155,11 +1163,11 @@ class Trainer:
                     if self.global_step % self.cfg.console_log_interval == 0:
                         if get_global_rank() == 0:
                             self.log_metrics_to_console(
-                                f"[step={self.global_step}/{self.max_steps},epoch={epoch}/{self.max_epochs}]",
+                                f"[step={self.global_step}/{self.max_steps},epoch={epoch}]",
                                 metrics,
                             )
                         else:
-                            log.info(f"[step={self.global_step}/{self.max_steps},epoch={epoch}/{self.max_epochs}]")
+                            log.info(f"[step={self.global_step}/{self.max_steps},epoch={epoch}]")
 
                     # Log metrics to W&B.
                     if (
@@ -1268,7 +1276,8 @@ class Trainer:
                     self.global_train_examples_seen_this_epoch = 0
                     self.dataset.start_index = 0
                     if self.epoch < self.max_epochs:
-                        self.dataset.reshuffle()
+                        log.info(f"Reshuffling data loader for epoch {self.epoch}...")
+                        self.dataset.reshuffle(self.epoch)
                     continue
 
                 break
