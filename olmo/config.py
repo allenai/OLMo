@@ -867,11 +867,6 @@ class ActivationCheckpointingStrategy(StrEnum):
     Focus checkpointing on where it is cheap to recompute and saves most memory.
     """
 
-    embedding = "embedding"
-    """
-    Only apply activation checkpointing to the embedding module.
-    """
-
 
 @dataclass
 class TrainConfig(BaseConfig):

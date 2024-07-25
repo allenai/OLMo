@@ -1233,36 +1233,6 @@ class OLMo(nn.Module):
         self.__cache["alibi_attention_bias"] = alibi_bias
         return alibi_bias
 
-    def embeddings(
-        self,
-        input_ids: torch.LongTensor,
-        past_length: int,
-        seq_len: int,
-        input_embeddings: Optional[torch.FloatTensor],
-    ) -> torch.Tensor:
-        # shape: (batch_size, seq_len, d_model)
-        if input_embeddings is None:
-            x = self.transformer.wte(input_ids)
-        else:
-            x = input_embeddings
-
-        # Apply embedding layer norm.
-        if self.config.embedding_layer_norm:
-            x = self.transformer.emb_norm(x)
-
-        if not (self.config.alibi or self.config.rope):
-            # Get positional embeddings.
-            # shape: (1, seq_len)
-            pos = torch.arange(past_length, past_length + seq_len, dtype=torch.long, device=x.device).unsqueeze(0)
-            # shape: (1, seq_len, d_model)
-            pos_emb = self.transformer.wpe(pos)  # type: ignore
-            x = pos_emb + x
-
-        # Apply dropout.
-        # shape: (batch_size, seq_len, d_model)
-        x = self.transformer.emb_drop(x)  # type: ignore
-        return x
-
     def forward(
         self,
         input_ids: torch.LongTensor,
@@ -1327,12 +1297,24 @@ class OLMo(nn.Module):
             cu_doc_lens = get_cumulative_document_lengths(doc_lens)
 
         # Get embeddings of input.
-        if self.activation_checkpointing_strategy == ActivationCheckpointingStrategy.embedding:
-            x = self._activation_checkpoint_fn(
-                self.embeddings, input_ids, past_length, seq_len, input_embeddings=input_embeddings
-            )
-        else:
-            x = self.embeddings(input_ids, past_length, seq_len, input_embeddings=input_embeddings)
+        # shape: (batch_size, seq_len, d_model)
+        x = self.transformer.wte(input_ids) if input_embeddings is None else input_embeddings  # type: ignore
+
+        # Apply embedding layer norm.
+        if self.config.embedding_layer_norm:
+            x = self.transformer.emb_norm(x)
+
+        if not (self.config.alibi or self.config.rope):
+            # Get positional embeddings.
+            # shape: (1, seq_len)
+            pos = torch.arange(past_length, past_length + seq_len, dtype=torch.long, device=x.device).unsqueeze(0)
+            # shape: (1, seq_len, d_model)
+            pos_emb = self.transformer.wpe(pos)  # type: ignore
+            x = pos_emb + x
+
+        # Apply dropout.
+        # shape: (batch_size, seq_len, d_model)
+        x = self.transformer.emb_drop(x)  # type: ignore
 
         # Transform the attention mask into what the blocks expect.
         if attention_mask is not None:

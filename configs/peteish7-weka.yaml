@@ -93,7 +93,7 @@ fsdp:
   wrapping_strategy: by_block_and_size
   precision: mixed
 
-activation_checkpointing: embedding
+activation_checkpointing: fine_grained
 
 max_grad_norm: 1.0
 max_grad_norm_ratio: null
