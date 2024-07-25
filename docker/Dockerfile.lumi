@@ -121,8 +121,8 @@ RUN mkdir -p OLMo/olmo && \
 RUN pip install --no-cache-dir py-spy
 RUN pip install --no-cache-dir wandb --upgrade
 
-ENV GPU_ARCHS "gfx90a"
-ENV PYTHON_SITE_PACKAGES $(python -c 'import site; print(site.getsitepackages()[0])')
+ARG GPU_ARCHS "gfx90a"
+ARG PYTHON_SITE_PACKAGES $(python -c 'import site; print(site.getsitepackages()[0])')
 # Install flash attention (for MI200 series!)
 RUN cd /opt && \
     git clone --recursive https://github.com/ROCm/flash-attention.git && \
