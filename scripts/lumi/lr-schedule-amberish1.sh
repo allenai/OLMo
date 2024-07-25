@@ -11,11 +11,13 @@
 #SBATCH --partition=standard-g
 
 module load LUMI/23.09 partition/G
+module load PyTorch/2.2.2-rocm-5.6.1-python-3.10-singularity-20240617
 
 export OLMO_CONTAINER=llm-lumi-torch22_latest.sif
 
 export CACHED_PATH_CACHE_ROOT=${SCRATCH_DIR}/tmp/${USER}
-export SIF_CONTAINER=$PROJECT_DIR/containers/$OLMO_CONTAINER
+# export SIF_CONTAINER=$PROJECT_DIR/containers/$OLMO_CONTAINER
+export SIF_CONTAINER=$SIF
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
