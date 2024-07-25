@@ -122,12 +122,13 @@ RUN pip install --no-cache-dir py-spy
 RUN pip install --no-cache-dir wandb --upgrade
 
 # Install flash attention (for MI200 series!)
+RUN apt-get install -y dos2unix
 RUN cd /opt && \
     git clone --recursive https://github.com/ROCm/flash-attention.git && \
     cd flash-attention && \
     export GPU_ARCHS="gfx90a" && \
     export PYTHON_SITE_PACKAGES=$(python -c 'import site; print(site.getsitepackages()[0])') && \
-    echo -e "\n" >> hipify_patch.patch && \
+    dos2unix -k hipify_patch.patch && \
     patch "${PYTHON_SITE_PACKAGES}/torch/utils/hipify/hipify_python.py" hipify_patch.patch && \
     pip install . && \
     unset GPU_ARCHS && \
