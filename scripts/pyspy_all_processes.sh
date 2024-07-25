@@ -8,7 +8,7 @@ export NODENAME=$(hostname -s)
 exec > >(trap "" INT TERM; sed -u "s/^/$NODENAME out: /")
 exec 2> >(trap "" INT TERM; sed -u "s/^/$NODENAME err: /" >&2)
 
-ps -x -o pid,comm | grep " python" | sed -r 's/^[ ]*([0-9]+) .*/\1/g' | while read i; do
+ps -x -o pid,command | grep "/usr/bin/python scripts/train.py" | sed -r 's/^[ ]*([0-9]+) .*/\1/g' | while read i; do
   echo "Process $i:"
   py-spy dump --pid $i;
 done
