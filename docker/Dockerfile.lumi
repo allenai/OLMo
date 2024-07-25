@@ -42,7 +42,8 @@ RUN unzip awscliv2.zip
 RUN ./aws/install
 RUN rm -r ./aws/
 
-RUN bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+RUN apt-get install -y lsb-release wget software-properties-common gnupg && \
+    bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 
 # Install Google tools
 RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
