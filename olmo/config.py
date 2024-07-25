@@ -852,6 +852,11 @@ class ActivationCheckpointingStrategy(StrEnum):
     Checkpoint one in four transformer layers.
     """
 
+    one_in_eight = "one_in_eight"
+    """
+    Checkpoint one in eight transformer layers.
+    """
+
     two_in_three = "two_in_three"
     """
     Checkpoint two out of every three transformer layers.
