@@ -42,9 +42,6 @@ RUN unzip awscliv2.zip
 RUN ./aws/install
 RUN rm -r ./aws/
 
-RUN apt-get install -y lsb-release wget software-properties-common gnupg && \
-    bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-
 # Install Google tools
 RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
 RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
@@ -123,14 +120,10 @@ RUN mkdir -p OLMo/olmo && \
 RUN pip install --no-cache-dir py-spy
 RUN pip install --no-cache-dir wandb --upgrade
 
-RUN cd /opt && git clone --recursive https://github.com/ROCm/flash-attention.git
-COPY docker/hipify_patch.patch /opt/flash-attention
+RUN cd /opt && git clone --recursive https://github.com/Dao-AILab/flash-attention.git
 # # Install flash attention (for MI200 series!)
 RUN cd /opt/flash-attention && \
-    PYTHON_SITE_PACKAGES=$(python -c 'import site; print(site.getsitepackages()[0])') &&  \
-    patch "${PYTHON_SITE_PACKAGES}/torch/utils/hipify/hipify_python.py" hipify_patch.patch && \
-    export FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE && \
-    GPU_ARCHS="gfx90a" pip install .
+    python setup.py install
 
 # Cleanup
 RUN apt-get autoremove
