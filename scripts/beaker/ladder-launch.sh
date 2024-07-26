@@ -14,10 +14,10 @@ else
 fi
 
 gantry run \
-  --workspace ai2/OLMo-training \
+  --workspace ai2/OLMo-tiny \
   --task-name ladder \
   --description "OLMo ladder with $*" \
-  --priority normal \
+  --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
