@@ -2,7 +2,7 @@
 
 set -ex
 
-NUM_NODES=16
+NUM_NODES=1
 
 gantry run \
   --workspace ai2/oe-data-model-based-cleanup \
