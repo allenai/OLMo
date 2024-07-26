@@ -290,6 +290,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             EvaluatorConfig(label="mmlu_social_sciences_mc_5shot_test", type=EvaluatorType.downstream),
             EvaluatorConfig(label="mmlu_other_mc_5shot_test", type=EvaluatorType.downstream),
             EvaluatorConfig(label="basic_arithmetic", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="basic_algebra", type=EvaluatorType.downstream),
             EvaluatorConfig(label="trivia_qa_wiki_ppl", type=EvaluatorType.downstream),
             EvaluatorConfig(label="natural_qs_open_ppl", type=EvaluatorType.downstream),
             EvaluatorConfig(label="arc_easy_ppl", type=EvaluatorType.downstream),
