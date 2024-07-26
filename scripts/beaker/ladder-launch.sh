@@ -31,8 +31,8 @@ gantry run \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
   --env-secret WANDB_API_KEY=AKSHITAB_WANDB_API_KEY \
-  --env-secret AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID \
-  --env-secret AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY \
+  --env-secret AWS_ACCESS_KEY_ID=AKSHITAB_AWS_ACCESS_KEY_ID \
+  --env-secret AWS_SECRET_ACCESS_KEY=AKSHITAB_AWS_SECRET_ACCESS_KEY \
   --shared-memory 10GiB \
   --venv base \
   --yes \
