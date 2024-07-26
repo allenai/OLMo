@@ -5,7 +5,7 @@ no_pre_train_checkpoint: true
 
 wandb:
   name: ${run_name}
-  project: refine
+  project: refine-train
   group: ${run_name}
 
 model:
@@ -59,7 +59,7 @@ optimizer:
 scheduler:
   name: cosine_with_warmup
   units: tokens
-  t_warmup: 8388608000
+  t_warmup: 4194304000
   t_max: 30e9 # We don't quite have enough for Cx2 so we'll stop at 30B
   alpha_f: 0.1
 
