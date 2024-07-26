@@ -21,7 +21,8 @@ gantry run \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
-  --weka=oe-training-default:/weka/oe-training-default \
+  --cluster ai2/pluto-cirrascale \
+  --cluster ai2/allennlp-cirrascale \
   --gpus 8 \
   $MULTI_NODE_ARGS \
   --budget ai2/oe-training \
@@ -37,3 +38,5 @@ gantry run \
   --yes \
   --timeout=-1 \
   -- /bin/bash -c "${COMMAND}"
+
+  # --weka=oe-training-default:/weka/oe-training-default \
