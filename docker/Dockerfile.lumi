@@ -17,7 +17,6 @@ RUN apt-get install -y \
   git \
   autoconf \
   libtool \
-  llvm \
   vim \
   fish \
   wget \
@@ -50,10 +49,11 @@ RUN apt-get update
 RUN apt-get install -y google-cloud-cli
 
 # Install ROCm
+ENV ROCM_VERSION="5.6.1"
 RUN mkdir --parents --mode=0755 /etc/apt/keyrings && \
     wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | gpg --dearmor | tee /etc/apt/keyrings/rocm.gpg > /dev/null && \
-    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.0.2/ubuntu jammy main" >> /etc/apt/sources.list.d/amdgpu.list && \
-    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.0.2 jammy main" >> /etc/apt/sources.list.d/rocm.list && \
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/${ROCM_VERSION}/ubuntu jammy main" >> /etc/apt/sources.list.d/amdgpu.list && \
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/${ROCM_VERSION} jammy main" >> /etc/apt/sources.list.d/rocm.list && \
     echo 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' > /etc/apt/preferences.d/rocm-pin-600 && \
     apt-get update && \
     apt-get install -y rccl rccl-dev rocm-libs rocm-gdb rocm-dev rocm-developer-tools rocm-hip-runtime-dev rocm-utils rocm-hip-sdk && \
@@ -63,8 +63,15 @@ RUN mkdir --parents --mode=0755 /etc/apt/keyrings && \
 ENV ROCM_HOME=/opt/rocm
 ENV ROCM_PATH=/opt/rocm
 
+# # Attempt to fix memory accounting error in ROCm 5.6.1
+# COPY docker/memgetinfo-fix.cpp $ROCM_PATH/lib
+# RUN cd $ROCM_PATH/lib && \
+#   mv memgetinfo-fix.cpp preload-me.cpp && \
+#   bash preload-me.cpp && \
+#   rm -rf preload-me.cpp
+
 # Install MPICH
-ENV MPICH_VERSION="3.1.4"
+ENV MPICH_VERSION="4.0.3"
 RUN cd /opt && \
     wget https://www.mpich.org/static/downloads/${MPICH_VERSION}/mpich-${MPICH_VERSION}.tar.gz && \
     tar xf mpich-${MPICH_VERSION}.tar.gz && \
@@ -72,7 +79,7 @@ RUN cd /opt && \
     ./configure --disable-fortran --enable-fast=all,O3 --prefix=/usr && \
     make -j install && \
     ldconfig && \
-    rm /opt/mpich-3.1.4.tar.gz
+    rm /opt/mpich-${MPICH_VERSION}.tar.gz
 
 # Install aws-ofi-rccl
 RUN apt-get install -y libfabric-dev
@@ -88,7 +95,7 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # Install torch
 RUN pip install --upgrade pip
-RUN pip install --no-cache-dir torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/rocm6.0
+RUN pip install --no-cache-dir torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 --index-url https://download.pytorch.org/whl/rocm5.6
 
 # Install DeepSpeed
 RUN pip install --no-cache-dir mpi4py
@@ -100,24 +107,26 @@ RUN cd /opt && \
 
 # Install more dependencies
 COPY pyproject.toml .
-RUN mkdir olmo && \
+RUN mkdir -p OLMo/olmo && \
+    mv pyproject.toml OLMo && \
+    cd OLMo && \
     touch olmo/__init__.py && \
     echo 'VERSION = "0.1.0"' > olmo/version.py && \
     pip install --no-cache-dir .[train] && \
     pip uninstall -y ai2-olmo && \
-    rm -rf olmo/
+    cd .. && \
+    rm -rf OLMo/
 
 RUN pip install --no-cache-dir py-spy
 RUN pip install --no-cache-dir wandb --upgrade
 
+RUN cd /opt && git clone --recursive https://github.com/Dao-AILab/flash-attention.git
 # # Install flash attention (for MI200 series!)
-# RUN cd /opt && \
-#     git clone --recursive https://github.com/ROCm/flash-attention.git && \
-#     cd flash-attention && \
-#     GPU_ARCHS="gfx90a" pip install .
+RUN cd /opt/flash-attention && \
+    GPU_ARCHS="gfx90a" BUILD_TARGET="rocm" FLASH_ATTENTION_SKIP_CUDA_BUILD="TRUE" pip install .
 
 # Cleanup
 RUN apt-get autoremove
-RUN rm -rf /opt/mpich-3.1.4 /opt/aws-ofi-rccl /opt/DeepSpeed
+RUN rm -rf /opt/mpich-4.2.2 /opt/aws-ofi-rccl /opt/DeepSpeed
 RUN apt-get clean
 RUN pip cache purge
