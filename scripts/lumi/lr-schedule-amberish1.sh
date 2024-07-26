@@ -36,7 +36,7 @@ export FI_CXI_DEFAULT_CQ_SIZE=131072
 #export NCCL_DEBUG=INFO
 export PYTHONPATH=.:${PYTHONPATH}
 export ROCM_PATH=/opt/rocm
-export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64
+export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64:/opt/rocm/lib
 export SINGULARITYENV_TORCH_DIST_INIT_BARRIER=1
 
 # Try playing with max_split_size_mb if you run into OOM errors.
@@ -57,8 +57,6 @@ srun \
     -B"$PROJECT_DIR:$PROJECT_DIR" \
     -B"$FLASH_DIR:$FLASH_DIR" \
     -B"$SCRATCH_DIR:$SCRATCH_DIR" \
-    -B /opt/cray:/opt/cray \
-    -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $SIF_CONTAINER \
     python scripts/train.py configs/amberish1-s3.yaml ${@} \
