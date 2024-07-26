@@ -3,14 +3,14 @@
 set -exuo pipefail
 IFS=$'\n\t'
 
-BEAKER_LEADER_REPLICA_HOSTNAME=$1
-shift
+# BEAKER_LEADER_REPLICA_HOSTNAME=$1
+# shift
 
-NUM_NODES=$1
-shift
+# NUM_NODES=$1
+# shift
 
-BEAKER_REPLICA_RANK=$1
-shift
+# BEAKER_REPLICA_RANK=$1
+# shift
 
 # Setup Python environment.
 conda shell.bash activate base

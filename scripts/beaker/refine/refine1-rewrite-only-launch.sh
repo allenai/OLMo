@@ -6,6 +6,7 @@ NUM_NODES=1
 
 gantry run \
   --workspace ai2/oe-data-model-based-cleanup \
+  --allow-dirty \
   --task-name refine1 \
   --description "OLMo refine 1B" \
   --priority urgent \
@@ -13,7 +14,6 @@ gantry run \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
-  --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
@@ -21,7 +21,6 @@ gantry run \
   --weka oe-training-default:/weka/oe-training-default \
   --propagate-failure \
   --propagate-preemption \
-  --synchronized-start-timeout 90m \
   --no-python \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
@@ -30,9 +29,7 @@ gantry run \
   --env S3_PROFILE=S3 \
   --env WEKA_PROFILE=WEKA \
   --env-secret AWS_ACCESS_KEY_ID=S2_AWS_ACCESS_KEY_ID \
-  --env-secret AWS_SECRET_ACCESS_KEY=S2_AWS_SECRET_ACCESS_KEY \\
-  --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
-  --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
+  --env-secret AWS_SECRET_ACCESS_KEY=S2_AWS_SECRET_ACCESS_KEY \
   --env-secret WANDB_API_KEY=WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
