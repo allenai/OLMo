@@ -2,7 +2,7 @@
 #SBATCH --job-name=ladder
 #SBATCH --account=project_462000229
 #SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
-#SBATCH --nodes=4             # Total number of nodes
+#SBATCH --nodes=2             # Total number of nodes
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
@@ -10,7 +10,7 @@
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
-export OLMO_CONTAINER=llm-lumi-torch23-flash_latest.sif
+export OLMO_CONTAINER=llm-lumi-torch22_latest.sif
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
@@ -47,5 +47,5 @@ srun \
     -B /opt/cray:/opt/cray \
     -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
-    $PROJECT_DIR/containers/$OLMO_CONTAINER \
+    $SCRATCH_DIR/containers/$OLMO_CONTAINER \
     python scripts/ladder.py train --temp_write_location=$CHECKPOINTS_PATH/$SLURM_JOB_ID ${@}
