@@ -1,0 +1,316 @@
+run_name: olmo-1b-refine-rewrite-only-001
+seed: 6198
+dry_run: false
+no_pre_train_checkpoint: true
+
+wandb:
+  name: ${run_name}
+  project: refine
+  group: ${run_name}
+
+model:
+  d_model: 2048
+  n_heads: 16
+  n_layers: 16
+  mlp_ratio: 8
+  weight_tying: false
+  alibi: false
+  rope: true
+  flash_attention: true
+  attention_dropout: 0.0
+  attention_layer_norm: false
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 4096
+  vocab_size: 100278
+  embedding_size: 100352
+  eos_token_id: 100257
+  pad_token_id: 100277
+  init_device: meta
+  init_fn: normal
+  init_std: 0.02
+  init_cutoff_factor: 3
+
+compile: null
+
+optimizer:
+  name: adamw
+  learning_rate: 4.0e-4
+  eps: 1.0e-8
+  weight_decay: 0.1
+  decay_norm_and_bias: true
+  decay_embeddings: false
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 10
+
+# Cx1: t_max = 1.3B params * 20 = 26e9
+# Cx2: t_max = 1.3B params * 40 = 52e9
+# Cx3: t_max = 1.3B params * 60 = 78e9
+
+scheduler:
+  name: cosine_with_warmup
+  units: tokens
+  t_warmup: 8388608000
+  t_max: 30e9 # We don't quite have enough for Cx2 so we'll stop at 30B
+  alpha_f: 0.1
+
+tokenizer:
+  identifier: allenai/dolma2-tokenizer
+  truncate_direction: right
+
+save_folder: runs/${run_name}
+remote_save_folder: s3://ai2-llm/checkpoints/refine-1b/${run_name}
+save_overwrite: false
+
+save_interval: 5000
+save_interval_ephemeral: null
+save_num_checkpoints_to_keep: -1
+sharded_checkpointer: olmo_core
+
+save_interval_unsharded: null
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: null
+
+max_duration: 30e9T # Match total token count
+stop_at: 7152 # 30e9 / (4096 * 1024) = 7152
+global_train_batch_size: 1024
+device_train_microbatch_size: 4
+
+precision: amp_bf16
+distributed_strategy: fsdp
+
+fsdp:
+  wrapping_strategy: by_block
+  precision: mixed
+  sharding_strategy: FULL_SHARD
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 1
+
+eval_interval: 1000
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators:
+  - label: all-small-ppl-validation
+    data:
+      num_workers: 0
+      drop_last: true
+      generate_doc_lengths: true
+      memmap_dtype: uint32
+      datasets:
+        c4_en-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
+        dolma_books-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
+        dolma_common-crawl-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy
+        dolma_pes2o-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy
+        dolma_reddit-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy
+        dolma_stack-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_stack/val/part-0-00000.npy
+        dolma_wiki-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_wiki/val/part-0-00000.npy
+        ice-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy
+        m2d2_s2orc-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy
+        pile-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy
+        wikitext_103-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy
+
+  ##########################
+  # Downstream evaluations #
+  ##########################
+  - label: piqa
+    type: downstream
+
+  - label: hellaswag
+    type: downstream
+
+  - label: winogrande
+    type: downstream
+
+  - label: openbook_qa
+    type: downstream
+
+  - label: boolq
+    type: downstream
+
+  - label: sciq
+    type: downstream
+
+  - label: arc_easy
+    type: downstream
+
+  - label: arc_challenge
+    type: downstream
+
+  - label: copa
+    type: downstream
+
+  - label: commonsense_qa
+    type: downstream
+
+  - label: social_iqa
+    type: downstream
+
+  - label: mmlu_stem_var
+    type: downstream
+
+  - label: mmlu_humanities_var
+    type: downstream
+
+  - label: mmlu_social_sciences_var
+    type: downstream
+
+  - label: mmlu_other_var
+    type: downstream
+
+  - label: mmlu_stem_mc_5shot
+    type: downstream
+
+  - label: mmlu_humanities_mc_5shot
+    type: downstream
+
+  - label: mmlu_social_sciences_mc_5shot
+    type: downstream
+
+  - label: mmlu_other_mc_5shot
+    type: downstream
+
+  - label: mmlu_stem_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_humanities_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_social_sciences_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_other_mc_5shot_test
+    type: downstream
+
+data:
+  pad_direction: right
+  num_workers: 16
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 8
+  persistent_workers: true
+  timeout: 0
+  paths:
+    # Cx1 20b sample set 01
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-10-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-11-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-12-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-13-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-14-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-15-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-16-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-17-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-18-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-19-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-20-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-21-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-22-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-23-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-24-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-25-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-26-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-27-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-28-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-29-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-30-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-31-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-32-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-33-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-34-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-35-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-36-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-37-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-38-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-39-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-40-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-41-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-42-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-43-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-44-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-45-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-46-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-47-00000.npy
+
+    # Cx1 <20b sample set 02
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-10-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-11-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-12-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-13-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-14-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-15-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-16-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-17-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-18-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-19-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-20-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-21-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-22-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-23-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-24-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-25-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-26-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-27-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-28-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-29-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-30-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-31-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-32-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-33-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-34-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-35-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-36-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-37-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-38-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-39-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-40-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-41-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-42-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-43-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-44-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-45-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-46-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/002/allenai/dolma2-tokenizer/part-47-00000.npy
