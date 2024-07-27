@@ -14,6 +14,7 @@ gantry run \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
+  --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
@@ -28,8 +29,8 @@ gantry run \
   --env R2_PROFILE=R2 \
   --env S3_PROFILE=S3 \
   --env WEKA_PROFILE=WEKA \
-  --env-secret AWS_ACCESS_KEY_ID=S2_AWS_ACCESS_KEY_ID \
-  --env-secret AWS_SECRET_ACCESS_KEY=S2_AWS_SECRET_ACCESS_KEY \
+  --env-secret AWS_CONFIG=TCM_AWS_CONFIG \
+  --env-secret AWS_CREDENTIALS=TCM_AWS_CREDENTIALS \
   --env-secret WANDB_API_KEY=WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
