@@ -70,7 +70,7 @@ tokenizer:
   identifier: tokenizers/allenai_dolma2.json
   truncate_direction: right
 
-save_folder: s3://ai2-llm/checkpoints/OLMo-medium/${run_name}
+remote_save_folder: s3://ai2-llm/checkpoints/OLMo-medium/peteish7-s3
 save_overwrite: false
 
 save_interval: 1000
