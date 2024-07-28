@@ -60,6 +60,7 @@ srun \
       --wandb.group=peteish7-lumi \
       --save_folder=$CHECKPOINTS_PATH/peteish7/${SLURM_JOB_ID} \
       --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/peteish7-lumi/ \
+      --fused_loss=false \
       "${@}"
 
 # '--load_path=${path.last_checkpoint:${save_folder}}' \
