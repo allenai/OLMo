@@ -11,7 +11,8 @@
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
-module load LUMI/22.08 partition/G
+module load LUMI/23.09 partition/G
+module load PyTorch/2.2.2-rocm-5.6.1-python-3.10-singularity-20240617
 
 export OLMO_CONTAINER=llm-lumi-torch22_latest.sif
 
