@@ -39,9 +39,7 @@ export SINGULARITYENV_TORCH_DIST_INIT_BARRIER=1
 # Try playing with max_split_size_mb if you run into OOM errors.
 #export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:128
 
-export DATA_PATH=$FLASH_DIR/preprocessed/olmo-mix
 export CHECKPOINTS_PATH=$FLASH_DIR/checkpoints
-export EVAL_DATA_PATH=$SCRATCH_DIR/eval-data
 
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
@@ -61,6 +59,7 @@ srun \
       --wandb.name=peteish7-lumi_${SLURM_JOB_ID} \
       --wandb.group=peteish7-lumi \
       --save_folder=$CHECKPOINTS_PATH/peteish7/${SLURM_JOB_ID} \
+      --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/peteish7-lumi/ \
       "${@}"
 
 # '--load_path=${path.last_checkpoint:${save_folder}}' \
