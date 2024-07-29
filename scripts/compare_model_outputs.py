@@ -65,6 +65,8 @@ def compare_model_outputs(base_traces_folder: Path, compare_traces_folder: Path)
 
 
 def main():
+    logging.basicConfig(encoding='utf-8', level=logging.INFO)
+
     parser = ArgumentParser()
     parser.add_argument(
         "base_model_traces_path",
