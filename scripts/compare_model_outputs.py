@@ -34,14 +34,14 @@ def compare_module_output(base_traces_folder: Path, compare_traces_folder: Path,
     map_location=torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     base_input = torch.load(str(base_module_input_path), map_location=map_location)
     compare_input = torch.load(str(compare_module_input_path), map_location=map_location)
-    logger.info("Input dtypes: %.2f", base_input.dtype, compare_input.dtype)
+    logger.info("Input dtypes: %s %s", base_input.dtype, compare_input.dtype)
     logger.info("Input norm diff: %.2f", torch.linalg.vector_norm((compare_input - base_input).float()))
 
     base_output = torch.load(str(base_module_output_path), map_location=map_location)
     compare_output = torch.load(str(compare_module_output_path), map_location=map_location)
 
     if isinstance(base_output, torch.Tensor):
-        logger.info("Output dtypes: %.2f", base_output.dtype, compare_output.dtype)
+        logger.info("Output dtypes: %s %s", base_output.dtype, compare_output.dtype)
         logger.info("Output norm diff: %.2f", torch.linalg.vector_norm(compare_output - base_output))
     else:
         logger.info("Outputs: %s %s", base_output, compare_output)
