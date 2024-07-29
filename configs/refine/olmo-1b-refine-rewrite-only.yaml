@@ -33,7 +33,7 @@ model:
   embedding_size: 100352
   eos_token_id: 100257
   pad_token_id: 100277
-  init_device: meta
+  init_device: cuda
   init_fn: normal
   init_std: 0.02
   init_cutoff_factor: 3
