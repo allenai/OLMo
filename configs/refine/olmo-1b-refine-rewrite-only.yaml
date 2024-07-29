@@ -111,7 +111,6 @@ evaluators:
     data:
       num_workers: 0
       drop_last: true
-      generate_doc_lengths: true
       memmap_dtype: uint32
       datasets:
         c4_en-validation:
