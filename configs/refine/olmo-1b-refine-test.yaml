@@ -82,7 +82,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-auxiliary_loss_multiplier: 0.0001
+auxiliary_loss_multiplier: 0
 
 max_duration: 30e9T # Match total token count
 stop_at: 14305 # 30e9 / (2048 * 1024) = 14305
