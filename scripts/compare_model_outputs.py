@@ -25,7 +25,13 @@ def _get_module_names(checkpoint_traces_folder: Path) -> List[str]:
     return module_names
 
 
-def compare_module_output(base_traces_folder: Path, compare_traces_folder: Path, module_name: str):
+def compare_module_output(
+    base_traces_folder: Path,
+    compare_traces_folder: Path,
+    module_name: str,
+    *,
+    include_non_tensor_outputs: bool = True,
+):
     base_module_input_path = base_traces_folder / f"{module_name}_input.pt"
     base_module_output_path = base_traces_folder / f"{module_name}_output.pt"
     compare_module_input_path = compare_traces_folder / f"{module_name}_input.pt"
@@ -47,11 +53,15 @@ def compare_module_output(base_traces_folder: Path, compare_traces_folder: Path,
         logger.info(
             "%s output norm diff: %.2f", module_name, torch.linalg.vector_norm(compare_output - base_output)
         )
-    else:
+    elif include_non_tensor_outputs:
         logger.info("%s outputs: %s %s", module_name, base_output, compare_output)
+    else:
+        logger.info("Base output is type %s, skipping", type(base_input))
 
 
-def compare_model_outputs(base_traces_folder: Path, compare_traces_folder: Path):
+def compare_model_outputs(
+    base_traces_folder: Path, compare_traces_folder: Path, *, include_non_tensor_outputs: bool = True
+):
     base_modules = set(_get_module_names(base_traces_folder))
     compare_modules = set(_get_module_names(compare_traces_folder))
 
@@ -65,7 +75,12 @@ def compare_model_outputs(base_traces_folder: Path, compare_traces_folder: Path)
 
     common_modules = base_modules.intersection(compare_modules)
     for module_name in sorted(common_modules):
-        compare_module_output(base_traces_folder, compare_traces_folder, module_name)
+        compare_module_output(
+            base_traces_folder,
+            compare_traces_folder,
+            module_name,
+            include_non_tensor_outputs=include_non_tensor_outputs,
+        )
 
 
 def main():
@@ -82,9 +97,19 @@ def main():
         type=Path,
         help="Path where traces of the compare (a.k.a new, different) model are stored",
     )
+    parser.add_argument(
+        "--skip_non_tensor_outputs",
+        action="store_false",
+        dest="include_non_tensor_outputs",
+        help="If set, do not compare module outputs that are not tensors",
+    )
 
     args = parser.parse_args()
-    compare_model_outputs(args.base_model_traces_path, args.compare_model_traces_path)
+    compare_model_outputs(
+        args.base_model_traces_path,
+        args.compare_model_traces_path,
+        include_non_tensor_outputs=args.include_non_tensor_outputs,
+    )
 
 
 if __name__ == "__main__":
