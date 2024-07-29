@@ -12,7 +12,7 @@ gantry run \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
-  --gpus 0 \
+  --gpus 1 \
   --budget ai2/oe-eval \
   --no-nfs \
   --venv base \
