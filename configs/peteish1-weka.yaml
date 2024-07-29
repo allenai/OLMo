@@ -49,7 +49,7 @@ compile: null
 optimizer:
   name: adamw
   learning_rate: 4.0e-4
-  weight_decay: 0.1
+  weight_decay: 0.05
   eps: 1e-8
   decay_norm_and_bias: true
   decay_embeddings: false
@@ -155,7 +155,7 @@ evaluators:
 
   - label: boolq
     type: downstream
- 
+
   - label: sciq
     type: downstream
 
