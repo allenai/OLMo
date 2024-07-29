@@ -216,6 +216,7 @@ data:
   prefetch_factor: 8
   persistent_workers: true
   timeout: 0
+  memmap_dtype: uint32
   instance_filter:
     repetition_max_period: 13
     repetition_min_period: 1
