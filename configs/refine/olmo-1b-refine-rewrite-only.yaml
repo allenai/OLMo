@@ -59,7 +59,7 @@ optimizer:
 scheduler:
   name: cosine_with_warmup
   units: tokens
-  t_warmup: 1e9T
+  t_warmup: 1e9
   t_max: 30e9 # We don't quite have enough for Cx2 so we'll stop at 30B
   alpha_f: 0.01
 
@@ -82,7 +82,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 load_path: null
 
 max_duration: 30e9T # Match total token count
-stop_at: 14305 # 30e9 / (2048 * 1024) = 7152
+stop_at: 14305 # 30e9 / (2048 * 1024) = 14305
 global_train_batch_size: 1024
 device_train_microbatch_size: 4
 

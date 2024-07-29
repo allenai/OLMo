@@ -31,7 +31,7 @@ gantry run \
   --env WEKA_PROFILE=WEKA \
   --env-secret AWS_CONFIG=TCM_AWS_CONFIG \
   --env-secret AWS_CREDENTIALS=TCM_AWS_CREDENTIALS \
-  --env-secret WANDB_API_KEY=WANDB_API_KEY \
+  --env-secret WANDB_API_KEY=TCM_WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
