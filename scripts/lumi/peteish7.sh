@@ -16,6 +16,9 @@ module load PyTorch/2.2.2-rocm-5.6.1-python-3.10-singularity-20240617
 
 export OLMO_CONTAINER=llm-lumi-torch22_latest.sif
 
+# export SIF_CONTAINER=$PROJECT_DIR/containers/$OLMO_CONTAINER
+export SIF_CONTAINER=$SIF
+
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
 export NCCL_SOCKET_IFNAME=hsn
@@ -50,10 +53,8 @@ srun \
     -B"$PROJECT_DIR:$PROJECT_DIR" \
     -B"$FLASH_DIR:$FLASH_DIR" \
     -B"$SCRATCH_DIR:$SCRATCH_DIR" \
-    -B /opt/cray:/opt/cray \
-    -B /usr/lib64/libcxi.so.1:/usr/lib64/libcxi.so.1 \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
-    $PROJECT_DIR/containers/$OLMO_CONTAINER \
+    $SIF_CONTAINER \
     python scripts/train.py configs/peteish7-s3.yaml \
       --run_name=peteish7-lumi_${SLURM_JOB_ID} \
       --wandb.name=peteish7-lumi_${SLURM_JOB_ID} \
