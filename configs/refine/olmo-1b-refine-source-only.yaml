@@ -1,4 +1,4 @@
-run_name: olmo-1b-refine-rewrite-only-001
+run_name: olmo-1b-refine-source-only-001
 seed: 6198
 dry_run: false
 no_pre_train_checkpoint: true
