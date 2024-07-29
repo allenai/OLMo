@@ -18,11 +18,12 @@ model:
   rope: true
   flash_attention: true
   attention_dropout: 0.0
-  attention_layer_norm: false
   include_bias: false
   block_type: sequential
   layer_norm_type: rms
   layer_norm_with_affine: true
+  layer_norm_eps: 1e-6
+  attention_layer_norm: true
   bias_for_layer_norm: false
   attention_layer_norm_with_affine: false
   activation_type: swiglu
@@ -42,11 +43,11 @@ compile: null
 
 optimizer:
   name: adamw
-  learning_rate: 2e-3
+  learning_rate: 0.002
   eps: 1.0e-8
   weight_decay: 0.05
   decay_norm_and_bias: true
-  decay_embeddings: false
+  decay_embeddings: true
   betas:
   - 0.9
   - 0.95
