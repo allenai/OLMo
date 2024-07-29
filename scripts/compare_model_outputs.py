@@ -31,12 +31,13 @@ def compare_module_output(base_traces_folder: Path, compare_traces_folder: Path,
     compare_module_input_path = compare_traces_folder / f"{module_name}_input.pt"
     compare_module_output_path = compare_traces_folder / f"{module_name}_output.pt"
 
-    base_input = torch.load(str(base_module_input_path))
-    compare_input = torch.load(str(compare_module_input_path))
+    map_location=torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    base_input = torch.load(str(base_module_input_path), map_location=map_location)
+    compare_input = torch.load(str(compare_module_input_path), map_location=map_location)
     logger.info("Input norm diff: %.2f", torch.linalg.vector_norm(compare_input - base_input))
 
-    base_output = torch.load(str(base_module_output_path))
-    compare_output = torch.load(str(compare_module_output_path))
+    base_output = torch.load(str(base_module_output_path), map_location=map_location)
+    compare_output = torch.load(str(compare_module_output_path), map_location=map_location)
     logger.info("Output norm diff: %.2f", torch.linalg.vector_norm(compare_output - base_output))
 
 
