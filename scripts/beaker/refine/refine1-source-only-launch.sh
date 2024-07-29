@@ -4,6 +4,8 @@ set -ex
 
 NUM_NODES=1
 
+  # --weka oe-training-default:/weka/oe-training-default \
+
 gantry run \
   --workspace ai2/oe-data-model-based-cleanup \
   --allow-dirty \
@@ -19,7 +21,6 @@ gantry run \
   --host-networking \
   --budget ai2/oe-training \
   --no-nfs \
-  --weka oe-training-default:/weka/oe-training-default \
   --propagate-failure \
   --propagate-preemption \
   --no-python \
