@@ -35,7 +35,8 @@ pushd /root/.cache
 # curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" | tar --keep-newer-files -xzf -
 curl "https://storage.googleapis.com/hf-cache/huggingface_cache_v4.tar.gz" | tar --keep-newer-files -xzf -
 popd
-export HF_DATASETS_OFFLINE=
+
+export HF_DATASETS_OFFLINE=1
 
 # Force processes to synchronize at init_process_group
 export TORCH_DIST_INIT_BARRIER=1
@@ -61,5 +62,3 @@ torchrun \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=null \
       --save_overwrite
-
-     # '--load_path=${path.last_checkpoint:${save_folder}}' \

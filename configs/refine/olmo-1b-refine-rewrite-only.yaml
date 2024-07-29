@@ -94,12 +94,7 @@ ddp:
 
 precision: amp_bf16
 
-# distributed_strategy: fsdp
-
-# fsdp:
-#   wrapping_strategy: null
-#   precision: mixed
-#   sharding_strategy: FULL_SHARD
+distributed_strategy: ddp
 
 max_grad_norm: 1.0
 max_grad_norm_ratio: null
@@ -221,6 +216,10 @@ data:
   prefetch_factor: 8
   persistent_workers: true
   timeout: 0
+  instance_filter:
+    repetition_max_period: 13
+    repetition_min_period: 1
+    repetition_max_count: 32
   paths:
     # Cx1 20b sample set 01
     - /weka/oe-training-default/oe-training-default/ai2-llm/preprocessed/dclm/samples/rewrite-20b/001/allenai/dolma2-tokenizer/part-00-00000.npy
