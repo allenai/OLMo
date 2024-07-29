@@ -112,7 +112,7 @@ evaluators:
       memmap_dtype: uint32
       datasets:
         c4_en-validation:
-          - s3://ai2-llm/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
         dolma_books-validation:
           - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
         dolma_common-crawl-validation:
