@@ -31,6 +31,7 @@ def compare_module_output(
     module_name: str,
     *,
     include_non_tensor_outputs: bool = True,
+    verbose: bool = False,
 ):
     base_module_input_path = base_traces_folder / f"{module_name}_input.pt"
     base_module_output_path = base_traces_folder / f"{module_name}_output.pt"
@@ -40,27 +41,33 @@ def compare_module_output(
     map_location = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     base_input = torch.load(str(base_module_input_path), map_location=map_location)
     compare_input = torch.load(str(compare_module_input_path), map_location=map_location)
-    logger.info("%s input dtypes: %s %s", module_name, base_input.dtype, compare_input.dtype)
-    logger.info(
-        "%s input norm diff: %.2f", module_name, torch.linalg.vector_norm((compare_input - base_input).float())
-    )
+
+    if verbose or base_input.dtype != compare_input.dtype:
+        logger.info("%s input dtypes: %s %s", module_name, base_input.dtype, compare_input.dtype)
+    if verbose or (norm_diff := torch.linalg.vector_norm((compare_input - base_input).float()).item() != 0.0): 
+        logger.info("%s input norm diff: %.2f", module_name, norm_diff)
 
     base_output = torch.load(str(base_module_output_path), map_location=map_location)
     compare_output = torch.load(str(compare_module_output_path), map_location=map_location)
 
     if isinstance(base_output, torch.Tensor):
-        logger.info("%s output dtypes: %s %s", module_name, base_output.dtype, compare_output.dtype)
-        logger.info(
-            "%s output norm diff: %.2f", module_name, torch.linalg.vector_norm(compare_output - base_output)
-        )
+        if verbose or base_output.dtype != compare_output.dtype:
+            logger.info("%s output dtypes: %s %s", module_name, base_output.dtype, compare_output.dtype)
+        if verbose or (norm_diff := torch.linalg.vector_norm((compare_output - base_output).float()).item() != 0.0): 
+            logger.info("%s input norm diff: %.2f", module_name, norm_diff)
     elif include_non_tensor_outputs:
         logger.info("%s outputs: %s %s", module_name, base_output, compare_output)
     else:
-        logger.info("Base output is type %s, skipping", type(base_input))
+        if verbose:
+            logger.info("Base output is type %s, skipping", type(base_output))
 
 
 def compare_model_outputs(
-    base_traces_folder: Path, compare_traces_folder: Path, *, include_non_tensor_outputs: bool = True
+    base_traces_folder: Path,
+    compare_traces_folder: Path,
+    *,
+    include_non_tensor_outputs: bool = True,
+    verbose: bool = False,
 ):
     base_modules = set(_get_module_names(base_traces_folder))
     compare_modules = set(_get_module_names(compare_traces_folder))
@@ -80,6 +87,7 @@ def compare_model_outputs(
             compare_traces_folder,
             module_name,
             include_non_tensor_outputs=include_non_tensor_outputs,
+            verbose=verbose,
         )
 
 
@@ -103,12 +111,18 @@ def main():
         dest="include_non_tensor_outputs",
         help="If set, do not compare module outputs that are not tensors",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="If set, show extra information",
+    )
 
     args = parser.parse_args()
     compare_model_outputs(
         args.base_model_traces_path,
         args.compare_model_traces_path,
         include_non_tensor_outputs=args.include_non_tensor_outputs,
+        verbose=args.verbose,
     )
 
 
