@@ -38,11 +38,6 @@ model:
   init_fn: normal
   init_std: 0.02
   init_cutoff_factor: 3
-  embed_init_std: None
-  embedding_layer_norm: false
-  norm_after: false
-  rope_theta: 10000
-  scale_embed_init: false
 
 compile: null
 
@@ -118,7 +113,6 @@ evaluators:
     data:
       num_workers: 0
       drop_last: true
-      generate_doc_lengths: false
       memmap_dtype: uint32
       datasets:
         c4_en-validation:
@@ -224,7 +218,6 @@ data:
   prefetch_factor: 8
   persistent_workers: true
   timeout: 0
-  generate_doc_lengths: false
   memmap_dtype: uint32
   instance_filter:
     repetition_max_period: 13
