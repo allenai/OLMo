@@ -750,12 +750,12 @@ class Trainer:
                 and self.global_step <= self.cfg.module_output_trace_steps_range[1]
                 and get_global_rank() == 0
             ):
-                trace_save_folder = Path(self.cfg.save_folder) / "traces/"
+                trace_save_folder = Path(self.cfg.save_folder) / f"traces/step{self.global_step}"
                 if trace_save_folder.exists():
                     if self.cfg.save_overwrite:
                         shutil.rmtree(trace_save_folder)
                     else:
-                        raise OLMoConfigurationError("Attempting to overwrite traces without --save_overwrite")
+                        raise OLMoConfigurationError(f"Attempting to overwrite traces at step {self.global_step} without --save_overwrite")
                 trace_save_folder.mkdir(parents=True)
 
                 def trace_outputs_hook(
