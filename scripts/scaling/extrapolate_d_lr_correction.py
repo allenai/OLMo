@@ -7,44 +7,20 @@ import matplotlib.pyplot as plt
 from olmo.aliases import PathOrStr
 from olmo.scaling.scaling_laws.extrapolate_d import (
     ExtrapolateDConfig,
+)
+from olmo.scaling.scaling_laws.extrapolate_d_lr_correction import (
     get_data_at_n,
     plot_d_scaling_at_n,
 )
 from olmo.scaling.scaling_laws.utils import (
     validation,
-    chinchilla_contaminated_fit,
-    chinchilla_fit,
-    openai_fit,
+    chinchilla_d_lr_fit,
+    grad_chinchilla_d_lr_fit,
 )
-from olmo.util import StrEnum
 
 
 VAL_KEYS = [f'eval/{val}/CrossEntropyLoss' for val in validation]
 
-# CONFIGS = {
-#     "mup-olmo-128-train": {
-#         "path": "wandb_outputs/mup-olmo-128-train.csv",
-#         "keys": ["train/CrossEntropyLoss"],  # validation
-#         "train_step_min": 150,
-#         "train_step_max": 550,
-#         "eval_step_max": 750,
-#         "final_loss_tokens": 4194304000,
-#         "outlier_threshold": None,
-#         "dot_size": 5.0,
-#         "title": "mup-OLMo-128M, train loss",
-#     },
-#     "mup-olmo-256-train": {
-#         "path": "wandb_outputs/mup-olmo-256-train.csv",
-#         "keys": ["train/CrossEntropyLoss"],
-#         "train_step_min": 150,
-#         "train_step_max": 550,
-#         "eval_step_max": 750,
-#         "final_loss_tokens": 4194304000,
-#         "outlier_threshold": None,
-#         "dot_size": 5.0,
-#         "title": "mup-OLMo-256M, train loss",
-#     },
-# }
 CONFIGS = {
     'ananya-20m_val-all': {
         'path': 'wandb/tiny-olmo-20M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
@@ -124,34 +100,13 @@ CONFIGS = {
         'title': 'amberish7, val-all',
     },
 }
-# CONFIGS = {
-#     'amber': {
-#         'path': 'wandb/amber.csv',
-#         'keys': ['eval/all/CrossEntropyLoss'],
-#         'train_step_min': 1,
-#         'train_step_max': 177,
-#         'eval_step_max': 354,
-#         'final_loss_tokens': 354,
-#         'outlier_threshold': None,
-#         'dot_size': 5.0,
-#         'title': 'amber',
-#     }
-# }
-
-
-class CurveFitMode(StrEnum):
-    default: str = "default"
-
-    contaminated: str = "contaminated"
-
-    all: str = "all"
 
 
 def fit_curves(
-    configs: Dict[str, ExtrapolateDConfig], output_path: PathOrStr, mode: CurveFitMode = CurveFitMode.default
+    configs: Dict[str, ExtrapolateDConfig], output_path: PathOrStr,
 ):
     for name, config in configs.items():
-        train_ds, train_ys, eval_ds, eval_ys = get_data_at_n(config)
+        train_ds, train_hs, train_ys, eval_ds, eval_hs, eval_ys = get_data_at_n(config)
 
         plt.figure()
 
@@ -162,60 +117,33 @@ def fit_curves(
             plt.scatter(eval_ds, eval_ys, color="green", alpha=0.5, s=config.dot_size, edgecolors="none")
             legends.append("Actual Points (eval)")
 
-        if mode in [CurveFitMode.default, CurveFitMode.all]:
-            plot_d_scaling_at_n(
-                train_ds,
-                train_ys,
-                eval_ds,
-                openai_fit,
-                config.final_loss_tokens,
-                p0=[1e16, 0.1, 0],
-                color="orange",
-                linewidth=1.0,
-            )
-            legends.append("Fitted Curve, y = (a / x + c)^b (OpenAI)")
-
-            plot_d_scaling_at_n(
-                train_ds,
-                train_ys,
-                eval_ds,
-                chinchilla_fit,
-                config.final_loss_tokens,
-                p0=[1e5, -0.5, 2.0],
-                predict=True,
-                color="red",
-                linewidth=1.0,
-            )
-            legends.append("Fitted Curve, y = a * x^b + c (Chinchilla)")
-            legends.append("Predicted Point (Chinchilla)")
-
-        if mode in [CurveFitMode.contaminated, CurveFitMode.all]:
-            plot_d_scaling_at_n(
-                train_ds,
-                train_ys,
-                eval_ds,
-                chinchilla_contaminated_fit,
-                config.final_loss_tokens,
-                p0=[1e5, -0.5, 2.0, 0.0],
-                color="magenta",
-                linewidth=1.0,
-            )
-            legends.append("Fitted Curve, y = (a * x^b + c) * (1 - x/d)")
+        plot_d_scaling_at_n(
+            train_ds,
+            train_hs,
+            train_ys,
+            eval_ds,
+            eval_hs,
+            chinchilla_d_lr_fit,
+            grad_chinchilla_d_lr_fit,
+            config.final_loss_tokens,
+            p0=[4.0, 0.8, 2.5, 0.1],
+            predict=False,
+            color="magenta",
+            linewidth=1.0,
+        )
+        legends.append("Fitted Curve, y = B / d^beta + E + F * h")
 
         plt.legend(legends, loc="upper right")
 
         plt.xlabel("Tokens")
         plt.ylabel("CE Loss")
         plt.title(config.title)
-        plt.savefig(f"{output_path}/extrapolate_d_{mode}_{name}.png", dpi=300)
+        plt.savefig(f"{output_path}/extrapolate_d_lr_{name}.png", dpi=300)
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-o", "--output-path", type=str, required=True, help="Output folder")
-    parser.add_argument(
-        "-m", "--mode", type=str, required=False, default="default", help="Options: [default, contaminated, all]"
-    )
 
     return parser.parse_args()
 
@@ -225,7 +153,7 @@ def main():
     configs = {key: ExtrapolateDConfig(**value) for key, value in CONFIGS.items()}
 
     os.makedirs(args.output_path, exist_ok=True)
-    fit_curves(configs, args.output_path, args.mode)
+    fit_curves(configs, args.output_path)
 
 
 if __name__ == "__main__":

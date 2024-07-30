@@ -5,12 +5,12 @@ from typing import Dict
 import matplotlib.pyplot as plt
 
 from olmo.aliases import PathOrStr
-from olmo.scaling.scaling_laws.extrapolate_n import (
+from olmo.scaling.scaling_laws.joint import (
     ExtrapolateNConfig,
-    get_data_forall_d,
-    plot_n_scaling_forall_d,
+    get_data_forall_n,
+    plot_n_d_scaling,
 )
-from olmo.scaling.scaling_laws.utils import validation, chinchilla_fit
+from olmo.scaling.scaling_laws.utils import validation, chinchilla_n_d_fit, grad_chinchilla_n_d_fit
 
 VAL_KEYS = [f'eval/{val}/CrossEntropyLoss' for val in validation]
 
@@ -40,9 +40,9 @@ CONFIGS = {
         'color': 'gold',
     },
     # '300m': {
-    #     'path': 'wandb/tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
+    #     'path': '../hc-law/wandb/ananya-300m-lr6e-4_val-all.csv',
     #     'keys': VAL_KEYS,
-    #     'mode': 'train',
+    #     'mode': 'eval',
     #     'n': 319980544,
     #     'label': '300m',
     #     'color': 'darkgreen',
@@ -77,24 +77,24 @@ CONFIGS = {
 def fit_curves(
     configs: Dict[str, ExtrapolateNConfig], output_path: PathOrStr,
 ):
-    data_by_d, data_by_n = get_data_forall_d(configs)
+    data_by_n = get_data_forall_n(configs)
 
     plt.figure()
 
-    plot_n_scaling_forall_d(
-        data_by_d,
+    plot_n_d_scaling(
         data_by_n,
         configs,
-        chinchilla_fit,
-        p0=[1e5, -0.5, 2.0],
+        chinchilla_n_d_fit,
+        grad_chinchilla_n_d_fit,
+        p0=[1.5, 2.5, 0.5, 0.5, 2.0],
     )
 
-    plt.legend(loc="upper right")
+    plt.legend(loc="upper right", ncols=2)
 
     plt.xlabel("Tokens (d)")
     plt.ylabel("CE Loss")
-    plt.title(f"Extrapolate across model size at all ckpts")
-    plt.savefig(f"{output_path}/extrapolate_n_forall_d.png", dpi=300)
+    plt.title(f"Jointly fitting N and D")
+    plt.savefig(f"{output_path}/joint.png", dpi=300)
 
 
 def parse_args():

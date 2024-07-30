@@ -5,66 +5,19 @@ from typing import List, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .utils import chinchilla_fit, get_coefficients
-
-
-@dataclass
-class ExtrapolateDConfig:
-    path: str
-    """
-    Path containing the W&B downloaded data and metadata.
-    """
-
-    keys: List[str]
-    """
-    The metrics for computing the scaling law predictions.
-    """
-
-    dot_size: float
-    """
-    Plotting parameter.
-    """
-
-    title: str
-    """
-    Plot title.
-    """
-
-    train_step_min: Optional[int] = None
-    """
-    Lower bound for the training period used to compute scaling coefficients.
-    """
-
-    train_step_max: Optional[int] = None
-    """
-    Upper bound for the training period used to compute scaling coefficients.
-    """
-
-    eval_step_max: Optional[int] = None
-    """
-    Upper bound for the prediction validation period using the scaling coefficients.
-    Lower bound is `train_step_max`.
-    """
-
-    final_loss_tokens: Optional[int] = None
-    """
-    The step at which to make the final prediction.
-    """
-
-    outlier_threshold: Optional[float] = None
-    """
-    This parameter can be tuned based on the curves to discount outliers.
-    """
+from .utils import chinchilla_fit, get_coefficients_huber
+from .extrapolate_d import ExtrapolateDConfig
 
 
 def get_data_at_n(config: ExtrapolateDConfig):
-    train_ds, train_ys = [], []
-    eval_ds, eval_ys = [], []
+    train_ds, train_hs, train_ys = [], [], []
+    eval_ds, eval_hs, eval_ys = [], [], []
 
     with open(config.path) as file_ref:
         reader = csv.DictReader(file_ref)
         for r, row in enumerate(reader):
             d = float(row["throughput/total_tokens"])
+            h = float(row["optim/learning_rate_group0"]) / float(row["learning_rate_peak"])
             y = np.mean([float(row[key]) for key in config.keys])
             batch_size = int(row["batch_size_in_tokens"])
             if config.outlier_threshold is not None and y > config.outlier_threshold:  # remove outliers
@@ -73,22 +26,26 @@ def get_data_at_n(config: ExtrapolateDConfig):
                 continue
             if config.train_step_max is None or d <= config.train_step_max * batch_size:
                 train_ds.append(d)
+                train_hs.append(h)
                 train_ys.append(y)
             elif config.eval_step_max is None or d <= config.eval_step_max * batch_size:
                 eval_ds.append(d)
+                eval_hs.append(h)
                 eval_ys.append(y)
 
-    return train_ds, train_ys, eval_ds, eval_ys
+    return train_ds, train_hs, train_ys, eval_ds, eval_hs, eval_ys
 
 
 def plot_d_scaling_at_n(
-    train_ds, train_ys, eval_ds, fitting_func, final_loss_tokens, p0, predict=False, **plot_kwargs
+    train_ds, train_hs, train_ys, eval_ds, eval_hs, fitting_func, grad_func, final_loss_tokens, p0, predict=False, **plot_kwargs
 ):
-    coefficients = get_coefficients(train_ds, train_ys, fitting_func, p0=p0)
+    train_dhs = [[d, h] for d, h in zip(train_ds, train_hs)]
+    eval_dhs = [[d, h] for d, h in zip(eval_ds, eval_hs)]
+    coefficients = get_coefficients_huber(train_dhs, train_ys, fitting_func, grad_func, p0=p0)
 
     plt.plot(
         train_ds + eval_ds,
-        fitting_func(np.array(train_ds + eval_ds), *coefficients),
+        [fitting_func([d, h], coefficients) for [d, h] in train_dhs + eval_dhs],
         **plot_kwargs,
     )
 

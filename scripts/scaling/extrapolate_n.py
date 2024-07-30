@@ -22,7 +22,7 @@ CONFIGS = {
         'mode': 'train',
         'n': 21266432,
         'label': '20m',
-        'color': 'red',
+        'color': 'darkred',
     },
     '60m': {
         'path': 'wandb/tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
@@ -30,7 +30,7 @@ CONFIGS = {
         'mode': 'train',
         'n': 59310080,
         'label': '60m',
-        'color': 'orange',
+        'color': 'darkorange',
     },
     '150m': {
         'path': 'wandb/tiny-olmo-150M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
@@ -38,15 +38,15 @@ CONFIGS = {
         'mode': 'train',
         'n': 151879680,
         'label': '150m',
-        'color': 'yellow',
+        'color': 'gold',
     },
     # '300m': {
-    #     'path': '../hc-law/wandb/ananya-300m-lr6e-4_val-all.csv',
+    #     'path': 'wandb/tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
     #     'keys': VAL_KEYS,
     #     'mode': 'train',
     #     'n': 319980544,
     #     'label': '300m',
-    #     'color': 'blue',
+    #     'color': 'darkgreen',
     # },
     '700m': {
         'path': 'wandb/tiny-olmo-700M-rms-norm-adam-eps-1e-8-emb-wd_val-all.csv',
@@ -54,16 +54,24 @@ CONFIGS = {
         'mode': 'train',
         'n': 758564352,
         'label': '700m',
-        'color': 'green',
+        'color': 'teal',
+    },
+    '1b': {
+        'path': 'wandb/amberish1.csv',
+        'keys': VAL_KEYS,
+        'mode': 'eval',
+        'n': 1176832000,
+        'label': '7b',
+        'color': 'darkblue',
     },
     '7b': {
         'path': 'wandb/amberish7.csv',
         'keys': VAL_KEYS,
         'mode': 'eval',
-        'n': 7000000000, # approximate
+        'n': 6682316800,
         'label': '7b',
-        'color': 'cyan',
-    }
+        'color': 'darkviolet',
+    },
 }
 
 
@@ -86,7 +94,7 @@ def fit_curves(
         train_ys,
         eval_ns,
         chinchilla_fit,
-        p0=[1e5, -0.5, 2.0],
+        p0=[1e2, -0.3, 2.0],
         color="red",
         linewidth=1.0,
     )

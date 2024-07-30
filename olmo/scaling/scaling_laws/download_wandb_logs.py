@@ -79,14 +79,14 @@ def main():
     if dirname:
         os.makedirs(dirname, exist_ok=True)
     with open(args.output_path, "w") as file_ref:
-        writer = csv.DictWriter(file_ref, fieldnames=[args.x_axis] + args.y_axis + ["batch_size_in_tokens"])
+        writer = csv.DictWriter(file_ref, fieldnames=[args.x_axis] + args.y_axis + ['optim/learning_rate_group0', 'learning_rate_peak', "batch_size_in_tokens"])
         writer.writeheader()
 
         rows = []
         for wb_run in tqdm(wb_runs):
             print(f"Processing {wb_run.name}")
             history = wb_run.scan_history(
-                keys=[args.x_axis] + args.y_axis, page_size=10000
+                keys=[args.x_axis] + args.y_axis + ['optim/learning_rate_group0'], page_size=10000
             )  # page_size cannot be too big, it will make it faster but it will start to downsample
 
             config = json.loads(wb_run.json_config)
@@ -96,6 +96,7 @@ def main():
 
             for wb_step in history:
                 rows.append(wb_step)
+                wb_step["learning_rate_peak"] = config["optimizer"]["value"]["learning_rate"]
                 # With certain run restarts, we also update the batch size.
                 wb_step["batch_size_in_tokens"] = batch_size_in_tokens
 
@@ -108,6 +109,8 @@ if __name__ == "__main__":
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-tiny/tiny-olmo-20M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd' -y eval/all-validation/CrossEntropyLoss -o wandb/tiny-olmo-20M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-tiny/tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd' -y eval/all-validation/CrossEntropyLoss -o wandb/tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-tiny/tiny-olmo-150M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd' -y eval/all-validation/CrossEntropyLoss -o wandb/tiny-olmo-150M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-tiny/tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd' -y eval/all-validation/CrossEntropyLoss -o wandb/tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-tiny/tiny-olmo-700M-rms-norm-adam-eps-1e-8-emb-wd' -y eval/all-validation/CrossEntropyLoss -o wandb/tiny-olmo-700M-rms-norm-adam-eps-1e-8-emb-wd_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-small/amberish1' -y eval/all-validation/CrossEntropyLoss -o wandb/amberish1.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/amberish7' -y eval/all-validation/CrossEntropyLoss -o wandb/amberish7.csv
     main()
