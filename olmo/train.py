@@ -722,6 +722,13 @@ class Trainer:
                 and self.global_step <= self.cfg.module_output_trace_steps_range[1]
                 and get_global_rank() == 0
             ):
+                trace_save_folder = Path(self.cfg.save_folder) / "traces/"
+                if trace_save_folder.exists():
+                    if self.cfg.save_overwrite:
+                        shutil.rmtree(trace_save_folder)
+                    else:
+                        raise OLMoConfigurationError("Attempting to overwrite traces without --save_overwrite")
+                trace_save_folder.mkdir(parents=True)
 
                 def trace_outputs_hook(
                     module_name: str, _: torch.nn.Module, args: Tuple[torch.Tensor, ...], output: torch.Tensor
@@ -733,10 +740,12 @@ class Trainer:
                     trace_save_folder = Path(self.cfg.save_folder) / f"traces/step{self.global_step}"
                     trace_save_folder.mkdir(parents=True, exist_ok=True)
 
-                    module_input_filepath = trace_save_folder / f"{module_name}_input.pt"
+                    module_occurence_num = 0
+                    while (module_input_filepath := trace_save_folder / f"{module_name}_{module_occurence_num}_input.pt").exists():
+                        module_occurence_num += 1
                     torch.save(module_input, module_input_filepath)
 
-                    module_output_filepath = trace_save_folder / f"{module_name}_output.pt"
+                    module_output_filepath = trace_save_folder / f"{module_name}_{module_occurence_num}_output.pt"
                     torch.save(output, module_output_filepath)
 
                 for module_name, module in self.model.named_modules(prefix="model"):
