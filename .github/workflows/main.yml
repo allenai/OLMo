@@ -38,7 +38,15 @@ jobs:
           - python: '3.10'
             task:
               name: Test
-              run: pytest -v --color=yes --durations=5 tests/
+              run: |
+                pytest -v --color=yes --durations=5 tests/ \
+                  --ignore-glob='tests/hf_olmo/*'
+
+          - python: '3.10'
+            task:
+              name: Test HF
+              run: |
+                pytest -v --color=yes --durations=5 tests/hf_olmo
 
           - python: '3.10'
             task:
@@ -107,7 +115,7 @@ jobs:
     timeout-minutes: 8
     env:
       BEAKER_TOKEN: ${{ secrets.BEAKER_TOKEN }}
-      BEAKER_IMAGE: olmo-torch2-test
+      BEAKER_IMAGE: akshitab/olmo-torch2-test
       BEAKER_WORKSPACE: ai2/llm-testing
     steps:
       - name: Determine current commit SHA (pull request)
@@ -134,6 +142,7 @@ jobs:
                   beaker: ${{ env.BEAKER_IMAGE }}
                 context:
                   priority: normal
+                  preemptible: true
                 resources:
                   gpuCount: 1
                 constraints:
@@ -144,7 +153,7 @@ jobs:
                 envVars:
                   - name: COMMIT_SHA
                     value: ${{ env.COMMIT_SHA }}
-                  - name: GITHUB_TOKEN
+                  - name: TMP_GITHUB_TOKEN
                     value: ${{ secrets.GITHUB_TOKEN }}
                   - name: CUDA_LAUNCH_BLOCKING
                     value: "1"

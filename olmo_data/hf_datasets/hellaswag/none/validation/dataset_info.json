@@ -1,0 +1,97 @@
+{
+  "builder_name": "hellaswag",
+  "citation": "@inproceedings{zellers2019hellaswag,\n    title={HellaSwag: Can a Machine Really Finish Your Sentence?},\n    author={Zellers, Rowan and Holtzman, Ari and Bisk, Yonatan and Farhadi, Ali and Choi, Yejin},\n    booktitle ={Proceedings of the 57th Annual Meeting of the Association for Computational Linguistics},\n    year={2019}\n}\n",
+  "config_name": "default",
+  "dataset_name": "hellaswag",
+  "dataset_size": 65200194,
+  "description": "\nHellaSwag: Can a Machine Really Finish Your Sentence? is a new dataset for commonsense NLI. A paper was published at ACL2019.\n",
+  "download_checksums": {
+    "https://raw.githubusercontent.com/rowanz/hellaswag/master/data/hellaswag_train.jsonl": {
+      "num_bytes": 47496131,
+      "checksum": null
+    },
+    "https://raw.githubusercontent.com/rowanz/hellaswag/master/data/hellaswag_test.jsonl": {
+      "num_bytes": 11752147,
+      "checksum": null
+    },
+    "https://raw.githubusercontent.com/rowanz/hellaswag/master/data/hellaswag_val.jsonl": {
+      "num_bytes": 12246618,
+      "checksum": null
+    }
+  },
+  "download_size": 71494896,
+  "features": {
+    "ind": {
+      "dtype": "int32",
+      "_type": "Value"
+    },
+    "activity_label": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "ctx_a": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "ctx_b": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "ctx": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "endings": {
+      "feature": {
+        "dtype": "string",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    },
+    "source_id": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "split": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "split_type": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "label": {
+      "dtype": "string",
+      "_type": "Value"
+    }
+  },
+  "homepage": "https://rowanzellers.com/hellaswag/",
+  "license": "",
+  "size_in_bytes": 136695090,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 43232624,
+      "num_examples": 39905,
+      "dataset_name": "hellaswag"
+    },
+    "test": {
+      "name": "test",
+      "num_bytes": 10791853,
+      "num_examples": 10003,
+      "dataset_name": "hellaswag"
+    },
+    "validation": {
+      "name": "validation",
+      "num_bytes": 11175717,
+      "num_examples": 10042,
+      "dataset_name": "hellaswag"
+    }
+  },
+  "version": {
+    "version_str": "0.1.0",
+    "major": 0,
+    "minor": 1,
+    "patch": 0
+  }
+}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from glob import glob
 from pathlib import Path
@@ -16,6 +17,7 @@ from typing import (
     cast,
 )
 
+import numpy as np
 import torch
 from omegaconf import DictConfig, ListConfig
 from omegaconf import OmegaConf as om
@@ -38,6 +40,7 @@ __all__ = [
     "SchedulerType",
     "SchedulerConfig",
     "DataConfig",
+    "InstanceFilterConfig",
     "EvaluatorConfig",
     "TokenizerConfig",
     "TrainConfig",
@@ -47,6 +50,9 @@ __all__ = [
     "WandbConfig",
     "CompilerConfig",
     "WandbConfig",
+    "DDPConfig",
+    "DistributedStrategy",
+    "DDPGradSyncMode",
     "FSDPPrecision",
     "FSDPWrapStrategy",
     "FSDPConfig",
@@ -151,6 +157,12 @@ class BaseConfig:
                 if name in out:
                     del out[name]
         return out
+
+    def update_with(self, **kwargs):
+        result = deepcopy(self)
+        for key, value in kwargs.items():
+            setattr(result, key, value)
+        return result
 
 
 class LayerNormType(StrEnum):
@@ -303,6 +315,11 @@ class ModelConfig(BaseConfig):
     apply RoPE at the precision of the input.
     """
 
+    rope_theta: int = 10_000
+    """
+    The theta setting for RoPE.
+    """
+
     flash_attention: bool = False
     """
     If ``True``, use ``FlashAttention``.
@@ -334,6 +351,11 @@ class ModelConfig(BaseConfig):
     The dropout probability for embeddings.
     """
 
+    embedding_layer_norm: bool = False
+    """
+    Apply layer norm directly to the embeddings.
+    """
+
     layer_norm_type: LayerNormType = LayerNormType.default
     """
     The layernorm implementation to use.
@@ -346,6 +368,8 @@ class ModelConfig(BaseConfig):
     so everything except QK-norms. To turn off affines for QK norms as well, set :attr:`attention_layer_norm_with_affine`
     to ``False``.
     """
+
+    layer_norm_eps: float = 1e-05
 
     attention_layer_norm_with_affine: bool = True
     """
@@ -433,6 +457,22 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
+    scale_emb_init: bool = False
+    """
+    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization.
+    Currently this is only used with `full_megatron` init when ``emb_init_std`` is unset.
+    """
+
+    emb_init_std: Optional[float] = None
+    """
+    Override the standard deviation to use when initializing the embedding weights.
+    """
+
+    norm_after: bool = False
+    """
+    Apply norm after the attention/feedforward layers rather than before, as introduced in the Swin transformer paper (Liu et al).
+    """
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:
@@ -466,10 +506,16 @@ class OptimizerConfig(BaseConfig):
     learning_rate: float = 1.0e-4
     weight_decay: float = 0.01
     betas: Tuple[float, float] = (0.9, 0.95)
+    eps: float = 1e-5
 
     no_decay_norm_and_bias: Optional[bool] = None
     """
     Deprecated. Use ``decay_norm_and_bias`` and ``decay_embeddings`` instead.
+    """
+
+    selective_updates: bool = False
+    """
+    If ``True``, optimizer parameter and state updates are skipped when the corresponding gradient is 0.
     """
 
     decay_norm_and_bias: bool = False
@@ -479,6 +525,12 @@ class OptimizerConfig(BaseConfig):
     The interval with which to collect and log detailed parameter-specific metrics.
     This only applies when logging to W&B, since these metrics won't be logged to the console.
     If not set, defaults to the wandb `log_interval`.
+    """
+
+    record_update_metrics: bool = False
+    """
+    Whether to record detailed metrics about the optimizer's parameter updates, like the norm and max
+    of the update with AdamW.
     """
 
     def __post_init__(self):
@@ -544,12 +596,21 @@ class PaddingDirection(StrEnum):
 
 
 @dataclass
+class InstanceFilterConfig(BaseConfig):
+    repetition_max_period: int = 13
+    repetition_min_period: int = 1
+    repetition_max_count: int = 32
+
+
+@dataclass
 class DataConfig(BaseConfig):
     paths: Optional[List[str]] = None
+    memmap_dtype: str = "uint16"
     datasets: Optional[Dict[str, List[str]]] = None
     label_mask_paths: Optional[List[str]] = None
     pad_direction: PaddingDirection = PaddingDirection.right
     generate_attention_mask: bool = False
+    generate_doc_lengths: bool = False
     num_workers: int = 0
     drop_last: bool = False
     pin_memory: bool = False
@@ -557,6 +618,17 @@ class DataConfig(BaseConfig):
     persistent_workers: bool = False
     timeout: int = 0
     seed: Optional[int] = None
+    instance_filter: Optional[InstanceFilterConfig] = None
+
+    @property
+    def effective_memmap_dtype(self):
+        try:
+            # getattr will check this is part of numpy module, while np.dtype will check
+            # if this is a valid numpy dtype.
+            np.dtype(dtype := getattr(np, self.memmap_dtype))
+        except (AttributeError, TypeError) as e:
+            raise TypeError(f"Value {self.memmap_dtype} is not a valid numpy type") from e
+        return dtype
 
 
 class EvaluatorType(StrEnum):
@@ -623,6 +695,56 @@ class CompilerConfig(BaseConfig):
     """
 
 
+class DistributedStrategy(StrEnum):
+    ddp = "ddp"
+    """
+    Wrap OLMo in torch.nn.parallel.DistributedDataParallel to train across ranks.
+    """
+
+    fsdp = "fsdp"
+    """
+    Wrap OLMo in torch.distributed.fsdp.FullyShardedDataParallel to train across ranks.
+    """
+
+
+class DDPGradSyncMode(StrEnum):
+    batch = "batch"
+    """
+    Synchronize gradients after computation at each bucket only at the last micro-batch.
+    This is slightly faster than gradient syncs across each micro-batch but will consume more memory.
+    Can use this mode only when `find_unused_params` is set to False.
+    """
+
+    micro_batch = "micro_batch"
+    """
+    Synchronize gradients after computation at each bucket per micro-batch.
+    This will be slightly slower than gradient sync at the last micro-batch, but will consume less memory.
+    Can use this mode with both option of `find_unused_params` but specifically recommended to use with `find_unused_params`
+    set to True, to prevent errors.
+    """
+
+
+@dataclass
+class DDPConfig(BaseConfig):
+    grad_sync_mode: DDPGradSyncMode = DDPGradSyncMode.batch
+    """
+    Gradient sync mode for DDP
+
+    Note: When `find_unused_params` is set, set `grad_sync_mode` to `micro_batch` as different micro-batches might activate
+    different parts of the model, ex- MOEs.
+    """
+
+    find_unused_params: bool = False
+    """
+    (from torch documentation)
+
+    This mode allows running backward on a subgraph of the model, and DDP finds out which parameters
+    are involved in the backward pass by traversing the autograd graph from the model output and marking
+    all unused parameters as ready for reduction. Note that traversing the autograd graph introduces extra overheads,
+    so applications should only set find_unused_parameters to True when necessary.
+    """
+
+
 class FSDPWrapStrategy(StrEnum):
     by_block = "by_block"
     """
@@ -685,7 +807,15 @@ class FSDPConfig(BaseConfig):
     FSDP instance.
     """
 
-    precision: FSDPPrecision = FSDPPrecision.pure
+    precision: Optional[FSDPPrecision] = FSDPPrecision.pure
+
+    hybrid_sharding_num_model_replicas: Optional[int] = None
+    """
+    The number of model instances, when using a hybrid sharding strategy.
+    If not ``None``, this must divide the total number of nodes. If ``None``, the default,
+    a model instance is used per node (as determined by ``get_world_size() // get_local_world_size()``).
+    PyTorch's default HSDP behavior matches this default behavior.
+    """
 
 
 class CheckpointType(StrEnum):
@@ -827,7 +957,7 @@ class TrainConfig(BaseConfig):
     How often (in batches) to check if the run has been canceled or reached its time limit.
     """
 
-    save_interval: int = 1000
+    save_interval: Optional[int] = 1000
     """
     How often (in terms of steps) to save sharded training state checkpoints.
     """
@@ -1005,9 +1135,19 @@ class TrainConfig(BaseConfig):
     Settings for compiling the model with ``torch.compile()``.
     """
 
-    fsdp: FSDPConfig = field(default_factory=FSDPConfig)
+    distributed_strategy: Optional[DistributedStrategy] = DistributedStrategy.fsdp
+    """
+    Distributed strategy for OLMo model (eg. single GPU, DDP, FSDP).
+    """
+
+    fsdp: Optional[FSDPConfig] = field(default_factory=FSDPConfig)
     """
     Fully sharded data parallel settings.
+    """
+
+    ddp: Optional[DDPConfig] = None
+    """
+    DDP settings.
     """
 
     softmax_auxiliary_loss: bool = False
@@ -1016,11 +1156,14 @@ class TrainConfig(BaseConfig):
     normalizing term to be close to 0.
     """
 
-    time_limit: Optional[float] = 60 * 60 * 47.5
+    auxiliary_loss_multiplier: Optional[float] = 1e-4
+    """
+    Used with `softmax_auxiliary_loss`. PaLM uses 1e-4, Chameleon uses 1e-5.
+    """
+
+    time_limit: Optional[float] = None
     """
     The maximum amount of time to train for before saving a checkpoint and ending early.
-    On LUMI we have 48 hours max per job, so we default to just under 48 hours to give us time
-    to write out a final checkpoint.
     """
 
     extra_steps_after_cancel: int = 10
@@ -1067,6 +1210,13 @@ class TrainConfig(BaseConfig):
     Whether to use the fused CE loss function from `flash-attn`.
     """
 
+    hf_datasets_cache_dir: Optional[str] = None
+    """
+    Deprecated, HF datasets are now stored in `olmo_data.hf_datasets`.
+
+    Path to cache directory of HF datasets saved with `datasets.save_to_disk`.
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":
@@ -1079,21 +1229,26 @@ class TrainConfig(BaseConfig):
             raise ValueError(f"Unexpected precision type '{self.precision}'")
 
     @property
-    def fsdp_precision(self) -> MixedPrecision:
-        if self.fsdp.precision == FSDPPrecision.pure:
-            return MixedPrecision(
-                param_dtype=self.autocast_precision,
-                reduce_dtype=self.autocast_precision,
-                buffer_dtype=self.autocast_precision,
-            )
-        elif self.fsdp.precision == FSDPPrecision.mixed:
-            return MixedPrecision(
-                param_dtype=self.autocast_precision,
-                reduce_dtype=torch.float32,
-                buffer_dtype=self.autocast_precision,
-            )
+    def fsdp_precision(self) -> Optional[MixedPrecision]:
+        if self.fsdp is not None:
+            if self.fsdp.precision is None:
+                return None
+            elif self.fsdp.precision == FSDPPrecision.pure:
+                return MixedPrecision(
+                    param_dtype=self.autocast_precision,
+                    reduce_dtype=self.autocast_precision,
+                    buffer_dtype=self.autocast_precision,
+                )
+            elif self.fsdp.precision == FSDPPrecision.mixed:
+                return MixedPrecision(
+                    param_dtype=self.autocast_precision,
+                    reduce_dtype=torch.float32,
+                    buffer_dtype=self.autocast_precision,
+                )
+            else:
+                raise NotImplementedError(f"{self.fsdp.precision}")
         else:
-            raise NotImplementedError(f"{self.fsdp.precision}")
+            raise ValueError("self.fsdp is None!")
 
     @classmethod
     def update_legacy_settings(cls, config: D) -> D:
