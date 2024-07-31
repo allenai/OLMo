@@ -10,7 +10,7 @@ gantry run \
   --workspace ai2/long-contexts \
   --task-name long_contexts_7B_cont_train_16K \
   --description "OLMo medium - 7B - long context continued pretraining 16K CL" \
-  --priority normal \
+  --priority high \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2\
   --gpus 8 \
