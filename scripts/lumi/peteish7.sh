@@ -36,7 +36,7 @@ export FI_CXI_DEFAULT_CQ_SIZE=131072
 #export NCCL_DEBUG=INFO
 export PYTHONPATH=.:${PYTHONPATH}
 export ROCM_PATH=/opt/rocm
-export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64
+export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64:/opt/rocm/lib
 export SINGULARITYENV_TORCH_DIST_INIT_BARRIER=1
 
 # Try playing with max_split_size_mb if you run into OOM errors.
