@@ -321,6 +321,11 @@ class ModelConfig(BaseConfig):
     apply RoPE at the precision of the input.
     """
 
+    rope_theta: int = 10_000
+    """
+    The theta setting for RoPE.
+    """
+
     flash_attention: bool = False
     """
     If ``True``, use ``FlashAttention``.
@@ -350,6 +355,11 @@ class ModelConfig(BaseConfig):
     embedding_dropout: float = 0.1
     """
     The dropout probability for embeddings.
+    """
+
+    embedding_layer_norm: bool = False
+    """
+    Apply layer norm directly to the embeddings.
     """
 
     layer_norm_type: LayerNormType = LayerNormType.default
@@ -510,7 +520,13 @@ class ModelConfig(BaseConfig):
 
     scale_emb_init: bool = False
     """
-    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization. To be used with `full_megatron` init.
+    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization.
+    Currently this is only used with `full_megatron` init when ``emb_init_std`` is unset.
+    """
+
+    emb_init_std: Optional[float] = None
+    """
+    Override the standard deviation to use when initializing the embedding weights.
     """
 
     norm_after: bool = False
@@ -852,7 +868,7 @@ class FSDPConfig(BaseConfig):
     FSDP instance.
     """
 
-    precision: FSDPPrecision = FSDPPrecision.pure
+    precision: Optional[FSDPPrecision] = FSDPPrecision.pure
 
     hybrid_sharding_num_model_replicas: Optional[int] = None
     """
@@ -1274,9 +1290,11 @@ class TrainConfig(BaseConfig):
             raise ValueError(f"Unexpected precision type '{self.precision}'")
 
     @property
-    def fsdp_precision(self) -> MixedPrecision:
+    def fsdp_precision(self) -> Optional[MixedPrecision]:
         if self.fsdp is not None:
-            if self.fsdp.precision == FSDPPrecision.pure:
+            if self.fsdp.precision is None:
+                return None
+            elif self.fsdp.precision == FSDPPrecision.pure:
                 return MixedPrecision(
                     param_dtype=self.autocast_precision,
                     reduce_dtype=self.autocast_precision,
