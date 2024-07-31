@@ -1505,17 +1505,17 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
 
                 request_dict = request["request"]
                 continuation_str = request_dict["continuation"]
-                label_id = request_dict["label"]
+                label_id = request["label"]
                 doc_text = request_dict["context"]
                 ctx = self.token_encode(doc_text)
-                # dc = self.token_encode(self.doc_to_domain_conditional(doc))
+                dc = self.token_encode(self.doc_to_domain_conditional(doc))
                 if self.log_instances > 0:
                     self.log_instances -= 1
                     ds_name = self.dataset_name
                     if isinstance(ds_name, list):
                         ds_name = ds_name[0]
                     log.info(
-                        f"Sample doc from ({self.dataset_path}, {ds_name}, {self.current_prompt}):"
+                        f"Sample doc from ({self.dataset_path}, {ds_name}):"
                         + f"\ndoc_text: {doc_text}\ncontinuation: {continuation_str}"
                     )
                 cont_id = request["idx"]
@@ -1530,7 +1530,7 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
 
                 # get domain conditional query
                 # we don't expect this to be longer than self.model_ctx_len and it won't make sense to truncate from left
-                # dc_query = dc + continuation[:-1]
+                dc_query = dc + continuation[:-1]
 
                 # form a sample
                 self.samples.append(
@@ -1540,16 +1540,25 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
                         "ctx": ctx,
                         "continuation": continuation,
                         "ctx_len": actual_ctx_len,
-                        # "dc_len": len(dc),
+                        "dc_len": len(dc),
                         "cont_len": len(
                             continuation
                         ),  # even if query has last token removed, LM will output same cont len
                         "cont_str_len": cont_str_len,
                         "query": query,  # remove last token from continuation
-                        # "dc_query": dc_query,
+                        "dc_query": dc_query,
                         "label_id": label_id,
                     }
                 )
+
+    def doc_to_text(self, doc) -> str:
+        raise NotImplementedError
+
+    def doc_to_continuations(self, doc) -> List[str]:
+        raise NotImplementedError
+
+    def doc_to_label(self, doc) -> int:
+        raise NotImplementedError
 
 
 label_to_task_map = {
