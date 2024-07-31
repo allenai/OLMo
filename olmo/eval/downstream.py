@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from torchmetrics import Metric
 
-from olmo.util import load_hf_dataset
+from olmo.util import load_hf_dataset, load_oe_eval_requests
 
 from ..tokenizer import Tokenizer
 
@@ -152,7 +152,7 @@ class ICLMetric(Metric):
 class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
     """Only supports zero-shot for now."""
 
-    metric_type: ClassVar[str]
+    metric_type: str
 
     def __init__(
         self,
@@ -1424,6 +1424,134 @@ class NaturalQuestionsCELoss(ICLMultiChoiceTaskDataset):
         return "Answer:"
 
 
+class OEEvalTask(ICLMultiChoiceTaskDataset):
+    """Generic class for OE evaluation tasks"""
+
+    def __init__(
+        self,
+        tokenizer: Tokenizer,
+        dataset_path: str,
+        dataset_name: Union[str, Sequence[str], None] = None,
+        model_ctx_len: int = 2048,
+        split=None,
+        metric_type=None,
+        prompts=[None],  # List of prompt variants to use
+    ):
+        self.tokenizer = tokenizer
+        self.dataset_path = dataset_path
+        self.dataset_name = dataset_name
+        self.model_ctx_len = model_ctx_len
+        self.log_instances = 0  # Set to > 0 to log the first few instances as a sanity check
+
+        self.samples: List[Dict[str, Any]] = []
+        dataset_names: Sequence[Optional[str]]
+        if isinstance(dataset_name, str) or dataset_name is None:
+            dataset_names = [dataset_name]
+        else:
+            dataset_names = dataset_name
+
+        requests_list = []
+        configs = []
+        for ds_name in dataset_names:
+            config, requests = load_oe_eval_requests(self.dataset_path, ds_name, split)
+            requests_list.append(requests)
+            configs.append(config)
+        if metric_type is not None:
+            self.metric_type = metric_type
+        else:
+            # Use metric type from
+            for config in configs:
+                if config is not None:
+                    metric_type_raw = config["task_config"].get("primary_metric")
+                    if metric_type_raw is not None:
+                        # acc, len_norm, pmi_dc
+                        metric_type = {"acc_raw": "acc", "acc_per_char": "len_norm", "acc_uncond": "pmi_dc"}[
+                            metric_type_raw
+                        ]
+                        if self.metric_type is not None and self.metric_type != metric_type:
+                            raise ValueError(f"Conflicting metric types: {self.metric_type} and {metric_type}")
+                        self.metric_type = metric_type
+        self.dataset = requests_list
+
+        # prep examples
+        self.prep_examples()
+
+    def prep_examples(self):
+        current_doc_id_offset = 0
+        max_doc_id = 0
+        for requests in self.dataset:
+            current_doc_id_offset += max_doc_id
+            max_doc_id = 0  # Max doc id seen in this dataset
+            for request in requests:
+                doc = request["doc"]
+                doc_id = request["doc_id"]
+                if doc_id >= 1000000:
+                    # Hacky implementation of unconditional requests in oe-eval
+                    # Not supported here for now
+                    continue
+                if doc_id > max_doc_id:
+                    max_doc_id = doc_id
+                assert (
+                    request["request_type"] == "loglikelihood"
+                ), f"Unsupported request type: {request['request_type']}"
+
+                # from EAI harness
+                # how this all works:
+                #          CTX      CONT
+                # inp    0 1 2 3|4 5 6 7 8 9   <- last token is deleted by inp[:, :-1]
+                # gpt2    \               \
+                # logits   1 2 3|4 5 6 7 8 9   <- the ctx half gets tossed out by the
+                # cont_toks      4 5 6 7 8 9      [:, -len(continuation_enc):, :self.vocab_size] slice
+
+                request_dict = request["request"]
+                continuation_str = request_dict["continuation"]
+                label_id = request_dict["label"]
+                doc_text = request_dict["context"]
+                ctx = self.token_encode(doc_text)
+                # dc = self.token_encode(self.doc_to_domain_conditional(doc))
+                if self.log_instances > 0:
+                    self.log_instances -= 1
+                    ds_name = self.dataset_name
+                    if isinstance(ds_name, list):
+                        ds_name = ds_name[0]
+                    log.info(
+                        f"Sample doc from ({self.dataset_path}, {ds_name}, {self.current_prompt}):"
+                        + f"\ndoc_text: {doc_text}\ncontinuation: {continuation_str}"
+                    )
+                cont_id = request["idx"]
+                cont_str_len = len(continuation_str) - 1  # continuation contain leading blank
+                continuation = self.token_encode(continuation_str)
+
+                # query, remove last token from continuation, truncate from left is longer than model ctx length
+                query = ctx + continuation[:-1]
+                query = query[-self.model_ctx_len :]
+                # this will be different from len(ctx) when truncated by model_ctx_len
+                actual_ctx_len = len(query) - len(continuation) + 1
+
+                # get domain conditional query
+                # we don't expect this to be longer than self.model_ctx_len and it won't make sense to truncate from left
+                # dc_query = dc + continuation[:-1]
+
+                # form a sample
+                self.samples.append(
+                    {
+                        "doc_id": doc_id + current_doc_id_offset,
+                        "cont_id": cont_id,
+                        "ctx": ctx,
+                        "continuation": continuation,
+                        "ctx_len": actual_ctx_len,
+                        # "dc_len": len(dc),
+                        "cont_len": len(
+                            continuation
+                        ),  # even if query has last token removed, LM will output same cont len
+                        "cont_str_len": cont_str_len,
+                        "query": query,  # remove last token from continuation
+                        # "dc_query": dc_query,
+                        "label_id": label_id,
+                    }
+                )
+
+
 label_to_task_map = {
     "piqa": PIQA,
     "hellaswag": HellaSwag,
@@ -1479,4 +1607,5 @@ label_to_task_map = {
         MMLU,
         {"dataset_name": "other", "split": "test", "prompt_variations": 2, "mc_labels": True},
     ),
+    "copycolors_10way": (OEEvalTask, {"dataset_path": "copycolors_10way", "metric_type": "acc"}),
 }
