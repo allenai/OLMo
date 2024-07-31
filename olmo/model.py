@@ -672,9 +672,9 @@ class OLMoEBlock(OLMoBlock):
     """
     def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
         try:
+            from megablocks.layers.arguments import Arguments as MoEArgs
             from megablocks.layers.dmoe import dMoE
             from megablocks.layers.moe import MoE
-            from megablocks.layers.arguments import Arguments as MoEArgs
         except ImportError:
             raise ImportError("To train MoEs, you need to install the 'megablocks' package.")
 

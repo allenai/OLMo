@@ -61,8 +61,12 @@ __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
 log = logging.getLogger(__name__)
 
 try:
-    from megablocks.layers.moe import batched_load_balancing_loss, clear_load_balancing_loss, get_load_balancing_loss
     from megablocks.layers.arguments import Arguments as MoEArgs
+    from megablocks.layers.moe import (
+        batched_load_balancing_loss,
+        clear_load_balancing_loss,
+        get_load_balancing_loss,
+    )
 except ImportError:
     log.warning(f"Megablocks not installed. If you want to train MoEs, install with `pip install megablocks`.")
 
