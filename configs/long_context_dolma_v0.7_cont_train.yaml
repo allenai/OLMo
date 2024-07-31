@@ -1,11 +1,11 @@
-run_name: long_contexts_dolma_v0.7_cont_train_2T_steps_10B_16K
+run_name: long_contexts_dolma_v0.7_cont_train_2T_steps_10B_8K_nf
 seed: 61394
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-long-contexts
-  group: long_contexts_dolma_v0.7_cont_train_2T_steps_10B_16K
+  group: long_contexts_dolma_v0.7_cont_train_2T_steps_10B_8K_nf
 
 model:
   d_model: 4096
@@ -29,7 +29,7 @@ model:
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
-  max_sequence_length: 16384
+  max_sequence_length: 8192
   vocab_size: 50280
   embedding_size: 50304
   eos_token_id: 0
@@ -78,8 +78,8 @@ no_pre_train_checkpoint: true
 reset_optimizer_state: false
 reset_trainer_state: true
 
-max_duration: 5e9T
-stop_at: 595
+max_duration: 10e9T
+stop_at: 1190
 global_train_batch_size: 512
 device_train_microbatch_size: 1
 time_limit: null

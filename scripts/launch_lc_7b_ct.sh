@@ -7,7 +7,7 @@ export NCCL_DEBUG=INFO NCCL_SOCKET_IFNAME=ib NCCL_IB_HCA="^=mlx5_bond_0"
 NUM_NODES=4
 
 gantry run \
-  --workspace ai2/OLMo-training \
+  --workspace ai2/long-contexts \
   --task-name long_contexts_7B_cont_train_16K \
   --description "OLMo medium - 7B - long context continued pretraining 16K CL" \
   --priority normal \
