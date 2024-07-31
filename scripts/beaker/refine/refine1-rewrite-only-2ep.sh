@@ -58,7 +58,7 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    configs/refine/olmo-1b-refine-mixed.yaml \
+    configs/refine/olmo-1b-refine-rewrite-only-2ep.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=null \
       --save_overwrite
