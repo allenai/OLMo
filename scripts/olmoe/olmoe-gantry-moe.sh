@@ -169,6 +169,33 @@ ARGS='--run_name=olmoe-8x1b-newhp-newds-final-double --save_overwrite --device_t
 CONFIG_PATH=configs/olmoe17/olmoe-8x1b-newhp-newds-final-double-alt.yml
 ARGS='--run_name=olmoe-8x1b-newhp-newds-final-double-alt --save_overwrite --device_train_microbatch_size=2'
 
+CONFIG_PATH=configs/olmoe17/olmoe-8x1b-newhp-newds-cx5-fine1-datafix.yml
+ARGS='--run_name=olmoe-8x1b-newhp-newds-cx5-fine1-datafix --save_overwrite --device_train_microbatch_size=4'
+
+CONFIG_PATH=configs/olmoe17/olmoe-8x1b-newhp-newds-cx5-fine1-newtok.yml
+ARGS='--run_name=olmoe-8x1b-newhp-newds-cx5-fine1-newtok --save_overwrite --device_train_microbatch_size=2'
+
+CONFIG_PATH=configs/olmoe17/olmoe-8x1b-newhp-newds-cx5-fine1-newtok.yml
+ARGS='--run_name=olmoe-8x1b-newhp-newds-cx5-fine1-newtok --save_overwrite --device_train_microbatch_size=4 --fsdp.wrapping_strategy=by_block_and_size'
+
+CONFIG_PATH=configs/olmoe17/olmoe-8x1b-newhp-newds-cx5-fine1-newtok.yml
+ARGS='--run_name=olmoe-8x1b-newhp-newds-cx5-fine1-newtok --save_overwrite --device_train_microbatch_size=4 --fsdp.wrapping_strategy=by_block_and_size'
+
+CONFIG_PATH=configs/olmoe17/olmoe-8x1b-newhp-newds-cx5-fine1-newtok.yml
+ARGS='--run_name=olmoe-8x1b-newhp-newds-cx5-fine1-newtok --save_overwrite --device_train_microbatch_size=4 --activation_checkpointing=fine_grained --fused_loss=true'
+
+CONFIG_PATH=configs/olmoe17/olmoe-8x1b-newhp-newds-cx5-fine1-newtok.yml
+ARGS='--run_name=olmoe-8x1b-newhp-newds-cx5-fine1-newtok --save_overwrite --device_train_microbatch_size=4 --activation_checkpointing=fine_grained --fused_loss=true --fsdp.wrapping_strategy=by_block_and_size'
+
+
+#CONFIG_PATH=configs/olmoe17/olmoe-8x1b-newhp-newds-cx5-fine1-normreorder.yml
+#ARGS='--run_name=olmoe-8x1b-newhp-newds-cx5-fine1-normreorder --save_overwrite --device_train_microbatch_size=4'
+
+#CONFIG_PATH=configs/olmoe17/olmoe-8x1b-newhp-newds-cx5-fine1-docmask.yml
+#ARGS='--run_name=olmoe-8x1b-newhp-newds-cx5-fine1-docmask --save_overwrite --device_train_microbatch_size=4'
+
+CONFIG_PATH=configs/olmoe17/olmoe-8x1b-newhp-newds-cx5-fine1-docmask-8k.yml
+ARGS='--run_name=olmoe-8x1b-newhp-newds-cx5-fine1-docmask-8k --save_overwrite --device_train_microbatch_size=2'
 
 # --activation_checkpointing=fine_grained --fused_loss=true'
 
@@ -193,8 +220,13 @@ ARGS='--run_name=olmoe-8x1b-newhp-newds-final-double-alt --save_overwrite --devi
 #CONFIG_PATH=configs/olmoe17/olmoe-8x1b-newhp-newds-cx5-fine1.yml
 #ARGS='--run_name=olmoe-8x1b-newhp-newds-cx5-fine1 --save_overwrite --fsdp.sharding_strategy=HYBRID_SHARD --device_train_microbatch_size=4 --fused_loss=true --activation_checkpointing=fine_grained --load_path=s3://ai2-llm/checkpoints/OLMoE/olmoe-8x1b-newhp-newds-cx5-fine1/step5000/'
 
-
+CONFIG_PATH=configs/olmoe17/olmoe-8x1b-newhp-newds-final-v2.yml
+ARGS='--run_name=olmoe-8x1b-newhp-newds-final-v2 --fused_loss=true --activation_checkpointing=fine_grained --fsdp.wrapping_strategy=by_block_and_size  --load_path=s3://ai2-llm/checkpoints/OLMoE/olmoe-8x1b-newhp-newds-final-v2/step300000/'
+#--activation_checkpointing=fine_grained 
+#NUM_NODES=1
+#NUM_NODES=16
 NUM_NODES=32
+#NUM_NODES=8
 BEAKER_REPLICA_RANK=0
 
 #ARGS='--load_path=s3://ai2-llm/checkpoints/OLMoE/8x1b-954000-unsharded/ --reset_optimizer_state=True --reset_trainer_state=True --run_name=olmoe17-8x1b-fullshard-swiglu-wrapb-s1k1'
@@ -284,8 +316,11 @@ gantry run \
   --shared-memory 10GiB \
   --venv base \
   --yes \
-  --synchronized-start-timeout 30m \
+  --synchronized-start-timeout 60m \
   -- /bin/bash -c "pip install --upgrade torch==2.3.0; pip install --upgrade flash-attn --no-build-isolation; pip install git+https://github.com/Muennighoff/megablocks.git@zloss; mkdir -p /root/.cache; pushd /root/.cache; curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" | tar --keep-newer-files -xzf -; popd; export HF_DATASETS_OFFLINE=1; export NCCL_IB_HCA=^=mlx5_bond_0; SLURM_JOB_ID=${BEAKER_JOB_ID} torchrun --nnodes ${NUM_NODES}:${NUM_NODES} --node_rank ${BEAKER_REPLICA_RANK} --nproc-per-node 8 --rdzv_id=12347 --rdzv_backend=c10d --rdzv_conf='read_timeout=420' --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 scripts/train.py ${CONFIG_PATH} ${ARGS}"
+
+#sleep 60000; 
+#  --synchronized-start-timeout 60m \
 
 #export NCCL_DEBUG=INFO
 #pip install --upgrade flash-attn --no-build-isolation
