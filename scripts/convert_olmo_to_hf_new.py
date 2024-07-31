@@ -63,6 +63,7 @@ def write_model(
     tokenizer_path=None,
     safe_serialization=True,
     fix_eos_token_id=True,
+    tmp_cleanup=True,
 ):
     os.makedirs(model_path, exist_ok=True)
     tmp_model_path = os.path.join(model_path, "tmp")
@@ -188,7 +189,10 @@ def write_model(
     del model.config._name_or_path
     print("Saving in the Transformers format.")
     model.save_pretrained(model_path, safe_serialization=safe_serialization)
-    shutil.rmtree(tmp_model_path)
+    if tmp_cleanup:
+        # Make cleanup optional; attempting to `rmtree` the `tmp_model_path` causes
+        # errors if using NFS.
+        shutil.rmtree(tmp_model_path)
 
 
 def _write_tokenizer(
@@ -255,6 +259,12 @@ def main():
         dest="fix_eos_token_id",
         help="If set, does not change eos token id from 0 to 50279 if it is 0. Changing 0 to 50279 is a bug fix, so use this option with care.",
     )
+    parser.add_argument(
+        "--no_tmp_cleanup",
+        action="store_false",
+        dest="tmp_cleanup",
+        help="If passed, don't remove temp dir at end of HF conversion.",
+    )
     parser.add_argument("--safe_serialization", type=bool, help="Whether or not to save using `safetensors`.")
     # Different OLMo versions used different default values for max_position_embeddings, hence the need to be able to specify which version is being used.
     args = parser.parse_args()
@@ -265,6 +275,7 @@ def main():
         include_tokenizer=args.include_tokenizer,
         tokenizer_path=args.tokenizer_json_path,
         fix_eos_token_id=args.fix_eos_token_id,
+        tmp_cleanup=args.tmp_cleanup,
     )
 
 

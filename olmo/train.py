@@ -118,7 +118,12 @@ class LRMonitor:
 
 
 def cross_entropy_loss(
-    logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False
+    logits,
+    labels,
+    ignore_index: int = -100,
+    reduction: str = "mean",
+    compute_z_loss: bool = False,
+    z_loss_multiplier: float = 1e-4,
 ):
     loss = F.cross_entropy(logits, labels, ignore_index=ignore_index, reduction=reduction)
 
@@ -131,9 +136,69 @@ def cross_entropy_loss(
     elif reduction == "sum":
         z_squared = (z_squared * (labels != ignore_index)).sum()
 
-    z_loss = 1e-4 * z_squared
+    z_loss = z_loss_multiplier * z_squared
 
     return loss, z_loss
+
+
+fused_loss_fn: Optional[Callable]
+
+try:
+    import flash_attn
+    from flash_attn.ops.triton.cross_entropy import (
+        cross_entropy_loss as flash_cross_entropy_loss,  # type: ignore
+    )
+
+    def fused_loss_fn(
+        logits,
+        labels,
+        ignore_index: int = -100,
+        reduction: str = "mean",
+        compute_z_loss: bool = False,
+        z_loss_multiplier: float = 1e-4,
+    ):
+        # The `ignored_index` parameter of `cross_entropy_loss` was changed to `ignore_index` in v2.5.8 with commit https://github.com/Dao-AILab/flash-attention/commit/ec6d22143b5d375e253b2ebfc563b26a43f43684
+        ce_loss_use_ignore_index_param = version.parse(flash_attn.__version__) >= version.parse("2.5.8")
+
+        if ce_loss_use_ignore_index_param:
+            ignore_index_kwarg = {"ignore_index": ignore_index}
+        else:
+            ignore_index_kwarg = {"ignored_index": ignore_index}
+
+        loss, z_loss = flash_cross_entropy_loss(
+            logits,
+            labels,
+            label_smoothing=0.0,
+            logit_scale=1.0,
+            lse_square_scale=z_loss_multiplier,
+            inplace_backward=False,
+            process_group=None,
+            **ignore_index_kwarg,
+        )
+
+        mask = labels != ignore_index
+
+        if reduction == "mean":
+            loss = loss.sum() / mask.sum()
+        elif reduction == "sum":
+            loss = loss.sum()
+        else:
+            loss = loss
+
+        if not compute_z_loss:
+            return loss, None
+
+        if reduction == "mean":
+            z_loss = z_loss.sum() / mask.sum()
+        elif reduction == "sum":
+            z_loss = z_loss.sum()
+        else:
+            z_loss = z_loss
+
+        return loss, z_loss
+
+except ImportError:
+    fused_loss_fn = None
 
 
 @dataclass
@@ -167,55 +232,10 @@ class Trainer:
 
     def __post_init__(self):
         if self.cfg.fused_loss:
-            import flash_attn
-            from flash_attn.ops.triton.cross_entropy import (  # type: ignore
-                cross_entropy_loss,
-            )
-
-            # The `ignored_index` parameter of `cross_entropy_loss` was changed to `ignore_index` in v2.5.8 with commit https://github.com/Dao-AILab/flash-attention/commit/ec6d22143b5d375e253b2ebfc563b26a43f43684
-            ce_loss_use_ignore_index_param = version.parse(flash_attn.__version__) >= version.parse("2.5.8")
-
-            def fused_loss_fn(
-                logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False
-            ):
-                if ce_loss_use_ignore_index_param:
-                    ignore_index_kwarg = {"ignore_index": ignore_index}
-                else:
-                    ignore_index_kwarg = {"ignored_index": ignore_index}
-
-                loss, z_loss = cross_entropy_loss(
-                    logits,
-                    labels,
-                    label_smoothing=0.0,
-                    logit_scale=1.0,
-                    lse_square_scale=0.0,
-                    inplace_backward=False,
-                    process_group=None,
-                    **ignore_index_kwarg,
-                )
-
-                mask = labels != ignore_index
-
-                if reduction == "mean":
-                    loss = loss.sum() / mask.sum()
-                elif reduction == "sum":
-                    loss = loss.sum()
-                else:
-                    loss = loss
-
-                if not compute_z_loss:
-                    return loss, None
-
-                if reduction == "mean":
-                    z_loss = z_loss.sum() / mask.sum()
-                elif reduction == "sum":
-                    z_loss = z_loss.sum()
-                else:
-                    z_loss = z_loss
-
-                return loss, z_loss
-
-            self.loss_fn = fused_loss_fn
+            if fused_loss_fn is not None:
+                self.loss_fn = fused_loss_fn
+            else:
+                raise NameError("`fused_loss_fn` is not defined. Please ensure that `flash_attn` is installed.")
 
     @property
     def dataset(self) -> IterableDataset:
@@ -232,10 +252,7 @@ class Trainer:
 
     @property
     def max_epochs(self) -> int:
-        if isinstance(self.cfg.max_duration, str) and self.cfg.max_duration.endswith("ep"):
-            return int(self.cfg.max_duration[:-2].strip())
-        else:
-            return 1
+        return math.ceil(self.max_steps / self.batches_per_epoch)
 
     @property
     def max_steps(self) -> int:
@@ -246,7 +263,7 @@ class Trainer:
                 # convert to float *first* to handle scientific notation
                 max_tokens = int(float(self.cfg.max_duration[:-1].strip()))
                 tokens_remaining = max(max_tokens - self.global_train_tokens_seen, 0)
-                steps_remaining = tokens_remaining // self.tokens_per_batch
+                steps_remaining = math.ceil(tokens_remaining / self.tokens_per_batch)
                 return self.global_step + steps_remaining
             elif self.cfg.max_duration.endswith("ep"):
                 max_epochs = int(self.cfg.max_duration[:-2].strip())
@@ -300,7 +317,7 @@ class Trainer:
 
     def trainer_state_dict(self) -> Dict[str, Any]:
         return {
-            "epoch": self.epoch,
+            "epoch": self.epoch or 0,
             "global_step": self.global_step,
             "global_train_examples_seen_this_epoch": self.global_train_examples_seen_this_epoch,
             "global_train_tokens_seen": self.global_train_tokens_seen,
@@ -335,7 +352,7 @@ class Trainer:
         ]
 
         # Dataset / dataloader position.
-        checkpoint_epoch = state_dict.get("epoch", 0)
+        checkpoint_epoch = state_dict.get("epoch") or 0
         self.global_step = state_dict["global_step"]
         self.global_train_examples_seen_this_epoch = state_dict.get(
             "global_train_examples_seen_this_epoch",
@@ -360,6 +377,12 @@ class Trainer:
         elif checkpoint_epoch != self.epoch:
             log.info(f"Starting new epoch (epoch = {self.epoch})")
             self.global_train_examples_seen_this_epoch = 0
+
+        assert self.epoch is not None
+        # Reshuffle dataset if needed.
+        if self.dataset.epoch != self.epoch:
+            log.info(f"Reshuffling data loader for epoch {self.epoch}...")
+            self.dataset.reshuffle(self.epoch)
 
         if self.cfg.fast_forward_batches:
             log.info(f"Fast-forwarding data loader by {self.cfg.fast_forward_batches:,d} steps")
@@ -651,6 +674,8 @@ class Trainer:
             input_ids=batch["input_ids"],
             attention_mask=batch.get("attention_mask"),
             attention_bias=batch.get("attention_bias"),
+            doc_lens=batch.get("doc_lens"),
+            max_doc_lens=batch.get("max_doc_lens"),
         ).logits
         logits_for_loss = logits[..., :-1, :].contiguous()
         # shape: (batch_size * seq_len, vocab_size)
@@ -1012,6 +1037,8 @@ class Trainer:
                 self.cfg.stop_at = self.global_step + self.cfg.stop_after
             else:
                 self.cfg.stop_at = min(self.cfg.stop_at, self.global_step + self.cfg.stop_after)
+        if self.cfg.stop_at is None:
+            self.cfg.stop_at = self.max_steps + 10
 
         self._start_time = time.time()
         self._gc_init_state = gc.isenabled()  # cache if garbage collection is enabled, reset on close.
@@ -1088,7 +1115,7 @@ class Trainer:
         # Train.
         first_batch: bool = True
         cancel_initiated: bool = False
-        stop_at: Optional[int] = self.cfg.stop_at
+        stop_at: int = self.cfg.stop_at
         save_checkpoints: bool = True
 
         with torch_profiler as p:
@@ -1135,9 +1162,12 @@ class Trainer:
                     # Log metrics to console.
                     if self.global_step % self.cfg.console_log_interval == 0:
                         if get_global_rank() == 0:
-                            self.log_metrics_to_console(f"[step={self.global_step}/{self.max_steps}]", metrics)
+                            self.log_metrics_to_console(
+                                f"[step={self.global_step}/{self.max_steps},epoch={epoch}]",
+                                metrics,
+                            )
                         else:
-                            log.info(f"[step={self.global_step}/{self.max_steps}]")
+                            log.info(f"[step={self.global_step}/{self.max_steps},epoch={epoch}]")
 
                     # Log metrics to W&B.
                     if (
@@ -1151,18 +1181,15 @@ class Trainer:
                     if not cancel_initiated and self.global_step % self.cfg.canceled_check_interval == 0:
                         cancel_initiated, extra_steps = self.check_if_cancelled()
                         if cancel_initiated:
-                            stop_at = (
-                                self.global_step + extra_steps
-                                if stop_at is None
-                                else min(self.global_step + extra_steps, stop_at)
-                            )
+                            stop_at = min(stop_at, self.global_step + extra_steps)
 
                     # Maybe save sharded checkpoint.
                     if self.cfg.distributed_strategy != DistributedStrategy.ddp:
                         if save_checkpoints and (
                             cancel_initiated
                             or (
-                                self.global_step % self.cfg.save_interval == 0
+                                self.cfg.save_interval is not None
+                                and self.global_step % self.cfg.save_interval == 0
                                 and self.cfg.save_num_checkpoints_to_keep != 0
                             )
                         ):
@@ -1207,7 +1234,9 @@ class Trainer:
                         speed_monitor.reset()
 
                     # Maybe run evaluations.
-                    if not cancel_initiated and self.global_step % self.cfg.eval_interval == 0:
+                    if not cancel_initiated and (
+                        self.global_step % self.cfg.eval_interval == 0 or self.global_step >= stop_at
+                    ):
                         eval_metrics = self.eval()
 
                         # Log metrics to W&B.
@@ -1225,7 +1254,7 @@ class Trainer:
                     if p is not None:
                         p.step()
 
-                    if stop_at is not None and self.global_step >= stop_at:
+                    if self.global_step >= stop_at:
                         break
 
                     # Run generation 1 garbage collection.
@@ -1247,7 +1276,8 @@ class Trainer:
                     self.global_train_examples_seen_this_epoch = 0
                     self.dataset.start_index = 0
                     if self.epoch < self.max_epochs:
-                        self.dataset.reshuffle()
+                        log.info(f"Reshuffling data loader for epoch {self.epoch}...")
+                        self.dataset.reshuffle(self.epoch)
                     continue
 
                 break
@@ -1264,6 +1294,7 @@ class Trainer:
             elif (
                 self.cfg.save_num_checkpoints_to_keep != 0
                 and self.last_sharded_checkpoint_step != self.global_step
+                and self.cfg.distributed_strategy == DistributedStrategy.fsdp
             ):
                 log.info("Saving final checkpoint...")
                 checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)
