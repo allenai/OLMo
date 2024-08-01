@@ -676,7 +676,7 @@ class OLMoEBlock(OLMoBlock):
             from megablocks.layers.dmoe import dMoE
             from megablocks.layers.moe import MoE
         except ImportError:
-            raise ImportError("To train MoEs, please install `pip install git+https://github.com/Muennighoff/megablocks.git@olmoe`")
+            raise ImportError("To train MoEs, run `pip install git+https://github.com/Muennighoff/megablocks.git@olmoe`")
 
         nn.Module.__init__(self)
         self.layer_id = layer_id
