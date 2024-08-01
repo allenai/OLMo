@@ -1618,4 +1618,5 @@ label_to_task_map = {
     ),
     "copycolors_10way": (OEEvalTask, {"dataset_path": "copycolors_10way", "metric_type": "acc"}),
     "copycolors_xl_10way": (OEEvalTask, {"dataset_path": "copycolors_xl_10way", "metric_type": "acc"}),
+    "arc_challenge_rc_0shot": (OEEvalTask, {"dataset_path": "arc_challenge_rc_0shot", "metric_type": "len_norm"})
 }
