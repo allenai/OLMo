@@ -1,25 +1,23 @@
 import argparse
-from contextlib import contextmanager
-from hashlib import md5
 import logging
 import os
 import shutil
 import tempfile
+from contextlib import contextmanager
+from hashlib import md5
 from typing import Generator, Optional
 from urllib.parse import urlparse
 
-
 import boto3
-import huggingface_hub
-from olmo.checkpoint import OlmoCoreCheckpointer
 import torch
-from tqdm import tqdm
+from olmo import ModelConfig, Tokenizer, TrainConfig
+from olmo.checkpoint import OlmoCoreCheckpointer
 from omegaconf import OmegaConf as om
+from tqdm import tqdm
 
 from hf_olmo.configuration_olmo import OLMoConfig
 from hf_olmo.modeling_olmo import OLMoForCausalLM
 from hf_olmo.tokenization_olmo_fast import OLMoTokenizerFast
-from olmo import ModelConfig, Tokenizer, TrainConfig
 
 logger = logging.getLogger(__name__)
 
