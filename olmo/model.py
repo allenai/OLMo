@@ -1750,7 +1750,7 @@ class OLMo(nn.Module):
 
                 model_config.init_device = device
                 model = OLMo(model_config)
-                load_model_and_optim_state(checkpoint_dir, model, None)
+                load_model_and_optim_state(checkpoint_dir, model)
             else:
                 # train_config.sharded_checkpointer == ShardedCheckpointerType.torch_new
                 from .checkpoint import load_model_state
