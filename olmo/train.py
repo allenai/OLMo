@@ -56,10 +56,6 @@ from .torch_util import (
 )
 from .util import upload
 
-__all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
-
-log = logging.getLogger(__name__)
-
 try:
     from megablocks.layers.arguments import Arguments as MoEArgs
     from megablocks.layers.moe import (
@@ -70,6 +66,9 @@ try:
 except ImportError:
     pass
 
+__all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
+
+log = logging.getLogger(__name__)
 
 @dataclass
 class SpeedMonitor:
@@ -872,7 +871,6 @@ class Trainer:
                 moe_z_batch_loss.div_(get_world_size())
 
         # Clip gradient norms and collect param/gradient/optim metrics.
-        """
         should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
         optim_metrics = self.optim.clip_grads_and_collect_metrics(
             self.global_step,
@@ -881,13 +879,6 @@ class Trainer:
             # HYBRID sharding.
             process_group=self.dist_model.process_group,
         )
-        """
-        should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
-        if self.cfg.fsdp.sharding_strategy == torch.distributed.fsdp.ShardingStrategy.NO_SHARD:
-            total_norm = torch.nn.utils.clip_grad_norm_(self.dist_model.parameters(), self.cfg.max_grad_norm)
-        else:
-            total_norm = self.dist_model.clip_grad_norm_(self.cfg.max_grad_norm)
-        optim_metrics = {"total_grad_norm": total_norm} if should_log_optim_metrics_this_step else {}
 
         # Adjust the learning rate.
         for group in self.optim.param_groups:
@@ -924,7 +915,7 @@ class Trainer:
         if lb_batch_loss is not None:
             metrics["train/LoadBalancingLoss"] = lb_batch_loss.item()
             # Log assignment metrics.
-            if self.model.config.moe_log_expert_assignment:
+            if expert_assignments is not None:
                 for layer_idx, expert_assignments_layer in enumerate(expert_assignments):
                     total_tokens = expert_assignments_layer.sum().item()
                     for expert_idx, expert_assignment in enumerate(expert_assignments_layer):
