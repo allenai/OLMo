@@ -68,7 +68,7 @@ try:
         get_load_balancing_loss,
     )
 except ImportError:
-    log.warning(f"Megablocks not installed. If you want to train MoEs, install with `pip install megablocks`.")
+    pass
 
 @dataclass
 class SpeedMonitor:

@@ -676,7 +676,7 @@ class OLMoEBlock(OLMoBlock):
             from megablocks.layers.dmoe import dMoE
             from megablocks.layers.moe import MoE
         except ImportError:
-            raise ImportError("To train MoEs, you need to install the 'megablocks' package.")
+            raise ImportError("To train MoEs, please install `pip install git+https://github.com/Muennighoff/megablocks.git@olmoe`")
 
         nn.Module.__init__(self)
         self.layer_id = layer_id
@@ -719,7 +719,7 @@ class OLMoEBlock(OLMoBlock):
 
         # MoE Block
         kwargs = {
-            "activation_fn": F.silu if 'glu' in config.activation_type.lower() else self.act,
+            "activation_fn": F.silu if 'swiglu' in config.activation_type.lower() else self.act,
             "mlp_type": 'glu' if 'glu' in config.activation_type.lower() else 'mlp',
             "mlp_impl": config.moe_mlp_impl,
             "hidden_size": config.d_model,
@@ -1790,7 +1790,7 @@ class OLMo(nn.Module):
         if not include_inactivate_params:
             # Need to reduce blocks to the number of experts that are selected
             # If not dropless 'transformer.blocks.0.ffn.experts.mlp.w1' has shape (total_experts, in_dim, out_dim)
-            # change to 'transformer.blocks.0.ffn.experts.mlp.w1' has shape (selected_experts, in_dim, out_dim)
+            # change to 'transformer.blocks.0.ffn.experts.mlp.w1' with shape (selected_experts, in_dim, out_dim)
             # If dropless, the total_experts & out_dim are combined into one dimension
             idx = self.config.moe_top_k
             if self.config.moe_dropless:

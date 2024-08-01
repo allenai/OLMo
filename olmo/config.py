@@ -200,8 +200,7 @@ class BlockType(StrEnum):
 
     moe = "moe"
     """
-    A block similar to the sequential block with slightly different
-    implementations of operations like attention to imitate the behavior of Llama.
+    A block for OLMoE-style Mixture-of-Experts models.
     """
 
 
@@ -470,12 +469,12 @@ class ModelConfig(BaseConfig):
 
     moe_top_k: Optional[int] = 2
     """
-    The number of top experts to use in the MoE block.
+    The number of experts to select for each token.
     """
 
     moe_mlp_impl: Optional[str] = "sparse"
     """
-    Choose "grouped" for grouped GEMM installable via megablocks[gg]
+    Choose "grouped" for grouped GEMM installable via `pip install git+https://git@github.com/tgale96/grouped_gemm.git@66c7195e35e8c4f22fa6a014037ef511bfa397cb`.
     """
 
     moe_log_expert_assignment: Optional[bool] = True
@@ -505,12 +504,12 @@ class ModelConfig(BaseConfig):
 
     moe_zloss_weight: Optional[float] = None
     """
-    Weight for MoE zloss; None means no zloss. 0.001 is a common value
+    Weight for MoE router z-loss where None means no router z-loss. 0.001 is a common value.
     """
 
     moe_dropless: Optional[bool] = True
     """
-    Whether to use dMoE (https://arxiv.org/abs/2211.15841)
+    Whether to use [dMoE](https://arxiv.org/abs/2211.15841).
     """
 
     moe_capacity_factor: Optional[float] = 1.25
