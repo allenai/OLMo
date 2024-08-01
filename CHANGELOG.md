@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added unsharding and AWS s3 download/upload support to `hf_olmo/convert_olmo_to_hf.py`.
 - Added support for document masking via flash-attn during training with `--data.generate_doc_lengths`.
 - Added config options for `model.norm_after`, `model.scale_emb_init`, and `auxiliary_loss_multiplier` (used with zloss).
 - Added scripts for running experiments on qk_norm, norm reordering, and zloss.
@@ -19,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Changed default distributed training strategy from single-GPU to FSDP
-- Fixed behavior of `effective_memmap_dtype` to prevent unrecognized dtypes to be parsed as `uint16`. 
+- Fixed behavior of `effective_memmap_dtype` to prevent unrecognized dtypes to be parsed as `uint16`.
 
 ### Fixed
 
