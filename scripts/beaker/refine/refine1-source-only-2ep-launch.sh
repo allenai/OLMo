@@ -7,7 +7,7 @@ NUM_NODES=1
 gantry run \
   --workspace ai2/oe-data-model-based-cleanup \
   --allow-dirty \
-  --task-name refine1-baseline \
+  --task-name refine1-baseline-2ep \
   --description "OLMo refine 1B" \
   --priority urgent \
   --preemptible \
