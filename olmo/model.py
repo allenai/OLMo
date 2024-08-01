@@ -665,18 +665,22 @@ class OLMoBlock(nn.Module):
         else:
             raise NotImplementedError(f"Unknown block type: '{config.block_type}'")
 
+
 class OLMoEBlock(OLMoBlock):
     """
     This is a a transformer MoE block where the output is computed as ``MoE(LN(x + Attention(LN(x))))``
     (plus another skip connection).
     """
+
     def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
         try:
             from megablocks.layers.arguments import Arguments as MoEArgs
             from megablocks.layers.dmoe import dMoE
             from megablocks.layers.moe import MoE
         except ImportError:
-            raise ImportError("To train MoEs, run `pip install git+https://github.com/Muennighoff/megablocks.git@olmoe`")
+            raise ImportError(
+                "To train MoEs, run `pip install git+https://github.com/Muennighoff/megablocks.git@olmoe`"
+            )
 
         nn.Module.__init__(self)
         self.layer_id = layer_id
@@ -719,8 +723,8 @@ class OLMoEBlock(OLMoBlock):
 
         # MoE Block
         kwargs = {
-            "activation_fn": F.silu if 'swiglu' in config.activation_type.lower() else self.act,
-            "mlp_type": 'glu' if 'glu' in config.activation_type.lower() else 'mlp',
+            "activation_fn": F.silu if "swiglu" in config.activation_type.lower() else self.act,
+            "mlp_type": "glu" if "glu" in config.activation_type.lower() else "mlp",
             "mlp_impl": config.moe_mlp_impl,
             "hidden_size": config.d_model,
             "ffn_hidden_size": int(self.act.output_multiplier * self.hidden_size),
@@ -871,7 +875,7 @@ class OLMoEBlock(OLMoBlock):
                 att = self._activation_checkpoint_fn(self.attn_norm, att)
             else:
                 att = self.attn_norm(att)
-                
+
         # Add attention scores.
         # shape: (B, T, C)
         x = x + self.dropout(att)
@@ -1335,7 +1339,7 @@ class OLMo(nn.Module):
                     blocks.append(OLMoSequentialBlock(i, config, self.__cache))
                 else:
                     blocks.append(OLMoEBlock(i, config, self.__cache))
-        else:            
+        else:
             blocks = [OLMoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
         if self.config.block_group_size > 1:
             block_groups = [
@@ -1795,10 +1799,7 @@ class OLMo(nn.Module):
             idx = self.config.moe_top_k
             if self.config.moe_dropless:
                 idx *= self.transformer.blocks[1].moe_args.ffn_hidden_size
-            params = [
-                (np[0], np[1][: idx]) if "experts.mlp" in np[0] else np
-                for np in params
-            ]
+            params = [(np[0], np[1][:idx]) if "experts.mlp" in np[0] else np for np in params]
         return sum(p.numel() for _, p in params)
 
     @property

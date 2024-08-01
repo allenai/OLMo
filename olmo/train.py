@@ -70,6 +70,7 @@ try:
 except ImportError:
     pass
 
+
 @dataclass
 class SpeedMonitor:
     cfg: SpeedMonitorConfig
@@ -249,7 +250,9 @@ class Trainer:
 
         if self.model.config.block_type == BlockType.moe:
             # these MoEArgs are necessary for logging load balancing.
-            num_layers = self.model.config.n_layers // 2 if self.model.config.moe_interleave else self.model.config.n_layers
+            num_layers = (
+                self.model.config.n_layers // 2 if self.model.config.moe_interleave else self.model.config.n_layers
+            )
             kwargs = {
                 "hidden_size": self.model.config.d_model,
                 "ffn_hidden_size": self.model.config.d_model * 4,
@@ -267,7 +270,7 @@ class Trainer:
             }
             if self.model.config.moe_zloss_weight:
                 kwargs["moe_zloss_weight"] = self.model.config.moe_zloss_weight
-            
+
             self.moe_args = MoEArgs(**kwargs)
 
     @property
@@ -750,7 +753,13 @@ class Trainer:
 
         return loss, ce_loss, z_loss
 
-    def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor], Optional[torch.Tensor], Optional[torch.Tensor]]:
+    def train_batch(self, batch: Dict[str, Any]) -> Tuple[
+        torch.Tensor,
+        Optional[torch.Tensor],
+        Optional[torch.Tensor],
+        Optional[torch.Tensor],
+        Optional[torch.Tensor],
+    ]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
         batch_size_in_tokens = batch["input_ids"].numel()
@@ -760,10 +769,21 @@ class Trainer:
 
         ce_batch_loss = torch.tensor(0.0, device=self.device)
         z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
-        lb_batch_loss = None if self.model.config.block_type != BlockType.moe else torch.tensor(0.0, device=self.device)
-        moe_z_batch_loss = None if not self.model.config.moe_zloss_weight else torch.tensor(0.0, device=self.device)
+        lb_batch_loss = (
+            None if self.model.config.block_type != BlockType.moe else torch.tensor(0.0, device=self.device)
+        )
+        moe_z_batch_loss = (
+            None if not self.model.config.moe_zloss_weight else torch.tensor(0.0, device=self.device)
+        )
         # Keep this one on CPU to save memory
-        expert_assignments = None if ((self.model.config.block_type != BlockType.moe) or (self.model.config.moe_log_expert_assignment is False)) else torch.zeros((self.model.config.n_layers, self.model.config.moe_num_experts))
+        expert_assignments = (
+            None
+            if (
+                (self.model.config.block_type != BlockType.moe)
+                or (self.model.config.moe_log_expert_assignment is False)
+            )
+            else torch.zeros((self.model.config.n_layers, self.model.config.moe_num_experts))
+        )
         num_micro_batches = len(micro_batches)
 
         for micro_batch_idx, micro_batch in enumerate(micro_batches):
@@ -790,7 +810,7 @@ class Trainer:
                         assert z_batch_loss is not None
                         z_batch_loss += z_loss.detach()
 
-                if (self.model.config.block_type == BlockType.moe):
+                if self.model.config.block_type == BlockType.moe:
                     if self.model.config.moe_zloss_weight is not None:
                         lb_loss, moe_z_loss = batched_load_balancing_loss(self.moe_args)
                         lb_loss = lb_loss / len(micro_batches)
@@ -849,7 +869,7 @@ class Trainer:
                 lb_batch_loss.div_(get_world_size())
             if moe_z_batch_loss is not None:
                 dist.reduce(moe_z_batch_loss, 0)
-                moe_z_batch_loss.div_(get_world_size())                
+                moe_z_batch_loss.div_(get_world_size())
 
         # Clip gradient norms and collect param/gradient/optim metrics.
         """
@@ -867,7 +887,7 @@ class Trainer:
             total_norm = torch.nn.utils.clip_grad_norm_(self.dist_model.parameters(), self.cfg.max_grad_norm)
         else:
             total_norm = self.dist_model.clip_grad_norm_(self.cfg.max_grad_norm)
-        optim_metrics = {"total_grad_norm": total_norm} if should_log_optim_metrics_this_step else {}        
+        optim_metrics = {"total_grad_norm": total_norm} if should_log_optim_metrics_this_step else {}
 
         # Adjust the learning rate.
         for group in self.optim.param_groups:
@@ -908,11 +928,15 @@ class Trainer:
                 for layer_idx, expert_assignments_layer in enumerate(expert_assignments):
                     total_tokens = expert_assignments_layer.sum().item()
                     for expert_idx, expert_assignment in enumerate(expert_assignments_layer):
-                        metrics[f"train/TokensPercentage/layer{layer_idx}/expert{expert_idx}"] = (expert_assignment.item() / total_tokens) * 100
-                        metrics[f"train/TokensTotal/layer{layer_idx}/expert{expert_idx}"] = expert_assignment.item()
+                        metrics[f"train/TokensPercentage/layer{layer_idx}/expert{expert_idx}"] = (
+                            expert_assignment.item() / total_tokens
+                        ) * 100
+                        metrics[f"train/TokensTotal/layer{layer_idx}/expert{expert_idx}"] = (
+                            expert_assignment.item()
+                        )
         if moe_z_batch_loss is not None:
             metrics["train/MoEZLoss"] = moe_z_batch_loss.item()
-    
+
         # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:
             optim_metrics = self.optim.get_post_step_metrics(
