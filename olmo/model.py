@@ -42,6 +42,8 @@ from .config import (
     InitFnType,
     LayerNormType,
     ModelConfig,
+    ShardedCheckpointerType,
+    TrainConfig,
 )
 from .exceptions import OLMoConfigurationError
 from .initialization import init_normal
@@ -1740,15 +1742,26 @@ class OLMo(nn.Module):
             model.load_state_dict(model._make_state_dict_compatible(state_dict)[0])
             model = model.to(torch.device(device))
         else:
-            from .checkpoint import load_model_state
+            train_config = TrainConfig.load(config_path)
+            if train_config.sharded_checkpointer == ShardedCheckpointerType.olmo_core:
+                from olmo_core.distributed.checkpoint import (  # type: ignore
+                    load_model_and_optim_state,
+                )
 
-            # Initialize model on target device. In this case the state dict is loaded in-place
-            # so it's not necessary to start on CPU if the target device is a GPU.
-            model_config.init_device = device
-            model = OLMo(model_config)
+                model_config.init_device = device
+                model = OLMo(model_config)
+                load_model_and_optim_state(checkpoint_dir, model, None)
+            else:
+                # train_config.sharded_checkpointer == ShardedCheckpointerType.torch_new
+                from .checkpoint import load_model_state
 
-            # Load state dict in place.
-            load_model_state(checkpoint_dir, model)
+                # Initialize model on target device. In this case the state dict is loaded in-place
+                # so it's not necessary to start on CPU if the target device is a GPU.
+                model_config.init_device = device
+                model = OLMo(model_config)
+
+                # Load state dict in place.
+                load_model_state(checkpoint_dir, model)
 
         return model.eval()
 
