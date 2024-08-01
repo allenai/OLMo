@@ -10,14 +10,14 @@ from urllib.parse import urlparse
 
 import boto3
 import torch
-from olmo import ModelConfig, Tokenizer, TrainConfig
-from olmo.checkpoint import OlmoCoreCheckpointer
 from omegaconf import OmegaConf as om
 from tqdm import tqdm
 
 from hf_olmo.configuration_olmo import OLMoConfig
 from hf_olmo.modeling_olmo import OLMoForCausalLM
 from hf_olmo.tokenization_olmo_fast import OLMoTokenizerFast
+from olmo import ModelConfig, Tokenizer, TrainConfig
+from olmo.checkpoint import OlmoCoreCheckpointer
 
 logger = logging.getLogger(__name__)
 
