@@ -1798,7 +1798,7 @@ class OLMo(nn.Module):
             idx = self.config.moe_top_k
             if self.config.moe_dropless:
                 idx *= self.transformer.blocks[1].moe_args.ffn_hidden_size
-            params = [(np[0], np[1][:idx]) if "experts.mlp" in np[0] else np for np in params]
+            params = [(np[0], np[1][:idx]) if "experts.mlp" in np[0] else np for np in params]  # type: ignore
         return sum(p.numel() for _, p in params)
 
     @property

@@ -81,6 +81,7 @@ __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
 
 log = logging.getLogger(__name__)
 
+
 @dataclass
 class SpeedMonitor:
     cfg: SpeedMonitorConfig
