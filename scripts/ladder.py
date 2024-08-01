@@ -79,6 +79,7 @@ MODEL_CONFIG_150M = ModelConfig(
 MODEL_CONFIGS = {
     "150M": MODEL_CONFIG_150M,
     "300M": MODEL_CONFIG_150M.update_with(d_model=1024, n_heads=16, n_layers=16, mlp_ratio=8),
+    "530M": MODEL_CONFIG_150M.update_with(d_model=1344, n_heads=16, n_layers=16, mlp_ratio=8),
     "750M": MODEL_CONFIG_150M.update_with(d_model=1536, n_heads=16, n_layers=16, mlp_ratio=8),
     "1B": MODEL_CONFIG_150M.update_with(d_model=2048, n_heads=16, n_layers=16, mlp_ratio=8),
     "7B": MODEL_CONFIG_150M.update_with(
@@ -156,6 +157,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     device_batch_size = {
         "150M": 32,
         "300M": 10,
+        "530M": 8,
         "750M": 8,
         "1B": 2,
         "7B": 2,
