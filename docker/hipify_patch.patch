@@ -1,0 +1,20 @@
+@@ -872,10 +872,15 @@
+                     return m.group(0)
+                 # Hipify header file first if needed
+                 if header_filepath not in HIPIFY_FINAL_RESULT:
+-                    preprocess_file_and_save_result(output_directory,
+-                                                    header_filepath,
+-                                                    all_files, header_include_dirs, stats, hip_clang_launch,
+-                                                    is_pytorch_extension, clean_ctx, show_progress)
++                    #JCG added skip logic
++                    if "composable_kernel" in header_filepath:
++                        print("Force skipping hipification of CK file: " + header_filepath)
++                        HIPIFY_FINAL_RESULT[header_filepath] = HipifyResult(CurrentState.DONE, header_filepath)
++                    else:
++                        preprocess_file_and_save_result(output_directory,
++                                                        header_filepath,
++                                                        all_files, header_include_dirs, stats, hip_clang_launch,
++                                                        is_pytorch_extension, clean_ctx, show_progress)
+                 elif header_filepath in HIPIFY_FINAL_RESULT:
+                     header_result = HIPIFY_FINAL_RESULT[header_filepath]
+                     if header_result.current_state == CurrentState.INITIALIZED:
