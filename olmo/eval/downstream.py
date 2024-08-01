@@ -1,7 +1,7 @@
 import abc
 import logging
 import re
-from typing import Any, ClassVar, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import datasets
 import torch
@@ -1618,5 +1618,5 @@ label_to_task_map = {
     ),
     "copycolors_10way": (OEEvalTask, {"dataset_path": "copycolors_10way", "metric_type": "acc"}),
     "copycolors_xl_10way": (OEEvalTask, {"dataset_path": "copycolors_xl_10way", "metric_type": "acc"}),
-    "arc_challenge_rc_0shot": (OEEvalTask, {"dataset_path": "arc_challenge_rc_0shot", "metric_type": "len_norm"})
+    "arc_challenge_rc_0shot": (OEEvalTask, {"dataset_path": "arc_challenge_rc_0shot", "metric_type": "len_norm"}),
 }
