@@ -1459,7 +1459,7 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
         if metric_type is not None:
             self.metric_type = metric_type
         else:
-            # Use metric type from
+            # Use metric type from associated task config
             for config in configs:
                 if config is not None:
                     metric_type_raw = config["task_config"].get("primary_metric")
