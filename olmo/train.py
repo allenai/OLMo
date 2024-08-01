@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
 from pstats import SortKey
-from typing import Any, Callable, Deque, Dict, List, Optional, TextIO, Tuple, Union
+from typing import Any, Callable, Deque, Dict, Iterable, List, Optional, TextIO, Tuple, Union
 
 import numpy as np
 import torch
@@ -758,7 +758,7 @@ class Trainer:
         Optional[torch.Tensor],
         Optional[torch.Tensor],
         Optional[torch.Tensor],
-        Optional[torch.Tensor],
+        Iterable[Any],
     ]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
