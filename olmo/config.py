@@ -34,6 +34,7 @@ __all__ = [
     "BlockType",
     "LayerNormType",
     "InitFnType",
+    "InfgramConfig",
     "ModelConfig",
     "OptimizerType",
     "OptimizerConfig",
@@ -228,6 +229,16 @@ class InitFnType(StrEnum):
     """
     This is what metaseq calls "full megatron init". It is the init used for Llama 2.
     """
+
+
+@dataclass
+class InfgramConfig(BaseConfig):
+    index_dir: str = ''
+    min_cnt: Optional[int] = 2
+    support: Optional[int] = 20
+    cpp_log_path: Optional[str] = '/tmp/cpp_engine.log'
+    mode: Optional[str] = 'prod'
+    sharded: Optional[bool] = False
 
 
 @dataclass
@@ -893,6 +904,8 @@ class TrainConfig(BaseConfig):
     """
     If ``True``, don't actually train.
     """
+
+    infgram: Optional[InfgramConfig] = None
 
     model: ModelConfig = field(default_factory=ModelConfig)
     """

@@ -1236,6 +1236,7 @@ class OLMo(nn.Module):
     def forward(
         self,
         input_ids: torch.LongTensor,
+        infgram_ntd: Optional[torch.LongTensor] = None,
         input_embeddings: Optional[torch.FloatTensor] = None,
         attention_mask: Optional[torch.Tensor] = None,
         attention_bias: Optional[torch.Tensor] = None,
@@ -1299,6 +1300,10 @@ class OLMo(nn.Module):
         # Get embeddings of input.
         # shape: (batch_size, seq_len, d_model)
         x = self.transformer.wte(input_ids) if input_embeddings is None else input_embeddings  # type: ignore
+
+        if infgram_ntd is not None:
+            infgram_emb = self.transformer.wte(infgram_ntd).mean(dim=-2)
+            x = x + infgram_emb
 
         # Apply embedding layer norm.
         if self.config.embedding_layer_norm:

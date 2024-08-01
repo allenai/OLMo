@@ -328,7 +328,7 @@ if __name__ == "__main__":
     log.info(f"Multiprocessing start method set to '{mp.get_start_method()}'")
 
     # Initialize process group.
-    dist.init_process_group(backend="nccl", timeout=timedelta(minutes=30))
+    dist.init_process_group(backend="cpu:gloo,cuda:nccl", timeout=timedelta(minutes=30))
     log.info("Process group initialized")
 
     prepare_cli_environment()

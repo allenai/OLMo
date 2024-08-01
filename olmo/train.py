@@ -46,6 +46,8 @@ from .torch_util import (
     barrier,
     gc_cuda,
     get_fs_local_rank,
+    get_local_rank,
+    get_local_world_size,
     get_global_rank,
     get_world_size,
     move_to_device,
@@ -54,6 +56,7 @@ from .torch_util import (
     synchronize_value,
 )
 from .util import upload
+from infini_gram import InfinigramEngine
 
 __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
 
@@ -231,6 +234,17 @@ class Trainer:
     last_unsharded_checkpoint_step: Optional[int] = None
 
     def __post_init__(self):
+        self.infinigram_engine = InfinigramEngine(
+            cfg=self.cfg.infgram,
+            max_batch_size_per_device=self.cfg.global_train_batch_size // get_world_size(),
+            max_seq_len=self.cfg.model.max_sequence_length,
+            local_rank=get_local_rank(),
+            global_rank=get_global_rank(),
+            local_world_size=get_local_world_size(),
+            world_size=get_world_size(),
+        ) if self.cfg.infgram is not None else None
+        barrier()
+
         if self.cfg.fused_loss:
             if fused_loss_fn is not None:
                 self.loss_fn = fused_loss_fn
@@ -676,6 +690,7 @@ class Trainer:
             attention_bias=batch.get("attention_bias"),
             doc_lens=batch.get("doc_lens"),
             max_doc_lens=batch.get("max_doc_lens"),
+            infgram_ntd=batch.get("infgram_ntd"),
         ).logits
         logits_for_loss = logits[..., :-1, :].contiguous()
         # shape: (batch_size * seq_len, vocab_size)
@@ -964,6 +979,10 @@ class Trainer:
 
             # Run model over batches.
             for eval_step, eval_batch in enumerate(eval_batches):
+                if self.cfg.infgram is not None:
+                    result = self.infinigram_engine.get_infgram_ntd(input_idss=eval_batch['input_ids'])
+                    eval_batch['infgram_ntd'] = result['infgram_ntd']
+
                 self.eval_step(eval_batch, evaluator)
 
                 # Log to console.
@@ -1147,8 +1166,15 @@ class Trainer:
 
                     should_log_this_step = self.should_log_this_step()
 
+                    infgram_metrics = {}
+                    if self.cfg.infgram is not None:
+                        result = self.infinigram_engine.get_infgram_ntd(input_idss=batch['input_ids'])
+                        batch['infgram_ntd'] = result['infgram_ntd']
+                        infgram_metrics['infgram/latency_ms'] = result['latency_ms']
+
                     # Run train step on batch.
                     metrics = self.train_step(batch, reduce_global_loss=should_log_this_step)
+                    metrics.update(infgram_metrics)
 
                     # Maybe collect other metrics.
                     if should_log_this_step:
