@@ -1617,4 +1617,5 @@ label_to_task_map = {
         {"dataset_name": "other", "split": "test", "prompt_variations": 2, "mc_labels": True},
     ),
     "copycolors_10way": (OEEvalTask, {"dataset_path": "copycolors_10way", "metric_type": "acc"}),
+    "copycolors_xl_10way": (OEEvalTask, {"dataset_path": "copycolors_xl_10way", "metric_type": "acc"}),
 }
