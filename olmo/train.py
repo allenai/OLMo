@@ -14,7 +14,18 @@ from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
 from pstats import SortKey
-from typing import Any, Callable, Deque, Dict, Iterable, List, Optional, TextIO, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Deque,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    TextIO,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 import torch
