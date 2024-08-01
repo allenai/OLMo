@@ -758,7 +758,7 @@ class Trainer:
         Optional[torch.Tensor],
         Optional[torch.Tensor],
         Optional[torch.Tensor],
-        Iterable[Any],
+        Optional[Iterable[Any]],
     ]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
@@ -824,9 +824,9 @@ class Trainer:
                             tokens_per_expert, _ = zip(*get_load_balancing_loss())
                         expert_assignments += torch.stack(tokens_per_expert, dim=0).cpu()
                     clear_load_balancing_loss()
-                    if self.model.config.moe_loss_weight > 0.0:
+                    if self.model.config.moe_loss_weight:
                         loss += lb_loss
-                    if self.model.config.moe_zloss_weight is not None:
+                    if self.model.config.moe_zloss_weight:
                         loss += moe_z_loss
                     lb_batch_loss += lb_loss.detach()
                     moe_z_batch_loss += moe_z_loss.detach()

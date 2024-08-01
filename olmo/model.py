@@ -823,7 +823,6 @@ class OLMoEBlock(OLMoBlock):
         use_cache: bool = False,
         max_doc_len: Optional[int] = None,
         cu_doc_lens: Optional[torch.Tensor] = None,
-        ffn: Optional[torch.nn.Module] = None,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         # Get query, key, value projections.
         # shape:
@@ -885,7 +884,7 @@ class OLMoEBlock(OLMoBlock):
         og_x = x
 
         if self.config.norm_after:
-            x = getattr(self, "ffn", ffn)(x)
+            x = self.ffn(x)
             if self._activation_checkpoint_fn is not None:
                 x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
             else:
@@ -897,7 +896,7 @@ class OLMoEBlock(OLMoBlock):
             else:
                 x = self.ff_norm(x)
             # Activation checkpointing for the MoE FFN is not supported
-            return og_x + self.dropout(getattr(self, "ffn", ffn)(x)), cache
+            return og_x + self.dropout(self.ffn(x)), cache
 
 
 class OLMoSequentialBlock(OLMoBlock):
