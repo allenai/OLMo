@@ -65,6 +65,9 @@ class InfinigramEngine:
         input_idss: (B, L), device=cpu
         '''
 
+        if self.cfg.mode == 'debug':
+            print(f'[infini-gram] Size of input_idss: {input_idss.size()}')
+
         start_time = time.time()
 
         start_time_gather = time.time()
