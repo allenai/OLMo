@@ -30,7 +30,7 @@ model:
   activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
-  max_sequence_length: 8192
+  max_sequence_length: 4096
   vocab_size: 50280
   embedding_size: 50304
   eos_token_id: 0
@@ -52,7 +52,7 @@ optimizer:
   metrics_log_interval: 10
 
 scheduler:
-  name: constant
+  name: linear_with_warmup
   t_warmup: 0
   alpha_f: 0
 
@@ -82,7 +82,7 @@ reset_trainer_state: true
 
 max_duration: 5e9T
 stop_at: 595
-global_train_batch_size: 512
+global_train_batch_size: 1024
 device_train_microbatch_size: 1
 time_limit: null
 
