@@ -3,8 +3,8 @@
 set -ex
 
 CONFIG_PATH=configs/amberish1-weka.yaml
-NUM_NODES=2
-RUN_NAME="v2_debug"
+NUM_NODES=8
+RUN_NAME="v2_v1.2_bump-olmo_amberish1_full-index"
 
 gantry run \
   --allow-dirty \
@@ -56,5 +56,7 @@ gantry run \
         --run_name=${RUN_NAME} \
         --wandb.project=hb-wolf-olmo-2 --wandb.entity=liujch1998 \
         --save_folder=/weka/oe-training-default/wolf/ckpt/${RUN_NAME} --save_overwrite=true \
-        --device_train_microbatch_size=8 \
+        --device_train_microbatch_size=4 \
+        --eval_interval=1000000 \
+        --infgram.index_dir=/weka/oe-training-default/wolf/index/v4_dolma-v1_7-olmo --infgram.sharded=true \
     "

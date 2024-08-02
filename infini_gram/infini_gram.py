@@ -26,6 +26,16 @@ class InfinigramEngine:
         self.world_size = world_size
         self.nnodes = world_size // local_world_size
 
+        if cfg.sharded:
+            self.group_by_lr = []
+            for lr in range(local_world_size):
+                group = dist.new_group(ranks=list(range(lr, world_size, local_world_size)), backend='gloo', use_local_synchronization=True)
+                self.group_by_lr.append(group)
+            self.group = self.group_by_lr[local_rank]
+            self.rank_in_group = global_rank // local_world_size
+            if os.path.exists(os.path.join(cfg.index_dir, f'{self.rank_in_group}')):
+                cfg.index_dir = os.path.join(cfg.index_dir, f'{self.rank_in_group}')
+
         fifo_query_path = f'/tmp/infini_gram_query_{local_rank}'
         if os.path.exists(fifo_query_path):
             os.remove(fifo_query_path)
@@ -37,6 +47,7 @@ class InfinigramEngine:
 
         if local_rank == 0:
             try:
+                log.info(f'Loading index from {cfg.index_dir}')
                 max_batch_size = (self.nnodes * max_batch_size_per_device) if cfg.sharded else max_batch_size_per_device
                 os.popen(f'g++ -std=c++20 -O3 -pthread -Wno-stringop-overread infini_gram/infini_gram.cpp -o infini_gram/infini_gram').read()
                 subprocess.Popen(f'./infini_gram/infini_gram {cfg.index_dir} {local_world_size} {max_batch_size} {max_seq_len} {cfg.support} {cfg.mode} >> {cfg.cpp_log_path} 2>&1', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -46,14 +57,6 @@ class InfinigramEngine:
 
         self.fifo_query = open(fifo_query_path, 'wb')
         self.fifo_response = open(fifo_response_path, 'rb')
-
-        if cfg.sharded:
-            self.group_by_lr = []
-            for lr in range(local_world_size):
-                group = dist.new_group(ranks=list(range(lr, world_size, local_world_size)), backend='gloo', use_local_synchronization=True)
-                self.group_by_lr.append(group)
-            self.group = self.group_by_lr[local_rank]
-            self.rank_in_group = global_rank // local_world_size
 
         log.info(f'[infini-gram] Engine initialized')
 
