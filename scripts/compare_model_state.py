@@ -59,7 +59,7 @@ def compare_model_state(
     if len(compare_only_model_params) > 0:
         logger.info("Compare-only model params: %s", ", ".join(compare_only_model_params))
 
-    common_params = base_only_model_params.intersection(compare_only_model_params)
+    common_params = base_model_params.intersection(compare_model_params)
     for param_key in sorted(common_params):
         compare_model_param(
             base_model,
