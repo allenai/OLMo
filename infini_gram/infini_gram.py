@@ -20,6 +20,8 @@ class InfinigramEngine:
         log.info(f'[infini-gram] Initializing engine ...')
 
         self.cfg = cfg
+        self.max_batch_size_per_device = max_batch_size_per_device
+        self.max_seq_len = max_seq_len
         self.local_rank = local_rank
         self.global_rank = global_rank
         self.local_world_size = local_world_size
@@ -67,11 +69,20 @@ class InfinigramEngine:
 
         if self.cfg.mode == 'debug':
             print(f'[infini-gram] Size of input_idss: {input_idss.size()}')
+        assert input_idss.size(0) <= self.max_batch_size_per_device
+        assert input_idss.size(1) <= self.max_seq_len
 
         start_time = time.time()
 
         start_time_gather = time.time()
         if self.cfg.sharded:
+            # Figure out the max sequence length and pad input_idss
+            seq_len = input_idss.size(1)
+            all_seq_len = [0 for _ in range(self.nnodes)]
+            dist.all_gather_object(all_seq_len, seq_len, group=self.group)
+            max_seq_len = max(all_seq_len)
+            input_idss = torch.cat([input_idss, torch.zeros(input_idss.size(0), max_seq_len - input_idss.size(1), dtype=input_idss.dtype, device=input_idss.device)], dim=1)
+
             all_input_idss = [torch.zeros_like(input_idss) for _ in range(self.nnodes)]
             dist.all_gather(all_input_idss, input_idss, group=self.group)
             input_idss = torch.cat(all_input_idss, dim=0) # (NNODES * batch_size_per_device, L)
@@ -125,6 +136,9 @@ class InfinigramEngine:
             for handle in handles:
                 handle.wait()
             infgram_ntd = torch.cat(outs, dim=-1) # (batch_size_per_device, L, NNODES * support)
+
+            # truncate the padding
+            infgram_ntd = infgram_ntd[:, :seq_len, :]
         latency_ms_scatter = (time.time() - start_time_scatter) * 1000
         log.info(f'[infini-gram] Scatter lantency: {latency_ms_scatter:.3f} ms')
 
