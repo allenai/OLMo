@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=peteish7
 #SBATCH --account=project_462000229
-#SBATCH --output=/pfs/lustref1/flash/project_462000229/logs/%j.log
-#SBATCH --nodes=32              # Total number of nodes
+#SBATCH --output=/scratch/project_462000229/logs/%j.log
+#SBATCH --nodes=64              # Total number of nodes
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
@@ -42,7 +42,7 @@ export SINGULARITYENV_TORCH_DIST_INIT_BARRIER=1
 # Try playing with max_split_size_mb if you run into OOM errors.
 #export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:128
 
-export CHECKPOINTS_PATH=$FLASH_DIR/checkpoints
+export CHECKPOINTS_PATH=$SCRATCH_DIR/checkpoints
 
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
@@ -66,6 +66,7 @@ srun \
       --device_train_microbatch_size=2 \
       --activation_checkpointing=two_in_three \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
+      --save_overwrite \
       "${@}"
 
 # '--load_path=${path.last_checkpoint:${save_folder}}' \
