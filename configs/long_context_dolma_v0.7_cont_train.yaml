@@ -220,44 +220,105 @@ data:
   prefetch_factor: 8
   persistent_workers: true
   timeout: 0
-  paths:
+paths:
+    ######### NON WEB DATA #########
+    # ~> GUTENBERG BOOKS (2.99 GT)
+    - /weka/oe-training-default/ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/books/gpt-neox-olmo-dolma-v1_5/part-0-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/books/gpt-neox-olmo-dolma-v1_5/part-1-00000.npy
+    # ~> PES2O STEM PAPERS (3.81 GT)
+    - /weka/oe-training-default/ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/pes2o/gpt-neox-olmo-dolma-v1_5/part-01-00000.npy
+    # ~> WIKIPEDIA & WIKIBOOKS (2.43 GT)
+    - /weka/oe-training-default/ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/wiki/gpt-neox-olmo-dolma-v1_5/part-0-00000.npy
+    # ~> REDPAJAMA STACKEXCHANGE (3.01 GT)
+    - /weka/oe-training-default/ai2-llm/preprocessed/redpajama_stackexchange_only/v1_decontaminated/gpt-neox-olmo-dolma-v1_5/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/redpajama_stackexchange_only/v1_decontaminated/gpt-neox-olmo-dolma-v1_5/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/redpajama_stackexchange_only/v1_decontaminated/gpt-neox-olmo-dolma-v1_5/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/redpajama_stackexchange_only/v1_decontaminated/gpt-neox-olmo-dolma-v1_5/part-03-00000.npy
+    # ~> REDPAJAMA ARXIV (2.9 GT)
+    - /weka/oe-training-default/ai2-llm/preprocessed/redpajama_arxiv_only/v1_decontaminated/gpt-neox-olmo-dolma-v1_5/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/redpajama_arxiv_only/v1_decontaminated/gpt-neox-olmo-dolma-v1_5/part-01-00000.npy
+    # ~> PROOFPILE2 ALGEBRAIC STACK (4.0 GT)
+    - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/gpt-neox-olmo-dolma-v1_5/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/gpt-neox-olmo-dolma-v1_5/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/gpt-neox-olmo-dolma-v1_5/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/gpt-neox-olmo-dolma-v1_5/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/gpt-neox-olmo-dolma-v1_5/part-04-00000.npy
+    # ~> PROOFPILE2 OPENWEBMATH (3.3 GT)
+    - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/gpt-neox-olmo-dolma-v1_5/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/gpt-neox-olmo-dolma-v1_5/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/gpt-neox-olmo-dolma-v1_5/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/gpt-neox-olmo-dolma-v1_5/part-03-00000.npy
+    # ~> TULU FLAN V1 (8.6 GT v2-decontaminated-60M-shots_all-upweight_1-dialog_true-sep_newline)
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-10-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-11-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-12-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-13-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-14-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-15-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-16-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-17-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-18-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-19-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-20-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-21-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-22-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-23-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-24-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-25-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-26-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-27-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-28-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-29-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-30-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-31-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-32-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/part-65-00000.npy
+    ####################################
+    ######### CODE #########
+    # ~> STARCODER (4.0 GT)
+    - /weka/oe-training-default/ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/gpt-neox-olmo-dolma-v1_5/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/gpt-neox-olmo-dolma-v1_5/part-00-00001.npy
+    ####################################
+    ######### WEB HIGH QUALITY #########
+    # ~> C4 (4.1 GT)
+    - /weka/oe-training-default/ai2-llm/preprocessed/c4/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001-fix/gpt-neox-olmo-dolma-v1_5/part-000-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/c4/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001-fix/gpt-neox-olmo-dolma-v1_5/part-001-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/c4/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001-fix/gpt-neox-olmo-dolma-v1_5/part-002-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/c4/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001-fix/gpt-neox-olmo-dolma-v1_5/part-003-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/c4/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001-fix/gpt-neox-olmo-dolma-v1_5/part-004-00000.npy
+    # ~> REDDIT (4.2 GT)
+    - /weka/oe-training-default/ai2-llm/preprocessed/reddit/v5-dedupe-pii-nsfw-toxic-fuzzydd-length/gpt-neox-olmo-dolma-v1_5/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/reddit/v5-dedupe-pii-nsfw-toxic-fuzzydd-length/gpt-neox-olmo-dolma-v1_5/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/reddit/v5-dedupe-pii-nsfw-toxic-fuzzydd-length/gpt-neox-olmo-dolma-v1_5/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/reddit/v5-dedupe-pii-nsfw-toxic-fuzzydd-length/gpt-neox-olmo-dolma-v1_5/part-03-00000.npy
+    # ~> FALCON (4.5 GT)
+    - /weka/oe-training-default/ai2-llm/preprocessed/falcon-refinedweb/v2-frac_005_100-qc_cc_multi_bin-paloma-rep-pii/gpt-neox-olmo-dolma-v1_5/part-000-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/falcon-refinedweb/v2-frac_005_100-qc_cc_multi_bin-paloma-rep-pii/gpt-neox-olmo-dolma-v1_5/part-001-00000.npy
     # ~> Long-context subset (50 GT)
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-09-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-10-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-11-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-12-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-13-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-14-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-15-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-16-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-17-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-18-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-19-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-20-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-21-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-22-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-23-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-24-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-25-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-26-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-27-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-28-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-29-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-30-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-31-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-32-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-33-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-34-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-35-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-36-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-37-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-38-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p7/part-39-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-10-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-11-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-12-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-13-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-14-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-15-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/long_contexts/long_contexts_v0p5/part-20-00000.npy
