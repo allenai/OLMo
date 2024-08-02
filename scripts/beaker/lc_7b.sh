@@ -38,4 +38,4 @@ torchrun \
     --save_folder=runs/ \
     --save_num_checkpoints_to_keep=3 \
     --activation_checkpointing=fine_grained \
-    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/amberish7/step477850-unsharded
+    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step477000-unsharded

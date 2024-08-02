@@ -1,11 +1,11 @@
-run_name: long_contexts_dolma_v0.7_amberish7_cont_train_2T_steps_5B_8K
+run_name: long_contexts_dolma_v0.7_cont_train_2T_steps_10B_8K_nf
 seed: 61394
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-long-contexts
-  group: long_contexts_dolma_v0.7_amberish7_cont_train_2T_steps_5B_8K
+  group: long_contexts_dolma_v0.7_cont_train_2T_steps_10B_8K_nf
 
 model:
   d_model: 4096
