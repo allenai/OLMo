@@ -186,7 +186,7 @@ def get_coefficients_huber(train_xs, train_ys, fitting_func, grad_func, p0):
         return results
 
     assert len(train_xs) == len(train_ys)
-    delta = 1e-3
+    delta = 1e-2
     res = scipy.optimize.minimize(loss_fn, p0, args=(train_xs, train_ys, delta), jac=jac_fn, method='L-BFGS-B', tol=1e-12, options={'maxiter': 10000, 'disp': True})
     # print(res.message)
     coeffs = res.x

@@ -76,7 +76,7 @@ def get_data_at_d(configs: Dict[str, ExtrapolateNConfig], d: int):
     return train_ns, train_ys, eval_ns, eval_ys
 
 
-def plot_n_scaling_at_d(train_ns, train_ys, eval_ns, fitting_func, p0=[20, -0.1, 0.0], **plot_kwargs):
+def plot_n_scaling_at_d(train_ns, train_ys, eval_ns, fitting_func, p0, **plot_kwargs):
     coefficients = get_coefficients(train_ns, train_ys, fitting_func, p0=p0)
 
     plot_ns = np.linspace(0.8 * min(train_ns + eval_ns), 1.2 * max(train_ns + eval_ns), 1000)

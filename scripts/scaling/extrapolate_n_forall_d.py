@@ -51,7 +51,7 @@ CONFIGS = {
         'path': 'wandb/tiny-olmo-700M-rms-norm-adam-eps-1e-8-emb-wd_val-all.csv',
         'keys': VAL_KEYS,
         'mode': 'train',
-        'n': 758564352,
+        'n': 681297408,
         'label': '700m',
         'color': 'teal',
     },

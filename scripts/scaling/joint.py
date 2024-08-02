@@ -51,7 +51,7 @@ CONFIGS = {
         'path': 'wandb/tiny-olmo-700M-rms-norm-adam-eps-1e-8-emb-wd_val-all.csv',
         'keys': VAL_KEYS,
         'mode': 'train',
-        'n': 758564352,
+        'n': 681297408,
         'label': '700m',
         'color': 'teal',
     },
@@ -72,6 +72,40 @@ CONFIGS = {
         'color': 'darkviolet',
     },
 }
+# CONFIGS = {
+#     '150m': {
+#         'path': 'wandb/baseline-150M-1xC_val-all.csv',
+#         'keys': VAL_KEYS,
+#         'mode': 'train',
+#         'n': 151898880,
+#         'label': '150m',
+#         'color': 'gold',
+#     },
+#     '300m': {
+#         'path': 'wandb/baseline-300M-1xC_val-all.csv',
+#         'keys': VAL_KEYS,
+#         'mode': 'train',
+#         'n': 319980544,
+#         'label': '300m',
+#         'color': 'darkgreen',
+#     },
+#     '700m': {
+#         'path': 'wandb/baseline-750M-1xC_val-all.csv',
+#         'keys': VAL_KEYS,
+#         'mode': 'train',
+#         'n': 681297408,
+#         'label': '750m',
+#         'color': 'teal',
+#     },
+#     '1b': {
+#         'path': 'wandb/baseline-1B-1xC_val-all.csv',
+#         'keys': VAL_KEYS,
+#         'mode': 'eval',
+#         'n': 1176832000,
+#         'label': '1b',
+#         'color': 'darkblue',
+#     },
+# }
 
 
 def fit_curves(
