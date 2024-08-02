@@ -81,7 +81,8 @@ class InfinigramEngine:
             all_seq_len = [0 for _ in range(self.nnodes)]
             dist.all_gather_object(all_seq_len, seq_len, group=self.group)
             max_seq_len = max(all_seq_len)
-            input_idss = torch.cat([input_idss, torch.zeros(input_idss.size(0), max_seq_len - input_idss.size(1), dtype=input_idss.dtype, device=input_idss.device)], dim=1)
+            if seq_len < max_seq_len:
+                input_idss = torch.cat([input_idss, torch.zeros(input_idss.size(0), max_seq_len - seq_len, dtype=input_idss.dtype, device=input_idss.device)], dim=1)
 
             all_input_idss = [torch.zeros_like(input_idss) for _ in range(self.nnodes)]
             dist.all_gather(all_input_idss, input_idss, group=self.group)
