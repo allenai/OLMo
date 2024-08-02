@@ -220,7 +220,7 @@ data:
   prefetch_factor: 8
   persistent_workers: true
   timeout: 0
-paths:
+  paths:
     ######### NON WEB DATA #########
     # ~> GUTENBERG BOOKS (2.99 GT)
     - /weka/oe-training-default/ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/books/gpt-neox-olmo-dolma-v1_5/part-0-00000.npy
