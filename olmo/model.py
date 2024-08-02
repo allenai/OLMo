@@ -42,6 +42,8 @@ from .config import (
     InitFnType,
     LayerNormType,
     ModelConfig,
+    ShardedCheckpointerType,
+    TrainConfig,
 )
 from .exceptions import OLMoConfigurationError
 from .initialization import init_normal
@@ -277,7 +279,9 @@ class RotaryEmbedding(nn.Module):
 
         with torch.autocast(device.type, enabled=False):
             dim = self.config.d_model // self.config.n_heads
-            inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2, device=device, dtype=torch.float) / dim))
+            inv_freq = 1.0 / (
+                self.config.rope_theta ** (torch.arange(0, dim, 2, device=device, dtype=torch.float) / dim)
+            )
             seq = torch.arange(seq_len, device=device, dtype=torch.float)
             freqs = einsum("i , j -> i j", seq, inv_freq)
             positions = torch.cat((freqs, freqs), dim=-1)
@@ -535,7 +539,6 @@ class OLMoBlock(nn.Module):
         if max_doc_len is not None and cu_doc_lens is not None:
             assert self.flash_attn_varlen_func is not None, "flash-attn is required for document masking"
             assert attn_mask is None, "attn-mask is currently not supported with document masking"
-            assert self.training, "document masking is only supported for training, not inference"
             B, T, D = q.size(0), q.size(2), q.size(3)
             r = self.flash_attn_varlen_func(
                 q.transpose(1, 2).view(B * T, -1, D),
@@ -733,11 +736,11 @@ class OLMoSequentialBlock(OLMoBlock):
         # apply norm before
         if not self.config.norm_after:
             if self._activation_checkpoint_fn is not None:
-                x = self._activation_checkpoint_fn(self.attn_norm, x)
+                qkv = self._activation_checkpoint_fn(self.attn_norm, x)
             else:
-                x = self.attn_norm(x)
+                qkv = self.attn_norm(x)
 
-        qkv = self.att_proj(x)
+        qkv = self.att_proj(qkv)
 
         if self.config.clip_qkv is not None:
             qkv.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
@@ -1121,6 +1124,9 @@ class OLMo(nn.Module):
                     )
                 }
             )
+        if config.embedding_layer_norm:
+            self.transformer.update({"emb_norm": LayerNorm.build(config)})
+
         # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
         if init_params and self.config.init_device != "meta":
             self.reset_parameters()
@@ -1157,14 +1163,16 @@ class OLMo(nn.Module):
             # Note: We may potentially want to multiply the std by a factor of sqrt(d) in case of `scale_logits`
             # and `weight_tying`. However, we are currently not using either, and may need to rethink the init logic
             # if/when we do want it.
-            wte_std = self.config.init_std
+            wte_std = self.config.emb_init_std or self.config.init_std
             wte_cutoff_factor = self.config.init_cutoff_factor
         elif self.config.init_fn == InitFnType.mitchell:
-            wte_std = 1.0 / math.sqrt(self.config.d_model)
+            wte_std = self.config.emb_init_std or 1.0 / math.sqrt(self.config.d_model)
             wte_cutoff_factor = self.config.init_cutoff_factor or 3.0
         elif self.config.init_fn == InitFnType.full_megatron:
             wte_std = self.config.init_std
-            if self.config.scale_emb_init:
+            if self.config.emb_init_std is not None:
+                wte_std = self.config.emb_init_std
+            elif self.config.scale_emb_init:
                 wte_std *= math.sqrt(self.config.d_model)
             wte_cutoff_factor = self.config.init_cutoff_factor or 3.0
         else:
@@ -1294,6 +1302,10 @@ class OLMo(nn.Module):
         # shape: (batch_size, seq_len, d_model)
         x = self.transformer.wte(input_ids) if input_embeddings is None else input_embeddings  # type: ignore
 
+        # Apply embedding layer norm.
+        if self.config.embedding_layer_norm:
+            x = self.transformer.emb_norm(x)
+
         if not (self.config.alibi or self.config.rope):
             # Get positional embeddings.
             # shape: (1, seq_len)
@@ -1302,7 +1314,7 @@ class OLMo(nn.Module):
             pos_emb = self.transformer.wpe(pos)  # type: ignore
             x = pos_emb + x
 
-        # Add input + positional embeddings and apply dropout.
+        # Apply dropout.
         # shape: (batch_size, seq_len, d_model)
         x = self.transformer.emb_drop(x)  # type: ignore
 
@@ -1730,15 +1742,26 @@ class OLMo(nn.Module):
             model.load_state_dict(model._make_state_dict_compatible(state_dict)[0])
             model = model.to(torch.device(device))
         else:
-            from .checkpoint import load_model_state
+            train_config = TrainConfig.load(config_path)
+            if train_config.sharded_checkpointer == ShardedCheckpointerType.olmo_core:
+                from olmo_core.distributed.checkpoint import (  # type: ignore
+                    load_model_and_optim_state,
+                )
 
-            # Initialize model on target device. In this case the state dict is loaded in-place
-            # so it's not necessary to start on CPU if the target device is a GPU.
-            model_config.init_device = device
-            model = OLMo(model_config)
+                model_config.init_device = device
+                model = OLMo(model_config)
+                load_model_and_optim_state(checkpoint_dir, model)
+            else:
+                # train_config.sharded_checkpointer == ShardedCheckpointerType.torch_new
+                from .checkpoint import load_model_state
 
-            # Load state dict in place.
-            load_model_state(checkpoint_dir, model)
+                # Initialize model on target device. In this case the state dict is loaded in-place
+                # so it's not necessary to start on CPU if the target device is a GPU.
+                model_config.init_device = device
+                model = OLMo(model_config)
+
+                # Load state dict in place.
+                load_model_state(checkpoint_dir, model)
 
         return model.eval()
 
