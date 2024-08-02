@@ -474,7 +474,7 @@ class Trainer:
             )
         except FileExistsError:
             raise OLMoConfigurationError(
-                f"Checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
+                f"Checkpoint for step {self.global_step} already exists, use --save_overwrite to overwrite it"
             )
 
         if link_latest:
