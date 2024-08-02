@@ -58,8 +58,11 @@ def compare_model_state(
 ):
     map_location = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
+    logger.info("Loading base model")
     base_model = torch.load(str(base_model_folder / "model.pt"), map_location=map_location)
+    logger.info("Loading compare model")
     compare_model = torch.load(str(compare_model_folder / "model.pt"), map_location=map_location)
+    logger.info("Loading complete")
 
     base_model_params = set(_get_module_names(base_model.keys()))
     compare_model_params = set(_get_module_names(compare_model.keys()))
