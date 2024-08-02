@@ -6,8 +6,8 @@
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
-#SBATCH --time=48:00:00
-#SBATCH --time-min=24:00:00
+#SBATCH --time=08:00:00
+#SBATCH --time-min=08:00:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
@@ -59,6 +59,7 @@ srun \
       --run_name=peteish7-lumi_${SLURM_JOB_ID} \
       --wandb.name=peteish7-lumi_${SLURM_JOB_ID} \
       --wandb.group=peteish7-lumi \
+      --data.num_workers=$SLURM_CPUS_PER_TASK \
       --save_folder=$CHECKPOINTS_PATH/peteish7/${SLURM_JOB_ID} \
       --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/peteish7-lumi/ \
       --fused_loss=false \
