@@ -60,6 +60,7 @@ srun \
       --wandb.name=peteish7-lumi_${SLURM_JOB_ID} \
       --wandb.group=peteish7-lumi \
       --data.num_workers=$SLURM_CPUS_PER_TASK \
+      --data.prefetch_factor=2 \
       --save_folder=$CHECKPOINTS_PATH/peteish7/${SLURM_JOB_ID} \
       --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/peteish7-lumi/ \
       --fused_loss=false \
