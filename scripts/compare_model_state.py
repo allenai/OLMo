@@ -9,22 +9,6 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-def _get_module_names(checkpoint_traces_folder: Path) -> List[str]:
-    module_names = []
-    for trace_file in checkpoint_traces_folder.iterdir():
-        trace_file_name = trace_file.name
-        if trace_file_name.endswith("_input.pt"):
-            module_name = trace_file_name.removesuffix("_input.pt")
-        elif trace_file_name.endswith("_output.pt"):
-            module_name = trace_file_name.removesuffix("_output.pt")
-        else:
-            logger.warning("Cannot get parameter from file %s, skipping", trace_file_name)
-
-        module_names.append(module_name)
-
-    return module_names
-
-
 def compare_model_param(
     base_model: Any,
     compare_model: Any,
@@ -64,8 +48,8 @@ def compare_model_state(
     compare_model = torch.load(str(compare_model_folder / "model.pt"), map_location=map_location)
     logger.info("Loading complete")
 
-    base_model_params = set(_get_module_names(base_model.keys()))
-    compare_model_params = set(_get_module_names(compare_model.keys()))
+    base_model_params = set(base_model.keys())
+    compare_model_params = set(compare_model.keys())
 
     base_only_model_params = base_model_params - compare_model_params
     if len(base_only_model_params) > 0:
