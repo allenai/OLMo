@@ -16,7 +16,7 @@ model:
   weight_tying: false
   alibi: false
   rope: true
-  rope_theta: 500_000
+  rope_theta: 10_000
   flash_attention: true
   attention_dropout: 0.0
   attention_layer_norm: false
