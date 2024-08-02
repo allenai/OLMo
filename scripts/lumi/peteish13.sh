@@ -14,11 +14,6 @@
 module load LUMI/23.09 partition/G
 module load PyTorch/2.2.2-rocm-5.6.1-python-3.10-singularity-20240617
 
-export OLMO_CONTAINER=llm-lumi-torch22_latest.sif
-
-# export SIF_CONTAINER=$PROJECT_DIR/containers/$OLMO_CONTAINER
-export SIF_CONTAINER=$SIF
-
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
 export NCCL_SOCKET_IFNAME=hsn
@@ -54,7 +49,7 @@ srun \
     -B"$FLASH_DIR:$FLASH_DIR" \
     -B"$SCRATCH_DIR:$SCRATCH_DIR" \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
-    $SIF_CONTAINER \
+    $SIF \
     python scripts/train.py configs/peteish13-s3.yaml \
       --run_name=peteish13-lumi_${SLURM_JOB_ID} \
       --wandb.name=peteish13-lumi_${SLURM_JOB_ID} \
@@ -62,9 +57,9 @@ srun \
       --save_folder=$CHECKPOINTS_PATH/peteish13/${SLURM_JOB_ID} \
       --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/peteish13-lumi/ \
       --fused_loss=false \
-      --device_train_microbatch_size=1 \
+      --device_train_microbatch_size=4 \
       --activation_checkpointing=whole_layer \
-      --fsdp.sharding_strategy=SHARD_GRAD_OP \
+      --fsdp.sharding_strategy=FULL_SHARD \
       "${@}"
 
 # '--load_path=${path.last_checkpoint:${save_folder}}' \
