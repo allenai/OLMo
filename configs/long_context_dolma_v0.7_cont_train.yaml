@@ -1,11 +1,11 @@
-run_name: long_contexts_dolma_v0.7_amberish7_cont_train_2T_steps_5B_8K
+run_name: long_contexts_dolma_v0.7_mlr_cont_train_2T_steps_5B_8K
 seed: 61394
 dry_run: false
 
 wandb:
   name: ${run_name}
   project: olmo-long-contexts
-  group: long_contexts_dolma_v0.7_amberish7_cont_train_2T_steps_5B_8K
+  group: long_contexts_dolma_v0.7_mlr_cont_train_2T_steps_5B_8K
 
 model:
   d_model: 4096
@@ -42,7 +42,7 @@ compile: null
 
 optimizer:
   name: adamw
-  learning_rate: 0.00009732
+  learning_rate: 0.00009785
   weight_decay: 0.1
   decay_norm_and_bias: true
   decay_embeddings: true
@@ -73,10 +73,11 @@ save_num_unsharded_checkpoints_to_keep: -1
 restore_dataloader: false
 
 # 2T token checkpoint for new 7B model; we call this v1.7 to match the Dolma data.
-load_path: s3://ai2-llm/checkpoints/OLMo-medium/amberish7/step477850-unsharded
+# load_path: s3://ai2-llm/checkpoints/OLMo-medium/amberish7/step477850-unsharded
+load_path: s3://ai2-llm/checkpoints/OLMo-medium/mitchish7/step477000-unsharded
 
 no_pre_train_checkpoint: true
-reset_optimizer_state: true
+reset_optimizer_state: false
 reset_trainer_state: true
 
 max_duration: 5e9T
