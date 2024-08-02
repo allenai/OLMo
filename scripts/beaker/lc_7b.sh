@@ -32,7 +32,7 @@ torchrun \
   --rdzv_endpoint $BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   scripts/train.py \
-  configs/long_context_dolma_v0.5_anneal_step_2T.yaml \
+  configs/long_context_dolma_v0.7_cont_train.yaml \
     --wandb.group=long_contexts_dolma_v0.7\
     --save_overwrite \
     --save_folder=runs/ \

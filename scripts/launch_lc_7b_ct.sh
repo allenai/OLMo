@@ -8,8 +8,8 @@ NUM_NODES=4
 
 gantry run \
   --workspace ai2/long-contexts \
-  --task-name long_contexts_cont_anneal_spike_test \
-  --description "OLMo - 7B - resume spike test" \
+  --task-name long_contexts_cont_train_8K \
+  --description "OLMo - 7B - long context continued pretraining 8K CL" \
   --priority high \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2\
