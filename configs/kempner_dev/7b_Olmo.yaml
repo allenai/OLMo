@@ -1,0 +1,155 @@
+run_name: OLMo-7B
+seed: 6198
+dry_run: false
+
+wandb:
+  name: ${run_name}
+  project: olmo-medium
+  group: OLMo-7B
+
+model:
+  d_model: 4096
+  n_heads: 32
+  n_layers: 32
+  mlp_hidden_size: 16384 #22016
+  weight_tying: false
+  alibi: false
+  rope: true
+  flash_attention: false
+  attention_dropout: 0.0
+  attention_layer_norm: true
+  multi_query_attention: false
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: default
+  layer_norm_with_affine: true
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: true
+  activation_type: gelu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 2048
+  vocab_size: 32100
+  embedding_size: 32128 
+  eos_token_id: 1
+  pad_token_id: 0
+  init_device: cuda
+  init_fn: mitchell
+
+compile: null  # causes instability on AMD GPUs
+  ##fullgraph: false
+  ##mode: default
+
+activation_checkpointing: whole_layer
+
+optimizer:
+  name: adamw
+  learning_rate: 3.0e-4
+  weight_decay: 0.1
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 100
+
+scheduler:
+  name: cosine_with_warmup
+  t_warmup: 1000
+  alpha_f: 0.1
+  grad_clip_warmup_steps: 1000
+  grad_clip_warmup_factor: 10.0
+
+tokenizer:
+  #identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
+  identifier: t5-base
+  truncate_direction: right
+
+save_folder: ${oc.env:CHECKPOINTS_PATH}
+save_overwrite: false
+# Sharded checkpoints (best for restarts)
+save_interval: 5000
+save_num_checkpoints_to_keep: 9
+# Unsharded checkpoints (for final storage)
+save_interval_unsharded: null
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: null
+
+max_duration: 515  # 2T tokens
+global_train_batch_size: 128 # 4 GPUs * 32
+device_train_microbatch_size: 32
+time_limit: null
+
+# Adding torch profiling
+torch_profiling: false
+
+precision: amp_bf16
+
+ddp:
+  grad_sync_mode: batch
+
+distributed_strategy: fsdp
+
+fsdp:
+  wrapping_strategy: by_block
+  precision: mixed
+  sharding_strategy: FULL_SHARD
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 20
+
+eval_interval: 1000
+#eval_subset_num_batches: 1000
+##eval_interval: ${save_interval}
+##eval_subset_num_batches: -1
+#device_eval_batch_size: ${device_train_microbatch_size}
+evaluators:
+  - label: all-small-ppl-validation
+    data:
+      datasets:
+        c4_val: ${path.glob:/n/kempner_shared/Everyone/data/dolma/preprocessed/t5-base/c4_val/*.npy}
+      drop_last: true
+
+ ##########################
+  # Downstream evaluations #
+  ##########################
+  # Common sense
+  - label: copa
+    type: downstream
+
+  - label: piqa
+    type: downstream
+
+  - label: openbook_qa
+    type: downstream
+
+  # Lanugage understanding
+  - label: hellaswag
+    type: downstream
+
+  - label: winogrande
+    type: downstream
+
+  # Reading comprehension
+  - label: boolq
+    type: downstream
+
+  # Symbolic problem solving
+
+  # World knowledge
+  - label: arc_easy
+    type: downstream
+
+
+
+data:
+  paths: ${path.glob:/n/kempner_shared/Everyone/data/dolma/preprocessed/t5-base/c4/*.npy}
+  pad_direction: right
+  num_workers: 8
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 16
+  persistent_workers: true
+  timeout: 0

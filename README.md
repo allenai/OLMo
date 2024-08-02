@@ -22,20 +22,27 @@ It is built by scientists, for scientists.
 
 ## Installation
 
+### 1. Create conda environment and activate it
+First create your conda environment using the following command:
+```bash
+conda create --prefix [path_to_your_env] python=3.10
+```
+Activate the environment using:
+```bash
+conda activate [path_to_your_env]
+```
+### 2. Install PyTorch
 First install [PyTorch](https://pytorch.org) according to the instructions specific to your operating system.
-
+```bash
+pip3 install torch
+```
+### 3. Install OLMo from source code 
 To install from source (recommended for training/fine-tuning) run:
 
 ```bash
 git clone https://github.com/allenai/OLMo.git
 cd OLMo
 pip install -e .[all]
-```
-
-Otherwise you can install the model code by itself directly from PyPI with:
-
-```bash
-pip install ai2-olmo
 ```
 
 ## Models
