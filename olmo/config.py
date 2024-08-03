@@ -1331,7 +1331,7 @@ class TrainConfig(BaseConfig):
 
 def config_to_moe_args(config: ModelConfig) -> Dict[str, Any]:
     from megablocks.layers.arguments import Arguments as MoEArgs
-    from model import Activation
+    from .model import Activation
 
     hidden_size = (
         config.mlp_hidden_size if config.mlp_hidden_size is not None else config.mlp_ratio * config.d_model
