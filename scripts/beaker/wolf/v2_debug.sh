@@ -4,7 +4,7 @@ set -ex
 
 CONFIG_PATH=configs/amberish1-weka.yaml
 NUM_NODES=2
-RUN_NAME="v2_debug_allgather_padding"
+RUN_NAME="v2_debug_prefetch"
 
 gantry run \
   --allow-dirty \
@@ -42,6 +42,7 @@ gantry run \
     IFS=$'\n\t'; \
     conda shell.bash activate base; \
     conda install gxx -c conda-forge; \
+    pip install asyncio; \
     pip install packaging ninja; export FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE; pip install flash-attn==2.5.9.post1 --no-build-isolation; pip install '.[train]'; pip freeze; \
     mkdir -p /root/.cache; pushd /root/.cache; curl "https://storage.googleapis.com/hf-cache/huggingface_cache_v4.tar.gz" | tar --keep-newer-files -xzf -; popd; export HF_DATASETS_OFFLINE=1; \
     export TORCH_DIST_INIT_BARRIER=1; \
@@ -57,6 +58,5 @@ gantry run \
         --wandb.project=hb-wolf-olmo-2 --wandb.entity=liujch1998 \
         --save_folder=/weka/oe-training-default/wolf/ckpt/${RUN_NAME} --save_overwrite=true \
         --device_train_microbatch_size=4 \
-        --eval_interval=10 \
-        --infgram.index_dir=/weka/oe-training-default/wolf/index/v4_dolma-v1_6-sample_olmo --infgram.sharded=true --infgram.mode=debug \
+        --infgram.index_dir=/weka/oe-training-default/wolf/index/v4_dolma-v1_6-sample_olmo --infgram.prefetch=true --infgram.mode=debug \
     "

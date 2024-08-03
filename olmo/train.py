@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import cProfile
 import gc
 import logging
@@ -11,7 +12,7 @@ import time
 from collections import deque
 from contextlib import nullcontext
 from dataclasses import dataclass, field
-from itertools import islice
+from itertools import islice, tee
 from pathlib import Path
 from pstats import SortKey
 from typing import Any, Callable, Deque, Dict, List, Optional, TextIO, Tuple, Union
@@ -1139,7 +1140,38 @@ class Trainer:
 
         with torch_profiler as p:
             for epoch in range(self.epoch or 0, self.max_epochs):
+
+                # Prepare for infgram pre-fetching
+                if self.cfg.infgram is not None and self.cfg.infgram.prefetch:
+                    self.train_loader, train_loader_next = tee(self.train_loader)
+                    next_batch = next(train_loader_next, None)
+                    next_result = None
+
                 for batch in self.train_loader:
+
+                    if self.cfg.infgram is not None:
+                        if self.cfg.infgram.prefetch:
+                            if next_result is None: # first batch
+                                result = self.infinigram_engine.get_infgram_ntd(input_idss=batch['input_ids'])
+                                batch['infgram_ntd'] = result['infgram_ntd']
+                                infgram_metrics = {'infgram/latency_ms': result['latency_ms']}
+                            else: # use pre-fetched result
+                                batch['infgram_ntd'] = next_result['infgram_ntd']
+                                infgram_metrics = {'infgram/latency_ms': next_result['latency_ms']}
+                                next_result = None
+
+                            # Start pre-fetching infgram_ntd for next batch
+                            next_batch = next(train_loader_next, None)
+                            if next_batch is not None:
+                                loop = asyncio.get_event_loop()
+                                task = loop.create_task(self.infinigram_engine.async_get_infgram_ntd(input_idss=next_batch['input_ids']))
+                            else:
+                                task = None
+                        else:
+                            result = self.infinigram_engine.get_infgram_ntd(input_idss=batch['input_ids'])
+                            batch['infgram_ntd'] = result['infgram_ntd']
+                            infgram_metrics = {'infgram/latency_ms': result['latency_ms']}
+
                     # Bookkeeping.
                     # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
                     # batches see the same number of tokens, which should be the case for language model pre-training
@@ -1166,15 +1198,10 @@ class Trainer:
 
                     should_log_this_step = self.should_log_this_step()
 
-                    infgram_metrics = {}
-                    if self.cfg.infgram is not None:
-                        result = self.infinigram_engine.get_infgram_ntd(input_idss=batch['input_ids'])
-                        batch['infgram_ntd'] = result['infgram_ntd']
-                        infgram_metrics['infgram/latency_ms'] = result['latency_ms']
-
                     # Run train step on batch.
                     metrics = self.train_step(batch, reduce_global_loss=should_log_this_step)
-                    metrics.update(infgram_metrics)
+                    if self.cfg.infgram is not None:
+                        metrics.update(infgram_metrics)
 
                     # Maybe collect other metrics.
                     if should_log_this_step:
@@ -1296,6 +1323,11 @@ class Trainer:
                             python_profiler.disable()
                             python_profiler.print_stats(sort=SortKey.CUMULATIVE)
                             python_profiler = None
+
+                    # Collect pre-fetched infgram_ntd for next batch
+                    if self.cfg.infgram is not None and self.cfg.infgram.prefetch:
+                        if task is not None:
+                            next_result = loop.run_until_complete(task)
                 else:
                     log.info("Training epoch complete")
                     self.epoch = epoch + 1

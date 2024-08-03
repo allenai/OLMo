@@ -239,6 +239,7 @@ class InfgramConfig(BaseConfig):
     cpp_log_path: Optional[str] = '/tmp/cpp_engine.log'
     mode: Optional[str] = 'prod'
     sharded: Optional[bool] = False
+    prefetch: Optional[bool] = False
 
 
 @dataclass

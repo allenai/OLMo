@@ -157,3 +157,6 @@ class InfinigramEngine:
             'latency_ms_decode': latency_ms_decode,
             'latency_ms_scatter': latency_ms_scatter,
         }
+
+    async def async_get_infgram_ntd(self, input_idss):
+        return self.get_infgram_ntd(input_idss)
