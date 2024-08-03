@@ -1143,11 +1143,11 @@ class Trainer:
 
                 # Prepare for infgram pre-fetching
                 if self.cfg.infgram is not None and self.cfg.infgram.prefetch:
-                    self.train_loader, train_loader_next = tee(self.train_loader)
+                    train_loader, train_loader_next = tee(self.train_loader)
                     next_batch = next(train_loader_next, None)
                     next_result = None
 
-                for batch in self.train_loader:
+                for batch in train_loader:
 
                     if self.cfg.infgram is not None:
                         if self.cfg.infgram.prefetch:
