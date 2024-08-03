@@ -260,6 +260,7 @@ class Trainer:
 
         if self.model.config.block_type == BlockType.moe:
             from .config import config_to_moe_args
+
             self.moe_args = config_to_moe_args(self.cfg.model)
 
     @property
