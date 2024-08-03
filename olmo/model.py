@@ -674,13 +674,13 @@ class OLMoEBlock(OLMoBlock):
 
     def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
         try:
-            from megablocks.layers.arguments import Arguments as MoEArgs
             from megablocks.layers.dmoe import dMoE
             from megablocks.layers.moe import MoE
         except ImportError:
             raise ImportError(
                 "To train MoEs, run `pip install git+https://github.com/Muennighoff/megablocks.git@olmoe`"
             )
+        from .config import config_to_moe_args
 
         nn.Module.__init__(self)
         self.layer_id = layer_id
@@ -721,33 +721,7 @@ class OLMoEBlock(OLMoBlock):
             config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
         )
 
-        # MoE Block
-        kwargs = {
-            "activation_fn": F.silu if "swiglu" in config.activation_type.lower() else self.act,
-            "mlp_type": "glu" if "glu" in config.activation_type.lower() else "mlp",
-            "mlp_impl": config.moe_mlp_impl,
-            "hidden_size": config.d_model,
-            "ffn_hidden_size": int(self.act.output_multiplier * self.hidden_size),
-            "moe_num_experts": config.moe_num_experts,
-            # Handled by FSDP (https://github.com/databricks/megablocks/issues/57#issuecomment-1854594483)
-            "moe_weight_parallelism": False,
-            "moe_expert_model_parallelism": False,
-            "moe_top_k": config.moe_top_k,
-            "moe_capacity_factor": config.moe_capacity_factor,
-            "moe_loss_weight": config.moe_loss_weight,
-            "device": config.init_device,
-            # Handled by FSDP
-            "bf16": False,
-            "fp16": False,
-            "bias": self.config.include_bias,
-            "return_bias": False,
-            "shared_expert": self.config.moe_shared_expert,
-            "moe_lbl_in_fp32": config.moe_lbl_in_fp32,
-        }
-        if config.moe_zloss_weight:
-            kwargs["moe_zloss_weight"] = config.moe_zloss_weight
-
-        self.moe_args = MoEArgs(**kwargs)
+        self.moe_args = config_to_moe_args(config)
         self.ffn = dMoE(self.moe_args) if self.config.moe_dropless else MoE(self.moe_args)
 
         # Rotary embeddings.
@@ -1780,7 +1754,7 @@ class OLMo(nn.Module):
         else:
             raise NotImplementedError(wrap_strategy)
 
-    def num_params(self, include_embedding: bool = True, include_inactivate_params: bool = True) -> int:
+    def num_params(self, include_embedding: bool = True, include_inactive_params: bool = True) -> int:
         """
         Get the total number of parameters.
         """
@@ -1790,7 +1764,7 @@ class OLMo(nn.Module):
                 lambda np: ".wte." not in np[0] and ".wpe." not in np[0],
                 params,
             )
-        if not include_inactivate_params:
+        if not include_inactive_params:
             # Need to reduce blocks to the number of experts that are selected
             # If not dropless 'transformer.blocks.0.ffn.experts.mlp.w1' has shape (total_experts, in_dim, out_dim)
             # change to 'transformer.blocks.0.ffn.experts.mlp.w1' with shape (selected_experts, in_dim, out_dim)

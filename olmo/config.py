@@ -19,6 +19,7 @@ from typing import (
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from omegaconf import DictConfig, ListConfig
 from omegaconf import OmegaConf as om
 from omegaconf.errors import OmegaConfBaseException
@@ -1326,3 +1327,40 @@ class TrainConfig(BaseConfig):
                 new_config.optimizer = OptimizerConfig.update_legacy_settings(new_config.optimizer)
 
         return new_config
+
+def config_to_moe_args(config: ModelConfig) -> Dict[str, Any]:
+    from megablocks.layers.arguments import Arguments as MoEArgs
+    from model import Activation
+    hidden_size = (
+        config.mlp_hidden_size if config.mlp_hidden_size is not None else config.mlp_ratio * config.d_model
+    )
+    act = Activation.build(config)
+    num_layers = config.n_layers // 2 if config.moe_interleave else config.n_layers
+    kwargs = {
+        "activation_fn": F.silu if "swiglu" in config.activation_type.lower() else Activation.build(config),
+        "mlp_type": "glu" if "glu" in config.activation_type.lower() else "mlp",
+        "mlp_impl": config.moe_mlp_impl,
+        "hidden_size": config.d_model,
+        "ffn_hidden_size": int(act.output_multiplier * hidden_size),
+        "moe_num_experts": config.moe_num_experts,
+        "num_layers": num_layers,
+        # Handled by FSDP (https://github.com/databricks/megablocks/issues/57#issuecomment-1854594483)
+        "moe_weight_parallelism": False,
+        "moe_expert_model_parallelism": False,
+        "moe_top_k": config.moe_top_k,
+        "moe_capacity_factor": config.moe_capacity_factor,
+        "moe_loss_weight": config.moe_loss_weight,
+        "device": config.init_device,
+        # Handled by FSDP
+        "bf16": False,
+        "fp16": False,
+        "bias": config.include_bias,
+        "return_bias": False,
+        "shared_expert": config.moe_shared_expert,
+        "moe_lbl_in_fp32": config.moe_lbl_in_fp32,
+    }
+    if config.moe_zloss_weight:
+        kwargs["moe_zloss_weight"] = config.moe_zloss_weight
+
+    return MoEArgs(**kwargs)
+

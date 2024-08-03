@@ -68,7 +68,6 @@ from .torch_util import (
 from .util import upload
 
 try:
-    from megablocks.layers.arguments import Arguments as MoEArgs
     from megablocks.layers.moe import (
         batched_load_balancing_loss,
         clear_load_balancing_loss,
@@ -260,29 +259,8 @@ class Trainer:
                 raise NameError("`fused_loss_fn` is not defined. Please ensure that `flash_attn` is installed.")
 
         if self.model.config.block_type == BlockType.moe:
-            # these MoEArgs are necessary for logging load balancing.
-            num_layers = (
-                self.model.config.n_layers // 2 if self.model.config.moe_interleave else self.model.config.n_layers
-            )
-            kwargs = {
-                "hidden_size": self.model.config.d_model,
-                "ffn_hidden_size": self.model.config.d_model * 4,
-                "moe_num_experts": self.model.config.moe_num_experts,
-                "num_layers": num_layers,
-                "moe_expert_model_parallelism": False,
-                "moe_top_k": self.model.config.moe_top_k,
-                "device": self.model.config.init_device,
-                "moe_capacity_factor": self.model.config.moe_capacity_factor,
-                "moe_loss_weight": self.model.config.moe_loss_weight,
-                "fp16": False,
-                "bf16": False,
-                "shared_expert": self.model.config.moe_shared_expert,
-                "moe_lbl_in_fp32": self.model.config.moe_lbl_in_fp32,
-            }
-            if self.model.config.moe_zloss_weight:
-                kwargs["moe_zloss_weight"] = self.model.config.moe_zloss_weight
-
-            self.moe_args = MoEArgs(**kwargs)
+            from .config import config_to_moe_args
+            self.moe_args = config_to_moe_args(self.cfg.model)
 
     @property
     def dataset(self) -> IterableDataset:
