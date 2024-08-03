@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import cProfile
 import gc
 import logging
@@ -1146,6 +1146,7 @@ class Trainer:
                     train_loader, train_loader_next = tee(self.train_loader)
                     next_batch = next(train_loader_next, None)
                     next_result = None
+                    executor = ThreadPoolExecutor(max_workers=1)
 
                 for batch in train_loader:
 
@@ -1163,10 +1164,9 @@ class Trainer:
                             # Start pre-fetching infgram_ntd for next batch
                             next_batch = next(train_loader_next, None)
                             if next_batch is not None:
-                                loop = asyncio.get_event_loop()
-                                task = loop.create_task(self.infinigram_engine.async_get_infgram_ntd(input_idss=next_batch['input_ids']))
+                                future = executor.submit(self.infinigram_engine.get_infgram_ntd, input_idss=next_batch['input_ids'])
                             else:
-                                task = None
+                                future = None
                         else:
                             result = self.infinigram_engine.get_infgram_ntd(input_idss=batch['input_ids'])
                             batch['infgram_ntd'] = result['infgram_ntd']
@@ -1326,8 +1326,8 @@ class Trainer:
 
                     # Collect pre-fetched infgram_ntd for next batch
                     if self.cfg.infgram is not None and self.cfg.infgram.prefetch:
-                        if task is not None:
-                            next_result = loop.run_until_complete(task)
+                        if future is not None:
+                            next_result = future.result()
                 else:
                     log.info("Training epoch complete")
                     self.epoch = epoch + 1
