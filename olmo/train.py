@@ -708,6 +708,16 @@ class Trainer:
             ce_loss = ce_loss.view(batch["input_ids"].shape[0], -1)
             if z_loss is not None:
                 z_loss = z_loss.view(batch["input_ids"].shape[0], -1)
+
+        if ce_loss.item() > 3.0:
+            ce_losses, _ = self.loss_fn(logits_for_loss, labels, ignore_index=-100, reduction="none", compute_z_loss=compute_z_loss)
+            topk = ce_losses.topk(5).indices.tolist()
+            topk_batch_ixs = [_ // batch["input_ids"].shape[-1] for _ in topk]
+            topk_token_ixs = [_ % batch["input_ids"].shape[-1] for _ in topk]
+            print(f'ce_loss={ce_loss.item():.4f}. Top 5 losses:')
+            for k, (b, t) in enumerate(list(zip(topk_batch_ixs, topk_token_ixs))):
+                print(f'k={k}, b={b}, t={t}, loss={ce_losses[topk[k]].item():.4f}, seq={batch["input_ids"][b]}')
+
         return ce_loss, z_loss, logits
 
     def train_micro_batch(
