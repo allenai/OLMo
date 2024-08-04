@@ -710,7 +710,7 @@ class Trainer:
                 z_loss = z_loss.view(batch["input_ids"].shape[0], -1)
 
         ce_losses, _ = self.loss_fn(logits_for_loss, labels, ignore_index=-100, reduction="none", compute_z_loss=compute_z_loss)
-        if ce_losses.mean().item() > 4.0:
+        if ce_losses.mean().item() > 5.0:
             topk = ce_losses.topk(5).indices.tolist()
             topk_batch_ixs = [_ // batch["input_ids"].shape[-1] for _ in topk]
             topk_token_ixs = [_ % batch["input_ids"].shape[-1] for _ in topk]
