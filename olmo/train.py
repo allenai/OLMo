@@ -64,6 +64,9 @@ __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
 log = logging.getLogger(__name__)
 
 
+global max_ce_loss
+max_ce_loss = 0.0
+
 @dataclass
 class SpeedMonitor:
     cfg: SpeedMonitorConfig
@@ -720,14 +723,15 @@ class Trainer:
             micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss, loss_reduction="sum"
         )
 
-        if ce_losses.mean().item() > 5.0:
+        global max_ce_loss
+        if ce_losses.mean().item() > max_ce_loss:
+            max_ce_loss = ce_losses.mean().item()
             topk = ce_losses.topk(5).indices.tolist()
             topk_batch_ixs = [_ // micro_batch["input_ids"].shape[-1] for _ in topk]
             topk_token_ixs = [_ % micro_batch["input_ids"].shape[-1] for _ in topk]
-            print(f'ce_loss={ce_losses.mean().item():.4f}. Top 5 losses:')
+            print(f'ce_loss={ce_losses.mean().item():.4f}. Top k=5 losses:')
             for k, (b, t) in enumerate(list(zip(topk_batch_ixs, topk_token_ixs))):
                 print(f'k={k}, b={b}, t={t}, loss={ce_losses[topk[k]].item():.4f}, seq={micro_batch["input_ids"][b].tolist()}')
-            raise ValueError("High loss detected")
 
         ce_loss = ce_loss / batch_size_in_tokens
 
