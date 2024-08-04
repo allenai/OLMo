@@ -55,7 +55,7 @@ gantry run \
         scripts/train.py ${CONFIG_PATH} \
         --run_name=${RUN_NAME} \
         --wandb.project=hb-wolf-olmo-2 --wandb.entity=liujch1998 \
-        --save_folder=/weka/oe-training-default/wolf/ckpt/${RUN_NAME} --save_overwrite=true --load_path=/weka/oe-training-default/wolf/ckpt/${RUN_NAME}/step4000 \
+        --save_folder=/weka/oe-training-default/wolf/ckpt/${RUN_NAME} --save_overwrite=true --load_path=/weka/oe-training-default/wolf/ckpt/v2.3_v2_highqual/step4000 \
         --device_train_microbatch_size=4 \
         --infgram.index_dir=/weka/oe-training-default/wolf/index/v4_dolma-v1_7-olmo/0 --infgram.prefetch=true \
     "
