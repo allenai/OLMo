@@ -181,7 +181,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         wandb=None if not args.wandb else WandbConfig(
             name=run_name,
             group=run_name,
-            project="olmo-ladder"
+            project="olmo-ladder-benb"
         ),
         model=model_config,
         ddp=DDPConfig(),  # defaults are fine
