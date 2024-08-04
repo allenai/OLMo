@@ -710,23 +710,25 @@ class Trainer:
                 z_loss = z_loss.view(batch["input_ids"].shape[0], -1)
 
         ce_losses, _ = self.loss_fn(logits_for_loss, labels, ignore_index=-100, reduction="none", compute_z_loss=compute_z_loss)
-        if ce_losses.mean().item() > 5.0:
-            topk = ce_losses.topk(5).indices.tolist()
-            topk_batch_ixs = [_ // batch["input_ids"].shape[-1] for _ in topk]
-            topk_token_ixs = [_ % batch["input_ids"].shape[-1] for _ in topk]
-            print(f'ce_loss={ce_loss.item():.4f}. Top 5 losses:')
-            for k, (b, t) in enumerate(list(zip(topk_batch_ixs, topk_token_ixs))):
-                print(f'k={k}, b={b}, t={t}, loss={ce_losses[topk[k]].item():.4f}, seq={batch["input_ids"][b].tolist()}')
-            raise ValueError("High loss detected")
 
-        return ce_loss, z_loss, logits
+        return ce_loss, z_loss, logits, ce_losses
 
     def train_micro_batch(
         self, micro_batch: Dict[str, Any], batch_size_in_tokens: int
     ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
-        ce_loss, z_loss, logits = self.model_forward(
+        ce_loss, z_loss, logits, ce_losses = self.model_forward(
             micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss, loss_reduction="sum"
         )
+
+        if ce_losses.mean().item() > 5.0:
+            topk = ce_losses.topk(5).indices.tolist()
+            topk_batch_ixs = [_ // micro_batch["input_ids"].shape[-1] for _ in topk]
+            topk_token_ixs = [_ % micro_batch["input_ids"].shape[-1] for _ in topk]
+            print(f'ce_loss={ce_losses.mean().item():.4f}. Top 5 losses:')
+            for k, (b, t) in enumerate(list(zip(topk_batch_ixs, topk_token_ixs))):
+                print(f'k={k}, b={b}, t={t}, loss={ce_losses[topk[k]].item():.4f}, seq={micro_batch["input_ids"][b].tolist()}')
+            raise ValueError("High loss detected")
+
         ce_loss = ce_loss / batch_size_in_tokens
 
         # In case this helps with memory utilization.
@@ -869,7 +871,7 @@ class Trainer:
 
     def eval_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
-            ce_loss, _, logits = self.model_forward(batch, loss_reduction="none")
+            ce_loss, _, logits, _ = self.model_forward(batch, loss_reduction="none")
         return ce_loss.mean(dim=-1), logits
 
     def eval_step(self, batch: Dict[str, Any], evaluator: Evaluator) -> None:
