@@ -2147,6 +2147,7 @@ def build_collection_exclude(corpora: List[str]):
 
 
 DATA_PATHS["no_math"] = build_collection_exclude(["pes20_stem_papers", "algebraic_stack", "openwebmath"])
+DATA_PATHS["no_code"] = build_collection_exclude(["stackexchange", "starcoder"])
 DATA_PATHS["no_math_no_code"] = build_collection_exclude(["pes20_stem_papers", "algebraic_stack", "openwebmath", "stackexchange", "starcoder"])
 
 

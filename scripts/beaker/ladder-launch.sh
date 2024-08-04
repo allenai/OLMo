@@ -3,6 +3,7 @@
 set -ex
 
 NUM_NODES=$1
+priority=$2
 shift
 
 if [[ $NUM_NODES -eq 1 ]]; then
@@ -17,11 +18,12 @@ gantry run \
   --workspace ai2/cheap_decisions \
   --task-name ladder \
   --description "OLMo ladder with $*" \
-  --priority high \
+  --priority $priority \
   --preemptible \
   --beaker-image shanea/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
+  --allow-dirty \
   $MULTI_NODE_ARGS \
   --budget ai2/oe-training \
   --no-nfs \
