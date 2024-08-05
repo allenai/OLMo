@@ -1935,7 +1935,14 @@ class OlmoCoreCheckpointer(Checkpointer):
                 lambda: (checkpoint_dir / "train").exists(), "Waiting for checkpoint train directory", timeout=10.0
             )
 
-            local_files_created = save_model_and_optim_state(checkpoint_dir, dist_model, optim)
+            gc.collect()
+            barrier()
+            for turn in range(get_local_world_size()):
+                log.info("Saving model and optim state turn %d ...", turn)
+                if turn == get_local_rank():
+                    local_files_created = save_model_and_optim_state(checkpoint_dir, dist_model, optim)
+                    gc.collect()
+                barrier()
             if upload_to is not None:
                 for path in local_files_created:
                     path = Path(path)
