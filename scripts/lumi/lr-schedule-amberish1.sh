@@ -11,13 +11,13 @@
 #SBATCH --partition=standard-g
 
 module load LUMI/23.09 partition/G
-module load PyTorch/2.2.2-rocm-5.6.1-python-3.10-singularity-20240617
+# module load PyTorch/2.2.2-rocm-5.6.1-python-3.10-singularity-20240617
 
 export OLMO_CONTAINER=llm-lumi-torch22_latest.sif
 
 export CACHED_PATH_CACHE_ROOT=${SCRATCH_DIR}/tmp/${USER}
-# export SIF_CONTAINER=$PROJECT_DIR/containers/$OLMO_CONTAINER
-export SIF_CONTAINER=$SIF
+export SIF_CONTAINER=$PROJECT_DIR/containers/$OLMO_CONTAINER
+# export SIF_CONTAINER=$SIF
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
@@ -36,13 +36,14 @@ export FI_CXI_DEFAULT_CQ_SIZE=131072
 #export NCCL_DEBUG=INFO
 export PYTHONPATH=.:${PYTHONPATH}
 export ROCM_PATH=/opt/rocm
-export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64:/opt/rocm/lib
+export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64
+# export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64:/opt/rocm/lib
 export SINGULARITYENV_TORCH_DIST_INIT_BARRIER=1
 
 # Try playing with max_split_size_mb if you run into OOM errors.
 #export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:128
 
-# export HF_DATASETS_OFFLINE=1
+export HF_DATASETS_OFFLINE=1
 
 # export DATA_PATH=$FLASH_DIR/preprocessed/olmo-mix
 # export CHECKPOINTS_PATH=$FLASH_DIR/checkpoints
