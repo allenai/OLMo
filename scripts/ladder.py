@@ -176,7 +176,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         "530M": 8,
         "750M": 4,
         "1B": 2,
-        "7B": 2,
+        "7B": 1,
     }.get(args.model, 4)
 
     assert global_batch_size % device_batch_size == 0
