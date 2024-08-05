@@ -67,6 +67,7 @@ srun \
       --device_train_microbatch_size=2 \
       --activation_checkpointing=two_in_three \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
+      --sharded_checkpointer=local \
       --save_overwrite \
       "${@}"
 
