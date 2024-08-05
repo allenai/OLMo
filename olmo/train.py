@@ -723,18 +723,19 @@ class Trainer:
             micro_batch, compute_z_loss=self.cfg.softmax_auxiliary_loss, loss_reduction="sum"
         )
 
-        global max_seq_ce_loss
-        ce_losses = ce_losses.view(-1, micro_batch["input_ids"].shape[-1] - 1)
-        seq_ce_losses = ce_losses.mean(dim=-1)
-        for s, seq_ce_loss in enumerate(seq_ce_losses.tolist()):
-            if max_seq_ce_loss < seq_ce_loss:
-                max_seq_ce_loss = seq_ce_loss
-                topk_token_ixs = ce_losses[s].topk(5).indices.tolist()
-                message = f'seq_loss={seq_ce_loss:.4f}. Top k=5 loss tokens: ['
-                for k, t in enumerate(topk_token_ixs):
-                    message += f'(t={t+1}, loss={ce_losses[s][t].item():.4f}), '
-                message = message[:-2] + f']. seq={micro_batch["input_ids"][s].tolist()}'
-                print(message)
+        if self.global_step > 1000:
+            global max_seq_ce_loss
+            ce_losses = ce_losses.view(-1, micro_batch["input_ids"].shape[-1] - 1)
+            seq_ce_losses = ce_losses.mean(dim=-1)
+            for s, seq_ce_loss in enumerate(seq_ce_losses.tolist()):
+                if max_seq_ce_loss < seq_ce_loss:
+                    max_seq_ce_loss = seq_ce_loss
+                    topk_token_ixs = ce_losses[s].topk(5).indices.tolist()
+                    message = f'seq_loss={seq_ce_loss:.4f}. Top k=5 loss tokens: ['
+                    for k, t in enumerate(topk_token_ixs):
+                        message += f'(t={t+1}, loss={ce_losses[s][t].item():.4f}), '
+                    message = message[:-2] + f']. seq={micro_batch["input_ids"][s].tolist()}'
+                    print(message)
 
         ce_loss = ce_loss / batch_size_in_tokens
 
