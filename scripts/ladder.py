@@ -171,10 +171,10 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # We don't want the global batch size depend on the device batch size, because we might have to change the
     # device batch size based on the hardware we're running on.
     device_batch_size = {
-        "150M": 32,
-        "300M": 10,
+        "150M": 16,
+        "300M": 8,
         "530M": 8,
-        "750M": 8,
+        "750M": 4,
         "1B": 2,
         "7B": 2,
     }.get(args.model, 4)
