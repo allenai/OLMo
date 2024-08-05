@@ -4,7 +4,7 @@ set -ex
 
 CONFIG_PATH=configs/amberish1-weka.yaml
 NUM_NODES=8
-RUN_NAME="v2.4_v2.3_separate-wte"
+RUN_NAME="v2.5_v2.4_shane-fix"
 
 gantry run \
   --allow-dirty \
