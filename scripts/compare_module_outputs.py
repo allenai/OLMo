@@ -1,10 +1,9 @@
-from argparse import ArgumentParser
 import logging
+from argparse import ArgumentParser
 from pathlib import Path
 from typing import List
 
 import torch
-
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +48,11 @@ def compare_module_output(
     if (norm_diff := torch.linalg.vector_norm((compare_input - base_input).float()).item()) != 0.0 or verbose:
         logger.info("%s input norm diff: %.6f", module_name, norm_diff)
     if "wte" in module_name:
-        logger.info("%s mis-matching wte elements: %d", module_name, torch.sum(torch.logical_not(torch.eq(base_input, compare_input))))
+        logger.info(
+            "%s mis-matching wte elements: %d",
+            module_name,
+            torch.sum(torch.logical_not(torch.eq(base_input, compare_input))),
+        )
 
     base_output = torch.load(str(base_module_output_path), map_location=map_location)
     compare_output = torch.load(str(compare_module_output_path), map_location=map_location)
@@ -57,7 +60,9 @@ def compare_module_output(
     if isinstance(base_output, torch.Tensor):
         if verbose or base_output.dtype != compare_output.dtype:
             logger.info("%s output dtypes: %s %s", module_name, base_output.dtype, compare_output.dtype)
-        if (norm_diff := torch.linalg.vector_norm((compare_output - base_output).float()).item()) != 0.0 or verbose:
+        if (
+            norm_diff := torch.linalg.vector_norm((compare_output - base_output).float()).item()
+        ) != 0.0 or verbose:
             logger.info("%s output norm diff: %.6f", module_name, norm_diff)
     elif include_non_tensor_outputs:
         logger.info("%s outputs: %s %s", module_name, base_output, compare_output)
