@@ -2,17 +2,20 @@
 #SBATCH --job-name=peteish13
 #SBATCH --account=project_462000229
 #SBATCH --output=/scratch/project_462000229/logs/%j.log
-#SBATCH --nodes=32              # Total number of nodes
+#SBATCH --nodes=64              # Total number of nodes
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
 #SBATCH --time=48:00:00
-#SBATCH --time-min=24:00:00
+#SBATCH --time-min=8:00:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
 module load LUMI/23.09 partition/G
-module load PyTorch/2.2.2-rocm-5.6.1-python-3.10-singularity-20240617
+
+export OLMO_CONTAINER=llm-lumi-torch22_latest.sif
+export SIF_CONTAINER=$PROJECT_DIR/containers/$OLMO_CONTAINER
+#export SIF_CONTAINER=$SIF
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
@@ -59,9 +62,11 @@ srun \
       --save_folder=$CHECKPOINTS_PATH/peteish13/${SLURM_JOB_ID} \
       --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/peteish13-lumi/ \
       --fused_loss=false \
+      --model.flash_attention=false \
       --device_train_microbatch_size=4 \
       --activation_checkpointing=whole_layer \
       --fsdp.sharding_strategy=FULL_SHARD \
+      --sharded_checkpointer=local \
       --save_overwrite \
       "${@}"
 

@@ -14,7 +14,6 @@
 module load LUMI/23.09 partition/G
 
 export OLMO_CONTAINER=llm-lumi-torch22_latest.sif
-
 export SIF_CONTAINER=$PROJECT_DIR/containers/$OLMO_CONTAINER
 #export SIF_CONTAINER=$SIF
 
