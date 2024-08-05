@@ -83,6 +83,7 @@ MODEL_CONFIGS = {
     "530M": MODEL_CONFIG_150M.update_with(d_model=1344, n_heads=16, n_layers=16, mlp_ratio=8),
     "750M": MODEL_CONFIG_150M.update_with(d_model=1536, n_heads=16, n_layers=16, mlp_ratio=8),
     "1B": MODEL_CONFIG_150M.update_with(d_model=2048, n_heads=16, n_layers=16, mlp_ratio=8),
+    "3B": MODEL_CONFIG_150M.update_with(d_model=3328, n_heads=16, n_layers=16, mlp_ratio=8),
     "7B": MODEL_CONFIG_150M.update_with(
         d_model=4096, n_heads=32, n_layers=32, mlp_ratio=0, mlp_hidden_size=22016, init_device="meta"
     ),
@@ -176,6 +177,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         "530M": 8,
         "750M": 4,
         "1B": 2,
+        "3B": 2,
         "7B": 1,
     }.get(args.model, 4)
 
