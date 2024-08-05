@@ -65,7 +65,7 @@ srun \
       --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/peteish7-lumi/ \
       --fused_loss=false \
       --device_train_microbatch_size=2 \
-      --activation_checkpointing=two_in_three \
+      --activation_checkpointing=three_in_four \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
       --sharded_checkpointer=local \
       --save_overwrite \
