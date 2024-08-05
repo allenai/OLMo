@@ -12,12 +12,11 @@
 #SBATCH --partition=standard-g
 
 module load LUMI/23.09 partition/G
-module load PyTorch/2.2.2-rocm-5.6.1-python-3.10-singularity-20240617
 
 export OLMO_CONTAINER=llm-lumi-torch22_latest.sif
 
-# export SIF_CONTAINER=$PROJECT_DIR/containers/$OLMO_CONTAINER
-export SIF_CONTAINER=$SIF
+export SIF_CONTAINER=$PROJECT_DIR/containers/$OLMO_CONTAINER
+#export SIF_CONTAINER=$SIF
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
@@ -62,13 +61,15 @@ srun \
       --data.num_workers=$SLURM_CPUS_PER_TASK \
       --data.prefetch_factor=2 \
       --save_folder=$CHECKPOINTS_PATH/peteish7/${SLURM_JOB_ID} \
-      --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/peteish7-lumi/ \
+      --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/peteish7-lumi2/ \
       --fused_loss=false \
+      --model.flash_attention=false \
       --device_train_microbatch_size=2 \
-      --activation_checkpointing=three_in_four \
+      --activation_checkpointing=whole_layer \
       --fsdp.sharding_strategy=SHARD_GRAD_OP \
       --sharded_checkpointer=local \
       --save_overwrite \
+      --load_path=/users/dgroeneveld/scratch_dir/ai2-llm/checkpoints/OLMo-medium/peteish7/step0-unsharded \
       "${@}"
 
 # '--load_path=${path.last_checkpoint:${save_folder}}' \
