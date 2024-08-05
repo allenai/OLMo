@@ -194,7 +194,10 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         "7B": 1000,
     }.get(args.model, 500)
 
-    distributed_strategy = {"7B": DistributedStrategy.fsdp}.get(args.model, DistributedStrategy.ddp)
+    distributed_strategy = {
+        "3B": DistributedStrategy.fsdp,
+        "7B": DistributedStrategy.fsdp
+    }.get(args.model, DistributedStrategy.ddp)
 
     return TrainConfig(
         run_name=run_name,
