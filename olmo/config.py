@@ -240,6 +240,7 @@ class InfgramConfig(BaseConfig):
     mode: Optional[str] = 'prod'
     sharded: Optional[bool] = False
     prefetch: Optional[bool] = False
+    separate_wte: Optional[bool] = False
 
 
 @dataclass

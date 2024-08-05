@@ -1053,7 +1053,7 @@ class OLMoBlockGroup(nn.ModuleList):
 
 
 class OLMo(nn.Module):
-    def __init__(self, config: ModelConfig, init_params: bool = True):
+    def __init__(self, config: ModelConfig, init_params: bool = True, separate_infgram_wte: bool = False):
         super().__init__()
         self.config = config
         self.__cache = BufferCache()
@@ -1096,6 +1096,9 @@ class OLMo(nn.Module):
                 ln_f=LayerNorm.build(config),
             )
         )
+        self.separate_infgram_wte = separate_infgram_wte
+        if separate_infgram_wte:
+            self.transformer.update({"infgram_wte": nn.Embedding(config.embedding_size or config.vocab_size, config.d_model, device=config.init_device)})
 
         blocks = [OLMoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
         if self.config.block_group_size > 1:
@@ -1177,6 +1180,8 @@ class OLMo(nn.Module):
             raise NotImplementedError(self.config.init_fn)
 
         init_normal(self.transformer.wte, std=wte_std, init_cutoff_factor=wte_cutoff_factor)
+        if self.separate_infgram_wte:
+            init_normal(self.transformer.infgram_wte, std=wte_std, init_cutoff_factor=wte_cutoff_factor)
 
         if hasattr(self.transformer, "wpe"):
             if self.config.init_fn == InitFnType.normal:
@@ -1302,7 +1307,10 @@ class OLMo(nn.Module):
         x = self.transformer.wte(input_ids) if input_embeddings is None else input_embeddings  # type: ignore
 
         if infgram_ntd is not None:
-            infgram_emb = self.transformer.wte(infgram_ntd).mean(dim=-2)
+            if self.separate_infgram_wte:
+                infgram_emb = self.transformer.infgram_wte(infgram_ntd).mean(dim=-2)
+            else:
+                infgram_emb = self.transformer.wte(infgram_ntd).mean(dim=-2)
             x = x + infgram_emb
 
         # Apply embedding layer norm.
@@ -1459,6 +1467,8 @@ class OLMo(nn.Module):
         # So we have to explicitly tell PyTorch which linear layers to wrap, and we also just
         # return True in 'recurse' mode for simplicity.
         size_based_module_to_wrap = {self.transformer.wte}
+        if self.separate_infgram_wte:
+            size_based_module_to_wrap.add(self.transformer.infgram_wte)
         if hasattr(self.transformer, "ff_out"):
             size_based_module_to_wrap.add(self.transformer.ff_out)
 
@@ -1550,7 +1560,7 @@ class OLMo(nn.Module):
         params = (np for np in self.named_parameters())
         if not include_embedding:
             params = filter(  # type: ignore
-                lambda np: ".wte." not in np[0] and ".wpe." not in np[0],
+                lambda np: ".wte." not in np[0] and ".infgram_wte." not in np[0] and ".wpe." not in np[0],
                 params,
             )
         return sum(p.numel() for _, p in params)
