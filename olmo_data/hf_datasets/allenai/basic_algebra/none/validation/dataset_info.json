@@ -1,0 +1,66 @@
+{
+  "builder_name": "json",
+  "citation": "",
+  "config_name": "default",
+  "dataset_name": "json",
+  "dataset_size": 136672,
+  "description": "",
+  "download_checksums": {
+    "/Users/akshitab/local/code/OLMo/basic_algebra.jsonl": {
+      "num_bytes": 189088,
+      "checksum": null
+    }
+  },
+  "download_size": 189088,
+  "features": {
+    "id": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "question": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "choices": {
+      "text": {
+        "feature": {
+          "dtype": "string",
+          "_type": "Value"
+        },
+        "_type": "Sequence"
+      },
+      "label": {
+        "feature": {
+          "dtype": "string",
+          "_type": "Value"
+        },
+        "_type": "Sequence"
+      }
+    },
+    "answerKey": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "type_tag": {
+      "dtype": "string",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 325760,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 136672,
+      "num_examples": 1008,
+      "dataset_name": "json"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}
