@@ -101,7 +101,7 @@ def parse_size(size: str) -> int:
     elif model_size_unit == "B":
         model_size *= 1000000000
     else:
-        raise ValueError(f"Could not parse model name '{args.model}'")
+        raise ValueError(f"Could not parse model size unit '{model_size_unit}'")
     return model_size
 
 
@@ -129,10 +129,13 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     run_name = f"{args.name}-{args.model}-{args.length}"
     assert "/" not in run_name
 
-    permanent_data_prefix = "/weka/oe-training-default/ai2-llm"
-    if args.s3:
-        permanent_data_prefix = "s3://ai2-llm"
-    permanent_data_prefix.rstrip("/")
+    read_location = args.read_location
+    if read_location is None:
+        if args.s3:
+            read_location = "s3://ai2-llm"
+        else:
+            read_location = "/weka/oe-training-default/ai2-llm"
+    read_location.rstrip("/")
 
     remote_save_folder = f"s3://ai2-llm/checkpoints/OLMo-ladder/{run_name}"
     load_path = args.load_path
@@ -178,11 +181,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     return TrainConfig(
         run_name=run_name,
         seed=6198,
-        wandb=None if not args.wandb else WandbConfig(
-            name=run_name,
-            group=run_name,
-            project="olmo-ladder"
-        ),
+        wandb=None if not args.wandb else WandbConfig(name=run_name, group=run_name, project="olmo-ladder"),
         model=model_config,
         ddp=DDPConfig(),  # defaults are fine
         fsdp=FSDPConfig(
@@ -234,37 +233,37 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
                     drop_last=True,
                     datasets={
                         "c4_en-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy"
                         ],
                         "dolma_books-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_books/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_books/val/part-0-00000.npy"
                         ],
                         "dolma_common-crawl-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_common-crawl/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_common-crawl/val/part-0-00000.npy"
                         ],
                         "dolma_pes2o-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_pes2o/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_pes2o/val/part-0-00000.npy"
                         ],
                         "dolma_reddit-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_reddit/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_reddit/val/part-0-00000.npy"
                         ],
                         "dolma_stack-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_stack/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_stack/val/part-0-00000.npy"
                         ],
                         "dolma_wiki-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/dolma_wiki/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_wiki/val/part-0-00000.npy"
                         ],
                         "ice-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/ice/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/ice/val/part-0-00000.npy"
                         ],
                         "m2d2_s2orc-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/m2d2_s2orc/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/m2d2_s2orc/val/part-0-00000.npy"
                         ],
                         "pile-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy"
                         ],
                         "wikitext_103-validation": [
-                            f"{permanent_data_prefix}/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy"
                         ],
                     },
                 ),
@@ -304,13 +303,13 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             prefetch_factor=8,
             persistent_workers=True,
             instance_filter=InstanceFilterConfig(),  # defaults are fine
-            paths=[f"{permanent_data_prefix}/{path}" for path in named_data_mixes.DATA_PATHS[args.data]],
+            paths=[f"{read_location}/{path}" for path in named_data_mixes.DATA_PATHS[args.data]],
         ),
     )
 
 
 def _factors(n: int) -> Set[int]:
-    return {f for i in range(1, int(n**0.5)+1) if n % i == 0 for f in [i, n//i]}
+    return {f for i in range(1, int(n**0.5) + 1) if n % i == 0 for f in [i, n // i]}
 
 
 def nodecounts_cmd(args: argparse.Namespace):
@@ -319,7 +318,9 @@ def nodecounts_cmd(args: argparse.Namespace):
         raise ValueError("Microbatchsize must divide global batch size evenly.")
     num_gpus = cfg.global_train_batch_size // cfg.device_train_microbatch_size
     if num_gpus % args.gpus_per_node != 0:
-        raise ValueError(f"With {cfg.global_train_batch_size} bz, {cfg.device_train_microbatch_size} mbz, and {args.gpus_per_node} GPUs per node, it's impossible to allocate whole nodes.")
+        raise ValueError(
+            f"With {cfg.global_train_batch_size} bz, {cfg.device_train_microbatch_size} mbz, and {args.gpus_per_node} GPUs per node, it's impossible to allocate whole nodes."
+        )
     max_num_nodes = num_gpus // args.gpus_per_node
 
     for factor in reversed(list(_factors(max_num_nodes))):
@@ -337,13 +338,14 @@ def size_for_model(model_config: Union[ModelConfig, str]) -> Tuple[int, int]:
     model_config.n_layers = 1
 
     from olmo import OLMo
+
     single_layer_model = OLMo(model_config)
     block = single_layer_model.transformer.blocks[0]  # type: ignore
     params_per_block = sum(p.numel() for p in block.parameters())  # type: ignore
 
     return (
         single_layer_model.num_params() + (params_per_block * (n_layers - 1)),
-        single_layer_model.num_params(include_embedding=False) + (params_per_block * (n_layers - 1))
+        single_layer_model.num_params(include_embedding=False) + (params_per_block * (n_layers - 1)),
     )
 
 
@@ -357,9 +359,9 @@ def size_cmd(args: argparse.Namespace):
 def dump_cmd(args: argparse.Namespace):
     cfg = config_from_args(args).asdict()
     if not args.dump_evaluators:
-        del cfg['evaluators']
+        del cfg["evaluators"]
     if not args.dump_data:
-        del cfg['data']
+        del cfg["data"]
     for key, value in sorted(flatten_dict(cfg).items()):
         print(f"{key}: {value}")
 
@@ -392,7 +394,7 @@ if __name__ == "__main__":
         wandb=False,
         save_overwrite=False,
         load_path=None,
-        eval_on_load=False
+        eval_on_load=False,
     )
 
     nodecounts_parser = subparsers.add_parser("nodecounts")
@@ -406,8 +408,12 @@ if __name__ == "__main__":
 
     dump_parser = subparsers.add_parser("dump")
     dump_parser.set_defaults(func=dump_cmd)
-    dump_parser.add_argument("--dump_evaluators", action=argparse.BooleanOptionalAction, default=False, help="Dump evaluator config")
-    dump_parser.add_argument("--dump_data", action=argparse.BooleanOptionalAction, default=False, help="Dump data config")
+    dump_parser.add_argument(
+        "--dump_evaluators", action=argparse.BooleanOptionalAction, default=False, help="Dump evaluator config"
+    )
+    dump_parser.add_argument(
+        "--dump_data", action=argparse.BooleanOptionalAction, default=False, help="Dump data config"
+    )
 
     train_parser = subparsers.add_parser("train")
     train_parser.set_defaults(func=train_cmd)
@@ -426,6 +432,7 @@ if __name__ == "__main__":
         subparser.add_argument(
             "--wandb", action=argparse.BooleanOptionalAction, default=True, help="create a run in wandb"
         )
+        subparser.add_argument("--read_location", type=str, default=None)
         subparser.add_argument("--write_location", type=str, default=None)
         subparser.add_argument("--save_overwrite", action="store_true")
         subparser.add_argument("--load_path", type=str)

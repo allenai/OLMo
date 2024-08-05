@@ -315,6 +315,11 @@ class ModelConfig(BaseConfig):
     apply RoPE at the precision of the input.
     """
 
+    rope_theta: int = 10_000
+    """
+    The theta setting for RoPE.
+    """
+
     flash_attention: bool = False
     """
     If ``True``, use ``FlashAttention``.
@@ -344,6 +349,11 @@ class ModelConfig(BaseConfig):
     embedding_dropout: float = 0.1
     """
     The dropout probability for embeddings.
+    """
+
+    embedding_layer_norm: bool = False
+    """
+    Apply layer norm directly to the embeddings.
     """
 
     layer_norm_type: LayerNormType = LayerNormType.default
@@ -445,6 +455,22 @@ class ModelConfig(BaseConfig):
     """
     Precision used to train/evaluate with. You shouldn't set this directly.
     See :data:`TrainConfig.precision` instead.
+    """
+
+    scale_emb_init: bool = False
+    """
+    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization.
+    Currently this is only used with `full_megatron` init when ``emb_init_std`` is unset.
+    """
+
+    emb_init_std: Optional[float] = None
+    """
+    Override the standard deviation to use when initializing the embedding weights.
+    """
+
+    norm_after: bool = False
+    """
+    Apply norm after the attention/feedforward layers rather than before, as introduced in the Swin transformer paper (Liu et al).
     """
 
     @property
@@ -584,6 +610,7 @@ class DataConfig(BaseConfig):
     label_mask_paths: Optional[List[str]] = None
     pad_direction: PaddingDirection = PaddingDirection.right
     generate_attention_mask: bool = False
+    generate_doc_lengths: bool = False
     num_workers: int = 0
     drop_last: bool = False
     pin_memory: bool = False
@@ -595,16 +622,13 @@ class DataConfig(BaseConfig):
 
     @property
     def effective_memmap_dtype(self):
-        if self.memmap_dtype == "uint8":
-            return np.uint8
-        if self.memmap_dtype == "uint16":
-            return np.uint16
-        elif self.memmap_dtype == "uint32":
-            return np.uint32
-        elif self.memmap_dtype == "uint64":
-            return np.uint64
-        # default to uint16 if not set
-        return np.uint16
+        try:
+            # getattr will check this is part of numpy module, while np.dtype will check
+            # if this is a valid numpy dtype.
+            np.dtype(dtype := getattr(np, self.memmap_dtype))
+        except (AttributeError, TypeError) as e:
+            raise TypeError(f"Value {self.memmap_dtype} is not a valid numpy type") from e
+        return dtype
 
 
 class EvaluatorType(StrEnum):
@@ -783,7 +807,7 @@ class FSDPConfig(BaseConfig):
     FSDP instance.
     """
 
-    precision: FSDPPrecision = FSDPPrecision.pure
+    precision: Optional[FSDPPrecision] = FSDPPrecision.pure
 
     hybrid_sharding_num_model_replicas: Optional[int] = None
     """
@@ -1132,6 +1156,11 @@ class TrainConfig(BaseConfig):
     normalizing term to be close to 0.
     """
 
+    auxiliary_loss_multiplier: Optional[float] = 1e-4
+    """
+    Used with `softmax_auxiliary_loss`. PaLM uses 1e-4, Chameleon uses 1e-5.
+    """
+
     time_limit: Optional[float] = None
     """
     The maximum amount of time to train for before saving a checkpoint and ending early.
@@ -1200,9 +1229,11 @@ class TrainConfig(BaseConfig):
             raise ValueError(f"Unexpected precision type '{self.precision}'")
 
     @property
-    def fsdp_precision(self) -> MixedPrecision:
+    def fsdp_precision(self) -> Optional[MixedPrecision]:
         if self.fsdp is not None:
-            if self.fsdp.precision == FSDPPrecision.pure:
+            if self.fsdp.precision is None:
+                return None
+            elif self.fsdp.precision == FSDPPrecision.pure:
                 return MixedPrecision(
                     param_dtype=self.autocast_precision,
                     reduce_dtype=self.autocast_precision,

@@ -118,7 +118,12 @@ class LRMonitor:
 
 
 def cross_entropy_loss(
-    logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False
+    logits,
+    labels,
+    ignore_index: int = -100,
+    reduction: str = "mean",
+    compute_z_loss: bool = False,
+    z_loss_multiplier: float = 1e-4,
 ):
     loss = F.cross_entropy(logits, labels, ignore_index=ignore_index, reduction=reduction)
 
@@ -131,9 +136,69 @@ def cross_entropy_loss(
     elif reduction == "sum":
         z_squared = (z_squared * (labels != ignore_index)).sum()
 
-    z_loss = 1e-4 * z_squared
+    z_loss = z_loss_multiplier * z_squared
 
     return loss, z_loss
+
+
+fused_loss_fn: Optional[Callable]
+
+try:
+    import flash_attn
+    from flash_attn.ops.triton.cross_entropy import (
+        cross_entropy_loss as flash_cross_entropy_loss,  # type: ignore
+    )
+
+    def fused_loss_fn(
+        logits,
+        labels,
+        ignore_index: int = -100,
+        reduction: str = "mean",
+        compute_z_loss: bool = False,
+        z_loss_multiplier: float = 1e-4,
+    ):
+        # The `ignored_index` parameter of `cross_entropy_loss` was changed to `ignore_index` in v2.5.8 with commit https://github.com/Dao-AILab/flash-attention/commit/ec6d22143b5d375e253b2ebfc563b26a43f43684
+        ce_loss_use_ignore_index_param = version.parse(flash_attn.__version__) >= version.parse("2.5.8")
+
+        if ce_loss_use_ignore_index_param:
+            ignore_index_kwarg = {"ignore_index": ignore_index}
+        else:
+            ignore_index_kwarg = {"ignored_index": ignore_index}
+
+        loss, z_loss = flash_cross_entropy_loss(
+            logits,
+            labels,
+            label_smoothing=0.0,
+            logit_scale=1.0,
+            lse_square_scale=z_loss_multiplier,
+            inplace_backward=False,
+            process_group=None,
+            **ignore_index_kwarg,
+        )
+
+        mask = labels != ignore_index
+
+        if reduction == "mean":
+            loss = loss.sum() / mask.sum()
+        elif reduction == "sum":
+            loss = loss.sum()
+        else:
+            loss = loss
+
+        if not compute_z_loss:
+            return loss, None
+
+        if reduction == "mean":
+            z_loss = z_loss.sum() / mask.sum()
+        elif reduction == "sum":
+            z_loss = z_loss.sum()
+        else:
+            z_loss = z_loss
+
+        return loss, z_loss
+
+except ImportError:
+    fused_loss_fn = None
 
 
 @dataclass
@@ -167,55 +232,10 @@ class Trainer:
 
     def __post_init__(self):
         if self.cfg.fused_loss:
-            import flash_attn
-            from flash_attn.ops.triton.cross_entropy import (  # type: ignore
-                cross_entropy_loss,
-            )
-
-            # The `ignored_index` parameter of `cross_entropy_loss` was changed to `ignore_index` in v2.5.8 with commit https://github.com/Dao-AILab/flash-attention/commit/ec6d22143b5d375e253b2ebfc563b26a43f43684
-            ce_loss_use_ignore_index_param = version.parse(flash_attn.__version__) >= version.parse("2.5.8")
-
-            def fused_loss_fn(
-                logits, labels, ignore_index: int = -100, reduction: str = "mean", compute_z_loss: bool = False
-            ):
-                if ce_loss_use_ignore_index_param:
-                    ignore_index_kwarg = {"ignore_index": ignore_index}
-                else:
-                    ignore_index_kwarg = {"ignored_index": ignore_index}
-
-                loss, z_loss = cross_entropy_loss(
-                    logits,
-                    labels,
-                    label_smoothing=0.0,
-                    logit_scale=1.0,
-                    lse_square_scale=0.0,
-                    inplace_backward=False,
-                    process_group=None,
-                    **ignore_index_kwarg,
-                )
-
-                mask = labels != ignore_index
-
-                if reduction == "mean":
-                    loss = loss.sum() / mask.sum()
-                elif reduction == "sum":
-                    loss = loss.sum()
-                else:
-                    loss = loss
-
-                if not compute_z_loss:
-                    return loss, None
-
-                if reduction == "mean":
-                    z_loss = z_loss.sum() / mask.sum()
-                elif reduction == "sum":
-                    z_loss = z_loss.sum()
-                else:
-                    z_loss = z_loss
-
-                return loss, z_loss
-
-            self.loss_fn = fused_loss_fn
+            if fused_loss_fn is not None:
+                self.loss_fn = fused_loss_fn
+            else:
+                raise NameError("`fused_loss_fn` is not defined. Please ensure that `flash_attn` is installed.")
 
     @property
     def dataset(self) -> IterableDataset:
@@ -297,7 +317,7 @@ class Trainer:
 
     def trainer_state_dict(self) -> Dict[str, Any]:
         return {
-            "epoch": self.epoch,
+            "epoch": self.epoch or 0,
             "global_step": self.global_step,
             "global_train_examples_seen_this_epoch": self.global_train_examples_seen_this_epoch,
             "global_train_tokens_seen": self.global_train_tokens_seen,
@@ -332,7 +352,7 @@ class Trainer:
         ]
 
         # Dataset / dataloader position.
-        checkpoint_epoch = state_dict.get("epoch", 0)
+        checkpoint_epoch = state_dict.get("epoch") or 0
         self.global_step = state_dict["global_step"]
         self.global_train_examples_seen_this_epoch = state_dict.get(
             "global_train_examples_seen_this_epoch",
@@ -357,6 +377,12 @@ class Trainer:
         elif checkpoint_epoch != self.epoch:
             log.info(f"Starting new epoch (epoch = {self.epoch})")
             self.global_train_examples_seen_this_epoch = 0
+
+        assert self.epoch is not None
+        # Reshuffle dataset if needed.
+        if self.dataset.epoch != self.epoch:
+            log.info(f"Reshuffling data loader for epoch {self.epoch}...")
+            self.dataset.reshuffle(self.epoch)
 
         if self.cfg.fast_forward_batches:
             log.info(f"Fast-forwarding data loader by {self.cfg.fast_forward_batches:,d} steps")
@@ -648,6 +674,8 @@ class Trainer:
             input_ids=batch["input_ids"],
             attention_mask=batch.get("attention_mask"),
             attention_bias=batch.get("attention_bias"),
+            doc_lens=batch.get("doc_lens"),
+            max_doc_lens=batch.get("max_doc_lens"),
         ).logits
         logits_for_loss = logits[..., :-1, :].contiguous()
         # shape: (batch_size * seq_len, vocab_size)
@@ -1134,9 +1162,12 @@ class Trainer:
                     # Log metrics to console.
                     if self.global_step % self.cfg.console_log_interval == 0:
                         if get_global_rank() == 0:
-                            self.log_metrics_to_console(f"[step={self.global_step}/{self.max_steps}]", metrics)
+                            self.log_metrics_to_console(
+                                f"[step={self.global_step}/{self.max_steps},epoch={epoch}]",
+                                metrics,
+                            )
                         else:
-                            log.info(f"[step={self.global_step}/{self.max_steps}]")
+                            log.info(f"[step={self.global_step}/{self.max_steps},epoch={epoch}]")
 
                     # Log metrics to W&B.
                     if (
@@ -1245,7 +1276,8 @@ class Trainer:
                     self.global_train_examples_seen_this_epoch = 0
                     self.dataset.start_index = 0
                     if self.epoch < self.max_epochs:
-                        self.dataset.reshuffle()
+                        log.info(f"Reshuffling data loader for epoch {self.epoch}...")
+                        self.dataset.reshuffle(self.epoch)
                     continue
 
                 break
@@ -1262,6 +1294,7 @@ class Trainer:
             elif (
                 self.cfg.save_num_checkpoints_to_keep != 0
                 and self.last_sharded_checkpoint_step != self.global_step
+                and self.cfg.distributed_strategy == DistributedStrategy.fsdp
             ):
                 log.info("Saving final checkpoint...")
                 checkpoint_path, _ = self.save_checkpoint(CheckpointType.sharded)

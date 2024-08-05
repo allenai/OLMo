@@ -7,9 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Added support for document masking via flash-attn during training with `--data.generate_doc_lengths`.
+- Added config options for `model.norm_after`, `model.scale_emb_init`, and `auxiliary_loss_multiplier` (used with zloss).
+- Added scripts for running experiments on qk_norm, norm reordering, and zloss.
+- Added `model.rope_theta` configuration option.
+- Added `model.embedding_layer_norm` configuration option for adding a LN to the embeddings.
+- Added `model.emb_init_std` configuration option to override the standard deviation used to initialize the embeddings.
+
 ### Changed
 
 - Changed default distributed training strategy from single-GPU to FSDP
+- Fixed behavior of `effective_memmap_dtype` to prevent unrecognized dtypes to be parsed as `uint16`. 
+
+### Fixed
+
+- Fixed restarting a training run in later epochs so that we no longer need to set the flag `--epoch=INT`.
+- Fix bug where the attention norm, when applied before the attention block, was modifying the residual stream.
+- Fixed `OLMo.from_checkpoint()` so that it correctly loads `olmo_core` and `torch_new` style checkpoints.
 
 ## [v0.4.0](https://github.com/allenai/OLMo/releases/tag/v0.4.0) - 2024-07-11
 
@@ -17,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added clipping fix to `Optimizer` class to make it work with FSDP `no_shard` and DDP.
 - Added tests to compare grad norm differences between torch optimizer and clipping and OLMo optimizer and clipping on both CPU and GPU.
-- Expose memmap dtype in data config 
+- Expose memmap dtype in data config
 - Added support for DDP training.
 - Added caching to disk of HF datasets used in downstream evals
 - Added FLOPs logging
