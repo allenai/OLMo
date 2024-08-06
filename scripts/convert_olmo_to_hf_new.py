@@ -25,7 +25,6 @@ from tokenizers import Tokenizer
 from transformers import OlmoConfig, OlmoForCausalLM  # pyright: ignore
 from transformers.models.gpt_neox.tokenization_gpt_neox_fast import GPTNeoXTokenizerFast
 
-
 """
 Sample usage:
 ```
