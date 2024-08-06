@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `olmo_data`, a package holding data files like tokenizers.
 - Added ability to load tokenizers from `olmo_data` package data.
 - Added a script that can run a series of models with predictable scaling properties.
+- Scripts for predicting loss from power laws.
 
 ### Changed
 
