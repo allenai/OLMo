@@ -95,13 +95,23 @@ def download_remote_checkpoint_and_convert_to_hf(checkpoint_dir: str, local_dir:
     return local_model_path
 
 
-def fix_bad_tokenizer(checkpoint_dir: str, tokenizer_name_or_path: str | None = None):
+def fix_tokenizer(checkpoint_dir: str, tokenizer_name_or_path: str | None = None):
     path = os.path.join(checkpoint_dir, "config.yaml")
     conf = om.load(path)
-    conf["tokenizer"]["identifier"] = tokenizer_name_or_path or "allenai/gpt-neox-olmo-dolma-v1_5"
 
-    if conf["tokenizer"]["identifier"] == "allenai/gpt-neox-olmo-dolma-v1_5":
-        conf["model"]["eos_token_id"] = 50279
+    tokenizer_name_or_path = str(tokenizer_name_or_path or conf["tokenizer"]["identifier"])  # pyright: ignore
+
+    try:
+        Tokenizer.from_pretrained(tokenizer_name_or_path)
+    except Exception as e:
+        logger.error(f"Error loading tokenizer: {e}")
+        raise e
+
+    conf["tokenizer"]["identifier"] = tokenizer_name_or_path  # pyright: ignore
+
+    if tokenizer_name_or_path == "allenai/gpt-neox-olmo-dolma-v1_5":
+        conf["model"]["eos_token_id"] = 50279  # pyright: ignore
+
     om.save(conf, path)
 
 
@@ -134,7 +144,7 @@ def main():
     args = parser.parse_args()
 
     if args.fix_eos_token_id:
-        fix_bad_tokenizer(checkpoint_dir=args.checkpoint_dir, tokenizer_name_or_path=args.tokenizer_name_or_path)
+        fix_tokenizer(checkpoint_dir=args.checkpoint_dir, tokenizer_name_or_path=args.tokenizer_name_or_path)
 
     convert_checkpoint(
         checkpoint_dir=args.checkpoint_dir,
