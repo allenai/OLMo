@@ -23,7 +23,9 @@ import subprocess
 
 def make_parser():
     parser = argparse.ArgumentParser(
-        description="Unshard S3 checkpoint and convert to HF format. Invoke this script from the root of the OLMo repo."
+        description=(
+            "Unshard S3 checkpoint and convert to HF format. " "Invoke this script from the root of the OLMo repo."
+        )
     )
     parser.add_argument("--sharded_bucket", help="S3 bucket with sharded checkpoint.", type=str)
     parser.add_argument(
@@ -34,7 +36,10 @@ def make_parser():
     parser.add_argument(
         "--already_downloaded",
         action="store_true",
-        help="Use this flag if the unsharded S3 checkpoint is already downloaded, but still needs to be unsharded.",
+        help=(
+            "Use this flag if the unsharded S3 checkpoint is already downloaded, "
+            "but still needs to be unsharded."
+        ),
     )
     parser.add_argument(
         "--already_unsharded",
@@ -64,7 +69,10 @@ def make_parser():
         "--no_fix_eos_token_id",
         action="store_false",
         dest="fix_eos_token_id",
-        help="If set, does not change eos token id from 0 to 50279 if it is 0. Changing 0 to 50279 is a bug fix, so use this option with care.",
+        help=(
+            "If set, does not change eos token id from 0 to 50279 if it is 0. "
+            "Changing 0 to 50279 is a bug fix, so use this option with care."
+        ),
     )
     parser.add_argument(
         "--quiet",

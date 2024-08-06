@@ -22,10 +22,9 @@ from typing import Any, Dict
 import torch
 import yaml
 from tokenizers import Tokenizer
-from transformers import OlmoConfig, OlmoForCausalLM
+from transformers import OlmoConfig, OlmoForCausalLM  # pyright: ignore
 from transformers.models.gpt_neox.tokenization_gpt_neox_fast import GPTNeoXTokenizerFast
 
-from olmo import tokenizer
 
 """
 Sample usage:
@@ -39,8 +38,9 @@ from transformers import OlmoForCausalLM, AutoTokenizer
 model = OlmoForCausalLM.from_pretrained("/output/path")
 tokenizer = AutoTokenizer.from_pretrained("/output/path")
 ```
-Important note: you need to be able to host the whole model in RAM to execute this script (even if the biggest versions
-come in several checkpoints they each contain a part of each weight of the model, so we need to load them all in RAM).
+Important note: you need to be able to host the whole model in RAM to execute this script
+(even if the biggest versions come in several checkpoints they each contain a part of each
+weight of the model, so we need to load them all in RAM).
 """
 
 
@@ -239,8 +239,8 @@ def _write_tokenizer(
         tokenizer_object=base_tokenizer,
         eos_token=base_tokenizer.decode([eos_token_id], skip_special_tokens=False),
         pad_token=base_tokenizer.decode([pad_token_id], skip_special_tokens=False),
-        unk_token=None,
-        bos_token=None,
+        unk_token=None,  # pyright: ignore
+        bos_token=None,  # pyright: ignore
     )
 
     tokenizer.save_pretrained(output_path)
@@ -280,7 +280,10 @@ def main():
         "--no_fix_eos_token_id",
         action="store_false",
         dest="fix_eos_token_id",
-        help="If set, does not change eos token id from 0 to 50279 if it is 0. Changing 0 to 50279 is a bug fix, so use this option with care.",
+        help=(
+            "If set, does not change eos token id from 0 to 50279 if it is 0. "
+            "Changing 0 to 50279 is a bug fix, so use this option with care."
+        ),
     )
     parser.add_argument(
         "--no_tmp_cleanup",
@@ -289,7 +292,8 @@ def main():
         help="If passed, don't remove temp dir at end of HF conversion.",
     )
     parser.add_argument("--safe_serialization", type=bool, help="Whether or not to save using `safetensors`.")
-    # Different OLMo versions used different default values for max_position_embeddings, hence the need to be able to specify which version is being used.
+    # Different OLMo versions used different default values for max_position_embeddings, hence the need to
+    # be able to specify which version is being used.
     args = parser.parse_args()
     write_model(
         model_path=args.output_dir,

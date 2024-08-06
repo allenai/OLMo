@@ -100,7 +100,6 @@ def fix_tokenizer(checkpoint_dir: str, tokenizer_name_or_path: str | None = None
     conf = om.load(path)
 
     tokenizer_name_or_path = str(tokenizer_name_or_path or conf["tokenizer"]["identifier"])  # pyright: ignore
-
     try:
         Tokenizer.from_pretrained(tokenizer_name_or_path)
     except Exception as e:
@@ -139,7 +138,10 @@ def main():
         "--no_fix_eos_token_id",
         action="store_false",
         dest="fix_eos_token_id",
-        help="If set, does not change eos token id from 0 to 50279 if it is 0. Changing 0 to 50279 is a bug fix, so use this option with care.",
+        help=(
+            "If set, does not change eos token id from 0 to 50279 if it is 0. "
+            "Changing 0 to 50279 is a bug fix, so use this option with care."
+        ),
     )
     args = parser.parse_args()
 
