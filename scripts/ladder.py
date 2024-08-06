@@ -167,7 +167,12 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     length_in_tokens = parse_length(args.length, model_size)
 
     assert model_config.max_sequence_length in [2048, 4096]
-    global_batch_size = get_batch_size(model_config, model_size)
+
+    if args.batch_size < 0:
+        global_batch_size = get_batch_size(model_config, model_size)
+    else:
+        global_batch_size = args.batch_size  # 128, 256, 512, 1024
+
 
     # We don't want the global batch size depend on the device batch size, because we might have to change the
     # device batch size based on the hardware we're running on.
@@ -444,6 +449,7 @@ if __name__ == "__main__":
         subparser.add_argument("--data", type=str, required=True)
         subparser.add_argument("--length", type=str, default="2xC")
         subparser.add_argument("--name", type=str, required=True)
+        subparser.add_argument("--batch_size", type=int, required=False, default=-1)
         subparser.add_argument(
             "--s3",
             action=argparse.BooleanOptionalAction,
