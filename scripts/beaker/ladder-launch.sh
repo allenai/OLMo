@@ -17,7 +17,7 @@ gantry run \
   --workspace ai2/OLMo-tiny \
   --task-name ladder \
   --description "OLMo ladder with $*" \
-  --priority urgent \
+  --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
