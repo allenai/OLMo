@@ -5,19 +5,16 @@ from typing import Dict
 import matplotlib.pyplot as plt
 
 from olmo.aliases import PathOrStr
-from olmo.scaling.scaling_laws.extrapolate_d import (
-    ExtrapolateDConfig,
-)
+from olmo.scaling.scaling_laws.extrapolate_d import ExtrapolateDConfig
 from olmo.scaling.scaling_laws.extrapolate_d_lr_correction import (
     get_data_at_n,
     plot_d_scaling_at_n,
 )
 from olmo.scaling.scaling_laws.utils import (
-    validation,
     chinchilla_d_lr_fit,
     grad_chinchilla_d_lr_fit,
+    validation,
 )
-
 
 VAL_KEYS = [f'eval/{val}/CrossEntropyLoss' for val in validation]
 

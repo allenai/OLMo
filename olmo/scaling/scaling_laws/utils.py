@@ -1,5 +1,5 @@
-import scipy
 import numpy as np
+import scipy
 
 validation = [
     "c4_en-validation",

@@ -58,9 +58,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
-    args = parse_args()
-    print(args)
+def main(args):
 
     if args.y_axis == ["eval/all-validation/CrossEntropyLoss"]:
         args.y_axis = [f"eval/{d}/CrossEntropyLoss" for d in validation]
@@ -117,4 +115,6 @@ if __name__ == "__main__":
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/baseline-300M-1xC' -y eval/all-validation/CrossEntropyLoss -o wandb/baseline-300M-1xC_val-all.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/baseline-750M-1xC' -y eval/all-validation/CrossEntropyLoss -o wandb/baseline-750M-1xC_val-all.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/baseline-1B-1xC' -y eval/all-validation/CrossEntropyLoss -o wandb/baseline-1B-1xC_val-all.csv
-    main()
+    args = parse_args()
+    print(args)
+    main(args)

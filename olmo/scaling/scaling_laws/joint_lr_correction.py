@@ -1,7 +1,7 @@
 import csv
-from dataclasses import dataclass
-from typing import List, Dict
 from collections import defaultdict
+from dataclasses import dataclass
+from typing import Dict, List
 
 import matplotlib.pyplot as plt
 import numpy as np

@@ -11,13 +11,12 @@ from olmo.scaling.scaling_laws.extrapolate_d import (
     plot_d_scaling_at_n,
 )
 from olmo.scaling.scaling_laws.utils import (
-    validation,
     chinchilla_contaminated_fit,
     chinchilla_fit,
     openai_fit,
+    validation,
 )
 from olmo.util import StrEnum
-
 
 VAL_KEYS = [f'eval/{val}/CrossEntropyLoss' for val in validation]
 

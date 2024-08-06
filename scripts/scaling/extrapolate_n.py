@@ -10,8 +10,7 @@ from olmo.scaling.scaling_laws.extrapolate_n import (
     get_data_at_d,
     plot_n_scaling_at_d,
 )
-from olmo.scaling.scaling_laws.utils import validation, chinchilla_fit
-
+from olmo.scaling.scaling_laws.utils import chinchilla_fit, validation
 
 VAL_KEYS = [f'eval/{val}/CrossEntropyLoss' for val in validation]
 
