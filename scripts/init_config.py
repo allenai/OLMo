@@ -1,6 +1,7 @@
 """
 Run this to initialize a new training config to a file.
 """
+
 import logging
 import sys
 from pathlib import Path

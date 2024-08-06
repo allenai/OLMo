@@ -25,6 +25,8 @@ from tokenizers import Tokenizer
 from transformers import OlmoConfig, OlmoForCausalLM
 from transformers.models.gpt_neox.tokenization_gpt_neox_fast import GPTNeoXTokenizerFast
 
+from olmo import tokenizer
+
 """
 Sample usage:
 ```
@@ -61,6 +63,7 @@ def write_model(
     input_base_path,
     include_tokenizer=True,
     tokenizer_path=None,
+    tokenizer_name_or_path=None,
     safe_serialization=True,
     fix_eos_token_id=True,
     tmp_cleanup=True,
@@ -134,9 +137,11 @@ def write_model(
     # TODO: Deal with weight-tying
     state_dict = {
         "model.embed_tokens.weight": loaded["transformer.wte.weight"],
-        "lm_head.weight": loaded["transformer.ff_out.weight"]
-        if "transformer.ff_out.weight" in loaded
-        else loaded["transformer.wte.weight"],
+        "lm_head.weight": (
+            loaded["transformer.ff_out.weight"]
+            if "transformer.ff_out.weight" in loaded
+            else loaded["transformer.wte.weight"]
+        ),
     }
 
     for k, v in state_dict.items():
@@ -181,7 +186,13 @@ def write_model(
     gc.collect()
 
     if include_tokenizer:
-        _write_tokenizer(model_path, config, input_base_path, tokenizer_path)
+        _write_tokenizer(
+            output_path=model_path,
+            config=config,
+            checkpoint_dir=input_base_path,
+            input_tokenizer_path=tokenizer_path,
+            tokenizer_name_or_path=tokenizer_name_or_path,
+        )
 
     print("Loading the checkpoint in a OLMo model.")
     model = OlmoForCausalLM.from_pretrained(tmp_model_path, torch_dtype=torch.float32, low_cpu_mem_usage=True)
@@ -200,11 +211,17 @@ def _write_tokenizer(
     config: OlmoConfig,
     checkpoint_dir: str,
     input_tokenizer_path: Path | None,
+    tokenizer_name_or_path: str | None = None,
 ) -> None:
     print(f"Saving a {GPTNeoXTokenizerFast.__name__} to {output_path}.")
 
     if input_tokenizer_path is not None:
         base_tokenizer = Tokenizer.from_file(str(input_tokenizer_path))
+    elif tokenizer_name_or_path is not None:
+        if Path(tokenizer_name_or_path).is_file():
+            base_tokenizer = Tokenizer.from_file(tokenizer_name_or_path)
+        else:
+            base_tokenizer = Tokenizer.from_pretrained(tokenizer_name_or_path)
     else:
         config_path = Path(checkpoint_dir) / "config.yaml"
         tokenizer_config = yaml.safe_load(config_path.read_text())["tokenizer"]
@@ -249,6 +266,12 @@ def main():
         help="Location of OLMo tokenizer json file. Defaults to what is set in the config file.",
     )
     parser.add_argument(
+        "--tokenizer_name_or_path",
+        type=str,
+        default=None,
+        help="Name or path of the tokenizer to use; if not provided, uses whatever is in the checkpoint.",
+    )
+    parser.add_argument(
         "--output_dir",
         required=True,
         help="Location to write HF model and tokenizer",
@@ -274,6 +297,7 @@ def main():
         safe_serialization=args.safe_serialization,
         include_tokenizer=args.include_tokenizer,
         tokenizer_path=args.tokenizer_json_path,
+        tokenizer_name_or_path=args.tokenizer_name_or_path,
         fix_eos_token_id=args.fix_eos_token_id,
         tmp_cleanup=args.tmp_cleanup,
     )

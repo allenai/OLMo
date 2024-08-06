@@ -56,6 +56,17 @@ def make_parser():
         "--old_style_hf", action="store_true", help="If given, convert to 'old-style' HF checkpoint."
     )
     parser.add_argument(
+        "--tokenizer-name-or-path",
+        help="Name or path of the tokenizer to use; if not provided, uses whatever is in the checkpoint.",
+        default=None,
+    )
+    parser.add_argument(
+        "--no_fix_eos_token_id",
+        action="store_false",
+        dest="fix_eos_token_id",
+        help="If set, does not change eos token id from 0 to 50279 if it is 0. Changing 0 to 50279 is a bug fix, so use this option with care.",
+    )
+    parser.add_argument(
         "--quiet",
         action="store_true",
         help="If given, don't show progress for AWS commands.",
@@ -129,9 +140,14 @@ def s3_unshard_to_hf(args):
         hf_cmd = f"""python scripts/convert_olmo_to_hf_new.py \
             --input_dir {unsharded_dir} \
             --output_dir {hf_dir} \
-            --tokenizer_json_path olmo_data/tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json \
             --safe_serialization True \
             --no_tmp_cleanup"""
+
+        if args.tokenizer_name_or_path is not None:
+            hf_cmd += f" --tokenizer_name_or_path {args.tokenizer_name_or_path}"
+        if not args.fix_eos_token_id:
+            hf_cmd += " --no_fix_eos_token_id"
+
         subprocess.run(hf_cmd, shell=True, check=True)
 
     # Upload the unsharded and HF files back to S3.

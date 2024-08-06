@@ -59,7 +59,10 @@ def write_tokenizer(checkpoint_dir: str):
     tokenizer.save_pretrained(checkpoint_dir)
 
 
-def convert_checkpoint(checkpoint_dir: str, ignore_olmo_compatibility: bool = False):
+def convert_checkpoint(
+    checkpoint_dir: str,
+    ignore_olmo_compatibility: bool = False,
+):
     write_config(checkpoint_dir)
     write_model(checkpoint_dir, ignore_olmo_compatibility=ignore_olmo_compatibility)
     write_tokenizer(checkpoint_dir)
@@ -92,11 +95,13 @@ def download_remote_checkpoint_and_convert_to_hf(checkpoint_dir: str, local_dir:
     return local_model_path
 
 
-def fix_bad_tokenizer(checkpoint_dir: str):
+def fix_bad_tokenizer(checkpoint_dir: str, tokenizer_name_or_path: str | None = None):
     path = os.path.join(checkpoint_dir, "config.yaml")
     conf = om.load(path)
-    conf["tokenizer"]["identifier"] = "allenai/gpt-neox-olmo-dolma-v1_5"
-    conf["model"]["eos_token_id"] = 50279
+    conf["tokenizer"]["identifier"] = tokenizer_name_or_path or "allenai/gpt-neox-olmo-dolma-v1_5"
+
+    if conf["tokenizer"]["identifier"] == "allenai/gpt-neox-olmo-dolma-v1_5":
+        conf["model"]["eos_token_id"] = 50279
     om.save(conf, path)
 
 
@@ -109,17 +114,32 @@ def main():
         "--checkpoint-dir",
         help="Location of OLMo checkpoint.",
     )
-
+    parser.add_argument(
+        "--tokenizer-name-or-path",
+        default=None,
+        help="Name or path of the tokenizer to use; by default, uses the one in the checkpoint.",
+    )
     parser.add_argument(
         "--ignore-olmo-compatibility",
         action="store_true",
         help="Ignore compatibility with the olmo codebase. "
         "This will remove files that are needed specifically for olmo codebase, eg. config.yaml, etc.",
     )
-
+    parser.add_argument(
+        "--no_fix_eos_token_id",
+        action="store_false",
+        dest="fix_eos_token_id",
+        help="If set, does not change eos token id from 0 to 50279 if it is 0. Changing 0 to 50279 is a bug fix, so use this option with care.",
+    )
     args = parser.parse_args()
-    fix_bad_tokenizer(args.checkpoint_dir)
-    convert_checkpoint(args.checkpoint_dir, args.ignore_olmo_compatibility)
+
+    if args.fix_eos_token_id:
+        fix_bad_tokenizer(checkpoint_dir=args.checkpoint_dir, tokenizer_name_or_path=args.tokenizer_name_or_path)
+
+    convert_checkpoint(
+        checkpoint_dir=args.checkpoint_dir,
+        ignore_olmo_compatibility=args.ignore_olmo_compatibility,
+    )
 
 
 if __name__ == "__main__":
