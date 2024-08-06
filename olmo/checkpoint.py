@@ -1574,7 +1574,7 @@ class LocalShardedCheckpointer(Checkpointer):
         self, load_path: PathOrStr, *, local_cache: Optional[PathOrStr] = None
     ) -> _LocalShardedCheckpointerMetadata:
         metadata_path = resource_path(load_path, "metadata.yaml", local_cache=local_cache)
-        return _LocalShardedCheckpointerMetadata.load(metadata_path)
+        return _LocalShardedCheckpointerMetadata.load(metadata_path, validate_paths=False)
 
     def save_checkpoint(
         self,

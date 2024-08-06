@@ -117,8 +117,8 @@ class Tokenizer:
 
         # Load configs.
         config_path = cached_path(os.path.join(checkpoint_dir, "config.yaml"))
-        tokenizer_config = TokenizerConfig.load(config_path, key="tokenizer")
-        model_config = ModelConfig.load(config_path, key="model")
+        tokenizer_config = TokenizerConfig.load(config_path, key="tokenizer", validate_paths=False)
+        model_config = ModelConfig.load(config_path, key="model", validate_paths=False)
 
         # Initialize tokenizer and validate vocab size.
         if Path(tokenizer_config.identifier).is_file():
