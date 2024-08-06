@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `model.rope_theta` configuration option.
 - Added `model.embedding_layer_norm` configuration option for adding a LN to the embeddings.
 - Added `model.emb_init_std` configuration option to override the standard deviation used to initialize the embeddings.
+- Added ability to save outputs of submodules for debugging purposes.
 
 ### Changed
 

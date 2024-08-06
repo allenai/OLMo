@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import cProfile
+import functools
 import gc
 import logging
 import math
@@ -20,6 +21,8 @@ import numpy as np
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
+import torch.utils
+import torch.utils.hooks
 import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -650,6 +653,53 @@ class Trainer:
         else:
             raise NotImplementedError(checkpoint_type)
 
+    def _setup_module_output_save_hooks(self, micro_batch_idx: int) -> List[torch.utils.hooks.RemovableHandle]:
+        if (
+            self.cfg.module_outputs_save_steps is None
+            or self.global_step not in self.cfg.module_outputs_save_steps
+        ):
+            return []
+
+        if micro_batch_idx != 0 or get_global_rank() != 0:
+            # Hook is currently only used on the first microbatch of rank 0
+            return []
+
+        trace_save_folder = Path(self.cfg.save_folder) / f"traces/step{self.global_step}"
+        if trace_save_folder.exists():
+            if self.cfg.save_overwrite:
+                shutil.rmtree(trace_save_folder)
+            else:
+                raise OLMoConfigurationError(
+                    f"Attempting to overwrite traces at step {self.global_step} without --save_overwrite"
+                )
+        trace_save_folder.mkdir(parents=True)
+
+        def trace_outputs_hook(
+            module_name: str, _: torch.nn.Module, args: Tuple[torch.Tensor, ...], output: torch.Tensor
+        ) -> None:
+            if len(args) == 0:
+                log.info("No input args for module %s, output %s", module_name, output)
+
+            module_input = args[0] if len(args) > 0 else torch.tensor(())
+            trace_save_folder = Path(self.cfg.save_folder) / f"traces/step{self.global_step}"
+            trace_save_folder.mkdir(parents=True, exist_ok=True)
+
+            module_occurence_num = 0
+            while (
+                module_input_filepath := trace_save_folder / f"{module_name}_{module_occurence_num}_input.pt"
+            ).exists():
+                module_occurence_num += 1
+            torch.save(module_input, module_input_filepath)
+
+            module_output_filepath = trace_save_folder / f"{module_name}_{module_occurence_num}_output.pt"
+            torch.save(output, module_output_filepath)
+
+        output_hooks = []
+        for module_name, module in self.model.named_modules(prefix="model"):
+            output_hooks.append(module.register_forward_hook(functools.partial(trace_outputs_hook, module_name)))
+
+        return output_hooks
+
     def get_labels(self, batch: Dict[str, Any]) -> torch.Tensor:
         # Labels are just input IDs shifted to the left (first item is ignored).
         labels, label_mask, attention_mask, instance_mask = (
@@ -740,6 +790,10 @@ class Trainer:
                 if micro_batch_idx != num_micro_batches - 1:
                     grad_sync_context = self.dist_model.no_sync
 
+            # Register output hooks
+            output_hooks: List[torch.utils.hooks.RemovableHandle] = []
+            output_hooks += self._setup_module_output_save_hooks(micro_batch_idx)
+
             with grad_sync_context():
                 with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
                     # Run forward pass.
@@ -755,6 +809,10 @@ class Trainer:
 
                 # Run backward pass.
                 loss.backward()
+
+            # Remove output hooks
+            for hook in output_hooks:
+                hook.remove()
 
         return ce_batch_loss, z_batch_loss
 
