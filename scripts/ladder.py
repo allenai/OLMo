@@ -176,7 +176,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
 
     # We don't want the global batch size depend on the device batch size, because we might have to change the
     # device batch size based on the hardware we're running on.
-    device_batch_size = {
+    default_device_batch_size = {
         "150M": 16,
         "300M": 8,
         "530M": 8,
@@ -185,6 +185,8 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         "3B": 2,
         "7B": 1,
     }.get(args.model, 4)
+
+    device_batch_size = args.device_batch_size if args.device_batch_size > 0 else default_device_batch_size
 
     assert global_batch_size % device_batch_size == 0
 
@@ -450,6 +452,7 @@ if __name__ == "__main__":
         subparser.add_argument("--length", type=str, default="2xC")
         subparser.add_argument("--name", type=str, required=True)
         subparser.add_argument("--batch_size", type=int, required=False, default=-1)
+        subparser.add_argument("--device_batch_size", type=int, required=False, default=-1)
         subparser.add_argument(
             "--s3",
             action=argparse.BooleanOptionalAction,
