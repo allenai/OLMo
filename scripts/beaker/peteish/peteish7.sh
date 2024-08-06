@@ -51,7 +51,7 @@ torchrun \
   scripts/train.py \
     configs/peteish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
-      --save_interval_ephemeral=500 \
+      --save_interval_ephemeral=null \
       '--load_path=${path.last_checkpoint:${save_folder}}' \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas=2 \
