@@ -4,7 +4,7 @@ set -ex
 
 CONFIG_PATH=configs/amberish1-weka.yaml
 NUM_NODES=8
-RUN_NAME="v2_debug_loss-spike"
+RUN_NAME="v2.6_v2.5_full-index"
 
 gantry run \
   --allow-dirty \
@@ -55,7 +55,7 @@ gantry run \
         scripts/train.py ${CONFIG_PATH} \
         --run_name=${RUN_NAME} \
         --wandb.project=hb-wolf-olmo-2 --wandb.entity=liujch1998 \
-        --save_folder=/weka/oe-training-default/wolf/ckpt/${RUN_NAME} --save_overwrite=true --load_path=/weka/oe-training-default/wolf/ckpt/v2.3_v2_highqual/step4000 \
+        --save_folder=/weka/oe-training-default/wolf/ckpt/${RUN_NAME} --save_overwrite=true \
         --device_train_microbatch_size=4 \
-        --infgram.index_dir=/weka/oe-training-default/wolf/index/v4_dolma-v1_7-olmo/0 --infgram.prefetch=true \
+        --infgram.index_dir=/weka/oe-training-default/wolf/index/v4_dolma-v1_7-olmo --infgram.sharded=true --infgram.prefetch=true --infgram.separate_wte=true \
     "
