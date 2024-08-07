@@ -133,6 +133,12 @@ def s3_unshard_to_hf(args):
     if args.old_style_hf:
         # Convert to old-style checkpoint.
         hf_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir {unsharded_dir}"
+
+        if args.tokenizer_name_or_path is not None:
+            hf_cmd += f" --tokenizer-name-or-path {args.tokenizer_name_or_path}"
+        if not args.fix_eos_token_id:
+            hf_cmd += " --no_fix_eos_token_id"
+
         subprocess.run(hf_cmd, shell=True, check=True)
         # Move the HF files from the unsharded dir to their own.
         for fname in [
