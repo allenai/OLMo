@@ -133,6 +133,10 @@ def main(cfg: TrainConfig) -> None:
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
     log.info(f"Peak GPU Memory (MB) before {cfg.distributed_strategy}: {int(peak_gpu_memory() or 0)}")
 
+    # Call before wrapping model in FSDP / DDP, so that computation is correct and saved.
+    _ = olmo_model.num_fwd_flops
+    _ = olmo_model.num_bck_flops
+
     olmo_model.set_activation_checkpointing(cfg.activation_checkpointing)
 
     if cfg.distributed_strategy == DistributedStrategy.ddp:
