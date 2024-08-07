@@ -22,6 +22,14 @@ from olmo.checkpoint import OlmoCoreCheckpointer
 
 logger = logging.getLogger(__name__)
 
+HF_FILENAMES = {
+    "config.json",
+    "pytorch_model.bin",
+    "special_tokens_map.json",
+    "tokenizer_config.json",
+    "tokenizer.json",
+}
+
 
 def longest_common_prefix(strs: Iterable[str]) -> str:
     """
@@ -205,10 +213,10 @@ def upload_local_checkpoint(local_checkpoint_dir: str, destination_dir: str) -> 
         s3_prefix = parsed_url.path[1:]
 
         local_paths = [
-            local_fn
+            os.path.join(root, post_fn)
             for root, _, files in os.walk(local_checkpoint_dir)
             for post_fn in files
-            if not re.search(r"/(optim|train|model)/", local_fn := os.path.join(root, post_fn))
+            if os.path.basename(post_fn) in HF_FILENAMES
         ]
         dest_paths = [
             os.path.join(s3_prefix, os.path.relpath(local_path, local_checkpoint_dir))
