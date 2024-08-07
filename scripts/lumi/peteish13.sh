@@ -63,9 +63,10 @@ srun \
       --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/peteish13-lumi/ \
       --fused_loss=false \
       --model.flash_attention=false \
-      --device_train_microbatch_size=4 \
+      --device_train_microbatch_size=2 \
       --activation_checkpointing=whole_layer \
-      --fsdp.sharding_strategy=FULL_SHARD \
+      --fsdp.sharding_strategy=HYBRID_SHARD \
+      --fsdp.hybrid_sharding_num_model_replicas=$SLURM_NNODES \
       --sharded_checkpointer=local \
       --save_overwrite \
       "${@}"
