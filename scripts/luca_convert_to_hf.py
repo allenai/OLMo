@@ -197,6 +197,7 @@ def make_local_checkpoint(checkpoint_dir: str) -> Generator[str, None, None]:
         return
     try:
         os.makedirs(temp_dir, exist_ok=True)
+        print(f"Downloading checkpoint to {temp_dir}...")
         download_s3_directory(
             bucket_name=parsed_dir.netloc,
             prefix=parsed_dir.path[1:],
