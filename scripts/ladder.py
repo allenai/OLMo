@@ -423,6 +423,9 @@ if __name__ == "__main__":
         save_overwrite=False,
         load_path=None,
         eval_on_load=False,
+        read_location=None,
+        batch_size=-1,
+        device_batch_size=-1,
     )
 
     nodecounts_parser = subparsers.add_parser("nodecounts")
