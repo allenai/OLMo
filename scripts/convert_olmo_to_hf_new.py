@@ -22,7 +22,7 @@ from typing import Any, Dict, Iterable
 import torch
 import yaml
 from tokenizers import Tokenizer
-from transformers import OlmoConfig, OlmoForCausalLM  # pyright: ignore
+from transformers import OlmoConfig, OlmoForCausalLM, AutoTokenizer  # pyright: ignore
 from transformers.models.gpt_neox.tokenization_gpt_neox_fast import GPTNeoXTokenizerFast
 
 """
@@ -232,6 +232,13 @@ def _write_tokenizer(
     input_tokenizer_path: Path | None,
     tokenizer_name_or_path: str | None = None,
 ) -> None:
+
+    if tokenizer_name_or_path:
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name_or_path)
+        print(f"Saving a {tokenizer.__class__.__name__} to {output_path}.")
+        tokenizer.save_pretrained(output_path)
+        return
+
     print(f"Saving a {GPTNeoXTokenizerFast.__name__} to {output_path}.")
 
     if input_tokenizer_path is not None:
@@ -319,9 +326,7 @@ def main():
         input_base_path=args.input_dir,
         safe_serialization=args.safe_serialization,
         include_tokenizer=args.include_tokenizer,
-        tokenizer_path=args.tokenizer_json_path,
         tokenizer_name_or_path=args.tokenizer_name_or_path,
-        fix_eos_token_id=args.fix_eos_token_id,
         tmp_cleanup=args.tmp_cleanup,
     )
 
