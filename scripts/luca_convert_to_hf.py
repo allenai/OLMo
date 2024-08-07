@@ -1,11 +1,12 @@
 import argparse
 import logging
 import os
+import re
 import shutil
 import tempfile
 from contextlib import contextmanager
 from hashlib import md5
-from typing import Generator, Optional
+from typing import Generator, Iterable, Optional
 from urllib.parse import urlparse
 
 import boto3
@@ -20,6 +21,24 @@ from olmo import ModelConfig, Tokenizer, TrainConfig
 from olmo.checkpoint import OlmoCoreCheckpointer
 
 logger = logging.getLogger(__name__)
+
+
+def longest_common_prefix(strs: Iterable[str]) -> str:
+    """
+    Finds the longest common prefix among a list of strings.
+    """
+    if not strs:
+        return ""
+
+    # Find the shortest string in the list
+    shortest_str = min(strs, key=len)
+
+    for i, char in enumerate(shortest_str):
+        for other_str in strs:
+            if other_str[i] != char:
+                return shortest_str[:i]
+
+    return shortest_str
 
 
 def write_config(checkpoint_dir: str):
@@ -44,7 +63,13 @@ def write_model(checkpoint_dir: str, ignore_olmo_compatibility: bool = False):
     old_model_path = os.path.join(checkpoint_dir, "model.pt")
     new_model_path = os.path.join(checkpoint_dir, "pytorch_model.bin")
 
-    state_dict = torch.load(old_model_path)
+    state_dict = torch.load(old_model_path, map_location="cpu")
+
+    # this takes care of the case where the model was saved with a different prefix,
+    # typically due to unsharding.
+    common_prefix = longest_common_prefix(state_dict.keys())
+    state_dict = {key.replace(common_prefix, "transformer."): val for key, val in state_dict.items()}
+
     new_state_dict = {f"{OLMoForCausalLM.base_model_prefix}.{key}": val for key, val in state_dict.items()}
     torch.save(new_state_dict, new_model_path)
 
@@ -97,7 +122,15 @@ def fix_tokenizer(checkpoint_dir: str, tokenizer_name_or_path: Optional[str] = N
     om.save(conf, path)
 
 
-def download_s3_directory(bucket_name, prefix, local_dir):
+def download_s3_directory(
+    bucket_name: str,
+    prefix: str,
+    local_dir: str,
+    ignore: str | None = None
+):
+
+    re_ignore = re.compile(ignore) if ignore else None
+
     # Create S3 client
     s3_client = boto3.client("s3")
 
@@ -114,6 +147,10 @@ def download_s3_directory(bucket_name, prefix, local_dir):
     # Initialize the progress bar
     with tqdm(total=len(files_to_download), desc="Downloading files") as pbar:
         for s3_key in files_to_download:
+            if re_ignore and re_ignore.match(s3_key):
+                pbar.update(1)
+                continue
+
             # Construct the full local path
             local_file_path = os.path.join(local_dir, os.path.relpath(s3_key, prefix))
             local_file_dir = os.path.dirname(local_file_path)
@@ -130,7 +167,10 @@ def download_s3_directory(bucket_name, prefix, local_dir):
 
 
 @contextmanager
-def make_local_checkpoint(checkpoint_dir: str) -> Generator[str, None, None]:
+def make_local_checkpoint(
+    checkpoint_dir: str,
+    ignore: str | None = None
+) -> Generator[str, None, None]:
     parsed_dir = urlparse(checkpoint_dir)
 
     assert parsed_dir.scheme in ["s3", ""], "Only s3 and local paths are supported."
@@ -145,7 +185,12 @@ def make_local_checkpoint(checkpoint_dir: str) -> Generator[str, None, None]:
         return
     try:
         os.makedirs(temp_dir, exist_ok=True)
-        download_s3_directory(parsed_dir.netloc, parsed_dir.path[1:], temp_dir)
+        download_s3_directory(
+            bucket_name=parsed_dir.netloc,
+            prefix=parsed_dir.path[1:],
+            local_dir=temp_dir,
+            ignore=ignore
+        )
     except Exception as e:
         logger.error(f"Error downloading checkpoint: {e}")
         shutil.rmtree(temp_dir)
@@ -240,7 +285,9 @@ def main():
     logging.basicConfig()
     logger.setLevel(logging.getLevelName(args.logger_level.upper()))
 
-    with make_local_checkpoint(args.checkpoint_dir) as local_checkpoint_dir, upload_local_checkpoint(
+    with make_local_checkpoint(
+        args.checkpoint_dir, ignore=r'/(optim|train)/'
+    ) as local_checkpoint_dir, upload_local_checkpoint(
         local_checkpoint_dir, args.destination_dir
     ):
         args.checkpoint_dir = local_checkpoint_dir
