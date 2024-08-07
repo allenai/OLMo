@@ -1,7 +1,6 @@
 import argparse
 import logging
 import os
-import re
 import shutil
 import tempfile
 from contextlib import contextmanager
@@ -122,14 +121,7 @@ def fix_tokenizer(checkpoint_dir: str, tokenizer_name_or_path: Optional[str] = N
     om.save(conf, path)
 
 
-def download_s3_directory(
-    bucket_name: str,
-    prefix: str,
-    local_dir: str,
-    ignore: str | None = None
-):
-
-    re_ignore = re.compile(ignore) if ignore else None
+def download_s3_directory(bucket_name: str, prefix: str, local_dir: str):
 
     # Create S3 client
     s3_client = boto3.client("s3")
@@ -147,9 +139,6 @@ def download_s3_directory(
     # Initialize the progress bar
     with tqdm(total=len(files_to_download), desc="Downloading files") as pbar:
         for s3_key in files_to_download:
-            if re_ignore and re_ignore.match(s3_key):
-                pbar.update(1)
-                continue
 
             # Construct the full local path
             local_file_path = os.path.join(local_dir, os.path.relpath(s3_key, prefix))
@@ -167,10 +156,7 @@ def download_s3_directory(
 
 
 @contextmanager
-def make_local_checkpoint(
-    checkpoint_dir: str,
-    ignore: str | None = None
-) -> Generator[str, None, None]:
+def make_local_checkpoint(checkpoint_dir: str) -> Generator[str, None, None]:
     parsed_dir = urlparse(checkpoint_dir)
 
     assert parsed_dir.scheme in ["s3", ""], "Only s3 and local paths are supported."
@@ -185,12 +171,7 @@ def make_local_checkpoint(
         return
     try:
         os.makedirs(temp_dir, exist_ok=True)
-        download_s3_directory(
-            bucket_name=parsed_dir.netloc,
-            prefix=parsed_dir.path[1:],
-            local_dir=temp_dir,
-            ignore=ignore
-        )
+        download_s3_directory(bucket_name=parsed_dir.netloc, prefix=parsed_dir.path[1:], local_dir=temp_dir)
     except Exception as e:
         logger.error(f"Error downloading checkpoint: {e}")
         shutil.rmtree(temp_dir)
@@ -285,9 +266,7 @@ def main():
     logging.basicConfig()
     logger.setLevel(logging.getLevelName(args.logger_level.upper()))
 
-    with make_local_checkpoint(
-        args.checkpoint_dir, ignore=r'/(optim|train)/'
-    ) as local_checkpoint_dir, upload_local_checkpoint(
+    with make_local_checkpoint(args.checkpoint_dir) as local_checkpoint_dir, upload_local_checkpoint(
         local_checkpoint_dir, args.destination_dir
     ):
         args.checkpoint_dir = local_checkpoint_dir
